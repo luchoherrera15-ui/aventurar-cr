@@ -7,6 +7,7 @@ export default async function AdminReservasPage() {
   const { data, error } = await supabase
     .from("reservas")
     .select("*")
+    .neq("estado", "temporal")
     .order("fecha", { ascending: true });
 
   const reservas = (data ?? []) as Reserva[];

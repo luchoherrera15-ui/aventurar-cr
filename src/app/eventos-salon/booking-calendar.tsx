@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { crearSolicitudReserva } from "./actions";
-import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
+import {
+  cancelarReservaTemporal,
+  completarReservaTemporal,
+  crearReservaTemporal,
+} from "./actions";
+import type { DiaDisponibilidad, HorarioBloque, PrecioTier, ServicioAdicional } from "./types";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -11,11 +15,29 @@ const MESES = [
 ];
 const DOW = ["D", "L", "M", "M", "J", "V", "S"];
 
+const TERMINOS = [
+  "El depósito de reserva no es reembolsable en caso de cancelación por parte del cliente.",
+  "El tipo de evento debe coincidir exactamente con el indicado en la solicitud; si no coincide, Aventurea CR puede cancelar la reserva sin devolución del depósito.",
+  "El envío de la solicitud y el comprobante no confirma la fecha por sí solo — la reserva queda sujeta a la aprobación de Aventurea CR.",
+  "El alquiler es por un bloque de 6 horas (mañana y tarde, o tarde y noche), con hora máxima de salida a las 12:00 medianoche.",
+  "Cualquier daño a las instalaciones o al mobiliario durante el evento es responsabilidad de quien hizo la reserva.",
+];
+
+const HORARIOS: { value: HorarioBloque; label: string }[] = [
+  { value: "manana_tarde", label: "Mañana y tarde (aprox. 7:00 a.m. – 1:00 p.m.)" },
+  { value: "tarde_noche", label: "Tarde y noche (aprox. 6:00 p.m. – 12:00 medianoche)" },
+];
+
 function iso(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 function fmtColones(n: number) {
   return "₡" + Math.round(n).toLocaleString("es-CR");
+}
+function fmtCountdown(totalSeconds: number) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 export default function BookingCalendar({
@@ -23,11 +45,13 @@ export default function BookingCalendar({
   tiers,
   servicios,
   tarifaDiciembre,
+  depositoReserva,
 }: {
   disponibilidad: Record<string, DiaDisponibilidad>;
   tiers: PrecioTier[];
   servicios: ServicioAdicional[];
   tarifaDiciembre: number;
+  depositoReserva: number;
 }) {
   const today = useMemo(() => {
     const d = new Date();
@@ -40,7 +64,15 @@ export default function BookingCalendar({
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  const [holdId, setHoldId] = useState<string | null>(null);
+  const [holdExpiraEn, setHoldExpiraEn] = useState<string | null>(null);
+  const [holdCreando, setHoldCreando] = useState(false);
+  const [holdError, setHoldError] = useState<string | null>(null);
+  const [holdVencido, setHoldVencido] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+
   const [invitados, setInvitados] = useState("");
+  const [horarioBloque, setHorarioBloque] = useState<HorarioBloque | "">("");
   const [addons, setAddons] = useState<Record<string, boolean>>({});
   const [nombre, setNombre] = useState("");
   const [contacto, setContacto] = useState("");
@@ -49,10 +81,28 @@ export default function BookingCalendar({
   const [metodoPago, setMetodoPago] = useState("");
   const [comprobante, setComprobante] = useState<File | null>(null);
   const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
+  const [terminosAceptados, setTerminosAceptados] = useState(false);
+  const [mostrarTerminos, setMostrarTerminos] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
+
+  // Cuenta regresiva del hold temporal.
+  useEffect(() => {
+    if (!holdExpiraEn || confirmado) return;
+    const tick = () => {
+      const diff = Math.max(
+        0,
+        Math.floor((new Date(holdExpiraEn).getTime() - Date.now()) / 1000),
+      );
+      setSecondsLeft(diff);
+      if (diff <= 0) setHoldVencido(true);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [holdExpiraEn, confirmado]);
 
   const selectedDateObj = useMemo(() => {
     if (!selectedDate) return null;
@@ -79,7 +129,34 @@ export default function BookingCalendar({
     }, 0);
   }, [servicios, addons, invitadosNum]);
 
-  const total = tierBase === null ? null : tierBase + addonsTotal;
+  const cotizacionTotal = tierBase === null ? null : tierBase + addonsTotal;
+
+  const puedeEnviar =
+    !!holdId &&
+    !holdVencido &&
+    invitadosNum > 0 &&
+    !!horarioBloque &&
+    !!nombre &&
+    !!contacto &&
+    !!tipoEvento &&
+    !!metodoPago &&
+    !!comprobante &&
+    terminosAceptados;
+
+  function resetFormulario() {
+    setInvitados("");
+    setHorarioBloque("");
+    setAddons({});
+    setNombre("");
+    setContacto("");
+    setTipoEvento("");
+    setMensaje("");
+    setMetodoPago("");
+    setComprobante(null);
+    setComprobantePreview(null);
+    setTerminosAceptados(false);
+    setSubmitError(null);
+  }
 
   function cambiarMes(dir: number) {
     let m = viewMonth + dir;
@@ -90,25 +167,46 @@ export default function BookingCalendar({
     setViewYear(y);
   }
 
-  function elegirFecha(fecha: string) {
+  async function elegirFecha(fecha: string) {
+    if (holdId && !confirmado) {
+      cancelarReservaTemporal(holdId);
+    }
     setSelectedDate(fecha);
     setConfirmado(false);
-    setSubmitError(null);
+    setHoldVencido(false);
+    setHoldError(null);
+    resetFormulario();
+    setHoldId(null);
+    setHoldExpiraEn(null);
+    setHoldCreando(true);
+
+    const res = await crearReservaTemporal(fecha);
+    setHoldCreando(false);
+
+    if (res.error || !res.id) {
+      setHoldError(res.error ?? "No se pudo reservar temporalmente la fecha.");
+      return;
+    }
+
+    setHoldId(res.id);
+    setHoldExpiraEn(res.expiraEn);
+    setDias((prev) => {
+      const dia = prev[fecha] ?? { confirmada: false, pendientes: 0, temporales: 0 };
+      return { ...prev, [fecha]: { ...dia, temporales: dia.temporales + 1 } };
+    });
   }
 
   function limpiarSeleccion() {
+    if (holdId && !confirmado) {
+      cancelarReservaTemporal(holdId);
+    }
     setSelectedDate(null);
+    setHoldId(null);
+    setHoldExpiraEn(null);
+    setHoldVencido(false);
+    setHoldError(null);
     setConfirmado(false);
-    setInvitados("");
-    setAddons({});
-    setNombre("");
-    setContacto("");
-    setTipoEvento("");
-    setMensaje("");
-    setMetodoPago("");
-    setComprobante(null);
-    setComprobantePreview(null);
-    setSubmitError(null);
+    resetFormulario();
   }
 
   function onComprobanteChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -119,7 +217,7 @@ export default function BookingCalendar({
 
   async function enviarSolicitud(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedDate || !comprobante || total === null) return;
+    if (!holdId || !selectedDate || !comprobante || !horarioBloque) return;
     setSubmitting(true);
     setSubmitError(null);
 
@@ -135,15 +233,17 @@ export default function BookingCalendar({
       return;
     }
 
-    const res = await crearSolicitudReserva({
-      fecha: selectedDate,
+    const res = await completarReservaTemporal(holdId, {
       nombre,
       contacto,
       tipo_evento: tipoEvento,
       invitados: invitadosNum,
-      deposito_monto: total,
+      horario_bloque: horarioBloque,
+      monto_total: cotizacionTotal ?? 0,
+      deposito_monto: depositoReserva,
       metodo_pago: metodoPago as "sinpe" | "transferencia",
       deposito_comprobante_url: path,
+      terminos_aceptados: terminosAceptados,
       notas: mensaje || null,
     });
 
@@ -155,8 +255,15 @@ export default function BookingCalendar({
     }
 
     setDias((prev) => {
-      const dia = prev[selectedDate] ?? { confirmada: false, pendientes: 0 };
-      return { ...prev, [selectedDate]: { ...dia, pendientes: dia.pendientes + 1 } };
+      const dia = prev[selectedDate] ?? { confirmada: false, pendientes: 0, temporales: 0 };
+      return {
+        ...prev,
+        [selectedDate]: {
+          ...dia,
+          temporales: Math.max(0, dia.temporales - 1),
+          pendientes: dia.pendientes + 1,
+        },
+      };
     });
     setConfirmado(true);
   }
@@ -186,6 +293,16 @@ export default function BookingCalendar({
           <p className="mt-2.5 text-[14.5px] text-zinc-400">
             Elegí un día en el calendario. Te mostramos el precio al instante
             y enviás tu solicitud — queda pendiente hasta que la confirmemos.
+          </p>
+        </div>
+
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-white/10 bg-zinc-900 p-4">
+          <span className="text-xl leading-none">🕐</span>
+          <p className="text-[12.5px] leading-relaxed text-zinc-300">
+            El rancho se alquila en bloques de <strong className="text-white">6 horas</strong>,
+            a elegir entre <strong className="text-white">mañana y tarde</strong> o{" "}
+            <strong className="text-white">tarde y noche</strong>. Hora máxima de
+            salida: <strong className="text-white">12:00 medianoche</strong>.
           </p>
         </div>
 
@@ -232,14 +349,20 @@ export default function BookingCalendar({
 
                 let cls =
                   "relative flex aspect-square items-center justify-center rounded-lg text-[13px]";
+                let badge: number | null = null;
+
                 if (isPast) {
                   cls += " text-zinc-700 cursor-default";
                 } else if (info?.confirmada) {
                   cls += " bg-zinc-700 text-white font-bold";
                 } else {
                   cls += " bg-zinc-800 border border-white/10 text-zinc-300 cursor-pointer hover:border-aventurea-orange hover:text-aventurea-orange";
-                  if (info && info.pendientes > 0) {
+                  if (info && info.temporales > 0) {
+                    cls += " bg-blue-500/15 border-blue-500/40 text-blue-300 font-bold";
+                    badge = info.temporales;
+                  } else if (info && info.pendientes > 0) {
                     cls += " bg-aventurea-orange/15 border-aventurea-orange/40 text-aventurea-orange font-bold";
+                    badge = info.pendientes;
                   }
                 }
                 if (isToday) cls += " ring-2 ring-inset ring-aventurea-orange";
@@ -248,13 +371,13 @@ export default function BookingCalendar({
                 return (
                   <div
                     key={i}
-                    onClick={() => !isPast && !info?.confirmada && elegirFecha(fecha)}
+                    onClick={() => !isPast && !info?.confirmada && !holdCreando && elegirFecha(fecha)}
                     className={cls}
                   >
                     {d}
-                    {!isPast && info && info.pendientes > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-[15px] w-[15px] items-center justify-center rounded-full bg-aventurea-orange text-[8.5px] font-bold text-zinc-950">
-                        {info.pendientes}
+                    {!isPast && badge !== null && (
+                      <span className="absolute -right-1 -top-1 flex h-[15px] w-[15px] items-center justify-center rounded-full bg-white text-[8.5px] font-bold text-zinc-950">
+                        {badge}
                       </span>
                     )}
                   </div>
@@ -268,6 +391,10 @@ export default function BookingCalendar({
                 Disponible
               </span>
               <span className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
+                <span className="h-2.5 w-2.5 rounded-[3px] border border-blue-500/40 bg-blue-500/15" />
+                Reserva temporal
+              </span>
+              <span className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
                 <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-orange/40 bg-aventurea-orange/15" />
                 Con solicitudes
               </span>
@@ -277,9 +404,16 @@ export default function BookingCalendar({
               </span>
             </div>
 
-            <div className="mt-4 rounded-[10px] bg-aventurea-orange/10 p-3 text-xs text-aventurea-orange">
-              Varias personas pueden solicitar la misma fecha — nosotros
-              elegimos cuál confirmar.
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs text-aventurea-orange">
+                Varias personas pueden solicitar la misma fecha — nosotros
+                elegimos cuál confirmar.
+              </div>
+              <div className="rounded-[10px] bg-blue-500/10 p-3 text-xs text-blue-300">
+                Al elegir una fecha, la reservás por 10 minutos mientras
+                completás tu solicitud. Si se acaba el tiempo, la fecha
+                vuelve a quedar disponible.
+              </div>
             </div>
           </div>
 
@@ -297,6 +431,50 @@ export default function BookingCalendar({
                   Elegí un día disponible en el calendario para indicar los
                   invitados, ver el precio y enviar tu solicitud.
                 </p>
+              </div>
+            )}
+
+            {selectedDate && holdCreando && (
+              <div className="py-10 text-center text-[13px] text-zinc-400">
+                Reservando la fecha por 10 minutos...
+              </div>
+            )}
+
+            {selectedDate && holdError && (
+              <div className="py-7 text-center">
+                <h3 className="text-[17px] font-bold text-white">
+                  No se pudo reservar la fecha
+                </h3>
+                <p className="mx-auto mt-2 max-w-[34ch] text-[13px] text-zinc-400">
+                  {holdError}
+                </p>
+                <button
+                  onClick={limpiarSeleccion}
+                  className="mt-4 rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                >
+                  Intentar de nuevo
+                </button>
+              </div>
+            )}
+
+            {selectedDate && holdVencido && !confirmado && (
+              <div className="py-7 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/15 text-2xl">
+                  ⏳
+                </div>
+                <h3 className="mt-4 text-[17px] font-bold text-white">
+                  Se venció el tiempo
+                </h3>
+                <p className="mx-auto mt-2 max-w-[34ch] text-[13px] text-zinc-400">
+                  Pasaron los 10 minutos para completar tu solicitud y la
+                  fecha volvió a quedar disponible. Podés elegirla de nuevo.
+                </p>
+                <button
+                  onClick={limpiarSeleccion}
+                  className="mt-4 rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                >
+                  Elegir una fecha
+                </button>
               </div>
             )}
 
@@ -323,8 +501,21 @@ export default function BookingCalendar({
               </div>
             )}
 
-            {selectedDate && !confirmado && (
+            {selectedDate && holdId && !holdVencido && !confirmado && !holdCreando && (
               <form onSubmit={enviarSolicitud} className="flex flex-col gap-3.5">
+                <div className="flex items-center justify-between rounded-xl border border-blue-500/40 bg-blue-500/10 px-3.5 py-2.5">
+                  <span className="text-[11.5px] font-bold text-blue-300">
+                    ⏱ Reserva temporal
+                  </span>
+                  <span className="font-mono text-[13.5px] font-bold text-white">
+                    {fmtCountdown(secondsLeft)}
+                  </span>
+                </div>
+                <p className="-mt-1.5 text-[11px] text-zinc-500">
+                  Completá y enviá tu solicitud antes de que se acabe el
+                  tiempo, o la fecha vuelve a quedar disponible.
+                </p>
+
                 <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
                   Solicitud de reserva
                 </p>
@@ -356,9 +547,26 @@ export default function BookingCalendar({
                   />
                 </div>
 
+                <div>
+                  <label className={labelCls}>Horario (bloque de 6 horas)</label>
+                  <select
+                    required
+                    value={horarioBloque}
+                    onChange={(e) => setHorarioBloque(e.target.value as HorarioBloque)}
+                    className={inputCls}
+                  >
+                    <option value="">Selecciona una opción</option>
+                    {HORARIOS.map((h) => (
+                      <option key={h.value} value={h.value}>
+                        {h.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="flex items-center justify-between rounded-xl border border-white/10 px-3.5 py-3">
                   <span className="text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
-                    Precio estimado
+                    Cotización estimada del evento
                   </span>
                   <span className="text-[15px] font-bold text-white">
                     {tierBase === null
@@ -417,6 +625,15 @@ export default function BookingCalendar({
                   </div>
                 )}
 
+                {cotizacionTotal !== null && (
+                  <div className="flex items-center justify-between rounded-xl bg-zinc-800 px-3.5 py-3">
+                    <span className="text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
+                      Total estimado del evento
+                    </span>
+                    <span className="text-lg font-bold text-white">{fmtColones(cotizacionTotal)}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className={labelCls}>Nombre completo</label>
@@ -468,20 +685,17 @@ export default function BookingCalendar({
                   />
                 </div>
 
-                {total !== null && (
-                  <div className="flex items-center justify-between rounded-xl bg-zinc-800 px-3.5 py-3">
-                    <span className="text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
-                      Total estimado
-                    </span>
-                    <span className="text-lg font-bold text-white">{fmtColones(total)}</span>
-                  </div>
-                )}
-                {total !== null && (
-                  <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs leading-relaxed text-aventurea-orange">
-                    El monto de arriba es el <strong>depósito para reservar</strong> —
-                    se paga por SINPE o transferencia. El resto se coordina para el día del evento.
-                  </div>
-                )}
+                <div className="flex items-center justify-between rounded-xl bg-aventurea-orange/10 px-3.5 py-3">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-orange">
+                    Depósito para reservar
+                  </span>
+                  <span className="text-lg font-bold text-white">{fmtColones(depositoReserva)}</span>
+                </div>
+                <p className="-mt-2 text-[11px] leading-relaxed text-zinc-500">
+                  Este monto fijo es lo que se paga ahora por SINPE o
+                  transferencia para reservar la fecha. El resto de la
+                  cotización se coordina para el día del evento.
+                </p>
 
                 <div>
                   <label className={labelCls}>Método de pago del depósito</label>
@@ -496,6 +710,27 @@ export default function BookingCalendar({
                     <option value="transferencia">Transferencia bancaria</option>
                   </select>
                 </div>
+
+                <label className="flex items-start gap-2.5 text-[12.5px] text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={terminosAceptados}
+                    onChange={(e) => setTerminosAceptados(e.target.checked)}
+                    required
+                    className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
+                  />
+                  <span>
+                    Acepto los{" "}
+                    <button
+                      type="button"
+                      onClick={() => setMostrarTerminos(true)}
+                      className="font-bold text-aventurea-orange underline"
+                    >
+                      términos y condiciones
+                    </button>{" "}
+                    de la reserva.
+                  </span>
+                </label>
 
                 <div>
                   <label className={labelCls}>Comprobante de pago</label>
@@ -530,7 +765,7 @@ export default function BookingCalendar({
 
                 <button
                   type="submit"
-                  disabled={submitting || total === null}
+                  disabled={submitting || !puedeEnviar}
                   className="rounded-full bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
                 >
                   {submitting ? "Enviando..." : "Enviar solicitud"}
@@ -547,6 +782,45 @@ export default function BookingCalendar({
           </div>
         </div>
       </div>
+
+      {mostrarTerminos && (
+        <div
+          onClick={() => setMostrarTerminos(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-6"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">
+                Términos y condiciones
+              </h3>
+              <button
+                onClick={() => setMostrarTerminos(false)}
+                aria-label="Cerrar"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white hover:border-aventurea-orange"
+              >
+                ×
+              </button>
+            </div>
+            <ol className="mt-4 flex flex-col gap-3">
+              {TERMINOS.map((t, i) => (
+                <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-zinc-300">
+                  <span className="font-bold text-aventurea-orange">{i + 1}.</span>
+                  {t}
+                </li>
+              ))}
+            </ol>
+            <button
+              onClick={() => setMostrarTerminos(false)}
+              className="mt-5 w-full rounded-full bg-aventurea-orange py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

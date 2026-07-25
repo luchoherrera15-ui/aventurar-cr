@@ -34,6 +34,9 @@ export default async function PreciosPage() {
           initialTarifaDiciembre={
             (configRes.data?.tarifa_diciembre_por_persona as number) ?? 3750
           }
+          initialDepositoReserva={
+            (configRes.data?.deposito_reserva as number) ?? 25000
+          }
         />
       </div>
     </div>

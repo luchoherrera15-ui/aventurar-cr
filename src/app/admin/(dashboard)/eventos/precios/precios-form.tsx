@@ -17,10 +17,12 @@ export default function PreciosForm({
   initialTiers,
   initialServicios,
   initialTarifaDiciembre,
+  initialDepositoReserva,
 }: {
   initialTiers: PrecioTier[];
   initialServicios: ServicioAdicional[];
   initialTarifaDiciembre: number;
+  initialDepositoReserva: number;
 }) {
   const [tiers, setTiers] = useState<TierDraft[]>(
     initialTiers.map((t) => ({ ...t, key: t.id })),
@@ -30,6 +32,9 @@ export default function PreciosForm({
   );
   const [tarifaDiciembre, setTarifaDiciembre] = useState(
     initialTarifaDiciembre,
+  );
+  const [depositoReserva, setDepositoReserva] = useState(
+    initialDepositoReserva,
   );
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{
@@ -68,6 +73,7 @@ export default function PreciosForm({
           activo: s.activo,
         })),
         tarifaDiciembre,
+        depositoReserva,
       );
       if (res?.error) {
         setMessage({ type: "error", text: res.error });
@@ -79,6 +85,30 @@ export default function PreciosForm({
 
   return (
     <div className="flex flex-col gap-6">
+      <section className="rounded-2xl border border-white/10 bg-zinc-900 p-5.5 shadow-sm">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+          Reserva de la fecha
+        </p>
+        <h3 className="mt-1 text-[15.5px] font-bold text-white">
+          Depósito fijo para reservar
+        </h3>
+        <p className="mt-1 text-[12.5px] text-zinc-400">
+          Monto fijo (no depende de la cantidad de invitados) que el
+          cliente paga por SINPE o transferencia para reservar la fecha
+          en el sitio público.
+        </p>
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-[13px] font-bold text-zinc-400">₡</span>
+          <input
+            type="number"
+            min={0}
+            value={depositoReserva}
+            onChange={(e) => setDepositoReserva(Number(e.target.value))}
+            className="w-40 rounded-lg border border-white/10 bg-zinc-800 px-2.5 py-2 text-[13px] text-white"
+          />
+        </div>
+      </section>
+
       <section className="rounded-2xl border border-white/10 bg-zinc-900 p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Cotización automática

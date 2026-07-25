@@ -6,6 +6,14 @@ import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
 export default async function EventosSalonPage() {
   const supabase = await createClient();
 
+  // Limpieza oportunista: borra holds temporales ya vencidos antes de
+  // calcular qué fechas están disponibles.
+  await supabase
+    .from("reservas")
+    .delete()
+    .eq("estado", "temporal")
+    .lt("expira_en", new Date().toISOString());
+
   const [dispRes, tiersRes, svcRes, configRes] = await Promise.all([
     supabase.from("disponibilidad_rancho").select("fecha, estado"),
     supabase
@@ -18,14 +26,19 @@ export default async function EventosSalonPage() {
       .eq("activo", true),
     supabase
       .from("configuracion_rancho")
-      .select("tarifa_diciembre_por_persona")
+      .select("tarifa_diciembre_por_persona, deposito_reserva")
       .single(),
   ]);
 
   const disponibilidad: Record<string, DiaDisponibilidad> = {};
   (dispRes.data ?? []).forEach((r) => {
-    const dia = disponibilidad[r.fecha] ?? { confirmada: false, pendientes: 0 };
+    const dia = disponibilidad[r.fecha] ?? {
+      confirmada: false,
+      pendientes: 0,
+      temporales: 0,
+    };
     if (r.estado === "confirmada") dia.confirmada = true;
+    else if (r.estado === "temporal") dia.temporales += 1;
     else dia.pendientes += 1;
     disponibilidad[r.fecha] = dia;
   });
@@ -63,6 +76,7 @@ export default async function EventosSalonPage() {
         tiers={(tiersRes.data ?? []) as PrecioTier[]}
         servicios={(svcRes.data ?? []) as ServicioAdicional[]}
         tarifaDiciembre={configRes.data?.tarifa_diciembre_por_persona ?? 3750}
+        depositoReserva={configRes.data?.deposito_reserva ?? 25000}
       />
 
       <section id="rancho" className="py-16">

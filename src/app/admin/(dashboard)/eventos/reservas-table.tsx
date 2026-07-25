@@ -22,6 +22,11 @@ const ESTADO_BADGE: Record<Reserva["estado"], string> = {
   bloqueada: "bg-zinc-800 text-white",
 };
 
+const HORARIO_LABEL: Record<string, string> = {
+  manana_tarde: "Mañana y tarde",
+  tarde_noche: "Tarde y noche",
+};
+
 function fmtMoney(n: number | null) {
   return "₡" + Number(n || 0).toLocaleString("es-CR");
 }
@@ -51,7 +56,7 @@ export default function ReservasTable({
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return reservas
-      .filter((r) => (!q ? true : r.nombre.toLowerCase().includes(q)))
+      .filter((r) => (!q ? true : (r.nombre ?? "").toLowerCase().includes(q)))
       .filter((r) => filtro === "todas" || r.estado === filtro)
       .sort((a, b) => a.fecha.localeCompare(b.fecha));
   }, [reservas, query, filtro]);
@@ -139,6 +144,7 @@ export default function ReservasTable({
                 "Fecha",
                 "Cliente",
                 "Evento",
+                "Horario",
                 "Invitados",
                 "Estado",
                 "Depósito",
@@ -157,7 +163,7 @@ export default function ReservasTable({
             {list.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
                   No hay reservas que coincidan con la búsqueda.
@@ -172,6 +178,9 @@ export default function ReservasTable({
                   <div className="text-xs text-zinc-500">{r.contacto}</div>
                 </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-zinc-300">{r.tipo_evento}</td>
+                <td className="px-4 py-3.5 text-[13.5px] text-zinc-300">
+                  {r.horario_bloque ? HORARIO_LABEL[r.horario_bloque] : "—"}
+                </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-zinc-300">{r.invitados ?? "—"}</td>
                 <td className="px-4 py-3.5">
                   <span

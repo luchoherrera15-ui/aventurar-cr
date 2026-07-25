@@ -8,6 +8,7 @@ export async function guardarConfiguracion(
   tiers: Omit<PrecioTier, "id">[],
   servicios: Omit<ServicioAdicional, "id">[],
   tarifaDiciembre: number,
+  depositoReserva: number,
 ) {
   const supabase = await createClient();
 
@@ -39,7 +40,10 @@ export async function guardarConfiguracion(
 
   const { error: errorConfig } = await supabase
     .from("configuracion_rancho")
-    .update({ tarifa_diciembre_por_persona: tarifaDiciembre })
+    .update({
+      tarifa_diciembre_por_persona: tarifaDiciembre,
+      deposito_reserva: depositoReserva,
+    })
     .eq("id", true);
   if (errorConfig) return { error: errorConfig.message };
 

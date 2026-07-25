@@ -14,4 +14,7 @@ export type ServicioAdicional = {
 export type DiaDisponibilidad = {
   confirmada: boolean;
   pendientes: number;
+  temporales: number;
 };
+
+export type HorarioBloque = "manana_tarde" | "tarde_noche";
