@@ -10,7 +10,7 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-aventurea-cream">
       <header className="sticky top-0 z-50 border-b border-white/15 bg-aventurea-navy/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-5 px-7 py-3.5">
-          <div className="flex items-center gap-2">
+          <Link href="/admin" className="flex items-center gap-2">
             <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-aventurea-orange text-[13.5px] font-bold text-aventurea-navy">
               A
             </span>
@@ -21,16 +21,22 @@ export default function DashboardLayout({
             <span className="text-[12.5px] font-light text-[#C6D3E8]">
               Panel Admin
             </span>
-          </div>
+          </Link>
           <nav className="flex items-center gap-1">
             <Link
               href="/admin"
               className="rounded-lg px-3.5 py-2 text-[12.5px] font-bold text-[#AFC6E0] hover:bg-white/10 hover:text-white"
             >
+              Inicio
+            </Link>
+            <Link
+              href="/admin/eventos"
+              className="rounded-lg px-3.5 py-2 text-[12.5px] font-bold text-[#AFC6E0] hover:bg-white/10 hover:text-white"
+            >
               Reservas
             </Link>
             <Link
-              href="/admin/precios"
+              href="/admin/eventos/precios"
               className="rounded-lg px-3.5 py-2 text-[12.5px] font-bold text-[#AFC6E0] hover:bg-white/10 hover:text-white"
             >
               Precios

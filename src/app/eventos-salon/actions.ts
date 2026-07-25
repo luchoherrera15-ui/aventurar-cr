@@ -37,6 +37,6 @@ export async function crearSolicitudReserva(input: CrearSolicitudInput) {
   }
 
   revalidatePath("/eventos-salon");
-  revalidatePath("/admin");
+  revalidatePath("/admin/eventos");
   return { error: null };
 }

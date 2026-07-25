@@ -43,7 +43,7 @@ export async function guardarConfiguracion(
     .eq("id", true);
   if (errorConfig) return { error: errorConfig.message };
 
-  revalidatePath("/admin/precios");
+  revalidatePath("/admin/eventos/precios");
   revalidatePath("/eventos-salon");
   return { error: null };
 }

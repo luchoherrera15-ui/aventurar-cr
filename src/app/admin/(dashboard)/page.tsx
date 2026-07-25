@@ -1,148 +1,95 @@
-import { createClient } from "@/lib/supabase/server";
-import ReservasTable from "./reservas-table";
-import type { Reserva } from "./types";
+import Link from "next/link";
 
-export default async function AdminReservasPage() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("reservas")
-    .select("*")
-    .order("fecha", { ascending: true });
-
-  const reservas = (data ?? []) as Reserva[];
-
-  const now = new Date();
-  const pendientes = reservas.filter((r) => r.estado === "pendiente").length;
-  const confirmadasEsteMes = reservas.filter((r) => {
-    if (r.estado !== "confirmada") return false;
-    const [y, m] = r.fecha.split("-").map(Number);
-    return y === now.getFullYear() && m - 1 === now.getMonth();
-  }).length;
-  const depositosPorValidar = reservas.filter(
-    (r) => r.estado === "confirmada" && !r.deposito_validado,
-  ).length;
-  const activas = reservas.filter(
-    (r) => r.estado === "confirmada" || r.estado === "pendiente",
-  ).length;
-
+export default function AdminHubPage() {
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3.5">
-        <div>
-          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-            Rancho de Eventos
-          </p>
-          <h1 className="mt-1 text-2xl font-bold text-aventurea-navy">
-            Reservas
-          </h1>
-          <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
-            Datos en vivo desde Supabase.
-          </p>
-        </div>
-      </div>
+      <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        Panel Admin
+      </p>
+      <h1 className="mt-1 text-2xl font-bold text-aventurea-navy">
+        ¿Qué querés gestionar?
+      </h1>
+      <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
+        Elegí una línea de negocio para ver sus reservas y configuración.
+      </p>
 
-      {error && (
-        <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
-          No se pudieron cargar las reservas: {error.message}
-        </p>
-      )}
-
-      <div className="mb-7 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard
-          label="Solicitudes pendientes"
-          value={pendientes}
-          color="orange"
-          icon={<IconClock />}
+      <div className="mt-7 grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <HubCard
+          href="/admin/paquetes"
+          title="Paquete Turístico"
+          subtitle="Casa Puntaleona y Chalet Alajuela"
+          icon={<IconSuitcase />}
         />
-        <StatCard
-          label="Confirmadas este mes"
-          value={confirmadasEsteMes}
-          color="navy"
-          icon={<IconCheck />}
-        />
-        <StatCard
-          label="Depósitos por validar"
-          value={depositosPorValidar}
-          color="ink"
-          icon={<IconBanknote />}
-        />
-        <StatCard
-          label="Reservas activas"
-          value={activas}
-          color="green"
-          icon={<IconTrendingUp />}
+        <HubCard
+          href="/admin/eventos"
+          title="Alquiler de Salón de Eventos"
+          subtitle="Rancho de eventos en Alajuela"
+          icon={<IconTent />}
         />
       </div>
-
-      <ReservasTable initialReservas={reservas} />
     </div>
   );
 }
 
-const COLOR_BG: Record<string, string> = {
-  orange: "bg-aventurea-orange",
-  navy: "bg-aventurea-navy",
-  green: "bg-aventurea-green",
-  ink: "bg-aventurea-ink",
-};
-
-function StatCard({
-  label,
-  value,
-  color,
+function HubCard({
+  href,
+  title,
+  subtitle,
   icon,
 }: {
-  label: string;
-  value: number;
-  color: "orange" | "navy" | "green" | "ink";
+  href: string;
+  title: string;
+  subtitle: string;
   icon: React.ReactNode;
 }) {
   return (
-    <div
-      className={`relative overflow-hidden rounded-2xl p-5 shadow-sm ${COLOR_BG[color]}`}
+    <Link
+      href={href}
+      className="group relative block overflow-hidden rounded-2xl bg-aventurea-navy p-7 shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
-      <div className="pointer-events-none absolute -bottom-4 -right-4 h-24 w-24 text-white/15">
+      <div className="pointer-events-none absolute -bottom-8 -right-8 h-40 w-40 text-white/10 transition-transform duration-300 group-hover:scale-110">
         {icon}
       </div>
-      <div className="relative text-2xl font-bold leading-none text-white">
-        {value}
+      <div className="relative">
+        <h2 className="text-xl font-bold text-white">{title}</h2>
+        <p className="mt-1.5 text-[13px] text-white/60">{subtitle}</p>
+        <span className="mt-6 inline-flex items-center gap-2 text-[13px] font-bold text-aventurea-orange">
+          Entrar
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
+          >
+            <path
+              d="M4 10h12m0 0-5-5m5 5-5 5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
       </div>
-      <div className="relative mt-1.5 text-[11px] font-bold uppercase tracking-wide text-white/70">
-        {label}
-      </div>
-    </div>
+    </Link>
   );
 }
 
-function IconClock() {
+function IconSuitcase() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} className="h-full w-full">
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 2" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.3} className="h-full w-full">
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path strokeLinecap="round" d="M3 12h18" />
     </svg>
   );
 }
-function IconCheck() {
+
+function IconTent() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} className="h-full w-full">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-function IconBanknote() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} className="h-full w-full">
-      <rect x="2" y="6" width="20" height="13" rx="2" />
-      <circle cx="12" cy="12.5" r="3" />
-      <path strokeLinecap="round" d="M6 9h.01M18 16h.01" />
-    </svg>
-  );
-}
-function IconTrendingUp() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} className="h-full w-full">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l6-6 4 4 8-8" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 7h6v6" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.3} className="h-full w-full">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3 3 20h18L12 3Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12 5 20M16.5 12 19 20" />
     </svg>
   );
 }
