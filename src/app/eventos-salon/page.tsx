@@ -1,0 +1,119 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import BookingCalendar from "./booking-calendar";
+import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
+
+export default async function EventosSalonPage() {
+  const supabase = await createClient();
+
+  const [dispRes, tiersRes, svcRes, configRes] = await Promise.all([
+    supabase.from("disponibilidad_rancho").select("fecha, estado"),
+    supabase
+      .from("precio_tiers")
+      .select("min_invitados, max_invitados, precio")
+      .order("min_invitados", { ascending: true }),
+    supabase
+      .from("servicios_adicionales")
+      .select("id, nombre, precio, requisito_max_invitados")
+      .eq("activo", true),
+    supabase
+      .from("configuracion_rancho")
+      .select("tarifa_diciembre_por_persona")
+      .single(),
+  ]);
+
+  const disponibilidad: Record<string, DiaDisponibilidad> = {};
+  (dispRes.data ?? []).forEach((r) => {
+    const dia = disponibilidad[r.fecha] ?? { confirmada: false, pendientes: 0 };
+    if (r.estado === "confirmada") dia.confirmada = true;
+    else dia.pendientes += 1;
+    disponibilidad[r.fecha] = dia;
+  });
+
+  return (
+    <div className="bg-aventurea-cream">
+      <header className="sticky top-0 z-50 border-b border-white/15 bg-aventurea-navy/95 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-aventurea-navy">
+              A
+            </span>
+            <span className="text-base font-bold text-white">AVENTUREA CR</span>
+            <span className="text-[#5C7796]">/</span>
+            <span className="text-[13px] font-light text-[#C6D3E8]">
+              Rancho de Eventos
+            </span>
+          </Link>
+          <nav className="hidden items-center gap-6 sm:flex">
+            <Link href="/" className="text-[13.5px] text-[#DCEAEA] hover:text-aventurea-orange">
+              Inicio
+            </Link>
+            <a href="#reservar" className="text-[13.5px] text-[#DCEAEA] hover:text-aventurea-orange">
+              Reservar
+            </a>
+            <a href="#rancho" className="text-[13.5px] text-[#DCEAEA] hover:text-aventurea-orange">
+              El rancho
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      <BookingCalendar
+        disponibilidad={disponibilidad}
+        tiers={(tiersRes.data ?? []) as PrecioTier[]}
+        servicios={(svcRes.data ?? []) as ServicioAdicional[]}
+        tarifaDiciembre={configRes.data?.tarifa_diciembre_por_persona ?? 3750}
+      />
+
+      <section id="rancho" className="py-16">
+        <div className="mx-auto max-w-[1080px] px-7">
+          <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+            El espacio
+          </p>
+          <h2 className="mt-2.5 text-[27px] font-bold text-aventurea-navy">
+            Lo que incluye el rancho
+          </h2>
+
+          <div className="mt-8 grid grid-cols-1 gap-4.5 sm:grid-cols-2 md:grid-cols-3">
+            {[
+              ["Piscina", "Para el disfrute de los invitados durante el evento."],
+              ["Parrilla para asar", "Zona de parrilla disponible para el catering del evento."],
+              ["Área techada", "Rancho principal cubierto para la celebración."],
+              ["Parqueo privado", "Espacio para los vehículos de los invitados."],
+              ["Zona natural", "Jardines y entorno natural para fotografías y ambientación."],
+            ].map(([title, desc]) => (
+              <div
+                key={title}
+                className="rounded-2xl border border-aventurea-line bg-white p-5"
+              >
+                <h3 className="text-[15px] font-bold text-aventurea-navy">{title}</h3>
+                <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">{desc}</p>
+              </div>
+            ))}
+            <div className="relative rounded-2xl border border-aventurea-orange bg-white p-5">
+              <span className="absolute right-4 top-4 rounded-full bg-aventurea-orange-light px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide text-aventurea-orange-dark">
+                Costo adicional
+              </span>
+              <h3 className="text-[15px] font-bold text-aventurea-navy">
+                Hospedaje (chalets)
+              </h3>
+              <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">
+                Disponible solo en ciertos casos, sujeto a disponibilidad. Se
+                elige como servicio adicional al reservar.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-aventurea-navy py-9 text-center">
+        <p className="text-xs text-[#AFC6C4]">
+          AVENTUREA CR — Puntarenas, Costa Rica ·{" "}
+          <Link href="/" className="font-bold text-aventurea-orange">
+            Volver al inicio
+          </Link>
+        </p>
+      </footer>
+    </div>
+  );
+}

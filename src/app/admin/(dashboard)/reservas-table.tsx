@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { setEstadoReserva } from "./actions";
+import {
+  marcarDepositoValidado,
+  obtenerUrlComprobante,
+  setEstadoReserva,
+} from "./actions";
 import type { Reserva } from "./types";
 
 const ESTADO_LABEL: Record<Reserva["estado"], string> = {
@@ -64,6 +68,29 @@ export default function ReservasTable({
       }
       setReservas((prev) =>
         prev.map((r) => (r.id === id ? { ...r, estado } : r)),
+      );
+    });
+  }
+
+  async function verComprobante(path: string) {
+    const res = await obtenerUrlComprobante(path);
+    if (res.url) {
+      window.open(res.url, "_blank");
+    } else {
+      setActionError(res.error ?? "No se pudo abrir el comprobante.");
+    }
+  }
+
+  function marcarValidado(id: string) {
+    setActionError(null);
+    startTransition(async () => {
+      const res = await marcarDepositoValidado(id, true);
+      if (res?.error) {
+        setActionError(res.error);
+        return;
+      }
+      setReservas((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deposito_validado: true } : r)),
       );
     });
   }
@@ -149,19 +176,40 @@ export default function ReservasTable({
                   </span>
                 </td>
                 <td className="px-4 py-3.5">
-                  {r.deposito_validado ? (
-                    <span className="inline-flex items-center rounded-full bg-aventurea-green-light px-2.5 py-1 text-[11px] font-bold text-aventurea-green">
-                      ✓ Validado · {fmtMoney(r.deposito_monto)}
-                    </span>
-                  ) : r.deposito_comprobante_url ? (
-                    <span className="inline-flex items-center rounded-full bg-aventurea-orange-light px-2.5 py-1 text-[11px] font-bold text-aventurea-orange-dark">
-                      Por validar
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
-                      Sin comprobante
-                    </span>
-                  )}
+                  <div className="flex flex-col items-start gap-1">
+                    {r.deposito_validado ? (
+                      <span className="inline-flex items-center rounded-full bg-aventurea-green-light px-2.5 py-1 text-[11px] font-bold text-aventurea-green">
+                        ✓ Validado · {fmtMoney(r.deposito_monto)}
+                      </span>
+                    ) : r.deposito_comprobante_url ? (
+                      <span className="inline-flex items-center rounded-full bg-aventurea-orange-light px-2.5 py-1 text-[11px] font-bold text-aventurea-orange-dark">
+                        Por validar · {fmtMoney(r.deposito_monto)}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
+                        Sin comprobante
+                      </span>
+                    )}
+                    {r.deposito_comprobante_url && (
+                      <div className="flex gap-2.5">
+                        <button
+                          onClick={() => verComprobante(r.deposito_comprobante_url!)}
+                          className="text-[11px] font-bold text-aventurea-navy underline hover:text-aventurea-orange-dark"
+                        >
+                          Ver comprobante
+                        </button>
+                        {!r.deposito_validado && (
+                          <button
+                            disabled={pending}
+                            onClick={() => marcarValidado(r.id)}
+                            className="text-[11px] font-bold text-aventurea-green underline hover:text-aventurea-navy disabled:opacity-50"
+                          >
+                            Marcar validado
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="flex flex-wrap gap-1.5">
