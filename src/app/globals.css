@@ -2,25 +2,44 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #13212b;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-montserrat);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Paleta general de Aventurea CR (portada, admin, rancho de eventos) */
+  --color-aventurea-navy: #0b2340;
+  --color-aventurea-navy-2: #123356;
+  --color-aventurea-navy-3: #183f6e;
+  --color-aventurea-orange: #f0782a;
+  --color-aventurea-orange-dark: #a8470d;
+  --color-aventurea-orange-light: #fce3cd;
+  --color-aventurea-green: #2f7a4f;
+  --color-aventurea-green-light: #ddeee3;
+  --color-aventurea-cream: #f5f6f8;
+  --color-aventurea-cream-2: #e9ebef;
+  --color-aventurea-ink: #13212b;
+  --color-aventurea-ink-soft: #46545c;
+  --color-aventurea-line: #dee1e6;
+
+  /* Paleta de Puntaleona (casa vacacional) */
+  --color-puntaleona-navy: #0b2a33;
+  --color-puntaleona-navy-2: #123842;
+  --color-puntaleona-sand: #f6f1e7;
+  --color-puntaleona-sand-2: #efe6d2;
+  --color-puntaleona-turquoise: #1fa79c;
+  --color-puntaleona-turquoise-dark: #137f76;
+  --color-puntaleona-coral: #d14b2e;
+  --color-puntaleona-coral-dark: #ae3b22;
+  --color-puntaleona-ink: #16262b;
+  --color-puntaleona-ink-soft: #5b6b70;
+  --color-puntaleona-line: #e4e0d3;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
