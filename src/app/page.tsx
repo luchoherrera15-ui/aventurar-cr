@@ -5,26 +5,27 @@ type ExperienceCard = {
   eyebrow: string;
   title: string;
   description: string;
-  // Reemplazar por: "url(/images/paquetes-promocionales.jpg)" cuando tengamos la foto real.
+  // Reemplazar por: "url(/images/puntaleona.jpg)" / "url(/images/rancho.jpg)"
+  // cuando tengamos las fotos reales.
   background: string;
 };
 
 const cards: ExperienceCard[] = [
   {
-    href: "/paquetes-promocionales",
-    eyebrow: "Hospedaje + Tours",
-    title: "Paquetes Promocionales",
+    href: "/puntaleona-web",
+    eyebrow: "Casa · Mar · Montaña",
+    title: "Paquetes Vacacionales",
     description:
-      "Casa vacacional en Puntaleona, chalets cerca del aeropuerto y add-ons: bote, jetski, CANAM y comida.",
+      "Casa privada en Puntaleona, tours en bote, jet ski, CANAM y más.",
     background:
       "linear-gradient(160deg, #101c22 0%, #16302d 45%, #2a2c22 100%)",
   },
   {
-    href: "/salon-eventos",
-    eyebrow: "Eventos + Celebraciones",
-    title: "Salón para Eventos",
+    href: "/eventos-salon",
+    eyebrow: "Rancho de Eventos",
+    title: "Alquiler de Salón de Eventos",
     description:
-      "Rancho de alquiler en Alajuela: piscina, parrilla, parqueo y reserva por calendario.",
+      "Rancho privado para bodas, cumpleaños y celebraciones corporativas.",
     background:
       "linear-gradient(160deg, #201512 0%, #2e1f14 45%, #1c1712 100%)",
   },
@@ -50,10 +51,10 @@ export default function Home() {
             Costa Rica
           </span>
           <h1 className="mt-4 text-5xl font-semibold tracking-tight text-white sm:text-6xl">
-            Aventurar CR
+            Aventurea CR
           </h1>
           <p className="mx-auto mt-4 max-w-md text-balance text-lg text-zinc-400">
-            Escogé la experiencia que estás buscando
+            Turismo y eventos, en un solo lugar
           </p>
         </div>
 
