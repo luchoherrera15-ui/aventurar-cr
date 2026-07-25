@@ -9,8 +9,8 @@ import {
 import type { Reserva } from "./types";
 
 const ESTADO_LABEL: Record<Reserva["estado"], string> = {
-  pendiente: "Pendiente",
-  confirmada: "Confirmada",
+  pendiente: "En aprobación",
+  confirmada: "Reservada",
   rechazada: "Rechazada",
   bloqueada: "Bloqueada",
 };
@@ -122,8 +122,8 @@ export default function ReservasTable({
             className="rounded-[10px] border border-white/10 bg-zinc-900 px-3 py-2.5 text-[13px] text-white"
           >
             <option value="todas">Todos los estados</option>
-            <option value="pendiente">Pendiente</option>
-            <option value="confirmada">Confirmada</option>
+            <option value="pendiente">En aprobación</option>
+            <option value="confirmada">Reservada</option>
             <option value="rechazada">Rechazada</option>
             <option value="bloqueada">Bloqueada</option>
           </select>

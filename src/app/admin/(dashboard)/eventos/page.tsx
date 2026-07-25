@@ -50,13 +50,13 @@ export default async function AdminReservasPage() {
 
       <div className="mb-7 grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
-          label="Solicitudes pendientes"
+          label="En aprobación"
           value={pendientes}
           color="orange"
           icon={<IconClock />}
         />
         <StatCard
-          label="Confirmadas este mes"
+          label="Reservadas este mes"
           value={confirmadasEsteMes}
           color="navy"
           icon={<IconCheck />}

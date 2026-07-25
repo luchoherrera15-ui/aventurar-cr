@@ -16,9 +16,10 @@ const MESES = [
 const DOW = ["D", "L", "M", "M", "J", "V", "S"];
 
 const TERMINOS = [
+  "El depósito debe ser de al menos ₡25.000. Si el comprobante muestra un monto menor, la reserva no será válida y el dinero no se reembolsa.",
   "El depósito de reserva no es reembolsable en caso de cancelación por parte del cliente.",
-  "El tipo de evento debe coincidir exactamente con el indicado en la solicitud; si no coincide, Aventurea CR puede cancelar la reserva sin devolución del depósito.",
-  "El envío de la solicitud y el comprobante no confirma la fecha por sí solo — la reserva queda sujeta a la aprobación de Aventurea CR.",
+  "El tipo de evento debe coincidir exactamente con el indicado al reservar; si no coincide, Aventurea CR puede cancelar la reserva sin devolución del depósito.",
+  "Subir el comprobante no confirma la fecha por sí solo — la reserva queda en aprobación hasta que Aventurea CR la revise y confirme.",
   "El alquiler es por un bloque de 6 horas (mañana y tarde, o tarde y noche), con hora máxima de salida a las 12:00 medianoche.",
   "Cualquier daño a las instalaciones o al mobiliario durante el evento es responsabilidad de quien hizo la reserva.",
 ];
@@ -291,8 +292,9 @@ export default function BookingCalendar({
             Reserva tu fecha
           </h1>
           <p className="mt-2.5 text-[14.5px] text-zinc-400">
-            Elegí un día en el calendario. Te mostramos el precio al instante
-            y enviás tu solicitud — queda pendiente hasta que la confirmemos.
+            Elegí un día en el calendario, completá tus datos y subí el
+            comprobante del depósito. Tu reserva queda en aprobación hasta
+            que la confirmemos.
           </p>
         </div>
 
@@ -396,23 +398,23 @@ export default function BookingCalendar({
               </span>
               <span className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
                 <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-orange/40 bg-aventurea-orange/15" />
-                Con solicitudes
+                En aprobación
               </span>
               <span className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
                 <span className="h-2.5 w-2.5 rounded-[3px] bg-zinc-700" />
-                Confirmada
+                Reservada
               </span>
             </div>
 
             <div className="mt-4 flex flex-col gap-2">
               <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs text-aventurea-orange">
-                Varias personas pueden solicitar la misma fecha — nosotros
-                elegimos cuál confirmar.
+                Si varias personas reservan la misma fecha, Aventurea CR
+                revisa los comprobantes y confirma una sola.
               </div>
               <div className="rounded-[10px] bg-blue-500/10 p-3 text-xs text-blue-300">
-                Al elegir una fecha, la reservás por 10 minutos mientras
-                completás tu solicitud. Si se acaba el tiempo, la fecha
-                vuelve a quedar disponible.
+                Al elegir una fecha, la reservás por 10 minutos — ese es el
+                tiempo que tenés para subir el comprobante del depósito. Si
+                no lo subís a tiempo, la fecha vuelve a quedar disponible.
               </div>
             </div>
           </div>
@@ -429,7 +431,7 @@ export default function BookingCalendar({
                 </h3>
                 <p className="mx-auto mt-2 max-w-[34ch] text-[13px] text-zinc-400">
                   Elegí un día disponible en el calendario para indicar los
-                  invitados, ver el precio y enviar tu solicitud.
+                  invitados, ver el precio y reservar la fecha.
                 </p>
               </div>
             )}
@@ -466,8 +468,9 @@ export default function BookingCalendar({
                   Se venció el tiempo
                 </h3>
                 <p className="mx-auto mt-2 max-w-[34ch] text-[13px] text-zinc-400">
-                  Pasaron los 10 minutos para completar tu solicitud y la
-                  fecha volvió a quedar disponible. Podés elegirla de nuevo.
+                  Pasaron los 10 minutos para subir el comprobante del
+                  depósito y la fecha volvió a quedar disponible. Podés
+                  elegirla de nuevo.
                 </p>
                 <button
                   onClick={limpiarSeleccion}
@@ -484,19 +487,19 @@ export default function BookingCalendar({
                   ✓
                 </div>
                 <h3 className="mt-3.5 text-lg font-bold text-white">
-                  Solicitud registrada
+                  Reserva en aprobación
                 </h3>
                 <p className="mt-2 text-[13px] text-zinc-400">
-                  Tu solicitud y tu comprobante quedaron guardados para esa
-                  fecha. Aventurea CR va a validar el pago y confirmar — si
-                  hay más solicitudes para el mismo día, elegimos cuál
-                  confirmar.
+                  Tu reserva y tu comprobante quedaron guardados para esa
+                  fecha. Aventurea CR va a validar el depósito y confirmar
+                  — si hay más reservas para el mismo día, se confirma una
+                  sola. Te avisamos por el contacto que dejaste.
                 </p>
                 <button
                   onClick={limpiarSeleccion}
                   className="mt-4 rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
                 >
-                  Hacer otra solicitud
+                  Hacer otra reserva
                 </button>
               </div>
             )}
@@ -512,12 +515,12 @@ export default function BookingCalendar({
                   </span>
                 </div>
                 <p className="-mt-1.5 text-[11px] text-zinc-500">
-                  Completá y enviá tu solicitud antes de que se acabe el
+                  Subí el comprobante del depósito antes de que se acabe el
                   tiempo, o la fecha vuelve a quedar disponible.
                 </p>
 
                 <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-                  Solicitud de reserva
+                  Reserva de fecha
                 </p>
                 <div className="text-base font-bold text-white">
                   {selectedDateObj?.toLocaleDateString("es-CR", {
@@ -527,10 +530,10 @@ export default function BookingCalendar({
 
                 {dias[selectedDate] && dias[selectedDate].pendientes > 0 && (
                   <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs leading-relaxed text-aventurea-orange">
-                    Ya hay {dias[selectedDate].pendientes} solicitud
-                    {dias[selectedDate].pendientes > 1 ? "es" : ""} pendiente
-                    {dias[selectedDate].pendientes > 1 ? "s" : ""} para esta
-                    fecha. Igual podés enviar la tuya.
+                    Ya hay {dias[selectedDate].pendientes} reserva
+                    {dias[selectedDate].pendientes > 1 ? "s" : ""} en
+                    aprobación para esta fecha. Igual podés reservar la tuya
+                    — Aventurea CR confirma una sola.
                   </div>
                 )}
 
@@ -696,6 +699,10 @@ export default function BookingCalendar({
                   transferencia para reservar la fecha. El resto de la
                   cotización se coordina para el día del evento.
                 </p>
+                <div className="rounded-[10px] border border-red-500/30 bg-red-950/20 p-3 text-[11.5px] leading-relaxed text-red-300">
+                  ⚠ Si el comprobante muestra un monto <strong>menor a {fmtColones(depositoReserva)}</strong>,
+                  la reserva no queda válida y el dinero no se reembolsa.
+                </div>
 
                 <div>
                   <label className={labelCls}>Método de pago del depósito</label>
@@ -768,7 +775,7 @@ export default function BookingCalendar({
                   disabled={submitting || !puedeEnviar}
                   className="rounded-full bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
                 >
-                  {submitting ? "Enviando..." : "Enviar solicitud"}
+                  {submitting ? "Enviando..." : "Confirmar mi reserva"}
                 </button>
                 <button
                   type="button"
