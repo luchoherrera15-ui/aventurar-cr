@@ -2,14 +2,14 @@ import Link from "next/link";
 
 export default function AdminHubPage() {
   return (
-    <div>
+    <div className="relative isolate">
       <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
         Panel Admin
       </p>
-      <h1 className="mt-1 text-2xl font-bold text-aventurea-navy">
+      <h1 className="mt-1 text-2xl font-bold text-white">
         ¿Qué querés gestionar?
       </h1>
-      <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
+      <p className="mt-1 text-[13.5px] text-zinc-400">
         Elegí una línea de negocio para ver sus reservas y configuración.
       </p>
 
@@ -45,14 +45,18 @@ function HubCard({
   return (
     <Link
       href={href}
-      className="group relative block overflow-hidden rounded-2xl bg-aventurea-navy p-7 shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg"
+      className="group relative block overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 p-7 shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-6 -z-10 rounded-[2.5rem] bg-aventurea-orange opacity-10 blur-3xl transition-opacity duration-300 group-hover:opacity-20"
+      />
       <div className="pointer-events-none absolute -bottom-8 -right-8 h-40 w-40 text-white/10 transition-transform duration-300 group-hover:scale-110">
         {icon}
       </div>
       <div className="relative">
         <h2 className="text-xl font-bold text-white">{title}</h2>
-        <p className="mt-1.5 text-[13px] text-white/60">{subtitle}</p>
+        <p className="mt-1.5 text-[13px] text-zinc-400">{subtitle}</p>
         <span className="mt-6 inline-flex items-center gap-2 text-[13px] font-bold text-aventurea-orange">
           Entrar
           <svg

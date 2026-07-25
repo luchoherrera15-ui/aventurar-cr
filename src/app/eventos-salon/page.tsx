@@ -31,27 +31,27 @@ export default async function EventosSalonPage() {
   });
 
   return (
-    <div className="bg-aventurea-cream">
-      <header className="sticky top-0 z-50 border-b border-white/15 bg-aventurea-navy/95 backdrop-blur-sm">
+    <div className="min-h-screen bg-zinc-950">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-aventurea-navy">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-zinc-950">
               A
             </span>
             <span className="text-base font-bold text-white">AVENTUREA CR</span>
-            <span className="text-[#5C7796]">/</span>
-            <span className="text-[13px] font-light text-[#C6D3E8]">
+            <span className="text-zinc-600">/</span>
+            <span className="text-[13px] font-light text-zinc-400">
               Rancho de Eventos
             </span>
           </Link>
           <nav className="hidden items-center gap-6 sm:flex">
-            <Link href="/" className="text-[13.5px] text-[#DCEAEA] hover:text-aventurea-orange">
+            <Link href="/" className="text-[13.5px] text-zinc-400 hover:text-aventurea-orange">
               Inicio
             </Link>
-            <a href="#reservar" className="text-[13.5px] text-[#DCEAEA] hover:text-aventurea-orange">
+            <a href="#reservar" className="text-[13.5px] text-zinc-400 hover:text-aventurea-orange">
               Reservar
             </a>
-            <a href="#rancho" className="text-[13.5px] text-[#DCEAEA] hover:text-aventurea-orange">
+            <a href="#rancho" className="text-[13.5px] text-zinc-400 hover:text-aventurea-orange">
               El rancho
             </a>
           </nav>
@@ -70,7 +70,7 @@ export default async function EventosSalonPage() {
           <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
             El espacio
           </p>
-          <h2 className="mt-2.5 text-[27px] font-bold text-aventurea-navy">
+          <h2 className="mt-2.5 text-[27px] font-bold text-white">
             Lo que incluye el rancho
           </h2>
 
@@ -84,20 +84,20 @@ export default async function EventosSalonPage() {
             ].map(([title, desc]) => (
               <div
                 key={title}
-                className="rounded-2xl border border-aventurea-line bg-white p-5"
+                className="rounded-2xl border border-white/10 bg-zinc-900 p-5"
               >
-                <h3 className="text-[15px] font-bold text-aventurea-navy">{title}</h3>
-                <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">{desc}</p>
+                <h3 className="text-[15px] font-bold text-white">{title}</h3>
+                <p className="mt-1.5 text-[12.5px] text-zinc-400">{desc}</p>
               </div>
             ))}
-            <div className="relative rounded-2xl border border-aventurea-orange bg-white p-5">
-              <span className="absolute right-4 top-4 rounded-full bg-aventurea-orange-light px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide text-aventurea-orange-dark">
+            <div className="relative rounded-2xl border border-aventurea-orange/40 bg-zinc-900 p-5">
+              <span className="absolute right-4 top-4 rounded-full bg-aventurea-orange/15 px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide text-aventurea-orange">
                 Costo adicional
               </span>
-              <h3 className="text-[15px] font-bold text-aventurea-navy">
+              <h3 className="text-[15px] font-bold text-white">
                 Hospedaje (chalets)
               </h3>
-              <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">
+              <p className="mt-1.5 text-[12.5px] text-zinc-400">
                 Disponible solo en ciertos casos, sujeto a disponibilidad. Se
                 elige como servicio adicional al reservar.
               </p>
@@ -106,8 +106,8 @@ export default async function EventosSalonPage() {
         </div>
       </section>
 
-      <footer className="bg-aventurea-navy py-9 text-center">
-        <p className="text-xs text-[#AFC6C4]">
+      <footer className="border-t border-white/10 py-9 text-center">
+        <p className="text-xs text-zinc-500">
           AVENTUREA CR — Puntarenas, Costa Rica ·{" "}
           <Link href="/" className="font-bold text-aventurea-orange">
             Volver al inicio

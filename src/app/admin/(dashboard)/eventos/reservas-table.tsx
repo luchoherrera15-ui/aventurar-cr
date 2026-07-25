@@ -16,10 +16,10 @@ const ESTADO_LABEL: Record<Reserva["estado"], string> = {
 };
 
 const ESTADO_BADGE: Record<Reserva["estado"], string> = {
-  pendiente: "bg-aventurea-orange-light text-aventurea-orange-dark",
-  confirmada: "bg-aventurea-navy text-white",
-  rechazada: "bg-aventurea-cream-2 text-aventurea-ink",
-  bloqueada: "bg-aventurea-ink text-white",
+  pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
+  confirmada: "bg-zinc-700 text-white",
+  rechazada: "bg-zinc-800 text-zinc-400",
+  bloqueada: "bg-zinc-800 text-white",
 };
 
 function fmtMoney(n: number | null) {
@@ -109,12 +109,12 @@ export default function ReservasTable({
             placeholder="Buscar cliente..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="rounded-[10px] border-[1.5px] border-aventurea-line bg-white px-3 py-2.5 text-[13px]"
+            className="rounded-[10px] border border-white/10 bg-zinc-900 px-3 py-2.5 text-[13px] text-white placeholder:text-zinc-500"
           />
           <select
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
-            className="rounded-[10px] border-[1.5px] border-aventurea-line bg-white px-3 py-2.5 text-[13px]"
+            className="rounded-[10px] border border-white/10 bg-zinc-900 px-3 py-2.5 text-[13px] text-white"
           >
             <option value="todas">Todos los estados</option>
             <option value="pendiente">Pendiente</option>
@@ -126,15 +126,15 @@ export default function ReservasTable({
       </div>
 
       {actionError && (
-        <p className="mb-4 rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
+        <p className="mb-4 rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
           {actionError}
         </p>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-sm">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-aventurea-cream">
+            <tr className="bg-zinc-800/60">
               {[
                 "Fecha",
                 "Cliente",
@@ -146,7 +146,7 @@ export default function ReservasTable({
               ].map((h) => (
                 <th
                   key={h}
-                  className="whitespace-nowrap border-b border-aventurea-line px-4 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                  className="whitespace-nowrap border-b border-white/10 px-4 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-wide text-zinc-400"
                 >
                   {h}
                 </th>
@@ -158,21 +158,21 @@ export default function ReservasTable({
               <tr>
                 <td
                   colSpan={7}
-                  className="px-4 py-10 text-center text-[13.5px] text-aventurea-ink-soft"
+                  className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
                   No hay reservas que coincidan con la búsqueda.
                 </td>
               </tr>
             )}
             {list.map((r) => (
-              <tr key={r.id} className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream">
-                <td className="px-4 py-3.5 text-[13.5px]">{fmtDate(r.fecha)}</td>
+              <tr key={r.id} className="border-b border-white/10 last:border-none hover:bg-zinc-800/40">
+                <td className="px-4 py-3.5 text-[13.5px] text-zinc-300">{fmtDate(r.fecha)}</td>
                 <td className="px-4 py-3.5">
-                  <div className="font-bold text-aventurea-navy">{r.nombre}</div>
-                  <div className="text-xs text-aventurea-ink-soft">{r.contacto}</div>
+                  <div className="font-bold text-white">{r.nombre}</div>
+                  <div className="text-xs text-zinc-500">{r.contacto}</div>
                 </td>
-                <td className="px-4 py-3.5 text-[13.5px]">{r.tipo_evento}</td>
-                <td className="px-4 py-3.5 text-[13.5px]">{r.invitados ?? "—"}</td>
+                <td className="px-4 py-3.5 text-[13.5px] text-zinc-300">{r.tipo_evento}</td>
+                <td className="px-4 py-3.5 text-[13.5px] text-zinc-300">{r.invitados ?? "—"}</td>
                 <td className="px-4 py-3.5">
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${ESTADO_BADGE[r.estado]}`}
@@ -183,15 +183,15 @@ export default function ReservasTable({
                 <td className="px-4 py-3.5">
                   <div className="flex flex-col items-start gap-1">
                     {r.deposito_validado ? (
-                      <span className="inline-flex items-center rounded-full bg-aventurea-green-light px-2.5 py-1 text-[11px] font-bold text-aventurea-green">
+                      <span className="inline-flex items-center rounded-full bg-aventurea-green/15 px-2.5 py-1 text-[11px] font-bold text-aventurea-green">
                         ✓ Validado · {fmtMoney(r.deposito_monto)}
                       </span>
                     ) : r.deposito_comprobante_url ? (
-                      <span className="inline-flex items-center rounded-full bg-aventurea-orange-light px-2.5 py-1 text-[11px] font-bold text-aventurea-orange-dark">
+                      <span className="inline-flex items-center rounded-full bg-aventurea-orange/15 px-2.5 py-1 text-[11px] font-bold text-aventurea-orange">
                         Por validar · {fmtMoney(r.deposito_monto)}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
+                      <span className="inline-flex items-center rounded-full bg-zinc-800 px-2.5 py-1 text-[11px] font-bold text-zinc-500">
                         Sin comprobante
                       </span>
                     )}
@@ -200,7 +200,7 @@ export default function ReservasTable({
                         <button
                           disabled={comprobanteLoading}
                           onClick={() => verComprobante(r.deposito_comprobante_url!)}
-                          className="text-[11px] font-bold text-aventurea-navy underline hover:text-aventurea-orange-dark disabled:opacity-50"
+                          className="text-[11px] font-bold text-white underline hover:text-aventurea-orange disabled:opacity-50"
                         >
                           Ver comprobante
                         </button>
@@ -208,7 +208,7 @@ export default function ReservasTable({
                           <button
                             disabled={pending}
                             onClick={() => marcarValidado(r.id)}
-                            className="text-[11px] font-bold text-aventurea-green underline hover:text-aventurea-navy disabled:opacity-50"
+                            className="text-[11px] font-bold text-aventurea-green underline hover:text-white disabled:opacity-50"
                           >
                             Marcar validado
                           </button>
@@ -224,14 +224,14 @@ export default function ReservasTable({
                         <button
                           disabled={pending}
                           onClick={() => cambiarEstado(r.id, "confirmada")}
-                          className="h-[30px] rounded-lg border border-aventurea-line bg-white px-2.5 text-xs font-bold text-aventurea-green hover:border-aventurea-green disabled:opacity-50"
+                          className="h-[30px] rounded-lg border border-white/10 bg-zinc-800 px-2.5 text-xs font-bold text-aventurea-green hover:border-aventurea-green disabled:opacity-50"
                         >
                           Aprobar
                         </button>
                         <button
                           disabled={pending}
                           onClick={() => cambiarEstado(r.id, "rechazada")}
-                          className="h-[30px] rounded-lg border border-aventurea-line bg-white px-2.5 text-xs font-bold text-red-700 hover:border-red-400 disabled:opacity-50"
+                          className="h-[30px] rounded-lg border border-white/10 bg-zinc-800 px-2.5 text-xs font-bold text-red-400 hover:border-red-400 disabled:opacity-50"
                         >
                           Rechazar
                         </button>
@@ -248,7 +248,7 @@ export default function ReservasTable({
       {comprobanteUrl && (
         <div
           onClick={() => setComprobanteUrl(null)}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-aventurea-navy/80 p-7"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-7"
         >
           <button
             onClick={() => setComprobanteUrl(null)}

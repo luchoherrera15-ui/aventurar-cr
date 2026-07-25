@@ -10,27 +10,24 @@ export default function LoginPage() {
   );
 
   return (
-    <main
-      className="flex min-h-screen items-center justify-center p-5"
-      style={{
-        background:
-          "radial-gradient(circle at 88% 96%, rgba(240,120,42,0.20) 0%, rgba(240,120,42,0) 42%), radial-gradient(circle at 8% 6%, var(--color-aventurea-navy-3) 0%, var(--color-aventurea-navy) 55%, var(--color-aventurea-navy) 100%)",
-      }}
-    >
-      <div className="w-full max-w-sm rounded-2xl bg-white p-9 shadow-2xl">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 p-5">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(255,255,255,0.06),transparent)]" />
+      <div className="pointer-events-none absolute -inset-10 -z-10 rounded-[3rem] bg-aventurea-orange opacity-[0.07] blur-[100px]" />
+
+      <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-9 shadow-2xl">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Acceso privado
         </p>
-        <h2 className="mt-2.5 text-xl font-bold text-aventurea-navy">
+        <h2 className="mt-2.5 text-xl font-bold text-white">
           Panel Administrativo
         </h2>
-        <p className="mt-1.5 text-sm text-aventurea-ink-soft">
+        <p className="mt-1.5 text-sm text-zinc-400">
           Gestiona las reservas de Aventurea CR.
         </p>
 
         <form action={formAction} className="mt-5.5 flex flex-col gap-3.5">
           <div>
-            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
               Correo
             </label>
             <input
@@ -38,11 +35,11 @@ export default function LoginPage() {
               name="email"
               required
               placeholder="tucorreo@aventureacr.com"
-              className="w-full rounded-[10px] border-[1.5px] border-aventurea-line bg-aventurea-cream px-3 py-2.5 text-sm"
+              className="w-full rounded-[10px] border border-white/10 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder:text-zinc-500"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
               Contraseña
             </label>
             <input
@@ -50,12 +47,12 @@ export default function LoginPage() {
               name="password"
               required
               placeholder="••••••••"
-              className="w-full rounded-[10px] border-[1.5px] border-aventurea-line bg-aventurea-cream px-3 py-2.5 text-sm"
+              className="w-full rounded-[10px] border border-white/10 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder:text-zinc-500"
             />
           </div>
 
           {state?.error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
+            <p className="rounded-lg bg-red-950/40 px-3 py-2 text-[13px] text-red-400">
               {state.error}
             </p>
           )}
@@ -69,7 +66,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-4 rounded-[10px] bg-aventurea-cream p-3 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
+        <p className="mt-4 rounded-[10px] bg-zinc-800 p-3 text-[11.5px] leading-relaxed text-zinc-400">
           Este acceso es solo para el equipo de Aventurea CR. Si todavía no
           tenés una cuenta, pedile a quien administra el proyecto que te cree
           una desde Supabase.

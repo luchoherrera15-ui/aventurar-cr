@@ -19,10 +19,10 @@ export default async function PreciosPage() {
       <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
         Rancho de Eventos
       </p>
-      <h1 className="mt-1 text-2xl font-bold text-aventurea-navy">
+      <h1 className="mt-1 text-2xl font-bold text-white">
         Precios y servicios
       </h1>
-      <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
+      <p className="mt-1 text-[13.5px] text-zinc-400">
         Lo que guardes acá se refleja al instante en el cotizador del sitio
         público.
       </p>
