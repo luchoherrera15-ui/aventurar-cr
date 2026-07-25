@@ -45,6 +45,8 @@ export default function ReservasTable({
   const [filtro, setFiltro] = useState("todas");
   const [pending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null);
+  const [comprobanteLoading, setComprobanteLoading] = useState(false);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -73,9 +75,12 @@ export default function ReservasTable({
   }
 
   async function verComprobante(path: string) {
+    setComprobanteLoading(true);
+    setActionError(null);
     const res = await obtenerUrlComprobante(path);
+    setComprobanteLoading(false);
     if (res.url) {
-      window.open(res.url, "_blank");
+      setComprobanteUrl(res.url);
     } else {
       setActionError(res.error ?? "No se pudo abrir el comprobante.");
     }
@@ -193,8 +198,9 @@ export default function ReservasTable({
                     {r.deposito_comprobante_url && (
                       <div className="flex gap-2.5">
                         <button
+                          disabled={comprobanteLoading}
                           onClick={() => verComprobante(r.deposito_comprobante_url!)}
-                          className="text-[11px] font-bold text-aventurea-navy underline hover:text-aventurea-orange-dark"
+                          className="text-[11px] font-bold text-aventurea-navy underline hover:text-aventurea-orange-dark disabled:opacity-50"
                         >
                           Ver comprobante
                         </button>
@@ -238,6 +244,28 @@ export default function ReservasTable({
           </tbody>
         </table>
       </div>
+
+      {comprobanteUrl && (
+        <div
+          onClick={() => setComprobanteUrl(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-aventurea-navy/80 p-7"
+        >
+          <button
+            onClick={() => setComprobanteUrl(null)}
+            aria-label="Cerrar"
+            className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xl text-white hover:bg-white/20"
+          >
+            ×
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={comprobanteUrl}
+            alt="Comprobante de depósito"
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[86vh] max-w-[92vw] rounded-xl shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }
