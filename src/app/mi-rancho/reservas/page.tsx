@@ -21,7 +21,7 @@ export default async function MiRanchoReservasPage() {
   if (!ranchoData) redirect("/mi-rancho/nuevo");
   const rancho = ranchoData as Rancho;
 
-  if (rancho.categoria !== "salon") {
+  if (rancho.categoria !== "lugares") {
     redirect("/mi-rancho");
   }
 

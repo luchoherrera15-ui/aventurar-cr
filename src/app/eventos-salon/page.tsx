@@ -11,7 +11,7 @@ export default async function EventosSalonPage() {
 
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("id, deposito_reserva, tarifa_diciembre_por_persona")
+    .select("id, deposito_reserva, tarifa_diciembre_por_persona, terminos, monto_minimo")
     .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
     .maybeSingle();
 
@@ -98,6 +98,8 @@ export default async function EventosSalonPage() {
         tarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 3750}
         depositoReserva={rancho.deposito_reserva ?? 25000}
         promociones={(promoRes.data ?? []) as PromocionDia[]}
+        terminos={(rancho.terminos as string[] | null) ?? []}
+        montoMinimo={(rancho.monto_minimo as number | null) ?? null}
       />
 
       <section id="rancho" className="py-16">

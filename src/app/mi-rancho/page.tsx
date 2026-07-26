@@ -158,11 +158,11 @@ export default async function MiRanchoPage() {
               href="/mi-rancho/precios"
               className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
             >
-              {rancho.categoria === "salon"
+              {rancho.categoria === "lugares"
                 ? "Precios y descuentos"
                 : "Códigos de descuento"}
             </Link>
-            {rancho.categoria === "salon" && (
+            {rancho.categoria === "lugares" && (
               <Link
                 href="/mi-rancho/reservas"
                 className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"

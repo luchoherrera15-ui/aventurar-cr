@@ -8,7 +8,7 @@ import {
   CATEGORIAS,
   FOTOS_MAX,
   PROVINCIAS,
-  TIPOS_LUGAR,
+  SUBCATEGORIAS,
 } from "../types";
 
 export type EditarRanchoState = { error?: string; ok?: boolean } | undefined;
@@ -53,9 +53,10 @@ export async function actualizarRancho(
     return { error: "Completá al menos el tipo de servicio, el nombre y la provincia." };
   }
 
-  const tipoLugarRaw = String(formData.get("tipo_lugar") || "");
-  if (categoria === "salon" && !(TIPOS_LUGAR as readonly string[]).includes(tipoLugarRaw)) {
-    return { error: "Elegí qué tipo de lugar es tu salón." };
+  const subcategoria = String(formData.get("subcategoria") || "");
+  const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
+  if (!validas.some((s) => s.id === subcategoria)) {
+    return { error: "Elegí qué ofrecés exactamente dentro de esa categoría." };
   }
 
   const num = (campo: string) => {
@@ -87,7 +88,7 @@ export async function actualizarRancho(
   }
 
   const amenidades =
-    categoria === "salon"
+    categoria === "lugares"
       ? formData
           .getAll("amenidades")
           .map(String)
@@ -98,7 +99,7 @@ export async function actualizarRancho(
 
   const update: Record<string, unknown> = {
     categoria,
-    tipo_lugar: categoria === "salon" ? tipoLugarRaw : null,
+    subcategoria,
     nombre,
     descripcion: texto("descripcion"),
     descripcion_larga: texto("descripcion_larga"),

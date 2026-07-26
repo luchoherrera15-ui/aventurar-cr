@@ -6,8 +6,7 @@ import {
   CATEGORIAS,
   CATEGORIA_LABEL,
   PROVINCIAS,
-  TIPOS_LUGAR,
-  TIPO_LUGAR_LABEL,
+  SUBCATEGORIAS,
   type Categoria,
 } from "../types";
 
@@ -22,7 +21,8 @@ export default function NuevoRanchoForm() {
     FormData
   >(crearRancho, undefined);
   const [categoria, setCategoria] = useState<Categoria | "">("");
-  const esSalon = categoria === "salon";
+  const [subcategoria, setSubcategoria] = useState("");
+  const esLugar = categoria === "lugares";
 
   return (
     <form
@@ -35,7 +35,10 @@ export default function NuevoRanchoForm() {
           name="categoria"
           required
           value={categoria}
-          onChange={(e) => setCategoria(e.target.value as Categoria)}
+          onChange={(e) => {
+            setCategoria(e.target.value as Categoria);
+            setSubcategoria("");
+          }}
           className={inputCls}
         >
           <option value="">Selecciona una opción</option>
@@ -47,14 +50,22 @@ export default function NuevoRanchoForm() {
         </select>
       </div>
 
-      {esSalon && (
+      {categoria && (
         <div>
-          <label className={labelCls}>Tipo de lugar</label>
-          <select name="tipo_lugar" required className={inputCls}>
+          <label className={labelCls}>
+            {esLugar ? "Tipo de lugar" : "¿Qué ofrecés exactamente?"}
+          </label>
+          <select
+            name="subcategoria"
+            required
+            value={subcategoria}
+            onChange={(e) => setSubcategoria(e.target.value)}
+            className={inputCls}
+          >
             <option value="">Selecciona una opción</option>
-            {TIPOS_LUGAR.map((t) => (
-              <option key={t} value={t}>
-                {TIPO_LUGAR_LABEL[t]}
+            {SUBCATEGORIAS[categoria].map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
               </option>
             ))}
           </select>
@@ -63,13 +74,13 @@ export default function NuevoRanchoForm() {
 
       <div>
         <label className={labelCls}>
-          {esSalon ? "Nombre del salón o rancho" : "Nombre de tu negocio"}
+          {esLugar ? "Nombre del salón o rancho" : "Nombre de tu negocio"}
         </label>
         <input
           type="text"
           name="nombre"
           required
-          placeholder={esSalon ? "Ej. Rancho Los Almendros" : "Ej. DJ Mauricio Eventos"}
+          placeholder={esLugar ? "Ej. Rancho Los Almendros" : "Ej. DJ Mauricio Eventos"}
           className={inputCls}
         />
       </div>
@@ -116,7 +127,7 @@ export default function NuevoRanchoForm() {
         />
       </div>
 
-      {esSalon && (
+      {esLugar && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Capacidad mínima</label>

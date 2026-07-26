@@ -17,6 +17,7 @@ import {
   crearReservaTemporal,
 } from "./actions";
 import type { DiaDisponibilidad, HorarioBloque, PrecioTier, ServicioAdicional } from "./types";
+import { terminosPorDefecto } from "@/app/mi-rancho/types";
 import type { PromocionDia } from "@/app/mi-rancho/types";
 
 const MESES = [
@@ -24,16 +25,6 @@ const MESES = [
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ];
 const DOW = ["D", "L", "M", "M", "J", "V", "S"];
-
-const TERMINOS = [
-  "El depósito debe ser de al menos ₡25.000. Si el comprobante muestra un monto menor, la reserva no será válida y el dinero no se reembolsa.",
-  "El depósito de reserva no es reembolsable en caso de cancelación por parte del cliente.",
-  "El tipo de evento debe coincidir exactamente con el indicado al reservar; si no coincide, el anfitrión puede cancelar la reserva sin devolución del depósito.",
-  "Subir el comprobante no confirma la fecha por sí solo — la reserva queda en aprobación hasta que el anfitrión la revise y confirme.",
-  "El alquiler es por un bloque de 6 horas (mañana y tarde, o tarde y noche), con hora máxima de salida a las 12:00 medianoche.",
-  "Cualquier daño a las instalaciones o al mobiliario durante el evento es responsabilidad de quien hizo la reserva.",
-  "El número de cédula se pide únicamente para identificar a quien reserva en caso de daños o problemas durante el evento (Ley 8968 de protección de datos). Solo lo ve el anfitrión del lugar reservado y el equipo de Aventurea CR — nunca se hace público.",
-];
 
 const CEDULA_REGEX = /^[0-9-]{7,14}$/;
 
@@ -71,6 +62,8 @@ export default function BookingCalendar({
   tarifaDiciembre,
   depositoReserva,
   promociones = [],
+  terminos = [],
+  montoMinimo = null,
 }: {
   ranchoId: string;
   nombreRancho: string;
@@ -80,7 +73,17 @@ export default function BookingCalendar({
   tarifaDiciembre: number;
   depositoReserva: number;
   promociones?: PromocionDia[];
+  /** Los del proveedor; vacío = usar los que trae la plataforma. */
+  terminos?: string[];
+  montoMinimo?: number | null;
 }) {
+  // Un proveedor que nunca los tocó muestra siempre los vigentes de
+  // Aventurea, armados con su propio depósito y monto mínimo.
+  const terminosVigentes =
+    terminos.length > 0
+      ? terminos
+      : terminosPorDefecto(depositoReserva, montoMinimo);
+
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -1102,7 +1105,7 @@ export default function BookingCalendar({
               </button>
             </div>
             <ol className="mt-4 flex flex-col gap-3">
-              {TERMINOS.map((t, i) => (
+              {terminosVigentes.map((t, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-aventurea-ink-soft">
                   <span className="font-bold text-aventurea-orange">{i + 1}.</span>
                   {t}

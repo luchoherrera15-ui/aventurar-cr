@@ -13,8 +13,7 @@ import {
   FOTO_ALTO_MIN,
   FOTO_ANCHO_MIN,
   PROVINCIAS,
-  TIPOS_LUGAR,
-  TIPO_LUGAR_LABEL,
+  SUBCATEGORIAS,
   type Categoria,
   type Rancho,
 } from "../types";
@@ -39,6 +38,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   >(actualizarRancho, undefined);
 
   const [categoria, setCategoria] = useState<Categoria>(rancho.categoria);
+  const [subcategoria, setSubcategoria] = useState(rancho.subcategoria ?? "");
   const [fotoPreview, setFotoPreview] = useState<string | null>(rancho.foto_url);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoAviso, setFotoAviso] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   const [fotosNuevas, setFotosNuevas] = useState<FotoNueva[]>([]);
   const [amenidades, setAmenidades] = useState<string[]>(rancho.amenidades ?? []);
 
-  const esSalon = categoria === "salon";
+  const esLugar = categoria === "lugares";
   const totalFotos = galeria.length + fotosNuevas.length;
   const espacioLibre = FOTOS_MAX - totalFotos;
 
@@ -254,7 +254,10 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               name="categoria"
               required
               value={categoria}
-              onChange={(e) => setCategoria(e.target.value as Categoria)}
+              onChange={(e) => {
+                setCategoria(e.target.value as Categoria);
+                setSubcategoria("");
+              }}
               className={inputCls}
             >
               {CATEGORIAS.map((c) => (
@@ -265,24 +268,25 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             </select>
           </div>
 
-          {esSalon && (
-            <div>
-              <label className={labelCls}>Tipo de lugar</label>
-              <select
-                name="tipo_lugar"
-                required
-                defaultValue={rancho.tipo_lugar ?? ""}
-                className={inputCls}
-              >
-                <option value="">Selecciona una opción</option>
-                {TIPOS_LUGAR.map((t) => (
-                  <option key={t} value={t}>
-                    {TIPO_LUGAR_LABEL[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className={labelCls}>
+              {esLugar ? "Tipo de lugar" : "¿Qué ofrecés exactamente?"}
+            </label>
+            <select
+              name="subcategoria"
+              required
+              value={subcategoria}
+              onChange={(e) => setSubcategoria(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Selecciona una opción</option>
+              {SUBCATEGORIAS[categoria].map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className={labelCls}>Nombre</label>
@@ -354,7 +358,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             />
           </div>
 
-          {esSalon && (
+          {esLugar && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelCls}>Capacidad mínima</label>
@@ -458,7 +462,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
         </div>
       </section>
 
-      {esSalon && (
+      {esLugar && (
         <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
           <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
             Amenidades

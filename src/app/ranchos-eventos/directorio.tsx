@@ -1,18 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { IconSparkles } from "@/components/icons";
 import {
   CATEGORIAS,
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
   PROVINCIAS,
-  TIPOS_LUGAR,
-  TIPO_LUGAR_LABEL,
+  SUBCATEGORIAS,
+  SUBCATEGORIA_LABEL,
   type Categoria,
-  type TipoLugar,
 } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
 import { NOMBRE_RANCHO_AVENTUREA } from "./constants";
@@ -26,47 +24,50 @@ function fmtColones(n: number | null) {
 
 export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
   const [tab, setTab] = useState<Categoria | "todos">("todos");
+  const [subcategoria, setSubcategoria] = useState("");
   const [texto, setTexto] = useState("");
   const [provincia, setProvincia] = useState("");
-  const [tipoLugar, setTipoLugar] = useState<TipoLugar | "">("");
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
   const [pagina, setPagina] = useState(1);
+  const [menuAbierto, setMenuAbierto] = useState<Categoria | null>(null);
 
   const invitadosNum = parseInt(invitados) || 0;
   const precioMaxNum = parseInt(precioMax) || 0;
-  const muestraLugares = tab === "todos" || tab === "salon";
 
-  // Los conteos de provincia y de tipo de lugar se calculan sobre el
-  // conjunto ya filtrado por categoría, para que reaccionen al cambiar
-  // de pestaña pero no se auto-filtren por sí mismos.
-  const ranchosPorTab = useMemo(
-    () => ranchos.filter((r) => tab === "todos" || r.categoria === tab),
-    [ranchos, tab],
-  );
-
-  const conteoPorProvincia = useMemo(() => {
+  const conteoPorCategoria = useMemo(() => {
     const acc: Record<string, number> = {};
-    ranchosPorTab.forEach((r) => {
-      if (r.provincia) acc[r.provincia] = (acc[r.provincia] ?? 0) + 1;
+    ranchos.forEach((r) => {
+      acc[r.categoria] = (acc[r.categoria] ?? 0) + 1;
     });
     return acc;
-  }, [ranchosPorTab]);
+  }, [ranchos]);
 
-  const conteoPorTipoLugar = useMemo(() => {
+  const conteoPorSubcategoria = useMemo(() => {
     const acc: Record<string, number> = {};
-    ranchos
-      .filter((r) => r.categoria === "salon")
-      .forEach((r) => {
-        if (r.tipo_lugar) acc[r.tipo_lugar] = (acc[r.tipo_lugar] ?? 0) + 1;
-      });
+    ranchos.forEach((r) => {
+      if (r.subcategoria) acc[r.subcategoria] = (acc[r.subcategoria] ?? 0) + 1;
+    });
     return acc;
   }, [ranchos]);
+
+  // El conteo por provincia se calcula sobre lo ya filtrado por categoría,
+  // para que reaccione al cambiar de pestaña sin auto-filtrarse.
+  const conteoPorProvincia = useMemo(() => {
+    const acc: Record<string, number> = {};
+    ranchos
+      .filter((r) => tab === "todos" || r.categoria === tab)
+      .forEach((r) => {
+        if (r.provincia) acc[r.provincia] = (acc[r.provincia] ?? 0) + 1;
+      });
+    return acc;
+  }, [ranchos, tab]);
 
   const filtrados = useMemo(() => {
     const q = texto.trim().toLowerCase();
     return ranchos.filter((r) => {
       if (tab !== "todos" && r.categoria !== tab) return false;
+      if (subcategoria && r.subcategoria !== subcategoria) return false;
       if (
         q &&
         !`${r.nombre} ${r.provincia ?? ""} ${r.canton ?? ""} ${r.descripcion ?? ""}`
@@ -76,17 +77,19 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         return false;
       }
       if (provincia && r.provincia !== provincia) return false;
-      if (tipoLugar && r.tipo_lugar !== tipoLugar) return false;
       if (invitadosNum && (r.capacidad_max ?? 0) < invitadosNum) return false;
       if (precioMaxNum && (r.precio_desde ?? 0) > precioMaxNum) return false;
       return true;
     });
-  }, [ranchos, tab, texto, provincia, tipoLugar, invitadosNum, precioMaxNum]);
+  }, [ranchos, tab, subcategoria, texto, provincia, invitadosNum, precioMaxNum]);
 
-  const filtrosActivos = [provincia, tipoLugar, invitados, precioMax].filter(
-    Boolean,
-  ).length;
-  const hayAlgo = filtrosActivos > 0 || !!texto || tab !== "todos";
+  const hayAlgo =
+    tab !== "todos" ||
+    !!subcategoria ||
+    !!texto ||
+    !!provincia ||
+    !!invitados ||
+    !!precioMax;
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
   const paginaSegura = Math.min(pagina, totalPaginas);
@@ -95,11 +98,13 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     paginaSegura * POR_PAGINA,
   );
 
+  const soltarMenu = useCallback(() => setMenuAbierto(null), []);
+
   function limpiar() {
     setTab("todos");
+    setSubcategoria("");
     setTexto("");
     setProvincia("");
-    setTipoLugar("");
     setInvitados("");
     setPrecioMax("");
     setPagina(1);
@@ -107,14 +112,16 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
 
   function elegirCategoria(c: Categoria | "todos") {
     setTab(c);
-    if (c !== "salon" && c !== "todos") setTipoLugar("");
+    setSubcategoria("");
     setPagina(1);
+    soltarMenu();
   }
 
-  function elegirTipoLugar(t: TipoLugar) {
-    setTab("salon");
-    setTipoLugar((prev) => (prev === t ? "" : t));
+  function elegirSubcategoria(c: Categoria, sub: string) {
+    setTab(c);
+    setSubcategoria((prev) => (prev === sub ? "" : sub));
     setPagina(1);
+    soltarMenu();
   }
 
   function elegirProvincia(p: string) {
@@ -122,111 +129,69 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     setPagina(1);
   }
 
-  function onCambiarTexto(v: string) {
-    setTexto(v);
-    setPagina(1);
-  }
-
-  function onCambiarInvitados(v: string) {
-    setInvitados(v);
-    setPagina(1);
-  }
-
-  function onCambiarPrecioMax(v: string) {
-    setPrecioMax(v);
-    setPagina(1);
-  }
-
-  // Piezas reutilizadas tal cual en la barra de escritorio (arriba de las
-  // cards) y en el panel de mobile (debajo de las cards, cerca del pie).
-  const seccionProvincia = (
-    <FilterSection title="Provincia">
-      {PROVINCIAS.map((p) => (
-        <FilterRow
-          key={p}
-          label={p}
-          count={conteoPorProvincia[p] ?? 0}
-          active={provincia === p}
-          onClick={() => elegirProvincia(p)}
-        />
-      ))}
-    </FilterSection>
-  );
-
-  const seccionLugares = muestraLugares ? (
-    <FilterSection title="Lugares">
-      {TIPOS_LUGAR.map((t) => (
-        <FilterRow
-          key={t}
-          label={TIPO_LUGAR_LABEL[t]}
-          count={conteoPorTipoLugar[t] ?? 0}
-          active={tipoLugar === t}
-          onClick={() => elegirTipoLugar(t)}
-        />
-      ))}
-    </FilterSection>
-  ) : null;
-
-  const seccionMasFiltros = (
-    <FilterSection title="Más filtros">
-      <div className="flex flex-col gap-3 px-2.5 pt-1">
-        <div>
-          <label className={labelCls}>Cantidad de invitados</label>
-          <input
-            type="number"
-            min={1}
-            value={invitados}
-            onChange={(e) => onCambiarInvitados(e.target.value)}
-            placeholder="Ej. 50"
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Precio máximo (₡)</label>
-          <input
-            type="number"
-            min={0}
-            value={precioMax}
-            onChange={(e) => onCambiarPrecioMax(e.target.value)}
-            placeholder="Ej. 150000"
-            className={inputCls}
-          />
-        </div>
-        {hayAlgo && (
-          <button
-            type="button"
-            onClick={limpiar}
-            className="mt-1 w-full rounded-[10px] border border-aventurea-line py-2.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
-          >
-            Limpiar filtros
-          </button>
-        )}
-      </div>
-    </FilterSection>
-  );
+  // Las subcategorías que se listan abajo son las de la categoría activa;
+  // si todavía no se eligió ninguna, se muestran las de Lugares.
+  const catParaSubs: Categoria = tab === "todos" ? "lugares" : tab;
 
   return (
     <div>
-      {/* Categorías: fila horizontal — scrollea en mobile, se acomoda en escritorio */}
-      <div className="-mx-6 mb-4 flex gap-2 overflow-x-auto px-6 pb-1 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
-        <CategoriaPill
-          icono={<IconSparkles />}
-          label="Todos"
-          active={tab === "todos"}
-          onClick={() => elegirCategoria("todos")}
-        />
-        {CATEGORIAS.map((c) => (
-          <CategoriaPill
-            key={c}
-            icono={CATEGORIA_ICONO[c]}
-            label={CATEGORIA_LABEL[c]}
-            active={tab === c}
-            onClick={() => elegirCategoria(c)}
+      {/* Barra de categorías con menú desplegable por cada una */}
+      <nav className="relative z-30 mb-4">
+        <div className="-mx-6 flex gap-1 overflow-x-auto border-b border-aventurea-line px-6 lg:mx-0 lg:px-0">
+          <TabCategoria
+            label="Todos"
+            activo={tab === "todos"}
+            abierto={false}
+            conMenu={false}
+            onClick={() => elegirCategoria("todos")}
           />
-        ))}
-      </div>
+          {CATEGORIAS.map((c) => (
+            <TabCategoria
+              key={c}
+              label={CATEGORIA_LABEL[c]}
+              activo={tab === c}
+              abierto={menuAbierto === c}
+              conMenu
+              onClick={() => setMenuAbierto((prev) => (prev === c ? null : c))}
+            />
+          ))}
+        </div>
 
-      {/* Buscador, siempre visible */}
+        {menuAbierto && (
+          <>
+            {/* Capa invisible: un clic afuera cierra el menú */}
+            <button
+              type="button"
+              aria-label="Cerrar menú"
+              onClick={soltarMenu}
+              className="fixed inset-0 z-10 cursor-default"
+            />
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
+              <button
+                type="button"
+                onClick={() => elegirCategoria(menuAbierto)}
+                className="mb-2 text-[12px] font-bold text-aventurea-orange hover:underline"
+              >
+                Ver todo en {CATEGORIA_LABEL[menuAbierto]} (
+                {conteoPorCategoria[menuAbierto] ?? 0}) →
+              </button>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3">
+                {SUBCATEGORIAS[menuAbierto].map((s) => (
+                  <FilterRow
+                    key={s.id}
+                    label={s.label}
+                    count={conteoPorSubcategoria[s.id] ?? 0}
+                    active={subcategoria === s.id}
+                    onClick={() => elegirSubcategoria(menuAbierto, s.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </nav>
+
+      {/* Buscador */}
       <div className="relative mb-4">
         <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
           <IconLupa />
@@ -234,11 +199,45 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         <input
           type="search"
           value={texto}
-          onChange={(e) => onCambiarTexto(e.target.value)}
+          onChange={(e) => {
+            setTexto(e.target.value);
+            setPagina(1);
+          }}
           placeholder="Buscá por nombre, provincia o cantón..."
           className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-orange/40 focus:outline-none"
         />
       </div>
+
+      {/* Qué está filtrado ahora mismo */}
+      {hayAlgo && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {tab !== "todos" && (
+            <Chip
+              label={CATEGORIA_LABEL[tab]}
+              onQuitar={() => elegirCategoria("todos")}
+            />
+          )}
+          {subcategoria && (
+            <Chip
+              label={SUBCATEGORIA_LABEL[subcategoria] ?? subcategoria}
+              onQuitar={() => {
+                setSubcategoria("");
+                setPagina(1);
+              }}
+            />
+          )}
+          {provincia && (
+            <Chip label={provincia} onQuitar={() => elegirProvincia(provincia)} />
+          )}
+          <button
+            type="button"
+            onClick={limpiar}
+            className="text-[12px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
+          >
+            Limpiar todo
+          </button>
+        </div>
+      )}
 
       <p className="mb-4 text-[12.5px] text-aventurea-ink-soft">
         {filtrados.length} espacio{filtrados.length === 1 ? "" : "s"}{" "}
@@ -272,18 +271,78 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         </>
       )}
 
-      {/* Resto de los filtros (provincia, lugares, más filtros), debajo de
-          las cards y cerca del pie de página — en escritorio se acomodan
-          en columnas, en mobile se apilan. */}
+      {/* Filtros secundarios, debajo de las cards y cerca del pie */}
       <div className="mt-10">
         <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
           Más formas de filtrar
         </p>
         <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
           <div className="lg:grid lg:grid-cols-3 lg:gap-6">
-            {seccionProvincia}
-            {seccionLugares}
-            {seccionMasFiltros}
+            <FilterSection title="Provincia">
+              {PROVINCIAS.map((p) => (
+                <FilterRow
+                  key={p}
+                  label={p}
+                  count={conteoPorProvincia[p] ?? 0}
+                  active={provincia === p}
+                  onClick={() => elegirProvincia(p)}
+                />
+              ))}
+            </FilterSection>
+
+            <FilterSection title={CATEGORIA_LABEL[catParaSubs]}>
+              {SUBCATEGORIAS[catParaSubs].map((s) => (
+                <FilterRow
+                  key={s.id}
+                  label={s.label}
+                  count={conteoPorSubcategoria[s.id] ?? 0}
+                  active={subcategoria === s.id}
+                  onClick={() => elegirSubcategoria(catParaSubs, s.id)}
+                />
+              ))}
+            </FilterSection>
+
+            <FilterSection title="Más filtros">
+              <div className="flex flex-col gap-3 px-2.5 pt-1">
+                <div>
+                  <label className={labelCls}>Cantidad de invitados</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={invitados}
+                    onChange={(e) => {
+                      setInvitados(e.target.value);
+                      setPagina(1);
+                    }}
+                    placeholder="Ej. 50"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Precio máximo (₡)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={precioMax}
+                    onChange={(e) => {
+                      setPrecioMax(e.target.value);
+                      setPagina(1);
+                    }}
+                    placeholder="Ej. 150000"
+                    className={inputCls}
+                  />
+                </div>
+                {hayAlgo && (
+                  <button
+                    type="button"
+                    onClick={limpiar}
+                    className="mt-1 w-full rounded-[10px] border border-aventurea-line py-2.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+            </FilterSection>
           </div>
         </div>
       </div>
@@ -295,7 +354,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
             ¿Tenés un negocio para eventos?
           </h2>
           <p className="mt-1 text-[13px] text-aventurea-ink-soft">
-            Salones, mobiliario, DJs, animación y más — publicalo gratis en
+            Lugares, comida, animación, decoración y más — publicalo gratis en
             Aventurea CR y llegá a más clientes en todo el país.
           </p>
         </div>
@@ -314,6 +373,67 @@ const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
+
+function TabCategoria({
+  label,
+  activo,
+  abierto,
+  conMenu,
+  onClick,
+}: {
+  label: string;
+  activo: boolean;
+  abierto: boolean;
+  conMenu: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={conMenu ? abierto : undefined}
+      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-bold uppercase tracking-wide transition-colors ${
+        activo || abierto
+          ? "border-aventurea-orange text-aventurea-orange"
+          : "border-transparent text-aventurea-ink-soft hover:text-aventurea-orange"
+      }`}
+    >
+      {label}
+      {conMenu && (
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          aria-hidden
+          className={`h-3.5 w-3.5 transition-transform ${abierto ? "rotate-180" : ""}`}
+        >
+          <path
+            d="m5 8 5 5 5-5"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function Chip({ label, onQuitar }: { label: string; onQuitar: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-aventurea-orange/10 py-1 pl-3 pr-1.5 text-[12px] font-bold text-aventurea-orange">
+      {label}
+      <button
+        type="button"
+        onClick={onQuitar}
+        aria-label={`Quitar filtro ${label}`}
+        className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-aventurea-orange hover:text-white"
+      >
+        ×
+      </button>
+    </span>
+  );
+}
 
 function FilterSection({
   title,
@@ -357,35 +477,6 @@ function FilterRow({
       <span className="ml-2 shrink-0 tabular-nums text-[11.5px] text-aventurea-ink-soft">
         {count}
       </span>
-    </button>
-  );
-}
-
-function CategoriaPill({
-  icono,
-  label,
-  active,
-  onClick,
-}: {
-  icono: React.ReactNode;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
-        active
-          ? "bg-aventurea-orange text-white"
-          : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft"
-      }`}
-    >
-      <span aria-hidden className="[&_svg]:h-3.5 [&_svg]:w-3.5">
-        {icono}
-      </span>
-      {label}
     </button>
   );
 }
@@ -456,14 +547,14 @@ function IconLupa() {
 
 function RanchoCard({ rancho }: { rancho: Rancho }) {
   const esAventurea = rancho.nombre === NOMBRE_RANCHO_AVENTUREA;
-  const puedeReservar = rancho.categoria === "salon";
+  const puedeReservar = rancho.categoria === "lugares";
   const href = esAventurea ? "/eventos-salon" : `/ranchos-eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
-  const etiqueta = rancho.tipo_lugar
-    ? TIPO_LUGAR_LABEL[rancho.tipo_lugar]
+  const etiqueta = rancho.subcategoria
+    ? (SUBCATEGORIA_LABEL[rancho.subcategoria] ?? CATEGORIA_LABEL[rancho.categoria])
     : CATEGORIA_LABEL[rancho.categoria];
 
   return (
@@ -486,13 +577,13 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/5" />
 
-      <div className="relative flex items-center justify-between p-3.5">
+      <div className="relative flex items-center justify-between gap-2 p-3.5">
         {rancho.provincia && (
           <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink">
             {rancho.provincia}
           </span>
         )}
-        <span className="rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90">
+        <span className="truncate rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90">
           {etiqueta}
         </span>
       </div>

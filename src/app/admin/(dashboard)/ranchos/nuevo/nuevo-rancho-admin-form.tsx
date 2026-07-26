@@ -9,8 +9,7 @@ import {
   CATEGORIAS,
   CATEGORIA_LABEL,
   PROVINCIAS,
-  TIPOS_LUGAR,
-  TIPO_LUGAR_LABEL,
+  SUBCATEGORIAS,
   type Categoria,
 } from "@/app/mi-rancho/types";
 
@@ -35,8 +34,9 @@ export default function NuevoRanchoAdminForm({
   const [modoDueno, setModoDueno] = useState<"existente" | "nuevo">(
     puedeCrearCuentas ? "nuevo" : "existente",
   );
-  const [categoria, setCategoria] = useState<Categoria>("salon");
-  const esSalon = categoria === "salon";
+  const [categoria, setCategoria] = useState<Categoria>("lugares");
+  const [subcategoria, setSubcategoria] = useState("");
+  const esLugar = categoria === "lugares";
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -145,7 +145,10 @@ export default function NuevoRanchoAdminForm({
               name="categoria"
               required
               value={categoria}
-              onChange={(e) => setCategoria(e.target.value as Categoria)}
+              onChange={(e) => {
+                setCategoria(e.target.value as Categoria);
+                setSubcategoria("");
+              }}
               className={inputCls}
             >
               {CATEGORIAS.map((c) => (
@@ -156,19 +159,25 @@ export default function NuevoRanchoAdminForm({
             </select>
           </div>
 
-          {esSalon && (
-            <div>
-              <label className={labelCls}>Tipo de lugar</label>
-              <select name="tipo_lugar" required className={inputCls}>
-                <option value="">Selecciona una opción</option>
-                {TIPOS_LUGAR.map((t) => (
-                  <option key={t} value={t}>
-                    {TIPO_LUGAR_LABEL[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className={labelCls}>
+              {esLugar ? "Tipo de lugar" : "¿Qué ofrece exactamente?"}
+            </label>
+            <select
+              name="subcategoria"
+              required
+              value={subcategoria}
+              onChange={(e) => setSubcategoria(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Selecciona una opción</option>
+              {SUBCATEGORIAS[categoria].map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className={labelCls}>Nombre del salón o negocio</label>

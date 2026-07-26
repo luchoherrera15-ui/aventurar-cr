@@ -7,7 +7,7 @@ import {
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
-  TIPO_LUGAR_LABEL,
+  SUBCATEGORIA_LABEL,
   type PromocionDia,
   type Rancho,
 } from "../../mi-rancho/types";
@@ -51,7 +51,7 @@ export default async function RanchoPortalPage({
     redirect("/eventos-salon");
   }
 
-  const esSalon = rancho.categoria === "salon";
+  const esLugar = rancho.categoria === "lugares";
   const fotos = rancho.fotos ?? [];
   const amenidades = rancho.amenidades ?? [];
   const precio = fmtColones(rancho.precio_desde);
@@ -70,7 +70,7 @@ export default async function RanchoPortalPage({
   // para que la página no repita la misma imagen dos veces.
   const fotoPresentacion = fotos[0] ?? rancho.foto_url;
 
-  const datosPresentacion = esSalon
+  const datosPresentacion = esLugar
     ? [
         {
           icono: <IconUsers />,
@@ -112,7 +112,7 @@ export default async function RanchoPortalPage({
   let servicios: ServicioAdicional[] = [];
   let promociones: PromocionDia[] = [];
 
-  if (esSalon) {
+  if (esLugar) {
     await supabase
       .from("reservas")
       .delete()
@@ -179,7 +179,7 @@ export default async function RanchoPortalPage({
         </div>
       </header>
 
-      {esSalon ? (
+      {esLugar ? (
         /* Los lugares abren con el calendario: reservar es lo primero. */
         <BookingCalendar
           ranchoId={rancho.id}
@@ -190,6 +190,8 @@ export default async function RanchoPortalPage({
           tarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
           depositoReserva={rancho.deposito_reserva ?? 25000}
           promociones={promociones}
+          terminos={rancho.terminos ?? []}
+          montoMinimo={rancho.monto_minimo ?? null}
         />
       ) : (
         /* Los servicios móviles no tienen calendario: abren con su portada. */
@@ -254,8 +256,8 @@ export default async function RanchoPortalPage({
         foto={fotoPresentacion}
         categoria={rancho.categoria}
         eyebrow={
-          esSalon && rancho.tipo_lugar
-            ? TIPO_LUGAR_LABEL[rancho.tipo_lugar]
+          rancho.subcategoria
+            ? SUBCATEGORIA_LABEL[rancho.subcategoria]
             : CATEGORIA_LABEL[rancho.categoria]
         }
         titulo={rancho.nombre}
@@ -263,7 +265,7 @@ export default async function RanchoPortalPage({
         datos={datosPresentacion}
       />
 
-      {esSalon && <AmenidadesSeccion amenidades={amenidades} />}
+      {esLugar && <AmenidadesSeccion amenidades={amenidades} />}
 
       <GaleriaSeccion fotos={fotos} nombre={rancho.nombre} />
 

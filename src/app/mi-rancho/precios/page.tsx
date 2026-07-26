@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
+import TerminosForm from "@/components/terminos-form";
 import {
   guardarPreciosPropio,
   guardarCodigosPropio,
   guardarPromocionesPropio,
+  guardarTerminosPropio,
 } from "./actions";
 import type {
   CodigoDescuento,
@@ -35,7 +37,7 @@ export default async function MiRanchoPreciosPage() {
   // Los precios por cantidad de invitados y los servicios adicionales son
   // parte del flujo de reserva en línea, que hoy solo tienen los lugares.
   // Los descuentos, en cambio, los puede usar cualquier negocio.
-  const esSalon = rancho.categoria === "salon";
+  const esLugar = rancho.categoria === "lugares";
 
   const [tiersRes, serviciosRes, codigosRes, promocionesRes] = await Promise.all([
     supabase
@@ -65,13 +67,13 @@ export default async function MiRanchoPreciosPage() {
         ← Volver
       </Link>
       <h1 className="mt-3 text-2xl font-bold text-aventurea-orange-dark">
-        {esSalon ? "Precios y descuentos" : "Códigos de descuento"}
+        {esLugar ? "Precios y descuentos" : "Códigos de descuento"}
       </h1>
       <p className="mb-6 mt-1 text-[13.5px] text-aventurea-ink-soft">
         Lo que guardes acá se refleja al instante en tu página pública.
       </p>
 
-      {esSalon && (
+      {esLugar && (
         <PreciosForm
           initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
           initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
@@ -83,7 +85,7 @@ export default async function MiRanchoPreciosPage() {
 
       <h2
         className={`mb-1 text-lg font-bold text-aventurea-orange-dark ${
-          esSalon ? "mt-9" : ""
+          esLugar ? "mt-9" : ""
         }`}
       >
         Descuentos y promociones
@@ -96,6 +98,21 @@ export default async function MiRanchoPreciosPage() {
         initialPromociones={(promocionesRes.data ?? []) as PromocionDia[]}
         onGuardarCodigos={guardarCodigosPropio}
         onGuardarPromociones={guardarPromocionesPropio}
+      />
+
+      <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
+        Términos y monto mínimo
+      </h2>
+      <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+        Las condiciones que el cliente acepta antes de contratarte. Te dejamos
+        unas por defecto y las podés cambiar por las tuyas.
+      </p>
+      <TerminosForm
+        initialTerminos={rancho.terminos ?? []}
+        initialMontoMinimo={rancho.monto_minimo}
+        depositoReserva={rancho.deposito_reserva}
+        esLugar={esLugar}
+        onGuardar={guardarTerminosPropio}
       />
     </main>
   );

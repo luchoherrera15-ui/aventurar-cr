@@ -171,6 +171,25 @@ export function IconEdit({ className = base }: IconProps) {
   );
 }
 
+export function IconUtensils({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v6a2.5 2.5 0 0 0 5 0V3M7.5 11.5V21" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.5 3c-1.7 1.3-2.5 3.4-2.5 5.8 0 1.7.6 2.9 2.5 3.2V21" />
+    </svg>
+  );
+}
+
+export function IconClipboard({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" />
+      <rect x="9" y="2.5" width="6" height="3.5" rx="1" />
+      <path strokeLinecap="round" d="M9 11h6M9 15h4" />
+    </svg>
+  );
+}
+
 export function IconCheck({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>

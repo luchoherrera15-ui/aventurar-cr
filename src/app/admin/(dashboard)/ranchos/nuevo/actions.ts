@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
-import { CATEGORIAS, PROVINCIAS, TIPOS_LUGAR } from "@/app/mi-rancho/types";
+import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "@/app/mi-rancho/types";
 
 export type NuevoRanchoAdminState = { error?: string } | undefined;
 
@@ -64,9 +64,10 @@ export async function crearRanchoComoAdmin(
     return { error: "Completá al menos la categoría, el nombre y la provincia." };
   }
 
-  const tipoLugarRaw = String(formData.get("tipo_lugar") || "");
-  if (categoria === "salon" && !(TIPOS_LUGAR as readonly string[]).includes(tipoLugarRaw)) {
-    return { error: "Elegí qué tipo de lugar es el salón." };
+  const subcategoria = String(formData.get("subcategoria") || "");
+  const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
+  if (!validas.some((s) => s.id === subcategoria)) {
+    return { error: "Elegí qué ofrece exactamente dentro de esa categoría." };
   }
 
   const num = (campo: string) => {
@@ -77,7 +78,7 @@ export async function crearRanchoComoAdmin(
   const { error } = await supabase.from("ranchos").insert({
     owner_id: ownerId,
     categoria,
-    tipo_lugar: categoria === "salon" ? tipoLugarRaw : null,
+    subcategoria,
     nombre,
     descripcion: String(formData.get("descripcion") || "").trim() || null,
     provincia,
