@@ -57,8 +57,25 @@ export async function crearReservaTemporal(ranchoId: string, fecha: string) {
     .eq("estado", "temporal")
     .lt("expira_en", nowIso);
 
+  // Elegir otro día de este mismo negocio reemplaza el bloqueo anterior
+  // en vez de sumar uno. El cliente ya libera el suyo al cambiar de
+  // fecha, pero si la pestaña se cerró de golpe (o se recargó) el hold
+  // viejo sigue vivo hasta 10 minutos, y sin esto la persona se topaba
+  // con "ya tenés una fecha reservada" por su propio hold huérfano.
+  const { data: propios } = await supabase
+    .from("reservas")
+    .select("id")
+    .eq("estado", "temporal")
+    .eq("creado_por_ip", ip)
+    .eq("rancho_id", ranchoId)
+    .gt("expira_en", nowIso);
+
+  for (const propio of propios ?? []) {
+    await supabase.rpc("liberar_hold_temporal", { p_id: propio.id, p_ip: ip });
+  }
+
   // Tope de fechas tomadas al mismo tiempo por la misma conexión —
-  // evita que se "acaparen" todas las fechas del calendario.
+  // evita que se "acaparen" fechas de varios negocios a la vez.
   const { count: activosPorIp } = await supabase
     .from("reservas")
     .select("id", { count: "exact", head: true })
@@ -71,7 +88,7 @@ export async function crearReservaTemporal(ranchoId: string, fecha: string) {
       id: null,
       expiraEn: null,
       error:
-        "Ya tenés una fecha reservada temporalmente. Completá esa reserva o esperá a que se libere antes de elegir otra.",
+        "Tenés fechas bloqueadas en otros lugares. Completá esas reservas o esperá a que se liberen antes de elegir otra.",
     };
   }
 
@@ -124,7 +141,7 @@ export type CompletarReservaInput = {
   cedula: string;
   tipo_evento: string;
   invitados: number;
-  horario_bloque: HorarioBloque;
+  horario_bloque: HorarioBloque | null;
   monto_total: number;
   deposito_monto: number;
   metodo_pago: "sinpe" | "transferencia";

@@ -358,3 +358,16 @@ alter table ranchos add constraint ranchos_subcategoria_check
   ));
 
 notify pgrst, 'reload schema';
+
+-- ============================================================
+-- 0022 — Los horarios de alquiler los define el dueño
+-- ============================================================
+
+alter table ranchos
+  add column if not exists horarios_bloques jsonb not null default '[]'::jsonb;
+
+-- El horario de la reserva pasa a guardarse como texto libre (el
+-- rótulo del bloque que el dueño configuró), no como un código fijo.
+alter table reservas drop constraint if exists reservas_horario_bloque_check;
+
+notify pgrst, 'reload schema';

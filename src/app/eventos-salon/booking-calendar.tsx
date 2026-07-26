@@ -11,11 +11,16 @@ import {
   IconWarning,
 } from "@/components/icons";
 import {
+  duracionHoras,
+  etiquetaHorario,
+  type HorarioBloqueConfig,
+} from "@/app/mi-rancho/types";
+import {
   cancelarReservaTemporal,
   completarReservaTemporal,
   crearReservaTemporal,
 } from "./actions";
-import type { DiaDisponibilidad, HorarioBloque, PrecioTier, ServicioAdicional } from "./types";
+import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
 import { terminosPorDefecto } from "@/app/mi-rancho/types";
 import type { PromocionDia } from "@/app/mi-rancho/types";
 
@@ -26,11 +31,6 @@ const MESES = [
 const DOW = ["D", "L", "M", "M", "J", "V", "S"];
 
 const CEDULA_REGEX = /^[0-9-]{7,14}$/;
-
-const HORARIOS: { value: HorarioBloque; label: string }[] = [
-  { value: "manana_tarde", label: "Mañana y tarde (aprox. 7:00 a.m. – 1:00 p.m.)" },
-  { value: "tarde_noche", label: "Tarde y noche (aprox. 6:00 p.m. – 12:00 medianoche)" },
-];
 
 function iso(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -63,6 +63,7 @@ export default function BookingCalendar({
   promociones = [],
   terminos = [],
   montoMinimo = null,
+  horarios = [],
 }: {
   ranchoId: string;
   nombreRancho: string;
@@ -75,6 +76,8 @@ export default function BookingCalendar({
   /** Los del proveedor; vacío = usar los que trae la plataforma. */
   terminos?: string[];
   montoMinimo?: number | null;
+  /** Los bloques de alquiler del dueño; vacío = no se pregunta el horario. */
+  horarios?: HorarioBloqueConfig[];
 }) {
   // Un proveedor que nunca los tocó muestra siempre los vigentes de
   // Aventurea, armados con su propio depósito y monto mínimo.
@@ -105,7 +108,7 @@ export default function BookingCalendar({
   const [secondsLeft, setSecondsLeft] = useState(0);
 
   const [invitados, setInvitados] = useState("");
-  const [horarioBloque, setHorarioBloque] = useState<HorarioBloque | "">("");
+  const [horarioBloque, setHorarioBloque] = useState("");
   const [addons, setAddons] = useState<Record<string, boolean>>({});
   const [nombre, setNombre] = useState("");
   const [contacto, setContacto] = useState("");
@@ -255,7 +258,7 @@ export default function BookingCalendar({
     !!holdId &&
     !holdVencido &&
     invitadosNum > 0 &&
-    !!horarioBloque &&
+    (horarios.length === 0 || !!horarioBloque) &&
     !!nombre &&
     !!contacto &&
     cedulaValida &&
@@ -391,7 +394,8 @@ export default function BookingCalendar({
 
   async function enviarSolicitud(e: React.FormEvent) {
     e.preventDefault();
-    if (!holdId || !selectedDate || !comprobante || !horarioBloque) return;
+    if (!holdId || !selectedDate || !comprobante) return;
+    if (horarios.length > 0 && !horarioBloque) return;
     setSubmitting(true);
     setSubmitError(null);
 
@@ -413,7 +417,7 @@ export default function BookingCalendar({
       cedula: cedula.trim(),
       tipo_evento: tipoEvento,
       invitados: invitadosNum,
-      horario_bloque: horarioBloque,
+      horario_bloque: horarioBloque || null,
       monto_total: totalFinal ?? 0,
       deposito_monto: depositoReserva,
       metodo_pago: metodoPago as "sinpe" | "transferencia",
@@ -491,15 +495,28 @@ export default function BookingCalendar({
           </div>
         )}
 
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-surface p-4">
-          <span className="text-aventurea-ink-soft"><IconClock className="h-5 w-5" /></span>
-          <p className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-            El rancho se alquila en bloques de <strong className="text-aventurea-ink">6 horas</strong>,
-            a elegir entre <strong className="text-aventurea-ink">mañana y tarde</strong> o{" "}
-            <strong className="text-aventurea-ink">tarde y noche</strong>. Hora máxima de
-            salida: <strong className="text-aventurea-ink">12:00 medianoche</strong>.
-          </p>
-        </div>
+        {horarios.length > 0 && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-surface p-4">
+            <span className="text-aventurea-ink-soft"><IconClock className="h-5 w-5" /></span>
+            <div className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+              <p className="mb-1.5">
+                {nombreRancho} alquila por estos horarios — elegís uno al
+                reservar:
+              </p>
+              <ul className="flex flex-col gap-1">
+                {horarios.map((h) => {
+                  const horas = duracionHoras(h.desde, h.hasta);
+                  return (
+                    <li key={h.id}>
+                      <strong className="text-aventurea-ink">{etiquetaHorario(h)}</strong>
+                      {horas !== null && ` · ${horas} h`}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        )}
 
         {/* Calendario a ancho completo */}
         <div className="rounded-[20px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-7">
@@ -760,22 +777,24 @@ export default function BookingCalendar({
                   />
                 </div>
 
-                <div>
-                  <label className={labelCls}>Horario (bloque de 6 horas)</label>
-                  <select
-                    required
-                    value={horarioBloque}
-                    onChange={(e) => setHorarioBloque(e.target.value as HorarioBloque)}
-                    className={inputCls}
-                  >
-                    <option value="">Selecciona una opción</option>
-                    {HORARIOS.map((h) => (
-                      <option key={h.value} value={h.value}>
-                        {h.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {horarios.length > 0 && (
+                  <div>
+                    <label className={labelCls}>Horario</label>
+                    <select
+                      required
+                      value={horarioBloque}
+                      onChange={(e) => setHorarioBloque(e.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      {horarios.map((h) => (
+                        <option key={h.id} value={etiquetaHorario(h)}>
+                          {etiquetaHorario(h)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between rounded-xl border border-aventurea-line px-3.5 py-3">
                   <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">

@@ -216,6 +216,7 @@ export default async function RanchoPortalPage({
           promociones={promociones}
           terminos={rancho.terminos ?? []}
           montoMinimo={rancho.monto_minimo ?? null}
+          horarios={rancho.horarios_bloques ?? []}
         />
       ) : (
         /* Los servicios móviles no tienen calendario: abren con su portada. */
