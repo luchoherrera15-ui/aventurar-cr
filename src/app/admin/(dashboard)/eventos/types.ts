@@ -8,7 +8,8 @@ export type Reserva = {
   tipo_evento: string | null;
   invitados: number | null;
   estado: "pendiente" | "confirmada" | "rechazada" | "bloqueada";
-  horario_bloque: "manana_tarde" | "tarde_noche" | null;
+  /** Texto del bloque que el dueño configuró; las viejas traen un código. */
+  horario_bloque: string | null;
   monto_total: number | null;
   metodo_pago: "sinpe" | "transferencia" | null;
   deposito_monto: number | null;

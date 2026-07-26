@@ -4,11 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
 import TerminosForm from "@/components/terminos-form";
+import HorariosForm from "@/components/horarios-form";
 import {
   guardarPreciosPropio,
   guardarCodigosPropio,
   guardarPromocionesPropio,
   guardarTerminosPropio,
+  guardarHorariosPropio,
 } from "./actions";
 import { normalizarCategoria } from "../types";
 import type {
@@ -87,11 +89,23 @@ export default async function MiRanchoPreciosPage() {
         />
       )}
 
-      <h2
-        className={`mb-1 text-lg font-bold text-aventurea-orange-dark ${
-          esLugar ? "mt-9" : ""
-        }`}
-      >
+      {esLugar && (
+        <>
+          <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
+            Horarios de alquiler
+          </h2>
+          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+            Vos definís en qué bloques alquilás y a qué hora entra y sale el
+            cliente. Es lo que va a poder elegir al reservar.
+          </p>
+          <HorariosForm
+            initialHorarios={rancho.horarios_bloques ?? []}
+            onGuardar={guardarHorariosPropio}
+          />
+        </>
+      )}
+
+      <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
         Descuentos y promociones
       </h2>
       <p className="mb-4 text-[13px] text-aventurea-ink-soft">

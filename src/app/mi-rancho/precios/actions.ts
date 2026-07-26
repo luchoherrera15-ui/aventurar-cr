@@ -5,7 +5,58 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { guardarPreciosRancho } from "@/lib/precios";
 import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
-import { TERMINOS_MAX } from "../types";
+import { HORARIOS_MAX, TERMINOS_MAX } from "../types";
+import type { HorarioBloqueConfig } from "../types";
+
+const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Guarda los bloques de alquiler del negocio.
+ *
+ * Lista vacía es una respuesta válida y quiere decir "no manejo
+ * horarios": en ese caso al cliente no se le pregunta la hora y solo
+ * elige la fecha.
+ */
+export async function guardarHorariosPropio(horarios: HorarioBloqueConfig[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/mi-rancho/login");
+
+  if (horarios.length > HORARIOS_MAX) {
+    return { error: `Podés tener hasta ${HORARIOS_MAX} horarios.` };
+  }
+
+  const limpios: HorarioBloqueConfig[] = [];
+  for (const h of horarios) {
+    const desde = (h.desde ?? "").trim();
+    const hasta = (h.hasta ?? "").trim();
+    if (!HORA_REGEX.test(desde) || !HORA_REGEX.test(hasta)) {
+      return { error: "Revisá las horas: alguna quedó incompleta." };
+    }
+    if (desde === hasta) {
+      return { error: "La entrada y la salida de un horario no pueden ser la misma hora." };
+    }
+    limpios.push({
+      id: h.id,
+      etiqueta: (h.etiqueta ?? "").trim().slice(0, 40),
+      desde,
+      hasta,
+    });
+  }
+
+  const { error } = await supabase
+    .from("ranchos")
+    .update({ horarios_bloques: limpios })
+    .eq("owner_id", user.id);
+
+  if (error) return { error: "No se pudo guardar: " + error.message };
+
+  revalidatePath("/mi-rancho/precios");
+  revalidatePath("/ranchos-eventos");
+  return { error: null };
+}
 
 export async function guardarPreciosPropio(
   tiers: { min_invitados: number; max_invitados: number; precio: number }[],

@@ -17,4 +17,9 @@ export type DiaDisponibilidad = {
   temporales: number;
 };
 
-export type HorarioBloque = "manana_tarde" | "tarde_noche";
+/**
+ * El horario de la reserva se guarda como el texto del bloque que el
+ * dueño configuró ("Mañana (7:00 a.m. – 1:00 p.m.)"), no como un
+ * código fijo: los bloques ya no los define la plataforma.
+ */
+export type HorarioBloque = string;

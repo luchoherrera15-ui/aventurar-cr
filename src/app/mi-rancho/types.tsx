@@ -384,6 +384,65 @@ export const AMENIDAD_LABEL: Record<string, string> = Object.fromEntries(
   AMENIDADES_GRUPOS.flatMap((g) => g.items.map((i) => [i.id, i.label])),
 );
 
+/**
+ * Un bloque de alquiler tal como lo define el propietario.
+ *
+ * No hay bloques "de la plataforma": cada negocio arma los suyos. Un
+ * salón puede alquilar por bloques de 6 horas, otro por día completo y
+ * otro por hora. Lista vacía = no maneja bloques y al reservar no se
+ * pregunta el horario.
+ */
+export type HorarioBloqueConfig = {
+  id: string;
+  /** Cómo lo llama el dueño: "Mañana", "Día completo", "Turno noche". */
+  etiqueta: string;
+  /** Formato 24h "HH:MM". */
+  desde: string;
+  hasta: string;
+};
+
+export const HORARIOS_MAX = 6;
+
+/** Pasa "19:30" a "7:30 p.m." para mostrarlo en la página pública. */
+export function formatearHora(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
+  const sufijo = h < 12 ? "a.m." : "p.m.";
+  const hora12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hora12}:${String(m).padStart(2, "0")} ${sufijo}`;
+}
+
+/** Cuántas horas dura el bloque; cruza medianoche si hace falta. */
+export function duracionHoras(desde: string, hasta: string) {
+  const [hd, md] = desde.split(":").map(Number);
+  const [hh, mh] = hasta.split(":").map(Number);
+  if ([hd, md, hh, mh].some((n) => !Number.isFinite(n))) return null;
+  let minutos = hh * 60 + mh - (hd * 60 + md);
+  if (minutos <= 0) minutos += 24 * 60;
+  return Math.round((minutos / 60) * 10) / 10;
+}
+
+/**
+ * El texto que ve el cliente y que queda guardado en la reserva.
+ * Se guarda ya armado para que la reserva se siga leyendo igual
+ * aunque el dueño después edite o borre ese bloque.
+ */
+export function etiquetaHorario(bloque: HorarioBloqueConfig) {
+  const rango = `${formatearHora(bloque.desde)} – ${formatearHora(bloque.hasta)}`;
+  return bloque.etiqueta ? `${bloque.etiqueta} (${rango})` : rango;
+}
+
+/** Reservas viejas guardaron un código fijo en vez del texto del bloque. */
+const HORARIOS_LEGADOS: Record<string, string> = {
+  manana_tarde: "Mañana y tarde (7:00 a.m. – 1:00 p.m.)",
+  tarde_noche: "Tarde y noche (6:00 p.m. – 12:00 medianoche)",
+};
+
+export function mostrarHorarioReserva(valor: string | null | undefined) {
+  if (!valor) return "—";
+  return HORARIOS_LEGADOS[valor] ?? valor;
+}
+
 export type Rancho = {
   id: string;
   owner_id: string;
@@ -412,6 +471,7 @@ export type Rancho = {
   contacto_whatsapp: string | null;
   foto_url: string | null;
   deposito_reserva: number;
+  horarios_bloques: HorarioBloqueConfig[];
   tarifa_diciembre_por_persona: number | null;
   fotos: string[];
   estado: EstadoRancho;

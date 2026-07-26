@@ -7,6 +7,7 @@ import {
   setEstadoReserva,
 } from "./actions";
 import type { Reserva } from "./types";
+import { mostrarHorarioReserva } from "@/app/mi-rancho/types";
 
 const ESTADO_LABEL: Record<Reserva["estado"], string> = {
   pendiente: "En aprobación",
@@ -20,11 +21,6 @@ const ESTADO_BADGE: Record<Reserva["estado"], string> = {
   confirmada: "bg-aventurea-navy text-white",
   rechazada: "bg-aventurea-cream-2 text-aventurea-ink-soft",
   bloqueada: "bg-aventurea-cream-2 text-aventurea-ink",
-};
-
-const HORARIO_LABEL: Record<string, string> = {
-  manana_tarde: "Mañana y tarde",
-  tarde_noche: "Tarde y noche",
 };
 
 function fmtMoney(n: number | null) {
@@ -190,7 +186,7 @@ export default function ReservasTable({
                 </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{r.tipo_evento}</td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">
-                  {r.horario_bloque ? HORARIO_LABEL[r.horario_bloque] : "—"}
+                  {mostrarHorarioReserva(r.horario_bloque)}
                 </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{r.invitados ?? "—"}</td>
                 <td className="px-4 py-3.5">
