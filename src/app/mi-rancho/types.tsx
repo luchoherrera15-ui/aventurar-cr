@@ -394,6 +394,7 @@ export type Rancho = {
   longitud: number | null;
   mapa_url: string | null;
   amenidades: string[];
+  detalles: Record<string, unknown>;
   provincia: Provincia | null;
   canton: string | null;
   direccion_exacta: string | null;

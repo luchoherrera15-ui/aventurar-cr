@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icons";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
+import DetallesServicioForm from "@/components/detalles-servicio-form";
+import type { DetallesServicio } from "../campos-servicio";
 import {
   AMENIDADES_GRUPOS,
   CATEGORIAS,
@@ -50,6 +52,9 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   const [galeria, setGaleria] = useState<string[]>(rancho.fotos ?? []);
   const [fotosNuevas, setFotosNuevas] = useState<FotoNueva[]>([]);
   const [amenidades, setAmenidades] = useState<string[]>(rancho.amenidades ?? []);
+  const [detalles, setDetalles] = useState<DetallesServicio>(
+    (rancho.detalles as DetallesServicio) ?? {},
+  );
   const [provincia, setProvincia] = useState<Provincia | "">(
     rancho.provincia ?? "",
   );
@@ -512,6 +517,14 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
           </div>
         </div>
       </section>
+
+      {!esLugar && (
+        <DetallesServicioForm
+          categoria={categoria}
+          valores={detalles}
+          onCambiar={setDetalles}
+        />
+      )}
 
       {esLugar && (
         <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">

@@ -9,6 +9,10 @@ import {
   IconWhatsapp,
 } from "@/components/icons";
 import {
+  CAMPOS_POR_CATEGORIA,
+  formatearValor,
+} from "@/app/mi-rancho/campos-servicio";
+import {
   AMENIDADES_GRUPOS,
   CATEGORIA_GRADIENTE,
   FOTOS_DESTACADAS,
@@ -114,6 +118,82 @@ export function AmenidadesSeccion({ amenidades }: { amenidades: string[] }) {
                       <IconCheck className="h-3 w-3" />
                     </span>
                     {i.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Detalles propios del tipo de servicio (mínimo de personas, equipo que
+ * lleva, inventario...). Se arma con la misma definición que el formulario
+ * del dueño, así lo que llena es exactamente lo que se muestra.
+ */
+export function DetallesSeccion({
+  categoria,
+  detalles,
+}: {
+  categoria: Categoria;
+  detalles: Record<string, unknown>;
+}) {
+  const grupos = (CAMPOS_POR_CATEGORIA[categoria] ?? [])
+    .map((g) => ({
+      titulo: g.titulo,
+      items: g.campos
+        .map((campo) => ({
+          label: campo.label,
+          valor: formatearValor(campo, detalles?.[campo.id]),
+          tipo: campo.tipo,
+        }))
+        .filter((i) => i.valor !== null),
+    }))
+    .filter((g) => g.items.length > 0);
+
+  if (grupos.length === 0) return null;
+
+  return (
+    <section className="py-14">
+      <div className="mx-auto max-w-[1080px] px-7">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+          El servicio
+        </p>
+        <h2 className="mt-2 text-[26px] font-bold text-aventurea-ink">
+          Detalles y cobertura
+        </h2>
+
+        <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {grupos.map((g) => (
+            <div key={g.titulo}>
+              <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                {g.titulo}
+              </h3>
+              <ul className="flex flex-col gap-2.5">
+                {g.items.map((i) => (
+                  <li key={i.label} className="text-[13.5px]">
+                    {/* Los "sí/no" se leen mejor como una lista con check
+                        que como "Vajilla: Sí". */}
+                    {i.tipo === "booleano" ? (
+                      <span className="flex items-center gap-2.5 text-aventurea-ink">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-aventurea-green/15 text-aventurea-green">
+                          <IconCheck className="h-3 w-3" />
+                        </span>
+                        {i.label}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="block text-[11.5px] text-aventurea-ink-soft">
+                          {i.label}
+                        </span>
+                        <span className="mt-0.5 block font-bold text-aventurea-ink">
+                          {i.valor}
+                        </span>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>

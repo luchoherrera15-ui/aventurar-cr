@@ -23,6 +23,7 @@ import { NOMBRE_RANCHO_AVENTUREA } from "../constants";
 import {
   AmenidadesSeccion,
   ContactoSeccion,
+  DetallesSeccion,
   GaleriaSeccion,
   PresentacionSeccion,
 } from "./portal-secciones";
@@ -288,7 +289,14 @@ export default async function RanchoPortalPage({
         datos={datosPresentacion}
       />
 
-      {esLugar && <AmenidadesSeccion amenidades={amenidades} />}
+      {esLugar ? (
+        <AmenidadesSeccion amenidades={amenidades} />
+      ) : (
+        <DetallesSeccion
+          categoria={rancho.categoria}
+          detalles={rancho.detalles ?? {}}
+        />
+      )}
 
       <GaleriaSeccion fotos={fotos} nombre={rancho.nombre} />
 

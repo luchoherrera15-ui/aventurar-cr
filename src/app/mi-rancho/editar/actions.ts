@@ -4,12 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { extraerCoordenadas } from "@/lib/mapas";
+import { camposDeCategoria, type DetallesServicio } from "../campos-servicio";
 import {
   AMENIDADES,
   CATEGORIAS,
   FOTOS_MAX,
   PROVINCIAS,
   SUBCATEGORIAS,
+  type Categoria,
 } from "../types";
 
 export type EditarRanchoState = { error?: string; ok?: boolean } | undefined;
@@ -96,6 +98,46 @@ export async function actualizarRancho(
           .filter((a) => AMENIDADES.includes(a))
       : [];
 
+  // Los detalles del servicio llegan como JSON, pero solo se guardan los
+  // campos que existen para esa categoría y con el tipo que corresponde:
+  // así nadie puede meter claves arbitrarias en la columna.
+  let detalles: DetallesServicio = {};
+  const detallesRaw = String(formData.get("detalles") || "");
+  if (detallesRaw) {
+    try {
+      const parsed: unknown = JSON.parse(detallesRaw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const entrada = parsed as Record<string, unknown>;
+        for (const campo of camposDeCategoria(categoria as Categoria)) {
+          const v = entrada[campo.id];
+          if (v === undefined || v === null || v === "") continue;
+
+          if (campo.tipo === "booleano") {
+            if (v === true) detalles[campo.id] = true;
+          } else if (campo.tipo === "multi") {
+            const validas = (Array.isArray(v) ? v : [])
+              .map(String)
+              .filter((o) => campo.opciones?.some((x) => x.id === o));
+            if (validas.length > 0) detalles[campo.id] = validas;
+          } else if (campo.tipo === "opciones") {
+            if (campo.opciones?.some((x) => x.id === v)) {
+              detalles[campo.id] = String(v);
+            }
+          } else if (campo.tipo === "numero") {
+            const n = Number(v);
+            if (Number.isFinite(n) && n >= 0) detalles[campo.id] = n;
+          } else {
+            detalles[campo.id] = String(v).trim().slice(0, 1500);
+          }
+        }
+      }
+    } catch {
+      return { error: "No se pudieron leer los detalles del servicio." };
+    }
+  }
+  // Un lugar no tiene estos campos: usa capacidad y amenidades.
+  if (categoria === "lugares") detalles = {};
+
   // Del link de Google Maps (o de las coordenadas pegadas a mano) salen
   // los botones de "Cómo llegar". Si no se pudo leer, se guarda igual el
   // link y los botones caen en la dirección escrita.
@@ -134,6 +176,7 @@ export async function actualizarRancho(
     latitud: coords?.lat ?? null,
     longitud: coords?.lng ?? null,
     amenidades,
+    detalles,
     fotos,
   };
   if (fotoUrl) update.foto_url = fotoUrl;
