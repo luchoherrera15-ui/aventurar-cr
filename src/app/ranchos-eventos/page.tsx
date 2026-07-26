@@ -50,18 +50,7 @@ export default async function RanchosEventosPage() {
         </div>
       </header>
 
-      <section className="relative isolate overflow-hidden py-7 pb-16">
-        {/* Manchas suaves del mismo tratamiento que /publicar, para que el
-            directorio no quede como una hoja en blanco detrás de las cards. */}
-        {/* Van difuminadas y no con borde duro como en /publicar: acá el
-            contenido arranca de una y una línea cruzando las pestañas del
-            menú se leería como un error de render. */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -right-[12%] -top-[30%] h-[820px] w-[820px] rounded-full bg-aventurea-navy-3/[0.16] blur-[110px]" />
-          <div className="absolute -left-[16%] top-[4%] h-[640px] w-[640px] rounded-full bg-aventurea-green/[0.13] blur-[110px]" />
-          <div className="absolute inset-x-0 top-0 h-[560px] bg-gradient-to-b from-aventurea-navy-3/[0.05] to-transparent" />
-        </div>
-
+      <section className="py-8 pb-16">
         <div className="mx-auto max-w-[1600px] px-6 lg:px-10">
           <div className="mb-7 max-w-[54ch]">
             <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
