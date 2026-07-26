@@ -8,7 +8,6 @@ import {
   IconHourglass,
   IconStopwatch,
   IconTagLine,
-  IconUnlock,
   IconWarning,
 } from "@/components/icons";
 import {
@@ -122,7 +121,6 @@ export default function BookingCalendar({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
-  const [switchTarget, setSwitchTarget] = useState<string | null>(null);
 
   const [codigoInput, setCodigoInput] = useState("");
   const [codigoAplicado, setCodigoAplicado] = useState<{
@@ -266,7 +264,7 @@ export default function BookingCalendar({
     !!comprobante &&
     terminosAceptados;
 
-  function resetFormulario() {
+  const resetFormulario = useCallback(() => {
     setInvitados("");
     setHorarioBloque("");
     setAddons({});
@@ -283,7 +281,7 @@ export default function BookingCalendar({
     setCodigoInput("");
     setCodigoAplicado(null);
     setCodigoError(null);
-  }
+  }, []);
 
   function cambiarMes(dir: number) {
     let m = viewMonth + dir;
@@ -330,21 +328,13 @@ export default function BookingCalendar({
 
   function handleDateClick(fecha: string) {
     if (fecha === selectedDate) return;
-    if (holdId && !confirmado && !holdVencido) {
-      setSwitchTarget(fecha);
-      return;
-    }
     elegirFecha(fecha);
   }
 
-  function confirmarCambioFecha() {
-    if (!switchTarget) return;
-    const fecha = switchTarget;
-    setSwitchTarget(null);
-    elegirFecha(fecha);
-  }
-
-  function limpiarSeleccion() {
+  // Cerrar el panel devuelve la fecha al calendario. Sin esto, cada vez
+  // que alguien abre y cierra queda un día bloqueado que nadie está
+  // usando — justo lo que arregla la migración 0017 del lado del server.
+  const limpiarSeleccion = useCallback(() => {
     if (holdId && !confirmado) {
       cancelarReservaTemporal(holdId);
       soltarTemporalLocal(holdFecha);
@@ -357,6 +347,40 @@ export default function BookingCalendar({
     setHoldError(null);
     setConfirmado(false);
     resetFormulario();
+  }, [holdId, confirmado, holdFecha, soltarTemporalLocal, resetFormulario]);
+
+  const panelAbierto = !!selectedDate;
+
+  // Mientras el panel está encima, el fondo no se mueve.
+  useEffect(() => {
+    if (!panelAbierto) return;
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previo;
+    };
+  }, [panelAbierto]);
+
+  // Escape cierra lo que esté más arriba: primero los diálogos chicos,
+  // y de último el panel (soltando la reserva temporal).
+  useEffect(() => {
+    if (!panelAbierto) return;
+    function alTeclado(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (mostrarTerminos) {
+        setMostrarTerminos(false);
+        return;
+      }
+      if (submitting) return;
+      limpiarSeleccion();
+    }
+    document.addEventListener("keydown", alTeclado);
+    return () => document.removeEventListener("keydown", alTeclado);
+  }, [panelAbierto, mostrarTerminos, submitting, limpiarSeleccion]);
+
+  function cerrarPanel() {
+    if (submitting) return;
+    limpiarSeleccion();
   }
 
   function onComprobanteChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -477,125 +501,168 @@ export default function BookingCalendar({
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-[1.2fr_1fr]">
-          {/* Calendario */}
-          <div className="rounded-[18px] border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-[17px] font-bold capitalize text-aventurea-ink">
-                {MESES[viewMonth]} {viewYear}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => cambiarMes(-1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-                >
-                  ‹
-                </button>
-                <button
-                  onClick={() => cambiarMes(1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-                >
-                  ›
-                </button>
-              </div>
+        {/* Calendario a ancho completo */}
+        <div className="rounded-[20px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-7">
+          <div className="flex items-center justify-between">
+            <span className="titulo text-[20px] capitalize text-aventurea-ink sm:text-[24px]">
+              {MESES[viewMonth]} {viewYear}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => cambiarMes(-1)}
+                aria-label="Mes anterior"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-[17px] text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                ‹
+              </button>
+              <button
+                onClick={() => cambiarMes(1)}
+                aria-label="Mes siguiente"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-[17px] text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                ›
+              </button>
             </div>
-
-            <div className="mt-4.5 grid grid-cols-7 gap-1.5">
-              {DOW.map((d, i) => (
-                <div
-                  key={i}
-                  className="pb-1 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500"
-                >
-                  {d}
-                </div>
-              ))}
-              {celdas.map((d, i) => {
-                if (d === null) return <div key={i} />;
-                const fecha = iso(viewYear, viewMonth, d);
-                const cellDate = new Date(viewYear, viewMonth, d);
-                const isPast = cellDate < today;
-                const isToday = cellDate.getTime() === today.getTime();
-                const info = dias[fecha];
-                const isSelected = fecha === selectedDate;
-                const isHeldByOther = !!(info && info.temporales > 0 && !isSelected);
-                const isBlocked = isPast || !!info?.confirmada || isHeldByOther;
-
-                let cls =
-                  "relative flex aspect-square items-center justify-center rounded-lg text-[13px]";
-                let badge: number | null = null;
-
-                if (isPast) {
-                  cls += " text-zinc-300 cursor-default";
-                } else if (info?.confirmada) {
-                  cls += " bg-red-50 border border-red-300 text-red-700 font-bold line-through cursor-not-allowed";
-                } else if (isHeldByOther) {
-                  cls += " bg-blue-500/10 border border-blue-500/25 text-blue-700/60 cursor-not-allowed";
-                } else {
-                  cls += " bg-aventurea-cream-2 border border-aventurea-line text-aventurea-ink-soft cursor-pointer hover:border-aventurea-orange hover:text-aventurea-orange";
-                  if (info && info.pendientes > 0) {
-                    cls += " bg-aventurea-orange/15 border-aventurea-orange/40 text-aventurea-orange font-bold";
-                    badge = info.pendientes;
-                  }
-                }
-                if (isToday) cls += " ring-2 ring-inset ring-aventurea-orange";
-                if (isSelected) cls += " ring-2 ring-inset ring-aventurea-ink";
-
-                return (
-                  <div
-                    key={i}
-                    onClick={() => !isBlocked && !holdCreando && handleDateClick(fecha)}
-                    className={cls}
-                  >
-                    {d}
-                    {!isPast && badge !== null && (
-                      <span className="absolute -right-1 -top-1 flex h-[15px] w-[15px] items-center justify-center rounded-full bg-white text-[8.5px] font-bold text-zinc-950">
-                        {badge}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-4.5 flex flex-wrap gap-4">
-              <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-line bg-aventurea-cream-2" />
-                Disponible
-              </span>
-              <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-[3px] border border-blue-500/25 bg-blue-500/10" />
-                Reserva temporal (bloqueada)
-              </span>
-              <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-orange/40 bg-aventurea-orange/15" />
-                En aprobación
-              </span>
-              <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-[3px] border border-red-300 bg-red-50" />
-                Reservada
-              </span>
-            </div>
-
           </div>
 
-          {/* Panel */}
-          <div className="rounded-[18px] border border-aventurea-line bg-aventurea-surface p-6 shadow-sm">
-            {!selectedDate && (
-              <div className="py-7 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-aventurea-orange/15 text-aventurea-orange">
-                  <IconCalendarLine className="h-6 w-6" />
+          <div className="mt-5 grid grid-cols-7 gap-1.5 sm:gap-2.5">
+            {DOW.map((d, i) => (
+              <div
+                key={i}
+                className="pb-1.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[11.5px]"
+              >
+                {d}
+              </div>
+            ))}
+            {celdas.map((d, i) => {
+              if (d === null) return <div key={i} />;
+              const fecha = iso(viewYear, viewMonth, d);
+              const cellDate = new Date(viewYear, viewMonth, d);
+              const isPast = cellDate < today;
+              const isToday = cellDate.getTime() === today.getTime();
+              const info = dias[fecha];
+              const isSelected = fecha === selectedDate;
+              const isHeldByOther = !!(info && info.temporales > 0 && !isSelected);
+              const isBlocked = isPast || !!info?.confirmada || isHeldByOther;
+
+              let cls =
+                "relative flex min-h-[52px] flex-col justify-between rounded-xl p-1.5 text-[14px] sm:min-h-[88px] sm:p-2.5 sm:text-[16px]";
+              let etiqueta: string | null = null;
+              let badge: number | null = null;
+
+              if (isPast) {
+                cls += " cursor-default text-zinc-300";
+              } else if (info?.confirmada) {
+                cls += " cursor-not-allowed border border-red-300 bg-red-50 font-bold text-red-700";
+                etiqueta = "Reservada";
+              } else if (isHeldByOther) {
+                cls += " cursor-not-allowed border border-blue-500/25 bg-blue-500/10 text-blue-700/70";
+                etiqueta = "Bloqueada";
+              } else {
+                cls += " cursor-pointer border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange";
+                etiqueta = "Disponible";
+                if (info && info.pendientes > 0) {
+                  cls += " bg-aventurea-orange/15 border-aventurea-orange/40 text-aventurea-orange font-bold";
+                  etiqueta = "En aprobación";
+                  badge = info.pendientes;
+                }
+              }
+              if (isToday) cls += " ring-2 ring-inset ring-aventurea-orange";
+              if (isSelected) cls += " ring-2 ring-inset ring-aventurea-ink";
+
+              return (
+                <div
+                  key={i}
+                  onClick={() => !isBlocked && !holdCreando && handleDateClick(fecha)}
+                  className={cls}
+                >
+                  <span className="font-bold leading-none">{d}</span>
+                  {etiqueta && (
+                    <span className="hidden text-[10px] font-bold uppercase leading-none tracking-wide opacity-70 sm:block">
+                      {etiqueta}
+                    </span>
+                  )}
+                  {!isPast && badge !== null && (
+                    <span className="absolute right-1.5 top-1.5 flex h-[17px] w-[17px] items-center justify-center rounded-full bg-white text-[9.5px] font-bold text-zinc-950">
+                      {badge}
+                    </span>
+                  )}
                 </div>
-                <h3 className="mt-4 text-[17px] font-bold text-aventurea-ink">
-                  Seleccioná una fecha
-                </h3>
-                <p className="mx-auto mt-2 max-w-[34ch] text-[13px] text-aventurea-ink-soft">
-                  Elegí un día disponible en el calendario para indicar los
-                  invitados, ver el precio y reservar la fecha.
+              );
+            })}
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-aventurea-line pt-4">
+            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-line bg-aventurea-cream-2" />
+              Disponible
+            </span>
+            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-blue-500/25 bg-blue-500/10" />
+              Reserva temporal (bloqueada)
+            </span>
+            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-orange/40 bg-aventurea-orange/15" />
+              En aprobación
+            </span>
+            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-300 bg-red-50" />
+              Reservada
+            </span>
+          </div>
+        </div>
+
+        {!selectedDate && (
+          <p className="mt-4 flex items-center justify-center gap-2 text-center text-[13px] text-aventurea-ink-soft">
+            <IconCalendarLine className="h-4 w-4 text-aventurea-orange" />
+            Tocá un día disponible para indicar tus invitados, ver el precio y
+            reservar la fecha.
+          </p>
+        )}
+      </div>
+
+      {/* Panel de reserva sobre la página, con el fondo difuminado */}
+      {panelAbierto && selectedDate && (
+        <div
+          onClick={cerrarPanel}
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-aventurea-ink/35 backdrop-blur-md sm:items-center sm:p-6"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Reservar fecha"
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[560px] sm:rounded-[22px] sm:border sm:border-aventurea-line"
+          >
+            {/* Encabezado fijo: la cuenta regresiva nunca se va con el scroll */}
+            <div className="flex items-center gap-3 border-b border-aventurea-line px-4 py-3 sm:px-6 sm:py-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-orange">
+                  Reserva de fecha
+                </p>
+                <p className="truncate text-[15px] font-bold capitalize text-aventurea-ink">
+                  {fmtFechaLarga(selectedDate)}
                 </p>
               </div>
-            )}
+              {holdId && !holdVencido && !confirmado && (
+                <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-blue-700">
+                  <IconStopwatch className="h-3.5 w-3.5" />
+                  <span className="font-mono text-[13.5px] font-bold">
+                    {fmtCountdown(secondsLeft)}
+                  </span>
+                </span>
+              )}
+              <button
+                onClick={cerrarPanel}
+                aria-label="Cerrar"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-aventurea-line text-[18px] text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                ×
+              </button>
+            </div>
 
-            {selectedDate && holdCreando && (
+            <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
+              {selectedDate && holdCreando && (
               <div className="py-10 text-center text-[13px] text-aventurea-ink-soft">
                 Reservando la fecha por 10 minutos...
               </div>
@@ -665,27 +732,11 @@ export default function BookingCalendar({
 
             {selectedDate && holdId && !holdVencido && !confirmado && !holdCreando && (
               <form onSubmit={enviarSolicitud} className="flex flex-col gap-3.5">
-                <div className="flex items-center justify-between rounded-xl border border-blue-500/40 bg-blue-500/10 px-3.5 py-2.5">
-                  <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-blue-700">
-                    <IconStopwatch className="h-3.5 w-3.5" /> Reserva temporal
-                  </span>
-                  <span className="font-mono text-[13.5px] font-bold text-aventurea-ink">
-                    {fmtCountdown(secondsLeft)}
-                  </span>
-                </div>
-                <p className="-mt-1.5 text-[11px] text-zinc-500">
-                  Subí el comprobante del depósito antes de que se acabe el
-                  tiempo, o la fecha vuelve a quedar disponible.
+                <p className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3.5 py-2.5 text-[11.5px] leading-relaxed text-blue-700">
+                  Esta fecha te queda bloqueada 10 minutos. Subí el
+                  comprobante del depósito antes de que se acabe el tiempo, o
+                  vuelve a quedar disponible para cualquiera.
                 </p>
-
-                <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-                  Reserva de fecha
-                </p>
-                <div className="text-base font-bold text-aventurea-ink">
-                  {selectedDateObj?.toLocaleDateString("es-CR", {
-                    weekday: "long", day: "numeric", month: "long", year: "numeric",
-                  })}
-                </div>
 
                 {dias[selectedDate] && dias[selectedDate].pendientes > 0 && (
                   <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs leading-relaxed text-aventurea-orange">
@@ -1031,53 +1082,13 @@ export default function BookingCalendar({
                 </button>
                 <button
                   type="button"
-                  onClick={limpiarSeleccion}
+                  onClick={cerrarPanel}
                   className="text-center text-xs text-zinc-500 underline hover:text-aventurea-ink"
                 >
-                  ← Elegir otra fecha
+                  ← Cerrar y elegir otra fecha
                 </button>
               </form>
             )}
-          </div>
-        </div>
-      </div>
-
-      {switchTarget && selectedDate && (
-        <div
-          onClick={() => setSwitchTarget(null)}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 text-center"
-          >
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-700">
-              <IconUnlock className="h-6 w-6" />
-            </div>
-            <h3 className="mt-3.5 text-base font-bold text-aventurea-ink">
-              ¿Cambiar de fecha?
-            </h3>
-            <p className="mx-auto mt-2 max-w-[32ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
-              Tu reserva temporal del{" "}
-              <strong className="text-aventurea-ink">{fmtFechaLarga(selectedDate)}</strong>{" "}
-              dejará de estar bloqueada y quedará disponible para cualquiera.
-              Vas a reservar el{" "}
-              <strong className="text-aventurea-ink">{fmtFechaLarga(switchTarget)}</strong>{" "}
-              en su lugar.
-            </p>
-            <div className="mt-5 flex gap-2.5">
-              <button
-                onClick={() => setSwitchTarget(null)}
-                className="flex-1 rounded-xl border border-aventurea-line py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange/40"
-              >
-                Mantener mi fecha
-              </button>
-              <button
-                onClick={confirmarCambioFecha}
-                className="flex-1 rounded-xl bg-aventurea-orange py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
-              >
-                Sí, cambiar
-              </button>
             </div>
           </div>
         </div>
