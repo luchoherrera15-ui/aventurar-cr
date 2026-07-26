@@ -21,11 +21,11 @@ const cards: ExperienceCard[] = [
       "linear-gradient(160deg, #101c22 0%, #16302d 45%, #2a2c22 100%)",
   },
   {
-    href: "/eventos-salon",
-    eyebrow: "Rancho de Eventos",
+    href: "/ranchos-eventos",
+    eyebrow: "Ranchos para Eventos",
     title: "Alquiler de Salón de Eventos",
     description:
-      "Rancho privado para bodas, cumpleaños y celebraciones corporativas.",
+      "Explorá ranchos para bodas, cumpleaños y celebraciones corporativas en todo el país.",
     background:
       "linear-gradient(160deg, #201512 0%, #2e1f14 45%, #1c1712 100%)",
   },
