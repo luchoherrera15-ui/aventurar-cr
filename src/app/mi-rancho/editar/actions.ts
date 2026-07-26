@@ -146,7 +146,18 @@ export async function actualizarRancho(
 
   const fotoUrl = String(formData.get("foto_url") || "");
 
+  // La foto grande de la presentación tiene que ser una de las suyas:
+  // si la que venía se borró de la galería, se limpia y la plataforma
+  // vuelve a escoger sola.
+  const fotoPresentacionRaw = String(formData.get("foto_presentacion") || "");
+  const fotoPresentacion =
+    fotoPresentacionRaw &&
+    (fotos.includes(fotoPresentacionRaw) || fotoPresentacionRaw === fotoUrl)
+      ? fotoPresentacionRaw
+      : null;
+
   const update: Record<string, unknown> = {
+    foto_presentacion: fotoPresentacion,
     categoria,
     subcategoria,
     nombre,

@@ -470,6 +470,8 @@ export type Rancho = {
   precio_desde: number | null;
   contacto_whatsapp: string | null;
   foto_url: string | null;
+  /** Cuál de sus fotos va grande en la sección de presentación. */
+  foto_presentacion: string | null;
   deposito_reserva: number;
   horarios_bloques: HorarioBloqueConfig[];
   tarifa_diciembre_por_persona: number | null;

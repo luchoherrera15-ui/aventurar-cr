@@ -371,3 +371,12 @@ alter table ranchos
 alter table reservas drop constraint if exists reservas_horario_bloque_check;
 
 notify pgrst, 'reload schema';
+
+-- ============================================================
+-- 0023 — El dueño elige qué foto va en cada lugar
+-- ============================================================
+
+-- Vacío = la plataforma escoge una automáticamente, como antes.
+alter table ranchos add column if not exists foto_presentacion text;
+
+notify pgrst, 'reload schema';

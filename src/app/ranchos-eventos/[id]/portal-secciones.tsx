@@ -29,14 +29,12 @@ export function PresentacionSeccion({
   eyebrow,
   titulo,
   texto,
-  datos,
 }: {
   foto: string | null;
   categoria: Categoria;
   eyebrow: string;
   titulo: string;
   texto: string | null;
-  datos: { icono: React.ReactNode; titulo: string; detalle: string }[];
 }) {
   return (
     <section className="relative isolate overflow-hidden">
@@ -63,21 +61,42 @@ export function PresentacionSeccion({
           </p>
         )}
 
-        {datos.length > 0 && (
-          <div className="mt-10 grid grid-cols-1 gap-7 sm:grid-cols-3">
-            {datos.map((d) => (
-              <div key={d.titulo} className="flex flex-col items-center">
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white/85 [&_svg]:h-5 [&_svg]:w-5">
-                  {d.icono}
-                </span>
-                <h3 className="mt-3 text-[15px] font-bold text-white">
-                  {d.titulo}
-                </h3>
-                <p className="mt-0.5 text-[12.5px] text-white/60">{d.detalle}</p>
-              </div>
-            ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Franja clara con los datos de un vistazo (capacidad, amenidades,
+ * ubicación). Va justo debajo del header y, además de informar, separa
+ * las dos secciones con foto: pegadas se mezclaban los colores y se
+ * leían como una sola imagen.
+ */
+export function ResumenSeccion({
+  datos,
+}: {
+  datos: { icono: React.ReactNode; titulo: string; detalle: string }[];
+}) {
+  if (datos.length === 0) return null;
+
+  return (
+    <section className="border-b border-aventurea-line bg-aventurea-surface py-9">
+      <div className="mx-auto grid max-w-[1080px] grid-cols-1 gap-7 px-7 sm:grid-cols-3">
+        {datos.map((d) => (
+          <div key={d.titulo} className="flex items-center gap-3.5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange [&_svg]:h-5 [&_svg]:w-5">
+              {d.icono}
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-bold text-aventurea-ink">
+                {d.titulo}
+              </h3>
+              <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
+                {d.detalle}
+              </p>
+            </div>
           </div>
-        )}
+        ))}
       </div>
     </section>
   );

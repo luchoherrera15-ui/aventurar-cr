@@ -51,6 +51,12 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
 
   const [galeria, setGaleria] = useState<string[]>(rancho.fotos ?? []);
   const [fotosNuevas, setFotosNuevas] = useState<FotoNueva[]>([]);
+  // Cuál de sus fotos va grande en la sección de presentación. Se guarda
+  // por "clave": la URL si ya está subida, o el preview local si todavía
+  // no. Al enviar se traduce a la URL definitiva.
+  const [presentacionClave, setPresentacionClave] = useState<string | null>(
+    rancho.foto_presentacion,
+  );
   const [amenidades, setAmenidades] = useState<string[]>(rancho.amenidades ?? []);
   const [detalles, setDetalles] = useState<DetallesServicio>(
     (rancho.detalles as DetallesServicio) ?? {},
@@ -96,10 +102,16 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
 
   function quitarDeGaleria(url: string) {
     setGaleria((prev) => prev.filter((u) => u !== url));
+    if (presentacionClave === url) setPresentacionClave(null);
   }
 
   function quitarNueva(preview: string) {
     setFotosNuevas((prev) => prev.filter((f) => f.preview !== preview));
+    if (presentacionClave === preview) setPresentacionClave(null);
+  }
+
+  function marcarPresentacion(clave: string) {
+    setPresentacionClave((prev) => (prev === clave ? null : clave));
   }
 
   function toggleAmenidad(id: string) {
@@ -128,7 +140,10 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     }
 
     const urls = [...galeria];
-    for (const { file } of fotosNuevas) {
+    let presentacionUrl = galeria.includes(presentacionClave ?? "")
+      ? presentacionClave
+      : null;
+    for (const { file, preview } of fotosNuevas) {
       const path = `${rancho.id}/galeria/${Date.now()}-${nombreSeguro(file.name)}`;
       const { error } = await supabase.storage
         .from("ranchos-fotos")
@@ -140,8 +155,13 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
       }
       const { data } = supabase.storage.from("ranchos-fotos").getPublicUrl(path);
       urls.push(data.publicUrl);
+      // Si la elegida para presentación era esta foto recién subida, hay
+      // que mandar la URL real y no el preview local, que no existe fuera
+      // de esta pestaña.
+      if (presentacionClave === preview) presentacionUrl = data.publicUrl;
     }
     formData.set("fotos", JSON.stringify(urls.slice(0, FOTOS_MAX)));
+    formData.set("foto_presentacion", presentacionUrl ?? "");
 
     setSubiendo(false);
     formAction(formData);
@@ -154,12 +174,15 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
           Foto principal
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          Es la que se ve en tu card del directorio
+          Se ve en tu card del directorio y de fondo del calendario
         </h3>
         <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-          Recomendado: al menos <strong>{FOTO_ANCHO_MIN}×{FOTO_ALTO_MIN}px</strong>,
-          proporción horizontal (4:3), formato JPG o PNG. Evitá fotos muy
-          oscuras — el nombre se muestra encima con letras blancas.
+          Es la primera impresión: sale en la lista de resultados y detrás
+          del calendario de reservas, con tu nombre encima en letras
+          blancas. Recomendado: al menos{" "}
+          <strong>{FOTO_ANCHO_MIN}×{FOTO_ALTO_MIN}px</strong>, horizontal
+          (4:3), JPG o PNG. Elegí una <strong>amplia y no muy oscura</strong>,
+          porque encima le montamos una capa oscura para que el texto se lea.
         </p>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -214,6 +237,12 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
           el resto queda en la galería de abajo. Mostrá los distintos espacios:
           el salón, la piscina, la zona verde, el parqueo.
         </p>
+        <p className="mt-2.5 rounded-xl bg-aventurea-cream-2 p-3 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+          <strong className="text-aventurea-ink">Elegí la de presentación:</strong>{" "}
+          pasá el mouse por una foto y tocá <em>Usar de presentación</em>. Esa
+          es la que sale <strong>grande y a todo el ancho</strong>, con tu
+          descripción encima. Si no elegís ninguna, escogemos una nosotros.
+        </p>
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {galeria.map((url, i) => (
@@ -221,6 +250,8 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               key={url}
               src={url}
               destacada={i < FOTOS_DESTACADAS}
+              presentacion={presentacionClave === url}
+              onPresentacion={() => marcarPresentacion(url)}
               onQuitar={() => quitarDeGaleria(url)}
             />
           ))}
@@ -229,6 +260,8 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               key={f.preview}
               src={f.preview}
               destacada={galeria.length + i < FOTOS_DESTACADAS}
+              presentacion={presentacionClave === f.preview}
+              onPresentacion={() => marcarPresentacion(f.preview)}
               nueva
               onQuitar={() => quitarNueva(f.preview)}
             />
@@ -603,25 +636,46 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
 function FotoMiniatura({
   src,
   destacada,
+  presentacion,
+  onPresentacion,
   nueva = false,
   onQuitar,
 }: {
   src: string;
   destacada: boolean;
+  presentacion: boolean;
+  onPresentacion: () => void;
   nueva?: boolean;
   onQuitar: () => void;
 }) {
   return (
-    <div className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-aventurea-cream-2">
+    <div
+      className={`group relative aspect-[4/3] overflow-hidden rounded-xl bg-aventurea-cream-2 ${
+        presentacion ? "ring-2 ring-aventurea-orange ring-offset-2" : ""
+      }`}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt="" className="h-full w-full object-cover" />
-      {destacada && (
+      {presentacion ? (
         <span className="absolute left-1.5 top-1.5 rounded-full bg-aventurea-orange px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
-          Destacada
+          Presentación
         </span>
+      ) : (
+        destacada && (
+          <span className="absolute left-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+            Destacada
+          </span>
+        )
       )}
+      <button
+        type="button"
+        onClick={onPresentacion}
+        className="absolute inset-x-1.5 bottom-1.5 rounded-lg bg-black/65 py-1.5 text-[10.5px] font-bold text-white opacity-0 transition-opacity hover:bg-black/85 focus:opacity-100 group-hover:opacity-100"
+      >
+        {presentacion ? "Quitar de presentación" : "Usar de presentación"}
+      </button>
       {nueva && (
-        <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+        <span className="absolute right-1.5 bottom-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white group-hover:opacity-0">
           Sin guardar
         </span>
       )}
