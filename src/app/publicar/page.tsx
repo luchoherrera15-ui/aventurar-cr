@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import AccionesSesion from "@/components/acciones-sesion";
 import {
   IconCalendarLine,
   IconCheck,
@@ -50,20 +51,7 @@ export default async function PublicarPage() {
               AVENTUREA CR
             </span>
           </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/mi-rancho/login"
-              className="hidden rounded-lg px-3 py-2 text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange sm:block"
-            >
-              Ya tengo cuenta
-            </Link>
-            <Link
-              href="/mi-rancho/registro"
-              className="rounded-xl bg-aventurea-orange px-4 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
-            >
-              Publicar gratis
-            </Link>
-          </div>
+          <AccionesSesion />
         </div>
       </header>
 

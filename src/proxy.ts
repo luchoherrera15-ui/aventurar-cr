@@ -29,9 +29,32 @@ export default async function proxy(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  /**
+   * Redirige SIN perder las cookies que Supabase acaba de escribir.
+   *
+   * Al renovar la sesión, Supabase entrega un refresh token nuevo e
+   * invalida el anterior. Esas cookies se escriben en `response`, así que
+   * devolver un `NextResponse.redirect()` recién creado las tiraba a la
+   * basura: el navegador se quedaba con el token viejo, que ya no sirve, y
+   * a la vuelta siguiente la sesión aparecía cerrada. Por eso hay que
+   * copiarlas a la respuesta del redirect.
+   */
+  function redirigir(destino: string) {
+    const salida = NextResponse.redirect(new URL(destino, request.url));
+    response.cookies.getAll().forEach((cookie) => salida.cookies.set(cookie));
+    return salida;
+  }
+
+  // Si Supabase no contesta (corte de red, servicio caído) no cerramos la
+  // sesión de nadie: se deja pasar y la propia página vuelve a verificar
+  // antes de mostrar algo privado.
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    return response;
+  }
 
   const path = request.nextUrl.pathname;
   const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";
@@ -41,21 +64,23 @@ export default async function proxy(request: NextRequest) {
     path !== "/mi-rancho/registro";
 
   if (isAdminRoute) {
-    if (!user) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
-    }
+    if (!user) return redirigir("/admin/login");
+
     const { data: perfil } = await supabase
       .from("perfiles")
       .select("rol")
       .eq("id", user.id)
       .single();
-    if (perfil?.rol !== "admin") {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
-    }
+    if (perfil?.rol !== "admin") return redirigir("/admin/login");
   }
 
   if (isMiRanchoRoute && !user) {
-    return NextResponse.redirect(new URL("/mi-rancho/login", request.url));
+    return redirigir("/mi-rancho/login");
+  }
+
+  // Con la sesión abierta no tiene sentido volver a las pantallas de login.
+  if (user && (path === "/mi-rancho/login" || path === "/mi-rancho/registro")) {
+    return redirigir("/mi-rancho");
   }
 
   return response;
