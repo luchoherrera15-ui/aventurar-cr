@@ -170,3 +170,72 @@ export function IconEdit({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function IconCheck({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+export function IconPin({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+      <circle cx="12" cy="10" r="2.6" />
+    </svg>
+  );
+}
+
+export function IconUsers({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path strokeLinecap="round" d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 14.4A5.5 5.5 0 0 1 20.5 19" />
+    </svg>
+  );
+}
+
+export function IconWhatsapp({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm0 1.8a8.2 8.2 0 1 1-4.2 15.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 0 1 12 3.8Zm-3.1 4c-.2 0-.5 0-.7.4-.2.4-.9.9-.9 2.1s.9 2.4 1 2.6c.1.2 1.7 2.8 4.3 3.8 2.1.8 2.5.7 3 .6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.3l-2-1c-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.1-.3 0-.4.1-.6l.5-.5c.1-.2.2-.3.3-.5 0-.2 0-.4-.1-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4Z" />
+    </svg>
+  );
+}
+
+export function IconInstagram({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17" cy="7" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function IconFacebook({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M13.5 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.25-1.5 1.55-1.5h1.65V3.6c-.3 0-1.28-.1-2.42-.1-2.4 0-4.05 1.47-4.05 4.16V9.9H7.5V13h2.73v8h3.27Z" />
+    </svg>
+  );
+}
+
+export function IconTiktok({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M16.5 3c.35 1.9 1.5 3.3 3.5 3.6v2.6c-1.35.1-2.6-.25-3.85-1V15c0 4.35-4.3 6.9-7.85 4.85C6.1 18.55 5.4 14.9 7.4 12.6c1.1-1.25 2.6-1.85 4.3-1.7v2.7c-.5-.1-1-.1-1.5.1-1.15.4-1.8 1.55-1.5 2.7.3 1.15 1.45 1.9 2.65 1.65 1.1-.2 1.85-1.2 1.85-2.4V3h3.3Z" />
+    </svg>
+  );
+}
+
+export function IconGlobe({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" d="M3 12h18M12 3c2.4 2.4 3.5 5.6 3.5 9s-1.1 6.6-3.5 9c-2.4-2.4-3.5-5.6-3.5-9S9.6 5.4 12 3Z" />
+    </svg>
+  );
+}

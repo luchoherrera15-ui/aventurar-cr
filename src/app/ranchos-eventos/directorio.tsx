@@ -457,11 +457,7 @@ function IconLupa() {
 function RanchoCard({ rancho }: { rancho: Rancho }) {
   const esAventurea = rancho.nombre === NOMBRE_RANCHO_AVENTUREA;
   const puedeReservar = rancho.categoria === "salon";
-  const href = esAventurea
-    ? "/eventos-salon"
-    : puedeReservar
-      ? `/ranchos-eventos/${rancho.id}/reservar`
-      : `/ranchos-eventos/${rancho.id}`;
+  const href = esAventurea ? "/eventos-salon" : `/ranchos-eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)

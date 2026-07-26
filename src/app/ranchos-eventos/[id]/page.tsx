@@ -1,20 +1,35 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import BookingCalendar from "@/app/eventos-salon/booking-calendar";
+import { IconCheck, IconPin, IconUsers } from "@/components/icons";
 import {
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
+  TIPO_LUGAR_LABEL,
+  type PromocionDia,
   type Rancho,
 } from "../../mi-rancho/types";
+import type {
+  DiaDisponibilidad,
+  PrecioTier,
+  ServicioAdicional,
+} from "@/app/eventos-salon/types";
 import { NOMBRE_RANCHO_AVENTUREA } from "../constants";
+import {
+  AmenidadesSeccion,
+  ContactoSeccion,
+  GaleriaSeccion,
+  PresentacionSeccion,
+} from "./portal-secciones";
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
   return "₡" + Number(n).toLocaleString("es-CR");
 }
 
-export default async function RanchoDetallePage({
+export default async function RanchoPortalPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -36,6 +51,9 @@ export default async function RanchoDetallePage({
     redirect("/eventos-salon");
   }
 
+  const esSalon = rancho.categoria === "salon";
+  const fotos = rancho.fotos ?? [];
+  const amenidades = rancho.amenidades ?? [];
   const precio = fmtColones(rancho.precio_desde);
   const whatsappHref = rancho.contacto_whatsapp
     ? `https://wa.me/${rancho.contacto_whatsapp.replace(/[^0-9]/g, "")}`
@@ -43,7 +61,104 @@ export default async function RanchoDetallePage({
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
-  const puedeReservar = rancho.categoria === "salon";
+  const capacidad =
+    rancho.capacidad_min || rancho.capacidad_max
+      ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
+      : "A consultar";
+
+  // La presentación usa una foto distinta a la principal cuando hay galería,
+  // para que la página no repita la misma imagen dos veces.
+  const fotoPresentacion = fotos[0] ?? rancho.foto_url;
+
+  const datosPresentacion = esSalon
+    ? [
+        {
+          icono: <IconUsers />,
+          titulo: "Capacidad",
+          detalle: capacidad,
+        },
+        {
+          icono: <IconCheck />,
+          titulo: amenidades.length > 0 ? `${amenidades.length} amenidades` : "Amenidades",
+          detalle: amenidades.length > 0 ? "Ver la lista completa abajo" : "A consultar",
+        },
+        {
+          icono: <IconPin />,
+          titulo: rancho.provincia ?? "Costa Rica",
+          detalle: rancho.canton ?? "Consultá cómo llegar",
+        },
+      ]
+    : [
+        {
+          icono: <IconCheck />,
+          titulo: CATEGORIA_LABEL[rancho.categoria],
+          detalle: "Servicio para tu evento",
+        },
+        {
+          icono: <IconUsers />,
+          titulo: precio ? `Desde ${precio}` : "Precio a consultar",
+          detalle: "Escribinos para cotizar",
+        },
+        {
+          icono: <IconPin />,
+          titulo: rancho.provincia ?? "Costa Rica",
+          detalle: rancho.canton ?? "Consultá cobertura",
+        },
+      ];
+
+  // Datos del calendario — solo los lugares tienen reserva en línea.
+  let disponibilidad: Record<string, DiaDisponibilidad> = {};
+  let tiers: PrecioTier[] = [];
+  let servicios: ServicioAdicional[] = [];
+  let promociones: PromocionDia[] = [];
+
+  if (esSalon) {
+    await supabase
+      .from("reservas")
+      .delete()
+      .eq("rancho_id", rancho.id)
+      .eq("estado", "temporal")
+      .lt("expira_en", new Date().toISOString());
+
+    const [dispRes, tiersRes, svcRes, promoRes] = await Promise.all([
+      supabase
+        .from("disponibilidad_rancho")
+        .select("fecha, estado")
+        .eq("rancho_id", rancho.id),
+      supabase
+        .from("precio_tiers")
+        .select("min_invitados, max_invitados, precio")
+        .eq("rancho_id", rancho.id)
+        .order("min_invitados", { ascending: true }),
+      supabase
+        .from("servicios_adicionales")
+        .select("id, nombre, precio, requisito_max_invitados")
+        .eq("rancho_id", rancho.id)
+        .eq("activo", true),
+      supabase
+        .from("promociones_dia")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .eq("activo", true),
+    ]);
+
+    const acc: Record<string, DiaDisponibilidad> = {};
+    (dispRes.data ?? []).forEach((r) => {
+      const dia = acc[r.fecha] ?? {
+        confirmada: false,
+        pendientes: 0,
+        temporales: 0,
+      };
+      if (r.estado === "confirmada") dia.confirmada = true;
+      else if (r.estado === "temporal") dia.temporales += 1;
+      else dia.pendientes += 1;
+      acc[r.fecha] = dia;
+    });
+    disponibilidad = acc;
+    tiers = (tiersRes.data ?? []) as PrecioTier[];
+    servicios = (svcRes.data ?? []) as ServicioAdicional[];
+    promociones = (promoRes.data ?? []) as PromocionDia[];
+  }
 
   return (
     <div className="min-h-screen bg-aventurea-cream">
@@ -64,8 +179,21 @@ export default async function RanchoDetallePage({
         </div>
       </header>
 
-      <section className="pb-16">
-        <div className="relative flex h-[280px] items-end overflow-hidden sm:h-[360px]">
+      {esSalon ? (
+        /* Los lugares abren con el calendario: reservar es lo primero. */
+        <BookingCalendar
+          ranchoId={rancho.id}
+          nombreRancho={rancho.nombre}
+          disponibilidad={disponibilidad}
+          tiers={tiers}
+          servicios={servicios}
+          tarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
+          depositoReserva={rancho.deposito_reserva ?? 25000}
+          promociones={promociones}
+        />
+      ) : (
+        /* Los servicios móviles no tienen calendario: abren con su portada. */
+        <section className="relative flex h-[300px] items-end overflow-hidden sm:h-[400px]">
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={
@@ -79,9 +207,9 @@ export default async function RanchoDetallePage({
               {CATEGORIA_ICONO[rancho.categoria]}
             </span>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/10" />
 
-          <div className="relative mx-auto w-full max-w-[820px] px-7 pb-6">
+          <div className="relative mx-auto w-full max-w-[1080px] px-7 pb-8">
             <div className="mb-2.5 flex flex-wrap gap-2">
               {rancho.provincia && (
                 <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink">
@@ -92,96 +220,71 @@ export default async function RanchoDetallePage({
                 {CATEGORIA_LABEL[rancho.categoria]}
               </span>
             </div>
-            <h1 className="text-[26px] font-bold text-white drop-shadow-sm sm:text-[32px]">
+            <h1 className="text-[28px] font-bold text-white drop-shadow-sm sm:text-[36px]">
               {rancho.nombre}
             </h1>
-            {ubicacion && (
-              <p className="mt-1 text-[13.5px] text-white/80">{ubicacion}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="mx-auto max-w-[820px] px-7">
-          {rancho.descripcion && (
-            <p className="mt-6 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
-              {rancho.descripcion}
-            </p>
-          )}
-
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                Capacidad
-              </div>
-              <div className="mt-1 text-[14px] font-bold text-aventurea-ink">
-                {rancho.capacidad_min || rancho.capacidad_max
-                  ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
-                  : "A consultar"}
-              </div>
-            </div>
-            <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                Precio desde
-              </div>
-              <div className="mt-1 text-[14px] font-bold text-aventurea-orange">
-                {precio ?? "A consultar"}
-              </div>
-            </div>
-            {rancho.direccion_exacta && (
-              <div className="col-span-2 rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5 sm:col-span-1">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                  Dirección
-                </div>
-                <div className="mt-1 text-[13px] font-bold text-aventurea-ink">
-                  {rancho.direccion_exacta}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-5">
-            {puedeReservar ? (
-              <>
-                <p className="text-[13px] leading-relaxed text-aventurea-ink-soft">
-                  Elegí tu fecha, subí el comprobante del depósito y quedá en
-                  aprobación al instante.
-                </p>
-                <Link
-                  href={`/ranchos-eventos/${id}/reservar`}
-                  className="mt-4 inline-flex rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
-                >
-                  ¡Reservar ahora! →
-                </Link>
-              </>
-            ) : (
-              <p className="text-[13px] leading-relaxed text-aventurea-ink-soft">
-                Este espacio todavía no tiene reservas en línea — escribile
-                directamente para consultar disponibilidad.
+            {rancho.descripcion && (
+              <p className="mt-2 max-w-[60ch] text-[14px] text-white/80">
+                {rancho.descripcion}
               </p>
             )}
-            {whatsappHref ? (
+            <div className="mt-5 flex flex-wrap gap-2.5">
+              {whatsappHref && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                >
+                  Pedir cotización
+                </a>
+              )}
               <a
-                href={whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={
-                  puedeReservar
-                    ? "mt-3 inline-flex rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange sm:ml-2.5 sm:mt-0"
-                    : "mt-4 inline-flex rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
-                }
+                href="#contacto"
+                className="rounded-xl border border-white/40 px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-white/10"
               >
-                Contactar por WhatsApp
+                Ver contacto
               </a>
-            ) : (
-              !puedeReservar && (
-                <p className="mt-3 text-[13px] font-bold text-zinc-500">
-                  Este negocio todavía no dejó un contacto público.
-                </p>
-              )
-            )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      <PresentacionSeccion
+        foto={fotoPresentacion}
+        categoria={rancho.categoria}
+        eyebrow={
+          esSalon && rancho.tipo_lugar
+            ? TIPO_LUGAR_LABEL[rancho.tipo_lugar]
+            : CATEGORIA_LABEL[rancho.categoria]
+        }
+        titulo={rancho.nombre}
+        texto={rancho.descripcion_larga || rancho.descripcion}
+        datos={datosPresentacion}
+      />
+
+      {esSalon && <AmenidadesSeccion amenidades={amenidades} />}
+
+      <GaleriaSeccion fotos={fotos} nombre={rancho.nombre} />
+
+      <ContactoSeccion
+        nombre={rancho.nombre}
+        whatsappHref={whatsappHref}
+        instagram={rancho.instagram}
+        facebook={rancho.facebook}
+        tiktok={rancho.tiktok}
+        sitioWeb={rancho.sitio_web}
+        ubicacion={ubicacion}
+      />
+
+      <footer className="border-t border-aventurea-line py-9 text-center">
+        <p className="text-xs text-zinc-500">
+          AVENTUREA CR — Costa Rica ·{" "}
+          <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
+            Ver todos los espacios
+          </Link>
+        </p>
+      </footer>
     </div>
   );
 }

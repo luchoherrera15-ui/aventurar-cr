@@ -3,9 +3,33 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORIAS, PROVINCIAS, TIPOS_LUGAR } from "../types";
+import {
+  AMENIDADES,
+  CATEGORIAS,
+  FOTOS_MAX,
+  PROVINCIAS,
+  TIPOS_LUGAR,
+} from "../types";
 
 export type EditarRanchoState = { error?: string; ok?: boolean } | undefined;
+
+// Las redes se guardan siempre como URL completa, así la página pública
+// solo tiene que pintarlas. Si el dueño escribió un usuario ("@turancho")
+// lo convertimos al link de la plataforma; cualquier cosa que no sea
+// http(s) termina como usuario, nunca como esquema ejecutable.
+function normalizarRed(valor: string, base: string): string | null {
+  const v = valor.trim();
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  return base + v.replace(/^@/, "");
+}
+
+function normalizarSitio(valor: string): string | null {
+  const v = valor.trim();
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  return "https://" + v;
+}
 
 export async function actualizarRancho(
   _prevState: EditarRanchoState,
@@ -40,6 +64,36 @@ export async function actualizarRancho(
   };
   const texto = (campo: string) => String(formData.get(campo) || "").trim() || null;
 
+  // Solo aceptamos fotos que vivan en nuestro bucket público — así nadie
+  // puede colar una imagen externa (ni un esquema raro) en el portal.
+  let fotos: string[] = [];
+  const fotosRaw = String(formData.get("fotos") || "");
+  if (fotosRaw) {
+    try {
+      const parsed: unknown = JSON.parse(fotosRaw);
+      if (Array.isArray(parsed)) {
+        fotos = parsed
+          .filter(
+            (u): u is string =>
+              typeof u === "string" &&
+              u.startsWith("https://") &&
+              u.includes("/ranchos-fotos/"),
+          )
+          .slice(0, FOTOS_MAX);
+      }
+    } catch {
+      return { error: "No se pudo leer la galería de fotos. Probá de nuevo." };
+    }
+  }
+
+  const amenidades =
+    categoria === "salon"
+      ? formData
+          .getAll("amenidades")
+          .map(String)
+          .filter((a) => AMENIDADES.includes(a))
+      : [];
+
   const fotoUrl = String(formData.get("foto_url") || "");
 
   const update: Record<string, unknown> = {
@@ -47,6 +101,7 @@ export async function actualizarRancho(
     tipo_lugar: categoria === "salon" ? tipoLugarRaw : null,
     nombre,
     descripcion: texto("descripcion"),
+    descripcion_larga: texto("descripcion_larga"),
     provincia,
     canton: texto("canton"),
     direccion_exacta: texto("direccion_exacta"),
@@ -54,6 +109,21 @@ export async function actualizarRancho(
     capacidad_max: num("capacidad_max"),
     precio_desde: num("precio_desde"),
     contacto_whatsapp: texto("contacto_whatsapp"),
+    instagram: normalizarRed(
+      String(formData.get("instagram") || ""),
+      "https://instagram.com/",
+    ),
+    facebook: normalizarRed(
+      String(formData.get("facebook") || ""),
+      "https://facebook.com/",
+    ),
+    tiktok: normalizarRed(
+      String(formData.get("tiktok") || ""),
+      "https://tiktok.com/@",
+    ),
+    sitio_web: normalizarSitio(String(formData.get("sitio_web") || "")),
+    amenidades,
+    fotos,
   };
   if (fotoUrl) update.foto_url = fotoUrl;
 

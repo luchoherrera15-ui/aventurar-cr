@@ -154,21 +154,29 @@ export default async function MiRanchoPage() {
             >
               <IconEdit className="h-3.5 w-3.5" /> Editar mi publicación
             </Link>
+            <Link
+              href="/mi-rancho/precios"
+              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+            >
+              {rancho.categoria === "salon"
+                ? "Precios y descuentos"
+                : "Códigos de descuento"}
+            </Link>
             {rancho.categoria === "salon" && (
-              <>
-                <Link
-                  href="/mi-rancho/precios"
-                  className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-                >
-                  Precios y servicios
-                </Link>
-                <Link
-                  href="/mi-rancho/reservas"
-                  className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-                >
-                  Mis reservas
-                </Link>
-              </>
+              <Link
+                href="/mi-rancho/reservas"
+                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                Mis reservas
+              </Link>
+            )}
+            {rancho.estado === "aprobado" && (
+              <Link
+                href={`/ranchos-eventos/${rancho.id}`}
+                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                Ver mi página pública
+              </Link>
             )}
           </div>
         </div>

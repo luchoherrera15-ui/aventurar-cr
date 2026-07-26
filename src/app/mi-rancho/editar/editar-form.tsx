@@ -2,11 +2,14 @@
 
 import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { IconCamera, IconFrame, IconWarning } from "@/components/icons";
+import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icons";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
 import {
+  AMENIDADES_GRUPOS,
   CATEGORIAS,
   CATEGORIA_LABEL,
+  FOTOS_DESTACADAS,
+  FOTOS_MAX,
   FOTO_ALTO_MIN,
   FOTO_ANCHO_MIN,
   PROVINCIAS,
@@ -21,6 +24,14 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
+// Los nombres de archivo llegan tal cual del dispositivo del dueño —
+// los limpiamos para que la ruta en el bucket sea siempre válida.
+function nombreSeguro(nombre: string) {
+  return nombre.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+type FotoNueva = { file: File; preview: string };
+
 export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   const [state, formAction, pending] = useActionState<
     EditarRanchoState,
@@ -33,7 +44,14 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   const [fotoAviso, setFotoAviso] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [subidaError, setSubidaError] = useState<string | null>(null);
+
+  const [galeria, setGaleria] = useState<string[]>(rancho.fotos ?? []);
+  const [fotosNuevas, setFotosNuevas] = useState<FotoNueva[]>([]);
+  const [amenidades, setAmenidades] = useState<string[]>(rancho.amenidades ?? []);
+
   const esSalon = categoria === "salon";
+  const totalFotos = galeria.length + fotosNuevas.length;
+  const espacioLibre = FOTOS_MAX - totalFotos;
 
   function onFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -54,23 +72,67 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     img.src = url;
   }
 
+  function onGaleriaChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).slice(0, espacioLibre);
+    if (files.length === 0) return;
+    setFotosNuevas((prev) => [
+      ...prev,
+      ...files.map((file) => ({ file, preview: URL.createObjectURL(file) })),
+    ]);
+    // Permite volver a elegir el mismo archivo si el dueño lo quita y lo re-agrega.
+    e.target.value = "";
+  }
+
+  function quitarDeGaleria(url: string) {
+    setGaleria((prev) => prev.filter((u) => u !== url));
+  }
+
+  function quitarNueva(preview: string) {
+    setFotosNuevas((prev) => prev.filter((f) => f.preview !== preview));
+  }
+
+  function toggleAmenidad(id: string) {
+    setAmenidades((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
+    );
+  }
+
   async function onSubmit(formData: FormData) {
+    const supabase = createClient();
+    setSubiendo(true);
+    setSubidaError(null);
+
     if (fotoFile) {
-      setSubiendo(true);
-      setSubidaError(null);
-      const supabase = createClient();
-      const path = `${rancho.id}/${Date.now()}-${fotoFile.name}`;
+      const path = `${rancho.id}/${Date.now()}-${nombreSeguro(fotoFile.name)}`;
       const { error } = await supabase.storage
         .from("ranchos-fotos")
         .upload(path, fotoFile, { upsert: true });
-      setSubiendo(false);
       if (error) {
-        setSubidaError("No se pudo subir la foto: " + error.message);
+        setSubiendo(false);
+        setSubidaError("No se pudo subir la foto principal: " + error.message);
         return;
       }
       const { data } = supabase.storage.from("ranchos-fotos").getPublicUrl(path);
       formData.set("foto_url", data.publicUrl);
     }
+
+    const urls = [...galeria];
+    for (const { file } of fotosNuevas) {
+      const path = `${rancho.id}/galeria/${Date.now()}-${nombreSeguro(file.name)}`;
+      const { error } = await supabase.storage
+        .from("ranchos-fotos")
+        .upload(path, file, { upsert: true });
+      if (error) {
+        setSubiendo(false);
+        setSubidaError("No se pudo subir una foto de la galería: " + error.message);
+        return;
+      }
+      const { data } = supabase.storage.from("ranchos-fotos").getPublicUrl(path);
+      urls.push(data.publicUrl);
+    }
+    formData.set("fotos", JSON.stringify(urls.slice(0, FOTOS_MAX)));
+
+    setSubiendo(false);
     formAction(formData);
   }
 
@@ -125,6 +187,55 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               </p>
             )}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+          Galería
+        </p>
+        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
+          Las fotos de tu página
+        </h3>
+        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+          Hasta <strong>{FOTOS_MAX} fotos</strong>. Las primeras{" "}
+          <strong>{FOTOS_DESTACADAS}</strong> se muestran grandes en tu página y
+          el resto queda en la galería de abajo. Mostrá los distintos espacios:
+          el salón, la piscina, la zona verde, el parqueo.
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {galeria.map((url, i) => (
+            <FotoMiniatura
+              key={url}
+              src={url}
+              destacada={i < FOTOS_DESTACADAS}
+              onQuitar={() => quitarDeGaleria(url)}
+            />
+          ))}
+          {fotosNuevas.map((f, i) => (
+            <FotoMiniatura
+              key={f.preview}
+              src={f.preview}
+              destacada={galeria.length + i < FOTOS_DESTACADAS}
+              nueva
+              onQuitar={() => quitarNueva(f.preview)}
+            />
+          ))}
+          {espacioLibre > 0 && (
+            <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange">
+              <IconCamera className="h-5 w-5" />
+              <span className="text-[11.5px] font-bold">Agregar</span>
+              <span className="text-[10.5px]">quedan {espacioLibre}</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={onGaleriaChange}
+                className="hidden"
+              />
+            </label>
+          )}
         </div>
       </section>
 
@@ -185,11 +296,22 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
           </div>
 
           <div>
-            <label className={labelCls}>Descripción</label>
+            <label className={labelCls}>Descripción corta</label>
             <textarea
               name="descripcion"
               defaultValue={rancho.descripcion ?? ""}
+              placeholder="Una o dos líneas — es lo que se lee en el directorio."
               className={`min-h-[80px] ${inputCls}`}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Presentación larga</label>
+            <textarea
+              name="descripcion_larga"
+              defaultValue={rancho.descripcion_larga ?? ""}
+              placeholder="Contá la historia del lugar, qué lo hace especial, qué incluye el alquiler, cómo llegar... Este texto se muestra grande en tu página, encima de una de tus fotos."
+              className={`min-h-[130px] ${inputCls}`}
             />
           </div>
 
@@ -281,6 +403,111 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
         </div>
       </section>
 
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+          Redes sociales
+        </p>
+        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
+          Dónde más te pueden encontrar
+        </h3>
+        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+          Se muestran como botones en tu página. Dejá en blanco las que no usés.
+        </p>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Instagram</label>
+            <input
+              type="text"
+              name="instagram"
+              placeholder="@turancho o el link completo"
+              defaultValue={rancho.instagram ?? ""}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Facebook</label>
+            <input
+              type="text"
+              name="facebook"
+              placeholder="Nombre de tu página o el link"
+              defaultValue={rancho.facebook ?? ""}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>TikTok</label>
+            <input
+              type="text"
+              name="tiktok"
+              placeholder="@turancho o el link completo"
+              defaultValue={rancho.tiktok ?? ""}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Sitio web</label>
+            <input
+              type="text"
+              name="sitio_web"
+              placeholder="www.turancho.com"
+              defaultValue={rancho.sitio_web ?? ""}
+              className={inputCls}
+            />
+          </div>
+        </div>
+      </section>
+
+      {esSalon && (
+        <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
+          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+            Amenidades
+          </p>
+          <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
+            ¿Qué tiene tu lugar?
+          </h3>
+          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+            Marcá todo lo que ofrecés. Se muestra como una lista de íconos en tu
+            página — entre más completo, más confianza le da al cliente.
+          </p>
+
+          {amenidades.map((a) => (
+            <input key={a} type="hidden" name="amenidades" value={a} />
+          ))}
+
+          <div className="mt-4 flex flex-col gap-5">
+            {AMENIDADES_GRUPOS.map((grupo) => (
+              <div key={grupo.titulo}>
+                <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  {grupo.titulo}
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {grupo.items.map((item) => {
+                    const activo = amenidades.includes(item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => toggleAmenidad(item.id)}
+                        aria-pressed={activo}
+                        className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
+                          activo
+                            ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
+                            : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+                        }`}
+                      >
+                        {activo && <span aria-hidden>✓ </span>}
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {state?.error && (
         <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
           {state.error}
@@ -298,9 +525,46 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
           disabled={pending || subiendo}
           className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
         >
-          {subiendo ? "Subiendo foto..." : pending ? "Guardando..." : "Guardar cambios"}
+          {subiendo ? "Subiendo fotos..." : pending ? "Guardando..." : "Guardar cambios"}
         </button>
       </div>
     </form>
+  );
+}
+
+function FotoMiniatura({
+  src,
+  destacada,
+  nueva = false,
+  onQuitar,
+}: {
+  src: string;
+  destacada: boolean;
+  nueva?: boolean;
+  onQuitar: () => void;
+}) {
+  return (
+    <div className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-aventurea-cream-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" className="h-full w-full object-cover" />
+      {destacada && (
+        <span className="absolute left-1.5 top-1.5 rounded-full bg-aventurea-orange px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+          Destacada
+        </span>
+      )}
+      {nueva && (
+        <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+          Sin guardar
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onQuitar}
+        aria-label="Quitar foto"
+        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity hover:bg-red-600 focus:opacity-100 group-hover:opacity-100"
+      >
+        <IconTrash className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }

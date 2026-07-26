@@ -91,13 +91,102 @@ export const TIPO_LUGAR_LABEL: Record<TipoLugar, string> = {
   centro_negocios: "Centros de negocios",
 };
 
+// Cuántas fotos de galería puede subir cada negocio. Las primeras
+// FOTOS_DESTACADAS se muestran grandes en el portal; el resto va en
+// la galería secundaria.
+export const FOTOS_MAX = 8;
+export const FOTOS_DESTACADAS = 4;
+
+// Amenidades de un lugar físico (salones, ranchos, fincas, hoteles).
+// Los servicios móviles (DJ, catering, mobiliario) tendrán su propio
+// set de características más adelante.
+export const AMENIDADES_GRUPOS: {
+  titulo: string;
+  items: { id: string; label: string }[];
+}[] = [
+  {
+    titulo: "Espacios",
+    items: [
+      { id: "piscina", label: "Piscina" },
+      { id: "piscina_ninos", label: "Piscina para niños" },
+      { id: "rancho_techado", label: "Rancho techado" },
+      { id: "salon_cerrado", label: "Salón cerrado" },
+      { id: "zona_verde", label: "Zona verde / jardín" },
+      { id: "cancha_futbol", label: "Cancha de fútbol" },
+      { id: "cancha_multiuso", label: "Cancha multiuso" },
+      { id: "juegos_infantiles", label: "Área de juegos infantiles" },
+      { id: "terraza_mirador", label: "Terraza o mirador" },
+      { id: "rio_quebrada", label: "Río o quebrada" },
+    ],
+  },
+  {
+    titulo: "Cocina y comida",
+    items: [
+      { id: "parrilla", label: "Parrilla / BBQ" },
+      { id: "cocina_equipada", label: "Cocina equipada" },
+      { id: "horno_lena", label: "Horno de leña" },
+      { id: "refrigeradora", label: "Refrigeradora / congelador" },
+      { id: "comedor_techado", label: "Comedor techado" },
+      { id: "bar_barra", label: "Bar / barra" },
+      { id: "catering_externo", label: "Se permite catering externo" },
+    ],
+  },
+  {
+    titulo: "Servicios",
+    items: [
+      { id: "parqueo", label: "Parqueo privado" },
+      { id: "parqueo_buses", label: "Parqueo para buses" },
+      { id: "banos_completos", label: "Baños completos" },
+      { id: "duchas_vestidores", label: "Duchas / vestidores" },
+      { id: "wifi", label: "Wifi" },
+      { id: "planta_electrica", label: "Planta eléctrica" },
+      { id: "sonido_incluido", label: "Sonido incluido" },
+      { id: "iluminacion", label: "Iluminación de ambiente" },
+      { id: "proyector", label: "Proyector / pantalla" },
+      { id: "aire_acondicionado", label: "Aire acondicionado" },
+      { id: "seguridad", label: "Seguridad / vigilancia" },
+      { id: "limpieza", label: "Personal de limpieza" },
+    ],
+  },
+  {
+    titulo: "Hospedaje",
+    items: [
+      { id: "chalets", label: "Chalets / cabinas" },
+      { id: "habitaciones", label: "Habitaciones" },
+      { id: "camping", label: "Zona de camping" },
+    ],
+  },
+  {
+    titulo: "Accesibilidad y reglas",
+    items: [
+      { id: "acceso_silla_ruedas", label: "Acceso para silla de ruedas" },
+      { id: "mascotas", label: "Se permiten mascotas" },
+      { id: "apto_ninos", label: "Apto para niños" },
+    ],
+  },
+];
+
+export const AMENIDADES = AMENIDADES_GRUPOS.flatMap((g) =>
+  g.items.map((i) => i.id),
+);
+
+export const AMENIDAD_LABEL: Record<string, string> = Object.fromEntries(
+  AMENIDADES_GRUPOS.flatMap((g) => g.items.map((i) => [i.id, i.label])),
+);
+
 export type Rancho = {
   id: string;
   owner_id: string;
   nombre: string;
   descripcion: string | null;
+  descripcion_larga: string | null;
   categoria: Categoria;
   tipo_lugar: TipoLugar | null;
+  instagram: string | null;
+  facebook: string | null;
+  tiktok: string | null;
+  sitio_web: string | null;
+  amenidades: string[];
   provincia: Provincia | null;
   canton: string | null;
   direccion_exacta: string | null;

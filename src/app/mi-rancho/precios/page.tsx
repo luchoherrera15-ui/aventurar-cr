@@ -32,9 +32,10 @@ export default async function MiRanchoPreciosPage() {
   if (!data) redirect("/mi-rancho/nuevo");
   const rancho = data as Rancho;
 
-  if (rancho.categoria !== "salon") {
-    redirect("/mi-rancho");
-  }
+  // Los precios por cantidad de invitados y los servicios adicionales son
+  // parte del flujo de reserva en línea, que hoy solo tienen los lugares.
+  // Los descuentos, en cambio, los puede usar cualquier negocio.
+  const esSalon = rancho.categoria === "salon";
 
   const [tiersRes, serviciosRes, codigosRes, promocionesRes] = await Promise.all([
     supabase
@@ -64,26 +65,31 @@ export default async function MiRanchoPreciosPage() {
         ← Volver
       </Link>
       <h1 className="mt-3 text-2xl font-bold text-aventurea-orange-dark">
-        Precios y servicios
+        {esSalon ? "Precios y descuentos" : "Códigos de descuento"}
       </h1>
       <p className="mb-6 mt-1 text-[13.5px] text-aventurea-ink-soft">
-        Lo que guardes acá se refleja al instante en tu página pública de
-        reservas.
+        Lo que guardes acá se refleja al instante en tu página pública.
       </p>
 
-      <PreciosForm
-        initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
-        initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
-        initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
-        initialDepositoReserva={rancho.deposito_reserva}
-        onGuardar={guardarPreciosPropio}
-      />
+      {esSalon && (
+        <PreciosForm
+          initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
+          initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
+          initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
+          initialDepositoReserva={rancho.deposito_reserva}
+          onGuardar={guardarPreciosPropio}
+        />
+      )}
 
-      <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
+      <h2
+        className={`mb-1 text-lg font-bold text-aventurea-orange-dark ${
+          esSalon ? "mt-9" : ""
+        }`}
+      >
         Descuentos y promociones
       </h2>
       <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-        Atraé más reservas con cupones y descuentos automáticos por día.
+        Atraé más clientes con cupones y descuentos automáticos por día.
       </p>
       <DescuentosForm
         initialCodigos={(codigosRes.data ?? []) as CodigoDescuento[]}
