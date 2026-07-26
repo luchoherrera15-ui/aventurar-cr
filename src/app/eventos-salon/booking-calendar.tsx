@@ -432,19 +432,6 @@ export default function BookingCalendar({
               </span>
             </div>
 
-            <div className="mt-4 flex flex-col gap-2">
-              <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs text-aventurea-orange">
-                Si varias personas reservan la misma fecha, Aventurea CR
-                revisa los comprobantes y confirma una sola.
-              </div>
-              <div className="rounded-[10px] bg-blue-500/10 p-3 text-xs text-blue-300">
-                Al elegir una fecha, quedás vos y solo vos reservándola por
-                10 minutos — nadie más puede seleccionarla mientras tanto.
-                Ese es el tiempo que tenés para subir el comprobante del
-                depósito. Si no lo subís a tiempo, la fecha vuelve a quedar
-                disponible para cualquiera.
-              </div>
-            </div>
           </div>
 
           {/* Panel */}
