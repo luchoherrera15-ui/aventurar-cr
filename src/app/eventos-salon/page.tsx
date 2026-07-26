@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import BookingCalendar from "./booking-calendar";
 import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
+import type { PromocionDia } from "@/app/mi-rancho/types";
 
 export default async function EventosSalonPage() {
   const supabase = await createClient();
@@ -25,7 +26,7 @@ export default async function EventosSalonPage() {
     .eq("estado", "temporal")
     .lt("expira_en", new Date().toISOString());
 
-  const [dispRes, tiersRes, svcRes] = await Promise.all([
+  const [dispRes, tiersRes, svcRes, promoRes] = await Promise.all([
     supabase
       .from("disponibilidad_rancho")
       .select("fecha, estado")
@@ -38,6 +39,11 @@ export default async function EventosSalonPage() {
     supabase
       .from("servicios_adicionales")
       .select("id, nombre, precio, requisito_max_invitados")
+      .eq("rancho_id", rancho.id)
+      .eq("activo", true),
+    supabase
+      .from("promociones_dia")
+      .select("*")
       .eq("rancho_id", rancho.id)
       .eq("activo", true),
   ]);
@@ -91,6 +97,7 @@ export default async function EventosSalonPage() {
         servicios={(svcRes.data ?? []) as ServicioAdicional[]}
         tarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 3750}
         depositoReserva={rancho.deposito_reserva ?? 25000}
+        promociones={(promoRes.data ?? []) as PromocionDia[]}
       />
 
       <section id="rancho" className="py-16">

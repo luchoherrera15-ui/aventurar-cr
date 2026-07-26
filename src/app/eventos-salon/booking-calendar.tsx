@@ -8,6 +8,7 @@ import {
   crearReservaTemporal,
 } from "./actions";
 import type { DiaDisponibilidad, HorarioBloque, PrecioTier, ServicioAdicional } from "./types";
+import type { PromocionDia } from "@/app/mi-rancho/types";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -57,6 +58,7 @@ export default function BookingCalendar({
   servicios,
   tarifaDiciembre,
   depositoReserva,
+  promociones = [],
 }: {
   ranchoId: string;
   nombreRancho: string;
@@ -65,6 +67,7 @@ export default function BookingCalendar({
   servicios: ServicioAdicional[];
   tarifaDiciembre: number;
   depositoReserva: number;
+  promociones?: PromocionDia[];
 }) {
   const today = useMemo(() => {
     const d = new Date();
@@ -101,6 +104,15 @@ export default function BookingCalendar({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<string | null>(null);
+
+  const [codigoInput, setCodigoInput] = useState("");
+  const [codigoAplicado, setCodigoAplicado] = useState<{
+    codigo: string;
+    tipo: "porcentaje" | "monto_fijo";
+    valor: number;
+  } | null>(null);
+  const [codigoError, setCodigoError] = useState<string | null>(null);
+  const [verificandoCodigo, setVerificandoCodigo] = useState(false);
 
   // Cuenta regresiva del hold temporal.
   useEffect(() => {
@@ -145,6 +157,62 @@ export default function BookingCalendar({
 
   const cotizacionTotal = tierBase === null ? null : tierBase + addonsTotal;
 
+  const promoAplicable = useMemo(() => {
+    if (!selectedDateObj) return null;
+    const dow = selectedDateObj.getDay();
+    const activas = promociones.filter((p) => p.activo && p.dias_semana.includes(dow));
+    if (activas.length === 0) return null;
+    return activas.reduce((mejor, p) =>
+      p.porcentaje_descuento > mejor.porcentaje_descuento ? p : mejor,
+    );
+  }, [selectedDateObj, promociones]);
+
+  const descuentoPromoMonto = useMemo(() => {
+    if (cotizacionTotal === null || !promoAplicable) return 0;
+    return Math.round(cotizacionTotal * (promoAplicable.porcentaje_descuento / 100));
+  }, [cotizacionTotal, promoAplicable]);
+
+  const totalConPromo =
+    cotizacionTotal === null ? null : cotizacionTotal - descuentoPromoMonto;
+
+  const descuentoCodigoMonto = useMemo(() => {
+    if (totalConPromo === null || !codigoAplicado) return 0;
+    if (codigoAplicado.tipo === "porcentaje") {
+      return Math.round(totalConPromo * (codigoAplicado.valor / 100));
+    }
+    return Math.min(codigoAplicado.valor, totalConPromo);
+  }, [totalConPromo, codigoAplicado]);
+
+  const totalFinal =
+    totalConPromo === null ? null : Math.max(0, totalConPromo - descuentoCodigoMonto);
+
+  const descuentoTotalMonto = descuentoPromoMonto + descuentoCodigoMonto;
+
+  async function verificarCodigo() {
+    if (!codigoInput.trim()) return;
+    setVerificandoCodigo(true);
+    setCodigoError(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("verificar_codigo_descuento", {
+      p_rancho_id: ranchoId,
+      p_codigo: codigoInput.trim(),
+    });
+    setVerificandoCodigo(false);
+    if (error || !data || data.length === 0) {
+      setCodigoAplicado(null);
+      setCodigoError("Ese código no es válido o ya venció.");
+      return;
+    }
+    const fila = data[0] as { tipo: "porcentaje" | "monto_fijo"; valor: number };
+    setCodigoAplicado({ codigo: codigoInput.trim().toUpperCase(), ...fila });
+  }
+
+  function quitarCodigo() {
+    setCodigoInput("");
+    setCodigoAplicado(null);
+    setCodigoError(null);
+  }
+
   const puedeEnviar =
     !!holdId &&
     !holdVencido &&
@@ -170,6 +238,9 @@ export default function BookingCalendar({
     setComprobantePreview(null);
     setTerminosAceptados(false);
     setSubmitError(null);
+    setCodigoInput("");
+    setCodigoAplicado(null);
+    setCodigoError(null);
   }
 
   function cambiarMes(dir: number) {
@@ -269,12 +340,14 @@ export default function BookingCalendar({
       tipo_evento: tipoEvento,
       invitados: invitadosNum,
       horario_bloque: horarioBloque,
-      monto_total: cotizacionTotal ?? 0,
+      monto_total: totalFinal ?? 0,
       deposito_monto: depositoReserva,
       metodo_pago: metodoPago as "sinpe" | "transferencia",
       deposito_comprobante_url: path,
       terminos_aceptados: terminosAceptados,
       notas: mensaje || null,
+      codigo_descuento: codigoAplicado?.codigo ?? null,
+      descuento_monto: descuentoTotalMonto,
     });
 
     setSubmitting(false);
@@ -326,6 +399,21 @@ export default function BookingCalendar({
             que la confirmemos.
           </p>
         </div>
+
+        {promociones.some((p) => p.activo) && (
+          <div className="mb-6 flex flex-wrap gap-2">
+            {promociones
+              .filter((p) => p.activo)
+              .map((p) => (
+                <span
+                  key={p.id}
+                  className="rounded-full border border-aventurea-orange/40 bg-aventurea-orange/15 px-3.5 py-1.5 text-[12.5px] font-bold text-aventurea-orange-dark"
+                >
+                  🏷 {p.etiqueta}
+                </span>
+              ))}
+          </div>
+        )}
 
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-white p-4">
           <span className="text-xl leading-none">🕐</span>
@@ -603,6 +691,11 @@ export default function BookingCalendar({
                     Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
                   </p>
                 )}
+                {promoAplicable && cotizacionTotal !== null && (
+                  <p className="-mt-2 text-[11.5px] font-bold text-aventurea-green">
+                    🏷 {promoAplicable.etiqueta} aplicado (-{fmtColones(descuentoPromoMonto)})
+                  </p>
+                )}
 
                 {servicios.length > 0 && invitadosNum > 0 && (
                   <div>
@@ -648,11 +741,77 @@ export default function BookingCalendar({
                 )}
 
                 {cotizacionTotal !== null && (
-                  <div className="flex items-center justify-between rounded-xl bg-aventurea-cream-2 px-3.5 py-3">
-                    <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                      Total estimado del evento
-                    </span>
-                    <span className="text-lg font-bold text-aventurea-ink">{fmtColones(cotizacionTotal)}</span>
+                  <div>
+                    <label className={labelCls}>¿Tenés un código de descuento?</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={codigoInput}
+                        onChange={(e) => {
+                          setCodigoInput(e.target.value.toUpperCase());
+                          if (codigoAplicado) setCodigoAplicado(null);
+                          if (codigoError) setCodigoError(null);
+                        }}
+                        placeholder="Ej. BODA10"
+                        disabled={!!codigoAplicado}
+                        className={`${inputCls} uppercase disabled:opacity-70`}
+                      />
+                      {codigoAplicado ? (
+                        <button
+                          type="button"
+                          onClick={quitarCodigo}
+                          className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-700"
+                        >
+                          Quitar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={verificarCodigo}
+                          disabled={verificandoCodigo || !codigoInput.trim()}
+                          className="whitespace-nowrap rounded-[10px] bg-aventurea-ink px-3.5 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-60"
+                        >
+                          {verificandoCodigo ? "..." : "Aplicar"}
+                        </button>
+                      )}
+                    </div>
+                    {codigoAplicado && (
+                      <p className="mt-1.5 text-[11.5px] font-bold text-aventurea-green">
+                        ✓ Código {codigoAplicado.codigo} aplicado (-
+                        {codigoAplicado.tipo === "porcentaje"
+                          ? `${codigoAplicado.valor}%`
+                          : fmtColones(codigoAplicado.valor)}
+                        )
+                      </p>
+                    )}
+                    {codigoError && (
+                      <p className="mt-1.5 text-[11.5px] font-bold text-red-700">{codigoError}</p>
+                    )}
+                  </div>
+                )}
+
+                {cotizacionTotal !== null && (
+                  <div className="rounded-xl bg-aventurea-cream-2 px-3.5 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                        Total estimado del evento
+                      </span>
+                      <span className="flex items-baseline gap-1.5">
+                        {descuentoTotalMonto > 0 && (
+                          <span className="text-[12px] text-zinc-500 line-through">
+                            {fmtColones(cotizacionTotal)}
+                          </span>
+                        )}
+                        <span className="text-lg font-bold text-aventurea-ink">
+                          {fmtColones(totalFinal ?? cotizacionTotal)}
+                        </span>
+                      </span>
+                    </div>
+                    {descuentoTotalMonto > 0 && (
+                      <p className="mt-1 text-right text-[11px] font-bold text-aventurea-green">
+                        Ahorrás {fmtColones(descuentoTotalMonto)}
+                      </p>
+                    )}
                   </div>
                 )}
 

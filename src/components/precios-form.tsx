@@ -216,15 +216,28 @@ export default function PreciosForm({
         <button
           type="button"
           onClick={() =>
-            setTiers((prev) => [
-              ...prev,
-              { key: newKey(), min_invitados: 0, max_invitados: 0, precio: 0 },
-            ])
+            setTiers((prev) => {
+              const anterior = prev[prev.length - 1];
+              const desde = anterior ? anterior.max_invitados + 1 : 1;
+              return [
+                ...prev,
+                {
+                  key: newKey(),
+                  min_invitados: desde,
+                  max_invitados: desde + 9,
+                  precio: anterior?.precio ?? 0,
+                },
+              ];
+            })
           }
           className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
         >
           ＋ Agregar rango
         </button>
+        <p className="mt-2 text-[11px] text-aventurea-ink-soft">
+          Cada rango nuevo continúa automáticamente donde terminó el
+          anterior — solo ajustá el precio.
+        </p>
 
         <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
           <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">

@@ -1,8 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import PreciosForm from "@/components/precios-form";
-import { guardarConfiguracion } from "./actions";
+import DescuentosForm from "@/components/descuentos-form";
+import {
+  guardarConfiguracion,
+  guardarCodigosAventurea,
+  guardarPromocionesAventurea,
+} from "./actions";
 import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
-import type { PrecioTier, ServicioAdicional } from "@/app/mi-rancho/types";
+import type {
+  CodigoDescuento,
+  PrecioTier,
+  PromocionDia,
+  ServicioAdicional,
+} from "@/app/mi-rancho/types";
 
 export default async function PreciosPage() {
   const supabase = await createClient();
@@ -13,7 +23,7 @@ export default async function PreciosPage() {
     .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
     .maybeSingle();
 
-  const [tiersRes, serviciosRes] = await Promise.all([
+  const [tiersRes, serviciosRes, codigosRes, promocionesRes] = await Promise.all([
     supabase
       .from("precio_tiers")
       .select("*")
@@ -23,6 +33,16 @@ export default async function PreciosPage() {
       .from("servicios_adicionales")
       .select("*")
       .eq("rancho_id", rancho?.id ?? ""),
+    supabase
+      .from("codigos_descuento")
+      .select("*")
+      .eq("rancho_id", rancho?.id ?? "")
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("promociones_dia")
+      .select("*")
+      .eq("rancho_id", rancho?.id ?? "")
+      .order("created_at", { ascending: true }),
   ]);
 
   return (
@@ -47,6 +67,19 @@ export default async function PreciosPage() {
           onGuardar={guardarConfiguracion}
         />
       </div>
+
+      <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
+        Descuentos y promociones
+      </h2>
+      <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+        Atraé más reservas con cupones y descuentos automáticos por día.
+      </p>
+      <DescuentosForm
+        initialCodigos={(codigosRes.data ?? []) as CodigoDescuento[]}
+        initialPromociones={(promocionesRes.data ?? []) as PromocionDia[]}
+        onGuardarCodigos={guardarCodigosAventurea}
+        onGuardarPromociones={guardarPromocionesAventurea}
+      />
     </div>
   );
 }

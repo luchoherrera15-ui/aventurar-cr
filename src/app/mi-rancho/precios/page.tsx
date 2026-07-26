@@ -2,8 +2,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import PreciosForm from "@/components/precios-form";
-import { guardarPreciosPropio } from "./actions";
-import type { PrecioTier, Rancho, ServicioAdicional } from "../types";
+import DescuentosForm from "@/components/descuentos-form";
+import {
+  guardarPreciosPropio,
+  guardarCodigosPropio,
+  guardarPromocionesPropio,
+} from "./actions";
+import type {
+  CodigoDescuento,
+  PrecioTier,
+  PromocionDia,
+  Rancho,
+  ServicioAdicional,
+} from "../types";
 
 export default async function MiRanchoPreciosPage() {
   const supabase = await createClient();
@@ -25,13 +36,23 @@ export default async function MiRanchoPreciosPage() {
     redirect("/mi-rancho");
   }
 
-  const [tiersRes, serviciosRes] = await Promise.all([
+  const [tiersRes, serviciosRes, codigosRes, promocionesRes] = await Promise.all([
     supabase
       .from("precio_tiers")
       .select("*")
       .eq("rancho_id", rancho.id)
       .order("min_invitados", { ascending: true }),
     supabase.from("servicios_adicionales").select("*").eq("rancho_id", rancho.id),
+    supabase
+      .from("codigos_descuento")
+      .select("*")
+      .eq("rancho_id", rancho.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("promociones_dia")
+      .select("*")
+      .eq("rancho_id", rancho.id)
+      .order("created_at", { ascending: true }),
   ]);
 
   return (
@@ -56,6 +77,19 @@ export default async function MiRanchoPreciosPage() {
         initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
         initialDepositoReserva={rancho.deposito_reserva}
         onGuardar={guardarPreciosPropio}
+      />
+
+      <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
+        Descuentos y promociones
+      </h2>
+      <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+        Atraé más reservas con cupones y descuentos automáticos por día.
+      </p>
+      <DescuentosForm
+        initialCodigos={(codigosRes.data ?? []) as CodigoDescuento[]}
+        initialPromociones={(promocionesRes.data ?? []) as PromocionDia[]}
+        onGuardarCodigos={guardarCodigosPropio}
+        onGuardarPromociones={guardarPromocionesPropio}
       />
     </main>
   );

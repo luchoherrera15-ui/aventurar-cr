@@ -120,6 +120,8 @@ export type CompletarReservaInput = {
   deposito_comprobante_url: string;
   terminos_aceptados: boolean;
   notas: string | null;
+  codigo_descuento: string | null;
+  descuento_monto: number;
 };
 
 export async function completarReservaTemporal(
@@ -134,6 +136,23 @@ export async function completarReservaTemporal(
     .eq("estado", "temporal");
 
   if (error) return { error: error.message };
+
+  // El monto ya viene descontado desde el cliente (la vista previa del
+  // código usa esta misma función de validación); acá solo se registra
+  // el uso para que no se pueda reutilizar más veces de las permitidas.
+  if (input.codigo_descuento) {
+    const { data: reserva } = await supabase
+      .from("reservas")
+      .select("rancho_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (reserva) {
+      await supabase.rpc("redimir_codigo_descuento", {
+        p_rancho_id: reserva.rancho_id,
+        p_codigo: input.codigo_descuento,
+      });
+    }
+  }
 
   revalidatePath("/admin/eventos");
   revalidatePath("/mi-rancho/reservas");

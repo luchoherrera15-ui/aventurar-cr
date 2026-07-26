@@ -93,3 +93,38 @@ export type ServicioAdicional = {
   requisito_max_invitados: number | null;
   activo: boolean;
 };
+
+export const DIAS_SEMANA = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+] as const;
+
+export const DIAS_SEMANA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+export type CodigoDescuento = {
+  id: string;
+  rancho_id: string;
+  codigo: string;
+  tipo: "porcentaje" | "monto_fijo";
+  valor: number;
+  activo: boolean;
+  usos_maximos: number | null;
+  usos_actuales: number;
+  valido_hasta: string | null;
+  created_at: string;
+};
+
+export type PromocionDia = {
+  id: string;
+  rancho_id: string;
+  dias_semana: number[];
+  porcentaje_descuento: number;
+  etiqueta: string;
+  activo: boolean;
+  created_at: string;
+};
