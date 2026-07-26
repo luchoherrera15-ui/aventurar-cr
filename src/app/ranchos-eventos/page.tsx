@@ -18,7 +18,7 @@ export default async function RanchosEventosPage() {
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-10">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-zinc-950">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
               A
             </span>
             <span className="whitespace-nowrap text-[15px] font-bold text-aventurea-ink sm:text-base">
@@ -38,7 +38,7 @@ export default async function RanchosEventosPage() {
             </Link>
             <Link
               href="/mi-rancho/registro"
-              className="whitespace-nowrap rounded-full border border-aventurea-line bg-white px-2.5 py-2 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange sm:px-4 sm:text-[12.5px]"
+              className="whitespace-nowrap rounded-full border border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange sm:px-4 sm:text-[12.5px]"
             >
               Publicá tu salón
             </Link>
@@ -62,7 +62,7 @@ export default async function RanchosEventosPage() {
       </section>
 
       <footer className="border-t border-aventurea-line py-9 text-center">
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-400">
           AVENTUREA CR — Costa Rica ·{" "}
           <Link href="/" className="font-bold text-aventurea-orange">
             Volver al inicio

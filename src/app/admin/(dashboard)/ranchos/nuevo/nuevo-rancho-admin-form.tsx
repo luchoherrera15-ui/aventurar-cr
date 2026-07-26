@@ -10,7 +10,7 @@ import { CATEGORIAS, CATEGORIA_LABEL, PROVINCIAS } from "@/app/mi-rancho/types";
 export type DuenoOption = { id: string; email: string | null };
 
 const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
+  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
@@ -31,7 +31,7 @@ export default function NuevoRanchoAdminForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Paso 1
         </p>
@@ -121,7 +121,7 @@ export default function NuevoRanchoAdminForm({
         )}
       </section>
 
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Paso 2
         </p>
@@ -217,7 +217,7 @@ export default function NuevoRanchoAdminForm({
       </section>
 
       {state?.error && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
+        <p className="rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
           {state.error}
         </p>
       )}

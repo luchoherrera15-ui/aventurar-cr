@@ -66,11 +66,11 @@ export default async function EventosSalonPage() {
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-zinc-950">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
               A
             </span>
             <span className="text-base font-bold text-aventurea-ink">AVENTUREA CR</span>
-            <span className="text-zinc-600">/</span>
+            <span className="text-zinc-500">/</span>
             <span className="text-[13px] font-light text-aventurea-ink-soft">
               Rancho de Eventos
             </span>
@@ -119,13 +119,13 @@ export default async function EventosSalonPage() {
             ].map(([title, desc]) => (
               <div
                 key={title}
-                className="rounded-2xl border border-aventurea-line bg-white p-5"
+                className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5"
               >
                 <h3 className="text-[15px] font-bold text-aventurea-ink">{title}</h3>
                 <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">{desc}</p>
               </div>
             ))}
-            <div className="relative rounded-2xl border border-aventurea-orange/40 bg-white p-5">
+            <div className="relative rounded-2xl border border-aventurea-orange/40 bg-aventurea-surface p-5">
               <span className="absolute right-4 top-4 rounded-full bg-aventurea-orange/15 px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide text-aventurea-orange">
                 Costo adicional
               </span>
@@ -142,7 +142,7 @@ export default async function EventosSalonPage() {
       </section>
 
       <footer className="border-t border-aventurea-line py-9 text-center">
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-400">
           AVENTUREA CR — Costa Rica ·{" "}
           <Link href="/" className="font-bold text-aventurea-orange">
             Volver al inicio

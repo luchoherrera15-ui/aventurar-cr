@@ -13,7 +13,7 @@ const ESTADO_LABEL: Record<Rancho["estado"], string> = {
 const ESTADO_BADGE: Record<Rancho["estado"], string> = {
   pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
   aprobado: "bg-aventurea-green/15 text-aventurea-green",
-  rechazado: "bg-red-50 text-red-700",
+  rechazado: "bg-red-950/40 text-red-400",
 };
 
 function fmtColones(n: number | null) {
@@ -55,14 +55,14 @@ export default async function MiRanchoPage() {
         <form action={logoutDueno}>
           <button
             type="submit"
-            className="rounded-full border border-aventurea-line bg-white px-4 py-2 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+            className="rounded-full border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
           >
             Cerrar sesión
           </button>
         </form>
       </div>
 
-      <div className="overflow-hidden rounded-[18px] border border-aventurea-line bg-white">
+      <div className="overflow-hidden rounded-[18px] border border-aventurea-line bg-aventurea-surface">
         <div
           className="relative flex h-[150px] items-center justify-center bg-cover bg-center"
           style={
@@ -89,7 +89,7 @@ export default async function MiRanchoPage() {
             {CATEGORIA_LABEL[rancho.categoria]}
           </span>
           {ubicacion && (
-            <p className="mt-1 text-[12.5px] text-zinc-500">{ubicacion}</p>
+            <p className="mt-1 text-[12.5px] text-zinc-400">{ubicacion}</p>
           )}
 
           {rancho.estado === "pendiente" && (
@@ -99,7 +99,7 @@ export default async function MiRanchoPage() {
             </p>
           )}
           {rancho.estado === "rechazado" && (
-            <p className="mt-3 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
+            <p className="mt-3 rounded-[10px] bg-red-950/40 p-3 text-[13px] leading-relaxed text-red-400">
               Tu publicación no fue aprobada todavía. Escribinos si querés más
               información.
             </p>
@@ -113,7 +113,7 @@ export default async function MiRanchoPage() {
 
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
                 Provincia
               </div>
               <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
@@ -121,7 +121,7 @@ export default async function MiRanchoPage() {
               </div>
             </div>
             <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
                 Capacidad
               </div>
               <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
@@ -129,7 +129,7 @@ export default async function MiRanchoPage() {
               </div>
             </div>
             <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
                 Precio desde
               </div>
               <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
@@ -137,7 +137,7 @@ export default async function MiRanchoPage() {
               </div>
             </div>
             <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
                 WhatsApp
               </div>
               <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">

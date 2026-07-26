@@ -97,7 +97,7 @@ function HubCard({
   return (
     <Link
       href={href}
-      className="group relative block overflow-hidden rounded-2xl border border-aventurea-line bg-white p-7 shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg"
+      className="group relative block overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-7 shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg"
     >
       <div
         aria-hidden

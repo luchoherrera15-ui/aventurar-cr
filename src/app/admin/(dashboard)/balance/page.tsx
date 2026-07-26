@@ -36,7 +36,7 @@ export default async function AdminBalancePage() {
       </p>
 
       {errores.length > 0 && (
-        <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+        <p className="mb-5 rounded-xl bg-red-950/40 p-4 text-sm text-red-400">
           No se pudo cargar todo: {errores.join(" · ")}
         </p>
       )}

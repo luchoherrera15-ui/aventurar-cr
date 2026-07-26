@@ -50,7 +50,7 @@ export default async function RanchoDetallePage({
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-zinc-950">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
               A
             </span>
             <span className="text-base font-bold text-aventurea-ink">AVENTUREA CR</span>
@@ -109,8 +109,8 @@ export default async function RanchoDetallePage({
           )}
 
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-aventurea-line bg-white p-3.5">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+            <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
                 Capacidad
               </div>
               <div className="mt-1 text-[14px] font-bold text-aventurea-ink">
@@ -119,8 +119,8 @@ export default async function RanchoDetallePage({
                   : "A consultar"}
               </div>
             </div>
-            <div className="rounded-xl border border-aventurea-line bg-white p-3.5">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+            <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
                 Precio desde
               </div>
               <div className="mt-1 text-[14px] font-bold text-aventurea-orange">
@@ -128,8 +128,8 @@ export default async function RanchoDetallePage({
               </div>
             </div>
             {rancho.direccion_exacta && (
-              <div className="col-span-2 rounded-xl border border-aventurea-line bg-white p-3.5 sm:col-span-1">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+              <div className="col-span-2 rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5 sm:col-span-1">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
                   Dirección
                 </div>
                 <div className="mt-1 text-[13px] font-bold text-aventurea-ink">
@@ -139,7 +139,7 @@ export default async function RanchoDetallePage({
             )}
           </div>
 
-          <div className="mt-6 rounded-[16px] border border-aventurea-line bg-white p-5">
+          <div className="mt-6 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-5">
             {puedeReservar ? (
               <>
                 <p className="text-[13px] leading-relaxed text-aventurea-ink-soft">
@@ -174,7 +174,7 @@ export default async function RanchoDetallePage({
               </a>
             ) : (
               !puedeReservar && (
-                <p className="mt-3 text-[13px] font-bold text-zinc-500">
+                <p className="mt-3 text-[13px] font-bold text-zinc-400">
                   Este negocio todavía no dejó un contacto público.
                 </p>
               )

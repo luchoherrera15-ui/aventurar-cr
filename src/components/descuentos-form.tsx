@@ -134,7 +134,7 @@ export default function DescuentosForm({
   return (
     <div className="flex flex-col gap-6">
       {/* Códigos de descuento */}
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Códigos de descuento
         </p>
@@ -228,7 +228,7 @@ export default function DescuentosForm({
                   <button
                     type="button"
                     onClick={() => setCodigos((prev) => prev.filter((x) => x.key !== c.key))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-400"
                     title="Eliminar"
                   >
                     🗑
@@ -271,7 +271,7 @@ export default function DescuentosForm({
           </button>
           {msgCodigos && (
             <span
-              className={`text-[12.5px] font-bold ${msgCodigos.ok ? "text-aventurea-green" : "text-red-700"}`}
+              className={`text-[12.5px] font-bold ${msgCodigos.ok ? "text-aventurea-green" : "text-red-400"}`}
             >
               {msgCodigos.ok ? "✓ " : ""}
               {msgCodigos.text}
@@ -281,7 +281,7 @@ export default function DescuentosForm({
       </section>
 
       {/* Promociones automáticas */}
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Promociones automáticas
         </p>
@@ -308,7 +308,7 @@ export default function DescuentosForm({
                     className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold transition-colors ${
                       p.dias_semana.includes(i)
                         ? "bg-aventurea-orange text-white"
-                        : "border border-aventurea-line bg-white text-aventurea-ink-soft"
+                        : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft"
                     }`}
                   >
                     {d}
@@ -328,7 +328,7 @@ export default function DescuentosForm({
                     onChange={(e) =>
                       updatePromo(p.key, "porcentaje_descuento", Number(e.target.value))
                     }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-white px-2.5 py-2 text-[13px] text-aventurea-ink"
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[13px] text-aventurea-ink"
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -340,7 +340,7 @@ export default function DescuentosForm({
                     placeholder="Ej. 45% entre semana"
                     value={p.etiqueta}
                     onChange={(e) => updatePromo(p.key, "etiqueta", e.target.value)}
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-white px-2.5 py-2 text-[13px] text-aventurea-ink"
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[13px] text-aventurea-ink"
                   />
                 </div>
               </div>
@@ -359,7 +359,7 @@ export default function DescuentosForm({
                   onClick={() =>
                     setPromociones((prev) => prev.filter((x) => x.key !== p.key))
                   }
-                  className="text-[11.5px] font-bold text-red-700 hover:underline"
+                  className="text-[11.5px] font-bold text-red-400 hover:underline"
                 >
                   Eliminar
                 </button>
@@ -398,7 +398,7 @@ export default function DescuentosForm({
           </button>
           {msgPromos && (
             <span
-              className={`text-[12.5px] font-bold ${msgPromos.ok ? "text-aventurea-green" : "text-red-700"}`}
+              className={`text-[12.5px] font-bold ${msgPromos.ok ? "text-aventurea-green" : "text-red-400"}`}
             >
               {msgPromos.ok ? "✓ " : ""}
               {msgPromos.text}

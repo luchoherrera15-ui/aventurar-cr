@@ -116,12 +116,12 @@ export default function ReservasTable({
             placeholder="Buscar cliente..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="rounded-[10px] border border-aventurea-line bg-white px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500"
+            className="rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:zinc-500"
           />
           <select
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
-            className="rounded-[10px] border border-aventurea-line bg-white px-3 py-2.5 text-[13px] text-aventurea-ink"
+            className="rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink"
           >
             <option value="todas">Todos los estados</option>
             <option value="pendiente">En aprobación</option>
@@ -133,12 +133,12 @@ export default function ReservasTable({
       </div>
 
       {actionError && (
-        <p className="mb-4 rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
+        <p className="mb-4 rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
           {actionError}
         </p>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-aventurea-cream-2/60">
@@ -167,7 +167,7 @@ export default function ReservasTable({
               <tr>
                 <td
                   colSpan={nombrePorRancho ? 9 : 8}
-                  className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
+                  className="px-4 py-10 text-center text-[13.5px] text-zinc-400"
                 >
                   No hay reservas que coincidan con la búsqueda.
                 </td>
@@ -183,7 +183,7 @@ export default function ReservasTable({
                 )}
                 <td className="px-4 py-3.5">
                   <div className="font-bold text-aventurea-ink">{r.nombre}</div>
-                  <div className="text-xs text-zinc-500">{r.contacto}</div>
+                  <div className="text-xs text-zinc-400">{r.contacto}</div>
                 </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{r.tipo_evento}</td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">
@@ -208,7 +208,7 @@ export default function ReservasTable({
                         Por validar · {fmtMoney(r.deposito_monto)}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-zinc-500">
+                      <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-zinc-400">
                         Sin comprobante
                       </span>
                     )}
@@ -248,7 +248,7 @@ export default function ReservasTable({
                         <button
                           disabled={pending}
                           onClick={() => cambiarEstado(r.id, "rechazada")}
-                          className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-700 hover:border-red-400 disabled:opacity-50"
+                          className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-400 hover:border-red-400 disabled:opacity-50"
                         >
                           Rechazar
                         </button>

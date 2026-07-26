@@ -7,7 +7,7 @@ export default function PuntaleonaWebPage() {
       <div className="pointer-events-none absolute -inset-10 -z-10 rounded-[3rem] bg-aventurea-orange opacity-[0.08] blur-[100px]" />
 
       <Link href="/" className="relative mb-6 flex items-center gap-2">
-        <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-aventurea-orange text-sm font-bold text-zinc-950">
+        <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-aventurea-orange text-sm font-bold text-white">
           A
         </span>
         <span className="text-base font-bold tracking-wide text-aventurea-ink">

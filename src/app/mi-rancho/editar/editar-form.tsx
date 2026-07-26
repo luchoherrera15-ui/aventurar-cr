@@ -14,7 +14,7 @@ import {
 } from "../types";
 
 const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
+  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
@@ -73,7 +73,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
 
   return (
     <form action={onSubmit} className="flex flex-col gap-6">
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Foto principal
         </p>
@@ -102,7 +102,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             )}
           </div>
           <div className="flex-1">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-aventurea-line bg-white px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange">
               📷 {fotoPreview ? "Cambiar foto" : "Subir foto"}
               <input
                 type="file"
@@ -117,7 +117,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               </p>
             )}
             {subidaError && (
-              <p className="mt-2.5 text-[12px] font-bold text-red-700">
+              <p className="mt-2.5 text-[12px] font-bold text-red-400">
                 {subidaError}
               </p>
             )}
@@ -125,7 +125,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Información
         </p>
@@ -260,7 +260,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
       </section>
 
       {state?.error && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
+        <p className="rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
           {state.error}
         </p>
       )}

@@ -379,7 +379,7 @@ export default function BookingCalendar({
   ];
 
   const inputCls =
-    "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
+    "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
   const labelCls =
     "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
@@ -415,7 +415,7 @@ export default function BookingCalendar({
           </div>
         )}
 
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-white p-4">
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-surface p-4">
           <span className="text-xl leading-none">🕐</span>
           <p className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
             El rancho se alquila en bloques de <strong className="text-aventurea-ink">6 horas</strong>,
@@ -427,7 +427,7 @@ export default function BookingCalendar({
 
         <div className="grid gap-6 md:grid-cols-[1.2fr_1fr]">
           {/* Calendario */}
-          <div className="rounded-[18px] border border-aventurea-line bg-white p-5.5 shadow-sm">
+          <div className="rounded-[18px] border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-[17px] font-bold capitalize text-aventurea-ink">
                 {MESES[viewMonth]} {viewYear}
@@ -452,7 +452,7 @@ export default function BookingCalendar({
               {DOW.map((d, i) => (
                 <div
                   key={i}
-                  className="pb-1 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500"
+                  className="pb-1 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-400"
                 >
                   {d}
                 </div>
@@ -473,11 +473,11 @@ export default function BookingCalendar({
                 let badge: number | null = null;
 
                 if (isPast) {
-                  cls += " text-zinc-300 cursor-default";
+                  cls += " text-zinc-700 cursor-default";
                 } else if (info?.confirmada) {
-                  cls += " bg-red-100 border border-red-300 text-red-700 font-bold line-through cursor-not-allowed";
+                  cls += " bg-red-950/40 border border-red-500/50 text-red-400 font-bold line-through cursor-not-allowed";
                 } else if (isHeldByOther) {
-                  cls += " bg-blue-500/10 border border-blue-500/25 text-blue-700/60 cursor-not-allowed";
+                  cls += " bg-blue-500/10 border border-blue-500/25 text-blue-300/70 cursor-not-allowed";
                 } else {
                   cls += " bg-aventurea-cream-2 border border-aventurea-line text-aventurea-ink-soft cursor-pointer hover:border-aventurea-orange hover:text-aventurea-orange";
                   if (info && info.pendientes > 0) {
@@ -519,7 +519,7 @@ export default function BookingCalendar({
                 En aprobación
               </span>
               <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-[3px] border border-red-300 bg-red-100" />
+                <span className="h-2.5 w-2.5 rounded-[3px] border border-red-500/50 bg-red-950/40" />
                 Reservada
               </span>
             </div>
@@ -527,7 +527,7 @@ export default function BookingCalendar({
           </div>
 
           {/* Panel */}
-          <div className="rounded-[18px] border border-aventurea-line bg-white p-6 shadow-sm">
+          <div className="rounded-[18px] border border-aventurea-line bg-aventurea-surface p-6 shadow-sm">
             {!selectedDate && (
               <div className="py-7 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-aventurea-orange/15 text-2xl">
@@ -614,14 +614,14 @@ export default function BookingCalendar({
             {selectedDate && holdId && !holdVencido && !confirmado && !holdCreando && (
               <form onSubmit={enviarSolicitud} className="flex flex-col gap-3.5">
                 <div className="flex items-center justify-between rounded-xl border border-blue-500/40 bg-blue-500/10 px-3.5 py-2.5">
-                  <span className="text-[11.5px] font-bold text-blue-700">
+                  <span className="text-[11.5px] font-bold text-blue-300">
                     ⏱ Reserva temporal
                   </span>
                   <span className="font-mono text-[13.5px] font-bold text-aventurea-ink">
                     {fmtCountdown(secondsLeft)}
                   </span>
                 </div>
-                <p className="-mt-1.5 text-[11px] text-zinc-500">
+                <p className="-mt-1.5 text-[11px] text-zinc-400">
                   Subí el comprobante del depósito antes de que se acabe el
                   tiempo, o la fecha vuelve a quedar disponible.
                 </p>
@@ -687,7 +687,7 @@ export default function BookingCalendar({
                   </span>
                 </div>
                 {esDiciembre && invitadosNum > 0 && (
-                  <p className="-mt-2 text-[11px] text-zinc-500">
+                  <p className="-mt-2 text-[11px] text-zinc-400">
                     Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
                   </p>
                 )}
@@ -726,7 +726,7 @@ export default function BookingCalendar({
                                 {fmtColones(s.precio)}
                               </span>
                               {s.requisito_max_invitados && (
-                                <div className="mt-0.5 text-[11px] text-zinc-500">
+                                <div className="mt-0.5 text-[11px] text-zinc-400">
                                   {eligible
                                     ? `Disponible para grupos de hasta ${s.requisito_max_invitados} personas`
                                     : `No disponible — aplica solo hasta ${s.requisito_max_invitados} personas`}
@@ -760,7 +760,7 @@ export default function BookingCalendar({
                         <button
                           type="button"
                           onClick={quitarCodigo}
-                          className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-700"
+                          className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-400"
                         >
                           Quitar
                         </button>
@@ -785,7 +785,7 @@ export default function BookingCalendar({
                       </p>
                     )}
                     {codigoError && (
-                      <p className="mt-1.5 text-[11.5px] font-bold text-red-700">{codigoError}</p>
+                      <p className="mt-1.5 text-[11.5px] font-bold text-red-400">{codigoError}</p>
                     )}
                   </div>
                 )}
@@ -798,7 +798,7 @@ export default function BookingCalendar({
                       </span>
                       <span className="flex items-baseline gap-1.5">
                         {descuentoTotalMonto > 0 && (
-                          <span className="text-[12px] text-zinc-500 line-through">
+                          <span className="text-[12px] text-zinc-400 line-through">
                             {fmtColones(cotizacionTotal)}
                           </span>
                         )}
@@ -872,12 +872,12 @@ export default function BookingCalendar({
                   </span>
                   <span className="text-lg font-bold text-aventurea-ink">{fmtColones(depositoReserva)}</span>
                 </div>
-                <p className="-mt-2 text-[11px] leading-relaxed text-zinc-500">
+                <p className="-mt-2 text-[11px] leading-relaxed text-zinc-400">
                   Este monto fijo es lo que se paga ahora por SINPE o
                   transferencia para reservar la fecha. El resto de la
                   cotización se coordina para el día del evento.
                 </p>
-                <div className="rounded-[10px] border border-red-500/30 bg-red-50 p-3 text-[11.5px] leading-relaxed text-red-700">
+                <div className="rounded-[10px] border border-red-500/30 bg-red-950/40 p-3 text-[11.5px] leading-relaxed text-red-400">
                   ⚠ Si el comprobante muestra un monto <strong>menor a {fmtColones(depositoReserva)}</strong>,
                   la reserva no queda válida y el dinero no se reembolsa.
                 </div>
@@ -943,7 +943,7 @@ export default function BookingCalendar({
                 </div>
 
                 {submitError && (
-                  <p className="rounded-lg bg-red-50 p-2.5 text-[13px] text-red-700">
+                  <p className="rounded-lg bg-red-950/40 p-2.5 text-[13px] text-red-400">
                     {submitError}
                   </p>
                 )}
@@ -958,7 +958,7 @@ export default function BookingCalendar({
                 <button
                   type="button"
                   onClick={limpiarSeleccion}
-                  className="text-center text-xs text-zinc-500 underline hover:text-aventurea-ink"
+                  className="text-center text-xs text-zinc-400 underline hover:text-aventurea-ink"
                 >
                   ← Elegir otra fecha
                 </button>
@@ -975,7 +975,7 @@ export default function BookingCalendar({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl border border-aventurea-line bg-white p-6 text-center"
+            className="w-full max-w-sm rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 text-center"
           >
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-2xl">
               🔓
@@ -1016,7 +1016,7 @@ export default function BookingCalendar({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl border border-aventurea-line bg-white p-6"
+            className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl border border-aventurea-line bg-aventurea-surface p-6"
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-aventurea-ink">

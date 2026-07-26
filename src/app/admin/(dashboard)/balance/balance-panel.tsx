@@ -47,7 +47,7 @@ const PERIODOS = [
 ] as const;
 
 const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
+  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
@@ -231,7 +231,7 @@ export default function BalancePanel({
   return (
     <div className="flex flex-col gap-7">
       {/* Filtros */}
-      <section className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-aventurea-line bg-white p-4.5 shadow-sm">
+      <section className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4.5 shadow-sm">
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className={labelCls}>Periodo</label>
@@ -292,7 +292,7 @@ export default function BalancePanel({
       </section>
 
       {error && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
+        <p className="rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
           {error}
         </p>
       )}
@@ -364,7 +364,7 @@ export default function BalancePanel({
         </div>
 
         {porRancho.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-aventurea-line bg-white p-10 text-center text-[13.5px] text-zinc-500">
+          <div className="rounded-2xl border border-dashed border-aventurea-line bg-aventurea-surface p-10 text-center text-[13.5px] text-zinc-400">
             No hay reservas confirmadas en este periodo.
           </div>
         ) : (
@@ -379,7 +379,7 @@ export default function BalancePanel({
               return (
                 <div
                   key={r.id}
-                  className="rounded-xl border border-aventurea-line bg-white p-4 transition-colors hover:border-aventurea-orange/40"
+                  className="rounded-xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-orange/40"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2.5">
@@ -421,7 +421,7 @@ export default function BalancePanel({
       </section>
 
       {/* Comisión */}
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Modelo de cobro
         </p>
@@ -493,7 +493,7 @@ export default function BalancePanel({
 
         <form
           onSubmit={onAgregarGasto}
-          className="mb-4 grid grid-cols-1 items-end gap-3 rounded-2xl border border-aventurea-line bg-white p-4.5 shadow-sm sm:grid-cols-3 lg:grid-cols-6"
+          className="mb-4 grid grid-cols-1 items-end gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4.5 shadow-sm sm:grid-cols-3 lg:grid-cols-6"
         >
           <div className="lg:col-span-2">
             <label className={labelCls}>Concepto</label>
@@ -542,7 +542,7 @@ export default function BalancePanel({
           </button>
         </form>
 
-        <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-aventurea-cream-2/60">
@@ -559,7 +559,7 @@ export default function BalancePanel({
             <tbody>
               {gastosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-[13.5px] text-zinc-500">
+                  <td colSpan={6} className="px-4 py-10 text-center text-[13.5px] text-zinc-400">
                     No hay gastos registrados en este periodo.
                   </td>
                 </tr>
@@ -588,7 +588,7 @@ export default function BalancePanel({
                     <button
                       disabled={pending}
                       onClick={() => onBorrarGasto(g.id)}
-                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-red-400 hover:text-red-700 disabled:opacity-50"
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-red-400 hover:text-red-400 disabled:opacity-50"
                     >
                       Borrar
                     </button>
@@ -650,7 +650,7 @@ function KpiCard({
   }
 
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange">
           {icon}
@@ -661,7 +661,7 @@ function KpiCard({
               ? "text-aventurea-ink-soft"
               : favorable
                 ? "text-aventurea-green"
-                : "text-red-700"
+                : "text-red-400"
           }`}
         >
           {favorable !== null && (delta.signo ? "↑ " : "↓ ")}

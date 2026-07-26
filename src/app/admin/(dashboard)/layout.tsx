@@ -20,7 +20,7 @@ export default function DashboardLayout({
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-5 gap-y-2 px-6 py-3.5 lg:px-10">
           <Link href="/admin" className="flex items-center gap-2">
-            <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-aventurea-orange text-[13.5px] font-bold text-zinc-950">
+            <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-aventurea-orange text-[13.5px] font-bold text-white">
               A
             </span>
             <span className="text-[15px] font-bold text-aventurea-ink">
@@ -45,7 +45,7 @@ export default function DashboardLayout({
             <form action={logout}>
               <button
                 type="submit"
-                className="rounded-full border border-aventurea-line bg-white px-4 py-1.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="rounded-full border border-aventurea-line bg-white px-4 py-1.5 text-[13px] font-bold text-zinc-900 hover:border-aventurea-orange hover:text-aventurea-orange"
               >
                 Cerrar sesión
               </button>

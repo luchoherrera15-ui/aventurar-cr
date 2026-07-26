@@ -46,7 +46,7 @@ export default async function AdminRanchosPage() {
       </div>
 
       {ranchosRes.error && (
-        <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+        <p className="mb-5 rounded-xl bg-red-950/40 p-4 text-sm text-red-400">
           No se pudieron cargar los salones: {ranchosRes.error.message}
         </p>
       )}

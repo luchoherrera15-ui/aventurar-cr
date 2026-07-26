@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #13212b;
+  --background: #0a0b12;
+  --foreground: #f4f4f8;
 }
 
 @theme inline {
@@ -10,20 +10,25 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-montserrat);
 
-  /* Paleta general de Aventurea CR (portada, admin, rancho de eventos) */
-  --color-aventurea-navy: #0b2340;
-  --color-aventurea-navy-2: #123356;
-  --color-aventurea-navy-3: #183f6e;
-  --color-aventurea-orange: #f0782a;
-  --color-aventurea-orange-dark: #a8470d;
-  --color-aventurea-orange-light: #fce3cd;
-  --color-aventurea-green: #2f7a4f;
-  --color-aventurea-green-light: #ddeee3;
-  --color-aventurea-cream: #f5f6f8;
-  --color-aventurea-cream-2: #e9ebef;
-  --color-aventurea-ink: #13212b;
-  --color-aventurea-ink-soft: #46545c;
-  --color-aventurea-line: #dee1e6;
+  /* Paleta general de Aventurea CR (portada, admin, rancho de eventos)
+     — editorial oscura: casi negro con acento índigo/violeta, inspirada
+     en referencias tipo "Nexus". Los nombres de los tokens se mantienen
+     (orange, navy, cream...) para no reescribir cada archivo, pero los
+     valores ahora son la paleta oscura. */
+  --color-aventurea-navy: #2f3a8f;
+  --color-aventurea-navy-2: #3a44a8;
+  --color-aventurea-navy-3: #4650c4;
+  --color-aventurea-orange: #5b67f0;
+  --color-aventurea-orange-dark: #9aa3ff;
+  --color-aventurea-orange-light: #1c1f3d;
+  --color-aventurea-green: #34c281;
+  --color-aventurea-green-light: #0f2b1e;
+  --color-aventurea-cream: #0a0b12;
+  --color-aventurea-cream-2: #1b1d2b;
+  --color-aventurea-surface: #12131d;
+  --color-aventurea-ink: #f4f4f8;
+  --color-aventurea-ink-soft: #8d92a8;
+  --color-aventurea-line: #262838;
 
   /* Paleta de Puntaleona (casa vacacional) */
   --color-puntaleona-navy: #0b2a33;

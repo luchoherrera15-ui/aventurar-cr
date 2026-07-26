@@ -13,7 +13,7 @@ export type PerfilRow = {
 };
 
 const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
+  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
@@ -51,7 +51,7 @@ export default function UsuariosPanel({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Alta manual
         </p>
@@ -99,7 +99,7 @@ export default function UsuariosPanel({
         )}
 
         {state?.error && (
-          <p className="mt-3 rounded-lg bg-red-50 p-2.5 text-[13px] text-red-700">
+          <p className="mt-3 rounded-lg bg-red-950/40 p-2.5 text-[13px] text-red-400">
             {state.error}
           </p>
         )}
@@ -111,12 +111,12 @@ export default function UsuariosPanel({
       </section>
 
       {rolError && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
+        <p className="rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
           {rolError}
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-aventurea-cream-2/60">
@@ -133,7 +133,7 @@ export default function UsuariosPanel({
           <tbody>
             {perfiles.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-[13.5px] text-zinc-500">
+                <td colSpan={5} className="px-4 py-10 text-center text-[13.5px] text-zinc-400">
                   Todavía no hay cuentas registradas.
                 </td>
               </tr>
@@ -170,7 +170,7 @@ export default function UsuariosPanel({
                 </td>
                 <td className="px-4 py-3.5">
                   {p.id === miId ? (
-                    <span className="text-[12px] text-zinc-500">
+                    <span className="text-[12px] text-zinc-400">
                       No podés cambiar tu propio rol
                     </span>
                   ) : (

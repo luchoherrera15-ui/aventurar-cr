@@ -93,7 +93,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
       </p>
 
       {filtrados.length === 0 ? (
-        <div className="rounded-[16px] border border-aventurea-line bg-white p-10 text-center">
+        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-10 text-center">
           <p className="text-[14px] font-bold text-aventurea-ink">
             No encontramos espacios con esa búsqueda.
           </p>
@@ -110,7 +110,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
       )}
 
       {/* Buscador y filtros */}
-      <div className="mt-10 rounded-[16px] border border-aventurea-line bg-white p-2.5 shadow-sm">
+      <div className="mt-10 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-2.5 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
@@ -121,7 +121,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               placeholder="Buscá por nombre, provincia o cantón..."
-              className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-orange/40 focus:outline-none"
+              className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:zinc-500 focus:border-aventurea-orange/40 focus:outline-none"
             />
           </div>
           <button
@@ -225,7 +225,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
 }
 
 const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500";
+  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
@@ -247,7 +247,7 @@ function TabButton({
       className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2.5 text-[13px] font-bold transition-colors ${
         activo
           ? "bg-aventurea-orange text-white"
-          : "border border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+          : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
       }`}
     >
       <span aria-hidden>{icono}</span>
@@ -288,7 +288,7 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
   return (
     <Link
       href={href}
-      className="group relative flex h-[300px] flex-col overflow-hidden rounded-[16px] shadow-sm ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-xl"
+      className="group relative flex h-[300px] flex-col overflow-hidden rounded-[16px] shadow-sm ring-1 ring-white/10 transition-all hover:-translate-y-0.5 hover:shadow-xl"
     >
       <div
         className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"

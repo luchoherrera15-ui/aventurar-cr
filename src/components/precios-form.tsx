@@ -109,7 +109,7 @@ export default function PreciosForm({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Reserva de la fecha
         </p>
@@ -133,7 +133,7 @@ export default function PreciosForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Cotización automática
         </p>
@@ -202,7 +202,7 @@ export default function PreciosForm({
                     onClick={() =>
                       setTiers((prev) => prev.filter((x) => x.key !== t.key))
                     }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-400"
                     title="Eliminar"
                   >
                     🗑
@@ -258,7 +258,7 @@ export default function PreciosForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Servicios adicionales
         </p>
@@ -344,7 +344,7 @@ export default function PreciosForm({
                         prev.filter((x) => x.key !== s.key),
                       )
                     }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-400"
                     title="Eliminar"
                   >
                     🗑
@@ -387,7 +387,7 @@ export default function PreciosForm({
         {message && (
           <span
             className={`text-[12.5px] font-bold ${
-              message.type === "ok" ? "text-aventurea-green" : "text-red-700"
+              message.type === "ok" ? "text-aventurea-green" : "text-red-400"
             }`}
           >
             {message.type === "ok" ? "✓ " : ""}
