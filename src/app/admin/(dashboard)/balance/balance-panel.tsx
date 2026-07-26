@@ -42,6 +42,7 @@ export default function BalancePanel({
 
   const [comision, setComision] = useState(comisionInicial);
   const [comisionMsg, setComisionMsg] = useState<string | null>(null);
+  const [comisionSimulada, setComisionSimulada] = useState(150);
   const [gastos, setGastos] = useState(gastosIniciales);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -49,6 +50,13 @@ export default function BalancePanel({
   const [ranchoFiltro, setRanchoFiltro] = useState("todos");
   const [desde, setDesde] = useState(inicioAnio);
   const [hasta, setHasta] = useState(finAnio);
+
+  const rangoDias = useMemo(() => {
+    if (!desde || !hasta) return 1;
+    const ms = new Date(hasta).getTime() - new Date(desde).getTime();
+    return Math.max(1, Math.round(ms / 86_400_000) + 1);
+  }, [desde, hasta]);
+  const rangoSemanas = rangoDias / 7;
 
   const nombrePorRancho = useMemo(
     () => new Map(ranchos.map((r) => [r.id, r.nombre])),
@@ -80,13 +88,21 @@ export default function BalancePanel({
         acc.set(key, prev);
       });
     return [...acc.entries()]
-      .map(([id, v]) => ({ id, ...v, comision: v.personas * comision }))
+      .map(([id, v]) => ({
+        id,
+        ...v,
+        comision: v.personas * comision,
+        comisionSimulada: v.personas * comisionSimulada,
+        reservasPorSemana: v.reservas / rangoSemanas,
+        personasPorSemana: v.personas / rangoSemanas,
+      }))
       .sort((a, b) => b.comision - a.comision || b.personas - a.personas);
-  }, [reservas, ranchoFiltro, enRango, comision, nombrePorRancho]);
+  }, [reservas, ranchoFiltro, enRango, comision, comisionSimulada, rangoSemanas, nombrePorRancho]);
 
   const totalPersonas = porRancho.reduce((a, r) => a + r.personas, 0);
   const totalReservas = porRancho.reduce((a, r) => a + r.reservas, 0);
   const totalIngresos = totalPersonas * comision;
+  const totalIngresosSimulados = totalPersonas * comisionSimulada;
 
   const gastosFiltrados = useMemo(
     () => gastos.filter((g) => enRango(g.fecha)),
@@ -188,6 +204,30 @@ export default function BalancePanel({
             ingresos aparecen en cero. Todo lo demás ya se está registrando.
           </p>
         )}
+
+        <div className="mt-5 border-t border-dashed border-aventurea-line pt-4">
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
+            Simulador — &quot;¿y si cobráramos X por persona?&quot;
+          </label>
+          <p className="mb-2.5 text-[12px] text-aventurea-ink-soft">
+            Solo para previsualizar, no cambia el cobro real. Usa las mismas
+            reservas del periodo filtrado abajo.
+          </p>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-[13px] font-bold text-aventurea-ink-soft">₡</span>
+            <input
+              type="number"
+              min={0}
+              value={comisionSimulada}
+              onChange={(e) => setComisionSimulada(Number(e.target.value))}
+              className="w-32 rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+            />
+            <span className="text-[12.5px] text-aventurea-ink-soft">por persona →</span>
+            <span className="text-[14px] font-bold text-aventurea-orange">
+              {fmt(totalIngresosSimulados)} proyectados
+            </span>
+          </div>
+        </div>
       </section>
 
       {/* Filtros */}
@@ -262,14 +302,27 @@ export default function BalancePanel({
 
       {/* Ingresos por salón */}
       <section>
-        <h3 className="mb-3 text-[15.5px] font-bold text-aventurea-ink">
-          Ingresos por salón
-        </h3>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-[15.5px] font-bold text-aventurea-ink">
+            Ingresos por salón
+          </h3>
+          <p className="text-[12px] text-aventurea-ink-soft">
+            Periodo: {rangoDias} día{rangoDias === 1 ? "" : "s"} (≈ {rangoSemanas.toFixed(1)} semanas)
+          </p>
+        </div>
         <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white shadow-sm">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-aventurea-cream-2/60">
-                {["Salón", "Reservas", "Personas", "Comisión generada"].map((h) => (
+                {[
+                  "Salón",
+                  "Reservas",
+                  "Reservas/semana",
+                  "Personas",
+                  "Personas/semana",
+                  "Comisión generada",
+                  `A ₡${comisionSimulada}/persona`,
+                ].map((h) => (
                   <th
                     key={h}
                     className="whitespace-nowrap border-b border-aventurea-line px-4 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
@@ -282,7 +335,7 @@ export default function BalancePanel({
             <tbody>
               {porRancho.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-[13.5px] text-zinc-500">
+                  <td colSpan={7} className="px-4 py-10 text-center text-[13.5px] text-zinc-500">
                     No hay reservas confirmadas en este periodo.
                   </td>
                 </tr>
@@ -299,10 +352,19 @@ export default function BalancePanel({
                     {r.reservas}
                   </td>
                   <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">
+                    {r.reservasPorSemana.toFixed(1)}
+                  </td>
+                  <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">
                     {r.personas.toLocaleString("es-CR")}
+                  </td>
+                  <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">
+                    {r.personasPorSemana.toFixed(1)}
                   </td>
                   <td className="px-4 py-3.5 text-[13.5px] font-bold text-aventurea-orange">
                     {fmt(r.comision)}
+                  </td>
+                  <td className="px-4 py-3.5 text-[13.5px] font-bold text-aventurea-ink-soft">
+                    {fmt(r.comisionSimulada)}
                   </td>
                 </tr>
               ))}
