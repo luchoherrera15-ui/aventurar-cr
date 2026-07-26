@@ -441,7 +441,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
           </p>
         </div>
         <Link
-          href="/mi-rancho/registro"
+          href="/publicar"
           className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
         >
           Publicar mi espacio

@@ -41,7 +41,7 @@ export default async function RanchosEventosPage() {
               Iniciar sesión
             </Link>
             <Link
-              href="/mi-rancho/registro"
+              href="/publicar"
               className="whitespace-nowrap rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange sm:px-4 sm:text-[12.5px]"
             >
               Publicá tu salón
