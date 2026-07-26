@@ -170,7 +170,7 @@ export default function BookingCalendar({
 
   async function elegirFecha(fecha: string) {
     if (holdId && !confirmado) {
-      cancelarReservaTemporal(holdId);
+      await cancelarReservaTemporal(holdId);
     }
     setSelectedDate(fecha);
     setConfirmado(false);
@@ -348,6 +348,8 @@ export default function BookingCalendar({
                 const isToday = cellDate.getTime() === today.getTime();
                 const info = dias[fecha];
                 const isSelected = fecha === selectedDate;
+                const isHeldByOther = !!(info && info.temporales > 0 && !isSelected);
+                const isBlocked = isPast || !!info?.confirmada || isHeldByOther;
 
                 let cls =
                   "relative flex aspect-square items-center justify-center rounded-lg text-[13px]";
@@ -356,13 +358,12 @@ export default function BookingCalendar({
                 if (isPast) {
                   cls += " text-zinc-700 cursor-default";
                 } else if (info?.confirmada) {
-                  cls += " bg-zinc-700 text-white font-bold";
+                  cls += " bg-red-950/50 border border-red-500/30 text-red-300 font-bold line-through cursor-not-allowed";
+                } else if (isHeldByOther) {
+                  cls += " bg-blue-500/10 border border-blue-500/25 text-blue-400/60 cursor-not-allowed";
                 } else {
                   cls += " bg-zinc-800 border border-white/10 text-zinc-300 cursor-pointer hover:border-aventurea-orange hover:text-aventurea-orange";
-                  if (info && info.temporales > 0) {
-                    cls += " bg-blue-500/15 border-blue-500/40 text-blue-300 font-bold";
-                    badge = info.temporales;
-                  } else if (info && info.pendientes > 0) {
+                  if (info && info.pendientes > 0) {
                     cls += " bg-aventurea-orange/15 border-aventurea-orange/40 text-aventurea-orange font-bold";
                     badge = info.pendientes;
                   }
@@ -373,7 +374,7 @@ export default function BookingCalendar({
                 return (
                   <div
                     key={i}
-                    onClick={() => !isPast && !info?.confirmada && !holdCreando && elegirFecha(fecha)}
+                    onClick={() => !isBlocked && !holdCreando && elegirFecha(fecha)}
                     className={cls}
                   >
                     {d}
@@ -393,15 +394,15 @@ export default function BookingCalendar({
                 Disponible
               </span>
               <span className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
-                <span className="h-2.5 w-2.5 rounded-[3px] border border-blue-500/40 bg-blue-500/15" />
-                Reserva temporal
+                <span className="h-2.5 w-2.5 rounded-[3px] border border-blue-500/25 bg-blue-500/10" />
+                Reserva temporal (bloqueada)
               </span>
               <span className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
                 <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-orange/40 bg-aventurea-orange/15" />
                 En aprobación
               </span>
               <span className="flex items-center gap-1.5 text-[11.5px] text-zinc-400">
-                <span className="h-2.5 w-2.5 rounded-[3px] bg-zinc-700" />
+                <span className="h-2.5 w-2.5 rounded-[3px] border border-red-500/30 bg-red-950/50" />
                 Reservada
               </span>
             </div>
@@ -412,9 +413,11 @@ export default function BookingCalendar({
                 revisa los comprobantes y confirma una sola.
               </div>
               <div className="rounded-[10px] bg-blue-500/10 p-3 text-xs text-blue-300">
-                Al elegir una fecha, la reservás por 10 minutos — ese es el
-                tiempo que tenés para subir el comprobante del depósito. Si
-                no lo subís a tiempo, la fecha vuelve a quedar disponible.
+                Al elegir una fecha, quedás vos y solo vos reservándola por
+                10 minutos — nadie más puede seleccionarla mientras tanto.
+                Ese es el tiempo que tenés para subir el comprobante del
+                depósito. Si no lo subís a tiempo, la fecha vuelve a quedar
+                disponible para cualquiera.
               </div>
             </div>
           </div>

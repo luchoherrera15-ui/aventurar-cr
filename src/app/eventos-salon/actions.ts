@@ -8,7 +8,16 @@ const MINUTOS_HOLD = 10;
 
 export async function crearReservaTemporal(fecha: string) {
   const supabase = await createClient();
+  const nowIso = new Date().toISOString();
   const expiraEn = new Date(Date.now() + MINUTOS_HOLD * 60 * 1000).toISOString();
+
+  // Libera holds vencidos de esta fecha antes de intentar tomarla.
+  await supabase
+    .from("reservas")
+    .delete()
+    .eq("fecha", fecha)
+    .eq("estado", "temporal")
+    .lt("expira_en", nowIso);
 
   const { data, error } = await supabase
     .from("reservas")
@@ -16,7 +25,17 @@ export async function crearReservaTemporal(fecha: string) {
     .select("id, expira_en")
     .single();
 
-  if (error) return { id: null, expiraEn: null, error: error.message };
+  if (error) {
+    if (error.code === "23505") {
+      return {
+        id: null,
+        expiraEn: null,
+        error:
+          "Justo ahora otra persona reservó temporalmente esta fecha. Esperá unos minutos o elegí otro día.",
+      };
+    }
+    return { id: null, expiraEn: null, error: error.message };
+  }
   return {
     id: data.id as string,
     expiraEn: data.expira_en as string,
