@@ -64,6 +64,8 @@ export default function BookingCalendar({
   terminos = [],
   montoMinimo = null,
   horarios = [],
+  fotoFondo = null,
+  descripcion = null,
 }: {
   ranchoId: string;
   nombreRancho: string;
@@ -78,6 +80,9 @@ export default function BookingCalendar({
   montoMinimo?: number | null;
   /** Los bloques de alquiler del dueño; vacío = no se pregunta el horario. */
   horarios?: HorarioBloqueConfig[];
+  /** Foto del lugar que va de fondo detrás del calendario. */
+  fotoFondo?: string | null;
+  descripcion?: string | null;
 }) {
   // Un proveedor que nunca los tocó muestra siempre los vigentes de
   // Aventurea, armados con su propio depósito y monto mínimo.
@@ -464,19 +469,32 @@ export default function BookingCalendar({
     "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
   return (
-    <section id="reservar" className="py-9 pb-16">
-      <div className="mx-auto max-w-[1080px] px-7">
-        <div className="mb-6.5 max-w-[640px]">
-          <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
-            {nombreRancho}
+    <section id="reservar" className="relative overflow-hidden">
+      {/* La foto del salón es el fondo: el calendario va encima de ella. */}
+      <div className="absolute inset-0">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={
+            fotoFondo
+              ? { backgroundImage: `url(${fotoFondo})` }
+              : { backgroundImage: "linear-gradient(135deg,#1e3a5f,#0f2038)" }
+          }
+        />
+        {/* Sin esta capa el texto blanco se pierde en las fotos claras. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/65 to-black/85" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1080px] px-5 py-12 sm:px-7 sm:py-16">
+        <div className="mb-7 max-w-[640px]">
+          <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-white/70 before:block before:h-[1.5px] before:w-5 before:bg-white/70">
+            Reservá tu fecha
           </p>
-          <h1 className="mt-2.5 text-[28px] font-bold text-aventurea-orange-dark sm:text-[32px]">
-            Reserva tu fecha
+          <h1 className="titulo mt-3 text-[32px] text-white drop-shadow-sm sm:text-[44px]">
+            {nombreRancho}
           </h1>
-          <p className="mt-2.5 text-[14.5px] text-aventurea-ink-soft">
-            Elegí un día en el calendario, completá tus datos y subí el
-            comprobante del depósito. Tu reserva queda en aprobación hasta
-            que la confirmemos.
+          <p className="mt-3 text-[14.5px] leading-relaxed text-white/75">
+            {descripcion ??
+              "Elegí un día en el calendario, completá tus datos y subí el comprobante del depósito. Tu reserva queda en aprobación hasta que la confirmemos."}
           </p>
         </div>
 
@@ -487,7 +505,7 @@ export default function BookingCalendar({
               .map((p) => (
                 <span
                   key={p.id}
-                  className="rounded-full border border-aventurea-orange/40 bg-aventurea-orange/15 px-3.5 py-1.5 text-[12.5px] font-bold text-aventurea-orange-dark"
+                  className="rounded-full border border-white/30 bg-white/15 px-3.5 py-1.5 text-[12.5px] font-bold text-white backdrop-blur-sm"
                 >
                   <IconTagLine className="h-3.5 w-3.5" /> {p.etiqueta}
                 </span>
@@ -496,9 +514,9 @@ export default function BookingCalendar({
         )}
 
         {horarios.length > 0 && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-surface p-4">
-            <span className="text-aventurea-ink-soft"><IconClock className="h-5 w-5" /></span>
-            <div className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-md">
+            <span className="text-white/70"><IconClock className="h-5 w-5" /></span>
+            <div className="text-[12.5px] leading-relaxed text-white/75">
               <p className="mb-1.5">
                 {nombreRancho} alquila por estos horarios — elegís uno al
                 reservar:
@@ -508,7 +526,7 @@ export default function BookingCalendar({
                   const horas = duracionHoras(h.desde, h.hasta);
                   return (
                     <li key={h.id}>
-                      <strong className="text-aventurea-ink">{etiquetaHorario(h)}</strong>
+                      <strong className="text-white">{etiquetaHorario(h)}</strong>
                       {horas !== null && ` · ${horas} h`}
                     </li>
                   );
@@ -518,24 +536,24 @@ export default function BookingCalendar({
           </div>
         )}
 
-        {/* Calendario a ancho completo */}
-        <div className="rounded-[20px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-7">
+        {/* Calendario translúcido: deja ver la foto detrás. */}
+        <div className="rounded-[20px] border border-white/20 bg-white/10 p-4 shadow-2xl backdrop-blur-xl sm:p-7">
           <div className="flex items-center justify-between">
-            <span className="titulo text-[20px] capitalize text-aventurea-ink sm:text-[24px]">
+            <span className="titulo text-[20px] capitalize text-white sm:text-[24px]">
               {MESES[viewMonth]} {viewYear}
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => cambiarMes(-1)}
                 aria-label="Mes anterior"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-[17px] text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/25 text-[17px] text-white hover:border-white hover:bg-white/15"
               >
                 ‹
               </button>
               <button
                 onClick={() => cambiarMes(1)}
                 aria-label="Mes siguiente"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-[17px] text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/25 text-[17px] text-white hover:border-white hover:bg-white/15"
               >
                 ›
               </button>
@@ -546,7 +564,7 @@ export default function BookingCalendar({
             {DOW.map((d, i) => (
               <div
                 key={i}
-                className="pb-1.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[11.5px]"
+                className="pb-1.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-white/55 sm:text-[11.5px]"
               >
                 {d}
               </div>
@@ -563,29 +581,29 @@ export default function BookingCalendar({
               const isBlocked = isPast || !!info?.confirmada || isHeldByOther;
 
               let cls =
-                "relative flex min-h-[52px] flex-col justify-between rounded-xl p-1.5 text-[14px] sm:min-h-[88px] sm:p-2.5 sm:text-[16px]";
+                "relative flex min-h-[52px] flex-col justify-between rounded-xl p-1.5 text-[14px] transition sm:min-h-[88px] sm:p-2.5 sm:text-[16px]";
               let etiqueta: string | null = null;
               let badge: number | null = null;
 
               if (isPast) {
-                cls += " cursor-default text-zinc-300";
+                cls += " cursor-default text-white/25";
               } else if (info?.confirmada) {
-                cls += " cursor-not-allowed border border-red-300 bg-red-50 font-bold text-red-700";
+                cls += " cursor-not-allowed border border-red-300/45 bg-red-500/25 font-bold text-red-50";
                 etiqueta = "Reservada";
               } else if (isHeldByOther) {
-                cls += " cursor-not-allowed border border-blue-500/25 bg-blue-500/10 text-blue-700/70";
+                cls += " cursor-not-allowed border border-sky-300/40 bg-sky-400/20 text-sky-50/75";
                 etiqueta = "Bloqueada";
               } else {
-                cls += " cursor-pointer border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange";
+                cls += " cursor-pointer border border-white/20 bg-white/10 text-white hover:border-white hover:bg-white/25";
                 etiqueta = "Disponible";
                 if (info && info.pendientes > 0) {
-                  cls += " bg-aventurea-orange/15 border-aventurea-orange/40 text-aventurea-orange font-bold";
+                  cls += " border-amber-300/50 bg-amber-400/25 font-bold text-amber-50";
                   etiqueta = "En aprobación";
                   badge = info.pendientes;
                 }
               }
-              if (isToday) cls += " ring-2 ring-inset ring-aventurea-orange";
-              if (isSelected) cls += " ring-2 ring-inset ring-aventurea-ink";
+              if (isToday) cls += " ring-2 ring-inset ring-white/60";
+              if (isSelected) cls += " ring-2 ring-inset ring-white";
 
               return (
                 <div
@@ -609,29 +627,29 @@ export default function BookingCalendar({
             })}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-aventurea-line pt-4">
-            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-line bg-aventurea-cream-2" />
+          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-white/15 pt-4">
+            <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-white/25 bg-white/15" />
               Disponible
             </span>
-            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-blue-500/25 bg-blue-500/10" />
+            <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-sky-300/40 bg-sky-400/25" />
               Reserva temporal (bloqueada)
             </span>
-            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-orange/40 bg-aventurea-orange/15" />
+            <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-amber-300/50 bg-amber-400/30" />
               En aprobación
             </span>
-            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-300 bg-red-50" />
+            <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-300/45 bg-red-500/30" />
               Reservada
             </span>
           </div>
         </div>
 
         {!selectedDate && (
-          <p className="mt-4 flex items-center justify-center gap-2 text-center text-[13px] text-aventurea-ink-soft">
-            <IconCalendarLine className="h-4 w-4 text-aventurea-orange" />
+          <p className="mt-4 flex items-center justify-center gap-2 text-center text-[13px] text-white/70">
+            <IconCalendarLine className="h-4 w-4" />
             Tocá un día disponible para indicar tus invitados, ver el precio y
             reservar la fecha.
           </p>
