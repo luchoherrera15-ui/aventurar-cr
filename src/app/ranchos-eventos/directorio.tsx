@@ -2,14 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { IconSparkles } from "@/components/icons";
 import {
   CATEGORIAS,
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
   PROVINCIAS,
+  TIPOS_LUGAR,
+  TIPO_LUGAR_LABEL,
   type Categoria,
+  type TipoLugar,
 } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
 import { NOMBRE_RANCHO_AVENTUREA } from "./constants";
@@ -23,18 +25,45 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
   const [tab, setTab] = useState<Categoria | "todos">("todos");
   const [texto, setTexto] = useState("");
   const [provincia, setProvincia] = useState("");
+  const [tipoLugar, setTipoLugar] = useState<TipoLugar | "">("");
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
-  const [abierto, setAbierto] = useState(false);
 
   const invitadosNum = parseInt(invitados) || 0;
   const precioMaxNum = parseInt(precioMax) || 0;
+  const muestraLugares = tab === "todos" || tab === "salon";
 
   const conteoPorCategoria = useMemo(() => {
     const acc: Record<string, number> = {};
     ranchos.forEach((r) => {
       acc[r.categoria] = (acc[r.categoria] ?? 0) + 1;
     });
+    return acc;
+  }, [ranchos]);
+
+  // Los conteos de provincia y de tipo de lugar se calculan sobre el
+  // conjunto ya filtrado por categoría, para que reaccionen al cambiar
+  // de pestaña pero no se auto-filtren por sí mismos.
+  const ranchosPorTab = useMemo(
+    () => ranchos.filter((r) => tab === "todos" || r.categoria === tab),
+    [ranchos, tab],
+  );
+
+  const conteoPorProvincia = useMemo(() => {
+    const acc: Record<string, number> = {};
+    ranchosPorTab.forEach((r) => {
+      if (r.provincia) acc[r.provincia] = (acc[r.provincia] ?? 0) + 1;
+    });
+    return acc;
+  }, [ranchosPorTab]);
+
+  const conteoPorTipoLugar = useMemo(() => {
+    const acc: Record<string, number> = {};
+    ranchos
+      .filter((r) => r.categoria === "salon")
+      .forEach((r) => {
+        if (r.tipo_lugar) acc[r.tipo_lugar] = (acc[r.tipo_lugar] ?? 0) + 1;
+      });
     return acc;
   }, [ranchos]);
 
@@ -51,69 +80,43 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         return false;
       }
       if (provincia && r.provincia !== provincia) return false;
+      if (tipoLugar && r.tipo_lugar !== tipoLugar) return false;
       if (invitadosNum && (r.capacidad_max ?? 0) < invitadosNum) return false;
       if (precioMaxNum && (r.precio_desde ?? 0) > precioMaxNum) return false;
       return true;
     });
-  }, [ranchos, tab, texto, provincia, invitadosNum, precioMaxNum]);
+  }, [ranchos, tab, texto, provincia, tipoLugar, invitadosNum, precioMaxNum]);
 
-  const filtrosActivos = [provincia, invitados, precioMax].filter(Boolean).length;
-  const hayAlgo = filtrosActivos > 0 || !!texto;
+  const filtrosActivos = [provincia, tipoLugar, invitados, precioMax].filter(
+    Boolean,
+  ).length;
+  const hayAlgo = filtrosActivos > 0 || !!texto || tab !== "todos";
 
   function limpiar() {
+    setTab("todos");
     setTexto("");
     setProvincia("");
+    setTipoLugar("");
     setInvitados("");
     setPrecioMax("");
   }
 
+  function elegirCategoria(c: Categoria | "todos") {
+    setTab(c);
+    if (c !== "salon" && c !== "todos") setTipoLugar("");
+  }
+
+  function elegirTipoLugar(t: TipoLugar) {
+    setTab("salon");
+    setTipoLugar((prev) => (prev === t ? "" : t));
+  }
+
   return (
-    <div>
-      {/* Tabs de categoría */}
-      <div className="-mx-6 mb-6 flex gap-2 overflow-x-auto px-6 pb-1 lg:mx-0 lg:px-0">
-        <TabButton
-          activo={tab === "todos"}
-          onClick={() => setTab("todos")}
-          label={`Todos (${ranchos.length})`}
-          icono={<IconSparkles />}
-        />
-        {CATEGORIAS.map((c) => (
-          <TabButton
-            key={c}
-            activo={tab === c}
-            onClick={() => setTab(c)}
-            label={`${CATEGORIA_LABEL[c]} (${conteoPorCategoria[c] ?? 0})`}
-            icono={CATEGORIA_ICONO[c]}
-          />
-        ))}
-      </div>
-
-      <p className="mb-4 text-[12.5px] text-aventurea-ink-soft">
-        {filtrados.length} espacio{filtrados.length === 1 ? "" : "s"}{" "}
-        {hayAlgo ? "coinciden con tu búsqueda" : "disponibles"}
-      </p>
-
-      {filtrados.length === 0 ? (
-        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-10 text-center">
-          <p className="text-[14px] font-bold text-aventurea-ink">
-            No encontramos espacios con esa búsqueda.
-          </p>
-          <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] text-aventurea-ink-soft">
-            Probá con otra categoría, otra provincia o un presupuesto mayor.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtrados.map((r) => (
-            <RanchoCard key={r.id} rancho={r} />
-          ))}
-        </div>
-      )}
-
-      {/* Buscador y filtros */}
-      <div className="mt-10 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-2.5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-0 flex-1">
+    <div className="lg:grid lg:grid-cols-[260px_1fr] lg:items-start lg:gap-8">
+      {/* Panel de filtros */}
+      <aside className="mb-6 lg:sticky lg:top-24 lg:mb-0">
+        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
+          <div className="relative mb-1">
             <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
               <IconLupa />
             </span>
@@ -122,137 +125,189 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               placeholder="Buscá por nombre, provincia o cantón..."
-              className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:zinc-500 focus:border-aventurea-orange/40 focus:outline-none"
+              className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-orange/40 focus:outline-none"
             />
           </div>
-          <button
-            type="button"
-            onClick={() => setAbierto((v) => !v)}
-            aria-expanded={abierto}
-            className={`flex items-center gap-2 rounded-[12px] px-4 py-3 text-[13.5px] font-bold transition-colors ${
-              abierto || filtrosActivos > 0
-                ? "bg-aventurea-orange text-white"
-                : "border border-aventurea-line text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-            }`}
-          >
-            Filtros
-            {filtrosActivos > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/25 px-1.5 text-[11px]">
-                {filtrosActivos}
-              </span>
-            )}
-            <span
-              className={`transition-transform duration-200 ${abierto ? "rotate-180" : ""}`}
-              aria-hidden
-            >
-              ▾
-            </span>
-          </button>
-        </div>
 
-        {abierto && (
-          <div className="mt-2.5 grid grid-cols-1 gap-3 border-t border-aventurea-line px-1 pb-1 pt-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className={labelCls}>Provincia</label>
-              <select
-                value={provincia}
-                onChange={(e) => setProvincia(e.target.value)}
-                className={inputCls}
-              >
-                <option value="">Todas</option>
-                {PROVINCIAS.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Cantidad de invitados</label>
-              <input
-                type="number"
-                min={1}
-                value={invitados}
-                onChange={(e) => setInvitados(e.target.value)}
-                placeholder="Ej. 50"
-                className={inputCls}
+          <FilterSection title="Categorías">
+            <FilterRow
+              label={`Todos`}
+              count={ranchos.length}
+              active={tab === "todos"}
+              onClick={() => elegirCategoria("todos")}
+            />
+            {CATEGORIAS.map((c) => (
+              <FilterRow
+                key={c}
+                label={CATEGORIA_LABEL[c]}
+                count={conteoPorCategoria[c] ?? 0}
+                active={tab === c}
+                onClick={() => elegirCategoria(c)}
               />
-            </div>
-            <div>
-              <label className={labelCls}>Precio máximo (₡)</label>
-              <input
-                type="number"
-                min={0}
-                value={precioMax}
-                onChange={(e) => setPrecioMax(e.target.value)}
-                placeholder="Ej. 150000"
-                className={inputCls}
+            ))}
+          </FilterSection>
+
+          <FilterSection title="Provincia">
+            {PROVINCIAS.map((p) => (
+              <FilterRow
+                key={p}
+                label={p}
+                count={conteoPorProvincia[p] ?? 0}
+                active={provincia === p}
+                onClick={() => setProvincia((prev) => (prev === p ? "" : p))}
               />
+            ))}
+          </FilterSection>
+
+          {muestraLugares && (
+            <FilterSection title="Lugares">
+              {TIPOS_LUGAR.map((t) => (
+                <FilterRow
+                  key={t}
+                  label={TIPO_LUGAR_LABEL[t]}
+                  count={conteoPorTipoLugar[t] ?? 0}
+                  active={tipoLugar === t}
+                  onClick={() => elegirTipoLugar(t)}
+                />
+              ))}
+            </FilterSection>
+          )}
+
+          <FilterSection title="Más filtros" ultima>
+            <div className="flex flex-col gap-3 px-2.5 pt-1">
+              <div>
+                <label className={labelCls}>Cantidad de invitados</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={invitados}
+                  onChange={(e) => setInvitados(e.target.value)}
+                  placeholder="Ej. 50"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Precio máximo (₡)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={precioMax}
+                  onChange={(e) => setPrecioMax(e.target.value)}
+                  placeholder="Ej. 150000"
+                  className={inputCls}
+                />
+              </div>
             </div>
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={limpiar}
-                disabled={!hayAlgo}
-                className="w-full rounded-[10px] border border-aventurea-line py-2.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
-              >
-                Limpiar filtros
-              </button>
-            </div>
+          </FilterSection>
+
+          {hayAlgo && (
+            <button
+              type="button"
+              onClick={limpiar}
+              className="mt-3 w-full rounded-[10px] border border-aventurea-line py-2.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Resultados */}
+      <div>
+        <p className="mb-4 text-[12.5px] text-aventurea-ink-soft">
+          {filtrados.length} espacio{filtrados.length === 1 ? "" : "s"}{" "}
+          {hayAlgo ? "coinciden con tu búsqueda" : "disponibles"}
+        </p>
+
+        {filtrados.length === 0 ? (
+          <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-10 text-center">
+            <p className="text-[14px] font-bold text-aventurea-ink">
+              No encontramos espacios con esa búsqueda.
+            </p>
+            <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] text-aventurea-ink-soft">
+              Probá con otra categoría, otra provincia o un presupuesto mayor.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {filtrados.map((r) => (
+              <RanchoCard key={r.id} rancho={r} />
+            ))}
           </div>
         )}
-      </div>
 
-      {/* Invitación a publicar */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-aventurea-orange/25 bg-aventurea-orange/5 px-6 py-5">
-        <div>
-          <h2 className="text-[15px] font-bold text-aventurea-ink">
-            ¿Tenés un negocio para eventos?
-          </h2>
-          <p className="mt-1 text-[13px] text-aventurea-ink-soft">
-            Salones, mobiliario, DJs, animación y más — publicalo gratis en
-            Aventurea CR y llegá a más clientes en todo el país.
-          </p>
+        {/* Invitación a publicar */}
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-aventurea-orange/25 bg-aventurea-orange/5 px-6 py-5">
+          <div>
+            <h2 className="text-[15px] font-bold text-aventurea-ink">
+              ¿Tenés un negocio para eventos?
+            </h2>
+            <p className="mt-1 text-[13px] text-aventurea-ink-soft">
+              Salones, mobiliario, DJs, animación y más — publicalo gratis en
+              Aventurea CR y llegá a más clientes en todo el país.
+            </p>
+          </div>
+          <Link
+            href="/mi-rancho/registro"
+            className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+          >
+            Publicar mi espacio
+          </Link>
         </div>
-        <Link
-          href="/mi-rancho/registro"
-          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
-        >
-          Publicar mi espacio
-        </Link>
       </div>
     </div>
   );
 }
 
 const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:zinc-500";
+  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
-function TabButton({
-  activo,
-  onClick,
-  label,
-  icono,
+function FilterSection({
+  title,
+  children,
+  ultima = false,
 }: {
-  activo: boolean;
-  onClick: () => void;
+  title: string;
+  children: React.ReactNode;
+  ultima?: boolean;
+}) {
+  return (
+    <div className={`py-4 ${ultima ? "" : "border-b border-aventurea-line"}`}>
+      <h3 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+        {title}
+      </h3>
+      <div className="flex flex-col gap-0.5">{children}</div>
+    </div>
+  );
+}
+
+function FilterRow({
+  label,
+  count,
+  active,
+  onClick,
+}: {
   label: string;
-  icono: React.ReactNode;
+  count: number;
+  active: boolean;
+  onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-[13px] font-bold transition-colors ${
-        activo
-          ? "bg-aventurea-orange text-white"
-          : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+      className={`flex w-full items-center justify-between rounded-[10px] px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+        active
+          ? "bg-aventurea-orange/10 font-bold text-aventurea-orange"
+          : "text-aventurea-ink hover:bg-aventurea-cream-2"
       }`}
     >
-      <span aria-hidden className="h-3.5 w-3.5 [&_svg]:h-3.5 [&_svg]:w-3.5">{icono}</span>
-      {label}
+      <span>{label}</span>
+      <span className="ml-2 shrink-0 tabular-nums text-[11.5px] text-aventurea-ink-soft">
+        {count}
+      </span>
     </button>
   );
 }
@@ -285,6 +340,9 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
+  const etiqueta = rancho.tipo_lugar
+    ? TIPO_LUGAR_LABEL[rancho.tipo_lugar]
+    : CATEGORIA_LABEL[rancho.categoria];
 
   return (
     <Link
@@ -313,7 +371,7 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
           </span>
         )}
         <span className="rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90">
-          {CATEGORIA_LABEL[rancho.categoria]}
+          {etiqueta}
         </span>
       </div>
 

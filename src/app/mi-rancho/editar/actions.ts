@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORIAS, PROVINCIAS } from "../types";
+import { CATEGORIAS, PROVINCIAS, TIPOS_LUGAR } from "../types";
 
 export type EditarRanchoState = { error?: string; ok?: boolean } | undefined;
 
@@ -29,6 +29,11 @@ export async function actualizarRancho(
     return { error: "Completá al menos el tipo de servicio, el nombre y la provincia." };
   }
 
+  const tipoLugarRaw = String(formData.get("tipo_lugar") || "");
+  if (categoria === "salon" && !(TIPOS_LUGAR as readonly string[]).includes(tipoLugarRaw)) {
+    return { error: "Elegí qué tipo de lugar es tu salón." };
+  }
+
   const num = (campo: string) => {
     const v = String(formData.get(campo) || "");
     return v ? Number(v) : null;
@@ -39,6 +44,7 @@ export async function actualizarRancho(
 
   const update: Record<string, unknown> = {
     categoria,
+    tipo_lugar: categoria === "salon" ? tipoLugarRaw : null,
     nombre,
     descripcion: texto("descripcion"),
     provincia,

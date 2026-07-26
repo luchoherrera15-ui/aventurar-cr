@@ -65,12 +65,39 @@ export const CATEGORIA_GRADIENTE: Record<Categoria, string> = {
 export const FOTO_ANCHO_MIN = 1200;
 export const FOTO_ALTO_MIN = 900;
 
+// Subtipos de lugar — solo aplican a la categoría "salon", para poder
+// filtrar el directorio como un directorio de salones de verdad.
+export const TIPOS_LUGAR = [
+  "sala_eventos",
+  "rancho_fiestas",
+  "lugar_fiestas_infantiles",
+  "finca_fiestas",
+  "hotel_eventos",
+  "restaurante",
+  "parque_piscina",
+  "centro_negocios",
+] as const;
+
+export type TipoLugar = (typeof TIPOS_LUGAR)[number];
+
+export const TIPO_LUGAR_LABEL: Record<TipoLugar, string> = {
+  sala_eventos: "Salas de eventos",
+  rancho_fiestas: "Ranchos para fiestas",
+  lugar_fiestas_infantiles: "Lugares para fiestas infantiles",
+  finca_fiestas: "Fincas para fiestas",
+  hotel_eventos: "Hoteles para eventos",
+  restaurante: "Restaurantes",
+  parque_piscina: "Parques y piscinas",
+  centro_negocios: "Centros de negocios",
+};
+
 export type Rancho = {
   id: string;
   owner_id: string;
   nombre: string;
   descripcion: string | null;
   categoria: Categoria;
+  tipo_lugar: TipoLugar | null;
   provincia: Provincia | null;
   canton: string | null;
   direccion_exacta: string | null;

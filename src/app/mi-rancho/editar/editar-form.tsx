@@ -10,6 +10,8 @@ import {
   FOTO_ALTO_MIN,
   FOTO_ANCHO_MIN,
   PROVINCIAS,
+  TIPOS_LUGAR,
+  TIPO_LUGAR_LABEL,
   type Categoria,
   type Rancho,
 } from "../types";
@@ -151,6 +153,25 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               ))}
             </select>
           </div>
+
+          {esSalon && (
+            <div>
+              <label className={labelCls}>Tipo de lugar</label>
+              <select
+                name="tipo_lugar"
+                required
+                defaultValue={rancho.tipo_lugar ?? ""}
+                className={inputCls}
+              >
+                <option value="">Selecciona una opción</option>
+                {TIPOS_LUGAR.map((t) => (
+                  <option key={t} value={t}>
+                    {TIPO_LUGAR_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className={labelCls}>Nombre</label>

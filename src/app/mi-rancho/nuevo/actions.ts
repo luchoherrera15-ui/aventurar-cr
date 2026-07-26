@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORIAS, PROVINCIAS } from "../types";
+import { CATEGORIAS, PROVINCIAS, TIPOS_LUGAR } from "../types";
 
 export type NuevoRanchoState = { error?: string } | undefined;
 
@@ -26,6 +26,7 @@ export async function crearRancho(
   const capacidadMaxRaw = String(formData.get("capacidad_max") || "");
   const precioDesdeRaw = String(formData.get("precio_desde") || "");
   const contacto = String(formData.get("contacto_whatsapp") || "").trim();
+  const tipoLugarRaw = String(formData.get("tipo_lugar") || "");
 
   if (
     !nombre ||
@@ -35,9 +36,14 @@ export async function crearRancho(
     return { error: "Completá al menos el tipo de servicio, el nombre y la provincia." };
   }
 
+  if (categoria === "salon" && !(TIPOS_LUGAR as readonly string[]).includes(tipoLugarRaw)) {
+    return { error: "Elegí qué tipo de lugar es tu salón." };
+  }
+
   const { error } = await supabase.from("ranchos").insert({
     owner_id: user.id,
     categoria,
+    tipo_lugar: categoria === "salon" ? tipoLugarRaw : null,
     nombre,
     descripcion: descripcion || null,
     provincia,

@@ -5,7 +5,14 @@ import {
   crearRanchoComoAdmin,
   type NuevoRanchoAdminState,
 } from "./actions";
-import { CATEGORIAS, CATEGORIA_LABEL, PROVINCIAS } from "@/app/mi-rancho/types";
+import {
+  CATEGORIAS,
+  CATEGORIA_LABEL,
+  PROVINCIAS,
+  TIPOS_LUGAR,
+  TIPO_LUGAR_LABEL,
+  type Categoria,
+} from "@/app/mi-rancho/types";
 
 export type DuenoOption = { id: string; email: string | null };
 
@@ -28,6 +35,8 @@ export default function NuevoRanchoAdminForm({
   const [modoDueno, setModoDueno] = useState<"existente" | "nuevo">(
     puedeCrearCuentas ? "nuevo" : "existente",
   );
+  const [categoria, setCategoria] = useState<Categoria>("salon");
+  const esSalon = categoria === "salon";
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -132,7 +141,13 @@ export default function NuevoRanchoAdminForm({
         <div className="mt-4 flex flex-col gap-3.5">
           <div>
             <label className={labelCls}>Tipo de servicio</label>
-            <select name="categoria" required defaultValue="salon" className={inputCls}>
+            <select
+              name="categoria"
+              required
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value as Categoria)}
+              className={inputCls}
+            >
               {CATEGORIAS.map((c) => (
                 <option key={c} value={c}>
                   {CATEGORIA_LABEL[c]}
@@ -140,6 +155,20 @@ export default function NuevoRanchoAdminForm({
               ))}
             </select>
           </div>
+
+          {esSalon && (
+            <div>
+              <label className={labelCls}>Tipo de lugar</label>
+              <select name="tipo_lugar" required className={inputCls}>
+                <option value="">Selecciona una opción</option>
+                {TIPOS_LUGAR.map((t) => (
+                  <option key={t} value={t}>
+                    {TIPO_LUGAR_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className={labelCls}>Nombre del salón o negocio</label>

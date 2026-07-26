@@ -2,7 +2,14 @@
 
 import { useActionState, useState } from "react";
 import { crearRancho, type NuevoRanchoState } from "./actions";
-import { CATEGORIAS, CATEGORIA_LABEL, PROVINCIAS, type Categoria } from "../types";
+import {
+  CATEGORIAS,
+  CATEGORIA_LABEL,
+  PROVINCIAS,
+  TIPOS_LUGAR,
+  TIPO_LUGAR_LABEL,
+  type Categoria,
+} from "../types";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
@@ -39,6 +46,20 @@ export default function NuevoRanchoForm() {
           ))}
         </select>
       </div>
+
+      {esSalon && (
+        <div>
+          <label className={labelCls}>Tipo de lugar</label>
+          <select name="tipo_lugar" required className={inputCls}>
+            <option value="">Selecciona una opción</option>
+            {TIPOS_LUGAR.map((t) => (
+              <option key={t} value={t}>
+                {TIPO_LUGAR_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div>
         <label className={labelCls}>
