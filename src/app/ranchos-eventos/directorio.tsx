@@ -17,6 +17,8 @@ import {
 import type { Rancho } from "../mi-rancho/types";
 import { NOMBRE_RANCHO_AVENTUREA } from "./constants";
 
+const POR_PAGINA = 8;
+
 function fmtColones(n: number | null) {
   if (n === null) return null;
   return "₡" + Number(n).toLocaleString("es-CR");
@@ -29,18 +31,11 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
   const [tipoLugar, setTipoLugar] = useState<TipoLugar | "">("");
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
+  const [pagina, setPagina] = useState(1);
 
   const invitadosNum = parseInt(invitados) || 0;
   const precioMaxNum = parseInt(precioMax) || 0;
   const muestraLugares = tab === "todos" || tab === "salon";
-
-  const conteoPorCategoria = useMemo(() => {
-    const acc: Record<string, number> = {};
-    ranchos.forEach((r) => {
-      acc[r.categoria] = (acc[r.categoria] ?? 0) + 1;
-    });
-    return acc;
-  }, [ranchos]);
 
   // Los conteos de provincia y de tipo de lugar se calculan sobre el
   // conjunto ya filtrado por categoría, para que reaccionen al cambiar
@@ -93,6 +88,13 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
   ).length;
   const hayAlgo = filtrosActivos > 0 || !!texto || tab !== "todos";
 
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+  const paginaSegura = Math.min(pagina, totalPaginas);
+  const visibles = filtrados.slice(
+    (paginaSegura - 1) * POR_PAGINA,
+    paginaSegura * POR_PAGINA,
+  );
+
   function limpiar() {
     setTab("todos");
     setTexto("");
@@ -100,55 +102,43 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     setTipoLugar("");
     setInvitados("");
     setPrecioMax("");
+    setPagina(1);
   }
 
   function elegirCategoria(c: Categoria | "todos") {
     setTab(c);
     if (c !== "salon" && c !== "todos") setTipoLugar("");
+    setPagina(1);
   }
 
   function elegirTipoLugar(t: TipoLugar) {
     setTab("salon");
     setTipoLugar((prev) => (prev === t ? "" : t));
+    setPagina(1);
   }
 
-  // Piezas reutilizadas tal cual en el panel de escritorio (a un lado) y
-  // en el panel de mobile (debajo de las cards, cerca del pie de página).
-  const buscador = (
-    <div className="relative mb-1">
-      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
-        <IconLupa />
-      </span>
-      <input
-        type="search"
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        placeholder="Buscá por nombre, provincia o cantón..."
-        className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-orange/40 focus:outline-none"
-      />
-    </div>
-  );
+  function elegirProvincia(p: string) {
+    setProvincia((prev) => (prev === p ? "" : p));
+    setPagina(1);
+  }
 
-  const seccionCategorias = (
-    <FilterSection title="Categorías">
-      <FilterRow
-        label="Todos"
-        count={ranchos.length}
-        active={tab === "todos"}
-        onClick={() => elegirCategoria("todos")}
-      />
-      {CATEGORIAS.map((c) => (
-        <FilterRow
-          key={c}
-          label={CATEGORIA_LABEL[c]}
-          count={conteoPorCategoria[c] ?? 0}
-          active={tab === c}
-          onClick={() => elegirCategoria(c)}
-        />
-      ))}
-    </FilterSection>
-  );
+  function onCambiarTexto(v: string) {
+    setTexto(v);
+    setPagina(1);
+  }
 
+  function onCambiarInvitados(v: string) {
+    setInvitados(v);
+    setPagina(1);
+  }
+
+  function onCambiarPrecioMax(v: string) {
+    setPrecioMax(v);
+    setPagina(1);
+  }
+
+  // Piezas reutilizadas tal cual en la barra de escritorio (arriba de las
+  // cards) y en el panel de mobile (debajo de las cards, cerca del pie).
   const seccionProvincia = (
     <FilterSection title="Provincia">
       {PROVINCIAS.map((p) => (
@@ -157,7 +147,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
           label={p}
           count={conteoPorProvincia[p] ?? 0}
           active={provincia === p}
-          onClick={() => setProvincia((prev) => (prev === p ? "" : p))}
+          onClick={() => elegirProvincia(p)}
         />
       ))}
     </FilterSection>
@@ -178,7 +168,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
   ) : null;
 
   const seccionMasFiltros = (
-    <FilterSection title="Más filtros" ultima>
+    <FilterSection title="Más filtros">
       <div className="flex flex-col gap-3 px-2.5 pt-1">
         <div>
           <label className={labelCls}>Cantidad de invitados</label>
@@ -186,7 +176,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
             type="number"
             min={1}
             value={invitados}
-            onChange={(e) => setInvitados(e.target.value)}
+            onChange={(e) => onCambiarInvitados(e.target.value)}
             placeholder="Ej. 50"
             className={inputCls}
           />
@@ -197,115 +187,131 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
             type="number"
             min={0}
             value={precioMax}
-            onChange={(e) => setPrecioMax(e.target.value)}
+            onChange={(e) => onCambiarPrecioMax(e.target.value)}
             placeholder="Ej. 150000"
             className={inputCls}
           />
         </div>
+        {hayAlgo && (
+          <button
+            type="button"
+            onClick={limpiar}
+            className="mt-1 w-full rounded-[10px] border border-aventurea-line py-2.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+          >
+            Limpiar filtros
+          </button>
+        )}
       </div>
     </FilterSection>
   );
 
-  const botonLimpiar = hayAlgo ? (
-    <button
-      type="button"
-      onClick={limpiar}
-      className="mt-3 w-full rounded-[10px] border border-aventurea-line py-2.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
-    >
-      Limpiar filtros
-    </button>
-  ) : null;
-
   return (
-    <div className="lg:grid lg:grid-cols-[240px_1fr] lg:items-start lg:gap-6">
-      {/* Panel de filtros completo — solo escritorio, al lado de las cards */}
-      <aside className="hidden lg:block lg:sticky lg:top-24">
-        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
-          {buscador}
-          {seccionCategorias}
-          {seccionProvincia}
-          {seccionLugares}
-          {seccionMasFiltros}
-          {botonLimpiar}
-        </div>
-      </aside>
-
-      <div>
-        {/* Mobile: categorías en una fila que se puede scrollear */}
-        <div className="-mx-6 mb-4 flex gap-2 overflow-x-auto px-6 pb-1 lg:hidden">
+    <div>
+      {/* Categorías: fila horizontal — scrollea en mobile, se acomoda en escritorio */}
+      <div className="-mx-6 mb-4 flex gap-2 overflow-x-auto px-6 pb-1 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
+        <CategoriaPill
+          icono={<IconSparkles />}
+          label="Todos"
+          active={tab === "todos"}
+          onClick={() => elegirCategoria("todos")}
+        />
+        {CATEGORIAS.map((c) => (
           <CategoriaPill
-            icono={<IconSparkles />}
-            label="Todos"
-            active={tab === "todos"}
-            onClick={() => elegirCategoria("todos")}
+            key={c}
+            icono={CATEGORIA_ICONO[c]}
+            label={CATEGORIA_LABEL[c]}
+            active={tab === c}
+            onClick={() => elegirCategoria(c)}
           />
-          {CATEGORIAS.map((c) => (
-            <CategoriaPill
-              key={c}
-              icono={CATEGORIA_ICONO[c]}
-              label={CATEGORIA_LABEL[c]}
-              active={tab === c}
-              onClick={() => elegirCategoria(c)}
-            />
-          ))}
-        </div>
+        ))}
+      </div>
 
-        {/* Mobile: buscador compacto, arriba de las cards */}
-        <div className="mb-4 lg:hidden">{buscador}</div>
+      {/* Buscador, siempre visible */}
+      <div className="relative mb-4">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
+          <IconLupa />
+        </span>
+        <input
+          type="search"
+          value={texto}
+          onChange={(e) => onCambiarTexto(e.target.value)}
+          placeholder="Buscá por nombre, provincia o cantón..."
+          className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-orange/40 focus:outline-none"
+        />
+      </div>
 
-        <p className="mb-4 text-[12.5px] text-aventurea-ink-soft">
-          {filtrados.length} espacio{filtrados.length === 1 ? "" : "s"}{" "}
-          {hayAlgo ? "coinciden con tu búsqueda" : "disponibles"}
-        </p>
-
-        {filtrados.length === 0 ? (
-          <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-10 text-center">
-            <p className="text-[14px] font-bold text-aventurea-ink">
-              No encontramos espacios con esa búsqueda.
-            </p>
-            <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] text-aventurea-ink-soft">
-              Probá con otra categoría, otra provincia o un presupuesto mayor.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filtrados.map((r) => (
-              <RanchoCard key={r.id} rancho={r} />
-            ))}
-          </div>
-        )}
-
-        {/* Mobile: el resto de los filtros, debajo de las cards, cerca del pie */}
-        <div className="mt-10 lg:hidden">
-          <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Más formas de filtrar
-          </p>
-          <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
+      {/* Escritorio: provincia / lugares / más filtros, en una barra debajo de las categorías */}
+      <div className="mb-6 hidden lg:block">
+        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
+          <div className="grid grid-cols-3 gap-6">
             {seccionProvincia}
             {seccionLugares}
             {seccionMasFiltros}
-            {botonLimpiar}
           </div>
         </div>
+      </div>
 
-        {/* Invitación a publicar */}
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-aventurea-orange/25 bg-aventurea-orange/5 px-6 py-5">
-          <div>
-            <h2 className="text-[15px] font-bold text-aventurea-ink">
-              ¿Tenés un negocio para eventos?
-            </h2>
-            <p className="mt-1 text-[13px] text-aventurea-ink-soft">
-              Salones, mobiliario, DJs, animación y más — publicalo gratis en
-              Aventurea CR y llegá a más clientes en todo el país.
-            </p>
-          </div>
-          <Link
-            href="/mi-rancho/registro"
-            className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
-          >
-            Publicar mi espacio
-          </Link>
+      <p className="mb-4 text-[12.5px] text-aventurea-ink-soft">
+        {filtrados.length} espacio{filtrados.length === 1 ? "" : "s"}{" "}
+        {hayAlgo ? "coinciden con tu búsqueda" : "disponibles"}
+      </p>
+
+      {filtrados.length === 0 ? (
+        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-10 text-center">
+          <p className="text-[14px] font-bold text-aventurea-ink">
+            No encontramos espacios con esa búsqueda.
+          </p>
+          <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] text-aventurea-ink-soft">
+            Probá con otra categoría, otra provincia o un presupuesto mayor.
+          </p>
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visibles.map((r) => (
+              <RanchoCard key={r.id} rancho={r} />
+            ))}
+          </div>
+
+          {totalPaginas > 1 && (
+            <Paginacion
+              pagina={paginaSegura}
+              total={totalPaginas}
+              onCambiar={setPagina}
+            />
+          )}
+        </>
+      )}
+
+      {/* Mobile: el resto de los filtros, debajo de las cards, cerca del pie */}
+      <div className="mt-10 lg:hidden">
+        <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          Más formas de filtrar
+        </p>
+        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
+          {seccionProvincia}
+          {seccionLugares}
+          {seccionMasFiltros}
+        </div>
+      </div>
+
+      {/* Invitación a publicar */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-aventurea-orange/25 bg-aventurea-orange/5 px-6 py-5">
+        <div>
+          <h2 className="text-[15px] font-bold text-aventurea-ink">
+            ¿Tenés un negocio para eventos?
+          </h2>
+          <p className="mt-1 text-[13px] text-aventurea-ink-soft">
+            Salones, mobiliario, DJs, animación y más — publicalo gratis en
+            Aventurea CR y llegá a más clientes en todo el país.
+          </p>
+        </div>
+        <Link
+          href="/mi-rancho/registro"
+          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+        >
+          Publicar mi espacio
+        </Link>
       </div>
     </div>
   );
@@ -319,14 +325,12 @@ const labelCls =
 function FilterSection({
   title,
   children,
-  ultima = false,
 }: {
   title: string;
   children: React.ReactNode;
-  ultima?: boolean;
 }) {
   return (
-    <div className={`py-4 ${ultima ? "" : "border-b border-aventurea-line"}`}>
+    <div className="border-b border-aventurea-line pb-4 last:border-none last:pb-0 lg:border-none lg:pb-0">
       <h3 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
         {title}
       </h3>
@@ -390,6 +394,54 @@ function CategoriaPill({
       </span>
       {label}
     </button>
+  );
+}
+
+function Paginacion({
+  pagina,
+  total,
+  onCambiar,
+}: {
+  pagina: number;
+  total: number;
+  onCambiar: (p: number) => void;
+}) {
+  const paginas = Array.from({ length: total }, (_, i) => i + 1);
+  return (
+    <div className="mt-8 flex flex-wrap items-center justify-center gap-1.5">
+      <button
+        type="button"
+        disabled={pagina === 1}
+        onClick={() => onCambiar(pagina - 1)}
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-30"
+        aria-label="Página anterior"
+      >
+        ‹
+      </button>
+      {paginas.map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => onCambiar(p)}
+          className={`flex h-9 w-9 items-center justify-center rounded-lg text-[13px] font-bold transition-colors ${
+            p === pagina
+              ? "bg-aventurea-orange text-white"
+              : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      <button
+        type="button"
+        disabled={pagina === total}
+        onClick={() => onCambiar(pagina + 1)}
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-30"
+        aria-label="Página siguiente"
+      >
+        ›
+      </button>
+    </div>
   );
 }
 
