@@ -35,9 +35,27 @@ export default async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";
+  const isMiRanchoRoute =
+    path.startsWith("/mi-rancho") &&
+    path !== "/mi-rancho/login" &&
+    path !== "/mi-rancho/registro";
 
-  if (isAdminRoute && !user) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+  if (isAdminRoute) {
+    if (!user) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    const { data: perfil } = await supabase
+      .from("perfiles")
+      .select("rol")
+      .eq("id", user.id)
+      .single();
+    if (perfil?.rol !== "admin") {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+  }
+
+  if (isMiRanchoRoute && !user) {
+    return NextResponse.redirect(new URL("/mi-rancho/login", request.url));
   }
 
   return response;

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type LoginState = { error?: string } | undefined;
 
-export async function login(
+export async function loginDueno(
   _prevState: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
@@ -13,25 +13,14 @@ export async function login(
   const password = String(formData.get("password") || "");
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
-  if (error || !data.user) {
+  if (error) {
     return { error: "Correo o contraseña incorrectos." };
   }
 
-  const { data: perfil } = await supabase
-    .from("perfiles")
-    .select("rol")
-    .eq("id", data.user.id)
-    .single();
-
-  if (perfil?.rol !== "admin") {
-    await supabase.auth.signOut();
-    return { error: "Esta cuenta no tiene acceso al panel de administración." };
-  }
-
-  redirect("/admin");
+  redirect("/mi-rancho");
 }
