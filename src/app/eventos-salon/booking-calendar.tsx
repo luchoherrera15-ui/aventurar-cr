@@ -40,6 +40,14 @@ function fmtCountdown(totalSeconds: number) {
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
+function fmtFechaLarga(fechaIso: string) {
+  const [y, m, d] = fechaIso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
 
 export default function BookingCalendar({
   disponibilidad,
@@ -88,6 +96,7 @@ export default function BookingCalendar({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
+  const [switchTarget, setSwitchTarget] = useState<string | null>(null);
 
   // Cuenta regresiva del hold temporal.
   useEffect(() => {
@@ -195,6 +204,22 @@ export default function BookingCalendar({
       const dia = prev[fecha] ?? { confirmada: false, pendientes: 0, temporales: 0 };
       return { ...prev, [fecha]: { ...dia, temporales: dia.temporales + 1 } };
     });
+  }
+
+  function handleDateClick(fecha: string) {
+    if (fecha === selectedDate) return;
+    if (holdId && !confirmado && !holdVencido) {
+      setSwitchTarget(fecha);
+      return;
+    }
+    elegirFecha(fecha);
+  }
+
+  function confirmarCambioFecha() {
+    if (!switchTarget) return;
+    const fecha = switchTarget;
+    setSwitchTarget(null);
+    elegirFecha(fecha);
   }
 
   function limpiarSeleccion() {
@@ -374,7 +399,7 @@ export default function BookingCalendar({
                 return (
                   <div
                     key={i}
-                    onClick={() => !isBlocked && !holdCreando && elegirFecha(fecha)}
+                    onClick={() => !isBlocked && !holdCreando && handleDateClick(fecha)}
                     className={cls}
                   >
                     {d}
@@ -792,6 +817,47 @@ export default function BookingCalendar({
           </div>
         </div>
       </div>
+
+      {switchTarget && selectedDate && (
+        <div
+          onClick={() => setSwitchTarget(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-6 text-center"
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-2xl">
+              🔓
+            </div>
+            <h3 className="mt-3.5 text-base font-bold text-white">
+              ¿Cambiar de fecha?
+            </h3>
+            <p className="mx-auto mt-2 max-w-[32ch] text-[13px] leading-relaxed text-zinc-400">
+              Tu reserva temporal del{" "}
+              <strong className="text-white">{fmtFechaLarga(selectedDate)}</strong>{" "}
+              dejará de estar bloqueada y quedará disponible para cualquiera.
+              Vas a reservar el{" "}
+              <strong className="text-white">{fmtFechaLarga(switchTarget)}</strong>{" "}
+              en su lugar.
+            </p>
+            <div className="mt-5 flex gap-2.5">
+              <button
+                onClick={() => setSwitchTarget(null)}
+                className="flex-1 rounded-full border border-white/10 py-2.5 text-[13px] font-bold text-white hover:border-white/30"
+              >
+                Mantener mi fecha
+              </button>
+              <button
+                onClick={confirmarCambioFecha}
+                className="flex-1 rounded-full bg-aventurea-orange py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
+              >
+                Sí, cambiar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {mostrarTerminos && (
         <div
