@@ -33,8 +33,6 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
   const [menuAbierto, setMenuAbierto] = useState<
     Categoria | "provincia" | "filtros" | null
   >(null);
-  // Qué categoría está desplegada en el mapa del pie (una a la vez).
-  const [mapaAbierto, setMapaAbierto] = useState<Categoria | null>(null);
 
   const invitadosNum = parseInt(invitados) || 0;
   const precioMaxNum = parseInt(precioMax) || 0;
@@ -347,135 +345,34 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         </>
       )}
 
-      {/* Mapa del directorio: cada categoría se abre hacia abajo, para no
-          tirar las 54 subcategorías encima de una sola vez. */}
-      <div className="mt-14 border-t border-aventurea-line pt-10">
-        <h2 className="text-[17px] font-bold text-aventurea-ink">
-          Explorá todo Aventurea CR
+      {/* Atajo por provincia. Las categorías ya viven en la barra de
+          arriba, así que acá abajo no se repiten. */}
+      <div className="mt-14 border-t border-aventurea-line pt-8">
+        <h2 className="mb-3 text-[12.5px] font-bold uppercase tracking-wide text-aventurea-ink">
+          Buscá por provincia
         </h2>
-        <p className="mt-1 text-[13px] text-aventurea-ink-soft">
-          Abrí una categoría para ver todo lo que incluye.
-        </p>
-
-        <div className="mt-5 overflow-hidden rounded-[16px] border border-aventurea-line bg-aventurea-surface">
-          {CATEGORIAS.map((cat) => {
-            const abierta = mapaAbierto === cat;
+        <div className="flex flex-wrap gap-2">
+          {PROVINCIAS.map((p) => {
+            const n = conteoPorProvincia[p] ?? 0;
             return (
-              <div
-                key={cat}
-                className="border-b border-aventurea-line last:border-none"
+              <button
+                key={p}
+                type="button"
+                onClick={() => {
+                  elegirProvincia(p);
+                  subirAlInicio();
+                }}
+                className={`rounded-lg border px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
+                  provincia === p
+                    ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
+                    : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                }`}
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMapaAbierto((prev) => (prev === cat ? null : cat))
-                  }
-                  aria-expanded={abierta}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-aventurea-cream-2/50"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aventurea-orange/10 text-aventurea-orange [&_svg]:h-[18px] [&_svg]:w-[18px]">
-                    {CATEGORIA_ICONO[cat]}
-                  </span>
-                  <span className="flex-1 text-[14px] font-bold text-aventurea-ink">
-                    {CATEGORIA_LABEL[cat]}
-                  </span>
-                  <span className="text-[12px] text-aventurea-ink-soft">
-                    {conteoPorCategoria[cat] ?? 0}
-                  </span>
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    aria-hidden
-                    className={`h-4 w-4 shrink-0 text-aventurea-ink-soft transition-transform ${
-                      abierta ? "rotate-180" : ""
-                    }`}
-                  >
-                    <path
-                      d="m5 8 5 5 5-5"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-
-                {abierta && (
-                  <div className="border-t border-aventurea-line bg-aventurea-cream-2/30 px-4 pb-4 pt-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        elegirCategoria(cat);
-                        subirAlInicio();
-                      }}
-                      className="mb-2.5 text-[12px] font-bold text-aventurea-orange hover:underline"
-                    >
-                      Ver todo en {CATEGORIA_LABEL[cat]} (
-                      {conteoPorCategoria[cat] ?? 0}) →
-                    </button>
-                    <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-                      {SUBCATEGORIAS[cat].map((s) => {
-                        const n = conteoPorSubcategoria[s.id] ?? 0;
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => {
-                              elegirSubcategoria(cat, s.id);
-                              subirAlInicio();
-                            }}
-                            className={`text-left text-[13px] transition-colors hover:text-aventurea-orange ${
-                              subcategoria === s.id
-                                ? "font-bold text-aventurea-orange"
-                                : n > 0
-                                  ? "text-aventurea-ink-soft"
-                                  : "text-zinc-400"
-                            }`}
-                          >
-                            {s.label}
-                            {n > 0 && (
-                              <span className="ml-1.5 text-[11.5px] text-zinc-400">
-                                {n}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                {p}
+                <span className="ml-1.5 font-normal text-zinc-400">{n}</span>
+              </button>
             );
           })}
-        </div>
-
-        <div className="mt-7">
-          <h3 className="mb-3 text-[12.5px] font-bold uppercase tracking-wide text-aventurea-ink">
-            Por provincia
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {PROVINCIAS.map((p) => {
-              const n = conteoPorProvincia[p] ?? 0;
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => {
-                    elegirProvincia(p);
-                    subirAlInicio();
-                  }}
-                  className={`rounded-lg border px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
-                    provincia === p
-                      ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
-                      : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
-                  }`}
-                >
-                  {p}
-                  <span className="ml-1.5 font-normal text-zinc-400">{n}</span>
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
 
