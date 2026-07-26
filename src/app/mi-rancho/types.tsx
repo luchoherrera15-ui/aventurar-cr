@@ -19,6 +19,75 @@ export const PROVINCIAS = [
 
 export type Provincia = (typeof PROVINCIAS)[number];
 
+/**
+ * Los 84 cantones del país, agrupados por provincia. Sirven para el
+ * buscador por zona y para que el cantón entre normalizado (en la base
+ * la columna sigue siendo texto libre, porque las publicaciones viejas
+ * tienen lo que el dueño escribió a mano).
+ */
+export const CANTONES: Record<Provincia, string[]> = {
+  "San José": [
+    "San José", "Escazú", "Desamparados", "Puriscal", "Tarrazú", "Aserrí",
+    "Mora", "Goicoechea", "Santa Ana", "Alajuelita", "Vázquez de Coronado",
+    "Acosta", "Tibás", "Moravia", "Montes de Oca", "Turrubares", "Dota",
+    "Curridabat", "Pérez Zeledón", "León Cortés Castro",
+  ],
+  Alajuela: [
+    "Alajuela", "San Ramón", "Grecia", "San Mateo", "Atenas", "Naranjo",
+    "Palmares", "Poás", "Orotina", "San Carlos", "Zarcero", "Sarchí",
+    "Upala", "Los Chiles", "Guatuso", "Río Cuarto",
+  ],
+  Cartago: [
+    "Cartago", "Paraíso", "La Unión", "Jiménez", "Turrialba", "Alvarado",
+    "Oreamuno", "El Guarco",
+  ],
+  Heredia: [
+    "Heredia", "Barva", "Santo Domingo", "Santa Bárbara", "San Rafael",
+    "San Isidro", "Belén", "Flores", "San Pablo", "Sarapiquí",
+  ],
+  Guanacaste: [
+    "Liberia", "Nicoya", "Santa Cruz", "Bagaces", "Carrillo", "Cañas",
+    "Abangares", "Tilarán", "Nandayure", "La Cruz", "Hojancha",
+  ],
+  Puntarenas: [
+    "Puntarenas", "Esparza", "Buenos Aires", "Montes de Oro", "Osa",
+    "Quepos", "Golfito", "Coto Brus", "Parrita", "Corredores", "Garabito",
+    "Monteverde", "Puerto Jiménez",
+  ],
+  "Limón": [
+    "Limón", "Pococí", "Siquirres", "Talamanca", "Matina", "Guácimo",
+  ],
+};
+
+/**
+ * Links de "Cómo llegar". Ni Google Maps ni Waze piden API key para
+ * esto: alcanza con una URL pública. Si hay coordenadas se usan, y si
+ * no, se manda la dirección escrita como texto de búsqueda.
+ */
+export function linkGoogleMaps(
+  lat: number | null,
+  lng: number | null,
+  direccion: string,
+): string | null {
+  if (lat !== null && lng !== null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  }
+  if (!direccion.trim()) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
+}
+
+export function linkWaze(
+  lat: number | null,
+  lng: number | null,
+  direccion: string,
+): string | null {
+  if (lat !== null && lng !== null) {
+    return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
+  }
+  if (!direccion.trim()) return null;
+  return `https://waze.com/ul?q=${encodeURIComponent(direccion)}&navigate=yes`;
+}
+
 export type EstadoRancho = "pendiente" | "aprobado" | "rechazado";
 
 // Taxonomía de dos niveles: la categoría general es la que se ve en la
@@ -321,6 +390,9 @@ export type Rancho = {
   facebook: string | null;
   tiktok: string | null;
   sitio_web: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  mapa_url: string | null;
   amenidades: string[];
   provincia: Provincia | null;
   canton: string | null;

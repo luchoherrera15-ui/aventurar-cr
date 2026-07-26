@@ -6,11 +6,13 @@ import {
   type NuevoRanchoAdminState,
 } from "./actions";
 import {
+  CANTONES,
   CATEGORIAS,
   CATEGORIA_LABEL,
   PROVINCIAS,
   SUBCATEGORIAS,
   type Categoria,
+  type Provincia,
 } from "@/app/mi-rancho/types";
 
 export type DuenoOption = { id: string; email: string | null };
@@ -36,6 +38,8 @@ export default function NuevoRanchoAdminForm({
   );
   const [categoria, setCategoria] = useState<Categoria>("lugares");
   const [subcategoria, setSubcategoria] = useState("");
+  const [provincia, setProvincia] = useState<Provincia | "">("");
+  const [canton, setCanton] = useState("");
   const esLugar = categoria === "lugares";
 
   return (
@@ -202,7 +206,16 @@ export default function NuevoRanchoAdminForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className={labelCls}>Provincia</label>
-              <select name="provincia" required className={inputCls}>
+              <select
+                name="provincia"
+                required
+                value={provincia}
+                onChange={(e) => {
+                  setProvincia(e.target.value as Provincia);
+                  setCanton("");
+                }}
+                className={inputCls}
+              >
                 <option value="">Selecciona</option>
                 {PROVINCIAS.map((p) => (
                   <option key={p} value={p}>
@@ -213,7 +226,20 @@ export default function NuevoRanchoAdminForm({
             </div>
             <div>
               <label className={labelCls}>Cantón</label>
-              <input type="text" name="canton" placeholder="Ej. Esparza" className={inputCls} />
+              <select
+                name="canton"
+                value={canton}
+                onChange={(e) => setCanton(e.target.value)}
+                disabled={!provincia}
+                className={inputCls}
+              >
+                <option value="">{provincia ? "Selecciona" : "Elegí la provincia"}</option>
+                {(provincia ? CANTONES[provincia] : []).map((ct) => (
+                  <option key={ct} value={ct}>
+                    {ct}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="sm:col-span-2 lg:col-span-2">
               <label className={labelCls}>Dirección exacta</label>

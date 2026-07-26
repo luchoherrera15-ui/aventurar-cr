@@ -8,6 +8,8 @@ import {
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
   SUBCATEGORIA_LABEL,
+  linkGoogleMaps,
+  linkWaze,
   normalizarCategoria,
   type PromocionDia,
   type Rancho,
@@ -67,6 +69,19 @@ export default async function RanchoPortalPage({
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
+  // Los botones de "Cómo llegar" usan las coordenadas si el dueño las
+  // cargó; si no, mandan la dirección escrita como búsqueda.
+  const direccionBusqueda = [
+    rancho.nombre,
+    rancho.direccion_exacta,
+    rancho.canton,
+    rancho.provincia,
+    "Costa Rica",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const googleMaps = linkGoogleMaps(rancho.latitud, rancho.longitud, direccionBusqueda);
+  const waze = linkWaze(rancho.latitud, rancho.longitud, direccionBusqueda);
   const capacidad =
     rancho.capacidad_min || rancho.capacidad_max
       ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
@@ -285,6 +300,8 @@ export default async function RanchoPortalPage({
         tiktok={rancho.tiktok}
         sitioWeb={rancho.sitio_web}
         ubicacion={ubicacion}
+        googleMaps={googleMaps}
+        waze={waze}
       />
 
       <footer className="border-t border-aventurea-line py-9 text-center">

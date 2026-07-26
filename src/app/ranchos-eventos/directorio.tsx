@@ -7,10 +7,12 @@ import {
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
+  CANTONES,
   PROVINCIAS,
   SUBCATEGORIAS,
   SUBCATEGORIA_LABEL,
   type Categoria,
+  type Provincia,
 } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
 import { NOMBRE_RANCHO_AVENTUREA } from "./constants";
@@ -27,6 +29,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
   const [subcategoria, setSubcategoria] = useState("");
   const [texto, setTexto] = useState("");
   const [provincia, setProvincia] = useState("");
+  const [canton, setCanton] = useState("");
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
   const [pagina, setPagina] = useState(1);
@@ -65,6 +68,17 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     return acc;
   }, [ranchos, tab]);
 
+  const conteoPorCanton = useMemo(() => {
+    const acc: Record<string, number> = {};
+    ranchos
+      .filter((r) => !provincia || r.provincia === provincia)
+      .filter((r) => tab === "todos" || r.categoria === tab)
+      .forEach((r) => {
+        if (r.canton) acc[r.canton] = (acc[r.canton] ?? 0) + 1;
+      });
+    return acc;
+  }, [ranchos, provincia, tab]);
+
   const filtrados = useMemo(() => {
     const q = texto.trim().toLowerCase();
     return ranchos.filter((r) => {
@@ -79,17 +93,19 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         return false;
       }
       if (provincia && r.provincia !== provincia) return false;
+      if (canton && r.canton !== canton) return false;
       if (invitadosNum && (r.capacidad_max ?? 0) < invitadosNum) return false;
       if (precioMaxNum && (r.precio_desde ?? 0) > precioMaxNum) return false;
       return true;
     });
-  }, [ranchos, tab, subcategoria, texto, provincia, invitadosNum, precioMaxNum]);
+  }, [ranchos, tab, subcategoria, texto, provincia, canton, invitadosNum, precioMaxNum]);
 
   const hayAlgo =
     tab !== "todos" ||
     !!subcategoria ||
     !!texto ||
     !!provincia ||
+    !!canton ||
     !!invitados ||
     !!precioMax;
 
@@ -107,6 +123,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     setSubcategoria("");
     setTexto("");
     setProvincia("");
+    setCanton("");
     setInvitados("");
     setPrecioMax("");
     setPagina(1);
@@ -132,6 +149,13 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
 
   function elegirProvincia(p: string) {
     setProvincia((prev) => (prev === p ? "" : p));
+    // El cantón pertenece a una provincia: al cambiarla deja de aplicar.
+    setCanton("");
+    setPagina(1);
+  }
+
+  function elegirCanton(ct: string) {
+    setCanton((prev) => (prev === ct ? "" : ct));
     setPagina(1);
   }
 
@@ -161,8 +185,8 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
           {/* A la derecha, los filtros transversales a cualquier categoría */}
           <span className="ml-auto flex shrink-0 gap-1 border-l border-aventurea-line pl-1">
             <TabMenu
-              label={provincia || "Provincia"}
-              activo={!!provincia}
+              label={canton || provincia || "Zona"}
+              activo={!!provincia || !!canton}
               abierto={menuAbierto === "provincia"}
               conMenu
               onClick={() =>
@@ -192,19 +216,45 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
             />
             <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
               {menuAbierto === "provincia" ? (
-                <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-4">
-                  {PROVINCIAS.map((p) => (
-                    <FilterRow
-                      key={p}
-                      label={p}
-                      count={conteoPorProvincia[p] ?? 0}
-                      active={provincia === p}
-                      onClick={() => {
-                        elegirProvincia(p);
-                        soltarMenu();
-                      }}
-                    />
-                  ))}
+                <div>
+                  <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                    Provincia
+                  </h4>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-4">
+                    {PROVINCIAS.map((p) => (
+                      <FilterRow
+                        key={p}
+                        label={p}
+                        count={conteoPorProvincia[p] ?? 0}
+                        active={provincia === p}
+                        onClick={() => elegirProvincia(p)}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Elegida la provincia, se abren sus cantones: es el
+                      segundo nivel de la búsqueda por zona. */}
+                  {provincia && (
+                    <div className="mt-4 border-t border-aventurea-line pt-3">
+                      <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                        Cantones de {provincia}
+                      </h4>
+                      <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-4">
+                        {CANTONES[provincia as Provincia].map((ct) => (
+                          <FilterRow
+                            key={ct}
+                            label={ct}
+                            count={conteoPorCanton[ct] ?? 0}
+                            active={canton === ct}
+                            onClick={() => {
+                              elegirCanton(ct);
+                              soltarMenu();
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : menuAbierto === "filtros" ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -302,6 +352,9 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
           )}
           {provincia && (
             <Chip label={provincia} onQuitar={() => elegirProvincia(provincia)} />
+          )}
+          {canton && (
+            <Chip label={canton} onQuitar={() => elegirCanton(canton)} />
           )}
           <button
             type="button"

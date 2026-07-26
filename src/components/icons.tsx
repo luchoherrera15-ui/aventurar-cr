@@ -250,6 +250,14 @@ export function IconTiktok({ className = base }: IconProps) {
   );
 }
 
+export function IconWaze({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 2.6c4.7 0 8.5 3.3 8.5 7.5 0 1-.2 1.9-.6 2.8.6.3 1 .9 1 1.6 0 1-.8 1.8-1.8 1.8-.5 0-.9-.2-1.2-.5-1.2.9-2.7 1.6-4.3 1.9a2 2 0 0 1-3.9 0 2 2 0 0 1-3.9-.3c-1.9-1-3.3-2.6-3.9-4.4-.2-.6.2-1.2.8-1.3.6-.2 1.2.2 1.3.8.5 1.5 1.8 2.8 3.5 3.5.3-.5.9-.9 1.6-.9.8 0 1.5.5 1.8 1.2h.4c3.6 0 6.6-2.4 6.6-5.4S15.6 4.5 12 4.5c-3.2 0-5.9 1.9-6.5 4.4-.1.6-.7 1-1.3.8-.6-.1-1-.7-.8-1.3C4.2 5.1 7.8 2.6 12 2.6Zm-2.4 5.2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Zm4.8 0a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z" />
+    </svg>
+  );
+}
+
 export function IconGlobe({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { extraerCoordenadas } from "@/lib/mapas";
 import {
   AMENIDADES,
   CATEGORIAS,
@@ -95,6 +96,12 @@ export async function actualizarRancho(
           .filter((a) => AMENIDADES.includes(a))
       : [];
 
+  // Del link de Google Maps (o de las coordenadas pegadas a mano) salen
+  // los botones de "Cómo llegar". Si no se pudo leer, se guarda igual el
+  // link y los botones caen en la dirección escrita.
+  const mapaUrl = texto("mapa_url");
+  const coords = mapaUrl ? await extraerCoordenadas(mapaUrl) : null;
+
   const fotoUrl = String(formData.get("foto_url") || "");
 
   const update: Record<string, unknown> = {
@@ -123,6 +130,9 @@ export async function actualizarRancho(
       "https://tiktok.com/@",
     ),
     sitio_web: normalizarSitio(String(formData.get("sitio_web") || "")),
+    mapa_url: mapaUrl,
+    latitud: coords?.lat ?? null,
+    longitud: coords?.lng ?? null,
     amenidades,
     fotos,
   };

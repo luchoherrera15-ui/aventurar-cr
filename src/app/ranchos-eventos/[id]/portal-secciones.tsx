@@ -5,6 +5,7 @@ import {
   IconInstagram,
   IconPin,
   IconTiktok,
+  IconWaze,
   IconWhatsapp,
 } from "@/components/icons";
 import {
@@ -202,6 +203,8 @@ export function ContactoSeccion({
   tiktok,
   sitioWeb,
   ubicacion,
+  googleMaps,
+  waze,
 }: {
   nombre: string;
   whatsappHref: string | null;
@@ -210,6 +213,8 @@ export function ContactoSeccion({
   tiktok: string | null;
   sitioWeb: string | null;
   ubicacion: string;
+  googleMaps: string | null;
+  waze: string | null;
 }) {
   const redes: { href: string; icono: React.ReactNode; label: string }[] = [
     { href: instagram, icono: <IconInstagram />, label: "Instagram" },
@@ -236,6 +241,33 @@ export function ContactoSeccion({
             <IconPin className="mt-0.5 h-4 w-4 shrink-0 text-aventurea-orange" />
             {ubicacion}
           </p>
+        )}
+
+        {(googleMaps || waze) && (
+          <div className="mt-4 flex flex-wrap gap-2.5">
+            {googleMaps && (
+              <a
+                href={googleMaps}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                <IconPin className="h-4 w-4" />
+                Cómo llegar (Google Maps)
+              </a>
+            )}
+            {waze && (
+              <a
+                href={waze}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                <IconWaze className="h-4 w-4" />
+                Abrir en Waze
+              </a>
+            )}
+          </div>
         )}
 
         <div className="mt-6 flex flex-wrap items-center gap-2.5">

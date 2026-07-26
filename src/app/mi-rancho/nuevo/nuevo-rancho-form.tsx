@@ -3,11 +3,13 @@
 import { useActionState, useState } from "react";
 import { crearRancho, type NuevoRanchoState } from "./actions";
 import {
+  CANTONES,
   CATEGORIAS,
   CATEGORIA_LABEL,
   PROVINCIAS,
   SUBCATEGORIAS,
   type Categoria,
+  type Provincia,
 } from "../types";
 
 const inputCls =
@@ -22,6 +24,8 @@ export default function NuevoRanchoForm() {
   >(crearRancho, undefined);
   const [categoria, setCategoria] = useState<Categoria | "">("");
   const [subcategoria, setSubcategoria] = useState("");
+  const [provincia, setProvincia] = useState<Provincia | "">("");
+  const [canton, setCanton] = useState("");
   const esLugar = categoria === "lugares";
 
   return (
@@ -97,7 +101,16 @@ export default function NuevoRanchoForm() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className={labelCls}>Provincia</label>
-          <select name="provincia" required className={inputCls}>
+          <select
+            name="provincia"
+            required
+            value={provincia}
+            onChange={(e) => {
+              setProvincia(e.target.value as Provincia);
+              setCanton("");
+            }}
+            className={inputCls}
+          >
             <option value="">Selecciona una opción</option>
             {PROVINCIAS.map((p) => (
               <option key={p} value={p}>
@@ -108,12 +121,22 @@ export default function NuevoRanchoForm() {
         </div>
         <div>
           <label className={labelCls}>Cantón</label>
-          <input
-            type="text"
+          <select
             name="canton"
-            placeholder="Ej. Esparza"
+            value={canton}
+            onChange={(e) => setCanton(e.target.value)}
+            disabled={!provincia}
             className={inputCls}
-          />
+          >
+            <option value="">
+              {provincia ? "Selecciona una opción" : "Elegí primero la provincia"}
+            </option>
+            {(provincia ? CANTONES[provincia] : []).map((ct) => (
+              <option key={ct} value={ct}>
+                {ct}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

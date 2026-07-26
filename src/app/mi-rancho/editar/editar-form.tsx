@@ -12,9 +12,11 @@ import {
   FOTOS_MAX,
   FOTO_ALTO_MIN,
   FOTO_ANCHO_MIN,
+  CANTONES,
   PROVINCIAS,
   SUBCATEGORIAS,
   type Categoria,
+  type Provincia,
   type Rancho,
 } from "../types";
 
@@ -48,6 +50,10 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   const [galeria, setGaleria] = useState<string[]>(rancho.fotos ?? []);
   const [fotosNuevas, setFotosNuevas] = useState<FotoNueva[]>([]);
   const [amenidades, setAmenidades] = useState<string[]>(rancho.amenidades ?? []);
+  const [provincia, setProvincia] = useState<Provincia | "">(
+    rancho.provincia ?? "",
+  );
+  const [canton, setCanton] = useState(rancho.canton ?? "");
 
   const esLugar = categoria === "lugares";
   const totalFotos = galeria.length + fotosNuevas.length;
@@ -325,7 +331,11 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               <select
                 name="provincia"
                 required
-                defaultValue={rancho.provincia ?? ""}
+                value={provincia}
+                onChange={(e) => {
+                  setProvincia(e.target.value as Provincia);
+                  setCanton("");
+                }}
                 className={inputCls}
               >
                 <option value="">Selecciona</option>
@@ -338,12 +348,27 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             </div>
             <div>
               <label className={labelCls}>Cantón</label>
-              <input
-                type="text"
+              <select
                 name="canton"
-                defaultValue={rancho.canton ?? ""}
+                value={canton}
+                onChange={(e) => setCanton(e.target.value)}
+                disabled={!provincia}
                 className={inputCls}
-              />
+              >
+                <option value="">
+                  {provincia ? "Selecciona" : "Elegí primero la provincia"}
+                </option>
+                {/* El cantón viejo puede no estar en la lista oficial
+                    (antes se escribía a mano): se conserva como opción. */}
+                {canton && !CANTONES[provincia as Provincia]?.includes(canton) && (
+                  <option value={canton}>{canton}</option>
+                )}
+                {(provincia ? CANTONES[provincia as Provincia] : []).map((ct) => (
+                  <option key={ct} value={ct}>
+                    {ct}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -356,6 +381,32 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               defaultValue={rancho.direccion_exacta ?? ""}
               className={inputCls}
             />
+          </div>
+
+          <div>
+            <label className={labelCls}>Ubicación en el mapa</label>
+            <input
+              type="text"
+              name="mapa_url"
+              placeholder="Pegá acá el link de Google Maps de tu lugar"
+              defaultValue={rancho.mapa_url ?? ""}
+              className={inputCls}
+            />
+            <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
+              Abrí Google Maps, buscá tu lugar, tocá <strong>Compartir</strong> y
+              pegá acá el link. Con eso tu página muestra los botones de{" "}
+              <strong>Google Maps</strong> y <strong>Waze</strong> para que el
+              cliente llegue sin preguntar. También podés pegar las coordenadas
+              directo (ej. <code>9.9281, -84.0907</code>).
+              {rancho.latitud !== null && rancho.longitud !== null && (
+                <>
+                  {" "}
+                  <span className="font-bold text-aventurea-green">
+                    ✓ Ubicación guardada ({rancho.latitud}, {rancho.longitud}).
+                  </span>
+                </>
+              )}
+            </p>
           </div>
 
           {esLugar && (
