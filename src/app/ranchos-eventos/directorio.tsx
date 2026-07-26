@@ -240,17 +240,6 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         />
       </div>
 
-      {/* Escritorio: provincia / lugares / más filtros, en una barra debajo de las categorías */}
-      <div className="mb-6 hidden lg:block">
-        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
-          <div className="grid grid-cols-3 gap-6">
-            {seccionProvincia}
-            {seccionLugares}
-            {seccionMasFiltros}
-          </div>
-        </div>
-      </div>
-
       <p className="mb-4 text-[12.5px] text-aventurea-ink-soft">
         {filtrados.length} espacio{filtrados.length === 1 ? "" : "s"}{" "}
         {hayAlgo ? "coinciden con tu búsqueda" : "disponibles"}
@@ -283,15 +272,19 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         </>
       )}
 
-      {/* Mobile: el resto de los filtros, debajo de las cards, cerca del pie */}
-      <div className="mt-10 lg:hidden">
+      {/* Resto de los filtros (provincia, lugares, más filtros), debajo de
+          las cards y cerca del pie de página — en escritorio se acomodan
+          en columnas, en mobile se apilan. */}
+      <div className="mt-10">
         <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
           Más formas de filtrar
         </p>
         <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
-          {seccionProvincia}
-          {seccionLugares}
-          {seccionMasFiltros}
+          <div className="lg:grid lg:grid-cols-3 lg:gap-6">
+            {seccionProvincia}
+            {seccionLugares}
+            {seccionMasFiltros}
+          </div>
         </div>
       </div>
 
