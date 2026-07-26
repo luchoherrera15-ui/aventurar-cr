@@ -26,6 +26,7 @@ import {
   DetallesSeccion,
   GaleriaSeccion,
   PresentacionSeccion,
+  ResumenSeccion,
 } from "./portal-secciones";
 
 function fmtColones(n: number | null) {
@@ -88,11 +89,13 @@ export default async function RanchoPortalPage({
       ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
       : "A consultar";
 
-  // Los servicios móviles ya muestran la foto principal en su portada, así
-  // que la presentación busca una distinta y, si no hay galería, se queda
-  // con el degradado en vez de repetir la misma imagen dos veces seguidas.
+  // Manda la que el dueño eligió. Si no eligió ninguna, buscamos una
+  // distinta a la portada para no repetir la misma imagen dos veces
+  // seguidas, y si tampoco hay galería se queda con el degradado.
   const fotoPresentacion =
-    fotos.find((f) => f !== rancho.foto_url) ?? (esLugar ? rancho.foto_url : null);
+    rancho.foto_presentacion ??
+    fotos.find((f) => f !== rancho.foto_url) ??
+    (esLugar ? rancho.foto_url : null);
 
   const datosPresentacion = esLugar
     ? [
@@ -279,6 +282,19 @@ export default async function RanchoPortalPage({
         </section>
       )}
 
+      {/* Los datos y lo que incluye van antes de la foto grande: dos
+          bloques oscuros seguidos se leían como una sola imagen. */}
+      <ResumenSeccion datos={datosPresentacion} />
+
+      {esLugar ? (
+        <AmenidadesSeccion amenidades={amenidades} />
+      ) : (
+        <DetallesSeccion
+          categoria={rancho.categoria}
+          detalles={rancho.detalles ?? {}}
+        />
+      )}
+
       <PresentacionSeccion
         foto={fotoPresentacion}
         categoria={rancho.categoria}
@@ -289,17 +305,7 @@ export default async function RanchoPortalPage({
         }
         titulo={rancho.nombre}
         texto={rancho.descripcion_larga || rancho.descripcion}
-        datos={datosPresentacion}
       />
-
-      {esLugar ? (
-        <AmenidadesSeccion amenidades={amenidades} />
-      ) : (
-        <DetallesSeccion
-          categoria={rancho.categoria}
-          detalles={rancho.detalles ?? {}}
-        />
-      )}
 
       <GaleriaSeccion fotos={fotos} nombre={rancho.nombre} />
 

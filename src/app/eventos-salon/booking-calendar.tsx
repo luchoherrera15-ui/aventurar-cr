@@ -201,6 +201,23 @@ export default function BookingCalendar({
 
   const cotizacionTotal = tierBase === null ? null : tierBase + addonsTotal;
 
+  // La mejor promoción de cada día de la semana, para poder marcar el
+  // descuento en las celdas del calendario sin recalcular por celda.
+  const promoPorDiaSemana = useMemo(() => {
+    const mapa: Record<number, PromocionDia> = {};
+    promociones
+      .filter((p) => p.activo && p.porcentaje_descuento > 0)
+      .forEach((p) => {
+        p.dias_semana.forEach((dow) => {
+          const actual = mapa[dow];
+          if (!actual || p.porcentaje_descuento > actual.porcentaje_descuento) {
+            mapa[dow] = p;
+          }
+        });
+      });
+    return mapa;
+  }, [promociones]);
+
   const promoAplicable = useMemo(() => {
     if (!selectedDateObj) return null;
     const dow = selectedDateObj.getDay();
@@ -584,6 +601,11 @@ export default function BookingCalendar({
                 "relative flex min-h-[52px] flex-col justify-between rounded-xl p-1.5 text-[14px] transition sm:min-h-[88px] sm:p-2.5 sm:text-[16px]";
               let etiqueta: string | null = null;
               let badge: number | null = null;
+              // Solo tiene sentido anunciar el descuento en días que se
+              // pueden reservar: en uno ocupado es publicidad muerta.
+              const promoDia = isBlocked
+                ? null
+                : promoPorDiaSemana[cellDate.getDay()] ?? null;
 
               if (isPast) {
                 cls += " cursor-default text-white/25";
@@ -610,12 +632,19 @@ export default function BookingCalendar({
                   key={i}
                   onClick={() => !isBlocked && !holdCreando && handleDateClick(fecha)}
                   className={cls}
+                  title={promoDia ? promoDia.etiqueta : undefined}
                 >
                   <span className="font-bold leading-none">{d}</span>
-                  {etiqueta && (
-                    <span className="hidden text-[10px] font-bold uppercase leading-none tracking-wide opacity-70 sm:block">
-                      {etiqueta}
+                  {promoDia ? (
+                    <span className="mt-1 self-start rounded-full bg-aventurea-green px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-white sm:px-2 sm:py-1 sm:text-[10.5px]">
+                      {promoDia.porcentaje_descuento}% off
                     </span>
+                  ) : (
+                    etiqueta && (
+                      <span className="hidden text-[10px] font-bold uppercase leading-none tracking-wide opacity-70 sm:block">
+                        {etiqueta}
+                      </span>
+                    )
                   )}
                   {!isPast && badge !== null && (
                     <span className="absolute right-1.5 top-1.5 flex h-[17px] w-[17px] items-center justify-center rounded-full bg-white text-[9.5px] font-bold text-zinc-950">
@@ -644,6 +673,12 @@ export default function BookingCalendar({
               <span className="h-2.5 w-2.5 rounded-[3px] border border-red-300/45 bg-red-500/30" />
               Reservada
             </span>
+            {Object.keys(promoPorDiaSemana).length > 0 && (
+              <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
+                <span className="h-2.5 w-2.5 rounded-[3px] bg-aventurea-green" />
+                Día con descuento
+              </span>
+            )}
           </div>
         </div>
 
