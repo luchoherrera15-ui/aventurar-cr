@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   IconCalendarLine,
@@ -94,6 +94,9 @@ export default function BookingCalendar({
 
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdExpiraEn, setHoldExpiraEn] = useState<string | null>(null);
+  // Qué fecha tiene tomada este visitante, para poder devolverla al
+  // calendario cuando la suelta (al cambiar de día, limpiar o vencerse).
+  const [holdFecha, setHoldFecha] = useState<string | null>(null);
   const [holdCreando, setHoldCreando] = useState(false);
   const [holdError, setHoldError] = useState<string | null>(null);
   const [holdVencido, setHoldVencido] = useState(false);
@@ -127,21 +130,40 @@ export default function BookingCalendar({
   const [codigoError, setCodigoError] = useState<string | null>(null);
   const [verificandoCodigo, setVerificandoCodigo] = useState(false);
 
+  // Devuelve una fecha al calendario: su bloqueo temporal ya se soltó.
+  const soltarTemporalLocal = useCallback((fecha: string | null) => {
+    if (!fecha) return;
+    setDias((prev) => {
+      const dia = prev[fecha];
+      if (!dia) return prev;
+      return {
+        ...prev,
+        [fecha]: { ...dia, temporales: Math.max(0, dia.temporales - 1) },
+      };
+    });
+  }, []);
+
   // Cuenta regresiva del hold temporal.
   useEffect(() => {
     if (!holdExpiraEn || confirmado) return;
+    let vencidoAvisado = false;
     const tick = () => {
       const diff = Math.max(
         0,
         Math.floor((new Date(holdExpiraEn).getTime() - Date.now()) / 1000),
       );
       setSecondsLeft(diff);
-      if (diff <= 0) setHoldVencido(true);
+      if (diff <= 0 && !vencidoAvisado) {
+        vencidoAvisado = true;
+        setHoldVencido(true);
+        soltarTemporalLocal(holdFecha);
+        setHoldFecha(null);
+      }
     };
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [holdExpiraEn, confirmado]);
+  }, [holdExpiraEn, confirmado, holdFecha, soltarTemporalLocal]);
 
   const selectedDateObj = useMemo(() => {
     if (!selectedDate) return null;
@@ -270,9 +292,13 @@ export default function BookingCalendar({
   }
 
   async function elegirFecha(fecha: string) {
+    // Soltamos la fecha anterior antes de tomar la nueva, para no ir
+    // dejando días bloqueados detrás mientras se compara el calendario.
     if (holdId && !confirmado) {
       await cancelarReservaTemporal(holdId);
+      soltarTemporalLocal(holdFecha);
     }
+    setHoldFecha(null);
     setSelectedDate(fecha);
     setConfirmado(false);
     setHoldVencido(false);
@@ -292,6 +318,7 @@ export default function BookingCalendar({
 
     setHoldId(res.id);
     setHoldExpiraEn(res.expiraEn);
+    setHoldFecha(fecha);
     setDias((prev) => {
       const dia = prev[fecha] ?? { confirmada: false, pendientes: 0, temporales: 0 };
       return { ...prev, [fecha]: { ...dia, temporales: dia.temporales + 1 } };
@@ -317,7 +344,9 @@ export default function BookingCalendar({
   function limpiarSeleccion() {
     if (holdId && !confirmado) {
       cancelarReservaTemporal(holdId);
+      soltarTemporalLocal(holdFecha);
     }
+    setHoldFecha(null);
     setSelectedDate(null);
     setHoldId(null);
     setHoldExpiraEn(null);
@@ -386,6 +415,8 @@ export default function BookingCalendar({
         },
       };
     });
+    // El hold dejó de ser temporal: pasó a ser la reserva en aprobación.
+    setHoldFecha(null);
     setConfirmado(true);
   }
 

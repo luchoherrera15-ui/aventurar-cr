@@ -12,7 +12,11 @@ const MINUTOS_HOLD = 10;
 // tomadas al mismo tiempo. Sin esto, alguien podría escribirle
 // directo al servidor (sin pasar por la página) y tomar todas las
 // fechas disponibles para bloquear las reservas reales.
-const MAX_INTENTOS_POR_VENTANA = 8;
+// Cambiar de fecha ahora libera la anterior, así que comparar varios
+// días es normal y no debería toparse con el límite: por eso la ventana
+// admite más intentos que antes. El tope real contra el acaparamiento
+// sigue siendo MAX_HOLDS_ACTIVOS_POR_IP (más el índice único por fecha).
+const MAX_INTENTOS_POR_VENTANA = 20;
 const VENTANA_INTENTOS_MINUTOS = 10;
 const MAX_HOLDS_ACTIVOS_POR_IP = 2;
 
@@ -104,8 +108,14 @@ export async function crearReservaTemporal(ranchoId: string, fecha: string) {
 
 export async function cancelarReservaTemporal(id: string) {
   const supabase = await createClient();
-  // Best-effort: si ya se completó o ya se venció, no pasa nada.
-  await supabase.from("reservas").delete().eq("id", id).eq("estado", "temporal");
+  const ip = await obtenerIp();
+  // Se libera por RPC porque la política de borrado solo permite
+  // eliminar holds ya vencidos — un `delete` directo sobre un hold
+  // todavía activo no borraba nada y la fecha quedaba tomada los
+  // 10 minutos completos aunque la persona se hubiera ido a otra.
+  // La función comprueba que el hold lo haya creado esta misma
+  // conexión, así nadie puede soltar el de otra persona.
+  await supabase.rpc("liberar_hold_temporal", { p_id: id, p_ip: ip });
 }
 
 export type CompletarReservaInput = {
