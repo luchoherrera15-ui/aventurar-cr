@@ -40,17 +40,13 @@ export default async function RanchosEventosPage() {
 
       <section className="py-8 pb-16">
         <div className="mx-auto max-w-[1600px] px-6 lg:px-10">
-          <div className="mb-7 max-w-[54ch]">
+          <div className="mb-7">
             <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
-              Encontrá tu lugar
+              Directorio nacional
             </p>
-            <h1 className="mt-1.5 text-[30px] font-bold tracking-tight text-aventurea-orange-dark sm:text-[38px]">
-              Eventos
+            <h1 className="titulo mt-2 text-[34px] text-aventurea-orange-dark sm:text-[44px]">
+              Todo para tu evento
             </h1>
-            <p className="mt-2 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
-              Salones, ranchos, catering, animación y todo lo que necesitás para
-              tu evento, en todo el país.
-            </p>
           </div>
 
           <Directorio ranchos={ranchos} />

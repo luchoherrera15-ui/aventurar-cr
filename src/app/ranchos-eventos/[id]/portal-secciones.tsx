@@ -54,7 +54,7 @@ export function PresentacionSeccion({
         <span className="inline-flex items-center gap-3 text-[11px] font-light uppercase tracking-[0.28em] text-white/60 before:block before:h-px before:w-8 before:bg-white/40 after:block after:h-px after:w-8 after:bg-white/40">
           {eyebrow}
         </span>
-        <h2 className="mt-4 text-balance text-[30px] font-bold leading-tight text-white sm:text-[40px]">
+        <h2 className="titulo mt-4 text-balance text-[32px] text-white sm:text-[42px]">
           {titulo}
         </h2>
         {texto && (
@@ -98,7 +98,7 @@ export function AmenidadesSeccion({ amenidades }: { amenidades: string[] }) {
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
           Lo que incluye
         </p>
-        <h2 className="mt-2 text-[26px] font-bold text-aventurea-ink">
+        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
           Amenidades del lugar
         </h2>
 
@@ -162,7 +162,7 @@ export function DetallesSeccion({
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
           El servicio
         </p>
-        <h2 className="mt-2 text-[26px] font-bold text-aventurea-ink">
+        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
           Detalles y cobertura
         </h2>
 
@@ -224,7 +224,7 @@ export function GaleriaSeccion({
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
           Galería
         </p>
-        <h2 className="mt-2 text-[26px] font-bold text-aventurea-ink">
+        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
           Conocé el espacio
         </h2>
 
@@ -312,7 +312,7 @@ export function ContactoSeccion({
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
           Contacto
         </p>
-        <h2 className="mt-2 text-[26px] font-bold text-aventurea-ink">
+        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
           Hablá con {nombre}
         </h2>
 

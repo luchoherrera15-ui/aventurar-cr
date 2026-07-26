@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { IconPin } from "@/components/icons";
 import {
   CATEGORIAS,
   CATEGORIA_GRADIENTE,
@@ -615,20 +616,24 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
   const puedeReservar = rancho.categoria === "lugares";
   const href = esAventurea ? "/eventos-salon" : `/ranchos-eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
-  const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
-    .filter(Boolean)
-    .join(", ");
+  // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
+  // quedaba cortada a media palabra.
+  const ubicacion = [rancho.canton, rancho.provincia].filter(Boolean).join(", ");
   const etiqueta = rancho.subcategoria
     ? (SUBCATEGORIA_LABEL[rancho.subcategoria] ?? CATEGORIA_LABEL[rancho.categoria])
     : CATEGORIA_LABEL[rancho.categoria];
+  const capacidad =
+    rancho.capacidad_min || rancho.capacidad_max
+      ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
+      : null;
 
   return (
     <Link
       href={href}
-      className="group relative flex h-[300px] flex-col overflow-hidden rounded-[16px] shadow-sm ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-xl"
+      className="group relative flex h-[340px] flex-col overflow-hidden rounded-[18px] shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,35,64,0.22)]"
     >
       <div
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
         style={
           rancho.foto_url
             ? { backgroundImage: `url(${rancho.foto_url})` }
@@ -636,51 +641,65 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
         }
       />
       {!rancho.foto_url && (
-        <span className="absolute inset-0 flex items-center justify-center opacity-25 [&_svg]:h-16 [&_svg]:w-16">
+        <span className="absolute inset-0 flex items-center justify-center text-white/20 [&_svg]:h-16 [&_svg]:w-16">
           {CATEGORIA_ICONO[rancho.categoria]}
         </span>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/5" />
 
-      <div className="relative flex items-center justify-between gap-2 p-3.5">
+      {/* Oscurecido solo abajo, donde va el texto: así la foto se ve
+          limpia en la mitad de arriba en vez de quedar toda apagada. */}
+      <div className="absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/95 via-black/70 to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
+
+      <div className="relative flex items-start justify-between gap-2 p-3.5">
         {rancho.provincia && (
-          <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink">
+          <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink shadow-sm">
             {rancho.provincia}
           </span>
         )}
-        <span className="truncate rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90">
+        <span className="truncate rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
           {etiqueta}
         </span>
       </div>
 
       <div className="relative mt-auto flex flex-col p-4.5">
-        <h3 className="text-[16px] font-bold text-white drop-shadow-sm">
+        <h3 className="titulo text-[19px] text-white drop-shadow-sm">
           {rancho.nombre}
         </h3>
         {ubicacion && (
-          <p className="mt-0.5 truncate text-[11.5px] text-white/75">{ubicacion}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-[12px] text-white/70">
+            <IconPin className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{ubicacion}</span>
+          </p>
         )}
 
-        <div className="mt-3 flex items-center justify-between border-t border-white/20 pt-3">
-          <span className="text-[11px] text-white/80">
-            {rancho.capacidad_min || rancho.capacidad_max
-              ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
-              : "Capacidad a consultar"}
-          </span>
-          <span className="text-[13px] font-bold text-white">
-            {precio ? `Desde ${precio}` : "A consultar"}
-          </span>
+        <div className="mt-3.5 flex items-end justify-between gap-3">
+          <div>
+            <div className="text-[9.5px] font-bold uppercase tracking-[0.12em] text-white/55">
+              {precio ? "Desde" : "Precio"}
+            </div>
+            <div className="titulo mt-0.5 text-[19px] text-white">
+              {precio ?? "A consultar"}
+            </div>
+          </div>
+          {capacidad && (
+            <span className="pb-1 text-right text-[11.5px] leading-tight text-white/70">
+              {capacidad}
+            </span>
+          )}
         </div>
 
         <span
-          className={`mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12.5px] font-bold transition-colors ${
+          className={`mt-3.5 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[12.5px] font-bold transition-colors ${
             esAventurea || puedeReservar
-              ? "bg-aventurea-orange text-white group-hover:bg-aventurea-orange-dark"
-              : "bg-white/90 text-aventurea-ink group-hover:bg-white"
+              ? "bg-white text-aventurea-orange-dark group-hover:bg-aventurea-orange group-hover:text-white"
+              : "border border-white/35 text-white group-hover:bg-white/15"
           }`}
         >
-          {esAventurea || puedeReservar ? "¡Reservar ahora!" : "Ver más"}
-          <span aria-hidden>→</span>
+          {esAventurea || puedeReservar ? "Reservar ahora" : "Ver más"}
+          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+            →
+          </span>
         </span>
       </div>
     </Link>

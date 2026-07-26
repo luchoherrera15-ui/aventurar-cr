@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Los títulos son el diferenciador visual de la marca: Montserrat en
+   ExtraBold con el interletrado cerrado. Se usa `titulo` en vez de
+   repetir font-extrabold + tracking en cada encabezado, para que no se
+   desalineen entre páginas. */
+@utility titulo {
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
 :root {
   --background: #f6f7f9;
   --foreground: #101a2c;

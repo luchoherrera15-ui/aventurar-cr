@@ -70,7 +70,7 @@ export default async function PublicarPage() {
             Publicar es gratis
           </span>
 
-          <h1 className="mx-auto mt-6 max-w-[16ch] text-balance text-[38px] font-bold leading-[1.08] tracking-tight text-aventurea-orange-dark sm:text-[56px]">
+          <h1 className="titulo mx-auto mt-6 max-w-[16ch] text-balance text-[40px] text-aventurea-orange-dark sm:text-[58px]">
             El directorio de eventos de Costa Rica
           </h1>
           <p className="mx-auto mt-5 max-w-[54ch] text-balance text-[16px] leading-relaxed text-aventurea-ink-soft sm:text-[18px]">
@@ -160,7 +160,7 @@ export default async function PublicarPage() {
             <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
               Cómo funciona
             </p>
-            <h2 className="mt-2 text-[28px] font-bold text-aventurea-orange-dark sm:text-[34px]">
+            <h2 className="titulo mt-2 text-[30px] text-aventurea-orange-dark sm:text-[36px]">
               Tres pasos y quedás publicado
             </h2>
           </div>
@@ -189,7 +189,7 @@ export default async function PublicarPage() {
       <section className="py-20">
         <div className="mx-auto max-w-[1200px] px-6 lg:px-10">
           <div className="text-center">
-            <h2 className="text-[28px] font-bold text-aventurea-orange-dark sm:text-[34px]">
+            <h2 className="titulo text-[30px] text-aventurea-orange-dark sm:text-[36px]">
               ¿Qué tipo de negocio tenés?
             </h2>
             <p className="mx-auto mt-2.5 max-w-[52ch] text-[14.5px] text-aventurea-ink-soft">
@@ -226,7 +226,7 @@ export default async function PublicarPage() {
               <p className="text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
                 Tu publicación
               </p>
-              <h2 className="mt-2 text-[28px] font-bold text-aventurea-orange-dark sm:text-[34px]">
+              <h2 className="titulo mt-2 text-[30px] text-aventurea-orange-dark sm:text-[36px]">
                 Todo lo que podés administrar vos
               </h2>
               <p className="mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
@@ -279,7 +279,7 @@ export default async function PublicarPage() {
           <span className="flex justify-center text-aventurea-orange [&_svg]:h-9 [&_svg]:w-9">
             <IconUsers />
           </span>
-          <h2 className="mt-4 text-[30px] font-bold text-aventurea-orange-dark sm:text-[38px]">
+          <h2 className="titulo mt-4 text-[32px] text-aventurea-orange-dark sm:text-[40px]">
             Sumate al directorio
           </h2>
           <p className="mx-auto mt-3 max-w-[46ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
@@ -321,7 +321,7 @@ function DatoCard({
   return (
     <div className="rounded-[22px] bg-aventurea-surface p-7 shadow-[0_2px_16px_rgba(16,26,44,0.06)]">
       <span className={`flex [&_svg]:h-8 [&_svg]:w-8 ${color}`}>{icono}</span>
-      <p className="mt-5 text-[24px] font-bold leading-tight text-aventurea-orange-dark">
+      <p className="titulo mt-5 text-[25px] text-aventurea-orange-dark">
         {dato}
       </p>
       <p className="mt-1.5 text-[14px] leading-relaxed text-aventurea-ink-soft">
@@ -337,7 +337,7 @@ function Paso({ n, titulo, texto }: { n: number; titulo: string; texto: string }
       <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-aventurea-orange text-[18px] font-bold text-white">
         {n}
       </span>
-      <h3 className="mt-4 text-[17px] font-bold text-aventurea-ink">{titulo}</h3>
+      <h3 className="titulo mt-4 text-[17.5px] text-aventurea-ink">{titulo}</h3>
       <p className="mx-auto mt-2 max-w-[34ch] text-[14px] leading-relaxed text-aventurea-ink-soft">
         {texto}
       </p>
