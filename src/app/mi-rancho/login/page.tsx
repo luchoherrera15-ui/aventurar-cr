@@ -12,23 +12,23 @@ export default function LoginDuenoPage() {
 
   return (
     <main className="relative flex min-h-[calc(100vh-64px)] items-center justify-center overflow-hidden p-5 py-12">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(255,255,255,0.06),transparent)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(240,120,42,0.10),transparent)]" />
       <div className="pointer-events-none absolute -inset-10 -z-10 rounded-[3rem] bg-aventurea-orange opacity-[0.07] blur-[100px]" />
 
-      <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-9 shadow-2xl">
+      <div className="relative w-full max-w-sm rounded-2xl border border-aventurea-line bg-white p-9 shadow-2xl">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Marketplace de ranchos
         </p>
-        <h1 className="mt-2.5 text-xl font-bold text-white">
+        <h1 className="mt-2.5 text-xl font-bold text-aventurea-orange-dark">
           Iniciá sesión
         </h1>
-        <p className="mt-1.5 text-sm text-zinc-400">
+        <p className="mt-1.5 text-sm text-aventurea-ink-soft">
           Entrá a tu cuenta para administrar tu rancho.
         </p>
 
         <form action={formAction} className="mt-5.5 flex flex-col gap-3.5">
           <div>
-            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
+            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
               Correo
             </label>
             <input
@@ -36,11 +36,11 @@ export default function LoginDuenoPage() {
               name="email"
               required
               placeholder="tucorreo@ejemplo.com"
-              className="w-full rounded-[10px] border border-white/10 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder:text-zinc-500"
+              className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:text-zinc-500"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
+            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
               Contraseña
             </label>
             <input
@@ -48,12 +48,12 @@ export default function LoginDuenoPage() {
               name="password"
               required
               placeholder="••••••••"
-              className="w-full rounded-[10px] border border-white/10 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder:text-zinc-500"
+              className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:text-zinc-500"
             />
           </div>
 
           {state?.error && (
-            <p className="rounded-lg bg-red-950/40 px-3 py-2 text-[13px] text-red-400">
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
               {state.error}
             </p>
           )}

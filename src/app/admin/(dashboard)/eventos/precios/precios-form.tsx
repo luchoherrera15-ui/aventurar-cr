@@ -85,38 +85,38 @@ export default function PreciosForm({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-2xl border border-white/10 bg-zinc-900 p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Reserva de la fecha
         </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-white">
+        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
           Depósito fijo para reservar
         </h3>
-        <p className="mt-1 text-[12.5px] text-zinc-400">
+        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
           Monto fijo (no depende de la cantidad de invitados) que el
           cliente paga por SINPE o transferencia para reservar la fecha
           en el sitio público.
         </p>
         <div className="mt-4 flex items-center gap-2">
-          <span className="text-[13px] font-bold text-zinc-400">₡</span>
+          <span className="text-[13px] font-bold text-aventurea-ink-soft">₡</span>
           <input
             type="number"
             min={0}
             value={depositoReserva}
             onChange={(e) => setDepositoReserva(Number(e.target.value))}
-            className="w-40 rounded-lg border border-white/10 bg-zinc-800 px-2.5 py-2 text-[13px] text-white"
+            className="w-40 rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
           />
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-zinc-900 p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Cotización automática
         </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-white">
+        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
           Rangos de precio según número de invitados
         </h3>
-        <p className="mt-1 text-[12.5px] text-zinc-400">
+        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
           Si un número de invitados no cae en ningún rango, el sitio muestra
           &quot;cotización personalizada&quot;.
         </p>
@@ -128,7 +128,7 @@ export default function PreciosForm({
                 (h) => (
                   <th
                     key={h}
-                    className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-zinc-400"
+                    className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
                   >
                     {h}
                   </th>
@@ -147,7 +147,7 @@ export default function PreciosForm({
                     onChange={(e) =>
                       updateTier(t.key, "min_invitados", Number(e.target.value))
                     }
-                    className="w-full rounded-lg border-[1.5px] border-white/10 bg-zinc-800 text-white px-2.5 py-2 text-[13px]"
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
                   />
                 </td>
                 <td className="py-1.5 pr-2">
@@ -158,7 +158,7 @@ export default function PreciosForm({
                     onChange={(e) =>
                       updateTier(t.key, "max_invitados", Number(e.target.value))
                     }
-                    className="w-full rounded-lg border-[1.5px] border-white/10 bg-zinc-800 text-white px-2.5 py-2 text-[13px]"
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
                   />
                 </td>
                 <td className="py-1.5 pr-2">
@@ -169,7 +169,7 @@ export default function PreciosForm({
                     onChange={(e) =>
                       updateTier(t.key, "precio", Number(e.target.value))
                     }
-                    className="w-full rounded-lg border-[1.5px] border-white/10 bg-zinc-800 text-white px-2.5 py-2 text-[13px]"
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
                   />
                 </td>
                 <td className="py-1.5">
@@ -178,7 +178,7 @@ export default function PreciosForm({
                     onClick={() =>
                       setTiers((prev) => prev.filter((x) => x.key !== t.key))
                     }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-400 hover:border-red-400 hover:text-red-400"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
                     title="Eliminar"
                   >
                     🗑
@@ -197,12 +197,12 @@ export default function PreciosForm({
               { key: newKey(), min_invitados: 0, max_invitados: 0, precio: 0 },
             ])
           }
-          className="mt-3.5 rounded-lg border-[1.5px] border-white/10 bg-zinc-800 px-3.5 py-2 text-[11.5px] font-bold text-white hover:border-aventurea-orange hover:text-aventurea-orange"
+          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
         >
           ＋ Agregar rango
         </button>
 
-        <div className="mt-4.5 border-t border-dashed border-white/10 pt-4">
+        <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
           <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
             Tarifa especial de diciembre
           </label>
@@ -212,23 +212,23 @@ export default function PreciosForm({
               min={0}
               value={tarifaDiciembre}
               onChange={(e) => setTarifaDiciembre(Number(e.target.value))}
-              className="w-32 rounded-lg border-[1.5px] border-white/10 bg-zinc-800 text-white px-2.5 py-2 text-[13px]"
+              className="w-32 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
             />
-            <span className="text-[12.5px] text-zinc-400">
+            <span className="text-[12.5px] text-aventurea-ink-soft">
               colones por persona (reemplaza los rangos en diciembre)
             </span>
           </div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-zinc-900 p-5.5 shadow-sm">
+      <section className="rounded-2xl border border-aventurea-line bg-white p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Servicios adicionales
         </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-white">
+        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
           Checklist de extras para el cliente
         </h3>
-        <p className="mt-1 text-[12.5px] text-zinc-400">
+        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
           El campo &quot;requisito&quot; es opcional: si lo llenás, el
           servicio solo aparece cuando los invitados no superan ese número.
         </p>
@@ -240,7 +240,7 @@ export default function PreciosForm({
                 (h) => (
                   <th
                     key={h}
-                    className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-zinc-400"
+                    className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
                   >
                     {h}
                   </th>
@@ -259,7 +259,7 @@ export default function PreciosForm({
                     onChange={(e) =>
                       updateServicio(s.key, "nombre", e.target.value)
                     }
-                    className="w-full rounded-lg border-[1.5px] border-white/10 bg-zinc-800 text-white px-2.5 py-2 text-[13px]"
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
                   />
                 </td>
                 <td className="w-28 py-1.5 pr-2">
@@ -270,7 +270,7 @@ export default function PreciosForm({
                     onChange={(e) =>
                       updateServicio(s.key, "precio", Number(e.target.value))
                     }
-                    className="w-full rounded-lg border-[1.5px] border-white/10 bg-zinc-800 text-white px-2.5 py-2 text-[13px]"
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
                   />
                 </td>
                 <td className="w-32 py-1.5 pr-2">
@@ -286,7 +286,7 @@ export default function PreciosForm({
                         e.target.value === "" ? null : Number(e.target.value),
                       )
                     }
-                    className="w-full rounded-lg border-[1.5px] border-white/10 bg-zinc-800 text-white px-2.5 py-2 text-[13px]"
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
                   />
                 </td>
                 <td className="py-1.5 pr-2 text-center">
@@ -307,7 +307,7 @@ export default function PreciosForm({
                         prev.filter((x) => x.key !== s.key),
                       )
                     }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-400 hover:border-red-400 hover:text-red-400"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
                     title="Eliminar"
                   >
                     🗑
@@ -332,7 +332,7 @@ export default function PreciosForm({
               },
             ])
           }
-          className="mt-3.5 rounded-lg border-[1.5px] border-white/10 bg-zinc-800 px-3.5 py-2 text-[11.5px] font-bold text-white hover:border-aventurea-orange hover:text-aventurea-orange"
+          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
         >
           ＋ Agregar servicio
         </button>
@@ -350,7 +350,7 @@ export default function PreciosForm({
         {message && (
           <span
             className={`text-[12.5px] font-bold ${
-              message.type === "ok" ? "text-aventurea-green" : "text-red-400"
+              message.type === "ok" ? "text-aventurea-green" : "text-red-700"
             }`}
           >
             {message.type === "ok" ? "✓ " : ""}

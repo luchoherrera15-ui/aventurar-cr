@@ -32,15 +32,15 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end gap-3 rounded-[16px] border border-white/10 bg-zinc-900 p-4.5">
+      <div className="mb-6 flex flex-wrap items-end gap-3 rounded-[16px] border border-aventurea-line bg-white p-4.5">
         <div>
-          <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
+          <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
             Provincia
           </label>
           <select
             value={provincia}
             onChange={(e) => setProvincia(e.target.value)}
-            className="rounded-[10px] border border-white/10 bg-zinc-800 px-3 py-2.5 text-[13px] text-white"
+            className="rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink"
           >
             <option value="">Todas</option>
             {PROVINCIAS.map((p) => (
@@ -51,7 +51,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
           </select>
         </div>
         <div>
-          <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
+          <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
             Cantidad de invitados
           </label>
           <input
@@ -60,11 +60,11 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
             value={invitados}
             onChange={(e) => setInvitados(e.target.value)}
             placeholder="Ej. 50"
-            className="w-[140px] rounded-[10px] border border-white/10 bg-zinc-800 px-3 py-2.5 text-[13px] text-white placeholder:text-zinc-500"
+            className="w-[140px] rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-zinc-400">
+          <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
             Precio máximo (₡)
           </label>
           <input
@@ -73,7 +73,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
             value={precioMax}
             onChange={(e) => setPrecioMax(e.target.value)}
             placeholder="Ej. 150000"
-            className="w-[160px] rounded-[10px] border border-white/10 bg-zinc-800 px-3 py-2.5 text-[13px] text-white placeholder:text-zinc-500"
+            className="w-[160px] rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500"
           />
         </div>
         {hayFiltros && (
@@ -83,7 +83,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
               setInvitados("");
               setPrecioMax("");
             }}
-            className="rounded-full border border-white/10 px-4 py-2.5 text-[12.5px] font-bold text-zinc-400 hover:border-aventurea-orange hover:text-aventurea-orange"
+            className="rounded-full border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
           >
             Limpiar filtros
           </button>
@@ -91,11 +91,11 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
       </div>
 
       {filtrados.length === 0 ? (
-        <div className="rounded-[16px] border border-white/10 bg-zinc-900 p-10 text-center">
-          <p className="text-[14px] font-bold text-white">
+        <div className="rounded-[16px] border border-aventurea-line bg-white p-10 text-center">
+          <p className="text-[14px] font-bold text-aventurea-ink">
             No hay ranchos que coincidan con esos filtros.
           </p>
-          <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] text-zinc-400">
+          <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] text-aventurea-ink-soft">
             Probá con otra provincia, menos invitados o un presupuesto mayor.
           </p>
         </div>
@@ -108,10 +108,10 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
       )}
 
       <div className="mt-9 rounded-[16px] border border-aventurea-orange/25 bg-aventurea-orange/5 p-6 text-center">
-        <h3 className="text-[15px] font-bold text-white">
+        <h3 className="text-[15px] font-bold text-aventurea-ink">
           ¿Tenés un salón o rancho para eventos?
         </h3>
-        <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] text-zinc-400">
+        <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] text-aventurea-ink-soft">
           Publicalo gratis en Aventurea CR y llegá a más clientes en todo el
           país.
         </p>
@@ -134,7 +134,7 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
   return (
     <Link
       href={href}
-      className="group flex flex-col overflow-hidden rounded-[16px] border border-white/10 bg-zinc-900 shadow-sm transition-colors hover:border-aventurea-orange/40"
+      className="group flex flex-col overflow-hidden rounded-[16px] border border-aventurea-line bg-white shadow-sm transition-colors hover:border-aventurea-orange/40"
     >
       <div className="relative flex h-[130px] items-center justify-center overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900">
         <span className="text-4xl opacity-25">🏡</span>
@@ -145,18 +145,18 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
         )}
       </div>
       <div className="flex flex-1 flex-col p-4.5">
-        <h3 className="text-[15px] font-bold text-white">{rancho.nombre}</h3>
+        <h3 className="text-[15px] font-bold text-aventurea-ink">{rancho.nombre}</h3>
         {rancho.canton && (
           <p className="mt-0.5 text-[12px] text-zinc-500">{rancho.canton}</p>
         )}
         {rancho.descripcion && (
-          <p className="mt-2 line-clamp-2 text-[12.5px] leading-relaxed text-zinc-400">
+          <p className="mt-2 line-clamp-2 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
             {rancho.descripcion}
           </p>
         )}
 
-        <div className="mt-3.5 flex items-center justify-between border-t border-white/10 pt-3.5">
-          <span className="text-[11.5px] text-zinc-400">
+        <div className="mt-3.5 flex items-center justify-between border-t border-aventurea-line pt-3.5">
+          <span className="text-[11.5px] text-aventurea-ink-soft">
             {rancho.capacidad_min || rancho.capacidad_max
               ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
               : "Capacidad a consultar"}
@@ -166,8 +166,14 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
           </span>
         </div>
 
-        <span className="mt-3.5 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-white group-hover:text-aventurea-orange">
-          {esAventurea ? "Ver disponibilidad y reservar" : "Ver más"}
+        <span
+          className={`mt-3.5 inline-flex items-center justify-center gap-1.5 rounded-full py-2.5 text-[12.5px] font-bold transition-colors ${
+            esAventurea
+              ? "bg-aventurea-orange text-white group-hover:bg-aventurea-orange-dark"
+              : "border border-aventurea-line text-aventurea-ink group-hover:border-aventurea-orange group-hover:text-aventurea-orange"
+          }`}
+        >
+          {esAventurea ? "¡Reservar ahora!" : "Ver más"}
           <span aria-hidden>→</span>
         </span>
       </div>

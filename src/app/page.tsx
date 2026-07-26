@@ -33,27 +33,19 @@ const cards: ExperienceCard[] = [
 
 export default function Home() {
   return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-zinc-950 px-6 py-24 sm:py-32">
-      {/* Vignette neutra */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(255,255,255,0.06),transparent)]" />
-      {/* Grano sutil */}
-      <div
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.05] mix-blend-overlay"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-        }}
-      />
+    <main className="relative isolate min-h-screen overflow-hidden bg-aventurea-cream px-6 py-24 sm:py-32">
+      {/* Resplandor cálido sutil */}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(240,120,42,0.10),transparent)]" />
 
       <div className="mx-auto max-w-5xl">
         <div className="mb-16 text-center sm:mb-20">
-          <span className="text-xs font-semibold uppercase tracking-[0.4em] text-zinc-500">
+          <span className="text-xs font-semibold uppercase tracking-[0.4em] text-aventurea-ink-soft">
             Costa Rica
           </span>
-          <h1 className="mt-4 text-5xl font-semibold tracking-tight text-white sm:text-6xl">
+          <h1 className="mt-4 text-5xl font-semibold tracking-tight text-aventurea-orange-dark sm:text-6xl">
             Aventurea CR
           </h1>
-          <p className="mx-auto mt-4 max-w-md text-balance text-lg text-zinc-400">
+          <p className="mx-auto mt-4 max-w-md text-balance text-lg text-aventurea-ink-soft">
             Turismo y eventos, en un solo lugar
           </p>
         </div>
@@ -63,7 +55,7 @@ export default function Home() {
             <Link
               key={card.href}
               href={card.href}
-              className="group relative isolate block h-96 overflow-hidden rounded-3xl bg-zinc-900 shadow-xl ring-1 ring-white/10 transition-all duration-500 ease-out hover:-translate-y-1 hover:shadow-2xl hover:ring-white/20"
+              className="group relative isolate block h-96 overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-black/5 transition-all duration-500 ease-out hover:-translate-y-1 hover:shadow-2xl hover:ring-aventurea-orange/30"
             >
               {/* Glow ambiental sutil, propio del color de cada card */}
               <div

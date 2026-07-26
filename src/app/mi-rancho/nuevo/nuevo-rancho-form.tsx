@@ -5,9 +5,9 @@ import { crearRancho, type NuevoRanchoState } from "./actions";
 import { PROVINCIAS } from "../types";
 
 const inputCls =
-  "w-full rounded-[10px] border border-white/10 bg-zinc-800 px-3 py-2.5 text-[13.5px] text-white placeholder:text-zinc-500";
+  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
 const labelCls =
-  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-zinc-400";
+  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
 export default function NuevoRanchoForm() {
   const [state, formAction, pending] = useActionState<
@@ -18,7 +18,7 @@ export default function NuevoRanchoForm() {
   return (
     <form
       action={formAction}
-      className="mt-6 flex flex-col gap-3.5 rounded-[18px] border border-white/10 bg-zinc-900 p-6"
+      className="mt-6 flex flex-col gap-3.5 rounded-[18px] border border-aventurea-line bg-white p-6"
     >
       <div>
         <label className={labelCls}>Nombre del salón o rancho</label>
@@ -109,7 +109,7 @@ export default function NuevoRanchoForm() {
       </div>
 
       {state?.error && (
-        <p className="rounded-lg bg-red-950/40 p-2.5 text-[13px] text-red-400">
+        <p className="rounded-lg bg-red-50 p-2.5 text-[13px] text-red-700">
           {state.error}
         </p>
       )}

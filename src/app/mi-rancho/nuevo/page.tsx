@@ -22,10 +22,10 @@ export default async function NuevoRanchoPage() {
       <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
         Salones para Eventos
       </p>
-      <h1 className="mt-2.5 text-2xl font-bold text-white">
+      <h1 className="mt-2.5 text-2xl font-bold text-aventurea-orange-dark">
         Contanos de tu salón o rancho
       </h1>
-      <p className="mt-1.5 max-w-[52ch] text-[13.5px] text-zinc-400">
+      <p className="mt-1.5 max-w-[52ch] text-[13.5px] text-aventurea-ink-soft">
         Completá estos datos básicos para publicarlo. Aventurea CR revisa
         cada espacio antes de que aparezca en el directorio público.
       </p>

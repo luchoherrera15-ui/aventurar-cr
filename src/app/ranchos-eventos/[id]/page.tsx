@@ -37,18 +37,18 @@ export default async function RanchoDetallePage({
     : null;
 
   return (
-    <div className="min-h-screen bg-zinc-950">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/90 backdrop-blur-sm">
+    <div className="min-h-screen bg-aventurea-cream">
+      <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
           <Link href="/" className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-zinc-950">
               A
             </span>
-            <span className="text-base font-bold text-white">AVENTUREA CR</span>
+            <span className="text-base font-bold text-aventurea-ink">AVENTUREA CR</span>
           </Link>
           <Link
             href="/ranchos-eventos"
-            className="text-[13px] font-bold text-zinc-400 hover:text-aventurea-orange"
+            className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
           >
             ← Ver todos los ranchos
           </Link>
@@ -57,7 +57,7 @@ export default async function RanchoDetallePage({
 
       <section className="py-9 pb-16">
         <div className="mx-auto max-w-[720px] px-7">
-          <div className="relative flex h-[180px] items-center justify-center overflow-hidden rounded-[18px] border border-white/10 bg-gradient-to-br from-zinc-800 to-zinc-900">
+          <div className="relative flex h-[180px] items-center justify-center overflow-hidden rounded-[18px] border border-aventurea-line bg-gradient-to-br from-zinc-800 to-zinc-900">
             <span className="text-5xl opacity-25">🏡</span>
             {rancho.provincia && (
               <span className="absolute left-4 top-4 rounded-full bg-black/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white/80">
@@ -67,28 +67,28 @@ export default async function RanchoDetallePage({
             )}
           </div>
 
-          <h1 className="mt-5 text-[26px] font-bold text-white">
+          <h1 className="mt-5 text-[26px] font-bold text-aventurea-ink">
             {rancho.nombre}
           </h1>
 
           {rancho.descripcion && (
-            <p className="mt-2.5 text-[14.5px] leading-relaxed text-zinc-400">
+            <p className="mt-2.5 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
               {rancho.descripcion}
             </p>
           )}
 
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-white/10 bg-zinc-900 p-3.5">
+            <div className="rounded-xl border border-aventurea-line bg-white p-3.5">
               <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                 Capacidad
               </div>
-              <div className="mt-1 text-[14px] font-bold text-white">
+              <div className="mt-1 text-[14px] font-bold text-aventurea-ink">
                 {rancho.capacidad_min || rancho.capacidad_max
                   ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
                   : "A consultar"}
               </div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-zinc-900 p-3.5">
+            <div className="rounded-xl border border-aventurea-line bg-white p-3.5">
               <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                 Precio desde
               </div>
@@ -98,8 +98,8 @@ export default async function RanchoDetallePage({
             </div>
           </div>
 
-          <div className="mt-6 rounded-[16px] border border-white/10 bg-zinc-900 p-5">
-            <p className="text-[13px] leading-relaxed text-zinc-400">
+          <div className="mt-6 rounded-[16px] border border-aventurea-line bg-white p-5">
+            <p className="text-[13px] leading-relaxed text-aventurea-ink-soft">
               Este rancho todavía no tiene reservas en línea — escribile
               directamente para consultar disponibilidad.
             </p>
