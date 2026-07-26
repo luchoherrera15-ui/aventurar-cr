@@ -8,6 +8,7 @@ import {
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
   SUBCATEGORIA_LABEL,
+  normalizarCategoria,
   type PromocionDia,
   type Rancho,
 } from "../../mi-rancho/types";
@@ -45,7 +46,12 @@ export default async function RanchoPortalPage({
 
   if (!data) notFound();
 
-  const rancho = data as Rancho;
+  // Se normaliza la categoría al leer: una fila que todavía no pasó por
+  // la migración de taxonomía sigue mostrándose bien.
+  const rancho = {
+    ...(data as Rancho),
+    categoria: normalizarCategoria((data as Rancho).categoria),
+  };
 
   if (rancho.nombre === NOMBRE_RANCHO_AVENTUREA) {
     redirect("/eventos-salon");
@@ -66,9 +72,11 @@ export default async function RanchoPortalPage({
       ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
       : "A consultar";
 
-  // La presentación usa una foto distinta a la principal cuando hay galería,
-  // para que la página no repita la misma imagen dos veces.
-  const fotoPresentacion = fotos[0] ?? rancho.foto_url;
+  // Los servicios móviles ya muestran la foto principal en su portada, así
+  // que la presentación busca una distinta y, si no hay galería, se queda
+  // con el degradado en vez de repetir la misma imagen dos veces seguidas.
+  const fotoPresentacion =
+    fotos.find((f) => f !== rancho.foto_url) ?? (esLugar ? rancho.foto_url : null);
 
   const datosPresentacion = esLugar
     ? [

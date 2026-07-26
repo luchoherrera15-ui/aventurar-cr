@@ -10,6 +10,7 @@ import {
   guardarPromocionesPropio,
   guardarTerminosPropio,
 } from "./actions";
+import { normalizarCategoria } from "../types";
 import type {
   CodigoDescuento,
   PrecioTier,
@@ -32,7 +33,10 @@ export default async function MiRanchoPreciosPage() {
     .maybeSingle();
 
   if (!data) redirect("/mi-rancho/nuevo");
-  const rancho = data as Rancho;
+  const rancho = {
+    ...(data as Rancho),
+    categoria: normalizarCategoria((data as Rancho).categoria),
+  };
 
   // Los precios por cantidad de invitados y los servicios adicionales son
   // parte del flujo de reserva en línea, que hoy solo tienen los lugares.

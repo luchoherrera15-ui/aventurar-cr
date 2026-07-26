@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import EditarRanchoForm from "./editar-form";
 import type { Rancho } from "../types";
+import { normalizarCategoria } from "../types";
 
 export default async function EditarRanchoPage() {
   const supabase = await createClient();
@@ -34,7 +35,12 @@ export default async function EditarRanchoPage() {
         Los cambios se reflejan al instante en el directorio.
       </p>
 
-      <EditarRanchoForm rancho={data as Rancho} />
+      <EditarRanchoForm
+        rancho={{
+          ...(data as Rancho),
+          categoria: normalizarCategoria((data as Rancho).categoria),
+        }}
+      />
     </main>
   );
 }

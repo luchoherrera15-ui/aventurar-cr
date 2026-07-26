@@ -137,6 +137,31 @@ export const SUBCATEGORIAS: Record<
   ],
 };
 
+/**
+ * Equivalencias de la taxonomía vieja (una sola categoría por negocio)
+ * a la nueva de dos niveles.
+ *
+ * La migración 0018 remapea la tabla, pero esto se usa al leer para que
+ * una fila que todavía no se migró no rompa la página: sin esto, una
+ * categoría desconocida deja el nombre y el ícono en blanco y un lugar
+ * se muestra como si fuera un servicio móvil (sin calendario).
+ */
+const CATEGORIAS_LEGADAS: Record<string, Categoria> = {
+  salon: "lugares",
+  dj: "animacion",
+  animador: "animacion",
+  mobiliario: "decoracion",
+  revelacion_sexo: "otros",
+  otro: "otros",
+};
+
+export function normalizarCategoria(valor: string | null | undefined): Categoria {
+  if (valor && (CATEGORIAS as readonly string[]).includes(valor)) {
+    return valor as Categoria;
+  }
+  return CATEGORIAS_LEGADAS[valor ?? ""] ?? "otros";
+}
+
 export const SUBCATEGORIAS_TODAS = CATEGORIAS.flatMap((c) =>
   SUBCATEGORIAS[c].map((s) => s.id),
 );

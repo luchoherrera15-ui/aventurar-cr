@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import ReservasTable from "@/app/admin/(dashboard)/eventos/reservas-table";
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
 import type { Rancho } from "../types";
+import { normalizarCategoria } from "../types";
 
 export default async function MiRanchoReservasPage() {
   const supabase = await createClient();
@@ -19,7 +20,10 @@ export default async function MiRanchoReservasPage() {
     .maybeSingle();
 
   if (!ranchoData) redirect("/mi-rancho/nuevo");
-  const rancho = ranchoData as Rancho;
+  const rancho = {
+    ...(ranchoData as Rancho),
+    categoria: normalizarCategoria((ranchoData as Rancho).categoria),
+  };
 
   if (rancho.categoria !== "lugares") {
     redirect("/mi-rancho");

@@ -3,7 +3,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logoutDueno } from "./actions";
 import { IconEdit } from "@/components/icons";
-import { CATEGORIA_GRADIENTE, CATEGORIA_ICONO, CATEGORIA_LABEL, type Rancho } from "./types";
+import {
+  CATEGORIA_GRADIENTE,
+  CATEGORIA_ICONO,
+  CATEGORIA_LABEL,
+  normalizarCategoria,
+  type Rancho,
+} from "./types";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -37,7 +43,10 @@ export default async function MiRanchoPage() {
 
   if (!data) redirect("/mi-rancho/nuevo");
 
-  const rancho = data as Rancho;
+  const rancho = {
+    ...(data as Rancho),
+    categoria: normalizarCategoria((data as Rancho).categoria),
+  };
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");

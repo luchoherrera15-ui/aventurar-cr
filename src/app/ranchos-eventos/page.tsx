@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Directorio from "./directorio";
+import { normalizarCategoria } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
 
 export default async function RanchosEventosPage() {
@@ -11,7 +12,10 @@ export default async function RanchosEventosPage() {
     .eq("estado", "aprobado")
     .order("created_at", { ascending: true });
 
-  const ranchos = (data ?? []) as Rancho[];
+  const ranchos = ((data ?? []) as Rancho[]).map((r) => ({
+    ...r,
+    categoria: normalizarCategoria(r.categoria),
+  }));
 
   return (
     <div className="min-h-screen bg-aventurea-cream">
