@@ -65,7 +65,7 @@ export default async function EventosSalonPage() {
     <div className="min-h-screen bg-aventurea-cream">
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/ranchos-eventos" className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
               A
             </span>
@@ -76,7 +76,7 @@ export default async function EventosSalonPage() {
             </span>
           </Link>
           <nav className="hidden items-center gap-6 sm:flex">
-            <Link href="/" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-orange">
+            <Link href="/ranchos-eventos" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-orange">
               Inicio
             </Link>
             <a href="#reservar" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-orange">
@@ -144,7 +144,7 @@ export default async function EventosSalonPage() {
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
           AVENTUREA CR — Costa Rica ·{" "}
-          <Link href="/" className="font-bold text-aventurea-orange">
+          <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
             Volver al inicio
           </Link>
         </p>
