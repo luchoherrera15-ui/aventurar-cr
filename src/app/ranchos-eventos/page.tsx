@@ -24,14 +24,14 @@ export default async function RanchosEventosPage() {
             <span className="text-base font-bold text-white">AVENTUREA CR</span>
             <span className="text-zinc-600">/</span>
             <span className="text-[13px] font-light text-zinc-400">
-              Ranchos para Eventos
+              Salones para Eventos
             </span>
           </Link>
           <Link
             href="/mi-rancho/registro"
             className="rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-[12.5px] font-bold text-white hover:border-aventurea-orange hover:text-aventurea-orange"
           >
-            Publicá tu rancho
+            Publicá tu salón
           </Link>
         </div>
       </header>
@@ -40,14 +40,15 @@ export default async function RanchosEventosPage() {
         <div className="mx-auto max-w-[1080px] px-7">
           <div className="mb-6.5 max-w-[640px]">
             <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
-              Directorio
+              Directorio nacional
             </p>
             <h1 className="mt-2.5 text-[28px] font-bold text-white sm:text-[32px]">
-              Ranchos para Eventos
+              Salones para Eventos
             </h1>
             <p className="mt-2.5 text-[14.5px] text-zinc-400">
-              Explorá ranchos para bodas, cumpleaños y eventos corporativos, y
-              filtrá por provincia, cantidad de invitados o presupuesto.
+              Todos los salones y ranchos para eventos de Costa Rica, en un
+              solo lugar. Explorá y filtrá por provincia, cantidad de
+              invitados o presupuesto.
             </p>
           </div>
 

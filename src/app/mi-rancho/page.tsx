@@ -44,7 +44,9 @@ export default async function MiRanchoPage() {
           <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
             Marketplace de ranchos
           </p>
-          <h1 className="mt-2.5 text-2xl font-bold text-white">Tu rancho</h1>
+          <h1 className="mt-2.5 text-2xl font-bold text-white">
+            Tu salón / rancho
+          </h1>
         </div>
         <form action={logoutDueno}>
           <button

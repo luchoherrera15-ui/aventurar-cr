@@ -22,10 +22,10 @@ const cards: ExperienceCard[] = [
   },
   {
     href: "/ranchos-eventos",
-    eyebrow: "Ranchos para Eventos",
-    title: "Alquiler de Salón de Eventos",
+    eyebrow: "Directorio nacional",
+    title: "Salón para Eventos",
     description:
-      "Explorá ranchos para bodas, cumpleaños y celebraciones corporativas en todo el país.",
+      "Explorá salones y ranchos para bodas, cumpleaños y eventos corporativos en toda Costa Rica.",
     background:
       "linear-gradient(160deg, #201512 0%, #2e1f14 45%, #1c1712 100%)",
   },

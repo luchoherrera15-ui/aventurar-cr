@@ -109,16 +109,17 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
 
       <div className="mt-9 rounded-[16px] border border-aventurea-orange/25 bg-aventurea-orange/5 p-6 text-center">
         <h3 className="text-[15px] font-bold text-white">
-          ¿Tenés un rancho para eventos?
+          ¿Tenés un salón o rancho para eventos?
         </h3>
         <p className="mx-auto mt-1.5 max-w-[46ch] text-[13px] text-zinc-400">
-          Publicalo gratis en Aventurea CR y llegá a más clientes.
+          Publicalo gratis en Aventurea CR y llegá a más clientes en todo el
+          país.
         </p>
         <Link
           href="/mi-rancho/registro"
           className="mt-4 inline-flex rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
         >
-          Publicar mi rancho
+          Publicar mi espacio
         </Link>
       </div>
     </div>

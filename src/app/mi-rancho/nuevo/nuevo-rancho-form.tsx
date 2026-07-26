@@ -21,7 +21,7 @@ export default function NuevoRanchoForm() {
       className="mt-6 flex flex-col gap-3.5 rounded-[18px] border border-white/10 bg-zinc-900 p-6"
     >
       <div>
-        <label className={labelCls}>Nombre del rancho</label>
+        <label className={labelCls}>Nombre del salón o rancho</label>
         <input
           type="text"
           name="nombre"

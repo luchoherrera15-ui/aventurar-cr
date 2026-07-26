@@ -23,7 +23,8 @@ export default function RegistroPage() {
           Creá tu cuenta
         </h1>
         <p className="mt-1.5 text-sm text-zinc-400">
-          Registrate para publicar tu rancho de eventos en Aventurea CR.
+          Registrate para publicar tu salón o rancho de eventos en Aventurea
+          CR, sin importar en qué parte de Costa Rica esté.
         </p>
 
         {state?.needsConfirmation ? (

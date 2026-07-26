@@ -16,7 +16,7 @@ export default function MiRanchoLayout({
             <span className="text-base font-bold text-white">AVENTUREA CR</span>
             <span className="text-zinc-600">/</span>
             <span className="text-[13px] font-light text-zinc-400">
-              Publicá tu rancho
+              Publicá tu salón
             </span>
           </Link>
           <Link
