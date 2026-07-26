@@ -75,7 +75,7 @@ export default async function RanchoDetallePage({
             }
           />
           {!rancho.foto_url && (
-            <span className="absolute inset-0 flex items-center justify-center text-7xl opacity-25">
+            <span className="absolute inset-0 flex items-center justify-center opacity-25 [&_svg]:h-20 [&_svg]:w-20">
               {CATEGORIA_ICONO[rancho.categoria]}
             </span>
           )}
@@ -110,7 +110,7 @@ export default async function RanchoDetallePage({
 
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                 Capacidad
               </div>
               <div className="mt-1 text-[14px] font-bold text-aventurea-ink">
@@ -120,7 +120,7 @@ export default async function RanchoDetallePage({
               </div>
             </div>
             <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                 Precio desde
               </div>
               <div className="mt-1 text-[14px] font-bold text-aventurea-orange">
@@ -129,7 +129,7 @@ export default async function RanchoDetallePage({
             </div>
             {rancho.direccion_exacta && (
               <div className="col-span-2 rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5 sm:col-span-1">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                   Dirección
                 </div>
                 <div className="mt-1 text-[13px] font-bold text-aventurea-ink">
@@ -148,7 +148,7 @@ export default async function RanchoDetallePage({
                 </p>
                 <Link
                   href={`/ranchos-eventos/${id}/reservar`}
-                  className="mt-4 inline-flex rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="mt-4 inline-flex rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
                 >
                   ¡Reservar ahora! →
                 </Link>
@@ -166,15 +166,15 @@ export default async function RanchoDetallePage({
                 rel="noopener noreferrer"
                 className={
                   puedeReservar
-                    ? "mt-3 inline-flex rounded-full border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange sm:ml-2.5 sm:mt-0"
-                    : "mt-4 inline-flex rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                    ? "mt-3 inline-flex rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange sm:ml-2.5 sm:mt-0"
+                    : "mt-4 inline-flex rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
                 }
               >
                 Contactar por WhatsApp
               </a>
             ) : (
               !puedeReservar && (
-                <p className="mt-3 text-[13px] font-bold text-zinc-400">
+                <p className="mt-3 text-[13px] font-bold text-zinc-500">
                   Este negocio todavía no dejó un contacto público.
                 </p>
               )

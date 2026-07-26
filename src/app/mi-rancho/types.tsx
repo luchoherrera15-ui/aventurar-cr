@@ -1,3 +1,12 @@
+import {
+  IconBalloon,
+  IconCelebrate,
+  IconChair,
+  IconHeadphones,
+  IconHouse,
+  IconSparkles,
+} from "@/components/icons";
+
 export const PROVINCIAS = [
   "San José",
   "Alajuela",
@@ -32,13 +41,13 @@ export const CATEGORIA_LABEL: Record<Categoria, string> = {
   otro: "Otros servicios",
 };
 
-export const CATEGORIA_ICONO: Record<Categoria, string> = {
-  salon: "🏡",
-  mobiliario: "🪑",
-  dj: "🎧",
-  animador: "🎉",
-  revelacion_sexo: "🎈",
-  otro: "✨",
+export const CATEGORIA_ICONO: Record<Categoria, React.ReactNode> = {
+  salon: <IconHouse />,
+  mobiliario: <IconChair />,
+  dj: <IconHeadphones />,
+  animador: <IconCelebrate />,
+  revelacion_sexo: <IconBalloon />,
+  otro: <IconSparkles />,
 };
 
 // Fondo para cuando el negocio todavía no subió su foto principal.

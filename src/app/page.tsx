@@ -34,8 +34,8 @@ const cards: ExperienceCard[] = [
 export default function Home() {
   return (
     <main className="relative isolate min-h-screen overflow-hidden bg-aventurea-cream px-6 py-24 sm:py-32">
-      {/* Resplandor índigo sutil, propio del acento de marca */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(91,103,240,0.16),transparent)]" />
+      {/* Resplandor navy sutil, propio del acento de marca */}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(30,58,95,0.08),transparent)]" />
 
       <div className="mx-auto max-w-5xl">
         <div className="mb-16 text-center sm:mb-20">
@@ -43,10 +43,7 @@ export default function Home() {
             Costa Rica
           </span>
           <h1 className="mt-5 text-5xl font-semibold tracking-tight text-aventurea-ink sm:text-6xl">
-            Aventurea{" "}
-            <span className="bg-gradient-to-r from-aventurea-ink via-aventurea-orange-dark to-aventurea-orange bg-clip-text text-transparent">
-              CR
-            </span>
+            Aventurea <span className="text-aventurea-orange">CR</span>
           </h1>
           <p className="mx-auto mt-4 max-w-md text-balance text-lg text-aventurea-ink-soft">
             Turismo y eventos, en un solo lugar
@@ -58,7 +55,7 @@ export default function Home() {
             <Link
               key={card.href}
               href={card.href}
-              className="group relative isolate block h-96 overflow-hidden rounded-3xl bg-aventurea-surface shadow-xl ring-1 ring-white/10 transition-all duration-500 ease-out hover:-translate-y-1 hover:shadow-2xl hover:ring-aventurea-orange/40"
+              className="group relative isolate block h-96 overflow-hidden rounded-3xl bg-aventurea-surface shadow-xl ring-1 ring-black/5 transition-all duration-500 ease-out hover:-translate-y-1 hover:shadow-2xl hover:ring-aventurea-orange/40"
             >
               {/* Glow ambiental sutil, propio del color de cada card */}
               <div

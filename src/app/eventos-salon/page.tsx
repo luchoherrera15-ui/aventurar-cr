@@ -142,7 +142,7 @@ export default async function EventosSalonPage() {
       </section>
 
       <footer className="border-t border-aventurea-line py-9 text-center">
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-zinc-500">
           AVENTUREA CR — Costa Rica ·{" "}
           <Link href="/" className="font-bold text-aventurea-orange">
             Volver al inicio

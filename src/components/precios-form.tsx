@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { PrecioTier, ServicioAdicional } from "@/app/mi-rancho/types";
+import { IconTrash } from "@/components/icons";
 
 type TierDraft = {
   key: string;
@@ -202,10 +203,10 @@ export default function PreciosForm({
                     onClick={() =>
                       setTiers((prev) => prev.filter((x) => x.key !== t.key))
                     }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-400"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
                     title="Eliminar"
                   >
-                    🗑
+                    <IconTrash className="h-4 w-4" />
                   </button>
                 </td>
               </tr>
@@ -344,10 +345,10 @@ export default function PreciosForm({
                         prev.filter((x) => x.key !== s.key),
                       )
                     }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-400"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
                     title="Eliminar"
                   >
-                    🗑
+                    <IconTrash className="h-4 w-4" />
                   </button>
                 </td>
               </tr>
@@ -380,14 +381,14 @@ export default function PreciosForm({
           type="button"
           disabled={pending}
           onClick={guardar}
-          className="rounded-full bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : "Guardar cambios"}
         </button>
         {message && (
           <span
             className={`text-[12.5px] font-bold ${
-              message.type === "ok" ? "text-aventurea-green" : "text-red-400"
+              message.type === "ok" ? "text-aventurea-green" : "text-red-700"
             }`}
           >
             {message.type === "ok" ? "✓ " : ""}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { IconWarning } from "@/components/icons";
 
 export default async function AdminHubPage() {
   const supabase = await createClient();
@@ -36,7 +37,8 @@ export default async function AdminHubPage() {
           href="/admin/ranchos"
           className="mt-5 flex items-center gap-3 rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/10 p-4 text-[13.5px] font-bold text-aventurea-orange hover:bg-aventurea-orange/15"
         >
-          ⚠ Tenés {ranchosPendientes} salón
+          <IconWarning className="h-4 w-4 shrink-0" />
+          Tenés {ranchosPendientes} salón
           {ranchosPendientes === 1 ? "" : "es"} esperando tu aprobación →
         </Link>
       )}

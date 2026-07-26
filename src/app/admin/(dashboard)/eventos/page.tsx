@@ -49,7 +49,7 @@ export default async function AdminReservasPage() {
       </div>
 
       {error && (
-        <p className="mb-5 rounded-xl bg-red-950/40 p-4 text-sm text-red-400">
+        <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
           No se pudieron cargar las reservas: {error.message}
         </p>
       )}

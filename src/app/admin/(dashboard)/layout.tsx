@@ -26,7 +26,7 @@ export default function DashboardLayout({
             <span className="text-[15px] font-bold text-aventurea-ink">
               AVENTUREA CR
             </span>
-            <span className="text-zinc-400">/</span>
+            <span className="text-zinc-500">/</span>
             <span className="text-[12.5px] font-light text-aventurea-ink-soft">
               Panel Admin
             </span>
@@ -45,7 +45,7 @@ export default function DashboardLayout({
             <form action={logout}>
               <button
                 type="submit"
-                className="rounded-full border border-aventurea-line bg-white px-4 py-1.5 text-[13px] font-bold text-zinc-900 hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="rounded-xl border border-aventurea-line bg-white px-4 py-1.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
               >
                 Cerrar sesión
               </button>

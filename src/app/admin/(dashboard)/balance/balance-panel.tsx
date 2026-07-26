@@ -241,7 +241,7 @@ export default function BalancePanel({
                   key={p.key}
                   type="button"
                   onClick={() => aplicarPeriodo(p.key)}
-                  className={`rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
+                  className={`rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
                     periodoActivo === p.key
                       ? "bg-aventurea-ink text-white"
                       : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
@@ -292,7 +292,7 @@ export default function BalancePanel({
       </section>
 
       {error && (
-        <p className="rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
+        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
           {error}
         </p>
       )}
@@ -364,7 +364,7 @@ export default function BalancePanel({
         </div>
 
         {porRancho.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-aventurea-line bg-aventurea-surface p-10 text-center text-[13.5px] text-zinc-400">
+          <div className="rounded-2xl border border-dashed border-aventurea-line bg-aventurea-surface p-10 text-center text-[13.5px] text-zinc-500">
             No hay reservas confirmadas en este periodo.
           </div>
         ) : (
@@ -449,7 +449,7 @@ export default function BalancePanel({
             type="button"
             disabled={pending}
             onClick={onGuardarComision}
-            className="rounded-full bg-aventurea-orange px-5 py-2 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            className="rounded-xl bg-aventurea-orange px-5 py-2 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
           >
             Guardar
           </button>
@@ -536,7 +536,7 @@ export default function BalancePanel({
           <button
             type="submit"
             disabled={pending}
-            className="h-[42px] rounded-full bg-aventurea-orange px-5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60 lg:col-span-6 lg:w-fit"
+            className="h-[42px] rounded-xl bg-aventurea-orange px-5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60 lg:col-span-6 lg:w-fit"
           >
             ＋ Agregar gasto
           </button>
@@ -559,7 +559,7 @@ export default function BalancePanel({
             <tbody>
               {gastosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-[13.5px] text-zinc-400">
+                  <td colSpan={6} className="px-4 py-10 text-center text-[13.5px] text-zinc-500">
                     No hay gastos registrados en este periodo.
                   </td>
                 </tr>
@@ -588,7 +588,7 @@ export default function BalancePanel({
                     <button
                       disabled={pending}
                       onClick={() => onBorrarGasto(g.id)}
-                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-red-400 hover:text-red-700 disabled:opacity-50"
                     >
                       Borrar
                     </button>
@@ -661,7 +661,7 @@ function KpiCard({
               ? "text-aventurea-ink-soft"
               : favorable
                 ? "text-aventurea-green"
-                : "text-red-400"
+                : "text-red-700"
           }`}
         >
           {favorable !== null && (delta.signo ? "↑ " : "↓ ")}

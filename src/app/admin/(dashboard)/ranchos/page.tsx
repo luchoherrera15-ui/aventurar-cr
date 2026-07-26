@@ -39,14 +39,14 @@ export default async function AdminRanchosPage() {
         </div>
         <Link
           href="/admin/ranchos/nuevo"
-          className="rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
         >
           ＋ Agregar salón
         </Link>
       </div>
 
       {ranchosRes.error && (
-        <p className="mb-5 rounded-xl bg-red-950/40 p-4 text-sm text-red-400">
+        <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
           No se pudieron cargar los salones: {ranchosRes.error.message}
         </p>
       )}

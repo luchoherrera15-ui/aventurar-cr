@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { IconCamera, IconFrame, IconWarning } from "@/components/icons";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
 import {
   CATEGORIAS,
@@ -96,14 +97,14 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="absolute inset-0 flex items-center justify-center text-4xl opacity-40">
-                🖼️
+              <span className="absolute inset-0 flex items-center justify-center opacity-40">
+                <IconFrame className="h-9 w-9" />
               </span>
             )}
           </div>
           <div className="flex-1">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange">
-              📷 {fotoPreview ? "Cambiar foto" : "Subir foto"}
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange">
+              <IconCamera className="h-4 w-4" /> {fotoPreview ? "Cambiar foto" : "Subir foto"}
               <input
                 type="file"
                 accept="image/*"
@@ -112,12 +113,12 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               />
             </label>
             {fotoAviso && (
-              <p className="mt-2.5 max-w-[46ch] text-[12px] leading-relaxed text-aventurea-orange">
-                ⚠ {fotoAviso}
+              <p className="flex items-start gap-1.5 mt-2.5 max-w-[46ch] text-[12px] leading-relaxed text-aventurea-orange">
+                <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {fotoAviso}
               </p>
             )}
             {subidaError && (
-              <p className="mt-2.5 text-[12px] font-bold text-red-400">
+              <p className="mt-2.5 text-[12px] font-bold text-red-700">
                 {subidaError}
               </p>
             )}
@@ -260,7 +261,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
       </section>
 
       {state?.error && (
-        <p className="rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
+        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
           {state.error}
         </p>
       )}
@@ -274,7 +275,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
         <button
           type="submit"
           disabled={pending || subiendo}
-          className="rounded-full bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
         >
           {subiendo ? "Subiendo foto..." : pending ? "Guardando..." : "Guardar cambios"}
         </button>

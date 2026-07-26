@@ -6,6 +6,7 @@ import {
   type CodigoDescuento,
   type PromocionDia,
 } from "@/app/mi-rancho/types";
+import { IconTrash } from "@/components/icons";
 
 type CodigoDraft = {
   key: string;
@@ -228,10 +229,10 @@ export default function DescuentosForm({
                   <button
                     type="button"
                     onClick={() => setCodigos((prev) => prev.filter((x) => x.key !== c.key))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-400"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
                     title="Eliminar"
                   >
-                    🗑
+                    <IconTrash className="h-4 w-4" />
                   </button>
                 </td>
               </tr>
@@ -265,13 +266,13 @@ export default function DescuentosForm({
             type="button"
             disabled={pendingCodigos}
             onClick={guardarCodigos}
-            className="rounded-full bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            className="rounded-xl bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
           >
             {pendingCodigos ? "Guardando..." : "Guardar códigos"}
           </button>
           {msgCodigos && (
             <span
-              className={`text-[12.5px] font-bold ${msgCodigos.ok ? "text-aventurea-green" : "text-red-400"}`}
+              className={`text-[12.5px] font-bold ${msgCodigos.ok ? "text-aventurea-green" : "text-red-700"}`}
             >
               {msgCodigos.ok ? "✓ " : ""}
               {msgCodigos.text}
@@ -305,7 +306,7 @@ export default function DescuentosForm({
                     key={d}
                     type="button"
                     onClick={() => toggleDia(p.key, i)}
-                    className={`rounded-full px-3 py-1.5 text-[11.5px] font-bold transition-colors ${
+                    className={`rounded-lg px-3 py-1.5 text-[11.5px] font-bold transition-colors ${
                       p.dias_semana.includes(i)
                         ? "bg-aventurea-orange text-white"
                         : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft"
@@ -359,7 +360,7 @@ export default function DescuentosForm({
                   onClick={() =>
                     setPromociones((prev) => prev.filter((x) => x.key !== p.key))
                   }
-                  className="text-[11.5px] font-bold text-red-400 hover:underline"
+                  className="text-[11.5px] font-bold text-red-700 hover:underline"
                 >
                   Eliminar
                 </button>
@@ -392,13 +393,13 @@ export default function DescuentosForm({
             type="button"
             disabled={pendingPromos}
             onClick={guardarPromociones}
-            className="rounded-full bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            className="rounded-xl bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
           >
             {pendingPromos ? "Guardando..." : "Guardar promociones"}
           </button>
           {msgPromos && (
             <span
-              className={`text-[12.5px] font-bold ${msgPromos.ok ? "text-aventurea-green" : "text-red-400"}`}
+              className={`text-[12.5px] font-bold ${msgPromos.ok ? "text-aventurea-green" : "text-red-700"}`}
             >
               {msgPromos.ok ? "✓ " : ""}
               {msgPromos.text}

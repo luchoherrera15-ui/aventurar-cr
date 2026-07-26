@@ -86,7 +86,7 @@ export default function RegistroPage() {
               </div>
 
               {state?.error && (
-                <p className="rounded-lg bg-red-950/40 px-3 py-2 text-[13px] text-red-400">
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
                   {state.error}
                 </p>
               )}
@@ -94,13 +94,13 @@ export default function RegistroPage() {
               <button
                 type="submit"
                 disabled={pending}
-                className="mt-1 flex h-11 items-center justify-center rounded-full bg-aventurea-orange text-sm font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60"
+                className="mt-1 flex h-11 items-center justify-center rounded-xl bg-aventurea-orange text-sm font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60"
               >
                 {pending ? "Creando cuenta..." : "Crear cuenta"}
               </button>
             </form>
 
-            <p className="mt-4 text-center text-[12.5px] text-zinc-400">
+            <p className="mt-4 text-center text-[12.5px] text-zinc-500">
               ¿Ya tenés cuenta?{" "}
               <Link
                 href="/mi-rancho/login"

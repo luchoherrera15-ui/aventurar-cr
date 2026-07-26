@@ -3,6 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  IconCalendarLine,
+  IconClock,
+  IconHourglass,
+  IconStopwatch,
+  IconTagLine,
+  IconUnlock,
+  IconWarning,
+} from "@/components/icons";
+import {
   cancelarReservaTemporal,
   completarReservaTemporal,
   crearReservaTemporal,
@@ -409,14 +418,14 @@ export default function BookingCalendar({
                   key={p.id}
                   className="rounded-full border border-aventurea-orange/40 bg-aventurea-orange/15 px-3.5 py-1.5 text-[12.5px] font-bold text-aventurea-orange-dark"
                 >
-                  🏷 {p.etiqueta}
+                  <IconTagLine className="h-3.5 w-3.5" /> {p.etiqueta}
                 </span>
               ))}
           </div>
         )}
 
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-surface p-4">
-          <span className="text-xl leading-none">🕐</span>
+          <span className="text-aventurea-ink-soft"><IconClock className="h-5 w-5" /></span>
           <p className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
             El rancho se alquila en bloques de <strong className="text-aventurea-ink">6 horas</strong>,
             a elegir entre <strong className="text-aventurea-ink">mañana y tarde</strong> o{" "}
@@ -452,7 +461,7 @@ export default function BookingCalendar({
               {DOW.map((d, i) => (
                 <div
                   key={i}
-                  className="pb-1 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-400"
+                  className="pb-1 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500"
                 >
                   {d}
                 </div>
@@ -473,11 +482,11 @@ export default function BookingCalendar({
                 let badge: number | null = null;
 
                 if (isPast) {
-                  cls += " text-zinc-700 cursor-default";
+                  cls += " text-zinc-300 cursor-default";
                 } else if (info?.confirmada) {
-                  cls += " bg-red-950/40 border border-red-500/50 text-red-400 font-bold line-through cursor-not-allowed";
+                  cls += " bg-red-50 border border-red-300 text-red-700 font-bold line-through cursor-not-allowed";
                 } else if (isHeldByOther) {
-                  cls += " bg-blue-500/10 border border-blue-500/25 text-blue-300/70 cursor-not-allowed";
+                  cls += " bg-blue-500/10 border border-blue-500/25 text-blue-700/60 cursor-not-allowed";
                 } else {
                   cls += " bg-aventurea-cream-2 border border-aventurea-line text-aventurea-ink-soft cursor-pointer hover:border-aventurea-orange hover:text-aventurea-orange";
                   if (info && info.pendientes > 0) {
@@ -519,7 +528,7 @@ export default function BookingCalendar({
                 En aprobación
               </span>
               <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-[3px] border border-red-500/50 bg-red-950/40" />
+                <span className="h-2.5 w-2.5 rounded-[3px] border border-red-300 bg-red-50" />
                 Reservada
               </span>
             </div>
@@ -530,8 +539,8 @@ export default function BookingCalendar({
           <div className="rounded-[18px] border border-aventurea-line bg-aventurea-surface p-6 shadow-sm">
             {!selectedDate && (
               <div className="py-7 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-aventurea-orange/15 text-2xl">
-                  📅
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-aventurea-orange/15 text-aventurea-orange">
+                  <IconCalendarLine className="h-6 w-6" />
                 </div>
                 <h3 className="mt-4 text-[17px] font-bold text-aventurea-ink">
                   Seleccioná una fecha
@@ -559,7 +568,7 @@ export default function BookingCalendar({
                 </p>
                 <button
                   onClick={limpiarSeleccion}
-                  className="mt-4 rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
                 >
                   Intentar de nuevo
                 </button>
@@ -568,8 +577,8 @@ export default function BookingCalendar({
 
             {selectedDate && holdVencido && !confirmado && (
               <div className="py-7 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/15 text-2xl">
-                  ⏳
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-700">
+                  <IconHourglass className="h-6 w-6" />
                 </div>
                 <h3 className="mt-4 text-[17px] font-bold text-aventurea-ink">
                   Se venció el tiempo
@@ -581,7 +590,7 @@ export default function BookingCalendar({
                 </p>
                 <button
                   onClick={limpiarSeleccion}
-                  className="mt-4 rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
                 >
                   Elegir una fecha
                 </button>
@@ -604,7 +613,7 @@ export default function BookingCalendar({
                 </p>
                 <button
                   onClick={limpiarSeleccion}
-                  className="mt-4 rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
                 >
                   Hacer otra reserva
                 </button>
@@ -614,14 +623,14 @@ export default function BookingCalendar({
             {selectedDate && holdId && !holdVencido && !confirmado && !holdCreando && (
               <form onSubmit={enviarSolicitud} className="flex flex-col gap-3.5">
                 <div className="flex items-center justify-between rounded-xl border border-blue-500/40 bg-blue-500/10 px-3.5 py-2.5">
-                  <span className="text-[11.5px] font-bold text-blue-300">
-                    ⏱ Reserva temporal
+                  <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-blue-700">
+                    <IconStopwatch className="h-3.5 w-3.5" /> Reserva temporal
                   </span>
                   <span className="font-mono text-[13.5px] font-bold text-aventurea-ink">
                     {fmtCountdown(secondsLeft)}
                   </span>
                 </div>
-                <p className="-mt-1.5 text-[11px] text-zinc-400">
+                <p className="-mt-1.5 text-[11px] text-zinc-500">
                   Subí el comprobante del depósito antes de que se acabe el
                   tiempo, o la fecha vuelve a quedar disponible.
                 </p>
@@ -687,13 +696,13 @@ export default function BookingCalendar({
                   </span>
                 </div>
                 {esDiciembre && invitadosNum > 0 && (
-                  <p className="-mt-2 text-[11px] text-zinc-400">
+                  <p className="-mt-2 text-[11px] text-zinc-500">
                     Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
                   </p>
                 )}
                 {promoAplicable && cotizacionTotal !== null && (
-                  <p className="-mt-2 text-[11.5px] font-bold text-aventurea-green">
-                    🏷 {promoAplicable.etiqueta} aplicado (-{fmtColones(descuentoPromoMonto)})
+                  <p className="-mt-2 flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-green">
+                    <IconTagLine className="h-3.5 w-3.5" /> {promoAplicable.etiqueta} aplicado (-{fmtColones(descuentoPromoMonto)})
                   </p>
                 )}
 
@@ -726,7 +735,7 @@ export default function BookingCalendar({
                                 {fmtColones(s.precio)}
                               </span>
                               {s.requisito_max_invitados && (
-                                <div className="mt-0.5 text-[11px] text-zinc-400">
+                                <div className="mt-0.5 text-[11px] text-zinc-500">
                                   {eligible
                                     ? `Disponible para grupos de hasta ${s.requisito_max_invitados} personas`
                                     : `No disponible — aplica solo hasta ${s.requisito_max_invitados} personas`}
@@ -760,7 +769,7 @@ export default function BookingCalendar({
                         <button
                           type="button"
                           onClick={quitarCodigo}
-                          className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-400"
+                          className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-700"
                         >
                           Quitar
                         </button>
@@ -785,7 +794,7 @@ export default function BookingCalendar({
                       </p>
                     )}
                     {codigoError && (
-                      <p className="mt-1.5 text-[11.5px] font-bold text-red-400">{codigoError}</p>
+                      <p className="mt-1.5 text-[11.5px] font-bold text-red-700">{codigoError}</p>
                     )}
                   </div>
                 )}
@@ -798,7 +807,7 @@ export default function BookingCalendar({
                       </span>
                       <span className="flex items-baseline gap-1.5">
                         {descuentoTotalMonto > 0 && (
-                          <span className="text-[12px] text-zinc-400 line-through">
+                          <span className="text-[12px] text-zinc-500 line-through">
                             {fmtColones(cotizacionTotal)}
                           </span>
                         )}
@@ -872,13 +881,13 @@ export default function BookingCalendar({
                   </span>
                   <span className="text-lg font-bold text-aventurea-ink">{fmtColones(depositoReserva)}</span>
                 </div>
-                <p className="-mt-2 text-[11px] leading-relaxed text-zinc-400">
+                <p className="-mt-2 text-[11px] leading-relaxed text-zinc-500">
                   Este monto fijo es lo que se paga ahora por SINPE o
                   transferencia para reservar la fecha. El resto de la
                   cotización se coordina para el día del evento.
                 </p>
-                <div className="rounded-[10px] border border-red-500/30 bg-red-950/40 p-3 text-[11.5px] leading-relaxed text-red-400">
-                  ⚠ Si el comprobante muestra un monto <strong>menor a {fmtColones(depositoReserva)}</strong>,
+                <div className="flex items-start gap-1.5 rounded-[10px] border border-red-500/30 bg-red-50 p-3 text-[11.5px] leading-relaxed text-red-700">
+                  <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Si el comprobante muestra un monto <strong>menor a {fmtColones(depositoReserva)}</strong>,
                   la reserva no queda válida y el dinero no se reembolsa.
                 </div>
 
@@ -943,7 +952,7 @@ export default function BookingCalendar({
                 </div>
 
                 {submitError && (
-                  <p className="rounded-lg bg-red-950/40 p-2.5 text-[13px] text-red-400">
+                  <p className="rounded-lg bg-red-50 p-2.5 text-[13px] text-red-700">
                     {submitError}
                   </p>
                 )}
@@ -951,14 +960,14 @@ export default function BookingCalendar({
                 <button
                   type="submit"
                   disabled={submitting || !puedeEnviar}
-                  className="rounded-full bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+                  className="rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
                 >
                   {submitting ? "Enviando..." : "Confirmar mi reserva"}
                 </button>
                 <button
                   type="button"
                   onClick={limpiarSeleccion}
-                  className="text-center text-xs text-zinc-400 underline hover:text-aventurea-ink"
+                  className="text-center text-xs text-zinc-500 underline hover:text-aventurea-ink"
                 >
                   ← Elegir otra fecha
                 </button>
@@ -977,8 +986,8 @@ export default function BookingCalendar({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 text-center"
           >
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-2xl">
-              🔓
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-700">
+              <IconUnlock className="h-6 w-6" />
             </div>
             <h3 className="mt-3.5 text-base font-bold text-aventurea-ink">
               ¿Cambiar de fecha?
@@ -994,13 +1003,13 @@ export default function BookingCalendar({
             <div className="mt-5 flex gap-2.5">
               <button
                 onClick={() => setSwitchTarget(null)}
-                className="flex-1 rounded-full border border-aventurea-line py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange/40"
+                className="flex-1 rounded-xl border border-aventurea-line py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange/40"
               >
                 Mantener mi fecha
               </button>
               <button
                 onClick={confirmarCambioFecha}
-                className="flex-1 rounded-full bg-aventurea-orange py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
+                className="flex-1 rounded-xl bg-aventurea-orange py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
               >
                 Sí, cambiar
               </button>
@@ -1025,7 +1034,7 @@ export default function BookingCalendar({
               <button
                 onClick={() => setMostrarTerminos(false)}
                 aria-label="Cerrar"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink hover:border-aventurea-orange"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink hover:border-aventurea-orange"
               >
                 ×
               </button>
@@ -1040,7 +1049,7 @@ export default function BookingCalendar({
             </ol>
             <button
               onClick={() => setMostrarTerminos(false)}
-              className="mt-5 w-full rounded-full bg-aventurea-orange py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+              className="mt-5 w-full rounded-xl bg-aventurea-orange py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
             >
               Entendido
             </button>

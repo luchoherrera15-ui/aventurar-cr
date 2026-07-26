@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logoutDueno } from "./actions";
+import { IconEdit } from "@/components/icons";
 import { CATEGORIA_GRADIENTE, CATEGORIA_ICONO, CATEGORIA_LABEL, type Rancho } from "./types";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
@@ -13,7 +14,7 @@ const ESTADO_LABEL: Record<Rancho["estado"], string> = {
 const ESTADO_BADGE: Record<Rancho["estado"], string> = {
   pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
   aprobado: "bg-aventurea-green/15 text-aventurea-green",
-  rechazado: "bg-red-950/40 text-red-400",
+  rechazado: "bg-red-50 text-red-700",
 };
 
 function fmtColones(n: number | null) {
@@ -55,7 +56,7 @@ export default async function MiRanchoPage() {
         <form action={logoutDueno}>
           <button
             type="submit"
-            className="rounded-full border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+            className="rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
           >
             Cerrar sesión
           </button>
@@ -72,7 +73,7 @@ export default async function MiRanchoPage() {
           }
         >
           {!rancho.foto_url && (
-            <span className="text-5xl opacity-30">
+            <span className="opacity-30 [&_svg]:h-14 [&_svg]:w-14">
               {CATEGORIA_ICONO[rancho.categoria]}
             </span>
           )}
@@ -89,7 +90,7 @@ export default async function MiRanchoPage() {
             {CATEGORIA_LABEL[rancho.categoria]}
           </span>
           {ubicacion && (
-            <p className="mt-1 text-[12.5px] text-zinc-400">{ubicacion}</p>
+            <p className="mt-1 text-[12.5px] text-zinc-500">{ubicacion}</p>
           )}
 
           {rancho.estado === "pendiente" && (
@@ -99,7 +100,7 @@ export default async function MiRanchoPage() {
             </p>
           )}
           {rancho.estado === "rechazado" && (
-            <p className="mt-3 rounded-[10px] bg-red-950/40 p-3 text-[13px] leading-relaxed text-red-400">
+            <p className="mt-3 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
               Tu publicación no fue aprobada todavía. Escribinos si querés más
               información.
             </p>
@@ -113,7 +114,7 @@ export default async function MiRanchoPage() {
 
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                 Provincia
               </div>
               <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
@@ -121,7 +122,7 @@ export default async function MiRanchoPage() {
               </div>
             </div>
             <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                 Capacidad
               </div>
               <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
@@ -129,7 +130,7 @@ export default async function MiRanchoPage() {
               </div>
             </div>
             <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                 Precio desde
               </div>
               <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
@@ -137,7 +138,7 @@ export default async function MiRanchoPage() {
               </div>
             </div>
             <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                 WhatsApp
               </div>
               <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
@@ -149,21 +150,21 @@ export default async function MiRanchoPage() {
           <div className="mt-6 flex flex-wrap gap-2.5 border-t border-aventurea-line pt-5">
             <Link
               href="/mi-rancho/editar"
-              className="rounded-full bg-aventurea-orange px-4 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
+              className="flex items-center gap-1.5 rounded-xl bg-aventurea-orange px-4 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
             >
-              ✎ Editar mi publicación
+              <IconEdit className="h-3.5 w-3.5" /> Editar mi publicación
             </Link>
             {rancho.categoria === "salon" && (
               <>
                 <Link
                   href="/mi-rancho/precios"
-                  className="rounded-full border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                  className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
                 >
                   Precios y servicios
                 </Link>
                 <Link
                   href="/mi-rancho/reservas"
-                  className="rounded-full border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                  className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
                 >
                   Mis reservas
                 </Link>

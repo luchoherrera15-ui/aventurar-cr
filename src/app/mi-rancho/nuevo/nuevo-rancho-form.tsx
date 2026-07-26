@@ -143,7 +143,7 @@ export default function NuevoRanchoForm() {
       </div>
 
       {state?.error && (
-        <p className="rounded-lg bg-red-950/40 p-2.5 text-[13px] text-red-400">
+        <p className="rounded-lg bg-red-50 p-2.5 text-[13px] text-red-700">
           {state.error}
         </p>
       )}
@@ -151,7 +151,7 @@ export default function NuevoRanchoForm() {
       <button
         type="submit"
         disabled={pending}
-        className="mt-1.5 rounded-full bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+        className="mt-1.5 rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
       >
         {pending ? "Enviando..." : "Enviar para revisión"}
       </button>

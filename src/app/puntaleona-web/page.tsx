@@ -22,7 +22,7 @@ export default function PuntaleonaWebPage() {
       </p>
       <Link
         href="/"
-        className="relative mt-6 rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+        className="relative mt-6 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
       >
         ← Volver al inicio
       </Link>

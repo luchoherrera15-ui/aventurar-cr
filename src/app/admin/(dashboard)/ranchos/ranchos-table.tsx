@@ -15,7 +15,7 @@ const ESTADO_LABEL: Record<EstadoRancho, string> = {
 const ESTADO_BADGE: Record<EstadoRancho, string> = {
   pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
   aprobado: "bg-aventurea-green/15 text-aventurea-green",
-  rechazado: "bg-red-950/40 text-red-400",
+  rechazado: "bg-red-50 text-red-700",
 };
 
 function fmtColones(n: number | null) {
@@ -99,7 +99,7 @@ export default function RanchosTable({
       </div>
 
       {error && (
-        <p className="mb-4 rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
+        <p className="mb-4 rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
           {error}
         </p>
       )}
@@ -132,7 +132,7 @@ export default function RanchosTable({
               <tr>
                 <td
                   colSpan={8}
-                  className="px-4 py-10 text-center text-[13.5px] text-zinc-400"
+                  className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
                   No hay salones que coincidan con la búsqueda.
                 </td>
@@ -146,7 +146,7 @@ export default function RanchosTable({
                 <td className="px-4 py-3.5">
                   <div className="font-bold text-aventurea-ink">{r.nombre}</div>
                   {r.contacto_whatsapp && (
-                    <div className="text-xs text-zinc-400">
+                    <div className="text-xs text-zinc-500">
                       {r.contacto_whatsapp}
                     </div>
                   )}
@@ -189,7 +189,7 @@ export default function RanchosTable({
                       <button
                         disabled={pending}
                         onClick={() => cambiarEstado(r.id, "rechazado")}
-                        className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-400 hover:border-red-400 disabled:opacity-50"
+                        className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-700 hover:border-red-400 disabled:opacity-50"
                       >
                         Rechazar
                       </button>
@@ -197,7 +197,7 @@ export default function RanchosTable({
                     <button
                       disabled={pending}
                       onClick={() => eliminar(r.id, r.nombre)}
-                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-red-400 hover:text-red-700 disabled:opacity-50"
                     >
                       Borrar
                     </button>

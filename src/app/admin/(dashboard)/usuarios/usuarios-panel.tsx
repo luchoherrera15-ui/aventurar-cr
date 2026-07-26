@@ -91,7 +91,7 @@ export default function UsuariosPanel({
             <button
               type="submit"
               disabled={pending}
-              className="h-[42px] rounded-full bg-aventurea-orange px-5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+              className="h-[42px] rounded-xl bg-aventurea-orange px-5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
             >
               {pending ? "Creando..." : "Crear cuenta"}
             </button>
@@ -99,7 +99,7 @@ export default function UsuariosPanel({
         )}
 
         {state?.error && (
-          <p className="mt-3 rounded-lg bg-red-950/40 p-2.5 text-[13px] text-red-400">
+          <p className="mt-3 rounded-lg bg-red-50 p-2.5 text-[13px] text-red-700">
             {state.error}
           </p>
         )}
@@ -111,7 +111,7 @@ export default function UsuariosPanel({
       </section>
 
       {rolError && (
-        <p className="rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
+        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
           {rolError}
         </p>
       )}
@@ -133,7 +133,7 @@ export default function UsuariosPanel({
           <tbody>
             {perfiles.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-[13.5px] text-zinc-400">
+                <td colSpan={5} className="px-4 py-10 text-center text-[13.5px] text-zinc-500">
                   Todavía no hay cuentas registradas.
                 </td>
               </tr>
@@ -170,7 +170,7 @@ export default function UsuariosPanel({
                 </td>
                 <td className="px-4 py-3.5">
                   {p.id === miId ? (
-                    <span className="text-[12px] text-zinc-400">
+                    <span className="text-[12px] text-zinc-500">
                       No podés cambiar tu propio rol
                     </span>
                   ) : (

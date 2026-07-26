@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { IconSparkles } from "@/components/icons";
 import {
   CATEGORIAS,
   CATEGORIA_GRADIENTE,
@@ -74,7 +75,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
           activo={tab === "todos"}
           onClick={() => setTab("todos")}
           label={`Todos (${ranchos.length})`}
-          icono="✨"
+          icono={<IconSparkles />}
         />
         {CATEGORIAS.map((c) => (
           <TabButton
@@ -215,7 +216,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         </div>
         <Link
           href="/mi-rancho/registro"
-          className="rounded-full bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
         >
           Publicar mi espacio
         </Link>
@@ -238,19 +239,19 @@ function TabButton({
   activo: boolean;
   onClick: () => void;
   label: string;
-  icono: string;
+  icono: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2.5 text-[13px] font-bold transition-colors ${
+      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-[13px] font-bold transition-colors ${
         activo
           ? "bg-aventurea-orange text-white"
           : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
       }`}
     >
-      <span aria-hidden>{icono}</span>
+      <span aria-hidden className="h-3.5 w-3.5 [&_svg]:h-3.5 [&_svg]:w-3.5">{icono}</span>
       {label}
     </button>
   );
@@ -288,7 +289,7 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
   return (
     <Link
       href={href}
-      className="group relative flex h-[300px] flex-col overflow-hidden rounded-[16px] shadow-sm ring-1 ring-white/10 transition-all hover:-translate-y-0.5 hover:shadow-xl"
+      className="group relative flex h-[300px] flex-col overflow-hidden rounded-[16px] shadow-sm ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-xl"
     >
       <div
         className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
@@ -299,7 +300,7 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
         }
       />
       {!rancho.foto_url && (
-        <span className="absolute inset-0 flex items-center justify-center text-6xl opacity-25">
+        <span className="absolute inset-0 flex items-center justify-center opacity-25 [&_svg]:h-16 [&_svg]:w-16">
           {CATEGORIA_ICONO[rancho.categoria]}
         </span>
       )}
@@ -336,7 +337,7 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
         </div>
 
         <span
-          className={`mt-3 flex items-center justify-center gap-1.5 rounded-full py-2.5 text-[12.5px] font-bold transition-colors ${
+          className={`mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12.5px] font-bold transition-colors ${
             esAventurea || puedeReservar
               ? "bg-aventurea-orange text-white group-hover:bg-aventurea-orange-dark"
               : "bg-white/90 text-aventurea-ink group-hover:bg-white"

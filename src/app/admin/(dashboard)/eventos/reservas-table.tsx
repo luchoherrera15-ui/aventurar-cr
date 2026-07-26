@@ -133,7 +133,7 @@ export default function ReservasTable({
       </div>
 
       {actionError && (
-        <p className="mb-4 rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
+        <p className="mb-4 rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
           {actionError}
         </p>
       )}
@@ -167,7 +167,7 @@ export default function ReservasTable({
               <tr>
                 <td
                   colSpan={nombrePorRancho ? 9 : 8}
-                  className="px-4 py-10 text-center text-[13.5px] text-zinc-400"
+                  className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
                   No hay reservas que coincidan con la búsqueda.
                 </td>
@@ -183,7 +183,7 @@ export default function ReservasTable({
                 )}
                 <td className="px-4 py-3.5">
                   <div className="font-bold text-aventurea-ink">{r.nombre}</div>
-                  <div className="text-xs text-zinc-400">{r.contacto}</div>
+                  <div className="text-xs text-zinc-500">{r.contacto}</div>
                 </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{r.tipo_evento}</td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">
@@ -208,7 +208,7 @@ export default function ReservasTable({
                         Por validar · {fmtMoney(r.deposito_monto)}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-zinc-400">
+                      <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-zinc-500">
                         Sin comprobante
                       </span>
                     )}
@@ -248,7 +248,7 @@ export default function ReservasTable({
                         <button
                           disabled={pending}
                           onClick={() => cambiarEstado(r.id, "rechazada")}
-                          className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-400 hover:border-red-400 disabled:opacity-50"
+                          className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-700 hover:border-red-400 disabled:opacity-50"
                         >
                           Rechazar
                         </button>
@@ -270,7 +270,7 @@ export default function ReservasTable({
           <button
             onClick={() => setComprobanteUrl(null)}
             aria-label="Cerrar"
-            className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xl text-white hover:bg-white/20"
+            className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-lg border border-white/30 bg-white/10 text-xl text-white hover:bg-white/20"
           >
             ×
           </button>

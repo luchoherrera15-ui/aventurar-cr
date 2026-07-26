@@ -24,7 +24,7 @@ export default async function RanchosEventosPage() {
             <span className="whitespace-nowrap text-[15px] font-bold text-aventurea-ink sm:text-base">
               AVENTUREA CR
             </span>
-            <span className="hidden text-zinc-400 sm:inline">/</span>
+            <span className="hidden text-zinc-500 sm:inline">/</span>
             <span className="hidden text-[13px] font-light text-aventurea-ink-soft sm:inline">
               Eventos
             </span>
@@ -32,13 +32,13 @@ export default async function RanchosEventosPage() {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <Link
               href="/mi-rancho/login"
-              className="whitespace-nowrap rounded-full px-2.5 py-2 text-[12px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange sm:px-4 sm:text-[12.5px]"
+              className="whitespace-nowrap rounded-lg px-2.5 py-2 text-[12px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange sm:px-4 sm:text-[12.5px]"
             >
               Iniciar sesión
             </Link>
             <Link
               href="/mi-rancho/registro"
-              className="whitespace-nowrap rounded-full border border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange sm:px-4 sm:text-[12.5px]"
+              className="whitespace-nowrap rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange sm:px-4 sm:text-[12.5px]"
             >
               Publicá tu salón
             </Link>
@@ -62,7 +62,7 @@ export default async function RanchosEventosPage() {
       </section>
 
       <footer className="border-t border-aventurea-line py-9 text-center">
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-zinc-500">
           AVENTUREA CR — Costa Rica ·{" "}
           <Link href="/" className="font-bold text-aventurea-orange">
             Volver al inicio

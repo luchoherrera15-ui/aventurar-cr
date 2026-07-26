@@ -46,7 +46,7 @@ export default function NuevoRanchoAdminForm({
             type="button"
             onClick={() => setModoDueno("nuevo")}
             disabled={!puedeCrearCuentas}
-            className={`rounded-full px-4 py-2 text-[12.5px] font-bold transition-colors disabled:opacity-40 ${
+            className={`rounded-lg px-4 py-2 text-[12.5px] font-bold transition-colors disabled:opacity-40 ${
               modoDueno === "nuevo"
                 ? "bg-aventurea-orange text-white"
                 : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
@@ -57,7 +57,7 @@ export default function NuevoRanchoAdminForm({
           <button
             type="button"
             onClick={() => setModoDueno("existente")}
-            className={`rounded-full px-4 py-2 text-[12.5px] font-bold transition-colors ${
+            className={`rounded-lg px-4 py-2 text-[12.5px] font-bold transition-colors ${
               modoDueno === "existente"
                 ? "bg-aventurea-orange text-white"
                 : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
@@ -217,7 +217,7 @@ export default function NuevoRanchoAdminForm({
       </section>
 
       {state?.error && (
-        <p className="rounded-xl bg-red-950/40 p-3 text-[13px] text-red-400">
+        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">
           {state.error}
         </p>
       )}
@@ -226,7 +226,7 @@ export default function NuevoRanchoAdminForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-full bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : "Crear salón"}
         </button>
