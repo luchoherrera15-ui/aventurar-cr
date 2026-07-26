@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { borrarRancho, setEstadoRancho } from "./actions";
-import type { EstadoRancho, Rancho } from "@/app/mi-rancho/types";
+import { CATEGORIA_LABEL, type EstadoRancho, type Rancho } from "@/app/mi-rancho/types";
 
 export type RanchoConDueno = Rancho & { duenoEmail: string | null };
 
@@ -109,7 +109,8 @@ export default function RanchosTable({
           <thead>
             <tr className="bg-aventurea-cream-2/60">
               {[
-                "Salón / Rancho",
+                "Nombre",
+                "Categoría",
                 "Dueño",
                 "Ubicación",
                 "Capacidad",
@@ -130,7 +131,7 @@ export default function RanchosTable({
             {list.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
                   No hay salones que coincidan con la búsqueda.
@@ -149,6 +150,9 @@ export default function RanchosTable({
                       {r.contacto_whatsapp}
                     </div>
                   )}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
+                  {CATEGORIA_LABEL[r.categoria] ?? r.categoria}
                 </td>
                 <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
                   {r.duenoEmail ?? "—"}

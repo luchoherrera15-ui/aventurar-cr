@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
-import { PROVINCIAS } from "@/app/mi-rancho/types";
+import { CATEGORIAS, PROVINCIAS } from "@/app/mi-rancho/types";
 
 export type NuevoRanchoAdminState = { error?: string } | undefined;
 
@@ -53,10 +53,15 @@ export async function crearRanchoComoAdmin(
     return { error: "Elegí un dueño para el salón o creá una cuenta nueva." };
   }
 
+  const categoria = String(formData.get("categoria") || "");
   const nombre = String(formData.get("nombre") || "").trim();
   const provincia = String(formData.get("provincia") || "");
-  if (!nombre || !(PROVINCIAS as readonly string[]).includes(provincia)) {
-    return { error: "Completá al menos el nombre y la provincia del salón." };
+  if (
+    !nombre ||
+    !(CATEGORIAS as readonly string[]).includes(categoria) ||
+    !(PROVINCIAS as readonly string[]).includes(provincia)
+  ) {
+    return { error: "Completá al menos la categoría, el nombre y la provincia." };
   }
 
   const num = (campo: string) => {
@@ -66,6 +71,7 @@ export async function crearRanchoComoAdmin(
 
   const { error } = await supabase.from("ranchos").insert({
     owner_id: ownerId,
+    categoria,
     nombre,
     descripcion: String(formData.get("descripcion") || "").trim() || null,
     provincia,

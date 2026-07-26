@@ -23,9 +23,9 @@ const cards: ExperienceCard[] = [
   {
     href: "/ranchos-eventos",
     eyebrow: "Directorio nacional",
-    title: "Salón para Eventos",
+    title: "Eventos",
     description:
-      "Explorá salones y ranchos para bodas, cumpleaños y eventos corporativos en toda Costa Rica.",
+      "Salones, mobiliario, DJs, animación y más para tu evento, en toda Costa Rica.",
     background:
       "linear-gradient(160deg, #201512 0%, #2e1f14 45%, #1c1712 100%)",
   },

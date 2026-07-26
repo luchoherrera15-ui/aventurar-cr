@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { PROVINCIAS } from "../types";
+import { CATEGORIAS, PROVINCIAS } from "../types";
 
 export type NuevoRanchoState = { error?: string } | undefined;
 
@@ -16,6 +16,7 @@ export async function crearRancho(
   } = await supabase.auth.getUser();
   if (!user) redirect("/mi-rancho/login");
 
+  const categoria = String(formData.get("categoria") || "");
   const nombre = String(formData.get("nombre") || "").trim();
   const descripcion = String(formData.get("descripcion") || "").trim();
   const provincia = String(formData.get("provincia") || "");
@@ -25,12 +26,17 @@ export async function crearRancho(
   const precioDesdeRaw = String(formData.get("precio_desde") || "");
   const contacto = String(formData.get("contacto_whatsapp") || "").trim();
 
-  if (!nombre || !(PROVINCIAS as readonly string[]).includes(provincia)) {
-    return { error: "Completá al menos el nombre y la provincia." };
+  if (
+    !nombre ||
+    !(CATEGORIAS as readonly string[]).includes(categoria) ||
+    !(PROVINCIAS as readonly string[]).includes(provincia)
+  ) {
+    return { error: "Completá al menos el tipo de servicio, el nombre y la provincia." };
   }
 
   const { error } = await supabase.from("ranchos").insert({
     owner_id: user.id,
+    categoria,
     nombre,
     descripcion: descripcion || null,
     provincia,

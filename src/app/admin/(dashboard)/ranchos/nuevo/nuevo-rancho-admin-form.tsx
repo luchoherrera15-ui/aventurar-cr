@@ -5,7 +5,7 @@ import {
   crearRanchoComoAdmin,
   type NuevoRanchoAdminState,
 } from "./actions";
-import { PROVINCIAS } from "@/app/mi-rancho/types";
+import { CATEGORIAS, CATEGORIA_LABEL, PROVINCIAS } from "@/app/mi-rancho/types";
 
 export type DuenoOption = { id: string; email: string | null };
 
@@ -131,7 +131,18 @@ export default function NuevoRanchoAdminForm({
 
         <div className="mt-4 flex flex-col gap-3.5">
           <div>
-            <label className={labelCls}>Nombre del salón o rancho</label>
+            <label className={labelCls}>Tipo de servicio</label>
+            <select name="categoria" required defaultValue="salon" className={inputCls}>
+              {CATEGORIAS.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORIA_LABEL[c]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Nombre del salón o negocio</label>
             <input
               type="text"
               name="nombre"

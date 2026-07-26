@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logoutDueno } from "./actions";
-import type { Rancho } from "./types";
+import { CATEGORIA_LABEL, type Rancho } from "./types";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -60,7 +60,12 @@ export default async function MiRanchoPage() {
 
       <div className="rounded-[18px] border border-aventurea-line bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-aventurea-ink">{rancho.nombre}</h2>
+          <div>
+            <h2 className="text-lg font-bold text-aventurea-ink">{rancho.nombre}</h2>
+            <span className="text-[12px] font-bold uppercase tracking-wide text-aventurea-orange">
+              {CATEGORIA_LABEL[rancho.categoria]}
+            </span>
+          </div>
           <span
             className={`inline-flex items-center rounded-full px-3 py-1 text-[11.5px] font-bold ${ESTADO_BADGE[rancho.estado]}`}
           >

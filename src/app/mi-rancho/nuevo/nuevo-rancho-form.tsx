@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { crearRancho, type NuevoRanchoState } from "./actions";
-import { PROVINCIAS } from "../types";
+import { CATEGORIAS, CATEGORIA_LABEL, PROVINCIAS, type Categoria } from "../types";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
@@ -14,6 +14,8 @@ export default function NuevoRanchoForm() {
     NuevoRanchoState,
     FormData
   >(crearRancho, undefined);
+  const [categoria, setCategoria] = useState<Categoria | "">("");
+  const esSalon = categoria === "salon";
 
   return (
     <form
@@ -21,12 +23,32 @@ export default function NuevoRanchoForm() {
       className="mt-6 flex flex-col gap-3.5 rounded-[18px] border border-aventurea-line bg-white p-6"
     >
       <div>
-        <label className={labelCls}>Nombre del salón o rancho</label>
+        <label className={labelCls}>¿Qué tipo de servicio ofrecés?</label>
+        <select
+          name="categoria"
+          required
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value as Categoria)}
+          className={inputCls}
+        >
+          <option value="">Selecciona una opción</option>
+          {CATEGORIAS.map((c) => (
+            <option key={c} value={c}>
+              {CATEGORIA_LABEL[c]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className={labelCls}>
+          {esSalon ? "Nombre del salón o rancho" : "Nombre de tu negocio"}
+        </label>
         <input
           type="text"
           name="nombre"
           required
-          placeholder="Ej. Rancho Los Almendros"
+          placeholder={esSalon ? "Ej. Rancho Los Almendros" : "Ej. DJ Mauricio Eventos"}
           className={inputCls}
         />
       </div>
@@ -35,7 +57,7 @@ export default function NuevoRanchoForm() {
         <label className={labelCls}>Descripción</label>
         <textarea
           name="descripcion"
-          placeholder="Contanos qué incluye tu rancho y qué lo hace especial"
+          placeholder="Contanos qué ofrecés y qué te hace especial"
           className={`min-h-[80px] ${inputCls}`}
         />
       </div>
@@ -63,28 +85,30 @@ export default function NuevoRanchoForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className={labelCls}>Capacidad mínima</label>
-          <input
-            type="number"
-            min={1}
-            name="capacidad_min"
-            placeholder="Ej. 20"
-            className={inputCls}
-          />
+      {esSalon && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Capacidad mínima</label>
+            <input
+              type="number"
+              min={1}
+              name="capacidad_min"
+              placeholder="Ej. 20"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Capacidad máxima</label>
+            <input
+              type="number"
+              min={1}
+              name="capacidad_max"
+              placeholder="Ej. 150"
+              className={inputCls}
+            />
+          </div>
         </div>
-        <div>
-          <label className={labelCls}>Capacidad máxima</label>
-          <input
-            type="number"
-            min={1}
-            name="capacidad_max"
-            placeholder="Ej. 150"
-            className={inputCls}
-          />
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>

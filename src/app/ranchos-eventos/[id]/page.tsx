@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Rancho } from "../../mi-rancho/types";
+import { CATEGORIA_ICONO, CATEGORIA_LABEL, type Rancho } from "../../mi-rancho/types";
 import { NOMBRE_RANCHO_AVENTUREA } from "../constants";
 
 function fmtColones(n: number | null) {
@@ -50,7 +50,7 @@ export default async function RanchoDetallePage({
             href="/ranchos-eventos"
             className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
           >
-            ← Ver todos los ranchos
+            ← Ver todos los espacios
           </Link>
         </div>
       </header>
@@ -58,13 +58,16 @@ export default async function RanchoDetallePage({
       <section className="py-9 pb-16">
         <div className="mx-auto max-w-[720px] px-7">
           <div className="relative flex h-[180px] items-center justify-center overflow-hidden rounded-[18px] border border-aventurea-line bg-gradient-to-br from-zinc-800 to-zinc-900">
-            <span className="text-5xl opacity-25">🏡</span>
+            <span className="text-5xl opacity-25">{CATEGORIA_ICONO[rancho.categoria]}</span>
             {rancho.provincia && (
               <span className="absolute left-4 top-4 rounded-full bg-black/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white/80">
                 {rancho.provincia}
                 {rancho.canton ? ` · ${rancho.canton}` : ""}
               </span>
             )}
+            <span className="absolute right-4 top-4 rounded-full bg-black/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white/80">
+              {CATEGORIA_LABEL[rancho.categoria]}
+            </span>
           </div>
 
           <h1 className="mt-5 text-[26px] font-bold text-aventurea-ink">
@@ -100,7 +103,7 @@ export default async function RanchoDetallePage({
 
           <div className="mt-6 rounded-[16px] border border-aventurea-line bg-white p-5">
             <p className="text-[13px] leading-relaxed text-aventurea-ink-soft">
-              Este rancho todavía no tiene reservas en línea — escribile
+              Este espacio todavía no tiene reservas en línea — escribile
               directamente para consultar disponibilidad.
             </p>
             {whatsappHref ? (
