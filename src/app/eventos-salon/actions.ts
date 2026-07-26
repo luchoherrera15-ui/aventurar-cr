@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
 import type { HorarioBloque } from "./types";
 
 const MINUTOS_HOLD = 10;
@@ -19,9 +20,23 @@ export async function crearReservaTemporal(fecha: string) {
     .eq("estado", "temporal")
     .lt("expira_en", nowIso);
 
+  // La reserva queda asociada a su rancho, para poder llevar el balance
+  // de comisiones por salón desde el panel admin.
+  const { data: rancho } = await supabase
+    .from("ranchos")
+    .select("id")
+    .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("reservas")
-    .insert({ fecha, estado: "temporal", expira_en: expiraEn, origen: "web" })
+    .insert({
+      fecha,
+      estado: "temporal",
+      expira_en: expiraEn,
+      origen: "web",
+      rancho_id: rancho?.id ?? null,
+    })
     .select("id, expira_en")
     .single();
 

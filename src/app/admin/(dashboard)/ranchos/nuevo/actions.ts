@@ -1,0 +1,86 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/auth";
+import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
+import { PROVINCIAS } from "@/app/mi-rancho/types";
+
+export type NuevoRanchoAdminState = { error?: string } | undefined;
+
+export async function crearRanchoComoAdmin(
+  _prevState: NuevoRanchoAdminState,
+  formData: FormData,
+): Promise<NuevoRanchoAdminState> {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  const modoDueno = String(formData.get("modo_dueno") || "existente");
+  let ownerId = String(formData.get("owner_id") || "");
+
+  // Opción A: crear la cuenta del dueño en el momento.
+  if (modoDueno === "nuevo") {
+    const email = String(formData.get("nuevo_email") || "").trim();
+    const password = String(formData.get("nuevo_password") || "");
+    const nombreDueno = String(formData.get("nuevo_nombre") || "").trim();
+
+    if (!email || password.length < 6) {
+      return {
+        error:
+          "Para crear la cuenta hacen falta un correo y una contraseña de al menos 6 caracteres.",
+      };
+    }
+
+    const admin = createAdminClient();
+    if (!admin) return { error: FALTA_SERVICE_KEY };
+
+    const { data: creado, error: errCuenta } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { nombre: nombreDueno },
+    });
+
+    if (errCuenta || !creado.user) {
+      return {
+        error: "No se pudo crear la cuenta: " + (errCuenta?.message ?? ""),
+      };
+    }
+    ownerId = creado.user.id;
+  }
+
+  if (!ownerId) {
+    return { error: "Elegí un dueño para el salón o creá una cuenta nueva." };
+  }
+
+  const nombre = String(formData.get("nombre") || "").trim();
+  const provincia = String(formData.get("provincia") || "");
+  if (!nombre || !(PROVINCIAS as readonly string[]).includes(provincia)) {
+    return { error: "Completá al menos el nombre y la provincia del salón." };
+  }
+
+  const num = (campo: string) => {
+    const v = String(formData.get(campo) || "");
+    return v ? Number(v) : null;
+  };
+
+  const { error } = await supabase.from("ranchos").insert({
+    owner_id: ownerId,
+    nombre,
+    descripcion: String(formData.get("descripcion") || "").trim() || null,
+    provincia,
+    canton: String(formData.get("canton") || "").trim() || null,
+    capacidad_min: num("capacidad_min"),
+    capacidad_max: num("capacidad_max"),
+    precio_desde: num("precio_desde"),
+    contacto_whatsapp:
+      String(formData.get("contacto_whatsapp") || "").trim() || null,
+    estado: String(formData.get("estado") || "aprobado"),
+  });
+
+  if (error) return { error: "No se pudo guardar el salón: " + error.message };
+
+  revalidatePath("/admin/ranchos");
+  revalidatePath("/ranchos-eventos");
+  redirect("/admin/ranchos");
+}
