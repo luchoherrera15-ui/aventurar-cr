@@ -184,6 +184,9 @@ export default function ReservasTable({
                 <td className="px-4 py-3.5">
                   <div className="font-bold text-aventurea-ink">{r.nombre}</div>
                   <div className="text-xs text-zinc-500">{r.contacto}</div>
+                  {r.cedula && (
+                    <div className="text-xs text-zinc-500">Cédula: {r.cedula}</div>
+                  )}
                 </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{r.tipo_evento}</td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">

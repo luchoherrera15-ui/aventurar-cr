@@ -32,7 +32,10 @@ const TERMINOS = [
   "Subir el comprobante no confirma la fecha por sí solo — la reserva queda en aprobación hasta que el anfitrión la revise y confirme.",
   "El alquiler es por un bloque de 6 horas (mañana y tarde, o tarde y noche), con hora máxima de salida a las 12:00 medianoche.",
   "Cualquier daño a las instalaciones o al mobiliario durante el evento es responsabilidad de quien hizo la reserva.",
+  "El número de cédula se pide únicamente para identificar a quien reserva en caso de daños o problemas durante el evento (Ley 8968 de protección de datos). Solo lo ve el anfitrión del lugar reservado y el equipo de Aventurea CR — nunca se hace público.",
 ];
+
+const CEDULA_REGEX = /^[0-9-]{7,14}$/;
 
 const HORARIOS: { value: HorarioBloque; label: string }[] = [
   { value: "manana_tarde", label: "Mañana y tarde (aprox. 7:00 a.m. – 1:00 p.m.)" },
@@ -101,6 +104,7 @@ export default function BookingCalendar({
   const [addons, setAddons] = useState<Record<string, boolean>>({});
   const [nombre, setNombre] = useState("");
   const [contacto, setContacto] = useState("");
+  const [cedula, setCedula] = useState("");
   const [tipoEvento, setTipoEvento] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [metodoPago, setMetodoPago] = useState("");
@@ -222,6 +226,8 @@ export default function BookingCalendar({
     setCodigoError(null);
   }
 
+  const cedulaValida = CEDULA_REGEX.test(cedula.trim());
+
   const puedeEnviar =
     !!holdId &&
     !holdVencido &&
@@ -229,6 +235,7 @@ export default function BookingCalendar({
     !!horarioBloque &&
     !!nombre &&
     !!contacto &&
+    cedulaValida &&
     !!tipoEvento &&
     !!metodoPago &&
     !!comprobante &&
@@ -238,6 +245,7 @@ export default function BookingCalendar({
     setInvitados("");
     setHorarioBloque("");
     setAddons({});
+    setCedula("");
     setNombre("");
     setContacto("");
     setTipoEvento("");
@@ -346,6 +354,7 @@ export default function BookingCalendar({
     const res = await completarReservaTemporal(holdId, {
       nombre,
       contacto,
+      cedula: cedula.trim(),
       tipo_evento: tipoEvento,
       invitados: invitadosNum,
       horario_bloque: horarioBloque,
@@ -847,6 +856,28 @@ export default function BookingCalendar({
                       className={inputCls}
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className={labelCls}>Número de cédula</label>
+                  <input
+                    type="text"
+                    required
+                    value={cedula}
+                    onChange={(e) => setCedula(e.target.value)}
+                    placeholder="Ej. 1-2345-6789"
+                    className={inputCls}
+                  />
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+                    Solo para identificar a quien reserva ante daños o
+                    problemas en el evento. Es privado — lo ve únicamente{" "}
+                    {nombreRancho} y Aventurea CR.
+                  </p>
+                  {cedula && !cedulaValida && (
+                    <p className="mt-1 text-[11px] font-bold text-red-700">
+                      Escribí solo números (y guiones si querés), sin espacios ni letras.
+                    </p>
+                  )}
                 </div>
 
                 <div>

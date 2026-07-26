@@ -111,6 +111,7 @@ export async function cancelarReservaTemporal(id: string) {
 export type CompletarReservaInput = {
   nombre: string;
   contacto: string;
+  cedula: string;
   tipo_evento: string;
   invitados: number;
   horario_bloque: HorarioBloque;
@@ -124,10 +125,16 @@ export type CompletarReservaInput = {
   descuento_monto: number;
 };
 
+const CEDULA_REGEX = /^[0-9-]{7,14}$/;
+
 export async function completarReservaTemporal(
   id: string,
   input: CompletarReservaInput,
 ) {
+  if (!CEDULA_REGEX.test(input.cedula.trim())) {
+    return { error: "El número de cédula no es válido." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("reservas")

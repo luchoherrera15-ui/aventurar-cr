@@ -4,6 +4,7 @@ export type Reserva = {
   fecha: string;
   nombre: string | null;
   contacto: string | null;
+  cedula: string | null;
   tipo_evento: string | null;
   invitados: number | null;
   estado: "pendiente" | "confirmada" | "rechazada" | "bloqueada";
