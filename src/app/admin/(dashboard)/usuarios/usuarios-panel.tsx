@@ -1,7 +1,13 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { cambiarRol, crearUsuario, type NuevoUsuarioState } from "./actions";
+import {
+  cambiarEmail,
+  cambiarPassword,
+  cambiarRol,
+  crearUsuario,
+  type NuevoUsuarioState,
+} from "./actions";
 
 export type PerfilRow = {
   id: string;
@@ -16,6 +22,8 @@ const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
+
+type Edicion = { perfil: PerfilRow; campo: "email" | "password" };
 
 export default function UsuariosPanel({
   initialPerfiles,
@@ -34,6 +42,12 @@ export default function UsuariosPanel({
   const [rolPending, startTransition] = useTransition();
   const [rolError, setRolError] = useState<string | null>(null);
 
+  const [edicion, setEdicion] = useState<Edicion | null>(null);
+  const [valor, setValor] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [edicionError, setEdicionError] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+
   function toggleRol(id: string, rolActual: PerfilRow["rol"]) {
     const nuevo = rolActual === "admin" ? "dueno_rancho" : "admin";
     setRolError(null);
@@ -47,6 +61,52 @@ export default function UsuariosPanel({
         prev.map((p) => (p.id === id ? { ...p, rol: nuevo } : p)),
       );
     });
+  }
+
+  function abrirEdicion(perfil: PerfilRow, campo: Edicion["campo"]) {
+    setEdicion({ perfil, campo });
+    setValor(campo === "email" ? (perfil.email ?? "") : "");
+    setEdicionError(null);
+    setAviso(null);
+  }
+
+  function cerrarEdicion() {
+    setEdicion(null);
+    setValor("");
+    setEdicionError(null);
+    setGuardando(false);
+  }
+
+  async function guardarEdicion() {
+    if (!edicion) return;
+    setGuardando(true);
+    setEdicionError(null);
+
+    const { perfil, campo } = edicion;
+    const res =
+      campo === "email"
+        ? await cambiarEmail(perfil.id, valor)
+        : await cambiarPassword(perfil.id, valor);
+
+    setGuardando(false);
+
+    if (res?.error) {
+      setEdicionError(res.error);
+      return;
+    }
+
+    if (campo === "email") {
+      const limpio = valor.trim().toLowerCase();
+      setPerfiles((prev) =>
+        prev.map((p) => (p.id === perfil.id ? { ...p, email: limpio } : p)),
+      );
+      setAviso(`Correo actualizado a ${limpio}.`);
+    } else {
+      setAviso(
+        `Contraseña cambiada para ${perfil.email ?? "la cuenta"}. Pasásela para que entre y la cambie.`,
+      );
+    }
+    cerrarEdicion();
   }
 
   return (
@@ -115,6 +175,17 @@ export default function UsuariosPanel({
           {rolError}
         </p>
       )}
+      {aviso && (
+        <p className="rounded-xl bg-aventurea-green/10 p-3 text-[13px] font-bold text-aventurea-green">
+          ✓ {aviso}
+        </p>
+      )}
+      {!puedeCrearCuentas && (
+        <p className="rounded-xl bg-aventurea-orange/10 p-3 text-[12.5px] leading-relaxed text-aventurea-orange">
+          Para cambiar correos y contraseñas también hace falta la variable{" "}
+          <strong>SUPABASE_SERVICE_ROLE_KEY</strong>.
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm">
         <table className="w-full border-collapse">
@@ -169,25 +240,115 @@ export default function UsuariosPanel({
                   </span>
                 </td>
                 <td className="px-4 py-3.5">
-                  {p.id === miId ? (
-                    <span className="text-[12px] text-zinc-500">
-                      No podés cambiar tu propio rol
-                    </span>
-                  ) : (
+                  <div className="flex flex-wrap gap-1.5">
                     <button
-                      disabled={rolPending}
-                      onClick={() => toggleRol(p.id, p.rol)}
-                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-50"
+                      disabled={!puedeCrearCuentas}
+                      onClick={() => abrirEdicion(p, "email")}
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
                     >
-                      {p.rol === "admin" ? "Quitar admin" : "Hacer admin"}
+                      Cambiar correo
                     </button>
-                  )}
+                    <button
+                      disabled={!puedeCrearCuentas}
+                      onClick={() => abrirEdicion(p, "password")}
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                    >
+                      Cambiar contraseña
+                    </button>
+                    {p.id === miId ? (
+                      <span className="self-center text-[11.5px] text-zinc-500">
+                        No podés cambiarte el rol
+                      </span>
+                    ) : (
+                      <button
+                        disabled={rolPending}
+                        onClick={() => toggleRol(p.id, p.rol)}
+                        className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-50"
+                      >
+                        {p.rol === "admin" ? "Quitar admin" : "Hacer admin"}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {edicion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5">
+          <div className="w-full max-w-md rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 shadow-xl">
+            <h3 className="text-[16px] font-bold text-aventurea-ink">
+              {edicion.campo === "email"
+                ? "Cambiar el correo de acceso"
+                : "Cambiar la contraseña"}
+            </h3>
+            <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+              Cuenta de{" "}
+              <strong>
+                {edicion.perfil.nombre ?? edicion.perfil.email ?? "esta cuenta"}
+              </strong>
+              {edicion.perfil.ranchoNombre
+                ? ` — ${edicion.perfil.ranchoNombre}`
+                : ""}
+              .
+            </p>
+
+            <div className="mt-4">
+              <label className={labelCls}>
+                {edicion.campo === "email" ? "Correo nuevo" : "Contraseña nueva"}
+              </label>
+              <input
+                type={edicion.campo === "email" ? "email" : "text"}
+                value={valor}
+                autoFocus
+                onChange={(e) => setValor(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") guardarEdicion();
+                  if (e.key === "Escape") cerrarEdicion();
+                }}
+                placeholder={
+                  edicion.campo === "email"
+                    ? "dueno@ejemplo.com"
+                    : "Mínimo 6 caracteres"
+                }
+                className={inputCls}
+              />
+              <p className="mt-2 text-[11.5px] leading-relaxed text-zinc-500">
+                {edicion.campo === "email"
+                  ? "El correo nuevo queda verificado al instante: la persona entra con él sin tener que confirmar nada."
+                  : "Se cambia de una. Pasásela por un medio seguro y pedile que la cambie al entrar."}
+              </p>
+            </div>
+
+            {edicionError && (
+              <p className="mt-3 rounded-lg bg-red-50 p-2.5 text-[12.5px] text-red-700">
+                {edicionError}
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={cerrarEdicion}
+                disabled={guardando}
+                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={guardarEdicion}
+                disabled={guardando || !valor.trim()}
+                className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+              >
+                {guardando ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
