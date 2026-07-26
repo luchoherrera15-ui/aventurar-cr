@@ -21,6 +21,7 @@ export async function crearRancho(
   const descripcion = String(formData.get("descripcion") || "").trim();
   const provincia = String(formData.get("provincia") || "");
   const canton = String(formData.get("canton") || "").trim();
+  const direccionExacta = String(formData.get("direccion_exacta") || "").trim();
   const capacidadMinRaw = String(formData.get("capacidad_min") || "");
   const capacidadMaxRaw = String(formData.get("capacidad_max") || "");
   const precioDesdeRaw = String(formData.get("precio_desde") || "");
@@ -41,6 +42,7 @@ export async function crearRancho(
     descripcion: descripcion || null,
     provincia,
     canton: canton || null,
+    direccion_exacta: direccionExacta || null,
     capacidad_min: capacidadMinRaw ? parseInt(capacidadMinRaw) : null,
     capacidad_max: capacidadMaxRaw ? parseInt(capacidadMaxRaw) : null,
     precio_desde: precioDesdeRaw ? parseFloat(precioDesdeRaw) : null,

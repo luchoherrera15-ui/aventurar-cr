@@ -1,5 +1,6 @@
 export type Reserva = {
   id: string;
+  rancho_id: string | null;
   fecha: string;
   nombre: string | null;
   contacto: string | null;

@@ -85,6 +85,16 @@ export default function NuevoRanchoForm() {
         </div>
       </div>
 
+      <div>
+        <label className={labelCls}>Dirección exacta</label>
+        <input
+          type="text"
+          name="direccion_exacta"
+          placeholder="Ej. Calle Monge, 200m norte de la iglesia"
+          className={inputCls}
+        />
+      </div>
+
       {esSalon && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>

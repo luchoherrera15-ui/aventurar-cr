@@ -1,11 +1,21 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { guardarConfiguracion } from "./actions";
-import type { PrecioTier, ServicioAdicional } from "./types";
+import type { PrecioTier, ServicioAdicional } from "@/app/mi-rancho/types";
 
-type TierDraft = Omit<PrecioTier, "id"> & { key: string };
-type ServicioDraft = Omit<ServicioAdicional, "id"> & { key: string };
+type TierDraft = {
+  key: string;
+  min_invitados: number;
+  max_invitados: number;
+  precio: number;
+};
+type ServicioDraft = {
+  key: string;
+  nombre: string;
+  precio: number;
+  requisito_max_invitados: number | null;
+  activo: boolean;
+};
 
 let keySeq = 0;
 function newKey() {
@@ -13,16 +23,30 @@ function newKey() {
   return `new-${keySeq}`;
 }
 
+export type GuardarPreciosFn = (
+  tiers: { min_invitados: number; max_invitados: number; precio: number }[],
+  servicios: {
+    nombre: string;
+    precio: number;
+    requisito_max_invitados: number | null;
+    activo: boolean;
+  }[],
+  tarifaDiciembre: number,
+  depositoReserva: number,
+) => Promise<{ error: string | null } | undefined>;
+
 export default function PreciosForm({
   initialTiers,
   initialServicios,
   initialTarifaDiciembre,
   initialDepositoReserva,
+  onGuardar,
 }: {
   initialTiers: PrecioTier[];
   initialServicios: ServicioAdicional[];
   initialTarifaDiciembre: number;
   initialDepositoReserva: number;
+  onGuardar: GuardarPreciosFn;
 }) {
   const [tiers, setTiers] = useState<TierDraft[]>(
     initialTiers.map((t) => ({ ...t, key: t.id })),
@@ -60,7 +84,7 @@ export default function PreciosForm({
   function guardar() {
     setMessage(null);
     startTransition(async () => {
-      const res = await guardarConfiguracion(
+      const res = await onGuardar(
         tiers.map((t) => ({
           min_invitados: t.min_invitados,
           max_invitados: t.max_invitados,
@@ -78,7 +102,7 @@ export default function PreciosForm({
       if (res?.error) {
         setMessage({ type: "error", text: res.error });
       } else {
-        setMessage({ type: "ok", text: "Guardado — ya se refleja en el sitio del rancho." });
+        setMessage({ type: "ok", text: "Guardado — ya se refleja en el sitio público." });
       }
     });
   }

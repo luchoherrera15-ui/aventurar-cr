@@ -18,8 +18,8 @@ const DOW = ["D", "L", "M", "M", "J", "V", "S"];
 const TERMINOS = [
   "El depósito debe ser de al menos ₡25.000. Si el comprobante muestra un monto menor, la reserva no será válida y el dinero no se reembolsa.",
   "El depósito de reserva no es reembolsable en caso de cancelación por parte del cliente.",
-  "El tipo de evento debe coincidir exactamente con el indicado al reservar; si no coincide, Aventurea CR puede cancelar la reserva sin devolución del depósito.",
-  "Subir el comprobante no confirma la fecha por sí solo — la reserva queda en aprobación hasta que Aventurea CR la revise y confirme.",
+  "El tipo de evento debe coincidir exactamente con el indicado al reservar; si no coincide, el anfitrión puede cancelar la reserva sin devolución del depósito.",
+  "Subir el comprobante no confirma la fecha por sí solo — la reserva queda en aprobación hasta que el anfitrión la revise y confirme.",
   "El alquiler es por un bloque de 6 horas (mañana y tarde, o tarde y noche), con hora máxima de salida a las 12:00 medianoche.",
   "Cualquier daño a las instalaciones o al mobiliario durante el evento es responsabilidad de quien hizo la reserva.",
 ];
@@ -50,12 +50,16 @@ function fmtFechaLarga(fechaIso: string) {
 }
 
 export default function BookingCalendar({
+  ranchoId,
+  nombreRancho,
   disponibilidad,
   tiers,
   servicios,
   tarifaDiciembre,
   depositoReserva,
 }: {
+  ranchoId: string;
+  nombreRancho: string;
   disponibilidad: Record<string, DiaDisponibilidad>;
   tiers: PrecioTier[];
   servicios: ServicioAdicional[];
@@ -190,7 +194,7 @@ export default function BookingCalendar({
     setHoldExpiraEn(null);
     setHoldCreando(true);
 
-    const res = await crearReservaTemporal(fecha);
+    const res = await crearReservaTemporal(ranchoId, fecha);
     setHoldCreando(false);
 
     if (res.error || !res.id) {
@@ -311,7 +315,7 @@ export default function BookingCalendar({
       <div className="mx-auto max-w-[1080px] px-7">
         <div className="mb-6.5 max-w-[640px]">
           <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
-            Aventurea CR · Rancho de Eventos
+            {nombreRancho}
           </p>
           <h1 className="mt-2.5 text-[28px] font-bold text-aventurea-orange-dark sm:text-[32px]">
             Reserva tu fecha
@@ -506,7 +510,7 @@ export default function BookingCalendar({
                 </h3>
                 <p className="mt-2 text-[13px] text-aventurea-ink-soft">
                   Tu reserva y tu comprobante quedaron guardados para esa
-                  fecha. Aventurea CR va a validar el depósito y confirmar
+                  fecha. {nombreRancho} va a validar el depósito y confirmar
                   — si hay más reservas para el mismo día, se confirma una
                   sola. Te avisamos por el contacto que dejaste.
                 </p>
@@ -548,7 +552,7 @@ export default function BookingCalendar({
                     Ya hay {dias[selectedDate].pendientes} reserva
                     {dias[selectedDate].pendientes > 1 ? "s" : ""} en
                     aprobación para esta fecha. Igual podés reservar la tuya
-                    — Aventurea CR confirma una sola.
+                    — {nombreRancho} confirma una sola.
                   </div>
                 )}
 

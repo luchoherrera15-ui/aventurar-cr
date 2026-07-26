@@ -1,17 +1,28 @@
 import { createClient } from "@/lib/supabase/server";
-import PreciosForm from "./precios-form";
-import type { PrecioTier, ServicioAdicional } from "./types";
+import PreciosForm from "@/components/precios-form";
+import { guardarConfiguracion } from "./actions";
+import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
+import type { PrecioTier, ServicioAdicional } from "@/app/mi-rancho/types";
 
 export default async function PreciosPage() {
   const supabase = await createClient();
 
-  const [tiersRes, serviciosRes, configRes] = await Promise.all([
+  const { data: rancho } = await supabase
+    .from("ranchos")
+    .select("id, deposito_reserva, tarifa_diciembre_por_persona")
+    .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
+    .maybeSingle();
+
+  const [tiersRes, serviciosRes] = await Promise.all([
     supabase
       .from("precio_tiers")
       .select("*")
+      .eq("rancho_id", rancho?.id ?? "")
       .order("min_invitados", { ascending: true }),
-    supabase.from("servicios_adicionales").select("*"),
-    supabase.from("configuracion_rancho").select("*").single(),
+    supabase
+      .from("servicios_adicionales")
+      .select("*")
+      .eq("rancho_id", rancho?.id ?? ""),
   ]);
 
   return (
@@ -31,12 +42,9 @@ export default async function PreciosPage() {
         <PreciosForm
           initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
           initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
-          initialTarifaDiciembre={
-            (configRes.data?.tarifa_diciembre_por_persona as number) ?? 3750
-          }
-          initialDepositoReserva={
-            (configRes.data?.deposito_reserva as number) ?? 25000
-          }
+          initialTarifaDiciembre={rancho?.tarifa_diciembre_por_persona ?? 3750}
+          initialDepositoReserva={rancho?.deposito_reserva ?? 25000}
+          onGuardar={guardarConfiguracion}
         />
       </div>
     </div>

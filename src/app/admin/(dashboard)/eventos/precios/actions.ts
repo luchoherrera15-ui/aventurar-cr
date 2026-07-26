@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth";
+import { guardarPreciosRancho } from "@/lib/precios";
+import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
 import type { PrecioTier, ServicioAdicional } from "./types";
 
 export async function guardarConfiguracion(
@@ -10,44 +11,21 @@ export async function guardarConfiguracion(
   tarifaDiciembre: number,
   depositoReserva: number,
 ) {
-  const supabase = await createClient();
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
 
-  const { error: errorTiers1 } = await supabase
-    .from("precio_tiers")
-    .delete()
-    .not("id", "is", null);
-  if (errorTiers1) return { error: errorTiers1.message };
+  const { data: rancho } = await supabase
+    .from("ranchos")
+    .select("id")
+    .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
+    .maybeSingle();
+  if (!rancho) return { error: "No se encontró el rancho de Aventurea CR." };
 
-  if (tiers.length > 0) {
-    const { error: errorTiers2 } = await supabase
-      .from("precio_tiers")
-      .insert(tiers);
-    if (errorTiers2) return { error: errorTiers2.message };
-  }
-
-  const { error: errorSvc1 } = await supabase
-    .from("servicios_adicionales")
-    .delete()
-    .not("id", "is", null);
-  if (errorSvc1) return { error: errorSvc1.message };
-
-  if (servicios.length > 0) {
-    const { error: errorSvc2 } = await supabase
-      .from("servicios_adicionales")
-      .insert(servicios);
-    if (errorSvc2) return { error: errorSvc2.message };
-  }
-
-  const { error: errorConfig } = await supabase
-    .from("configuracion_rancho")
-    .update({
-      tarifa_diciembre_por_persona: tarifaDiciembre,
-      deposito_reserva: depositoReserva,
-    })
-    .eq("id", true);
-  if (errorConfig) return { error: errorConfig.message };
-
-  revalidatePath("/admin/eventos/precios");
-  revalidatePath("/eventos-salon");
-  return { error: null };
+  return guardarPreciosRancho(
+    rancho.id,
+    tiers,
+    servicios,
+    tarifaDiciembre,
+    depositoReserva,
+  );
 }

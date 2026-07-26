@@ -177,6 +177,15 @@ export default function NuevoRanchoAdminForm({
               <label className={labelCls}>Cantón</label>
               <input type="text" name="canton" placeholder="Ej. Esparza" className={inputCls} />
             </div>
+            <div className="sm:col-span-2 lg:col-span-2">
+              <label className={labelCls}>Dirección exacta</label>
+              <input
+                type="text"
+                name="direccion_exacta"
+                placeholder="Ej. Calle Monge, 200m norte de la iglesia"
+                className={inputCls}
+              />
+            </div>
             <div>
               <label className={labelCls}>Capacidad mínima</label>
               <input type="number" min={1} name="capacidad_min" placeholder="20" className={inputCls} />

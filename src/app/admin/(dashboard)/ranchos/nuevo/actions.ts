@@ -76,6 +76,7 @@ export async function crearRanchoComoAdmin(
     descripcion: String(formData.get("descripcion") || "").trim() || null,
     provincia,
     canton: String(formData.get("canton") || "").trim() || null,
+    direccion_exacta: String(formData.get("direccion_exacta") || "").trim() || null,
     capacidad_min: num("capacidad_min"),
     capacidad_max: num("capacidad_max"),
     precio_desde: num("precio_desde"),

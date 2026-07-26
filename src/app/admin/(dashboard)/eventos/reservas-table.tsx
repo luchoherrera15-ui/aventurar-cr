@@ -42,8 +42,10 @@ function fmtDate(iso: string) {
 
 export default function ReservasTable({
   initialReservas,
+  nombrePorRancho,
 }: {
   initialReservas: Reserva[];
+  nombrePorRancho?: Map<string, string>;
 }) {
   const [reservas, setReservas] = useState(initialReservas);
   const [query, setQuery] = useState("");
@@ -142,6 +144,7 @@ export default function ReservasTable({
             <tr className="bg-aventurea-cream-2/60">
               {[
                 "Fecha",
+                ...(nombrePorRancho ? ["Rancho"] : []),
                 "Cliente",
                 "Evento",
                 "Horario",
@@ -163,7 +166,7 @@ export default function ReservasTable({
             {list.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={nombrePorRancho ? 9 : 8}
                   className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
                   No hay reservas que coincidan con la búsqueda.
@@ -173,6 +176,11 @@ export default function ReservasTable({
             {list.map((r) => (
               <tr key={r.id} className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream-2/40">
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{fmtDate(r.fecha)}</td>
+                {nombrePorRancho && (
+                  <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
+                    {(r.rancho_id && nombrePorRancho.get(r.rancho_id)) ?? "—"}
+                  </td>
+                )}
                 <td className="px-4 py-3.5">
                   <div className="font-bold text-aventurea-ink">{r.nombre}</div>
                   <div className="text-xs text-zinc-500">{r.contacto}</div>

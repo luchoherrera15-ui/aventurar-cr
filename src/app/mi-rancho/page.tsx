@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logoutDueno } from "./actions";
-import { CATEGORIA_LABEL, type Rancho } from "./types";
+import { CATEGORIA_GRADIENTE, CATEGORIA_ICONO, CATEGORIA_LABEL, type Rancho } from "./types";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -36,9 +37,12 @@ export default async function MiRanchoPage() {
   if (!data) redirect("/mi-rancho/nuevo");
 
   const rancho = data as Rancho;
+  const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
+    .filter(Boolean)
+    .join(", ");
 
   return (
-    <main className="mx-auto max-w-[640px] px-5 py-12">
+    <main className="mx-auto max-w-[720px] px-5 py-12">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
@@ -58,80 +62,116 @@ export default async function MiRanchoPage() {
         </form>
       </div>
 
-      <div className="rounded-[18px] border border-aventurea-line bg-white p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-aventurea-ink">{rancho.nombre}</h2>
-            <span className="text-[12px] font-bold uppercase tracking-wide text-aventurea-orange">
-              {CATEGORIA_LABEL[rancho.categoria]}
+      <div className="overflow-hidden rounded-[18px] border border-aventurea-line bg-white">
+        <div
+          className="relative flex h-[150px] items-center justify-center bg-cover bg-center"
+          style={
+            rancho.foto_url
+              ? { backgroundImage: `url(${rancho.foto_url})` }
+              : { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
+          }
+        >
+          {!rancho.foto_url && (
+            <span className="text-5xl opacity-30">
+              {CATEGORIA_ICONO[rancho.categoria]}
             </span>
-          </div>
+          )}
           <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-[11.5px] font-bold ${ESTADO_BADGE[rancho.estado]}`}
+            className={`absolute right-4 top-4 inline-flex items-center rounded-full px-3 py-1 text-[11.5px] font-bold ${ESTADO_BADGE[rancho.estado]}`}
           >
             {ESTADO_LABEL[rancho.estado]}
           </span>
         </div>
 
-        {rancho.estado === "pendiente" && (
-          <p className="mt-3 rounded-[10px] bg-aventurea-orange/10 p-3 text-[13px] leading-relaxed text-aventurea-orange">
-            Aventurea CR está revisando tu rancho. Te avisamos apenas quede
-            publicado en el directorio.
-          </p>
-        )}
-        {rancho.estado === "rechazado" && (
-          <p className="mt-3 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
-            Tu rancho no fue aprobado todavía. Escribinos si querés más
-            información.
-          </p>
-        )}
+        <div className="p-6">
+          <h2 className="text-lg font-bold text-aventurea-ink">{rancho.nombre}</h2>
+          <span className="text-[12px] font-bold uppercase tracking-wide text-aventurea-orange">
+            {CATEGORIA_LABEL[rancho.categoria]}
+          </span>
+          {ubicacion && (
+            <p className="mt-1 text-[12.5px] text-zinc-500">{ubicacion}</p>
+          )}
 
-        {rancho.descripcion && (
-          <p className="mt-4 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-            {rancho.descripcion}
-          </p>
-        )}
+          {rancho.estado === "pendiente" && (
+            <p className="mt-3 rounded-[10px] bg-aventurea-orange/10 p-3 text-[13px] leading-relaxed text-aventurea-orange">
+              Aventurea CR está revisando tu publicación. Te avisamos apenas
+              quede publicada en el directorio.
+            </p>
+          )}
+          {rancho.estado === "rechazado" && (
+            <p className="mt-3 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
+              Tu publicación no fue aprobada todavía. Escribinos si querés más
+              información.
+            </p>
+          )}
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl bg-aventurea-cream-2 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-              Provincia
+          {rancho.descripcion && (
+            <p className="mt-4 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+              {rancho.descripcion}
+            </p>
+          )}
+
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-aventurea-cream-2 p-3">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                Provincia
+              </div>
+              <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
+                {rancho.provincia ?? "—"}
+              </div>
             </div>
-            <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
-              {rancho.provincia ?? "—"}
+            <div className="rounded-xl bg-aventurea-cream-2 p-3">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                Capacidad
+              </div>
+              <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
+                {rancho.capacidad_min ?? "—"}–{rancho.capacidad_max ?? "—"}
+              </div>
+            </div>
+            <div className="rounded-xl bg-aventurea-cream-2 p-3">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                Precio desde
+              </div>
+              <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
+                {fmtColones(rancho.precio_desde)}
+              </div>
+            </div>
+            <div className="rounded-xl bg-aventurea-cream-2 p-3">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                WhatsApp
+              </div>
+              <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
+                {rancho.contacto_whatsapp ?? "—"}
+              </div>
             </div>
           </div>
-          <div className="rounded-xl bg-aventurea-cream-2 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-              Capacidad
-            </div>
-            <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
-              {rancho.capacidad_min ?? "—"}–{rancho.capacidad_max ?? "—"}
-            </div>
-          </div>
-          <div className="rounded-xl bg-aventurea-cream-2 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-              Precio desde
-            </div>
-            <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
-              {fmtColones(rancho.precio_desde)}
-            </div>
-          </div>
-          <div className="rounded-xl bg-aventurea-cream-2 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-              WhatsApp
-            </div>
-            <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
-              {rancho.contacto_whatsapp ?? "—"}
-            </div>
+
+          <div className="mt-6 flex flex-wrap gap-2.5 border-t border-aventurea-line pt-5">
+            <Link
+              href="/mi-rancho/editar"
+              className="rounded-full bg-aventurea-orange px-4 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
+            >
+              ✎ Editar mi publicación
+            </Link>
+            {rancho.categoria === "salon" && (
+              <>
+                <Link
+                  href="/mi-rancho/precios"
+                  className="rounded-full border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                >
+                  Precios y servicios
+                </Link>
+                <Link
+                  href="/mi-rancho/reservas"
+                  className="rounded-full border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                >
+                  Mis reservas
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
-
-      <p className="mt-5 text-center text-[12.5px] text-zinc-500">
-        Muy pronto vas a poder editar estos datos, subir fotos y administrar
-        tus propias reservas desde acá.
-      </p>
     </main>
   );
 }

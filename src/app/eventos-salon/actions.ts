@@ -2,31 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
 import type { HorarioBloque } from "./types";
 
 const MINUTOS_HOLD = 10;
 
-export async function crearReservaTemporal(fecha: string) {
+export async function crearReservaTemporal(ranchoId: string, fecha: string) {
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
   const expiraEn = new Date(Date.now() + MINUTOS_HOLD * 60 * 1000).toISOString();
 
-  // Libera holds vencidos de esta fecha antes de intentar tomarla.
+  // Libera holds vencidos de esta fecha (de este rancho) antes de intentar tomarla.
   await supabase
     .from("reservas")
     .delete()
+    .eq("rancho_id", ranchoId)
     .eq("fecha", fecha)
     .eq("estado", "temporal")
     .lt("expira_en", nowIso);
-
-  // La reserva queda asociada a su rancho, para poder llevar el balance
-  // de comisiones por salón desde el panel admin.
-  const { data: rancho } = await supabase
-    .from("ranchos")
-    .select("id")
-    .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
-    .maybeSingle();
 
   const { data, error } = await supabase
     .from("reservas")
@@ -35,7 +27,7 @@ export async function crearReservaTemporal(fecha: string) {
       estado: "temporal",
       expira_en: expiraEn,
       origen: "web",
-      rancho_id: rancho?.id ?? null,
+      rancho_id: ranchoId,
     })
     .select("id, expira_en")
     .single();
@@ -62,7 +54,6 @@ export async function cancelarReservaTemporal(id: string) {
   const supabase = await createClient();
   // Best-effort: si ya se completó o ya se venció, no pasa nada.
   await supabase.from("reservas").delete().eq("id", id).eq("estado", "temporal");
-  revalidatePath("/eventos-salon");
 }
 
 export type CompletarReservaInput = {
@@ -92,7 +83,7 @@ export async function completarReservaTemporal(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/eventos-salon");
   revalidatePath("/admin/eventos");
+  revalidatePath("/mi-rancho/reservas");
   return { error: null };
 }

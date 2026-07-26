@@ -4,12 +4,18 @@ import type { Reserva } from "./types";
 
 export default async function AdminReservasPage() {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("reservas")
-    .select("*")
-    .neq("estado", "temporal")
-    .order("fecha", { ascending: true });
+  const [{ data, error }, ranchosRes] = await Promise.all([
+    supabase
+      .from("reservas")
+      .select("*")
+      .neq("estado", "temporal")
+      .order("fecha", { ascending: true }),
+    supabase.from("ranchos").select("id, nombre"),
+  ]);
 
+  const nombrePorRancho = new Map(
+    (ranchosRes.data ?? []).map((r) => [r.id as string, r.nombre as string]),
+  );
   const reservas = (data ?? []) as Reserva[];
 
   const now = new Date();
@@ -75,7 +81,7 @@ export default async function AdminReservasPage() {
         />
       </div>
 
-      <ReservasTable initialReservas={reservas} />
+      <ReservasTable initialReservas={reservas} nombrePorRancho={nombrePorRancho} />
     </div>
   );
 }
