@@ -30,7 +30,9 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
   const [pagina, setPagina] = useState(1);
-  const [menuAbierto, setMenuAbierto] = useState<Categoria | null>(null);
+  const [menuAbierto, setMenuAbierto] = useState<
+    Categoria | "provincia" | "filtros" | null
+  >(null);
 
   const invitadosNum = parseInt(invitados) || 0;
   const precioMaxNum = parseInt(precioMax) || 0;
@@ -124,37 +126,59 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     soltarMenu();
   }
 
+  function subirAlInicio() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function elegirProvincia(p: string) {
     setProvincia((prev) => (prev === p ? "" : p));
     setPagina(1);
   }
 
-  // Las subcategorías que se listan abajo son las de la categoría activa;
-  // si todavía no se eligió ninguna, se muestran las de Lugares.
-  const catParaSubs: Categoria = tab === "todos" ? "lugares" : tab;
-
   return (
     <div>
-      {/* Barra de categorías con menú desplegable por cada una */}
+      {/* Barra de navegación: es el filtro principal del directorio */}
       <nav className="relative z-30 mb-4">
         <div className="-mx-6 flex gap-1 overflow-x-auto border-b border-aventurea-line px-6 lg:mx-0 lg:px-0">
-          <TabCategoria
+          <TabMenu
             label="Todos"
-            activo={tab === "todos"}
+            activo={tab === "todos" && !subcategoria}
             abierto={false}
             conMenu={false}
             onClick={() => elegirCategoria("todos")}
           />
-          {CATEGORIAS.map((c) => (
-            <TabCategoria
-              key={c}
-              label={CATEGORIA_LABEL[c]}
-              activo={tab === c}
-              abierto={menuAbierto === c}
+          {CATEGORIAS.map((cat) => (
+            <TabMenu
+              key={cat}
+              label={CATEGORIA_LABEL[cat]}
+              activo={tab === cat}
+              abierto={menuAbierto === cat}
               conMenu
-              onClick={() => setMenuAbierto((prev) => (prev === c ? null : c))}
+              onClick={() => setMenuAbierto((prev) => (prev === cat ? null : cat))}
             />
           ))}
+
+          {/* A la derecha, los filtros transversales a cualquier categoría */}
+          <span className="ml-auto flex shrink-0 gap-1 border-l border-aventurea-line pl-1">
+            <TabMenu
+              label={provincia || "Provincia"}
+              activo={!!provincia}
+              abierto={menuAbierto === "provincia"}
+              conMenu
+              onClick={() =>
+                setMenuAbierto((prev) => (prev === "provincia" ? null : "provincia"))
+              }
+            />
+            <TabMenu
+              label="Más filtros"
+              activo={!!invitados || !!precioMax}
+              abierto={menuAbierto === "filtros"}
+              conMenu
+              onClick={() =>
+                setMenuAbierto((prev) => (prev === "filtros" ? null : "filtros"))
+              }
+            />
+          </span>
         </div>
 
         {menuAbierto && (
@@ -167,25 +191,75 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
               className="fixed inset-0 z-10 cursor-default"
             />
             <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
-              <button
-                type="button"
-                onClick={() => elegirCategoria(menuAbierto)}
-                className="mb-2 text-[12px] font-bold text-aventurea-orange hover:underline"
-              >
-                Ver todo en {CATEGORIA_LABEL[menuAbierto]} (
-                {conteoPorCategoria[menuAbierto] ?? 0}) →
-              </button>
-              <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3">
-                {SUBCATEGORIAS[menuAbierto].map((s) => (
-                  <FilterRow
-                    key={s.id}
-                    label={s.label}
-                    count={conteoPorSubcategoria[s.id] ?? 0}
-                    active={subcategoria === s.id}
-                    onClick={() => elegirSubcategoria(menuAbierto, s.id)}
-                  />
-                ))}
-              </div>
+              {menuAbierto === "provincia" ? (
+                <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-4">
+                  {PROVINCIAS.map((p) => (
+                    <FilterRow
+                      key={p}
+                      label={p}
+                      count={conteoPorProvincia[p] ?? 0}
+                      active={provincia === p}
+                      onClick={() => {
+                        elegirProvincia(p);
+                        soltarMenu();
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : menuAbierto === "filtros" ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>Cantidad de invitados</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={invitados}
+                      onChange={(e) => {
+                        setInvitados(e.target.value);
+                        setPagina(1);
+                      }}
+                      placeholder="Ej. 50"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Precio máximo (₡)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={precioMax}
+                      onChange={(e) => {
+                        setPrecioMax(e.target.value);
+                        setPagina(1);
+                      }}
+                      placeholder="Ej. 150000"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => elegirCategoria(menuAbierto)}
+                    className="mb-2 text-[12px] font-bold text-aventurea-orange hover:underline"
+                  >
+                    Ver todo en {CATEGORIA_LABEL[menuAbierto]} (
+                    {conteoPorCategoria[menuAbierto] ?? 0}) →
+                  </button>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {SUBCATEGORIAS[menuAbierto].map((s) => (
+                      <FilterRow
+                        key={s.id}
+                        label={s.label}
+                        count={conteoPorSubcategoria[s.id] ?? 0}
+                        active={subcategoria === s.id}
+                        onClick={() => elegirSubcategoria(menuAbierto, s.id)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </>
         )}
@@ -271,78 +345,95 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         </>
       )}
 
-      {/* Filtros secundarios, debajo de las cards y cerca del pie */}
-      <div className="mt-10">
-        <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Más formas de filtrar
+      {/* Mapa del directorio: el mismo menú de arriba, abierto y completo.
+          Sirve para explorar todo sin tener que ir abriendo desplegables. */}
+      <div className="mt-14 border-t border-aventurea-line pt-10">
+        <h2 className="text-[17px] font-bold text-aventurea-ink">
+          Explorá todo Aventurea CR
+        </h2>
+        <p className="mt-1 text-[13px] text-aventurea-ink-soft">
+          Todas las categorías del directorio. Tocá cualquiera para filtrar.
         </p>
-        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm">
-          <div className="lg:grid lg:grid-cols-3 lg:gap-6">
-            <FilterSection title="Provincia">
-              {PROVINCIAS.map((p) => (
-                <FilterRow
+
+        <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+          {CATEGORIAS.map((cat) => (
+            <div key={cat}>
+              <button
+                type="button"
+                onClick={() => {
+                  elegirCategoria(cat);
+                  subirAlInicio();
+                }}
+                className="mb-2 flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-wide text-aventurea-ink hover:text-aventurea-orange"
+              >
+                <span className="text-aventurea-orange [&_svg]:h-4 [&_svg]:w-4">
+                  {CATEGORIA_ICONO[cat]}
+                </span>
+                {CATEGORIA_LABEL[cat]}
+                <span className="font-normal text-aventurea-ink-soft">
+                  ({conteoPorCategoria[cat] ?? 0})
+                </span>
+              </button>
+              <ul className="flex flex-col gap-1">
+                {SUBCATEGORIAS[cat].map((s) => {
+                  const n = conteoPorSubcategoria[s.id] ?? 0;
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          elegirSubcategoria(cat, s.id);
+                          subirAlInicio();
+                        }}
+                        className={`text-left text-[13px] transition-colors hover:text-aventurea-orange ${
+                          subcategoria === s.id
+                            ? "font-bold text-aventurea-orange"
+                            : n > 0
+                              ? "text-aventurea-ink-soft"
+                              : "text-zinc-400"
+                        }`}
+                      >
+                        {s.label}
+                        {n > 0 && (
+                          <span className="ml-1.5 text-[11.5px] text-zinc-400">
+                            {n}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-9 border-t border-aventurea-line pt-6">
+          <h3 className="mb-3 text-[12.5px] font-bold uppercase tracking-wide text-aventurea-ink">
+            Por provincia
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {PROVINCIAS.map((p) => {
+              const n = conteoPorProvincia[p] ?? 0;
+              return (
+                <button
                   key={p}
-                  label={p}
-                  count={conteoPorProvincia[p] ?? 0}
-                  active={provincia === p}
-                  onClick={() => elegirProvincia(p)}
-                />
-              ))}
-            </FilterSection>
-
-            <FilterSection title={CATEGORIA_LABEL[catParaSubs]}>
-              {SUBCATEGORIAS[catParaSubs].map((s) => (
-                <FilterRow
-                  key={s.id}
-                  label={s.label}
-                  count={conteoPorSubcategoria[s.id] ?? 0}
-                  active={subcategoria === s.id}
-                  onClick={() => elegirSubcategoria(catParaSubs, s.id)}
-                />
-              ))}
-            </FilterSection>
-
-            <FilterSection title="Más filtros">
-              <div className="flex flex-col gap-3 px-2.5 pt-1">
-                <div>
-                  <label className={labelCls}>Cantidad de invitados</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={invitados}
-                    onChange={(e) => {
-                      setInvitados(e.target.value);
-                      setPagina(1);
-                    }}
-                    placeholder="Ej. 50"
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>Precio máximo (₡)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={precioMax}
-                    onChange={(e) => {
-                      setPrecioMax(e.target.value);
-                      setPagina(1);
-                    }}
-                    placeholder="Ej. 150000"
-                    className={inputCls}
-                  />
-                </div>
-                {hayAlgo && (
-                  <button
-                    type="button"
-                    onClick={limpiar}
-                    className="mt-1 w-full rounded-[10px] border border-aventurea-line py-2.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
-                  >
-                    Limpiar filtros
-                  </button>
-                )}
-              </div>
-            </FilterSection>
+                  type="button"
+                  onClick={() => {
+                    elegirProvincia(p);
+                    subirAlInicio();
+                  }}
+                  className={`rounded-lg border px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
+                    provincia === p
+                      ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
+                      : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                  }`}
+                >
+                  {p}
+                  <span className="ml-1.5 font-normal text-zinc-400">{n}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -374,7 +465,7 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
-function TabCategoria({
+function TabMenu({
   label,
   activo,
   abierto,
@@ -432,23 +523,6 @@ function Chip({ label, onQuitar }: { label: string; onQuitar: () => void }) {
         ×
       </button>
     </span>
-  );
-}
-
-function FilterSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="border-b border-aventurea-line pb-4 last:border-none last:pb-0 lg:border-none lg:pb-0">
-      <h3 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-        {title}
-      </h3>
-      <div className="flex flex-col gap-0.5">{children}</div>
-    </div>
   );
 }
 
