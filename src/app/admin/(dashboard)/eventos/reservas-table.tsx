@@ -179,7 +179,15 @@ export default function ReservasTable({
                 )}
                 <td className="px-4 py-3.5">
                   <div className="font-bold text-aventurea-ink">{r.nombre}</div>
-                  <div className="text-xs text-zinc-500">{r.contacto}</div>
+                  {r.correo || r.whatsapp ? (
+                    <>
+                      {r.correo && <div className="text-xs text-zinc-500">{r.correo}</div>}
+                      {r.whatsapp && <div className="text-xs text-zinc-500">{r.whatsapp}</div>}
+                    </>
+                  ) : (
+                    // Reservas de antes de separar correo y WhatsApp.
+                    <div className="text-xs text-zinc-500">{r.contacto}</div>
+                  )}
                   {r.cedula && (
                     <div className="text-xs text-zinc-500">Cédula: {r.cedula}</div>
                   )}
