@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AccionesSesion from "@/components/acciones-sesion";
+import RevealOnScroll from "@/components/reveal-on-scroll";
 import {
   IconCalendarLine,
   IconCheck,
@@ -41,6 +42,7 @@ export default async function PublicarPage() {
 
   return (
     <div className="min-h-screen bg-aventurea-cream">
+      <RevealOnScroll />
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-5 px-6 py-3.5 lg:px-10">
           <Link href="/ranchos-eventos" className="flex items-center gap-2">
@@ -114,36 +116,42 @@ export default async function PublicarPage() {
         <div className="mx-auto max-w-[1200px] px-6 lg:px-10">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <DatoCard
+              index={0}
               icono={<IconSparkles />}
               color="text-aventurea-orange"
               dato={`${SUBCATEGORIAS_TODAS.length} rubros`}
               texto="Desde salones y fincas hasta mariachis, queques y photo booth. Si es para un evento, tiene su lugar."
             />
             <DatoCard
+              index={1}
               icono={<IconPin />}
               color="text-emerald-600"
               dato={`${totalCantones} cantones`}
               texto={`Cobertura en las ${PROVINCIAS.length} provincias del país, con búsqueda por zona para que te encuentren cerca.`}
             />
             <DatoCard
+              index={2}
               icono={<IconTagLine />}
               color="text-amber-600"
               dato="₡0"
               texto="Publicar tu negocio no cuesta nada. Creás tu cuenta, cargás tus datos y quedás en el directorio."
             />
             <DatoCard
+              index={3}
               icono={<IconCalendarLine />}
               color="text-sky-700"
               dato="Reservas en línea"
               texto="Los lugares reciben reservas con calendario, depósito y comprobante. Vos aprobás cada una."
             />
             <DatoCard
+              index={4}
               icono={<IconGlobe />}
               color="text-violet-600"
               dato="Tu propia página"
               texto="Galería de fotos, redes sociales, amenidades y botones de Google Maps y Waze para que lleguen sin preguntar."
             />
             <DatoCard
+              index={5}
               icono={<IconWhatsapp />}
               color="text-teal-600"
               dato="Contacto directo"
@@ -156,7 +164,7 @@ export default async function PublicarPage() {
       {/* ---------- Cómo funciona ---------- */}
       <section className="border-t border-aventurea-line bg-aventurea-surface py-20">
         <div className="mx-auto max-w-[1200px] px-6 lg:px-10">
-          <div className="text-center">
+          <div data-reveal className="text-center">
             <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
               Cómo funciona
             </p>
@@ -167,16 +175,19 @@ export default async function PublicarPage() {
 
           <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
             <Paso
+              index={0}
               n={1}
               titulo="Creá tu cuenta"
               texto="Con tu correo y una contraseña. No pedimos tarjeta ni datos de la empresa para empezar."
             />
             <Paso
+              index={1}
               n={2}
               titulo="Cargá tu negocio"
               texto="Elegís tu rubro, subís hasta 8 fotos, ponés tus precios, tus redes y la ubicación en el mapa."
             />
             <Paso
+              index={2}
               n={3}
               titulo="Te revisamos y salís"
               texto="Revisamos que todo esté completo y tu página queda pública en el directorio."
@@ -188,7 +199,7 @@ export default async function PublicarPage() {
       {/* ---------- Para quién es ---------- */}
       <section className="py-20">
         <div className="mx-auto max-w-[1200px] px-6 lg:px-10">
-          <div className="text-center">
+          <div data-reveal className="text-center">
             <h2 className="titulo text-[30px] text-aventurea-orange-dark sm:text-[36px]">
               ¿Qué tipo de negocio tenés?
             </h2>
@@ -200,10 +211,12 @@ export default async function PublicarPage() {
           </div>
 
           <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-            {CATEGORIAS.map((cat) => (
+            {CATEGORIAS.map((cat, i) => (
               <Link
                 key={cat}
                 href="/ranchos-eventos"
+                data-reveal
+                style={{ "--reveal-delay": `${i * 60}ms` } as React.CSSProperties}
                 className="group flex flex-col items-center gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-aventurea-orange/40 hover:shadow-md"
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange [&_svg]:h-6 [&_svg]:w-6">
@@ -222,7 +235,7 @@ export default async function PublicarPage() {
       <section className="border-t border-aventurea-line bg-aventurea-surface py-20">
         <div className="mx-auto max-w-[1200px] px-6 lg:px-10">
           <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center">
-            <div>
+            <div data-reveal>
               <p className="text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
                 Tu publicación
               </p>
@@ -242,7 +255,11 @@ export default async function PublicarPage() {
               </Link>
             </div>
 
-            <ul className="grid grid-cols-1 gap-x-8 gap-y-3.5 sm:grid-cols-2">
+            <ul
+              data-reveal
+              style={{ "--reveal-delay": "120ms" } as React.CSSProperties}
+              className="grid grid-cols-1 gap-x-8 gap-y-3.5 sm:grid-cols-2"
+            >
               {[
                 "Hasta 8 fotos en galería",
                 "Descripción y presentación larga",
@@ -275,7 +292,7 @@ export default async function PublicarPage() {
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-aventurea-navy-3/[0.11]" />
         </div>
-        <div className="mx-auto max-w-[720px] px-6 text-center">
+        <div data-reveal className="mx-auto max-w-[720px] px-6 text-center">
           <span className="flex justify-center text-aventurea-orange [&_svg]:h-9 [&_svg]:w-9">
             <IconUsers />
           </span>
@@ -308,18 +325,24 @@ export default async function PublicarPage() {
 }
 
 function DatoCard({
+  index,
   icono,
   color,
   dato,
   texto,
 }: {
+  index: number;
   icono: React.ReactNode;
   color: string;
   dato: string;
   texto: string;
 }) {
   return (
-    <div className="rounded-[22px] bg-aventurea-surface p-7 shadow-[0_2px_16px_rgba(16,26,44,0.06)]">
+    <div
+      data-reveal
+      style={{ "--reveal-delay": `${index * 70}ms` } as React.CSSProperties}
+      className="rounded-[22px] bg-aventurea-surface p-7 shadow-[0_2px_16px_rgba(16,26,44,0.06)]"
+    >
       <span className={`flex [&_svg]:h-8 [&_svg]:w-8 ${color}`}>{icono}</span>
       <p className="titulo mt-5 text-[25px] text-aventurea-orange-dark">
         {dato}
@@ -331,9 +354,23 @@ function DatoCard({
   );
 }
 
-function Paso({ n, titulo, texto }: { n: number; titulo: string; texto: string }) {
+function Paso({
+  index,
+  n,
+  titulo,
+  texto,
+}: {
+  index: number;
+  n: number;
+  titulo: string;
+  texto: string;
+}) {
   return (
-    <div className="text-center">
+    <div
+      data-reveal
+      style={{ "--reveal-delay": `${index * 90}ms` } as React.CSSProperties}
+      className="text-center"
+    >
       <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-aventurea-orange text-[18px] font-bold text-white">
         {n}
       </span>
