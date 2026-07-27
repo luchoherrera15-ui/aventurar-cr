@@ -80,10 +80,15 @@ export function ResumenSeccion({
   if (datos.length === 0) return null;
 
   return (
-    <section className="border-b border-aventurea-line bg-aventurea-surface py-9">
-      <div className="mx-auto grid max-w-[1080px] grid-cols-1 gap-7 px-7 sm:grid-cols-3">
-        {datos.map((d) => (
-          <div key={d.titulo} className="flex items-center gap-3.5">
+    <section className="border-b border-aventurea-line bg-aventurea-cream py-9">
+      <div className="mx-auto grid max-w-[1080px] grid-cols-1 gap-4 px-7 sm:grid-cols-3">
+        {datos.map((d, i) => (
+          <div
+            key={d.titulo}
+            data-reveal
+            style={{ "--reveal-delay": `${i * 80}ms` } as React.CSSProperties}
+            className="flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(16,26,44,0.15)]"
+          >
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange [&_svg]:h-5 [&_svg]:w-5">
               {d.icono}
             </span>
@@ -121,9 +126,14 @@ export function AmenidadesSeccion({ amenidades }: { amenidades: string[] }) {
           Amenidades del lugar
         </h2>
 
-        <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {grupos.map((g) => (
-            <div key={g.titulo}>
+        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {grupos.map((g, gi) => (
+            <div
+              key={g.titulo}
+              data-reveal
+              style={{ "--reveal-delay": `${gi * 90}ms` } as React.CSSProperties}
+              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_1px_2px_rgba(16,26,44,0.04)]"
+            >
               <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                 {g.titulo}
               </h3>
@@ -185,9 +195,14 @@ export function DetallesSeccion({
           Detalles y cobertura
         </h2>
 
-        <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {grupos.map((g) => (
-            <div key={g.titulo}>
+        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {grupos.map((g, gi) => (
+            <div
+              key={g.titulo}
+              data-reveal
+              style={{ "--reveal-delay": `${gi * 90}ms` } as React.CSSProperties}
+              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_1px_2px_rgba(16,26,44,0.04)]"
+            >
               <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                 {g.titulo}
               </h3>
@@ -236,7 +251,7 @@ export function GaleriaSeccion({
 
   return (
     <section className="border-t border-aventurea-line py-14">
-      <div className="mx-auto max-w-[1080px] px-7">
+      <div data-reveal className="mx-auto max-w-[1080px] px-7">
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
           Galería
         </p>
@@ -284,7 +299,7 @@ export function ContactoSeccion({
       id="contacto"
       className="border-t border-aventurea-line bg-aventurea-surface py-14"
     >
-      <div className="mx-auto max-w-[1080px] px-7">
+      <div data-reveal className="mx-auto max-w-[1080px] px-7">
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
           Contacto
         </p>
