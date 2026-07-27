@@ -100,7 +100,7 @@ export default function BookingCalendar({
   cuentaTipo?: string | null;
 }) {
   // Un proveedor que nunca los tocó muestra siempre los vigentes de
-  // Aventurea, armados con su propio depósito y monto mínimo.
+  // Bookear CR, armados con su propio depósito y monto mínimo.
   const terminosVigentes =
     terminos.length > 0
       ? terminos
@@ -1022,7 +1022,7 @@ export default function BookingCalendar({
                       <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
                         Solo para identificar a quien reserva ante daños o
                         problemas en el evento. Es privado — lo ve únicamente{" "}
-                        {nombreRancho} y Aventurea CR.
+                        {nombreRancho} y Bookear CR.
                       </p>
                       {cedula && !cedulaValida && (
                         <p className="mt-1 text-[11px] font-bold text-red-700">

@@ -23,7 +23,7 @@ export default function RegistroPage() {
           Creá tu cuenta
         </h1>
         <p className="mt-1.5 text-sm text-aventurea-ink-soft">
-          Registrate para publicar tu salón o rancho de eventos en Aventurea
+          Registrate para publicar tu salón o rancho de eventos en Bookear
           CR, sin importar en qué parte de Costa Rica esté.
         </p>
 

@@ -101,7 +101,7 @@ export default async function RanchoDetallePage({
 
           {rancho.estado === "pendiente" && (
             <p className="mt-3 rounded-[10px] bg-aventurea-orange/10 p-3 text-[13px] leading-relaxed text-aventurea-orange">
-              Aventurea CR está revisando tu publicación. Te avisamos apenas
+              Bookear CR está revisando tu publicación. Te avisamos apenas
               quede publicada en el directorio.
             </p>
           )}

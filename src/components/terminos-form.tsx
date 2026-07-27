@@ -116,7 +116,7 @@ export default function TerminosForm({
             </h3>
             <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">
               {porDefecto
-                ? "Estás usando los de Aventurea CR. Editá cualquiera para hacerlos tuyos."
+                ? "Estás usando los de Bookear CR. Editá cualquiera para hacerlos tuyos."
                 : "Son tuyos: el cliente los acepta antes de confirmar."}
             </p>
           </div>
@@ -126,7 +126,7 @@ export default function TerminosForm({
               onClick={restaurar}
               className="rounded-lg border border-aventurea-line px-3 py-1.5 text-[12px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
             >
-              Volver a los de Aventurea
+              Volver a los de Bookear CR
             </button>
           )}
         </div>
@@ -160,7 +160,7 @@ export default function TerminosForm({
         {terminos.length === 0 && (
           <p className="flex items-start gap-1.5 rounded-lg bg-aventurea-orange/10 p-3 text-[12.5px] leading-relaxed text-aventurea-orange">
             <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Sin términos propios se van a mostrar los de Aventurea CR. Publicar
+            Sin términos propios se van a mostrar los de Bookear CR. Publicar
             sin condiciones te deja sin respaldo ante un daño o una cancelación.
           </p>
         )}

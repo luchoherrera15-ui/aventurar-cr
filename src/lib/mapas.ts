@@ -83,7 +83,7 @@ export async function extraerCoordenadas(
     const res = await fetch(url, {
       redirect: "follow",
       signal: AbortSignal.timeout(6000),
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; AventureaCR/1.0)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; BookearCR/1.0)" },
     });
 
     const enUrlFinal = buscarEnTexto(res.url);

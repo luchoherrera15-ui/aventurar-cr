@@ -17,7 +17,7 @@ import {
   type Provincia,
 } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
-import { NOMBRE_RANCHO_AVENTUREA } from "./constants";
+import { NOMBRE_RANCHO_BOOKEAR } from "./constants";
 
 const POR_PAGINA = 8;
 
@@ -440,7 +440,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
           </h2>
           <p className="mt-1 text-[13px] text-aventurea-ink-soft">
             Lugares, comida, animación, decoración y más — publicalo gratis en
-            Aventurea CR y llegá a más clientes en todo el país.
+            Bookear CR y llegá a más clientes en todo el país.
           </p>
         </div>
         <Link
@@ -614,9 +614,9 @@ function IconLupa() {
 }
 
 function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
-  const esAventurea = rancho.nombre === NOMBRE_RANCHO_AVENTUREA;
+  const esBookear = rancho.nombre === NOMBRE_RANCHO_BOOKEAR;
   const puedeReservar = rancho.categoria === "lugares";
-  const href = esAventurea ? "/eventos-salon" : `/ranchos-eventos/${rancho.id}`;
+  const href = esBookear ? "/eventos-salon" : `/ranchos-eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
   // quedaba cortada a media palabra.
@@ -697,12 +697,12 @@ function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
 
         <span
           className={`mt-3.5 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[12.5px] font-bold transition-colors ${
-            esAventurea || puedeReservar
+            esBookear || puedeReservar
               ? "bg-white text-aventurea-orange-dark group-hover:bg-aventurea-orange group-hover:text-white"
               : "border border-white/35 text-white group-hover:bg-white/15"
           }`}
         >
-          {esAventurea || puedeReservar ? "Reservar ahora" : "Ver más"}
+          {esBookear || puedeReservar ? "Reservar ahora" : "Ver más"}
           <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
             →
           </span>

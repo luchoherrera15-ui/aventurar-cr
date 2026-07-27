@@ -22,7 +22,7 @@ export default function LoginPage() {
           Panel Administrativo
         </h2>
         <p className="mt-1.5 text-sm text-aventurea-ink-soft">
-          Gestiona las reservas de Aventurea CR.
+          Gestiona las reservas de Bookear CR.
         </p>
 
         <form action={formAction} className="mt-5.5 flex flex-col gap-3.5">
@@ -34,7 +34,7 @@ export default function LoginPage() {
               type="email"
               name="email"
               required
-              placeholder="tucorreo@aventureacr.com"
+              placeholder="tucorreo@bookearcr.com"
               className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:zinc-500"
             />
           </div>
@@ -67,7 +67,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 rounded-[10px] bg-aventurea-cream-2 p-3 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
-          Este acceso es solo para el equipo de Aventurea CR. Si todavía no
+          Este acceso es solo para el equipo de Bookear CR. Si todavía no
           tenés una cuenta, pedile a quien administra el proyecto que te cree
           una desde Supabase.
         </p>

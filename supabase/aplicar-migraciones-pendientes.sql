@@ -706,3 +706,13 @@ grant execute on function public.completar_reserva_temporal(
 ) to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ============================================================
+-- 0030 — Rebrand: renombra el rancho insignia a Bookear CR
+-- ============================================================
+
+update ranchos
+set nombre = 'Bookear CR — Rancho de Eventos'
+where nombre = 'Aventurea CR — Rancho de Eventos';
+
+notify pgrst, 'reload schema';

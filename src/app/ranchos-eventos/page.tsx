@@ -28,10 +28,10 @@ export default async function RanchosEventosPage() {
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-10">
           <Link href="/ranchos-eventos" className="flex items-center gap-2">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
-              A
+              B
             </span>
             <span className="whitespace-nowrap text-[15px] font-bold text-aventurea-ink sm:text-base">
-              AVENTUREA CR
+              BOOKEAR CR
             </span>
             <span className="hidden text-zinc-500 sm:inline">/</span>
             <span className="hidden text-[13px] font-light text-aventurea-ink-soft sm:inline">
@@ -59,7 +59,7 @@ export default async function RanchosEventosPage() {
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
-          AVENTUREA CR — Costa Rica ·{" "}
+          BOOKEAR CR — Costa Rica ·{" "}
           <Link href="/puntaleona-web" className="font-bold text-aventurea-orange">
             Paquetes vacacionales
           </Link>
