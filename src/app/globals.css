@@ -31,6 +31,11 @@
   --color-aventurea-orange-dark: #122844;
   --color-aventurea-orange-light: #e6ebf2;
   --color-aventurea-green: #1f7a4d;
+  /* Serie "por cobrar" de los gráficos. El navy de marca no sirve como
+     relleno de barra: queda fuera de la banda de luminosidad y sin croma,
+     se lee gris. Este azul pasa el validador contra el verde. */
+  --color-aventurea-blue: #3b7fc4;
+  --color-aventurea-blue-light: #e8f0f9;
   --color-aventurea-green-light: #e1f0e6;
   --color-aventurea-cream: #f6f7f9;
   --color-aventurea-cream-2: #eceef2;
