@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logoutDueno } from "./actions";
 import { IconPlus } from "@/components/icons";
+import RevealOnScroll from "@/components/reveal-on-scroll";
 import {
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
@@ -21,6 +22,17 @@ const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente",
   aprobado: "Publicado",
   rechazado: "Rechazado",
+};
+
+// Una franja de color por categoría, arriba de cada card: identidad
+// visual sin meter fondos ni fotos de relleno.
+const CATEGORIA_ACENTO: Record<Rancho["categoria"], string> = {
+  lugares: "bg-aventurea-orange",
+  alimentacion: "bg-amber-500",
+  animacion: "bg-violet-500",
+  organizacion: "bg-sky-600",
+  decoracion: "bg-rose-500",
+  otros: "bg-zinc-500",
 };
 
 export default async function MiRanchoHubPage() {
@@ -47,15 +59,16 @@ export default async function MiRanchoHubPage() {
 
   return (
     <main className="mx-auto max-w-[1000px] px-5 py-12">
-      <div className="mb-7 flex items-start justify-between gap-4">
+      <RevealOnScroll />
+      <div className="mb-8 flex items-start justify-between gap-4 border-b border-aventurea-line pb-7">
         <div>
           <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
             Marketplace de ranchos
           </p>
-          <h1 className="titulo mt-2.5 text-[26px] text-aventurea-orange-dark">
+          <h1 className="titulo mt-2.5 text-[28px] text-aventurea-orange-dark">
             Tus servicios y espacios
           </h1>
-          <p className="mt-1 text-[13px] text-aventurea-ink-soft">
+          <p className="mt-1.5 max-w-[52ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
             Una misma cuenta puede ofrecer varias cosas — tu rancho, tu
             catering, un coffee bar. Cada uno con sus propias reservas y
             finanzas.
@@ -71,28 +84,32 @@ export default async function MiRanchoHubPage() {
         </form>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {ranchos.map((rancho) => (
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {ranchos.map((rancho, i) => (
           <Link
             key={rancho.id}
             href={`/mi-rancho/${rancho.id}`}
-            className="group overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm transition hover:border-aventurea-orange/50 hover:shadow-md"
+            data-reveal
+            style={{ "--reveal-delay": `${i * 70}ms` } as React.CSSProperties}
+            className="group overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-[0_16px_32px_-12px_rgba(16,26,44,0.18)]"
           >
-            <div
-              className="relative flex h-[110px] items-center justify-center bg-cover bg-center"
-              style={
-                rancho.foto_url
-                  ? { backgroundImage: `url(${rancho.foto_url})` }
-                  : { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
-              }
-            >
+            <span className={`block h-[3px] w-full ${CATEGORIA_ACENTO[rancho.categoria]}`} />
+            <div className="relative flex h-[120px] items-center justify-center overflow-hidden">
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                style={
+                  rancho.foto_url
+                    ? { backgroundImage: `url(${rancho.foto_url})` }
+                    : { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
+                }
+              />
               {!rancho.foto_url && (
-                <span className="opacity-30 [&_svg]:h-10 [&_svg]:w-10">
+                <span className="relative opacity-30 [&_svg]:h-10 [&_svg]:w-10">
                   {CATEGORIA_ICONO[rancho.categoria]}
                 </span>
               )}
               <span
-                className={`absolute right-3 top-3 inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-bold ${ESTADO_BADGE[rancho.estado]}`}
+                className={`absolute right-3 top-3 inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-bold shadow-sm ${ESTADO_BADGE[rancho.estado]}`}
               >
                 {ESTADO_LABEL[rancho.estado]}
               </span>
@@ -113,9 +130,11 @@ export default async function MiRanchoHubPage() {
 
         <Link
           href="/mi-rancho/nuevo"
-          className="group flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-aventurea-line p-6 text-center text-aventurea-ink-soft transition hover:border-aventurea-orange hover:text-aventurea-orange"
+          data-reveal
+          style={{ "--reveal-delay": `${ranchos.length * 70}ms` } as React.CSSProperties}
+          className="group flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-aventurea-line p-6 text-center text-aventurea-ink-soft transition-all duration-300 hover:border-aventurea-orange hover:bg-aventurea-orange/5 hover:text-aventurea-orange"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-aventurea-cream-2 group-hover:bg-aventurea-orange/10">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-aventurea-cream-2 transition-transform duration-300 group-hover:scale-110 group-hover:bg-aventurea-orange/10">
             <IconPlus className="h-5 w-5" />
           </span>
           <span className="text-[13.5px] font-bold">Agregar otro servicio</span>
