@@ -19,6 +19,12 @@ export async function loginDueno(
   });
 
   if (error) {
+    if (/email.*not.*confirmed/i.test(error.message)) {
+      return {
+        error:
+          "Tu correo todavía no está confirmado. Revisá la bandeja de entrada (y spam) del correo de confirmación, o pedile a un admin que te reinicie la contraseña desde el panel.",
+      };
+    }
     return { error: "Correo o contraseña incorrectos." };
   }
 

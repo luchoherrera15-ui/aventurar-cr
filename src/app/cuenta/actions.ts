@@ -17,7 +17,15 @@ export async function iniciarSesionCuenta(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) return { error: "Correo o contraseña incorrectos." };
+  if (error) {
+    if (/email.*not.*confirmed/i.test(error.message)) {
+      return {
+        error:
+          "Tu correo todavía no está confirmado. Revisá la bandeja de entrada (y spam) del correo de confirmación, o pedile a un admin que te reinicie la contraseña desde el panel.",
+      };
+    }
+    return { error: "Correo o contraseña incorrectos." };
+  }
   redirect("/cuenta");
 }
 

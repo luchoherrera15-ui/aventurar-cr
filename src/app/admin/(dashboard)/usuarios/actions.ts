@@ -114,7 +114,15 @@ export async function cambiarPassword(id: string, password: string) {
   const admin = createAdminClient();
   if (!admin) return { error: FALTA_SERVICE_KEY };
 
-  const { error } = await admin.auth.admin.updateUserById(id, { password });
+  // email_confirm también, igual que en cambiarEmail: si la cuenta se
+  // registró sola y nunca confirmó el correo (link a spam, etc.), Supabase
+  // bloquea el login con "Email not confirmed" sin importar que la
+  // contraseña sea la correcta. Un reseteo de contraseña desde acá es
+  // justamente para destrabar una cuenta, así que de paso la confirma.
+  const { error } = await admin.auth.admin.updateUserById(id, {
+    password,
+    email_confirm: true,
+  });
   if (error) {
     return { error: "No se pudo cambiar la contraseña: " + error.message };
   }
