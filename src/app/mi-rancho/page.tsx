@@ -12,10 +12,12 @@ import {
   type Rancho,
 } from "./types";
 
-const ESTADO_BADGE: Record<Rancho["estado"], string> = {
-  pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
-  aprobado: "bg-aventurea-green/15 text-aventurea-green",
-  rechazado: "bg-red-50 text-red-700",
+// El texto siempre es blanco sobre vidrio esmerilado (se lee igual
+// sobre cualquier foto); el color solo vive en el puntito de estado.
+const ESTADO_PUNTO: Record<Rancho["estado"], string> = {
+  pendiente: "bg-aventurea-orange",
+  aprobado: "bg-aventurea-green",
+  rechazado: "bg-red-500",
 };
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
@@ -108,9 +110,8 @@ export default async function MiRanchoHubPage() {
                   {CATEGORIA_ICONO[rancho.categoria]}
                 </span>
               )}
-              <span
-                className={`absolute right-3 top-3 inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-bold shadow-sm ${ESTADO_BADGE[rancho.estado]}`}
-              >
+              <span className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/35 px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-wide text-white shadow-sm backdrop-blur-md">
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
                 {ESTADO_LABEL[rancho.estado]}
               </span>
             </div>
