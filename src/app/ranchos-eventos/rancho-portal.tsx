@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import BookingCalendar from "@/app/eventos-salon/booking-calendar";
 import RevealOnScroll from "@/components/reveal-on-scroll";
+import SiteHeader from "@/components/site-header";
 import { IconCheck, IconPin, IconUsers } from "@/components/icons";
 import {
   CATEGORIA_GRADIENTE,
@@ -171,22 +172,18 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   return (
     <div className="min-h-screen bg-aventurea-cream">
       <RevealOnScroll />
-      <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
-          <Link href="/ranchos-eventos" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
-              B
-            </span>
-            <span className="text-base font-bold text-aventurea-ink">BOOKEAR CR</span>
-          </Link>
+      <SiteHeader
+        breadcrumb={rancho.nombre}
+        ancho="max-w-[1080px]"
+        extra={
           <Link
             href="/ranchos-eventos"
-            className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
+            className="hidden text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy sm:block"
           >
             ← Ver todos los espacios
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       {esLugar ? (
         /* Los lugares abren con el calendario: reservar es lo primero. */

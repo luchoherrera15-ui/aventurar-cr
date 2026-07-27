@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import SiteHeader from "@/components/site-header";
 import BookingCalendar from "./booking-calendar";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
@@ -63,31 +64,23 @@ export default async function EventosSalonPage() {
 
   return (
     <div className="min-h-screen bg-aventurea-cream">
-      <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
-          <Link href="/ranchos-eventos" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
-              B
-            </span>
-            <span className="text-base font-bold text-aventurea-ink">BOOKEAR CR</span>
-            <span className="text-zinc-500">/</span>
-            <span className="text-[13px] font-light text-aventurea-ink-soft">
-              Rancho de Eventos
-            </span>
-          </Link>
+      <SiteHeader
+        breadcrumb="Rancho de Eventos"
+        ancho="max-w-[1080px]"
+        extra={
           <nav className="hidden items-center gap-6 sm:flex">
-            <Link href="/ranchos-eventos" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-orange">
+            <Link href="/ranchos-eventos" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-navy">
               Inicio
             </Link>
-            <a href="#reservar" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-orange">
+            <a href="#reservar" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-navy">
               Reservar
             </a>
-            <a href="#rancho" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-orange">
+            <a href="#rancho" className="text-[13.5px] text-aventurea-ink-soft hover:text-aventurea-navy">
               El rancho
             </a>
           </nav>
-        </div>
-      </header>
+        }
+      />
 
       <BookingCalendar
         ranchoId={rancho.id}

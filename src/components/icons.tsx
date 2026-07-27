@@ -290,3 +290,45 @@ export function IconChevronRight({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function IconMenu({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" d="M3 6.5h18M3 12h18M3 17.5h18" />
+    </svg>
+  );
+}
+
+export function IconUserCircle({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-5 0-8 2.5-8 5v1h16v-1c0-2.5-3-5-8-5Z" />
+    </svg>
+  );
+}
+
+export function IconSearch({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className={className}>
+      <circle cx="10.5" cy="10.5" r="7" />
+      <path strokeLinecap="round" d="M16 16l5 5" />
+    </svg>
+  );
+}
+
+export function IconFiltro({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} className={className}>
+      <path strokeLinecap="round" d="M3 6h18M6 12h12M10 18h4" />
+    </svg>
+  );
+}
+
+export function IconCompass({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m14.5 9.5-2 5-3-1.5 2-5 3 1.5Z" />
+    </svg>
+  );
+}

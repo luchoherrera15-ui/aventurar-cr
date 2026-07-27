@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import { IconPin } from "@/components/icons";
+import { IconCompass, IconFiltro, IconPin, IconSearch } from "@/components/icons";
 import {
   CATEGORIAS,
   CATEGORIA_GRADIENTE,
@@ -20,23 +20,46 @@ import type { Rancho } from "../mi-rancho/types";
 import { NOMBRE_RANCHO_BOOKEAR } from "./constants";
 
 const POR_PAGINA = 14;
+const DIAS_A_MOSTRAR = 60;
+const DIAS_SEMANA_CORTO = ["D", "L", "M", "M", "J", "V", "S"];
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
   return "₡" + Number(n).toLocaleString("es-CR");
 }
 
-export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
+function fechaISO(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function fmtFechaCorta(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-CR", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+type FechaOcupada = { rancho_id: string; fecha: string };
+
+export default function Directorio({
+  ranchos,
+  fechasOcupadas,
+}: {
+  ranchos: Rancho[];
+  fechasOcupadas: FechaOcupada[];
+}) {
   const [tab, setTab] = useState<Categoria | "todos">("todos");
   const [subcategoria, setSubcategoria] = useState("");
   const [texto, setTexto] = useState("");
   const [provincia, setProvincia] = useState("");
   const [canton, setCanton] = useState("");
+  const [fecha, setFecha] = useState("");
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
   const [pagina, setPagina] = useState(1);
   const [menuAbierto, setMenuAbierto] = useState<
-    Categoria | "provincia" | "filtros" | null
+    Categoria | "donde" | "cuando" | "personas" | "filtros" | null
   >(null);
 
   const invitadosNum = parseInt(invitados) || 0;
@@ -81,6 +104,45 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     return acc;
   }, [ranchos, provincia, tab]);
 
+  // Solo "lugares" reserva por fecha en línea — el resto (catering, DJ,
+  // decoración...) se contrata por WhatsApp y no tiene calendario, así
+  // que "Cuándo" no los excluye nunca, sea cual sea la fecha elegida.
+  const ocupadosPorFecha = useMemo(() => {
+    const acc = new Map<string, Set<string>>();
+    fechasOcupadas.forEach((f) => {
+      if (!acc.has(f.fecha)) acc.set(f.fecha, new Set());
+      acc.get(f.fecha)!.add(f.rancho_id);
+    });
+    return acc;
+  }, [fechasOcupadas]);
+
+  // De cara al selector de "Cuándo": un día se deshabilita solo si TODOS
+  // los lugares que coinciden con el resto de filtros ya están confirmados
+  // ese día — no si falta uno solo por confirmar.
+  const lugaresRelevantes = useMemo(
+    () =>
+      ranchos.filter(
+        (r) =>
+          r.categoria === "lugares" &&
+          (tab === "todos" || tab === "lugares") &&
+          (!subcategoria || r.subcategoria === subcategoria) &&
+          (!provincia || r.provincia === provincia) &&
+          (!canton || r.canton === canton),
+      ),
+    [ranchos, tab, subcategoria, provincia, canton],
+  );
+
+  const fechasSinDisponibilidad = useMemo(() => {
+    if (lugaresRelevantes.length === 0) return new Set<string>();
+    const sinCupo = new Set<string>();
+    ocupadosPorFecha.forEach((idsOcupados, fechaIso) => {
+      if (lugaresRelevantes.every((r) => idsOcupados.has(r.id))) {
+        sinCupo.add(fechaIso);
+      }
+    });
+    return sinCupo;
+  }, [lugaresRelevantes, ocupadosPorFecha]);
+
   const filtrados = useMemo(() => {
     const q = texto.trim().toLowerCase();
     return ranchos.filter((r) => {
@@ -96,11 +158,25 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
       }
       if (provincia && r.provincia !== provincia) return false;
       if (canton && r.canton !== canton) return false;
+      if (fecha && r.categoria === "lugares" && ocupadosPorFecha.get(fecha)?.has(r.id)) {
+        return false;
+      }
       if (invitadosNum && (r.capacidad_max ?? 0) < invitadosNum) return false;
       if (precioMaxNum && (r.precio_desde ?? 0) > precioMaxNum) return false;
       return true;
     });
-  }, [ranchos, tab, subcategoria, texto, provincia, canton, invitadosNum, precioMaxNum]);
+  }, [
+    ranchos,
+    tab,
+    subcategoria,
+    texto,
+    provincia,
+    canton,
+    fecha,
+    ocupadosPorFecha,
+    invitadosNum,
+    precioMaxNum,
+  ]);
 
   const hayAlgo =
     tab !== "todos" ||
@@ -108,6 +184,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     !!texto ||
     !!provincia ||
     !!canton ||
+    !!fecha ||
     !!invitados ||
     !!precioMax;
 
@@ -126,6 +203,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     setTexto("");
     setProvincia("");
     setCanton("");
+    setFecha("");
     setInvitados("");
     setPrecioMax("");
     setPagina(1);
@@ -161,69 +239,67 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
     setPagina(1);
   }
 
+  const categoriaAbierta =
+    typeof menuAbierto === "string" &&
+    (CATEGORIAS as readonly string[]).includes(menuAbierto)
+      ? (menuAbierto as Categoria)
+      : null;
+
   return (
     <div>
       <RevealOnScroll />
-      {/* Barra de navegación: es el filtro principal del directorio */}
-      <nav className="relative z-30 mb-4">
-        <div className="-mx-6 flex gap-1 overflow-x-auto border-b border-aventurea-line px-6 lg:mx-0 lg:px-0">
-          <TabMenu
-            label="Todos"
-            activo={tab === "todos" && !subcategoria}
-            abierto={false}
-            conMenu={false}
-            onClick={() => elegirCategoria("todos")}
-          />
-          {CATEGORIAS.map((cat) => (
-            <TabMenu
-              key={cat}
-              label={CATEGORIA_LABEL[cat]}
-              activo={tab === cat}
-              abierto={menuAbierto === cat}
-              conMenu
-              onClick={() => setMenuAbierto((prev) => (prev === cat ? null : cat))}
-            />
-          ))}
 
-          {/* A la derecha, los filtros transversales a cualquier categoría */}
-          <span className="ml-auto flex shrink-0 gap-1 border-l border-aventurea-line pl-1">
-            <TabMenu
-              label={canton || provincia || "Zona"}
-              activo={!!provincia || !!canton}
-              abierto={menuAbierto === "provincia"}
-              conMenu
-              onClick={() =>
-                setMenuAbierto((prev) => (prev === "provincia" ? null : "provincia"))
-              }
-            />
-            <TabMenu
-              label="Más filtros"
-              activo={!!invitados || !!precioMax}
-              abierto={menuAbierto === "filtros"}
-              conMenu
-              onClick={() =>
-                setMenuAbierto((prev) => (prev === "filtros" ? null : "filtros"))
-              }
-            />
-          </span>
+      {/* Buscador segmentado: Dónde · Cuándo · Personas */}
+      <div className="relative z-30 mb-5">
+        <div className="mx-auto flex max-w-[640px] items-stretch overflow-hidden rounded-full border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-md">
+          <SegmentoBusqueda
+            label="Dónde"
+            valor={canton || provincia || "Todo Costa Rica"}
+            activo={menuAbierto === "donde"}
+            onClick={() => setMenuAbierto((p) => (p === "donde" ? null : "donde"))}
+          />
+          <SegmentoBusqueda
+            borde
+            label="Cuándo"
+            valor={fecha ? fmtFechaCorta(fecha) : "Agregá la fecha"}
+            activo={menuAbierto === "cuando"}
+            onClick={() => setMenuAbierto((p) => (p === "cuando" ? null : "cuando"))}
+          />
+          <SegmentoBusqueda
+            borde
+            className="hidden sm:flex"
+            label="Personas"
+            valor={invitados || "¿Cuántas?"}
+            activo={menuAbierto === "personas"}
+            onClick={() => setMenuAbierto((p) => (p === "personas" ? null : "personas"))}
+          />
+          <button
+            type="button"
+            onClick={soltarMenu}
+            aria-label="Buscar"
+            className="m-1.5 flex w-11 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-white hover:bg-aventurea-orange-dark"
+          >
+            <IconSearch className="h-[17px] w-[17px]" />
+          </button>
         </div>
 
-        {menuAbierto && (
+        {(menuAbierto === "donde" ||
+          menuAbierto === "cuando" ||
+          menuAbierto === "personas") && (
           <>
-            {/* Capa invisible: un clic afuera cierra el menú */}
             <button
               type="button"
               aria-label="Cerrar menú"
               onClick={soltarMenu}
               className="fixed inset-0 z-10 cursor-default"
             />
-            <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
-              {menuAbierto === "provincia" ? (
+            <div className="absolute left-0 right-0 top-full z-20 mx-auto mt-2 max-w-[640px] rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
+              {menuAbierto === "donde" && (
                 <div>
                   <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                     Provincia
                   </h4>
-                  <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
                     {PROVINCIAS.map((p) => (
                       <FilterRow
                         key={p}
@@ -242,7 +318,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
                       <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                         Cantones de {provincia}
                       </h4>
-                      <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
                         {CANTONES[provincia as Provincia].map((ct) => (
                           <FilterRow
                             key={ct}
@@ -259,69 +335,131 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
                     </div>
                   )}
                 </div>
-              ) : menuAbierto === "filtros" ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className={labelCls}>Cantidad de invitados</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={invitados}
-                      onChange={(e) => {
-                        setInvitados(e.target.value);
-                        setPagina(1);
-                      }}
-                      placeholder="Ej. 50"
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Precio máximo (₡)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={precioMax}
-                      onChange={(e) => {
-                        setPrecioMax(e.target.value);
-                        setPagina(1);
-                      }}
-                      placeholder="Ej. 150000"
-                      className={inputCls}
-                    />
-                  </div>
+              )}
+
+              {menuAbierto === "cuando" && (
+                <SelectorFecha
+                  fecha={fecha}
+                  deshabilitadas={fechasSinDisponibilidad}
+                  hayLugares={lugaresRelevantes.length > 0}
+                  onElegir={(iso) => {
+                    setFecha(iso);
+                    setPagina(1);
+                    soltarMenu();
+                  }}
+                />
+              )}
+
+              {menuAbierto === "personas" && (
+                <div>
+                  <label className={labelCls}>Cantidad de invitados</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={invitados}
+                    onChange={(e) => {
+                      setInvitados(e.target.value);
+                      setPagina(1);
+                    }}
+                    placeholder="Ej. 50"
+                    className={inputCls}
+                  />
                 </div>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => elegirCategoria(menuAbierto)}
-                    className="mb-2 text-[12px] font-bold text-aventurea-orange hover:underline"
-                  >
-                    Ver todo en {CATEGORIA_LABEL[menuAbierto]} (
-                    {conteoPorCategoria[menuAbierto] ?? 0}) →
-                  </button>
-                  <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3">
-                    {SUBCATEGORIAS[menuAbierto].map((s) => (
-                      <FilterRow
-                        key={s.id}
-                        label={s.label}
-                        count={conteoPorSubcategoria[s.id] ?? 0}
-                        active={subcategoria === s.id}
-                        onClick={() => elegirSubcategoria(menuAbierto, s.id)}
-                      />
-                    ))}
-                  </div>
-                </>
               )}
             </div>
           </>
         )}
-      </nav>
+      </div>
 
-      {/* Buscador */}
+      {/* Barra de categorías: ícono + label, con "Filtros" fijo aparte */}
+      <div className="relative z-20 mb-4 flex items-stretch gap-3 border-b border-aventurea-line">
+        <div className="flex min-w-0 flex-1 gap-6 overflow-x-auto lg:gap-8">
+          <CategoriaTab
+            label="Todos"
+            icono={<IconCompass className="h-full w-full" />}
+            activo={tab === "todos" && !subcategoria}
+            onClick={() => elegirCategoria("todos")}
+          />
+          {CATEGORIAS.map((cat) => (
+            <CategoriaTab
+              key={cat}
+              label={CATEGORIA_LABEL[cat]}
+              icono={CATEGORIA_ICONO[cat]}
+              activo={tab === cat}
+              onClick={() => setMenuAbierto((prev) => (prev === cat ? null : cat))}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setMenuAbierto((prev) => (prev === "filtros" ? null : "filtros"))}
+          className={`mb-2.5 flex shrink-0 items-center gap-1.5 self-center rounded-[11px] border px-3.5 py-2 text-[13px] font-bold transition-colors ${
+            precioMax || menuAbierto === "filtros"
+              ? "border-aventurea-navy text-aventurea-navy"
+              : "border-aventurea-line text-aventurea-ink hover:border-aventurea-navy"
+          }`}
+        >
+          <IconFiltro className="h-3.5 w-3.5" />
+          Filtros
+        </button>
+      </div>
+
+      {(menuAbierto === "filtros" || categoriaAbierta) && (
+        <div className="relative z-20 mb-4">
+          <button
+            type="button"
+            aria-label="Cerrar menú"
+            onClick={soltarMenu}
+            className="fixed inset-0 z-10 cursor-default"
+          />
+          <div className="relative z-20 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
+            {menuAbierto === "filtros" ? (
+              <div className="max-w-xs">
+                <label className={labelCls}>Precio máximo (₡)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={precioMax}
+                  onChange={(e) => {
+                    setPrecioMax(e.target.value);
+                    setPagina(1);
+                  }}
+                  placeholder="Ej. 150000"
+                  className={inputCls}
+                />
+              </div>
+            ) : categoriaAbierta ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => elegirCategoria(categoriaAbierta)}
+                  className="mb-2 text-[12px] font-bold text-aventurea-navy hover:underline"
+                >
+                  Ver todo en {CATEGORIA_LABEL[categoriaAbierta]} (
+                  {conteoPorCategoria[categoriaAbierta] ?? 0}) →
+                </button>
+                <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {SUBCATEGORIAS[categoriaAbierta].map((s) => (
+                    <FilterRow
+                      key={s.id}
+                      label={s.label}
+                      count={conteoPorSubcategoria[s.id] ?? 0}
+                      active={subcategoria === s.id}
+                      onClick={() => elegirSubcategoria(categoriaAbierta, s.id)}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Búsqueda por nombre — complementa al buscador de arriba, que es
+          por ubicación/fecha/capacidad, no por el nombre del proveedor. */}
       <div className="relative mb-4">
         <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
-          <IconLupa />
+          <IconSearch className="h-[15px] w-[15px]" />
         </span>
         <input
           type="search"
@@ -330,8 +468,8 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
             setTexto(e.target.value);
             setPagina(1);
           }}
-          placeholder="Buscá por nombre, provincia o cantón..."
-          className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-orange/40 focus:outline-none"
+          placeholder="Buscá un proveedor por nombre..."
+          className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/40 focus:outline-none"
         />
       </div>
 
@@ -358,6 +496,9 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
           )}
           {canton && (
             <Chip label={canton} onQuitar={() => elegirCanton(canton)} />
+          )}
+          {fecha && (
+            <Chip label={fmtFechaCorta(fecha)} onQuitar={() => setFecha("")} />
           )}
           <button
             type="button"
@@ -459,48 +600,121 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
-function TabMenu({
+function SegmentoBusqueda({
   label,
+  valor,
   activo,
-  abierto,
-  conMenu,
+  borde,
+  className = "",
   onClick,
 }: {
   label: string;
+  valor: string;
   activo: boolean;
-  abierto: boolean;
-  conMenu: boolean;
+  borde?: boolean;
+  className?: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-expanded={conMenu ? abierto : undefined}
-      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-bold uppercase tracking-wide transition-colors ${
-        activo || abierto
-          ? "border-aventurea-orange text-aventurea-orange"
-          : "border-transparent text-aventurea-ink-soft hover:text-aventurea-orange"
+      className={`flex min-w-0 flex-1 flex-col px-4 py-2.5 text-left transition-colors sm:px-5 ${
+        borde ? "border-l border-aventurea-line" : ""
+      } ${activo ? "bg-aventurea-cream-2" : "hover:bg-aventurea-cream-2/60"} ${className}`}
+    >
+      <span className="text-[11px] font-bold text-aventurea-ink">{label}</span>
+      <span className="truncate text-[13px] text-aventurea-ink-soft">{valor}</span>
+    </button>
+  );
+}
+
+function CategoriaTab({
+  label,
+  icono,
+  activo,
+  onClick,
+}: {
+  label: string;
+  icono: React.ReactNode;
+  activo: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex shrink-0 flex-col items-center gap-1.5 whitespace-nowrap border-b-[2.5px] pb-2.5 pt-3 transition-colors ${
+        activo
+          ? "border-aventurea-ink text-aventurea-ink"
+          : "border-transparent text-aventurea-ink-soft hover:text-aventurea-ink"
       }`}
     >
-      {label}
-      {conMenu && (
-        <svg
-          viewBox="0 0 20 20"
-          fill="none"
-          aria-hidden
-          className={`h-3.5 w-3.5 transition-transform ${abierto ? "rotate-180" : ""}`}
-        >
-          <path
-            d="m5 8 5 5 5-5"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
+      <span className={`h-[25px] w-[25px] ${activo ? "" : "opacity-70"}`}>{icono}</span>
+      <span className="text-[12.5px] font-bold">{label}</span>
     </button>
+  );
+}
+
+function SelectorFecha({
+  fecha,
+  deshabilitadas,
+  hayLugares,
+  onElegir,
+}: {
+  fecha: string;
+  deshabilitadas: Set<string>;
+  hayLugares: boolean;
+  onElegir: (iso: string) => void;
+}) {
+  const dias = useMemo(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return Array.from({ length: DIAS_A_MOSTRAR }, (_, i) => {
+      const d = new Date(hoy);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, []);
+
+  return (
+    <div>
+      <h4 className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+        Elegí una fecha
+      </h4>
+      <p className="mb-3 px-1 text-[12px] text-aventurea-ink-soft">
+        {hayLugares
+          ? "Solo afecta a Lugares — el resto de los servicios se coordina por WhatsApp."
+          : "No hay lugares con calendario en línea para esta búsqueda todavía."}
+      </p>
+      <div className="grid grid-cols-7 gap-1.5">
+        {dias.map((d) => {
+          const iso = fechaISO(d);
+          const bloqueada = deshabilitadas.has(iso);
+          const elegida = fecha === iso;
+          return (
+            <button
+              key={iso}
+              type="button"
+              disabled={bloqueada}
+              onClick={() => onElegir(iso)}
+              className={`flex flex-col items-center rounded-lg py-1.5 text-center transition-colors ${
+                elegida
+                  ? "bg-aventurea-navy text-white"
+                  : bloqueada
+                    ? "cursor-not-allowed text-zinc-300 line-through"
+                    : "text-aventurea-ink hover:bg-aventurea-cream-2"
+              }`}
+            >
+              <span className="text-[9px] font-bold uppercase">
+                {DIAS_SEMANA_CORTO[d.getDay()]}
+              </span>
+              <span className="text-[13px] font-bold">{d.getDate()}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -594,22 +808,6 @@ function Paginacion({
         ›
       </button>
     </div>
-  );
-}
-
-function IconLupa() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      className="h-[18px] w-[18px]"
-      aria-hidden
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path strokeLinecap="round" d="m20 20-3.5-3.5" />
-    </svg>
   );
 }
 

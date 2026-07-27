@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import AccionesSesion from "@/components/acciones-sesion";
+import SiteHeader from "@/components/site-header";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import {
   IconCalendarLine,
@@ -43,19 +43,7 @@ export default async function PublicarPage() {
   return (
     <div className="min-h-screen bg-aventurea-cream">
       <RevealOnScroll />
-      <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-5 px-6 py-3.5 lg:px-10">
-          <Link href="/ranchos-eventos" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
-              B
-            </span>
-            <span className="text-base font-bold text-aventurea-ink">
-              BOOKEAR CR
-            </span>
-          </Link>
-          <AccionesSesion />
-        </div>
-      </header>
+      <SiteHeader ancho="max-w-[1200px]" />
 
       {/* ---------- Portada ---------- */}
       <section className="relative isolate overflow-hidden">
