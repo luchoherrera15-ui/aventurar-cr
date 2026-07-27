@@ -3,10 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import BookingCalendar from "@/app/eventos-salon/booking-calendar";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteHeader from "@/components/site-header";
-import { IconCheck, IconPin, IconUsers } from "@/components/icons";
+import { IconCheck, IconPin, IconUsers, IconWhatsapp } from "@/components/icons";
 import {
-  CATEGORIA_GRADIENTE,
-  CATEGORIA_ICONO,
   CATEGORIA_LABEL,
   SUBCATEGORIA_LABEL,
   linkGoogleMaps,
@@ -23,6 +21,7 @@ import {
   AmenidadesSeccion,
   ContactoSeccion,
   DetallesSeccion,
+  GaleriaHero,
   GaleriaSeccion,
   PresentacionSeccion,
   ResumenSeccion,
@@ -71,13 +70,13 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
       : "A consultar";
 
-  // Manda la que el dueño eligió. Si no eligió ninguna, buscamos una
-  // distinta a la portada para no repetir la misma imagen dos veces
-  // seguidas, y si tampoco hay galería se queda con el degradado.
-  const fotoPresentacion =
-    rancho.foto_presentacion ??
-    fotos.find((f) => f !== rancho.foto_url) ??
-    (esLugar ? rancho.foto_url : null);
+  // La foto grande del hero es la que el dueño eligió como presentación,
+  // o si no la de portada; el resto de la galería la completa, sin
+  // repetir la misma foto dos veces.
+  const fotoDestacada = rancho.foto_presentacion ?? rancho.foto_url;
+  const fotosHero = fotoDestacada
+    ? [fotoDestacada, ...fotos.filter((f) => f !== fotoDestacada)]
+    : fotos;
 
   const datosPresentacion = esLugar
     ? [
@@ -185,8 +184,58 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         }
       />
 
-      {esLugar ? (
-        /* Los lugares abren con el calendario: reservar es lo primero. */
+      {/* Galería arriba de todo — nada de foto oscurecida con texto
+          encima; el nombre y la ubicación van debajo, en texto plano. */}
+      <GaleriaHero fotos={fotosHero} categoria={rancho.categoria} nombre={rancho.nombre} />
+
+      <div className="mx-auto max-w-[1080px] px-7 pt-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[11.5px] font-bold uppercase tracking-wide text-aventurea-navy">
+              {CATEGORIA_LABEL[rancho.categoria]}
+            </p>
+            <h1 className="titulo mt-1 text-[26px] text-aventurea-ink sm:text-[32px]">
+              {rancho.nombre}
+            </h1>
+            {ubicacion && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[13.5px] text-aventurea-ink-soft">
+                <IconPin className="h-3.5 w-3.5 shrink-0" />
+                {ubicacion}
+              </p>
+            )}
+          </div>
+          {!esLugar && (
+            <div className="flex flex-wrap gap-2.5">
+              {whatsappHref && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                >
+                  <IconWhatsapp className="h-4 w-4" />
+                  Pedir cotización
+                </a>
+              )}
+              <a
+                href="#contacto"
+                className="rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-navy"
+              >
+                Ver contacto
+              </a>
+            </div>
+          )}
+        </div>
+        {!esLugar && rancho.descripcion && (
+          <p className="mt-3 max-w-[70ch] text-[14px] text-aventurea-ink-soft">
+            {rancho.descripcion}
+          </p>
+        )}
+      </div>
+
+      {esLugar && (
+        /* El calendario de reserva es su propia pieza — pendiente de
+           rediseño aparte (ver nota en la conversación). */
         <BookingCalendar
           ranchoId={rancho.id}
           nombreRancho={rancho.nombre}
@@ -208,63 +257,6 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           cuentaTipo={rancho.cuenta_tipo}
           descripcion={rancho.descripcion}
         />
-      ) : (
-        /* Los servicios móviles no tienen calendario: abren con su portada. */
-        <section className="relative flex h-[300px] items-end overflow-hidden sm:h-[400px]">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={
-              rancho.foto_url
-                ? { backgroundImage: `url(${rancho.foto_url})` }
-                : { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
-            }
-          />
-          {!rancho.foto_url && (
-            <span className="absolute inset-0 flex items-center justify-center opacity-25 [&_svg]:h-20 [&_svg]:w-20">
-              {CATEGORIA_ICONO[rancho.categoria]}
-            </span>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/10" />
-
-          <div className="relative mx-auto w-full max-w-[1080px] px-7 pb-8">
-            <div className="mb-2.5 flex flex-wrap gap-2">
-              {rancho.provincia && (
-                <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink">
-                  {rancho.provincia}
-                </span>
-              )}
-              <span className="rounded-full bg-black/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white/90">
-                {CATEGORIA_LABEL[rancho.categoria]}
-              </span>
-            </div>
-            <h1 className="text-[28px] font-bold text-white drop-shadow-sm sm:text-[36px]">
-              {rancho.nombre}
-            </h1>
-            {rancho.descripcion && (
-              <p className="mt-2 max-w-[60ch] text-[14px] text-white/80">
-                {rancho.descripcion}
-              </p>
-            )}
-            <div className="mt-5 flex flex-wrap gap-2.5">
-              {whatsappHref && (
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
-                >
-                  Pedir cotización
-                </a>
-              )}
-              <a
-                href="#contacto"
-                className="rounded-xl border border-white/40 px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-white/10"
-              >
-                Ver contacto
-              </a>
-            </div>
-          </div>
-        </section>
       )}
 
       {/* Los datos y lo que incluye van antes de la foto grande: dos
@@ -281,8 +273,6 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       )}
 
       <PresentacionSeccion
-        foto={fotoPresentacion}
-        categoria={rancho.categoria}
         eyebrow={
           rancho.subcategoria
             ? SUBCATEGORIA_LABEL[rancho.subcategoria]

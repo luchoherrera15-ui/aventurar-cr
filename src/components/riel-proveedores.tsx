@@ -2,7 +2,9 @@ import Link from "next/link";
 import RanchoCard, { type Calificacion } from "./rancho-card";
 import type { Rancho } from "@/app/mi-rancho/types";
 
-const ANCHO_TARJETA = 220;
+// En móvil se ven ~2 tarjetas completas más un asomo de la tercera,
+// que es justo lo que invita a deslizar (45vw ronda eso en 360-430px).
+const ANCHO_TARJETA = "clamp(158px, 45vw, 240px)";
 
 /**
  * Fila horizontal con scroll-snap — la unidad básica del home (Fase 5).

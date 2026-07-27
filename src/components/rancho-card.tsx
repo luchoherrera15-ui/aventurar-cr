@@ -43,8 +43,8 @@ export default function RanchoCard({
   proximaLibre?: string | null;
   favoritoInicial: boolean;
   sesionActiva: boolean;
-  /** Ancho fijo para uso en riel horizontal; sin esto, ocupa el 100% de su celda de grilla. */
-  ancho?: number;
+  /** Ancho CSS (ej. "220px" o un clamp()) para uso en riel horizontal; sin esto, ocupa el 100% de su celda de grilla. */
+  ancho?: string;
 }) {
   const esBookear = rancho.nombre === NOMBRE_RANCHO_BOOKEAR;
   const href = esBookear
@@ -67,7 +67,7 @@ export default function RanchoCard({
       style={
         {
           "--reveal-delay": `${Math.min(index, 6) * 60}ms`,
-          ...(ancho ? { width: ancho, flex: `0 0 ${ancho}px` } : {}),
+          ...(ancho ? { width: ancho, flex: `0 0 ${ancho}` } : {}),
         } as React.CSSProperties
       }
     >

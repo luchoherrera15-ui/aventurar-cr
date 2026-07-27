@@ -15,54 +15,92 @@ import {
 import {
   AMENIDADES_GRUPOS,
   CATEGORIA_GRADIENTE,
+  CATEGORIA_ICONO,
   type Categoria,
 } from "@/app/mi-rancho/types";
 import GaleriaLightbox from "@/components/galeria-lightbox";
 
 /**
- * La "división" grande del portal: una de las fotos del negocio a pantalla
- * completa, oscurecida, con el texto de presentación encima.
+ * El texto de presentación (descripción larga). Antes iba encima de una
+ * foto oscurecida a pantalla completa — la galería real ya vive arriba
+ * de todo, en el hero, así que acá alcanza con texto plano.
  */
 export function PresentacionSeccion({
-  foto,
-  categoria,
   eyebrow,
   titulo,
   texto,
 }: {
-  foto: string | null;
-  categoria: Categoria;
   eyebrow: string;
   titulo: string;
   texto: string | null;
 }) {
+  if (!texto) return null;
+
   return (
-    <section className="relative isolate overflow-hidden">
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={
-          foto
-            ? { backgroundImage: `url(${foto})` }
-            : { backgroundImage: CATEGORIA_GRADIENTE[categoria] }
-        }
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/55 to-black/80" />
-
-      <div className="relative mx-auto max-w-[900px] px-7 py-16 text-center sm:py-20">
-        <span className="inline-flex items-center gap-3 text-[11px] font-light uppercase tracking-[0.28em] text-white/60 before:block before:h-px before:w-8 before:bg-white/40 after:block after:h-px after:w-8 after:bg-white/40">
+    <section className="border-t border-aventurea-line py-14">
+      <div data-reveal className="mx-auto max-w-[720px] px-7 text-center">
+        <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy after:block after:h-[1.5px] after:w-5 after:bg-aventurea-navy">
           {eyebrow}
-        </span>
-        <h2 className="titulo mt-4 text-balance text-[32px] text-white sm:text-[42px]">
-          {titulo}
-        </h2>
-        {texto && (
-          <p className="mx-auto mt-5 max-w-[62ch] whitespace-pre-line text-[14.5px] leading-relaxed text-white/75">
-            {texto}
-          </p>
-        )}
-
+        </p>
+        <h2 className="titulo mt-3 text-[26px] text-aventurea-ink">{titulo}</h2>
+        <p className="mx-auto mt-5 max-w-[62ch] whitespace-pre-line text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+          {texto}
+        </p>
       </div>
     </section>
+  );
+}
+
+/**
+ * El hero del detalle: 1 foto grande + hasta 4 chicas en desktop, la
+ * primera sola en móvil. Nada de degradado ni texto encima — el
+ * nombre y la ubicación van debajo, en texto plano.
+ */
+export function GaleriaHero({
+  fotos,
+  categoria,
+  nombre,
+}: {
+  fotos: string[];
+  categoria: Categoria;
+  nombre: string;
+}) {
+  if (fotos.length === 0) {
+    return (
+      <div
+        className="relative flex aspect-[16/9] items-center justify-center overflow-hidden sm:aspect-[21/9]"
+        style={{ backgroundImage: CATEGORIA_GRADIENTE[categoria] }}
+      >
+        <span className="text-white/25 [&_svg]:h-16 [&_svg]:w-16">
+          {CATEGORIA_ICONO[categoria]}
+        </span>
+      </div>
+    );
+  }
+
+  const [grande, ...resto] = fotos;
+  const chicas = resto.slice(0, 4);
+
+  return (
+    <div className="mx-auto max-w-[1080px] px-0 sm:px-7 sm:pt-7">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:grid-rows-2 sm:rounded-[13px]">
+        {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor */}
+        <img
+          src={grande}
+          alt={nombre}
+          className="aspect-[16/9] w-full object-cover sm:col-span-2 sm:row-span-2 sm:aspect-auto sm:h-full"
+        />
+        {chicas.map((foto, i) => (
+          // eslint-disable-next-line @next/next/no-img-element -- ídem
+          <img
+            key={foto + i}
+            src={foto}
+            alt={`${nombre} — foto ${i + 2}`}
+            className="hidden aspect-square w-full object-cover sm:block"
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
