@@ -1,5 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+
+// Se queda en el directorio en vez de mandar a /mi-rancho/login: acá
+// arriba cualquiera puede estar de visita, no solo un dueño.
+async function cerrarSesionPublica() {
+  "use server";
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/ranchos-eventos");
+}
 
 /**
  * Los botones de la derecha del header público.
@@ -32,6 +42,11 @@ export default async function AccionesSesion({
         <Link href="/ranchos-eventos" className={secundario}>
           Ver el directorio
         </Link>
+        <form action={cerrarSesionPublica}>
+          <button type="submit" className={secundario}>
+            Cerrar sesión
+          </button>
+        </form>
         <Link href="/mi-rancho" className={primario}>
           Mi panel
         </Link>
