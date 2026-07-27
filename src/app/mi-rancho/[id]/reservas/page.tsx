@@ -66,7 +66,7 @@ export default async function MiRanchoReservasPage({
         </p>
       )}
 
-      <ReservasTable initialReservas={reservas} />
+      <ReservasTable initialReservas={reservas} mostrarMensajes />
     </main>
   );
 }

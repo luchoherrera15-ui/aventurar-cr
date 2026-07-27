@@ -206,42 +206,53 @@ function Seccion({
 
 function TarjetaReserva({ reserva, atenuada }: { reserva: ReservaCliente; atenuada?: boolean }) {
   const href = reserva.ranchos?.slug ? `/${reserva.ranchos.slug}` : null;
-  const contenido = (
-    <>
-      <div
-        className="h-14 w-14 shrink-0 rounded-lg bg-cover bg-center bg-aventurea-cream-2"
-        style={reserva.ranchos?.foto_url ? { backgroundImage: `url(${reserva.ranchos.foto_url})` } : undefined}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[10.5px] font-bold uppercase tracking-wide text-aventurea-navy">
-          {reserva.ranchos ? CATEGORIA_LABEL[normalizarCategoria(reserva.ranchos.categoria)] : ""}
-        </p>
-        <p className="truncate text-[14px] font-bold text-aventurea-ink">
-          {reserva.ranchos?.nombre ?? "Proveedor"}
-        </p>
-        <p className="text-[12.5px] text-aventurea-ink-soft">
-          {reserva.fecha}
-          {reserva.horario_bloque ? ` · ${reserva.horario_bloque}` : ""}
-        </p>
-        {reserva.monto_total !== null && (
-          <p className="text-[12.5px] font-bold text-aventurea-ink">{fmtColones(reserva.monto_total)}</p>
-        )}
+
+  return (
+    <div
+      className={`rounded-2xl border border-aventurea-line bg-aventurea-surface p-3 ${atenuada ? "opacity-70" : ""}`}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className="h-14 w-14 shrink-0 rounded-lg bg-cover bg-center bg-aventurea-cream-2"
+          style={
+            reserva.ranchos?.foto_url ? { backgroundImage: `url(${reserva.ranchos.foto_url})` } : undefined
+          }
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[10.5px] font-bold uppercase tracking-wide text-aventurea-navy">
+            {reserva.ranchos ? CATEGORIA_LABEL[normalizarCategoria(reserva.ranchos.categoria)] : ""}
+          </p>
+          <p className="truncate text-[14px] font-bold text-aventurea-ink">
+            {reserva.ranchos?.nombre ?? "Proveedor"}
+          </p>
+          <p className="text-[12.5px] text-aventurea-ink-soft">
+            {reserva.fecha}
+            {reserva.horario_bloque ? ` · ${reserva.horario_bloque}` : ""}
+          </p>
+          {reserva.monto_total !== null && (
+            <p className="text-[12.5px] font-bold text-aventurea-ink">{fmtColones(reserva.monto_total)}</p>
+          )}
+        </div>
+        <span
+          className={`shrink-0 self-start rounded-full px-2.5 py-1 text-[10.5px] font-bold ${ESTADO_CLASE[reserva.estado] ?? "bg-zinc-100 text-zinc-600"}`}
+        >
+          {ESTADO_LABEL[reserva.estado] ?? reserva.estado}
+        </span>
       </div>
-      <span
-        className={`shrink-0 self-start rounded-full px-2.5 py-1 text-[10.5px] font-bold ${ESTADO_CLASE[reserva.estado] ?? "bg-zinc-100 text-zinc-600"}`}
-      >
-        {ESTADO_LABEL[reserva.estado] ?? reserva.estado}
-      </span>
-    </>
-  );
 
-  const clase = `flex items-center gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-3 ${atenuada ? "opacity-70" : ""}`;
-
-  return href ? (
-    <Link href={href} className={`${clase} transition-colors hover:border-aventurea-navy`}>
-      {contenido}
-    </Link>
-  ) : (
-    <div className={clase}>{contenido}</div>
+      <div className="mt-2.5 flex gap-4 border-t border-aventurea-line pt-2.5">
+        {href && (
+          <Link href={href} className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy">
+            Ver proveedor
+          </Link>
+        )}
+        <Link
+          href={`/mensajes/${reserva.id}`}
+          className="text-[12.5px] font-bold text-aventurea-navy hover:underline"
+        >
+          Mensajes
+        </Link>
+      </div>
+    </div>
   );
 }

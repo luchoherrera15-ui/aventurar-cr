@@ -573,6 +573,14 @@ export type CalificacionRancho = {
   total: number;
 };
 
+export type Mensaje = {
+  id: string;
+  conversacion_id: string;
+  autor_id: string;
+  texto: string;
+  created_at: string;
+};
+
 export type TipoSeccionHome = "categoria" | "ubicacion" | "manual";
 
 export type HomeSeccion = {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import {
   marcarDepositoValidado,
@@ -39,9 +40,13 @@ function fmtDate(iso: string) {
 export default function ReservasTable({
   initialReservas,
   nombrePorRancho,
+  mostrarMensajes,
 }: {
   initialReservas: Reserva[];
   nombrePorRancho?: Map<string, string>;
+  /** Solo tiene sentido desde el panel del propio proveedor: el admin
+   *  no es parte de la conversación con el cliente. */
+  mostrarMensajes?: boolean;
 }) {
   const [reservas, setReservas] = useState(initialReservas);
   const [query, setQuery] = useState("");
@@ -391,6 +396,14 @@ export default function ReservasTable({
                           Rechazar
                         </button>
                       </>
+                    )}
+                    {mostrarMensajes && r.cliente_id && (
+                      <Link
+                        href={`/mensajes/${r.id}`}
+                        className="flex h-[30px] items-center rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-navy hover:border-aventurea-navy"
+                      >
+                        Mensajes
+                      </Link>
                     )}
                   </div>
                 </td>

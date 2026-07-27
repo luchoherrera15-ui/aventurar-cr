@@ -350,34 +350,40 @@ function Seccion({
 }
 
 function TarjetaReserva({ reserva, atenuada }: { reserva: ReservaCliente; atenuada?: boolean }) {
+  const router = useRouter();
   return (
     <View style={[styles.tarjetaReserva, atenuada && styles.tarjetaAtenuada]}>
-      <Image
-        source={reserva.ranchos?.foto_url ? { uri: reserva.ranchos.foto_url } : undefined}
-        style={styles.fotoReserva}
-        contentFit="cover"
-        alt={reserva.ranchos?.nombre ?? ""}
-      />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={styles.categoriaReserva}>
-          {reserva.ranchos ? CATEGORIA_LABEL[reserva.ranchos.categoria] : ""}
-        </Text>
-        <Text style={styles.nombreReserva} numberOfLines={1}>
-          {reserva.ranchos?.nombre ?? "Proveedor"}
-        </Text>
-        <Text style={styles.fechaReserva}>
-          {reserva.fecha}
-          {reserva.horario_bloque ? ` · ${reserva.horario_bloque}` : ""}
-        </Text>
-        {reserva.monto_total !== null && (
-          <Text style={styles.montoReserva}>{fmtColones(reserva.monto_total)}</Text>
-        )}
+      <View style={{ flexDirection: "row", gap: Spacing.three }}>
+        <Image
+          source={reserva.ranchos?.foto_url ? { uri: reserva.ranchos.foto_url } : undefined}
+          style={styles.fotoReserva}
+          contentFit="cover"
+          alt={reserva.ranchos?.nombre ?? ""}
+        />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.categoriaReserva}>
+            {reserva.ranchos ? CATEGORIA_LABEL[reserva.ranchos.categoria] : ""}
+          </Text>
+          <Text style={styles.nombreReserva} numberOfLines={1}>
+            {reserva.ranchos?.nombre ?? "Proveedor"}
+          </Text>
+          <Text style={styles.fechaReserva}>
+            {reserva.fecha}
+            {reserva.horario_bloque ? ` · ${reserva.horario_bloque}` : ""}
+          </Text>
+          {reserva.monto_total !== null && (
+            <Text style={styles.montoReserva}>{fmtColones(reserva.monto_total)}</Text>
+          )}
+        </View>
+        <View
+          style={[styles.badgeEstado, { backgroundColor: ESTADO_COLOR[reserva.estado] ?? Colors.inkSoft }]}
+        >
+          <Text style={styles.badgeEstadoTexto}>{ESTADO_LABEL[reserva.estado] ?? reserva.estado}</Text>
+        </View>
       </View>
-      <View
-        style={[styles.badgeEstado, { backgroundColor: ESTADO_COLOR[reserva.estado] ?? Colors.inkSoft }]}
-      >
-        <Text style={styles.badgeEstadoTexto}>{ESTADO_LABEL[reserva.estado] ?? reserva.estado}</Text>
-      </View>
+      <Pressable style={styles.botonMensajes} onPress={() => router.push(`/mensajes/${reserva.id}`)}>
+        <Text style={styles.botonMensajesTexto}>Mensajes</Text>
+      </Pressable>
     </View>
   );
 }
@@ -444,14 +450,21 @@ const styles = StyleSheet.create({
   correoPerfil: { color: "#ffffffb0", fontSize: 12.5 },
   hint: { fontSize: 13, color: Colors.inkSoft },
   tarjetaReserva: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.three,
+    gap: Spacing.two,
     padding: Spacing.two,
     borderRadius: 12,
     backgroundColor: Colors.cream,
   },
   tarjetaAtenuada: { opacity: 0.7 },
+  botonMensajes: {
+    alignSelf: "flex-start",
+    paddingTop: Spacing.one,
+    marginTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: Colors.line,
+    width: "100%",
+  },
+  botonMensajesTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5, paddingTop: 4 },
   fotoReserva: { width: 56, height: 56, borderRadius: 10, backgroundColor: Colors.cream2 },
   categoriaReserva: {
     fontSize: 10.5,
