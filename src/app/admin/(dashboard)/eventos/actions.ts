@@ -14,7 +14,7 @@ export async function setEstadoReserva(id: string, estado: string) {
     return { error: error.message };
   }
   revalidatePath("/admin/eventos");
-  revalidatePath("/mi-rancho/reservas");
+  revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }
 
@@ -27,7 +27,7 @@ export async function marcarDepositoValidado(id: string, validado: boolean) {
 
   if (error) return { error: error.message };
   revalidatePath("/admin/eventos");
-  revalidatePath("/mi-rancho/reservas");
+  revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }
 

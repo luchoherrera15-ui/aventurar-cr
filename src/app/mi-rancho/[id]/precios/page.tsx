@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
@@ -12,16 +12,21 @@ import {
   guardarTerminosPropio,
   guardarHorariosPropio,
 } from "./actions";
-import { normalizarCategoria } from "../types";
+import { normalizarCategoria } from "../../types";
 import type {
   CodigoDescuento,
   PrecioTier,
   PromocionDia,
   Rancho,
   ServicioAdicional,
-} from "../types";
+} from "../../types";
 
-export default async function MiRanchoPreciosPage() {
+export default async function MiRanchoPreciosPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -31,10 +36,11 @@ export default async function MiRanchoPreciosPage() {
   const { data } = await supabase
     .from("ranchos")
     .select("*")
+    .eq("id", id)
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  if (!data) redirect("/mi-rancho/nuevo");
+  if (!data) notFound();
   const rancho = {
     ...(data as Rancho),
     categoria: normalizarCategoria((data as Rancho).categoria),
@@ -67,7 +73,7 @@ export default async function MiRanchoPreciosPage() {
   return (
     <main className="mx-auto max-w-[820px] px-5 py-12">
       <Link
-        href="/mi-rancho"
+        href={`/mi-rancho/${id}`}
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
       >
         ← Volver
@@ -85,7 +91,7 @@ export default async function MiRanchoPreciosPage() {
           initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
           initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
           initialDepositoReserva={rancho.deposito_reserva}
-          onGuardar={guardarPreciosPropio}
+          onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
         />
       )}
 
@@ -100,7 +106,7 @@ export default async function MiRanchoPreciosPage() {
           </p>
           <HorariosForm
             initialHorarios={rancho.horarios_bloques ?? []}
-            onGuardar={guardarHorariosPropio}
+            onGuardar={guardarHorariosPropio.bind(null, rancho.id)}
           />
         </>
       )}
@@ -114,8 +120,8 @@ export default async function MiRanchoPreciosPage() {
       <DescuentosForm
         initialCodigos={(codigosRes.data ?? []) as CodigoDescuento[]}
         initialPromociones={(promocionesRes.data ?? []) as PromocionDia[]}
-        onGuardarCodigos={guardarCodigosPropio}
-        onGuardarPromociones={guardarPromocionesPropio}
+        onGuardarCodigos={guardarCodigosPropio.bind(null, rancho.id)}
+        onGuardarPromociones={guardarPromocionesPropio.bind(null, rancho.id)}
       />
 
       <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
@@ -130,7 +136,7 @@ export default async function MiRanchoPreciosPage() {
         initialMontoMinimo={rancho.monto_minimo}
         depositoReserva={rancho.deposito_reserva}
         esLugar={esLugar}
-        onGuardar={guardarTerminosPropio}
+        onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
       />
     </main>
   );

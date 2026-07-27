@@ -60,7 +60,7 @@ export async function guardarPreciosRancho(
   if (errorRancho) return { error: errorRancho.message };
 
   revalidatePath("/admin/eventos/precios");
-  revalidatePath("/mi-rancho/precios");
+  revalidatePath("/mi-rancho", "layout");
   revalidatePath("/eventos-salon");
   revalidatePath("/ranchos-eventos");
   return { error: null };

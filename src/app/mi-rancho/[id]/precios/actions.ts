@@ -5,10 +5,34 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { guardarPreciosRancho } from "@/lib/precios";
 import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
-import { HORARIOS_MAX, TERMINOS_MAX } from "../types";
-import type { HorarioBloqueConfig } from "../types";
+import { HORARIOS_MAX, TERMINOS_MAX } from "../../types";
+import type { HorarioBloqueConfig } from "../../types";
 
 const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Todas las acciones de esta pantalla llegan con el id del rancho ya
+ * atado desde el server component (`.bind(null, rancho.id)`), porque
+ * una misma cuenta puede tener varias publicaciones: filtrar solo por
+ * owner_id tocaría todas a la vez. Este helper confirma que ese id es
+ * realmente del dueño de la sesión antes de tocar nada.
+ */
+async function verificarDueno(ranchoId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/mi-rancho/login");
+
+  const { data } = await supabase
+    .from("ranchos")
+    .select("id")
+    .eq("id", ranchoId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
+  return { supabase, ok: !!data };
+}
 
 /**
  * Guarda los bloques de alquiler del negocio.
@@ -17,12 +41,12 @@ const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
  * horarios": en ese caso al cliente no se le pregunta la hora y solo
  * elige la fecha.
  */
-export async function guardarHorariosPropio(horarios: HorarioBloqueConfig[]) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/mi-rancho/login");
+export async function guardarHorariosPropio(
+  ranchoId: string,
+  horarios: HorarioBloqueConfig[],
+) {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   if (horarios.length > HORARIOS_MAX) {
     return { error: `Podés tener hasta ${HORARIOS_MAX} horarios.` };
@@ -49,16 +73,17 @@ export async function guardarHorariosPropio(horarios: HorarioBloqueConfig[]) {
   const { error } = await supabase
     .from("ranchos")
     .update({ horarios_bloques: limpios })
-    .eq("owner_id", user.id);
+    .eq("id", ranchoId);
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 
-  revalidatePath("/mi-rancho/precios");
+  revalidatePath("/mi-rancho", "layout");
   revalidatePath("/ranchos-eventos");
   return { error: null };
 }
 
 export async function guardarPreciosPropio(
+  ranchoId: string,
   tiers: { min_invitados: number; max_invitados: number; precio: number }[],
   servicios: {
     nombre: string;
@@ -69,21 +94,11 @@ export async function guardarPreciosPropio(
   tarifaDiciembre: number,
   depositoReserva: number,
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/mi-rancho/login");
-
-  const { data: rancho } = await supabase
-    .from("ranchos")
-    .select("id")
-    .eq("owner_id", user.id)
-    .maybeSingle();
-  if (!rancho) return { error: "No encontramos tu publicación." };
+  const { ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   return guardarPreciosRancho(
-    rancho.id,
+    ranchoId,
     tiers,
     servicios,
     tarifaDiciembre,
@@ -99,14 +114,12 @@ export async function guardarPreciosPropio(
  * quedarse publicado sin condiciones.
  */
 export async function guardarTerminosPropio(
+  ranchoId: string,
   terminos: string[],
   montoMinimo: number | null,
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/mi-rancho/login");
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   const limpios = terminos
     .map((t) => t.trim())
@@ -123,31 +136,17 @@ export async function guardarTerminosPropio(
       terminos: limpios,
       monto_minimo: montoMinimo && montoMinimo > 0 ? montoMinimo : null,
     })
-    .eq("owner_id", user.id);
+    .eq("id", ranchoId);
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 
-  revalidatePath("/mi-rancho/precios");
+  revalidatePath("/mi-rancho", "layout");
   revalidatePath("/ranchos-eventos");
   return { error: null };
 }
 
-async function propioRanchoId() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/mi-rancho/login");
-
-  const { data: rancho } = await supabase
-    .from("ranchos")
-    .select("id")
-    .eq("owner_id", user.id)
-    .maybeSingle();
-  return rancho?.id ?? null;
-}
-
 export async function guardarCodigosPropio(
+  ranchoId: string,
   codigos: {
     codigo: string;
     tipo: "porcentaje" | "monto_fijo";
@@ -157,12 +156,13 @@ export async function guardarCodigosPropio(
     valido_hasta: string | null;
   }[],
 ) {
-  const ranchoId = await propioRanchoId();
-  if (!ranchoId) return { error: "No encontramos tu publicación." };
+  const { ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
   return guardarCodigosRancho(ranchoId, codigos);
 }
 
 export async function guardarPromocionesPropio(
+  ranchoId: string,
   promociones: {
     dias_semana: number[];
     porcentaje_descuento: number;
@@ -170,7 +170,7 @@ export async function guardarPromocionesPropio(
     activo: boolean;
   }[],
 ) {
-  const ranchoId = await propioRanchoId();
-  if (!ranchoId) return { error: "No encontramos tu publicación." };
+  const { ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
   return guardarPromocionesRancho(ranchoId, promociones);
 }
