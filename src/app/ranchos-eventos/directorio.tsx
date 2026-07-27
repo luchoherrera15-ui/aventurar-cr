@@ -19,7 +19,7 @@ import {
 import type { Rancho } from "../mi-rancho/types";
 import { NOMBRE_RANCHO_BOOKEAR } from "./constants";
 
-const POR_PAGINA = 8;
+const POR_PAGINA = 14;
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
