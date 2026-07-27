@@ -18,7 +18,7 @@ import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { obtenerIdDispositivo } from "@/lib/device";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   etiquetaHorario,
   fmtColones,
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: Spacing.three,
   },
-  avisoTiempoTexto: { color: Colors.accent, fontWeight: "700", fontSize: 13, textAlign: "center" },
+  avisoTiempoTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center" },
   bloque: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -575,9 +575,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.line,
     gap: Spacing.three,
   },
-  bloqueTitulo: { fontSize: 17, fontWeight: "800", color: Colors.ink },
+  bloqueTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
   gap2: { gap: 6 },
-  campoLabel: { fontSize: 12.5, fontWeight: "700", color: Colors.inkSoft, textTransform: "uppercase" },
+  campoLabel: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft, textTransform: "uppercase" },
   input: {
     borderWidth: 1,
     borderColor: Colors.line,
@@ -596,20 +596,20 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cream2,
   },
   chipActivo: { backgroundColor: Colors.accent },
-  chipTexto: { fontSize: 12.5, fontWeight: "700", color: Colors.inkSoft },
+  chipTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
   chipTextoActivo: { color: "#ffffff" },
   filaAddon: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   addonTexto: { fontSize: 14, color: Colors.ink, flexShrink: 1 },
   filaCheckbox: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.two, marginTop: Spacing.two },
   avisoTexto: { fontSize: 12.5, color: Colors.inkSoft, flex: 1, lineHeight: 18 },
-  promoTexto: { fontSize: 13, fontWeight: "700", color: Colors.green },
-  totalTexto: { fontSize: 26, fontWeight: "800", color: Colors.ink },
+  promoTexto: { fontSize: 13, fontFamily: Fonts.bold, color: Colors.green },
+  totalTexto: { fontSize: 26, fontFamily: Fonts.extraBold, color: Colors.ink },
   hint: { fontSize: 13, color: Colors.inkSoft },
   tarjetaDatos: { backgroundColor: Colors.cream, borderRadius: 12, padding: Spacing.three, gap: Spacing.two },
   filaCopiable: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  copiableLabel: { fontSize: 11, color: Colors.inkSoft, textTransform: "uppercase", fontWeight: "700" },
-  copiableValor: { fontSize: 15, fontWeight: "700", color: Colors.ink },
-  copiableAccion: { fontSize: 12.5, fontWeight: "700", color: Colors.accent },
+  copiableLabel: { fontSize: 11, color: Colors.inkSoft, textTransform: "uppercase", fontFamily: Fonts.bold },
+  copiableValor: { fontSize: 15, fontFamily: Fonts.bold, color: Colors.ink },
+  copiableAccion: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.accent },
   zonaFoto: {
     borderWidth: 1,
     borderStyle: "dashed",
@@ -629,9 +629,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   botonDeshabilitado: { opacity: 0.4 },
-  botonPrimarioTexto: { color: "#ffffff", fontWeight: "700", fontSize: 15 },
+  botonPrimarioTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },
   botonSecundario: { paddingVertical: 10, paddingHorizontal: Spacing.four },
-  botonSecundarioTexto: { color: Colors.accent, fontWeight: "700" },
-  tituloConfirmacion: { fontSize: 22, fontWeight: "800", color: Colors.ink, textAlign: "center" },
+  botonSecundarioTexto: { color: Colors.accent, fontFamily: Fonts.bold },
+  tituloConfirmacion: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
   textoConfirmacion: { fontSize: 14, color: Colors.inkSoft, textAlign: "center" },
 });

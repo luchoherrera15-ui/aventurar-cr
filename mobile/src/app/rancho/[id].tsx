@@ -11,7 +11,7 @@ import {
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
 import { supabase } from "@/lib/supabase";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   CATEGORIA_LABEL,
   fmtColones,
@@ -238,20 +238,20 @@ const styles = StyleSheet.create({
   seccion: { padding: Spacing.four, gap: Spacing.two },
   etiqueta: {
     fontSize: 11,
-    fontWeight: "700",
+    fontFamily: Fonts.bold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     color: Colors.accent,
   },
-  titulo: { fontSize: 24, fontWeight: "800", color: Colors.ink },
+  titulo: { fontSize: 24, fontFamily: Fonts.extraBold, color: Colors.ink },
   ubicacion: { fontSize: 14, color: Colors.inkSoft },
   descripcion: { fontSize: 14, color: Colors.ink, lineHeight: 20, marginTop: Spacing.two },
   datosFila: { flexDirection: "row", gap: Spacing.four, marginTop: Spacing.three },
   dato: { gap: 2 },
-  datoTitulo: { fontSize: 11, fontWeight: "700", color: Colors.inkSoft, textTransform: "uppercase" },
-  datoValor: { fontSize: 14, fontWeight: "700", color: Colors.ink },
+  datoTitulo: { fontSize: 11, fontFamily: Fonts.bold, color: Colors.inkSoft, textTransform: "uppercase" },
+  datoValor: { fontSize: 14, fontFamily: Fonts.bold, color: Colors.ink },
   bloque: { marginTop: Spacing.four, gap: Spacing.two },
-  bloqueTitulo: { fontSize: 16, fontWeight: "800", color: Colors.ink },
+  bloqueTitulo: { fontSize: 16, fontFamily: Fonts.extraBold, color: Colors.ink },
   hint: { fontSize: 13, color: Colors.inkSoft },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   chip: {
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
   },
-  chipTexto: { fontSize: 12.5, fontWeight: "600", color: Colors.ink },
+  chipTexto: { fontSize: 12.5, fontFamily: Fonts.semiBold, color: Colors.ink },
   diasGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   diaCelda: {
     width: 42,
@@ -274,8 +274,8 @@ const styles = StyleSheet.create({
   },
   diaPendiente: { backgroundColor: Colors.accentLight },
   diaBloqueado: { backgroundColor: Colors.line, opacity: 0.6 },
-  diaSemana: { fontSize: 9, color: Colors.inkSoft, fontWeight: "700" },
-  diaNumero: { fontSize: 14, fontWeight: "700", color: Colors.ink },
+  diaSemana: { fontSize: 9, color: Colors.inkSoft, fontFamily: Fonts.bold },
+  diaNumero: { fontSize: 14, fontFamily: Fonts.bold, color: Colors.ink },
   diaNumeroBloqueado: { color: Colors.inkSoft },
   leyenda: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.three, marginTop: Spacing.two },
   leyendaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -288,5 +288,5 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
   },
-  botonPrimarioTexto: { color: "#ffffff", fontWeight: "700", fontSize: 15 },
+  botonPrimarioTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },
 });

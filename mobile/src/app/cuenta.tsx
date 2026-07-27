@@ -12,7 +12,7 @@ import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { supabase } from "@/lib/supabase";
 import { useAuth, type Perfil } from "@/lib/auth-context";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { CATEGORIA_LABEL, fmtColones, type Categoria } from "@/lib/types";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookearcr.com";
@@ -249,7 +249,10 @@ function Dashboard({
   const inicial = (perfil?.nombre || correo || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <ScrollView style={styles.contenedor} contentContainerStyle={{ padding: Spacing.four, gap: Spacing.four }}>
+    <ScrollView
+      style={styles.contenedor}
+      contentContainerStyle={{ padding: Spacing.four, paddingBottom: 100, gap: Spacing.four }}
+    >
       <View style={styles.tarjetaPerfil}>
         <View style={styles.avatar}>
           <Text style={styles.avatarTexto}>{inicial}</Text>
@@ -348,8 +351,8 @@ function TarjetaReserva({ reserva, atenuada }: { reserva: ReservaCliente; atenua
 const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.three },
-  contenedorForm: { flexGrow: 1, padding: Spacing.four, gap: Spacing.two, backgroundColor: Colors.cream },
-  titulo: { fontSize: 22, fontWeight: "800", color: Colors.ink },
+  contenedorForm: { flexGrow: 1, padding: Spacing.four, paddingBottom: 100, gap: Spacing.two, backgroundColor: Colors.cream },
+  titulo: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink },
   subtitulo: { fontSize: 13.5, color: Colors.inkSoft, marginBottom: Spacing.two },
   bloque: {
     backgroundColor: Colors.surface,
@@ -359,9 +362,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.line,
     gap: Spacing.three,
   },
-  bloqueTitulo: { fontSize: 17, fontWeight: "800", color: Colors.ink },
+  bloqueTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
   gap2: { gap: 6 },
-  campoLabel: { fontSize: 12.5, fontWeight: "700", color: Colors.inkSoft, textTransform: "uppercase" },
+  campoLabel: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft, textTransform: "uppercase" },
   input: {
     borderWidth: 1,
     borderColor: Colors.line,
@@ -380,11 +383,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: Spacing.two,
   },
-  botonPrimarioTexto: { color: "#ffffff", fontWeight: "700", fontSize: 15 },
-  enlace: { color: Colors.accent, fontWeight: "700", fontSize: 13, textAlign: "center", marginTop: Spacing.two },
+  botonPrimarioTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },
+  enlace: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center", marginTop: Spacing.two },
   botonSecundario: { paddingVertical: 10, paddingHorizontal: Spacing.four },
-  botonSecundarioTexto: { color: Colors.accent, fontWeight: "700" },
-  tituloConfirmacion: { fontSize: 20, fontWeight: "800", color: Colors.ink, textAlign: "center" },
+  botonSecundarioTexto: { color: Colors.accent, fontFamily: Fonts.bold },
+  tituloConfirmacion: { fontSize: 20, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
   textoConfirmacion: { fontSize: 14, color: Colors.inkSoft, textAlign: "center" },
   tarjetaPerfil: {
     flexDirection: "row",
@@ -402,8 +405,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarTexto: { color: "#ffffff", fontSize: 20, fontWeight: "800" },
-  nombrePerfil: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
+  avatarTexto: { color: "#ffffff", fontSize: 20, fontFamily: Fonts.extraBold },
+  nombrePerfil: { color: "#ffffff", fontSize: 16, fontFamily: Fonts.extraBold },
   correoPerfil: { color: "#ffffffb0", fontSize: 12.5 },
   hint: { fontSize: 13, color: Colors.inkSoft },
   tarjetaReserva: {
@@ -418,25 +421,25 @@ const styles = StyleSheet.create({
   fotoReserva: { width: 56, height: 56, borderRadius: 10, backgroundColor: Colors.cream2 },
   categoriaReserva: {
     fontSize: 10.5,
-    fontWeight: "700",
+    fontFamily: Fonts.bold,
     textTransform: "uppercase",
     letterSpacing: 0.3,
     color: Colors.accent,
   },
-  nombreReserva: { fontSize: 14.5, fontWeight: "800", color: Colors.ink },
+  nombreReserva: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink },
   fechaReserva: { fontSize: 12.5, color: Colors.inkSoft },
-  montoReserva: { fontSize: 12.5, fontWeight: "700", color: Colors.ink },
+  montoReserva: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.ink },
   badgeEstado: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  badgeEstadoTexto: { color: "#ffffff", fontSize: 10.5, fontWeight: "700" },
+  badgeEstadoTexto: { color: "#ffffff", fontSize: 10.5, fontFamily: Fonts.bold },
   tarjetaPublicar: {
     backgroundColor: Colors.accentLight,
     borderRadius: 16,
     padding: Spacing.four,
     gap: 4,
   },
-  publicarTitulo: { fontSize: 15.5, fontWeight: "800", color: Colors.ink },
+  publicarTitulo: { fontSize: 15.5, fontFamily: Fonts.extraBold, color: Colors.ink },
   publicarTexto: { fontSize: 13, color: Colors.inkSoft, lineHeight: 18 },
-  publicarBoton: { fontSize: 13.5, fontWeight: "800", color: Colors.accent, marginTop: 6 },
+  publicarBoton: { fontSize: 13.5, fontFamily: Fonts.extraBold, color: Colors.accent, marginTop: 6 },
   botonSalir: { alignItems: "center", paddingVertical: Spacing.three },
-  botonSalirTexto: { color: Colors.danger, fontWeight: "700", fontSize: 13.5 },
+  botonSalirTexto: { color: Colors.danger, fontFamily: Fonts.bold, fontSize: 13.5 },
 });

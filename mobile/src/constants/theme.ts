@@ -21,6 +21,21 @@ export const Colors = {
   dangerLight: "#fbe9e7",
 } as const;
 
+/**
+ * Misma tipografía que /web: Montserrat. Cada peso es una familia de
+ * fuente aparte (así carga expo-font) — por eso los estilos usan
+ * `fontFamily` en vez de `fontWeight` para el texto en Montserrat.
+ * Los títulos van en ExtraBold con tracking cerrado, igual que la
+ * clase `titulo` de globals.css en /web.
+ */
+export const Fonts = {
+  regular: "Montserrat_400Regular",
+  medium: "Montserrat_500Medium",
+  semiBold: "Montserrat_600SemiBold",
+  bold: "Montserrat_700Bold",
+  extraBold: "Montserrat_800ExtraBold",
+} as const;
+
 export const Spacing = {
   half: 2,
   one: 4,

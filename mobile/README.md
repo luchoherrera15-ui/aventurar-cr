@@ -6,10 +6,23 @@ de eventos de Bookear CR. Usa el mismo proyecto de Supabase que `/web`
 `reservas`, etc.) y mismas funciones RPC — pero con su propio cliente y
 variables de entorno.
 
+## Diseño
+
+Misma línea de marca que `/web` (Montserrat, navy sobre crema, títulos
+en ExtraBold con tracking cerrado — ver `src/constants/theme.ts`), con
+la estructura de exploración inspirada en apps de marketplace tipo
+Airbnb: buscador, categorías como tabs con ícono, y filas horizontales
+por categoría con un botón "ver todos". Navegación por una barra
+inferior propia (`src/components/tab-bar.tsx`, no `NativeTabs` —
+esa API de expo-router todavía es inestable y depende del tab bar
+nativo de cada plataforma) con dos destinos: Explorar y Cuenta.
+
 ## Qué hace
 
 - Directorio: lista los proveedores aprobados (lugares, catering, DJs,
-  photobooths, fotógrafos, etc.), con filtro por categoría.
+  photobooths, fotógrafos, etc.). Buscador por nombre/provincia/cantón,
+  tabs de categoría con ícono, y filas horizontales agrupadas por
+  categoría cuando no hay búsqueda ni categoría activa.
 - Detalle: fotos, descripción, amenidades y, si es un lugar con
   reservas en línea, disponibilidad de los próximos 60 días.
 - Reserva: bloquea la fecha (hold temporal de 10 minutos, igual que
