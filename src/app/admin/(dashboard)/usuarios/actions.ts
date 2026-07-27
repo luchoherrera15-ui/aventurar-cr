@@ -44,7 +44,10 @@ export async function crearUsuario(
   return { ok: `Cuenta creada para ${email}.` };
 }
 
-export async function cambiarRol(id: string, rol: "admin" | "dueno_rancho") {
+export async function cambiarRol(
+  id: string,
+  rol: "admin" | "dueno_rancho" | "cliente",
+) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
 

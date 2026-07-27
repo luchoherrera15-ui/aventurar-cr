@@ -69,5 +69,14 @@ export async function crearRancho(
     return { error: "No se pudo guardar tu rancho: " + error.message };
   }
 
+  // Quien entró como cliente (registro opcional desde el móvil) y publica
+  // su primer negocio pasa a dueño de rancho — nunca al revés, y nunca
+  // toca una cuenta que ya sea admin.
+  await supabase
+    .from("perfiles")
+    .update({ rol: "dueno_rancho" })
+    .eq("id", user.id)
+    .eq("rol", "cliente");
+
   redirect(`/mi-rancho/${data.id}`);
 }

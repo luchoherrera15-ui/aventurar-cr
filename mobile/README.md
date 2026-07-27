@@ -17,6 +17,17 @@ variables de entorno.
   configurado por el proveedor (SINPE o cuenta bancaria), sube el
   comprobante y confirma la reserva mediante la misma función
   `completar_reserva_temporal` que usa la web.
+- Cuenta (opcional): registrarse **nunca** es obligatorio para
+  reservar — solo sirve para tener un panel propio. Un registro desde
+  la app siempre entra con el rol nuevo `cliente` (no "dueño de
+  rancho"); si esa persona más adelante publica un negocio desde
+  `/mi-rancho`, su cuenta pasa sola a "dueño de rancho" recién en ese
+  momento. El dashboard del cliente muestra sus reservas activas y su
+  historial (con datos reales, ligados a su cuenta vía
+  `reservas.cliente_id`), y tiene un botón "Publicar tu negocio" que
+  abre el alta de proveedores de `/web` en un navegador dentro de la
+  app — construir ese alta en nativo es un paso aparte, no está en
+  este alcance.
 
 ## Configuración
 
@@ -40,6 +51,16 @@ simulador de iOS, o el navegador.
 
 ## Qué falta (no está en este alcance todavía)
 
+- **Login sin contraseña (código de 6 dígitos por correo).** Quedó
+  pendiente a pedido: por ahora el login/registro usa correo +
+  contraseña (`supabase.auth.signInWithPassword` / `signUp`). Cuando
+  se retome, Supabase Auth ya trae "Email OTP" de fábrica (no hay que
+  programar la generación/verificación del código) — solo falta
+  decidir cómo lo manda Resend (SMTP relay en el dashboard de Supabase
+  vs. un Auth Hook con plantilla propia) y confirmar el dominio
+  `bookearcr.com` verificado en Resend.
+- Alta de proveedores nativa en la app (hoy el botón "Publicar tu
+  negocio" abre `/publicar` de la web en un navegador embebido).
 - Códigos de descuento (sí soporta las promociones automáticas por día
   de la semana).
 - Los límites contra bots que tiene `/web` (intentos por IP, etc.) son
