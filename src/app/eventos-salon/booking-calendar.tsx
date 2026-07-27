@@ -902,11 +902,6 @@ export default function BookingCalendar({
                         Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
                       </p>
                     )}
-                    {promoAplicable && cotizacionTotal !== null && (
-                      <p className="-mt-2 flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-green">
-                        <IconTagLine className="h-3.5 w-3.5" /> {promoAplicable.etiqueta} aplicado (-{fmtColones(descuentoPromoMonto)})
-                      </p>
-                    )}
 
                     {servicios.length > 0 && invitadosNum > 0 && (
                       <div>
@@ -948,81 +943,6 @@ export default function BookingCalendar({
                             );
                           })}
                         </div>
-                      </div>
-                    )}
-
-                    {cotizacionTotal !== null && (
-                      <div>
-                        <label className={labelCls}>¿Tenés un código de descuento?</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={codigoInput}
-                            onChange={(e) => {
-                              setCodigoInput(e.target.value.toUpperCase());
-                              if (codigoAplicado) setCodigoAplicado(null);
-                              if (codigoError) setCodigoError(null);
-                            }}
-                            placeholder="Ej. BODA10"
-                            disabled={!!codigoAplicado}
-                            className={`${inputCls} uppercase disabled:opacity-70`}
-                          />
-                          {codigoAplicado ? (
-                            <button
-                              type="button"
-                              onClick={quitarCodigo}
-                              className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-700"
-                            >
-                              Quitar
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={verificarCodigo}
-                              disabled={verificandoCodigo || !codigoInput.trim()}
-                              className="whitespace-nowrap rounded-[10px] bg-aventurea-ink px-3.5 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-60"
-                            >
-                              {verificandoCodigo ? "..." : "Aplicar"}
-                            </button>
-                          )}
-                        </div>
-                        {codigoAplicado && (
-                          <p className="mt-1.5 text-[11.5px] font-bold text-aventurea-green">
-                            ✓ Código {codigoAplicado.codigo} aplicado (-
-                            {codigoAplicado.tipo === "porcentaje"
-                              ? `${codigoAplicado.valor}%`
-                              : fmtColones(codigoAplicado.valor)}
-                            )
-                          </p>
-                        )}
-                        {codigoError && (
-                          <p className="mt-1.5 text-[11.5px] font-bold text-red-700">{codigoError}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {cotizacionTotal !== null && (
-                      <div className="rounded-xl bg-aventurea-cream-2 px-3.5 py-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                            Total estimado del evento
-                          </span>
-                          <span className="flex items-baseline gap-1.5">
-                            {descuentoTotalMonto > 0 && (
-                              <span className="text-[12px] text-zinc-500 line-through">
-                                {fmtColones(cotizacionTotal)}
-                              </span>
-                            )}
-                            <span className="text-lg font-bold text-aventurea-ink">
-                              {fmtColones(totalFinal ?? cotizacionTotal)}
-                            </span>
-                          </span>
-                        </div>
-                        {descuentoTotalMonto > 0 && (
-                          <p className="mt-1 text-right text-[11px] font-bold text-aventurea-green">
-                            Ahorrás {fmtColones(descuentoTotalMonto)}
-                          </p>
-                        )}
                       </div>
                     )}
 
@@ -1136,6 +1056,87 @@ export default function BookingCalendar({
                     >
                       ← Volver a mis datos
                     </button>
+
+                    {cotizacionTotal !== null && (
+                      <div>
+                        <label className={labelCls}>¿Tenés un código de descuento?</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={codigoInput}
+                            onChange={(e) => {
+                              setCodigoInput(e.target.value.toUpperCase());
+                              if (codigoAplicado) setCodigoAplicado(null);
+                              if (codigoError) setCodigoError(null);
+                            }}
+                            placeholder="Ej. BODA10"
+                            disabled={!!codigoAplicado}
+                            className={`${inputCls} uppercase disabled:opacity-70`}
+                          />
+                          {codigoAplicado ? (
+                            <button
+                              type="button"
+                              onClick={quitarCodigo}
+                              className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-700"
+                            >
+                              Quitar
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={verificarCodigo}
+                              disabled={verificandoCodigo || !codigoInput.trim()}
+                              className="whitespace-nowrap rounded-[10px] bg-aventurea-ink px-3.5 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-60"
+                            >
+                              {verificandoCodigo ? "..." : "Aplicar"}
+                            </button>
+                          )}
+                        </div>
+                        {codigoAplicado && (
+                          <p className="mt-1.5 text-[11.5px] font-bold text-aventurea-green">
+                            ✓ Código {codigoAplicado.codigo} aplicado (-
+                            {codigoAplicado.tipo === "porcentaje"
+                              ? `${codigoAplicado.valor}%`
+                              : fmtColones(codigoAplicado.valor)}
+                            )
+                          </p>
+                        )}
+                        {codigoError && (
+                          <p className="mt-1.5 text-[11.5px] font-bold text-red-700">{codigoError}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {promoAplicable && cotizacionTotal !== null && (
+                      <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-green">
+                        <IconTagLine className="h-3.5 w-3.5" /> {promoAplicable.etiqueta} aplicado (-{fmtColones(descuentoPromoMonto)})
+                      </p>
+                    )}
+
+                    {cotizacionTotal !== null && (
+                      <div className="rounded-xl bg-aventurea-cream-2 px-3.5 py-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                            Total estimado del evento
+                          </span>
+                          <span className="flex items-baseline gap-1.5">
+                            {descuentoTotalMonto > 0 && (
+                              <span className="text-[12px] text-zinc-500 line-through">
+                                {fmtColones(cotizacionTotal)}
+                              </span>
+                            )}
+                            <span className="text-lg font-bold text-aventurea-ink">
+                              {fmtColones(totalFinal ?? cotizacionTotal)}
+                            </span>
+                          </span>
+                        </div>
+                        {descuentoTotalMonto > 0 && (
+                          <p className="mt-1 text-right text-[11px] font-bold text-aventurea-green">
+                            Ahorrás {fmtColones(descuentoTotalMonto)}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between rounded-xl bg-aventurea-orange/10 px-3.5 py-3">
                       <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-orange">
