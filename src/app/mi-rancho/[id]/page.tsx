@@ -1,14 +1,42 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { IconEdit } from "@/components/icons";
-import {
-  CATEGORIA_GRADIENTE,
-  CATEGORIA_ICONO,
-  CATEGORIA_LABEL,
-  normalizarCategoria,
-  type Rancho,
+import { CATEGORIA_GRADIENTE, CATEGORIA_ICONO, CATEGORIA_LABEL, normalizarCategoria } from "../types";
+import type {
+  CodigoDescuento,
+  PrecioTier,
+  PromocionDia,
+  Rancho,
+  ServicioAdicional,
 } from "../types";
+import { resumenFinanciero, type Gasto, type ReservaFinanzas } from "@/lib/finanzas";
+import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
+import Tabs, { type Tab } from "./tabs";
+import DashboardMetricas from "./dashboard-metricas";
+import { calcularMetricas } from "./metricas";
+import EditarRanchoForm from "./editar/editar-form";
+import PreciosForm from "@/components/precios-form";
+import DescuentosForm from "@/components/descuentos-form";
+import TerminosForm from "@/components/terminos-form";
+import HorariosForm from "@/components/horarios-form";
+import CuentasPagoForm from "@/components/cuentas-pago-form";
+import ReservasTable from "@/app/admin/(dashboard)/eventos/reservas-table";
+import FinanzasPanel from "./finanzas/finanzas-panel";
+import {
+  guardarPreciosPropio,
+  guardarCodigosPropio,
+  guardarPromocionesPropio,
+  guardarTerminosPropio,
+  guardarHorariosPropio,
+  guardarCuentasPagoPropio,
+} from "./precios/actions";
+import {
+  agregarGasto,
+  borrarGasto,
+  marcarDepositoRecibido,
+  registrarPagoFinal,
+  revertirPagoFinal,
+} from "./finanzas/actions";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -56,12 +84,185 @@ export default async function RanchoDetallePage({
     ...(data as Rancho),
     categoria: normalizarCategoria((data as Rancho).categoria),
   };
+  const esLugar = rancho.categoria === "lugares";
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
 
+  const [reservasRes, gastosRes, tiersRes, serviciosRes, codigosRes, promocionesRes] =
+    await Promise.all([
+      supabase
+        .from("reservas")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .neq("estado", "temporal")
+        .order("fecha", { ascending: true }),
+      supabase
+        .from("gastos_rancho")
+        .select("id, fecha, concepto, categoria, monto, nota")
+        .eq("rancho_id", rancho.id)
+        .order("fecha", { ascending: false }),
+      supabase
+        .from("precio_tiers")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .order("min_invitados", { ascending: true }),
+      supabase.from("servicios_adicionales").select("*").eq("rancho_id", rancho.id),
+      supabase
+        .from("codigos_descuento")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("promociones_dia")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .order("created_at", { ascending: true }),
+    ]);
+
+  const errorFinanzas = reservasRes.error ?? gastosRes.error;
+  const reservas = (reservasRes.data ?? []) as Reserva[];
+  const reservasFinanzas = reservas as unknown as ReservaFinanzas[];
+  const gastos = (gastosRes.data ?? []) as Gasto[];
+
+  const metricas = calcularMetricas({ reservas: reservasFinanzas, esLugar });
+  const resumen = resumenFinanciero({ reservas: reservasFinanzas, gastos });
+  const pendientes = reservas.filter((r) => r.estado === "pendiente").length;
+
+  const tabs: Tab[] = [
+    {
+      id: "editar",
+      label: "Editar mi publicación",
+      content: <EditarRanchoForm rancho={rancho} />,
+    },
+    {
+      id: "precios",
+      label: esLugar ? "Precios y descuentos" : "Códigos de descuento",
+      content: (
+        <div className="flex flex-col gap-9">
+          {esLugar && (
+            <PreciosForm
+              initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
+              initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
+              initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
+              initialDepositoReserva={rancho.deposito_reserva}
+              onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
+            />
+          )}
+
+          {esLugar && (
+            <div>
+              <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+                Cuentas para recibir el depósito
+              </h2>
+              <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+                El cliente ve esto en el segundo paso de la reserva, según el método de pago que
+                elija.
+              </p>
+              <CuentasPagoForm
+                initial={{
+                  sinpeNumero: rancho.sinpe_numero ?? "",
+                  sinpeTitular: rancho.sinpe_titular ?? "",
+                  cuentaBanco: rancho.cuenta_banco ?? "",
+                  cuentaNumero: rancho.cuenta_numero ?? "",
+                  cuentaTitular: rancho.cuenta_titular ?? "",
+                  cuentaTipo: rancho.cuenta_tipo ?? "",
+                }}
+                onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+              />
+            </div>
+          )}
+
+          {esLugar && (
+            <div>
+              <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Horarios de alquiler</h2>
+              <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+                Vos definís en qué bloques alquilás y a qué hora entra y sale el cliente. Es lo
+                que va a poder elegir al reservar.
+              </p>
+              <HorariosForm
+                initialHorarios={rancho.horarios_bloques ?? []}
+                onGuardar={guardarHorariosPropio.bind(null, rancho.id)}
+              />
+            </div>
+          )}
+
+          <div>
+            <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Descuentos y promociones</h2>
+            <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+              Atraé más clientes con cupones y descuentos automáticos por día.
+            </p>
+            <DescuentosForm
+              initialCodigos={(codigosRes.data ?? []) as CodigoDescuento[]}
+              initialPromociones={(promocionesRes.data ?? []) as PromocionDia[]}
+              onGuardarCodigos={guardarCodigosPropio.bind(null, rancho.id)}
+              onGuardarPromociones={guardarPromocionesPropio.bind(null, rancho.id)}
+            />
+          </div>
+
+          <div>
+            <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Términos y monto mínimo</h2>
+            <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+              Las condiciones que el cliente acepta antes de contratarte. Te dejamos unas por
+              defecto y las podés cambiar por las tuyas.
+            </p>
+            <TerminosForm
+              initialTerminos={rancho.terminos ?? []}
+              initialMontoMinimo={rancho.monto_minimo}
+              depositoReserva={rancho.deposito_reserva}
+              esLugar={esLugar}
+              onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "finanzas",
+      label: "Finanzas",
+      content: (
+        <div>
+          {errorFinanzas && (
+            <div className="mb-6 rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+              <strong>Faltan las migraciones.</strong> No se pudieron leer los datos económicos:{" "}
+              {errorFinanzas.message}. Corré{" "}
+              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+                supabase/aplicar-migraciones-pendientes.sql
+              </code>{" "}
+              en el SQL Editor de Supabase y volvé a entrar.
+            </div>
+          )}
+          <FinanzasPanel
+            resumen={resumen}
+            gastos={gastos}
+            onMarcarDeposito={marcarDepositoRecibido.bind(null, rancho.id)}
+            onRegistrarPago={registrarPagoFinal.bind(null, rancho.id)}
+            onRevertirPago={revertirPagoFinal.bind(null, rancho.id)}
+            onAgregarGasto={agregarGasto.bind(null, rancho.id)}
+            onBorrarGasto={borrarGasto.bind(null, rancho.id)}
+          />
+        </div>
+      ),
+    },
+  ];
+
+  if (esLugar) {
+    tabs.splice(1, 0, {
+      id: "reservas",
+      label: "Reservas",
+      content: (
+        <div>
+          <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
+            {pendientes} en aprobación · {reservas.length} en total.
+          </p>
+          <ReservasTable initialReservas={reservas} mostrarMensajes />
+        </div>
+      ),
+    });
+  }
+
   return (
-    <main className="mx-auto max-w-[720px] px-5 py-12">
+    <main className="mx-auto max-w-[1000px] px-5 py-12">
       <Link
         href="/mi-rancho"
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -71,7 +272,7 @@ export default async function RanchoDetallePage({
 
       <div className="mt-4 overflow-hidden rounded-[18px] border border-aventurea-line bg-aventurea-surface">
         <div
-          className="relative flex h-[150px] items-center justify-center bg-cover bg-center"
+          className="relative flex h-[130px] items-center justify-center bg-cover bg-center"
           style={
             rancho.foto_url
               ? { backgroundImage: `url(${rancho.foto_url})` }
@@ -79,7 +280,7 @@ export default async function RanchoDetallePage({
           }
         >
           {!rancho.foto_url && (
-            <span className="opacity-30 [&_svg]:h-14 [&_svg]:w-14">
+            <span className="opacity-30 [&_svg]:h-12 [&_svg]:w-12">
               {CATEGORIA_ICONO[rancho.categoria]}
             </span>
           )}
@@ -91,30 +292,33 @@ export default async function RanchoDetallePage({
         </div>
 
         <div className="p-6">
-          <h2 className="text-lg font-bold text-aventurea-ink">{rancho.nombre}</h2>
-          <span className="text-[12px] font-bold uppercase tracking-wide text-aventurea-orange">
-            {CATEGORIA_LABEL[rancho.categoria]}
-          </span>
-          {ubicacion && (
-            <p className="mt-1 text-[12.5px] text-zinc-500">{ubicacion}</p>
-          )}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-lg font-bold text-aventurea-ink">{rancho.nombre}</h1>
+              <span className="text-[12px] font-bold uppercase tracking-wide text-aventurea-navy">
+                {CATEGORIA_LABEL[rancho.categoria]}
+              </span>
+              {ubicacion && <p className="mt-1 text-[12.5px] text-zinc-500">{ubicacion}</p>}
+            </div>
+            {rancho.estado === "aprobado" && (
+              <Link
+                href={rancho.slug ? `/${rancho.slug}` : `/ranchos-eventos/${rancho.id}`}
+                className="shrink-0 rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy hover:text-aventurea-navy"
+              >
+                Ver mi página pública →
+              </Link>
+            )}
+          </div>
 
           {rancho.estado === "pendiente" && (
             <p className="mt-3 rounded-[10px] bg-aventurea-orange/10 p-3 text-[13px] leading-relaxed text-aventurea-orange">
-              Bookear CR está revisando tu publicación. Te avisamos apenas
-              quede publicada en el directorio.
+              Bookear CR está revisando tu publicación. Te avisamos apenas quede publicada en el
+              directorio.
             </p>
           )}
           {rancho.estado === "rechazado" && (
             <p className="mt-3 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
-              Tu publicación no fue aprobada todavía. Escribinos si querés más
-              información.
-            </p>
-          )}
-
-          {rancho.descripcion && (
-            <p className="mt-4 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-              {rancho.descripcion}
+              Tu publicación no fue aprobada todavía. Escribinos si querés más información.
             </p>
           )}
 
@@ -152,46 +356,16 @@ export default async function RanchoDetallePage({
               </div>
             </div>
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-2.5 border-t border-aventurea-line pt-5">
-            <Link
-              href={`/mi-rancho/${rancho.id}/editar`}
-              className="flex items-center gap-1.5 rounded-xl bg-aventurea-orange px-4 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark"
-            >
-              <IconEdit className="h-3.5 w-3.5" /> Editar mi publicación
-            </Link>
-            <Link
-              href={`/mi-rancho/${rancho.id}/precios`}
-              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-            >
-              {rancho.categoria === "lugares"
-                ? "Precios y descuentos"
-                : "Códigos de descuento"}
-            </Link>
-            {rancho.categoria === "lugares" && (
-              <Link
-                href={`/mi-rancho/${rancho.id}/reservas`}
-                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-              >
-                Mis reservas
-              </Link>
-            )}
-            <Link
-              href={`/mi-rancho/${rancho.id}/finanzas`}
-              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-            >
-              Mis finanzas
-            </Link>
-            {rancho.estado === "aprobado" && (
-              <Link
-                href={rancho.slug ? `/${rancho.slug}` : `/ranchos-eventos/${rancho.id}`}
-                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-              >
-                Ver mi página pública
-              </Link>
-            )}
-          </div>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <h2 className="mb-3 text-[15px] font-bold text-aventurea-ink">Cómo te está yendo</h2>
+        <DashboardMetricas metricas={metricas} esLugar={esLugar} />
+      </div>
+
+      <div className="mt-8">
+        <Tabs tabs={tabs} defaultTab="editar" />
       </div>
     </main>
   );
