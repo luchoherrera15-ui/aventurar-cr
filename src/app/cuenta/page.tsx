@@ -119,7 +119,7 @@ export default async function CuentaPage() {
           </Link>
         ) : (
           <Link
-            href="/publicar"
+            href="/mi-rancho/nuevo"
             className="mt-4 flex items-center justify-between rounded-2xl border border-aventurea-line bg-aventurea-surface px-6 py-4 transition-colors hover:border-aventurea-navy"
           >
             <div>
