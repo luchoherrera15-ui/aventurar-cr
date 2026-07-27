@@ -163,29 +163,52 @@ export async function completarReservaTemporal(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("reservas")
-    .update({ ...input, estado: "pendiente" })
-    .eq("id", id)
-    .eq("estado", "temporal");
+
+  // Este paso pasa por una función security definer en vez de un
+  // update directo: un visitante anónimo completando su propia
+  // reserva es justo el caso donde la política de RLS es más
+  // delicada de mantener bien en todos los proyectos, y es el mismo
+  // patrón que ya usan liberar_hold_temporal y redimir_codigo_descuento
+  // para esta misma fricción. La función solo escribe si la fila
+  // sigue en 'temporal', así que no sirve para tocar una reserva ya
+  // confirmada o rechazada.
+  const { data: ranchoId, error } = await supabase.rpc(
+    "completar_reserva_temporal",
+    {
+      p_id: id,
+      p_nombre: input.nombre,
+      p_contacto: input.contacto,
+      p_cedula: input.cedula,
+      p_tipo_evento: input.tipo_evento,
+      p_invitados: input.invitados,
+      p_horario_bloque: input.horario_bloque,
+      p_monto_total: input.monto_total,
+      p_deposito_monto: input.deposito_monto,
+      p_metodo_pago: input.metodo_pago,
+      p_deposito_comprobante_url: input.deposito_comprobante_url,
+      p_terminos_aceptados: input.terminos_aceptados,
+      p_notas: input.notas,
+      p_codigo_descuento: input.codigo_descuento,
+      p_descuento_monto: input.descuento_monto,
+    },
+  );
 
   if (error) return { error: error.message };
+  if (!ranchoId) {
+    return {
+      error:
+        "Esta reserva ya no está disponible (se venció el tiempo o ya se completó). Elegí la fecha de nuevo.",
+    };
+  }
 
   // El monto ya viene descontado desde el cliente (la vista previa del
   // código usa esta misma función de validación); acá solo se registra
   // el uso para que no se pueda reutilizar más veces de las permitidas.
   if (input.codigo_descuento) {
-    const { data: reserva } = await supabase
-      .from("reservas")
-      .select("rancho_id")
-      .eq("id", id)
-      .maybeSingle();
-    if (reserva) {
-      await supabase.rpc("redimir_codigo_descuento", {
-        p_rancho_id: reserva.rancho_id,
-        p_codigo: input.codigo_descuento,
-      });
-    }
+    await supabase.rpc("redimir_codigo_descuento", {
+      p_rancho_id: ranchoId,
+      p_codigo: input.codigo_descuento,
+    });
   }
 
   revalidatePath("/admin/eventos");
