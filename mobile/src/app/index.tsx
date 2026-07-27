@@ -13,6 +13,7 @@ import {
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   CATEGORIA_LABEL,
@@ -33,7 +34,7 @@ const CATEGORIA_ICONO: Record<Categoria, string> = {
 
 const TAB_BAR_ESPACIO = 84;
 
-type Fila = Pick<
+export type Fila = Pick<
   Rancho,
   | "id"
   | "nombre"
@@ -47,11 +48,65 @@ type Fila = Pick<
 
 export default function DirectorioScreen() {
   const router = useRouter();
+  const { session } = useAuth();
   const [ranchos, setRanchos] = useState<Fila[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refrescando, setRefrescando] = useState(false);
   const [filtro, setFiltro] = useState<Categoria | "todos">("todos");
   const [query, setQuery] = useState("");
+  const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!session) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia al cerrar sesión
+      setFavoritos(new Set());
+      return;
+    }
+    let vigente = true;
+    supabase
+      .from("favoritos")
+      .select("rancho_id")
+      .eq("cliente_id", session.user.id)
+      .then(({ data }) => {
+        if (vigente) setFavoritos(new Set((data ?? []).map((f) => f.rancho_id as string)));
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [session]);
+
+  const alternarFavorito = useCallback(
+    async (ranchoId: string) => {
+      if (!session) {
+        router.push("/cuenta");
+        return;
+      }
+      const yaEsFavorito = favoritos.has(ranchoId);
+      setFavoritos((prev) => {
+        const siguiente = new Set(prev);
+        if (yaEsFavorito) siguiente.delete(ranchoId);
+        else siguiente.add(ranchoId);
+        return siguiente;
+      });
+      const { error } = yaEsFavorito
+        ? await supabase
+            .from("favoritos")
+            .delete()
+            .eq("cliente_id", session.user.id)
+            .eq("rancho_id", ranchoId)
+        : await supabase.from("favoritos").insert({ cliente_id: session.user.id, rancho_id: ranchoId });
+      if (error) {
+        // Revierte si el servidor lo rechazó — no dejamos el corazón mintiendo.
+        setFavoritos((prev) => {
+          const siguiente = new Set(prev);
+          if (yaEsFavorito) siguiente.add(ranchoId);
+          else siguiente.delete(ranchoId);
+          return siguiente;
+        });
+      }
+    },
+    [session, favoritos, router],
+  );
 
   const cargar = useCallback(async () => {
     setError(null);
@@ -170,7 +225,13 @@ export default function DirectorioScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <TarjetaRancho item={item} ancho="completo" onPress={() => router.push(`/rancho/${item.id}`)} />
+            <TarjetaRancho
+              item={item}
+              ancho="completo"
+              onPress={() => router.push(`/rancho/${item.id}`)}
+              favorito={favoritos.has(item.id)}
+              onToggleFavorito={() => alternarFavorito(item.id)}
+            />
           )}
         />
       )}
@@ -206,6 +267,8 @@ export default function DirectorioScreen() {
                     item={item}
                     ancho="riel"
                     onPress={() => router.push(`/rancho/${item.id}`)}
+                    favorito={favoritos.has(item.id)}
+                          onToggleFavorito={() => alternarFavorito(item.id)}
                   />
                 ))}
               </ScrollView>
@@ -236,14 +299,18 @@ function CategoriaTab({
   );
 }
 
-function TarjetaRancho({
+export function TarjetaRancho({
   item,
   ancho,
   onPress,
+  favorito = false,
+  onToggleFavorito,
 }: {
   item: Fila;
   ancho: "riel" | "completo";
   onPress: () => void;
+  favorito?: boolean;
+  onToggleFavorito?: () => void;
 }) {
   const ubicacion = [item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica";
   return (
@@ -251,13 +318,27 @@ function TarjetaRancho({
       style={ancho === "riel" ? styles.tarjetaRiel : styles.tarjetaCompleta}
       onPress={onPress}
     >
-      <Image
-        source={item.foto_url ? { uri: item.foto_url } : undefined}
-        style={ancho === "riel" ? styles.fotoRiel : styles.fotoCompleta}
-        contentFit="cover"
-        transition={150}
-        alt={item.nombre}
-      />
+      <View>
+        <Image
+          source={item.foto_url ? { uri: item.foto_url } : undefined}
+          style={ancho === "riel" ? styles.fotoRiel : styles.fotoCompleta}
+          contentFit="cover"
+          transition={150}
+          alt={item.nombre}
+        />
+        {onToggleFavorito && (
+          <Pressable
+            style={styles.botonFavorito}
+            hitSlop={8}
+            onPress={(e) => {
+              e.stopPropagation();
+              onToggleFavorito();
+            }}
+          >
+            <Text style={[styles.iconoFavorito, favorito && styles.iconoFavoritoActivo]}>♥</Text>
+          </Pressable>
+        )}
+      </View>
       <View style={styles.tarjetaCuerpo}>
         <Text style={styles.etiqueta}>{CATEGORIA_LABEL[item.categoria]}</Text>
         <Text style={styles.nombre} numberOfLines={1}>
@@ -331,6 +412,18 @@ const styles = StyleSheet.create({
   tarjetaCompleta: {},
   fotoRiel: { width: ANCHO_RIEL, height: 170, borderRadius: 16, backgroundColor: Colors.cream2 },
   fotoCompleta: { width: "100%", height: 200, borderRadius: 16, backgroundColor: Colors.cream2 },
+  botonFavorito: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconoFavorito: { fontSize: 20, color: "rgba(0,0,0,0.3)", textShadowColor: "#fff", textShadowRadius: 1.5, textShadowOffset: { width: 0, height: 0 } },
+  iconoFavoritoActivo: { color: Colors.navy },
   tarjetaCuerpo: { paddingTop: Spacing.two, gap: 2 },
   etiqueta: {
     fontSize: 10.5,

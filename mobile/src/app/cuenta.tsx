@@ -10,10 +10,12 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
+import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { CATEGORIA_LABEL, fmtColones, type Categoria } from "@/lib/types";
+import { TarjetaRancho, type Fila } from "./index";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookearcr.com";
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -221,7 +223,9 @@ function Dashboard({
   correo: string | null;
   clienteId: string;
 }) {
+  const router = useRouter();
   const [reservas, setReservas] = useState<ReservaCliente[] | null>(null);
+  const [favoritos, setFavoritos] = useState<Fila[] | null>(null);
 
   const cargar = useCallback(async () => {
     const { data } = await supabase
@@ -231,12 +235,29 @@ function Dashboard({
       .in("estado", ["pendiente", "confirmada", "rechazada"])
       .order("fecha", { ascending: false });
     setReservas((data ?? []) as unknown as ReservaCliente[]);
+
+    const { data: favData } = await supabase
+      .from("favoritos")
+      .select(
+        "ranchos(id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url)",
+      )
+      .eq("cliente_id", clienteId);
+    setFavoritos(
+      ((favData ?? []) as unknown as { ranchos: Fila | null }[])
+        .map((f) => f.ranchos)
+        .filter((r): r is Fila => r !== null),
+    );
   }, [clienteId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial al montar, sin librería de data-fetching en este proyecto
     cargar();
   }, [cargar]);
+
+  async function quitarFavorito(ranchoId: string) {
+    setFavoritos((prev) => (prev ?? []).filter((r) => r.id !== ranchoId));
+    await supabase.from("favoritos").delete().eq("cliente_id", clienteId).eq("rancho_id", ranchoId);
+  }
 
   const hoy = new Date().toISOString().slice(0, 10);
   const activas = (reservas ?? []).filter(
@@ -272,6 +293,19 @@ function Dashboard({
       <Seccion titulo="Historial" vacio="Acá vas a ver tus reservas pasadas.">
         {historial.map((r) => (
           <TarjetaReserva key={r.id} reserva={r} atenuada />
+        ))}
+      </Seccion>
+
+      <Seccion titulo="Tus favoritos" vacio="Todavía no guardaste ningún favorito — tocá el corazón en cualquier tarjeta del directorio.">
+        {(favoritos ?? []).map((item) => (
+          <TarjetaRancho
+            key={item.id}
+            item={item}
+            ancho="completo"
+            favorito
+            onPress={() => router.push(`/rancho/${item.id}`)}
+            onToggleFavorito={() => quitarFavorito(item.id)}
+          />
         ))}
       </Seccion>
 
