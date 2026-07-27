@@ -4,19 +4,63 @@
  * constantes que la app necesita en vez de importarlos cruzando de
  * /web a /mobile porque son dos proyectos npm independientes (Next.js
  * vs Expo, cada uno con su propio bundler y árbol de node_modules).
+ *
+ * Esta copia se mantiene EN PARIDAD con la de /web a propósito (misma
+ * lista de cantones, misma taxonomía de subcategorías) — si se agrega
+ * o cambia algo de un lado, hacer el mismo cambio del otro.
  */
 
-export type Provincia =
-  | "San José"
-  | "Alajuela"
-  | "Cartago"
-  | "Heredia"
-  | "Guanacaste"
-  | "Puntarenas"
-  | "Limón";
+export const PROVINCIAS = [
+  "San José",
+  "Alajuela",
+  "Cartago",
+  "Heredia",
+  "Guanacaste",
+  "Puntarenas",
+  "Limón",
+] as const;
+
+export type Provincia = (typeof PROVINCIAS)[number];
+
+export const CANTONES: Record<Provincia, string[]> = {
+  "San José": [
+    "San José", "Escazú", "Desamparados", "Puriscal", "Tarrazú", "Aserrí",
+    "Mora", "Goicoechea", "Santa Ana", "Alajuelita", "Vázquez de Coronado",
+    "Acosta", "Tibás", "Moravia", "Montes de Oca", "Turrubares", "Dota",
+    "Curridabat", "Pérez Zeledón", "León Cortés Castro",
+  ],
+  Alajuela: [
+    "Alajuela", "San Ramón", "Grecia", "San Mateo", "Atenas", "Naranjo",
+    "Palmares", "Poás", "Orotina", "San Carlos", "Zarcero", "Sarchí",
+    "Upala", "Los Chiles", "Guatuso", "Río Cuarto",
+  ],
+  Cartago: [
+    "Cartago", "Paraíso", "La Unión", "Jiménez", "Turrialba", "Alvarado",
+    "Oreamuno", "El Guarco",
+  ],
+  Heredia: [
+    "Heredia", "Barva", "Santo Domingo", "Santa Bárbara", "San Rafael",
+    "San Isidro", "Belén", "Flores", "San Pablo", "Sarapiquí",
+  ],
+  Guanacaste: [
+    "Liberia", "Nicoya", "Santa Cruz", "Bagaces", "Carrillo", "Cañas",
+    "Abangares", "Tilarán", "Nandayure", "La Cruz", "Hojancha",
+  ],
+  Puntarenas: [
+    "Puntarenas", "Esparza", "Buenos Aires", "Montes de Oro", "Osa",
+    "Quepos", "Golfito", "Coto Brus", "Parrita", "Corredores", "Garabito",
+    "Monteverde", "Puerto Jiménez",
+  ],
+  "Limón": [
+    "Limón", "Pococí", "Siquirres", "Talamanca", "Matina", "Guácimo",
+  ],
+};
 
 export type EstadoRancho = "pendiente" | "aprobado" | "rechazado";
 
+// Taxonomía de dos niveles: la categoría general es la que se ve en la
+// barra de navegación, y dentro de cada una están las subcategorías
+// concretas que elige el proveedor al registrarse.
 export const CATEGORIAS = [
   "lugares",
   "alimentacion",
@@ -35,6 +79,106 @@ export const CATEGORIA_LABEL: Record<Categoria, string> = {
   organizacion: "Organización",
   decoracion: "Decoración",
   otros: "Otros servicios",
+};
+
+// Subcategorías por categoría. El id es lo que se guarda en la columna
+// `subcategoria` de la tabla ranchos.
+export const SUBCATEGORIAS: Record<Categoria, { id: string; label: string }[]> = {
+  lugares: [
+    { id: "sala_eventos", label: "Salas de eventos" },
+    { id: "rancho_fiestas", label: "Ranchos para fiestas" },
+    { id: "lugar_fiestas_infantiles", label: "Lugares para fiestas infantiles" },
+    { id: "finca_fiestas", label: "Fincas para fiestas" },
+    { id: "hotel_eventos", label: "Hoteles para eventos" },
+    { id: "restaurante", label: "Restaurantes" },
+    { id: "parque_piscina", label: "Parques y piscinas" },
+    { id: "centro_negocios", label: "Centros de negocios" },
+  ],
+  alimentacion: [
+    { id: "catering", label: "Catering service" },
+    { id: "queques", label: "Queques" },
+    { id: "catering_infantil", label: "Catering infantil" },
+    { id: "bebidas_domicilio", label: "Bebidas a domicilio" },
+    { id: "mesas_dulces", label: "Mesas de dulces" },
+    { id: "food_trucks", label: "Food trucks" },
+    { id: "comidas_domicilio", label: "Comidas a domicilio" },
+    { id: "parrillada", label: "Parrillada" },
+    { id: "bartender", label: "Bartenders" },
+    { id: "barra_cocteles", label: "Barra de cócteles" },
+    { id: "barra_cafe", label: "Coffee bar" },
+    { id: "barra_matcha", label: "Matcha bar" },
+    { id: "barra_cerveza", label: "Barra de cerveza" },
+    { id: "barra_jugos", label: "Barra de jugos y smoothies" },
+    { id: "barra_helados", label: "Barra de helados" },
+    { id: "barra_snacks", label: "Barra de snacks" },
+  ],
+  animacion: [
+    { id: "dj_discomovil", label: "DJ y discomóvil" },
+    { id: "luces_sonido", label: "Alquiler de luces y sonido" },
+    { id: "grupos_musicales", label: "Grupos musicales" },
+    { id: "fiestas_neon", label: "Fiestas neón" },
+    { id: "animadores", label: "Animadores de eventos" },
+    { id: "maestros_ceremonias", label: "Maestros de ceremonias" },
+    { id: "mariachis", label: "Mariachis" },
+    { id: "payasos_pintacaritas", label: "Payasos y pintacaritas" },
+    { id: "magos", label: "Magos y shows de magia" },
+    { id: "inflables", label: "Alquiler de inflables" },
+    { id: "animacion_infantil", label: "Shows y animación infantil" },
+    { id: "polvora", label: "Juegos de pólvora" },
+  ],
+  organizacion: [
+    { id: "articulos_fiesta", label: "Artículos de fiesta" },
+    { id: "invitaciones", label: "Invitaciones" },
+    { id: "fotografos", label: "Fotógrafos" },
+    { id: "photo_booth", label: "Photo booth" },
+    { id: "edecanes", label: "Edecanes" },
+    { id: "wedding_planner", label: "Wedding planner" },
+    { id: "produccion_audiovisual", label: "Producción audiovisual" },
+    { id: "agencias_btl", label: "Agencias BTL" },
+    { id: "organizacion_eventos", label: "Organización de eventos" },
+    { id: "articulos_promocionales", label: "Artículos promocionales" },
+  ],
+  decoracion: [
+    { id: "decoracion_eventos", label: "Decoración para eventos" },
+    { id: "decoracion_infantil", label: "Decoración de fiestas infantiles" },
+    { id: "floristerias", label: "Floristerías" },
+    { id: "toldos", label: "Alquiler de toldos" },
+    { id: "tarimas", label: "Tarimas para eventos" },
+    { id: "exhibidores_stands", label: "Exhibidores y stands" },
+    { id: "graderias", label: "Graderías" },
+    { id: "sillas_mesas", label: "Alquiler de sillas y mesas" },
+    { id: "manteles", label: "Alquiler de manteles" },
+    { id: "equipo_eventos", label: "Alquiler de equipo para eventos" },
+  ],
+  otros: [
+    { id: "revelacion_sexo", label: "Revelaciones de sexo" },
+    { id: "transporte", label: "Transporte para eventos" },
+    { id: "seguridad", label: "Seguridad para eventos" },
+    { id: "banos_portatiles", label: "Baños portátiles" },
+    { id: "planta_electrica", label: "Plantas eléctricas" },
+    { id: "otro", label: "Otro servicio" },
+  ],
+};
+
+export const SUBCATEGORIAS_TODAS = CATEGORIAS.flatMap((c) => SUBCATEGORIAS[c].map((s) => s.id));
+
+export const SUBCATEGORIA_LABEL: Record<string, string> = Object.fromEntries(
+  CATEGORIAS.flatMap((c) => SUBCATEGORIAS[c].map((s) => [s.id, s.label])),
+);
+
+/** A qué categoría general pertenece una subcategoría. */
+export const CATEGORIA_DE_SUBCATEGORIA: Record<string, Categoria> = Object.fromEntries(
+  CATEGORIAS.flatMap((c) => SUBCATEGORIAS[c].map((s) => [s.id, c])),
+);
+
+export const UNIDADES_PRECIO = ["evento", "persona", "hora", "bloque_horas"] as const;
+export type UnidadPrecio = (typeof UNIDADES_PRECIO)[number];
+
+export const UNIDAD_PRECIO_LABEL: Record<UnidadPrecio, string> = {
+  evento: "por evento",
+  persona: "por persona",
+  hora: "por hora",
+  bloque_horas: "por bloque",
 };
 
 export type HorarioBloqueConfig = {
@@ -81,6 +225,7 @@ export type Rancho = {
   capacidad_min: number | null;
   capacidad_max: number | null;
   precio_desde: number | null;
+  unidad_precio: UnidadPrecio;
   contacto_whatsapp: string | null;
   foto_url: string | null;
   foto_presentacion: string | null;
@@ -123,6 +268,46 @@ export type PromocionDia = {
   porcentaje_descuento: number;
   etiqueta: string;
   activo: boolean;
+};
+
+export type Favorito = {
+  cliente_id: string;
+  rancho_id: string;
+  created_at: string;
+};
+
+export type Resena = {
+  id: string;
+  rancho_id: string;
+  cliente_id: string;
+  reserva_id: string;
+  calificacion: number;
+  comentario: string | null;
+  created_at: string;
+};
+
+/** Vista `calificaciones_rancho`: promedio + cantidad, una fila por rancho. */
+export type CalificacionRancho = {
+  rancho_id: string;
+  promedio: number;
+  total: number;
+};
+
+export type TipoSeccionHome = "categoria" | "ubicacion" | "manual";
+
+export type HomeSeccion = {
+  id: string;
+  tipo: TipoSeccionHome;
+  titulo: string;
+  subtitulo: string | null;
+  categoria: Categoria | null;
+  subcategoria: string | null;
+  provincia: Provincia | null;
+  canton: string | null;
+  rancho_ids: string[] | null;
+  orden: number;
+  activo: boolean;
+  created_at: string;
 };
 
 export function fmtColones(n: number | null) {

@@ -865,3 +865,125 @@ create policy "El equipo ve todas las reservas" on reservas
   );
 
 notify pgrst, 'reload schema';
+
+-- ============================================================
+-- 0033 — Fase 1 del rediseño: unidad de precio, favoritos,
+-- reseñas y filas configurables del home
+-- ============================================================
+
+alter table ranchos add column if not exists unidad_precio text not null default 'evento';
+alter table ranchos drop constraint if exists ranchos_unidad_precio_check;
+alter table ranchos add constraint ranchos_unidad_precio_check
+  check (unidad_precio in ('evento', 'persona', 'hora', 'bloque_horas'));
+
+create table if not exists favoritos (
+  cliente_id uuid not null references auth.users(id) on delete cascade,
+  rancho_id uuid not null references ranchos(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (cliente_id, rancho_id)
+);
+
+alter table favoritos enable row level security;
+
+drop policy if exists "Cada quien ve sus favoritos" on favoritos;
+create policy "Cada quien ve sus favoritos" on favoritos
+  for select to authenticated
+  using (cliente_id = auth.uid());
+
+drop policy if exists "Cada quien agrega sus favoritos" on favoritos;
+create policy "Cada quien agrega sus favoritos" on favoritos
+  for insert to authenticated
+  with check (cliente_id = auth.uid());
+
+drop policy if exists "Cada quien quita sus favoritos" on favoritos;
+create policy "Cada quien quita sus favoritos" on favoritos
+  for delete to authenticated
+  using (cliente_id = auth.uid());
+
+grant select, insert, delete on favoritos to authenticated;
+
+create table if not exists resenas (
+  id uuid primary key default gen_random_uuid(),
+  rancho_id uuid not null references ranchos(id) on delete cascade,
+  cliente_id uuid not null references auth.users(id) on delete cascade,
+  reserva_id uuid not null references reservas(id) on delete cascade,
+  calificacion integer not null check (calificacion between 1 and 5),
+  comentario text,
+  created_at timestamptz not null default now(),
+  unique (reserva_id)
+);
+
+alter table resenas enable row level security;
+
+drop policy if exists "Cualquiera lee las reseñas" on resenas;
+create policy "Cualquiera lee las reseñas" on resenas
+  for select to anon, authenticated
+  using (true);
+
+drop policy if exists "El cliente reseña su propia reserva confirmada" on resenas;
+create policy "El cliente reseña su propia reserva confirmada" on resenas
+  for insert to authenticated
+  with check (
+    cliente_id = auth.uid()
+    and exists (
+      select 1 from reservas r
+      where r.id = reserva_id
+        and r.cliente_id = auth.uid()
+        and r.rancho_id = resenas.rancho_id
+        and r.estado = 'confirmada'
+    )
+  );
+
+drop policy if exists "El cliente edita o borra su propia reseña" on resenas;
+create policy "El cliente edita su propia reseña" on resenas
+  for update to authenticated
+  using (cliente_id = auth.uid())
+  with check (cliente_id = auth.uid());
+
+drop policy if exists "El cliente borra su propia reseña" on resenas;
+create policy "El cliente borra su propia reseña" on resenas
+  for delete to authenticated
+  using (cliente_id = auth.uid());
+
+grant select on resenas to anon;
+grant select, insert, update, delete on resenas to authenticated;
+
+create or replace view calificaciones_rancho as
+  select rancho_id, round(avg(calificacion)::numeric, 2) as promedio, count(*) as total
+  from resenas
+  group by rancho_id;
+
+grant select on calificaciones_rancho to anon, authenticated;
+
+create table if not exists home_secciones (
+  id uuid primary key default gen_random_uuid(),
+  tipo text not null check (tipo in ('categoria', 'ubicacion', 'manual')),
+  titulo text not null,
+  subtitulo text,
+  categoria text,
+  subcategoria text,
+  provincia text,
+  canton text,
+  rancho_ids uuid[],
+  orden integer not null default 0,
+  activo boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table home_secciones enable row level security;
+
+drop policy if exists "Cualquiera ve las secciones activas del home" on home_secciones;
+create policy "Cualquiera ve las secciones activas del home" on home_secciones
+  for select to anon, authenticated
+  using (activo = true or is_admin());
+
+drop policy if exists "El admin administra las secciones del home" on home_secciones;
+create policy "El admin administra las secciones del home" on home_secciones
+  for all to authenticated
+  using (is_admin())
+  with check (is_admin());
+
+grant select on home_secciones to anon;
+grant select, insert, update, delete on home_secciones to authenticated;
+
+notify pgrst, 'reload schema';

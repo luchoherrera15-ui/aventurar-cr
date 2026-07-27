@@ -132,6 +132,16 @@ export const CATEGORIA_GRADIENTE: Record<Categoria, string> = {
   otros: "linear-gradient(160deg, #1a1a1a 0%, #2a2a2a 45%, #141414 100%)",
 };
 
+export const UNIDADES_PRECIO = ["evento", "persona", "hora", "bloque_horas"] as const;
+export type UnidadPrecio = (typeof UNIDADES_PRECIO)[number];
+
+export const UNIDAD_PRECIO_LABEL: Record<UnidadPrecio, string> = {
+  evento: "por evento",
+  persona: "por persona",
+  hora: "por hora",
+  bloque_horas: "por bloque",
+};
+
 // Subcategorías por categoría. El id es lo que se guarda en la columna
 // `subcategoria` de la tabla ranchos.
 export const SUBCATEGORIAS: Record<
@@ -468,6 +478,7 @@ export type Rancho = {
   capacidad_min: number | null;
   capacidad_max: number | null;
   precio_desde: number | null;
+  unidad_precio: UnidadPrecio;
   contacto_whatsapp: string | null;
   foto_url: string | null;
   /** Cuál de sus fotos va grande en la sección de presentación. */
@@ -535,6 +546,46 @@ export type PromocionDia = {
   dias_semana: number[];
   porcentaje_descuento: number;
   etiqueta: string;
+  activo: boolean;
+  created_at: string;
+};
+
+export type Favorito = {
+  cliente_id: string;
+  rancho_id: string;
+  created_at: string;
+};
+
+export type Resena = {
+  id: string;
+  rancho_id: string;
+  cliente_id: string;
+  reserva_id: string;
+  calificacion: number;
+  comentario: string | null;
+  created_at: string;
+};
+
+/** Vista `calificaciones_rancho`: promedio + cantidad, una fila por rancho. */
+export type CalificacionRancho = {
+  rancho_id: string;
+  promedio: number;
+  total: number;
+};
+
+export type TipoSeccionHome = "categoria" | "ubicacion" | "manual";
+
+export type HomeSeccion = {
+  id: string;
+  tipo: TipoSeccionHome;
+  titulo: string;
+  subtitulo: string | null;
+  categoria: Categoria | null;
+  subcategoria: string | null;
+  provincia: Provincia | null;
+  canton: string | null;
+  rancho_ids: string[] | null;
+  orden: number;
   activo: boolean;
   created_at: string;
 };
