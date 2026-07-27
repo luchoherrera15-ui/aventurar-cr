@@ -134,7 +134,138 @@ export default function ReservasTable({
         </p>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm">
+      {/* Cards apiladas en pantallas chicas — la tabla ancha obligaba a
+          hacer scroll horizontal (y ni eso, quedaba cortada) justo donde
+          la mayoría aprueba o rechaza reservas desde el celular. */}
+      <div className="flex flex-col gap-3 sm:hidden">
+        {list.length === 0 && (
+          <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-8 text-center text-[13.5px] text-zinc-500">
+            No hay reservas que coincidan con la búsqueda.
+          </div>
+        )}
+        {list.map((r) => (
+          <div
+            key={r.id}
+            className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-[15px] font-bold text-aventurea-ink">
+                  {fmtDate(r.fecha)}
+                </div>
+                {nombrePorRancho && (
+                  <div className="text-[12px] text-aventurea-ink-soft">
+                    {(r.rancho_id && nombrePorRancho.get(r.rancho_id)) ?? "—"}
+                  </div>
+                )}
+              </div>
+              <span
+                className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${ESTADO_BADGE[r.estado]}`}
+              >
+                {ESTADO_LABEL[r.estado]}
+              </span>
+            </div>
+
+            <div className="mt-3 border-t border-aventurea-line pt-3">
+              <div className="font-bold text-aventurea-ink">{r.nombre}</div>
+              {r.correo || r.whatsapp ? (
+                <>
+                  {r.correo && <div className="text-xs text-zinc-500">{r.correo}</div>}
+                  {r.whatsapp && <div className="text-xs text-zinc-500">{r.whatsapp}</div>}
+                </>
+              ) : (
+                <div className="text-xs text-zinc-500">{r.contacto}</div>
+              )}
+              {r.cedula && (
+                <div className="text-xs text-zinc-500">Cédula: {r.cedula}</div>
+              )}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-aventurea-line pt-3 text-[13px]">
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Evento
+                </div>
+                <div className="text-aventurea-ink">{r.tipo_evento || "—"}</div>
+              </div>
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Horario
+                </div>
+                <div className="text-aventurea-ink">
+                  {mostrarHorarioReserva(r.horario_bloque)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Invitados
+                </div>
+                <div className="text-aventurea-ink">{r.invitados ?? "—"}</div>
+              </div>
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Depósito
+                </div>
+                {r.deposito_validado ? (
+                  <span className="inline-flex items-center rounded-full bg-aventurea-green/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-green">
+                    ✓ {fmtMoney(r.deposito_monto)}
+                  </span>
+                ) : r.deposito_comprobante_url ? (
+                  <span className="inline-flex items-center rounded-full bg-aventurea-orange/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-orange">
+                    Por validar
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[11px] font-bold text-zinc-500">
+                    Sin comprobante
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {r.deposito_comprobante_url && (
+              <div className="mt-3 flex gap-4 border-t border-aventurea-line pt-3">
+                <button
+                  disabled={comprobanteLoading}
+                  onClick={() => verComprobante(r.deposito_comprobante_url!)}
+                  className="text-[12.5px] font-bold text-aventurea-ink underline disabled:opacity-50"
+                >
+                  Ver comprobante
+                </button>
+                {!r.deposito_validado && (
+                  <button
+                    disabled={pending}
+                    onClick={() => marcarValidado(r.id)}
+                    className="text-[12.5px] font-bold text-aventurea-green underline disabled:opacity-50"
+                  >
+                    Marcar validado
+                  </button>
+                )}
+              </div>
+            )}
+
+            {r.estado === "pendiente" && (
+              <div className="mt-3.5 flex gap-2.5 border-t border-aventurea-line pt-3.5">
+                <button
+                  disabled={pending}
+                  onClick={() => cambiarEstado(r.id, "confirmada")}
+                  className="h-11 flex-1 rounded-xl bg-aventurea-green text-[13.5px] font-bold text-white disabled:opacity-50"
+                >
+                  Aprobar
+                </button>
+                <button
+                  disabled={pending}
+                  onClick={() => cambiarEstado(r.id, "rechazada")}
+                  className="h-11 flex-1 rounded-xl border border-red-200 bg-red-50 text-[13.5px] font-bold text-red-700 disabled:opacity-50"
+                >
+                  Rechazar
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm sm:block">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-aventurea-cream-2/60">
