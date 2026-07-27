@@ -161,7 +161,7 @@ function BotonFavorito({
     e.preventDefault();
     e.stopPropagation();
     if (!sesionActiva) {
-      router.push("/mi-rancho/login");
+      router.push("/cuenta");
       return;
     }
     const nuevo = !activo;

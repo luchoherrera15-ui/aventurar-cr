@@ -48,8 +48,8 @@ export default function MenuCuenta({
           <div className="absolute right-0 top-full z-20 mt-2 min-w-[200px] rounded-2xl border border-aventurea-line bg-aventurea-surface p-1.5 shadow-xl">
             {sesionActiva ? (
               <>
-                <Link href="/mi-rancho" className={itemCls} onClick={() => setAbierto(false)}>
-                  Mi panel
+                <Link href="/cuenta" className={itemCls} onClick={() => setAbierto(false)}>
+                  Mi cuenta
                 </Link>
                 <Link href="/ranchos-eventos" className={itemCls} onClick={() => setAbierto(false)}>
                   Ver el directorio
@@ -70,11 +70,7 @@ export default function MenuCuenta({
               </>
             ) : (
               <>
-                <Link
-                  href="/mi-rancho/login"
-                  className={itemCls}
-                  onClick={() => setAbierto(false)}
-                >
+                <Link href="/cuenta" className={itemCls} onClick={() => setAbierto(false)}>
                   Iniciar sesión
                 </Link>
                 <Link

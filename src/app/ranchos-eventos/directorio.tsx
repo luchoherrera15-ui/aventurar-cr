@@ -256,6 +256,12 @@ export default function Directorio({
     setPagina(1);
   }
 
+  // Solo "lugares" reserva por fecha en línea — para el resto, "Cuándo"
+  // no aplica: el buscador de arriba cambia esa casilla por una de texto
+  // libre ("¿Qué necesitás?"), y por eso el buscador de nombre de abajo
+  // (que haría lo mismo) se oculta para no repetirse.
+  const mostrarCuando = tab === "todos" || tab === "lugares";
+
   const categoriaAbierta =
     typeof menuAbierto === "string" &&
     (CATEGORIAS as readonly string[]).includes(menuAbierto)
@@ -266,22 +272,36 @@ export default function Directorio({
     <div>
       <RevealOnScroll />
 
-      {/* Buscador segmentado: Dónde · Cuándo · Personas */}
-      <div className="relative z-30 mb-5">
-        <div className="mx-auto flex max-w-[640px] items-stretch overflow-hidden rounded-full border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-md">
+      {/* Buscador segmentado: Dónde · Cuándo · Personas (Lugares/Todos) o
+          Dónde · ¿Qué necesitás? · Personas para el resto de categorías,
+          que no reservan por fecha en línea. */}
+      <div className="relative z-30 mb-5 flex items-stretch gap-2">
+        <div className="mx-auto flex min-w-0 max-w-[640px] flex-1 items-stretch overflow-hidden rounded-full border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-md">
           <SegmentoBusqueda
             label="Dónde"
             valor={canton || provincia || "Todo Costa Rica"}
             activo={menuAbierto === "donde"}
             onClick={() => setMenuAbierto((p) => (p === "donde" ? null : "donde"))}
           />
-          <SegmentoBusqueda
-            borde
-            label="Cuándo"
-            valor={fecha ? fmtFechaCorta(fecha) : "Agregá la fecha"}
-            activo={menuAbierto === "cuando"}
-            onClick={() => setMenuAbierto((p) => (p === "cuando" ? null : "cuando"))}
-          />
+          {mostrarCuando ? (
+            <SegmentoBusqueda
+              borde
+              label="Cuándo"
+              valor={fecha ? fmtFechaCorta(fecha) : "Agregá la fecha"}
+              activo={menuAbierto === "cuando"}
+              onClick={() => setMenuAbierto((p) => (p === "cuando" ? null : "cuando"))}
+            />
+          ) : (
+            <SegmentoTexto
+              label="¿Qué necesitás?"
+              placeholder="Ej. catering, DJ, decoración..."
+              value={texto}
+              onChange={(v) => {
+                setTexto(v);
+                setPagina(1);
+              }}
+            />
+          )}
           <SegmentoBusqueda
             borde
             className="hidden sm:flex"
@@ -299,6 +319,19 @@ export default function Directorio({
             <IconSearch className="h-[17px] w-[17px]" />
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setMenuAbierto((prev) => (prev === "filtros" ? null : "filtros"))}
+          aria-label="Más filtros"
+          className={`flex w-11 shrink-0 items-center justify-center rounded-full border transition-colors ${
+            precioMax || menuAbierto === "filtros"
+              ? "border-aventurea-navy text-aventurea-navy"
+              : "border-aventurea-line text-aventurea-ink hover:border-aventurea-navy"
+          }`}
+        >
+          <IconFiltro className="h-4 w-4" />
+        </button>
 
         {(menuAbierto === "donde" ||
           menuAbierto === "cuando" ||
@@ -388,9 +421,12 @@ export default function Directorio({
         )}
       </div>
 
-      {/* Barra de categorías: ícono + label, con "Filtros" fijo aparte */}
-      <div className="relative z-20 mb-4 flex items-stretch gap-3 border-b border-aventurea-line">
-        <div className="flex min-w-0 flex-1 gap-6 overflow-x-auto lg:gap-8">
+      {/* Barra de categorías: ícono + label. Sin nada fijo a la derecha
+          que la tape — el degradado de la punta es la única pista de
+          que sigue scrolleando (antes "Filtros" hacía de tapón visual y
+          escondía Organización/Decoración/Otros servicios). */}
+      <div className="relative z-20 mb-4 border-b border-aventurea-line">
+        <div className="flex gap-6 overflow-x-auto lg:gap-8">
           <CategoriaTab
             label="Todos"
             icono={<IconCompass className="h-full w-full" />}
@@ -406,19 +442,13 @@ export default function Directorio({
               onClick={() => setMenuAbierto((prev) => (prev === cat ? null : cat))}
             />
           ))}
+          {/* Relleno para que el degradado nunca tape la última pestaña. */}
+          <div className="w-2 shrink-0" aria-hidden />
         </div>
-        <button
-          type="button"
-          onClick={() => setMenuAbierto((prev) => (prev === "filtros" ? null : "filtros"))}
-          className={`mb-2.5 flex shrink-0 items-center gap-1.5 self-center rounded-[11px] border px-3.5 py-2 text-[13px] font-bold transition-colors ${
-            precioMax || menuAbierto === "filtros"
-              ? "border-aventurea-navy text-aventurea-navy"
-              : "border-aventurea-line text-aventurea-ink hover:border-aventurea-navy"
-          }`}
-        >
-          <IconFiltro className="h-3.5 w-3.5" />
-          Filtros
-        </button>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-aventurea-cream to-transparent"
+        />
       </div>
 
       {(menuAbierto === "filtros" || categoriaAbierta) && (
@@ -473,22 +503,26 @@ export default function Directorio({
       )}
 
       {/* Búsqueda por nombre — complementa al buscador de arriba, que es
-          por ubicación/fecha/capacidad, no por el nombre del proveedor. */}
-      <div className="relative mb-4">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
-          <IconSearch className="h-[15px] w-[15px]" />
-        </span>
-        <input
-          type="search"
-          value={texto}
-          onChange={(e) => {
-            setTexto(e.target.value);
-            setPagina(1);
-          }}
-          placeholder="Buscá un proveedor por nombre..."
-          className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/40 focus:outline-none"
-        />
-      </div>
+          por ubicación/fecha/capacidad. En el resto de categorías esa
+          misma casilla de texto ya vive arriba ("¿Qué necesitás?"), así
+          que acá abajo no se repite. */}
+      {mostrarCuando && (
+        <div className="relative mb-4">
+          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
+            <IconSearch className="h-[15px] w-[15px]" />
+          </span>
+          <input
+            type="search"
+            value={texto}
+            onChange={(e) => {
+              setTexto(e.target.value);
+              setPagina(1);
+            }}
+            placeholder="Buscá un proveedor por nombre..."
+            className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/40 focus:outline-none"
+          />
+        </div>
+      )}
 
       {/* Qué está filtrado ahora mismo */}
       {hayAlgo && (
@@ -655,6 +689,33 @@ function SegmentoBusqueda({
       <span className="text-[11px] font-bold text-aventurea-ink">{label}</span>
       <span className="truncate text-[13px] text-aventurea-ink-soft">{valor}</span>
     </button>
+  );
+}
+
+/** Como SegmentoBusqueda, pero editable ahí mismo — sin popover, porque
+ *  es texto libre y no una lista para elegir. */
+function SegmentoTexto({
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col justify-center border-l border-aventurea-line px-4 py-2.5 sm:px-5">
+      <label className="text-[11px] font-bold text-aventurea-ink">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="truncate bg-transparent text-[13px] text-aventurea-ink placeholder:text-aventurea-ink-soft focus:outline-none"
+      />
+    </div>
   );
 }
 
