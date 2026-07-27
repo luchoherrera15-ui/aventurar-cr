@@ -484,6 +484,7 @@ export type Rancho = {
   fotos: string[];
   estado: EstadoRancho;
   created_at: string;
+  slug: string | null;
 };
 
 export type PrecioTier = {

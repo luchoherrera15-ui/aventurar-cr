@@ -616,7 +616,11 @@ function IconLupa() {
 function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
   const esBookear = rancho.nombre === NOMBRE_RANCHO_BOOKEAR;
   const puedeReservar = rancho.categoria === "lugares";
-  const href = esBookear ? "/eventos-salon" : `/ranchos-eventos/${rancho.id}`;
+  const href = esBookear
+    ? "/eventos-salon"
+    : rancho.slug
+      ? `/${rancho.slug}`
+      : `/ranchos-eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
   // quedaba cortada a media palabra.

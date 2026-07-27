@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "@/app/mi-rancho/types";
+import { generarSlugUnico } from "@/lib/slug";
 
 export type NuevoRanchoAdminState = { error?: string } | undefined;
 
@@ -75,6 +76,8 @@ export async function crearRanchoComoAdmin(
     return v ? Number(v) : null;
   };
 
+  const slug = await generarSlugUnico(supabase, nombre);
+
   const { error } = await supabase.from("ranchos").insert({
     owner_id: ownerId,
     categoria,
@@ -90,6 +93,7 @@ export async function crearRanchoComoAdmin(
     contacto_whatsapp:
       String(formData.get("contacto_whatsapp") || "").trim() || null,
     estado: String(formData.get("estado") || "aprobado"),
+    slug,
   });
 
   if (error) return { error: "No se pudo guardar el salón: " + error.message };
