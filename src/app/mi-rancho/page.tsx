@@ -179,6 +179,12 @@ export default async function MiRanchoPage() {
                 Mis reservas
               </Link>
             )}
+            <Link
+              href="/mi-rancho/finanzas"
+              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+            >
+              Mis finanzas
+            </Link>
             {rancho.estado === "aprobado" && (
               <Link
                 href={`/ranchos-eventos/${rancho.id}`}
