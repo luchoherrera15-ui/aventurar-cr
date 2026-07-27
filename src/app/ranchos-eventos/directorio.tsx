@@ -19,7 +19,7 @@ import {
 import type { Rancho } from "../mi-rancho/types";
 import { NOMBRE_RANCHO_BOOKEAR } from "./constants";
 
-const POR_PAGINA = 8;
+const POR_PAGINA = 14;
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
@@ -385,7 +385,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {visibles.map((r, i) => (
               <RanchoCard key={r.id} rancho={r} index={i} />
             ))}
@@ -616,7 +616,11 @@ function IconLupa() {
 function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
   const esBookear = rancho.nombre === NOMBRE_RANCHO_BOOKEAR;
   const puedeReservar = rancho.categoria === "lugares";
-  const href = esBookear ? "/eventos-salon" : `/ranchos-eventos/${rancho.id}`;
+  const href = esBookear
+    ? "/eventos-salon"
+    : rancho.slug
+      ? `/${rancho.slug}`
+      : `/ranchos-eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
   // quedaba cortada a media palabra.
@@ -636,7 +640,7 @@ function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
       // Tope en 6 para no hacer esperar de más a las cards de más
       // abajo en páginas grandes — el efecto ya se nota igual.
       style={{ "--reveal-delay": `${Math.min(index, 6) * 60}ms` } as React.CSSProperties}
-      className="group relative flex h-[340px] flex-col overflow-hidden rounded-[18px] shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,35,64,0.22)]"
+      className="group relative flex h-[230px] flex-col overflow-hidden rounded-[14px] shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,35,64,0.22)] sm:h-[300px] sm:rounded-[18px] lg:h-[340px]"
     >
       <div
         className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
@@ -647,7 +651,7 @@ function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
         }
       />
       {!rancho.foto_url && (
-        <span className="absolute inset-0 flex items-center justify-center text-white/20 [&_svg]:h-16 [&_svg]:w-16">
+        <span className="absolute inset-0 flex items-center justify-center text-white/20 [&_svg]:h-10 [&_svg]:w-10 sm:[&_svg]:h-16 sm:[&_svg]:w-16">
           {CATEGORIA_ICONO[rancho.categoria]}
         </span>
       )}
@@ -657,46 +661,46 @@ function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
       <div className="absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/95 via-black/70 to-transparent" />
       <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
 
-      <div className="relative flex items-start justify-between gap-2 p-3.5">
+      <div className="relative flex items-start justify-between gap-1.5 p-2 sm:gap-2 sm:p-3.5">
         {rancho.provincia && (
-          <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink shadow-sm">
+          <span className="truncate rounded-full bg-white/95 px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide text-aventurea-ink shadow-sm sm:px-2.5 sm:py-1 sm:text-[10.5px]">
             {rancho.provincia}
           </span>
         )}
-        <span className="truncate rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
+        <span className="truncate rounded-full bg-black/45 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[10px]">
           {etiqueta}
         </span>
       </div>
 
-      <div className="relative mt-auto flex flex-col p-4.5">
-        <h3 className="titulo text-[19px] text-white drop-shadow-sm">
+      <div className="relative mt-auto flex flex-col p-2.5 sm:p-4.5">
+        <h3 className="titulo text-[13.5px] leading-tight text-white drop-shadow-sm sm:text-[17px] lg:text-[19px]">
           {rancho.nombre}
         </h3>
         {ubicacion && (
-          <p className="mt-1 flex items-center gap-1.5 text-[12px] text-white/70">
-            <IconPin className="h-3.5 w-3.5 shrink-0" />
+          <p className="mt-1 flex items-center gap-1 text-[10px] text-white/70 sm:gap-1.5 sm:text-[12px]">
+            <IconPin className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
             <span className="truncate">{ubicacion}</span>
           </p>
         )}
 
-        <div className="mt-3.5 flex items-end justify-between gap-3">
+        <div className="mt-2 flex items-end justify-between gap-2 sm:mt-3.5 sm:gap-3">
           <div>
-            <div className="text-[9.5px] font-bold uppercase tracking-[0.12em] text-white/55">
+            <div className="text-[8px] font-bold uppercase tracking-[0.1em] text-white/55 sm:text-[9.5px] sm:tracking-[0.12em]">
               {precio ? "Desde" : "Precio"}
             </div>
-            <div className="titulo mt-0.5 text-[19px] text-white">
+            <div className="titulo mt-0.5 text-[13.5px] text-white sm:text-[17px] lg:text-[19px]">
               {precio ?? "A consultar"}
             </div>
           </div>
           {capacidad && (
-            <span className="pb-1 text-right text-[11.5px] leading-tight text-white/70">
+            <span className="hidden pb-1 text-right text-[11.5px] leading-tight text-white/70 sm:block">
               {capacidad}
             </span>
           )}
         </div>
 
         <span
-          className={`mt-3.5 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[12.5px] font-bold transition-colors ${
+          className={`mt-2 flex items-center justify-center gap-1 rounded-lg py-1.5 text-[10.5px] font-bold transition-colors sm:mt-3.5 sm:gap-1.5 sm:rounded-xl sm:py-2.5 sm:text-[12.5px] ${
             esBookear || puedeReservar
               ? "bg-white text-aventurea-orange-dark group-hover:bg-aventurea-orange group-hover:text-white"
               : "border border-white/35 text-white group-hover:bg-white/15"

@@ -13,7 +13,7 @@ export type PerfilRow = {
   id: string;
   email: string | null;
   nombre: string | null;
-  rol: "admin" | "dueno_rancho";
+  rol: "admin" | "dueno_rancho" | "cliente";
   created_at: string;
   ranchoNombre: string | null;
 };
@@ -236,7 +236,11 @@ export default function UsuariosPanel({
                         : "bg-aventurea-cream-2 text-aventurea-ink-soft"
                     }`}
                   >
-                    {p.rol === "admin" ? "Administrador" : "Dueño de salón"}
+                    {p.rol === "admin"
+                      ? "Administrador"
+                      : p.rol === "dueno_rancho"
+                        ? "Dueño de salón"
+                        : "Cliente"}
                   </span>
                 </td>
                 <td className="px-4 py-3.5">

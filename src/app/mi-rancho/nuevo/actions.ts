@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { generarSlugUnico } from "@/lib/slug";
 import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "../types";
 
 export type NuevoRanchoState = { error?: string } | undefined;
@@ -41,6 +42,8 @@ export async function crearRancho(
     return { error: "Elegí qué ofrecés exactamente dentro de esa categoría." };
   }
 
+  const slug = await generarSlugUnico(supabase, nombre);
+
   const { data, error } = await supabase
     .from("ranchos")
     .insert({
@@ -57,6 +60,7 @@ export async function crearRancho(
       precio_desde: precioDesdeRaw ? parseFloat(precioDesdeRaw) : null,
       contacto_whatsapp: contacto || null,
       estado: "pendiente",
+      slug,
     })
     .select("id")
     .single();
@@ -64,6 +68,15 @@ export async function crearRancho(
   if (error) {
     return { error: "No se pudo guardar tu rancho: " + error.message };
   }
+
+  // Quien entró como cliente (registro opcional desde el móvil) y publica
+  // su primer negocio pasa a dueño de rancho — nunca al revés, y nunca
+  // toca una cuenta que ya sea admin.
+  await supabase
+    .from("perfiles")
+    .update({ rol: "dueno_rancho" })
+    .eq("id", user.id)
+    .eq("rol", "cliente");
 
   redirect(`/mi-rancho/${data.id}`);
 }

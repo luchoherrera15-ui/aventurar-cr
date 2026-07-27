@@ -184,7 +184,7 @@ export default async function RanchoDetallePage({
             </Link>
             {rancho.estado === "aprobado" && (
               <Link
-                href={`/ranchos-eventos/${rancho.id}`}
+                href={rancho.slug ? `/${rancho.slug}` : `/ranchos-eventos/${rancho.id}`}
                 className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
               >
                 Ver mi página pública
