@@ -26,6 +26,7 @@ import {
   PresentacionSeccion,
   ResumenSeccion,
 } from "./[id]/portal-secciones";
+import FormularioCotizacion from "./[id]/formulario-cotizacion";
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
@@ -41,6 +42,9 @@ function fmtColones(n: number | null) {
  */
 export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const esLugar = rancho.categoria === "lugares";
   const fotos = rancho.fotos ?? [];
@@ -206,15 +210,21 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           </div>
           {!esLugar && (
             <div className="flex flex-wrap gap-2.5">
+              <a
+                href="#cotizacion"
+                className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+              >
+                Solicitar cotización
+              </a>
               {whatsappHref && (
                 <a
                   href={whatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-navy"
                 >
                   <IconWhatsapp className="h-4 w-4" />
-                  Pedir cotización
+                  WhatsApp directo
                 </a>
               )}
               <a
@@ -262,6 +272,41 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       {/* Los datos y lo que incluye van antes de la foto grande: dos
           bloques oscuros seguidos se leían como una sola imagen. */}
       <ResumenSeccion datos={datosPresentacion} />
+
+      {!esLugar && (
+        <section id="cotizacion" className="border-t border-aventurea-line bg-aventurea-cream-2/40 py-14">
+          <div className="mx-auto max-w-[640px] px-7">
+            <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
+              Cotizá con {rancho.nombre}
+            </p>
+            <h2 className="titulo mt-2 text-[24px] text-aventurea-ink">
+              Contanos de tu evento
+            </h2>
+            <p className="mt-1.5 text-[13.5px] text-aventurea-ink-soft">
+              Mandá los datos y te cotiza directo por el chat de Bookear CR — sin perder el hilo
+              en WhatsApp.
+            </p>
+
+            <div className="mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 sm:p-6">
+              {user ? (
+                <FormularioCotizacion ranchoId={rancho.id} />
+              ) : (
+                <div className="text-center">
+                  <p className="text-[13.5px] text-aventurea-ink-soft">
+                    Iniciá sesión para solicitar una cotización y chatear con el proveedor.
+                  </p>
+                  <Link
+                    href="/cuenta"
+                    className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  >
+                    Iniciar sesión
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {esLugar ? (
         <AmenidadesSeccion amenidades={amenidades} />

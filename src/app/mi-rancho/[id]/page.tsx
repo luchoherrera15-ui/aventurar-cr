@@ -246,20 +246,30 @@ export default async function RanchoDetallePage({
     },
   ];
 
-  if (esLugar) {
-    tabs.splice(1, 0, {
-      id: "reservas",
-      label: "Reservas",
-      content: (
-        <div>
-          <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
-            {pendientes} en aprobación · {reservas.length} en total.
+  // Antes solo Lugares tenía esta pestaña, porque solo ellos reservaban
+  // por calendario. Ahora el resto de categorías también recibe
+  // solicitudes de cotización reales (ver "Solicitar cotización" en su
+  // página pública), así que la pestaña aplica para todos — el
+  // contenido de la tabla es el mismo, solo cambia la palabra.
+  tabs.splice(1, 0, {
+    id: "reservas",
+    label: esLugar ? "Reservas" : "Solicitudes",
+    content: (
+      <div>
+        <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
+          {pendientes} en aprobación · {reservas.length} en total.
+        </p>
+        {reservas.length === 0 && (
+          <p className="mb-5 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
+            {esLugar
+              ? "Todavía no tenés reservas."
+              : "Todavía no te llegó ninguna solicitud de cotización — aparecen acá apenas alguien te escriba desde tu página pública."}
           </p>
-          <ReservasTable initialReservas={reservas} mostrarMensajes />
-        </div>
-      ),
-    });
-  }
+        )}
+        <ReservasTable initialReservas={reservas} mostrarMensajes />
+      </div>
+    ),
+  });
 
   return (
     <main className="mx-auto max-w-[1000px] px-5 py-12">
