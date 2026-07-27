@@ -138,17 +138,25 @@ export default function NuevoRanchoForm() {
             ))}
           </select>
         </div>
+        {categoria && !esLugar && (
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500 sm:col-span-2">
+            Tu zona de cobertura — vos te trasladás al evento del cliente, no
+            hace falta una dirección exacta.
+          </p>
+        )}
       </div>
 
-      <div>
-        <label className={labelCls}>Dirección exacta</label>
-        <input
-          type="text"
-          name="direccion_exacta"
-          placeholder="Ej. Calle Monge, 200m norte de la iglesia"
-          className={inputCls}
-        />
-      </div>
+      {esLugar && (
+        <div>
+          <label className={labelCls}>Dirección exacta</label>
+          <input
+            type="text"
+            name="direccion_exacta"
+            placeholder="Ej. Calle Monge, 200m norte de la iglesia"
+            className={inputCls}
+          />
+        </div>
+      )}
 
       {esLugar && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

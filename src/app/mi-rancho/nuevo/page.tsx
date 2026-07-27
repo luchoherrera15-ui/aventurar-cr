@@ -31,14 +31,12 @@ export default async function NuevoRanchoPage() {
         Salones para Eventos
       </p>
       <h1 className="mt-2.5 text-2xl font-bold text-aventurea-orange-dark">
-        {yaTieneAlgo
-          ? "Contanos del nuevo servicio"
-          : "Contanos de tu salón o rancho"}
+        {yaTieneAlgo ? "Contanos del nuevo servicio" : "Contanos de tu negocio"}
       </h1>
       <p className="mt-1.5 max-w-[52ch] text-[13.5px] text-aventurea-ink-soft">
         {yaTieneAlgo
           ? "Se publica aparte, con sus propias reservas y finanzas — no reemplaza lo que ya tenés."
-          : "Completá estos datos básicos para publicarlo. Bookear CR revisa cada espacio antes de que aparezca en el directorio público."}
+          : "Completá estos datos básicos para publicarlo. Bookear CR revisa cada negocio antes de que aparezca en el directorio público."}
       </p>
 
       <NuevoRanchoForm />

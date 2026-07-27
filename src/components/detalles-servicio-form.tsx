@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
 import {
   CAMPOS_POR_CATEGORIA,
   type Campo,
@@ -128,34 +129,7 @@ function CampoControl({
   );
 
   if (campo.tipo === "multi") {
-    const marcados = Array.isArray(valor) ? (valor as string[]) : [];
-    return (
-      <div>
-        <label className={labelCls}>{campo.label}</label>
-        <div className="flex flex-wrap gap-2">
-          {campo.opciones?.map((o) => {
-            const activo = marcados.includes(o.id);
-            return (
-              <button
-                key={o.id}
-                type="button"
-                onClick={() => onToggleMulti(o.id)}
-                aria-pressed={activo}
-                className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
-                  activo
-                    ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
-                    : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
-                }`}
-              >
-                {activo && <span aria-hidden>✓ </span>}
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-        {ayuda}
-      </div>
-    );
+    return <CampoMulti campo={campo} valor={valor} onToggleMulti={onToggleMulti} ayuda={ayuda} />;
   }
 
   if (campo.tipo === "opciones") {
@@ -214,6 +188,96 @@ function CampoControl({
         placeholder={campo.placeholder}
         className={inputCls}
       />
+      {ayuda}
+    </div>
+  );
+}
+
+/** Chips de opciones "multi", más un campo para agregar etiquetas propias
+ *  que no estén en la lista predefinida (ej. "sin nueces", "halal"...). */
+function CampoMulti({
+  campo,
+  valor,
+  onToggleMulti,
+  ayuda,
+}: {
+  campo: Campo;
+  valor: unknown;
+  onToggleMulti: (opcion: string) => void;
+  ayuda: ReactNode;
+}) {
+  const [nuevaEtiqueta, setNuevaEtiqueta] = useState("");
+  const marcados = Array.isArray(valor) ? (valor as string[]) : [];
+  const idsPreset = new Set(campo.opciones?.map((o) => o.id) ?? []);
+  const extras = marcados.filter((m) => !idsPreset.has(m));
+
+  function agregar() {
+    const limpia = nuevaEtiqueta.trim();
+    if (!limpia || marcados.includes(limpia)) {
+      setNuevaEtiqueta("");
+      return;
+    }
+    onToggleMulti(limpia);
+    setNuevaEtiqueta("");
+  }
+
+  return (
+    <div>
+      <label className={labelCls}>{campo.label}</label>
+      <div className="flex flex-wrap gap-2">
+        {campo.opciones?.map((o) => {
+          const activo = marcados.includes(o.id);
+          return (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => onToggleMulti(o.id)}
+              aria-pressed={activo}
+              className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
+                activo
+                  ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
+                  : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+              }`}
+            >
+              {activo && <span aria-hidden>✓ </span>}
+              {o.label}
+            </button>
+          );
+        })}
+        {extras.map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => onToggleMulti(tag)}
+            className="flex items-center gap-1.5 rounded-lg border border-aventurea-orange bg-aventurea-orange/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
+          >
+            {tag}
+            <span aria-hidden>×</span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input
+          type="text"
+          value={nuevaEtiqueta}
+          onChange={(e) => setNuevaEtiqueta(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              agregar();
+            }
+          }}
+          placeholder="¿No está lo tuyo? Escribí una y agregala"
+          className={`${inputCls} flex-1`}
+        />
+        <button
+          type="button"
+          onClick={agregar}
+          className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+        >
+          Agregar
+        </button>
+      </div>
       {ayuda}
     </div>
   );

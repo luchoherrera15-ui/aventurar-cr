@@ -13,6 +13,7 @@ import {
   formatearValor,
 } from "@/app/mi-rancho/campos-servicio";
 import {
+  AMENIDADES,
   AMENIDADES_GRUPOS,
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
@@ -151,6 +152,16 @@ export function AmenidadesSeccion({ amenidades }: { amenidades: string[] }) {
     titulo: g.titulo,
     items: g.items.filter((i) => amenidades.includes(i.id)),
   })).filter((g) => g.items.length > 0);
+
+  // Etiquetas que el dueño escribió a mano (no están en la lista
+  // predefinida): se muestran igual, en un grupo aparte.
+  const extras = amenidades.filter((a) => !AMENIDADES.includes(a));
+  if (extras.length > 0) {
+    grupos.push({
+      titulo: "Otras",
+      items: extras.map((a) => ({ id: a, label: a })),
+    });
+  }
 
   if (grupos.length === 0) return null;
 

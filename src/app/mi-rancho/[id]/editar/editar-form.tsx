@@ -7,6 +7,7 @@ import { actualizarRancho, type EditarRanchoState } from "./actions";
 import DetallesServicioForm from "@/components/detalles-servicio-form";
 import type { DetallesServicio } from "../../campos-servicio";
 import {
+  AMENIDADES,
   AMENIDADES_GRUPOS,
   CATEGORIAS,
   CATEGORIA_LABEL,
@@ -58,6 +59,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     rancho.foto_presentacion,
   );
   const [amenidades, setAmenidades] = useState<string[]>(rancho.amenidades ?? []);
+  const [nuevaAmenidad, setNuevaAmenidad] = useState("");
   const [detalles, setDetalles] = useState<DetallesServicio>(
     (rancho.detalles as DetallesServicio) ?? {},
   );
@@ -118,6 +120,16 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     setAmenidades((prev) =>
       prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
     );
+  }
+
+  function agregarAmenidad() {
+    const limpia = nuevaAmenidad.trim();
+    if (!limpia || amenidades.includes(limpia)) {
+      setNuevaAmenidad("");
+      return;
+    }
+    setAmenidades((prev) => [...prev, limpia]);
+    setNuevaAmenidad("");
   }
 
   async function onSubmit(formData: FormData) {
@@ -359,7 +371,11 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             <textarea
               name="descripcion_larga"
               defaultValue={rancho.descripcion_larga ?? ""}
-              placeholder="Contá la historia del lugar, qué lo hace especial, qué incluye el alquiler, cómo llegar... Este texto se muestra grande en tu página, encima de una de tus fotos."
+              placeholder={
+                esLugar
+                  ? "Contá la historia del lugar, qué lo hace especial, qué incluye el alquiler, cómo llegar... Este texto se muestra grande en tu página, encima de una de tus fotos."
+                  : "Contá la historia de tu negocio, qué lo hace especial, qué incluye tu servicio, cómo trabajás... Este texto se muestra grande en tu página, encima de una de tus fotos."
+              }
               className={`min-h-[130px] ${inputCls}`}
             />
           </div>
@@ -409,44 +425,54 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 ))}
               </select>
             </div>
+            {!esLugar && (
+              <p className="text-[11.5px] leading-relaxed text-zinc-500 sm:col-span-2">
+                Tu zona de cobertura — vos te trasladás al evento del cliente,
+                no hace falta una dirección exacta ni ubicación en el mapa.
+              </p>
+            )}
           </div>
 
-          <div>
-            <label className={labelCls}>Dirección exacta</label>
-            <input
-              type="text"
-              name="direccion_exacta"
-              placeholder="Ej. Calle Monge, 200m norte de la iglesia"
-              defaultValue={rancho.direccion_exacta ?? ""}
-              className={inputCls}
-            />
-          </div>
+          {esLugar && (
+            <div>
+              <label className={labelCls}>Dirección exacta</label>
+              <input
+                type="text"
+                name="direccion_exacta"
+                placeholder="Ej. Calle Monge, 200m norte de la iglesia"
+                defaultValue={rancho.direccion_exacta ?? ""}
+                className={inputCls}
+              />
+            </div>
+          )}
 
-          <div>
-            <label className={labelCls}>Ubicación en el mapa</label>
-            <input
-              type="text"
-              name="mapa_url"
-              placeholder="Pegá acá el link de Google Maps de tu lugar"
-              defaultValue={rancho.mapa_url ?? ""}
-              className={inputCls}
-            />
-            <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
-              Abrí Google Maps, buscá tu lugar, tocá <strong>Compartir</strong> y
-              pegá acá el link. Con eso tu página muestra los botones de{" "}
-              <strong>Google Maps</strong> y <strong>Waze</strong> para que el
-              cliente llegue sin preguntar. También podés pegar las coordenadas
-              directo (ej. <code>9.9281, -84.0907</code>).
-              {rancho.latitud !== null && rancho.longitud !== null && (
-                <>
-                  {" "}
-                  <span className="font-bold text-aventurea-green">
-                    ✓ Ubicación guardada ({rancho.latitud}, {rancho.longitud}).
-                  </span>
-                </>
-              )}
-            </p>
-          </div>
+          {esLugar && (
+            <div>
+              <label className={labelCls}>Ubicación en el mapa</label>
+              <input
+                type="text"
+                name="mapa_url"
+                placeholder="Pegá acá el link de Google Maps de tu lugar"
+                defaultValue={rancho.mapa_url ?? ""}
+                className={inputCls}
+              />
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
+                Abrí Google Maps, buscá tu lugar, tocá <strong>Compartir</strong> y
+                pegá acá el link. Con eso tu página muestra los botones de{" "}
+                <strong>Google Maps</strong> y <strong>Waze</strong> para que el
+                cliente llegue sin preguntar. También podés pegar las coordenadas
+                directo (ej. <code>9.9281, -84.0907</code>).
+                {rancho.latitud !== null && rancho.longitud !== null && (
+                  <>
+                    {" "}
+                    <span className="font-bold text-aventurea-green">
+                      ✓ Ubicación guardada ({rancho.latitud}, {rancho.longitud}).
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+          )}
 
           {esLugar && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -606,6 +632,57 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 </div>
               </div>
             ))}
+
+            {amenidades.some((a) => !AMENIDADES.includes(a)) && (
+              <div>
+                <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Otras
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {amenidades
+                    .filter((a) => !AMENIDADES.includes(a))
+                    .map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => toggleAmenidad(a)}
+                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-orange bg-aventurea-orange/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
+                      >
+                        {a}
+                        <span aria-hidden>×</span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                ¿No está lo tuyo?
+              </h4>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={nuevaAmenidad}
+                  onChange={(e) => setNuevaAmenidad(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      agregarAmenidad();
+                    }
+                  }}
+                  placeholder="Ej. Cochera techada"
+                  className={`${inputCls} flex-1`}
+                />
+                <button
+                  type="button"
+                  onClick={agregarAmenidad}
+                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                >
+                  Agregar
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       )}

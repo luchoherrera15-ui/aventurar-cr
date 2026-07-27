@@ -16,7 +16,7 @@ export default function MiRanchoLayout({
             <span className="text-base font-bold text-aventurea-ink">BOOKEAR CR</span>
             <span className="text-zinc-500">/</span>
             <span className="text-[13px] font-light text-aventurea-ink-soft">
-              Publicá tu salón
+              Publicá tu negocio
             </span>
           </Link>
           <Link
