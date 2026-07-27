@@ -3,10 +3,11 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import { IconCompass, IconFiltro, IconPin, IconSearch } from "@/components/icons";
+import { IconCompass, IconFiltro, IconSearch } from "@/components/icons";
+import RanchoCard, { type Calificacion } from "@/components/rancho-card";
+import { fechaISO, fmtFechaCorta } from "@/lib/fechas";
 import {
   CATEGORIAS,
-  CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
   CANTONES,
@@ -17,27 +18,30 @@ import {
   type Provincia,
 } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
-import { NOMBRE_RANCHO_BOOKEAR } from "./constants";
 
 const POR_PAGINA = 14;
 const DIAS_A_MOSTRAR = 60;
 const DIAS_SEMANA_CORTO = ["D", "L", "M", "M", "J", "V", "S"];
 
-function fmtColones(n: number | null) {
-  if (n === null) return null;
-  return "₡" + Number(n).toLocaleString("es-CR");
-}
-
-function fechaISO(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-
-function fmtFechaCorta(iso: string) {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("es-CR", {
-    day: "numeric",
-    month: "short",
-  });
+/**
+ * Próxima fecha libre de un lugar dentro de los próximos 60 días, o
+ * `null` si está confirmado todos esos días (agotado). Es la pastilla
+ * de disponibilidad de la tarjeta — el dato real que tenemos hoy, sin
+ * inventar bloques de horas.
+ */
+function proximaFechaLibre(
+  ranchoId: string,
+  ocupadosPorFecha: Map<string, Set<string>>,
+): string | null {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  for (let i = 0; i < DIAS_A_MOSTRAR; i++) {
+    const d = new Date(hoy);
+    d.setDate(d.getDate() + i);
+    const iso = fechaISO(d);
+    if (!ocupadosPorFecha.get(iso)?.has(ranchoId)) return iso;
+  }
+  return null;
 }
 
 type FechaOcupada = { rancho_id: string; fecha: string };
@@ -45,10 +49,23 @@ type FechaOcupada = { rancho_id: string; fecha: string };
 export default function Directorio({
   ranchos,
   fechasOcupadas,
+  calificaciones,
+  favoritosIniciales,
+  sesionActiva,
 }: {
   ranchos: Rancho[];
   fechasOcupadas: FechaOcupada[];
+  calificaciones: Calificacion[];
+  favoritosIniciales: string[];
+  sesionActiva: boolean;
 }) {
+  const calificacionPorRancho = useMemo(() => {
+    const acc = new Map<string, Calificacion>();
+    calificaciones.forEach((c) => acc.set(c.rancho_id, c));
+    return acc;
+  }, [calificaciones]);
+
+  const favoritosIds = useMemo(() => new Set(favoritosIniciales), [favoritosIniciales]);
   const [tab, setTab] = useState<Categoria | "todos">("todos");
   const [subcategoria, setSubcategoria] = useState("");
   const [texto, setTexto] = useState("");
@@ -526,9 +543,21 @@ export default function Directorio({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:gap-x-5 lg:grid-cols-3 xl:grid-cols-4">
             {visibles.map((r, i) => (
-              <RanchoCard key={r.id} rancho={r} index={i} />
+              <RanchoCard
+                key={r.id}
+                rancho={r}
+                index={i}
+                calificacion={calificacionPorRancho.get(r.id) ?? null}
+                proximaLibre={
+                  r.categoria === "lugares"
+                    ? proximaFechaLibre(r.id, ocupadosPorFecha)
+                    : undefined
+                }
+                favoritoInicial={favoritosIds.has(r.id)}
+                sesionActiva={sesionActiva}
+              />
             ))}
           </div>
 
@@ -811,105 +840,3 @@ function Paginacion({
   );
 }
 
-function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
-  const esBookear = rancho.nombre === NOMBRE_RANCHO_BOOKEAR;
-  const puedeReservar = rancho.categoria === "lugares";
-  const href = esBookear
-    ? "/eventos-salon"
-    : rancho.slug
-      ? `/${rancho.slug}`
-      : `/ranchos-eventos/${rancho.id}`;
-  const precio = fmtColones(rancho.precio_desde);
-  // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
-  // quedaba cortada a media palabra.
-  const ubicacion = [rancho.canton, rancho.provincia].filter(Boolean).join(", ");
-  const etiqueta = rancho.subcategoria
-    ? (SUBCATEGORIA_LABEL[rancho.subcategoria] ?? CATEGORIA_LABEL[rancho.categoria])
-    : CATEGORIA_LABEL[rancho.categoria];
-  const capacidad =
-    rancho.capacidad_min || rancho.capacidad_max
-      ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`
-      : null;
-
-  return (
-    <Link
-      href={href}
-      data-reveal
-      // Tope en 6 para no hacer esperar de más a las cards de más
-      // abajo en páginas grandes — el efecto ya se nota igual.
-      style={{ "--reveal-delay": `${Math.min(index, 6) * 60}ms` } as React.CSSProperties}
-      className="group relative flex h-[230px] flex-col overflow-hidden rounded-[14px] shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,35,64,0.22)] sm:h-[300px] sm:rounded-[18px] lg:h-[340px]"
-    >
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-        style={
-          rancho.foto_url
-            ? { backgroundImage: `url(${rancho.foto_url})` }
-            : { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
-        }
-      />
-      {!rancho.foto_url && (
-        <span className="absolute inset-0 flex items-center justify-center text-white/20 [&_svg]:h-10 [&_svg]:w-10 sm:[&_svg]:h-16 sm:[&_svg]:w-16">
-          {CATEGORIA_ICONO[rancho.categoria]}
-        </span>
-      )}
-
-      {/* Oscurecido solo abajo, donde va el texto: así la foto se ve
-          limpia en la mitad de arriba en vez de quedar toda apagada. */}
-      <div className="absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/95 via-black/70 to-transparent" />
-      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
-
-      <div className="relative flex items-start justify-between gap-1.5 p-2 sm:gap-2 sm:p-3.5">
-        {rancho.provincia && (
-          <span className="truncate rounded-full bg-white/95 px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide text-aventurea-ink shadow-sm sm:px-2.5 sm:py-1 sm:text-[10.5px]">
-            {rancho.provincia}
-          </span>
-        )}
-        <span className="truncate rounded-full bg-black/45 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[10px]">
-          {etiqueta}
-        </span>
-      </div>
-
-      <div className="relative mt-auto flex flex-col p-2.5 sm:p-4.5">
-        <h3 className="titulo text-[13.5px] leading-tight text-white drop-shadow-sm sm:text-[17px] lg:text-[19px]">
-          {rancho.nombre}
-        </h3>
-        {ubicacion && (
-          <p className="mt-1 flex items-center gap-1 text-[10px] text-white/70 sm:gap-1.5 sm:text-[12px]">
-            <IconPin className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
-            <span className="truncate">{ubicacion}</span>
-          </p>
-        )}
-
-        <div className="mt-2 flex items-end justify-between gap-2 sm:mt-3.5 sm:gap-3">
-          <div>
-            <div className="text-[8px] font-bold uppercase tracking-[0.1em] text-white/55 sm:text-[9.5px] sm:tracking-[0.12em]">
-              {precio ? "Desde" : "Precio"}
-            </div>
-            <div className="titulo mt-0.5 text-[13.5px] text-white sm:text-[17px] lg:text-[19px]">
-              {precio ?? "A consultar"}
-            </div>
-          </div>
-          {capacidad && (
-            <span className="hidden pb-1 text-right text-[11.5px] leading-tight text-white/70 sm:block">
-              {capacidad}
-            </span>
-          )}
-        </div>
-
-        <span
-          className={`mt-2 flex items-center justify-center gap-1 rounded-lg py-1.5 text-[10.5px] font-bold transition-colors sm:mt-3.5 sm:gap-1.5 sm:rounded-xl sm:py-2.5 sm:text-[12.5px] ${
-            esBookear || puedeReservar
-              ? "bg-white text-aventurea-orange-dark group-hover:bg-aventurea-orange group-hover:text-white"
-              : "border border-white/35 text-white group-hover:bg-white/15"
-          }`}
-        >
-          {esBookear || puedeReservar ? "Reservar ahora" : "Ver más"}
-          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
-            →
-          </span>
-        </span>
-      </div>
-    </Link>
-  );
-}

@@ -324,6 +324,22 @@ export function IconFiltro({ className = base }: IconProps) {
   );
 }
 
+export function IconHeart({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="#ffffff" strokeWidth={2} className={className}>
+      <path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.6a4.7 4.7 0 0 1 8.5 2.6C20.5 15 12 20.5 12 20.5Z" />
+    </svg>
+  );
+}
+
+export function IconStar({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 2l3 6.6 7 .7-5.2 4.7 1.5 6.9L12 17.4 5.7 20.9l1.5-6.9L2 9.3l7-.7z" />
+    </svg>
+  );
+}
+
 export function IconCompass({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={className}>

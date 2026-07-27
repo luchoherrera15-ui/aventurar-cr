@@ -32,6 +32,32 @@ export default async function RanchosEventosPage() {
 
   const fechasOcupadas = (confirmadas ?? []) as { rancho_id: string; fecha: string }[];
 
+  // Calificación real (Fase 1): si un proveedor todavía no tiene
+  // reseñas, la tarjeta simplemente no muestra estrellas — nunca un
+  // número inventado.
+  const { data: calificacionesData } = await supabase
+    .from("calificaciones_rancho")
+    .select("rancho_id, promedio, total");
+
+  const calificaciones = (calificacionesData ?? []) as {
+    rancho_id: string;
+    promedio: number;
+    total: number;
+  }[];
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let favoritosIniciales: string[] = [];
+  if (user) {
+    const { data: favData } = await supabase
+      .from("favoritos")
+      .select("rancho_id")
+      .eq("cliente_id", user.id);
+    favoritosIniciales = (favData ?? []).map((f) => f.rancho_id as string);
+  }
+
   return (
     <div className="min-h-screen bg-aventurea-cream">
       <SiteHeader breadcrumb="Eventos" />
@@ -47,7 +73,13 @@ export default async function RanchosEventosPage() {
             </h1>
           </div>
 
-          <Directorio ranchos={ranchos} fechasOcupadas={fechasOcupadas} />
+          <Directorio
+            ranchos={ranchos}
+            fechasOcupadas={fechasOcupadas}
+            calificaciones={calificaciones}
+            favoritosIniciales={favoritosIniciales}
+            sesionActiva={!!user}
+          />
         </div>
       </section>
 
