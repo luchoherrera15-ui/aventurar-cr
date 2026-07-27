@@ -20,7 +20,7 @@ import type {
   PrecioTier,
   ServicioAdicional,
 } from "@/app/eventos-salon/types";
-import { NOMBRE_RANCHO_AVENTUREA } from "../constants";
+import { NOMBRE_RANCHO_BOOKEAR } from "../constants";
 import {
   AmenidadesSeccion,
   ContactoSeccion,
@@ -58,7 +58,7 @@ export default async function RanchoPortalPage({
     categoria: normalizarCategoria((data as Rancho).categoria),
   };
 
-  if (rancho.nombre === NOMBRE_RANCHO_AVENTUREA) {
+  if (rancho.nombre === NOMBRE_RANCHO_BOOKEAR) {
     redirect("/eventos-salon");
   }
 
@@ -195,9 +195,9 @@ export default async function RanchoPortalPage({
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
           <Link href="/ranchos-eventos" className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
-              A
+              B
             </span>
-            <span className="text-base font-bold text-aventurea-ink">AVENTUREA CR</span>
+            <span className="text-base font-bold text-aventurea-ink">BOOKEAR CR</span>
           </Link>
           <Link
             href="/ranchos-eventos"
@@ -331,7 +331,7 @@ export default async function RanchoPortalPage({
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
-          AVENTUREA CR — Costa Rica ·{" "}
+          BOOKEAR CR — Costa Rica ·{" "}
           <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
             Ver todos los espacios
           </Link>

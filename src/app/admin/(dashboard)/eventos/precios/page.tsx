@@ -3,10 +3,10 @@ import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
 import {
   guardarConfiguracion,
-  guardarCodigosAventurea,
-  guardarPromocionesAventurea,
+  guardarCodigosBookear,
+  guardarPromocionesBookear,
 } from "./actions";
-import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
+import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
 import type {
   CodigoDescuento,
   PrecioTier,
@@ -20,7 +20,7 @@ export default async function PreciosPage() {
   const { data: rancho } = await supabase
     .from("ranchos")
     .select("id, deposito_reserva, tarifa_diciembre_por_persona")
-    .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
+    .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
 
   const [tiersRes, serviciosRes, codigosRes, promocionesRes] = await Promise.all([
@@ -77,8 +77,8 @@ export default async function PreciosPage() {
       <DescuentosForm
         initialCodigos={(codigosRes.data ?? []) as CodigoDescuento[]}
         initialPromociones={(promocionesRes.data ?? []) as PromocionDia[]}
-        onGuardarCodigos={guardarCodigosAventurea}
-        onGuardarPromociones={guardarPromocionesAventurea}
+        onGuardarCodigos={guardarCodigosBookear}
+        onGuardarPromociones={guardarPromocionesBookear}
       />
     </div>
   );

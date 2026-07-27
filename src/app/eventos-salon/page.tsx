@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import BookingCalendar from "./booking-calendar";
-import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
+import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
 import type { HorarioBloqueConfig, PromocionDia } from "@/app/mi-rancho/types";
 
@@ -12,7 +12,7 @@ export default async function EventosSalonPage() {
   const { data: rancho } = await supabase
     .from("ranchos")
     .select("id, deposito_reserva, tarifa_diciembre_por_persona, terminos, monto_minimo, horarios_bloques, foto_url, descripcion, sinpe_numero, sinpe_titular, cuenta_banco, cuenta_numero, cuenta_titular, cuenta_tipo")
-    .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
+    .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
 
   if (!rancho) notFound();
@@ -67,9 +67,9 @@ export default async function EventosSalonPage() {
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
           <Link href="/ranchos-eventos" className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
-              A
+              B
             </span>
-            <span className="text-base font-bold text-aventurea-ink">AVENTUREA CR</span>
+            <span className="text-base font-bold text-aventurea-ink">BOOKEAR CR</span>
             <span className="text-zinc-500">/</span>
             <span className="text-[13px] font-light text-aventurea-ink-soft">
               Rancho de Eventos
@@ -91,7 +91,7 @@ export default async function EventosSalonPage() {
 
       <BookingCalendar
         ranchoId={rancho.id}
-        nombreRancho="Aventurea CR · Rancho de Eventos"
+        nombreRancho="Bookear CR · Rancho de Eventos"
         disponibilidad={disponibilidad}
         tiers={(tiersRes.data ?? []) as PrecioTier[]}
         servicios={(svcRes.data ?? []) as ServicioAdicional[]}
@@ -154,7 +154,7 @@ export default async function EventosSalonPage() {
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
-          AVENTUREA CR — Costa Rica ·{" "}
+          BOOKEAR CR — Costa Rica ·{" "}
           <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
             Volver al inicio
           </Link>

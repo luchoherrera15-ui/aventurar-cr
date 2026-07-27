@@ -8,10 +8,10 @@ export default function PuntaleonaWebPage() {
 
       <Link href="/ranchos-eventos" className="relative mb-6 flex items-center gap-2">
         <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-aventurea-orange text-sm font-bold text-white">
-          A
+          B
         </span>
         <span className="text-base font-bold tracking-wide text-aventurea-ink">
-          AVENTUREA CR
+          BOOKEAR CR
         </span>
       </Link>
       <h1 className="relative text-2xl font-bold text-aventurea-orange-dark">Paquetes Vacacionales</h1>

@@ -9,7 +9,7 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Aventurea CR",
+  title: "Bookear CR",
   description:
     "Paquetes vacacionales en Puntaleona / Alajuela, y alquiler de salón de eventos, Costa Rica.",
 };

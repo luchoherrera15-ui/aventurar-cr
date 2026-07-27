@@ -21,10 +21,10 @@ export default function DashboardLayout({
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-5 gap-y-2 px-6 py-3.5 lg:px-10">
           <Link href="/admin" className="flex items-center gap-2">
             <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-aventurea-orange text-[13.5px] font-bold text-white">
-              A
+              B
             </span>
             <span className="text-[15px] font-bold text-aventurea-ink">
-              AVENTUREA CR
+              BOOKEAR CR
             </span>
             <span className="text-zinc-500">/</span>
             <span className="text-[12.5px] font-light text-aventurea-ink-soft">

@@ -22,9 +22,9 @@ import {
 } from "../mi-rancho/types";
 
 export const metadata = {
-  title: "Publicá tu negocio — Aventurea CR",
+  title: "Publicá tu negocio — Bookear CR",
   description:
-    "Sumá tu salón, rancho, catering, DJ o servicio para eventos al directorio de Aventurea CR. Publicar es gratis.",
+    "Sumá tu salón, rancho, catering, DJ o servicio para eventos al directorio de Bookear CR. Publicar es gratis.",
 };
 
 export default async function PublicarPage() {
@@ -47,10 +47,10 @@ export default async function PublicarPage() {
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-5 px-6 py-3.5 lg:px-10">
           <Link href="/ranchos-eventos" className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
-              A
+              B
             </span>
             <span className="text-base font-bold text-aventurea-ink">
-              AVENTUREA CR
+              BOOKEAR CR
             </span>
           </Link>
           <AccionesSesion />
@@ -314,7 +314,7 @@ export default async function PublicarPage() {
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
-          AVENTUREA CR — Costa Rica ·{" "}
+          BOOKEAR CR — Costa Rica ·{" "}
           <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
             Ver el directorio
           </Link>

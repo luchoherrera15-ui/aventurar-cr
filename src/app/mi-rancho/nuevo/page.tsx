@@ -38,7 +38,7 @@ export default async function NuevoRanchoPage() {
       <p className="mt-1.5 max-w-[52ch] text-[13.5px] text-aventurea-ink-soft">
         {yaTieneAlgo
           ? "Se publica aparte, con sus propias reservas y finanzas — no reemplaza lo que ya tenés."
-          : "Completá estos datos básicos para publicarlo. Aventurea CR revisa cada espacio antes de que aparezca en el directorio público."}
+          : "Completá estos datos básicos para publicarlo. Bookear CR revisa cada espacio antes de que aparezca en el directorio público."}
       </p>
 
       <NuevoRanchoForm />

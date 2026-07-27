@@ -3,7 +3,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { guardarPreciosRancho } from "@/lib/precios";
 import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
-import { NOMBRE_RANCHO_AVENTUREA } from "@/app/ranchos-eventos/constants";
+import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
 import type { PrecioTier, ServicioAdicional } from "./types";
 
 export async function guardarConfiguracion(
@@ -18,9 +18,9 @@ export async function guardarConfiguracion(
   const { data: rancho } = await supabase
     .from("ranchos")
     .select("id")
-    .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
+    .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
-  if (!rancho) return { error: "No se encontró el rancho de Aventurea CR." };
+  if (!rancho) return { error: "No se encontró el rancho de Bookear CR." };
 
   return guardarPreciosRancho(
     rancho.id,
@@ -31,19 +31,19 @@ export async function guardarConfiguracion(
   );
 }
 
-async function ranchoAventureaId() {
+async function ranchoBookearId() {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return null;
 
   const { data: rancho } = await supabase
     .from("ranchos")
     .select("id")
-    .eq("nombre", NOMBRE_RANCHO_AVENTUREA)
+    .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
   return rancho?.id ?? null;
 }
 
-export async function guardarCodigosAventurea(
+export async function guardarCodigosBookear(
   codigos: {
     codigo: string;
     tipo: "porcentaje" | "monto_fijo";
@@ -53,12 +53,12 @@ export async function guardarCodigosAventurea(
     valido_hasta: string | null;
   }[],
 ) {
-  const ranchoId = await ranchoAventureaId();
-  if (!ranchoId) return { error: "No se encontró el rancho de Aventurea CR." };
+  const ranchoId = await ranchoBookearId();
+  if (!ranchoId) return { error: "No se encontró el rancho de Bookear CR." };
   return guardarCodigosRancho(ranchoId, codigos);
 }
 
-export async function guardarPromocionesAventurea(
+export async function guardarPromocionesBookear(
   promociones: {
     dias_semana: number[];
     porcentaje_descuento: number;
@@ -66,7 +66,7 @@ export async function guardarPromocionesAventurea(
     activo: boolean;
   }[],
 ) {
-  const ranchoId = await ranchoAventureaId();
-  if (!ranchoId) return { error: "No se encontró el rancho de Aventurea CR." };
+  const ranchoId = await ranchoBookearId();
+  if (!ranchoId) return { error: "No se encontró el rancho de Bookear CR." };
   return guardarPromocionesRancho(ranchoId, promociones);
 }
