@@ -1,22 +1,22 @@
 /**
- * Misma paleta que /web (src/app/globals.css): azul navy oscuro como
- * acento de marca sobre fondo claro. Una sola paleta fija — el sitio
- * tampoco tiene modo oscuro — así que no hay light/dark que resolver
- * en cada pantalla.
+ * Misma paleta que /web (src/app/globals.css): navy como único
+ * acento de marca sobre fondo blanco, sin tinte crema. Una sola
+ * paleta fija — el sitio tampoco tiene modo oscuro — así que no hay
+ * light/dark que resolver en cada pantalla.
  */
 export const Colors = {
-  navy: "#0f2340",
-  navyDark: "#122844",
-  accent: "#1e3a5f",
-  accentLight: "#e6ebf2",
+  navy: "#1b2a4a",
+  navyDark: "#142038",
+  accent: "#1b2a4a",
+  accentLight: "#f6f6f6",
   green: "#1f7a4d",
   greenLight: "#e1f0e6",
-  cream: "#f6f7f9",
-  cream2: "#eceef2",
+  cream: "#ffffff",
+  cream2: "#f6f6f6",
   surface: "#ffffff",
-  ink: "#101a2c",
-  inkSoft: "#5b6472",
-  line: "#e2e4ea",
+  ink: "#161616",
+  inkSoft: "#585858",
+  line: "#e2e2e2",
   danger: "#b3261e",
   dangerLight: "#fbe9e7",
 } as const;

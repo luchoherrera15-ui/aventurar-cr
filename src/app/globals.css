@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Los títulos son el diferenciador visual de la marca: Montserrat en
+/* Los títulos son el diferenciador visual de la marca: Figtree en
    ExtraBold con el interletrado cerrado. Se usa `titulo` en vez de
    repetir font-extrabold + tracking en cada encabezado, para que no se
    desalineen entre páginas. */
@@ -31,26 +31,65 @@
   }
 }
 
+/*
+ * Tokens de Bookear CR — fuente única de verdad para todo color que
+ * use el marketplace (portada, admin, mi-rancho). El navy es el ÚNICO
+ * acento: botón de búsqueda, corazón guardado, pastilla de estado,
+ * botón primario. Nada de esto se hardcodea en componentes — todo
+ * pasa por acá, y los tokens `--color-aventurea-*` de abajo son solo
+ * alias de estos para no reescribir las clases de Tailwind que ya usa
+ * cada página (bg-aventurea-cream, text-aventurea-ink-soft, etc.).
+ *
+ * `color-scheme: only light` + el bloque de abajo son la corrección al
+ * modo oscuro forzado de navegadores in-app (WhatsApp, Instagram...):
+ * sin esto, el texto oscuro quedaba sobre un fondo que el navegador
+ * oscurecía solo, e ilegible.
+ */
 :root {
-  --background: #f6f7f9;
-  --foreground: #101a2c;
+  color-scheme: only light;
+  --navy: #1b2a4a;
+  --text: #161616;
+  --muted: #585858;
+  --line: #e2e2e2;
+  --grey: #f6f6f6;
+  --bg: #ffffff;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #161616;
+    --muted: #585858;
+    --line: #e2e2e2;
+    --grey: #f6f6f6;
+    --bg: #ffffff;
+  }
+  html,
+  body,
+  header,
+  main,
+  section {
+    background-color: #fff !important;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-montserrat);
+  --font-sans: var(--font-figtree);
 
-  /* Paleta general de Aventurea CR (portada, admin, rancho de eventos)
-     — neutra y clara, con azul navy oscuro como acento de marca. Los
-     nombres de los tokens se mantienen (orange, navy, cream...) para no
-     reescribir cada archivo, pero los valores son la paleta clara. */
-  --color-aventurea-navy: #0f2340;
-  --color-aventurea-navy-2: #163257;
-  --color-aventurea-navy-3: #1d426e;
-  --color-aventurea-orange: #1e3a5f;
-  --color-aventurea-orange-dark: #122844;
-  --color-aventurea-orange-light: #e6ebf2;
+  /* Alias de los tokens de arriba — mismos nombres de siempre
+     (orange, navy, cream...) para no reescribir cada archivo, pero
+     los valores son los de la paleta nueva (navy único acento, fondo
+     blanco, nada de tinte crema). */
+  --color-aventurea-navy: var(--navy);
+  --color-aventurea-navy-2: #23385e;
+  --color-aventurea-navy-3: #2c4672;
+  --color-aventurea-orange: var(--navy);
+  --color-aventurea-orange-dark: #142038;
+  --color-aventurea-orange-light: var(--grey);
   --color-aventurea-green: #1f7a4d;
   /* Serie "por cobrar" de los gráficos. El navy de marca no sirve como
      relleno de barra: queda fuera de la banda de luminosidad y sin croma,
@@ -58,14 +97,15 @@
   --color-aventurea-blue: #3b7fc4;
   --color-aventurea-blue-light: #e8f0f9;
   --color-aventurea-green-light: #e1f0e6;
-  --color-aventurea-cream: #f6f7f9;
-  --color-aventurea-cream-2: #eceef2;
-  --color-aventurea-surface: #ffffff;
-  --color-aventurea-ink: #101a2c;
-  --color-aventurea-ink-soft: #5b6472;
-  --color-aventurea-line: #e2e4ea;
+  --color-aventurea-cream: var(--bg);
+  --color-aventurea-cream-2: var(--grey);
+  --color-aventurea-surface: var(--bg);
+  --color-aventurea-ink: var(--text);
+  --color-aventurea-ink-soft: var(--muted);
+  --color-aventurea-line: var(--line);
 
-  /* Paleta de Puntaleona (casa vacacional) */
+  /* Paleta de Puntaleona (casa vacacional) — producto aparte, fuera
+     del alcance de este rediseño. */
   --color-puntaleona-navy: #0b2a33;
   --color-puntaleona-navy-2: #123842;
   --color-puntaleona-sand: #f6f1e7;
