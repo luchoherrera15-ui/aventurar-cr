@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import RevealOnScroll from "@/components/reveal-on-scroll";
 import { IconPin } from "@/components/icons";
 import {
   CATEGORIAS,
@@ -162,6 +163,7 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
 
   return (
     <div>
+      <RevealOnScroll />
       {/* Barra de navegación: es el filtro principal del directorio */}
       <nav className="relative z-30 mb-4">
         <div className="-mx-6 flex gap-1 overflow-x-auto border-b border-aventurea-line px-6 lg:mx-0 lg:px-0">
@@ -384,8 +386,8 @@ export default function Directorio({ ranchos }: { ranchos: Rancho[] }) {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {visibles.map((r) => (
-              <RanchoCard key={r.id} rancho={r} />
+            {visibles.map((r, i) => (
+              <RanchoCard key={r.id} rancho={r} index={i} />
             ))}
           </div>
 
@@ -611,7 +613,7 @@ function IconLupa() {
   );
 }
 
-function RanchoCard({ rancho }: { rancho: Rancho }) {
+function RanchoCard({ rancho, index }: { rancho: Rancho; index: number }) {
   const esAventurea = rancho.nombre === NOMBRE_RANCHO_AVENTUREA;
   const puedeReservar = rancho.categoria === "lugares";
   const href = esAventurea ? "/eventos-salon" : `/ranchos-eventos/${rancho.id}`;
@@ -630,6 +632,10 @@ function RanchoCard({ rancho }: { rancho: Rancho }) {
   return (
     <Link
       href={href}
+      data-reveal
+      // Tope en 6 para no hacer esperar de más a las cards de más
+      // abajo en páginas grandes — el efecto ya se nota igual.
+      style={{ "--reveal-delay": `${Math.min(index, 6) * 60}ms` } as React.CSSProperties}
       className="group relative flex h-[340px] flex-col overflow-hidden rounded-[18px] shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,35,64,0.22)]"
     >
       <div
