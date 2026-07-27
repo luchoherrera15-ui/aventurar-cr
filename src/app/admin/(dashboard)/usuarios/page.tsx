@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizarCategoria } from "@/app/mi-rancho/types";
 import UsuariosPanel, { type PerfilRow } from "./usuarios-panel";
 
 export default async function AdminUsuariosPage() {
@@ -8,15 +9,19 @@ export default async function AdminUsuariosPage() {
   const [{ data: userData }, perfilesRes, ranchosRes] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("perfiles").select("*").order("created_at", { ascending: false }),
-    supabase.from("ranchos").select("owner_id, nombre"),
+    supabase.from("ranchos").select("owner_id, nombre, categoria"),
   ]);
 
-  const ranchoPorDueno = new Map(
-    (ranchosRes.data ?? []).map((r) => [
-      r.owner_id as string,
-      r.nombre as string,
-    ]),
-  );
+  // Una cuenta puede tener más de un negocio, y no necesariamente todos
+  // de la misma categoría (podría tener un rancho y además un catering) —
+  // por eso el rol de la cuenta ("dueno_rancho") no dice de qué rubro es;
+  // eso solo se sabe mirando sus negocios.
+  const negociosPorDueno = new Map<string, { nombre: string; categoria: string }[]>();
+  (ranchosRes.data ?? []).forEach((r) => {
+    const lista = negociosPorDueno.get(r.owner_id as string) ?? [];
+    lista.push({ nombre: r.nombre as string, categoria: normalizarCategoria(r.categoria as string) });
+    negociosPorDueno.set(r.owner_id as string, lista);
+  });
 
   const perfiles: PerfilRow[] = (perfilesRes.data ?? []).map((p) => ({
     id: p.id as string,
@@ -24,7 +29,7 @@ export default async function AdminUsuariosPage() {
     nombre: p.nombre as string | null,
     rol: p.rol as PerfilRow["rol"],
     created_at: p.created_at as string,
-    ranchoNombre: ranchoPorDueno.get(p.id as string) ?? null,
+    negocios: negociosPorDueno.get(p.id as string) ?? [],
   }));
 
   return (

@@ -8,6 +8,7 @@ import {
   crearUsuario,
   type NuevoUsuarioState,
 } from "./actions";
+import { CATEGORIA_LABEL, type Categoria } from "@/app/mi-rancho/types";
 
 export type PerfilRow = {
   id: string;
@@ -15,7 +16,7 @@ export type PerfilRow = {
   nombre: string | null;
   rol: "admin" | "dueno_rancho" | "cliente";
   created_at: string;
-  ranchoNombre: string | null;
+  negocios: { nombre: string; categoria: string }[];
 };
 
 const inputCls =
@@ -191,7 +192,7 @@ export default function UsuariosPanel({
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-aventurea-cream-2/60">
-              {["Correo", "Nombre", "Salón", "Rol", "Acciones"].map((h) => (
+              {["Correo", "Nombre", "Negocio", "Rol", "Acciones"].map((h) => (
                 <th
                   key={h}
                   className="whitespace-nowrap border-b border-aventurea-line px-4 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
@@ -226,7 +227,14 @@ export default function UsuariosPanel({
                   {p.nombre ?? "—"}
                 </td>
                 <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
-                  {p.ranchoNombre ?? "—"}
+                  {p.negocios.length === 0
+                    ? "—"
+                    : p.negocios.map((n, i) => (
+                        <span key={i} className="block whitespace-nowrap">
+                          {n.nombre} ·{" "}
+                          {CATEGORIA_LABEL[n.categoria as Categoria] ?? n.categoria}
+                        </span>
+                      ))}
                 </td>
                 <td className="px-4 py-3.5">
                   <span
@@ -239,7 +247,7 @@ export default function UsuariosPanel({
                     {p.rol === "admin"
                       ? "Administrador"
                       : p.rol === "dueno_rancho"
-                        ? "Dueño de salón"
+                        ? "Proveedor"
                         : "Cliente"}
                   </span>
                 </td>
@@ -293,8 +301,8 @@ export default function UsuariosPanel({
               <strong>
                 {edicion.perfil.nombre ?? edicion.perfil.email ?? "esta cuenta"}
               </strong>
-              {edicion.perfil.ranchoNombre
-                ? ` — ${edicion.perfil.ranchoNombre}`
+              {edicion.perfil.negocios.length > 0
+                ? ` — ${edicion.perfil.negocios.map((n) => n.nombre).join(", ")}`
                 : ""}
               .
             </p>
