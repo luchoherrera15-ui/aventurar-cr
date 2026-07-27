@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import EditarRanchoForm from "./editar-form";
-import type { Rancho } from "../types";
-import { normalizarCategoria } from "../types";
+import type { Rancho } from "../../types";
+import { normalizarCategoria } from "../../types";
 
-export default async function EditarRanchoPage() {
+export default async function EditarRanchoPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,15 +20,16 @@ export default async function EditarRanchoPage() {
   const { data } = await supabase
     .from("ranchos")
     .select("*")
+    .eq("id", id)
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  if (!data) redirect("/mi-rancho/nuevo");
+  if (!data) notFound();
 
   return (
     <main className="mx-auto max-w-[720px] px-5 py-12">
       <Link
-        href="/mi-rancho"
+        href={`/mi-rancho/${id}`}
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
       >
         ← Volver

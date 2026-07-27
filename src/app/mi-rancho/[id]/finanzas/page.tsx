@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { normalizarCategoria, type Rancho } from "../types";
+import { normalizarCategoria, type Rancho } from "../../types";
 import { resumenFinanciero, type Gasto, type ReservaFinanzas } from "@/lib/finanzas";
 import FinanzasPanel from "./finanzas-panel";
 import {
@@ -12,7 +12,12 @@ import {
   revertirPagoFinal,
 } from "./actions";
 
-export default async function MiRanchoFinanzasPage() {
+export default async function MiRanchoFinanzasPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,10 +27,11 @@ export default async function MiRanchoFinanzasPage() {
   const { data: ranchoData } = await supabase
     .from("ranchos")
     .select("*")
+    .eq("id", id)
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  if (!ranchoData) redirect("/mi-rancho/nuevo");
+  if (!ranchoData) notFound();
   const rancho = {
     ...(ranchoData as Rancho),
     categoria: normalizarCategoria((ranchoData as Rancho).categoria),
@@ -59,7 +65,7 @@ export default async function MiRanchoFinanzasPage() {
   return (
     <main className="mx-auto max-w-[1180px] px-5 py-12">
       <Link
-        href="/mi-rancho"
+        href={`/mi-rancho/${id}`}
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
       >
         ← Volver
@@ -87,11 +93,11 @@ export default async function MiRanchoFinanzasPage() {
       <FinanzasPanel
         resumen={resumen}
         gastos={gastos}
-        onMarcarDeposito={marcarDepositoRecibido}
-        onRegistrarPago={registrarPagoFinal}
-        onRevertirPago={revertirPagoFinal}
-        onAgregarGasto={agregarGasto}
-        onBorrarGasto={borrarGasto}
+        onMarcarDeposito={marcarDepositoRecibido.bind(null, rancho.id)}
+        onRegistrarPago={registrarPagoFinal.bind(null, rancho.id)}
+        onRevertirPago={revertirPagoFinal.bind(null, rancho.id)}
+        onAgregarGasto={agregarGasto.bind(null, rancho.id)}
+        onBorrarGasto={borrarGasto.bind(null, rancho.id)}
       />
     </main>
   );

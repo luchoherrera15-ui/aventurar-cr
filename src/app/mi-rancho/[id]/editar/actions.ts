@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { extraerCoordenadas } from "@/lib/mapas";
-import { camposDeCategoria, type DetallesServicio } from "../campos-servicio";
+import { camposDeCategoria, type DetallesServicio } from "../../campos-servicio";
 import {
   AMENIDADES,
   CATEGORIAS,
@@ -12,7 +12,7 @@ import {
   PROVINCIAS,
   SUBCATEGORIAS,
   type Categoria,
-} from "../types";
+} from "../../types";
 
 export type EditarRanchoState = { error?: string; ok?: boolean } | undefined;
 
@@ -43,6 +43,11 @@ export async function actualizarRancho(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/mi-rancho/login");
+
+  // Una cuenta puede tener varios ranchos: sin este id, un update por
+  // owner_id tocaría todas sus publicaciones a la vez.
+  const ranchoId = String(formData.get("rancho_id") || "");
+  if (!ranchoId) return { error: "Falta identificar qué publicación editás." };
 
   const categoria = String(formData.get("categoria") || "");
   const nombre = String(formData.get("nombre") || "").trim();
@@ -195,11 +200,13 @@ export async function actualizarRancho(
   const { error } = await supabase
     .from("ranchos")
     .update(update)
+    .eq("id", ranchoId)
     .eq("owner_id", user.id);
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 
-  revalidatePath("/mi-rancho");
+  revalidatePath("/mi-rancho", "layout");
   revalidatePath("/ranchos-eventos");
+  revalidatePath(`/ranchos-eventos/${ranchoId}`);
   return { ok: true };
 }

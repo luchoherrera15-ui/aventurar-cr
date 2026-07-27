@@ -1,12 +1,17 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ReservasTable from "@/app/admin/(dashboard)/eventos/reservas-table";
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
-import type { Rancho } from "../types";
-import { normalizarCategoria } from "../types";
+import type { Rancho } from "../../types";
+import { normalizarCategoria } from "../../types";
 
-export default async function MiRanchoReservasPage() {
+export default async function MiRanchoReservasPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -16,17 +21,18 @@ export default async function MiRanchoReservasPage() {
   const { data: ranchoData } = await supabase
     .from("ranchos")
     .select("*")
+    .eq("id", id)
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  if (!ranchoData) redirect("/mi-rancho/nuevo");
+  if (!ranchoData) notFound();
   const rancho = {
     ...(ranchoData as Rancho),
     categoria: normalizarCategoria((ranchoData as Rancho).categoria),
   };
 
   if (rancho.categoria !== "lugares") {
-    redirect("/mi-rancho");
+    redirect(`/mi-rancho/${id}`);
   }
 
   const { data, error } = await supabase
@@ -42,7 +48,7 @@ export default async function MiRanchoReservasPage() {
   return (
     <main className="mx-auto max-w-[1100px] px-5 py-12">
       <Link
-        href="/mi-rancho"
+        href={`/mi-rancho/${id}`}
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
       >
         ← Volver

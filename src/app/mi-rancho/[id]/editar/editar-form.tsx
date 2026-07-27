@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icons";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
 import DetallesServicioForm from "@/components/detalles-servicio-form";
-import type { DetallesServicio } from "../campos-servicio";
+import type { DetallesServicio } from "../../campos-servicio";
 import {
   AMENIDADES_GRUPOS,
   CATEGORIAS,
@@ -20,7 +20,7 @@ import {
   type Categoria,
   type Provincia,
   type Rancho,
-} from "../types";
+} from "../../types";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
@@ -169,6 +169,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
 
   return (
     <form action={onSubmit} className="flex flex-col gap-6">
+      <input type="hidden" name="rancho_id" value={rancho.id} />
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Foto principal

@@ -189,6 +189,6 @@ export async function completarReservaTemporal(
   }
 
   revalidatePath("/admin/eventos");
-  revalidatePath("/mi-rancho/reservas");
+  revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }

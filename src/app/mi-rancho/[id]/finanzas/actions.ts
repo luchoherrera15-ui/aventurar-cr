@@ -6,12 +6,13 @@ import { createClient } from "@/lib/supabase/server";
 import { CATEGORIAS_GASTO, type CategoriaGasto } from "@/lib/finanzas";
 
 /**
- * Todo lo de acá toca plata, así que ninguna acción confía en el id que
- * llega del navegador: primero se resuelve el rancho de la sesión y
- * después se filtra por él. Las políticas de la base lo vuelven a
- * comprobar, pero no queremos depender de una sola barrera.
+ * Todo lo de acá toca plata, así que ninguna acción confía en el id
+ * que llega del navegador a ciegas: primero comprueba que ese rancho
+ * sea del dueño de la sesión. Una misma cuenta puede tener varias
+ * publicaciones, así que no alcanza con buscar "el rancho de este
+ * usuario" — hay que confirmar cuál de los suyos es.
  */
-async function ranchoDeLaSesion() {
+async function verificarDueno(ranchoId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,19 +22,21 @@ async function ranchoDeLaSesion() {
   const { data } = await supabase
     .from("ranchos")
     .select("id")
+    .eq("id", ranchoId)
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  return { supabase, ranchoId: (data?.id as string | undefined) ?? null };
+  return { supabase, ok: !!data };
 }
 
 /** Marca (o desmarca) que el adelanto llegó a la cuenta. */
 export async function marcarDepositoRecibido(
+  ranchoId: string,
   reservaId: string,
   recibido: boolean,
 ) {
-  const { supabase, ranchoId } = await ranchoDeLaSesion();
-  if (!ranchoId) return { error: "No encontramos tu publicación." };
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   const { error } = await supabase
     .from("reservas")
@@ -46,8 +49,7 @@ export async function marcarDepositoRecibido(
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 
-  revalidatePath("/mi-rancho/finanzas");
-  revalidatePath("/mi-rancho/reservas");
+  revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }
 
@@ -59,11 +61,12 @@ export async function marcarDepositoRecibido(
  * números del panel se despegan de la caja real.
  */
 export async function registrarPagoFinal(
+  ranchoId: string,
   reservaId: string,
   montoFinal: number | null,
 ) {
-  const { supabase, ranchoId } = await ranchoDeLaSesion();
-  if (!ranchoId) return { error: "No encontramos tu publicación." };
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   if (montoFinal !== null && (!Number.isFinite(montoFinal) || montoFinal < 0)) {
     return { error: "El monto cobrado no puede ser negativo." };
@@ -84,15 +87,14 @@ export async function registrarPagoFinal(
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 
-  revalidatePath("/mi-rancho/finanzas");
-  revalidatePath("/mi-rancho/reservas");
+  revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }
 
 /** Deshace un cobro marcado por error. */
-export async function revertirPagoFinal(reservaId: string) {
-  const { supabase, ranchoId } = await ranchoDeLaSesion();
-  if (!ranchoId) return { error: "No encontramos tu publicación." };
+export async function revertirPagoFinal(ranchoId: string, reservaId: string) {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   const { error } = await supabase
     .from("reservas")
@@ -102,21 +104,24 @@ export async function revertirPagoFinal(reservaId: string) {
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 
-  revalidatePath("/mi-rancho/finanzas");
+  revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }
 
 const CATEGORIAS_VALIDAS = CATEGORIAS_GASTO.map((c) => c.id) as string[];
 
-export async function agregarGasto(entrada: {
-  fecha: string;
-  concepto: string;
-  categoria: string;
-  monto: number;
-  nota: string | null;
-}) {
-  const { supabase, ranchoId } = await ranchoDeLaSesion();
-  if (!ranchoId) return { error: "No encontramos tu publicación." };
+export async function agregarGasto(
+  ranchoId: string,
+  entrada: {
+    fecha: string;
+    concepto: string;
+    categoria: string;
+    monto: number;
+    nota: string | null;
+  },
+) {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   const concepto = entrada.concepto.trim();
   if (!concepto) return { error: "Escribí en qué gastaste." };
@@ -141,13 +146,13 @@ export async function agregarGasto(entrada: {
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 
-  revalidatePath("/mi-rancho/finanzas");
+  revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }
 
-export async function borrarGasto(gastoId: string) {
-  const { supabase, ranchoId } = await ranchoDeLaSesion();
-  if (!ranchoId) return { error: "No encontramos tu publicación." };
+export async function borrarGasto(ranchoId: string, gastoId: string) {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   const { error } = await supabase
     .from("gastos_rancho")
@@ -157,6 +162,6 @@ export async function borrarGasto(gastoId: string) {
 
   if (error) return { error: "No se pudo borrar: " + error.message };
 
-  revalidatePath("/mi-rancho/finanzas");
+  revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }

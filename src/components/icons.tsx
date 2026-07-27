@@ -266,3 +266,11 @@ export function IconGlobe({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function IconPlus({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path strokeLinecap="round" d="M12 4.5v15M4.5 12h15" />
+    </svg>
+  );
+}

@@ -19,7 +19,7 @@ type PromocionInput = {
 
 function revalidarTodo() {
   revalidatePath("/admin/eventos/precios");
-  revalidatePath("/mi-rancho/precios");
+  revalidatePath("/mi-rancho", "layout");
   revalidatePath("/eventos-salon");
   revalidatePath("/ranchos-eventos");
 }

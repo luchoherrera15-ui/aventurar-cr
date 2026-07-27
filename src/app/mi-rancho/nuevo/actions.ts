@@ -41,25 +41,29 @@ export async function crearRancho(
     return { error: "Elegí qué ofrecés exactamente dentro de esa categoría." };
   }
 
-  const { error } = await supabase.from("ranchos").insert({
-    owner_id: user.id,
-    categoria,
-    subcategoria,
-    nombre,
-    descripcion: descripcion || null,
-    provincia,
-    canton: canton || null,
-    direccion_exacta: direccionExacta || null,
-    capacidad_min: capacidadMinRaw ? parseInt(capacidadMinRaw) : null,
-    capacidad_max: capacidadMaxRaw ? parseInt(capacidadMaxRaw) : null,
-    precio_desde: precioDesdeRaw ? parseFloat(precioDesdeRaw) : null,
-    contacto_whatsapp: contacto || null,
-    estado: "pendiente",
-  });
+  const { data, error } = await supabase
+    .from("ranchos")
+    .insert({
+      owner_id: user.id,
+      categoria,
+      subcategoria,
+      nombre,
+      descripcion: descripcion || null,
+      provincia,
+      canton: canton || null,
+      direccion_exacta: direccionExacta || null,
+      capacidad_min: capacidadMinRaw ? parseInt(capacidadMinRaw) : null,
+      capacidad_max: capacidadMaxRaw ? parseInt(capacidadMaxRaw) : null,
+      precio_desde: precioDesdeRaw ? parseFloat(precioDesdeRaw) : null,
+      contacto_whatsapp: contacto || null,
+      estado: "pendiente",
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return { error: "No se pudo guardar tu rancho: " + error.message };
   }
 
-  redirect("/mi-rancho");
+  redirect(`/mi-rancho/${data.id}`);
 }
