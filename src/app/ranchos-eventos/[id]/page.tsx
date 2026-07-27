@@ -221,6 +221,12 @@ export default async function RanchoPortalPage({
           montoMinimo={rancho.monto_minimo ?? null}
           horarios={rancho.horarios_bloques ?? []}
           fotoFondo={rancho.foto_url}
+          sinpeNumero={rancho.sinpe_numero}
+          sinpeTitular={rancho.sinpe_titular}
+          cuentaBanco={rancho.cuenta_banco}
+          cuentaNumero={rancho.cuenta_numero}
+          cuentaTitular={rancho.cuenta_titular}
+          cuentaTipo={rancho.cuenta_tipo}
           descripcion={rancho.descripcion}
         />
       ) : (

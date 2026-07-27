@@ -147,6 +147,9 @@ export type CompletarReservaInput = {
   metodo_pago: "sinpe" | "transferencia";
   deposito_comprobante_url: string;
   terminos_aceptados: boolean;
+  /** Aceptación aparte de los términos: que el evento no es de los que
+   *  el negocio no alquila (serenatas, menores, fiestas clandestinas). */
+  aviso_prohibiciones_aceptado: boolean;
   notas: string | null;
   codigo_descuento: string | null;
   descuento_monto: number;
@@ -160,6 +163,9 @@ export async function completarReservaTemporal(
 ) {
   if (!CEDULA_REGEX.test(input.cedula.trim())) {
     return { error: "El número de cédula no es válido." };
+  }
+  if (!input.aviso_prohibiciones_aceptado) {
+    return { error: "Tenés que confirmar el aviso sobre el tipo de evento." };
   }
 
   const supabase = await createClient();
@@ -187,6 +193,7 @@ export async function completarReservaTemporal(
       p_metodo_pago: input.metodo_pago,
       p_deposito_comprobante_url: input.deposito_comprobante_url,
       p_terminos_aceptados: input.terminos_aceptados,
+      p_aviso_prohibiciones_aceptado: input.aviso_prohibiciones_aceptado,
       p_notas: input.notas,
       p_codigo_descuento: input.codigo_descuento,
       p_descuento_monto: input.descuento_monto,

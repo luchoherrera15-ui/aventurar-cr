@@ -5,12 +5,14 @@ import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
 import TerminosForm from "@/components/terminos-form";
 import HorariosForm from "@/components/horarios-form";
+import CuentasPagoForm from "@/components/cuentas-pago-form";
 import {
   guardarPreciosPropio,
   guardarCodigosPropio,
   guardarPromocionesPropio,
   guardarTerminosPropio,
   guardarHorariosPropio,
+  guardarCuentasPagoPropio,
 } from "./actions";
 import { normalizarCategoria } from "../../types";
 import type {
@@ -97,6 +99,25 @@ export default async function MiRanchoPreciosPage({
 
       {esLugar && (
         <>
+          <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
+            Cuentas para recibir el depósito
+          </h2>
+          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+            El cliente ve esto en el segundo paso de la reserva, según el
+            método de pago que elija.
+          </p>
+          <CuentasPagoForm
+            initial={{
+              sinpeNumero: rancho.sinpe_numero ?? "",
+              sinpeTitular: rancho.sinpe_titular ?? "",
+              cuentaBanco: rancho.cuenta_banco ?? "",
+              cuentaNumero: rancho.cuenta_numero ?? "",
+              cuentaTitular: rancho.cuenta_titular ?? "",
+              cuentaTipo: rancho.cuenta_tipo ?? "",
+            }}
+            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+          />
+
           <h2 className="mb-1 mt-9 text-lg font-bold text-aventurea-orange-dark">
             Horarios de alquiler
           </h2>

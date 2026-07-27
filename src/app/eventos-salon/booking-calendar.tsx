@@ -66,6 +66,12 @@ export default function BookingCalendar({
   horarios = [],
   fotoFondo = null,
   descripcion = null,
+  sinpeNumero = null,
+  sinpeTitular = null,
+  cuentaBanco = null,
+  cuentaNumero = null,
+  cuentaTitular = null,
+  cuentaTipo = null,
 }: {
   ranchoId: string;
   nombreRancho: string;
@@ -83,6 +89,13 @@ export default function BookingCalendar({
   /** Foto del lugar que va de fondo detrás del calendario. */
   fotoFondo?: string | null;
   descripcion?: string | null;
+  /** Datos de cobro del proveedor; vacío = esa forma de pago no se ofrece. */
+  sinpeNumero?: string | null;
+  sinpeTitular?: string | null;
+  cuentaBanco?: string | null;
+  cuentaNumero?: string | null;
+  cuentaTitular?: string | null;
+  cuentaTipo?: string | null;
 }) {
   // Un proveedor que nunca los tocó muestra siempre los vigentes de
   // Aventurea, armados con su propio depósito y monto mínimo.
@@ -125,6 +138,10 @@ export default function BookingCalendar({
   const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
   const [terminosAceptados, setTerminosAceptados] = useState(false);
   const [mostrarTerminos, setMostrarTerminos] = useState(false);
+  const [avisoAceptado, setAvisoAceptado] = useState(false);
+  // Paso 1: datos del evento. Paso 2: cómo pagar. Separarlo simplifica
+  // lo que se ve de una sola vez, sobre todo en el celular.
+  const [paso, setPaso] = useState<1 | 2>(1);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -276,7 +293,15 @@ export default function BookingCalendar({
 
   const cedulaValida = CEDULA_REGEX.test(cedula.trim());
 
-  const puedeEnviar =
+  // Solo se ofrece la forma de pago que el proveedor realmente configuró.
+  const metodosDisponibles = useMemo(() => {
+    const metodos: { value: "sinpe" | "transferencia"; label: string }[] = [];
+    if (sinpeNumero) metodos.push({ value: "sinpe", label: "SINPE Móvil" });
+    if (cuentaNumero) metodos.push({ value: "transferencia", label: "Transferencia bancaria" });
+    return metodos;
+  }, [sinpeNumero, cuentaNumero]);
+
+  const puedeAvanzar =
     !!holdId &&
     !holdVencido &&
     invitadosNum > 0 &&
@@ -285,6 +310,10 @@ export default function BookingCalendar({
     !!contacto &&
     cedulaValida &&
     !!tipoEvento &&
+    avisoAceptado;
+
+  const puedeEnviar =
+    puedeAvanzar &&
     !!metodoPago &&
     !!comprobante &&
     terminosAceptados;
@@ -302,6 +331,8 @@ export default function BookingCalendar({
     setComprobante(null);
     setComprobantePreview(null);
     setTerminosAceptados(false);
+    setAvisoAceptado(false);
+    setPaso(1);
     setSubmitError(null);
     setCodigoInput("");
     setCodigoAplicado(null);
@@ -445,6 +476,7 @@ export default function BookingCalendar({
       metodo_pago: metodoPago as "sinpe" | "transferencia",
       deposito_comprobante_url: path,
       terminos_aceptados: terminosAceptados,
+      aviso_prohibiciones_aceptado: avisoAceptado,
       notas: mensaje || null,
       codigo_descuento: codigoAplicado?.codigo ?? null,
       descuento_monto: descuentoTotalMonto,
@@ -514,21 +546,6 @@ export default function BookingCalendar({
               "Elegí un día en el calendario, completá tus datos y subí el comprobante del depósito. Tu reserva queda en aprobación hasta que la confirmemos."}
           </p>
         </div>
-
-        {promociones.some((p) => p.activo) && (
-          <div className="mb-6 flex flex-wrap gap-2">
-            {promociones
-              .filter((p) => p.activo)
-              .map((p) => (
-                <span
-                  key={p.id}
-                  className="rounded-full border border-white/30 bg-white/15 px-3.5 py-1.5 text-[12.5px] font-bold text-white backdrop-blur-sm"
-                >
-                  <IconTagLine className="h-3.5 w-3.5" /> {p.etiqueta}
-                </span>
-              ))}
-          </div>
-        )}
 
         {horarios.length > 0 && (
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-md">
@@ -801,343 +818,445 @@ export default function BookingCalendar({
             )}
 
             {selectedDate && holdId && !holdVencido && !confirmado && !holdCreando && (
-              <form onSubmit={enviarSolicitud} className="flex flex-col gap-3.5">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (paso === 1) {
+                    if (puedeAvanzar) setPaso(2);
+                    return;
+                  }
+                  enviarSolicitud(e);
+                }}
+                className="flex flex-col gap-3.5"
+              >
+                {/* Indicador de los dos pasos: qué se llena ahora y qué falta. */}
+                <div className="mb-1 flex items-center gap-2">
+                  <PasoPill numero={1} activo={paso === 1} hecho={paso > 1} label="Datos del evento" />
+                  <span className="h-px flex-1 bg-aventurea-line" />
+                  <PasoPill numero={2} activo={paso === 2} hecho={false} label="Cómo pagar" />
+                </div>
+
                 <p className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3.5 py-2.5 text-[11.5px] leading-relaxed text-blue-700">
-                  Esta fecha te queda bloqueada 10 minutos. Subí el
-                  comprobante del depósito antes de que se acabe el tiempo, o
-                  vuelve a quedar disponible para cualquiera.
+                  Esta fecha te queda bloqueada 10 minutos. {paso === 1
+                    ? "Completá tus datos antes de que se acabe el tiempo, o vuelve a quedar disponible."
+                    : "Subí el comprobante del depósito antes de que se acabe el tiempo, o vuelve a quedar disponible."}
                 </p>
 
-                {dias[selectedDate] && dias[selectedDate].pendientes > 0 && (
-                  <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs leading-relaxed text-aventurea-orange">
-                    Ya hay {dias[selectedDate].pendientes} reserva
-                    {dias[selectedDate].pendientes > 1 ? "s" : ""} en
-                    aprobación para esta fecha. Igual podés reservar la tuya
-                    — {nombreRancho} confirma una sola.
-                  </div>
-                )}
+                {paso === 1 && (
+                  <>
+                    {dias[selectedDate] && dias[selectedDate].pendientes > 0 && (
+                      <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs leading-relaxed text-aventurea-orange">
+                        Ya hay {dias[selectedDate].pendientes} reserva
+                        {dias[selectedDate].pendientes > 1 ? "s" : ""} en
+                        aprobación para esta fecha. Igual podés reservar la tuya
+                        — {nombreRancho} confirma una sola.
+                      </div>
+                    )}
 
-                <div>
-                  <label className={labelCls}>Número de invitados</label>
-                  <input
-                    type="number"
-                    min={1}
-                    required
-                    value={invitados}
-                    onChange={(e) => setInvitados(e.target.value)}
-                    placeholder="Ej. 40"
-                    className={inputCls}
-                  />
-                </div>
-
-                {horarios.length > 0 && (
-                  <div>
-                    <label className={labelCls}>Horario</label>
-                    <select
-                      required
-                      value={horarioBloque}
-                      onChange={(e) => setHorarioBloque(e.target.value)}
-                      className={inputCls}
-                    >
-                      <option value="">Selecciona una opción</option>
-                      {horarios.map((h) => (
-                        <option key={h.id} value={etiquetaHorario(h)}>
-                          {etiquetaHorario(h)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between rounded-xl border border-aventurea-line px-3.5 py-3">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    Cotización estimada del evento
-                  </span>
-                  <span className="text-[15px] font-bold text-aventurea-ink">
-                    {tierBase === null
-                      ? invitadosNum
-                        ? "Cotización personalizada"
-                        : "— indicá tus invitados —"
-                      : fmtColones(tierBase)}
-                  </span>
-                </div>
-                {esDiciembre && invitadosNum > 0 && (
-                  <p className="-mt-2 text-[11px] text-zinc-500">
-                    Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
-                  </p>
-                )}
-                {promoAplicable && cotizacionTotal !== null && (
-                  <p className="-mt-2 flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-green">
-                    <IconTagLine className="h-3.5 w-3.5" /> {promoAplicable.etiqueta} aplicado (-{fmtColones(descuentoPromoMonto)})
-                  </p>
-                )}
-
-                {servicios.length > 0 && invitadosNum > 0 && (
-                  <div>
-                    <label className={labelCls}>Servicios adicionales</label>
                     <div>
-                      {servicios.map((s) => {
-                        const eligible =
-                          !s.requisito_max_invitados || invitadosNum <= s.requisito_max_invitados;
-                        return (
-                          <label
-                            key={s.id}
-                            className={`flex items-start gap-2.5 border-b border-aventurea-line py-2.5 last:border-none ${
-                              eligible ? "" : "opacity-50"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              disabled={!eligible}
-                              checked={!!addons[s.id]}
-                              onChange={(e) =>
-                                setAddons((prev) => ({ ...prev, [s.id]: e.target.checked }))
-                              }
-                              className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
-                            />
-                            <div>
-                              <span className="text-[13px] text-zinc-200">{s.nombre}</span>
-                              <span className="ml-1.5 text-xs font-bold text-aventurea-orange">
-                                {fmtColones(s.precio)}
-                              </span>
-                              {s.requisito_max_invitados && (
-                                <div className="mt-0.5 text-[11px] text-zinc-500">
-                                  {eligible
-                                    ? `Disponible para grupos de hasta ${s.requisito_max_invitados} personas`
-                                    : `No disponible — aplica solo hasta ${s.requisito_max_invitados} personas`}
-                                </div>
-                              )}
-                            </div>
-                          </label>
-                        );
-                      })}
+                      <label className={labelCls}>Número de invitados</label>
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={invitados}
+                        onChange={(e) => setInvitados(e.target.value)}
+                        placeholder="Ej. 40"
+                        className={inputCls}
+                      />
                     </div>
-                  </div>
-                )}
 
-                {cotizacionTotal !== null && (
-                  <div>
-                    <label className={labelCls}>¿Tenés un código de descuento?</label>
-                    <div className="flex gap-2">
+                    {horarios.length > 0 && (
+                      <div>
+                        <label className={labelCls}>Horario</label>
+                        <select
+                          required
+                          value={horarioBloque}
+                          onChange={(e) => setHorarioBloque(e.target.value)}
+                          className={inputCls}
+                        >
+                          <option value="">Selecciona una opción</option>
+                          {horarios.map((h) => (
+                            <option key={h.id} value={etiquetaHorario(h)}>
+                              {etiquetaHorario(h)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between rounded-xl border border-aventurea-line px-3.5 py-3">
+                      <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                        Cotización estimada del evento
+                      </span>
+                      <span className="text-[15px] font-bold text-aventurea-ink">
+                        {tierBase === null
+                          ? invitadosNum
+                            ? "Cotización personalizada"
+                            : "— indicá tus invitados —"
+                          : fmtColones(tierBase)}
+                      </span>
+                    </div>
+                    {esDiciembre && invitadosNum > 0 && (
+                      <p className="-mt-2 text-[11px] text-zinc-500">
+                        Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
+                      </p>
+                    )}
+                    {promoAplicable && cotizacionTotal !== null && (
+                      <p className="-mt-2 flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-green">
+                        <IconTagLine className="h-3.5 w-3.5" /> {promoAplicable.etiqueta} aplicado (-{fmtColones(descuentoPromoMonto)})
+                      </p>
+                    )}
+
+                    {servicios.length > 0 && invitadosNum > 0 && (
+                      <div>
+                        <label className={labelCls}>Servicios adicionales</label>
+                        <div>
+                          {servicios.map((s) => {
+                            const eligible =
+                              !s.requisito_max_invitados || invitadosNum <= s.requisito_max_invitados;
+                            return (
+                              <label
+                                key={s.id}
+                                className={`flex items-start gap-2.5 border-b border-aventurea-line py-2.5 last:border-none ${
+                                  eligible ? "" : "opacity-50"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  disabled={!eligible}
+                                  checked={!!addons[s.id]}
+                                  onChange={(e) =>
+                                    setAddons((prev) => ({ ...prev, [s.id]: e.target.checked }))
+                                  }
+                                  className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
+                                />
+                                <div>
+                                  <span className="text-[13px] text-zinc-200">{s.nombre}</span>
+                                  <span className="ml-1.5 text-xs font-bold text-aventurea-orange">
+                                    {fmtColones(s.precio)}
+                                  </span>
+                                  {s.requisito_max_invitados && (
+                                    <div className="mt-0.5 text-[11px] text-zinc-500">
+                                      {eligible
+                                        ? `Disponible para grupos de hasta ${s.requisito_max_invitados} personas`
+                                        : `No disponible — aplica solo hasta ${s.requisito_max_invitados} personas`}
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {cotizacionTotal !== null && (
+                      <div>
+                        <label className={labelCls}>¿Tenés un código de descuento?</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={codigoInput}
+                            onChange={(e) => {
+                              setCodigoInput(e.target.value.toUpperCase());
+                              if (codigoAplicado) setCodigoAplicado(null);
+                              if (codigoError) setCodigoError(null);
+                            }}
+                            placeholder="Ej. BODA10"
+                            disabled={!!codigoAplicado}
+                            className={`${inputCls} uppercase disabled:opacity-70`}
+                          />
+                          {codigoAplicado ? (
+                            <button
+                              type="button"
+                              onClick={quitarCodigo}
+                              className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-700"
+                            >
+                              Quitar
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={verificarCodigo}
+                              disabled={verificandoCodigo || !codigoInput.trim()}
+                              className="whitespace-nowrap rounded-[10px] bg-aventurea-ink px-3.5 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-60"
+                            >
+                              {verificandoCodigo ? "..." : "Aplicar"}
+                            </button>
+                          )}
+                        </div>
+                        {codigoAplicado && (
+                          <p className="mt-1.5 text-[11.5px] font-bold text-aventurea-green">
+                            ✓ Código {codigoAplicado.codigo} aplicado (-
+                            {codigoAplicado.tipo === "porcentaje"
+                              ? `${codigoAplicado.valor}%`
+                              : fmtColones(codigoAplicado.valor)}
+                            )
+                          </p>
+                        )}
+                        {codigoError && (
+                          <p className="mt-1.5 text-[11.5px] font-bold text-red-700">{codigoError}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {cotizacionTotal !== null && (
+                      <div className="rounded-xl bg-aventurea-cream-2 px-3.5 py-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                            Total estimado del evento
+                          </span>
+                          <span className="flex items-baseline gap-1.5">
+                            {descuentoTotalMonto > 0 && (
+                              <span className="text-[12px] text-zinc-500 line-through">
+                                {fmtColones(cotizacionTotal)}
+                              </span>
+                            )}
+                            <span className="text-lg font-bold text-aventurea-ink">
+                              {fmtColones(totalFinal ?? cotizacionTotal)}
+                            </span>
+                          </span>
+                        </div>
+                        {descuentoTotalMonto > 0 && (
+                          <p className="mt-1 text-right text-[11px] font-bold text-aventurea-green">
+                            Ahorrás {fmtColones(descuentoTotalMonto)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={labelCls}>Nombre completo</label>
+                        <input
+                          type="text"
+                          required
+                          value={nombre}
+                          onChange={(e) => setNombre(e.target.value)}
+                          placeholder="Tu nombre"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>WhatsApp o correo</label>
+                        <input
+                          type="text"
+                          required
+                          value={contacto}
+                          onChange={(e) => setContacto(e.target.value)}
+                          placeholder="+506 .... o correo"
+                          className={inputCls}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>Número de cédula</label>
                       <input
                         type="text"
-                        value={codigoInput}
-                        onChange={(e) => {
-                          setCodigoInput(e.target.value.toUpperCase());
-                          if (codigoAplicado) setCodigoAplicado(null);
-                          if (codigoError) setCodigoError(null);
-                        }}
-                        placeholder="Ej. BODA10"
-                        disabled={!!codigoAplicado}
-                        className={`${inputCls} uppercase disabled:opacity-70`}
+                        required
+                        value={cedula}
+                        onChange={(e) => setCedula(e.target.value)}
+                        placeholder="Ej. 1-2345-6789"
+                        className={inputCls}
                       />
-                      {codigoAplicado ? (
-                        <button
-                          type="button"
-                          onClick={quitarCodigo}
-                          className="whitespace-nowrap rounded-[10px] border border-aventurea-line px-3.5 py-2.5 text-[12.5px] font-bold text-aventurea-ink hover:border-red-400 hover:text-red-700"
-                        >
-                          Quitar
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={verificarCodigo}
-                          disabled={verificandoCodigo || !codigoInput.trim()}
-                          className="whitespace-nowrap rounded-[10px] bg-aventurea-ink px-3.5 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-60"
-                        >
-                          {verificandoCodigo ? "..." : "Aplicar"}
-                        </button>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+                        Solo para identificar a quien reserva ante daños o
+                        problemas en el evento. Es privado — lo ve únicamente{" "}
+                        {nombreRancho} y Aventurea CR.
+                      </p>
+                      {cedula && !cedulaValida && (
+                        <p className="mt-1 text-[11px] font-bold text-red-700">
+                          Escribí solo números (y guiones si querés), sin espacios ni letras.
+                        </p>
                       )}
                     </div>
-                    {codigoAplicado && (
-                      <p className="mt-1.5 text-[11.5px] font-bold text-aventurea-green">
-                        ✓ Código {codigoAplicado.codigo} aplicado (-
-                        {codigoAplicado.tipo === "porcentaje"
-                          ? `${codigoAplicado.valor}%`
-                          : fmtColones(codigoAplicado.valor)}
-                        )
-                      </p>
-                    )}
-                    {codigoError && (
-                      <p className="mt-1.5 text-[11.5px] font-bold text-red-700">{codigoError}</p>
-                    )}
-                  </div>
-                )}
 
-                {cotizacionTotal !== null && (
-                  <div className="rounded-xl bg-aventurea-cream-2 px-3.5 py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                        Total estimado del evento
-                      </span>
-                      <span className="flex items-baseline gap-1.5">
-                        {descuentoTotalMonto > 0 && (
-                          <span className="text-[12px] text-zinc-500 line-through">
-                            {fmtColones(cotizacionTotal)}
-                          </span>
-                        )}
-                        <span className="text-lg font-bold text-aventurea-ink">
-                          {fmtColones(totalFinal ?? cotizacionTotal)}
-                        </span>
-                      </span>
+                    <div>
+                      <label className={labelCls}>Tipo de evento</label>
+                      <select
+                        required
+                        value={tipoEvento}
+                        onChange={(e) => setTipoEvento(e.target.value)}
+                        className={inputCls}
+                      >
+                        <option value="">Selecciona una opción</option>
+                        <option>Boda</option>
+                        <option>Cumpleaños</option>
+                        <option>Evento corporativo</option>
+                        <option>Otro</option>
+                      </select>
                     </div>
-                    {descuentoTotalMonto > 0 && (
-                      <p className="mt-1 text-right text-[11px] font-bold text-aventurea-green">
-                        Ahorrás {fmtColones(descuentoTotalMonto)}
+
+                    <div>
+                      <label className={labelCls}>Mensaje (opcional)</label>
+                      <textarea
+                        value={mensaje}
+                        onChange={(e) => setMensaje(e.target.value)}
+                        placeholder="Contanos más sobre tu evento"
+                        className={`min-h-[56px] ${inputCls}`}
+                      />
+                    </div>
+
+                    {/* Aviso importante: aparte de los términos generales, esta
+                        es la aceptación específica sobre qué NO se alquila. */}
+                    <div className="rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/10 p-3.5">
+                      <p className="flex items-start gap-1.5 text-[12.5px] font-bold leading-relaxed text-aventurea-orange-dark">
+                        <IconWarning className="mt-0.5 h-4 w-4 shrink-0" />
+                        Aviso importante
                       </p>
-                    )}
-                  </div>
+                      <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink">
+                        Este lugar no se alquila para serenatas, fiestas de
+                        menores de edad, ni fiestas clandestinas donde se venda
+                        alcohol. Si se reserva y es para este tipo de evento,{" "}
+                        {nombreRancho} se reserva el derecho a cancelarla y no
+                        habrá devolución de dinero.
+                      </p>
+                      <label className="mt-2.5 flex items-start gap-2.5 text-[12.5px] font-bold text-aventurea-ink">
+                        <input
+                          type="checkbox"
+                          checked={avisoAceptado}
+                          onChange={(e) => setAvisoAceptado(e.target.checked)}
+                          required
+                          className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
+                        />
+                        Entiendo y confirmo que mi evento no es ninguno de estos.
+                      </label>
+                    </div>
+                  </>
                 )}
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className={labelCls}>Nombre completo</label>
-                    <input
-                      type="text"
-                      required
-                      value={nombre}
-                      onChange={(e) => setNombre(e.target.value)}
-                      placeholder="Tu nombre"
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>WhatsApp o correo</label>
-                    <input
-                      type="text"
-                      required
-                      value={contacto}
-                      onChange={(e) => setContacto(e.target.value)}
-                      placeholder="+506 .... o correo"
-                      className={inputCls}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelCls}>Número de cédula</label>
-                  <input
-                    type="text"
-                    required
-                    value={cedula}
-                    onChange={(e) => setCedula(e.target.value)}
-                    placeholder="Ej. 1-2345-6789"
-                    className={inputCls}
-                  />
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
-                    Solo para identificar a quien reserva ante daños o
-                    problemas en el evento. Es privado — lo ve únicamente{" "}
-                    {nombreRancho} y Aventurea CR.
-                  </p>
-                  {cedula && !cedulaValida && (
-                    <p className="mt-1 text-[11px] font-bold text-red-700">
-                      Escribí solo números (y guiones si querés), sin espacios ni letras.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className={labelCls}>Tipo de evento</label>
-                  <select
-                    required
-                    value={tipoEvento}
-                    onChange={(e) => setTipoEvento(e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">Selecciona una opción</option>
-                    <option>Boda</option>
-                    <option>Cumpleaños</option>
-                    <option>Evento corporativo</option>
-                    <option>Otro</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelCls}>Mensaje (opcional)</label>
-                  <textarea
-                    value={mensaje}
-                    onChange={(e) => setMensaje(e.target.value)}
-                    placeholder="Contanos más sobre tu evento"
-                    className={`min-h-[56px] ${inputCls}`}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl bg-aventurea-orange/10 px-3.5 py-3">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-orange">
-                    Depósito para reservar
-                  </span>
-                  <span className="text-lg font-bold text-aventurea-ink">{fmtColones(depositoReserva)}</span>
-                </div>
-                <p className="-mt-2 text-[11px] leading-relaxed text-zinc-500">
-                  Este monto fijo es lo que se paga ahora por SINPE o
-                  transferencia para reservar la fecha. El resto de la
-                  cotización se coordina para el día del evento.
-                </p>
-                <div className="flex items-start gap-1.5 rounded-[10px] border border-red-500/30 bg-red-50 p-3 text-[11.5px] leading-relaxed text-red-700">
-                  <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Si el comprobante muestra un monto <strong>menor a {fmtColones(depositoReserva)}</strong>,
-                  la reserva no queda válida y el dinero no se reembolsa.
-                </div>
-
-                <div>
-                  <label className={labelCls}>Método de pago del depósito</label>
-                  <select
-                    required
-                    value={metodoPago}
-                    onChange={(e) => setMetodoPago(e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">Selecciona una opción</option>
-                    <option value="sinpe">SINPE Móvil</option>
-                    <option value="transferencia">Transferencia bancaria</option>
-                  </select>
-                </div>
-
-                <label className="flex items-start gap-2.5 text-[12.5px] text-aventurea-ink-soft">
-                  <input
-                    type="checkbox"
-                    checked={terminosAceptados}
-                    onChange={(e) => setTerminosAceptados(e.target.checked)}
-                    required
-                    className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
-                  />
-                  <span>
-                    Acepto los{" "}
+                {paso === 2 && (
+                  <>
                     <button
                       type="button"
-                      onClick={() => setMostrarTerminos(true)}
-                      className="font-bold text-aventurea-orange underline"
+                      onClick={() => setPaso(1)}
+                      className="-mt-1 flex items-center gap-1 self-start text-[12px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
                     >
-                      términos y condiciones
-                    </button>{" "}
-                    de la reserva.
-                  </span>
-                </label>
+                      ← Volver a mis datos
+                    </button>
 
-                <div>
-                  <label className={labelCls}>Comprobante de pago</label>
-                  <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-aventurea-line p-4 text-center hover:border-aventurea-orange">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      required
-                      onChange={onComprobanteChange}
-                      className="hidden"
-                    />
-                    {comprobantePreview ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={comprobantePreview}
-                        alt="Comprobante"
-                        className="max-h-[140px] rounded-lg"
-                      />
-                    ) : (
-                      <span className="text-xs text-aventurea-ink-soft">
-                        Tocá para subir una foto del comprobante
+                    <div className="flex items-center justify-between rounded-xl bg-aventurea-orange/10 px-3.5 py-3">
+                      <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-orange">
+                        Depósito para reservar
                       </span>
-                    )}
-                  </label>
-                </div>
+                      <span className="text-lg font-bold text-aventurea-ink">{fmtColones(depositoReserva)}</span>
+                    </div>
+                    <p className="-mt-2 text-[11px] leading-relaxed text-zinc-500">
+                      Este monto fijo es lo que se paga ahora para reservar la
+                      fecha. El resto de la cotización se coordina para el día
+                      del evento.
+                    </p>
+
+                    <div>
+                      <label className={labelCls}>Realizar pago</label>
+                      {metodosDisponibles.length === 0 ? (
+                        <p className="rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+                          {nombreRancho} todavía no configuró sus cuentas de
+                          cobro. Escribile por el contacto que dejaste para
+                          coordinar cómo pagar el depósito.
+                        </p>
+                      ) : (
+                        <>
+                          <select
+                            required
+                            value={metodoPago}
+                            onChange={(e) => setMetodoPago(e.target.value)}
+                            className={inputCls}
+                          >
+                            <option value="">Selecciona una opción</option>
+                            {metodosDisponibles.map((m) => (
+                              <option key={m.value} value={m.value}>
+                                {m.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          {metodoPago === "sinpe" && sinpeNumero && (
+                            <div className="mt-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
+                              <CampoCopiable etiqueta="Número SINPE" valor={sinpeNumero} />
+                              {sinpeTitular && (
+                                <CampoCopiable etiqueta="A nombre de" valor={sinpeTitular} />
+                              )}
+                            </div>
+                          )}
+
+                          {metodoPago === "transferencia" && cuentaNumero && (
+                            <div className="mt-2.5 flex flex-col gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
+                              {cuentaBanco && (
+                                <CampoCopiable etiqueta="Banco" valor={cuentaBanco} />
+                              )}
+                              <CampoCopiable etiqueta="Cuenta / IBAN" valor={cuentaNumero} />
+                              {cuentaTipo && (
+                                <CampoCopiable
+                                  etiqueta="Tipo"
+                                  valor={cuentaTipo === "ahorro" ? "Ahorro" : "Corriente"}
+                                />
+                              )}
+                              {cuentaTitular && (
+                                <CampoCopiable etiqueta="A nombre de" valor={cuentaTitular} />
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <p className="flex items-start gap-1.5 rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 p-3 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
+                      <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aventurea-orange" />
+                      Depositá exactamente {fmtColones(depositoReserva)}. Si el
+                      comprobante muestra un monto menor, la reserva no queda
+                      válida y el dinero no se reembolsa.
+                    </p>
+
+                    <div>
+                      <label className={labelCls}>Comprobante de pago</label>
+                      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-aventurea-line p-4 text-center hover:border-aventurea-orange">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          required
+                          onChange={onComprobanteChange}
+                          className="hidden"
+                        />
+                        {comprobantePreview ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={comprobantePreview}
+                            alt="Comprobante"
+                            className="max-h-[140px] rounded-lg"
+                          />
+                        ) : (
+                          <span className="text-xs text-aventurea-ink-soft">
+                            Tocá para subir una foto del comprobante
+                          </span>
+                        )}
+                      </label>
+                    </div>
+
+                    <label className="flex items-start gap-2.5 text-[12.5px] text-aventurea-ink-soft">
+                      <input
+                        type="checkbox"
+                        checked={terminosAceptados}
+                        onChange={(e) => setTerminosAceptados(e.target.checked)}
+                        required
+                        className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
+                      />
+                      <span>
+                        Acepto los{" "}
+                        <button
+                          type="button"
+                          onClick={() => setMostrarTerminos(true)}
+                          className="font-bold text-aventurea-orange underline"
+                        >
+                          términos y condiciones
+                        </button>{" "}
+                        de la reserva.
+                      </span>
+                    </label>
+                  </>
+                )}
 
                 {submitError && (
                   <p className="rounded-lg bg-red-50 p-2.5 text-[13px] text-red-700">
@@ -1145,13 +1264,23 @@ export default function BookingCalendar({
                   </p>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={submitting || !puedeEnviar}
-                  className="rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
-                >
-                  {submitting ? "Enviando..." : "Confirmar mi reserva"}
-                </button>
+                {paso === 1 ? (
+                  <button
+                    type="submit"
+                    disabled={!puedeAvanzar}
+                    className="rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+                  >
+                    Siguiente: Cómo pagar →
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={submitting || !puedeEnviar}
+                    className="rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+                  >
+                    {submitting ? "Enviando..." : "Confirmar mi reserva"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={cerrarPanel}
@@ -1205,5 +1334,73 @@ export default function BookingCalendar({
         </div>
       )}
     </section>
+  );
+}
+
+function PasoPill({
+  numero,
+  label,
+  activo,
+  hecho,
+}: {
+  numero: number;
+  label: string;
+  activo: boolean;
+  hecho: boolean;
+}) {
+  return (
+    <span
+      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+        activo
+          ? "bg-aventurea-orange text-white"
+          : hecho
+            ? "bg-aventurea-green/15 text-aventurea-green"
+            : "bg-aventurea-cream-2 text-aventurea-ink-soft"
+      }`}
+    >
+      <span
+        className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
+          activo ? "bg-white/25" : hecho ? "bg-aventurea-green/20" : "bg-white"
+        }`}
+      >
+        {hecho ? "✓" : numero}
+      </span>
+      <span className="hidden sm:inline">{label}</span>
+    </span>
+  );
+}
+
+/** Un dato de cobro con botón de copiar — para que el cliente no tenga
+ * que transcribir a mano el número de SINPE o la cuenta. */
+function CampoCopiable({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  const [copiado, setCopiado] = useState(false);
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(valor);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1500);
+    } catch {
+      // Sin acceso al portapapeles (permiso denegado, http sin TLS...) el
+      // dato sigue visible en pantalla para copiarlo a mano.
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          {etiqueta}
+        </p>
+        <p className="truncate text-[13.5px] font-bold text-aventurea-ink">{valor}</p>
+      </div>
+      <button
+        type="button"
+        onClick={copiar}
+        className="shrink-0 rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-1.5 text-[11px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+      >
+        {copiado ? "✓ Copiado" : "Copiar"}
+      </button>
+    </div>
   );
 }
