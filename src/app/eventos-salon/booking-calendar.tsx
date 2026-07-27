@@ -31,6 +31,8 @@ const MESES = [
 const DOW = ["D", "L", "M", "M", "J", "V", "S"];
 
 const CEDULA_REGEX = /^[0-9-]{7,14}$/;
+const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const WHATSAPP_REGEX = /^[0-9+\s-]{8,16}$/;
 
 function iso(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -129,7 +131,8 @@ export default function BookingCalendar({
   const [horarioBloque, setHorarioBloque] = useState("");
   const [addons, setAddons] = useState<Record<string, boolean>>({});
   const [nombre, setNombre] = useState("");
-  const [contacto, setContacto] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [cedula, setCedula] = useState("");
   const [tipoEvento, setTipoEvento] = useState("");
   const [mensaje, setMensaje] = useState("");
@@ -292,6 +295,8 @@ export default function BookingCalendar({
   }
 
   const cedulaValida = CEDULA_REGEX.test(cedula.trim());
+  const correoValido = CORREO_REGEX.test(correo.trim());
+  const whatsappValido = WHATSAPP_REGEX.test(whatsapp.trim());
 
   // Solo se ofrece la forma de pago que el proveedor realmente configuró.
   const metodosDisponibles = useMemo(() => {
@@ -307,7 +312,8 @@ export default function BookingCalendar({
     invitadosNum > 0 &&
     (horarios.length === 0 || !!horarioBloque) &&
     !!nombre &&
-    !!contacto &&
+    correoValido &&
+    whatsappValido &&
     cedulaValida &&
     !!tipoEvento &&
     avisoAceptado;
@@ -324,7 +330,8 @@ export default function BookingCalendar({
     setAddons({});
     setCedula("");
     setNombre("");
-    setContacto("");
+    setCorreo("");
+    setWhatsapp("");
     setTipoEvento("");
     setMensaje("");
     setMetodoPago("");
@@ -466,10 +473,13 @@ export default function BookingCalendar({
 
     const res = await completarReservaTemporal(holdId, {
       nombre,
-      contacto,
+      correo: correo.trim(),
+      whatsapp: whatsapp.trim(),
       cedula: cedula.trim(),
       tipo_evento: tipoEvento,
       invitados: invitadosNum,
+      fecha: selectedDate,
+      nombre_rancho: nombreRancho,
       horario_bloque: horarioBloque || null,
       monto_total: totalFinal ?? 0,
       deposito_monto: depositoReserva,
@@ -946,28 +956,56 @@ export default function BookingCalendar({
                       </div>
                     )}
 
+                    <div>
+                      <label className={labelCls}>Nombre completo</label>
+                      <input
+                        type="text"
+                        required
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        placeholder="Tu nombre"
+                        className={inputCls}
+                      />
+                    </div>
+
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
-                        <label className={labelCls}>Nombre completo</label>
+                        <label className={labelCls}>Correo electrónico</label>
                         <input
-                          type="text"
+                          type="email"
                           required
-                          value={nombre}
-                          onChange={(e) => setNombre(e.target.value)}
-                          placeholder="Tu nombre"
+                          value={correo}
+                          onChange={(e) => setCorreo(e.target.value)}
+                          placeholder="tucorreo@ejemplo.com"
                           className={inputCls}
                         />
+                        {correo && !correoValido && (
+                          <p className="mt-1 text-[11px] font-bold text-red-700">
+                            Escribí un correo válido.
+                          </p>
+                        )}
+                        <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+                          Ahí te mandamos la confirmación de tu reserva.
+                        </p>
                       </div>
                       <div>
-                        <label className={labelCls}>WhatsApp o correo</label>
+                        <label className={labelCls}>WhatsApp</label>
                         <input
-                          type="text"
+                          type="tel"
                           required
-                          value={contacto}
-                          onChange={(e) => setContacto(e.target.value)}
-                          placeholder="+506 .... o correo"
+                          value={whatsapp}
+                          onChange={(e) => setWhatsapp(e.target.value)}
+                          placeholder="+506 8888-8888"
                           className={inputCls}
                         />
+                        {whatsapp && !whatsappValido && (
+                          <p className="mt-1 text-[11px] font-bold text-red-700">
+                            Escribí solo números, sin espacios de más.
+                          </p>
+                        )}
+                        <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+                          Para que {nombreRancho} te escriba directo.
+                        </p>
                       </div>
                     </div>
 

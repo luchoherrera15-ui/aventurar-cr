@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { enviarCorreo, plantillaConfirmacionReserva } from "@/lib/email";
 import type { HorarioBloque } from "./types";
 
 const MINUTOS_HOLD = 10;
@@ -137,10 +138,14 @@ export async function cancelarReservaTemporal(id: string) {
 
 export type CompletarReservaInput = {
   nombre: string;
-  contacto: string;
+  correo: string;
+  whatsapp: string;
   cedula: string;
   tipo_evento: string;
   invitados: number;
+  /** Solo para armar el correo de confirmación — no se guardan en la reserva. */
+  fecha: string;
+  nombre_rancho: string;
   horario_bloque: HorarioBloque | null;
   monto_total: number;
   deposito_monto: number;
@@ -156,6 +161,8 @@ export type CompletarReservaInput = {
 };
 
 const CEDULA_REGEX = /^[0-9-]{7,14}$/;
+const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const WHATSAPP_REGEX = /^[0-9+\s-]{8,16}$/;
 
 export async function completarReservaTemporal(
   id: string,
@@ -163,6 +170,12 @@ export async function completarReservaTemporal(
 ) {
   if (!CEDULA_REGEX.test(input.cedula.trim())) {
     return { error: "El número de cédula no es válido." };
+  }
+  if (!CORREO_REGEX.test(input.correo.trim())) {
+    return { error: "El correo electrónico no es válido." };
+  }
+  if (!WHATSAPP_REGEX.test(input.whatsapp.trim())) {
+    return { error: "El número de WhatsApp no es válido." };
   }
   if (!input.aviso_prohibiciones_aceptado) {
     return { error: "Tenés que confirmar el aviso sobre el tipo de evento." };
@@ -183,7 +196,8 @@ export async function completarReservaTemporal(
     {
       p_id: id,
       p_nombre: input.nombre,
-      p_contacto: input.contacto,
+      p_correo: input.correo,
+      p_whatsapp: input.whatsapp,
       p_cedula: input.cedula,
       p_tipo_evento: input.tipo_evento,
       p_invitados: input.invitados,
@@ -220,5 +234,19 @@ export async function completarReservaTemporal(
 
   revalidatePath("/admin/eventos");
   revalidatePath("/mi-rancho", "layout");
+
+  // El correo es un plus, no un requisito: si Resend falla o todavía
+  // no está configurado, la reserva ya quedó guardada igual.
+  await enviarCorreo({
+    to: input.correo,
+    subject: `Reserva recibida — ${input.nombre_rancho}`,
+    html: plantillaConfirmacionReserva({
+      nombreCliente: input.nombre,
+      nombreRancho: input.nombre_rancho,
+      fecha: input.fecha,
+      montoDeposito: input.deposito_monto,
+    }),
+  });
+
   return { error: null };
 }

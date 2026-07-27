@@ -3,7 +3,10 @@ export type Reserva = {
   rancho_id: string | null;
   fecha: string;
   nombre: string | null;
+  /** Campo viejo: reservas hechas antes de separar correo y WhatsApp. */
   contacto: string | null;
+  correo: string | null;
+  whatsapp: string | null;
   cedula: string | null;
   tipo_evento: string | null;
   invitados: number | null;
