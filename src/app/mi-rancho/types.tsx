@@ -473,6 +473,12 @@ export type Rancho = {
   /** Cuál de sus fotos va grande en la sección de presentación. */
   foto_presentacion: string | null;
   deposito_reserva: number;
+  sinpe_numero: string | null;
+  sinpe_titular: string | null;
+  cuenta_banco: string | null;
+  cuenta_numero: string | null;
+  cuenta_titular: string | null;
+  cuenta_tipo: string | null;
   horarios_bloques: HorarioBloqueConfig[];
   tarifa_diciembre_por_persona: number | null;
   fotos: string[];

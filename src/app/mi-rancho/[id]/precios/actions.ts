@@ -7,6 +7,7 @@ import { guardarPreciosRancho } from "@/lib/precios";
 import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
 import { HORARIOS_MAX, TERMINOS_MAX } from "../../types";
 import type { HorarioBloqueConfig } from "../../types";
+import type { CuentasPago } from "@/components/cuentas-pago-form";
 
 const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -173,4 +174,31 @@ export async function guardarPromocionesPropio(
   const { ok } = await verificarDueno(ranchoId);
   if (!ok) return { error: "No encontramos tu publicación." };
   return guardarPromocionesRancho(ranchoId, promociones);
+}
+
+export async function guardarCuentasPagoPropio(
+  ranchoId: string,
+  cuentas: CuentasPago,
+) {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
+
+  const limpiar = (v: string) => v.trim().slice(0, 120) || null;
+
+  const { error } = await supabase
+    .from("ranchos")
+    .update({
+      sinpe_numero: limpiar(cuentas.sinpeNumero),
+      sinpe_titular: limpiar(cuentas.sinpeTitular),
+      cuenta_banco: limpiar(cuentas.cuentaBanco),
+      cuenta_numero: limpiar(cuentas.cuentaNumero),
+      cuenta_titular: limpiar(cuentas.cuentaTitular),
+      cuenta_tipo: limpiar(cuentas.cuentaTipo),
+    })
+    .eq("id", ranchoId);
+
+  if (error) return { error: "No se pudo guardar: " + error.message };
+
+  revalidatePath("/mi-rancho", "layout");
+  return { error: null };
 }

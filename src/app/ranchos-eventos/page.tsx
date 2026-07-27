@@ -11,7 +11,11 @@ export default async function RanchosEventosPage() {
     .from("ranchos")
     .select("*")
     .eq("estado", "aprobado")
-    .order("created_at", { ascending: true });
+    // Los más nuevos primero: mezcla todas las categorías en el frente
+    // en vez de amontonar ahí a los lugares (los primeros que existieron
+    // en la plataforma), y los sitios viejos se corren solos hacia las
+    // páginas siguientes conforme se publican otros.
+    .order("created_at", { ascending: false });
 
   const ranchos = ((data ?? []) as Rancho[]).map((r) => ({
     ...r,
