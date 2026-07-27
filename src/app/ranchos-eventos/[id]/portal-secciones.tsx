@@ -15,9 +15,9 @@ import {
 import {
   AMENIDADES_GRUPOS,
   CATEGORIA_GRADIENTE,
-  FOTOS_DESTACADAS,
   type Categoria,
 } from "@/app/mi-rancho/types";
+import GaleriaLightbox from "@/components/galeria-lightbox";
 
 /**
  * La "división" grande del portal: una de las fotos del negocio a pantalla
@@ -234,9 +234,6 @@ export function GaleriaSeccion({
 }) {
   if (fotos.length === 0) return null;
 
-  const destacadas = fotos.slice(0, FOTOS_DESTACADAS);
-  const resto = fotos.slice(FOTOS_DESTACADAS);
-
   return (
     <section className="border-t border-aventurea-line py-14">
       <div className="mx-auto max-w-[1080px] px-7">
@@ -247,47 +244,7 @@ export function GaleriaSeccion({
           Conocé el espacio
         </h2>
 
-        <div
-          className={`mt-7 grid gap-3 ${
-            destacadas.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
-          }`}
-        >
-          {destacadas.map((url, i) => (
-            <div
-              key={url}
-              className={`overflow-hidden rounded-2xl bg-aventurea-cream-2 ${
-                destacadas.length === 1 ? "aspect-[16/9]" : "aspect-[4/3]"
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt={`${nombre} — foto ${i + 1}`}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-              />
-            </div>
-          ))}
-        </div>
-
-        {resto.length > 0 && (
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {resto.map((url, i) => (
-              <div
-                key={url}
-                className="aspect-[4/3] overflow-hidden rounded-xl bg-aventurea-cream-2"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt={`${nombre} — foto ${FOTOS_DESTACADAS + i + 1}`}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-                />
-              </div>
-            ))}
-          </div>
-        )}
+        <GaleriaLightbox fotos={fotos} nombre={nombre} />
       </div>
     </section>
   );
