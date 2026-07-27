@@ -449,3 +449,37 @@ create policy "Cada dueño administra sus gastos" on gastos_rancho
   );
 
 notify pgrst, 'reload schema';
+
+-- ============================================================
+-- 0025 — Reparación de permisos de la tabla reservas
+--
+-- Si tu proyecto se quedó con la política original (solo dejaba
+-- insertar con estado='pendiente', antes del hold temporal de 10
+-- minutos), reservar tira "new row violates row-level security
+-- policy for table reservas". Este bloque la deja en el estado
+-- correcto sin importar cuál tenías puesta.
+-- ============================================================
+
+grant select, insert, update, delete on reservas to anon, authenticated;
+
+drop policy if exists "Cualquiera crea una reserva pendiente" on reservas;
+drop policy if exists "Cualquiera crea una reserva o un hold temporal" on reservas;
+create policy "Cualquiera crea una reserva o un hold temporal"
+  on reservas for insert
+  to anon, authenticated
+  with check (estado in ('pendiente', 'temporal'));
+
+drop policy if exists "Cualquiera completa su propio hold temporal" on reservas;
+create policy "Cualquiera completa su propio hold temporal"
+  on reservas for update
+  to anon, authenticated
+  using (estado = 'temporal')
+  with check (estado in ('temporal', 'pendiente'));
+
+drop policy if exists "Cualquiera borra un hold temporal ya vencido" on reservas;
+create policy "Cualquiera borra un hold temporal ya vencido"
+  on reservas for delete
+  to anon, authenticated
+  using (estado = 'temporal' and expira_en < now());
+
+notify pgrst, 'reload schema';
