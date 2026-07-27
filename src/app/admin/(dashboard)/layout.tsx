@@ -8,6 +8,7 @@ const NAV: [string, string][] = [
   ["/admin/balance", "Balance"],
   ["/admin/usuarios", "Cuentas"],
   ["/admin/eventos/precios", "Precios"],
+  ["/admin/portada", "Portada"],
 ];
 
 export default function DashboardLayout({

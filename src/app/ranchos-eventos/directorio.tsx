@@ -2,10 +2,11 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { IconCompass, IconFiltro, IconSearch } from "@/components/icons";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
-import { fechaISO, fmtFechaCorta } from "@/lib/fechas";
+import { fechaISO, fmtFechaCorta, proximaFechaLibre } from "@/lib/fechas";
 import {
   CATEGORIAS,
   CATEGORIA_ICONO,
@@ -23,26 +24,6 @@ const POR_PAGINA = 14;
 const DIAS_A_MOSTRAR = 60;
 const DIAS_SEMANA_CORTO = ["D", "L", "M", "M", "J", "V", "S"];
 
-/**
- * Próxima fecha libre de un lugar dentro de los próximos 60 días, o
- * `null` si está confirmado todos esos días (agotado). Es la pastilla
- * de disponibilidad de la tarjeta — el dato real que tenemos hoy, sin
- * inventar bloques de horas.
- */
-function proximaFechaLibre(
-  ranchoId: string,
-  ocupadosPorFecha: Map<string, Set<string>>,
-): string | null {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  for (let i = 0; i < DIAS_A_MOSTRAR; i++) {
-    const d = new Date(hoy);
-    d.setDate(d.getDate() + i);
-    const iso = fechaISO(d);
-    if (!ocupadosPorFecha.get(iso)?.has(ranchoId)) return iso;
-  }
-  return null;
-}
 
 type FechaOcupada = { rancho_id: string; fecha: string };
 
@@ -66,11 +47,20 @@ export default function Directorio({
   }, [calificaciones]);
 
   const favoritosIds = useMemo(() => new Set(favoritosIniciales), [favoritosIniciales]);
-  const [tab, setTab] = useState<Categoria | "todos">("todos");
-  const [subcategoria, setSubcategoria] = useState("");
+  const searchParams = useSearchParams();
+  // Así los rieles del home pueden linkear "ver todo" a una categoría o
+  // zona ya filtrada (?categoria=lugares&provincia=Alajuela) en vez de
+  // mandar siempre al directorio completo sin contexto.
+  const [tab, setTab] = useState<Categoria | "todos">(() => {
+    const inicial = searchParams.get("categoria");
+    return inicial && (CATEGORIAS as readonly string[]).includes(inicial)
+      ? (inicial as Categoria)
+      : "todos";
+  });
+  const [subcategoria, setSubcategoria] = useState(() => searchParams.get("subcategoria") ?? "");
   const [texto, setTexto] = useState("");
-  const [provincia, setProvincia] = useState("");
-  const [canton, setCanton] = useState("");
+  const [provincia, setProvincia] = useState(() => searchParams.get("provincia") ?? "");
+  const [canton, setCanton] = useState(() => searchParams.get("canton") ?? "");
   const [fecha, setFecha] = useState("");
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
