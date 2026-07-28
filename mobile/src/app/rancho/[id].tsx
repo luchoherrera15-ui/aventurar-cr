@@ -400,7 +400,9 @@ export default function RanchoDetalleScreen() {
             <View style={{ gap: Spacing.two }}>
               {terminos.map((t, i) => (
                 <View key={i} style={styles.terminoFila}>
-                  <Text style={styles.terminoCheck}>✓</Text>
+                  <View style={styles.amenidadCheck}>
+                    <Ionicons name="checkmark" size={12} color={Colors.green} />
+                  </View>
                   <Text style={styles.terminoTexto}>{t}</Text>
                 </View>
               ))}
@@ -534,7 +536,6 @@ const styles = StyleSheet.create({
   },
   chipTexto: { fontSize: 12.5, fontFamily: Fonts.semiBold, color: Colors.ink },
   terminoFila: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-start" },
-  terminoCheck: { color: Colors.green, fontFamily: Fonts.bold, fontSize: 13, marginTop: 1 },
   terminoTexto: { flex: 1, fontSize: 13, color: Colors.inkSoft, lineHeight: 19 },
   resena: {
     backgroundColor: Colors.surface,

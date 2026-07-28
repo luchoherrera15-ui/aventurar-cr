@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -282,7 +283,7 @@ export default function MensajesScreen() {
           disabled={!texto.trim() || enviando}
           onPress={enviar}
         >
-          <Text style={styles.botonEnviarTexto}>→</Text>
+          <Ionicons name="send" size={17} color="#ffffff" />
         </Pressable>
       </View>
     </KeyboardAvoidingView>

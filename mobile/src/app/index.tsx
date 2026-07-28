@@ -13,6 +13,7 @@ import {
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -24,13 +25,17 @@ import {
   type Rancho,
 } from "@/lib/types";
 
-const CATEGORIA_ICONO: Record<Categoria, string> = {
-  lugares: "🏡",
-  alimentacion: "🍽️",
-  animacion: "🎉",
-  organizacion: "🗂️",
-  decoracion: "🎈",
-  otros: "✨",
+type IconoNombre = keyof typeof Ionicons.glyphMap;
+
+/** Íconos de línea (nada de emojis) para la barra de categorías, en
+ * el mismo espíritu sobrio de la fila de categorías de Airbnb. */
+const CATEGORIA_ICONO: Record<Categoria, IconoNombre> = {
+  lugares: "home-outline",
+  alimentacion: "restaurant-outline",
+  animacion: "musical-notes-outline",
+  organizacion: "clipboard-outline",
+  decoracion: "balloon-outline",
+  otros: "sparkles-outline",
 };
 
 const TAB_BAR_ESPACIO = 84;
@@ -171,7 +176,7 @@ export default function DirectorioScreen() {
           debajo del notch, como el Explore de Airbnb. */}
       <View style={[styles.busquedaArea, { paddingTop: insets.top + Spacing.three }]}>
         <View style={styles.busquedaPill}>
-          <Text style={styles.busquedaIcono}>🔎</Text>
+          <Ionicons name="search" size={17} color={Colors.ink} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -185,7 +190,7 @@ export default function DirectorioScreen() {
       <View style={styles.categoriasArea}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriasFila}>
           <CategoriaTab
-            icono="🧭"
+            icono="compass-outline"
             label="Todos"
             activo={filtro === "todos"}
             onPress={() => setFiltro("todos")}
@@ -257,7 +262,7 @@ export default function DirectorioScreen() {
                   {CATEGORIA_LABEL[riel.categoria]} para tu evento
                 </Text>
                 <Pressable style={styles.verTodosBoton} onPress={() => setFiltro(riel.categoria)}>
-                  <Text style={styles.verTodosTexto}>→</Text>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.ink} />
                 </Pressable>
               </View>
               <ScrollView
@@ -290,14 +295,14 @@ function CategoriaTab({
   activo,
   onPress,
 }: {
-  icono: string;
+  icono: IconoNombre;
   label: string;
   activo: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable onPress={onPress} style={[styles.categoriaTab, activo && styles.categoriaTabActiva]}>
-      <Text style={[styles.categoriaIcono, !activo && styles.categoriaIconoInactivo]}>{icono}</Text>
+      <Ionicons name={icono} size={22} color={activo ? Colors.ink : "#8a8a8a"} />
       <Text style={[styles.categoriaLabel, activo && styles.categoriaLabelActiva]}>{label}</Text>
     </Pressable>
   );
@@ -339,7 +344,21 @@ export function TarjetaRancho({
               onToggleFavorito();
             }}
           >
-            <Text style={[styles.iconoFavorito, favorito && styles.iconoFavoritoActivo]}>♥</Text>
+            {/* Corazón estilo Airbnb: relleno translúcido con borde
+                blanco encima, para que se lea sobre cualquier foto. */}
+            <View>
+              <Ionicons
+                name="heart"
+                size={24}
+                color={favorito ? Colors.navy : "rgba(16,22,34,0.5)"}
+              />
+              <Ionicons
+                name="heart-outline"
+                size={24}
+                color="#ffffff"
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
           </Pressable>
         )}
       </View>
@@ -373,14 +392,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: 13,
   },
-  busquedaIcono: { fontSize: 15 },
   busquedaInput: { flex: 1, fontFamily: Fonts.semiBold, fontSize: 14.5, color: Colors.ink, padding: 0 },
   categoriasArea: { backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.line },
   categoriasFila: { gap: Spacing.four, paddingHorizontal: Spacing.three, paddingTop: Spacing.three },
   categoriaTab: { alignItems: "center", gap: 6, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: "transparent" },
   categoriaTabActiva: { borderBottomColor: Colors.ink },
-  categoriaIcono: { fontSize: 21 },
-  categoriaIconoInactivo: { opacity: 0.55 },
   categoriaLabel: { fontFamily: Fonts.semiBold, fontSize: 11.5, color: Colors.inkSoft },
   categoriaLabelActiva: { color: Colors.ink },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five },
@@ -410,7 +426,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  verTodosTexto: { fontSize: 15, color: Colors.ink, fontFamily: Fonts.bold },
   rielLista: { gap: Spacing.three, paddingHorizontal: Spacing.three },
   tarjetaRiel: { width: ANCHO_RIEL },
   tarjetaCompleta: {},
@@ -426,8 +441,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  iconoFavorito: { fontSize: 20, color: "rgba(0,0,0,0.3)", textShadowColor: "#fff", textShadowRadius: 1.5, textShadowOffset: { width: 0, height: 0 } },
-  iconoFavoritoActivo: { color: Colors.navy },
   tarjetaCuerpo: { paddingTop: Spacing.two, gap: 2 },
   etiqueta: {
     fontSize: 10.5,
