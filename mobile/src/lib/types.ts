@@ -329,44 +329,85 @@ export function fmtColones(n: number | null) {
   return "₡" + Number(n).toLocaleString("es-CR");
 }
 
+/**
+ * Amenidades agrupadas como en el panel del dueño y el portal web
+ * (espejo de AMENIDADES_GRUPOS en src/app/mi-rancho/types.tsx) — así
+ * la sección "Amenidades del lugar" se ve igual en la app y el sitio.
+ */
+export const AMENIDADES_GRUPOS: {
+  titulo: string;
+  items: { id: string; label: string }[];
+}[] = [
+  {
+    titulo: "Espacios",
+    items: [
+      { id: "piscina", label: "Piscina" },
+      { id: "piscina_ninos", label: "Piscina para niños" },
+      { id: "rancho_techado", label: "Rancho techado" },
+      { id: "salon_cerrado", label: "Salón cerrado" },
+      { id: "zona_verde", label: "Zona verde / jardín" },
+      { id: "cancha_futbol", label: "Cancha de fútbol" },
+      { id: "cancha_multiuso", label: "Cancha multiuso" },
+      { id: "juegos_infantiles", label: "Área de juegos infantiles" },
+      { id: "terraza_mirador", label: "Terraza o mirador" },
+      { id: "rio_quebrada", label: "Río o quebrada" },
+    ],
+  },
+  {
+    titulo: "Cocina y comida",
+    items: [
+      { id: "parrilla", label: "Parrilla / BBQ" },
+      { id: "cocina_equipada", label: "Cocina equipada" },
+      { id: "horno_lena", label: "Horno de leña" },
+      { id: "refrigeradora", label: "Refrigeradora / congelador" },
+      { id: "comedor_techado", label: "Comedor techado" },
+      { id: "bar_barra", label: "Bar / barra" },
+      { id: "catering_externo", label: "Se permite catering externo" },
+    ],
+  },
+  {
+    titulo: "Servicios",
+    items: [
+      { id: "parqueo", label: "Parqueo privado" },
+      { id: "parqueo_buses", label: "Parqueo para buses" },
+      { id: "banos_completos", label: "Baños completos" },
+      { id: "duchas_vestidores", label: "Duchas / vestidores" },
+      { id: "wifi", label: "Wifi" },
+      { id: "planta_electrica", label: "Planta eléctrica" },
+      { id: "sonido_incluido", label: "Sonido incluido" },
+      { id: "iluminacion", label: "Iluminación de ambiente" },
+      { id: "proyector", label: "Proyector / pantalla" },
+      { id: "aire_acondicionado", label: "Aire acondicionado" },
+      { id: "seguridad", label: "Seguridad / vigilancia" },
+      { id: "limpieza", label: "Personal de limpieza" },
+    ],
+  },
+  {
+    titulo: "Hospedaje",
+    items: [
+      { id: "chalets", label: "Chalets / cabinas" },
+      { id: "habitaciones", label: "Habitaciones" },
+      { id: "camping", label: "Zona de camping" },
+    ],
+  },
+  {
+    titulo: "Accesibilidad y reglas",
+    items: [
+      { id: "acceso_silla_ruedas", label: "Acceso para silla de ruedas" },
+      { id: "mascotas", label: "Se permiten mascotas" },
+      { id: "apto_ninos", label: "Apto para niños" },
+    ],
+  },
+];
+
+export const AMENIDADES = AMENIDADES_GRUPOS.flatMap((g) =>
+  g.items.map((i) => i.id),
+);
+
 /** Etiquetas legibles de las amenidades (mismos ids que /web). */
-export const AMENIDAD_LABEL: Record<string, string> = {
-  piscina: "Piscina",
-  piscina_ninos: "Piscina para niños",
-  rancho_techado: "Rancho techado",
-  salon_cerrado: "Salón cerrado",
-  zona_verde: "Zona verde / jardín",
-  cancha_futbol: "Cancha de fútbol",
-  cancha_multiuso: "Cancha multiuso",
-  juegos_infantiles: "Área de juegos infantiles",
-  terraza_mirador: "Terraza o mirador",
-  rio_quebrada: "Río o quebrada",
-  parrilla: "Parrilla / BBQ",
-  cocina_equipada: "Cocina equipada",
-  horno_lena: "Horno de leña",
-  refrigeradora: "Refrigeradora / congelador",
-  comedor_techado: "Comedor techado",
-  bar_barra: "Bar / barra",
-  catering_externo: "Se permite catering externo",
-  parqueo: "Parqueo privado",
-  parqueo_buses: "Parqueo para buses",
-  banos_completos: "Baños completos",
-  duchas_vestidores: "Duchas / vestidores",
-  wifi: "Wifi",
-  planta_electrica: "Planta eléctrica",
-  sonido_incluido: "Sonido incluido",
-  iluminacion: "Iluminación de ambiente",
-  proyector: "Proyector / pantalla",
-  aire_acondicionado: "Aire acondicionado",
-  seguridad: "Seguridad / vigilancia",
-  limpieza: "Personal de limpieza",
-  chalets: "Chalets / cabinas",
-  habitaciones: "Habitaciones",
-  camping: "Zona de camping",
-  acceso_silla_ruedas: "Acceso para silla de ruedas",
-  mascotas: "Se permiten mascotas",
-  apto_ninos: "Apto para niños",
-};
+export const AMENIDAD_LABEL: Record<string, string> = Object.fromEntries(
+  AMENIDADES_GRUPOS.flatMap((g) => g.items.map((i) => [i.id, i.label])),
+);
 
 /** Mismos términos por defecto que /web (mi-rancho/types.tsx). */
 export function terminosPorDefecto(

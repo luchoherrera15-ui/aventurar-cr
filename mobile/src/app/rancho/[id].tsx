@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -11,12 +11,16 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
+import CalendarioMensual from "@/components/calendario-mensual";
+import SeccionEncabezado from "@/components/seccion-encabezado";
 import {
-  AMENIDAD_LABEL,
+  AMENIDADES,
+  AMENIDADES_GRUPOS,
   CATEGORIA_LABEL,
   SUBCATEGORIA_LABEL,
   UNIDAD_PRECIO_LABEL,
@@ -27,17 +31,12 @@ import {
   terminosPorDefecto,
   type CalificacionRancho,
   type DiaDisponibilidad,
+  type PromocionDia,
   type Rancho,
   type Resena,
 } from "@/lib/types";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookeacr.com";
-const DIAS_A_MOSTRAR = 60;
-const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-
-function fechaISO(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
 
 export default function RanchoDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,6 +50,7 @@ export default function RanchoDetalleScreen() {
   const [fotoActiva, setFotoActiva] = useState(0);
   const [rancho, setRancho] = useState<Rancho | null>(null);
   const [disponibilidad, setDisponibilidad] = useState<Record<string, DiaDisponibilidad>>({});
+  const [promociones, setPromociones] = useState<PromocionDia[]>([]);
   const [calificacion, setCalificacion] = useState<CalificacionRancho | null>(null);
   const [resenas, setResenas] = useState<Resena[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -100,10 +100,18 @@ export default function RanchoDetalleScreen() {
       .eq("estado", "temporal")
       .lt("expira_en", new Date().toISOString());
 
-    const { data: dispData } = await supabase
-      .from("disponibilidad_rancho")
-      .select("fecha, estado")
-      .eq("rancho_id", fila.id);
+    const [{ data: dispData }, { data: promoData }] = await Promise.all([
+      supabase
+        .from("disponibilidad_rancho")
+        .select("fecha, estado")
+        .eq("rancho_id", fila.id),
+      supabase
+        .from("promociones_dia")
+        .select("*")
+        .eq("rancho_id", fila.id)
+        .eq("activo", true),
+    ]);
+    setPromociones((promoData ?? []) as PromocionDia[]);
 
     const acc: Record<string, DiaDisponibilidad> = {};
     (dispData ?? []).forEach((r) => {
@@ -120,16 +128,6 @@ export default function RanchoDetalleScreen() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial al montar, sin librería de data-fetching en este proyecto
     cargar();
   }, [cargar]);
-
-  const proximosDias = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    return Array.from({ length: DIAS_A_MOSTRAR }, (_, i) => {
-      const d = new Date(hoy);
-      d.setDate(d.getDate() + i);
-      return d;
-    });
-  }, []);
 
   if (error) {
     return (
@@ -277,9 +275,10 @@ export default function RanchoDetalleScreen() {
         {/* ---------- Sobre este lugar ---------- */}
         {(rancho.descripcion_larga || rancho.descripcion) && (
           <View style={styles.seccion}>
-            <Text style={styles.bloqueTitulo}>
-              {esLugar ? "Sobre este lugar" : "Sobre este servicio"}
-            </Text>
+            <SeccionEncabezado
+              kicker="Conocelo"
+              titulo={esLugar ? "Sobre este lugar" : "Sobre este servicio"}
+            />
             <Text style={styles.descripcion}>
               {rancho.descripcion_larga || rancho.descripcion}
             </Text>
@@ -300,54 +299,23 @@ export default function RanchoDetalleScreen() {
           </View>
         )}
 
-        {/* ---------- Disponibilidad (lógica intacta) ---------- */}
+        {/* ---------- Disponibilidad: calendario por mes, como /web ---------- */}
         {esLugar && (
           <View style={styles.seccion} onLayout={(e) => setFechasY(e.nativeEvent.layout.y)}>
-            <Text style={styles.bloqueTitulo}>Reservá tu fecha</Text>
-            <Text style={styles.hint}>Elegí un día libre para empezar tu reserva.</Text>
-            <View style={styles.diasGrid}>
-              {proximosDias.map((d) => {
-                const iso = fechaISO(d);
-                const info = disponibilidad[iso];
-                const bloqueado = !!info?.confirmada;
-                return (
-                  <Pressable
-                    key={iso}
-                    disabled={bloqueado}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/rancho/[id]/reservar",
-                        params: { id: rancho.id, fecha: iso },
-                      })
-                    }
-                    style={[
-                      styles.diaCelda,
-                      bloqueado && styles.diaBloqueado,
-                      !bloqueado && !!info?.pendientes && styles.diaPendiente,
-                    ]}
-                  >
-                    <Text style={styles.diaSemana}>{DIAS_SEMANA[d.getDay()]}</Text>
-                    <Text style={[styles.diaNumero, bloqueado && styles.diaNumeroBloqueado]}>
-                      {d.getDate()}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View style={styles.leyenda}>
-              <View style={styles.leyendaItem}>
-                <View style={[styles.leyendaPunto, { backgroundColor: Colors.surface, borderColor: Colors.line, borderWidth: 1 }]} />
-                <Text style={styles.leyendaTexto}>Libre</Text>
-              </View>
-              <View style={styles.leyendaItem}>
-                <View style={[styles.leyendaPunto, { backgroundColor: Colors.accentLight }]} />
-                <Text style={styles.leyendaTexto}>Con solicitudes</Text>
-              </View>
-              <View style={styles.leyendaItem}>
-                <View style={[styles.leyendaPunto, { backgroundColor: Colors.line }]} />
-                <Text style={styles.leyendaTexto}>Ocupado</Text>
-              </View>
-            </View>
+            <SeccionEncabezado kicker="Disponibilidad" titulo="Reservá tu fecha" />
+            <Text style={styles.hint}>
+              Tocá un día disponible para empezar tu reserva.
+            </Text>
+            <CalendarioMensual
+              disponibilidad={disponibilidad}
+              promociones={promociones}
+              onElegir={(fechaIso) =>
+                router.push({
+                  pathname: "/rancho/[id]/reservar",
+                  params: { id: rancho.id, fecha: fechaIso },
+                })
+              }
+            />
           </View>
         )}
 
@@ -383,18 +351,44 @@ export default function RanchoDetalleScreen() {
           </Pressable>
         </View>
 
-        {/* ---------- Amenidades ---------- */}
+        {/* ---------- Amenidades: agrupadas como en el portal web ---------- */}
         {rancho.amenidades.length > 0 && (
           <View style={styles.seccion}>
-            <Text style={styles.bloqueTitulo}>
-              {esLugar ? "Amenidades del lugar" : "Qué incluye"}
-            </Text>
-            <View style={styles.chips}>
-              {rancho.amenidades.map((a) => (
-                <View key={a} style={styles.chip}>
-                  <Text style={styles.chipTexto}>✓ {AMENIDAD_LABEL[a] ?? a}</Text>
-                </View>
-              ))}
+            <SeccionEncabezado
+              kicker="Lo que incluye"
+              titulo={esLugar ? "Amenidades del lugar" : "Qué incluye"}
+            />
+            <View style={{ gap: Spacing.three, marginTop: Spacing.two }}>
+              {AMENIDADES_GRUPOS.map((g) => ({
+                titulo: g.titulo,
+                items: g.items.filter((i) => rancho.amenidades.includes(i.id)),
+              }))
+                .filter((g) => g.items.length > 0)
+                .concat(
+                  // Etiquetas que el dueño escribió a mano (fuera de la
+                  // lista predefinida) van en un grupo aparte, como /web.
+                  (() => {
+                    const extras = rancho.amenidades.filter((a) => !AMENIDADES.includes(a));
+                    return extras.length > 0
+                      ? [{ titulo: "Otras", items: extras.map((a) => ({ id: a, label: a })) }]
+                      : [];
+                  })(),
+                )
+                .map((g) => (
+                  <View key={g.titulo} style={styles.grupoAmenidades}>
+                    <Text style={styles.grupoTitulo}>{g.titulo}</Text>
+                    <View style={{ gap: 8 }}>
+                      {g.items.map((i) => (
+                        <View key={i.id} style={styles.amenidadFila}>
+                          <View style={styles.amenidadCheck}>
+                            <Ionicons name="checkmark" size={12} color={Colors.green} />
+                          </View>
+                          <Text style={styles.amenidadTexto}>{i.label}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
             </View>
           </View>
         )}
@@ -402,7 +396,7 @@ export default function RanchoDetalleScreen() {
         {/* ---------- Lo que debés saber ---------- */}
         {esLugar && (
           <View style={styles.seccion}>
-            <Text style={styles.bloqueTitulo}>Lo que debés saber</Text>
+            <SeccionEncabezado kicker="Condiciones" titulo="Lo que debés saber" />
             <View style={{ gap: Spacing.two }}>
               {terminos.map((t, i) => (
                 <View key={i} style={styles.terminoFila}>
@@ -417,11 +411,10 @@ export default function RanchoDetalleScreen() {
         {/* ---------- Reseñas ---------- */}
         {resenas.length > 0 && (
           <View style={styles.seccion}>
-            <Text style={styles.bloqueTitulo}>
-              ★ {calificacion ? calificacion.promedio.toFixed(2).replace(".", ",") : "—"} ·{" "}
-              {calificacion?.total ?? resenas.length} reseña
-              {(calificacion?.total ?? resenas.length) === 1 ? "" : "s"}
-            </Text>
+            <SeccionEncabezado
+              kicker="Opiniones"
+              titulo={`★ ${calificacion ? calificacion.promedio.toFixed(2).replace(".", ",") : "—"} · ${calificacion?.total ?? resenas.length} reseña${(calificacion?.total ?? resenas.length) === 1 ? "" : "s"}`}
+            />
             <View style={{ gap: Spacing.two }}>
               {resenas.map((r) => (
                 <View key={r.id} style={styles.resena}>
@@ -449,7 +442,7 @@ export default function RanchoDetalleScreen() {
         {/* ---------- Ubicación ---------- */}
         {esLugar && (mapsHref || wazeHref) && (
           <View style={styles.seccion}>
-            <Text style={styles.bloqueTitulo}>A dónde vas</Text>
+            <SeccionEncabezado kicker="Ubicación" titulo="A dónde vas" />
             {ubicacion ? <Text style={styles.hint}>{ubicacion}</Text> : null}
             <View style={styles.chips}>
               {mapsHref && (
@@ -554,26 +547,32 @@ const styles = StyleSheet.create({
   resenaEstrellas: { fontSize: 14, color: Colors.ink },
   resenaComentario: { fontSize: 13.5, color: Colors.ink, lineHeight: 20 },
   resenaMeta: { fontSize: 11.5, color: Colors.inkSoft },
-  diasGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  diaCelda: {
-    width: 42,
-    height: 48,
-    borderRadius: 10,
+  grupoAmenidades: {
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.line,
-    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  grupoTitulo: {
+    fontSize: 10.5,
+    fontFamily: Fonts.bold,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    color: Colors.inkSoft,
+    marginBottom: 2,
+  },
+  amenidadFila: { flexDirection: "row", alignItems: "center", gap: 10 },
+  amenidadCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.greenLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  diaPendiente: { backgroundColor: Colors.accentLight },
-  diaBloqueado: { backgroundColor: Colors.line, opacity: 0.6 },
-  diaSemana: { fontSize: 9, color: Colors.inkSoft, fontFamily: Fonts.bold },
-  diaNumero: { fontSize: 14, fontFamily: Fonts.bold, color: Colors.ink },
-  diaNumeroBloqueado: { color: Colors.inkSoft },
-  leyenda: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.three, marginTop: Spacing.two },
-  leyendaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  leyendaPunto: { width: 12, height: 12, borderRadius: 4 },
-  leyendaTexto: { fontSize: 12, color: Colors.inkSoft },
+  amenidadTexto: { fontSize: 13.5, color: Colors.ink, fontFamily: Fonts.medium, flexShrink: 1 },
   botonPrimario: {
     backgroundColor: Colors.navy,
     borderRadius: 14,
