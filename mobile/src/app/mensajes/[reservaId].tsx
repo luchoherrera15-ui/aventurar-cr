@@ -26,6 +26,7 @@ type Mensaje = {
 type ReservaConRancho = {
   id: string;
   fecha: string;
+  nombre: string | null;
   cliente_id: string | null;
   ranchos: { nombre: string; owner_id: string } | null;
 };
@@ -50,7 +51,7 @@ export default function MensajesScreen() {
     (async () => {
       const { data } = await supabase
         .from("reservas")
-        .select("id, fecha, cliente_id, ranchos(nombre, owner_id)")
+        .select("id, fecha, nombre, cliente_id, ranchos(nombre, owner_id)")
         .eq("id", reservaId)
         .maybeSingle();
 
@@ -121,7 +122,10 @@ export default function MensajesScreen() {
 
       if (!vigente) return;
       setConversacionId(convId);
-      setOtroNombre(perfilOtro?.nombre || (esCliente ? reserva.ranchos.nombre : "Cliente"));
+      setOtroNombre(
+        perfilOtro?.nombre ||
+          (esCliente ? reserva.ranchos.nombre : reserva.nombre || "Cliente"),
+      );
       setMensajes((mensajesData ?? []) as Mensaje[]);
       setCargando(false);
     })();

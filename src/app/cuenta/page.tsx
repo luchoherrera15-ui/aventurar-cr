@@ -104,6 +104,19 @@ export default async function CuentaPage() {
           </div>
         </div>
 
+        <Link
+          href="/mensajes"
+          className="mt-4 flex items-center justify-between rounded-2xl border border-aventurea-line bg-aventurea-surface px-6 py-4 transition-colors hover:border-aventurea-navy"
+        >
+          <div>
+            <p className="text-[14.5px] font-bold text-aventurea-ink">Mensajes</p>
+            <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
+              Tus conversaciones de reservas y cotizaciones.
+            </p>
+          </div>
+          <span aria-hidden className="text-aventurea-navy">→</span>
+        </Link>
+
         {tieneNegocio ? (
           <Link
             href="/mi-rancho"

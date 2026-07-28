@@ -284,6 +284,16 @@ function Dashboard({
         </View>
       </View>
 
+      <Pressable style={styles.tarjetaMensajes} onPress={() => router.push("/mensajes")}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.mensajesTitulo}>Mensajes</Text>
+          <Text style={styles.mensajesTexto}>
+            Tus conversaciones de reservas y cotizaciones.
+          </Text>
+        </View>
+        <Text style={styles.mensajesFlecha}>→</Text>
+      </Pressable>
+
       <Seccion titulo="Reservas activas" vacio="Todavía no tenés reservas en curso.">
         {activas.map((r) => (
           <TarjetaReserva key={r.id} reserva={r} />
@@ -456,6 +466,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cream,
   },
   tarjetaAtenuada: { opacity: 0.7 },
+  tarjetaMensajes: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    borderRadius: 16,
+    padding: Spacing.three,
+  },
+  mensajesTitulo: { fontFamily: Fonts.extraBold, fontSize: 14.5, color: Colors.ink },
+  mensajesTexto: { marginTop: 2, fontFamily: Fonts.medium, fontSize: 12, color: Colors.inkSoft },
+  mensajesFlecha: { fontFamily: Fonts.bold, fontSize: 16, color: Colors.navy },
   botonMensajes: {
     alignSelf: "flex-start",
     paddingTop: Spacing.one,

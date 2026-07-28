@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
@@ -7,6 +8,7 @@ import type { Mensaje } from "@/app/mi-rancho/types";
 type ReservaConRancho = {
   id: string;
   fecha: string;
+  nombre: string | null;
   cliente_id: string | null;
   ranchos: { nombre: string; foto_url: string | null; owner_id: string } | null;
 };
@@ -25,7 +27,7 @@ export default async function MensajesPage({
 
   const { data } = await supabase
     .from("reservas")
-    .select("id, fecha, cliente_id, ranchos(nombre, foto_url, owner_id)")
+    .select("id, fecha, nombre, cliente_id, ranchos(nombre, foto_url, owner_id)")
     .eq("id", reservaId)
     .maybeSingle();
 
@@ -89,6 +91,12 @@ export default async function MensajesPage({
     <div className="flex min-h-screen flex-col bg-aventurea-cream">
       <SiteHeader breadcrumb="Mensajes" />
       <section className="mx-auto flex w-full max-w-[640px] flex-1 flex-col px-4 py-6">
+        <Link
+          href="/mensajes"
+          className="mb-3 text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+        >
+          ← Todos tus mensajes
+        </Link>
         <div className="mb-3 flex items-center gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-3">
           <div
             className="h-11 w-11 shrink-0 rounded-full bg-cover bg-center bg-aventurea-cream-2"
@@ -100,7 +108,8 @@ export default async function MensajesPage({
           />
           <div className="min-w-0">
             <p className="truncate text-[14px] font-bold text-aventurea-ink">
-              {perfilOtro?.nombre || (esCliente ? reserva.ranchos.nombre : "Cliente")}
+              {perfilOtro?.nombre ||
+                (esCliente ? reserva.ranchos.nombre : reserva.nombre || "Cliente")}
             </p>
             <p className="truncate text-[12px] text-aventurea-ink-soft">
               {reserva.ranchos.nombre} · {reserva.fecha}
