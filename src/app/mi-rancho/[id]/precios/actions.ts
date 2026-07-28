@@ -202,3 +202,28 @@ export async function guardarCuentasPagoPropio(
   revalidatePath("/mi-rancho", "layout");
   return { error: null };
 }
+
+/**
+ * Depósito de reserva para las categorías de servicio: los Lugares lo
+ * guardan junto con sus tarifas (guardarPreciosPropio), pero un
+ * catering o un DJ no tienen tiers — solo necesitan fijar cuánto se
+ * paga por adelantado para agendar la fecha.
+ */
+export async function guardarDepositoPropio(ranchoId: string, deposito: number) {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
+
+  const limpio = Math.round(Number(deposito));
+  if (!Number.isFinite(limpio) || limpio < 0) {
+    return { error: "El depósito no puede ser negativo." };
+  }
+
+  const { error } = await supabase
+    .from("ranchos")
+    .update({ deposito_reserva: limpio })
+    .eq("id", ranchoId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/mi-rancho/${ranchoId}`);
+  return { error: null };
+}

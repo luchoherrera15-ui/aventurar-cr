@@ -3,6 +3,7 @@ import { logout } from "./actions";
 
 const NAV: [string, string][] = [
   ["/admin", "Inicio"],
+  ["/admin/agenda", "Agenda"],
   ["/admin/ranchos", "Salones"],
   ["/admin/eventos", "Reservas"],
   ["/admin/balance", "Balance"],

@@ -202,3 +202,65 @@ export function plantillaConfirmacionReserva({
     `,
   });
 }
+
+/** Recordatorio de evento — sale 1 día antes, al cliente y al proveedor. */
+export function plantillaRecordatorioEvento({
+  nombreDestinatario,
+  nombreRancho,
+  fecha,
+  esProveedor,
+  tipoEvento,
+  invitados,
+}: {
+  nombreDestinatario: string;
+  nombreRancho: string;
+  fecha: string;
+  esProveedor: boolean;
+  tipoEvento: string | null;
+  invitados: number | null;
+}) {
+  const nombre = escaparHtml(nombreDestinatario);
+  const rancho = escaparHtml(nombreRancho);
+  const fechaLarga = new Date(fecha + "T00:00:00").toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  return layout({
+    kicker: "Tu evento es mañana",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        Hola ${nombre},
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        ${
+          esProveedor
+            ? `Recordatorio: mañana tenés un evento agendado en <strong style="color:#101a2c;">${rancho}</strong>.`
+            : `Recordatorio: mañana es tu evento en <strong style="color:#101a2c;">${rancho}</strong>.`
+        }
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
+        ${filaDato("Fecha", fechaLarga)}
+        ${tipoEvento ? filaDato("Tipo de evento", escaparHtml(tipoEvento)) : ""}
+        ${invitados ? filaDato("Invitados", String(invitados)) : ""}
+      </table>
+
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        ${
+          esProveedor
+            ? "Revisá tu agenda en el panel para tener todo listo."
+            : "Si tenés alguna duda de último minuto, escribile al proveedor por el chat de Bookear CR."
+        }
+      </p>
+
+      <div style="padding:6px 0 4px;">
+        <a href="${SITIO_URL}${esProveedor ? "/mi-rancho" : "/mensajes"}" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          ${esProveedor ? "Abrir mi panel" : "Abrir mis mensajes"}
+        </a>
+      </div>
+    `,
+  });
+}

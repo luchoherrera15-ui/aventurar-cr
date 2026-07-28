@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useActionState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { solicitarCotizacion, type CotizacionState } from "../cotizacion-actions";
 import type { RanchoItem } from "@/app/mi-rancho/types";
 
@@ -38,11 +39,27 @@ export default function ReservaServicio({
   items,
   anticipacionDias,
   etiquetaCatalogo,
+  depositoReserva = 0,
+  sinpeNumero = null,
+  sinpeTitular = null,
+  cuentaBanco = null,
+  cuentaNumero = null,
+  cuentaTitular = null,
+  cuentaTipo = null,
 }: {
   ranchoId: string;
   items: RanchoItem[];
   anticipacionDias: number;
   etiquetaCatalogo: string;
+  /** Con depósito > 0 y al menos una cuenta de cobro, la reserva pide
+   *  el pago por adelantado + comprobante, igual que los Lugares. */
+  depositoReserva?: number;
+  sinpeNumero?: string | null;
+  sinpeTitular?: string | null;
+  cuentaBanco?: string | null;
+  cuentaNumero?: string | null;
+  cuentaTitular?: string | null;
+  cuentaTipo?: string | null;
 }) {
   const accion = solicitarCotizacion.bind(null, ranchoId);
   const [state, formAction, pending] = useActionState<CotizacionState, FormData>(
@@ -54,6 +71,38 @@ export default function ReservaServicio({
   const [mesOffset, setMesOffset] = useState(0);
   const [fecha, setFecha] = useState<string | null>(null);
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
+
+  // ---------- Depósito (solo si el proveedor lo configuró) ----------
+  const tieneSinpe = !!sinpeNumero;
+  const tieneCuenta = !!cuentaNumero;
+  const pagoActivo = depositoReserva > 0 && (tieneSinpe || tieneCuenta);
+  const [metodoPago, setMetodoPago] = useState<"sinpe" | "transferencia">(
+    tieneSinpe ? "sinpe" : "transferencia",
+  );
+  const [comprobantePath, setComprobantePath] = useState<string | null>(null);
+  const [comprobanteNombre, setComprobanteNombre] = useState<string | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [subidaError, setSubidaError] = useState<string | null>(null);
+
+  // El archivo se sube apenas se elige (mismo bucket que los Lugares):
+  // al enviar, la acción solo recibe la ruta ya subida.
+  async function subirComprobante(archivo: File | null) {
+    setSubidaError(null);
+    setComprobantePath(null);
+    setComprobanteNombre(null);
+    if (!archivo) return;
+    setSubiendo(true);
+    const supabase = createClient();
+    const path = `servicios/${ranchoId}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await supabase.storage.from("comprobantes").upload(path, archivo);
+    setSubiendo(false);
+    if (error) {
+      setSubidaError("No se pudo subir el comprobante: " + error.message);
+      return;
+    }
+    setComprobantePath(path);
+    setComprobanteNombre(archivo.name);
+  }
 
   // Primer día habilitado: hoy + anticipación del proveedor.
   const minima = useMemo(() => {
@@ -88,6 +137,10 @@ export default function ReservaServicio({
     return i.precio !== null ? s + i.precio * c : s;
   }, 0);
   const seleccionados = Object.values(cantidades).reduce((s, c) => s + c, 0);
+
+  const numPago = items.length > 0 ? 3 : 2;
+  const numDatos = numPago + (pagoActivo ? 1 : 0);
+  const listoParaEnviar = !!fecha && (!pagoActivo || !!comprobantePath);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -236,11 +289,96 @@ export default function ReservaServicio({
         </div>
       )}
 
-      {/* ---------- Paso 3: los datos ---------- */}
+      {/* ---------- Paso: depósito (si el proveedor cobra por agendar) ---------- */}
+      {pagoActivo && (
+        <div>
+          <p className={labelCls}>{numPago} · Pagá el depósito para agendar</p>
+          <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 sm:p-5">
+            <p className="text-[13.5px] text-aventurea-ink-soft">
+              Para agendar tu fecha, este proveedor pide un depósito de{" "}
+              <strong className="text-aventurea-ink">{fmtColones(depositoReserva)}</strong>.
+              Hacé el pago y subí el comprobante — tu reserva queda en
+              aprobación hasta que lo confirme.
+            </p>
+
+            {tieneSinpe && tieneCuenta && (
+              <div className="mt-4 flex gap-2">
+                {(["sinpe", "transferencia"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMetodoPago(m)}
+                    aria-pressed={metodoPago === m}
+                    className={`rounded-lg border px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
+                      metodoPago === m
+                        ? "border-aventurea-navy bg-aventurea-navy text-white"
+                        : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-navy"
+                    }`}
+                  >
+                    {m === "sinpe" ? "SINPE Móvil" : "Transferencia"}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 rounded-xl bg-aventurea-cream-2 p-4 text-[13.5px] text-aventurea-ink">
+              {metodoPago === "sinpe" && tieneSinpe ? (
+                <>
+                  <p>
+                    SINPE Móvil: <strong>{sinpeNumero}</strong>
+                  </p>
+                  {sinpeTitular && (
+                    <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+                      A nombre de {sinpeTitular}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p>
+                    {cuentaBanco ? `${cuentaBanco} · ` : ""}
+                    {cuentaTipo ? `${cuentaTipo} ` : ""}
+                    <strong>{cuentaNumero}</strong>
+                  </p>
+                  {cuentaTitular && (
+                    <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+                      A nombre de {cuentaTitular}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="mt-4">
+              <label className={labelCls}>Comprobante del depósito</label>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => subirComprobante(e.target.files?.[0] ?? null)}
+                className="w-full text-[13px] text-aventurea-ink-soft file:mr-3 file:rounded-lg file:border-0 file:bg-aventurea-navy file:px-4 file:py-2 file:text-[12.5px] file:font-bold file:text-white"
+              />
+              {subiendo && (
+                <p className="mt-2 text-[12.5px] text-aventurea-ink-soft">Subiendo…</p>
+              )}
+              {comprobantePath && (
+                <p className="mt-2 text-[12.5px] font-bold text-aventurea-green">
+                  ✓ Comprobante subido{comprobanteNombre ? ` (${comprobanteNombre})` : ""}
+                </p>
+              )}
+              {subidaError && (
+                <p className="mt-2 text-[12.5px] text-red-700">{subidaError}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <input type="hidden" name="metodo_pago" value={pagoActivo ? metodoPago : ""} />
+      <input type="hidden" name="comprobante_path" value={comprobantePath ?? ""} />
+
+      {/* ---------- Paso: los datos ---------- */}
       <div>
-        <p className={labelCls}>
-          {items.length > 0 ? "3" : "2"} · Contanos de tu evento
-        </p>
+        <p className={labelCls}>{numDatos} · Contanos de tu evento</p>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Cantidad de invitados (opcional)</label>
@@ -274,18 +412,23 @@ export default function ReservaServicio({
       <div>
         <button
           type="submit"
-          disabled={pending || !fecha}
+          disabled={pending || subiendo || !listoParaEnviar}
           className="flex h-11 w-full items-center justify-center rounded-xl bg-aventurea-navy px-6 text-sm font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-60 sm:w-fit"
         >
           {pending
             ? "Enviando..."
-            : fecha
-              ? "Enviar solicitud de reserva"
-              : "Elegí una fecha para continuar"}
+            : !fecha
+              ? "Elegí una fecha para continuar"
+              : pagoActivo && !comprobantePath
+                ? "Subí el comprobante para agendar"
+                : pagoActivo
+                  ? "Agendar mi fecha"
+                  : "Enviar solicitud de reserva"}
         </button>
         <p className="mt-2 text-[12px] text-aventurea-ink-soft">
-          Al enviar se abre un chat con el proveedor, con tu pedido ya detallado
-          — ahí mismo te confirma disponibilidad y precio final.
+          {pagoActivo
+            ? "Tu fecha queda agendada en aprobación y se abre el chat con el proveedor, con tu pedido ya detallado."
+            : "Al enviar se abre un chat con el proveedor, con tu pedido ya detallado — ahí mismo te confirma disponibilidad y precio final."}
         </p>
       </div>
     </form>

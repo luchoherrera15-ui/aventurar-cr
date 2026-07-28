@@ -33,11 +33,15 @@ import FinanzasPanel from "./finanzas/finanzas-panel";
 import {
   guardarPreciosPropio,
   guardarCodigosPropio,
+  guardarDepositoPropio,
   guardarPromocionesPropio,
   guardarTerminosPropio,
   guardarHorariosPropio,
   guardarCuentasPagoPropio,
 } from "./precios/actions";
+import DepositoForm from "./deposito-form";
+import AgendaEventos, { type EventoAgenda } from "@/components/agenda-eventos";
+import { hoyISOCR } from "@/lib/fechas";
 import {
   agregarGasto,
   borrarGasto,
@@ -151,9 +155,53 @@ export default async function RanchoDetallePage({
     },
     {
       id: "precios",
-      label: esLugar ? "Precios y descuentos" : "Códigos de descuento",
+      label: esLugar ? "Precios y descuentos" : "Cobros y descuentos",
       content: (
         <div className="flex flex-col gap-9">
+          {/* Con depósito + cuentas configuradas, el negocio de servicio
+              pasa de recibir "solicitudes" a reservas agendadas con pago
+              por adelantado — mismo mecanismo que los Lugares. */}
+          {!esLugar && (
+            <div>
+              <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+                Depósito para agendar
+              </h2>
+              <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+                Configurá el depósito y tus cuentas de cobro para que el
+                cliente agende su fecha pagando por adelantado y subiendo el
+                comprobante — igual que los lugares de eventos.
+              </p>
+              <DepositoForm
+                initialDeposito={rancho.deposito_reserva ?? 0}
+                onGuardar={guardarDepositoPropio.bind(null, rancho.id)}
+              />
+            </div>
+          )}
+
+          {!esLugar && (
+            <div>
+              <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+                Cuentas para recibir el depósito
+              </h2>
+              <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+                El cliente ve esto al agendar, según el método de pago que
+                elija. Sin cuentas configuradas, tus reservas entran como
+                solicitud sin pago.
+              </p>
+              <CuentasPagoForm
+                initial={{
+                  sinpeNumero: rancho.sinpe_numero ?? "",
+                  sinpeTitular: rancho.sinpe_titular ?? "",
+                  cuentaBanco: rancho.cuenta_banco ?? "",
+                  cuentaNumero: rancho.cuenta_numero ?? "",
+                  cuentaTitular: rancho.cuenta_titular ?? "",
+                  cuentaTipo: rancho.cuenta_tipo ?? "",
+                }}
+                onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+              />
+            </div>
+          )}
+
           {esLugar && (
             <PreciosForm
               initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
@@ -302,6 +350,37 @@ export default async function RanchoDetallePage({
       ),
     });
   }
+
+  // La agenda: los eventos que vienen, ordenados, con HOY y MAÑANA
+  // resaltados — el control operativo del día a día.
+  const hoyCR = hoyISOCR();
+  const agenda: EventoAgenda[] = reservas
+    .filter((r) => r.fecha >= hoyCR && (r.estado === "pendiente" || r.estado === "confirmada"))
+    .map((r) => ({
+      id: r.id,
+      fecha: r.fecha,
+      nombre: r.nombre,
+      tipo_evento: r.tipo_evento,
+      invitados: r.invitados,
+      estado: r.estado,
+      monto_total: r.monto_total,
+      horario_bloque: r.horario_bloque ?? null,
+    }));
+
+  tabs.splice(1, 0, {
+    id: "agenda",
+    label: "Agenda",
+    content: (
+      <div>
+        <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
+          {agenda.length} evento{agenda.length === 1 ? "" : "s"} próximo
+          {agenda.length === 1 ? "" : "s"}. Un día antes de cada evento te
+          mandamos un recordatorio por correo.
+        </p>
+        <AgendaEventos eventos={agenda} />
+      </div>
+    ),
+  });
 
   tabs.splice(1, 0, {
     id: "reservas",

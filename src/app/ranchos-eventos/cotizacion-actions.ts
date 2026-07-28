@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { DetallePedido, RanchoItem } from "@/app/mi-rancho/types";
 import { hoyISOCR } from "@/lib/fechas";
+import { enviarCorreo, plantillaConfirmacionReserva } from "@/lib/email";
 
 export type CotizacionState = { error?: string } | undefined;
 
@@ -46,6 +47,34 @@ export async function solicitarCotizacion(
   if (!fecha) return { error: "Elegí la fecha de tu evento en el calendario." };
   const hoy = hoyISOCR();
   if (fecha < hoy) return { error: "Esa fecha ya pasó — elegí una futura." };
+
+  // Si el proveedor configuró depósito + cuentas de cobro, la reserva
+  // exige el comprobante (mismo esquema que los Lugares). La config se
+  // relee de la base — nunca del navegador.
+  const { data: ranchoData } = await supabase
+    .from("ranchos")
+    .select("nombre, deposito_reserva, sinpe_numero, cuenta_numero")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  const rancho = ranchoData as {
+    nombre: string;
+    deposito_reserva: number | null;
+    sinpe_numero: string | null;
+    cuenta_numero: string | null;
+  } | null;
+  if (!rancho) return { error: "Este negocio ya no está disponible." };
+
+  const deposito = rancho.deposito_reserva ?? 0;
+  const pagoRequerido = deposito > 0 && (!!rancho.sinpe_numero || !!rancho.cuenta_numero);
+
+  const metodoPagoRaw = String(formData.get("metodo_pago") || "");
+  const metodoPago =
+    metodoPagoRaw === "sinpe" || metodoPagoRaw === "transferencia" ? metodoPagoRaw : null;
+  const comprobantePath = String(formData.get("comprobante_path") || "").trim();
+
+  if (pagoRequerido && !comprobantePath) {
+    return { error: "Subí el comprobante del depósito para agendar tu fecha." };
+  }
 
   // El pedido llega como { item_id: cantidad }. Los nombres y precios
   // NO se le creen al navegador: se releen de la base acá, para que
@@ -110,6 +139,15 @@ export async function solicitarCotizacion(
       estado: "pendiente",
       origen: "web",
       ...(detallePedido ? { detalle_pedido: detallePedido } : {}),
+      ...(detallePedido?.total_estimado != null
+        ? { monto_total: detallePedido.total_estimado }
+        : {}),
+      ...(pagoRequerido && comprobantePath
+        ? {
+            metodo_pago: metodoPago ?? "sinpe",
+            deposito_comprobante_url: comprobantePath,
+          }
+        : {}),
     })
     .select("id")
     .single();
@@ -128,7 +166,11 @@ export async function solicitarCotizacion(
     .maybeSingle();
 
   if (conversacion) {
-    const partes: string[] = [`Solicitud de reserva para el ${fecha}.`];
+    const partes: string[] = [
+      pagoRequerido && comprobantePath
+        ? `Reserva agendada para el ${fecha} — depósito de ${fmtColones(deposito)} enviado por ${metodoPago === "transferencia" ? "transferencia" : "SINPE"}, comprobante adjunto en tu panel.`
+        : `Solicitud de reserva para el ${fecha}.`,
+    ];
     if (tipoEvento) partes.push(`Tipo de evento: ${tipoEvento}.`);
     if (invitados && invitados > 0) partes.push(`Invitados: ${invitados}.`);
     if (detallePedido) {
@@ -154,6 +196,21 @@ export async function solicitarCotizacion(
       conversacion_id: conversacion.id,
       autor_id: user.id,
       texto,
+    });
+  }
+
+  // El mismo correo de "reserva recibida" que mandan los Lugares — un
+  // correo que falla no puede tumbar la reserva ya guardada.
+  if (pagoRequerido && comprobantePath && user.email) {
+    await enviarCorreo({
+      to: user.email,
+      subject: `Recibimos tu reserva en ${rancho.nombre}`,
+      html: plantillaConfirmacionReserva({
+        nombreCliente: perfil?.nombre || user.email,
+        nombreRancho: rancho.nombre,
+        fecha,
+        montoDeposito: deposito,
+      }),
     });
   }
 

@@ -1,5 +1,5 @@
 -- ============================================================
--- AVENTUREA CR — Script consolidado de migraciones 0014 a 0037
+-- AVENTUREA CR — Script consolidado de migraciones 0014 a 0038
 --
 -- Corre TODO lo pendiente en el orden correcto y de una sola vez.
 -- Cada bloque es idempotente: si una migración ya se aplicó, esa
@@ -1305,5 +1305,18 @@ create policy "Cliente o proveedor de la reserva abren el hilo" on conversacione
       )
     )
   );
+
+
+-- ############################################################
+-- 0038_recordatorios.sql
+-- ############################################################
+
+-- ------------------------------------------------------------
+-- Recordatorio de evento (1 día antes): el cron de Vercel manda el
+-- correo al cliente y al proveedor, y marca la reserva para no
+-- avisar dos veces.
+-- ------------------------------------------------------------
+
+alter table reservas add column if not exists recordatorio_enviado boolean not null default false;
 
 notify pgrst, 'reload schema';
