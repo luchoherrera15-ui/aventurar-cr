@@ -42,136 +42,161 @@ export default function CuentaScreen() {
   return <PerfilVista perfil={perfil} correo={session.user.email ?? null} />;
 }
 
+/**
+ * Entrada sin contraseña: se pide el correo, Supabase manda un código
+ * de 6 dígitos (signInWithOtp) y con verifyOtp queda la sesión. Si el
+ * correo no tiene cuenta, se crea sola como 'cliente' — login y
+ * registro son el mismo flujo, no hay contraseña que olvidar.
+ */
 function FormulariosAuth() {
-  const [modo, setModo] = useState<"login" | "registro">("login");
-  const [nombre, setNombre] = useState("");
+  const [paso, setPaso] = useState<"correo" | "codigo">("correo");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmar, setConfirmar] = useState("");
+  const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [avisoConfirmacion, setAvisoConfirmacion] = useState(false);
+  const [reenviado, setReenviado] = useState(false);
 
-  async function enviar() {
+  const correoLimpio = email.trim().toLowerCase();
+
+  async function enviarCodigo(esReenvio = false) {
     setError(null);
-    const correoLimpio = email.trim().toLowerCase();
-
     if (!CORREO_REGEX.test(correoLimpio)) {
       setError("Ese correo no parece válido.");
       return;
     }
-    if (password.length < 6) {
-      setError("La contraseña necesita al menos 6 caracteres.");
-      return;
-    }
-    if (modo === "registro" && password !== confirmar) {
-      setError("Las contraseñas no coinciden.");
-      return;
-    }
-
     setEnviando(true);
-    if (modo === "login") {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: correoLimpio,
-        password,
-      });
-      setEnviando(false);
-      if (error) setError("No pudimos iniciar sesión: " + error.message);
-      return;
-    }
-
-    // Registro: siempre queda como 'cliente' — nunca como dueño de
-    // negocio, incluso si después publica uno (eso lo decide el botón
-    // "Publicar tu negocio" del perfil, no el registro).
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithOtp({
       email: correoLimpio,
-      password,
-      options: { data: { nombre: nombre.trim() || null, rol: "cliente" } },
+      options: {
+        // Si el correo es nuevo, la cuenta nace como cliente — nunca
+        // como dueño de negocio (eso lo decide "Publicar tu negocio").
+        shouldCreateUser: true,
+        data: { rol: "cliente" },
+      },
     });
     setEnviando(false);
 
     if (error) {
-      setError("No se pudo crear la cuenta: " + error.message);
+      setError(
+        error.status === 429
+          ? "Ya te mandamos un código hace poco — esperá un minuto y probá de nuevo."
+          : "No se pudo enviar el código: " + error.message,
+      );
       return;
     }
-    if (!data.session) {
-      setAvisoConfirmacion(true);
-    }
+    setCodigo("");
+    setPaso("codigo");
+    if (esReenvio) setReenviado(true);
   }
 
-  if (avisoConfirmacion) {
-    return (
-      <View style={styles.centro}>
-        <Text style={styles.tituloConfirmacion}>Revisá tu correo</Text>
-        <Text style={styles.textoConfirmacion}>
-          Te mandamos un enlace a {email.trim()} para confirmar tu cuenta. Una vez confirmada,
-          volvé acá e iniciá sesión.
-        </Text>
-        <Pressable
-          style={styles.botonSecundario}
-          onPress={() => {
-            setAvisoConfirmacion(false);
-            setModo("login");
-          }}
-        >
-          <Text style={styles.botonSecundarioTexto}>Ir a iniciar sesión</Text>
-        </Pressable>
-      </View>
-    );
+  async function verificarCodigo() {
+    setError(null);
+    const codigoLimpio = codigo.trim();
+    if (codigoLimpio.length < 6) {
+      setError("El código tiene 6 dígitos.");
+      return;
+    }
+    setEnviando(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email: correoLimpio,
+      token: codigoLimpio,
+      type: "email",
+    });
+    setEnviando(false);
+
+    if (error) {
+      setError(
+        "Ese código no sirve o ya venció. Revisá que sea el del último correo, o pedí uno nuevo.",
+      );
+    }
+    // Con la sesión creada, el AuthProvider redibuja solo hacia el perfil.
   }
 
   return (
     <View style={styles.contenedor}>
       <TituloPantalla titulo="Perfil" />
       <ScrollView contentContainerStyle={styles.contenedorForm}>
-        <Text style={styles.titulo}>{modo === "login" ? "Iniciar sesión" : "Creá tu cuenta"}</Text>
-        <Text style={styles.subtitulo}>
-          {modo === "login"
-            ? "Entrá para ver tus reservas, favoritos y mensajes."
-            : "Registrarte es opcional — igual podés reservar sin cuenta."}
-        </Text>
-
-        <View style={styles.bloque}>
-          {modo === "registro" && (
-            <Campo label="Nombre" value={nombre} onChangeText={setNombre} />
-          )}
-          <Campo
-            label="Correo"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <Campo label="Contraseña" value={password} onChangeText={setPassword} secure />
-          {modo === "registro" && (
-            <Campo label="Confirmar contraseña" value={confirmar} onChangeText={setConfirmar} secure />
-          )}
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <Pressable style={styles.botonPrimario} disabled={enviando} onPress={enviar}>
-            {enviando ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.botonPrimarioTexto}>
-                {modo === "login" ? "Entrar" : "Crear cuenta"}
-              </Text>
-            )}
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              setError(null);
-              setModo(modo === "login" ? "registro" : "login");
-            }}
-          >
-            <Text style={styles.enlace}>
-              {modo === "login"
-                ? "¿No tenés cuenta? Registrate"
-                : "¿Ya tenés cuenta? Iniciá sesión"}
+        {paso === "correo" ? (
+          <>
+            <Text style={styles.titulo}>Entrá con tu correo</Text>
+            <Text style={styles.subtitulo}>
+              Sin contraseñas: te mandamos un código de 6 dígitos al correo y
+              con eso entrás. Si no tenés cuenta, se crea sola.
             </Text>
-          </Pressable>
-        </View>
+
+            <View style={styles.bloque}>
+              <Campo
+                label="Correo"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              {error && <Text style={styles.error}>{error}</Text>}
+
+              <Pressable
+                style={styles.botonPrimario}
+                disabled={enviando}
+                onPress={() => enviarCodigo()}
+              >
+                {enviando ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.botonPrimarioTexto}>Enviarme el código</Text>
+                )}
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.titulo}>Revisá tu correo</Text>
+            <Text style={styles.subtitulo}>
+              Te mandamos un código de 6 dígitos a {correoLimpio}. Escribilo acá
+              — puede tardar un momento en llegar (revisá spam si no aparece).
+            </Text>
+
+            <View style={styles.bloque}>
+              <Campo
+                label="Código de 6 dígitos"
+                value={codigo}
+                onChangeText={setCodigo}
+                keyboardType="numeric"
+                autoCapitalize="none"
+              />
+
+              {error && <Text style={styles.error}>{error}</Text>}
+              {reenviado && !error && (
+                <Text style={styles.avisoReenvio}>✓ Código reenviado — revisá tu correo.</Text>
+              )}
+
+              <Pressable
+                style={styles.botonPrimario}
+                disabled={enviando}
+                onPress={verificarCodigo}
+              >
+                {enviando ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.botonPrimarioTexto}>Entrar</Text>
+                )}
+              </Pressable>
+
+              <Pressable disabled={enviando} onPress={() => enviarCodigo(true)}>
+                <Text style={styles.enlace}>Reenviarme el código</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setError(null);
+                  setReenviado(false);
+                  setPaso("correo");
+                }}
+              >
+                <Text style={styles.enlaceSecundario}>← Usar otro correo</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -182,7 +207,7 @@ function Campo(props: {
   value: string;
   onChangeText: (v: string) => void;
   secure?: boolean;
-  keyboardType?: "default" | "email-address";
+  keyboardType?: "default" | "email-address" | "numeric";
   autoCapitalize?: "none" | "sentences";
 }) {
   return (
@@ -328,10 +353,8 @@ const styles = StyleSheet.create({
   },
   botonPrimarioTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },
   enlace: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center", marginTop: Spacing.two },
-  botonSecundario: { paddingVertical: 10, paddingHorizontal: Spacing.four },
-  botonSecundarioTexto: { color: Colors.accent, fontFamily: Fonts.bold },
-  tituloConfirmacion: { fontSize: 20, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
-  textoConfirmacion: { fontSize: 14, color: Colors.inkSoft, textAlign: "center" },
+  enlaceSecundario: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center", marginTop: Spacing.one },
+  avisoReenvio: { color: Colors.green, fontFamily: Fonts.bold, fontSize: 12.5 },
   tarjetaPerfil: {
     flexDirection: "row",
     alignItems: "center",
