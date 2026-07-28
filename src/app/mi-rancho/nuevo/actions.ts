@@ -29,12 +29,25 @@ export async function crearRancho(
   const contacto = String(formData.get("contacto_whatsapp") || "").trim();
   const subcategoria = String(formData.get("subcategoria") || "");
 
+  // Verificación de identidad: obligatoria para poder ofrecer servicios
+  // en el sitio (medida de seguridad contra empresas fantasma).
+  const redSocialUrl = String(formData.get("red_social_url") || "").trim();
+  const cedulaFrenteUrl = String(formData.get("cedula_frente_url") || "").trim();
+  const cedulaDorsoUrl = String(formData.get("cedula_dorso_url") || "").trim();
+
   if (
     !nombre ||
     !(CATEGORIAS as readonly string[]).includes(categoria) ||
     !(PROVINCIAS as readonly string[]).includes(provincia)
   ) {
     return { error: "Completá al menos el tipo de servicio, el nombre y la provincia." };
+  }
+
+  if (!redSocialUrl || !cedulaFrenteUrl || !cedulaDorsoUrl) {
+    return {
+      error:
+        "Por seguridad, necesitamos un link de tus redes y tu cédula por ambos lados para verificar tu negocio.",
+    };
   }
 
   const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
@@ -67,6 +80,24 @@ export async function crearRancho(
 
   if (error) {
     return { error: "No se pudo guardar tu rancho: " + error.message };
+  }
+
+  const { error: verifError } = await supabase.from("verificacion_proveedores").insert({
+    rancho_id: data.id,
+    red_social_url: redSocialUrl,
+    cedula_frente_url: cedulaFrenteUrl,
+    cedula_dorso_url: cedulaDorsoUrl,
+  });
+  if (verifError) {
+    // El rancho ya se creó; que falte la verificación no puede perder
+    // esa información — pero sin ella no queda pendiente de revisión
+    // normal, así que se deja igual y el error queda visible arriba.
+    return {
+      error:
+        "Tu negocio se guardó, pero no se pudo registrar la verificación: " +
+        verifError.message +
+        ". Escribinos a hola@bookea.lat para completarla.",
+    };
   }
 
   // Quien entró como cliente (registro opcional desde el móvil) y publica

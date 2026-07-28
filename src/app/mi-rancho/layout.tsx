@@ -10,11 +10,11 @@ export default function MiRanchoLayout({
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
           <Link href="/ranchos-eventos" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
-              B
-            </span>
-            <span className="text-base font-bold text-aventurea-ink">BOOKEA</span>
-            <span className="text-zinc-500">/</span>
+            {/* eslint-disable-next-line @next/next/no-img-element -- el
+                logo oficial es un PNG estático: next/image no aporta
+                nada acá. */}
+            <img src="/logo-bookea.png" alt="Bookear" className="h-7 w-auto shrink-0" />
+            <span className="text-zinc-300">/</span>
             <span className="text-[13px] font-light text-aventurea-ink-soft">
               Publicá tu negocio
             </span>

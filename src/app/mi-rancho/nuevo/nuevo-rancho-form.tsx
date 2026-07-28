@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { crearRancho, type NuevoRanchoState } from "./actions";
+import { createClient } from "@/lib/supabase/client";
 import {
   CANTONES,
   CATEGORIAS,
@@ -27,6 +28,36 @@ export default function NuevoRanchoForm() {
   const [provincia, setProvincia] = useState<Provincia | "">("");
   const [canton, setCanton] = useState("");
   const esLugar = categoria === "lugares";
+
+  // Verificación de identidad: las fotos se suben apenas se eligen
+  // (al bucket privado verificacion-proveedores) y el formulario solo
+  // viaja con la ruta ya subida — nunca con el archivo repetido.
+  const [redSocialUrl, setRedSocialUrl] = useState("");
+  const [cedulaFrenteUrl, setCedulaFrenteUrl] = useState<string | null>(null);
+  const [cedulaDorsoUrl, setCedulaDorsoUrl] = useState<string | null>(null);
+  const [subiendoFrente, setSubiendoFrente] = useState(false);
+  const [subiendoDorso, setSubiendoDorso] = useState(false);
+  const [errorSubida, setErrorSubida] = useState<string | null>(null);
+
+  async function subirCedula(lado: "frente" | "dorso", archivo: File | null) {
+    if (!archivo) return;
+    setErrorSubida(null);
+    (lado === "frente" ? setSubiendoFrente : setSubiendoDorso)(true);
+    const supabase = createClient();
+    const ext = archivo.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `solicitudes/${crypto.randomUUID()}-${lado}.${ext}`;
+    const { error } = await supabase.storage
+      .from("verificacion-proveedores")
+      .upload(path, archivo);
+    (lado === "frente" ? setSubiendoFrente : setSubiendoDorso)(false);
+    if (error) {
+      setErrorSubida("No se pudo subir la foto: " + error.message);
+      return;
+    }
+    (lado === "frente" ? setCedulaFrenteUrl : setCedulaDorsoUrl)(path);
+  }
+
+  const verificacionCompleta = !!redSocialUrl.trim() && !!cedulaFrenteUrl && !!cedulaDorsoUrl;
 
   return (
     <form
@@ -205,6 +236,77 @@ export default function NuevoRanchoForm() {
         </div>
       </div>
 
+      {/* ---------- Verificación de identidad ---------- */}
+      <div className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4">
+        <p className="text-[13px] font-bold text-aventurea-ink">
+          Verificación de tu negocio
+        </p>
+        <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">
+          Esto es solo por seguridad: nos ayuda a confirmar que quien
+          publica es una persona real y no una empresa fantasma. Tu
+          cédula la ve únicamente nuestro equipo de revisión — nunca se
+          hace pública ni se comparte con nadie.
+        </p>
+
+        <div className="mt-3">
+          <label className={labelCls}>Link de tus redes o tu sitio web</label>
+          <input
+            type="url"
+            required
+            value={redSocialUrl}
+            onChange={(e) => setRedSocialUrl(e.target.value)}
+            placeholder="https://instagram.com/tu_negocio"
+            className={inputCls}
+          />
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Cédula — frente</label>
+            <input
+              type="file"
+              accept="image/*"
+              required={!cedulaFrenteUrl}
+              onChange={(e) => subirCedula("frente", e.target.files?.[0] ?? null)}
+              className="block w-full text-[12.5px] text-aventurea-ink-soft file:mr-3 file:rounded-lg file:border-0 file:bg-aventurea-navy file:px-3.5 file:py-2 file:text-[12px] file:font-bold file:text-white"
+            />
+            {subiendoFrente && (
+              <p className="mt-1.5 text-[11.5px] text-zinc-500">Subiendo…</p>
+            )}
+            {cedulaFrenteUrl && !subiendoFrente && (
+              <p className="mt-1.5 text-[11.5px] font-bold text-aventurea-green">
+                ✓ Foto subida
+              </p>
+            )}
+          </div>
+          <div>
+            <label className={labelCls}>Cédula — dorso</label>
+            <input
+              type="file"
+              accept="image/*"
+              required={!cedulaDorsoUrl}
+              onChange={(e) => subirCedula("dorso", e.target.files?.[0] ?? null)}
+              className="block w-full text-[12.5px] text-aventurea-ink-soft file:mr-3 file:rounded-lg file:border-0 file:bg-aventurea-navy file:px-3.5 file:py-2 file:text-[12px] file:font-bold file:text-white"
+            />
+            {subiendoDorso && (
+              <p className="mt-1.5 text-[11.5px] text-zinc-500">Subiendo…</p>
+            )}
+            {cedulaDorsoUrl && !subiendoDorso && (
+              <p className="mt-1.5 text-[11.5px] font-bold text-aventurea-green">
+                ✓ Foto subida
+              </p>
+            )}
+          </div>
+        </div>
+        {errorSubida && (
+          <p className="mt-2 text-[12px] text-red-700">{errorSubida}</p>
+        )}
+      </div>
+
+      <input type="hidden" name="red_social_url" value={redSocialUrl.trim()} />
+      <input type="hidden" name="cedula_frente_url" value={cedulaFrenteUrl ?? ""} />
+      <input type="hidden" name="cedula_dorso_url" value={cedulaDorsoUrl ?? ""} />
+
       {state?.error && (
         <p className="rounded-lg bg-red-50 p-2.5 text-[13px] text-red-700">
           {state.error}
@@ -213,10 +315,14 @@ export default function NuevoRanchoForm() {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || subiendoFrente || subiendoDorso || !verificacionCompleta}
         className="mt-1.5 rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
       >
-        {pending ? "Enviando..." : "Enviar para revisión"}
+        {pending
+          ? "Enviando..."
+          : !verificacionCompleta
+            ? "Completá la verificación para continuar"
+            : "Enviar para revisión"}
       </button>
     </form>
   );

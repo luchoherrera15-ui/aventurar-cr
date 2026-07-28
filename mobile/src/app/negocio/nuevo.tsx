@@ -1,6 +1,8 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,7 +10,11 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import { decode as decodeBase64 } from "base64-arraybuffer";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
@@ -71,7 +77,42 @@ export default function NuevoNegocioScreen() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Verificación de identidad: obligatoria antes de publicar.
+  const [redSocialUrl, setRedSocialUrl] = useState("");
+  const [cedulaFrente, setCedulaFrente] = useState<string | null>(null);
+  const [cedulaDorso, setCedulaDorso] = useState<string | null>(null);
+
   const esLugar = categoria === "lugares";
+  const verificacionCompleta = !!redSocialUrl.trim() && !!cedulaFrente && !!cedulaDorso;
+
+  async function elegirCedula(lado: "frente" | "dorso") {
+    const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permiso.granted) {
+      Alert.alert("Permiso necesario", "Necesitamos acceso a tus fotos para la cédula.");
+      return;
+    }
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+    if (!resultado.canceled && resultado.assets[0]) {
+      (lado === "frente" ? setCedulaFrente : setCedulaDorso)(resultado.assets[0].uri);
+    }
+  }
+
+  /** Sube una foto local al bucket privado de verificación y devuelve su ruta. */
+  async function subirCedula(uri: string, lado: "frente" | "dorso"): Promise<string> {
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" });
+    const extension = uri.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `solicitudes/${Date.now()}-${lado}.${extension}`;
+    const { error: subidaError } = await supabase.storage
+      .from("verificacion-proveedores")
+      .upload(path, decodeBase64(base64), {
+        contentType: `image/${extension === "jpg" ? "jpeg" : extension}`,
+      });
+    if (subidaError) throw new Error(subidaError.message);
+    return path;
+  }
 
   async function publicar() {
     setError(null);
@@ -83,27 +124,67 @@ export default function NuevoNegocioScreen() {
       setError("Completá al menos qué ofrecés, el nombre y la provincia.");
       return;
     }
+    if (!verificacionCompleta) {
+      setError(
+        "Por seguridad, necesitamos un link de tus redes y tu cédula por ambos lados.",
+      );
+      return;
+    }
 
     setEnviando(true);
+
+    let rutaFrente: string, rutaDorso: string;
+    try {
+      rutaFrente = await subirCedula(cedulaFrente!, "frente");
+      rutaDorso = await subirCedula(cedulaDorso!, "dorso");
+    } catch (e) {
+      setEnviando(false);
+      setError(
+        "No se pudo subir la cédula: " + (e instanceof Error ? e.message : "error desconocido"),
+      );
+      return;
+    }
+
     const slug = await generarSlugUnico(nombre.trim());
-    const { error: insertError } = await supabase.from("ranchos").insert({
-      owner_id: session.user.id,
-      categoria,
-      subcategoria,
-      nombre: nombre.trim(),
-      descripcion: descripcion.trim() || null,
-      provincia,
-      canton: canton || null,
-      capacidad_min: esLugar && capMin ? parseInt(capMin) : null,
-      capacidad_max: esLugar && capMax ? parseInt(capMax) : null,
-      precio_desde: precioDesde ? parseFloat(precioDesde) : null,
-      estado: "pendiente",
-      slug,
+    const { data: nuevoRancho, error: insertError } = await supabase
+      .from("ranchos")
+      .insert({
+        owner_id: session.user.id,
+        categoria,
+        subcategoria,
+        nombre: nombre.trim(),
+        descripcion: descripcion.trim() || null,
+        provincia,
+        canton: canton || null,
+        capacidad_min: esLugar && capMin ? parseInt(capMin) : null,
+        capacidad_max: esLugar && capMax ? parseInt(capMax) : null,
+        precio_desde: precioDesde ? parseFloat(precioDesde) : null,
+        estado: "pendiente",
+        slug,
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !nuevoRancho) {
+      setEnviando(false);
+      setError("No se pudo publicar: " + (insertError?.message ?? "error desconocido"));
+      return;
+    }
+
+    const { error: verifError } = await supabase.from("verificacion_proveedores").insert({
+      rancho_id: nuevoRancho.id,
+      red_social_url: redSocialUrl.trim(),
+      cedula_frente_url: rutaFrente,
+      cedula_dorso_url: rutaDorso,
     });
     setEnviando(false);
 
-    if (insertError) {
-      setError("No se pudo publicar: " + insertError.message);
+    if (verifError) {
+      setError(
+        "Tu negocio se guardó, pero no se pudo registrar la verificación: " +
+          verifError.message +
+          ". Escribinos a hola@bookea.lat.",
+      );
       return;
     }
     router.back();
@@ -250,17 +331,64 @@ export default function NuevoNegocioScreen() {
         )}
       </View>
 
+      <View style={styles.bloque}>
+        <Text style={styles.bloqueTitulo}>Verificación de tu negocio</Text>
+        <Text style={styles.avisoVerificacion}>
+          Esto es solo por seguridad: nos ayuda a confirmar que quien
+          publica es una persona real y no una empresa fantasma. Tu
+          cédula la ve únicamente nuestro equipo de revisión.
+        </Text>
+
+        <View style={styles.gap2}>
+          <Text style={styles.campoLabel}>Link de tus redes o tu sitio web</Text>
+          <TextInput
+            value={redSocialUrl}
+            onChangeText={setRedSocialUrl}
+            placeholder="https://instagram.com/tu_negocio"
+            placeholderTextColor={Colors.inkSoft}
+            autoCapitalize="none"
+            keyboardType="url"
+            style={styles.input}
+          />
+        </View>
+
+        <View style={{ flexDirection: "row", gap: Spacing.two }}>
+          <View style={[styles.gap2, { flex: 1 }]}>
+            <Text style={styles.campoLabel}>Cédula — frente</Text>
+            <Pressable style={styles.zonaCedula} onPress={() => elegirCedula("frente")}>
+              {cedulaFrente ? (
+                <Image source={{ uri: cedulaFrente }} alt="Cédula, frente" style={styles.previewCedula} />
+              ) : (
+                <Ionicons name="camera-outline" size={22} color={Colors.inkSoft} />
+              )}
+            </Pressable>
+          </View>
+          <View style={[styles.gap2, { flex: 1 }]}>
+            <Text style={styles.campoLabel}>Cédula — dorso</Text>
+            <Pressable style={styles.zonaCedula} onPress={() => elegirCedula("dorso")}>
+              {cedulaDorso ? (
+                <Image source={{ uri: cedulaDorso }} alt="Cédula, dorso" style={styles.previewCedula} />
+              ) : (
+                <Ionicons name="camera-outline" size={22} color={Colors.inkSoft} />
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable
-        style={[styles.botonPrimario, enviando && { opacity: 0.6 }]}
-        disabled={enviando}
+        style={[styles.botonPrimario, (enviando || !verificacionCompleta) && { opacity: 0.6 }]}
+        disabled={enviando || !verificacionCompleta}
         onPress={publicar}
       >
         {enviando ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text style={styles.botonPrimarioTexto}>Publicar (queda en revisión)</Text>
+          <Text style={styles.botonPrimarioTexto}>
+            {verificacionCompleta ? "Publicar (queda en revisión)" : "Completá la verificación"}
+          </Text>
         )}
       </Pressable>
       <Text style={styles.hint}>
@@ -315,4 +443,17 @@ const styles = StyleSheet.create({
   },
   botonPrimarioTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },
   hint: { fontSize: 12, color: Colors.inkSoft, textAlign: "center", lineHeight: 17 },
+  avisoVerificacion: { fontSize: 12, color: Colors.inkSoft, lineHeight: 17 },
+  zonaCedula: {
+    height: 90,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: Colors.line,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    backgroundColor: Colors.cream,
+  },
+  previewCedula: { width: "100%", height: "100%" },
 });

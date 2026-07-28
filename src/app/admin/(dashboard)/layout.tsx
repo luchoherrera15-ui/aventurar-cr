@@ -21,13 +21,11 @@ export default function DashboardLayout({
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-5 gap-y-2 px-6 py-3.5 lg:px-10">
           <Link href="/admin" className="flex items-center gap-2">
-            <span className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-aventurea-orange text-[13.5px] font-bold text-white">
-              B
-            </span>
-            <span className="text-[15px] font-bold text-aventurea-ink">
-              BOOKEA
-            </span>
-            <span className="text-zinc-500">/</span>
+            {/* eslint-disable-next-line @next/next/no-img-element -- el
+                logo oficial es un PNG estático: next/image no aporta
+                nada acá. */}
+            <img src="/logo-bookea.png" alt="Bookear" className="h-6 w-auto shrink-0" />
+            <span className="text-zinc-300">/</span>
             <span className="text-[12.5px] font-light text-aventurea-ink-soft">
               Panel Admin
             </span>

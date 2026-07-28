@@ -61,12 +61,19 @@ export default function CuentaScreen({ activa = true }: { activa?: boolean }) {
 function FormulariosAuth() {
   const [paso, setPaso] = useState<"correo" | "codigo">("correo");
   const [email, setEmail] = useState("");
+  const [nombre, setNombre] = useState("");
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [comprobando, setComprobando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reenviado, setReenviado] = useState(false);
+  // null = todavía no se comprobó ese correo; true/false = ya se sabe
+  // si tiene cuenta. Si es nuevo, se pide el nombre antes de mandar el
+  // código; si ya existe, el mismo click manda el código directo.
+  const [correoEsNuevo, setCorreoEsNuevo] = useState<boolean | null>(null);
 
   const correoLimpio = email.trim().toLowerCase();
+  const pideNombre = correoEsNuevo === true;
 
   async function enviarCodigo(esReenvio = false) {
     setError(null);
@@ -74,6 +81,26 @@ function FormulariosAuth() {
       setError("Ese correo no parece válido.");
       return;
     }
+
+    if (correoEsNuevo === null && !esReenvio) {
+      setComprobando(true);
+      const { data, error: rpcError } = await supabase.rpc("existe_cuenta", {
+        p_email: correoLimpio,
+      });
+      setComprobando(false);
+      if (rpcError) {
+        setError("No se pudo comprobar el correo: " + rpcError.message);
+        return;
+      }
+      setCorreoEsNuevo(!data);
+      if (!data) return; // Correo nuevo: se detiene acá a pedir el nombre.
+    }
+
+    if (pideNombre && !nombre.trim()) {
+      setError("Contanos tu nombre para crear la cuenta.");
+      return;
+    }
+
     setEnviando(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: correoLimpio,
@@ -81,7 +108,7 @@ function FormulariosAuth() {
         // Si el correo es nuevo, la cuenta nace como cliente — nunca
         // como dueño de negocio (eso lo decide "Publicar tu negocio").
         shouldCreateUser: true,
-        data: { rol: "cliente" },
+        data: pideNombre ? { rol: "cliente", nombre: nombre.trim() } : { rol: "cliente" },
       },
     });
     setEnviando(false);
@@ -138,30 +165,46 @@ function FormulariosAuth() {
           <>
             <Text style={styles.titulo}>Entrá con tu correo</Text>
             <Text style={styles.subtitulo}>
-              Sin contraseñas: te mandamos un código de 6 dígitos al correo y
-              con eso entrás. Si no tenés cuenta, se crea sola.
+              Escribí tu correo: si ya tenés cuenta entrás directo, y si es tu
+              primera vez te la creamos ahí mismo con un código de 6 dígitos
+              — sin contraseñas que recordar.
             </Text>
 
             <View style={styles.bloque}>
               <Campo
                 label="Correo"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  if (correoEsNuevo !== null) setCorreoEsNuevo(null);
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
+
+              {pideNombre && (
+                <>
+                  <Text style={styles.avisoNombre}>
+                    No encontramos una cuenta con ese correo — vamos a
+                    crearte una nueva. Contanos tu nombre:
+                  </Text>
+                  <Campo label="Tu nombre" value={nombre} onChangeText={setNombre} />
+                </>
+              )}
 
               {error && <Text style={styles.error}>{error}</Text>}
 
               <Pressable
                 style={styles.botonPrimario}
-                disabled={enviando}
+                disabled={enviando || comprobando}
                 onPress={() => enviarCodigo()}
               >
-                {enviando ? (
+                {enviando || comprobando ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
-                  <Text style={styles.botonPrimarioTexto}>Enviarme el código</Text>
+                  <Text style={styles.botonPrimarioTexto}>
+                    {pideNombre ? "Crear mi cuenta y enviarme el código" : "Enviarme el código"}
+                  </Text>
                 )}
               </Pressable>
             </View>
@@ -600,6 +643,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cream,
   },
   error: { color: Colors.danger, fontSize: 13 },
+  avisoNombre: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: Colors.inkSoft,
+    backgroundColor: Colors.cream,
+    borderRadius: 10,
+    padding: 10,
+  },
   botonPrimario: {
     backgroundColor: Colors.navy,
     borderRadius: 14,

@@ -10,16 +10,19 @@ export default function FormularioAuth() {
         Entrá con tu correo
       </h1>
       <p className="mt-1.5 text-sm text-aventurea-ink-soft">
-        Para ver tus reservas, favoritos y mensajes. Si no tenés cuenta, se
-        crea sola con el mismo código.
+        Para ver tus reservas, favoritos y mensajes en un solo lugar. Escribí
+        tu correo: si ya tenés cuenta entrás directo, y si es tu primera vez
+        te la creamos ahí mismo — solo hace falta tu nombre.
       </p>
 
       {/* Si el correo es nuevo, la cuenta nace como cliente — nunca como
-          dueño de negocio (eso lo decide el alta en /publicar). */}
+          dueño de negocio (eso lo decide el alta en /publicar). El
+          nombre solo se pide cuando el correo resulta ser nuevo. */}
       <FormularioCodigoAcceso
         destino="/cuenta"
         acento="navy"
         crearCuenta
+        pedirNombreSiNuevo
         datosNuevos={{ rol: "cliente" }}
       />
 

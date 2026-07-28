@@ -4,6 +4,41 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import type { EstadoRancho } from "@/app/mi-rancho/types";
 
+/**
+ * La verificación de un negocio (link de redes + cédula) para que el
+ * admin la revise antes de aprobar. Las fotos viven en un bucket
+ * privado — acá se generan URLs firmadas de corta duración, nunca
+ * públicas.
+ */
+export async function obtenerVerificacion(ranchoId: string) {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  const { data, error } = await supabase
+    .from("verificacion_proveedores")
+    .select("red_social_url, cedula_frente_url, cedula_dorso_url")
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+
+  if (error) return { error: error.message };
+  if (!data) return { error: null, verificacion: null };
+
+  const bucket = supabase.storage.from("verificacion-proveedores");
+  const [frente, dorso] = await Promise.all([
+    bucket.createSignedUrl(data.cedula_frente_url, 300),
+    bucket.createSignedUrl(data.cedula_dorso_url, 300),
+  ]);
+
+  return {
+    error: null,
+    verificacion: {
+      redSocialUrl: data.red_social_url,
+      cedulaFrenteUrl: frente.data?.signedUrl ?? null,
+      cedulaDorsoUrl: dorso.data?.signedUrl ?? null,
+    },
+  };
+}
+
 export async function setEstadoRancho(id: string, estado: EstadoRancho) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };

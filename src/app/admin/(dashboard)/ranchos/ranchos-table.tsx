@@ -1,7 +1,13 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { borrarRancho, moverDestacado, setDestacado, setEstadoRancho } from "./actions";
+import {
+  borrarRancho,
+  moverDestacado,
+  obtenerVerificacion,
+  setDestacado,
+  setEstadoRancho,
+} from "./actions";
 import { CATEGORIA_LABEL, type EstadoRancho, type Rancho } from "@/app/mi-rancho/types";
 
 export type RanchoConDueno = Rancho & { duenoEmail: string | null };
@@ -108,6 +114,32 @@ export default function RanchosTable({
         return;
       }
       if (res.cambios) aplicarCambios(res.cambios);
+    });
+  }
+
+  const [verificacionAbierta, setVerificacionAbierta] = useState<{
+    nombre: string;
+    redSocialUrl: string;
+    cedulaFrenteUrl: string | null;
+    cedulaDorsoUrl: string | null;
+  } | null>(null);
+  const [cargandoVerificacion, setCargandoVerificacion] = useState<string | null>(null);
+
+  function verVerificacion(id: string, nombre: string) {
+    setError(null);
+    setCargandoVerificacion(id);
+    startTransition(async () => {
+      const res = await obtenerVerificacion(id);
+      setCargandoVerificacion(null);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (!res.verificacion) {
+        setError(`"${nombre}" no tiene verificación registrada (se creó antes de exigirla).`);
+        return;
+      }
+      setVerificacionAbierta({ nombre, ...res.verificacion });
     });
   }
 
@@ -292,6 +324,13 @@ export default function RanchosTable({
                       </button>
                     )}
                     <button
+                      disabled={pending || cargandoVerificacion === r.id}
+                      onClick={() => verVerificacion(r.id, r.nombre)}
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-navy hover:border-aventurea-navy disabled:opacity-50"
+                    >
+                      {cargandoVerificacion === r.id ? "Cargando…" : "Verificación"}
+                    </button>
+                    <button
                       disabled={pending}
                       onClick={() => eliminar(r.id, r.nombre)}
                       className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-red-400 hover:text-red-700 disabled:opacity-50"
@@ -305,6 +344,89 @@ export default function RanchosTable({
           </tbody>
         </table>
       </div>
+
+      {verificacionAbierta && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setVerificacionAbierta(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-aventurea-surface p-6"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Verificación de identidad
+                </p>
+                <h2 className="mt-0.5 text-lg font-bold text-aventurea-ink">
+                  {verificacionAbierta.nombre}
+                </h2>
+              </div>
+              <button
+                onClick={() => setVerificacionAbierta(null)}
+                aria-label="Cerrar"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-cream-2 text-aventurea-ink"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                Redes o sitio web
+              </p>
+              <a
+                href={verificacionAbierta.redSocialUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 block break-all text-[13.5px] font-bold text-aventurea-navy underline"
+              >
+                {verificacionAbierta.redSocialUrl}
+              </a>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Cédula — frente
+                </p>
+                {verificacionAbierta.cedulaFrenteUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- URL firmada temporal, no cacheable por next/image
+                  <img
+                    src={verificacionAbierta.cedulaFrenteUrl}
+                    alt="Cédula, frente"
+                    className="w-full rounded-lg border border-aventurea-line"
+                  />
+                ) : (
+                  <p className="text-[12.5px] text-zinc-500">No se pudo cargar.</p>
+                )}
+              </div>
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Cédula — dorso
+                </p>
+                {verificacionAbierta.cedulaDorsoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- ídem
+                  <img
+                    src={verificacionAbierta.cedulaDorsoUrl}
+                    alt="Cédula, dorso"
+                    className="w-full rounded-lg border border-aventurea-line"
+                  />
+                ) : (
+                  <p className="text-[12.5px] text-zinc-500">No se pudo cargar.</p>
+                )}
+              </div>
+            </div>
+            <p className="mt-4 text-[11.5px] text-zinc-500">
+              Estas imágenes vienen de un link temporal que vence en 5
+              minutos — cerrá y volvé a abrir si necesitás verlas de nuevo.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
