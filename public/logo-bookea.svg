@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 570 172" role="img" aria-label="Bookea">
+  <!-- La "B" de la marca (la misma del ícono): barra superior con su
+       patita y los dos cuencos. El transform la deja apoyada sobre la
+       línea base del texto (y=150) y un poco más alta que la "k". -->
+  <path fill="#22305A" transform="translate(8,7.4) scale(0.4)" d="M40 148V56c0-15 12-27 27-27h108c57 0 96 36 96 88 0 26-10 47-28 61 26 16 42 44 42 78 0 60-45 100-112 100h-22v-59h22c38 0 58-19 58-49 0-27-15-44-40-50-15-4-25-15-25-29s9-24 23-30c17-8 25-19 25-34 0-20-16-33-42-33h-73v64z"/>
+  <!-- El nombre: las dos "o" en naranja, el resto en navy. -->
+  <text x="123" y="150" font-family="Figtree, 'Segoe UI', system-ui, sans-serif" font-size="132" font-weight="800" letter-spacing="-2">
+    <tspan fill="#EE7420">oo</tspan><tspan fill="#22305A">kea</tspan>
+  </text>
+</svg>

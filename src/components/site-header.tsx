@@ -25,18 +25,13 @@ export default function SiteHeader({
         className={`mx-auto flex ${ancho} flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 py-3 sm:px-6 lg:px-10`}
       >
         <Link href="/ranchos-eventos" className="flex shrink-0 items-center gap-2">
-          {/* Tile de marca: B en navy con el punto naranja del pin del
-              logo — hasta que el archivo del logo viva en el repo. */}
-          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aventurea-navy text-[14.5px] font-bold text-white">
-            B
-            <span
-              aria-hidden
-              className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-aventurea-orange"
-            />
-          </span>
-          <span className="whitespace-nowrap text-[15px] font-extrabold tracking-tight text-aventurea-ink sm:text-base">
-            Book<span className="font-extrabold text-aventurea-orange">ea</span>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- el
+              logo es un SVG estático: next/image no aporta nada acá. */}
+          <img
+            src="/logo-bookea.svg"
+            alt="Bookea"
+            className="h-7 w-auto shrink-0 sm:h-[30px]"
+          />
           {breadcrumb && (
             <>
               <span className="hidden text-zinc-300 sm:inline">/</span>

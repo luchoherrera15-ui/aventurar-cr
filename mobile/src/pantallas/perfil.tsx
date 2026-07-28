@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import TituloPantalla from "@/components/titulo-pantalla";
+import logoBookea from "../../assets/images/logo-bookea.png";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -124,6 +126,14 @@ function FormulariosAuth() {
     <View style={styles.contenedor}>
       <TituloPantalla titulo="Perfil" />
       <ScrollView contentContainerStyle={styles.contenedorForm}>
+        {/* La marca solo aparece acá, en la puerta de entrada: dentro
+            de la app el logo estorbaría en cada pestaña. */}
+        <Image
+          source={logoBookea}
+          alt="Bookea"
+          style={styles.logoMarca}
+          resizeMode="contain"
+        />
         {paso === "correo" ? (
           <>
             <Text style={styles.titulo}>Entrá con tu correo</Text>
@@ -521,6 +531,7 @@ const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.three },
   contenedorForm: { flexGrow: 1, padding: Spacing.four, paddingBottom: 100, gap: Spacing.two },
+  logoMarca: { width: 150, height: 45, marginBottom: Spacing.two },
   titulo: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink },
   subtitulo: { fontSize: 13.5, color: Colors.inkSoft, marginBottom: Spacing.two },
   bloque: {

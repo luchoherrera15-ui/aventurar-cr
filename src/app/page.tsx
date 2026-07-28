@@ -30,14 +30,15 @@ export default function PortadaPage() {
 
       {/* ---------- Header sobre la foto ---------- */}
       <header className="relative z-10 flex items-center justify-between px-5 py-4 sm:px-10">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="relative flex h-9 w-9 items-center justify-center rounded-[10px] bg-aventurea-navy text-[18px] font-black text-white">
-            B
-            <span aria-hidden className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-aventurea-orange" />
-          </span>
-          <span className="text-lg font-extrabold tracking-tight text-white">
-            Book<span className="text-aventurea-orange">ea</span>
-          </span>
+        <Link href="/" className="flex items-center">
+          {/* Sobre la foto el logo va en blanco: el navy original se
+              perdería contra el velo oscuro del hero. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- SVG estático */}
+          <img
+            src="/logo-bookea-blanco.svg"
+            alt="Bookea"
+            className="h-8 w-auto drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)] sm:h-9"
+          />
         </Link>
         <div className="flex items-center gap-3.5">
           <Link
