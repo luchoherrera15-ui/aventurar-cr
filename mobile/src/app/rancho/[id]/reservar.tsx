@@ -60,6 +60,7 @@ export default function ReservarScreen() {
   const [whatsapp, setWhatsapp] = useState("");
   const [tipoEvento, setTipoEvento] = useState("");
   const [invitados, setInvitados] = useState("");
+  const [horasEvento, setHorasEvento] = useState("");
   const [horario, setHorario] = useState<HorarioBloqueConfig | null>(null);
   const [addons, setAddons] = useState<Record<string, boolean>>({});
   const [avisoAceptado, setAvisoAceptado] = useState(false);
@@ -177,15 +178,27 @@ export default function ReservarScreen() {
   }, [fecha]);
   const esDiciembre = fechaObj.getMonth() === 11;
   const invitadosNum = parseInt(invitados) || 0;
+  const horasNum = parseInt(horasEvento) || 0;
+
+  // Cómo cotiza este lugar según lo configuró el dueño en su panel:
+  // por rangos de invitados (de siempre), por hora, o un precio fijo
+  // del evento. Mismo cálculo que el BookingCalendar de /web.
+  const modalidadPrecio = rancho?.modalidad_precio_lugar ?? "rango_personas";
 
   const tierBase = useMemo(() => {
-    if (!invitadosNum || !rancho) return null;
+    if (!rancho) return null;
+    if (modalidadPrecio === "fijo") return rancho.precio_fijo_lugar ?? null;
+    if (modalidadPrecio === "hora") {
+      if (!horasNum || rancho.precio_hora_lugar === null) return null;
+      return horasNum * rancho.precio_hora_lugar;
+    }
+    if (!invitadosNum) return null;
     if (esDiciembre) return invitadosNum * (rancho.tarifa_diciembre_por_persona ?? 0);
     const tier = tiers.find(
       (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
     );
     return tier ? tier.precio : null;
-  }, [invitadosNum, esDiciembre, tiers, rancho]);
+  }, [modalidadPrecio, horasNum, invitadosNum, esDiciembre, tiers, rancho]);
 
   const addonsTotal = servicios.reduce((acc, s) => {
     const eligible = !s.requisito_max_invitados || invitadosNum <= s.requisito_max_invitados;
@@ -232,13 +245,23 @@ export default function ReservarScreen() {
     }
   }
 
+  // Lo que hace falta para cotizar cambia según la modalidad: por
+  // rangos necesita invitados, por hora necesita las horas, y el
+  // precio fijo no depende de ninguno de los dos.
+  const cotizacionCompleta =
+    modalidadPrecio === "hora"
+      ? horasNum > 0
+      : modalidadPrecio === "fijo"
+        ? true
+        : invitadosNum > 0;
+
   const puedeAvanzar =
     !!nombre.trim() &&
     CEDULA_REGEX.test(cedula.trim()) &&
     CORREO_REGEX.test(correo.trim()) &&
     WHATSAPP_REGEX.test(whatsapp.trim()) &&
     !!tipoEvento.trim() &&
-    invitadosNum > 0 &&
+    cotizacionCompleta &&
     (rancho?.horarios_bloques.length ? !!horario : true) &&
     avisoAceptado;
 
@@ -247,12 +270,11 @@ export default function ReservarScreen() {
     !!metodoPago &&
     !!comprobanteUri &&
     terminosAceptados &&
-    total !== null &&
     !enviando &&
     !subiendo;
 
   async function enviarReserva() {
-    if (!holdId || !rancho || !comprobanteUri || total === null) return;
+    if (!holdId || !rancho || !comprobanteUri) return;
     setEnviando(true);
     setErrorEnvio(null);
 
@@ -285,13 +307,18 @@ export default function ReservarScreen() {
         p_tipo_evento: tipoEvento.trim(),
         p_invitados: invitadosNum,
         p_horario_bloque: horario ? etiquetaHorario(horario) : null,
-        p_monto_total: total,
+        p_monto_total: total ?? 0,
         p_deposito_monto: rancho.deposito_reserva ?? 25000,
         p_metodo_pago: metodoPago,
         p_deposito_comprobante_url: path,
         p_terminos_aceptados: terminosAceptados,
         p_aviso_prohibiciones_aceptado: avisoAceptado,
-        p_notas: null,
+        // Sin columna propia para las horas contratadas, van en las
+        // notas para que el dueño las vea al revisar la reserva.
+        p_notas:
+          modalidadPrecio === "hora" && horasNum > 0
+            ? `Evento contratado por ${horasNum} hora${horasNum === 1 ? "" : "s"}.`
+            : null,
         p_codigo_descuento: null,
         p_descuento_monto: descuentoMonto,
       });
@@ -371,7 +398,11 @@ export default function ReservarScreen() {
         <Campo label="Correo" value={correo} onChangeText={setCorreo} keyboardType="email-address" autoCapitalize="none" />
         <Campo label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" />
         <Campo label="Tipo de evento" value={tipoEvento} onChangeText={setTipoEvento} placeholder="Ej. cumpleaños, boda" />
-        <Campo label="Cantidad de invitados" value={invitados} onChangeText={setInvitados} keyboardType="numeric" />
+        {modalidadPrecio === "hora" ? (
+          <Campo label="Cantidad de horas" value={horasEvento} onChangeText={setHorasEvento} keyboardType="numeric" placeholder="Ej. 5" />
+        ) : modalidadPrecio === "rango_personas" ? (
+          <Campo label="Cantidad de invitados" value={invitados} onChangeText={setInvitados} keyboardType="numeric" />
+        ) : null}
 
         {rancho && rancho.horarios_bloques.length > 0 && (
           <View style={styles.gap2}>
@@ -424,17 +455,29 @@ export default function ReservarScreen() {
         </Pressable>
       </View>
 
-      {total !== null && (
-        <View style={styles.bloque}>
-          <Text style={styles.bloqueTitulo}>Cotización estimada</Text>
-          {promoAplicable && (
-            <Text style={styles.promoTexto}>
-              {promoAplicable.etiqueta || "Promoción"} · -{promoAplicable.porcentaje_descuento}%
-            </Text>
-          )}
+      <View style={styles.bloque}>
+        <Text style={styles.bloqueTitulo}>Cotización estimada</Text>
+        {promoAplicable && total !== null && (
+          <Text style={styles.promoTexto}>
+            {promoAplicable.etiqueta || "Promoción"} · -{promoAplicable.porcentaje_descuento}%
+          </Text>
+        )}
+        {total !== null ? (
           <Text style={styles.totalTexto}>{fmtColones(total)}</Text>
-        </View>
-      )}
+        ) : (
+          <Text style={styles.hint}>
+            {modalidadPrecio === "hora"
+              ? horasNum
+                ? "Consultá el precio por hora con el proveedor."
+                : "Indicá cuántas horas necesitás para ver el precio."
+              : modalidadPrecio === "fijo"
+                ? "Consultá el precio del evento con el proveedor."
+                : invitadosNum
+                  ? "Cotización personalizada — el proveedor te confirma el monto."
+                  : "Indicá tus invitados para ver el precio."}
+          </Text>
+        )}
+      </View>
 
       {metodosDisponibles.length > 0 && (
         <View style={styles.bloque}>

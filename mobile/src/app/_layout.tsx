@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import {
@@ -12,11 +12,12 @@ import {
 } from "@expo-google-fonts/montserrat";
 import { AuthProvider } from "@/lib/auth-context";
 import { Colors, Fonts } from "@/constants/theme";
-import TabBar from "@/components/tab-bar";
+import TabBar, { RUTAS_CON_BARRA } from "@/components/tab-bar";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const pathname = usePathname();
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
@@ -35,9 +36,14 @@ export default function RootLayout() {
 
   if (!fontsLoaded) return null;
 
+  // Las pestañas raíz van sin barra nativa (cada una pinta su título
+  // sobre fondo claro → íconos de estado oscuros); las pantallas de
+  // detalle conservan el header navy → íconos claros.
+  const esPestana = RUTAS_CON_BARRA.has(pathname);
+
   return (
     <AuthProvider>
-      <StatusBar style="light" />
+      <StatusBar style={esPestana ? "dark" : "light"} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: Colors.navy },
@@ -46,14 +52,16 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: Colors.cream },
         }}
       >
-        <Stack.Screen name="index" options={{ title: "BookeaCR" }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="favoritos" options={{ headerShown: false }} />
+        <Stack.Screen name="reservas" options={{ headerShown: false }} />
+        <Stack.Screen name="mensajes/index" options={{ headerShown: false }} />
+        <Stack.Screen name="cuenta" options={{ headerShown: false }} />
         <Stack.Screen name="rancho/[id]" options={{ title: "" }} />
         <Stack.Screen
           name="rancho/[id]/reservar"
           options={{ title: "Reservar" }}
         />
-        <Stack.Screen name="cuenta" options={{ title: "Mi cuenta" }} />
-        <Stack.Screen name="mensajes/index" options={{ title: "Mensajes" }} />
         <Stack.Screen name="mensajes/[reservaId]" options={{ title: "Mensajes" }} />
         <Stack.Screen name="mensajes/hilo/[conversacionId]" options={{ title: "Mensajes" }} />
       </Stack>

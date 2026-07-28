@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
+import TituloPantalla from "@/components/titulo-pantalla";
 
 /**
  * Bandeja de entrada tipo Airbnb: todas las conversaciones de la
@@ -149,29 +150,40 @@ export default function BandejaMensajesScreen() {
 
   if (!session) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.vacioTitulo}>Iniciá sesión</Text>
-        <Text style={styles.vacioTexto}>
-          Entrá a tu cuenta para ver tus conversaciones.
-        </Text>
-        <Pressable style={styles.boton} onPress={() => router.push("/cuenta")}>
-          <Text style={styles.botonTexto}>Ir a mi cuenta</Text>
-        </Pressable>
+      <View style={styles.contenedor}>
+        <TituloPantalla titulo="Mensajes" />
+        <View style={styles.centro}>
+          <Text style={styles.vacioTitulo}>Iniciá sesión</Text>
+          <Text style={styles.vacioTexto}>
+            Entrá a tu cuenta para ver tus conversaciones.
+          </Text>
+          <Pressable style={styles.boton} onPress={() => router.replace("/cuenta")}>
+            <Text style={styles.botonTexto}>Ir a mi perfil</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
   if (filas === null) {
     return (
-      <View style={styles.centro}>
-        <ActivityIndicator color={Colors.accent} />
+      <View style={styles.contenedor}>
+        <TituloPantalla titulo="Mensajes" />
+        <View style={styles.centro}>
+          <ActivityIndicator color={Colors.accent} />
+        </View>
       </View>
     );
   }
 
   return (
-    <FlatList
-      style={styles.contenedor}
+    <View style={styles.contenedor}>
+      <TituloPantalla
+        titulo="Mensajes"
+        subtitulo="Tus conversaciones con proveedores."
+      />
+      <FlatList
+      style={{ flex: 1 }}
       contentContainerStyle={{ padding: Spacing.three, paddingBottom: 100 }}
       data={filas}
       keyExtractor={(f) => f.id}
@@ -231,7 +243,8 @@ export default function BandejaMensajesScreen() {
           </Pressable>
         );
       }}
-    />
+      />
+    </View>
   );
 }
 

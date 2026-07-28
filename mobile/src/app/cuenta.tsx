@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -8,18 +8,22 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
-import { CATEGORIA_LABEL, fmtColones, type Categoria } from "@/lib/types";
-import { TarjetaRancho, type Fila } from "./index";
+import TituloPantalla from "@/components/titulo-pantalla";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookeacr.com";
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Pestaña Perfil, al estilo Airbnb: la tarjeta de la persona arriba y
+ * una lista de accesos debajo. Las reservas, favoritos y mensajes ya
+ * no viven acá — cada uno tiene su propia pestaña en la barra.
+ */
 export default function CuentaScreen() {
   const { session, perfil, cargando } = useAuth();
 
@@ -35,7 +39,7 @@ export default function CuentaScreen() {
     return <FormulariosAuth />;
   }
 
-  return <Dashboard perfil={perfil} correo={session.user.email ?? null} clienteId={session.user.id} />;
+  return <PerfilVista perfil={perfil} correo={session.user.email ?? null} />;
 }
 
 function FormulariosAuth() {
@@ -78,7 +82,7 @@ function FormulariosAuth() {
 
     // Registro: siempre queda como 'cliente' — nunca como dueño de
     // negocio, incluso si después publica uno (eso lo decide el botón
-    // "Publicar tu negocio" del dashboard, no el registro).
+    // "Publicar tu negocio" del perfil, no el registro).
     const { data, error } = await supabase.auth.signUp({
       email: correoLimpio,
       password,
@@ -117,56 +121,59 @@ function FormulariosAuth() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.contenedorForm}>
-      <Text style={styles.titulo}>{modo === "login" ? "Iniciar sesión" : "Creá tu cuenta"}</Text>
-      <Text style={styles.subtitulo}>
-        {modo === "login"
-          ? "Entrá para ver tus reservas activas y tu historial."
-          : "Registrarte es opcional — igual podés reservar sin cuenta."}
-      </Text>
+    <View style={styles.contenedor}>
+      <TituloPantalla titulo="Perfil" />
+      <ScrollView contentContainerStyle={styles.contenedorForm}>
+        <Text style={styles.titulo}>{modo === "login" ? "Iniciar sesión" : "Creá tu cuenta"}</Text>
+        <Text style={styles.subtitulo}>
+          {modo === "login"
+            ? "Entrá para ver tus reservas, favoritos y mensajes."
+            : "Registrarte es opcional — igual podés reservar sin cuenta."}
+        </Text>
 
-      <View style={styles.bloque}>
-        {modo === "registro" && (
-          <Campo label="Nombre" value={nombre} onChangeText={setNombre} />
-        )}
-        <Campo
-          label="Correo"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <Campo label="Contraseña" value={password} onChangeText={setPassword} secure />
-        {modo === "registro" && (
-          <Campo label="Confirmar contraseña" value={confirmar} onChangeText={setConfirmar} secure />
-        )}
-
-        {error && <Text style={styles.error}>{error}</Text>}
-
-        <Pressable style={styles.botonPrimario} disabled={enviando} onPress={enviar}>
-          {enviando ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={styles.botonPrimarioTexto}>
-              {modo === "login" ? "Entrar" : "Crear cuenta"}
-            </Text>
+        <View style={styles.bloque}>
+          {modo === "registro" && (
+            <Campo label="Nombre" value={nombre} onChangeText={setNombre} />
           )}
-        </Pressable>
+          <Campo
+            label="Correo"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <Campo label="Contraseña" value={password} onChangeText={setPassword} secure />
+          {modo === "registro" && (
+            <Campo label="Confirmar contraseña" value={confirmar} onChangeText={setConfirmar} secure />
+          )}
 
-        <Pressable
-          onPress={() => {
-            setError(null);
-            setModo(modo === "login" ? "registro" : "login");
-          }}
-        >
-          <Text style={styles.enlace}>
-            {modo === "login"
-              ? "¿No tenés cuenta? Registrate"
-              : "¿Ya tenés cuenta? Iniciá sesión"}
-          </Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+          {error && <Text style={styles.error}>{error}</Text>}
+
+          <Pressable style={styles.botonPrimario} disabled={enviando} onPress={enviar}>
+            {enviando ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.botonPrimarioTexto}>
+                {modo === "login" ? "Entrar" : "Crear cuenta"}
+              </Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              setError(null);
+              setModo(modo === "login" ? "registro" : "login");
+            }}
+          >
+            <Text style={styles.enlace}>
+              {modo === "login"
+                ? "¿No tenés cuenta? Registrate"
+                : "¿Ya tenés cuenta? Iniciá sesión"}
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -194,214 +201,101 @@ function Campo(props: {
   );
 }
 
-const ESTADO_LABEL: Record<string, string> = {
-  pendiente: "En revisión",
-  confirmada: "Confirmada",
-  rechazada: "Rechazada",
-};
-const ESTADO_COLOR: Record<string, string> = {
-  pendiente: Colors.accent,
-  confirmada: Colors.green,
-  rechazada: Colors.danger,
-};
-
-type ReservaCliente = {
-  id: string;
-  fecha: string;
-  estado: string;
-  monto_total: number | null;
-  horario_bloque: string | null;
-  ranchos: { nombre: string; foto_url: string | null; categoria: Categoria } | null;
-};
-
-function Dashboard({
-  perfil,
-  correo,
-  clienteId,
-}: {
-  perfil: Perfil | null;
-  correo: string | null;
-  clienteId: string;
-}) {
+function PerfilVista({ perfil, correo }: { perfil: Perfil | null; correo: string | null }) {
   const router = useRouter();
-  const [reservas, setReservas] = useState<ReservaCliente[] | null>(null);
-  const [favoritos, setFavoritos] = useState<Fila[] | null>(null);
-
-  const cargar = useCallback(async () => {
-    const { data } = await supabase
-      .from("reservas")
-      .select("id, fecha, estado, monto_total, horario_bloque, ranchos(nombre, foto_url, categoria)")
-      .eq("cliente_id", clienteId)
-      .in("estado", ["pendiente", "confirmada", "rechazada"])
-      .order("fecha", { ascending: false });
-    setReservas((data ?? []) as unknown as ReservaCliente[]);
-
-    const { data: favData } = await supabase
-      .from("favoritos")
-      .select(
-        "ranchos(id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url)",
-      )
-      .eq("cliente_id", clienteId);
-    setFavoritos(
-      ((favData ?? []) as unknown as { ranchos: Fila | null }[])
-        .map((f) => f.ranchos)
-        .filter((r): r is Fila => r !== null),
-    );
-  }, [clienteId]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial al montar, sin librería de data-fetching en este proyecto
-    cargar();
-  }, [cargar]);
-
-  async function quitarFavorito(ranchoId: string) {
-    setFavoritos((prev) => (prev ?? []).filter((r) => r.id !== ranchoId));
-    await supabase.from("favoritos").delete().eq("cliente_id", clienteId).eq("rancho_id", ranchoId);
-  }
-
-  const hoy = new Date().toISOString().slice(0, 10);
-  const activas = (reservas ?? []).filter(
-    (r) => r.estado !== "rechazada" && r.fecha >= hoy,
-  );
-  const historial = (reservas ?? []).filter(
-    (r) => r.estado === "rechazada" || r.fecha < hoy,
-  );
-
   const inicial = (perfil?.nombre || correo || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <ScrollView
-      style={styles.contenedor}
-      contentContainerStyle={{ padding: Spacing.four, paddingBottom: 100, gap: Spacing.four }}
-    >
-      <View style={styles.tarjetaPerfil}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarTexto}>{inicial}</Text>
+    <View style={styles.contenedor}>
+      <TituloPantalla titulo="Perfil" />
+      <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingBottom: 100, gap: Spacing.four }}>
+        <View style={styles.tarjetaPerfil}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarTexto}>{inicial}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nombrePerfil}>{perfil?.nombre || "Tu cuenta"}</Text>
+            <Text style={styles.correoPerfil}>{correo}</Text>
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.nombrePerfil}>{perfil?.nombre || "Tu cuenta"}</Text>
-          <Text style={styles.correoPerfil}>{correo}</Text>
-        </View>
-      </View>
 
-      <Pressable style={styles.tarjetaMensajes} onPress={() => router.push("/mensajes")}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.mensajesTitulo}>Mensajes</Text>
-          <Text style={styles.mensajesTexto}>
-            Tus conversaciones de reservas y cotizaciones.
-          </Text>
-        </View>
-        <Text style={styles.mensajesFlecha}>→</Text>
-      </Pressable>
-
-      <Seccion titulo="Reservas activas" vacio="Todavía no tenés reservas en curso.">
-        {activas.map((r) => (
-          <TarjetaReserva key={r.id} reserva={r} />
-        ))}
-      </Seccion>
-
-      <Seccion titulo="Historial" vacio="Acá vas a ver tus reservas pasadas.">
-        {historial.map((r) => (
-          <TarjetaReserva key={r.id} reserva={r} atenuada />
-        ))}
-      </Seccion>
-
-      <Seccion titulo="Tus favoritos" vacio="Todavía no guardaste ningún favorito — tocá el corazón en cualquier tarjeta del directorio.">
-        {(favoritos ?? []).map((item) => (
-          <TarjetaRancho
-            key={item.id}
-            item={item}
-            ancho="completo"
-            favorito
-            onPress={() => router.push(`/rancho/${item.id}`)}
-            onToggleFavorito={() => quitarFavorito(item.id)}
+        <View style={styles.listaEnlaces}>
+          <FilaEnlace
+            icono="calendar-outline"
+            titulo="Mis reservas"
+            detalle="Estado de tus fechas y tu historial"
+            onPress={() => router.replace("/reservas")}
           />
-        ))}
-      </Seccion>
-
-      <Pressable
-        style={styles.tarjetaPublicar}
-        onPress={() => WebBrowser.openBrowserAsync(`${SITIO_URL}/publicar`)}
-      >
-        <Text style={styles.publicarTitulo}>¿Ofrecés un servicio para eventos?</Text>
-        <Text style={styles.publicarTexto}>
-          Publicá tu negocio en Bookear CR — lugares, catering, DJs, fotografía y más.
-        </Text>
-        <Text style={styles.publicarBoton}>Publicar tu negocio →</Text>
-      </Pressable>
-
-      <Pressable style={styles.botonSalir} onPress={() => supabase.auth.signOut()}>
-        <Text style={styles.botonSalirTexto}>Cerrar sesión</Text>
-      </Pressable>
-    </ScrollView>
-  );
-}
-
-function Seccion({
-  titulo,
-  vacio,
-  children,
-}: {
-  titulo: string;
-  vacio: string;
-  children: React.ReactNode;
-}) {
-  const hayContenido = Array.isArray(children) ? children.length > 0 : !!children;
-  return (
-    <View style={styles.bloque}>
-      <Text style={styles.bloqueTitulo}>{titulo}</Text>
-      {hayContenido ? (
-        <View style={{ gap: Spacing.two }}>{children}</View>
-      ) : (
-        <Text style={styles.hint}>{vacio}</Text>
-      )}
-    </View>
-  );
-}
-
-function TarjetaReserva({ reserva, atenuada }: { reserva: ReservaCliente; atenuada?: boolean }) {
-  const router = useRouter();
-  return (
-    <View style={[styles.tarjetaReserva, atenuada && styles.tarjetaAtenuada]}>
-      <View style={{ flexDirection: "row", gap: Spacing.three }}>
-        <Image
-          source={reserva.ranchos?.foto_url ? { uri: reserva.ranchos.foto_url } : undefined}
-          style={styles.fotoReserva}
-          contentFit="cover"
-          alt={reserva.ranchos?.nombre ?? ""}
-        />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.categoriaReserva}>
-            {reserva.ranchos ? CATEGORIA_LABEL[reserva.ranchos.categoria] : ""}
-          </Text>
-          <Text style={styles.nombreReserva} numberOfLines={1}>
-            {reserva.ranchos?.nombre ?? "Proveedor"}
-          </Text>
-          <Text style={styles.fechaReserva}>
-            {reserva.fecha}
-            {reserva.horario_bloque ? ` · ${reserva.horario_bloque}` : ""}
-          </Text>
-          {reserva.monto_total !== null && (
-            <Text style={styles.montoReserva}>{fmtColones(reserva.monto_total)}</Text>
-          )}
+          <FilaEnlace
+            icono="heart-outline"
+            titulo="Mis favoritos"
+            detalle="Los proveedores que guardaste"
+            onPress={() => router.replace("/favoritos")}
+          />
+          <FilaEnlace
+            icono="chatbubble-outline"
+            titulo="Mensajes"
+            detalle="Tus conversaciones con proveedores"
+            onPress={() => router.replace("/mensajes")}
+          />
+          <FilaEnlace
+            icono="globe-outline"
+            titulo="Abrir el sitio web"
+            detalle="bookeacr.com en el navegador"
+            onPress={() => WebBrowser.openBrowserAsync(SITIO_URL)}
+            ultima
+          />
         </View>
-        <View
-          style={[styles.badgeEstado, { backgroundColor: ESTADO_COLOR[reserva.estado] ?? Colors.inkSoft }]}
+
+        <Pressable
+          style={styles.tarjetaPublicar}
+          onPress={() => WebBrowser.openBrowserAsync(`${SITIO_URL}/publicar`)}
         >
-          <Text style={styles.badgeEstadoTexto}>{ESTADO_LABEL[reserva.estado] ?? reserva.estado}</Text>
-        </View>
-      </View>
-      <Pressable style={styles.botonMensajes} onPress={() => router.push(`/mensajes/${reserva.id}`)}>
-        <Text style={styles.botonMensajesTexto}>Mensajes</Text>
-      </Pressable>
+          <Text style={styles.publicarTitulo}>¿Ofrecés un servicio para eventos?</Text>
+          <Text style={styles.publicarTexto}>
+            Publicá tu negocio en Bookear CR — lugares, catering, DJs, fotografía y más.
+            La administración de tu negocio se hace desde el sitio web.
+          </Text>
+          <Text style={styles.publicarBoton}>Publicar tu negocio →</Text>
+        </Pressable>
+
+        <Pressable style={styles.botonSalir} onPress={() => supabase.auth.signOut()}>
+          <Text style={styles.botonSalirTexto}>Cerrar sesión</Text>
+        </Pressable>
+      </ScrollView>
     </View>
+  );
+}
+
+function FilaEnlace({
+  icono,
+  titulo,
+  detalle,
+  onPress,
+  ultima,
+}: {
+  icono: keyof typeof Ionicons.glyphMap;
+  titulo: string;
+  detalle: string;
+  onPress: () => void;
+  ultima?: boolean;
+}) {
+  return (
+    <Pressable style={[styles.filaEnlace, !ultima && styles.filaEnlaceBorde]} onPress={onPress}>
+      <Ionicons name={icono} size={22} color={Colors.navy} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.enlaceTitulo}>{titulo}</Text>
+        <Text style={styles.enlaceDetalle}>{detalle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={Colors.inkSoft} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.three },
-  contenedorForm: { flexGrow: 1, padding: Spacing.four, paddingBottom: 100, gap: Spacing.two, backgroundColor: Colors.cream },
+  contenedorForm: { flexGrow: 1, padding: Spacing.four, paddingBottom: 100, gap: Spacing.two },
   titulo: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink },
   subtitulo: { fontSize: 13.5, color: Colors.inkSoft, marginBottom: Spacing.two },
   bloque: {
@@ -412,7 +306,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.line,
     gap: Spacing.three,
   },
-  bloqueTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
   gap2: { gap: 6 },
   campoLabel: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft, textTransform: "uppercase" },
   input: {
@@ -458,49 +351,22 @@ const styles = StyleSheet.create({
   avatarTexto: { color: "#ffffff", fontSize: 20, fontFamily: Fonts.extraBold },
   nombrePerfil: { color: "#ffffff", fontSize: 16, fontFamily: Fonts.extraBold },
   correoPerfil: { color: "#ffffffb0", fontSize: 12.5 },
-  hint: { fontSize: 13, color: Colors.inkSoft },
-  tarjetaReserva: {
-    gap: Spacing.two,
-    padding: Spacing.two,
-    borderRadius: 12,
-    backgroundColor: Colors.cream,
-  },
-  tarjetaAtenuada: { opacity: 0.7 },
-  tarjetaMensajes: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.two,
+  listaEnlaces: {
     backgroundColor: Colors.surface,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.line,
-    borderRadius: 16,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
   },
-  mensajesTitulo: { fontFamily: Fonts.extraBold, fontSize: 14.5, color: Colors.ink },
-  mensajesTexto: { marginTop: 2, fontFamily: Fonts.medium, fontSize: 12, color: Colors.inkSoft },
-  mensajesFlecha: { fontFamily: Fonts.bold, fontSize: 16, color: Colors.navy },
-  botonMensajes: {
-    alignSelf: "flex-start",
-    paddingTop: Spacing.one,
-    marginTop: 2,
-    borderTopWidth: 1,
-    borderTopColor: Colors.line,
-    width: "100%",
+  filaEnlace: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.three,
+    paddingVertical: Spacing.three,
   },
-  botonMensajesTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5, paddingTop: 4 },
-  fotoReserva: { width: 56, height: 56, borderRadius: 10, backgroundColor: Colors.cream2 },
-  categoriaReserva: {
-    fontSize: 10.5,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-    color: Colors.accent,
-  },
-  nombreReserva: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink },
-  fechaReserva: { fontSize: 12.5, color: Colors.inkSoft },
-  montoReserva: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.ink },
-  badgeEstado: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  badgeEstadoTexto: { color: "#ffffff", fontSize: 10.5, fontFamily: Fonts.bold },
+  filaEnlaceBorde: { borderBottomWidth: 1, borderBottomColor: Colors.line },
+  enlaceTitulo: { fontSize: 14.5, fontFamily: Fonts.bold, color: Colors.ink },
+  enlaceDetalle: { fontSize: 12, color: Colors.inkSoft, marginTop: 1 },
   tarjetaPublicar: {
     backgroundColor: Colors.accentLight,
     borderRadius: 16,

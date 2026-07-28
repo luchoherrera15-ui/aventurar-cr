@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -48,6 +49,7 @@ export type Fila = Pick<
 
 export default function DirectorioScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const [ranchos, setRanchos] = useState<Fila[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -165,7 +167,9 @@ export default function DirectorioScreen() {
 
   return (
     <View style={styles.contenedor}>
-      <View style={styles.busquedaArea}>
+      {/* Sin barra nativa en las pestañas: el buscador arranca justo
+          debajo del notch, como el Explore de Airbnb. */}
+      <View style={[styles.busquedaArea, { paddingTop: insets.top + Spacing.three }]}>
         <View style={styles.busquedaPill}>
           <Text style={styles.busquedaIcono}>🔎</Text>
           <TextInput
