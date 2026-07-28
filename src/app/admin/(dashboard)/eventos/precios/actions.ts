@@ -24,7 +24,7 @@ export async function guardarConfiguracion(
     .select("id")
     .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
-  if (!rancho) return { error: "No se encontró el rancho de Bookear CR." };
+  if (!rancho) return { error: "No se encontró el rancho de Bookea." };
 
   return guardarPreciosRancho(
     rancho.id,
@@ -61,7 +61,7 @@ export async function guardarCodigosBookear(
   }[],
 ) {
   const ranchoId = await ranchoBookearId();
-  if (!ranchoId) return { error: "No se encontró el rancho de Bookear CR." };
+  if (!ranchoId) return { error: "No se encontró el rancho de Bookea." };
   return guardarCodigosRancho(ranchoId, codigos);
 }
 
@@ -74,6 +74,6 @@ export async function guardarPromocionesBookear(
   }[],
 ) {
   const ranchoId = await ranchoBookearId();
-  if (!ranchoId) return { error: "No se encontró el rancho de Bookear CR." };
+  if (!ranchoId) return { error: "No se encontró el rancho de Bookea." };
   return guardarPromocionesRancho(ranchoId, promociones);
 }

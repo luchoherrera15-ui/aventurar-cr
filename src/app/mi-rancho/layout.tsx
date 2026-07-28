@@ -13,7 +13,7 @@ export default function MiRanchoLayout({
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aventurea-orange text-[14.5px] font-bold text-white">
               B
             </span>
-            <span className="text-base font-bold text-aventurea-ink">BOOKEAR CR</span>
+            <span className="text-base font-bold text-aventurea-ink">BOOKEA</span>
             <span className="text-zinc-500">/</span>
             <span className="text-[13px] font-light text-aventurea-ink-soft">
               Publicá tu negocio

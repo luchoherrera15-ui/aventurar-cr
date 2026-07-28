@@ -10,9 +10,29 @@ const figtree = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: "Bookear CR",
+  // El título por defecto lleva la propuesta completa con las palabras
+  // que la gente realmente busca; las páginas internas anteponen lo
+  // suyo con el template ("Rancho X | Bookea").
+  title: {
+    default: "Bookea — Reservá espacios y servicios para tu evento en Costa Rica",
+    template: "%s | Bookea",
+  },
   description:
-    "Paquetes vacacionales en Puntaleona / Alajuela, y alquiler de salón de eventos, Costa Rica.",
+    "Encontrá y reservá lugares para fiestas, catering, DJs, decoración y todo para tu evento en Costa Rica. Compará opciones reales y reservá directo, sin cadenas de WhatsApp.",
+  keywords: [
+    "reservar salón de eventos Costa Rica",
+    "lugares para fiestas",
+    "catering Costa Rica",
+    "ranchos para eventos",
+    "Bookea",
+  ],
+  openGraph: {
+    title: "Bookea — Reservá espacios y servicios para tu evento",
+    description:
+      "Lugares, comida, música y decoración para tu evento en Costa Rica. Compará y reservá directo.",
+    locale: "es_CR",
+    siteName: "Bookea",
+  },
 };
 
 // El navegador in-app de algunas apps (WhatsApp, Instagram...) fuerza

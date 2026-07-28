@@ -35,7 +35,7 @@ export default function SiteHeader({
             />
           </span>
           <span className="whitespace-nowrap text-[15px] font-extrabold tracking-tight text-aventurea-ink sm:text-base">
-            Bookear <span className="font-extrabold text-aventurea-orange">CR</span>
+            Book<span className="font-extrabold text-aventurea-orange">ea</span>
           </span>
           {breadcrumb && (
             <>

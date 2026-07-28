@@ -84,7 +84,7 @@ export default async function EventosSalonPage() {
 
       <BookingCalendar
         ranchoId={rancho.id}
-        nombreRancho="Bookear CR · Rancho de Eventos"
+        nombreRancho="Bookea · Rancho de Eventos"
         disponibilidad={disponibilidad}
         tiers={(tiersRes.data ?? []) as PrecioTier[]}
         servicios={(svcRes.data ?? []) as ServicioAdicional[]}
@@ -149,7 +149,7 @@ export default async function EventosSalonPage() {
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
-          BOOKEAR CR — Costa Rica ·{" "}
+          BOOKEA — Costa Rica ·{" "}
           <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
             Volver al inicio
           </Link>

@@ -21,9 +21,9 @@ import {
 } from "../mi-rancho/types";
 
 export const metadata = {
-  title: "Publicá tu negocio — Bookear CR",
+  title: "Publicá tu negocio — Bookea",
   description:
-    "Sumá tu salón, rancho, catering, DJ o servicio para eventos al directorio de Bookear CR. Publicar es gratis.",
+    "Sumá tu salón, rancho, catering, DJ o servicio para eventos al directorio de Bookea. Publicar es gratis.",
 };
 
 export default async function PublicarPage() {
@@ -142,7 +142,7 @@ export default async function PublicarPage() {
               icono={<IconUsers />}
               color="text-teal-600"
               dato="Chat integrado"
-              texto="El cliente te escribe por el chat de Bookear CR, con su pedido ya armado. Nada se pierde en conversaciones externas."
+              texto="El cliente te escribe por el chat de Bookea, con su pedido ya armado. Nada se pierde en conversaciones externas."
             />
           </div>
         </div>
@@ -301,7 +301,7 @@ export default async function PublicarPage() {
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
-          BOOKEAR CR — Costa Rica ·{" "}
+          BOOKEA — Costa Rica ·{" "}
           <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
             Ver el directorio
           </Link>

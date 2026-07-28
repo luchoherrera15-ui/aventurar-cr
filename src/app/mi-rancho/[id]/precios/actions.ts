@@ -117,7 +117,7 @@ export async function guardarPreciosPropio(
  * Guarda los términos propios del negocio y su monto mínimo.
  *
  * Una lista vacía significa "usar los que trae la plataforma", así que
- * un proveedor que borra todo vuelve a los de Bookear CR en vez de
+ * un proveedor que borra todo vuelve a los de Bookea en vez de
  * quedarse publicado sin condiciones.
  */
 export async function guardarTerminosPropio(

@@ -278,7 +278,7 @@ function PerfilVista({ perfil, correo }: { perfil: Perfil | null; correo: string
         >
           <Text style={styles.publicarTitulo}>¿Ofrecés un servicio para eventos?</Text>
           <Text style={styles.publicarTexto}>
-            Publicá tu negocio en Bookear CR — lugares, catering, DJs, fotografía y más.
+            Publicá tu negocio en Bookea — lugares, catering, DJs, fotografía y más.
             La administración de tu negocio se hace desde el sitio web.
           </Text>
           <Text style={styles.publicarBoton}>Publicar tu negocio →</Text>

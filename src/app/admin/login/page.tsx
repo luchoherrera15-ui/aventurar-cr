@@ -14,13 +14,13 @@ export default function LoginPage() {
           Panel Administrativo
         </h2>
         <p className="mt-1.5 text-sm text-aventurea-ink-soft">
-          Gestiona las reservas de Bookear CR.
+          Gestiona las reservas de Bookea.
         </p>
 
         <FormularioCodigoAcceso destino="/admin" acento="orange" soloAdmin />
 
         <p className="mt-4 rounded-[10px] bg-aventurea-cream-2 p-3 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
-          Este acceso es solo para el equipo de Bookear CR. El código de
+          Este acceso es solo para el equipo de Bookea. El código de
           acceso llega al correo de tu cuenta de administración.
         </p>
       </div>

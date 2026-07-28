@@ -24,7 +24,7 @@ function obtenerCliente() {
 // (solo entrega a la casilla dueña de la cuenta). Verificá tu dominio
 // en resend.com/domains y poné RESEND_FROM_EMAIL en Vercel para que
 // llegue a cualquier cliente, no solo a vos.
-const REMITENTE = process.env.RESEND_FROM_EMAIL || "Bookear CR <onboarding@resend.dev>";
+const REMITENTE = process.env.RESEND_FROM_EMAIL || "Bookea <onboarding@resend.dev>";
 const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://bookea.lat";
 
 export async function enviarCorreo({
@@ -111,10 +111,10 @@ function layout({
           <tr>
             <td style="padding:24px 30px 28px;text-align:center;">
               <div style="height:1px;background:#e2e4ea;margin:0 0 22px;"></div>
-              <div style="font-size:12.5px;font-weight:700;color:#101a2c;">Bookear CR</div>
+              <div style="font-size:12.5px;font-weight:700;color:#101a2c;">Bookea</div>
               <a href="${SITIO_URL}" style="font-size:12px;color:#16295e;text-decoration:none;font-weight:700;">bookea.lat</a>
               <div style="font-size:11px;color:#a3aab5;margin-top:10px;line-height:1.6;">
-                Costa Rica · Recibiste este correo porque hiciste una reserva en Bookear CR.
+                Costa Rica · Recibiste este correo porque hiciste una reserva en Bookea.
               </div>
             </td>
           </tr>
@@ -186,13 +186,13 @@ export function plantillaConfirmacionReserva({
 
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
         Tu reserva queda <strong style="color:#101a2c;">en aprobación</strong> mientras
-        ${rancho} valida el pago. Te avisamos por este mismo correo o por el chat de Bookear CR en
+        ${rancho} valida el pago. Te avisamos por este mismo correo o por el chat de Bookea en
         cuanto quede confirmada.
       </p>
 
       <div style="padding:6px 0 4px;">
         <a href="${SITIO_URL}/ranchos-eventos" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
-          Ver más lugares en Bookear CR
+          Ver más lugares en Bookea
         </a>
       </div>
 
@@ -252,7 +252,7 @@ export function plantillaRecordatorioEvento({
         ${
           esProveedor
             ? "Revisá tu agenda en el panel para tener todo listo."
-            : "Si tenés alguna duda de último minuto, escribile al proveedor por el chat de Bookear CR."
+            : "Si tenés alguna duda de último minuto, escribile al proveedor por el chat de Bookea."
         }
       </p>
 

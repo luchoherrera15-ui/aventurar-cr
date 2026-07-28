@@ -683,7 +683,7 @@ export default function Directorio({
           </h2>
           <p className="mt-1 text-[13px] text-aventurea-ink-soft">
             Lugares, comida, animación, decoración y más — publicalo gratis en
-            Bookear CR y llegá a más clientes en todo el país.
+            Bookea y llegá a más clientes en todo el país.
           </p>
         </div>
         <Link

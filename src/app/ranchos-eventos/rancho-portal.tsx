@@ -492,8 +492,8 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
             </h2>
             <p className="mt-1.5 text-[13.5px] text-aventurea-ink-soft">
               {itemsCatalogo.length > 0
-                ? `Elegí la fecha, marcá lo que querés del ${etiquetaCatalogo.toLowerCase()} y enviá tu solicitud — el proveedor te confirma por el chat de Bookear CR.`
-                : "Elegí la fecha y contanos qué necesitás — el proveedor te confirma por el chat de Bookear CR."}
+                ? `Elegí la fecha, marcá lo que querés del ${etiquetaCatalogo.toLowerCase()} y enviá tu solicitud — el proveedor te confirma por el chat de Bookea.`
+                : "Elegí la fecha y contanos qué necesitás — el proveedor te confirma por el chat de Bookea."}
             </p>
 
             <div className="mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 sm:p-6">
@@ -631,7 +631,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
-          BOOKEAR CR — Costa Rica ·{" "}
+          BOOKEA — Costa Rica ·{" "}
           <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
             Ver todos los espacios
           </Link>

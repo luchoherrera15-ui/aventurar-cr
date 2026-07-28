@@ -420,7 +420,7 @@ export function terminosPorDefecto(
     "El tipo de evento debe coincidir exactamente con el indicado al reservar; si no coincide, el anfitrión puede cancelar la reserva sin devolución del depósito.",
     "Subir el comprobante no confirma la fecha por sí solo — la reserva queda en aprobación hasta que el anfitrión la revise y confirme.",
     "Cualquier daño a las instalaciones o al mobiliario durante el evento es responsabilidad de quien hizo la reserva.",
-    "El número de cédula se pide únicamente para identificar a quien reserva en caso de daños o problemas durante el evento (Ley 8968 de protección de datos). Solo lo ve el anfitrión del lugar reservado y el equipo de Bookear CR — nunca se hace público.",
+    "El número de cédula se pide únicamente para identificar a quien reserva en caso de daños o problemas durante el evento (Ley 8968 de protección de datos). Solo lo ve el anfitrión del lugar reservado y el equipo de Bookea — nunca se hace público.",
   ];
 
   if (montoMinimo && montoMinimo > 0) {

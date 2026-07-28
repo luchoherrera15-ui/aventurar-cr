@@ -92,7 +92,7 @@ export default async function RanchosEventosPage() {
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
-          BOOKEAR CR — Costa Rica ·{" "}
+          BOOKEA — Costa Rica ·{" "}
           <Link href="/puntaleona-web" className="font-bold text-aventurea-orange">
             Paquetes vacacionales
           </Link>

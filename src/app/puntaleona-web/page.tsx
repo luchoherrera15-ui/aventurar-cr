@@ -11,7 +11,7 @@ export default function PuntaleonaWebPage() {
           B
         </span>
         <span className="text-base font-bold tracking-wide text-aventurea-ink">
-          BOOKEAR CR
+          BOOKEA
         </span>
       </Link>
       <h1 className="relative text-2xl font-bold text-aventurea-ink">Paquetes Vacacionales</h1>

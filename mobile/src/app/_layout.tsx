@@ -52,6 +52,10 @@ export default function RootLayout() {
           headerTintColor: "#ffffff",
           headerTitleStyle: { fontFamily: Fonts.extraBold, fontSize: 17 },
           contentStyle: { backgroundColor: Colors.cream },
+          // Volver deslizando desde cualquier parte de la pantalla (no
+          // solo el borde), como Instagram — navegación mucho más fluida.
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />

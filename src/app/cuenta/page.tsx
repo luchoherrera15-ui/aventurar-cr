@@ -141,7 +141,7 @@ export default async function CuentaPage() {
                 ¿Ofrecés un servicio para eventos?
               </p>
               <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                Publicá tu negocio gratis en Bookear CR.
+                Publicá tu negocio gratis en Bookea.
               </p>
             </div>
             <span aria-hidden className="text-aventurea-navy">→</span>

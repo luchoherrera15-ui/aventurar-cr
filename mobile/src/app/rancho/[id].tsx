@@ -333,7 +333,7 @@ export default function RanchoDetalleScreen() {
             </Pressable>
             <Text style={styles.hint}>
               Elegís la fecha, armás tu pedido y el proveedor te confirma por el
-              chat de Bookear CR.
+              chat de Bookea.
             </Text>
           </View>
         )}

@@ -25,7 +25,7 @@ export default function DashboardLayout({
               B
             </span>
             <span className="text-[15px] font-bold text-aventurea-ink">
-              BOOKEAR CR
+              BOOKEA
             </span>
             <span className="text-zinc-500">/</span>
             <span className="text-[12.5px] font-light text-aventurea-ink-soft">
