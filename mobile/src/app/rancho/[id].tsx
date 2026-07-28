@@ -36,7 +36,7 @@ import {
   type Resena,
 } from "@/lib/types";
 
-const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookeacr.com";
+const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
 export default function RanchoDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

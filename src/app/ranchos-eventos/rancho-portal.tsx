@@ -45,7 +45,7 @@ function fmtColones(n: number | null) {
 /**
  * El portal público de un rancho/servicio: el mismo contenido se
  * muestra tanto en /ranchos-eventos/[id] (enlace legado) como en
- * /[slug] (la URL corta, ej. bookeacr.com/rancholastorres). Cada ruta
+ * /[slug] (la URL corta, ej. bookea.lat/rancholastorres). Cada ruta
  * se encarga de buscar la fila en `ranchos` a su manera (por id o por
  * slug) y le pasa acá el resultado ya normalizado.
  */

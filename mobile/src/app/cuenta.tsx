@@ -16,7 +16,7 @@ import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import TituloPantalla from "@/components/titulo-pantalla";
 
-const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookeacr.com";
+const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -266,7 +266,7 @@ function PerfilVista({ perfil, correo }: { perfil: Perfil | null; correo: string
           <FilaEnlace
             icono="globe-outline"
             titulo="Abrir el sitio web"
-            detalle="bookeacr.com en el navegador"
+            detalle="bookea.lat en el navegador"
             onPress={() => WebBrowser.openBrowserAsync(SITIO_URL)}
             ultima
           />

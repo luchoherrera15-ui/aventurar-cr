@@ -8,7 +8,7 @@ flujo). La variable `{{ .Token }}` es el código — no la borres.
 El envío sale por Resend vía SMTP (Supabase → Project Settings →
 Authentication → SMTP Settings), así que el remitente debe ser una
 dirección del dominio verificado en Resend, p. ej.
-`Bookear CR <acceso@bookeacr.com>`.
+`Bookear CR <acceso@bookea.lat>`.
 
 ---
 
@@ -36,7 +36,7 @@ dirección del dominio verificado en Resend, p. ej.
   </p>
   <hr style="margin:24px 0;border:none;border-top:1px solid #e2e2e2;" />
   <p style="margin:0;font-size:11.5px;color:#8a8a8a;">
-    Bookear CR — bookeacr.com
+    Bookear CR — bookea.lat
   </p>
 </div>
 ```
@@ -68,7 +68,7 @@ dirección del dominio verificado en Resend, p. ej.
   </p>
   <hr style="margin:24px 0;border:none;border-top:1px solid #e2e2e2;" />
   <p style="margin:0;font-size:11.5px;color:#8a8a8a;">
-    Bookear CR — bookeacr.com
+    Bookear CR — bookea.lat
   </p>
 </div>
 ```

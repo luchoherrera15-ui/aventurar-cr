@@ -71,7 +71,7 @@ simulador de iOS, o el navegador.
   programar la generación/verificación del código) — solo falta
   decidir cómo lo manda Resend (SMTP relay en el dashboard de Supabase
   vs. un Auth Hook con plantilla propia) y confirmar el dominio
-  `bookeacr.com` verificado en Resend.
+  `bookea.lat` verificado en Resend.
 - Alta de proveedores nativa en la app (hoy el botón "Publicar tu
   negocio" abre `/publicar` de la web en un navegador embebido).
 - Códigos de descuento (sí soporta las promociones automáticas por día
