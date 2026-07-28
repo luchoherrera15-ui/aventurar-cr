@@ -1,14 +1,22 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORIA_GRADIENTE, CATEGORIA_ICONO, CATEGORIA_LABEL, normalizarCategoria } from "../types";
+import {
+  CATALOGO_LABEL,
+  CATEGORIA_GRADIENTE,
+  CATEGORIA_ICONO,
+  CATEGORIA_LABEL,
+  normalizarCategoria,
+} from "../types";
 import type {
   CodigoDescuento,
   PrecioTier,
   PromocionDia,
   Rancho,
+  RanchoItem,
   ServicioAdicional,
 } from "../types";
+import CatalogoPanel from "./catalogo-panel";
 import { resumenFinanciero, type Gasto, type ReservaFinanzas } from "@/lib/finanzas";
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
 import Tabs, { type Tab } from "./tabs";
@@ -89,7 +97,7 @@ export default async function RanchoDetallePage({
     .filter(Boolean)
     .join(", ");
 
-  const [reservasRes, gastosRes, tiersRes, serviciosRes, codigosRes, promocionesRes] =
+  const [reservasRes, gastosRes, tiersRes, serviciosRes, codigosRes, promocionesRes, itemsRes] =
     await Promise.all([
       supabase
         .from("reservas")
@@ -117,6 +125,12 @@ export default async function RanchoDetallePage({
         .from("promociones_dia")
         .select("*")
         .eq("rancho_id", rancho.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("rancho_items")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .order("orden", { ascending: true })
         .order("created_at", { ascending: true }),
     ]);
 
@@ -251,6 +265,44 @@ export default async function RanchoDetallePage({
   // solicitudes de cotización reales (ver "Solicitar cotización" en su
   // página pública), así que la pestaña aplica para todos — el
   // contenido de la tabla es el mismo, solo cambia la palabra.
+  // El catálogo es el corazón de la reserva en línea de los servicios:
+  // lo que el proveedor carga acá es lo que el cliente elige al armar
+  // su pedido en la página pública. Lugares no lo necesita — ya tiene
+  // su propio sistema de precios y servicios adicionales.
+  if (!esLugar) {
+    const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
+    tabs.splice(1, 0, {
+      id: "catalogo",
+      label: etiquetaCatalogo,
+      content: (
+        <div>
+          {itemsRes.error ? (
+            <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+              <strong>Faltan las migraciones.</strong> No se pudo leer tu{" "}
+              {etiquetaCatalogo.toLowerCase()}: {itemsRes.error.message}. Corré{" "}
+              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+                supabase/aplicar-migraciones-pendientes.sql
+              </code>{" "}
+              en el SQL Editor de Supabase y volvé a entrar.
+            </div>
+          ) : (
+            <>
+              <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
+                Lo que cargués acá aparece en tu página pública, y el cliente lo
+                elige al reservar una fecha — con cantidades y total estimado.
+              </p>
+              <CatalogoPanel
+                ranchoId={rancho.id}
+                initialItems={(itemsRes.data ?? []) as RanchoItem[]}
+                etiqueta={etiquetaCatalogo}
+              />
+            </>
+          )}
+        </div>
+      ),
+    });
+  }
+
   tabs.splice(1, 0, {
     id: "reservas",
     label: esLugar ? "Reservas" : "Solicitudes",

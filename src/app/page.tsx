@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import RevealOnScroll from "@/components/reveal-on-scroll";
 import RielProveedores from "@/components/riel-proveedores";
 import type { Calificacion } from "@/components/rancho-card";
 import { proximaFechaLibre } from "@/lib/fechas";
@@ -12,7 +13,8 @@ import {
   type Rancho,
 } from "./mi-rancho/types";
 
-const LIMITE_RIEL = 14;
+// 10 tarjetas por riel: suficiente para deslizar, sin cargar de más.
+const LIMITE_RIEL = 10;
 
 type FechaOcupada = { rancho_id: string; fecha: string };
 type SupabaseServidor = Awaited<ReturnType<typeof createClient>>;
@@ -168,6 +170,9 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-aventurea-cream">
+      {/* Sin esto, las tarjetas (que nacen ocultas por data-reveal) nunca
+          se muestran — este componente es el que las va revelando. */}
+      <RevealOnScroll />
       <SiteHeader />
 
       <section className="mx-auto max-w-[1600px] px-6 py-8 lg:px-10">

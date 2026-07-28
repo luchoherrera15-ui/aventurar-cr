@@ -3,14 +3,16 @@ import { createClient } from "@/lib/supabase/server";
 import BookingCalendar from "@/app/eventos-salon/booking-calendar";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteHeader from "@/components/site-header";
-import { IconCheck, IconPin, IconUsers, IconWhatsapp } from "@/components/icons";
+import { IconCheck, IconPin, IconUsers } from "@/components/icons";
 import {
+  CATALOGO_LABEL,
   CATEGORIA_LABEL,
   SUBCATEGORIA_LABEL,
   linkGoogleMaps,
   linkWaze,
   type PromocionDia,
   type Rancho,
+  type RanchoItem,
 } from "@/app/mi-rancho/types";
 import type {
   DiaDisponibilidad,
@@ -26,7 +28,7 @@ import {
   PresentacionSeccion,
   ResumenSeccion,
 } from "./[id]/portal-secciones";
-import FormularioCotizacion from "./[id]/formulario-cotizacion";
+import ReservaServicio from "./[id]/reserva-servicio";
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
@@ -118,11 +120,27 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         },
       ];
 
-  // Datos del calendario — solo los lugares tienen reserva en línea.
+  // Datos del calendario de Lugares (su flujo propio, intacto).
   let disponibilidad: Record<string, DiaDisponibilidad> = {};
   let tiers: PrecioTier[] = [];
   let servicios: ServicioAdicional[] = [];
   let promociones: PromocionDia[] = [];
+
+  // El catálogo (menú/paquetes) de los servicios: es lo que el cliente
+  // elige al armar su reserva.
+  let itemsCatalogo: RanchoItem[] = [];
+  if (!esLugar) {
+    const { data: itemsData } = await supabase
+      .from("rancho_items")
+      .select("*")
+      .eq("rancho_id", rancho.id)
+      .eq("activo", true)
+      .order("orden", { ascending: true })
+      .order("created_at", { ascending: true });
+    itemsCatalogo = (itemsData ?? []) as RanchoItem[];
+  }
+  const anticipacionDias = Number(rancho.detalles?.anticipacion_dias) || 0;
+  const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
 
   if (esLugar) {
     await supabase
@@ -210,23 +228,14 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           </div>
           {!esLugar && (
             <div className="flex flex-wrap gap-2.5">
+              {/* Todo pasa por la reserva y el chat de la plataforma —
+                  el botón de WhatsApp se quitó a propósito. */}
               <a
-                href="#cotizacion"
+                href="#reservar"
                 className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
               >
-                Solicitar cotización
+                Reservar fecha
               </a>
-              {whatsappHref && (
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-navy"
-                >
-                  <IconWhatsapp className="h-4 w-4" />
-                  WhatsApp directo
-                </a>
-              )}
               <a
                 href="#contacto"
                 className="rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-navy"
@@ -274,33 +283,73 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       <ResumenSeccion datos={datosPresentacion} />
 
       {!esLugar && (
-        <section id="cotizacion" className="border-t border-aventurea-line bg-aventurea-cream-2/40 py-14">
-          <div className="mx-auto max-w-[640px] px-7">
+        <section id="reservar" className="border-t border-aventurea-line bg-aventurea-cream-2/40 py-14">
+          <div className="mx-auto max-w-[680px] px-7">
             <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
-              Cotizá con {rancho.nombre}
+              Reservá con {rancho.nombre}
             </p>
             <h2 className="titulo mt-2 text-[24px] text-aventurea-ink">
-              Contanos de tu evento
+              Elegí tu fecha y armá tu pedido
             </h2>
             <p className="mt-1.5 text-[13.5px] text-aventurea-ink-soft">
-              Mandá los datos y te cotiza directo por el chat de Bookear CR — sin perder el hilo
-              en WhatsApp.
+              {itemsCatalogo.length > 0
+                ? `Elegí la fecha, marcá lo que querés del ${etiquetaCatalogo.toLowerCase()} y enviá tu solicitud — el proveedor te confirma por el chat de Bookear CR.`
+                : "Elegí la fecha y contanos qué necesitás — el proveedor te confirma por el chat de Bookear CR."}
             </p>
 
             <div className="mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 sm:p-6">
               {user ? (
-                <FormularioCotizacion ranchoId={rancho.id} />
+                <ReservaServicio
+                  ranchoId={rancho.id}
+                  items={itemsCatalogo}
+                  anticipacionDias={anticipacionDias}
+                  etiquetaCatalogo={etiquetaCatalogo}
+                />
               ) : (
-                <div className="text-center">
-                  <p className="text-[13.5px] text-aventurea-ink-soft">
-                    Iniciá sesión para solicitar una cotización y chatear con el proveedor.
-                  </p>
-                  <Link
-                    href="/cuenta"
-                    className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
-                  >
-                    Iniciar sesión
-                  </Link>
+                <div>
+                  {/* El menú se ve sin sesión — solo reservar la pide. */}
+                  {itemsCatalogo.length > 0 && (
+                    <div className="mb-6">
+                      <p className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                        {etiquetaCatalogo} de {rancho.nombre}
+                      </p>
+                      <div className="overflow-hidden rounded-xl border border-aventurea-line">
+                        {itemsCatalogo.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-baseline justify-between gap-3 border-b border-aventurea-line px-4 py-2.5 last:border-none"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-[13.5px] font-bold text-aventurea-ink">
+                                {item.nombre}
+                              </p>
+                              {item.descripcion && (
+                                <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">
+                                  {item.descripcion}
+                                </p>
+                              )}
+                            </div>
+                            <p className="shrink-0 text-[13px] font-bold text-aventurea-navy">
+                              {item.precio !== null
+                                ? `₡${Number(item.precio).toLocaleString("es-CR")}${item.unidad ? ` ${item.unidad}` : ""}`
+                                : "A cotizar"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-center">
+                    <p className="text-[13.5px] text-aventurea-ink-soft">
+                      Iniciá sesión para reservar tu fecha y chatear con el proveedor.
+                    </p>
+                    <Link
+                      href="/cuenta"
+                      className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                    >
+                      Iniciar sesión
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

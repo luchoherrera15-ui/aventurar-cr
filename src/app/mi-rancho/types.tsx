@@ -581,6 +581,41 @@ export type Mensaje = {
   created_at: string;
 };
 
+/** Un ítem del catálogo de un negocio: plato del menú, paquete, producto. */
+export type RanchoItem = {
+  id: string;
+  rancho_id: string;
+  nombre: string;
+  descripcion: string | null;
+  precio: number | null;
+  unidad: string | null;
+  activo: boolean;
+  orden: number;
+  created_at: string;
+};
+
+/** Cómo se llama el catálogo según el rubro — "Menú" para comida, etc. */
+export const CATALOGO_LABEL: Record<Categoria, string> = {
+  lugares: "Servicios adicionales",
+  alimentacion: "Menú",
+  animacion: "Paquetes",
+  organizacion: "Paquetes",
+  decoracion: "Catálogo",
+  otros: "Catálogo",
+};
+
+/** Snapshot del pedido armado al reservar (columna reservas.detalle_pedido). */
+export type DetallePedido = {
+  items: {
+    item_id: string;
+    nombre: string;
+    precio: number | null;
+    unidad: string | null;
+    cantidad: number;
+  }[];
+  total_estimado: number | null;
+};
+
 export type TipoSeccionHome = "categoria" | "ubicacion" | "manual";
 
 export type HomeSeccion = {
