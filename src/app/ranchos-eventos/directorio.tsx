@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { IconCompass, IconFiltro, IconSearch } from "@/components/icons";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
+import RielProveedores from "@/components/riel-proveedores";
 import { fechaISO, fmtFechaCorta, proximaFechaLibre } from "@/lib/fechas";
 import {
   CATEGORIAS,
@@ -21,6 +22,8 @@ import {
 import type { Rancho } from "../mi-rancho/types";
 
 const POR_PAGINA = 14;
+// Portada sin filtros: un riel horizontal por categoría, de hasta 10.
+const POR_RIEL = 10;
 const DIAS_A_MOSTRAR = 60;
 const DIAS_SEMANA_CORTO = ["D", "L", "M", "M", "J", "V", "S"];
 
@@ -194,6 +197,27 @@ export default function Directorio({
     !!fecha ||
     !!invitados ||
     !!precioMax;
+
+  // Sin ningún filtro, la portada se arma como rieles horizontales por
+  // categoría (en el orden de la barra de arriba), de hasta 10 cada uno.
+  // Apenas se filtra algo, vuelve la grilla plana con paginación.
+  const rieles = useMemo(() => {
+    if (hayAlgo) return [];
+    return CATEGORIAS.map((cat) => ({
+      cat,
+      items: ranchos.filter((r) => r.categoria === cat).slice(0, POR_RIEL),
+    })).filter((g) => g.items.length > 0);
+  }, [ranchos, hayAlgo]);
+
+  const proximasLibres = useMemo(() => {
+    const acc = new Map<string, string | null>();
+    ranchos.forEach((r) => {
+      if (r.categoria === "lugares") {
+        acc.set(r.id, proximaFechaLibre(r.id, ocupadosPorFecha));
+      }
+    });
+    return acc;
+  }, [ranchos, ocupadosPorFecha]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
   const paginaSegura = Math.min(pagina, totalPaginas);
@@ -565,6 +589,24 @@ export default function Directorio({
             Probá con otra categoría, otra provincia o un presupuesto mayor.
           </p>
         </div>
+      ) : !hayAlgo ? (
+        <div className="divide-y divide-aventurea-line">
+          {rieles.map((g) => (
+            <RielProveedores
+              key={g.cat}
+              titulo={`${CATEGORIA_LABEL[g.cat]} para tu evento`}
+              items={g.items}
+              onVerTodo={() => {
+                elegirCategoria(g.cat);
+                subirAlInicio();
+              }}
+              calificaciones={calificacionPorRancho}
+              proximasLibres={proximasLibres}
+              favoritosIds={favoritosIds}
+              sesionActiva={sesionActiva}
+            />
+          ))}
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 lg:grid-cols-3 xl:grid-cols-4">
@@ -764,7 +806,7 @@ function SelectorFecha({
       </h4>
       <p className="mb-3 px-1 text-[12px] text-aventurea-ink-soft">
         {hayLugares
-          ? "Solo afecta a Lugares — el resto de los servicios se coordina por WhatsApp."
+          ? "Solo afecta a Lugares — los demás servicios no bloquean fechas: reservás la tuya en la página de cada uno."
           : "No hay lugares con calendario en línea para esta búsqueda todavía."}
       </p>
       <div className="grid grid-cols-7 gap-1.5">

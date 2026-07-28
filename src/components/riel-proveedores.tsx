@@ -16,6 +16,7 @@ export default function RielProveedores({
   subtitulo,
   items,
   verTodoHref,
+  onVerTodo,
   calificaciones,
   proximasLibres,
   favoritosIds,
@@ -25,12 +26,18 @@ export default function RielProveedores({
   subtitulo?: string;
   items: Rancho[];
   verTodoHref?: string;
+  /** Alternativa a verTodoHref para contextos client-side: en vez de
+   *  navegar, dispara una acción (ej. cambiar la pestaña de categoría). */
+  onVerTodo?: () => void;
   calificaciones: Map<string, Calificacion>;
   proximasLibres: Map<string, string | null>;
   favoritosIds: Set<string>;
   sesionActiva: boolean;
 }) {
   if (items.length === 0) return null;
+
+  const flechaCls =
+    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-cream-2 text-aventurea-ink transition-colors hover:bg-zinc-200";
 
   return (
     <section className="py-3">
@@ -43,15 +50,20 @@ export default function RielProveedores({
             <p className="mt-1 max-w-[62ch] text-[14px] text-aventurea-ink-soft">{subtitulo}</p>
           )}
         </div>
-        {verTodoHref && (
-          <Link
-            href={verTodoHref}
+        {onVerTodo ? (
+          <button
+            type="button"
+            onClick={onVerTodo}
             aria-label={`Ver todo: ${titulo}`}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-cream-2 text-aventurea-ink transition-colors hover:bg-zinc-200"
+            className={flechaCls}
           >
             →
+          </button>
+        ) : verTodoHref ? (
+          <Link href={verTodoHref} aria-label={`Ver todo: ${titulo}`} className={flechaCls}>
+            →
           </Link>
-        )}
+        ) : null}
       </div>
 
       <div
