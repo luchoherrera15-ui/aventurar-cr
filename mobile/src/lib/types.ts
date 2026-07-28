@@ -314,3 +314,92 @@ export function fmtColones(n: number | null) {
   if (n === null) return null;
   return "₡" + Number(n).toLocaleString("es-CR");
 }
+
+/** Etiquetas legibles de las amenidades (mismos ids que /web). */
+export const AMENIDAD_LABEL: Record<string, string> = {
+  piscina: "Piscina",
+  piscina_ninos: "Piscina para niños",
+  rancho_techado: "Rancho techado",
+  salon_cerrado: "Salón cerrado",
+  zona_verde: "Zona verde / jardín",
+  cancha_futbol: "Cancha de fútbol",
+  cancha_multiuso: "Cancha multiuso",
+  juegos_infantiles: "Área de juegos infantiles",
+  terraza_mirador: "Terraza o mirador",
+  rio_quebrada: "Río o quebrada",
+  parrilla: "Parrilla / BBQ",
+  cocina_equipada: "Cocina equipada",
+  horno_lena: "Horno de leña",
+  refrigeradora: "Refrigeradora / congelador",
+  comedor_techado: "Comedor techado",
+  bar_barra: "Bar / barra",
+  catering_externo: "Se permite catering externo",
+  parqueo: "Parqueo privado",
+  parqueo_buses: "Parqueo para buses",
+  banos_completos: "Baños completos",
+  duchas_vestidores: "Duchas / vestidores",
+  wifi: "Wifi",
+  planta_electrica: "Planta eléctrica",
+  sonido_incluido: "Sonido incluido",
+  iluminacion: "Iluminación de ambiente",
+  proyector: "Proyector / pantalla",
+  aire_acondicionado: "Aire acondicionado",
+  seguridad: "Seguridad / vigilancia",
+  limpieza: "Personal de limpieza",
+  chalets: "Chalets / cabinas",
+  habitaciones: "Habitaciones",
+  camping: "Zona de camping",
+  acceso_silla_ruedas: "Acceso para silla de ruedas",
+  mascotas: "Se permiten mascotas",
+  apto_ninos: "Apto para niños",
+};
+
+/** Mismos términos por defecto que /web (mi-rancho/types.tsx). */
+export function terminosPorDefecto(
+  depositoReserva: number,
+  montoMinimo: number | null,
+): string[] {
+  const base = [
+    `El depósito de reserva es de ₡${Number(depositoReserva || 0).toLocaleString("es-CR")}. Si el comprobante muestra un monto menor, la reserva no será válida y el dinero no se reembolsa.`,
+    "El depósito de reserva no es reembolsable en caso de cancelación por parte del cliente.",
+    "El tipo de evento debe coincidir exactamente con el indicado al reservar; si no coincide, el anfitrión puede cancelar la reserva sin devolución del depósito.",
+    "Subir el comprobante no confirma la fecha por sí solo — la reserva queda en aprobación hasta que el anfitrión la revise y confirme.",
+    "Cualquier daño a las instalaciones o al mobiliario durante el evento es responsabilidad de quien hizo la reserva.",
+    "El número de cédula se pide únicamente para identificar a quien reserva en caso de daños o problemas durante el evento (Ley 8968 de protección de datos). Solo lo ve el anfitrión del lugar reservado y el equipo de Bookear CR — nunca se hace público.",
+  ];
+
+  if (montoMinimo && montoMinimo > 0) {
+    base.splice(
+      1,
+      0,
+      `El monto mínimo de contratación es de ₡${Number(montoMinimo).toLocaleString("es-CR")}. Por debajo de ese monto no se toman reservas.`,
+    );
+  }
+
+  return base;
+}
+
+/** Links de "Cómo llegar" — mismos helpers que /web, sin API key. */
+export function linkGoogleMaps(
+  lat: number | null,
+  lng: number | null,
+  direccion: string,
+): string | null {
+  if (lat !== null && lng !== null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  }
+  if (!direccion.trim()) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
+}
+
+export function linkWaze(
+  lat: number | null,
+  lng: number | null,
+  direccion: string,
+): string | null {
+  if (lat !== null && lng !== null) {
+    return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
+  }
+  if (!direccion.trim()) return null;
+  return `https://waze.com/ul?q=${encodeURIComponent(direccion)}&navigate=yes`;
+}
