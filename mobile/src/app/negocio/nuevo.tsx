@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
@@ -109,8 +110,9 @@ export default function NuevoNegocioScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.contenedor}
+    <View style={styles.contenedor}>
+      <BarraSuperior titulo="Publicar" subtitulo="Un servicio o lugar nuevo" />
+      <ScrollView
       contentContainerStyle={{ padding: Spacing.four, paddingBottom: 60, gap: Spacing.four }}
     >
       <View style={styles.bloque}>
@@ -266,7 +268,8 @@ export default function NuevoNegocioScreen() {
         apruebe. Las fotos, precios por rangos y demás detalles se completan
         después desde la administración del negocio o el sitio web.
       </Text>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

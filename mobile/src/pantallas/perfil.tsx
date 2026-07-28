@@ -44,7 +44,6 @@ export default function CuentaScreen({ activa = true }: { activa?: boolean }) {
       perfil={perfil}
       correo={session.user.email ?? null}
       clienteId={session.user.id}
-      creadaEn={session.user.created_at ?? null}
       activa={activa}
     />
   );
@@ -234,11 +233,11 @@ function Campo(props: {
   );
 }
 
-/** Los números del perfil, estilo tarjeta de Airbnb. */
+/** Los números del perfil. */
 type StatsPerfil = {
   reservas: number;
   resenas: number;
-  desde: number;
+  favoritos: number;
   negocios: number;
   vecesContratado: number;
   calificacion: number | null;
@@ -248,27 +247,25 @@ function PerfilVista({
   perfil,
   correo,
   clienteId,
-  creadaEn,
   activa,
 }: {
   perfil: Perfil | null;
   correo: string | null;
   clienteId: string;
-  creadaEn: string | null;
   activa: boolean;
 }) {
   const router = useRouter();
   const inicial = (perfil?.nombre || correo || "?").trim().charAt(0).toUpperCase();
   const [stats, setStats] = useState<StatsPerfil | null>(null);
 
-  // Los números del perfil: cuántas reservas hizo como cliente,
-  // cuántas reseñas dejó y — si es anfitrión — cuántas veces lo han
-  // contratado y su calificación promedio ponderada.
+  // Los números del perfil: lo que hizo como cliente (reservas,
+  // reseñas, favoritos) y — si publica servicios — cuántas veces lo
+  // han contratado y su calificación promedio ponderada.
   useEffect(() => {
     if (!activa) return;
     let vigente = true;
     (async () => {
-      const [reservasRes, resenasRes, negociosRes] = await Promise.all([
+      const [reservasRes, resenasRes, favoritosRes, negociosRes] = await Promise.all([
         supabase
           .from("reservas")
           .select("id", { count: "exact", head: true })
@@ -277,6 +274,10 @@ function PerfilVista({
         supabase
           .from("resenas")
           .select("id", { count: "exact", head: true })
+          .eq("cliente_id", clienteId),
+        supabase
+          .from("favoritos")
+          .select("rancho_id", { count: "exact", head: true })
           .eq("cliente_id", clienteId),
         supabase.from("ranchos").select("id").eq("owner_id", clienteId),
       ]);
@@ -309,7 +310,7 @@ function PerfilVista({
       setStats({
         reservas: reservasRes.count ?? 0,
         resenas: resenasRes.count ?? 0,
-        desde: creadaEn ? new Date(creadaEn).getFullYear() : new Date().getFullYear(),
+        favoritos: favoritosRes.count ?? 0,
         negocios: negocioIds.length,
         vecesContratado,
         calificacion,
@@ -318,97 +319,89 @@ function PerfilVista({
     return () => {
       vigente = false;
     };
-  }, [activa, clienteId, creadaEn]);
+  }, [activa, clienteId]);
 
-  const esAnfitrion = (stats?.negocios ?? 0) > 0;
+  const esProveedor = (stats?.negocios ?? 0) > 0;
 
   return (
     <View style={styles.contenedor}>
       <TituloPantalla titulo="Perfil" />
-      <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingBottom: 100, gap: Spacing.four }}>
-        {/* Tarjeta de identidad estilo Airbnb: avatar grande a la
-            izquierda y la columna de números a la derecha. */}
+      <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingBottom: 100, gap: Spacing.three }}>
+        {/* Identidad: tarjeta clara con el avatar centrado y los
+            números debajo — sin el bloque navy pesado de antes. */}
         <View style={styles.tarjetaIdentidad}>
-          <View style={styles.ladoAvatar}>
-            <View style={styles.avatarGrande}>
-              <Text style={styles.avatarGrandeTexto}>{inicial}</Text>
-            </View>
-            <Text style={styles.nombreGrande} numberOfLines={1}>
-              {perfil?.nombre || "Tu cuenta"}
-            </Text>
-            <Text style={styles.rolPerfil}>{esAnfitrion ? "Anfitrión" : "Cliente"}</Text>
+          <View style={styles.avatarGrande}>
+            <Text style={styles.avatarGrandeTexto}>{inicial}</Text>
           </View>
-          <View style={styles.ladoStats}>
+          <Text style={styles.nombreGrande} numberOfLines={1}>
+            {perfil?.nombre || "Tu cuenta"}
+          </Text>
+          <Text style={styles.correoPerfil} numberOfLines={1}>
+            {correo}
+          </Text>
+          <View style={[styles.chipRol, esProveedor && styles.chipRolProveedor]}>
+            <Ionicons
+              name={esProveedor ? "storefront" : "person"}
+              size={12}
+              color={esProveedor ? Colors.accent : Colors.navy}
+            />
+            <Text style={[styles.chipRolTexto, esProveedor && styles.chipRolTextoProveedor]}>
+              {esProveedor ? "Proveedor" : "Cliente"}
+            </Text>
+          </View>
+
+          <View style={styles.filaStats}>
             <Stat valor={stats ? String(stats.reservas) : "—"} etiqueta={stats?.reservas === 1 ? "reserva" : "reservas"} />
             <View style={styles.statDivisor} />
             <Stat valor={stats ? String(stats.resenas) : "—"} etiqueta={stats?.resenas === 1 ? "reseña" : "reseñas"} />
             <View style={styles.statDivisor} />
-            <Stat valor={stats ? String(stats.desde) : "—"} etiqueta="en Bookea desde" invertida />
+            <Stat valor={stats ? String(stats.favoritos) : "—"} etiqueta="favoritos" />
           </View>
         </View>
 
-        {esAnfitrion && stats && (
-          <View style={styles.tarjetaAnfitrion}>
-            <Text style={styles.anfitrionTitulo}>Tu negocio en números</Text>
-            <View style={styles.anfitrionFila}>
-              <Stat valor={String(stats.negocios)} etiqueta={stats.negocios === 1 ? "publicación" : "publicaciones"} clara />
-              <Stat valor={String(stats.vecesContratado)} etiqueta={stats.vecesContratado === 1 ? "vez contratado" : "veces contratado"} clara />
+        {esProveedor && stats && (
+          <Pressable style={styles.tarjetaNegocio} onPress={() => router.push("/negocio" as never)}>
+            <View style={styles.negocioEncabezado}>
+              <Text style={styles.negocioTitulo}>Tu negocio</Text>
+              <Ionicons name="chevron-forward" size={17} color={Colors.inkSoft} />
+            </View>
+            <View style={styles.filaStats}>
+              <Stat valor={String(stats.negocios)} etiqueta={stats.negocios === 1 ? "publicación" : "publicaciones"} />
+              <View style={styles.statDivisor} />
+              <Stat
+                valor={String(stats.vecesContratado)}
+                etiqueta={stats.vecesContratado === 1 ? "contratación" : "contrataciones"}
+              />
+              <View style={styles.statDivisor} />
               <Stat
                 valor={stats.calificacion !== null ? `★ ${stats.calificacion.toFixed(1)}` : "—"}
                 etiqueta="calificación"
-                clara
               />
             </View>
-          </View>
+          </Pressable>
         )}
 
-        <View style={styles.listaEnlaces}>
-          <FilaEnlace
-            icono="storefront-outline"
-            titulo="Mi negocio"
-            detalle="Publicá y administrá tus servicios y reservas"
+        {/* Accesos en tarjetas. Reservas, favoritos y mensajes NO van
+            acá: ya son pestañas de la barra inferior y repetirlos solo
+            duplica caminos para llegar a lo mismo. */}
+        <View style={styles.grid}>
+          <TarjetaAccion
+            icono={esProveedor ? "storefront-outline" : "add-circle-outline"}
+            titulo={esProveedor ? "Mis publicaciones" : "Publicar"}
+            detalle={esProveedor ? "Editá y administrá" : "Ofrecé tu servicio"}
+            acento
             onPress={() => router.push("/negocio" as never)}
           />
-          <FilaEnlace
-            icono="calendar-outline"
-            titulo="Mis reservas"
-            detalle="Estado de tus fechas y tu historial"
-            onPress={() => router.replace("/reservas")}
-          />
-          <FilaEnlace
-            icono="heart-outline"
-            titulo="Mis favoritos"
-            detalle="Los proveedores que guardaste"
-            onPress={() => router.replace("/favoritos")}
-          />
-          <FilaEnlace
-            icono="chatbubble-outline"
-            titulo="Mensajes"
-            detalle="Tus conversaciones con proveedores"
-            onPress={() => router.replace("/mensajes")}
-          />
-          <FilaEnlace
+          <TarjetaAccion
             icono="globe-outline"
-            titulo="Abrir el sitio web"
-            detalle="bookea.lat en el navegador"
+            titulo="Sitio web"
+            detalle="bookea.lat"
             onPress={() => WebBrowser.openBrowserAsync(SITIO_URL)}
-            ultima
           />
         </View>
 
-        <Pressable
-          style={styles.tarjetaPublicar}
-          onPress={() => WebBrowser.openBrowserAsync(`${SITIO_URL}/publicar`)}
-        >
-          <Text style={styles.publicarTitulo}>¿Ofrecés un servicio para eventos?</Text>
-          <Text style={styles.publicarTexto}>
-            Publicá tu negocio en Bookea — lugares, catering, DJs, fotografía y más.
-            La administración de tu negocio se hace desde el sitio web.
-          </Text>
-          <Text style={styles.publicarBoton}>Publicar tu negocio →</Text>
-        </Pressable>
-
         <Pressable style={styles.botonSalir} onPress={() => supabase.auth.signOut()}>
+          <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
           <Text style={styles.botonSalirTexto}>Cerrar sesión</Text>
         </Pressable>
       </ScrollView>
@@ -450,27 +443,31 @@ const stylesStat = StyleSheet.create({
   etiqueta: { fontSize: 10.5, fontFamily: Fonts.semiBold },
 });
 
-function FilaEnlace({
+/** Un acceso del perfil como tarjeta, en vez de la vieja fila de
+ * lista con chevron. */
+function TarjetaAccion({
   icono,
   titulo,
   detalle,
   onPress,
-  ultima,
+  acento,
 }: {
   icono: keyof typeof Ionicons.glyphMap;
   titulo: string;
   detalle: string;
   onPress: () => void;
-  ultima?: boolean;
+  /** true = el ícono va en naranja (la acción principal). */
+  acento?: boolean;
 }) {
   return (
-    <Pressable style={[styles.filaEnlace, !ultima && styles.filaEnlaceBorde]} onPress={onPress}>
-      <Ionicons name={icono} size={22} color={Colors.navy} />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.enlaceTitulo}>{titulo}</Text>
-        <Text style={styles.enlaceDetalle}>{detalle}</Text>
+    <Pressable style={styles.tarjetaAccion} onPress={onPress}>
+      <View style={[styles.iconoBurbuja, acento && styles.iconoBurbujaAcento]}>
+        <Ionicons name={icono} size={20} color={acento ? Colors.accent : Colors.navy} />
       </View>
-      <Ionicons name="chevron-forward" size={18} color={Colors.inkSoft} />
+      <Text style={styles.accionTitulo}>{titulo}</Text>
+      <Text style={styles.accionDetalle} numberOfLines={1}>
+        {detalle}
+      </Text>
     </Pressable>
   );
 }
@@ -514,67 +511,97 @@ const styles = StyleSheet.create({
   enlaceSecundario: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center", marginTop: Spacing.one },
   avisoReenvio: { color: Colors.green, fontFamily: Fonts.bold, fontSize: 12.5 },
   tarjetaIdentidad: {
-    flexDirection: "row",
-    backgroundColor: Colors.navy,
-    borderRadius: 20,
-    padding: Spacing.four,
-    gap: Spacing.four,
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    borderRadius: 22,
+    paddingVertical: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    gap: 3,
     shadowColor: "#101a2c",
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  ladoAvatar: { flex: 1.2, alignItems: "center", gap: 4 },
   avatarGrande: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: Colors.accent,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: Colors.navy,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    marginBottom: 6,
+    // Aro naranja: el guiño al punto del logo.
+    borderWidth: 3,
+    borderColor: Colors.accent,
   },
-  avatarGrandeTexto: { color: "#ffffff", fontSize: 32, fontFamily: Fonts.extraBold },
-  nombreGrande: { color: "#ffffff", fontSize: 17, fontFamily: Fonts.extraBold, textAlign: "center" },
-  rolPerfil: { color: "#ffffffb0", fontSize: 12, fontFamily: Fonts.semiBold },
-  ladoStats: { flex: 1, justifyContent: "center", gap: 10 },
-  statDivisor: { height: 1, backgroundColor: "#ffffff2e" },
-  tarjetaAnfitrion: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 16,
-    padding: Spacing.four,
-    gap: Spacing.three,
-  },
-  anfitrionTitulo: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink },
-  anfitrionFila: { flexDirection: "row", gap: Spacing.two },
-  listaEnlaces: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    paddingHorizontal: Spacing.three,
-  },
-  filaEnlace: {
+  avatarGrandeTexto: { color: "#ffffff", fontSize: 34, fontFamily: Fonts.extraBold },
+  nombreGrande: { fontSize: 19, fontFamily: Fonts.extraBold, letterSpacing: -0.3, color: Colors.ink },
+  correoPerfil: { fontSize: 12.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
+  chipRol: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.three,
+    gap: 5,
+    marginTop: 6,
+    borderRadius: 999,
+    backgroundColor: "#e8ecf6",
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  chipRolProveedor: { backgroundColor: Colors.accentLight },
+  chipRolTexto: { fontSize: 11.5, fontFamily: Fonts.bold, color: Colors.navy },
+  chipRolTextoProveedor: { color: Colors.accent },
+  filaStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "stretch",
+    marginTop: Spacing.three,
+    borderTopWidth: 1,
+    borderTopColor: Colors.line,
+    paddingTop: Spacing.three,
+  },
+  statDivisor: { width: 1, height: 26, backgroundColor: Colors.line },
+  tarjetaNegocio: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    borderRadius: 18,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  negocioEncabezado: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  negocioTitulo: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink },
+  grid: { flexDirection: "row", gap: Spacing.three },
+  tarjetaAccion: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    borderRadius: 18,
+    padding: Spacing.three,
+    gap: 3,
+  },
+  iconoBurbuja: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#e8ecf6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  iconoBurbujaAcento: { backgroundColor: Colors.accentLight },
+  accionTitulo: { fontSize: 14, fontFamily: Fonts.extraBold, color: Colors.ink },
+  accionDetalle: { fontSize: 11.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
+  botonSalir: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
     paddingVertical: Spacing.three,
   },
-  filaEnlaceBorde: { borderBottomWidth: 1, borderBottomColor: Colors.line },
-  enlaceTitulo: { fontSize: 14.5, fontFamily: Fonts.bold, color: Colors.ink },
-  enlaceDetalle: { fontSize: 12, color: Colors.inkSoft, marginTop: 1 },
-  tarjetaPublicar: {
-    backgroundColor: Colors.accentLight,
-    borderRadius: 16,
-    padding: Spacing.four,
-    gap: 4,
-  },
-  publicarTitulo: { fontSize: 15.5, fontFamily: Fonts.extraBold, color: Colors.ink },
-  publicarTexto: { fontSize: 13, color: Colors.inkSoft, lineHeight: 18 },
-  publicarBoton: { fontSize: 13.5, fontFamily: Fonts.extraBold, color: Colors.accent, marginTop: 6 },
-  botonSalir: { alignItems: "center", paddingVertical: Spacing.three },
   botonSalirTexto: { color: Colors.danger, fontFamily: Fonts.bold, fontSize: 13.5 },
 });

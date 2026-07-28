@@ -9,9 +9,10 @@ import {
   View,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { useFocusEffect, useLocalSearchParams, useNavigation } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
@@ -58,8 +59,8 @@ const FILTROS = ["todas", "pendiente", "confirmada", "rechazada"] as const;
 
 export default function AdminNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const navigation = useNavigation();
   const { session } = useAuth();
+  const [nombreNegocio, setNombreNegocio] = useState<string | null>(null);
   const [reservas, setReservas] = useState<ReservaNegocio[] | null>(null);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>("todas");
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -77,9 +78,9 @@ export default function AdminNegocioScreen() {
         .neq("estado", "temporal")
         .order("fecha", { ascending: true }),
     ]);
-    if (rancho?.nombre) navigation.setOptions({ title: rancho.nombre });
+    setNombreNegocio(rancho?.nombre ?? null);
     setReservas((reservasData ?? []) as ReservaNegocio[]);
-  }, [id, session, navigation]);
+  }, [id, session]);
 
   useFocusEffect(
     useCallback(() => {
@@ -140,15 +141,20 @@ export default function AdminNegocioScreen() {
 
   if (reservas === null) {
     return (
-      <View style={styles.centro}>
-        <ActivityIndicator color={Colors.accent} />
+      <View style={styles.contenedor}>
+        <BarraSuperior titulo={nombreNegocio ?? "Reservas"} />
+        <View style={styles.centro}>
+          <ActivityIndicator color={Colors.accent} />
+        </View>
       </View>
     );
   }
 
   return (
-    <FlatList
-      style={styles.contenedor}
+    <View style={styles.contenedor}>
+      <BarraSuperior titulo={nombreNegocio ?? "Reservas"} subtitulo="Reservas de este negocio" />
+      <FlatList
+      style={{ flex: 1 }}
       contentContainerStyle={{ padding: Spacing.three, paddingBottom: 40, gap: Spacing.two }}
       data={lista}
       keyExtractor={(r) => r.id}
@@ -284,7 +290,8 @@ export default function AdminNegocioScreen() {
           )}
         </View>
       )}
-    />
+      />
+    </View>
   );
 }
 

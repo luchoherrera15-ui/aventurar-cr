@@ -4,6 +4,7 @@ import {
   Linking,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -12,12 +13,13 @@ import {
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import CalendarioMensual from "@/components/calendario-mensual";
 import SeccionEncabezado from "@/components/seccion-encabezado";
+import { BotonFlotante, FilaFlotante } from "@/components/boton-flotante";
 import {
   AMENIDADES,
   AMENIDADES_GRUPOS,
@@ -41,7 +43,6 @@ const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 export default function RanchoDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const navigation = useNavigation();
   const { session } = useAuth();
   const [abriendoChat, setAbriendoChat] = useState(false);
   const { width: anchoPantalla } = useWindowDimensions();
@@ -70,7 +71,6 @@ export default function RanchoDetalleScreen() {
     }
     const fila = data as Rancho;
     setRancho(fila);
-    navigation.setOptions({ title: fila.nombre });
 
     // Calificación y reseñas reales — mismas fuentes que el portal web.
     const [{ data: califData }, { data: resenasData }] = await Promise.all([
@@ -122,7 +122,7 @@ export default function RanchoDetalleScreen() {
       acc[r.fecha] = dia;
     });
     setDisponibilidad(acc);
-  }, [id, navigation]);
+  }, [id]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial al montar, sin librería de data-fetching en este proyecto
@@ -214,6 +214,24 @@ export default function RanchoDetalleScreen() {
 
   return (
     <View style={styles.raiz}>
+      {/* Navegación flotante sobre la foto: sin barra sólida que le
+          robe pantalla a la imagen. */}
+      <FilaFlotante
+        derecha={
+          <BotonFlotante
+            icono="share-outline"
+            etiqueta="Compartir"
+            onPress={() =>
+              Share.share({
+                message: `Mirá ${rancho.nombre} en Bookea: ${SITIO_URL}/${rancho.slug ?? `ranchos-eventos/${rancho.id}`}`,
+              })
+            }
+          />
+        }
+      >
+        <BotonFlotante icono="chevron-back" etiqueta="Volver" />
+      </FilaFlotante>
+
       <ScrollView
         ref={scrollRef}
         style={styles.contenedor}

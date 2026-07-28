@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 
@@ -236,13 +237,7 @@ export default function MensajesScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-      {otroNombre && (
-        <View style={styles.encabezado}>
-          <Text style={styles.encabezadoTexto} numberOfLines={1}>
-            {otroNombre}
-          </Text>
-        </View>
-      )}
+      <BarraSuperior titulo={otroNombre || "Mensajes"} subtitulo="Chat de la reserva" />
 
       <FlatList
         ref={listaRef}
@@ -294,13 +289,6 @@ const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five },
   error: { color: Colors.danger, fontFamily: Fonts.medium, textAlign: "center" },
-  encabezado: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.line,
-  },
-  encabezadoTexto: { fontFamily: Fonts.extraBold, fontSize: 15, color: Colors.ink },
   lista: { padding: Spacing.three, gap: Spacing.two, flexGrow: 1 },
   vacio: { textAlign: "center", color: Colors.inkSoft, fontFamily: Fonts.medium, marginTop: Spacing.five },
   fila: { flexDirection: "row" },

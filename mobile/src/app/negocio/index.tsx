@@ -11,6 +11,7 @@ import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { CATEGORIA_LABEL, type Categoria, type EstadoRancho } from "@/lib/types";
@@ -87,8 +88,10 @@ export default function MisNegociosScreen() {
   }
 
   return (
-    <FlatList
-      style={styles.contenedor}
+    <View style={styles.contenedor}>
+      <BarraSuperior titulo="Mi negocio" subtitulo="Tus servicios y lugares publicados" />
+      <FlatList
+      style={{ flex: 1 }}
       contentContainerStyle={{ padding: Spacing.three, paddingBottom: 40, gap: Spacing.two }}
       data={negocios ?? []}
       keyExtractor={(n) => n.id}
@@ -139,7 +142,8 @@ export default function MisNegociosScreen() {
           <Ionicons name="chevron-forward" size={17} color={Colors.inkSoft} />
         </Pressable>
       )}
-    />
+      />
+    </View>
   );
 }
 

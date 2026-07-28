@@ -87,12 +87,12 @@ export default async function CuentaPage() {
     ((resenasData ?? []) as ResenaPropia[]).map((r) => [r.reserva_id, r]),
   );
 
-  // Los números del perfil, estilo Airbnb: reservas hechas, reseñas
-  // dejadas, año de ingreso — y si es anfitrión, cuántas veces lo han
+  // Los números del perfil: reservas hechas, reseñas dejadas y
+  // favoritos — y si publica servicios, cuántas veces lo han
   // contratado y su calificación promedio ponderada.
   const negocioIds = (negociosData ?? []).map((n) => n.id as string);
   let vecesContratado = 0;
-  let calificacionAnfitrion: number | null = null;
+  let calificacionProveedor: number | null = null;
   if (negocioIds.length > 0) {
     const [{ count: contratadoCount }, { data: califs }] = await Promise.all([
       supabase
@@ -108,12 +108,11 @@ export default async function CuentaPage() {
     vecesContratado = contratadoCount ?? 0;
     const filas = (califs ?? []) as { promedio: number; total: number }[];
     const totalResenas = filas.reduce((acc, c) => acc + c.total, 0);
-    calificacionAnfitrion =
+    calificacionProveedor =
       totalResenas > 0
         ? filas.reduce((acc, c) => acc + c.promedio * c.total, 0) / totalResenas
         : null;
   }
-  const anioIngreso = new Date(user.created_at).getFullYear();
   const reservasHechas = reservas.filter((r) => r.estado !== "rechazada").length;
   const hoy = hoyISOCR();
   const activas = reservas.filter((r) => r.estado !== "rechazada" && r.fecha >= hoy);
@@ -155,7 +154,7 @@ export default async function CuentaPage() {
               {perfil?.nombre || "Tu cuenta"}
             </p>
             <p className="text-[12.5px] font-semibold text-white/70">
-              {tieneNegocio ? "Anfitrión" : "Cliente"}
+              {tieneNegocio ? "Proveedor" : "Cliente"}
             </p>
           </div>
           <div className="flex w-[46%] flex-col justify-center gap-2.5">
@@ -174,8 +173,10 @@ export default async function CuentaPage() {
             </div>
             <div className="h-px bg-white/20" />
             <div>
-              <p className="text-[11px] font-semibold text-white/70">en Bookea desde</p>
-              <p className="text-[19px] font-extrabold leading-tight">{anioIngreso}</p>
+              <p className="text-[19px] font-extrabold leading-tight">{favoritos.length}</p>
+              <p className="text-[11px] font-semibold text-white/70">
+                {favoritos.length === 1 ? "favorito" : "favoritos"}
+              </p>
             </div>
           </div>
         </div>
@@ -198,7 +199,7 @@ export default async function CuentaPage() {
               </div>
               <div>
                 <p className="text-[19px] font-extrabold text-aventurea-ink">
-                  {calificacionAnfitrion !== null ? `★ ${calificacionAnfitrion.toFixed(1)}` : "—"}
+                  {calificacionProveedor !== null ? `★ ${calificacionProveedor.toFixed(1)}` : "—"}
                 </p>
                 <p className="text-[11px] font-semibold text-aventurea-ink-soft">calificación</p>
               </div>

@@ -17,6 +17,7 @@ import { decode as decodeBase64 } from "base64-arraybuffer";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import BarraSuperior from "@/components/barra-superior";
 import { obtenerIdDispositivo } from "@/lib/device";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
@@ -384,7 +385,9 @@ export default function ReservarScreen() {
   const segundos = segundosRestantes !== null ? segundosRestantes % 60 : 0;
 
   return (
-    <ScrollView style={styles.contenedor} contentContainerStyle={{ padding: Spacing.four, gap: Spacing.four }}>
+    <View style={styles.contenedor}>
+      <BarraSuperior titulo="Reservar" subtitulo={rancho?.nombre ?? undefined} />
+      <ScrollView contentContainerStyle={{ padding: Spacing.four, gap: Spacing.four }}>
       <View style={styles.avisoTiempo}>
         <Text style={styles.avisoTiempoTexto}>
           Fecha bloqueada por {String(minutos).padStart(2, "0")}:{String(segundos).padStart(2, "0")} min — completá la reserva antes de que se libere.
@@ -552,7 +555,8 @@ export default function ReservarScreen() {
           <Text style={styles.botonPrimarioTexto}>Confirmar mi reserva</Text>
         )}
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
