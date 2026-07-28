@@ -17,7 +17,7 @@ import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { CATEGORIA_LABEL, fmtColones, type Categoria } from "@/lib/types";
 import { TarjetaRancho, type Fila } from "./index";
 
-const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookearcr.com";
+const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookeacr.com";
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function CuentaScreen() {

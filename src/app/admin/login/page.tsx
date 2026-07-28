@@ -34,7 +34,7 @@ export default function LoginPage() {
               type="email"
               name="email"
               required
-              placeholder="tucorreo@bookearcr.com"
+              placeholder="tucorreo@bookeacr.com"
               className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:zinc-500"
             />
           </div>

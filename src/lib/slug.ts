@@ -30,7 +30,7 @@ export const RESERVED_SLUGS = new Set([
  * Reduce un nombre de negocio a minúsculas sin tildes, espacios ni
  * símbolos: "Rancho Las Torres" → "rancholastorres". Sin guiones a
  * propósito, para calzar con el ejemplo del dueño y el estilo del
- * dominio (bookearcr, no bookear-cr). Debe coincidir con la función
+ * dominio (bookeacr, no bookear-cr). Debe coincidir con la función
  * `slugify` en supabase/migrations/0031_slug_ranchos.sql.
  */
 export function slugify(nombre: string): string {

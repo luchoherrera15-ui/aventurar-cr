@@ -5,7 +5,7 @@ import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
 import RanchoPortal from "@/app/ranchos-eventos/rancho-portal";
 
 /**
- * La URL corta de cada rancho/servicio, ej. bookearcr.com/rancholastorres.
+ * La URL corta de cada rancho/servicio, ej. bookeacr.com/rancholastorres.
  * Vive en la raíz del sitio; Next.js siempre prueba primero las rutas
  * literales (/admin, /mi-rancho, /publicar, etc.), así que esta ruta
  * dinámica solo entra a jugar cuando ningún nombre de carpeta real

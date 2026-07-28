@@ -25,7 +25,7 @@ function obtenerCliente() {
 // en resend.com/domains y poné RESEND_FROM_EMAIL en Vercel para que
 // llegue a cualquier cliente, no solo a vos.
 const REMITENTE = process.env.RESEND_FROM_EMAIL || "Bookear CR <onboarding@resend.dev>";
-const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://bookearcr.com";
+const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://bookeacr.com";
 
 export async function enviarCorreo({
   to,
@@ -112,7 +112,7 @@ function layout({
             <td style="padding:24px 30px 28px;text-align:center;">
               <div style="height:1px;background:#e2e4ea;margin:0 0 22px;"></div>
               <div style="font-size:12.5px;font-weight:700;color:#101a2c;">Bookear CR</div>
-              <a href="${SITIO_URL}" style="font-size:12px;color:#16295e;text-decoration:none;font-weight:700;">bookearcr.com</a>
+              <a href="${SITIO_URL}" style="font-size:12px;color:#16295e;text-decoration:none;font-weight:700;">bookeacr.com</a>
               <div style="font-size:11px;color:#a3aab5;margin-top:10px;line-height:1.6;">
                 Costa Rica · Recibiste este correo porque hiciste una reserva en Bookear CR.
               </div>

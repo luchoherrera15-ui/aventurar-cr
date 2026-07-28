@@ -31,7 +31,7 @@ import {
   type Resena,
 } from "@/lib/types";
 
-const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookearcr.com";
+const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookeacr.com";
 const DIAS_A_MOSTRAR = 60;
 const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
