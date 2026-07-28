@@ -293,8 +293,8 @@ export default function Directorio({
       {/* Buscador segmentado: Dónde · Cuándo · Personas (Lugares/Todos) o
           Dónde · ¿Qué necesitás? · Personas para el resto de categorías,
           que no reservan por fecha en línea. */}
-      <div className="relative z-30 mb-4 flex items-stretch gap-2">
-        <div className="mx-auto flex min-w-0 max-w-[640px] flex-1 items-stretch overflow-hidden rounded-full border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-md">
+      <div className="relative z-30 mx-auto mb-4 flex w-full max-w-[720px] items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-stretch overflow-hidden rounded-full border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-md">
           <SegmentoBusqueda
             label="Dónde"
             valor={canton || provincia || "Todo Costa Rica"}
@@ -361,7 +361,7 @@ export default function Directorio({
               onClick={soltarMenu}
               className="fixed inset-0 z-10 cursor-default"
             />
-            <div className="absolute left-0 right-0 top-full z-20 mx-auto mt-2 max-w-[640px] rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
+            <div className="absolute left-0 right-0 top-full z-20 mx-auto mt-2 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
               {menuAbierto === "donde" && (
                 <div>
                   <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
@@ -444,7 +444,7 @@ export default function Directorio({
           que sigue scrolleando (antes "Filtros" hacía de tapón visual y
           escondía Organización/Decoración/Otros servicios). */}
       <div className="relative z-20 border-b border-aventurea-line">
-        <div className="flex gap-6 overflow-x-auto lg:gap-8">
+        <div className="flex gap-6 overflow-x-auto lg:justify-center lg:gap-8">
           <CategoriaTab
             label="Todos"
             icono={<IconCompass className="h-full w-full" />}

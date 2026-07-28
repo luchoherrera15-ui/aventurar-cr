@@ -64,13 +64,20 @@ export default async function RanchosEventosPage() {
 
       <section className="py-8 pb-16">
         <div className="mx-auto max-w-[1600px] px-6 lg:px-10">
-          <div className="mb-7">
-            <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+          {/* Hero centrado: una sola columna vertebral — kicker, título,
+              frase de valor y (justo debajo, dentro del Directorio) el
+              buscador. Un eje, no tres. */}
+          <div className="mb-2 pt-4 text-center">
+            <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange after:block after:h-[1.5px] after:w-5 after:bg-aventurea-orange">
               Directorio nacional
             </p>
-            <h1 className="titulo mt-2 text-[34px] text-aventurea-ink sm:text-[44px]">
+            <h1 className="titulo mt-3 text-[38px] text-aventurea-ink sm:text-[52px]">
               Todo para tu evento
             </h1>
+            <p className="mx-auto mt-3.5 max-w-[46ch] text-balance text-[15px] leading-relaxed text-aventurea-ink-soft sm:text-[16.5px]">
+              Lugares, comida, música y todo lo demás — compará opciones
+              reales y reservá directo, sin cadenas de WhatsApp.
+            </p>
           </div>
 
           <Directorio
