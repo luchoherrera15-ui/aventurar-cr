@@ -246,6 +246,12 @@ function PerfilVista({ perfil, correo }: { perfil: Perfil | null; correo: string
 
         <View style={styles.listaEnlaces}>
           <FilaEnlace
+            icono="storefront-outline"
+            titulo="Mi negocio"
+            detalle="Publicá y administrá tus servicios y reservas"
+            onPress={() => router.push("/negocio" as never)}
+          />
+          <FilaEnlace
             icono="calendar-outline"
             titulo="Mis reservas"
             detalle="Estado de tus fechas y tu historial"
