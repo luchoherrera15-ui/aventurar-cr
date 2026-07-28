@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.three },
   contenedorForm: { flexGrow: 1, padding: Spacing.four, paddingBottom: 100, gap: Spacing.two },
-  logoMarca: { width: 150, height: 45, marginBottom: Spacing.two },
+  logoMarca: { width: 170, height: 60, marginBottom: Spacing.two },
   titulo: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink },
   subtitulo: { fontSize: 13.5, color: Colors.inkSoft, marginBottom: Spacing.two },
   bloque: {

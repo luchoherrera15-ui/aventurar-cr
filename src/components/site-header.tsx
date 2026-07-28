@@ -25,12 +25,14 @@ export default function SiteHeader({
         className={`mx-auto flex ${ancho} flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 py-3 sm:px-6 lg:px-10`}
       >
         <Link href="/ranchos-eventos" className="flex shrink-0 items-center gap-2">
+          {/* La versión compacta (sin tagline): a la altura del header
+              la bajada del lockup completo no se leería. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- el
               logo es un SVG estático: next/image no aporta nada acá. */}
           <img
-            src="/logo-bookea.svg"
-            alt="Bookea"
-            className="h-7 w-auto shrink-0 sm:h-[30px]"
+            src="/logo-bookea-compacto.svg"
+            alt="Bookear"
+            className="h-8 w-auto shrink-0 sm:h-9"
           />
           {breadcrumb && (
             <>
