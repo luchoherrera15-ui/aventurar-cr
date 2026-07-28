@@ -40,6 +40,7 @@ export default function MensajesScreen() {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [envioError, setEnvioError] = useState<string | null>(null);
   const listaRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -132,6 +133,17 @@ export default function MensajesScreen() {
 
   useEffect(() => {
     if (!conversacionId) return;
+    let pollId: ReturnType<typeof setInterval> | null = null;
+
+    async function refrescar() {
+      const { data } = await supabase
+        .from("mensajes")
+        .select("id, conversacion_id, autor_id, texto, created_at")
+        .eq("conversacion_id", conversacionId)
+        .order("created_at", { ascending: true });
+      if (data) setMensajes(data as Mensaje[]);
+    }
+
     const canal = supabase
       .channel(`mensajes-${conversacionId}`)
       .on(
@@ -147,9 +159,24 @@ export default function MensajesScreen() {
           setMensajes((prev) => (prev.some((m) => m.id === nuevo.id) ? prev : [...prev, nuevo]));
         },
       )
-      .subscribe();
+      // Si Realtime no conecta, el chat no puede quedar muerto: se cae
+      // a refrescar la lista cada pocos segundos.
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          if (pollId) {
+            clearInterval(pollId);
+            pollId = null;
+          }
+        } else if (
+          !pollId &&
+          (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED")
+        ) {
+          pollId = setInterval(refrescar, 4000);
+        }
+      });
 
     return () => {
+      if (pollId) clearInterval(pollId);
       supabase.removeChannel(canal);
     };
   }, [conversacionId]);
@@ -158,13 +185,28 @@ export default function MensajesScreen() {
     const limpio = texto.trim();
     if (!limpio || !conversacionId || !session) return;
     setTexto("");
+    setEnvioError(null);
     setEnviando(true);
-    await supabase.from("mensajes").insert({
-      conversacion_id: conversacionId,
-      autor_id: session.user.id,
-      texto: limpio,
-    });
+    // Se pide la fila insertada para pintarla de una, sin depender de
+    // que Realtime la haga rebotar de vuelta.
+    const { data, error: errorEnvio } = await supabase
+      .from("mensajes")
+      .insert({
+        conversacion_id: conversacionId,
+        autor_id: session.user.id,
+        texto: limpio,
+      })
+      .select("id, conversacion_id, autor_id, texto, created_at")
+      .single();
     setEnviando(false);
+
+    if (errorEnvio || !data) {
+      setEnvioError("No se pudo enviar el mensaje. Intentá de nuevo.");
+      setTexto(limpio);
+      return;
+    }
+    const nuevo = data as Mensaje;
+    setMensajes((prev) => (prev.some((m) => m.id === nuevo.id) ? prev : [...prev, nuevo]));
   }
 
   if (cargando) {
@@ -218,6 +260,10 @@ export default function MensajesScreen() {
         }}
       />
 
+      {envioError && (
+        <Text style={styles.envioError}>{envioError}</Text>
+      )}
+
       <View style={styles.barraEnvio}>
         <TextInput
           value={texto}
@@ -260,6 +306,14 @@ const styles = StyleSheet.create({
   burbujaOtro: { backgroundColor: Colors.cream2 },
   textoMio: { color: "#ffffff", fontFamily: Fonts.medium, fontSize: 13.5 },
   textoOtro: { color: Colors.ink, fontFamily: Fonts.medium, fontSize: 13.5 },
+  envioError: {
+    color: Colors.danger,
+    fontFamily: Fonts.medium,
+    fontSize: 12.5,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.one,
+    textAlign: "center",
+  },
   barraEnvio: {
     flexDirection: "row",
     alignItems: "flex-end",

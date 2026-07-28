@@ -16,11 +16,23 @@ export default function HiloChat({
 }) {
   const [mensajes, setMensajes] = useState(mensajesIniciales);
   const [texto, setTexto] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const finRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const supabase = createClient();
+    let pollId: ReturnType<typeof setInterval> | null = null;
+
+    async function refrescar() {
+      const { data } = await supabase
+        .from("mensajes")
+        .select("id, conversacion_id, autor_id, texto, created_at")
+        .eq("conversacion_id", conversacionId)
+        .order("created_at", { ascending: true });
+      if (data) setMensajes(data as Mensaje[]);
+    }
+
     const canal = supabase
       .channel(`mensajes-${conversacionId}`)
       .on(
@@ -36,9 +48,25 @@ export default function HiloChat({
           setMensajes((prev) => (prev.some((m) => m.id === nuevo.id) ? prev : [...prev, nuevo]));
         },
       )
-      .subscribe();
+      // Si Realtime no conecta (no está habilitado en el proyecto, la
+      // tabla no está en la publicación, red...) el chat no puede quedar
+      // muerto: se cae a refrescar la lista cada pocos segundos.
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          if (pollId) {
+            clearInterval(pollId);
+            pollId = null;
+          }
+        } else if (
+          !pollId &&
+          (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED")
+        ) {
+          pollId = setInterval(refrescar, 4000);
+        }
+      });
 
     return () => {
+      if (pollId) clearInterval(pollId);
       supabase.removeChannel(canal);
     };
   }, [conversacionId]);
@@ -51,8 +79,17 @@ export default function HiloChat({
     const limpio = texto.trim();
     if (!limpio) return;
     setTexto("");
+    setError(null);
     startTransition(async () => {
-      await enviarMensaje(conversacionId, limpio);
+      const res = await enviarMensaje(conversacionId, limpio);
+      if (res.error !== null) {
+        setError(res.error);
+        // Se le devuelve lo que escribió para que no lo pierda.
+        setTexto(limpio);
+        return;
+      }
+      const nuevo = res.mensaje;
+      setMensajes((prev) => (prev.some((m) => m.id === nuevo.id) ? prev : [...prev, nuevo]));
     });
   }
 
@@ -82,6 +119,12 @@ export default function HiloChat({
         })}
         <div ref={finRef} />
       </div>
+
+      {error && (
+        <p className="border-t border-aventurea-line bg-red-50 px-4 py-2 text-[12.5px] text-red-700">
+          {error}
+        </p>
+      )}
 
       <form
         onSubmit={(e) => {
