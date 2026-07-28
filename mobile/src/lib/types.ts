@@ -239,6 +239,8 @@ export type Rancho = {
   contacto_whatsapp: string | null;
   foto_url: string | null;
   foto_presentacion: string | null;
+  /** Posición entre los destacados de la portada (null = no destacado). */
+  destacado_orden?: number | null;
   deposito_reserva: number;
   sinpe_numero: string | null;
   sinpe_titular: string | null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { borrarRancho, setEstadoRancho } from "./actions";
+import { borrarRancho, moverDestacado, setDestacado, setEstadoRancho } from "./actions";
 import { CATEGORIA_LABEL, type EstadoRancho, type Rancho } from "@/app/mi-rancho/types";
 
 export type RanchoConDueno = Rancho & { duenoEmail: string | null };
@@ -47,6 +47,15 @@ export default function RanchosTable({
       .filter((r) => filtro === "todos" || r.estado === filtro);
   }, [ranchos, query, filtro]);
 
+  // Puesto de cada destacado (1, 2, 3...) sin los huecos que dejan
+  // los que se quitaron.
+  const puestoDestacado = useMemo(() => {
+    const orden = ranchos
+      .filter((r) => r.destacado_orden != null)
+      .sort((a, b) => a.destacado_orden! - b.destacado_orden!);
+    return new Map(orden.map((r, i) => [r.id, i + 1]));
+  }, [ranchos]);
+
   function cambiarEstado(id: string, estado: EstadoRancho) {
     setError(null);
     startTransition(async () => {
@@ -58,6 +67,47 @@ export default function RanchosTable({
       setRanchos((prev) =>
         prev.map((r) => (r.id === id ? { ...r, estado } : r)),
       );
+    });
+  }
+
+  // Los destacados primero (en su orden), después el resto tal cual
+  // vino del servidor — el mismo criterio que usa la portada.
+  function aplicarCambios(cambios: { id: string; destacado_orden: number | null }[]) {
+    setRanchos((prev) => {
+      const conCambio = prev.map((r) => {
+        const c = cambios.find((x) => x.id === r.id);
+        return c ? { ...r, destacado_orden: c.destacado_orden } : r;
+      });
+      return [...conCambio].sort((a, b) => {
+        const ao = a.destacado_orden ?? Infinity;
+        const bo = b.destacado_orden ?? Infinity;
+        if (ao !== bo) return ao - bo;
+        return 0;
+      });
+    });
+  }
+
+  function destacar(id: string, valor: boolean) {
+    setError(null);
+    startTransition(async () => {
+      const res = await setDestacado(id, valor);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (res.cambios) aplicarCambios(res.cambios);
+    });
+  }
+
+  function mover(id: string, direccion: -1 | 1) {
+    setError(null);
+    startTransition(async () => {
+      const res = await moverDestacado(id, direccion);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (res.cambios) aplicarCambios(res.cambios);
     });
   }
 
@@ -109,6 +159,7 @@ export default function RanchosTable({
           <thead>
             <tr className="bg-aventurea-cream-2/60">
               {[
+                "Destacado",
                 "Nombre",
                 "Categoría",
                 "Dueño",
@@ -131,7 +182,7 @@ export default function RanchosTable({
             {list.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
                   No hay salones que coincidan con la búsqueda.
@@ -143,6 +194,52 @@ export default function RanchosTable({
                 key={r.id}
                 className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream-2/40"
               >
+                <td className="whitespace-nowrap px-4 py-3.5">
+                  {r.destacado_orden != null ? (
+                    <div className="flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-aventurea-orange/15 px-2 py-1 text-[11.5px] font-bold text-aventurea-orange">
+                        ★ {puestoDestacado.get(r.id)}
+                      </span>
+                      <button
+                        disabled={pending}
+                        onClick={() => mover(r.id, -1)}
+                        title="Subir un puesto"
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-aventurea-line text-xs text-aventurea-ink hover:border-aventurea-navy disabled:opacity-50"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        disabled={pending}
+                        onClick={() => mover(r.id, 1)}
+                        title="Bajar un puesto"
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-aventurea-line text-xs text-aventurea-ink hover:border-aventurea-navy disabled:opacity-50"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        disabled={pending}
+                        onClick={() => destacar(r.id, false)}
+                        title="Quitar de destacados"
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-aventurea-line text-xs text-aventurea-ink-soft hover:border-red-400 hover:text-red-700 disabled:opacity-50"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      disabled={pending || r.estado !== "aprobado"}
+                      onClick={() => destacar(r.id, true)}
+                      title={
+                        r.estado !== "aprobado"
+                          ? "Solo se pueden destacar negocios publicados"
+                          : "Poner de primero en la portada"
+                      }
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                    >
+                      ☆ Destacar
+                    </button>
+                  )}
+                </td>
                 <td className="px-4 py-3.5">
                   <div className="font-bold text-aventurea-ink">{r.nombre}</div>
                   {r.contacto_whatsapp && (

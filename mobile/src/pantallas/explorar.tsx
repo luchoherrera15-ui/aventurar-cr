@@ -50,6 +50,7 @@ export type Fila = Pick<
   | "canton"
   | "precio_desde"
   | "foto_url"
+  | "destacado_orden"
 >;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- el pager pasa `activa` a todas las pestañas; Explorar no la necesita (carga al montar y con pull-refresh)
@@ -121,7 +122,7 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
     const { data, error } = await supabase
       .from("ranchos")
       .select(
-        "id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url",
+        "id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url, destacado_orden",
       )
       .eq("estado", "aprobado")
       .order("created_at", { ascending: false });
@@ -130,7 +131,13 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
       setError("No se pudo cargar el directorio: " + error.message);
       return;
     }
-    setRanchos((data ?? []) as Fila[]);
+    // Destacados del admin de primeros — el mismo orden que la web.
+    // (sort estable: el resto conserva el más-nuevo-primero)
+    setRanchos(
+      ((data ?? []) as Fila[]).sort(
+        (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
+      ),
+    );
   }, []);
 
   useEffect(() => {

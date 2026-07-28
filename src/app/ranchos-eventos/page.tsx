@@ -17,10 +17,18 @@ export default async function RanchosEventosPage() {
     // páginas siguientes conforme se publican otros.
     .order("created_at", { ascending: false });
 
-  const ranchos = ((data ?? []) as Rancho[]).map((r) => ({
-    ...r,
-    categoria: normalizarCategoria(r.categoria),
-  }));
+  const ranchos = ((data ?? []) as Rancho[])
+    .map((r) => ({
+      ...r,
+      categoria: normalizarCategoria(r.categoria),
+    }))
+    // Los destacados del admin van de primeros, en su orden. Se ordena
+    // acá y no en SQL para que la página siga viva aunque la migración
+    // 0044 todavía no se haya corrido (sort es estable: el resto
+    // conserva el más-nuevo-primero).
+    .sort(
+      (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
+    );
 
   // Solo "lugares" reserva por fecha en línea — el resto se contrata por
   // WhatsApp, sin calendario. Traemos de una sola vez qué fechas ya están

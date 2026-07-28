@@ -15,9 +15,12 @@ export default async function AdminRanchosPage() {
     (perfilesRes.data ?? []).map((p) => [p.id as string, p.email as string | null]),
   );
 
-  const ranchos: RanchoConDueno[] = ((ranchosRes.data ?? []) as Rancho[]).map(
-    (r) => ({ ...r, duenoEmail: emailPorId.get(r.owner_id) ?? null }),
-  );
+  const ranchos: RanchoConDueno[] = ((ranchosRes.data ?? []) as Rancho[])
+    .map((r) => ({ ...r, duenoEmail: emailPorId.get(r.owner_id) ?? null }))
+    // Destacados de primeros (sort estable: el resto queda como venía).
+    .sort(
+      (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
+    );
 
   const pendientes = ranchos.filter((r) => r.estado === "pendiente").length;
   const publicados = ranchos.filter((r) => r.estado === "aprobado").length;

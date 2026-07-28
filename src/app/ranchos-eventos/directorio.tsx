@@ -22,8 +22,9 @@ import {
 import type { Rancho } from "../mi-rancho/types";
 
 const POR_PAGINA = 14;
-// Portada sin filtros: un riel horizontal por categoría, de hasta 10.
-const POR_RIEL = 10;
+// Como pidió el dueño: máximo 12 tarjetas por categoría en la portada
+// — para ver más está el "Ver todo" de cada riel.
+const POR_RIEL = 12;
 const DIAS_A_MOSTRAR = 60;
 const DIAS_SEMANA_CORTO = ["D", "L", "M", "M", "J", "V", "S"];
 
@@ -199,7 +200,7 @@ export default function Directorio({
     !!precioMax;
 
   // Sin ningún filtro, la portada se arma como rieles horizontales por
-  // categoría (en el orden de la barra de arriba), de hasta 10 cada uno.
+  // categoría (en el orden de la barra de arriba), de hasta 12 cada uno.
   // Apenas se filtra algo, vuelve la grilla plana con paginación.
   const rieles = useMemo(() => {
     if (hayAlgo) return [];

@@ -91,7 +91,13 @@ export default function RanchoCard({
               {CATEGORIA_ICONO[rancho.categoria]}
             </span>
           )}
-          {esNuevo && (
+          {/* Destacado le gana el puesto a "Nuevo": los dos van en la
+              misma esquina y el badge pagado/manual pesa más. */}
+          {rancho.destacado_orden != null ? (
+            <span className="absolute left-2.5 top-2.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-aventurea-ink shadow-[0_2px_7px_rgba(0,0,0,.16)]">
+              ★ Destacado
+            </span>
+          ) : esNuevo && (
             <span className="absolute left-2.5 top-2.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-aventurea-ink shadow-[0_2px_7px_rgba(0,0,0,.16)]">
               Nuevo
             </span>

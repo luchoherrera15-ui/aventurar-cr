@@ -498,6 +498,8 @@ export type Rancho = {
   foto_url: string | null;
   /** Cuál de sus fotos va grande en la sección de presentación. */
   foto_presentacion: string | null;
+  /** Posición entre los destacados de la portada (null = no destacado). */
+  destacado_orden?: number | null;
   deposito_reserva: number;
   sinpe_numero: string | null;
   sinpe_titular: string | null;
