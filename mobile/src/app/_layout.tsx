@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -42,6 +43,7 @@ export default function RootLayout() {
   const esPestana = RUTAS_CON_BARRA.has(pathname);
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <AuthProvider>
       <StatusBar style={esPestana ? "dark" : "light"} />
       <Stack
@@ -67,5 +69,6 @@ export default function RootLayout() {
       </Stack>
       <TabBar />
     </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
