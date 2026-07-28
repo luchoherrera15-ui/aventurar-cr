@@ -179,42 +179,51 @@ export default function BandejaMensajesScreen() {
           </Text>
         </View>
       }
-      renderItem={({ item }) => (
-        <Pressable
-          style={styles.fila}
-          onPress={() => router.push(`/mensajes/${item.reservaId}`)}
-        >
-          {item.foto ? (
-            <Image source={{ uri: item.foto }} alt="" style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, { backgroundColor: Colors.cream2 }]} />
-          )}
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <View style={styles.filaTop}>
+      renderItem={({ item }) => {
+        const nuevo = item.pendientes > 0;
+        return (
+          <Pressable
+            style={[styles.fila, nuevo && styles.filaNoLeida]}
+            onPress={() => router.push(`/mensajes/${item.reservaId}`)}
+          >
+            {item.foto ? (
+              <Image source={{ uri: item.foto }} alt="" style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: Colors.cream2 }]} />
+            )}
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.titulo} numberOfLines={1}>
                 {item.titulo}
               </Text>
-              <Text style={styles.hora}>{fechaCorta(item.actividad)}</Text>
-            </View>
-            {!!item.subtitulo && (
-              <Text style={styles.subtitulo} numberOfLines={1}>
-                {item.subtitulo}
+              {!!item.subtitulo && (
+                <Text style={styles.subtitulo} numberOfLines={1}>
+                  {item.subtitulo}
+                </Text>
+              )}
+              <Text
+                style={[styles.preview, nuevo && styles.previewNoLeido]}
+                numberOfLines={1}
+              >
+                {item.ultimoTexto}
               </Text>
-            )}
-            <Text
-              style={[styles.preview, item.pendientes > 0 && styles.previewNoLeido]}
-              numberOfLines={1}
-            >
-              {item.ultimoTexto}
-            </Text>
-          </View>
-          {item.pendientes > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeTexto}>{item.pendientes}</Text>
             </View>
-          )}
-        </Pressable>
-      )}
+            <View style={styles.colDerecha}>
+              <View style={[styles.chipFecha, nuevo && styles.chipFechaNueva]}>
+                <Text style={[styles.chipFechaTexto, nuevo && styles.chipTextoBlanco]}>
+                  {fechaCorta(item.actividad)}
+                </Text>
+              </View>
+              {nuevo && (
+                <View style={styles.chipNuevos}>
+                  <Text style={styles.chipTextoBlanco}>
+                    {item.pendientes} nuevo{item.pendientes === 1 ? "" : "s"}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Pressable>
+        );
+      }}
     />
   );
 }
@@ -255,21 +264,28 @@ const styles = StyleSheet.create({
     padding: Spacing.two,
     marginBottom: Spacing.two,
   },
+  filaNoLeida: { backgroundColor: Colors.greenLight, borderColor: Colors.green },
   avatar: { width: 48, height: 48, borderRadius: 24 },
-  filaTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: Spacing.two },
-  titulo: { flex: 1, fontFamily: Fonts.extraBold, fontSize: 14, color: Colors.ink },
-  hora: { fontFamily: Fonts.medium, fontSize: 11, color: Colors.inkSoft },
+  titulo: { fontFamily: Fonts.extraBold, fontSize: 14, color: Colors.ink },
   subtitulo: { fontFamily: Fonts.medium, fontSize: 11.5, color: Colors.inkSoft },
   preview: { marginTop: 2, fontFamily: Fonts.medium, fontSize: 12.5, color: Colors.inkSoft },
   previewNoLeido: { fontFamily: Fonts.bold, color: Colors.ink },
-  badge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.navy,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
+  colDerecha: { alignItems: "flex-end", gap: 5 },
+  chipFecha: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.cream2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  badgeTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 11 },
+  chipFechaNueva: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  chipFechaTexto: { fontFamily: Fonts.bold, fontSize: 10.5, color: Colors.inkSoft },
+  chipNuevos: {
+    borderRadius: 8,
+    backgroundColor: Colors.green,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  chipTextoBlanco: { fontFamily: Fonts.bold, fontSize: 10.5, color: "#ffffff" },
 });

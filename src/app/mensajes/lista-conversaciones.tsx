@@ -49,47 +49,58 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
 
   return (
     <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-      {filas.map((f) => (
-        <Link
-          key={f.id}
-          href={`/mensajes/${f.reservaId}`}
-          className="flex items-center gap-3.5 border-b border-aventurea-line px-4 py-3.5 transition-colors last:border-none hover:bg-aventurea-cream-2/50"
-        >
-          <div
-            className="h-12 w-12 shrink-0 rounded-full bg-aventurea-cream-2 bg-cover bg-center"
-            style={f.foto ? { backgroundImage: `url(${f.foto})` } : undefined}
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-3">
+      {filas.map((f) => {
+        const nuevo = f.pendientes > 0;
+        return (
+          <Link
+            key={f.id}
+            href={`/mensajes/${f.reservaId}`}
+            className={`flex items-center gap-3.5 border-b border-aventurea-line px-4 py-3.5 transition-colors last:border-none ${
+              nuevo
+                ? "bg-aventurea-green/[0.06] hover:bg-aventurea-green/10"
+                : "hover:bg-aventurea-cream-2/50"
+            }`}
+          >
+            <div
+              className="h-12 w-12 shrink-0 rounded-full bg-aventurea-cream-2 bg-cover bg-center"
+              style={f.foto ? { backgroundImage: `url(${f.foto})` } : undefined}
+            />
+            <div className="min-w-0 flex-1">
               <p className="truncate text-[14px] font-bold text-aventurea-ink">
                 {f.titulo}
               </p>
-              <p className="shrink-0 text-[11.5px] text-zinc-500">
-                {fechaCorta(f.actividad)}
+              {f.subtitulo && (
+                <p className="truncate text-[12px] text-aventurea-ink-soft">
+                  {f.subtitulo}
+                </p>
+              )}
+              <p
+                className={`mt-0.5 truncate text-[12.5px] ${
+                  nuevo ? "font-bold text-aventurea-ink" : "text-aventurea-ink-soft"
+                }`}
+              >
+                {f.ultimoTexto}
               </p>
             </div>
-            {f.subtitulo && (
-              <p className="truncate text-[12px] text-aventurea-ink-soft">
-                {f.subtitulo}
-              </p>
-            )}
-            <p
-              className={`mt-0.5 truncate text-[12.5px] ${
-                f.pendientes > 0
-                  ? "font-bold text-aventurea-ink"
-                  : "text-aventurea-ink-soft"
-              }`}
-            >
-              {f.ultimoTexto}
-            </p>
-          </div>
-          {f.pendientes > 0 && (
-            <span className="flex h-[22px] min-w-[22px] shrink-0 items-center justify-center rounded-full bg-aventurea-navy px-1.5 text-[11px] font-bold text-white">
-              {f.pendientes}
-            </span>
-          )}
-        </Link>
-      ))}
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <span
+                className={`rounded-lg px-2.5 py-1 text-[10.5px] font-bold ${
+                  nuevo
+                    ? "bg-aventurea-navy text-white"
+                    : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft"
+                }`}
+              >
+                {fechaCorta(f.actividad)}
+              </span>
+              {nuevo && (
+                <span className="rounded-lg bg-aventurea-green px-2.5 py-1 text-[10.5px] font-bold text-white">
+                  {f.pendientes} nuevo{f.pendientes === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }
