@@ -5,6 +5,7 @@ import RanchoCard, { type Calificacion } from "@/components/rancho-card";
 import FormularioAuth from "./formulario-auth";
 import { cerrarSesionCuenta } from "./actions";
 import { CATEGORIA_LABEL, normalizarCategoria, type Rancho } from "../mi-rancho/types";
+import { hoyISOCR } from "@/lib/fechas";
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
@@ -65,7 +66,7 @@ export default async function CuentaPage() {
     ]);
 
   const reservas = (reservasData ?? []) as unknown as ReservaCliente[];
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyISOCR();
   const activas = reservas.filter((r) => r.estado !== "rechazada" && r.fecha >= hoy);
   const historial = reservas.filter((r) => r.estado === "rechazada" || r.fecha < hoy);
 

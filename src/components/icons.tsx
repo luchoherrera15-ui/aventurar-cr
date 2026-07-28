@@ -348,3 +348,16 @@ export function IconCompass({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function IconChatBubble({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 12c0 4.1-4 7.4-9 7.4-1 0-2-.13-2.9-.38L4 20.5l1.2-3.1C3.85 16 3 14.1 3 12c0-4.1 4-7.4 9-7.4s9 3.3 9 7.4Z"
+      />
+      <path strokeLinecap="round" d="M8.5 12h.01M12 12h.01M15.5 12h.01" />
+    </svg>
+  );
+}

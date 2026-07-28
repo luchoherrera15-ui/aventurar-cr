@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { DetallePedido, RanchoItem } from "@/app/mi-rancho/types";
+import { hoyISOCR } from "@/lib/fechas";
 
 export type CotizacionState = { error?: string } | undefined;
 
@@ -43,7 +44,7 @@ export async function solicitarCotizacion(
   const notas = String(formData.get("notas") || "").trim();
 
   if (!fecha) return { error: "Elegí la fecha de tu evento en el calendario." };
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyISOCR();
   if (fecha < hoy) return { error: "Esa fecha ya pasó — elegí una futura." };
 
   // El pedido llega como { item_id: cantidad }. Los nombres y precios

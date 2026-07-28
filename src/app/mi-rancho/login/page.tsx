@@ -17,13 +17,13 @@ export default function LoginDuenoPage() {
 
       <div className="relative w-full max-w-sm rounded-2xl border border-aventurea-line bg-aventurea-surface p-9 shadow-2xl">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-          Marketplace de ranchos
+          Proveedores de servicios
         </p>
         <h1 className="mt-2.5 text-xl font-bold text-aventurea-ink">
           Iniciá sesión
         </h1>
         <p className="mt-1.5 text-sm text-aventurea-ink-soft">
-          Entrá a tu cuenta para administrar tu rancho.
+          Entrá a tu cuenta para administrar tu negocio y tus reservas.
         </p>
 
         <form action={formAction} className="mt-5.5 flex flex-col gap-3.5">

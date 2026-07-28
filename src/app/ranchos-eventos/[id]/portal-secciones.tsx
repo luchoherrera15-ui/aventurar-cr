@@ -373,6 +373,7 @@ export function ResenasSeccion({
                     reseña viene de una reserva confirmada real. */}
                 Cliente verificado ·{" "}
                 {new Date(r.created_at).toLocaleDateString("es-CR", {
+                  timeZone: "America/Costa_Rica",
                   month: "long",
                   year: "numeric",
                 })}

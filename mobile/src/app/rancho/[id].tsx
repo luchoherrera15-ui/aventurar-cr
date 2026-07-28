@@ -435,6 +435,7 @@ export default function RanchoDetalleScreen() {
                   <Text style={styles.resenaMeta}>
                     Cliente verificado ·{" "}
                     {new Date(r.created_at).toLocaleDateString("es-CR", {
+                      timeZone: "America/Costa_Rica",
                       month: "long",
                       year: "numeric",
                     })}

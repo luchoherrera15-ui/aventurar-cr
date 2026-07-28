@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Figtree } from "next/font/google";
+import ChatFlotante from "@/components/chat-flotante";
 import "./globals.css";
 
 const figtree = Figtree({
@@ -29,7 +30,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${figtree.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        {children}
+        {/* Burbuja de mensajes global: visible en todas las páginas
+            cuando hay conversaciones, con contador de no leídos. */}
+        <ChatFlotante />
+      </body>
     </html>
   );
 }

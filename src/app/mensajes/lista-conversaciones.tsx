@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fechaCortaMensaje } from "@/lib/fechas";
 
 /**
  * La lista de la bandeja de mensajes, separada de la página para poder
@@ -19,14 +20,7 @@ export type FilaConversacion = {
   pendientes: number;
 };
 
-export function fechaCorta(iso: string) {
-  const d = new Date(iso);
-  const hoy = new Date();
-  if (d.toDateString() === hoy.toDateString()) {
-    return d.toLocaleTimeString("es-CR", { hour: "numeric", minute: "2-digit" });
-  }
-  return d.toLocaleDateString("es-CR", { day: "numeric", month: "short" });
-}
+
 
 export default function ListaConversaciones({ filas }: { filas: FilaConversacion[] }) {
   if (filas.length === 0) {
@@ -92,7 +86,7 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
                     : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft"
                 }`}
               >
-                {fechaCorta(f.actividad)}
+                {fechaCortaMensaje(f.actividad)}
               </span>
               {nuevo && (
                 <span className="rounded-lg bg-aventurea-green px-2.5 py-1 text-[10.5px] font-bold text-white">

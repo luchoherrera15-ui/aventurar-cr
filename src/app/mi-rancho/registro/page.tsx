@@ -17,14 +17,14 @@ export default function RegistroPage() {
 
       <div className="relative w-full max-w-sm rounded-2xl border border-aventurea-line bg-aventurea-surface p-9 shadow-2xl">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-          Marketplace de ranchos
+          Proveedores de servicios
         </p>
         <h1 className="mt-2.5 text-xl font-bold text-aventurea-ink">
           Creá tu cuenta
         </h1>
         <p className="mt-1.5 text-sm text-aventurea-ink-soft">
-          Registrate para publicar tu salón o rancho de eventos en Bookear
-          CR, sin importar en qué parte de Costa Rica esté.
+          Registrate para publicar tu negocio para eventos en Bookear CR —
+          lugares, comida, música, decoración y más, en todo el país.
         </p>
 
         {state?.needsConfirmation ? (
@@ -41,7 +41,7 @@ export default function RegistroPage() {
               >
                 iniciá sesión acá
               </Link>{" "}
-              para completar los datos de tu rancho.
+              para completar los datos de tu negocio.
             </p>
           </div>
         ) : (

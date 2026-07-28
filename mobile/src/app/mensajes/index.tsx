@@ -53,9 +53,9 @@ function fechaCorta(iso: string) {
   const d = new Date(iso);
   const hoy = new Date();
   if (d.toDateString() === hoy.toDateString()) {
-    return d.toLocaleTimeString("es-CR", { hour: "numeric", minute: "2-digit" });
+    return d.toLocaleTimeString("es-CR", { timeZone: "America/Costa_Rica", hour: "numeric", minute: "2-digit" });
   }
-  return d.toLocaleDateString("es-CR", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("es-CR", { timeZone: "America/Costa_Rica", day: "numeric", month: "short" });
 }
 
 export default function BandejaMensajesScreen() {
