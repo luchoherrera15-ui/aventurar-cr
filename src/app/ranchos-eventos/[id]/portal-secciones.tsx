@@ -20,6 +20,7 @@ import {
   type Categoria,
 } from "@/app/mi-rancho/types";
 import GaleriaLightbox from "@/components/galeria-lightbox";
+import GaleriaHeroFotos from "@/components/galeria-hero";
 
 /**
  * El texto de presentación (descripción larga). Antes iba encima de una
@@ -79,30 +80,7 @@ export function GaleriaHero({
     );
   }
 
-  const [grande, ...resto] = fotos;
-  const chicas = resto.slice(0, 4);
-
-  return (
-    <div className="mx-auto max-w-[1080px] px-0 sm:px-7 sm:pt-7">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:grid-rows-2 sm:rounded-[13px]">
-        {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor */}
-        <img
-          src={grande}
-          alt={nombre}
-          className="aspect-[16/9] w-full object-cover sm:col-span-2 sm:row-span-2 sm:aspect-auto sm:h-full"
-        />
-        {chicas.map((foto, i) => (
-          // eslint-disable-next-line @next/next/no-img-element -- ídem
-          <img
-            key={foto + i}
-            src={foto}
-            alt={`${nombre} — foto ${i + 2}`}
-            className="hidden aspect-square w-full object-cover sm:block"
-          />
-        ))}
-      </div>
-    </div>
-  );
+  return <GaleriaHeroFotos fotos={fotos} nombre={nombre} />;
 }
 
 /**

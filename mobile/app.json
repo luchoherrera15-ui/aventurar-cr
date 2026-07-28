@@ -9,7 +9,11 @@
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "lat.bookea.app"
+      "bundleIdentifier": "lat.bookea.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +30,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Bookea usa tus fotos solo para publicar las imágenes de tu negocio o servicio.",
+          "cameraPermission": "Bookea usa la cámara solo si querés tomar una foto para tu negocio."
+        }
+      ],
       [
         "expo-splash-screen",
         {

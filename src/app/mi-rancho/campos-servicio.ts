@@ -31,7 +31,55 @@ const MODALIDAD = (opciones: string[][]): Campo => ({
   label: "¿Cómo cobrás?",
   tipo: "opciones",
   opciones: opciones.map(([id, label]) => ({ id, label })),
+  ayuda:
+    "Con la modalidad y su tarifa configuradas, el cliente ve su total estimado al momento de reservar.",
 });
+
+// Las tarifas que alimentan la cotización en tiempo real del formulario
+// de reserva (src/lib/cotizador-servicio.ts). Cada categoría incluye
+// solo las que casan con sus modalidades de cobro.
+const TARIFA_PERSONA: Campo = {
+  id: "tarifa_persona",
+  label: "Tarifa por persona",
+  tipo: "numero",
+  sufijo: "₡",
+  ayuda: "Si cobrás por persona: lo que vale tu servicio por cada invitado.",
+};
+const TARIFA_HORA: Campo = {
+  id: "tarifa_hora",
+  label: "Tarifa por hora",
+  tipo: "numero",
+  sufijo: "₡",
+  ayuda: "Si cobrás por hora: el precio de cada hora de servicio.",
+};
+const HORAS_MINIMAS: Campo = {
+  id: "horas_minimas",
+  label: "Mínimo de horas",
+  tipo: "numero",
+  sufijo: "horas",
+  ayuda: "Si cobrás por hora: lo mínimo que aceptás por contratación.",
+};
+const TARIFA_EVENTO: Campo = {
+  id: "tarifa_evento",
+  label: "Tarifa por evento o paquete",
+  tipo: "numero",
+  sufijo: "₡",
+  ayuda: "Si cobrás una tarifa fija: lo que vale el servicio completo.",
+};
+const HORA_EXTRA: Campo = {
+  id: "hora_extra",
+  label: "Precio de la hora extra",
+  tipo: "numero",
+  sufijo: "₡",
+  ayuda: "Lo que cobrás por cada hora adicional después de las incluidas.",
+};
+const TARIFA_DIA: Campo = {
+  id: "tarifa_dia",
+  label: "Tarifa por día",
+  tipo: "numero",
+  sufijo: "₡",
+  ayuda: "Si cobrás por día de alquiler: el precio de cada día.",
+};
 
 // Todo servicio que se mueve al evento necesita decir hasta dónde llega,
 // cuánto cobra por ir y con cuánta anticipación hay que reservarlo.
@@ -71,6 +119,8 @@ export const CAMPOS_POR_CATEGORIA: Partial<Record<Categoria, GrupoCampos[]>> = {
           ["por_evento", "Por evento"],
           ["por_unidad", "Por unidad"],
         ]),
+        TARIFA_PERSONA,
+        TARIFA_EVENTO,
         {
           id: "minimo_personas",
           label: "Mínimo de personas",
@@ -124,12 +174,17 @@ export const CAMPOS_POR_CATEGORIA: Partial<Record<Categoria, GrupoCampos[]>> = {
           ["por_evento", "Por evento"],
           ["por_paquete", "Por paquete"],
         ]),
+        TARIFA_HORA,
+        HORAS_MINIMAS,
+        TARIFA_EVENTO,
         {
           id: "duracion_horas",
           label: "Horas incluidas",
           tipo: "numero",
           sufijo: "horas",
+          ayuda: "Las horas que cubre tu tarifa por evento o paquete.",
         },
+        HORA_EXTRA,
         {
           id: "integrantes",
           label: "Cantidad de integrantes",
@@ -214,6 +269,9 @@ export const CAMPOS_POR_CATEGORIA: Partial<Record<Categoria, GrupoCampos[]>> = {
           ["por_paquete", "Por paquete"],
           ["por_unidad", "Por unidad"],
         ]),
+        TARIFA_EVENTO,
+        TARIFA_HORA,
+        HORAS_MINIMAS,
         {
           id: "horas_cobertura",
           label: "Horas de cobertura",
@@ -278,6 +336,8 @@ export const CAMPOS_POR_CATEGORIA: Partial<Record<Categoria, GrupoCampos[]>> = {
           ["por_dia", "Por día"],
           ["por_unidad", "Por unidad"],
         ]),
+        TARIFA_DIA,
+        TARIFA_EVENTO,
         {
           id: "inventario",
           label: "Qué tenés disponible y cuánto",
@@ -327,6 +387,10 @@ export const CAMPOS_POR_CATEGORIA: Partial<Record<Categoria, GrupoCampos[]>> = {
           ["por_dia", "Por día"],
           ["por_unidad", "Por unidad"],
         ]),
+        TARIFA_EVENTO,
+        TARIFA_HORA,
+        HORAS_MINIMAS,
+        TARIFA_DIA,
         {
           id: "que_incluye",
           label: "Qué incluye el servicio",

@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import type { DetallePedido, RanchoItem } from "@/app/mi-rancho/types";
 import { hoyISOCR } from "@/lib/fechas";
 import { enviarCorreo, plantillaConfirmacionReserva } from "@/lib/email";
+import {
+  cotizarServicio,
+  leerConfigCobro,
+  totalCotizacion,
+} from "@/lib/cotizador-servicio";
 
 export type CotizacionState = { error?: string } | undefined;
 
@@ -53,7 +58,7 @@ export async function solicitarCotizacion(
   // relee de la base — nunca del navegador.
   const { data: ranchoData } = await supabase
     .from("ranchos")
-    .select("nombre, deposito_reserva, sinpe_numero, cuenta_numero")
+    .select("nombre, deposito_reserva, sinpe_numero, cuenta_numero, detalles")
     .eq("id", ranchoId)
     .maybeSingle();
   const rancho = ranchoData as {
@@ -61,8 +66,23 @@ export async function solicitarCotizacion(
     deposito_reserva: number | null;
     sinpe_numero: string | null;
     cuenta_numero: string | null;
+    detalles: Record<string, unknown> | null;
   } | null;
   if (!rancho) return { error: "Este negocio ya no está disponible." };
+
+  // La cotización según cómo cobra el proveedor se recalcula acá, con
+  // las tarifas de la base — el total del navegador no se usa.
+  const numForm = (nombre: string) => {
+    const n = parseInt(String(formData.get(nombre) || ""), 10);
+    return Number.isFinite(n) && n > 0 && n <= 999 ? n : null;
+  };
+  const lineasServicio = cotizarServicio(leerConfigCobro(rancho.detalles), {
+    invitados,
+    horas: numForm("horas"),
+    dias: numForm("dias"),
+    horasExtra: numForm("horas_extra"),
+  });
+  const totalServicio = totalCotizacion(lineasServicio);
 
   const deposito = rancho.deposito_reserva ?? 0;
   const pagoRequerido = deposito > 0 && (!!rancho.sinpe_numero || !!rancho.cuenta_numero);
@@ -139,8 +159,10 @@ export async function solicitarCotizacion(
       estado: "pendiente",
       origen: "web",
       ...(detallePedido ? { detalle_pedido: detallePedido } : {}),
-      ...(detallePedido?.total_estimado != null
-        ? { monto_total: detallePedido.total_estimado }
+      // El monto junta el servicio cotizado (por hora/persona/día...)
+      // con el pedido del catálogo, si alguno de los dos existe.
+      ...(totalServicio > 0 || detallePedido?.total_estimado != null
+        ? { monto_total: totalServicio + (detallePedido?.total_estimado ?? 0) }
         : {}),
       ...(pagoRequerido && comprobantePath
         ? {
@@ -173,6 +195,13 @@ export async function solicitarCotizacion(
     ];
     if (tipoEvento) partes.push(`Tipo de evento: ${tipoEvento}.`);
     if (invitados && invitados > 0) partes.push(`Invitados: ${invitados}.`);
+    if (lineasServicio.length > 0) {
+      partes.push(
+        "Servicio cotizado:\n" +
+          lineasServicio.map((l) => `• ${l.etiqueta}: ${fmtColones(l.monto)}`).join("\n") +
+          `\nEstimado del servicio: ${fmtColones(totalServicio)}.`,
+      );
+    }
     if (detallePedido) {
       partes.push(
         "Pedido:\n" +
@@ -185,7 +214,11 @@ export async function solicitarCotizacion(
             .join("\n"),
       );
       if (detallePedido.total_estimado !== null) {
-        partes.push(`Total estimado: ${fmtColones(detallePedido.total_estimado)}.`);
+        partes.push(
+          `Total estimado${totalServicio > 0 ? " (servicio + pedido)" : ""}: ${fmtColones(
+            totalServicio + detallePedido.total_estimado,
+          )}.`,
+        );
       }
     }
     if (notas) partes.push(`Notas: ${notas}`);

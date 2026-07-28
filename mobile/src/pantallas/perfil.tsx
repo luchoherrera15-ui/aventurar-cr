@@ -470,8 +470,53 @@ function PerfilVista({
           <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
           <Text style={styles.botonSalirTexto}>Cerrar sesión</Text>
         </Pressable>
+
+        {/* App Store exige poder borrar la cuenta desde la app
+            (guideline 5.1.1) — y además es lo correcto. */}
+        <Pressable style={styles.botonEliminar} onPress={confirmarEliminarCuenta}>
+          <Text style={styles.botonEliminarTexto}>Eliminar mi cuenta</Text>
+        </Pressable>
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * Borrar la cuenta es irreversible, así que se confirma dos veces.
+ * La función de la base borra el usuario y todo lo suyo en cascada;
+ * las reservas que hizo quedan (anónimas) porque son parte de la
+ * historia del negocio que las recibió.
+ */
+function confirmarEliminarCuenta() {
+  Alert.alert(
+    "¿Eliminar tu cuenta?",
+    "Se borran tu perfil, tus favoritos, tus reseñas, tus chats y tus negocios publicados. Esto no se puede deshacer.",
+    [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Sí, continuar",
+        style: "destructive",
+        onPress: () =>
+          Alert.alert("Última confirmación", "¿Seguro que querés eliminar tu cuenta para siempre?", [
+            { text: "No, conservarla", style: "cancel" },
+            {
+              text: "Eliminar definitivamente",
+              style: "destructive",
+              onPress: async () => {
+                const { error } = await supabase.rpc("eliminar_mi_cuenta");
+                if (error) {
+                  Alert.alert(
+                    "No se pudo eliminar",
+                    "Intentá de nuevo en un momento o escribinos a hola@bookea.lat.",
+                  );
+                  return;
+                }
+                await supabase.auth.signOut();
+              },
+            },
+          ]),
+      },
+    ],
   );
 }
 
@@ -682,4 +727,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
   },
   botonSalirTexto: { color: Colors.danger, fontFamily: Fonts.bold, fontSize: 13.5 },
+  botonEliminar: { alignItems: "center", paddingBottom: Spacing.two },
+  botonEliminarTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.semiBold,
+    fontSize: 12,
+    textDecorationLine: "underline",
+  },
 });

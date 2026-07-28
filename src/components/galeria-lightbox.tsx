@@ -10,29 +10,37 @@ import { FOTOS_DESTACADAS } from "@/app/mi-rancho/types";
  * de la grilla — para ver detalle había que confiar en el zoom del
  * navegador.
  */
-export default function GaleriaLightbox({
+/**
+ * El visor a pantalla completa, separado de la grilla para que
+ * también lo pueda abrir el carrusel del hero. Quien lo usa guarda
+ * el índice abierto (o null) y se lo pasa.
+ */
+export function Lightbox({
   fotos,
   nombre,
+  abierta,
+  onCambiar,
+  onCerrar,
 }: {
   fotos: string[];
   nombre: string;
+  abierta: number | null;
+  onCambiar: (indice: number) => void;
+  onCerrar: () => void;
 }) {
-  const [abierta, setAbierta] = useState<number | null>(null);
-
-  const cerrar = useCallback(() => setAbierta(null), []);
   const anterior = useCallback(() => {
-    setAbierta((i) => (i === null ? null : (i - 1 + fotos.length) % fotos.length));
-  }, [fotos.length]);
+    if (abierta !== null) onCambiar((abierta - 1 + fotos.length) % fotos.length);
+  }, [abierta, fotos.length, onCambiar]);
   const siguiente = useCallback(() => {
-    setAbierta((i) => (i === null ? null : (i + 1) % fotos.length));
-  }, [fotos.length]);
+    if (abierta !== null) onCambiar((abierta + 1) % fotos.length);
+  }, [abierta, fotos.length, onCambiar]);
 
   useEffect(() => {
     if (abierta === null) return;
     const previo = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     function alTeclado(e: KeyboardEvent) {
-      if (e.key === "Escape") cerrar();
+      if (e.key === "Escape") onCerrar();
       if (e.key === "ArrowLeft") anterior();
       if (e.key === "ArrowRight") siguiente();
     }
@@ -41,7 +49,78 @@ export default function GaleriaLightbox({
       document.body.style.overflow = previo;
       document.removeEventListener("keydown", alTeclado);
     };
-  }, [abierta, cerrar, anterior, siguiente]);
+  }, [abierta, onCerrar, anterior, siguiente]);
+
+  if (abierta === null) return null;
+
+  return (
+    <div
+      onClick={onCerrar}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Foto ${abierta + 1} de ${fotos.length} — ${nombre}`}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+    >
+      <button
+        type="button"
+        onClick={onCerrar}
+        aria-label="Cerrar"
+        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl text-white hover:bg-white/20"
+      >
+        ×
+      </button>
+
+      <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[12.5px] font-bold text-white/70">
+        {abierta + 1} / {fotos.length}
+      </span>
+
+      {fotos.length > 1 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            anterior();
+          }}
+          aria-label="Foto anterior"
+          className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:left-4"
+        >
+          <IconChevronLeft className="h-5 w-5" />
+        </button>
+      )}
+
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={fotos[abierta]}
+        alt={`${nombre} — foto ${abierta + 1}`}
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[85vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
+      />
+
+      {fotos.length > 1 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            siguiente();
+          }}
+          aria-label="Foto siguiente"
+          className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:right-4"
+        >
+          <IconChevronRight className="h-5 w-5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function GaleriaLightbox({
+  fotos,
+  nombre,
+}: {
+  fotos: string[];
+  nombre: string;
+}) {
+  const [abierta, setAbierta] = useState<number | null>(null);
 
   if (fotos.length === 0) return null;
 
@@ -98,64 +177,13 @@ export default function GaleriaLightbox({
         </div>
       )}
 
-      {abierta !== null && (
-        <div
-          onClick={cerrar}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Foto ${abierta + 1} de ${fotos.length} — ${nombre}`}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
-        >
-          <button
-            type="button"
-            onClick={cerrar}
-            aria-label="Cerrar"
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl text-white hover:bg-white/20"
-          >
-            ×
-          </button>
-
-          <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[12.5px] font-bold text-white/70">
-            {abierta + 1} / {fotos.length}
-          </span>
-
-          {fotos.length > 1 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                anterior();
-              }}
-              aria-label="Foto anterior"
-              className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:left-4"
-            >
-              <IconChevronLeft className="h-5 w-5" />
-            </button>
-          )}
-
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={fotos[abierta]}
-            alt={`${nombre} — foto ${abierta + 1}`}
-            onClick={(e) => e.stopPropagation()}
-            className="max-h-[85vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
-          />
-
-          {fotos.length > 1 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                siguiente();
-              }}
-              aria-label="Foto siguiente"
-              className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:right-4"
-            >
-              <IconChevronRight className="h-5 w-5" />
-            </button>
-          )}
-        </div>
-      )}
+      <Lightbox
+        fotos={fotos}
+        nombre={nombre}
+        abierta={abierta}
+        onCambiar={setAbierta}
+        onCerrar={() => setAbierta(null)}
+      />
     </>
   );
 }

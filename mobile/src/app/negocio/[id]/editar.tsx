@@ -19,14 +19,15 @@ import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
-import { CANTONES, PROVINCIAS, type Provincia } from "@/lib/types";
+import { CANTONES, FOTOS_MAX, PROVINCIAS, type Provincia } from "@/lib/types";
 
 /**
  * Editar un negocio ya publicado desde el teléfono: los datos que se
  * cambian seguido (nombre, descripción, precio, capacidad, ubicación)
- * y la foto de portada. Lo más fino —galería completa, rangos de
- * precio, descuentos, horarios— sigue en el sitio web, que tiene
- * espacio para esos formularios largos.
+ * y la galería completa de fotos — agregar, eliminar y elegir cuál es
+ * la portada, igual que en el sitio web. Lo más fino —rangos de
+ * precio, descuentos, horarios— sigue en la web, que tiene espacio
+ * para esos formularios largos.
  */
 export default function EditarNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -44,8 +45,10 @@ export default function EditarNegocioScreen() {
   const [provincia, setProvincia] = useState<Provincia | null>(null);
   const [canton, setCanton] = useState<string | null>(null);
   const [direccion, setDireccion] = useState("");
-  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
-  const [fotoNueva, setFotoNueva] = useState<string | null>(null);
+  // La galería mezcla URLs ya subidas (http...) con fotos recién
+  // elegidas del teléfono (file:...). Las locales se suben al guardar.
+  const [galeria, setGaleria] = useState<string[]>([]);
+  const [portada, setPortada] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +56,7 @@ export default function EditarNegocioScreen() {
     const { data } = await supabase
       .from("ranchos")
       .select(
-        "nombre, descripcion, descripcion_larga, precio_desde, capacidad_min, capacidad_max, provincia, canton, direccion_exacta, foto_url, categoria",
+        "nombre, descripcion, descripcion_larga, precio_desde, capacidad_min, capacidad_max, provincia, canton, direccion_exacta, foto_url, fotos, categoria",
       )
       .eq("id", id)
       .maybeSingle();
@@ -68,8 +71,19 @@ export default function EditarNegocioScreen() {
       setProvincia((data.provincia as Provincia | null) ?? null);
       setCanton(data.canton ?? null);
       setDireccion(data.direccion_exacta ?? "");
-      setFotoUrl(data.foto_url ?? null);
       setEsLugar(data.categoria === "lugares");
+
+      // Si la portada vive fuera de la galería (pasa con negocios
+      // creados desde la web), se le suma para que aparezca en la
+      // grilla y se pueda administrar como cualquier otra.
+      const fotos = (data.fotos as string[] | null) ?? [];
+      const portadaActual = data.foto_url ?? null;
+      setGaleria(
+        portadaActual && !fotos.includes(portadaActual)
+          ? [portadaActual, ...fotos]
+          : fotos,
+      );
+      setPortada(portadaActual ?? fotos[0] ?? null);
     }
     setCargando(false);
   }, [id]);
@@ -79,21 +93,67 @@ export default function EditarNegocioScreen() {
     cargar();
   }, [cargar]);
 
-  async function elegirFoto() {
+  async function agregarFotos() {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      Alert.alert("Permiso necesario", "Necesitamos acceso a tus fotos para cambiar la portada.");
+      Alert.alert("Permiso necesario", "Necesitamos acceso a tus fotos para agregarlas a la galería.");
       return;
     }
+    const cupo = FOTOS_MAX - galeria.length;
+    if (cupo <= 0) return;
     const resultado = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.8,
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsMultipleSelection: true,
+      selectionLimit: cupo,
     });
-    if (!resultado.canceled && resultado.assets[0]) {
-      setFotoNueva(resultado.assets[0].uri);
-    }
+    if (resultado.canceled || resultado.assets.length === 0) return;
+
+    const nuevas = resultado.assets.slice(0, cupo).map((a) => a.uri);
+    setGaleria((previa) => [...previa, ...nuevas]);
+    // El primer negocio sin fotos: la primera que entra es la portada.
+    setPortada((actual) => actual ?? nuevas[0]);
+  }
+
+  function opcionesDeFoto(foto: string) {
+    const esPortada = foto === portada;
+    Alert.alert(
+      esPortada ? "Foto de portada" : "Foto de la galería",
+      "¿Qué querés hacer con esta foto?",
+      [
+        ...(esPortada
+          ? []
+          : [{ text: "Usar como portada", onPress: () => setPortada(foto) }]),
+        {
+          text: "Eliminar",
+          style: "destructive" as const,
+          onPress: () => {
+            setGaleria((previa) => {
+              const quedan = previa.filter((f) => f !== foto);
+              // Si se fue la portada, la hereda la primera que quede.
+              setPortada((actual) => (actual === foto ? (quedan[0] ?? null) : actual));
+              return quedan;
+            });
+          },
+        },
+        { text: "Cancelar", style: "cancel" as const },
+      ],
+    );
+  }
+
+  /** Sube una foto local del teléfono al bucket y devuelve su URL pública. */
+  async function subirFoto(uri: string): Promise<string> {
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" });
+    const extension = uri.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+    const { error: subidaError } = await supabase.storage
+      .from("ranchos-fotos")
+      .upload(path, decodeBase64(base64), {
+        contentType: `image/${extension === "jpg" ? "jpeg" : extension}`,
+        upsert: true,
+      });
+    if (subidaError) throw new Error(subidaError.message);
+    return supabase.storage.from("ranchos-fotos").getPublicUrl(path).data.publicUrl;
   }
 
   async function guardar() {
@@ -105,30 +165,22 @@ export default function EditarNegocioScreen() {
     setGuardando(true);
     setError(null);
 
-    // La foto nueva se sube primero: si falla, no se toca nada más.
-    let urlFinal = fotoUrl;
-    if (fotoNueva) {
-      try {
-        const base64 = await FileSystem.readAsStringAsync(fotoNueva, { encoding: "base64" });
-        const extension = fotoNueva.split(".").pop()?.toLowerCase() || "jpg";
-        const path = `${id}/${Date.now()}-portada.${extension}`;
-        const { error: subidaError } = await supabase.storage
-          .from("ranchos-fotos")
-          .upload(path, decodeBase64(base64), {
-            contentType: `image/${extension === "jpg" ? "jpeg" : extension}`,
-            upsert: true,
-          });
-        if (subidaError) {
-          setGuardando(false);
-          setError("No se pudo subir la foto: " + subidaError.message);
-          return;
-        }
-        urlFinal = supabase.storage.from("ranchos-fotos").getPublicUrl(path).data.publicUrl;
-      } catch (e) {
-        setGuardando(false);
-        setError(e instanceof Error ? e.message : "No se pudo procesar la foto.");
-        return;
+    // Primero las fotos nuevas: si alguna falla, no se toca nada más.
+    let fotosFinales: string[];
+    let portadaFinal: string | null;
+    try {
+      const subidas = new Map<string, string>();
+      for (const foto of galeria) {
+        if (!foto.startsWith("http")) subidas.set(foto, await subirFoto(foto));
       }
+      fotosFinales = galeria.map((f) => subidas.get(f) ?? f);
+      portadaFinal = portada ? (subidas.get(portada) ?? portada) : (fotosFinales[0] ?? null);
+    } catch (e) {
+      setGuardando(false);
+      setError(
+        "No se pudo subir una foto: " + (e instanceof Error ? e.message : "error desconocido"),
+      );
+      return;
     }
 
     const { error: guardadoError } = await supabase
@@ -143,7 +195,8 @@ export default function EditarNegocioScreen() {
         provincia,
         canton,
         direccion_exacta: direccion.trim() || null,
-        foto_url: urlFinal,
+        foto_url: portadaFinal,
+        fotos: fotosFinales,
       })
       .eq("id", id);
 
@@ -170,29 +223,45 @@ export default function EditarNegocioScreen() {
     <View style={styles.contenedor}>
       <BarraSuperior titulo="Editar" subtitulo={nombre} />
       <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingBottom: 60, gap: Spacing.four }}>
-        {/* ---------- Portada ---------- */}
+        {/* ---------- Galería ---------- */}
         <View style={styles.bloque}>
-          <Text style={styles.bloqueTitulo}>Foto de portada</Text>
-          <Pressable style={styles.zonaFoto} onPress={elegirFoto}>
-            {fotoNueva || fotoUrl ? (
-              <Image
-                source={{ uri: fotoNueva ?? fotoUrl! }}
-                style={styles.preview}
-                contentFit="cover"
-                alt="Portada"
-              />
-            ) : (
-              <View style={styles.fotoVacia}>
-                <Ionicons name="image-outline" size={26} color={Colors.inkSoft} />
-                <Text style={styles.hint}>Tocá para elegir una foto</Text>
-              </View>
+          <Text style={styles.bloqueTitulo}>Fotos</Text>
+          <Text style={styles.hintIzq}>
+            Hasta {FOTOS_MAX} fotos. Tocá una para hacerla portada o
+            eliminarla — los cambios quedan al guardar.
+          </Text>
+          <View style={styles.grillaFotos}>
+            {galeria.map((foto) => (
+              <Pressable
+                key={foto}
+                style={styles.celdaFoto}
+                onPress={() => opcionesDeFoto(foto)}
+              >
+                <Image
+                  source={{ uri: foto }}
+                  style={styles.fotoMiniatura}
+                  contentFit="cover"
+                  alt="Foto del negocio"
+                />
+                {foto === portada && (
+                  <View style={styles.etiquetaPortada}>
+                    <Text style={styles.etiquetaPortadaTexto}>Portada</Text>
+                  </View>
+                )}
+                {!foto.startsWith("http") && (
+                  <View style={styles.etiquetaNueva}>
+                    <Text style={styles.etiquetaPortadaTexto}>Nueva</Text>
+                  </View>
+                )}
+              </Pressable>
+            ))}
+            {galeria.length < FOTOS_MAX && (
+              <Pressable style={[styles.celdaFoto, styles.celdaAgregar]} onPress={agregarFotos}>
+                <Ionicons name="add" size={26} color={Colors.inkSoft} />
+                <Text style={styles.agregarTexto}>Agregar</Text>
+              </Pressable>
             )}
-          </Pressable>
-          {(fotoNueva || fotoUrl) && (
-            <Pressable onPress={elegirFoto}>
-              <Text style={styles.cambiarFoto}>Cambiar foto</Text>
-            </Pressable>
-          )}
+          </View>
         </View>
 
         {/* ---------- Datos ---------- */}
@@ -277,8 +346,8 @@ export default function EditarNegocioScreen() {
           )}
         </Pressable>
         <Text style={styles.hint}>
-          La galería de fotos, los rangos de precio, los descuentos y los
-          horarios se configuran desde el sitio web.
+          Los rangos de precio, los descuentos y los horarios se
+          configuran desde el sitio web.
         </Text>
       </ScrollView>
     </View>
@@ -338,19 +407,45 @@ const styles = StyleSheet.create({
     color: Colors.ink,
     backgroundColor: Colors.cream,
   },
-  zonaFoto: { borderRadius: 14, overflow: "hidden", backgroundColor: Colors.cream2 },
-  preview: { width: "100%", height: 170 },
-  fotoVacia: {
-    height: 170,
+  grillaFotos: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+  celdaFoto: {
+    // Tres por fila con el gap de por medio.
+    width: "31%",
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: Colors.cream2,
+  },
+  fotoMiniatura: { width: "100%", height: "100%" },
+  celdaAgregar: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 2,
     borderWidth: 1,
     borderStyle: "dashed",
     borderColor: Colors.line,
-    borderRadius: 14,
   },
-  cambiarFoto: { textAlign: "center", fontSize: 13, fontFamily: Fonts.bold, color: Colors.navy },
+  agregarTexto: { fontSize: 11.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
+  etiquetaPortada: {
+    position: "absolute",
+    left: 6,
+    bottom: 6,
+    backgroundColor: Colors.navy,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+  },
+  etiquetaNueva: {
+    position: "absolute",
+    right: 6,
+    top: 6,
+    backgroundColor: Colors.accent,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+  },
+  etiquetaPortadaTexto: { color: "#ffffff", fontSize: 10, fontFamily: Fonts.bold },
+  hintIzq: { fontSize: 12, color: Colors.inkSoft, lineHeight: 17 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   chip: {
     paddingHorizontal: Spacing.three,

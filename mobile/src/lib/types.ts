@@ -458,3 +458,7 @@ export function linkWaze(
   if (!direccion.trim()) return null;
   return `https://waze.com/ul?q=${encodeURIComponent(direccion)}&navigate=yes`;
 }
+
+// Tope de fotos por negocio — el mismo que usa el sitio web (FOTOS_MAX
+// en src/app/mi-rancho/types.tsx). Si se cambia, cambiarlo en ambos.
+export const FOTOS_MAX = 8;

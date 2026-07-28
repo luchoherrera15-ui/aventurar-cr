@@ -4,6 +4,11 @@ import { useMemo, useState, useActionState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { solicitarCotizacion, type CotizacionState } from "../cotizacion-actions";
 import type { RanchoItem } from "@/app/mi-rancho/types";
+import {
+  cotizarServicio,
+  leerConfigCobro,
+  totalCotizacion,
+} from "@/lib/cotizador-servicio";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:text-zinc-500";
@@ -39,6 +44,7 @@ export default function ReservaServicio({
   items,
   anticipacionDias,
   etiquetaCatalogo,
+  detalles = null,
   depositoReserva = 0,
   sinpeNumero = null,
   sinpeTitular = null,
@@ -51,6 +57,9 @@ export default function ReservaServicio({
   items: RanchoItem[];
   anticipacionDias: number;
   etiquetaCatalogo: string;
+  /** Los detalles del servicio (jsonb): de ahí sale cómo cobra el
+   *  proveedor y sus tarifas, para cotizar en vivo. */
+  detalles?: Record<string, unknown> | null;
   /** Con depósito > 0 y al menos una cuenta de cobro, la reserva pide
    *  el pago por adelantado + comprobante, igual que los Lugares. */
   depositoReserva?: number;
@@ -71,6 +80,30 @@ export default function ReservaServicio({
   const [mesOffset, setMesOffset] = useState(0);
   const [fecha, setFecha] = useState<string | null>(null);
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
+
+  // ---------- Cotización según cómo cobra el proveedor ----------
+  const config = useMemo(() => leerConfigCobro(detalles), [detalles]);
+  const [invitados, setInvitados] = useState("");
+  const [horas, setHoras] = useState(0);
+  const [dias, setDias] = useState(0);
+  const [horasExtra, setHorasExtra] = useState(0);
+
+  // Solo hay paso de "armá tu servicio" si el proveedor configuró la
+  // tarifa de su modalidad; si no, todo sigue siendo "a cotizar".
+  const pasoServicio =
+    (config.modalidad === "por_persona" && !!config.tarifaPersona) ||
+    (config.modalidad === "por_hora" && !!config.tarifaHora) ||
+    ((config.modalidad === "por_evento" || config.modalidad === "por_paquete") &&
+      !!config.tarifaEvento) ||
+    (config.modalidad === "por_dia" && !!config.tarifaDia);
+
+  const lineasBase = cotizarServicio(config, {
+    invitados: invitados ? parseInt(invitados, 10) : null,
+    horas,
+    dias,
+    horasExtra,
+  });
+  const totalBase = totalCotizacion(lineasBase);
 
   // ---------- Depósito (solo si el proveedor lo configuró) ----------
   const tieneSinpe = !!sinpeNumero;
@@ -138,9 +171,16 @@ export default function ReservaServicio({
   }, 0);
   const seleccionados = Object.values(cantidades).reduce((s, c) => s + c, 0);
 
-  const numPago = items.length > 0 ? 3 : 2;
-  const numDatos = numPago + (pagoActivo ? 1 : 0);
+  // La numeración de pasos se arma según lo que este proveedor tenga
+  // configurado (cotizador, catálogo, depósito).
+  let paso = 1;
+  const numServicio = pasoServicio ? ++paso : 0;
+  const numPedido = items.length > 0 ? ++paso : 0;
+  const numPago = pagoActivo ? ++paso : 0;
+  const numDatos = ++paso;
   const listoParaEnviar = !!fecha && (!pagoActivo || !!comprobantePath);
+
+  const totalGeneral = totalBase + totalEstimado;
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -219,12 +259,110 @@ export default function ReservaServicio({
 
       <input type="hidden" name="fecha" value={fecha ?? ""} />
       <input type="hidden" name="pedido" value={JSON.stringify(cantidades)} />
+      <input type="hidden" name="horas" value={horas || ""} />
+      <input type="hidden" name="dias" value={dias || ""} />
+      <input type="hidden" name="horas_extra" value={horasExtra || ""} />
 
-      {/* ---------- Paso 2: el pedido (solo si hay catálogo) ---------- */}
+      {/* ---------- Paso: armá tu servicio (según cómo cobra) ---------- */}
+      {pasoServicio && (
+        <div>
+          <p className={labelCls}>{numServicio} · Armá tu servicio</p>
+          <div className="flex flex-col gap-4 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 sm:p-5">
+            {config.modalidad === "por_persona" && (
+              <div>
+                <label className={labelCls}>¿Para cuántas personas?</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={invitados}
+                  onChange={(e) => setInvitados(e.target.value)}
+                  placeholder={
+                    config.minimoPersonas ? `Mínimo ${config.minimoPersonas}` : "Ej. 80"
+                  }
+                  className={inputCls}
+                />
+                <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">
+                  Este proveedor cobra {fmtColones(config.tarifaPersona!)} por persona
+                  {config.minimoPersonas
+                    ? ` (mínimo ${config.minimoPersonas} personas)`
+                    : ""}
+                  .
+                </p>
+              </div>
+            )}
+
+            {config.modalidad === "por_hora" && (
+              <Contador
+                label="¿Cuántas horas de servicio?"
+                ayuda={`${fmtColones(config.tarifaHora!)} por hora${
+                  config.horasMinimas ? ` · mínimo ${config.horasMinimas} horas` : ""
+                }`}
+                valor={horas}
+                sufijo={horas === 1 ? "hora" : "horas"}
+                onCambiar={(v) => setHoras(v)}
+              />
+            )}
+
+            {(config.modalidad === "por_evento" || config.modalidad === "por_paquete") && (
+              <>
+                <p className="text-[13.5px] text-aventurea-ink-soft">
+                  {config.modalidad === "por_paquete" ? "Paquete base" : "Tarifa por evento"}:{" "}
+                  <strong className="text-aventurea-ink">
+                    {fmtColones(config.tarifaEvento!)}
+                  </strong>
+                  {config.horasIncluidas
+                    ? ` — incluye ${config.horasIncluidas} hora${config.horasIncluidas === 1 ? "" : "s"} de servicio`
+                    : ""}
+                  .
+                </p>
+                {config.horaExtra && (
+                  <Contador
+                    label="¿Horas extra?"
+                    ayuda={`${fmtColones(config.horaExtra)} por cada hora adicional`}
+                    valor={horasExtra}
+                    sufijo={horasExtra === 1 ? "hora extra" : "horas extra"}
+                    onCambiar={(v) => setHorasExtra(v)}
+                  />
+                )}
+              </>
+            )}
+
+            {config.modalidad === "por_dia" && (
+              <Contador
+                label="¿Cuántos días de alquiler?"
+                ayuda={`${fmtColones(config.tarifaDia!)} por día`}
+                valor={dias}
+                sufijo={dias === 1 ? "día" : "días"}
+                onCambiar={(v) => setDias(v)}
+              />
+            )}
+
+            {lineasBase.length > 0 && (
+              <div className="rounded-xl bg-aventurea-cream-2 px-4 py-3">
+                {lineasBase.map((l) => (
+                  <p
+                    key={l.etiqueta}
+                    className="flex items-center justify-between gap-3 py-0.5 text-[12.5px] text-aventurea-ink-soft"
+                  >
+                    <span>{l.etiqueta}</span>
+                    <span className="font-bold text-aventurea-ink">{fmtColones(l.monto)}</span>
+                  </p>
+                ))}
+                <p className="mt-1.5 flex items-center justify-between gap-3 border-t border-aventurea-line pt-2 text-[13.5px] font-bold text-aventurea-ink">
+                  <span>Estimado del servicio</span>
+                  <span className="text-aventurea-navy">{fmtColones(totalBase)}</span>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Paso: el pedido (solo si hay catálogo) ---------- */}
       {items.length > 0 && (
         <div>
           <p className={labelCls}>
-            2 · Armá tu pedido del {etiquetaCatalogo.toLowerCase()} (opcional)
+            {numPedido} · Armá tu pedido del {etiquetaCatalogo.toLowerCase()} (opcional)
           </p>
           <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
             {items.map((item) => {
@@ -280,13 +418,21 @@ export default function ReservaServicio({
               {totalEstimado > 0 && (
                 <>
                   {" "}
-                  · Total estimado:{" "}
+                  · {lineasBase.length > 0 ? "Subtotal del pedido" : "Total estimado"}:{" "}
                   <span className="text-aventurea-navy">{fmtColones(totalEstimado)}</span>
                 </>
               )}
             </p>
           )}
         </div>
+      )}
+
+      {/* ---------- El total de todo, siempre a la vista ---------- */}
+      {lineasBase.length > 0 && totalGeneral > totalBase && (
+        <p className="rounded-xl bg-aventurea-navy px-4 py-3 text-[14px] font-bold text-white">
+          Total estimado (servicio + pedido):{" "}
+          <span className="float-right">{fmtColones(totalGeneral)}</span>
+        </p>
       )}
 
       {/* ---------- Paso: depósito (si el proveedor cobra por agendar) ---------- */}
@@ -380,10 +526,24 @@ export default function ReservaServicio({
       <div>
         <p className={labelCls}>{numDatos} · Contanos de tu evento</p>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>Cantidad de invitados (opcional)</label>
-            <input type="number" name="invitados" min={1} placeholder="Ej. 80" className={inputCls} />
-          </div>
+          {/* Con cobro por persona la cantidad ya se pidió arriba y
+              manda la cotización; acá solo viaja en el form. */}
+          {config.modalidad === "por_persona" && pasoServicio ? (
+            <input type="hidden" name="invitados" value={invitados} />
+          ) : (
+            <div>
+              <label className={labelCls}>Cantidad de invitados (opcional)</label>
+              <input
+                type="number"
+                name="invitados"
+                min={1}
+                placeholder="Ej. 80"
+                value={invitados}
+                onChange={(e) => setInvitados(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+          )}
           <div>
             <label className={labelCls}>Tipo de evento (opcional)</label>
             <input
@@ -432,5 +592,49 @@ export default function ReservaServicio({
         </p>
       </div>
     </form>
+  );
+}
+
+/** Stepper −/+ para horas o días, con la tarifa como ayuda. */
+function Contador({
+  label,
+  ayuda,
+  valor,
+  sufijo,
+  onCambiar,
+}: {
+  label: string;
+  ayuda: string;
+  valor: number;
+  sufijo: string;
+  onCambiar: (v: number) => void;
+}) {
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => onCambiar(Math.max(0, valor - 1))}
+          disabled={valor === 0}
+          aria-label="Quitar"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink disabled:opacity-30"
+        >
+          −
+        </button>
+        <span className="min-w-[90px] text-center text-[14px] font-bold text-aventurea-ink">
+          {valor} {sufijo}
+        </span>
+        <button
+          type="button"
+          onClick={() => onCambiar(Math.min(48, valor + 1))}
+          aria-label="Agregar"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-aventurea-navy text-white"
+        >
+          +
+        </button>
+      </div>
+      <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">{ayuda}</p>
+    </div>
   );
 }
