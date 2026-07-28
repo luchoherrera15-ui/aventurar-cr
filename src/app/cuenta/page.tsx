@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
 import FormularioAuth from "./formulario-auth";
+import ResenaForm from "./resena-form";
 import { cerrarSesionCuenta } from "./actions";
 import { CATEGORIA_LABEL, normalizarCategoria, type Rancho } from "../mi-rancho/types";
 import { hoyISOCR } from "@/lib/fechas";
@@ -29,7 +30,14 @@ type ReservaCliente = {
   estado: string;
   monto_total: number | null;
   horario_bloque: string | null;
+  rancho_id: string | null;
   ranchos: { nombre: string; foto_url: string | null; categoria: string; slug: string | null } | null;
+};
+
+type ResenaPropia = {
+  reserva_id: string;
+  calificacion: number;
+  comentario: string | null;
 };
 
 export default async function CuentaPage() {
@@ -49,23 +57,64 @@ export default async function CuentaPage() {
     );
   }
 
-  const [{ data: perfil }, { data: reservasData }, { data: favoritosData }, { count: negocios }] =
-    await Promise.all([
-      supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("reservas")
-        .select("id, fecha, estado, monto_total, horario_bloque, ranchos(nombre, foto_url, categoria, slug)")
-        .eq("cliente_id", user.id)
-        .in("estado", ["pendiente", "confirmada", "rechazada"])
-        .order("fecha", { ascending: false }),
-      supabase
-        .from("favoritos")
-        .select("ranchos(*)")
-        .eq("cliente_id", user.id),
-      supabase.from("ranchos").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
-    ]);
+  const [
+    { data: perfil },
+    { data: reservasData },
+    { data: favoritosData },
+    { data: negociosData },
+    { data: resenasData },
+  ] = await Promise.all([
+    supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("reservas")
+      .select("id, fecha, estado, monto_total, horario_bloque, rancho_id, ranchos(nombre, foto_url, categoria, slug)")
+      .eq("cliente_id", user.id)
+      .in("estado", ["pendiente", "confirmada", "rechazada"])
+      .order("fecha", { ascending: false }),
+    supabase
+      .from("favoritos")
+      .select("ranchos(*)")
+      .eq("cliente_id", user.id),
+    supabase.from("ranchos").select("id").eq("owner_id", user.id),
+    supabase
+      .from("resenas")
+      .select("reserva_id, calificacion, comentario")
+      .eq("cliente_id", user.id),
+  ]);
 
   const reservas = (reservasData ?? []) as unknown as ReservaCliente[];
+  const resenasPropias = new Map<string, ResenaPropia>(
+    ((resenasData ?? []) as ResenaPropia[]).map((r) => [r.reserva_id, r]),
+  );
+
+  // Los números del perfil, estilo Airbnb: reservas hechas, reseñas
+  // dejadas, año de ingreso — y si es anfitrión, cuántas veces lo han
+  // contratado y su calificación promedio ponderada.
+  const negocioIds = (negociosData ?? []).map((n) => n.id as string);
+  let vecesContratado = 0;
+  let calificacionAnfitrion: number | null = null;
+  if (negocioIds.length > 0) {
+    const [{ count: contratadoCount }, { data: califs }] = await Promise.all([
+      supabase
+        .from("reservas")
+        .select("id", { count: "exact", head: true })
+        .in("rancho_id", negocioIds)
+        .eq("estado", "confirmada"),
+      supabase
+        .from("calificaciones_rancho")
+        .select("promedio, total")
+        .in("rancho_id", negocioIds),
+    ]);
+    vecesContratado = contratadoCount ?? 0;
+    const filas = (califs ?? []) as { promedio: number; total: number }[];
+    const totalResenas = filas.reduce((acc, c) => acc + c.total, 0);
+    calificacionAnfitrion =
+      totalResenas > 0
+        ? filas.reduce((acc, c) => acc + c.promedio * c.total, 0) / totalResenas
+        : null;
+  }
+  const anioIngreso = new Date(user.created_at).getFullYear();
+  const reservasHechas = reservas.filter((r) => r.estado !== "rechazada").length;
   const hoy = hoyISOCR();
   const activas = reservas.filter((r) => r.estado !== "rechazada" && r.fecha >= hoy);
   const historial = reservas.filter((r) => r.estado === "rechazada" || r.fecha < hoy);
@@ -87,7 +136,7 @@ export default async function CuentaPage() {
     ((calificacionesData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
   );
 
-  const tieneNegocio = (negocios ?? 0) > 0;
+  const tieneNegocio = negocioIds.length > 0;
   const inicial = (perfil?.nombre || user.email || "?").trim().charAt(0).toUpperCase();
 
   return (
@@ -95,15 +144,67 @@ export default async function CuentaPage() {
       <SiteHeader breadcrumb="Tu cuenta" />
 
       <section className="mx-auto max-w-[720px] px-6 py-10">
-        <div className="flex items-center gap-4 rounded-2xl bg-aventurea-navy px-6 py-5 text-white">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15 text-xl font-bold">
-            {inicial}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[16px] font-bold">{perfil?.nombre || "Tu cuenta"}</p>
-            <p className="truncate text-[13px] text-white/70">{user.email}</p>
+        {/* Tarjeta de identidad estilo Airbnb: el avatar grande a la
+            izquierda y la columna de números a la derecha. */}
+        <div className="flex items-stretch gap-6 rounded-3xl bg-aventurea-navy px-7 py-6 text-white shadow-[0_16px_40px_-16px_rgba(16,26,44,0.5)]">
+          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 text-center">
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-aventurea-orange text-[34px] font-extrabold">
+              {inicial}
+            </span>
+            <p className="mt-1 max-w-full truncate text-[17px] font-extrabold">
+              {perfil?.nombre || "Tu cuenta"}
+            </p>
+            <p className="text-[12.5px] font-semibold text-white/70">
+              {tieneNegocio ? "Anfitrión" : "Cliente"}
+            </p>
+          </div>
+          <div className="flex w-[46%] flex-col justify-center gap-2.5">
+            <div>
+              <p className="text-[19px] font-extrabold leading-tight">{reservasHechas}</p>
+              <p className="text-[11px] font-semibold text-white/70">
+                {reservasHechas === 1 ? "reserva" : "reservas"}
+              </p>
+            </div>
+            <div className="h-px bg-white/20" />
+            <div>
+              <p className="text-[19px] font-extrabold leading-tight">{resenasPropias.size}</p>
+              <p className="text-[11px] font-semibold text-white/70">
+                {resenasPropias.size === 1 ? "reseña" : "reseñas"}
+              </p>
+            </div>
+            <div className="h-px bg-white/20" />
+            <div>
+              <p className="text-[11px] font-semibold text-white/70">en Bookea desde</p>
+              <p className="text-[19px] font-extrabold leading-tight">{anioIngreso}</p>
+            </div>
           </div>
         </div>
+
+        {tieneNegocio && (
+          <div className="mt-4 rounded-2xl border border-aventurea-line bg-aventurea-surface px-6 py-4">
+            <p className="text-[13.5px] font-extrabold text-aventurea-ink">Tu negocio en números</p>
+            <div className="mt-2.5 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-[19px] font-extrabold text-aventurea-ink">{negocioIds.length}</p>
+                <p className="text-[11px] font-semibold text-aventurea-ink-soft">
+                  {negocioIds.length === 1 ? "publicación" : "publicaciones"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[19px] font-extrabold text-aventurea-ink">{vecesContratado}</p>
+                <p className="text-[11px] font-semibold text-aventurea-ink-soft">
+                  {vecesContratado === 1 ? "vez contratado" : "veces contratado"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[19px] font-extrabold text-aventurea-ink">
+                  {calificacionAnfitrion !== null ? `★ ${calificacionAnfitrion.toFixed(1)}` : "—"}
+                </p>
+                <p className="text-[11px] font-semibold text-aventurea-ink-soft">calificación</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Link
           href="/mensajes"
@@ -156,7 +257,12 @@ export default async function CuentaPage() {
 
         <Seccion titulo="Historial" vacio="Acá vas a ver tus reservas pasadas.">
           {historial.map((r) => (
-            <TarjetaReserva key={r.id} reserva={r} atenuada />
+            <TarjetaReserva
+              key={r.id}
+              reserva={r}
+              atenuada
+              resena={resenasPropias.get(r.id) ?? null}
+            />
           ))}
         </Seccion>
 
@@ -218,8 +324,17 @@ function Seccion({
   );
 }
 
-function TarjetaReserva({ reserva, atenuada }: { reserva: ReservaCliente; atenuada?: boolean }) {
+function TarjetaReserva({
+  reserva,
+  atenuada,
+  resena,
+}: {
+  reserva: ReservaCliente;
+  atenuada?: boolean;
+  resena?: ResenaPropia | null;
+}) {
   const href = reserva.ranchos?.slug ? `/${reserva.ranchos.slug}` : null;
+  const puedeResenar = reserva.estado === "confirmada" && !!reserva.rancho_id;
 
   return (
     <div
@@ -254,7 +369,7 @@ function TarjetaReserva({ reserva, atenuada }: { reserva: ReservaCliente; atenua
         </span>
       </div>
 
-      <div className="mt-2.5 flex gap-4 border-t border-aventurea-line pt-2.5">
+      <div className="mt-2.5 flex flex-wrap items-center gap-4 border-t border-aventurea-line pt-2.5">
         {href && (
           <Link href={href} className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy">
             Ver proveedor
@@ -266,6 +381,14 @@ function TarjetaReserva({ reserva, atenuada }: { reserva: ReservaCliente; atenua
         >
           Mensajes
         </Link>
+        {puedeResenar && (
+          <ResenaForm
+            reservaId={reserva.id}
+            ranchoId={reserva.rancho_id!}
+            nombreRancho={reserva.ranchos?.nombre ?? "el proveedor"}
+            resenaExistente={resena ?? null}
+          />
+        )}
       </div>
     </div>
   );

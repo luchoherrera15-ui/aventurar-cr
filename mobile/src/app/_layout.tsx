@@ -13,7 +13,6 @@ import {
 } from "@expo-google-fonts/figtree";
 import { AuthProvider } from "@/lib/auth-context";
 import { Colors, Fonts } from "@/constants/theme";
-import TabBar, { RUTAS_CON_BARRA } from "@/components/tab-bar";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,10 +36,10 @@ export default function RootLayout() {
 
   if (!fontsLoaded) return null;
 
-  // Las pestañas raíz van sin barra nativa (cada una pinta su título
-  // sobre fondo claro → íconos de estado oscuros); las pantallas de
-  // detalle conservan el header navy → íconos claros.
-  const esPestana = RUTAS_CON_BARRA.has(pathname);
+  // El pager de pestañas (/) va sin barra nativa sobre fondo claro →
+  // íconos de estado oscuros; las pantallas de detalle conservan el
+  // header navy → íconos claros.
+  const esPestana = pathname === "/";
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -74,7 +73,6 @@ export default function RootLayout() {
         <Stack.Screen name="negocio/nuevo" options={{ title: "Publicar servicio" }} />
         <Stack.Screen name="negocio/[id]" options={{ title: "Reservas" }} />
       </Stack>
-      <TabBar />
     </AuthProvider>
     </GestureHandlerRootView>
   );
