@@ -1301,58 +1301,66 @@ export default function BookingCalendar({
                       )}
                     </div>
 
-                    <p className="flex items-start gap-1.5 rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 p-3 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
-                      <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aventurea-orange" />
-                      Depositá exactamente {fmtColones(depositoReserva)}. Si el
-                      comprobante muestra un monto menor, la reserva no queda
-                      válida y el dinero no se reembolsa.
-                    </p>
+                    {/* Sin cuentas configuradas no hay nada que pagar ni
+                        que comprobar — mostrar el resto del formulario
+                        (comprobante, términos, botón siempre gris) solo
+                        confunde y no lleva a ningún lado. */}
+                    {metodosDisponibles.length > 0 && (
+                      <>
+                        <p className="flex items-start gap-1.5 rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 p-3 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
+                          <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aventurea-orange" />
+                          Depositá exactamente {fmtColones(depositoReserva)}. Si el
+                          comprobante muestra un monto menor, la reserva no queda
+                          válida y el dinero no se reembolsa.
+                        </p>
 
-                    <div>
-                      <label className={labelCls}>Comprobante de pago</label>
-                      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-aventurea-line p-4 text-center hover:border-aventurea-orange">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          required
-                          onChange={onComprobanteChange}
-                          className="hidden"
-                        />
-                        {comprobantePreview ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={comprobantePreview}
-                            alt="Comprobante"
-                            className="max-h-[140px] rounded-lg"
+                        <div>
+                          <label className={labelCls}>Comprobante de pago</label>
+                          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-aventurea-line p-4 text-center hover:border-aventurea-orange">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              required
+                              onChange={onComprobanteChange}
+                              className="hidden"
+                            />
+                            {comprobantePreview ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={comprobantePreview}
+                                alt="Comprobante"
+                                className="max-h-[140px] rounded-lg"
+                              />
+                            ) : (
+                              <span className="text-xs text-aventurea-ink-soft">
+                                Tocá para subir una foto del comprobante
+                              </span>
+                            )}
+                          </label>
+                        </div>
+
+                        <label className="flex items-start gap-2.5 text-[12.5px] text-aventurea-ink-soft">
+                          <input
+                            type="checkbox"
+                            checked={terminosAceptados}
+                            onChange={(e) => setTerminosAceptados(e.target.checked)}
+                            required
+                            className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
                           />
-                        ) : (
-                          <span className="text-xs text-aventurea-ink-soft">
-                            Tocá para subir una foto del comprobante
+                          <span>
+                            Acepto los{" "}
+                            <button
+                              type="button"
+                              onClick={() => setMostrarTerminos(true)}
+                              className="font-bold text-aventurea-orange underline"
+                            >
+                              términos y condiciones
+                            </button>{" "}
+                            de la reserva.
                           </span>
-                        )}
-                      </label>
-                    </div>
-
-                    <label className="flex items-start gap-2.5 text-[12.5px] text-aventurea-ink-soft">
-                      <input
-                        type="checkbox"
-                        checked={terminosAceptados}
-                        onChange={(e) => setTerminosAceptados(e.target.checked)}
-                        required
-                        className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
-                      />
-                      <span>
-                        Acepto los{" "}
-                        <button
-                          type="button"
-                          onClick={() => setMostrarTerminos(true)}
-                          className="font-bold text-aventurea-orange underline"
-                        >
-                          términos y condiciones
-                        </button>{" "}
-                        de la reserva.
-                      </span>
-                    </label>
+                        </label>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -1370,7 +1378,7 @@ export default function BookingCalendar({
                   >
                     Siguiente: Cómo pagar →
                   </button>
-                ) : (
+                ) : metodosDisponibles.length === 0 ? null : (
                   <button
                     type="submit"
                     disabled={submitting || !puedeEnviar}
