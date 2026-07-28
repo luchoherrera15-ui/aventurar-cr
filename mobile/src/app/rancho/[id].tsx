@@ -13,6 +13,7 @@ import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   AMENIDAD_LABEL,
@@ -42,6 +43,8 @@ export default function RanchoDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const navigation = useNavigation();
+  const { session } = useAuth();
+  const [abriendoChat, setAbriendoChat] = useState(false);
   const { width: anchoPantalla } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [fechasY, setFechasY] = useState(0);
@@ -167,6 +170,49 @@ export default function RanchoDetalleScreen() {
     rancho.terminos && rancho.terminos.length > 0
       ? rancho.terminos
       : terminosPorDefecto(rancho.deposito_reserva ?? 25000, rancho.monto_minimo);
+
+  // Abre (o retoma) el hilo de consulta con este negocio — el mismo
+  // mecanismo que /mensajes/consulta/[ranchoId] en la web.
+  async function preguntarPorChat() {
+    if (!rancho) return;
+    if (!session) {
+      router.push("/cuenta");
+      return;
+    }
+    setAbriendoChat(true);
+    const { data: existente } = await supabase
+      .from("conversaciones")
+      .select("id")
+      .eq("rancho_id", rancho.id)
+      .eq("cliente_id", session.user.id)
+      .is("reserva_id", null)
+      .maybeSingle();
+
+    let convId = existente?.id ?? null;
+    if (!convId) {
+      const { data: creada } = await supabase
+        .from("conversaciones")
+        .insert({ rancho_id: rancho.id })
+        .select("id")
+        .maybeSingle();
+      convId = creada?.id ?? null;
+      if (!convId) {
+        // Carrera con otra pestaña/dispositivo: el hilo ya existe.
+        const { data: reintento } = await supabase
+          .from("conversaciones")
+          .select("id")
+          .eq("rancho_id", rancho.id)
+          .eq("cliente_id", session.user.id)
+          .is("reserva_id", null)
+          .maybeSingle();
+        convId = reintento?.id ?? null;
+      }
+    }
+    setAbriendoChat(false);
+    if (convId) {
+      router.push(`/mensajes/hilo/${convId}` as never);
+    }
+  }
 
   return (
     <View style={styles.raiz}>
@@ -323,6 +369,19 @@ export default function RanchoDetalleScreen() {
             </Text>
           </View>
         )}
+
+        {/* ---------- Dudas antes de reservar: chat de consulta ---------- */}
+        <View style={styles.seccion}>
+          <Pressable
+            style={[styles.botonChat, abriendoChat && { opacity: 0.6 }]}
+            disabled={abriendoChat}
+            onPress={preguntarPorChat}
+          >
+            <Text style={styles.botonChatTexto}>
+              {abriendoChat ? "Abriendo chat..." : "¿Tenés dudas? Preguntá por el chat"}
+            </Text>
+          </Pressable>
+        </View>
 
         {/* ---------- Amenidades ---------- */}
         {rancho.amenidades.length > 0 && (
@@ -530,6 +589,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   botonSecundarioTexto: { fontSize: 13, fontFamily: Fonts.bold, color: Colors.ink },
+  botonChat: {
+    borderWidth: 1.5,
+    borderColor: Colors.navy,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  botonChatTexto: { fontSize: 14, fontFamily: Fonts.bold, color: Colors.navy },
   barraReserva: {
     position: "absolute",
     left: 0,

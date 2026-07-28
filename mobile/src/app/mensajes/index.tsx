@@ -22,7 +22,7 @@ import { Colors, Fonts, Spacing } from "@/constants/theme";
 
 type ConversacionRow = {
   id: string;
-  reserva_id: string;
+  reserva_id: string | null;
   cliente_id: string;
   proveedor_id: string;
   created_at: string;
@@ -39,7 +39,8 @@ type MensajeMin = {
 
 type Fila = {
   id: string;
-  reservaId: string;
+  /** Ruta del hilo: por reserva o por conversación (consulta). */
+  href: string;
   titulo: string;
   subtitulo: string;
   foto: string | null;
@@ -113,13 +114,19 @@ export default function BandejaMensajesScreen() {
           const ult = ultimo.get(c.id) ?? null;
           return {
             id: c.id,
-            reservaId: c.reserva_id,
+            href: c.reserva_id
+              ? `/mensajes/${c.reserva_id}`
+              : `/mensajes/hilo/${c.id}`,
             titulo: soyCliente
               ? (c.ranchos?.nombre ?? "Conversación")
-              : c.reservas?.nombre || "Cliente",
+              : c.reservas?.nombre || "Cliente interesado",
             subtitulo: [
               !soyCliente ? c.ranchos?.nombre : null,
-              c.reservas?.fecha ? `Evento: ${c.reservas.fecha}` : null,
+              c.reserva_id
+                ? c.reservas?.fecha
+                  ? `Evento: ${c.reservas.fecha}`
+                  : null
+                : "Consulta directa",
             ]
               .filter(Boolean)
               .join(" · "),
@@ -184,7 +191,7 @@ export default function BandejaMensajesScreen() {
         return (
           <Pressable
             style={[styles.fila, nuevo && styles.filaNoLeida]}
-            onPress={() => router.push(`/mensajes/${item.reservaId}`)}
+            onPress={() => router.push(item.href as never)}
           >
             {item.foto ? (
               <Image source={{ uri: item.foto }} alt="" style={styles.avatar} />

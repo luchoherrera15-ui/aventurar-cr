@@ -186,7 +186,7 @@ export function plantillaConfirmacionReserva({
 
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
         Tu reserva queda <strong style="color:#101a2c;">en aprobación</strong> mientras
-        ${rancho} valida el pago. Te avisamos por este mismo correo o por WhatsApp en
+        ${rancho} valida el pago. Te avisamos por este mismo correo o por el chat de Bookear CR en
         cuanto quede confirmada.
       </p>
 

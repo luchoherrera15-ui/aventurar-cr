@@ -10,7 +10,6 @@ import {
   IconSparkles,
   IconTagLine,
   IconUsers,
-  IconWhatsapp,
 } from "@/components/icons";
 import {
   CANTONES,
@@ -140,10 +139,10 @@ export default async function PublicarPage() {
             />
             <DatoCard
               index={5}
-              icono={<IconWhatsapp />}
+              icono={<IconUsers />}
               color="text-teal-600"
-              dato="Contacto directo"
-              texto="El cliente te escribe por WhatsApp desde tu página. Sin intermediarios ni comisión por el mensaje."
+              dato="Chat integrado"
+              texto="El cliente te escribe por el chat de Bookear CR, con su pedido ya armado. Nada se pierde en conversaciones externas."
             />
           </div>
         </div>

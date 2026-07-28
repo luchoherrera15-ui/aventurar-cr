@@ -7,7 +7,6 @@ import {
   IconStar,
   IconTiktok,
   IconWaze,
-  IconWhatsapp,
 } from "@/components/icons";
 import {
   CAMPOS_POR_CATEGORIA,
@@ -460,10 +459,10 @@ export function MapaSeccion({
   );
 }
 
-/** Contacto directo, redes sociales y ubicación. */
+/** Contacto: el chat de la plataforma primero, redes y ubicación después. */
 export function ContactoSeccion({
   nombre,
-  whatsappHref,
+  chatHref,
   instagram,
   facebook,
   tiktok,
@@ -473,7 +472,8 @@ export function ContactoSeccion({
   waze,
 }: {
   nombre: string;
-  whatsappHref: string | null;
+  /** Ruta que abre (o retoma) el hilo de consulta con este negocio. */
+  chatHref: string;
   instagram: string | null;
   facebook: string | null;
   tiktok: string | null;
@@ -537,17 +537,15 @@ export function ContactoSeccion({
         )}
 
         <div className="mt-6 flex flex-wrap items-center gap-2.5">
-          {whatsappHref && (
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
-            >
-              <IconWhatsapp className="h-4 w-4" />
-              Escribir por WhatsApp
-            </a>
-          )}
+          {/* Todo pasa por el chat de la plataforma: la conversación
+              queda guardada, con notificaciones en la bandeja, y no se
+              pierde en un WhatsApp externo. */}
+          <a
+            href={chatHref}
+            className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+          >
+            Preguntar por el chat
+          </a>
           {redes.map((r) => (
             <a
               key={r.label}
@@ -562,11 +560,6 @@ export function ContactoSeccion({
           ))}
         </div>
 
-        {!whatsappHref && redes.length === 0 && (
-          <p className="mt-4 text-[13px] text-zinc-500">
-            Este negocio todavía no dejó un contacto público.
-          </p>
-        )}
       </div>
     </section>
   );

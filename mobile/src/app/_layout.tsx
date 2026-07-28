@@ -55,6 +55,7 @@ export default function RootLayout() {
         <Stack.Screen name="cuenta" options={{ title: "Mi cuenta" }} />
         <Stack.Screen name="mensajes/index" options={{ title: "Mensajes" }} />
         <Stack.Screen name="mensajes/[reservaId]" options={{ title: "Mensajes" }} />
+        <Stack.Screen name="mensajes/hilo/[conversacionId]" options={{ title: "Mensajes" }} />
       </Stack>
       <TabBar />
     </AuthProvider>

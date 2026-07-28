@@ -14,7 +14,7 @@ import ListaConversaciones, {
 
 type ConversacionRow = {
   id: string;
-  reserva_id: string;
+  reserva_id: string | null;
   cliente_id: string;
   proveedor_id: string;
   created_at: string;
@@ -85,15 +85,20 @@ export default async function BandejaMensajesPage() {
       const ult = ultimo.get(c.id) ?? null;
       return {
         id: c.id,
-        reservaId: c.reserva_id,
+        href: c.reserva_id ? `/mensajes/${c.reserva_id}` : `/mensajes/hilo/${c.id}`,
         // Como cliente hablás "con el negocio"; como proveedor, con la
         // persona que reservó (su nombre viene de la propia reserva).
+        // En las consultas sin reserva no hay nombre que mostrar.
         titulo: soyCliente
           ? (c.ranchos?.nombre ?? "Conversación")
-          : c.reservas?.nombre || "Cliente",
+          : c.reservas?.nombre || "Cliente interesado",
         subtitulo: [
           !soyCliente ? c.ranchos?.nombre : null,
-          c.reservas?.fecha ? `Evento: ${c.reservas.fecha}` : null,
+          c.reserva_id
+            ? c.reservas?.fecha
+              ? `Evento: ${c.reservas.fecha}`
+              : null
+            : "Consulta directa",
         ]
           .filter(Boolean)
           .join(" · "),

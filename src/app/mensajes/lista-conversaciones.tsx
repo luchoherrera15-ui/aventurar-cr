@@ -8,7 +8,9 @@ import Link from "next/link";
 
 export type FilaConversacion = {
   id: string;
-  reservaId: string;
+  /** /mensajes/[reservaId] para hilos de reserva, /mensajes/hilo/[id]
+   *  para consultas directas sin reserva. */
+  href: string;
   titulo: string;
   subtitulo: string;
   foto: string | null;
@@ -54,7 +56,7 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
         return (
           <Link
             key={f.id}
-            href={`/mensajes/${f.reservaId}`}
+            href={f.href}
             className={`flex items-center gap-3.5 border-b border-aventurea-line px-4 py-3.5 transition-colors last:border-none ${
               nuevo
                 ? "bg-aventurea-green/[0.06] hover:bg-aventurea-green/10"

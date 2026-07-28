@@ -59,9 +59,8 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   const fotos = rancho.fotos ?? [];
   const amenidades = rancho.amenidades ?? [];
   const precio = fmtColones(rancho.precio_desde);
-  const whatsappHref = rancho.contacto_whatsapp
-    ? `https://wa.me/${rancho.contacto_whatsapp.replace(/[^0-9]/g, "")}`
-    : null;
+  // La consulta previa vive en el chat de la plataforma — cero WhatsApp.
+  const chatHref = `/mensajes/consulta/${rancho.id}`;
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
@@ -415,6 +414,12 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                 <p className="mt-2.5 text-center text-[11.5px] text-zinc-500">
                   Todavía no se te cobra nada — elegís la fecha primero.
                 </p>
+                <a
+                  href={chatHref}
+                  className="mt-3 block border-t border-aventurea-line pt-3 text-center text-[12.5px] font-bold text-aventurea-navy hover:underline"
+                >
+                  ¿Tenés dudas? Preguntá por el chat
+                </a>
               </div>
             </aside>
           </div>
@@ -544,6 +549,11 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                 </div>
               )}
             </div>
+            <p className="mt-4 text-center text-[12.5px]">
+              <a href={chatHref} className="font-bold text-aventurea-navy hover:underline">
+                ¿Tenés dudas antes de reservar? Preguntá por el chat
+              </a>
+            </p>
           </div>
         </section>
       )}
@@ -597,7 +607,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
       <ContactoSeccion
         nombre={rancho.nombre}
-        whatsappHref={whatsappHref}
+        chatHref={chatHref}
         instagram={rancho.instagram}
         facebook={rancho.facebook}
         tiktok={rancho.tiktok}
