@@ -89,7 +89,7 @@ create policy "El cliente reseña su propia reserva confirmada" on resenas
     )
   );
 
-drop policy if exists "El cliente edita o borra su propia reseña" on resenas;
+drop policy if exists "El cliente edita su propia reseña" on resenas;
 create policy "El cliente edita su propia reseña" on resenas
   for update to authenticated
   using (cliente_id = auth.uid())
