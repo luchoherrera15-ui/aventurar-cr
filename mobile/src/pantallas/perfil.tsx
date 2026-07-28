@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -255,8 +256,29 @@ function PerfilVista({
   activa: boolean;
 }) {
   const router = useRouter();
+  const { refrescarPerfil } = useAuth();
   const inicial = (perfil?.nombre || correo || "?").trim().charAt(0).toUpperCase();
   const [stats, setStats] = useState<StatsPerfil | null>(null);
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const [nombreBorrador, setNombreBorrador] = useState(perfil?.nombre ?? "");
+  const [guardandoNombre, setGuardandoNombre] = useState(false);
+
+  // El acceso por código nunca pide el nombre, así que se pone acá.
+  // Va por RPC porque la tabla `perfiles` solo deja editar al admin:
+  // la función toca únicamente la columna `nombre` de quien la llama.
+  async function guardarNombre() {
+    setGuardandoNombre(true);
+    const { error } = await supabase.rpc("actualizar_mi_nombre", {
+      p_nombre: nombreBorrador,
+    });
+    setGuardandoNombre(false);
+    if (error) {
+      Alert.alert("No se pudo guardar", error.message);
+      return;
+    }
+    setEditandoNombre(false);
+    refrescarPerfil();
+  }
 
   // Los números del perfil: lo que hizo como cliente (reservas,
   // reseñas, favoritos) y — si publica servicios — cuántas veces lo
@@ -333,9 +355,43 @@ function PerfilVista({
           <View style={styles.avatarGrande}>
             <Text style={styles.avatarGrandeTexto}>{inicial}</Text>
           </View>
-          <Text style={styles.nombreGrande} numberOfLines={1}>
-            {perfil?.nombre || "Tu cuenta"}
-          </Text>
+          {editandoNombre ? (
+            <View style={styles.editorNombre}>
+              <TextInput
+                value={nombreBorrador}
+                onChangeText={setNombreBorrador}
+                placeholder="Tu nombre"
+                placeholderTextColor={Colors.inkSoft}
+                style={styles.inputNombre}
+                autoFocus
+                maxLength={60}
+              />
+              <Pressable
+                style={styles.guardarNombre}
+                disabled={guardandoNombre}
+                onPress={guardarNombre}
+              >
+                {guardandoNombre ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Ionicons name="checkmark" size={18} color="#ffffff" />
+                )}
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              style={styles.filaNombre}
+              onPress={() => {
+                setNombreBorrador(perfil?.nombre ?? "");
+                setEditandoNombre(true);
+              }}
+            >
+              <Text style={styles.nombreGrande} numberOfLines={1}>
+                {perfil?.nombre || "Poné tu nombre"}
+              </Text>
+              <Ionicons name="pencil" size={13} color={Colors.inkSoft} />
+            </Pressable>
+          )}
           <Text style={styles.correoPerfil} numberOfLines={1}>
             {correo}
           </Text>
@@ -409,38 +465,27 @@ function PerfilVista({
   );
 }
 
-/** Un número del perfil con su etiqueta, como los de Airbnb. */
-function Stat({
-  valor,
-  etiqueta,
-  invertida,
-  clara,
-}: {
-  valor: string;
-  etiqueta: string;
-  /** true = etiqueta arriba y número abajo (para "en Bookea desde"). */
-  invertida?: boolean;
-  /** true = para tarjetas con fondo claro. */
-  clara?: boolean;
-}) {
-  const colorValor = clara ? Colors.ink : "#ffffff";
-  const colorEtiqueta = clara ? Colors.inkSoft : "#ffffffb0";
+/**
+ * Un número del perfil con su etiqueta. Va siempre sobre tarjeta
+ * clara — antes tenía una variante para el bloque navy y el color por
+ * defecto era blanco, lo que dejaba los números invisibles cuando la
+ * tarjeta pasó a ser blanca.
+ */
+function Stat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
   return (
-    <View style={{ alignItems: clara ? "center" : "flex-start", flex: clara ? 1 : undefined }}>
-      {invertida && (
-        <Text style={[stylesStat.etiqueta, { color: colorEtiqueta }]}>{etiqueta}</Text>
-      )}
-      <Text style={[stylesStat.valor, { color: colorValor }]}>{valor}</Text>
-      {!invertida && (
-        <Text style={[stylesStat.etiqueta, { color: colorEtiqueta }]}>{etiqueta}</Text>
-      )}
+    <View style={stylesStat.contenedor}>
+      <Text style={stylesStat.valor}>{valor}</Text>
+      <Text style={stylesStat.etiqueta} numberOfLines={1}>
+        {etiqueta}
+      </Text>
     </View>
   );
 }
 
 const stylesStat = StyleSheet.create({
-  valor: { fontSize: 19, fontFamily: Fonts.extraBold, letterSpacing: -0.3 },
-  etiqueta: { fontSize: 10.5, fontFamily: Fonts.semiBold },
+  contenedor: { flex: 1, alignItems: "center", gap: 1 },
+  valor: { fontSize: 19, fontFamily: Fonts.extraBold, letterSpacing: -0.3, color: Colors.ink },
+  etiqueta: { fontSize: 10.5, fontFamily: Fonts.semiBold, color: Colors.inkSoft },
 });
 
 /** Un acceso del perfil como tarjeta, en vez de la vieja fila de
@@ -538,7 +583,29 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
   },
   avatarGrandeTexto: { color: "#ffffff", fontSize: 34, fontFamily: Fonts.extraBold },
+  filaNombre: { flexDirection: "row", alignItems: "center", gap: 6 },
   nombreGrande: { fontSize: 19, fontFamily: Fonts.extraBold, letterSpacing: -0.3, color: Colors.ink },
+  editorNombre: { flexDirection: "row", alignItems: "center", gap: Spacing.two, alignSelf: "stretch" },
+  inputNombre: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    borderRadius: 10,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontFamily: Fonts.bold,
+    color: Colors.ink,
+    backgroundColor: Colors.cream,
+  },
+  guardarNombre: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.navy,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   correoPerfil: { fontSize: 12.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
   chipRol: {
     flexDirection: "row",

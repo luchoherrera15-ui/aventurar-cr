@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -20,12 +21,15 @@ type AuthState = {
   session: Session | null;
   perfil: Perfil | null;
   cargando: boolean;
+  /** Vuelve a leer el perfil (después de cambiar el nombre, p. ej.). */
+  refrescarPerfil: () => void;
 };
 
 const AuthContext = createContext<AuthState>({
   session: null,
   perfil: null,
   cargando: true,
+  refrescarPerfil: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -33,6 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [cargandoSesion, setCargandoSesion] = useState(true);
   const [cargandoPerfil, setCargandoPerfil] = useState(false);
+  // Se incrementa para forzar la relectura del perfil.
+  const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -68,11 +74,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       vigente = false;
     };
-  }, [session]);
+  }, [session, recarga]);
+
+  const refrescarPerfil = useCallback(() => setRecarga((n) => n + 1), []);
 
   const valor = useMemo(
-    () => ({ session, perfil, cargando: cargandoSesion || (!!session && cargandoPerfil) }),
-    [session, perfil, cargandoSesion, cargandoPerfil],
+    () => ({
+      session,
+      perfil,
+      cargando: cargandoSesion || (!!session && cargandoPerfil),
+      refrescarPerfil,
+    }),
+    [session, perfil, cargandoSesion, cargandoPerfil, refrescarPerfil],
   );
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;

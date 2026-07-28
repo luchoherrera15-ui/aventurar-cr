@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
@@ -59,6 +59,7 @@ const FILTROS = ["todas", "pendiente", "confirmada", "rechazada"] as const;
 
 export default function AdminNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { session } = useAuth();
   const [nombreNegocio, setNombreNegocio] = useState<string | null>(null);
   const [reservas, setReservas] = useState<ReservaNegocio[] | null>(null);
@@ -152,7 +153,15 @@ export default function AdminNegocioScreen() {
 
   return (
     <View style={styles.contenedor}>
-      <BarraSuperior titulo={nombreNegocio ?? "Reservas"} subtitulo="Reservas de este negocio" />
+      <BarraSuperior
+        titulo={nombreNegocio ?? "Reservas"}
+        subtitulo="Reservas de este negocio"
+        accion={{
+          icono: "create-outline",
+          etiqueta: "Editar negocio",
+          onPress: () => router.push(`/negocio/${id}/editar` as never),
+        }}
+      />
       <FlatList
       style={{ flex: 1 }}
       contentContainerStyle={{ padding: Spacing.three, paddingBottom: 40, gap: Spacing.two }}
