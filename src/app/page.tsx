@@ -35,7 +35,7 @@ export default function PortadaPage() {
               perdería contra el velo oscuro del hero. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- SVG estático */}
           <img
-            src="/logo-bookea-blanco.svg"
+            src="/logo-bookea-blanco.png"
             alt="Bookea"
             className="h-8 w-auto drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)] sm:h-9"
           />
