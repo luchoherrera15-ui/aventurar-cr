@@ -67,7 +67,7 @@ export default async function MiRanchoHubPage() {
           <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
             Marketplace de ranchos
           </p>
-          <h1 className="titulo mt-2.5 text-[28px] text-aventurea-orange-dark">
+          <h1 className="titulo mt-2.5 text-[28px] text-aventurea-ink">
             Tus servicios y espacios
           </h1>
           <p className="mt-1.5 max-w-[52ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
@@ -116,7 +116,7 @@ export default async function MiRanchoHubPage() {
               </span>
             </div>
             <div className="p-4.5">
-              <h2 className="truncate text-[15px] font-bold text-aventurea-ink group-hover:text-aventurea-orange-dark">
+              <h2 className="truncate text-[15px] font-bold text-aventurea-ink group-hover:text-aventurea-ink">
                 {rancho.nombre}
               </h2>
               <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">

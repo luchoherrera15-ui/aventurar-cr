@@ -112,7 +112,7 @@ export default async function BandejaMensajesPage() {
       <SiteHeader breadcrumb="Mensajes" />
 
       <section className="mx-auto max-w-[720px] px-6 py-10">
-        <h1 className="text-2xl font-bold text-aventurea-orange-dark">Mensajes</h1>
+        <h1 className="text-2xl font-bold text-aventurea-ink">Mensajes</h1>
         <p className="mb-6 mt-1 text-[13.5px] text-aventurea-ink-soft">
           Todas tus conversaciones de reservas y cotizaciones, en un solo lugar.
         </p>

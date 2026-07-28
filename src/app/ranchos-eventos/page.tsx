@@ -68,7 +68,7 @@ export default async function RanchosEventosPage() {
             <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
               Directorio nacional
             </p>
-            <h1 className="titulo mt-2 text-[34px] text-aventurea-orange-dark sm:text-[44px]">
+            <h1 className="titulo mt-2 text-[34px] text-aventurea-ink sm:text-[44px]">
               Todo para tu evento
             </h1>
           </div>

@@ -23,7 +23,7 @@ export default async function NuevoRanchoAdminPage() {
       >
         ← Volver a los salones
       </Link>
-      <h1 className="mt-3 text-2xl font-bold text-aventurea-orange-dark">
+      <h1 className="mt-3 text-2xl font-bold text-aventurea-ink">
         Agregar un salón
       </h1>
       <p className="mb-6 mt-1 max-w-[60ch] text-[13.5px] text-aventurea-ink-soft">

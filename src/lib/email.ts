@@ -91,9 +91,9 @@ function layout({
       <td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid #e2e4ea;">
           <tr>
-            <td style="background:#1e3a5f;padding:22px 30px;border-radius:16px 16px 0 0;">
+            <td style="background:#16295e;padding:22px 30px;border-radius:16px 16px 0 0;">
               <div style="color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.01em;">
-                BOOKEAR<span style="color:#8fb2e0;">CR</span>
+                BOOKEAR<span style="color:#f6a05e;">CR</span>
               </div>
               <div style="color:#b7c6dc;font-size:11px;letter-spacing:0.06em;margin-top:3px;">
                 RESERVAS DE LUGARES Y SERVICIOS PARA EVENTOS
@@ -102,7 +102,7 @@ function layout({
           </tr>
           <tr>
             <td style="padding:32px 30px 8px;">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#1e3a5f;padding-left:14px;border-left:3px solid #1e3a5f;line-height:1.4;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#16295e;padding-left:14px;border-left:3px solid #ee7420;line-height:1.4;">
                 ${kicker}
               </div>
               ${cuerpoHtml}
@@ -112,7 +112,7 @@ function layout({
             <td style="padding:24px 30px 28px;text-align:center;">
               <div style="height:1px;background:#e2e4ea;margin:0 0 22px;"></div>
               <div style="font-size:12.5px;font-weight:700;color:#101a2c;">Bookear CR</div>
-              <a href="${SITIO_URL}" style="font-size:12px;color:#1e3a5f;text-decoration:none;font-weight:700;">bookearcr.com</a>
+              <a href="${SITIO_URL}" style="font-size:12px;color:#16295e;text-decoration:none;font-weight:700;">bookearcr.com</a>
               <div style="font-size:11px;color:#a3aab5;margin-top:10px;line-height:1.6;">
                 Costa Rica · Recibiste este correo porque hiciste una reserva en Bookear CR.
               </div>
@@ -191,7 +191,7 @@ export function plantillaConfirmacionReserva({
       </p>
 
       <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}/ranchos-eventos" style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+        <a href="${SITIO_URL}/ranchos-eventos" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
           Ver más lugares en Bookear CR
         </a>
       </div>

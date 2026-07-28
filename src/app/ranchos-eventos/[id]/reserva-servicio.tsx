@@ -275,7 +275,7 @@ export default function ReservaServicio({
         <button
           type="submit"
           disabled={pending || !fecha}
-          className="flex h-11 w-full items-center justify-center rounded-xl bg-aventurea-navy px-6 text-sm font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60 sm:w-fit"
+          className="flex h-11 w-full items-center justify-center rounded-xl bg-aventurea-navy px-6 text-sm font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-60 sm:w-fit"
         >
           {pending
             ? "Enviando..."

@@ -181,7 +181,7 @@ function BotonFavorito({
       aria-pressed={activo}
       className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center transition-transform hover:scale-110 disabled:opacity-70"
     >
-      <IconHeart className={`h-[22px] w-[22px] ${activo ? "text-aventurea-navy" : "text-black/30"}`} />
+      <IconHeart className={`h-[22px] w-[22px] ${activo ? "text-aventurea-orange" : "text-black/30"}`} />
     </button>
   );
 }

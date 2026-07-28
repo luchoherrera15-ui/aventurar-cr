@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   },
   error: { color: Colors.danger, fontSize: 13 },
   botonPrimario: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.navy,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",

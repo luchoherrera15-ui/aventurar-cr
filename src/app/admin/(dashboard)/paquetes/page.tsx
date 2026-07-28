@@ -9,7 +9,7 @@ export default function AdminPaquetesPage() {
       >
         ← Volver
       </Link>
-      <h1 className="mt-3 text-2xl font-bold text-aventurea-orange-dark">
+      <h1 className="mt-3 text-2xl font-bold text-aventurea-ink">
         Paquete Turístico
       </h1>
       <p className="mt-2 max-w-md text-[13.5px] text-aventurea-ink-soft">

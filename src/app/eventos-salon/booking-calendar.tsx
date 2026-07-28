@@ -1059,7 +1059,7 @@ export default function BookingCalendar({
                     {/* Aviso importante: aparte de los términos generales, esta
                         es la aceptación específica sobre qué NO se alquila. */}
                     <div className="rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/10 p-3.5">
-                      <p className="flex items-start gap-1.5 text-[12.5px] font-bold leading-relaxed text-aventurea-orange-dark">
+                      <p className="flex items-start gap-1.5 text-[12.5px] font-bold leading-relaxed text-aventurea-ink">
                         <IconWarning className="mt-0.5 h-4 w-4 shrink-0" />
                         Aviso importante
                       </p>

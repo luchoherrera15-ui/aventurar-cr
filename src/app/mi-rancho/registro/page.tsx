@@ -19,7 +19,7 @@ export default function RegistroPage() {
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Marketplace de ranchos
         </p>
-        <h1 className="mt-2.5 text-xl font-bold text-aventurea-orange-dark">
+        <h1 className="mt-2.5 text-xl font-bold text-aventurea-ink">
           Creá tu cuenta
         </h1>
         <p className="mt-1.5 text-sm text-aventurea-ink-soft">

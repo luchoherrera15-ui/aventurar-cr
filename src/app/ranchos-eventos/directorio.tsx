@@ -286,10 +286,14 @@ export default function Directorio({
     <div>
       <RevealOnScroll />
 
+      {/* Buscador + categorías en un bloque sticky: el título scrollea,
+          pero la búsqueda queda siempre a mano bajo el header — patrón
+          Airbnb. El fondo con blur evita que las cards se lean debajo. */}
+      <div className="sticky top-14 z-30 -mx-6 bg-aventurea-cream/95 px-6 pt-3 backdrop-blur-sm lg:-mx-10 lg:px-10">
       {/* Buscador segmentado: Dónde · Cuándo · Personas (Lugares/Todos) o
           Dónde · ¿Qué necesitás? · Personas para el resto de categorías,
           que no reservan por fecha en línea. */}
-      <div className="relative z-30 mb-5 flex items-stretch gap-2">
+      <div className="relative z-30 mb-4 flex items-stretch gap-2">
         <div className="mx-auto flex min-w-0 max-w-[640px] flex-1 items-stretch overflow-hidden rounded-full border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-md">
           <SegmentoBusqueda
             label="Dónde"
@@ -328,7 +332,7 @@ export default function Directorio({
             type="button"
             onClick={soltarMenu}
             aria-label="Buscar"
-            className="m-1.5 flex w-11 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-white hover:bg-aventurea-orange-dark"
+            className="m-1.5 flex w-11 shrink-0 items-center justify-center rounded-full bg-aventurea-orange text-white hover:bg-aventurea-orange-dark"
           >
             <IconSearch className="h-[17px] w-[17px]" />
           </button>
@@ -439,7 +443,7 @@ export default function Directorio({
           que la tape — el degradado de la punta es la única pista de
           que sigue scrolleando (antes "Filtros" hacía de tapón visual y
           escondía Organización/Decoración/Otros servicios). */}
-      <div className="relative z-20 mb-4 border-b border-aventurea-line">
+      <div className="relative z-20 border-b border-aventurea-line">
         <div className="flex gap-6 overflow-x-auto lg:gap-8">
           <CategoriaTab
             label="Todos"
@@ -464,6 +468,9 @@ export default function Directorio({
           className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-aventurea-cream to-transparent"
         />
       </div>
+      </div>{/* fin del bloque sticky */}
+
+      <div className="mt-4" />
 
       {(menuAbierto === "filtros" || categoriaAbierta) && (
         <div className="relative z-20 mb-4">

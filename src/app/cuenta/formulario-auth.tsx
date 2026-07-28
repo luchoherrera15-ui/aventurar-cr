@@ -80,7 +80,7 @@ export default function FormularioAuth() {
         <button
           type="submit"
           disabled={pending}
-          className="mt-1 flex h-11 items-center justify-center rounded-xl bg-aventurea-navy text-sm font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="mt-1 flex h-11 items-center justify-center rounded-xl bg-aventurea-navy text-sm font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-60"
         >
           {pending ? "Un momento..." : modo === "login" ? "Iniciar sesión" : "Crear cuenta"}
         </button>

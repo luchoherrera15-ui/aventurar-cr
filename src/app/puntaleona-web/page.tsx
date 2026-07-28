@@ -14,7 +14,7 @@ export default function PuntaleonaWebPage() {
           BOOKEAR CR
         </span>
       </Link>
-      <h1 className="relative text-2xl font-bold text-aventurea-orange-dark">Paquetes Vacacionales</h1>
+      <h1 className="relative text-2xl font-bold text-aventurea-ink">Paquetes Vacacionales</h1>
       <p className="relative mx-auto mt-3 max-w-md text-[14px] text-aventurea-ink-soft">
         Casa Puntaleona y Chalet Alajuela — estamos armando el calendario de
         disponibilidad y el cotizador. Muy pronto vas a poder reservar

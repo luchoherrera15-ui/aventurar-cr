@@ -281,7 +281,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                   el botón de WhatsApp se quitó a propósito. */}
               <a
                 href="#reservar"
-                className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
               >
                 Reservar fecha
               </a>
@@ -408,7 +408,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
                 <a
                   href="#reservar"
-                  className="mt-5 flex h-12 items-center justify-center rounded-xl bg-aventurea-navy text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+                  className="mt-5 flex h-12 items-center justify-center rounded-xl bg-aventurea-navy text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
                 >
                   Ver fechas disponibles
                 </a>
@@ -536,7 +536,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                     </p>
                     <Link
                       href="/cuenta"
-                      className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                      className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
                     >
                       Iniciar sesión
                     </Link>

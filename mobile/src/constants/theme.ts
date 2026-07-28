@@ -1,14 +1,15 @@
 /**
- * Misma paleta que /web (src/app/globals.css): navy como único
- * acento de marca sobre fondo blanco, sin tinte crema. Una sola
- * paleta fija — el sitio tampoco tiene modo oscuro — así que no hay
- * light/dark que resolver en cada pantalla.
+ * Misma paleta que /web (src/app/globals.css): los dos colores del
+ * logo se reparten los roles — navy para confianza (reservar, chat,
+ * seleccionado) y naranja como acento de descubrimiento (búsqueda,
+ * favoritos, estados pendientes). Una sola paleta fija — el sitio
+ * tampoco tiene modo oscuro — así que no hay light/dark que resolver.
  */
 export const Colors = {
-  navy: "#1b2a4a",
-  navyDark: "#142038",
-  accent: "#1b2a4a",
-  accentLight: "#f6f6f6",
+  navy: "#16295e",
+  navyDark: "#0f1d45",
+  accent: "#ee7420",
+  accentLight: "#fdeee1",
   green: "#1f7a4d",
   greenLight: "#e1f0e6",
   cream: "#ffffff",

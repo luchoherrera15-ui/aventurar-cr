@@ -404,7 +404,7 @@ export default function ReservarScreen() {
                 <Switch
                   value={!!addons[s.id]}
                   onValueChange={(v) => setAddons((a) => ({ ...a, [s.id]: v }))}
-                  trackColor={{ true: Colors.accent }}
+                  trackColor={{ true: Colors.navy }}
                 />
                 <Text style={styles.addonTexto}>
                   {s.nombre} — {fmtColones(s.precio)}
@@ -415,7 +415,7 @@ export default function ReservarScreen() {
         )}
 
         <Pressable style={styles.filaCheckbox} onPress={() => setAvisoAceptado((v) => !v)}>
-          <Switch value={avisoAceptado} onValueChange={setAvisoAceptado} trackColor={{ true: Colors.accent }} />
+          <Switch value={avisoAceptado} onValueChange={setAvisoAceptado} trackColor={{ true: Colors.navy }} />
           <Text style={styles.avisoTexto}>
             Entiendo que este lugar no se alquila para serenatas, fiestas de menores de edad ni
             fiestas clandestinas donde se venda alcohol. Si reservo para uno de estos casos, acepto
@@ -490,7 +490,7 @@ export default function ReservarScreen() {
           </Pressable>
 
           <Pressable style={styles.filaCheckbox} onPress={() => setTerminosAceptados((v) => !v)}>
-            <Switch value={terminosAceptados} onValueChange={setTerminosAceptados} trackColor={{ true: Colors.accent }} />
+            <Switch value={terminosAceptados} onValueChange={setTerminosAceptados} trackColor={{ true: Colors.navy }} />
             <Text style={styles.avisoTexto}>Acepto los términos y condiciones de la reserva.</Text>
           </Pressable>
         </View>
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: Colors.cream2,
   },
-  chipActivo: { backgroundColor: Colors.accent },
+  chipActivo: { backgroundColor: Colors.navy },
   chipTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
   chipTextoActivo: { color: "#ffffff" },
   filaAddon: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
   zonaFotoTexto: { color: Colors.inkSoft, fontSize: 13, padding: Spacing.three, textAlign: "center" },
   previewFoto: { width: "100%", height: 160 },
   botonPrimario: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.navy,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",

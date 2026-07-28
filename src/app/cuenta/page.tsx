@@ -17,7 +17,7 @@ const ESTADO_LABEL: Record<string, string> = {
   rechazada: "Rechazada",
 };
 const ESTADO_CLASE: Record<string, string> = {
-  pendiente: "bg-aventurea-orange/10 text-aventurea-orange-dark",
+  pendiente: "bg-aventurea-orange/10 text-aventurea-ink",
   confirmada: "bg-aventurea-green/10 text-aventurea-green",
   rechazada: "bg-red-100 text-red-700",
 };

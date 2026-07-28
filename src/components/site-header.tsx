@@ -25,11 +25,17 @@ export default function SiteHeader({
         className={`mx-auto flex ${ancho} flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 py-3 sm:px-6 lg:px-10`}
       >
         <Link href="/ranchos-eventos" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aventurea-navy text-[14.5px] font-bold text-white">
+          {/* Tile de marca: B en navy con el punto naranja del pin del
+              logo — hasta que el archivo del logo viva en el repo. */}
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aventurea-navy text-[14.5px] font-bold text-white">
             B
+            <span
+              aria-hidden
+              className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-aventurea-orange"
+            />
           </span>
           <span className="whitespace-nowrap text-[15px] font-extrabold tracking-tight text-aventurea-ink sm:text-base">
-            Bookear <span className="font-extrabold text-zinc-400">CR</span>
+            Bookear <span className="font-extrabold text-aventurea-orange">CR</span>
           </span>
           {breadcrumb && (
             <>
