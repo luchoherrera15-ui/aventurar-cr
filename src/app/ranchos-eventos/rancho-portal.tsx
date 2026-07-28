@@ -435,6 +435,9 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           servicios={servicios}
           tarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
           depositoReserva={rancho.deposito_reserva ?? 25000}
+          modalidadPrecio={rancho.modalidad_precio_lugar}
+          precioHora={rancho.precio_hora_lugar}
+          precioFijo={rancho.precio_fijo_lugar}
           promociones={promociones}
           terminos={rancho.terminos ?? []}
           montoMinimo={rancho.monto_minimo ?? null}

@@ -14,6 +14,7 @@ import {
   duracionHoras,
   etiquetaHorario,
   type HorarioBloqueConfig,
+  type ModalidadPrecioLugar,
 } from "@/app/mi-rancho/types";
 import {
   cancelarReservaTemporal,
@@ -62,6 +63,9 @@ export default function BookingCalendar({
   servicios,
   tarifaDiciembre,
   depositoReserva,
+  modalidadPrecio = "rango_personas",
+  precioHora = null,
+  precioFijo = null,
   promociones = [],
   terminos = [],
   montoMinimo = null,
@@ -82,6 +86,12 @@ export default function BookingCalendar({
   servicios: ServicioAdicional[];
   tarifaDiciembre: number;
   depositoReserva: number;
+  /** Cómo cotiza este lugar; default = los rangos de siempre. */
+  modalidadPrecio?: ModalidadPrecioLugar;
+  /** Para modalidad "hora": lo que cobra cada hora contratada. */
+  precioHora?: number | null;
+  /** Para modalidad "fijo": el único precio del evento. */
+  precioFijo?: number | null;
   promociones?: PromocionDia[];
   /** Los del proveedor; vacío = usar los que trae la plataforma. */
   terminos?: string[];
@@ -129,6 +139,7 @@ export default function BookingCalendar({
   const [secondsLeft, setSecondsLeft] = useState(0);
 
   const [invitados, setInvitados] = useState("");
+  const [horasEvento, setHorasEvento] = useState("");
   const [horarioBloque, setHorarioBloque] = useState("");
   const [addons, setAddons] = useState<Record<string, boolean>>({});
   const [nombre, setNombre] = useState("");
@@ -203,15 +214,26 @@ export default function BookingCalendar({
   const esDiciembre = selectedDateObj?.getMonth() === 11;
 
   const invitadosNum = parseInt(invitados) || 0;
+  const horasNum = parseInt(horasEvento) || 0;
 
+  // La cotización se calcula distinto según cómo el dueño configuró su
+  // cobro (panel → pestaña Precios): por rangos de invitados (de
+  // siempre), por hora, o un precio fijo del evento sin importar
+  // invitados. El resto del flujo (fecha, depósito, comprobante) es
+  // exactamente el mismo para las tres.
   const tierBase = useMemo(() => {
+    if (modalidadPrecio === "fijo") return precioFijo ?? null;
+    if (modalidadPrecio === "hora") {
+      if (!horasNum || precioHora === null) return null;
+      return horasNum * precioHora;
+    }
     if (!invitadosNum) return null;
     if (esDiciembre) return invitadosNum * tarifaDiciembre;
     const tier = tiers.find(
       (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
     );
     return tier ? tier.precio : null;
-  }, [invitadosNum, esDiciembre, tiers, tarifaDiciembre]);
+  }, [modalidadPrecio, precioFijo, horasNum, precioHora, invitadosNum, esDiciembre, tiers, tarifaDiciembre]);
 
   const addonsTotal = useMemo(() => {
     return servicios.reduce((acc, s) => {
@@ -307,10 +329,20 @@ export default function BookingCalendar({
     return metodos;
   }, [sinpeNumero, cuentaNumero]);
 
+  // Lo que hace falta para avanzar cambia según la modalidad: por
+  // rangos necesita invitados, por hora necesita las horas, y el
+  // precio fijo no depende de ninguno de los dos.
+  const cotizacionCompleta =
+    modalidadPrecio === "hora"
+      ? horasNum > 0
+      : modalidadPrecio === "fijo"
+        ? true
+        : invitadosNum > 0;
+
   const puedeAvanzar =
     !!holdId &&
     !holdVencido &&
-    invitadosNum > 0 &&
+    cotizacionCompleta &&
     (horarios.length === 0 || !!horarioBloque) &&
     !!nombre &&
     correoValido &&
@@ -472,6 +504,13 @@ export default function BookingCalendar({
       return;
     }
 
+    // Sin columna propia para las horas contratadas, se anteponen a las
+    // notas para que el dueño las vea igual al revisar la reserva.
+    const notasConHoras =
+      modalidadPrecio === "hora" && horasNum > 0
+        ? `Evento contratado por ${horasNum} hora${horasNum === 1 ? "" : "s"}.${mensaje ? " " + mensaje : ""}`
+        : mensaje || null;
+
     const res = await completarReservaTemporal(holdId, {
       nombre,
       correo: correo.trim(),
@@ -488,7 +527,7 @@ export default function BookingCalendar({
       deposito_comprobante_url: path,
       terminos_aceptados: terminosAceptados,
       aviso_prohibiciones_aceptado: avisoAceptado,
-      notas: mensaje || null,
+      notas: notasConHoras,
       codigo_descuento: codigoAplicado?.codigo ?? null,
       descuento_monto: descuentoTotalMonto,
     });
@@ -862,18 +901,33 @@ export default function BookingCalendar({
                       </div>
                     )}
 
-                    <div>
-                      <label className={labelCls}>Número de invitados</label>
-                      <input
-                        type="number"
-                        min={1}
-                        required
-                        value={invitados}
-                        onChange={(e) => setInvitados(e.target.value)}
-                        placeholder="Ej. 40"
-                        className={inputCls}
-                      />
-                    </div>
+                    {modalidadPrecio === "hora" ? (
+                      <div>
+                        <label className={labelCls}>Cantidad de horas</label>
+                        <input
+                          type="number"
+                          min={1}
+                          required
+                          value={horasEvento}
+                          onChange={(e) => setHorasEvento(e.target.value)}
+                          placeholder="Ej. 5"
+                          className={inputCls}
+                        />
+                      </div>
+                    ) : modalidadPrecio === "rango_personas" ? (
+                      <div>
+                        <label className={labelCls}>Número de invitados</label>
+                        <input
+                          type="number"
+                          min={1}
+                          required
+                          value={invitados}
+                          onChange={(e) => setInvitados(e.target.value)}
+                          placeholder="Ej. 40"
+                          className={inputCls}
+                        />
+                      </div>
+                    ) : null}
 
                     {horarios.length > 0 && (
                       <div>
@@ -899,20 +953,26 @@ export default function BookingCalendar({
                         Cotización estimada del evento
                       </span>
                       <span className="text-[15px] font-bold text-aventurea-ink">
-                        {tierBase === null
-                          ? invitadosNum
-                            ? "Cotización personalizada"
-                            : "— indicá tus invitados —"
-                          : fmtColones(tierBase)}
+                        {tierBase !== null
+                          ? fmtColones(tierBase)
+                          : modalidadPrecio === "hora"
+                            ? horasNum
+                              ? "Consultar precio por hora"
+                              : "— indicá las horas —"
+                            : modalidadPrecio === "fijo"
+                              ? "Consultar precio del evento"
+                              : invitadosNum
+                                ? "Cotización personalizada"
+                                : "— indicá tus invitados —"}
                       </span>
                     </div>
-                    {esDiciembre && invitadosNum > 0 && (
+                    {modalidadPrecio === "rango_personas" && esDiciembre && invitadosNum > 0 && (
                       <p className="-mt-2 text-[11px] text-zinc-500">
                         Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
                       </p>
                     )}
 
-                    {servicios.length > 0 && invitadosNum > 0 && (
+                    {servicios.length > 0 && cotizacionCompleta && (
                       <div>
                         <label className={labelCls}>Servicios adicionales</label>
                         <div>

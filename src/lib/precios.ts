@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { ModalidadPrecioLugar } from "@/app/mi-rancho/types";
 
 type TierInput = { min_invitados: number; max_invitados: number; precio: number };
 type ServicioInput = {
@@ -11,9 +12,9 @@ type ServicioInput = {
 
 /**
  * Reemplaza los rangos de precio y servicios adicionales de UN rancho
- * (nunca de todos), y guarda su depósito fijo y tarifa de diciembre.
- * Las políticas de seguridad ya impiden tocar el rancho de otra persona;
- * esto solo agrega mensajes de error legibles.
+ * (nunca de todos), y guarda su depósito fijo, tarifa de diciembre y
+ * modalidad de cobro. Las políticas de seguridad ya impiden tocar el
+ * rancho de otra persona; esto solo agrega mensajes de error legibles.
  */
 export async function guardarPreciosRancho(
   ranchoId: string,
@@ -21,6 +22,9 @@ export async function guardarPreciosRancho(
   servicios: ServicioInput[],
   tarifaDiciembre: number,
   depositoReserva: number,
+  modalidadPrecio: ModalidadPrecioLugar,
+  precioHora: number | null,
+  precioFijo: number | null,
 ) {
   const supabase = await createClient();
 
@@ -55,6 +59,9 @@ export async function guardarPreciosRancho(
     .update({
       tarifa_diciembre_por_persona: tarifaDiciembre,
       deposito_reserva: depositoReserva,
+      modalidad_precio_lugar: modalidadPrecio,
+      precio_hora_lugar: precioHora,
+      precio_fijo_lugar: precioFijo,
     })
     .eq("id", ranchoId);
   if (errorRancho) return { error: errorRancho.message };

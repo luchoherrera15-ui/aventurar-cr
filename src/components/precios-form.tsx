@@ -2,6 +2,11 @@
 
 import { useState, useTransition } from "react";
 import type { PrecioTier, ServicioAdicional } from "@/app/mi-rancho/types";
+import {
+  MODALIDADES_PRECIO_LUGAR,
+  MODALIDAD_PRECIO_LUGAR_LABEL,
+  type ModalidadPrecioLugar,
+} from "@/app/mi-rancho/types";
 import { IconTrash } from "@/components/icons";
 
 type TierDraft = {
@@ -34,6 +39,9 @@ export type GuardarPreciosFn = (
   }[],
   tarifaDiciembre: number,
   depositoReserva: number,
+  modalidadPrecio: ModalidadPrecioLugar,
+  precioHora: number | null,
+  precioFijo: number | null,
 ) => Promise<{ error: string | null } | undefined>;
 
 export default function PreciosForm({
@@ -41,12 +49,18 @@ export default function PreciosForm({
   initialServicios,
   initialTarifaDiciembre,
   initialDepositoReserva,
+  initialModalidadPrecio,
+  initialPrecioHora,
+  initialPrecioFijo,
   onGuardar,
 }: {
   initialTiers: PrecioTier[];
   initialServicios: ServicioAdicional[];
   initialTarifaDiciembre: number;
   initialDepositoReserva: number;
+  initialModalidadPrecio: ModalidadPrecioLugar;
+  initialPrecioHora: number | null;
+  initialPrecioFijo: number | null;
   onGuardar: GuardarPreciosFn;
 }) {
   const [tiers, setTiers] = useState<TierDraft[]>(
@@ -61,6 +75,11 @@ export default function PreciosForm({
   const [depositoReserva, setDepositoReserva] = useState(
     initialDepositoReserva,
   );
+  const [modalidadPrecio, setModalidadPrecio] = useState<ModalidadPrecioLugar>(
+    initialModalidadPrecio,
+  );
+  const [precioHora, setPrecioHora] = useState(initialPrecioHora ?? 0);
+  const [precioFijo, setPrecioFijo] = useState(initialPrecioFijo ?? 0);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{
     type: "ok" | "error";
@@ -99,6 +118,9 @@ export default function PreciosForm({
         })),
         tarifaDiciembre,
         depositoReserva,
+        modalidadPrecio,
+        modalidadPrecio === "hora" ? precioHora : null,
+        modalidadPrecio === "fijo" ? precioFijo : null,
       );
       if (res?.error) {
         setMessage({ type: "error", text: res.error });
@@ -137,6 +159,76 @@ export default function PreciosForm({
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
           Cotización automática
+        </p>
+        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
+          ¿Cómo cobrás?
+        </h3>
+        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+          Elegí una forma de cobro. El sitio público calcula la cotización
+          sola, según la que elijas acá.
+        </p>
+
+        <div className="mt-3.5 flex flex-wrap gap-2">
+          {MODALIDADES_PRECIO_LUGAR.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setModalidadPrecio(m)}
+              aria-pressed={modalidadPrecio === m}
+              className={`rounded-lg border-[1.5px] px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
+                modalidadPrecio === m
+                  ? "border-aventurea-navy bg-aventurea-navy text-white"
+                  : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-navy"
+              }`}
+            >
+              {MODALIDAD_PRECIO_LUGAR_LABEL[m]}
+            </button>
+          ))}
+        </div>
+
+        {modalidadPrecio === "hora" && (
+          <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+              Precio por hora (₡)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={precioHora}
+              onChange={(e) => setPrecioHora(Number(e.target.value))}
+              className="w-40 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+            />
+            <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
+              Al reservar, el cliente indica cuántas horas necesita y la
+              cotización sale sola (horas × este precio).
+            </p>
+          </div>
+        )}
+
+        {modalidadPrecio === "fijo" && (
+          <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+              Precio fijo del evento (₡)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={precioFijo}
+              onChange={(e) => setPrecioFijo(Number(e.target.value))}
+              className="w-40 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+            />
+            <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
+              Un solo precio para todo el evento, sin importar la cantidad de
+              invitados.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {modalidadPrecio === "rango_personas" && (
+        <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+          Rangos de invitados
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
           Rangos de precio según número de invitados
@@ -257,7 +349,8 @@ export default function PreciosForm({
             </span>
           </div>
         </div>
-      </section>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">

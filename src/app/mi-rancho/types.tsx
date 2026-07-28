@@ -142,6 +142,21 @@ export const UNIDAD_PRECIO_LABEL: Record<UnidadPrecio, string> = {
   bloque_horas: "por bloque",
 };
 
+/**
+ * Cómo cobra un LUGAR por su fecha (distinto de UnidadPrecio, que es
+ * para el "desde ₡X" de las demás categorías): "rango_personas" son
+ * los tramos de precio_tiers de siempre; "hora" y "fijo" son un solo
+ * número que el dueño fija, sin depender de invitados.
+ */
+export const MODALIDADES_PRECIO_LUGAR = ["rango_personas", "hora", "fijo"] as const;
+export type ModalidadPrecioLugar = (typeof MODALIDADES_PRECIO_LUGAR)[number];
+
+export const MODALIDAD_PRECIO_LUGAR_LABEL: Record<ModalidadPrecioLugar, string> = {
+  rango_personas: "Por rangos de invitados",
+  hora: "Por hora",
+  fijo: "Precio fijo del evento",
+};
+
 // Subcategorías por categoría. El id es lo que se guarda en la columna
 // `subcategoria` de la tabla ranchos.
 export const SUBCATEGORIAS: Record<
@@ -492,6 +507,10 @@ export type Rancho = {
   cuenta_tipo: string | null;
   horarios_bloques: HorarioBloqueConfig[];
   tarifa_diciembre_por_persona: number | null;
+  /** Solo aplica a Lugares — cómo se calcula la cotización al reservar. */
+  modalidad_precio_lugar: ModalidadPrecioLugar;
+  precio_hora_lugar: number | null;
+  precio_fijo_lugar: number | null;
   fotos: string[];
   estado: EstadoRancho;
   created_at: string;

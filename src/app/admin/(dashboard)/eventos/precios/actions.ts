@@ -5,12 +5,16 @@ import { guardarPreciosRancho } from "@/lib/precios";
 import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
 import type { PrecioTier, ServicioAdicional } from "./types";
+import type { ModalidadPrecioLugar } from "@/app/mi-rancho/types";
 
 export async function guardarConfiguracion(
   tiers: Omit<PrecioTier, "id">[],
   servicios: Omit<ServicioAdicional, "id">[],
   tarifaDiciembre: number,
   depositoReserva: number,
+  modalidadPrecio: ModalidadPrecioLugar,
+  precioHora: number | null,
+  precioFijo: number | null,
 ) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
@@ -28,6 +32,9 @@ export async function guardarConfiguracion(
     servicios,
     tarifaDiciembre,
     depositoReserva,
+    modalidadPrecio,
+    precioHora,
+    precioFijo,
   );
 }
 

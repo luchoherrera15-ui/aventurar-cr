@@ -19,7 +19,9 @@ export default async function PreciosPage() {
 
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("id, deposito_reserva, tarifa_diciembre_por_persona")
+    .select(
+      "id, deposito_reserva, tarifa_diciembre_por_persona, modalidad_precio_lugar, precio_hora_lugar, precio_fijo_lugar",
+    )
     .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
 
@@ -64,6 +66,9 @@ export default async function PreciosPage() {
           initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
           initialTarifaDiciembre={rancho?.tarifa_diciembre_por_persona ?? 3750}
           initialDepositoReserva={rancho?.deposito_reserva ?? 25000}
+          initialModalidadPrecio={rancho?.modalidad_precio_lugar ?? "rango_personas"}
+          initialPrecioHora={rancho?.precio_hora_lugar ?? null}
+          initialPrecioFijo={rancho?.precio_fijo_lugar ?? null}
           onGuardar={guardarConfiguracion}
         />
       </div>

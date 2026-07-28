@@ -208,6 +208,9 @@ export default async function RanchoDetallePage({
               initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
               initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
               initialDepositoReserva={rancho.deposito_reserva}
+              initialModalidadPrecio={rancho.modalidad_precio_lugar}
+              initialPrecioHora={rancho.precio_hora_lugar}
+              initialPrecioFijo={rancho.precio_fijo_lugar}
               onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
             />
           )}

@@ -5,14 +5,14 @@ import SiteHeader from "@/components/site-header";
 import BookingCalendar from "./booking-calendar";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
-import type { HorarioBloqueConfig, PromocionDia } from "@/app/mi-rancho/types";
+import type { HorarioBloqueConfig, ModalidadPrecioLugar, PromocionDia } from "@/app/mi-rancho/types";
 
 export default async function EventosSalonPage() {
   const supabase = await createClient();
 
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("id, deposito_reserva, tarifa_diciembre_por_persona, terminos, monto_minimo, horarios_bloques, foto_url, descripcion, sinpe_numero, sinpe_titular, cuenta_banco, cuenta_numero, cuenta_titular, cuenta_tipo")
+    .select("id, deposito_reserva, tarifa_diciembre_por_persona, modalidad_precio_lugar, precio_hora_lugar, precio_fijo_lugar, terminos, monto_minimo, horarios_bloques, foto_url, descripcion, sinpe_numero, sinpe_titular, cuenta_banco, cuenta_numero, cuenta_titular, cuenta_tipo")
     .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
 
@@ -90,6 +90,9 @@ export default async function EventosSalonPage() {
         servicios={(svcRes.data ?? []) as ServicioAdicional[]}
         tarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 3750}
         depositoReserva={rancho.deposito_reserva ?? 25000}
+        modalidadPrecio={(rancho.modalidad_precio_lugar as ModalidadPrecioLugar) ?? "rango_personas"}
+        precioHora={(rancho.precio_hora_lugar as number | null) ?? null}
+        precioFijo={(rancho.precio_fijo_lugar as number | null) ?? null}
         promociones={(promoRes.data ?? []) as PromocionDia[]}
         terminos={(rancho.terminos as string[] | null) ?? []}
         montoMinimo={(rancho.monto_minimo as number | null) ?? null}
