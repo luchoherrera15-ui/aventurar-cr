@@ -1,15 +1,7 @@
-"use client";
-
 import Link from "next/link";
-import { useActionState } from "react";
-import { registrarDueno, type RegistroState } from "./actions";
+import FormularioCodigoAcceso from "@/components/formulario-codigo-acceso";
 
 export default function RegistroPage() {
-  const [state, formAction, pending] = useActionState<RegistroState, FormData>(
-    registrarDueno,
-    undefined,
-  );
-
   return (
     <main className="relative flex min-h-[calc(100vh-64px)] items-center justify-center overflow-hidden p-5 py-12">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(240,120,42,0.10),transparent)]" />
@@ -24,93 +16,26 @@ export default function RegistroPage() {
         </h1>
         <p className="mt-1.5 text-sm text-aventurea-ink-soft">
           Registrate para publicar tu negocio para eventos en Bookear CR —
-          lugares, comida, música, decoración y más, en todo el país.
+          lugares, comida, música, decoración y más, en todo el país. Sin
+          contraseñas: entrás con un código que te llega al correo.
         </p>
 
-        {state?.needsConfirmation ? (
-          <div className="mt-6 rounded-xl border border-aventurea-green/30 bg-aventurea-green/10 p-4">
-            <p className="text-sm font-bold text-aventurea-green">
-              ¡Cuenta creada!
-            </p>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-aventurea-ink-soft">
-              Te enviamos un correo de confirmación. Hacé click en el link y
-              después{" "}
-              <Link
-                href="/mi-rancho/login"
-                className="font-bold text-aventurea-orange underline"
-              >
-                iniciá sesión acá
-              </Link>{" "}
-              para completar los datos de tu negocio.
-            </p>
-          </div>
-        ) : (
-          <>
-            <form action={formAction} className="mt-5.5 flex flex-col gap-3.5">
-              <div>
-                <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Tu nombre
-                </label>
-                <input
-                  type="text"
-                  name="nombre"
-                  required
-                  placeholder="Nombre completo"
-                  className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:zinc-500"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Correo
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  placeholder="tucorreo@ejemplo.com"
-                  className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:zinc-500"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Contraseña
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  minLength={6}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:zinc-500"
-                />
-              </div>
+        <FormularioCodigoAcceso
+          destino="/mi-rancho/nuevo"
+          acento="orange"
+          crearCuenta
+          pedirNombre
+        />
 
-              {state?.error && (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
-                  {state.error}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={pending}
-                className="mt-1 flex h-11 items-center justify-center rounded-xl bg-aventurea-orange text-sm font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60"
-              >
-                {pending ? "Creando cuenta..." : "Crear cuenta"}
-              </button>
-            </form>
-
-            <p className="mt-4 text-center text-[12.5px] text-zinc-500">
-              ¿Ya tenés cuenta?{" "}
-              <Link
-                href="/mi-rancho/login"
-                className="font-bold text-aventurea-orange underline"
-              >
-                Iniciá sesión
-              </Link>
-            </p>
-          </>
-        )}
+        <p className="mt-4 text-center text-[12.5px] text-zinc-500">
+          ¿Ya tenés cuenta?{" "}
+          <Link
+            href="/mi-rancho/login"
+            className="font-bold text-aventurea-orange underline"
+          >
+            Iniciá sesión
+          </Link>
+        </p>
       </div>
     </main>
   );
