@@ -94,7 +94,6 @@ export default async function EventosSalonPage() {
         terminos={(rancho.terminos as string[] | null) ?? []}
         montoMinimo={(rancho.monto_minimo as number | null) ?? null}
         horarios={(rancho.horarios_bloques as HorarioBloqueConfig[] | null) ?? []}
-        fotoFondo={(rancho.foto_url as string | null) ?? null}
         sinpeNumero={(rancho.sinpe_numero as string | null) ?? null}
         sinpeTitular={(rancho.sinpe_titular as string | null) ?? null}
         cuentaBanco={(rancho.cuenta_banco as string | null) ?? null}

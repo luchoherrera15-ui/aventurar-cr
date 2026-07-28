@@ -4,6 +4,7 @@ import {
   IconGlobe,
   IconInstagram,
   IconPin,
+  IconStar,
   IconTiktok,
   IconWaze,
   IconWhatsapp,
@@ -309,6 +310,151 @@ export function GaleriaSeccion({
         </h2>
 
         <GaleriaLightbox fotos={fotos} nombre={nombre} />
+      </div>
+    </section>
+  );
+}
+
+/** Reseñas reales de clientes con reserva confirmada (tabla resenas). */
+export type Resena = {
+  id: string;
+  calificacion: number;
+  comentario: string | null;
+  created_at: string;
+};
+
+export function ResenasSeccion({
+  resenas,
+  promedio,
+  total,
+}: {
+  resenas: Resena[];
+  promedio: number | null;
+  total: number;
+}) {
+  if (resenas.length === 0) return null;
+
+  return (
+    <section className="border-t border-aventurea-line py-14">
+      <div data-reveal className="mx-auto max-w-[1080px] px-7">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
+          Reseñas
+        </p>
+        <h2 className="titulo mt-2 flex items-center gap-2.5 text-[28px] text-aventurea-ink">
+          <IconStar className="h-5 w-5" />
+          {promedio !== null ? promedio.toFixed(2).replace(".", ",") : "—"}
+          <span className="text-[16px] font-normal text-aventurea-ink-soft">
+            · {total} reseña{total === 1 ? "" : "s"}
+          </span>
+        </h2>
+
+        <div className="mt-7 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {resenas.map((r) => (
+            <div
+              key={r.id}
+              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5"
+            >
+              <div className="flex items-center gap-1" aria-label={`${r.calificacion} de 5`}>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <IconStar
+                    key={i}
+                    className={`h-3.5 w-3.5 ${
+                      i < r.calificacion ? "text-aventurea-ink" : "text-zinc-300"
+                    }`}
+                  />
+                ))}
+              </div>
+              {r.comentario && (
+                <p className="mt-2.5 text-[13.5px] leading-relaxed text-aventurea-ink">
+                  {r.comentario}
+                </p>
+              )}
+              <p className="mt-2.5 text-[11.5px] text-zinc-500">
+                {/* Los perfiles ajenos no son legibles (RLS) — pero toda
+                    reseña viene de una reserva confirmada real. */}
+                Cliente verificado ·{" "}
+                {new Date(r.created_at).toLocaleDateString("es-CR", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** "A dónde vas": mapa incrustado (sin API key) + botones de cómo llegar. */
+export function MapaSeccion({
+  nombre,
+  ubicacion,
+  latitud,
+  longitud,
+  googleMaps,
+  waze,
+}: {
+  nombre: string;
+  ubicacion: string;
+  latitud: number | null;
+  longitud: number | null;
+  googleMaps: string | null;
+  waze: string | null;
+}) {
+  const tieneCoordenadas = latitud !== null && longitud !== null;
+  if (!tieneCoordenadas && !googleMaps) return null;
+
+  return (
+    <section className="border-t border-aventurea-line py-14">
+      <div data-reveal className="mx-auto max-w-[1080px] px-7">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
+          Ubicación
+        </p>
+        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">A dónde vas</h2>
+        {ubicacion && (
+          <p className="mt-1.5 flex items-center gap-1.5 text-[13.5px] text-aventurea-ink-soft">
+            <IconPin className="h-3.5 w-3.5 shrink-0" />
+            {ubicacion}
+          </p>
+        )}
+
+        {tieneCoordenadas && (
+          <div className="mt-6 overflow-hidden rounded-2xl border border-aventurea-line">
+            <iframe
+              title={`Mapa de ${nombre}`}
+              src={`https://www.google.com/maps?q=${latitud},${longitud}&z=15&output=embed`}
+              className="h-[340px] w-full"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          {googleMaps && (
+            <a
+              href={googleMaps}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy"
+            >
+              <IconPin className="h-4 w-4" />
+              Cómo llegar (Google Maps)
+            </a>
+          )}
+          {waze && (
+            <a
+              href={waze}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy"
+            >
+              <IconWaze className="h-4 w-4" />
+              Abrir en Waze
+            </a>
+          )}
+        </div>
       </div>
     </section>
   );

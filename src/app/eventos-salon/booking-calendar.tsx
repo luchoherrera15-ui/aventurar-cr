@@ -66,7 +66,7 @@ export default function BookingCalendar({
   terminos = [],
   montoMinimo = null,
   horarios = [],
-  fotoFondo = null,
+  compacto = false,
   descripcion = null,
   sinpeNumero = null,
   sinpeTitular = null,
@@ -88,8 +88,9 @@ export default function BookingCalendar({
   montoMinimo?: number | null;
   /** Los bloques de alquiler del dueño; vacío = no se pregunta el horario. */
   horarios?: HorarioBloqueConfig[];
-  /** Foto del lugar que va de fondo detrás del calendario. */
-  fotoFondo?: string | null;
+  /** true = sin el encabezado grande (el portal ya muestra nombre y
+   *  descripción arriba); solo el título de sección y el calendario. */
+  compacto?: boolean;
   descripcion?: string | null;
   /** Datos de cobro del proveedor; vacío = esa forma de pago no se ofrece. */
   sinpeNumero?: string | null;
@@ -528,39 +529,38 @@ export default function BookingCalendar({
     "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
   return (
-    <section id="reservar" className="relative overflow-hidden">
-      {/* La foto del salón es el fondo: el calendario va encima de ella. */}
-      <div className="absolute inset-0">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={
-            fotoFondo
-              ? { backgroundImage: `url(${fotoFondo})` }
-              : { backgroundImage: "linear-gradient(135deg,#1e3a5f,#0f2038)" }
-          }
-        />
-        {/* Sin esta capa el texto blanco se pierde en las fotos claras. */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/65 to-black/85" />
-      </div>
-
-      <div className="relative mx-auto max-w-[1080px] px-5 py-12 sm:px-7 sm:py-16">
-        <div className="mb-7 max-w-[640px]">
-          <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-white/70 before:block before:h-[1.5px] before:w-5 before:bg-white/70">
-            Reservá tu fecha
-          </p>
-          <h1 className="titulo mt-3 text-[32px] text-white drop-shadow-sm sm:text-[44px]">
-            {nombreRancho}
-          </h1>
-          <p className="mt-3 text-[14.5px] leading-relaxed text-white/75">
-            {descripcion ??
-              "Elegí un día en el calendario, completá tus datos y subí el comprobante del depósito. Tu reserva queda en aprobación hasta que la confirmemos."}
-          </p>
-        </div>
+    <section id="reservar" className="border-t border-aventurea-line bg-aventurea-cream-2/40">
+      <div className="mx-auto max-w-[1080px] px-5 py-12 sm:px-7 sm:py-14">
+        {compacto ? (
+          /* Dentro del portal, el nombre y la descripción ya están arriba
+             — acá solo el encabezado de la sección. */
+          <div className="mb-7">
+            <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
+              Disponibilidad
+            </p>
+            <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
+              Reservá tu fecha
+            </h2>
+          </div>
+        ) : (
+          <div className="mb-7 max-w-[640px]">
+            <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
+              Reservá tu fecha
+            </p>
+            <h1 className="titulo mt-3 text-[32px] text-aventurea-ink sm:text-[44px]">
+              {nombreRancho}
+            </h1>
+            <p className="mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+              {descripcion ??
+                "Elegí un día en el calendario, completá tus datos y subí el comprobante del depósito. Tu reserva queda en aprobación hasta que la confirmemos."}
+            </p>
+          </div>
+        )}
 
         {horarios.length > 0 && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-md">
-            <span className="text-white/70"><IconClock className="h-5 w-5" /></span>
-            <div className="text-[12.5px] leading-relaxed text-white/75">
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-surface p-4">
+            <span className="text-aventurea-navy"><IconClock className="h-5 w-5" /></span>
+            <div className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
               <p className="mb-1.5">
                 {nombreRancho} alquila por estos horarios — elegís uno al
                 reservar:
@@ -570,7 +570,7 @@ export default function BookingCalendar({
                   const horas = duracionHoras(h.desde, h.hasta);
                   return (
                     <li key={h.id}>
-                      <strong className="text-white">{etiquetaHorario(h)}</strong>
+                      <strong className="text-aventurea-ink">{etiquetaHorario(h)}</strong>
                       {horas !== null && ` · ${horas} h`}
                     </li>
                   );
@@ -580,24 +580,23 @@ export default function BookingCalendar({
           </div>
         )}
 
-        {/* Calendario translúcido: deja ver la foto detrás. */}
-        <div className="rounded-[20px] border border-white/20 bg-white/10 p-4 shadow-2xl backdrop-blur-xl sm:p-7">
+        <div className="rounded-[20px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-7">
           <div className="flex items-center justify-between">
-            <span className="titulo text-[20px] capitalize text-white sm:text-[24px]">
+            <span className="titulo text-[20px] capitalize text-aventurea-ink sm:text-[24px]">
               {MESES[viewMonth]} {viewYear}
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => cambiarMes(-1)}
                 aria-label="Mes anterior"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/25 text-[17px] text-white hover:border-white hover:bg-white/15"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-[17px] text-aventurea-ink hover:border-aventurea-navy hover:bg-aventurea-cream-2"
               >
                 ‹
               </button>
               <button
                 onClick={() => cambiarMes(1)}
                 aria-label="Mes siguiente"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/25 text-[17px] text-white hover:border-white hover:bg-white/15"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-[17px] text-aventurea-ink hover:border-aventurea-navy hover:bg-aventurea-cream-2"
               >
                 ›
               </button>
@@ -608,7 +607,7 @@ export default function BookingCalendar({
             {DOW.map((d, i) => (
               <div
                 key={i}
-                className="pb-1.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-white/55 sm:text-[11.5px]"
+                className="pb-1.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[11.5px]"
               >
                 {d}
               </div>
@@ -635,24 +634,24 @@ export default function BookingCalendar({
                 : promoPorDiaSemana[cellDate.getDay()] ?? null;
 
               if (isPast) {
-                cls += " cursor-default text-white/25";
+                cls += " cursor-default text-zinc-300";
               } else if (info?.confirmada) {
-                cls += " cursor-not-allowed border border-red-300/45 bg-red-500/25 font-bold text-red-50";
+                cls += " cursor-not-allowed border border-red-200 bg-red-50 font-bold text-red-700";
                 etiqueta = "Reservada";
               } else if (isHeldByOther) {
-                cls += " cursor-not-allowed border border-sky-300/40 bg-sky-400/20 text-sky-50/75";
+                cls += " cursor-not-allowed border border-sky-200 bg-sky-50 text-sky-700";
                 etiqueta = "Bloqueada";
               } else {
-                cls += " cursor-pointer border border-white/20 bg-white/10 text-white hover:border-white hover:bg-white/25";
+                cls += " cursor-pointer border border-aventurea-line bg-aventurea-cream-2/50 text-aventurea-ink hover:border-aventurea-navy hover:bg-aventurea-navy/5";
                 etiqueta = "Disponible";
                 if (info && info.pendientes > 0) {
-                  cls += " border-amber-300/50 bg-amber-400/25 font-bold text-amber-50";
+                  cls += " border-amber-300 bg-amber-50 font-bold text-amber-800";
                   etiqueta = "En aprobación";
                   badge = info.pendientes;
                 }
               }
-              if (isToday) cls += " ring-2 ring-inset ring-white/60";
-              if (isSelected) cls += " ring-2 ring-inset ring-white";
+              if (isToday) cls += " ring-2 ring-inset ring-aventurea-navy/35";
+              if (isSelected) cls += " ring-2 ring-inset ring-aventurea-navy";
 
               return (
                 <div
@@ -674,7 +673,7 @@ export default function BookingCalendar({
                     )
                   )}
                   {!isPast && badge !== null && (
-                    <span className="absolute right-1.5 top-1.5 flex h-[17px] w-[17px] items-center justify-center rounded-full bg-white text-[9.5px] font-bold text-zinc-950">
+                    <span className="absolute right-1.5 top-1.5 flex h-[17px] w-[17px] items-center justify-center rounded-full bg-aventurea-navy text-[9.5px] font-bold text-white">
                       {badge}
                     </span>
                   )}
@@ -683,25 +682,25 @@ export default function BookingCalendar({
             })}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-white/15 pt-4">
-            <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-white/25 bg-white/15" />
+          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-aventurea-line pt-4">
+            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-line bg-aventurea-cream-2" />
               Disponible
             </span>
-            <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-sky-300/40 bg-sky-400/25" />
+            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-sky-200 bg-sky-50" />
               Reserva temporal (bloqueada)
             </span>
-            <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-amber-300/50 bg-amber-400/30" />
+            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-amber-300 bg-amber-50" />
               En aprobación
             </span>
-            <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-300/45 bg-red-500/30" />
+            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-200 bg-red-50" />
               Reservada
             </span>
             {Object.keys(promoPorDiaSemana).length > 0 && (
-              <span className="flex items-center gap-1.5 text-[11.5px] text-white/70">
+              <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
                 <span className="h-2.5 w-2.5 rounded-[3px] bg-aventurea-green" />
                 Día con descuento
               </span>
@@ -710,7 +709,7 @@ export default function BookingCalendar({
         </div>
 
         {!selectedDate && (
-          <p className="mt-4 flex items-center justify-center gap-2 text-center text-[13px] text-white/70">
+          <p className="mt-4 flex items-center justify-center gap-2 text-center text-[13px] text-aventurea-ink-soft">
             <IconCalendarLine className="h-4 w-4" />
             Tocá un día disponible para indicar tus invitados, ver el precio y
             reservar la fecha.

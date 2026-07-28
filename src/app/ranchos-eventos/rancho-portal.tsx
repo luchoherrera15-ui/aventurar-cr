@@ -3,13 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import BookingCalendar from "@/app/eventos-salon/booking-calendar";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteHeader from "@/components/site-header";
-import { IconCheck, IconPin, IconUsers } from "@/components/icons";
+import { IconCheck, IconPin, IconStar, IconUsers } from "@/components/icons";
 import {
   CATALOGO_LABEL,
   CATEGORIA_LABEL,
   SUBCATEGORIA_LABEL,
+  UNIDAD_PRECIO_LABEL,
+  duracionHoras,
+  etiquetaHorario,
   linkGoogleMaps,
   linkWaze,
+  terminosPorDefecto,
   type PromocionDia,
   type Rancho,
   type RanchoItem,
@@ -25,8 +29,11 @@ import {
   DetallesSeccion,
   GaleriaHero,
   GaleriaSeccion,
+  MapaSeccion,
   PresentacionSeccion,
+  ResenasSeccion,
   ResumenSeccion,
+  type Resena,
 } from "./[id]/portal-secciones";
 import ReservaServicio from "./[id]/reserva-servicio";
 
@@ -142,6 +149,23 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   const anticipacionDias = Number(rancho.detalles?.anticipacion_dias) || 0;
   const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
 
+  // Calificación y reseñas reales (solo de reservas confirmadas).
+  const [{ data: califData }, { data: resenasData }] = await Promise.all([
+    supabase
+      .from("calificaciones_rancho")
+      .select("promedio, total")
+      .eq("rancho_id", rancho.id)
+      .maybeSingle(),
+    supabase
+      .from("resenas")
+      .select("id, calificacion, comentario, created_at")
+      .eq("rancho_id", rancho.id)
+      .order("created_at", { ascending: false })
+      .limit(6),
+  ]);
+  const calificacion = califData as { promedio: number; total: number } | null;
+  const resenas = (resenasData ?? []) as Resena[];
+
   if (esLugar) {
     await supabase
       .from("reservas")
@@ -191,7 +215,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   }
 
   return (
-    <div className="min-h-screen bg-aventurea-cream">
+    <div className={`min-h-screen bg-aventurea-cream ${esLugar ? "pb-16 lg:pb-0" : ""}`}>
       <RevealOnScroll />
       <SiteHeader
         breadcrumb={rancho.nombre}
@@ -214,17 +238,42 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11.5px] font-bold uppercase tracking-wide text-aventurea-navy">
-              {CATEGORIA_LABEL[rancho.categoria]}
+              {rancho.subcategoria
+                ? SUBCATEGORIA_LABEL[rancho.subcategoria]
+                : CATEGORIA_LABEL[rancho.categoria]}
             </p>
             <h1 className="titulo mt-1 text-[26px] text-aventurea-ink sm:text-[32px]">
               {rancho.nombre}
             </h1>
-            {ubicacion && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-[13.5px] text-aventurea-ink-soft">
-                <IconPin className="h-3.5 w-3.5 shrink-0" />
-                {ubicacion}
-              </p>
-            )}
+            {/* La línea de confianza, como en Airbnb: ★ nota · reseñas ·
+                capacidad · ubicación — todo de un vistazo. */}
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px] text-aventurea-ink-soft">
+              {calificacion && (
+                <>
+                  <span className="flex items-center gap-1 font-bold text-aventurea-ink">
+                    <IconStar className="h-3.5 w-3.5" />
+                    {calificacion.promedio.toFixed(2).replace(".", ",")}
+                  </span>
+                  <span>
+                    · {calificacion.total} reseña{calificacion.total === 1 ? "" : "s"}
+                  </span>
+                </>
+              )}
+              {esLugar && (rancho.capacidad_min || rancho.capacidad_max) && (
+                <span className="flex items-center gap-1">
+                  {calificacion && "·"} <IconUsers className="h-3.5 w-3.5" />
+                  {rancho.capacidad_min ?? "?"}–{rancho.capacidad_max ?? "?"} personas
+                </span>
+              )}
+              {ubicacion && (
+                <span className="flex items-center gap-1">
+                  {(calificacion || (esLugar && (rancho.capacidad_min || rancho.capacidad_max))) &&
+                    "·"}{" "}
+                  <IconPin className="h-3.5 w-3.5 shrink-0" />
+                  {ubicacion}
+                </span>
+              )}
+            </p>
           </div>
           {!esLugar && (
             <div className="flex flex-wrap gap-2.5">
@@ -253,8 +302,126 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       </div>
 
       {esLugar && (
-        /* El calendario de reserva es su propia pieza — pendiente de
-           rediseño aparte (ver nota en la conversación). */
+        /* El patrón Airbnb: contenido a la izquierda, tarjeta de reserva
+           fija a la derecha que acompaña el scroll. En celular la tarjeta
+           se vuelve una barra fija abajo. */
+        <div className="mx-auto max-w-[1080px] px-7 pb-4 pt-8">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_340px]">
+            <div className="min-w-0">
+              {(rancho.descripcion_larga || rancho.descripcion) && (
+                <div>
+                  <h2 className="text-[19px] font-bold text-aventurea-ink">
+                    Sobre este lugar
+                  </h2>
+                  <p className="mt-2.5 whitespace-pre-line text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+                    {rancho.descripcion_larga || rancho.descripcion}
+                  </p>
+                </div>
+              )}
+
+              {(rancho.horarios_bloques ?? []).length > 0 && (
+                <div className="mt-8">
+                  <h2 className="text-[19px] font-bold text-aventurea-ink">
+                    Horarios de alquiler
+                  </h2>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(rancho.horarios_bloques ?? []).map((h) => {
+                      const horas = duracionHoras(h.desde, h.hasta);
+                      return (
+                        <span
+                          key={h.id}
+                          className="rounded-lg border border-aventurea-line bg-aventurea-surface px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink"
+                        >
+                          {etiquetaHorario(h)}
+                          {horas !== null && (
+                            <span className="font-normal text-aventurea-ink-soft">
+                              {" "}
+                              · {horas} h
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-8">
+                <h2 className="text-[19px] font-bold text-aventurea-ink">
+                  Lo que debés saber
+                </h2>
+                <ul className="mt-3 flex flex-col gap-2">
+                  {(rancho.terminos && rancho.terminos.length > 0
+                    ? rancho.terminos
+                    : terminosPorDefecto(
+                        rancho.deposito_reserva ?? 25000,
+                        rancho.monto_minimo ?? null,
+                      )
+                  ).map((t, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-aventurea-ink-soft"
+                    >
+                      <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy">
+                        <IconCheck className="h-2.5 w-2.5" />
+                      </span>
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Tarjeta de reserva sticky (desktop) */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-24 rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 shadow-[0_6px_20px_rgba(16,26,44,0.08)]">
+                <p className="text-[13px] text-aventurea-ink-soft">Desde</p>
+                <p className="text-[26px] font-bold leading-tight text-aventurea-ink">
+                  {precio ?? "A consultar"}
+                  {precio && (
+                    <span className="text-[14px] font-normal text-aventurea-ink-soft">
+                      {" "}
+                      {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}
+                    </span>
+                  )}
+                </p>
+
+                <div className="mt-4 flex flex-col gap-2 border-t border-aventurea-line pt-4 text-[13px] text-aventurea-ink-soft">
+                  {(rancho.capacidad_min || rancho.capacidad_max) && (
+                    <p className="flex items-center gap-2">
+                      <IconUsers className="h-3.5 w-3.5 shrink-0" />
+                      {rancho.capacidad_min ?? "?"}–{rancho.capacidad_max ?? "?"} personas
+                    </p>
+                  )}
+                  <p className="flex items-center gap-2">
+                    <IconCheck className="h-3.5 w-3.5 shrink-0" />
+                    Depósito para reservar:{" "}
+                    <strong className="text-aventurea-ink">
+                      {fmtColones(rancho.deposito_reserva ?? 25000)}
+                    </strong>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <IconCheck className="h-3.5 w-3.5 shrink-0" />
+                    Confirmación del dueño en el día
+                  </p>
+                </div>
+
+                <a
+                  href="#reservar"
+                  className="mt-5 flex h-12 items-center justify-center rounded-xl bg-aventurea-navy text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+                >
+                  Ver fechas disponibles
+                </a>
+                <p className="mt-2.5 text-center text-[11.5px] text-zinc-500">
+                  Todavía no se te cobra nada — elegís la fecha primero.
+                </p>
+              </div>
+            </aside>
+          </div>
+        </div>
+      )}
+
+      {esLugar && (
         <BookingCalendar
           ranchoId={rancho.id}
           nombreRancho={rancho.nombre}
@@ -267,7 +434,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           terminos={rancho.terminos ?? []}
           montoMinimo={rancho.monto_minimo ?? null}
           horarios={rancho.horarios_bloques ?? []}
-          fotoFondo={rancho.foto_url}
+          compacto
           sinpeNumero={rancho.sinpe_numero}
           sinpeTitular={rancho.sinpe_titular}
           cuentaBanco={rancho.cuenta_banco}
@@ -278,9 +445,33 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         />
       )}
 
+      {/* Barra fija de reserva en celular — siempre a un toque. */}
+      {esLugar && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-aventurea-line bg-aventurea-surface px-5 py-3 shadow-[0_-4px_16px_rgba(16,26,44,0.08)] lg:hidden">
+          <div>
+            <p className="text-[11px] text-aventurea-ink-soft">Desde</p>
+            <p className="text-[16px] font-bold leading-tight text-aventurea-ink">
+              {precio ?? "A consultar"}
+              {precio && (
+                <span className="text-[11.5px] font-normal text-aventurea-ink-soft">
+                  {" "}
+                  {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}
+                </span>
+              )}
+            </p>
+          </div>
+          <a
+            href="#reservar"
+            className="flex h-11 items-center justify-center rounded-xl bg-aventurea-navy px-6 text-[13.5px] font-bold text-white"
+          >
+            Ver fechas
+          </a>
+        </div>
+      )}
+
       {/* Los datos y lo que incluye van antes de la foto grande: dos
           bloques oscuros seguidos se leían como una sola imagen. */}
-      <ResumenSeccion datos={datosPresentacion} />
+      {!esLugar && <ResumenSeccion datos={datosPresentacion} />}
 
       {!esLugar && (
         <section id="reservar" className="border-t border-aventurea-line bg-aventurea-cream-2/40 py-14">
@@ -366,17 +557,43 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         />
       )}
 
-      <PresentacionSeccion
-        eyebrow={
-          rancho.subcategoria
-            ? SUBCATEGORIA_LABEL[rancho.subcategoria]
-            : CATEGORIA_LABEL[rancho.categoria]
-        }
-        titulo={rancho.nombre}
-        texto={rancho.descripcion_larga || rancho.descripcion}
+      <ResenasSeccion
+        resenas={resenas}
+        promedio={calificacion?.promedio ?? null}
+        total={calificacion?.total ?? resenas.length}
       />
 
-      <GaleriaSeccion fotos={fotos} nombre={rancho.nombre} />
+      {/* Para Lugares, el nombre y la descripción ya viven arriba en la
+          columna "Sobre este lugar" — repetirlos acá era ruido. */}
+      {!esLugar && (
+        <PresentacionSeccion
+          eyebrow={
+            rancho.subcategoria
+              ? SUBCATEGORIA_LABEL[rancho.subcategoria]
+              : CATEGORIA_LABEL[rancho.categoria]
+          }
+          titulo={rancho.nombre}
+          texto={rancho.descripcion_larga || rancho.descripcion}
+        />
+      )}
+
+      {/* Solo las fotos que no cupieron en el hero (el hero muestra 5):
+          si no sobra ninguna, la sección no aparece — nada de repetir
+          las mismas imágenes dos veces. */}
+      <GaleriaSeccion fotos={fotosHero.slice(5)} nombre={rancho.nombre} />
+
+      {/* El mapa es de los lugares físicos; los servicios se trasladan
+          al evento y su zona ya se ve en el encabezado. */}
+      {esLugar && (
+        <MapaSeccion
+          nombre={rancho.nombre}
+          ubicacion={ubicacion}
+          latitud={rancho.latitud}
+          longitud={rancho.longitud}
+          googleMaps={googleMaps}
+          waze={waze}
+        />
+      )}
 
       <ContactoSeccion
         nombre={rancho.nombre}
@@ -386,8 +603,10 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         tiktok={rancho.tiktok}
         sitioWeb={rancho.sitio_web}
         ubicacion={ubicacion}
-        googleMaps={googleMaps}
-        waze={waze}
+        // Para lugares, los botones de cómo llegar ya viven en la
+        // sección del mapa de arriba — repetirlos acá era ruido.
+        googleMaps={esLugar ? null : googleMaps}
+        waze={esLugar ? null : waze}
       />
 
       <footer className="border-t border-aventurea-line py-9 text-center">
