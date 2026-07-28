@@ -1,5 +1,5 @@
 -- ============================================================
--- AVENTUREA CR — Script consolidado de migraciones 0014 a 0035
+-- AVENTUREA CR — Script consolidado de migraciones 0014 a 0036
 --
 -- Corre TODO lo pendiente en el orden correcto y de una sola vez.
 -- Cada bloque es idempotente: si una migración ya se aplicó, esa
@@ -1200,5 +1200,19 @@ grant insert, update, delete on rancho_items to authenticated;
 -- Snapshot a propósito — si el proveedor cambia precios después, lo
 -- pedido queda como estaba al momento de pedirlo.
 alter table reservas add column if not exists detalle_pedido jsonb;
+
+
+-- ############################################################
+-- 0036_drop_home_secciones.sql
+-- ############################################################
+
+-- ------------------------------------------------------------
+-- Se elimina home_secciones (las secciones manuales de la portada,
+-- de la 0033). El inicio ahora es el directorio con rieles armados
+-- automáticamente por categoría, así que la tabla y su panel de
+-- admin (/admin/portada) quedaron sin uso.
+-- ------------------------------------------------------------
+
+drop table if exists home_secciones cascade;
 
 notify pgrst, 'reload schema';

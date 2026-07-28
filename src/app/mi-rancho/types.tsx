@@ -616,19 +616,3 @@ export type DetallePedido = {
   total_estimado: number | null;
 };
 
-export type TipoSeccionHome = "categoria" | "ubicacion" | "manual";
-
-export type HomeSeccion = {
-  id: string;
-  tipo: TipoSeccionHome;
-  titulo: string;
-  subtitulo: string | null;
-  categoria: Categoria | null;
-  subcategoria: string | null;
-  provincia: Provincia | null;
-  canton: string | null;
-  rancho_ids: string[] | null;
-  orden: number;
-  activo: boolean;
-  created_at: string;
-};
