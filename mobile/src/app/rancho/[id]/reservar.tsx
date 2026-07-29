@@ -18,6 +18,8 @@ import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
+import { abrirHiloConsulta } from "@/lib/consulta";
+import { useAuth } from "@/lib/auth-context";
 import { obtenerIdDispositivo } from "@/lib/device";
 import { pedirCorreosDeReserva } from "@/lib/notificaciones";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -41,6 +43,24 @@ type MetodoPago = "sinpe" | "transferencia";
 export default function ReservarScreen() {
   const { id, fecha } = useLocalSearchParams<{ id: string; fecha: string }>();
   const router = useRouter();
+  const { session } = useAuth();
+
+  // El chat con el proveedor, a mano DURANTE la reserva (mismo rol que
+  // la burbuja flotante de la web). Ir a iniciar sesión no pierde nada:
+  // esta pantalla queda abajo en la pila y el formulario sigue como
+  // estaba al volver.
+  const [abriendoChat, setAbriendoChat] = useState(false);
+  async function chatearConProveedor() {
+    if (abriendoChat) return;
+    if (!session) {
+      router.push("/cuenta");
+      return;
+    }
+    setAbriendoChat(true);
+    const convId = await abrirHiloConsulta(id, session.user.id);
+    setAbriendoChat(false);
+    if (convId) router.push(`/mensajes/hilo/${convId}` as never);
+  }
 
   const [rancho, setRancho] = useState<Rancho | null>(null);
   const [tiers, setTiers] = useState<PrecioTier[]>([]);
@@ -405,7 +425,15 @@ export default function ReservarScreen() {
 
   return (
     <View style={styles.contenedor}>
-      <BarraSuperior titulo="Reservar" subtitulo={rancho?.nombre ?? undefined} />
+      <BarraSuperior
+        titulo="Reservar"
+        subtitulo={rancho?.nombre ?? undefined}
+        accion={{
+          icono: "chatbubble-ellipses-outline",
+          etiqueta: rancho ? `Chateá con ${rancho.nombre}` : "Chat",
+          onPress: chatearConProveedor,
+        }}
+      />
       <ScrollView contentContainerStyle={{ padding: Spacing.four, gap: Spacing.four }}>
       <View style={styles.avisoTiempo}>
         <Text style={styles.avisoTiempoTexto}>

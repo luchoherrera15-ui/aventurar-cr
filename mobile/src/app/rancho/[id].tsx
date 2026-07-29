@@ -15,6 +15,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import CalendarioMensual from "@/components/calendario-mensual";
@@ -178,34 +179,7 @@ export default function RanchoDetalleScreen() {
       return;
     }
     setAbriendoChat(true);
-    const { data: existente } = await supabase
-      .from("conversaciones")
-      .select("id")
-      .eq("rancho_id", rancho.id)
-      .eq("cliente_id", session.user.id)
-      .is("reserva_id", null)
-      .maybeSingle();
-
-    let convId = existente?.id ?? null;
-    if (!convId) {
-      const { data: creada } = await supabase
-        .from("conversaciones")
-        .insert({ rancho_id: rancho.id })
-        .select("id")
-        .maybeSingle();
-      convId = creada?.id ?? null;
-      if (!convId) {
-        // Carrera con otra pestaña/dispositivo: el hilo ya existe.
-        const { data: reintento } = await supabase
-          .from("conversaciones")
-          .select("id")
-          .eq("rancho_id", rancho.id)
-          .eq("cliente_id", session.user.id)
-          .is("reserva_id", null)
-          .maybeSingle();
-        convId = reintento?.id ?? null;
-      }
-    }
+    const convId = await abrirHiloConsulta(rancho.id, session.user.id);
     setAbriendoChat(false);
     if (convId) {
       router.push(`/mensajes/hilo/${convId}` as never);
@@ -492,6 +466,19 @@ export default function RanchoDetalleScreen() {
               ) : null}
             </Text>
           </View>
+          {/* El chat siempre a mano, igual que la burbuja de la web —
+              acá vive en la barra fija, que es donde el pulgar lo
+              espera en una app. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Chateá con ${rancho.nombre}`}
+            style={[styles.barraChat, abriendoChat && { opacity: 0.5 }]}
+            disabled={abriendoChat}
+            onPress={preguntarPorChat}
+            hitSlop={6}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={21} color={Colors.navy} />
+          </Pressable>
           <Pressable
             style={styles.barraBoton}
             onPress={() => scrollRef.current?.scrollTo({ y: fechasY, animated: true })}
@@ -640,5 +627,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: Spacing.five,
     paddingVertical: 12,
+  },
+  barraChat: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.cream2,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
