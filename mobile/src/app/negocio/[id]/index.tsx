@@ -63,6 +63,7 @@ export default function AdminNegocioScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const [nombreNegocio, setNombreNegocio] = useState<string | null>(null);
+  const [categoria, setCategoria] = useState<string | null>(null);
   const [reservas, setReservas] = useState<ReservaNegocio[] | null>(null);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>("todas");
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export default function AdminNegocioScreen() {
   const cargar = useCallback(async () => {
     if (!session) return;
     const [{ data: rancho }, { data: reservasData }] = await Promise.all([
-      supabase.from("ranchos").select("nombre").eq("id", id).maybeSingle(),
+      supabase.from("ranchos").select("nombre, categoria").eq("id", id).maybeSingle(),
       supabase
         .from("reservas")
         .select(
@@ -81,6 +82,7 @@ export default function AdminNegocioScreen() {
         .order("fecha", { ascending: true }),
     ]);
     setNombreNegocio(rancho?.nombre ?? null);
+    setCategoria((rancho?.categoria as string) ?? null);
     setReservas((reservasData ?? []) as ReservaNegocio[]);
   }, [id, session]);
 
@@ -178,18 +180,44 @@ export default function AdminNegocioScreen() {
       onRefresh={cargar}
       refreshing={false}
       ListHeaderComponent={
-        <View style={styles.filtros}>
-          {FILTROS.map((f) => (
+        <View>
+          {/* Administración del negocio, todo desde la app: la página,
+              el catálogo reservable y los cobros/tarifas. */}
+          <View style={styles.adminFila}>
             <Pressable
-              key={f}
-              onPress={() => setFiltro(f)}
-              style={[styles.filtroChip, filtro === f && styles.filtroChipActivo]}
+              style={styles.adminBoton}
+              onPress={() => router.push(`/negocio/${id}/editar` as never)}
             >
-              <Text style={[styles.filtroTexto, filtro === f && styles.filtroTextoActivo]}>
-                {f === "todas" ? "Todas" : ESTADO_LABEL[f]}
-              </Text>
+              <Text style={styles.adminBotonTexto}>Editar página</Text>
             </Pressable>
-          ))}
+            {categoria && categoria !== "lugares" && (
+              <Pressable
+                style={styles.adminBoton}
+                onPress={() => router.push(`/negocio/${id}/catalogo` as never)}
+              >
+                <Text style={styles.adminBotonTexto}>Catálogo</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={styles.adminBoton}
+              onPress={() => router.push(`/negocio/${id}/cobros` as never)}
+            >
+              <Text style={styles.adminBotonTexto}>Cobros y tarifas</Text>
+            </Pressable>
+          </View>
+          <View style={styles.filtros}>
+            {FILTROS.map((f) => (
+              <Pressable
+                key={f}
+                onPress={() => setFiltro(f)}
+                style={[styles.filtroChip, filtro === f && styles.filtroChipActivo]}
+              >
+                <Text style={[styles.filtroTexto, filtro === f && styles.filtroTextoActivo]}>
+                  {f === "todas" ? "Todas" : ESTADO_LABEL[f]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
       }
       ListEmptyComponent={
@@ -318,6 +346,21 @@ const styles = StyleSheet.create({
   vacioTitulo: { fontSize: 16, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
   vacioTexto: { fontSize: 13, color: Colors.inkSoft, textAlign: "center", lineHeight: 19, maxWidth: 300 },
   filtros: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, marginBottom: Spacing.two },
+  adminFila: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  adminBoton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+  },
+  adminBotonTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.navy },
   filtroChip: {
     paddingHorizontal: Spacing.three,
     paddingVertical: 7,
