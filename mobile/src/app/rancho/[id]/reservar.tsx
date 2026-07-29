@@ -19,6 +19,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
 import { obtenerIdDispositivo } from "@/lib/device";
+import { pedirCorreosDeReserva } from "@/lib/notificaciones";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   etiquetaHorario,
@@ -347,6 +348,16 @@ export default function ReservarScreen() {
 
       confirmadoRef.current = true;
       setConfirmado(true);
+
+      // Los correos los manda la web (Resend vive en el servidor). Va
+      // después de mostrar la confirmación y sin `await` que bloquee:
+      // la reserva ya está guardada, así que si esto falla la persona
+      // igual ve su pantalla de éxito.
+      //
+      // El id que va acá es `holdId`, NO `ranchoIdRpc`: la función de
+      // Supabase devuelve el id del RANCHO, y la reserva es la misma
+      // fila del hold que acaba de pasar a 'pendiente'.
+      void pedirCorreosDeReserva(holdId);
     } catch (e) {
       setErrorEnvio(e instanceof Error ? e.message : "No se pudo enviar la reserva.");
     } finally {

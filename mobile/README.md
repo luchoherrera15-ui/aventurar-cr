@@ -29,7 +29,12 @@ nativo de cada plataforma) con dos destinos: Explorar y Cuenta.
   `/web`), pide los datos del evento, muestra el método de pago
   configurado por el proveedor (SINPE o cuenta bancaria), sube el
   comprobante y confirma la reserva mediante la misma función
-  `completar_reserva_temporal` que usa la web.
+  `completar_reserva_temporal` que usa la web. Al terminar le pide a
+  `/web` (`POST /api/reservas/[id]/confirmacion`) que mande los correos
+  —confirmación al cliente y aviso al dueño del lugar—, porque la API
+  key de Resend es un secreto de servidor y no puede ir en el bundle de
+  la app. Es "a lo mejor": si la web no contesta, la reserva igual queda
+  guardada y la persona ve su pantalla de confirmación.
 - Cuenta (opcional): registrarse **nunca** es obligatorio para
   reservar — solo sirve para tener un panel propio. Un registro desde
   la app siempre entra con el rol nuevo `cliente` (no "dueño de

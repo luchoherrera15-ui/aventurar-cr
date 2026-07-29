@@ -1,0 +1,160 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import { fmtFechaCorta } from "@/lib/fechas";
+import {
+  enviarCorreo,
+  plantillaConfirmacionReserva,
+  plantillaReservaNuevaProveedor,
+} from "@/lib/email";
+
+/**
+ * Los correos que salen cuando una reserva queda hecha: la
+ * confirmación al cliente y el aviso al dueño del lugar.
+ *
+ * Vive acá y no dentro de la acción de la web porque hay dos caminos
+ * que terminan en lo mismo — el formulario de la web y la app móvil,
+ * que llama al endpoint /api/reservas/[id]/confirmacion porque no
+ * tiene servidor propio. Tener la lógica de "a quién se le avisa" en
+ * un solo lado evita que un cambio se aplique en uno y en el otro no.
+ *
+ * Solo servidor: usa la llave de servicio de Supabase.
+ */
+
+export type ResultadoNotificacion = {
+  notificada: boolean;
+  motivo?: "sin-service-key" | "no-elegible" | "error";
+};
+
+type FilaReserva = {
+  id: string;
+  fecha: string;
+  nombre: string | null;
+  correo: string | null;
+  tipo_evento: string | null;
+  invitados: number | null;
+  deposito_monto: number | null;
+  monto_total: number | null;
+  rancho_id: string | null;
+  ranchos: { nombre: string; owner_id: string } | null;
+};
+
+/**
+ * Manda los dos correos de una reserva recién completada. Una sola vez
+ * por reserva: la bandera `confirmacion_enviada` se reclama dentro del
+ * mismo UPDATE que lee los datos, así dos llamadas simultáneas no
+ * mandan correos repetidos (ver 0042_aviso_reserva_nueva.sql).
+ *
+ * Que la bandera se marque ANTES de enviar es a propósito: si Resend
+ * se cae, se pierde el correo en vez de arriesgar mandarlo diez veces.
+ * Para un endpoint público conviene ese lado — y el correo acá es un
+ * plus, la reserva ya quedó guardada pase lo que pase.
+ *
+ * Nunca lanza: quien la llama ya guardó la reserva y no puede fallar
+ * por un correo.
+ *
+ * @param opciones.maxAntiguedadMinutos Solo avisa si la reserva se creó
+ *   hace menos de ese rato. Lo usa el endpoint público para acotar lo
+ *   que puede disparar un desconocido; los llamadores de confianza lo
+ *   omiten.
+ */
+export async function notificarReservaCompletada(
+  reservaId: string,
+  opciones?: { maxAntiguedadMinutos?: number },
+): Promise<ResultadoNotificacion> {
+  // La llave de servicio no es una comodidad acá: la política de
+  // lectura de `perfiles` solo deja ver el propio perfil, así que sin
+  // ella no hay forma de averiguar el correo del dueño del lugar.
+  const admin = createAdminClient();
+  if (!admin) {
+    console.warn(
+      `[reserva] Falta SUPABASE_SERVICE_ROLE_KEY — no se avisó de la reserva ${reservaId}.`,
+    );
+    return { notificada: false, motivo: "sin-service-key" };
+  }
+
+  try {
+    let consulta = admin
+      .from("reservas")
+      .update({ confirmacion_enviada: true })
+      .eq("id", reservaId)
+      .eq("estado", "pendiente")
+      .eq("confirmacion_enviada", false);
+
+    if (opciones?.maxAntiguedadMinutos) {
+      const desde = new Date(
+        Date.now() - opciones.maxAntiguedadMinutos * 60 * 1000,
+      ).toISOString();
+      consulta = consulta.gte("created_at", desde);
+    }
+
+    const { data, error } = await consulta
+      .select(
+        "id, fecha, nombre, correo, tipo_evento, invitados, deposito_monto, monto_total, rancho_id, ranchos(nombre, owner_id)",
+      )
+      .maybeSingle();
+
+    if (error) {
+      console.error("[reserva] No se pudo reclamar el aviso:", error);
+      return { notificada: false, motivo: "error" };
+    }
+
+    // Sin fila: ya se avisó, no existe, no está en 'pendiente' o quedó
+    // fuera de la ventana. A propósito no se distingue entre esos casos
+    // — quien llama al endpoint público no tiene por qué saber cuál es.
+    if (!data) return { notificada: false, motivo: "no-elegible" };
+
+    const reserva = data as unknown as FilaReserva;
+    const nombreRancho = reserva.ranchos?.nombre ?? "el lugar reservado";
+
+    // Al cliente, al correo que dejó en el formulario.
+    const deposito = Number(reserva.deposito_monto ?? 0);
+    if (reserva.correo) {
+      await enviarCorreo({
+        to: reserva.correo,
+        subject: `¡Reserva creada! — ${nombreRancho}`,
+        html: plantillaConfirmacionReserva({
+          nombreCliente: reserva.nombre || reserva.correo,
+          nombreRancho,
+          fecha: reserva.fecha,
+          invitados: reserva.invitados,
+          montoDeposito: deposito,
+          // Lo que queda por pagarle al lugar el día del evento.
+          montoPendiente: Math.max(0, Number(reserva.monto_total ?? 0) - deposito),
+        }),
+      });
+    }
+
+    // Al dueño del lugar, al correo de su cuenta.
+    if (reserva.ranchos?.owner_id && reserva.rancho_id) {
+      const { data: perfil } = await admin
+        .from("perfiles")
+        .select("nombre, email")
+        .eq("id", reserva.ranchos.owner_id)
+        .maybeSingle();
+
+      if (perfil?.email) {
+        await enviarCorreo({
+          to: perfil.email,
+          subject: `Nueva reserva en ${nombreRancho} — ${fmtFechaCorta(reserva.fecha)}`,
+          html: plantillaReservaNuevaProveedor({
+            nombreProveedor: perfil.nombre || perfil.email,
+            nombreRancho,
+            ranchoId: reserva.rancho_id,
+            nombreCliente: reserva.nombre || reserva.correo || "Un cliente",
+            fecha: reserva.fecha,
+            tipoEvento: reserva.tipo_evento,
+            invitados: reserva.invitados,
+            montoDeposito: reserva.deposito_monto,
+          }),
+        });
+      }
+    }
+
+    return { notificada: true };
+  } catch (err) {
+    // enviarCorreo ya se traga sus propios errores, pero una caída de
+    // red hablando con Supabase sí puede tirar acá — y esta función no
+    // puede lanzar hacia una reserva que ya se guardó.
+    console.error("[reserva] Error inesperado avisando de la reserva:", err);
+    return { notificada: false, motivo: "error" };
+  }
+}

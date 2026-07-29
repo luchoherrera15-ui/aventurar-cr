@@ -536,8 +536,6 @@ export default function BookingCalendar({
       cedula: cedula.trim(),
       tipo_evento: tipoEvento,
       invitados: invitadosNum,
-      fecha: selectedDate,
-      nombre_rancho: nombreRancho,
       horario_bloque: horarioBloque || null,
       monto_total: totalFinal ?? 0,
       deposito_monto: depositoReserva,

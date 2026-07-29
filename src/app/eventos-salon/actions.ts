@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { enviarCorreo, plantillaConfirmacionReserva } from "@/lib/email";
+import { notificarReservaCompletada } from "@/lib/notificaciones-reserva";
 import type { HorarioBloque } from "./types";
 
 const MINUTOS_HOLD = 10;
@@ -144,9 +144,6 @@ export type CompletarReservaInput = {
   cedula: string;
   tipo_evento: string;
   invitados: number;
-  /** Solo para armar el correo de confirmación — no se guardan en la reserva. */
-  fecha: string;
-  nombre_rancho: string;
   horario_bloque: HorarioBloque | null;
   monto_total: number;
   deposito_monto: number;
@@ -280,21 +277,13 @@ export async function completarReservaTemporal(
   revalidatePath("/admin/eventos");
   revalidatePath("/mi-rancho", "layout");
 
-  // El correo es un plus, no un requisito: si Resend falla o todavía
-  // no está configurado, la reserva ya quedó guardada igual.
-  const montoPendiente = Math.max(0, input.monto_total - input.deposito_monto);
-  await enviarCorreo({
-    to: input.correo,
-    subject: `¡Reserva creada! — ${input.nombre_rancho}`,
-    html: plantillaConfirmacionReserva({
-      nombreCliente: input.nombre,
-      nombreRancho: input.nombre_rancho,
-      fecha: input.fecha,
-      invitados: input.invitados,
-      montoDeposito: input.deposito_monto,
-      montoPendiente,
-    }),
-  });
+  // Los dos correos (confirmación al cliente + aviso al dueño) salen
+  // del mismo helper que usa la app móvil, para no tener la lógica de
+  // "a quién se le avisa" duplicada en dos lados. Los montos y los
+  // invitados que van en el correo los lee de la reserva ya guardada.
+  // Nunca lanza: el correo es un plus, no un requisito — si Resend
+  // falla o todavía no está configurado, la reserva ya quedó guardada.
+  await notificarReservaCompletada(id);
 
   return { error: null };
 }

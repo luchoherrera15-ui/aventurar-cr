@@ -79,9 +79,14 @@ function escaparHtml(texto: string) {
 function layout({
   kicker,
   cuerpoHtml,
+  pie,
 }: {
   kicker: string;
   cuerpoHtml: string;
+  /** Por qué le llegó este correo a quien lo abre. Por defecto asume
+   *  que es el cliente; los correos que van al dueño del negocio
+   *  mandan el suyo, porque él no reservó nada. */
+  pie?: string;
 }) {
   return `<!doctype html>
 <html lang="es">
@@ -114,7 +119,7 @@ function layout({
               <div style="font-size:12.5px;font-weight:700;color:#101a2c;">Bookea</div>
               <a href="${SITIO_URL}" style="font-size:12px;color:#16295e;text-decoration:none;font-weight:700;">bookea.lat</a>
               <div style="font-size:11px;color:#a3aab5;margin-top:10px;line-height:1.6;">
-                Costa Rica · Recibiste este correo porque hiciste una reserva en Bookea.
+                Costa Rica · ${pie ?? "Recibiste este correo porque hiciste una reserva en Bookea."}
               </div>
             </td>
           </tr>
@@ -223,6 +228,78 @@ export function plantillaConfirmacionReserva({
   });
 }
 
+/** Al dueño del lugar, apenas le entra una reserva nueva por aprobar. */
+export function plantillaReservaNuevaProveedor({
+  nombreProveedor,
+  nombreRancho,
+  ranchoId,
+  nombreCliente,
+  fecha,
+  tipoEvento,
+  invitados,
+  montoDeposito,
+}: {
+  nombreProveedor: string;
+  nombreRancho: string;
+  ranchoId: string;
+  nombreCliente: string;
+  fecha: string;
+  tipoEvento: string | null;
+  invitados: number | null;
+  montoDeposito: number | null;
+}) {
+  const proveedor = escaparHtml(nombreProveedor);
+  const rancho = escaparHtml(nombreRancho);
+  const cliente = escaparHtml(nombreCliente);
+  const fechaLarga = new Date(fecha + "T00:00:00").toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const monto =
+    montoDeposito && montoDeposito > 0
+      ? "₡" + Math.round(montoDeposito).toLocaleString("es-CR")
+      : null;
+
+  return layout({
+    kicker: "Nueva reserva",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        Hola ${proveedor},
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Entró una reserva nueva para <strong style="color:#101a2c;">${rancho}</strong>.
+        Queda en aprobación hasta que revisés el comprobante del depósito.
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
+        ${filaDato("Cliente", cliente)}
+        ${filaDato("Fecha", fechaLarga)}
+        ${tipoEvento ? filaDato("Tipo de evento", escaparHtml(tipoEvento)) : ""}
+        ${invitados ? filaDato("Invitados", String(invitados)) : ""}
+        ${monto ? filaDato("Depósito", monto) : ""}
+        ${filaDato(
+          "Estado",
+          `<span style="display:inline-block;background:#fdeadb;color:#b45309;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:100px;">Por aprobar</span>`,
+        )}
+      </table>
+
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Revisá el comprobante y confirmala desde tu panel — el cliente ya recibió
+        su correo avisándole que la reserva quedó en aprobación.
+      </p>
+
+      <div style="padding:6px 0 4px;">
+        <a href="${SITIO_URL}/mi-rancho/${ranchoId}?tab=reservas" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          Revisar la reserva
+        </a>
+      </div>
+    `,
+    pie: "Recibís este correo porque administrás un negocio publicado en Bookea.",
+  });
+}
+
 /** Recordatorio de evento — sale 1 día antes, al cliente y al proveedor. */
 export function plantillaRecordatorioEvento({
   nombreDestinatario,
@@ -282,5 +359,8 @@ export function plantillaRecordatorioEvento({
         </a>
       </div>
     `,
+    pie: esProveedor
+      ? "Recibís este correo porque administrás un negocio publicado en Bookea."
+      : undefined,
   });
 }
