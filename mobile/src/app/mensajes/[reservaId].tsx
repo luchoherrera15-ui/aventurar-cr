@@ -40,6 +40,7 @@ export default function MensajesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [conversacionId, setConversacionId] = useState<string | null>(null);
   const [otroNombre, setOtroNombre] = useState<string | null>(null);
+  const [resuelta, setResuelta] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -74,14 +75,16 @@ export default function MensajesScreen() {
       }
 
       let convId: string;
+      let convResuelta = false;
       const { data: existente } = await supabase
         .from("conversaciones")
-        .select("id")
+        .select("id, resuelta")
         .eq("reserva_id", reservaId)
         .maybeSingle();
 
       if (existente) {
         convId = existente.id;
+        convResuelta = existente.resuelta;
       } else {
         const { data: creada, error: errorCrear } = await supabase
           .from("conversaciones")
@@ -91,7 +94,7 @@ export default function MensajesScreen() {
         if (errorCrear || !creada) {
           const { data: reintento } = await supabase
             .from("conversaciones")
-            .select("id")
+            .select("id, resuelta")
             .eq("reserva_id", reservaId)
             .maybeSingle();
           if (!reintento) {
@@ -101,15 +104,20 @@ export default function MensajesScreen() {
             return;
           }
           convId = reintento.id;
+          convResuelta = reintento.resuelta;
         } else {
           convId = creada.id;
         }
       }
 
-      const otroId = esCliente ? reserva.ranchos.owner_id : reserva.cliente_id;
-      const { data: perfilOtro } = otroId
-        ? await supabase.from("perfiles").select("nombre").eq("id", otroId).maybeSingle()
-        : { data: null };
+      // El nombre de perfiles está protegido por RLS (solo se ve el
+      // propio): esta vista lo destraba solo para con quién ya estás
+      // chateando.
+      const { data: contacto } = await supabase
+        .from("conversaciones_contacto")
+        .select("nombre_contacto")
+        .eq("conversacion_id", convId)
+        .maybeSingle();
 
       const { data: mensajesData } = await supabase
         .from("mensajes")
@@ -124,9 +132,11 @@ export default function MensajesScreen() {
 
       if (!vigente) return;
       setConversacionId(convId);
+      setResuelta(convResuelta);
       setOtroNombre(
-        perfilOtro?.nombre ||
-          (esCliente ? reserva.ranchos.nombre : reserva.nombre || "Cliente"),
+        esCliente
+          ? reserva.ranchos.nombre
+          : reserva.nombre || contacto?.nombre_contacto || "Cliente",
       );
       setMensajes((mensajesData ?? []) as Mensaje[]);
       setCargando(false);
@@ -215,6 +225,20 @@ export default function MensajesScreen() {
     setMensajes((prev) => (prev.some((m) => m.id === nuevo.id) ? prev : [...prev, nuevo]));
   }
 
+  // Estado compartido (migración 0054): si cualquiera de los dos la
+  // marca resuelta, se archiva para ambos; un mensaje nuevo la reabre
+  // sola, así que acá solo hace falta el toggle manual.
+  async function alternarResuelto() {
+    if (!conversacionId) return;
+    const siguiente = !resuelta;
+    setResuelta(siguiente);
+    const { error } = await supabase
+      .from("conversaciones")
+      .update({ resuelta: siguiente })
+      .eq("id", conversacionId);
+    if (error) setResuelta(!siguiente);
+  }
+
   if (cargando) {
     return (
       <View style={styles.centro}>
@@ -237,7 +261,15 @@ export default function MensajesScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-      <BarraSuperior titulo={otroNombre || "Mensajes"} subtitulo="Chat de la reserva" />
+      <BarraSuperior
+        titulo={otroNombre || "Mensajes"}
+        subtitulo={resuelta ? "Chat de la reserva · Resuelto" : "Chat de la reserva"}
+        accion={{
+          icono: resuelta ? "refresh-outline" : "checkmark-circle-outline",
+          etiqueta: resuelta ? "Reabrir" : "Marcar como resuelto",
+          onPress: alternarResuelto,
+        }}
+      />
 
       <FlatList
         ref={listaRef}

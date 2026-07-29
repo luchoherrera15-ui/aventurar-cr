@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import HiloChat from "../../[reservaId]/hilo-chat";
+import BotonResuelto from "../../boton-resuelto";
 import type { Mensaje } from "@/app/mi-rancho/types";
 
 type ConversacionRow = {
@@ -10,6 +11,7 @@ type ConversacionRow = {
   reserva_id: string | null;
   cliente_id: string;
   proveedor_id: string;
+  resuelta: boolean;
   ranchos: { id: string; nombre: string; foto_url: string | null; slug: string | null } | null;
 };
 
@@ -33,7 +35,7 @@ export default async function HiloConsultaPage({
   // RLS ya limita a los participantes; si no es tuya, no existe.
   const { data } = await supabase
     .from("conversaciones")
-    .select("id, reserva_id, cliente_id, proveedor_id, ranchos(id, nombre, foto_url, slug)")
+    .select("id, reserva_id, cliente_id, proveedor_id, resuelta, ranchos(id, nombre, foto_url, slug)")
     .eq("id", conversacionId)
     .maybeSingle();
 
@@ -51,10 +53,13 @@ export default async function HiloConsultaPage({
     .eq("conversacion_id", conversacion.id)
     .order("created_at", { ascending: true });
 
-  const { data: perfilOtro } = await supabase
-    .from("perfiles")
-    .select("nombre")
-    .eq("id", esCliente ? conversacion.proveedor_id : conversacion.cliente_id)
+  // El nombre de perfiles está protegido por RLS (solo se ve el propio):
+  // esta vista lo destraba SOLO para con quién ya estás chateando — acá
+  // es donde antes se veía siempre "Cliente interesado".
+  const { data: contacto } = await supabase
+    .from("conversaciones_contacto")
+    .select("nombre_contacto")
+    .eq("conversacion_id", conversacion.id)
     .maybeSingle();
 
   await supabase.from("conversacion_lecturas").upsert(
@@ -87,7 +92,7 @@ export default async function HiloConsultaPage({
           />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] font-bold text-aventurea-ink">
-              {esCliente ? rancho.nombre : perfilOtro?.nombre || "Cliente interesado"}
+              {esCliente ? rancho.nombre : contacto?.nombre_contacto || "Cliente interesado"}
             </p>
             <p className="truncate text-[12px] text-aventurea-ink-soft">
               Consulta directa · {rancho.nombre}
@@ -101,6 +106,11 @@ export default async function HiloConsultaPage({
               Ver página
             </Link>
           )}
+          <BotonResuelto
+            conversacionId={conversacion.id}
+            resuelta={conversacion.resuelta}
+            variante="cabecera"
+          />
         </div>
 
         <HiloChat

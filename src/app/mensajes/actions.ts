@@ -33,3 +33,21 @@ export async function enviarMensaje(
   }
   return { error: null, mensaje: data as Mensaje };
 }
+
+// Estado compartido: si cualquiera de los dos la marca, se archiva
+// para ambos (un mensaje nuevo la reabre solo — ver migración 0054).
+export async function alternarResuelto(
+  conversacionId: string,
+  resuelta: boolean,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("conversaciones")
+    .update({ resuelta })
+    .eq("id", conversacionId);
+
+  if (error) {
+    return { error: "No se pudo actualizar. Intentá de nuevo." };
+  }
+  return { error: null };
+}

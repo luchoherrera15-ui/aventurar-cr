@@ -36,6 +36,7 @@ type ConversacionRow = {
   reserva_id: string | null;
   cliente_id: string;
   proveedor_id: string;
+  resuelta: boolean;
   ranchos: { nombre: string } | null;
 };
 
@@ -45,6 +46,7 @@ export default function HiloConsultaScreen() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [titulo, setTitulo] = useState<string | null>(null);
+  const [resuelta, setResuelta] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -59,7 +61,7 @@ export default function HiloConsultaScreen() {
       // RLS ya limita a los participantes: si no es tuya, viene null.
       const { data } = await supabase
         .from("conversaciones")
-        .select("id, reserva_id, cliente_id, proveedor_id, ranchos(nombre)")
+        .select("id, reserva_id, cliente_id, proveedor_id, resuelta, ranchos(nombre)")
         .eq("id", conversacionId)
         .maybeSingle();
 
@@ -72,10 +74,14 @@ export default function HiloConsultaScreen() {
       }
 
       const esCliente = conversacion.cliente_id === session.user.id;
-      const { data: perfilOtro } = await supabase
-        .from("perfiles")
-        .select("nombre")
-        .eq("id", esCliente ? conversacion.proveedor_id : conversacion.cliente_id)
+      // El nombre de perfiles está protegido por RLS (solo se ve el
+      // propio): esta vista lo destraba solo para con quién ya estás
+      // chateando — acá es donde antes se veía siempre "Cliente
+      // interesado".
+      const { data: contacto } = await supabase
+        .from("conversaciones_contacto")
+        .select("nombre_contacto")
+        .eq("conversacion_id", conversacion.id)
         .maybeSingle();
 
       const { data: mensajesData } = await supabase
@@ -97,8 +103,9 @@ export default function HiloConsultaScreen() {
       setTitulo(
         esCliente
           ? (conversacion.ranchos?.nombre ?? "Consulta")
-          : perfilOtro?.nombre || "Cliente interesado",
+          : contacto?.nombre_contacto || "Cliente interesado",
       );
+      setResuelta(conversacion.resuelta);
       setMensajes((mensajesData ?? []) as Mensaje[]);
       setCargando(false);
     })();
@@ -184,6 +191,20 @@ export default function HiloConsultaScreen() {
     setMensajes((prev) => (prev.some((m) => m.id === nuevo.id) ? prev : [...prev, nuevo]));
   }
 
+  // Estado compartido (migración 0054): si cualquiera de los dos la
+  // marca resuelta, se archiva para ambos; un mensaje nuevo la reabre
+  // sola, así que acá solo hace falta el toggle manual.
+  async function alternarResuelto() {
+    if (!conversacionId) return;
+    const siguiente = !resuelta;
+    setResuelta(siguiente);
+    const { error } = await supabase
+      .from("conversaciones")
+      .update({ resuelta: siguiente })
+      .eq("id", conversacionId);
+    if (error) setResuelta(!siguiente);
+  }
+
   if (cargando) {
     return (
       <View style={styles.centro}>
@@ -206,7 +227,15 @@ export default function HiloConsultaScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-      <BarraSuperior titulo={titulo || "Mensajes"} subtitulo="Consulta directa" />
+      <BarraSuperior
+        titulo={titulo || "Mensajes"}
+        subtitulo={resuelta ? "Consulta directa · Resuelto" : "Consulta directa"}
+        accion={{
+          icono: resuelta ? "refresh-outline" : "checkmark-circle-outline",
+          etiqueta: resuelta ? "Reabrir" : "Marcar como resuelto",
+          onPress: alternarResuelto,
+        }}
+      />
 
       <FlatList
         ref={listaRef}

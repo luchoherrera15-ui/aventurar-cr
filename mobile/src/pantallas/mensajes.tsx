@@ -38,6 +38,7 @@ type ConversacionRow = {
   cliente_id: string;
   proveedor_id: string;
   created_at: string;
+  resuelta: boolean;
   ranchos: { nombre: string; foto_url: string | null } | null;
   reservas: { fecha: string; nombre: string | null; estado: string } | null;
 };
@@ -66,6 +67,7 @@ type Fila = {
   ultimoTexto: string;
   actividad: string;
   pendientes: number;
+  resuelta: boolean;
   tag: TagChat;
 };
 
@@ -97,6 +99,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   const router = useRouter();
   const { session } = useAuth();
   const [filas, setFilas] = useState<Fila[] | null>(null);
+  const [tab, setTab] = useState<"activas" | "resueltas">("activas");
 
   const cargar = useCallback(async () => {
     if (!session) return;
@@ -105,30 +108,36 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     const { data: convData } = await supabase
       .from("conversaciones")
       .select(
-        "id, reserva_id, cliente_id, proveedor_id, created_at, ranchos(nombre, foto_url), reservas(fecha, nombre, estado)",
+        "id, reserva_id, cliente_id, proveedor_id, created_at, resuelta, ranchos(nombre, foto_url), reservas(fecha, nombre, estado)",
       );
 
     const conversaciones = (convData ?? []) as unknown as ConversacionRow[];
     const ids = conversaciones.map((c) => c.id);
 
-    const [{ data: mensajesData }, { data: lecturasData }, { data: ocultasData }] = ids.length
-      ? await Promise.all([
-          supabase
-            .from("mensajes")
-            .select("conversacion_id, autor_id, texto, created_at")
-            .in("conversacion_id", ids)
-            .order("created_at", { ascending: false })
-            .limit(1000),
-          supabase
-            .from("conversacion_lecturas")
-            .select("conversacion_id, leido_hasta")
-            .eq("usuario_id", miId),
-          supabase
-            .from("conversacion_ocultas")
-            .select("conversacion_id, oculta_desde")
-            .eq("usuario_id", miId),
-        ])
-      : [{ data: [] }, { data: [] }, { data: [] }];
+    const [{ data: mensajesData }, { data: lecturasData }, { data: ocultasData }, { data: contactosData }] =
+      ids.length
+        ? await Promise.all([
+            supabase
+              .from("mensajes")
+              .select("conversacion_id, autor_id, texto, created_at")
+              .in("conversacion_id", ids)
+              .order("created_at", { ascending: false })
+              .limit(1000),
+            supabase
+              .from("conversacion_lecturas")
+              .select("conversacion_id, leido_hasta")
+              .eq("usuario_id", miId),
+            supabase
+              .from("conversacion_ocultas")
+              .select("conversacion_id, oculta_desde")
+              .eq("usuario_id", miId),
+            // El nombre (o correo) de la otra persona — RLS solo deja ver
+            // el propio perfil, así que esta vista lo destraba nada más
+            // para con quién ya estás chateando (las consultas sin
+            // reserva, que si no quedan como "Cliente interesado").
+            supabase.from("conversaciones_contacto").select("conversacion_id, nombre_contacto"),
+          ])
+        : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
     const leidoHasta = new Map<string, string>(
       ((lecturasData ?? []) as { conversacion_id: string; leido_hasta: string }[]).map(
@@ -139,6 +148,11 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
       ((ocultasData ?? []) as { conversacion_id: string; oculta_desde: string }[]).map(
         (o) => [o.conversacion_id, o.oculta_desde],
       ),
+    );
+    const contactoPorConversacion = new Map<string, string>(
+      ((contactosData ?? []) as { conversacion_id: string; nombre_contacto: string | null }[])
+        .filter((c) => !!c.nombre_contacto)
+        .map((c) => [c.conversacion_id, c.nombre_contacto as string]),
     );
 
     const ultimo = new Map<string, MensajeMin>();
@@ -163,7 +177,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
               : `/mensajes/hilo/${c.id}`,
             titulo: soyCliente
               ? (c.ranchos?.nombre ?? "Conversación")
-              : c.reservas?.nombre || "Cliente interesado",
+              : c.reservas?.nombre || contactoPorConversacion.get(c.id) || "Cliente interesado",
             subtitulo: [
               !soyCliente ? c.ranchos?.nombre : null,
               c.reserva_id
@@ -180,6 +194,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
               : "Sin mensajes todavía — escribí el primero.",
             actividad: ult?.created_at ?? c.created_at,
             pendientes: sinLeer.get(c.id) ?? 0,
+            resuelta: c.resuelta,
             tag: tagDeChat(c),
           };
         })
@@ -229,6 +244,28 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     [session],
   );
 
+  // Estado compartido (migración 0054): si cualquiera de los dos la
+  // marca resuelta, se archiva para ambos — y un mensaje nuevo la
+  // reabre sola, así que no hace falta tocar nada acá para eso.
+  const alternarResuelto = useCallback(
+    async (fila: Fila) => {
+      const siguiente = !fila.resuelta;
+      setFilas((prev) =>
+        (prev ?? []).map((f) => (f.id === fila.id ? { ...f, resuelta: siguiente } : f)),
+      );
+      const { error } = await supabase
+        .from("conversaciones")
+        .update({ resuelta: siguiente })
+        .eq("id", fila.id);
+      if (error) {
+        setFilas((prev) =>
+          (prev ?? []).map((f) => (f.id === fila.id ? { ...f, resuelta: !siguiente } : f)),
+        );
+      }
+    },
+    [],
+  );
+
   if (!session) {
     return (
       <View style={styles.contenedor}>
@@ -257,26 +294,54 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     );
   }
 
+  const activas = filas.filter((f) => !f.resuelta);
+  const resueltas = filas.filter((f) => f.resuelta);
+  const visibles = tab === "activas" ? activas : resueltas;
+
   return (
     <View style={styles.contenedor}>
       <TituloPantalla
         titulo="Mensajes"
         subtitulo="Deslizá un chat: derecha lo marca leído, izquierda lo elimina."
       />
+      {filas.length > 0 && (
+        <View style={styles.tabsFila}>
+          <Pressable
+            style={[styles.tabBoton, tab === "activas" && styles.tabBotonActivo]}
+            onPress={() => setTab("activas")}
+          >
+            <Text style={[styles.tabTexto, tab === "activas" && styles.tabTextoActivo]}>
+              Activas {activas.length}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabBoton, tab === "resueltas" && styles.tabBotonActivo]}
+            onPress={() => setTab("resueltas")}
+          >
+            <Text style={[styles.tabTexto, tab === "resueltas" && styles.tabTextoActivo]}>
+              Resueltas {resueltas.length}
+            </Text>
+          </Pressable>
+        </View>
+      )}
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: Spacing.three, paddingBottom: 100 }}
-        data={filas}
+        data={visibles}
         keyExtractor={(f) => f.id}
         onRefresh={cargar}
         refreshing={false}
         ListEmptyComponent={
           <View style={styles.centro}>
-            <Text style={styles.vacioTitulo}>Todavía no tenés conversaciones</Text>
-            <Text style={styles.vacioTexto}>
-              Cuando reservés un lugar o pidás una cotización, el chat con el
-              proveedor aparece acá.
+            <Text style={styles.vacioTitulo}>
+              {tab === "activas" ? "Todavía no tenés conversaciones" : "No hay chats resueltos"}
             </Text>
+            {tab === "activas" && (
+              <Text style={styles.vacioTexto}>
+                Cuando reservés un lugar o pidás una cotización, el chat con el
+                proveedor aparece acá.
+              </Text>
+            )}
           </View>
         }
         renderItem={({ item }) => (
@@ -285,6 +350,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
             onAbrir={() => router.push(item.href as never)}
             onLeido={() => marcarLeido(item)}
             onEliminar={() => eliminarChat(item)}
+            onResuelto={() => alternarResuelto(item)}
           />
         )}
       />
@@ -297,11 +363,13 @@ function FilaChat({
   onAbrir,
   onLeido,
   onEliminar,
+  onResuelto,
 }: {
   fila: Fila;
   onAbrir: () => void;
   onLeido: () => void;
   onEliminar: () => void;
+  onResuelto: () => void;
 }) {
   const swipeRef = useRef<SwipeableMethods | null>(null);
   const nuevo = fila.pendientes > 0;
@@ -380,6 +448,23 @@ function FilaChat({
               {fechaCorta(fila.actividad)}
             </Text>
           </View>
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              onResuelto();
+            }}
+            style={styles.botonResuelto}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={fila.resuelta ? "refresh-outline" : "checkmark-circle-outline"}
+              size={13}
+              color={Colors.navy}
+            />
+            <Text style={styles.botonResueltoTexto}>
+              {fila.resuelta ? "Reabrir" : "Resuelto"}
+            </Text>
+          </Pressable>
         </View>
       </Pressable>
     </Swipeable>
@@ -411,6 +496,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   botonTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13.5 },
+  tabsFila: {
+    flexDirection: "row",
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  tabBoton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  tabBotonActivo: { borderColor: Colors.navy, backgroundColor: Colors.navy },
+  tabTexto: { fontFamily: Fonts.bold, fontSize: 12.5, color: Colors.inkSoft },
+  tabTextoActivo: { color: "#ffffff" },
   swipeContenedor: { marginBottom: Spacing.two },
   accion: {
     width: 96,
@@ -457,4 +559,6 @@ const styles = StyleSheet.create({
   chipFechaNueva: { backgroundColor: Colors.navy, borderColor: Colors.navy },
   chipFechaTexto: { fontFamily: Fonts.bold, fontSize: 10.5, color: Colors.inkSoft },
   chipTextoBlanco: { fontFamily: Fonts.bold, fontSize: 10.5, color: "#ffffff" },
+  botonResuelto: { flexDirection: "row", alignItems: "center", gap: 3, paddingVertical: 3 },
+  botonResueltoTexto: { fontFamily: Fonts.bold, fontSize: 10.5, color: Colors.navy },
 });

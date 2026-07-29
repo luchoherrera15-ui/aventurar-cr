@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import HiloChat from "./hilo-chat";
+import BotonResuelto from "../boton-resuelto";
 import type { Mensaje } from "@/app/mi-rancho/types";
 
 type ReservaConRancho = {
@@ -41,14 +42,16 @@ export default async function MensajesPage({
   // Trae la conversación de esta reserva, o la abre si es la primera vez
   // que cualquiera de los dos le escribe al otro.
   let conversacionId: string;
+  let resuelta = false;
   const { data: existente } = await supabase
     .from("conversaciones")
-    .select("id")
+    .select("id, resuelta")
     .eq("reserva_id", reservaId)
     .maybeSingle();
 
   if (existente) {
     conversacionId = existente.id;
+    resuelta = existente.resuelta;
   } else {
     const { data: creada, error } = await supabase
       .from("conversaciones")
@@ -59,11 +62,12 @@ export default async function MensajesPage({
       // Carrera con la otra parte abriendo el hilo al mismo tiempo.
       const { data: reintento } = await supabase
         .from("conversaciones")
-        .select("id")
+        .select("id, resuelta")
         .eq("reserva_id", reservaId)
         .maybeSingle();
       if (!reintento) notFound();
       conversacionId = reintento.id;
+      resuelta = reintento.resuelta;
     } else {
       conversacionId = creada.id;
     }
@@ -75,10 +79,13 @@ export default async function MensajesPage({
     .eq("conversacion_id", conversacionId)
     .order("created_at", { ascending: true });
 
-  const otroId = esCliente ? reserva.ranchos.owner_id : reserva.cliente_id;
-  const { data: perfilOtro } = otroId
-    ? await supabase.from("perfiles").select("nombre").eq("id", otroId).maybeSingle()
-    : { data: null };
+  // El nombre de perfiles está protegido por RLS (solo se ve el propio):
+  // esta vista lo destraba SOLO para con quién ya estás chateando.
+  const { data: contacto } = await supabase
+    .from("conversaciones_contacto")
+    .select("nombre_contacto")
+    .eq("conversacion_id", conversacionId)
+    .maybeSingle();
 
   // Marca todo como leído hasta ahora — la próxima vez que entre acá,
   // solo cuentan como no leídos los mensajes posteriores a esto.
@@ -106,15 +113,17 @@ export default async function MensajesPage({
                 : undefined
             }
           />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] font-bold text-aventurea-ink">
-              {perfilOtro?.nombre ||
-                (esCliente ? reserva.ranchos.nombre : reserva.nombre || "Cliente")}
+              {esCliente
+                ? reserva.ranchos.nombre
+                : reserva.nombre || contacto?.nombre_contacto || "Cliente"}
             </p>
             <p className="truncate text-[12px] text-aventurea-ink-soft">
               {reserva.ranchos.nombre} · {reserva.fecha}
             </p>
           </div>
+          <BotonResuelto conversacionId={conversacionId} resuelta={resuelta} variante="cabecera" />
         </div>
 
         <HiloChat

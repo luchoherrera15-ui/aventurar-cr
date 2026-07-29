@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import ListaConversaciones, {
   type FilaConversacion,
+  type TagChat,
 } from "./lista-conversaciones";
 
 /**
@@ -18,8 +19,9 @@ type ConversacionRow = {
   cliente_id: string;
   proveedor_id: string;
   created_at: string;
+  resuelta: boolean;
   ranchos: { nombre: string; foto_url: string | null } | null;
-  reservas: { fecha: string; nombre: string | null } | null;
+  reservas: { fecha: string; nombre: string | null; estado: string } | null;
 };
 
 type MensajeMin = {
@@ -28,6 +30,20 @@ type MensajeMin = {
   texto: string;
   created_at: string;
 };
+
+/** Qué es este chat, de un vistazo: una reserva real (y en qué estado
+ * va) o una consulta que todavía puede convertirse en una. Mismo
+ * criterio que la app (mobile/src/pantallas/mensajes.tsx). */
+function tagDeChat(c: ConversacionRow): TagChat {
+  if (!c.reserva_id) return { texto: "Posible reserva", clase: "bg-aventurea-navy/10 text-aventurea-navy" };
+  if (c.reservas?.estado === "confirmada") {
+    return { texto: "Reserva confirmada", clase: "bg-aventurea-green/10 text-aventurea-green" };
+  }
+  if (c.reservas?.estado === "rechazada") {
+    return { texto: "Reserva rechazada", clase: "bg-red-100 text-red-700" };
+  }
+  return { texto: "Nueva reserva", clase: "bg-aventurea-orange/10 text-aventurea-orange" };
+}
 
 export default async function BandejaMensajesPage() {
   const supabase = await createClient();
@@ -40,13 +56,13 @@ export default async function BandejaMensajesPage() {
   const { data: convData } = await supabase
     .from("conversaciones")
     .select(
-      "id, reserva_id, cliente_id, proveedor_id, created_at, ranchos(nombre, foto_url), reservas(fecha, nombre)",
+      "id, reserva_id, cliente_id, proveedor_id, created_at, resuelta, ranchos(nombre, foto_url), reservas(fecha, nombre, estado)",
     );
 
   const conversaciones = (convData ?? []) as unknown as ConversacionRow[];
   const ids = conversaciones.map((c) => c.id);
 
-  const [{ data: mensajesData }, { data: lecturasData }] = ids.length
+  const [{ data: mensajesData }, { data: lecturasData }, { data: contactosData }] = ids.length
     ? await Promise.all([
         supabase
           .from("mensajes")
@@ -58,8 +74,17 @@ export default async function BandejaMensajesPage() {
           .from("conversacion_lecturas")
           .select("conversacion_id, leido_hasta")
           .eq("usuario_id", user.id),
+        // El nombre (o correo) de la otra persona, para las consultas
+        // directas que todavía no tienen una reserva de dónde sacarlo.
+        supabase.from("conversaciones_contacto").select("conversacion_id, nombre_contacto"),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }];
+
+  const contactoPorConversacion = new Map<string, string>(
+    ((contactosData ?? []) as { conversacion_id: string; nombre_contacto: string | null }[])
+      .filter((c) => !!c.nombre_contacto)
+      .map((c) => [c.conversacion_id, c.nombre_contacto as string]),
+  );
 
   const leidoHasta = new Map<string, string>(
     ((lecturasData ?? []) as { conversacion_id: string; leido_hasta: string }[]).map(
@@ -87,11 +112,12 @@ export default async function BandejaMensajesPage() {
         id: c.id,
         href: c.reserva_id ? `/mensajes/${c.reserva_id}` : `/mensajes/hilo/${c.id}`,
         // Como cliente hablás "con el negocio"; como proveedor, con la
-        // persona que reservó (su nombre viene de la propia reserva).
-        // En las consultas sin reserva no hay nombre que mostrar.
+        // persona que reservó (su nombre viene de la propia reserva) o,
+        // si es una consulta sin reserva todavía, con lo que devuelva
+        // conversaciones_contacto — nunca un genérico si hay con qué.
         titulo: soyCliente
           ? (c.ranchos?.nombre ?? "Conversación")
-          : c.reservas?.nombre || "Cliente interesado",
+          : c.reservas?.nombre || contactoPorConversacion.get(c.id) || "Cliente interesado",
         subtitulo: [
           !soyCliente ? c.ranchos?.nombre : null,
           c.reserva_id
@@ -108,6 +134,8 @@ export default async function BandejaMensajesPage() {
           : "Sin mensajes todavía — escribí el primero.",
         actividad: ult?.created_at ?? c.created_at,
         pendientes: sinLeer.get(c.id) ?? 0,
+        resuelta: c.resuelta,
+        tag: tagDeChat(c),
       };
     })
     .sort((a, b) => (a.actividad < b.actividad ? 1 : -1));
