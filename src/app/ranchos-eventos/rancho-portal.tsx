@@ -27,12 +27,10 @@ import { disponibilidadServicio, type CupoDia } from "@/lib/disponibilidad";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import {
   AmenidadesSeccion,
-  ContactoSeccion,
+  CierreSeccion,
   DetallesSeccion,
   GaleriaHero,
-  MapaSeccion,
   PresentacionSeccion,
-  ResenasSeccion,
   ResumenSeccion,
   type Resena,
 } from "./[id]/portal-secciones";
@@ -623,12 +621,6 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         />
       )}
 
-      <ResenasSeccion
-        resenas={resenas}
-        promedio={calificacion?.promedio ?? null}
-        total={calificacion?.total ?? resenas.length}
-      />
-
       {/* Para Lugares, el nombre y la descripción ya viven arriba en la
           columna "Sobre este lugar" — repetirlos acá era ruido. */}
       {!esLugar && (
@@ -643,31 +635,22 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         />
       )}
 
-      {/* El mapa es de los lugares físicos; los servicios se trasladan
-          al evento y su zona ya se ve en el encabezado. */}
-      {esLugar && (
-        <MapaSeccion
-          nombre={rancho.nombre}
-          ubicacion={ubicacion}
-          latitud={rancho.latitud}
-          longitud={rancho.longitud}
-          googleMaps={googleMaps}
-          waze={waze}
-        />
-      )}
-
-      <ContactoSeccion
+      {/* Reseñas, ubicación y contacto en una sola banda: una foto de
+          la galería de fondo y las tres tarjetas de vidrio encima. */}
+      <CierreSeccion
+        fotoFondo={fotosHero[1] ?? fotosHero[0] ?? null}
         nombre={rancho.nombre}
+        resenas={resenas}
+        promedio={calificacion?.promedio ?? null}
+        total={calificacion?.total ?? resenas.length}
+        ubicacion={ubicacion}
+        googleMaps={googleMaps}
+        waze={waze}
         chatHref={chatHref}
         instagram={rancho.instagram}
         facebook={rancho.facebook}
         tiktok={rancho.tiktok}
         sitioWeb={rancho.sitio_web}
-        ubicacion={ubicacion}
-        // Para lugares, los botones de cómo llegar ya viven en la
-        // sección del mapa de arriba — repetirlos acá era ruido.
-        googleMaps={esLugar ? null : googleMaps}
-        waze={esLugar ? null : waze}
       />
 
       <footer className="border-t border-aventurea-line py-9 text-center">

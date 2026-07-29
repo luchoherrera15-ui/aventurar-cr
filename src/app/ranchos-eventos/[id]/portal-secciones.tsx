@@ -337,6 +337,227 @@ export function ResenasSeccion({
   );
 }
 
+/**
+ * El cierre del portal: reseñas, ubicación y contacto en UNA sola
+ * banda horizontal, sobre una foto de la galería del proveedor con
+ * tarjetas de vidrio (blur hacia la imagen). Reemplaza a las tres
+ * secciones apiladas que había antes — mismo contenido, un solo golpe
+ * visual al final de la página.
+ */
+export function CierreSeccion({
+  fotoFondo,
+  nombre,
+  resenas,
+  promedio,
+  total,
+  ubicacion,
+  googleMaps,
+  waze,
+  chatHref,
+  instagram,
+  facebook,
+  tiktok,
+  sitioWeb,
+}: {
+  /** Una foto de la galería del proveedor; null = fondo navy de marca. */
+  fotoFondo: string | null;
+  nombre: string;
+  resenas: Resena[];
+  promedio: number | null;
+  total: number;
+  ubicacion: string;
+  googleMaps: string | null;
+  waze: string | null;
+  chatHref: string;
+  instagram: string | null;
+  facebook: string | null;
+  tiktok: string | null;
+  sitioWeb: string | null;
+}) {
+  const ultimaResena = resenas[0] ?? null;
+  const redes: { href: string; icono: React.ReactNode; label: string }[] = [
+    { href: instagram, icono: <IconInstagram />, label: "Instagram" },
+    { href: facebook, icono: <IconFacebook />, label: "Facebook" },
+    { href: tiktok, icono: <IconTiktok />, label: "TikTok" },
+    { href: sitioWeb, icono: <IconGlobe />, label: "Sitio web" },
+  ].flatMap((r) => (r.href ? [{ ...r, href: r.href }] : []));
+
+  const tarjetaCls =
+    "flex flex-col rounded-2xl border border-white/15 bg-white/10 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.18)] backdrop-blur-xl";
+  const etiquetaCls =
+    "text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/60";
+  const botonGlassCls =
+    "inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2 text-[12.5px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/25";
+
+  return (
+    <section id="contacto" className="relative overflow-hidden">
+      {/* La foto de fondo con un velo navy: las tarjetas de vidrio
+          necesitan contraste constante, venga la foto que venga. */}
+      {fotoFondo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={fotoFondo}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+      <div
+        className={`absolute inset-0 ${
+          fotoFondo
+            ? "bg-gradient-to-b from-[#0f1d45]/80 via-[#101a2c]/60 to-[#0f1d45]/85"
+            : "bg-gradient-to-b from-[#16295e] to-[#0f1d45]"
+        }`}
+      />
+
+      <div data-reveal className="relative mx-auto max-w-[1080px] px-7 py-16">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-white/70 before:block before:h-[1.5px] before:w-5 before:bg-white/70">
+          Conocé más
+        </p>
+        <h2 className="titulo mt-2 text-[28px] text-white">
+          Reseñas, ubicación y contacto
+        </h2>
+
+        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {/* ---------- Reseñas ---------- */}
+          <div className={tarjetaCls}>
+            <p className={etiquetaCls}>Reseñas</p>
+            {total > 0 ? (
+              <>
+                <p className="mt-2.5 flex items-baseline gap-2 text-white">
+                  <IconStar className="h-5 w-5 translate-y-0.5" />
+                  <span className="text-[30px] font-bold leading-none">
+                    {promedio !== null ? promedio.toFixed(2).replace(".", ",") : "—"}
+                  </span>
+                  <span className="text-[13.5px] text-white/70">
+                    · {total} reseña{total === 1 ? "" : "s"}
+                  </span>
+                </p>
+                {ultimaResena && (
+                  <div className="mt-4 border-t border-white/15 pt-4">
+                    <div
+                      className="flex items-center gap-1"
+                      aria-label={`${ultimaResena.calificacion} de 5`}
+                    >
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <IconStar
+                          key={i}
+                          className={`h-3 w-3 ${
+                            i < ultimaResena.calificacion
+                              ? "text-white"
+                              : "text-white/25"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    {ultimaResena.comentario && (
+                      <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-white/90">
+                        “{ultimaResena.comentario}”
+                      </p>
+                    )}
+                    <p className="mt-2 text-[11.5px] text-white/55">
+                      Cliente verificado ·{" "}
+                      {new Date(ultimaResena.created_at).toLocaleDateString("es-CR", {
+                        timeZone: "America/Costa_Rica",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="mt-3 text-[13.5px] leading-relaxed text-white/80">
+                Todavía no hay reseñas. Todas vienen de reservas confirmadas
+                reales — sé la primera persona en contarlo.
+              </p>
+            )}
+          </div>
+
+          {/* ---------- Ubicación ---------- */}
+          <div className={tarjetaCls}>
+            <p className={etiquetaCls}>Ubicación</p>
+            {ubicacion ? (
+              <p className="mt-3 flex items-start gap-2 text-[13.5px] leading-relaxed text-white/90">
+                <IconPin className="mt-0.5 h-4 w-4 shrink-0 text-white/70" />
+                {ubicacion}
+              </p>
+            ) : (
+              <p className="mt-3 text-[13.5px] leading-relaxed text-white/80">
+                Este proveedor se traslada a tu evento — el punto exacto se
+                coordina al reservar.
+              </p>
+            )}
+            {(googleMaps || waze) && (
+              <div className="mt-auto flex flex-wrap gap-2 pt-4">
+                {googleMaps && (
+                  <a
+                    href={googleMaps}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={botonGlassCls}
+                  >
+                    <IconPin className="h-4 w-4" />
+                    Google Maps
+                  </a>
+                )}
+                {waze && (
+                  <a
+                    href={waze}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={botonGlassCls}
+                  >
+                    <IconWaze className="h-4 w-4" />
+                    Waze
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ---------- Contacto ---------- */}
+          <div className={tarjetaCls}>
+            <p className={etiquetaCls}>Contacto</p>
+            <p className="mt-2.5 text-[17px] font-bold text-white">
+              Hablá con {nombre}
+            </p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-white/70">
+              La conversación queda guardada en Bookea, con tu pedido y tus
+              acuerdos a la vista.
+            </p>
+            <div className="mt-auto flex flex-col gap-3 pt-4">
+              <a
+                href={chatHref}
+                className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-[13.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
+              >
+                Preguntar por el chat
+              </a>
+              {redes.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {redes.map((r) => (
+                    <a
+                      key={r.label}
+                      href={r.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={r.label}
+                      title={r.label}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/25 [&_svg]:h-4 [&_svg]:w-4"
+                    >
+                      {r.icono}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** "A dónde vas": mapa incrustado (sin API key) + botones de cómo llegar. */
 export function MapaSeccion({
   nombre,
