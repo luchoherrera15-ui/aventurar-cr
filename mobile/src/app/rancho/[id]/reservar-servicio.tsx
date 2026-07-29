@@ -643,6 +643,7 @@ export default function ReservarServicioScreen() {
                           source={{ uri: item.foto_url }}
                           style={styles.itemFoto}
                           contentFit="cover"
+                          alt={item.nombre}
                         />
                       )}
                       <View style={styles.itemCuerpo}>
