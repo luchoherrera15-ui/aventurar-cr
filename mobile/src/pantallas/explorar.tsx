@@ -20,10 +20,13 @@ import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   CATEGORIA_LABEL,
   CATEGORIAS,
+  SUBCATEGORIAS,
   fmtColones,
   type Categoria,
   type Rancho,
 } from "@/lib/types";
+
+type Calificacion = { promedio: number; total: number };
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
@@ -62,6 +65,8 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
   const [error, setError] = useState<string | null>(null);
   const [refrescando, setRefrescando] = useState(false);
   const [filtro, setFiltro] = useState<Categoria | "todos">("todos");
+  const [subcategoria, setSubcategoria] = useState("");
+  const [calificaciones, setCalificaciones] = useState<Record<string, Calificacion>>({});
   const [query, setQuery] = useState("");
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
 
@@ -119,18 +124,28 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
 
   const cargar = useCallback(async () => {
     setError(null);
-    const { data, error } = await supabase
-      .from("ranchos")
-      .select(
-        "id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url, destacado_orden",
-      )
-      .eq("estado", "aprobado")
-      .order("created_at", { ascending: false });
+    const [{ data, error }, { data: califData }] = await Promise.all([
+      supabase
+        .from("ranchos")
+        .select(
+          "id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url, destacado_orden",
+        )
+        .eq("estado", "aprobado")
+        .order("created_at", { ascending: false }),
+      // Calificación real, igual que las tarjetas de la web: sin
+      // reseñas no se muestran estrellas — nunca un número inventado.
+      supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
+    ]);
 
     if (error) {
       setError("No se pudo cargar el directorio: " + error.message);
       return;
     }
+    const califs: Record<string, Calificacion> = {};
+    for (const c of (califData ?? []) as { rancho_id: string; promedio: number; total: number }[]) {
+      califs[c.rancho_id] = { promedio: c.promedio, total: c.total };
+    }
+    setCalificaciones(califs);
     // Destacados del admin de primeros — el mismo orden que la web.
     // (sort estable: el resto conserva el más-nuevo-primero)
     setRanchos(
@@ -167,8 +182,35 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
     if (!ranchos) return [];
     return ranchos
       .filter((r) => filtro === "todos" || r.categoria === filtro)
+      .filter((r) => !subcategoria || r.subcategoria === subcategoria)
       .filter(coincide);
-  }, [ranchos, filtro, coincide]);
+  }, [ranchos, filtro, subcategoria, coincide]);
+
+  // Conteos por subcategoría de la categoría activa, para las
+  // pastillas del segundo nivel (solo se muestran las que tienen algo).
+  const conteoSubcategorias = useMemo(() => {
+    const acc: Record<string, number> = {};
+    if (!ranchos || filtro === "todos") return acc;
+    for (const r of ranchos) {
+      if (r.categoria === filtro && r.subcategoria) {
+        acc[r.subcategoria] = (acc[r.subcategoria] ?? 0) + 1;
+      }
+    }
+    return acc;
+  }, [ranchos, filtro]);
+
+  const totalCategoria = useMemo(
+    () =>
+      !ranchos || filtro === "todos"
+        ? 0
+        : ranchos.filter((r) => r.categoria === filtro).length,
+    [ranchos, filtro],
+  );
+
+  function elegirCategoria(c: Categoria | "todos") {
+    setFiltro(c);
+    setSubcategoria("");
+  }
 
   const rieles = useMemo(() => {
     if (!ranchos) return [];
@@ -195,24 +237,61 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
         </View>
       </View>
 
+      {/* Barra de dos niveles, igual que la web: las categorías, y al
+          entrar a una, la misma barra muta a sus subcategorías con un
+          botón de volver. */}
       <View style={styles.categoriasArea}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriasFila}>
-          <CategoriaTab
-            icono="compass-outline"
-            label="Todos"
-            activo={filtro === "todos"}
-            onPress={() => setFiltro("todos")}
-          />
-          {CATEGORIAS.map((cat) => (
+        {filtro === "todos" ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriasFila}>
             <CategoriaTab
-              key={cat}
-              icono={CATEGORIA_ICONO[cat]}
-              label={CATEGORIA_LABEL[cat]}
-              activo={filtro === cat}
-              onPress={() => setFiltro(cat)}
+              icono="compass-outline"
+              label="Todos"
+              activo
+              onPress={() => elegirCategoria("todos")}
             />
-          ))}
-        </ScrollView>
+            {CATEGORIAS.map((cat) => (
+              <CategoriaTab
+                key={cat}
+                icono={CATEGORIA_ICONO[cat]}
+                label={CATEGORIA_LABEL[cat]}
+                activo={false}
+                onPress={() => elegirCategoria(cat)}
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subcatFila}
+          >
+            <Pressable style={styles.volverChip} onPress={() => elegirCategoria("todos")}>
+              <Ionicons name="chevron-back" size={14} color={Colors.ink} />
+              <Text style={styles.volverTexto}>Volver</Text>
+            </Pressable>
+            <View style={styles.subcatCategoria}>
+              <Ionicons name={CATEGORIA_ICONO[filtro]} size={15} color={Colors.accent} />
+              <Text style={styles.subcatCategoriaTexto}>{CATEGORIA_LABEL[filtro]}</Text>
+            </View>
+            <SubcatPill
+              label={`Todo (${totalCategoria})`}
+              activo={!subcategoria}
+              onPress={() => setSubcategoria("")}
+            />
+            {SUBCATEGORIAS[filtro]
+              .filter((s) => (conteoSubcategorias[s.id] ?? 0) > 0)
+              .map((s) => (
+                <SubcatPill
+                  key={s.id}
+                  label={`${s.label} (${conteoSubcategorias[s.id]})`}
+                  activo={subcategoria === s.id}
+                  onPress={() =>
+                    setSubcategoria((prev) => (prev === s.id ? "" : s.id))
+                  }
+                />
+              ))}
+          </ScrollView>
+        )}
       </View>
 
       {ranchos === null && !error && (
@@ -245,6 +324,7 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
             <TarjetaRancho
               item={item}
               ancho="completo"
+              calificacion={calificaciones[item.id] ?? null}
               onPress={() => router.push(`/rancho/${item.id}`)}
               favorito={favoritos.has(item.id)}
               onToggleFavorito={() => alternarFavorito(item.id)}
@@ -269,7 +349,7 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
                 <Text style={styles.rielTituloTexto}>
                   {CATEGORIA_LABEL[riel.categoria]} para tu evento
                 </Text>
-                <Pressable style={styles.verTodosBoton} onPress={() => setFiltro(riel.categoria)}>
+                <Pressable style={styles.verTodosBoton} onPress={() => elegirCategoria(riel.categoria)}>
                   <Ionicons name="chevron-forward" size={16} color={Colors.ink} />
                 </Pressable>
               </View>
@@ -283,9 +363,10 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
                     key={item.id}
                     item={item}
                     ancho="riel"
+                    calificacion={calificaciones[item.id] ?? null}
                     onPress={() => router.push(`/rancho/${item.id}`)}
                     favorito={favoritos.has(item.id)}
-                          onToggleFavorito={() => alternarFavorito(item.id)}
+                    onToggleFavorito={() => alternarFavorito(item.id)}
                   />
                 ))}
               </ScrollView>
@@ -319,69 +400,141 @@ function CategoriaTab({
 export function TarjetaRancho({
   item,
   ancho,
+  calificacion = null,
   onPress,
   favorito = false,
   onToggleFavorito,
 }: {
   item: Fila;
   ancho: "riel" | "completo";
+  calificacion?: Calificacion | null;
   onPress: () => void;
   favorito?: boolean;
   onToggleFavorito?: () => void;
 }) {
   const ubicacion = [item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica";
+  const subLabel = item.subcategoria
+    ? SUBCATEGORIAS[item.categoria]?.find((s) => s.id === item.subcategoria)?.label
+    : null;
+  const grande = ancho === "completo";
+
+  const corazon = onToggleFavorito && (
+    <Pressable
+      style={grande ? styles.corazonChip : styles.botonFavorito}
+      hitSlop={8}
+      onPress={(e) => {
+        e.stopPropagation();
+        onToggleFavorito();
+      }}
+    >
+      {grande ? (
+        <Ionicons
+          name={favorito ? "heart" : "heart-outline"}
+          size={17}
+          color={favorito ? Colors.accent : Colors.inkSoft}
+        />
+      ) : (
+        /* Corazón estilo Airbnb sobre la foto: relleno translúcido con
+           borde blanco, para que se lea sobre cualquier imagen. */
+        <View>
+          <Ionicons
+            name="heart"
+            size={24}
+            color={favorito ? Colors.navy : "rgba(16,22,34,0.5)"}
+          />
+          <Ionicons
+            name="heart-outline"
+            size={24}
+            color="#ffffff"
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      )}
+    </Pressable>
+  );
+
   return (
     <Pressable
-      style={ancho === "riel" ? styles.tarjetaRiel : styles.tarjetaCompleta}
+      style={grande ? styles.tarjetaCompleta : styles.tarjetaRiel}
       onPress={onPress}
     >
       <View>
         <Image
           source={item.foto_url ? { uri: item.foto_url } : undefined}
-          style={ancho === "riel" ? styles.fotoRiel : styles.fotoCompleta}
+          style={grande ? styles.fotoCompleta : styles.fotoRiel}
           contentFit="cover"
           transition={150}
           alt={item.nombre}
         />
-        {onToggleFavorito && (
-          <Pressable
-            style={styles.botonFavorito}
-            hitSlop={8}
-            onPress={(e) => {
-              e.stopPropagation();
-              onToggleFavorito();
-            }}
-          >
-            {/* Corazón estilo Airbnb: relleno translúcido con borde
-                blanco encima, para que se lea sobre cualquier foto. */}
-            <View>
-              <Ionicons
-                name="heart"
-                size={24}
-                color={favorito ? Colors.navy : "rgba(16,22,34,0.5)"}
-              />
-              <Ionicons
-                name="heart-outline"
-                size={24}
-                color="#ffffff"
-                style={StyleSheet.absoluteFill}
-              />
-            </View>
-          </Pressable>
-        )}
+        {!grande && corazon}
       </View>
-      <View style={styles.tarjetaCuerpo}>
-        <Text style={styles.etiqueta}>{CATEGORIA_LABEL[item.categoria]}</Text>
-        <Text style={styles.nombre} numberOfLines={1}>
-          {item.nombre}
-        </Text>
+      <View style={grande ? styles.tarjetaCuerpoGrande : styles.tarjetaCuerpo}>
+        {grande ? (
+          <View style={styles.nombreFila}>
+            <Text style={[styles.nombre, { flex: 1 }]} numberOfLines={1}>
+              {item.nombre}
+            </Text>
+            {corazon}
+          </View>
+        ) : (
+          <>
+            <Text style={styles.etiqueta}>{CATEGORIA_LABEL[item.categoria]}</Text>
+            <Text style={styles.nombre} numberOfLines={1}>
+              {item.nombre}
+            </Text>
+          </>
+        )}
+        {calificacion ? (
+          <Text style={styles.rating}>
+            <Ionicons name="star" size={12} color={Colors.accent} />{" "}
+            {calificacion.promedio.toFixed(2).replace(".", ",")}{" "}
+            <Text style={styles.ratingSuave}>
+              ({calificacion.total} reseña{calificacion.total === 1 ? "" : "s"})
+            </Text>
+          </Text>
+        ) : (
+          grande && <Text style={styles.ratingSuave}>Sin reseñas todavía</Text>
+        )}
+        {grande && (
+          <Text style={styles.rubro} numberOfLines={1}>
+            {subLabel ?? CATEGORIA_LABEL[item.categoria]}
+          </Text>
+        )}
         <Text style={styles.ubicacion} numberOfLines={1}>
           {ubicacion}
         </Text>
         {item.precio_desde !== null && (
           <Text style={styles.precio}>Desde {fmtColones(item.precio_desde)}</Text>
         )}
+        {grande && (
+          <View style={styles.ctaBarra}>
+            <Text style={styles.ctaTexto}>
+              {item.categoria === "lugares" ? "Reservar fecha" : "Ver y reservar"}
+            </Text>
+          </View>
+        )}
       </View>
+    </Pressable>
+  );
+}
+
+function SubcatPill({
+  label,
+  activo,
+  onPress,
+}: {
+  label: string;
+  activo: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.subcatPill, activo && styles.subcatPillActiva]}
+    >
+      <Text style={[styles.subcatPillTexto, activo && styles.subcatPillTextoActivo]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -450,6 +603,60 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tarjetaCuerpo: { paddingTop: Spacing.two, gap: 2 },
+  tarjetaCuerpoGrande: { paddingTop: Spacing.two, gap: 3 },
+  nombreFila: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  corazonChip: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.cream2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rating: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.ink },
+  ratingSuave: { fontSize: 12, fontFamily: Fonts.regular, color: Colors.inkSoft },
+  rubro: { fontSize: 12.5, fontFamily: Fonts.medium, color: Colors.inkSoft },
+  ctaBarra: {
+    marginTop: Spacing.two,
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  ctaTexto: { color: "#ffffff", fontSize: 13, fontFamily: Fonts.bold },
+  subcatFila: {
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    alignItems: "center",
+  },
+  volverChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.cream2,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
+  volverTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.ink },
+  subcatCategoria: { flexDirection: "row", alignItems: "center", gap: 5 },
+  subcatCategoriaTexto: { fontSize: 13, fontFamily: Fonts.bold, color: Colors.ink },
+  subcatPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  subcatPillActiva: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  subcatPillTexto: { fontSize: 12, fontFamily: Fonts.bold, color: Colors.inkSoft },
+  subcatPillTextoActivo: { color: "#ffffff" },
   etiqueta: {
     fontSize: 10.5,
     fontFamily: Fonts.bold,
