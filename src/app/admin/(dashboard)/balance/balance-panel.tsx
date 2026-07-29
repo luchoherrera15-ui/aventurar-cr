@@ -6,6 +6,7 @@ import {
   borrarGasto,
   guardarComision,
 } from "./actions";
+import PasarelaPreview from "./pasarela-preview";
 import {
   CATEGORIAS,
   CATEGORIA_LABEL,
@@ -484,6 +485,8 @@ export default function BalancePanel({
           </div>
         </div>
       </section>
+
+      <PasarelaPreview />
 
       {/* Gastos */}
       <section>

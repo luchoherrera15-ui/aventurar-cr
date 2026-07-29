@@ -3,6 +3,10 @@
     {
       "path": "/api/recordatorios",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/auto-cobro",
+      "schedule": "0 5 * * *"
     }
   ]
 }
