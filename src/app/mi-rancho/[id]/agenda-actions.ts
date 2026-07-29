@@ -11,7 +11,7 @@ async function verificarDueno(ranchoId: string) {
 
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("id, categoria, capacidad_max")
+    .select("id, categoria, capacidad_max, eventos_por_dia")
     .eq("id", ranchoId)
     .maybeSingle();
 
@@ -72,19 +72,28 @@ export async function crearReservaManual(ranchoId: string, input: ReservaManualI
     return { error: `Este lugar recibe hasta ${capacidadMax} personas.` };
   }
 
-  // Solo los lugares tienen un evento por día — un servicio (catering,
-  // DJ, etc.) puede tomar varias reservas para la misma fecha.
-  const esLugar = rancho.categoria === "lugares";
-  if (esLugar) {
-    const { data: ocupado } = await supabase
+  // El cupo del día ya no depende de la categoría sino de cuántos
+  // eventos dijo atender el negocio (eventos_por_dia, migración 0049).
+  // Los lugares quedan en 1; un catering puede tener 2, 3... y null es
+  // sin tope. El disparador de la base lo vuelve a comprobar al
+  // confirmar — esto es solo para avisar antes, con mejor mensaje.
+  const cupo =
+    (rancho.eventos_por_dia as number | null) ??
+    (rancho.categoria === "lugares" ? 1 : null);
+  if (cupo !== null) {
+    const { count } = await supabase
       .from("reservas")
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("rancho_id", ranchoId)
       .eq("fecha", input.fecha)
-      .in("estado", ["pendiente", "confirmada"])
-      .maybeSingle();
-    if (ocupado) {
-      return { error: "Esa fecha ya tiene una reserva pendiente o confirmada." };
+      .in("estado", ["pendiente", "confirmada"]);
+    if ((count ?? 0) >= cupo) {
+      return {
+        error:
+          cupo === 1
+            ? "Esa fecha ya tiene una reserva pendiente o confirmada."
+            : `Esa fecha ya tiene ${cupo} reservas — es tu cupo del día.`,
+      };
     }
   }
 

@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import {
   marcarDepositoValidado,
   obtenerUrlComprobante,
   setEstadoReserva,
 } from "./actions";
-import type { Reserva } from "./types";
+import type { DetallePedido, Reserva } from "./types";
 import { mostrarHorarioReserva } from "@/app/mi-rancho/types";
 
 const ESTADO_LABEL: Record<Reserva["estado"], string> = {
@@ -35,6 +35,51 @@ function fmtDate(iso: string) {
     month: "short",
     year: "numeric",
   });
+}
+
+/**
+ * El pedido que el cliente armó desde el catálogo (solo servicios).
+ * Hasta ahora este dato se guardaba pero no se mostraba en ningún
+ * lado: el proveedor lo veía únicamente como texto dentro del chat.
+ */
+function PedidoDetalle({
+  detalle,
+  compacto,
+}: {
+  detalle: DetallePedido | null;
+  compacto?: boolean;
+}) {
+  if (!detalle || detalle.items.length === 0) return null;
+  return (
+    <div className={compacto ? "" : "mt-3 border-t border-aventurea-line pt-3"}>
+      <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+        Pedido
+      </div>
+      <ul className="mt-1 flex flex-col gap-0.5">
+        {detalle.items.map((linea) => (
+          <li
+            key={linea.item_id}
+            className="flex items-baseline justify-between gap-3 text-[12.5px] text-aventurea-ink"
+          >
+            <span>
+              <span className="font-bold">{linea.cantidad}×</span> {linea.nombre}
+            </span>
+            <span className="shrink-0 text-aventurea-ink-soft">
+              {linea.precio !== null
+                ? fmtMoney(linea.precio * linea.cantidad)
+                : "A cotizar"}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {detalle.total_estimado !== null && (
+        <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-aventurea-line pt-1 text-[12.5px] font-bold text-aventurea-ink">
+          <span>Total del pedido</span>
+          <span>{fmtMoney(detalle.total_estimado)}</span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ReservasTable({
@@ -69,11 +114,10 @@ export default function ReservasTable({
     startTransition(async () => {
       const res = await setEstadoReserva(id, estado);
       if (res?.error) {
-        setActionError(
-          estado === "confirmada"
-            ? "No se pudo confirmar: ya hay otra reserva confirmada para esa misma fecha."
-            : res.error,
-        );
+        // El servidor ya distingue "la fecha está llena" (mensaje del
+        // disparador del cupo, en español) de cualquier otro fallo —
+        // acá no se inventa nada por encima.
+        setActionError(res.error);
         return;
       }
       setReservas((prev) =>
@@ -227,6 +271,8 @@ export default function ReservasTable({
               </div>
             </div>
 
+            <PedidoDetalle detalle={r.detalle_pedido} />
+
             {r.deposito_comprobante_url && (
               <div className="mt-3 flex gap-4 border-t border-aventurea-line pt-3">
                 <button
@@ -306,7 +352,8 @@ export default function ReservasTable({
               </tr>
             )}
             {list.map((r) => (
-              <tr key={r.id} className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream-2/40">
+              <Fragment key={r.id}>
+              <tr className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream-2/40">
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{fmtDate(r.fecha)}</td>
                 {nombrePorRancho && (
                   <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
@@ -408,6 +455,14 @@ export default function ReservasTable({
                   </div>
                 </td>
               </tr>
+              {r.detalle_pedido && r.detalle_pedido.items.length > 0 && (
+                <tr className="border-b border-aventurea-line last:border-none">
+                  <td colSpan={nombrePorRancho ? 9 : 8} className="bg-aventurea-cream-2/30 px-4 py-2.5">
+                    <PedidoDetalle detalle={r.detalle_pedido} compacto />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

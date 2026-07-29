@@ -12,7 +12,14 @@ export async function setEstadoReserva(id: string, estado: string) {
     .eq("id", id);
 
   if (error) {
-    return { error: error.message };
+    // El 23505 lo levanta el disparador del cupo por día (0049) con un
+    // mensaje ya redactado para mostrar ("Esa fecha ya tiene una
+    // reserva confirmada." / "Ya tenés N…"). Cualquier otro error
+    // (RLS, red) se distingue para no culpar a la fecha por todo.
+    if (error.code === "23505") {
+      return { error: error.message };
+    }
+    return { error: "No se pudo cambiar el estado: " + error.message };
   }
 
   // Aprobar es lo que el cliente está esperando, así que se le avisa.

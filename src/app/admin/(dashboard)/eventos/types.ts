@@ -1,3 +1,19 @@
+/** Una línea del pedido armado desde el catálogo (rancho_items). */
+export type LineaPedido = {
+  item_id: string;
+  nombre: string;
+  precio: number | null;
+  unidad: string | null;
+  cantidad: number;
+};
+
+/** Snapshot del pedido al momento de reservar — los precios no cambian
+ *  aunque el proveedor edite su catálogo después. */
+export type DetallePedido = {
+  items: LineaPedido[];
+  total_estimado: number | null;
+};
+
 export type Reserva = {
   id: string;
   rancho_id: string | null;
@@ -22,6 +38,8 @@ export type Reserva = {
   evento_pagado: boolean;
   terminos_aceptados: boolean;
   notas: string | null;
-  origen: "web" | "manual";
+  origen: "web" | "movil" | "manual";
+  /** Solo en reservas de servicios (no Lugares): el pedido del catálogo. */
+  detalle_pedido: DetallePedido | null;
   created_at: string;
 };

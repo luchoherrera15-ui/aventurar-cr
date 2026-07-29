@@ -164,6 +164,10 @@ export async function solicitarCotizacion(
       ...(totalServicio > 0 || detallePedido?.total_estimado != null
         ? { monto_total: totalServicio + (detallePedido?.total_estimado ?? 0) }
         : {}),
+      // El monto del depósito se guarda SIEMPRE que el pago aplique —
+      // sin esto, Finanzas del proveedor reportaba ₡0 de adelanto en
+      // todas las reservas de servicios aunque el cliente sí pagara.
+      ...(pagoRequerido ? { deposito_monto: deposito } : {}),
       ...(pagoRequerido && comprobantePath
         ? {
             metodo_pago: metodoPago ?? "sinpe",
