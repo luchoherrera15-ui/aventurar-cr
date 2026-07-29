@@ -6,7 +6,8 @@ function fmtFechaCorta(iso: string) {
   return new Date(y, m - 1, d).toLocaleDateString("es-CR", { day: "numeric", month: "short" });
 }
 
-function Tarjeta({
+/** Un número chico con su rótulo — nada de tarjetas gigantes. */
+function Dato({
   titulo,
   valor,
   detalle,
@@ -18,18 +19,30 @@ function Tarjeta({
   acento?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
-      <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+    <div className="min-w-0" title={detalle}>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
         {titulo}
       </p>
-      <p className={`mt-1.5 text-[22px] font-bold ${acento ? "text-aventurea-navy" : "text-aventurea-ink"}`}>
+      <p
+        className={`mt-0.5 text-[16px] font-bold leading-tight ${
+          acento ? "text-aventurea-navy" : "text-aventurea-ink"
+        }`}
+      >
         {valor}
       </p>
-      {detalle && <p className="mt-1 text-[12px] text-aventurea-ink-soft">{detalle}</p>}
+      {detalle && (
+        <p className="mt-0.5 max-w-[150px] truncate text-[10.5px] text-aventurea-ink-soft">
+          {detalle}
+        </p>
+      )}
     </div>
   );
 }
 
+/**
+ * Resumen de rendimiento en UNA fila compacta: los mismos números de
+ * siempre, pero sin comerse media pantalla del panel.
+ */
 export default function DashboardMetricas({
   metricas,
   esLugar,
@@ -50,7 +63,7 @@ export default function DashboardMetricas({
 
   if (totalReservasHistorico === 0 && ingresosEsteMes === 0 && !proximaReserva) {
     return (
-      <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 text-[13.5px] text-aventurea-ink-soft">
+      <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface px-5 py-3.5 text-[12.5px] text-aventurea-ink-soft">
         Todavía no tenés reservas registradas — en cuanto entre la primera, acá vas a ver cómo
         te está yendo mes a mes.
       </div>
@@ -58,36 +71,36 @@ export default function DashboardMetricas({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <Tarjeta
+    <div className="flex flex-wrap items-start gap-x-7 gap-y-3 rounded-2xl border border-aventurea-line bg-aventurea-surface px-5 py-3.5">
+      <Dato
         titulo="Reservas este mes"
         valor={String(reservasEsteMes)}
         detalle={compararTexto(reservasEsteMes, reservasMesAnterior)}
         acento
       />
-      <Tarjeta
+      <Dato
         titulo="Ingresos este mes"
         valor={fmtColones(ingresosEsteMes)}
         detalle={compararTexto(ingresosEsteMes, ingresosMesAnterior)}
       />
-      <Tarjeta
+      <Dato
         titulo="Próxima reserva"
         valor={proximaReserva ? fmtFechaCorta(proximaReserva.fecha) : "—"}
         detalle={proximaReserva?.nombre ?? (proximaReserva ? undefined : "Nada agendado")}
       />
       {esLugar && ocupacionProximos30 !== null && (
-        <Tarjeta
-          titulo="Ocupación (30 días)"
+        <Dato
+          titulo="Ocupación 30 días"
           valor={`${ocupacionProximos30}%`}
-          detalle="De los próximos 30 días ya están confirmados"
+          detalle="Días ya confirmados"
         />
       )}
-      <Tarjeta
-        titulo="Por cobrar (30 días)"
+      <Dato
+        titulo="Por cobrar 30 días"
         valor={fmtColones(porCobrarProximos30)}
-        detalle="Saldo de eventos confirmados que faltan"
+        detalle="Saldos que faltan"
       />
-      <Tarjeta titulo="Reservas totales" valor={String(totalReservasHistorico)} detalle="Desde siempre" />
+      <Dato titulo="Reservas totales" valor={String(totalReservasHistorico)} detalle="Desde siempre" />
     </div>
   );
 }

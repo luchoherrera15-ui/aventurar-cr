@@ -28,6 +28,7 @@ import DescuentosForm from "@/components/descuentos-form";
 import TerminosForm from "@/components/terminos-form";
 import HorariosForm from "@/components/horarios-form";
 import CuentasPagoForm from "@/components/cuentas-pago-form";
+import SeccionPlegable from "@/components/seccion-plegable";
 import ReservasTable from "@/app/admin/(dashboard)/eventos/reservas-table";
 import FinanzasPanel from "./finanzas/finanzas-panel";
 import {
@@ -59,10 +60,12 @@ const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   rechazado: "Rechazado",
 };
 
-const ESTADO_BADGE: Record<Rancho["estado"], string> = {
-  pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
-  aprobado: "bg-aventurea-green/15 text-aventurea-green",
-  rechazado: "bg-red-50 text-red-700",
+// El estado se marca con un punto de color al lado del nombre — más
+// discreto que el badge grande de antes, misma información.
+const ESTADO_PUNTO: Record<Rancho["estado"], string> = {
+  pendiente: "bg-aventurea-orange",
+  aprobado: "bg-aventurea-green",
+  rechazado: "bg-red-600",
 };
 
 function fmtColones(n: number | null) {
@@ -152,194 +155,9 @@ export default async function RanchoDetallePage({
   const metricas = calcularMetricas({ reservas: reservasFinanzas, esLugar });
   const resumen = resumenFinanciero({ reservas: reservasFinanzas, gastos });
   const pendientes = reservas.filter((r) => r.estado === "pendiente").length;
-
-  const tabs: Tab[] = [
-    {
-      id: "editar",
-      label: "Editar mi publicación",
-      content: <EditarRanchoForm rancho={rancho} />,
-    },
-    {
-      id: "configuracion",
-      label: "Configuración general",
-      content: (
-        <div>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-            Cuentas para recibir el depósito
-          </h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            El cliente ve esto en el paso de pago de la reserva, según el
-            método que elija. Sin cuentas configuradas, esa forma de pago no
-            se le ofrece.
-          </p>
-          <CuentasPagoForm
-            initial={{
-              sinpeNumero: rancho.sinpe_numero ?? "",
-              sinpeTitular: rancho.sinpe_titular ?? "",
-              cuentaBanco: rancho.cuenta_banco ?? "",
-              cuentaNumero: rancho.cuenta_numero ?? "",
-              cuentaTitular: rancho.cuenta_titular ?? "",
-              cuentaTipo: rancho.cuenta_tipo ?? "",
-            }}
-            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
-          />
-        </div>
-      ),
-    },
-    {
-      id: "precios",
-      label: esLugar ? "Precios y descuentos" : "Cobros y descuentos",
-      content: (
-        <div className="flex flex-col gap-9">
-          {/* Con depósito + cuentas configuradas, el negocio de servicio
-              pasa de recibir "solicitudes" a reservas agendadas con pago
-              por adelantado — mismo mecanismo que los Lugares. */}
-          {!esLugar && (
-            <div>
-              <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-                Depósito para agendar
-              </h2>
-              <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-                Con esto, más tus cuentas de cobro (pestaña Configuración
-                general), el cliente agenda su fecha pagando por adelantado y
-                subiendo el comprobante — igual que los lugares de eventos.
-              </p>
-              <DepositoForm
-                initialDeposito={rancho.deposito_reserva ?? 0}
-                onGuardar={guardarDepositoPropio.bind(null, rancho.id)}
-              />
-            </div>
-          )}
-
-          {esLugar && (
-            <PreciosForm
-              initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
-              initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
-              initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
-              initialDepositoReserva={rancho.deposito_reserva}
-              initialModalidadPrecio={rancho.modalidad_precio_lugar}
-              initialPrecioHora={rancho.precio_hora_lugar}
-              initialPrecioFijo={rancho.precio_fijo_lugar}
-              onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
-            />
-          )}
-
-          {esLugar && (
-            <div>
-              <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Horarios de alquiler</h2>
-              <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-                Vos definís en qué bloques alquilás y a qué hora entra y sale el cliente. Es lo
-                que va a poder elegir al reservar.
-              </p>
-              <HorariosForm
-                initialHorarios={rancho.horarios_bloques ?? []}
-                onGuardar={guardarHorariosPropio.bind(null, rancho.id)}
-              />
-            </div>
-          )}
-
-          <div>
-            <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Descuentos y promociones</h2>
-            <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-              Atraé más clientes con cupones y descuentos automáticos por día.
-            </p>
-            <DescuentosForm
-              initialCodigos={(codigosRes.data ?? []) as CodigoDescuento[]}
-              initialPromociones={(promocionesRes.data ?? []) as PromocionDia[]}
-              onGuardarCodigos={guardarCodigosPropio.bind(null, rancho.id)}
-              onGuardarPromociones={guardarPromocionesPropio.bind(null, rancho.id)}
-            />
-          </div>
-
-          <div>
-            <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Términos y monto mínimo</h2>
-            <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-              Las condiciones que el cliente acepta antes de contratarte. Te dejamos unas por
-              defecto y las podés cambiar por las tuyas.
-            </p>
-            <TerminosForm
-              initialTerminos={rancho.terminos ?? []}
-              initialMontoMinimo={rancho.monto_minimo}
-              depositoReserva={rancho.deposito_reserva}
-              esLugar={esLugar}
-              onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
-            />
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: "finanzas",
-      label: "Finanzas",
-      content: (
-        <div>
-          {errorFinanzas && (
-            <div className="mb-6 rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
-              <strong>Faltan las migraciones.</strong> No se pudieron leer los datos económicos:{" "}
-              {errorFinanzas.message}. Corré{" "}
-              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
-                supabase/aplicar-migraciones-pendientes.sql
-              </code>{" "}
-              en el SQL Editor de Supabase y volvé a entrar.
-            </div>
-          )}
-          <FinanzasPanel
-            resumen={resumen}
-            gastos={gastos}
-            onMarcarDeposito={marcarDepositoRecibido.bind(null, rancho.id)}
-            onRegistrarPago={registrarPagoFinal.bind(null, rancho.id)}
-            onRevertirPago={revertirPagoFinal.bind(null, rancho.id)}
-            onAgregarGasto={agregarGasto.bind(null, rancho.id)}
-            onBorrarGasto={borrarGasto.bind(null, rancho.id)}
-          />
-        </div>
-      ),
-    },
-  ];
-
-  // Antes solo Lugares tenía esta pestaña, porque solo ellos reservaban
-  // por calendario. Ahora el resto de categorías también recibe
-  // solicitudes de cotización reales (ver "Solicitar cotización" en su
-  // página pública), así que la pestaña aplica para todos — el
-  // contenido de la tabla es el mismo, solo cambia la palabra.
-  // El catálogo es el corazón de la reserva en línea de los servicios:
-  // lo que el proveedor carga acá es lo que el cliente elige al armar
-  // su pedido en la página pública. Lugares no lo necesita — ya tiene
-  // su propio sistema de precios y servicios adicionales.
-  if (!esLugar) {
-    const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
-    tabs.splice(1, 0, {
-      id: "catalogo",
-      label: etiquetaCatalogo,
-      content: (
-        <div>
-          {itemsRes.error ? (
-            <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
-              <strong>Faltan las migraciones.</strong> No se pudo leer tu{" "}
-              {etiquetaCatalogo.toLowerCase()}: {itemsRes.error.message}. Corré{" "}
-              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
-                supabase/aplicar-migraciones-pendientes.sql
-              </code>{" "}
-              en el SQL Editor de Supabase y volvé a entrar.
-            </div>
-          ) : (
-            <>
-              <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
-                Lo que cargués acá aparece en tu página pública, y el cliente lo
-                elige al reservar una fecha — con cantidades y total estimado.
-              </p>
-              <CatalogoPanel
-                ranchoId={rancho.id}
-                initialItems={(itemsRes.data ?? []) as RanchoItem[]}
-                etiqueta={etiquetaCatalogo}
-                vertical={(data as { vertical?: string }).vertical ?? "eventos"}
-              />
-            </>
-          )}
-        </div>
-      ),
-    });
-  }
+  const codigos = (codigosRes.data ?? []) as CodigoDescuento[];
+  const promociones = (promocionesRes.data ?? []) as PromocionDia[];
+  const totalDescuentos = codigos.length + promociones.length;
 
   // La agenda: los eventos que vienen, ordenados, con HOY y MAÑANA
   // resaltados — el control operativo del día a día.
@@ -363,7 +181,7 @@ export default async function RanchoDetallePage({
     .filter((r) => r.estado === "pendiente" || r.estado === "confirmada")
     .map((r) => ({ fecha: r.fecha, estado: r.estado, nombre: r.nombre }));
 
-  tabs.splice(1, 0, {
+  const tabAgenda: Tab = {
     id: "agenda",
     label: "Agenda",
     content: (
@@ -381,9 +199,14 @@ export default async function RanchoDetallePage({
         <AgendaEventos eventos={agenda} />
       </div>
     ),
-  });
+  };
 
-  tabs.splice(1, 0, {
+  // Antes solo Lugares tenía esta pestaña, porque solo ellos reservaban
+  // por calendario. Ahora el resto de categorías también recibe
+  // solicitudes de cotización reales (ver "Solicitar cotización" en su
+  // página pública), así que la pestaña aplica para todos — el
+  // contenido de la tabla es el mismo, solo cambia la palabra.
+  const tabReservas: Tab = {
     id: "reservas",
     label: esLugar ? "Reservas" : "Solicitudes",
     content: (
@@ -401,20 +224,248 @@ export default async function RanchoDetallePage({
         <ReservasTable initialReservas={reservas} mostrarMensajes />
       </div>
     ),
-  });
+  };
+
+  // El catálogo es el corazón de la reserva en línea de los servicios:
+  // lo que el proveedor carga acá es lo que el cliente elige al armar
+  // su pedido en la página pública. Lugares no lo necesita — ya tiene
+  // su propio sistema de precios y servicios adicionales.
+  const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
+  const tabCatalogo: Tab = {
+    id: "catalogo",
+    label: etiquetaCatalogo,
+    content: (
+      <div>
+        {itemsRes.error ? (
+          <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+            <strong>Faltan las migraciones.</strong> No se pudo leer tu{" "}
+            {etiquetaCatalogo.toLowerCase()}: {itemsRes.error.message}. Corré{" "}
+            <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+              supabase/aplicar-migraciones-pendientes.sql
+            </code>{" "}
+            en el SQL Editor de Supabase y volvé a entrar.
+          </div>
+        ) : (
+          <>
+            <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
+              Lo que cargués acá aparece en tu página pública, y el cliente lo
+              elige al reservar una fecha — con cantidades y total estimado.
+            </p>
+            <CatalogoPanel
+              ranchoId={rancho.id}
+              initialItems={(itemsRes.data ?? []) as RanchoItem[]}
+              etiqueta={etiquetaCatalogo}
+              vertical={(data as { vertical?: string }).vertical ?? "eventos"}
+            />
+          </>
+        )}
+      </div>
+    ),
+  };
+
+  // Cada bloque de precios va plegado en su propia sección — antes se
+  // apilaban todos abiertos y la pestaña medía kilómetros.
+  const tabPrecios: Tab = {
+    id: "precios",
+    label: esLugar ? "Precios y descuentos" : "Cobros y descuentos",
+    content: (
+      <div className="flex flex-col gap-3.5">
+        {/* Con depósito + cuentas configuradas, el negocio de servicio
+            pasa de recibir "solicitudes" a reservas agendadas con pago
+            por adelantado — mismo mecanismo que los Lugares. */}
+        {!esLugar && (
+          <SeccionPlegable
+            marco={false}
+            abierta
+            titulo="Depósito para agendar"
+            descripcion="Con esto, más tus cuentas de cobro (pestaña Configuración general), el cliente agenda su fecha pagando por adelantado y subiendo el comprobante — igual que los lugares de eventos."
+          >
+            <DepositoForm
+              initialDeposito={rancho.deposito_reserva ?? 0}
+              onGuardar={guardarDepositoPropio.bind(null, rancho.id)}
+            />
+          </SeccionPlegable>
+        )}
+
+        {esLugar && (
+          <SeccionPlegable
+            marco={false}
+            abierta
+            titulo="Precios y servicios adicionales"
+            descripcion="Tarifas por invitado, temporada alta, depósito de reserva y los extras que ofrecés."
+          >
+            <PreciosForm
+              initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
+              initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
+              initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
+              initialDepositoReserva={rancho.deposito_reserva}
+              initialModalidadPrecio={rancho.modalidad_precio_lugar}
+              initialPrecioHora={rancho.precio_hora_lugar}
+              initialPrecioFijo={rancho.precio_fijo_lugar}
+              onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
+            />
+          </SeccionPlegable>
+        )}
+
+        {esLugar && (
+          <SeccionPlegable
+            marco={false}
+            titulo="Horarios de alquiler"
+            descripcion="Vos definís en qué bloques alquilás y a qué hora entra y sale el cliente. Es lo que va a poder elegir al reservar."
+            resumen={
+              (rancho.horarios_bloques ?? []).length > 0
+                ? `${(rancho.horarios_bloques ?? []).length} bloques`
+                : undefined
+            }
+          >
+            <HorariosForm
+              initialHorarios={rancho.horarios_bloques ?? []}
+              onGuardar={guardarHorariosPropio.bind(null, rancho.id)}
+            />
+          </SeccionPlegable>
+        )}
+
+        <SeccionPlegable
+          marco={false}
+          titulo="Descuentos y promociones"
+          descripcion="Atraé más clientes con cupones y descuentos automáticos por día."
+          resumen={totalDescuentos > 0 ? `${totalDescuentos} activos` : undefined}
+        >
+          <DescuentosForm
+            initialCodigos={codigos}
+            initialPromociones={promociones}
+            onGuardarCodigos={guardarCodigosPropio.bind(null, rancho.id)}
+            onGuardarPromociones={guardarPromocionesPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          titulo="Términos y monto mínimo"
+          descripcion="Las condiciones que el cliente acepta antes de contratarte. Te dejamos unas por defecto y las podés cambiar por las tuyas."
+        >
+          <TerminosForm
+            initialTerminos={rancho.terminos ?? []}
+            initialMontoMinimo={rancho.monto_minimo}
+            depositoReserva={rancho.deposito_reserva}
+            esLugar={esLugar}
+            onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+      </div>
+    ),
+  };
+
+  const tabFinanzas: Tab = {
+    id: "finanzas",
+    label: "Finanzas",
+    content: (
+      <div>
+        {errorFinanzas && (
+          <div className="mb-6 rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+            <strong>Faltan las migraciones.</strong> No se pudieron leer los datos económicos:{" "}
+            {errorFinanzas.message}. Corré{" "}
+            <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+              supabase/aplicar-migraciones-pendientes.sql
+            </code>{" "}
+            en el SQL Editor de Supabase y volvé a entrar.
+          </div>
+        )}
+        <FinanzasPanel
+          resumen={resumen}
+          gastos={gastos}
+          onMarcarDeposito={marcarDepositoRecibido.bind(null, rancho.id)}
+          onRegistrarPago={registrarPagoFinal.bind(null, rancho.id)}
+          onRevertirPago={revertirPagoFinal.bind(null, rancho.id)}
+          onAgregarGasto={agregarGasto.bind(null, rancho.id)}
+          onBorrarGasto={borrarGasto.bind(null, rancho.id)}
+        />
+      </div>
+    ),
+  };
+
+  const tabPerfil: Tab = {
+    id: "editar",
+    label: "Perfil y fotos",
+    content: <EditarRanchoForm rancho={rancho} />,
+  };
+
+  const tabConfiguracion: Tab = {
+    id: "configuracion",
+    label: "Configuración general",
+    content: (
+      <div>
+        <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+          Cuentas para recibir el depósito
+        </h2>
+        <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+          El cliente ve esto en el paso de pago de la reserva, según el
+          método que elija. Sin cuentas configuradas, esa forma de pago no
+          se le ofrece.
+        </p>
+        <CuentasPagoForm
+          initial={{
+            sinpeNumero: rancho.sinpe_numero ?? "",
+            sinpeTitular: rancho.sinpe_titular ?? "",
+            cuentaBanco: rancho.cuenta_banco ?? "",
+            cuentaNumero: rancho.cuenta_numero ?? "",
+            cuentaTitular: rancho.cuenta_titular ?? "",
+            cuentaTipo: rancho.cuenta_tipo ?? "",
+          }}
+          onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+        />
+      </div>
+    ),
+  };
 
   // La vertical de Citas configura su equipo, su horario semanal y la
   // agenda del día en su propia pantalla — esta pestaña es la puerta.
-  if (rancho.vertical === "citas") {
-    tabs.splice(1, 0, {
-      id: "citas",
-      label: "Citas",
-      href: `/mi-rancho/${rancho.id}/citas`,
-    });
-  }
+  const esVerticalCitas = rancho.vertical === "citas";
+  const tabs: Tab[] = [
+    tabAgenda,
+    ...(esVerticalCitas
+      ? [{ id: "citas", label: "Citas", href: `/mi-rancho/${rancho.id}/citas` } satisfies Tab]
+      : []),
+    tabReservas,
+    ...(!esLugar ? [tabCatalogo] : []),
+    tabPrecios,
+    tabFinanzas,
+    tabPerfil,
+    tabConfiguracion,
+  ];
+
+  // Accesos rápidos a lo que el dueño más busca. Editar/Precios/Finanzas/
+  // Reservas viven en pestañas de esta misma pantalla (`?tab=`); Citas es
+  // otra pantalla.
+  const accesos: { titulo: string; detalle: string; href: string }[] = [
+    { titulo: "Editar perfil", detalle: "Datos, descripción y ubicación", href: "?tab=editar" },
+    { titulo: "Fotos", detalle: "Portada y galería", href: "?tab=editar#fotos" },
+    {
+      titulo: esLugar ? "Precios" : "Cobros",
+      detalle: "Tarifas, descuentos y términos",
+      href: "?tab=precios",
+    },
+    { titulo: "Finanzas", detalle: "Qué entró y qué falta", href: "?tab=finanzas" },
+    {
+      titulo: esLugar ? "Reservas" : "Solicitudes",
+      detalle: pendientes > 0 ? `${pendientes} por aprobar` : "Historial completo",
+      href: "?tab=reservas",
+    },
+    ...(esVerticalCitas
+      ? [
+          {
+            titulo: "Citas",
+            detalle: "Equipo, horario y agenda",
+            href: `/mi-rancho/${rancho.id}/citas`,
+          },
+        ]
+      : []),
+  ];
+
+  const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
   return (
-    <main className="mx-auto max-w-[1000px] px-5 py-12">
+    <main className="mx-auto max-w-[1000px] px-5 py-10">
       <Link
         href="/mi-rancho"
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -422,9 +473,12 @@ export default async function RanchoDetallePage({
         ← Todas tus publicaciones
       </Link>
 
-      <div className="mt-4 overflow-hidden rounded-[18px] border border-aventurea-line bg-aventurea-surface">
+      {/* Encabezado compacto: identidad del negocio + la acción que más
+          piden los dueños (editar el perfil y las fotos), sin banner
+          gigante ni tarjetas de datos que empujen todo hacia abajo. */}
+      <header className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
         <div
-          className="relative flex h-[130px] items-center justify-center bg-cover bg-center"
+          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-aventurea-line bg-cover bg-center"
           style={
             rancho.foto_url
               ? { backgroundImage: `url(${rancho.foto_url})` }
@@ -432,92 +486,112 @@ export default async function RanchoDetallePage({
           }
         >
           {!rancho.foto_url && (
-            <span className="opacity-30 [&_svg]:h-12 [&_svg]:w-12">
+            <span className="opacity-40 [&_svg]:h-7 [&_svg]:w-7">
               {CATEGORIA_ICONO[rancho.categoria]}
             </span>
           )}
-          <span
-            className={`absolute right-4 top-4 inline-flex items-center rounded-full px-3 py-1 text-[11.5px] font-bold ${ESTADO_BADGE[rancho.estado]}`}
-          >
-            {ESTADO_LABEL[rancho.estado]}
-          </span>
         </div>
 
-        <div className="p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-lg font-bold text-aventurea-ink">{rancho.nombre}</h1>
-              <span className="text-[12px] font-bold uppercase tracking-wide text-aventurea-navy">
-                {CATEGORIA_LABEL[rancho.categoria]}
-              </span>
-              {ubicacion && <p className="mt-1 text-[12.5px] text-zinc-500">{ubicacion}</p>}
-            </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+            <h1 className="text-[19px] font-bold leading-tight text-aventurea-ink">
+              {rancho.nombre}
+            </h1>
+            <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink-soft">
+              <span className={`h-2 w-2 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
+              {ESTADO_LABEL[rancho.estado]}
+            </span>
+          </div>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-aventurea-ink-soft">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-navy">
+              {CATEGORIA_LABEL[rancho.categoria]}
+            </span>
+            {ubicacion && <span className="truncate">{ubicacion}</span>}
             {rancho.estado === "aprobado" && (
               <Link
-                href={rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`}
-                className="shrink-0 rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy hover:text-aventurea-navy"
+                href={urlPublica}
+                className="font-bold text-aventurea-navy underline-offset-2 hover:underline"
               >
-                Ver mi página pública →
+                Ver mi página{rancho.slug ? ` · /${rancho.slug}` : ""} →
               </Link>
             )}
-          </div>
-
-          {rancho.estado === "pendiente" && (
-            <p className="mt-3 rounded-[10px] bg-aventurea-orange/10 p-3 text-[13px] leading-relaxed text-aventurea-orange">
-              Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
-              directorio.
-            </p>
-          )}
-          {rancho.estado === "rechazado" && (
-            <p className="mt-3 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
-              Tu publicación no fue aprobada todavía. Escribinos si querés más información.
-            </p>
-          )}
-
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                Provincia
-              </div>
-              <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
-                {rancho.provincia ?? "—"}
-              </div>
-            </div>
-            <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                Capacidad
-              </div>
-              <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
-                {rancho.capacidad_min ?? "—"}–{rancho.capacidad_max ?? "—"}
-              </div>
-            </div>
-            <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                Precio desde
-              </div>
-              <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
-                {fmtColones(rancho.precio_desde)}
-              </div>
-            </div>
-            <div className="rounded-xl bg-aventurea-cream-2 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                WhatsApp
-              </div>
-              <div className="mt-1 text-[13.5px] font-bold text-aventurea-ink">
-                {rancho.contacto_whatsapp ?? "—"}
-              </div>
-            </div>
-          </div>
+          </p>
         </div>
-      </div>
 
-      <div className="mt-6">
-        <h2 className="mb-3 text-[15px] font-bold text-aventurea-ink">Cómo te está yendo</h2>
+        <Link
+          href="?tab=editar"
+          className="shrink-0 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-orange-dark"
+        >
+          Editar perfil y fotos
+        </Link>
+      </header>
+
+      {rancho.estado === "pendiente" && (
+        <p className="mt-4 rounded-[10px] bg-aventurea-orange/10 p-3 text-[13px] leading-relaxed text-aventurea-orange">
+          Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
+          directorio.
+        </p>
+      )}
+      {rancho.estado === "rechazado" && (
+        <p className="mt-4 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
+          Tu publicación no fue aprobada todavía. Escribinos si querés más información.
+        </p>
+      )}
+
+      {/* Los datos que antes ocupaban cuatro tarjetas, ahora en una línea. */}
+      <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-aventurea-ink-soft">
+        {esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null) && (
+          <span>
+            Capacidad{" "}
+            <strong className="text-aventurea-ink">
+              {rancho.capacidad_min ?? "—"}–{rancho.capacidad_max ?? "—"}
+            </strong>
+          </span>
+        )}
+        {rancho.precio_desde !== null && (
+          <span>
+            Precio desde{" "}
+            <strong className="text-aventurea-ink">{fmtColones(rancho.precio_desde)}</strong>
+          </span>
+        )}
+        {rancho.contacto_whatsapp && (
+          <span>
+            WhatsApp <strong className="text-aventurea-ink">{rancho.contacto_whatsapp}</strong>
+          </span>
+        )}
+      </p>
+
+      <nav
+        aria-label="Accesos rápidos"
+        className={`mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 ${
+          accesos.length === 6 ? "lg:grid-cols-6" : "lg:grid-cols-5"
+        }`}
+      >
+        {accesos.map((a) => (
+          <Link
+            key={a.titulo}
+            href={a.href}
+            className="group rounded-xl border border-aventurea-line bg-aventurea-surface p-3 transition-colors hover:border-aventurea-navy"
+          >
+            <span className="block text-[13px] font-bold text-aventurea-ink group-hover:text-aventurea-navy">
+              {a.titulo}
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-aventurea-ink-soft">
+              {a.detalle}
+            </span>
+          </Link>
+        ))}
+      </nav>
+
+      <div className="mt-5">
+        <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          Cómo te está yendo
+        </h2>
         <DashboardMetricas metricas={metricas} esLugar={esLugar} />
       </div>
 
-      <div className="mt-8">
-        <Tabs tabs={tabs} defaultTab="editar" />
+      <div className="mt-7">
+        <Tabs tabs={tabs} defaultTab="agenda" />
       </div>
     </main>
   );

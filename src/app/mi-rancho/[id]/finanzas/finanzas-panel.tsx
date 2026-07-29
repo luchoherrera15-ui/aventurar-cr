@@ -19,6 +19,7 @@ import {
   type ReservaFinanzas,
   type ResumenFinanzas,
 } from "@/lib/finanzas";
+import SeccionPlegable from "@/components/seccion-plegable";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
@@ -90,8 +91,9 @@ export default function FinanzasPanel({
 
       <Indicadores resumen={resumen} />
 
-      <SemanasCard resumen={resumen} />
-
+      {/* Primero lo que pide acción (cobros vencidos, adelantos por
+          confirmar, cobros que vienen); los análisis largos — semana a
+          semana y gastos — van plegados al final. */}
       {resumen.cobrosVencidos.length > 0 && (
         <CobrosVencidos
           reservas={resumen.cobrosVencidos}
@@ -114,6 +116,8 @@ export default function FinanzasPanel({
         onCobrar={setCobrando}
         pending={pending}
       />
+
+      <SemanasCard resumen={resumen} />
 
       <GastosCard
         gastos={gastos}
@@ -229,22 +233,16 @@ function SemanasCard({ resumen }: { resumen: ResumenFinanzas }) {
   const escala = Math.max(resumen.maximoSemanal, 1);
 
   return (
-    <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="titulo text-[19px] text-aventurea-ink">Semana a semana</h2>
-          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-            Lo cobrado se cuenta en la semana en que entró la plata. Lo por
-            cobrar, en la semana del evento.
-          </p>
-        </div>
-        <div className="flex gap-4">
-          <Leyenda color="bg-aventurea-green" label="Entró" />
-          <Leyenda color="bg-aventurea-blue" label="Por cobrar" />
-        </div>
+    <SeccionPlegable
+      titulo="Semana a semana"
+      descripcion="Lo cobrado se cuenta en la semana en que entró la plata. Lo por cobrar, en la semana del evento."
+    >
+      <div className="flex gap-4">
+        <Leyenda color="bg-aventurea-green" label="Entró" />
+        <Leyenda color="bg-aventurea-blue" label="Por cobrar" />
       </div>
 
-      <div className="mt-5 overflow-x-auto">
+      <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[680px] border-collapse">
           <thead>
             <tr className="border-b border-aventurea-line text-left">
@@ -327,7 +325,7 @@ function SemanasCard({ resumen }: { resumen: ResumenFinanzas }) {
           </tbody>
         </table>
       </div>
-    </section>
+    </SeccionPlegable>
   );
 }
 
@@ -708,21 +706,12 @@ function GastosCard({
   }
 
   return (
-    <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="titulo text-[19px] text-aventurea-ink">Gastos</h2>
-          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-            Sin esto el panel te dice cuánto facturaste, no cuánto ganaste.
-          </p>
-        </div>
-        <p className="text-[13px] text-aventurea-ink-soft">
-          Este mes:{" "}
-          <strong className="text-aventurea-ink">{fmtColones(totalMes)}</strong>
-        </p>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-[130px_1fr_180px_130px_auto]">
+    <SeccionPlegable
+      titulo="Gastos"
+      descripcion="Sin esto el panel te dice cuánto facturaste, no cuánto ganaste."
+      resumen={`Este mes: ${fmtColones(totalMes)}`}
+    >
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[130px_1fr_180px_130px_auto]">
         <div>
           <label className={labelCls}>Fecha</label>
           <input
@@ -807,6 +796,6 @@ function GastosCard({
           ))}
         </ul>
       )}
-    </section>
+    </SeccionPlegable>
   );
 }

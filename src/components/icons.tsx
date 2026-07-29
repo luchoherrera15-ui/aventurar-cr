@@ -291,6 +291,14 @@ export function IconChevronRight({ className = base }: IconProps) {
   );
 }
 
+export function IconChevronDown({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5.5 9 12 16l6.5-7" />
+    </svg>
+  );
+}
+
 export function IconMenu({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>

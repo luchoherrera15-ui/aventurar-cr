@@ -22,6 +22,18 @@ export default function Tabs({ tabs, defaultTab }: { tabs: Tab[]; defaultTab: st
     inicial && tabs.some((t) => t.id === inicial) ? inicial : defaultTab,
   );
 
+  // Los accesos rápidos del encabezado navegan con `?tab=` sin pasar por
+  // los botones de acá — cuando el parámetro cambia desde afuera, la
+  // pestaña activa lo sigue. Se ajusta durante el render (patrón oficial
+  // de React para derivar estado de una prop que cambió), no en un efecto.
+  const [previo, setPrevio] = useState(inicial);
+  if (inicial !== previo) {
+    setPrevio(inicial);
+    if (inicial && inicial !== activo && tabs.some((t) => t.id === inicial && !t.href)) {
+      setActivo(inicial);
+    }
+  }
+
   function cambiar(id: string) {
     setActivo(id);
     const params = new URLSearchParams(searchParams.toString());

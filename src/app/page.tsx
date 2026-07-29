@@ -29,8 +29,10 @@ export default function PortadaPage() {
           <img src="/logo-bookea.png" alt="Bookea" className="h-8 w-auto sm:h-9" />
         </Link>
         <div className="flex items-center gap-3.5">
+          {/* Directo al formulario de alta — la página informativa
+              queda en /publicar para quien quiera conocer más. */}
           <Link
-            href="/publicar"
+            href="/mi-rancho/nuevo"
             className="hidden whitespace-nowrap text-[13.5px] font-bold text-aventurea-ink hover:text-aventurea-navy sm:block"
           >
             Publicá tu negocio

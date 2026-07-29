@@ -6,6 +6,7 @@ import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icon
 import { Lightbox } from "@/components/galeria-lightbox";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
 import DetallesServicioForm from "@/components/detalles-servicio-form";
+import SeccionPlegable from "@/components/seccion-plegable";
 import type { DetallesServicio } from "../../campos-servicio";
 import {
   AMENIDADES,
@@ -190,23 +191,22 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   return (
     <form action={onSubmit} className="flex flex-col gap-6">
       <input type="hidden" name="rancho_id" value={rancho.id} />
-      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-          Foto principal
-        </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          Se ve en tu card del directorio y de fondo del calendario
-        </h3>
-        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-          Es la primera impresión: sale en la lista de resultados y detrás
-          del calendario de reservas, con tu nombre encima en letras
-          blancas. Recomendado: al menos{" "}
-          <strong>{FOTO_ANCHO_MIN}×{FOTO_ALTO_MIN}px</strong>, horizontal
-          (4:3), JPG o PNG. Elegí una <strong>amplia y no muy oscura</strong>,
-          porque encima le montamos una capa oscura para que el texto se lea.
-        </p>
-
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
+      <SeccionPlegable
+        abierta
+        etiqueta="Foto principal"
+        titulo="Se ve en tu card del directorio y de fondo del calendario"
+        descripcion={
+          <>
+            Es la primera impresión: sale en la lista de resultados y detrás
+            del calendario de reservas, con tu nombre encima en letras
+            blancas. Recomendado: al menos{" "}
+            <strong>{FOTO_ANCHO_MIN}×{FOTO_ALTO_MIN}px</strong>, horizontal
+            (4:3), JPG o PNG. Elegí una <strong>amplia y no muy oscura</strong>,
+            porque encima le montamos una capa oscura para que el texto se lea.
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           <div className="relative h-[160px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-aventurea-cream-2 to-aventurea-line sm:w-[220px]">
             {fotoPreview ? (
               <button
@@ -250,22 +250,24 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             )}
           </div>
         </div>
-      </section>
+      </SeccionPlegable>
 
-      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-          Galería
-        </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          Las fotos de tu página
-        </h3>
-        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-          Hasta <strong>{FOTOS_MAX} fotos</strong>. Las primeras{" "}
-          <strong>{FOTOS_DESTACADAS}</strong> se muestran grandes en tu página y
-          el resto queda en la galería de abajo. Mostrá los distintos espacios:
-          el salón, la piscina, la zona verde, el parqueo.
-        </p>
-        <p className="mt-2.5 rounded-xl bg-aventurea-cream-2 p-3 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+      <SeccionPlegable
+        abierta
+        id="fotos"
+        etiqueta="Galería"
+        titulo="Las fotos de tu página"
+        descripcion={
+          <>
+            Hasta <strong>{FOTOS_MAX} fotos</strong>. Las primeras{" "}
+            <strong>{FOTOS_DESTACADAS}</strong> se muestran grandes en tu página y
+            el resto queda en la galería de abajo. Mostrá los distintos espacios:
+            el salón, la piscina, la zona verde, el parqueo.
+          </>
+        }
+        resumen={totalFotos > 0 ? `${totalFotos} foto${totalFotos === 1 ? "" : "s"}` : undefined}
+      >
+        <p className="rounded-xl bg-aventurea-cream-2 p-3 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
           <strong className="text-aventurea-ink">Elegí la de presentación:</strong>{" "}
           pasá el mouse por una foto y tocá <em>Usar de presentación</em>. Esa
           es la que sale <strong>grande y a todo el ancho</strong>, con tu
@@ -321,17 +323,18 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             </label>
           )}
         </div>
-      </section>
+      </SeccionPlegable>
 
-      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-          Información
-        </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          Datos de tu publicación
-        </h3>
-
-        <div className="mt-4 flex flex-col gap-3.5">
+      {/* Abierta de entrada solo si faltan datos obligatorios: un campo
+          `required` vacío dentro de un <details> cerrado bloquearía el
+          guardado sin que el navegador pueda mostrar dónde está el error. */}
+      <SeccionPlegable
+        abierta={!rancho.subcategoria || !rancho.provincia}
+        etiqueta="Información"
+        titulo="Datos de tu publicación"
+        descripcion="Nombre, descripción, ubicación, precio base y contacto."
+      >
+        <div className="flex flex-col gap-3.5">
           <div>
             <label className={labelCls}>Tipo de servicio</label>
             <select
@@ -548,20 +551,14 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             </div>
           </div>
         </div>
-      </section>
+      </SeccionPlegable>
 
-      <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-          Redes sociales
-        </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          Dónde más te pueden encontrar
-        </h3>
-        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-          Se muestran como botones en tu página. Dejá en blanco las que no usés.
-        </p>
-
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <SeccionPlegable
+        etiqueta="Redes sociales"
+        titulo="Dónde más te pueden encontrar"
+        descripcion="Se muestran como botones en tu página. Dejá en blanco las que no usés."
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Instagram</label>
             <input
@@ -603,7 +600,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             />
           </div>
         </div>
-      </section>
+      </SeccionPlegable>
 
       {!esLugar && (
         <DetallesServicioForm
@@ -614,23 +611,17 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
       )}
 
       {esLugar && (
-        <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-            Amenidades
-          </p>
-          <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-            ¿Qué tiene tu lugar?
-          </h3>
-          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-            Marcá todo lo que ofrecés. Se muestra como una lista de íconos en tu
-            página — entre más completo, más confianza le da al cliente.
-          </p>
-
+        <SeccionPlegable
+          etiqueta="Amenidades"
+          titulo="¿Qué tiene tu lugar?"
+          descripcion="Marcá todo lo que ofrecés. Se muestra como una lista de íconos en tu página — entre más completo, más confianza le da al cliente."
+          resumen={amenidades.length > 0 ? `${amenidades.length} marcadas` : undefined}
+        >
           {amenidades.map((a) => (
             <input key={a} type="hidden" name="amenidades" value={a} />
           ))}
 
-          <div className="mt-4 flex flex-col gap-5">
+          <div className="flex flex-col gap-5">
             {AMENIDADES_GRUPOS.map((grupo) => (
               <div key={grupo.titulo}>
                 <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
@@ -711,7 +702,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               </div>
             </div>
           </div>
-        </section>
+        </SeccionPlegable>
       )}
 
       {state?.error && (
