@@ -242,6 +242,9 @@ export type Rancho = {
   /** Posición entre los destacados de la portada (null = no destacado). */
   destacado_orden?: number | null;
   deposito_reserva: number;
+  /** Cuántos eventos atiende por día (migración 0049). null = sin tope;
+   *  los Lugares quedan en 1 — el salón se alquila entero. */
+  eventos_por_dia?: number | null;
   sinpe_numero: string | null;
   sinpe_titular: string | null;
   cuenta_banco: string | null;
@@ -464,3 +467,51 @@ export function linkWaze(
 // Tope de fotos por negocio — el mismo que usa el sitio web (FOTOS_MAX
 // en src/app/mi-rancho/types.tsx). Si se cambia, cambiarlo en ambos.
 export const FOTOS_MAX = 8;
+
+/** Un ítem del catálogo reservable (rancho_items) — espejo del tipo de
+ *  /web tras la migración 0050. */
+export type RanchoItem = {
+  id: string;
+  rancho_id: string;
+  nombre: string;
+  descripcion: string | null;
+  precio: number | null;
+  unidad: string | null;
+  activo: boolean;
+  orden: number;
+  foto_url: string | null;
+  /** Cuántas horas incluye ("Estación 1 · 5 horas"). null = no aplica. */
+  duracion_horas: number | null;
+  /** Sección del catálogo ("Estaciones", "Extras", "Bebidas"...). */
+  grupo: string | null;
+  /** 'paquete' = tarjeta grande con foto; 'producto' = fila con contador. */
+  tipo: "paquete" | "producto";
+  min_por_reserva: number;
+  max_por_reserva: number | null;
+  /** Cuántas unidades puede atender por día. null = sin límite. */
+  capacidad_dia: number | null;
+  created_at: string;
+};
+
+/** Snapshot del pedido al momento de reservar — los precios no cambian
+ *  aunque el proveedor edite su catálogo después. */
+export type DetallePedido = {
+  items: {
+    item_id: string;
+    nombre: string;
+    precio: number | null;
+    unidad: string | null;
+    cantidad: number;
+  }[];
+  total_estimado: number | null;
+};
+
+/** Cómo se llama el catálogo según el rubro — "Menú" para comida, etc. */
+export const CATALOGO_LABEL: Record<Categoria, string> = {
+  lugares: "Servicios adicionales",
+  alimentacion: "Menú",
+  animacion: "Paquetes",
+  organizacion: "Paquetes",
+  decoracion: "Catálogo",
+  otros: "Catálogo",
+};

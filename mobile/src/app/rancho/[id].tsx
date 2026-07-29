@@ -11,7 +11,6 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Image } from "expo-image";
-import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -311,21 +310,24 @@ export default function RanchoDetalleScreen() {
           </View>
         )}
 
-        {/* ---------- Reservar (servicios): el flujo completo vive en la
-             web — se abre el portal con el catálogo y el calendario. ---------- */}
+        {/* ---------- Reservar (servicios): flujo nativo — calendario,
+             catálogo con inventario por fecha y depósito, igual que /web. ---------- */}
         {!esLugar && (
           <View style={styles.seccion}>
             <Pressable
               style={styles.botonPrimario}
               onPress={() =>
-                WebBrowser.openBrowserAsync(`${SITIO_URL}/ranchos-eventos/${rancho.id}#reservar`)
+                router.push({
+                  pathname: "/rancho/[id]/reservar-servicio" as never,
+                  params: { id: rancho.id },
+                } as never)
               }
             >
               <Text style={styles.botonPrimarioTexto}>Reservar fecha y armar pedido</Text>
             </Pressable>
             <Text style={styles.hint}>
-              Elegís la fecha, armás tu pedido y el proveedor te confirma por el
-              chat de Bookea.
+              Elegís la fecha, armás tu reserva con el catálogo y pagás el
+              depósito — sin salir de la app.
             </Text>
           </View>
         )}
