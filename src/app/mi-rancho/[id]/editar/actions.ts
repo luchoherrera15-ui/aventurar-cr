@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { verificarAccesoRancho } from "@/lib/auth";
 import { extraerCoordenadas } from "@/lib/mapas";
 import { camposDeCategoria, type DetallesServicio } from "../../campos-servicio";
 import {
@@ -38,16 +38,14 @@ export async function actualizarRancho(
   _prevState: EditarRanchoState,
   formData: FormData,
 ): Promise<EditarRanchoState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/mi-rancho/login");
-
   // Una cuenta puede tener varios ranchos: sin este id, un update por
   // owner_id tocaría todas sus publicaciones a la vez.
   const ranchoId = String(formData.get("rancho_id") || "");
   if (!ranchoId) return { error: "Falta identificar qué publicación editás." };
+
+  const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
+  if (!user) redirect("/mi-rancho/login");
+  if (!ok) return { error: "No encontramos tu publicación." };
 
   const categoria = String(formData.get("categoria") || "");
   const nombre = String(formData.get("nombre") || "").trim();
@@ -200,8 +198,7 @@ export async function actualizarRancho(
   const { error } = await supabase
     .from("ranchos")
     .update(update)
-    .eq("id", ranchoId)
-    .eq("owner_id", user.id);
+    .eq("id", ranchoId);
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 

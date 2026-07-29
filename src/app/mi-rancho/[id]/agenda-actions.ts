@@ -2,23 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { verificarAccesoRancho } from "@/lib/auth";
 
 async function verificarDueno(ranchoId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
   if (!user) redirect("/mi-rancho/login");
+  if (!ok) return { supabase, rancho: null };
 
-  const { data } = await supabase
+  const { data: rancho } = await supabase
     .from("ranchos")
     .select("id, categoria, capacidad_max")
     .eq("id", ranchoId)
-    .eq("owner_id", user.id)
     .maybeSingle();
 
-  return { supabase, rancho: data };
+  return { supabase, rancho };
 }
 
 const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;

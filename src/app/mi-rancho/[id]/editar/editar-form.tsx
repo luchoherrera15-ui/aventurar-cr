@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icons";
+import { Lightbox } from "@/components/galeria-lightbox";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
 import DetallesServicioForm from "@/components/detalles-servicio-form";
 import type { DetallesServicio } from "../../campos-servicio";
@@ -50,8 +51,15 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   const [subiendo, setSubiendo] = useState(false);
   const [subidaError, setSubidaError] = useState<string | null>(null);
 
-  const [galeria, setGaleria] = useState<string[]>(rancho.fotos ?? []);
+  // Si el negocio se editó antes desde el móvil, la portada puede venir
+  // duplicada dentro de fotos — ahí se ve dos veces la misma imagen (una
+  // como "Foto principal" y otra en la Galería). Se filtra acá y al
+  // guardar queda afuera para siempre.
+  const [galeria, setGaleria] = useState<string[]>(
+    Array.from(new Set(rancho.fotos ?? [])).filter((u) => u !== rancho.foto_url),
+  );
   const [fotosNuevas, setFotosNuevas] = useState<FotoNueva[]>([]);
+  const [lightbox, setLightbox] = useState<{ fotos: string[]; indice: number } | null>(null);
   // Cuál de sus fotos va grande en la sección de presentación. Se guarda
   // por "clave": la URL si ya está subida, o el preview local si todavía
   // no. Al enviar se traduce a la URL definitiva.
@@ -201,12 +209,19 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
           <div className="relative h-[160px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-aventurea-cream-2 to-aventurea-line sm:w-[220px]">
             {fotoPreview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={fotoPreview}
-                alt="Vista previa"
-                className="h-full w-full object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => setLightbox({ fotos: [fotoPreview], indice: 0 })}
+                aria-label="Ver la foto principal en grande"
+                className="block h-full w-full"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={fotoPreview}
+                  alt="Vista previa"
+                  className="h-full w-full object-cover"
+                />
+              </button>
             ) : (
               <span className="absolute inset-0 flex items-center justify-center opacity-40">
                 <IconFrame className="h-9 w-9" />
@@ -266,6 +281,12 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               presentacion={presentacionClave === url}
               onPresentacion={() => marcarPresentacion(url)}
               onQuitar={() => quitarDeGaleria(url)}
+              onAbrir={() =>
+                setLightbox({
+                  fotos: [...galeria, ...fotosNuevas.map((f) => f.preview)],
+                  indice: i,
+                })
+              }
             />
           ))}
           {fotosNuevas.map((f, i) => (
@@ -277,6 +298,12 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               onPresentacion={() => marcarPresentacion(f.preview)}
               nueva
               onQuitar={() => quitarNueva(f.preview)}
+              onAbrir={() =>
+                setLightbox({
+                  fotos: [...galeria, ...fotosNuevas.map((f2) => f2.preview)],
+                  indice: galeria.length + i,
+                })
+              }
             />
           ))}
           {espacioLibre > 0 && (
@@ -707,6 +734,14 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
           {subiendo ? "Subiendo fotos..." : pending ? "Guardando..." : "Guardar cambios"}
         </button>
       </div>
+
+      <Lightbox
+        fotos={lightbox?.fotos ?? []}
+        nombre={rancho.nombre}
+        abierta={lightbox ? lightbox.indice : null}
+        onCambiar={(indice) => setLightbox((prev) => (prev ? { ...prev, indice } : prev))}
+        onCerrar={() => setLightbox(null)}
+      />
     </form>
   );
 }
@@ -718,6 +753,7 @@ function FotoMiniatura({
   onPresentacion,
   nueva = false,
   onQuitar,
+  onAbrir,
 }: {
   src: string;
   destacada: boolean;
@@ -725,6 +761,7 @@ function FotoMiniatura({
   onPresentacion: () => void;
   nueva?: boolean;
   onQuitar: () => void;
+  onAbrir: () => void;
 }) {
   return (
     <div
@@ -732,8 +769,15 @@ function FotoMiniatura({
         presentacion ? "ring-2 ring-aventurea-orange ring-offset-2" : ""
       }`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="h-full w-full object-cover" />
+      <button
+        type="button"
+        onClick={onAbrir}
+        aria-label="Ver la foto en grande"
+        className="block h-full w-full"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      </button>
       {presentacion ? (
         <span className="absolute left-1.5 top-1.5 rounded-full bg-aventurea-orange px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
           Presentación

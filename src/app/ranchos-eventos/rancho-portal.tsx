@@ -55,8 +55,27 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // El dueño (o un admin ayudándolo) ve un acceso directo a modificar
+  // esta misma publicación, sin tener que buscarla en "Mis publicaciones".
+  let puedeModificar = false;
+  if (user) {
+    if (user.id === rancho.owner_id) {
+      puedeModificar = true;
+    } else {
+      const { data: perfil } = await supabase
+        .from("perfiles")
+        .select("rol")
+        .eq("id", user.id)
+        .maybeSingle();
+      puedeModificar = perfil?.rol === "admin";
+    }
+  }
+
   const esLugar = rancho.categoria === "lugares";
-  const fotos = rancho.fotos ?? [];
+  // Un negocio editado antes desde el móvil puede tener la portada
+  // repetida dentro de fotos — de acá para adelante ya no debería pasar,
+  // pero esto cubre lo que ya quedó guardado así.
+  const fotos = Array.from(new Set(rancho.fotos ?? []));
   const amenidades = rancho.amenidades ?? [];
   const precio = fmtColones(rancho.precio_desde);
   // La consulta previa vive en el chat de la plataforma — cero WhatsApp.
@@ -220,12 +239,22 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         breadcrumb={rancho.nombre}
         ancho="max-w-[1080px]"
         extra={
-          <Link
-            href="/ranchos-eventos"
-            className="hidden text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy sm:block"
-          >
-            ← Ver todos los espacios
-          </Link>
+          <div className="flex items-center gap-4">
+            {puedeModificar && (
+              <Link
+                href={`/mi-rancho/${rancho.id}`}
+                className="rounded-lg bg-aventurea-navy px-3.5 py-1.5 text-[13px] font-bold text-white hover:bg-aventurea-navy-2"
+              >
+                Modificar tu página
+              </Link>
+            )}
+            <Link
+              href="/ranchos-eventos"
+              className="hidden text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy sm:block"
+            >
+              ← Ver todos los espacios
+            </Link>
+          </div>
         }
       />
 

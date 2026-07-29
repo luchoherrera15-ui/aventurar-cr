@@ -75,8 +75,9 @@ export default function EditarNegocioScreen() {
 
       // Si la portada vive fuera de la galería (pasa con negocios
       // creados desde la web), se le suma para que aparezca en la
-      // grilla y se pueda administrar como cualquier otra.
-      const fotos = (data.fotos as string[] | null) ?? [];
+      // grilla y se pueda administrar como cualquier otra. El Set
+      // limpia cualquier repetida que haya quedado guardada de antes.
+      const fotos = Array.from(new Set((data.fotos as string[] | null) ?? []));
       const portadaActual = data.foto_url ?? null;
       setGaleria(
         portadaActual && !fotos.includes(portadaActual)

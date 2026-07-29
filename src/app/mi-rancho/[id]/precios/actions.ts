@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { verificarAccesoRancho } from "@/lib/auth";
 import { guardarPreciosRancho } from "@/lib/precios";
 import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
 import { HORARIOS_MAX, TERMINOS_MAX } from "../../types";
@@ -15,24 +15,13 @@ const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
  * Todas las acciones de esta pantalla llegan con el id del rancho ya
  * atado desde el server component (`.bind(null, rancho.id)`), porque
  * una misma cuenta puede tener varias publicaciones: filtrar solo por
- * owner_id tocaría todas a la vez. Este helper confirma que ese id es
- * realmente del dueño de la sesión antes de tocar nada.
+ * owner_id tocaría todas a la vez. Este helper confirma que quien la
+ * toca es el dueño de la sesión o un admin, antes de tocar nada.
  */
 async function verificarDueno(ranchoId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
   if (!user) redirect("/mi-rancho/login");
-
-  const { data } = await supabase
-    .from("ranchos")
-    .select("id")
-    .eq("id", ranchoId)
-    .eq("owner_id", user.id)
-    .maybeSingle();
-
-  return { supabase, ok: !!data };
+  return { supabase, ok };
 }
 
 /**
