@@ -1327,7 +1327,7 @@ export default function BookingCalendar({
                       )}
 
                       {metodoPago === "tarjeta" && (
-                        <TarjetaVistaPrevia monto={depositoReserva} />
+                        <TarjetaVistaPrevia monto={depositoReserva} nombreRancho={nombreRancho} />
                       )}
                     </div>
 
@@ -1556,7 +1556,7 @@ function CampoCopiable({ etiqueta, valor }: { etiqueta: string; valor: string })
  * botón de confirmar queda deshabilitado mientras esta opción esté
  * elegida.
  */
-function TarjetaVistaPrevia({ monto }: { monto: number }) {
+function TarjetaVistaPrevia({ monto, nombreRancho }: { monto: number; nombreRancho: string }) {
   const [numero, setNumero] = useState("");
   const [venc, setVenc] = useState("");
   const [cvv, setCvv] = useState("");
@@ -1613,9 +1613,23 @@ function TarjetaVistaPrevia({ monto }: { monto: number }) {
         </div>
       </div>
 
-      <p className="mt-3 text-[11px] text-aventurea-ink-soft">
-        Monto a mostrar cuando esté activa: {fmtColones(monto)}.
-      </p>
+      <div className="mt-3 flex flex-col gap-1.5 rounded-lg bg-aventurea-surface p-3">
+        <p className="mb-1 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          Si se cobrara 15% por pagar con tarjeta
+        </p>
+        <div className="flex items-center justify-between text-[13px]">
+          <span className="text-aventurea-ink-soft">Monto a pagar</span>
+          <span className="font-bold text-aventurea-ink">{fmtColones(monto)}</span>
+        </div>
+        <div className="flex items-center justify-between text-[13px]">
+          <span className="text-aventurea-ink-soft">Comisión Bookea (15%)</span>
+          <span className="font-bold text-aventurea-orange">{fmtColones(monto * 0.15)}</span>
+        </div>
+        <div className="flex items-center justify-between border-t border-aventurea-line pt-1.5 text-[13px]">
+          <span className="text-aventurea-ink-soft">Le llega a {nombreRancho}</span>
+          <span className="font-bold text-aventurea-green">{fmtColones(monto * 0.85)}</span>
+        </div>
+      </div>
     </div>
   );
 }
