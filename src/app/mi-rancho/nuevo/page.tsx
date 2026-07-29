@@ -28,7 +28,7 @@ export default async function NuevoRanchoPage() {
         </Link>
       )}
       <p className="mt-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-        Salones para Eventos
+        Eventos · Citas y Reservas
       </p>
       <h1 className="mt-2.5 text-2xl font-bold text-aventurea-ink">
         {yaTieneAlgo ? "Contanos del nuevo servicio" : "Contanos de tu negocio"}

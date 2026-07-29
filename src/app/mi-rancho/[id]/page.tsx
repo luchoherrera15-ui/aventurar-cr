@@ -332,6 +332,7 @@ export default async function RanchoDetallePage({
                 ranchoId={rancho.id}
                 initialItems={(itemsRes.data ?? []) as RanchoItem[]}
                 etiqueta={etiquetaCatalogo}
+                vertical={(data as { vertical?: string }).vertical ?? "eventos"}
               />
             </>
           )}
@@ -401,6 +402,16 @@ export default async function RanchoDetallePage({
       </div>
     ),
   });
+
+  // La vertical de Citas configura su equipo, su horario semanal y la
+  // agenda del día en su propia pantalla — esta pestaña es la puerta.
+  if (rancho.vertical === "citas") {
+    tabs.splice(1, 0, {
+      id: "citas",
+      label: "Citas",
+      href: `/mi-rancho/${rancho.id}/citas`,
+    });
+  }
 
   return (
     <main className="mx-auto max-w-[1000px] px-5 py-12">

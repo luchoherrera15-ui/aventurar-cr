@@ -83,6 +83,16 @@ export default async function PublicarPage() {
             </Link>
           </div>
 
+          {/* La otra vertical: negocios que atienden con cita por hora. */}
+          <p className="mx-auto mt-6 max-w-[58ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
+            ¿Lo tuyo no son los eventos? También podés publicar tu salón de
+            belleza, barbería, spa o consultorio en{" "}
+            <Link href="/citas" className="font-bold text-[#2b8a84] hover:underline">
+              Citas y Reservas
+            </Link>
+            , con citas en línea por hora.
+          </p>
+
           {publicados > 0 && (
             <p className="mt-6 text-[13px] text-aventurea-ink-soft">
               {publicados} negocio{publicados === 1 ? "" : "s"} ya

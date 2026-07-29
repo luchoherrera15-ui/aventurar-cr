@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { generarSlugUnico } from "@/lib/slug";
 import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "../types";
+import { CATEGORIAS_CITAS } from "@/app/citas/tipos";
 
 export type NuevoRanchoState = { error?: string } | undefined;
 
@@ -17,6 +18,9 @@ export async function crearRancho(
   } = await supabase.auth.getUser();
   if (!user) redirect("/mi-rancho/login");
 
+  // La vertical del negocio: eventos (default) o citas. Cualquier otra
+  // cosa que llegue en el form cae a eventos.
+  const vertical = formData.get("vertical") === "citas" ? "citas" : "eventos";
   const categoria = String(formData.get("categoria") || "");
   const nombre = String(formData.get("nombre") || "").trim();
   const descripcion = String(formData.get("descripcion") || "").trim();
@@ -35,9 +39,12 @@ export async function crearRancho(
   const cedulaFrenteUrl = String(formData.get("cedula_frente_url") || "").trim();
   const cedulaDorsoUrl = String(formData.get("cedula_dorso_url") || "").trim();
 
+  // Cada vertical tiene su propia lista de categorías.
+  const categoriasValidas: readonly string[] =
+    vertical === "citas" ? CATEGORIAS_CITAS : CATEGORIAS;
   if (
     !nombre ||
-    !(CATEGORIAS as readonly string[]).includes(categoria) ||
+    !categoriasValidas.includes(categoria) ||
     !(PROVINCIAS as readonly string[]).includes(provincia)
   ) {
     return { error: "Completá al menos el tipo de servicio, el nombre y la provincia." };
@@ -50,9 +57,13 @@ export async function crearRancho(
     };
   }
 
-  const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
-  if (!validas.some((s) => s.id === subcategoria)) {
-    return { error: "Elegí qué ofrecés exactamente dentro de esa categoría." };
+  // Las subcategorías existen solo en eventos; en citas la categoría
+  // ya es el rubro y la columna queda en null.
+  if (vertical === "eventos") {
+    const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
+    if (!validas.some((s) => s.id === subcategoria)) {
+      return { error: "Elegí qué ofrecés exactamente dentro de esa categoría." };
+    }
   }
 
   const slug = await generarSlugUnico(supabase, nombre);
@@ -61,8 +72,9 @@ export async function crearRancho(
     .from("ranchos")
     .insert({
       owner_id: user.id,
+      vertical,
       categoria,
-      subcategoria,
+      subcategoria: vertical === "citas" ? null : subcategoria,
       nombre,
       descripcion: descripcion || null,
       provincia,

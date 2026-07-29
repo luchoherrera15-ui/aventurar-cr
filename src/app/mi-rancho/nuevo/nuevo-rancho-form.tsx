@@ -12,22 +12,47 @@ import {
   type Categoria,
   type Provincia,
 } from "../types";
+import { CATEGORIAS_CITAS, CATEGORIA_CITA_LABEL } from "@/app/citas/tipos";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
+type Vertical = "eventos" | "citas";
+
+// Las dos verticales que se pueden publicar desde este formulario.
+const VERTICALES: { id: Vertical; titulo: string; detalle: string }[] = [
+  {
+    id: "eventos",
+    titulo: "Servicios para eventos",
+    detalle: "Salones, catering, DJ, decoración y todo lo que se contrata para un evento.",
+  },
+  {
+    id: "citas",
+    titulo: "Citas y reservas",
+    detalle: "Salón de belleza, barbería, spa, consultorio... atendés con cita por hora.",
+  },
+];
+
 export default function NuevoRanchoForm() {
   const [state, formAction, pending] = useActionState<
     NuevoRanchoState,
     FormData
   >(crearRancho, undefined);
-  const [categoria, setCategoria] = useState<Categoria | "">("");
+  const [vertical, setVertical] = useState<Vertical>("eventos");
+  const [categoria, setCategoria] = useState("");
   const [subcategoria, setSubcategoria] = useState("");
   const [provincia, setProvincia] = useState<Provincia | "">("");
   const [canton, setCanton] = useState("");
-  const esLugar = categoria === "lugares";
+
+  const esEventos = vertical === "eventos";
+  // La categoría de eventos válida (para subcategorías); en citas es null.
+  const categoriaEvento =
+    esEventos && (CATEGORIAS as readonly string[]).includes(categoria)
+      ? (categoria as Categoria)
+      : null;
+  const esLugar = categoriaEvento === "lugares";
 
   // Verificación de identidad: las fotos se suben apenas se eligen
   // (al bucket privado verificacion-proveedores) y el formulario solo
@@ -64,28 +89,73 @@ export default function NuevoRanchoForm() {
       action={formAction}
       className="mt-6 flex flex-col gap-3.5 rounded-[18px] border border-aventurea-line bg-aventurea-surface p-6"
     >
+      {/* La vertical: eventos (lo de siempre) o citas (Fresha-style).
+          Cambiar de una a otra resetea la categoría, porque cada
+          vertical tiene su propia lista. */}
       <div>
-        <label className={labelCls}>¿Qué tipo de servicio ofrecés?</label>
+        <label className={labelCls}>¿Qué publicás?</label>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {VERTICALES.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              aria-pressed={vertical === v.id}
+              onClick={() => {
+                if (vertical === v.id) return;
+                setVertical(v.id);
+                setCategoria("");
+                setSubcategoria("");
+              }}
+              className={`rounded-2xl border p-4 text-left transition-colors ${
+                vertical === v.id
+                  ? "border-aventurea-orange bg-aventurea-orange/5"
+                  : "border-aventurea-line bg-aventurea-cream-2 hover:border-aventurea-orange/40"
+              }`}
+            >
+              <span className="block text-[13.5px] font-bold text-aventurea-ink">
+                {v.titulo}
+              </span>
+              <span className="mt-1 block text-[12px] leading-relaxed text-zinc-500">
+                {v.detalle}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <input type="hidden" name="vertical" value={vertical} />
+
+      <div>
+        <label className={labelCls}>
+          {esEventos ? "¿Qué tipo de servicio ofrecés?" : "¿Qué tipo de negocio tenés?"}
+        </label>
         <select
           name="categoria"
           required
           value={categoria}
           onChange={(e) => {
-            setCategoria(e.target.value as Categoria);
+            setCategoria(e.target.value);
             setSubcategoria("");
           }}
           className={inputCls}
         >
           <option value="">Selecciona una opción</option>
-          {CATEGORIAS.map((c) => (
-            <option key={c} value={c}>
-              {CATEGORIA_LABEL[c]}
-            </option>
-          ))}
+          {esEventos
+            ? CATEGORIAS.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORIA_LABEL[c]}
+                </option>
+              ))
+            : CATEGORIAS_CITAS.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORIA_CITA_LABEL[c]}
+                </option>
+              ))}
         </select>
       </div>
 
-      {categoria && (
+      {/* Las subcategorías son de la vertical de eventos; en citas la
+          categoría ya es lo bastante específica. */}
+      {categoriaEvento && (
         <div>
           <label className={labelCls}>
             {esLugar ? "Tipo de lugar" : "¿Qué ofrecés exactamente?"}
@@ -98,7 +168,7 @@ export default function NuevoRanchoForm() {
             className={inputCls}
           >
             <option value="">Selecciona una opción</option>
-            {SUBCATEGORIAS[categoria].map((s) => (
+            {SUBCATEGORIAS[categoriaEvento].map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
               </option>
@@ -115,7 +185,13 @@ export default function NuevoRanchoForm() {
           type="text"
           name="nombre"
           required
-          placeholder={esLugar ? "Ej. Rancho Los Almendros" : "Ej. DJ Mauricio Eventos"}
+          placeholder={
+            esLugar
+              ? "Ej. Rancho Los Almendros"
+              : esEventos
+                ? "Ej. DJ Mauricio Eventos"
+                : "Ej. Barbería La Norteña"
+          }
           className={inputCls}
         />
       </div>
@@ -169,7 +245,7 @@ export default function NuevoRanchoForm() {
             ))}
           </select>
         </div>
-        {categoria && !esLugar && (
+        {esEventos && categoria && !esLugar && (
           <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500 sm:col-span-2">
             Tu zona de cobertura — vos te trasladás al evento del cliente, no
             hace falta una dirección exacta.
@@ -177,7 +253,9 @@ export default function NuevoRanchoForm() {
         )}
       </div>
 
-      {esLugar && (
+      {/* La dirección aplica a los lugares de eventos y a todo negocio
+          de citas: el cliente llega al local. */}
+      {(esLugar || !esEventos) && (
         <div>
           <label className={labelCls}>Dirección exacta</label>
           <input

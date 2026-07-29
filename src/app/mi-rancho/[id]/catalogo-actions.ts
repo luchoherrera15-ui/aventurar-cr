@@ -23,6 +23,8 @@ export type ItemInput = {
   tipo: "paquete" | "producto";
   grupo: string;
   duracionHoras: number | null;
+  /** Duración en minutos — la vertical de Citas mide así sus servicios. */
+  duracionMinutos: number | null;
   fotoUrl: string | null;
   minPorReserva: number;
   maxPorReserva: number | null;
@@ -48,6 +50,15 @@ function validar(datos: ItemInput) {
       datos.duracionHoras > 240)
   ) {
     return "La duración debe ser una cantidad de horas entre 0 y 240.";
+  }
+  // Mismo rango que el check de la base (rancho_items_duracion_minutos_check).
+  if (
+    datos.duracionMinutos !== null &&
+    (!Number.isInteger(datos.duracionMinutos) ||
+      datos.duracionMinutos < 5 ||
+      datos.duracionMinutos > 480)
+  ) {
+    return "La duración debe ser una cantidad de minutos entre 5 y 480.";
   }
   if (!Number.isInteger(datos.minPorReserva) || datos.minPorReserva < 1) {
     return "El mínimo por reserva debe ser al menos 1.";
@@ -76,6 +87,7 @@ function aFila(datos: ItemInput) {
     tipo: datos.tipo,
     grupo: datos.grupo.trim() || null,
     duracion_horas: datos.duracionHoras,
+    duracion_minutos: datos.duracionMinutos,
     foto_url: datos.fotoUrl,
     min_por_reserva: datos.minPorReserva,
     max_por_reserva: datos.maxPorReserva,

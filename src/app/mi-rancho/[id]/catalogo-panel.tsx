@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RanchoItem } from "../types";
 import { etiquetaDuracion } from "@/lib/catalogo";
+import { etiquetaMinutos } from "@/app/citas/tipos";
 import {
   actualizarItemCatalogo,
   crearItemCatalogo,
@@ -37,6 +38,7 @@ type Borrador = {
   tipo: "paquete" | "producto";
   grupo: string;
   duracionHoras: string;
+  duracionMinutos: string;
   fotoUrl: string | null;
   minPorReserva: string;
   maxPorReserva: string;
@@ -51,6 +53,7 @@ const VACIO: Borrador = {
   tipo: "paquete",
   grupo: "",
   duracionHoras: "",
+  duracionMinutos: "",
   fotoUrl: null,
   minPorReserva: "1",
   maxPorReserva: "",
@@ -73,6 +76,7 @@ function aInput(b: Borrador, activo: boolean): ItemInput {
     tipo: b.tipo,
     grupo: b.grupo,
     duracionHoras: num(b.duracionHoras),
+    duracionMinutos: num(b.duracionMinutos),
     fotoUrl: b.fotoUrl,
     minPorReserva: num(b.minPorReserva) ?? 1,
     maxPorReserva: num(b.maxPorReserva),
@@ -90,6 +94,8 @@ function deItem(item: RanchoItem): Borrador {
     tipo: item.tipo,
     grupo: item.grupo ?? "",
     duracionHoras: item.duracion_horas === null ? "" : String(item.duracion_horas),
+    duracionMinutos:
+      item.duracion_minutos === null ? "" : String(item.duracion_minutos),
     fotoUrl: item.foto_url,
     minPorReserva: String(item.min_por_reserva),
     maxPorReserva: item.max_por_reserva === null ? "" : String(item.max_por_reserva),
@@ -107,11 +113,15 @@ export default function CatalogoPanel({
   ranchoId,
   initialItems,
   etiqueta,
+  vertical = "eventos",
 }: {
   ranchoId: string;
   initialItems: RanchoItem[];
   etiqueta: string;
+  /** Vertical del negocio: en "citas" la duración se edita en minutos. */
+  vertical?: string;
 }) {
+  const esCitas = vertical === "citas";
   const [items, setItems] = useState(
     [...initialItems].sort((a, b) => a.orden - b.orden),
   );
@@ -361,18 +371,36 @@ export default function CatalogoPanel({
         </select>
       </div>
 
-      <div>
-        <label className={labelCls}>Horas que incluye (opcional)</label>
-        <input
-          type="number"
-          min={0}
-          step="0.5"
-          value={borrador.duracionHoras}
-          onChange={(e) => setBorrador({ ...borrador, duracionHoras: e.target.value })}
-          placeholder="Ej. 5"
-          className={inputCls}
-        />
-      </div>
+      {esCitas ? (
+        <div>
+          <label className={labelCls}>Duración (minutos)</label>
+          <input
+            type="number"
+            min={5}
+            max={480}
+            step={5}
+            value={borrador.duracionMinutos}
+            onChange={(e) =>
+              setBorrador({ ...borrador, duracionMinutos: e.target.value })
+            }
+            placeholder="30"
+            className={inputCls}
+          />
+        </div>
+      ) : (
+        <div>
+          <label className={labelCls}>Horas que incluye (opcional)</label>
+          <input
+            type="number"
+            min={0}
+            step="0.5"
+            value={borrador.duracionHoras}
+            onChange={(e) => setBorrador({ ...borrador, duracionHoras: e.target.value })}
+            placeholder="Ej. 5"
+            className={inputCls}
+          />
+        </div>
+      )}
       <div>
         <label className={labelCls}>Sección (opcional)</label>
         <input
@@ -514,12 +542,19 @@ export default function CatalogoPanel({
                   <p className="mt-0.5 text-[13px] font-bold text-aventurea-navy">
                     {fmtColones(item.precio)}
                     {item.precio !== null && item.unidad ? ` ${item.unidad}` : ""}
-                    {etiquetaDuracion(item.duracion_horas) && (
-                      <span className="font-normal text-aventurea-ink-soft">
-                        {" "}
-                        · {etiquetaDuracion(item.duracion_horas)}
-                      </span>
-                    )}
+                    {esCitas
+                      ? item.duracion_minutos !== null && (
+                          <span className="font-normal text-aventurea-ink-soft">
+                            {" "}
+                            · {etiquetaMinutos(item.duracion_minutos)}
+                          </span>
+                        )
+                      : etiquetaDuracion(item.duracion_horas) && (
+                          <span className="font-normal text-aventurea-ink-soft">
+                            {" "}
+                            · {etiquetaDuracion(item.duracion_horas)}
+                          </span>
+                        )}
                     {item.capacidad_dia !== null && (
                       <span className="font-normal text-aventurea-ink-soft">
                         {" "}

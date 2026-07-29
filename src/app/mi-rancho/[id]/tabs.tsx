@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export type Tab = { id: string; label: string; content: ReactNode };
+/** Con `href` la pestaña es un link a otra pantalla (sin contenido acá). */
+export type Tab = { id: string; label: string; content?: ReactNode; href?: string };
 
 /**
  * Todas las pestañas quedan montadas (solo se ocultan con `hidden`), no
@@ -30,28 +32,40 @@ export default function Tabs({ tabs, defaultTab }: { tabs: Tab[]; defaultTab: st
   return (
     <div>
       <div className="-mx-5 flex gap-1 overflow-x-auto border-b border-aventurea-line px-5 sm:mx-0 sm:px-0">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => cambiar(t.id)}
-            className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-[13.5px] font-bold transition-colors ${
-              activo === t.id
-                ? "border-aventurea-navy text-aventurea-navy"
-                : "border-transparent text-aventurea-ink-soft hover:text-aventurea-ink"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+        {tabs.map((t) =>
+          t.href ? (
+            <Link
+              key={t.id}
+              href={t.href}
+              className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-ink"
+            >
+              {t.label}
+            </Link>
+          ) : (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => cambiar(t.id)}
+              className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-[13.5px] font-bold transition-colors ${
+                activo === t.id
+                  ? "border-aventurea-navy text-aventurea-navy"
+                  : "border-transparent text-aventurea-ink-soft hover:text-aventurea-ink"
+              }`}
+            >
+              {t.label}
+            </button>
+          ),
+        )}
       </div>
 
       <div className="pt-6">
-        {tabs.map((t) => (
-          <div key={t.id} className={activo === t.id ? "" : "hidden"}>
-            {t.content}
-          </div>
-        ))}
+        {tabs
+          .filter((t) => !t.href)
+          .map((t) => (
+            <div key={t.id} className={activo === t.id ? "" : "hidden"}>
+              {t.content}
+            </div>
+          ))}
       </div>
     </div>
   );

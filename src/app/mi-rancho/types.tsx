@@ -520,6 +520,8 @@ export type Rancho = {
   precio_hora_lugar: number | null;
   precio_fijo_lugar: number | null;
   fotos: string[];
+  /** Qué vertical del marketplace es (0055): eventos es el default. */
+  vertical?: "eventos" | "citas" | "hospedajes";
   estado: EstadoRancho;
   created_at: string;
   slug: string | null;
@@ -622,6 +624,8 @@ export type RanchoItem = {
   foto_url: string | null;
   /** Cuántas horas incluye ("Estación 1 · 5 horas"). null = no aplica. */
   duracion_horas: number | null;
+  /** Duración en minutos ("Corte · 45 min") — la usa la vertical de Citas. */
+  duracion_minutos: number | null;
   /** Sección del catálogo ("Estaciones", "Extras", "Bebidas"...). */
   grupo: string | null;
   /** 'paquete' = tarjeta grande con foto; 'producto' = fila con contador. */
