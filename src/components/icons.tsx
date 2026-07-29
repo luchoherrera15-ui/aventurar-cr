@@ -449,6 +449,24 @@ export function IconStore({ className = base }: IconProps) {
   );
 }
 
+export function IconMail({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4 7 8 6 8-6" />
+    </svg>
+  );
+}
+
+export function IconChartBars({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" d="M4 20.5h16" />
+      <path strokeLinecap="round" d="M7 20v-6M12 20V8M17 20v-9.5" />
+    </svg>
+  );
+}
+
 export function IconChatBubble({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
