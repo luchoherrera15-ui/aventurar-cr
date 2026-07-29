@@ -8,47 +8,117 @@ import type { RanchoItem } from "../types";
  * CRUD del catálogo (menú/paquetes/productos) de un negocio. Las
  * políticas de la base ya limitan todo al dueño del rancho; acá se
  * validan los datos y se refresca la página.
+ *
+ * Desde 0050 un ítem es un paquete reservable de verdad: foto,
+ * duración, sección, mínimos por pedido y cupo por día.
  */
 
 type Resultado = { error?: string; item?: RanchoItem };
 
-function validar(nombre: string, precio: number | null) {
+export type ItemInput = {
+  nombre: string;
+  descripcion: string;
+  precio: number | null;
+  unidad: string;
+  tipo: "paquete" | "producto";
+  grupo: string;
+  duracionHoras: number | null;
+  fotoUrl: string | null;
+  minPorReserva: number;
+  maxPorReserva: number | null;
+  capacidadDia: number | null;
+  activo: boolean;
+};
+
+function validar(datos: ItemInput) {
+  const nombre = datos.nombre.trim();
   if (!nombre || nombre.length > 120) {
     return "El nombre es obligatorio (máximo 120 caracteres).";
   }
-  if (precio !== null && (!Number.isFinite(precio) || precio < 0)) {
+  if (datos.precio !== null && (!Number.isFinite(datos.precio) || datos.precio < 0)) {
     return "El precio no puede ser negativo.";
+  }
+  if (datos.grupo.trim().length > 40) {
+    return "El nombre de la sección es muy largo (máximo 40 caracteres).";
+  }
+  if (
+    datos.duracionHoras !== null &&
+    (!Number.isFinite(datos.duracionHoras) ||
+      datos.duracionHoras <= 0 ||
+      datos.duracionHoras > 240)
+  ) {
+    return "La duración debe ser una cantidad de horas entre 0 y 240.";
+  }
+  if (!Number.isInteger(datos.minPorReserva) || datos.minPorReserva < 1) {
+    return "El mínimo por reserva debe ser al menos 1.";
+  }
+  if (
+    datos.maxPorReserva !== null &&
+    (!Number.isInteger(datos.maxPorReserva) || datos.maxPorReserva < datos.minPorReserva)
+  ) {
+    return "El máximo por reserva no puede ser menor que el mínimo.";
+  }
+  if (
+    datos.capacidadDia !== null &&
+    (!Number.isInteger(datos.capacidadDia) || datos.capacidadDia < 1)
+  ) {
+    return "La cantidad por día debe ser al menos 1.";
   }
   return null;
 }
 
+function aFila(datos: ItemInput) {
+  return {
+    nombre: datos.nombre.trim(),
+    descripcion: datos.descripcion.trim() || null,
+    precio: datos.precio,
+    unidad: datos.unidad.trim() || null,
+    tipo: datos.tipo,
+    grupo: datos.grupo.trim() || null,
+    duracion_horas: datos.duracionHoras,
+    foto_url: datos.fotoUrl,
+    min_por_reserva: datos.minPorReserva,
+    max_por_reserva: datos.maxPorReserva,
+    capacidad_dia: datos.capacidadDia,
+    activo: datos.activo,
+  };
+}
+
 export async function crearItemCatalogo(
   ranchoId: string,
-  datos: { nombre: string; descripcion: string; precio: number | null; unidad: string },
+  datos: ItemInput,
 ): Promise<Resultado> {
-  const nombre = datos.nombre.trim();
-  const invalido = validar(nombre, datos.precio);
+  const invalido = validar(datos);
   if (invalido) return { error: invalido };
 
   const supabase = await createClient();
+
+  // El nuevo va al final: `orden` es lo que las flechas del panel
+  // reacomodan después.
+  const { data: ultimo } = await supabase
+    .from("rancho_items")
+    .select("orden")
+    .eq("rancho_id", ranchoId)
+    .order("orden", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("rancho_items")
     .insert({
       rancho_id: ranchoId,
-      nombre,
-      descripcion: datos.descripcion.trim() || null,
-      precio: datos.precio,
-      unidad: datos.unidad.trim() || null,
+      orden: (ultimo?.orden ?? 0) + 1,
+      ...aFila(datos),
     })
     .select("*")
     .single();
 
   if (error) {
-    // El caso típico: la migración 0035 todavía no se corrió.
-    if (/rancho_items/.test(error.message)) {
+    // El caso típico: las migraciones todavía no se corrieron.
+    if (/rancho_items|column/.test(error.message)) {
       return {
         error:
-          "Falta correr la migración en Supabase (supabase/aplicar-migraciones-pendientes.sql).",
+          "Falta correr la última migración en Supabase (supabase/migrations).",
       };
     }
     return { error: "No se pudo guardar: " + error.message };
@@ -61,22 +131,15 @@ export async function crearItemCatalogo(
 export async function actualizarItemCatalogo(
   ranchoId: string,
   itemId: string,
-  datos: { nombre: string; descripcion: string; precio: number | null; unidad: string; activo: boolean },
+  datos: ItemInput,
 ): Promise<Resultado> {
-  const nombre = datos.nombre.trim();
-  const invalido = validar(nombre, datos.precio);
+  const invalido = validar(datos);
   if (invalido) return { error: invalido };
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("rancho_items")
-    .update({
-      nombre,
-      descripcion: datos.descripcion.trim() || null,
-      precio: datos.precio,
-      unidad: datos.unidad.trim() || null,
-      activo: datos.activo,
-    })
+    .update(aFila(datos))
     .eq("id", itemId)
     .eq("rancho_id", ranchoId)
     .select("*")
@@ -86,6 +149,71 @@ export async function actualizarItemCatalogo(
 
   revalidatePath(`/mi-rancho/${ranchoId}`);
   return { item: data as RanchoItem };
+}
+
+/**
+ * "Estación 1" → "Estación 2" en dos clics: copia el ítem con todos
+ * sus datos, listo para cambiarle el nombre o el precio.
+ */
+export async function duplicarItemCatalogo(
+  ranchoId: string,
+  itemId: string,
+): Promise<Resultado> {
+  const supabase = await createClient();
+
+  const { data: original } = await supabase
+    .from("rancho_items")
+    .select("*")
+    .eq("id", itemId)
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+
+  if (!original) return { error: "No encontramos ese ítem." };
+
+  const { data: ultimo } = await supabase
+    .from("rancho_items")
+    .select("orden")
+    .eq("rancho_id", ranchoId)
+    .order("orden", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const copia = { ...(original as RanchoItem) } as Record<string, unknown>;
+  delete copia.id;
+  delete copia.created_at;
+  copia.nombre = `${original.nombre} (copia)`.slice(0, 120);
+  copia.orden = (ultimo?.orden ?? 0) + 1;
+
+  const { data, error } = await supabase
+    .from("rancho_items")
+    .insert(copia)
+    .select("*")
+    .single();
+
+  if (error) return { error: "No se pudo duplicar: " + error.message };
+
+  revalidatePath(`/mi-rancho/${ranchoId}`);
+  return { item: data as RanchoItem };
+}
+
+/** Guarda el orden completo tal como quedó en el panel (flechas ↑/↓). */
+export async function reordenarCatalogo(
+  ranchoId: string,
+  idsEnOrden: string[],
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+
+  for (let i = 0; i < idsEnOrden.length; i++) {
+    const { error } = await supabase
+      .from("rancho_items")
+      .update({ orden: i + 1 })
+      .eq("id", idsEnOrden[i])
+      .eq("rancho_id", ranchoId);
+    if (error) return { error: "No se pudo reordenar: " + error.message };
+  }
+
+  revalidatePath(`/mi-rancho/${ranchoId}`);
+  return {};
 }
 
 export async function eliminarItemCatalogo(

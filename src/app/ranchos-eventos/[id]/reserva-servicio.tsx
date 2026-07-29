@@ -4,6 +4,9 @@ import { useMemo, useState, useActionState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { solicitarCotizacion, type CotizacionState } from "../cotizacion-actions";
 import type { RanchoItem } from "@/app/mi-rancho/types";
+import CatalogoPaquetes from "@/components/catalogo-paquetes";
+import { totalPedido } from "@/lib/catalogo";
+import type { CupoDia } from "@/lib/disponibilidad";
 import {
   cotizarServicio,
   leerConfigCobro,
@@ -31,13 +34,13 @@ function fmtColones(n: number) {
 
 /**
  * Reserva en línea para servicios (todo lo que no es Lugares): elegís
- * la fecha en el calendario, armás tu pedido con el catálogo del
- * proveedor y la solicitud abre un chat con el resumen ya escrito.
+ * la fecha en el calendario, armás tu reserva con los paquetes y
+ * productos del catálogo, pagás el depósito y listo — el chat queda
+ * como apoyo, no como requisito.
  *
- * A diferencia de los Lugares, acá las fechas no se bloquean entre sí:
- * un catering puede atender más de un evento el mismo día, así que el
- * calendario solo bloquea el pasado y la anticipación mínima que el
- * proveedor pida.
+ * A diferencia de los Lugares, un mismo día puede admitir varios
+ * eventos: el calendario bloquea el pasado, la anticipación mínima, y
+ * los días donde el proveedor ya llenó su cupo (eventos_por_dia).
  */
 export default function ReservaServicio({
   ranchoId,
@@ -52,6 +55,8 @@ export default function ReservaServicio({
   cuentaNumero = null,
   cuentaTitular = null,
   cuentaTipo = null,
+  disponibilidad = {},
+  eventosPorDia = null,
 }: {
   ranchoId: string;
   items: RanchoItem[];
@@ -69,6 +74,10 @@ export default function ReservaServicio({
   cuentaNumero?: string | null;
   cuentaTitular?: string | null;
   cuentaTipo?: string | null;
+  /** fecha → cuántos eventos ya tiene tomados y cuánto de cada ítem. */
+  disponibilidad?: Record<string, CupoDia>;
+  /** Cupo de eventos por día del proveedor. null = sin tope. */
+  eventosPorDia?: number | null;
 }) {
   const accion = solicitarCotizacion.bind(null, ranchoId);
   const [state, formAction, pending] = useActionState<CotizacionState, FormData>(
@@ -155,9 +164,9 @@ export default function ReservaServicio({
     ...Array.from({ length: diasEnMes }, (_, i) => i + 1),
   ];
 
-  function cambiarCantidad(id: string, delta: number) {
+  function fijarCantidad(id: string, cantidad: number) {
     setCantidades((prev) => {
-      const nueva = Math.max(0, Math.min(999, (prev[id] ?? 0) + delta));
+      const nueva = Math.max(0, Math.min(999, cantidad));
       const copia = { ...prev };
       if (nueva === 0) delete copia[id];
       else copia[id] = nueva;
@@ -165,11 +174,18 @@ export default function ReservaServicio({
     });
   }
 
-  const totalEstimado = items.reduce((s, i) => {
-    const c = cantidades[i.id] ?? 0;
-    return i.precio !== null ? s + i.precio * c : s;
-  }, 0);
-  const seleccionados = Object.values(cantidades).reduce((s, c) => s + c, 0);
+  // Un día está lleno cuando el proveedor ya alcanzó su cupo de
+  // eventos. Sin cupo configurado nunca se llena por cantidad.
+  function diaLleno(valor: string) {
+    if (eventosPorDia === null) return false;
+    return (disponibilidad[valor]?.eventos ?? 0) >= eventosPorDia;
+  }
+
+  const reservadasDelDia = fecha ? (disponibilidad[fecha]?.porItem ?? {}) : {};
+
+  const resumenPedido = totalPedido(items, cantidades);
+  const totalEstimado = resumenPedido.total;
+  const seleccionados = resumenPedido.unidades;
 
   // La numeración de pasos se arma según lo que este proveedor tenga
   // configurado (cotizador, catálogo, depósito).
@@ -220,7 +236,8 @@ export default function ReservaServicio({
             {celdas.map((dia, i) => {
               if (dia === null) return <span key={`v-${i}`} />;
               const valor = iso(anio, mes, dia);
-              const deshabilitado = valor < minima;
+              const lleno = valor >= minima && diaLleno(valor);
+              const deshabilitado = valor < minima || lleno;
               const activo = fecha === valor;
               return (
                 <button
@@ -229,12 +246,15 @@ export default function ReservaServicio({
                   disabled={deshabilitado}
                   onClick={() => setFecha(valor)}
                   aria-pressed={activo}
+                  title={lleno ? "Este día ya está lleno" : undefined}
                   className={`aspect-square rounded-lg text-[13px] font-bold transition-colors ${
                     activo
                       ? "bg-aventurea-navy text-white"
-                      : deshabilitado
-                        ? "text-zinc-300"
-                        : "text-aventurea-ink hover:bg-aventurea-cream-2"
+                      : lleno
+                        ? "bg-aventurea-cream-2 text-zinc-400 line-through"
+                        : deshabilitado
+                          ? "text-zinc-300"
+                          : "text-aventurea-ink hover:bg-aventurea-cream-2"
                   }`}
                 >
                   {dia}
@@ -358,59 +378,20 @@ export default function ReservaServicio({
         </div>
       )}
 
-      {/* ---------- Paso: el pedido (solo si hay catálogo) ---------- */}
+      {/* ---------- Paso: armá tu reserva con el catálogo ---------- */}
       {items.length > 0 && (
         <div>
           <p className={labelCls}>
-            {numPedido} · Armá tu pedido del {etiquetaCatalogo.toLowerCase()} (opcional)
+            {numPedido} · Elegí del {etiquetaCatalogo.toLowerCase()}
+            {pasoServicio ? " (opcional)" : ""}
           </p>
-          <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-            {items.map((item) => {
-              const cantidad = cantidades[item.id] ?? 0;
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3 border-b border-aventurea-line px-4 py-3 last:border-none"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] font-bold text-aventurea-ink">{item.nombre}</p>
-                    {item.descripcion && (
-                      <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">
-                        {item.descripcion}
-                      </p>
-                    )}
-                    <p className="mt-0.5 text-[12.5px] font-bold text-aventurea-navy">
-                      {item.precio !== null
-                        ? `${fmtColones(item.precio)}${item.unidad ? ` ${item.unidad}` : ""}`
-                        : "A cotizar"}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => cambiarCantidad(item.id, -1)}
-                      disabled={cantidad === 0}
-                      aria-label={`Quitar ${item.nombre}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink disabled:opacity-30"
-                    >
-                      −
-                    </button>
-                    <span className="w-6 text-center text-[14px] font-bold text-aventurea-ink">
-                      {cantidad}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => cambiarCantidad(item.id, 1)}
-                      aria-label={`Agregar ${item.nombre}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-navy text-white"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <CatalogoPaquetes
+            items={items}
+            cantidades={cantidades}
+            reservadasPorItem={reservadasDelDia}
+            hayFecha={!!fecha}
+            onCambiar={fijarCantidad}
+          />
           {seleccionados > 0 && (
             <p className="mt-2 text-[13px] font-bold text-aventurea-ink">
               {seleccionados} ítem{seleccionados === 1 ? "" : "s"} elegido
@@ -421,6 +402,12 @@ export default function ReservaServicio({
                   · {lineasBase.length > 0 ? "Subtotal del pedido" : "Total estimado"}:{" "}
                   <span className="text-aventurea-navy">{fmtColones(totalEstimado)}</span>
                 </>
+              )}
+              {resumenPedido.hayACotizar && (
+                <span className="font-normal text-aventurea-ink-soft">
+                  {" "}
+                  · algunos ítems se cotizan aparte
+                </span>
               )}
             </p>
           )}
@@ -580,15 +567,15 @@ export default function ReservaServicio({
             : !fecha
               ? "Elegí una fecha para continuar"
               : pagoActivo && !comprobantePath
-                ? "Subí el comprobante para agendar"
+                ? "Subí el comprobante para reservar"
                 : pagoActivo
-                  ? "Agendar mi fecha"
-                  : "Enviar solicitud de reserva"}
+                  ? "Reservar y pagar el depósito"
+                  : "Reservar mi fecha"}
         </button>
         <p className="mt-2 text-[12px] text-aventurea-ink-soft">
           {pagoActivo
-            ? "Tu fecha queda agendada en aprobación y se abre el chat con el proveedor, con tu pedido ya detallado."
-            : "Al enviar se abre un chat con el proveedor, con tu pedido ya detallado — ahí mismo te confirma disponibilidad y precio final."}
+            ? "Tu reserva queda en aprobación con tu pedido ya detallado. El proveedor la revisa y te confirma — y si tenés dudas, el chat queda abierto."
+            : "Tu reserva queda registrada con tu pedido ya detallado, en aprobación del proveedor. Si tenés dudas, el chat queda abierto."}
         </p>
       </div>
     </form>

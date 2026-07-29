@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { DetallePedido, RanchoItem } from "@/app/mi-rancho/types";
+import type { DetallePedido } from "@/app/mi-rancho/types";
 import { hoyISOCR } from "@/lib/fechas";
 import { enviarCorreo, plantillaConfirmacionReserva } from "@/lib/email";
 import {
@@ -96,11 +96,13 @@ export async function solicitarCotizacion(
     return { error: "Subí el comprobante del depósito para agendar tu fecha." };
   }
 
-  // El pedido llega como { item_id: cantidad }. Los nombres y precios
-  // NO se le creen al navegador: se releen de la base acá, para que
-  // nadie mande un pedido con precios inventados.
-  let detallePedido: DetallePedido | null = null;
+  // El pedido llega como { item_id: cantidad }. Acá solo se le da
+  // forma; los nombres y precios NO se le creen al navegador — la
+  // función crear_reserva_servicio los relee de la base, comprueba los
+  // mínimos/máximos de cada ítem y el inventario del día, y escribe la
+  // reserva con sus líneas en una sola transacción (migración 0051).
   const pedidoRaw = String(formData.get("pedido") || "");
+  let pedido: { item_id: string; cantidad: number }[] = [];
   if (pedidoRaw) {
     let cantidades: Record<string, number>;
     try {
@@ -108,35 +110,14 @@ export async function solicitarCotizacion(
     } catch {
       return { error: "El pedido no se pudo leer. Recargá la página." };
     }
-    const ids = Object.keys(cantidades).filter(
-      (id) => Number.isInteger(cantidades[id]) && cantidades[id] > 0 && cantidades[id] <= 999,
-    );
-    if (ids.length > 0) {
-      const { data: itemsData } = await supabase
-        .from("rancho_items")
-        .select("*")
-        .eq("rancho_id", ranchoId)
-        .eq("activo", true)
-        .in("id", ids);
-      const items = (itemsData ?? []) as RanchoItem[];
-      if (items.length > 0) {
-        const lineas = items.map((i) => ({
-          item_id: i.id,
-          nombre: i.nombre,
-          precio: i.precio,
-          unidad: i.unidad,
-          cantidad: cantidades[i.id],
-        }));
-        const conPrecio = lineas.filter((l) => l.precio !== null);
-        detallePedido = {
-          items: lineas,
-          total_estimado:
-            conPrecio.length > 0
-              ? conPrecio.reduce((s, l) => s + l.precio! * l.cantidad, 0)
-              : null,
-        };
-      }
-    }
+    pedido = Object.keys(cantidades)
+      .filter(
+        (id) =>
+          Number.isInteger(cantidades[id]) &&
+          cantidades[id] > 0 &&
+          cantidades[id] <= 999,
+      )
+      .map((id) => ({ item_id: id, cantidad: cantidades[id] }));
   }
 
   const { data: perfil } = await supabase
@@ -145,42 +126,41 @@ export async function solicitarCotizacion(
     .eq("id", user.id)
     .maybeSingle();
 
-  const { data: reserva, error } = await supabase
-    .from("reservas")
-    .insert({
-      rancho_id: ranchoId,
-      cliente_id: user.id,
-      fecha,
-      tipo_evento: tipoEvento || null,
-      invitados: invitados && invitados > 0 ? invitados : null,
-      nombre: perfil?.nombre || user.email,
-      correo: user.email,
-      notas: notas || null,
-      estado: "pendiente",
-      origen: "web",
-      ...(detallePedido ? { detalle_pedido: detallePedido } : {}),
-      // El monto junta el servicio cotizado (por hora/persona/día...)
-      // con el pedido del catálogo, si alguno de los dos existe.
-      ...(totalServicio > 0 || detallePedido?.total_estimado != null
-        ? { monto_total: totalServicio + (detallePedido?.total_estimado ?? 0) }
-        : {}),
-      // El monto del depósito se guarda SIEMPRE que el pago aplique —
-      // sin esto, Finanzas del proveedor reportaba ₡0 de adelanto en
-      // todas las reservas de servicios aunque el cliente sí pagara.
-      ...(pagoRequerido ? { deposito_monto: deposito } : {}),
-      ...(pagoRequerido && comprobantePath
-        ? {
-            metodo_pago: metodoPago ?? "sinpe",
-            deposito_comprobante_url: comprobantePath,
-          }
-        : {}),
-    })
-    .select("id")
-    .single();
+  const { data: reservaId, error } = await supabase.rpc("crear_reserva_servicio", {
+    p_rancho_id: ranchoId,
+    p_fecha: fecha,
+    p_pedido: pedido,
+    p_tipo_evento: tipoEvento || null,
+    p_invitados: invitados && invitados > 0 ? invitados : null,
+    p_notas: notas || null,
+    p_nombre: perfil?.nombre || user.email,
+    p_correo: user.email,
+    p_whatsapp: null,
+    p_total_servicio: totalServicio,
+    p_metodo_pago: pagoRequerido && comprobantePath ? (metodoPago ?? "sinpe") : null,
+    p_deposito_comprobante_url:
+      pagoRequerido && comprobantePath ? comprobantePath : null,
+    p_terminos_aceptados: false,
+  });
 
-  if (error || !reserva) {
-    return { error: "No se pudo enviar la solicitud. Intentá de nuevo." };
+  if (error || !reservaId) {
+    // Los mensajes de la función ya vienen redactados para mostrar
+    // ("Ya no queda disponibilidad de …", "Ese día ya no tiene campo…").
+    return {
+      error: error?.message || "No se pudo enviar la solicitud. Intentá de nuevo.",
+    };
   }
+
+  const reserva = { id: reservaId as string };
+
+  // El pedido con precios reales lo armó la función releyendo la base;
+  // se lee de vuelta para escribir el resumen del chat con esos datos.
+  const { data: reservaCreada } = await supabase
+    .from("reservas")
+    .select("detalle_pedido")
+    .eq("id", reserva.id)
+    .maybeSingle();
+  const detallePedido = (reservaCreada?.detalle_pedido ?? null) as DetallePedido | null;
 
   // El resumen del pedido entra como primer mensaje del chat: el
   // proveedor lo ve en su bandeja con badge de "nuevo", y la

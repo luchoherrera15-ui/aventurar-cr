@@ -23,6 +23,8 @@ import type {
   PrecioTier,
   ServicioAdicional,
 } from "@/app/eventos-salon/types";
+import { disponibilidadServicio, type CupoDia } from "@/lib/disponibilidad";
+import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import {
   AmenidadesSeccion,
   ContactoSeccion,
@@ -151,17 +153,24 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   let promociones: PromocionDia[] = [];
 
   // El catálogo (menú/paquetes) de los servicios: es lo que el cliente
-  // elige al armar su reserva.
+  // elige al armar su reserva. La disponibilidad dice qué días ya
+  // están llenos y cuánto queda de cada paquete por fecha.
   let itemsCatalogo: RanchoItem[] = [];
+  let disponibilidadServicioPorDia: Record<string, CupoDia> = {};
   if (!esLugar) {
-    const { data: itemsData } = await supabase
-      .from("rancho_items")
-      .select("*")
-      .eq("rancho_id", rancho.id)
-      .eq("activo", true)
-      .order("orden", { ascending: true })
-      .order("created_at", { ascending: true });
-    itemsCatalogo = (itemsData ?? []) as RanchoItem[];
+    const hoy = hoyISOCR();
+    const [itemsRes, dispServicio] = await Promise.all([
+      supabase
+        .from("rancho_items")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .eq("activo", true)
+        .order("orden", { ascending: true })
+        .order("created_at", { ascending: true }),
+      disponibilidadServicio(supabase, rancho.id, hoy, sumarDiasISO(hoy, 365)),
+    ]);
+    itemsCatalogo = (itemsRes.data ?? []) as RanchoItem[];
+    disponibilidadServicioPorDia = dispServicio;
   }
   const anticipacionDias = Number(rancho.detalles?.anticipacion_dias) || 0;
   const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
@@ -515,12 +524,12 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
               Reservá con {rancho.nombre}
             </p>
             <h2 className="titulo mt-2 text-[24px] text-aventurea-ink">
-              Elegí tu fecha y armá tu pedido
+              Elegí tu fecha y armá tu reserva
             </h2>
             <p className="mt-1.5 text-[13.5px] text-aventurea-ink-soft">
               {itemsCatalogo.length > 0
-                ? `Elegí la fecha, marcá lo que querés del ${etiquetaCatalogo.toLowerCase()} y enviá tu solicitud — el proveedor te confirma por el chat de Bookea.`
-                : "Elegí la fecha y contanos qué necesitás — el proveedor te confirma por el chat de Bookea."}
+                ? `Elegí la fecha, armá tu reserva con el ${etiquetaCatalogo.toLowerCase()} y pagá el depósito — queda en aprobación del proveedor, sin tener que chatear.`
+                : "Elegí la fecha y contanos qué necesitás — tu reserva queda en aprobación del proveedor."}
             </p>
 
             <div className="mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 sm:p-6">
@@ -538,6 +547,8 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                   cuentaNumero={rancho.cuenta_numero}
                   cuentaTitular={rancho.cuenta_titular}
                   cuentaTipo={rancho.cuenta_tipo}
+                  disponibilidad={disponibilidadServicioPorDia}
+                  eventosPorDia={rancho.eventos_por_dia ?? null}
                 />
               ) : (
                 <div>

@@ -501,6 +501,9 @@ export type Rancho = {
   /** Posición entre los destacados de la portada (null = no destacado). */
   destacado_orden?: number | null;
   deposito_reserva: number;
+  /** Cuántos eventos atiende por día (0049). null = sin tope; los
+   *  Lugares quedan en 1 — el salón se alquila entero. */
+  eventos_por_dia?: number | null;
   sinpe_numero: string | null;
   sinpe_titular: string | null;
   cuenta_banco: string | null;
@@ -612,6 +615,18 @@ export type RanchoItem = {
   unidad: string | null;
   activo: boolean;
   orden: number;
+  /** Foto del paquete/producto (bucket ranchos-fotos). */
+  foto_url: string | null;
+  /** Cuántas horas incluye ("Estación 1 · 5 horas"). null = no aplica. */
+  duracion_horas: number | null;
+  /** Sección del catálogo ("Estaciones", "Extras", "Bebidas"...). */
+  grupo: string | null;
+  /** 'paquete' = tarjeta grande con foto; 'producto' = fila con contador. */
+  tipo: "paquete" | "producto";
+  min_por_reserva: number;
+  max_por_reserva: number | null;
+  /** Cuántas unidades puede atender por día. null = sin límite. */
+  capacidad_dia: number | null;
   created_at: string;
 };
 

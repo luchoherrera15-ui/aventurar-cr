@@ -149,6 +149,12 @@ export function cotizarServicio(
     }
   }
 
+  // "por_unidad" no cotiza nada A PROPÓSITO: cuando se cobra por
+  // unidad, el precio es el del catálogo (rancho_items) — cada
+  // producto con su precio y su cantidad. Antes esta modalidad se
+  // podía elegir y simplemente no pasaba nada, que parecía un bug.
+  // (No hay rama porque no hay tarifa única que aplicar.)
+
   // El traslado se suma solo cuando ya hay algo cotizado: solo, sin
   // servicio, no informa nada.
   if (lineas.length > 0 && config.costoTraslado) {
