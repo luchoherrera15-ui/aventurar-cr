@@ -19,7 +19,6 @@ import {
   CATEGORIA_ICONO,
   type Categoria,
 } from "@/app/mi-rancho/types";
-import GaleriaLightbox from "@/components/galeria-lightbox";
 import GaleriaHeroFotos from "@/components/galeria-hero";
 
 /**
@@ -261,32 +260,6 @@ export function DetallesSeccion({
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-/** Galería: las primeras fotos grandes y el resto en tira de miniaturas. */
-export function GaleriaSeccion({
-  fotos,
-  nombre,
-}: {
-  fotos: string[];
-  nombre: string;
-}) {
-  if (fotos.length === 0) return null;
-
-  return (
-    <section className="border-t border-aventurea-line py-14">
-      <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
-          Galería
-        </p>
-        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
-          Conocé el espacio
-        </h2>
-
-        <GaleriaLightbox fotos={fotos} nombre={nombre} />
       </div>
     </section>
   );

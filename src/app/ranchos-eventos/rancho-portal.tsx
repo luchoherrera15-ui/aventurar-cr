@@ -28,7 +28,6 @@ import {
   ContactoSeccion,
   DetallesSeccion,
   GaleriaHero,
-  GaleriaSeccion,
   MapaSeccion,
   PresentacionSeccion,
   ResenasSeccion,
@@ -625,11 +624,6 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           texto={rancho.descripcion_larga || rancho.descripcion}
         />
       )}
-
-      {/* Solo las fotos que no cupieron en el hero (el hero muestra 5):
-          si no sobra ninguna, la sección no aparece — nada de repetir
-          las mismas imágenes dos veces. */}
-      <GaleriaSeccion fotos={fotosHero.slice(5)} nombre={rancho.nombre} />
 
       {/* El mapa es de los lugares físicos; los servicios se trasladan
           al evento y su zona ya se ve en el encabezado. */}
