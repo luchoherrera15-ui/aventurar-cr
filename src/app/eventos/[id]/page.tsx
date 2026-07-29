@@ -5,7 +5,7 @@ import { NOMBRE_RANCHO_BOOKEAR } from "../constants";
 import RanchoPortal from "../rancho-portal";
 
 /**
- * Enlace legado (bookea.lat/ranchos-eventos/<uuid>): sigue
+ * Enlace legado (bookea.lat/eventos/<uuid>): sigue
  * funcionando para links ya compartidos, pero si el rancho ya tiene
  * slug (toda publicación nueva lo trae, y el backfill se lo dio a las
  * viejas) redirige a su URL corta para que esa sea la única que

@@ -5,7 +5,7 @@ import SiteHeader from "@/components/site-header";
 import { normalizarCategoria } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
 
-export default async function RanchosEventosPage() {
+export default async function EventosPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("ranchos")

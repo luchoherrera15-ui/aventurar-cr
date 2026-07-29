@@ -99,6 +99,6 @@ export async function crearRanchoComoAdmin(
   if (error) return { error: "No se pudo guardar el salón: " + error.message };
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/ranchos-eventos");
+  revalidatePath("/eventos");
   redirect("/admin/ranchos");
 }

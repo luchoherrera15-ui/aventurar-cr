@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: "%s | Bookea",
   },
   description:
-    "Reservá lugares para eventos, catering, música, decoración y muy pronto escapadas y hospedajes en todo Costa Rica. Compará opciones reales y reservá directo, sin cadenas de WhatsApp.",
+    "Reservá lugares para eventos, catering, música, decoración y muy pronto citas de servicios y hospedajes en todo Costa Rica. Compará opciones reales y reservá directo, sin cadenas de WhatsApp.",
   keywords: [
     "reservar espacios Costa Rica",
     "lugares para fiestas",

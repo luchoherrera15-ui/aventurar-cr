@@ -51,7 +51,7 @@ export async function setEstadoRancho(id: string, estado: EstadoRancho) {
   if (error) return { error: error.message };
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/ranchos-eventos");
+  revalidatePath("/eventos");
   return { error: null };
 }
 
@@ -90,7 +90,7 @@ export async function setDestacado(id: string, destacar: boolean) {
   }
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/ranchos-eventos");
+  revalidatePath("/eventos");
   return { error: null, cambios: [{ id, destacado_orden: nuevoOrden }] };
 }
 
@@ -123,7 +123,7 @@ export async function moverDestacado(id: string, direccion: -1 | 1) {
   }
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/ranchos-eventos");
+  revalidatePath("/eventos");
   return { error: null, cambios };
 }
 
@@ -135,6 +135,6 @@ export async function borrarRancho(id: string) {
   if (error) return { error: error.message };
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/ranchos-eventos");
+  revalidatePath("/eventos");
   return { error: null };
 }

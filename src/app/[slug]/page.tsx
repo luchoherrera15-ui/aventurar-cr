@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizarCategoria, type Rancho } from "@/app/mi-rancho/types";
-import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
-import RanchoPortal from "@/app/ranchos-eventos/rancho-portal";
+import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
+import RanchoPortal from "@/app/eventos/rancho-portal";
 
 /**
  * La URL corta de cada rancho/servicio, ej. bookea.lat/rancholastorres.

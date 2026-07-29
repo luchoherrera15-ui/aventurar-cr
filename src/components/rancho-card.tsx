@@ -10,8 +10,8 @@ import {
   UNIDAD_PRECIO_LABEL,
   type Rancho,
 } from "@/app/mi-rancho/types";
-import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
-import { alternarFavorito } from "@/app/ranchos-eventos/favoritos-actions";
+import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
+import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
 
 export type Calificacion = { rancho_id: string; promedio: number; total: number };
@@ -51,7 +51,7 @@ export default function RanchoCard({
     ? "/eventos-salon"
     : rancho.slug
       ? `/${rancho.slug}`
-      : `/ranchos-eventos/${rancho.id}`;
+      : `/eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
   // quedaba cortada a media palabra.

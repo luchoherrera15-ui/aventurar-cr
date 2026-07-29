@@ -6,7 +6,7 @@ export default function PuntaleonaWebPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(240,120,42,0.10),transparent)]" />
       <div className="pointer-events-none absolute -inset-10 -z-10 rounded-[3rem] bg-aventurea-orange opacity-[0.08] blur-[100px]" />
 
-      <Link href="/ranchos-eventos" className="relative mb-6 flex items-center gap-2">
+      <Link href="/eventos" className="relative mb-6 flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element -- el
             logo oficial es un PNG estático: next/image no aporta nada
             acá. */}
@@ -19,7 +19,7 @@ export default function PuntaleonaWebPage() {
         directamente acá.
       </p>
       <Link
-        href="/ranchos-eventos"
+        href="/eventos"
         className="relative mt-6 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
       >
         ← Volver al inicio

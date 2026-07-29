@@ -9,7 +9,7 @@ export default function MiRanchoLayout({
     <div className="min-h-screen bg-aventurea-cream">
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
-          <Link href="/ranchos-eventos" className="flex items-center gap-2">
+          <Link href="/eventos" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- el
                 logo oficial es un PNG estático: next/image no aporta
                 nada acá. */}
@@ -20,7 +20,7 @@ export default function MiRanchoLayout({
             </span>
           </Link>
           <Link
-            href="/ranchos-eventos"
+            href="/eventos"
             className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
           >
             ← Volver al inicio

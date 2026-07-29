@@ -76,7 +76,7 @@ export default async function PublicarPage() {
               Publicar mi negocio
             </Link>
             <Link
-              href="/ranchos-eventos"
+              href="/eventos"
               className="rounded-xl border border-aventurea-line bg-aventurea-surface px-7 py-3.5 text-[14.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-orange hover:text-aventurea-orange"
             >
               Ver el directorio
@@ -201,7 +201,7 @@ export default async function PublicarPage() {
             {CATEGORIAS.map((cat, i) => (
               <Link
                 key={cat}
-                href="/ranchos-eventos"
+                href="/eventos"
                 data-reveal
                 style={{ "--reveal-delay": `${i * 60}ms` } as React.CSSProperties}
                 className="group flex flex-col items-center gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-aventurea-orange/40 hover:shadow-md"
@@ -302,7 +302,7 @@ export default async function PublicarPage() {
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
           BOOKEA — Costa Rica ·{" "}
-          <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
+          <Link href="/eventos" className="font-bold text-aventurea-orange">
             Ver el directorio
           </Link>
         </p>

@@ -203,7 +203,7 @@ export async function actualizarRancho(
   if (error) return { error: "No se pudo guardar: " + error.message };
 
   revalidatePath("/mi-rancho", "layout");
-  revalidatePath("/ranchos-eventos");
-  revalidatePath(`/ranchos-eventos/${ranchoId}`);
+  revalidatePath("/eventos");
+  revalidatePath(`/eventos/${ranchoId}`);
   return { ok: true };
 }

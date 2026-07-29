@@ -443,7 +443,7 @@ export default async function RanchoDetallePage({
             </div>
             {rancho.estado === "aprobado" && (
               <Link
-                href={rancho.slug ? `/${rancho.slug}` : `/ranchos-eventos/${rancho.id}`}
+                href={rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`}
                 className="shrink-0 rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy hover:text-aventurea-navy"
               >
                 Ver mi página pública →

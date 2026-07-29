@@ -6,7 +6,7 @@ import {
   guardarCodigosBookear,
   guardarPromocionesBookear,
 } from "./actions";
-import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
+import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import type {
   CodigoDescuento,
   PrecioTier,

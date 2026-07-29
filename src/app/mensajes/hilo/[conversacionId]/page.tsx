@@ -100,7 +100,7 @@ export default async function HiloConsultaPage({
           </div>
           {esCliente && (
             <Link
-              href={rancho.slug ? `/${rancho.slug}` : `/ranchos-eventos/${rancho.id}`}
+              href={rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`}
               className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-navy"
             >
               Ver página

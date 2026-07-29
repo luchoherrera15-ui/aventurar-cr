@@ -9,7 +9,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 export const RESERVED_SLUGS = new Set([
   "admin",
+  "eventos",
   "eventos-salon",
+  "citas",
+  "booking",
   "mi-rancho",
   "publicar",
   "puntaleona-web",

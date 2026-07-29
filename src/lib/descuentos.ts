@@ -21,7 +21,7 @@ function revalidarTodo() {
   revalidatePath("/admin/eventos/precios");
   revalidatePath("/mi-rancho", "layout");
   revalidatePath("/eventos-salon");
-  revalidatePath("/ranchos-eventos");
+  revalidatePath("/eventos");
 }
 
 /** Reemplaza los códigos de descuento de UN rancho (nunca de todos). */

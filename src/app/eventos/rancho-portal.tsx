@@ -44,7 +44,7 @@ function fmtColones(n: number | null) {
 
 /**
  * El portal público de un rancho/servicio: el mismo contenido se
- * muestra tanto en /ranchos-eventos/[id] (enlace legado) como en
+ * muestra tanto en /eventos/[id] (enlace legado) como en
  * /[slug] (la URL corta, ej. bookea.lat/rancholastorres). Cada ruta
  * se encarga de buscar la fila en `ranchos` a su manera (por id o por
  * slug) y le pasa acá el resultado ya normalizado.
@@ -262,7 +262,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
               </Link>
             )}
             <Link
-              href="/ranchos-eventos"
+              href="/eventos"
               className="hidden text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy sm:block"
             >
               ← Ver todos los espacios
@@ -656,7 +656,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
           BOOKEA — Costa Rica ·{" "}
-          <Link href="/ranchos-eventos" className="font-bold text-aventurea-orange">
+          <Link href="/eventos" className="font-bold text-aventurea-orange">
             Ver todos los espacios
           </Link>
         </p>

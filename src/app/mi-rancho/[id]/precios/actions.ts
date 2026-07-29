@@ -68,7 +68,7 @@ export async function guardarHorariosPropio(
   if (error) return { error: "No se pudo guardar: " + error.message };
 
   revalidatePath("/mi-rancho", "layout");
-  revalidatePath("/ranchos-eventos");
+  revalidatePath("/eventos");
   return { error: null };
 }
 
@@ -137,7 +137,7 @@ export async function guardarTerminosPropio(
   if (error) return { error: "No se pudo guardar: " + error.message };
 
   revalidatePath("/mi-rancho", "layout");
-  revalidatePath("/ranchos-eventos");
+  revalidatePath("/eventos");
   return { error: null };
 }
 

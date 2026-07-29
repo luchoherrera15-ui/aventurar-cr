@@ -54,7 +54,7 @@ export default function MenuCuenta({
                 <Link href="/mensajes" className={itemCls} onClick={() => setAbierto(false)}>
                   Mensajes
                 </Link>
-                <Link href="/ranchos-eventos" className={itemCls} onClick={() => setAbierto(false)}>
+                <Link href="/eventos" className={itemCls} onClick={() => setAbierto(false)}>
                   Ver el directorio
                 </Link>
                 <Link
