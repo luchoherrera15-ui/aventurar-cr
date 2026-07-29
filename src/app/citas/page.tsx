@@ -3,19 +3,19 @@ import PaginaMantenimiento from "@/components/pagina-mantenimiento";
 import { IconClock } from "@/components/icons";
 
 export const metadata: Metadata = {
-  title: "Citas",
+  title: "Citas y Reservas",
   description:
-    "Reservá tu turno en peluquerías, spas, consultorios y talleres de Costa Rica. Muy pronto en Bookea.",
+    "Reservá tu cita en salones de belleza, barberías, spas y consultorios: elegí el servicio, la hora y con quién. Muy pronto en Bookea.",
 };
 
 export default function CitasPage() {
   return (
     <PaginaMantenimiento
-      breadcrumb="Citas"
+      breadcrumb="Citas y Reservas"
       icono={<IconClock />}
-      titulo="Citas y turnos"
-      descripcion="La sección para reservar hora en peluquerías, spas, consultorios y talleres — elegís el día, la hora y listo, sin llamar a preguntar si hay campo."
-      categorias={["Peluquería y belleza", "Spas y bienestar", "Consultorios", "Talleres y clases"]}
+      titulo="Citas y Reservas"
+      descripcion="La sección para reservar hora en salones de belleza, barberías, spas y consultorios — elegís el servicio, la hora y con quién, sin llamar a preguntar si hay campo."
+      categorias={["Belleza", "Barbería", "Uñas", "Spa y bienestar", "Consultorios"]}
     />
   );
 }

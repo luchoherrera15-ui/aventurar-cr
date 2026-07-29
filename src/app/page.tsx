@@ -1,203 +1,176 @@
 import Link from "next/link";
 import AccionesSesion from "@/components/acciones-sesion";
+import { IconClock, IconHouse, IconRancho } from "@/components/icons";
 
 /**
- * La portada de Bookea: pantalla completa sobre la foto de Costa Rica
- * con tres "puertas" de vidrio para elegir qué se quiere reservar —
- * Eventos, Citas y Booking. Eventos es el directorio que ya funciona;
- * Citas y Booking son las próximas verticales y por ahora entran a su
- * página "en mantenimiento" (no un callejón sin salida: cada una tiene
- * ruta propia en /citas y /booking).
+ * La portada de Bookea: una página serena — sin foto de fondo — con un
+ * degradado celeste muy suave y tres tarjetas para elegir qué se quiere
+ * reservar: Eventos, Citas y Reservas, Hospedajes. La persona escoge y
+ * listo; el detalle vive adentro de cada sección.
+ *
+ * El texto ya no se ancla a Costa Rica: la plataforma apunta a LATAM,
+ * USA y Europa, así que la portada habla de reservar, no de un país.
  */
-
-const chipCls =
-  "rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[12px] font-bold text-white";
-
-function FlechaCta() {
-  return (
-    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-aventurea-orange transition-transform duration-200 group-hover:translate-x-1">
-      <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-white" fill="none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12h14M13 6l6 6-6 6" />
-      </svg>
-    </span>
-  );
-}
-
-/**
- * Una de las tres puertas de la portada. Las tres son un Link — la de
- * eventos entra al directorio real, las otras dos a su página "en
- * mantenimiento" (nunca un callejón sin salida) — con la misma
- * tarjeta de vidrio; solo cambia si trae la insignia "Muy pronto" y
- * si el borde/CTA se pintan en naranja o quedan apagados.
- */
-function Puerta({
-  href,
-  activa,
-  icono,
-  titulo,
-  descripcion,
-  chips,
-  cta,
-}: {
-  href: string;
-  activa: boolean;
-  icono: React.ReactNode;
-  titulo: string;
-  descripcion: string;
-  chips: string[];
-  cta: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`group relative flex flex-col gap-3 rounded-[22px] border border-white/30 border-t-4 border-t-white/30 p-6 pb-5 text-left text-white shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-[18px] transition-all duration-200 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-aventurea-orange ${
-        activa
-          ? "bg-white/[0.13] hover:-translate-y-1.5 hover:border-t-aventurea-orange hover:bg-white/20 hover:shadow-[0_26px_60px_rgba(0,0,0,0.36)]"
-          : "bg-white/10 opacity-90 hover:-translate-y-1 hover:bg-white/[0.14]"
-      }`}
-    >
-      {!activa && (
-        <span className="absolute right-4 top-4 rounded-full bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white">
-          Muy pronto
-        </span>
-      )}
-      <span className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-white/30 bg-white/20 [&_svg]:h-6 [&_svg]:w-6 [&_svg]:stroke-[#FFC28A]">
-        {icono}
-      </span>
-      <h2 className="text-[clamp(20px,2vw,25px)] font-extrabold leading-tight tracking-[-0.5px] [text-shadow:0_1px_10px_rgba(0,0,0,0.3)]">
-        {titulo}
-      </h2>
-      <p className="text-[14px] font-medium leading-normal text-white/90 [text-shadow:0_1px_8px_rgba(0,0,0,0.28)]">
-        {descripcion}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {chips.map((c) => (
-          <span key={c} className={chipCls}>
-            {c}
-          </span>
-        ))}
-      </div>
-      <div className="mt-auto flex items-center justify-between border-t border-white/25 pt-3.5">
-        <span
-          className={`text-[14px] font-extrabold ${
-            activa ? "text-[#FFC28A] [text-shadow:0_1px_8px_rgba(0,0,0,0.3)]" : "text-white/70"
-          }`}
-        >
-          {cta}
-        </span>
-        {activa && <FlechaCta />}
-      </div>
-    </Link>
-  );
-}
 
 export default function PortadaPage() {
   return (
-    <main className="relative flex min-h-svh flex-col bg-[url('/portada-bookea.jpg')] bg-cover bg-[position:center_35%]">
-      {/* Velo para que el texto blanco se lea sobre cualquier zona de la foto */}
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(10,14,20,0.42)_0%,rgba(10,14,20,0.10)_26%,rgba(10,14,20,0.10)_48%,rgba(10,14,20,0.62)_100%)]" />
+    <main className="relative flex min-h-svh flex-col bg-[linear-gradient(175deg,#ffffff_0%,#f3fbfa_42%,#e7f5f4_100%)]">
+      {/* Un brillo celeste apenas perceptible detrás del centro, para
+          que el fondo no sea plano sin volverse ruidoso. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/3 h-[520px] w-[min(90vw,900px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(93,196,190,0.14),transparent)]"
+      />
 
-      {/* ---------- Header sobre la foto ---------- */}
+      {/* ---------- Header ---------- */}
       <header className="relative z-10 flex items-center justify-between px-5 py-4 sm:px-10">
         <Link href="/" className="flex items-center">
-          {/* Sobre la foto el logo va en blanco: el navy original se
-              perdería contra el velo oscuro del hero. */}
-          {/* eslint-disable-next-line @next/next/no-img-element -- SVG estático */}
-          <img
-            src="/logo-bookea-blanco.png"
-            alt="Bookea"
-            className="h-8 w-auto drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)] sm:h-9"
-          />
+          {/* eslint-disable-next-line @next/next/no-img-element -- logo estático */}
+          <img src="/logo-bookea.png" alt="Bookea" className="h-8 w-auto sm:h-9" />
         </Link>
         <div className="flex items-center gap-3.5">
           <Link
             href="/publicar"
-            className="rounded-full border border-white/25 bg-white/15 px-4 py-2.5 text-[14px] font-bold text-white backdrop-blur-md transition-colors hover:bg-white/25"
+            className="hidden whitespace-nowrap text-[13.5px] font-bold text-aventurea-ink hover:text-aventurea-navy sm:block"
           >
-            Publicá tu espacio
+            Publicá tu negocio
           </Link>
           <AccionesSesion />
         </div>
       </header>
 
       {/* ---------- Centro ---------- */}
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pb-10 pt-6 text-center sm:px-10">
-        <p className="mb-4 flex items-center gap-3 text-[12.5px] font-extrabold uppercase tracking-[0.22em] text-[#FFD9B8] [text-shadow:0_1px_8px_rgba(0,0,0,0.35)] before:block before:h-0.5 before:w-6 before:rounded before:bg-aventurea-orange after:block after:h-0.5 after:w-6 after:rounded after:bg-aventurea-orange">
-          Directorio nacional · Costa Rica
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pb-12 pt-8 text-center sm:px-10">
+        <p className="mb-4 flex items-center gap-3 text-[12px] font-extrabold uppercase tracking-[0.22em] text-[#2b8a84] before:block before:h-0.5 before:w-6 before:rounded before:bg-[#5dc4be] after:block after:h-0.5 after:w-6 after:rounded after:bg-[#5dc4be]">
+          Reservas en línea
         </p>
-        <h1 className="max-w-[14ch] text-[clamp(38px,6vw,68px)] font-black leading-[1.04] tracking-[-1.5px] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.35)]">
-          Viví Costa Rica a tu manera
+        <h1 className="max-w-[18ch] text-[clamp(32px,5vw,54px)] font-black leading-[1.06] tracking-[-1.2px] text-aventurea-ink">
+          Todo lo que se reserva, en un solo lugar
         </h1>
-        <p className="mt-3.5 max-w-[52ch] text-[clamp(15px,1.6vw,19px)] font-semibold leading-normal text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
-          Escapadas, restaurantes, aventuras y todo para tu evento — compará
-          opciones reales y reservá directo, sin cadenas de WhatsApp.
+        <p className="mt-4 max-w-[54ch] text-[clamp(14.5px,1.5vw,17px)] font-medium leading-relaxed text-aventurea-ink-soft">
+          Un evento, una cita o una escapada: elegí lo que necesitás y
+          reservalo directo, con confirmación y chat incluidos — sin salir
+          del sitio.
         </p>
 
-        {/* ---------- Puertas: eventos, citas, booking ---------- */}
-        <div className="mt-8 grid w-full justify-center gap-5 sm:mt-11 md:grid-cols-[repeat(3,minmax(0,340px))]">
-          <Puerta
+        {/* ---------- Las tres tarjetas ---------- */}
+        <div className="mt-10 grid w-full max-w-[1060px] gap-5 md:grid-cols-3">
+          <TarjetaSeccion
             href="/eventos"
             activa
-            icono={
-              <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 21V10l8-6 8 6v11" />
-                <path d="M9 21v-6h6v6" />
-              </svg>
-            }
-            titulo="Todo para tu evento"
-            descripcion="Encontrá el lugar y los proveedores para hacerlo inolvidable."
-            chips={["Lugares", "Alimentación", "Animación", "Decoración", "Y más"]}
+            icono={<IconRancho />}
+            titulo="Eventos"
+            descripcion="Salones y fincas, catering, música y decoración — todos los proveedores para armar tu evento completo."
+            contiene={["Lugares", "Alimentación", "Animación", "Decoración"]}
             cta="Planear mi evento"
           />
-
-          <Puerta
+          <TarjetaSeccion
             href="/citas"
-            activa={false}
-            icono={
-              <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="8.5" />
-                <path d="M12 7.5V12l3 2" />
-              </svg>
-            }
-            titulo="Citas y turnos"
-            descripcion="Reservá hora en peluquerías, spas, consultorios y talleres."
-            chips={["Peluquería", "Spas", "Consultorios", "Talleres"]}
-            cta="Ver esta sección"
+            icono={<IconClock />}
+            titulo="Citas y Reservas"
+            descripcion="Belleza, barbería, uñas, spa y bienestar — elegí el servicio, la hora y con quién, y llegá directo a tu cita."
+            contiene={["Belleza", "Barbería", "Uñas", "Spa"]}
+            cta="Reservar una cita"
           />
-
-          <Puerta
+          <TarjetaSeccion
             href="/booking"
-            activa={false}
-            icono={
-              <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 20h20" />
-                <path d="M12 3c-3 3.5-3 8 0 12 3-4 3-8.5 0-12z" />
-                <path d="M5 20c0-4 2.5-7 7-7s7 3 7 7" />
-              </svg>
-            }
-            titulo="Alojamiento y experiencias"
-            descripcion="Dónde quedarte, dónde comer y qué vivir en todo el país."
-            chips={["Casas y villas", "Hoteles", "Restaurantes", "Aventuras"]}
-            cta="Ver esta sección"
+            icono={<IconHouse />}
+            titulo="Hospedajes"
+            descripcion="Casas, villas, hoteles y experiencias — reservá tu próxima escapada directo con quien te recibe."
+            contiene={["Casas y villas", "Hoteles", "Experiencias"]}
+            cta="Ver hospedajes"
           />
         </div>
       </div>
 
-      {/* ---------- Barra inferior ---------- */}
-      <div className="relative z-10 flex flex-wrap items-center justify-center gap-x-10 gap-y-2 px-5 pb-6 pt-4 sm:px-10">
+      {/* ---------- Pie sereno ---------- */}
+      <div className="relative z-10 flex flex-wrap items-center justify-center gap-x-10 gap-y-2 px-5 pb-7 pt-2 sm:px-10">
         {[
-          "7 provincias, un solo lugar",
-          "Reservá directo con el proveedor",
+          "Reservá directo con cada negocio",
+          "Confirmación y chat en el mismo lugar",
           "Publicá tu negocio gratis",
         ].map((t) => (
           <span
             key={t}
-            className="flex items-center gap-2 text-[13.5px] font-bold text-white/95 [text-shadow:0_1px_8px_rgba(0,0,0,0.45)] before:block before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-aventurea-orange"
+            className="flex items-center gap-2 text-[12.5px] font-bold text-aventurea-ink-soft before:block before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-[#5dc4be]"
           >
             {t}
           </span>
         ))}
       </div>
     </main>
+  );
+}
+
+/**
+ * Una de las tres tarjetas de la portada. Blanca sobre el degradado,
+ * con el ícono en su burbuja celeste; la activa lleva la flecha
+ * naranja, las que están en preparación llevan la insignia "Muy
+ * pronto" pero igual entran a su página (nunca un callejón sin
+ * salida).
+ */
+function TarjetaSeccion({
+  href,
+  activa,
+  icono,
+  titulo,
+  descripcion,
+  contiene,
+  cta,
+}: {
+  href: string;
+  activa?: boolean;
+  icono: React.ReactNode;
+  titulo: string;
+  descripcion: string;
+  contiene: string[];
+  cta: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group relative flex flex-col gap-3.5 rounded-[24px] border border-[#dceeec] bg-white p-7 pb-6 text-left shadow-[0_10px_36px_-18px_rgba(21,70,67,0.25)] transition-all duration-200 hover:-translate-y-1.5 hover:border-[#5dc4be] hover:shadow-[0_22px_48px_-20px_rgba(21,70,67,0.35)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-aventurea-orange"
+    >
+      {!activa && (
+        <span className="absolute right-5 top-5 rounded-full bg-[#e6f6f5] px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-[#2b8a84]">
+          Muy pronto
+        </span>
+      )}
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e6f6f5] text-[#1f7a74] [&_svg]:h-6 [&_svg]:w-6">
+        {icono}
+      </span>
+      <h2 className="text-[21px] font-extrabold tracking-[-0.4px] text-aventurea-ink">
+        {titulo}
+      </h2>
+      <p className="text-[13.5px] font-medium leading-relaxed text-aventurea-ink-soft">
+        {descripcion}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {contiene.map((c) => (
+          <span
+            key={c}
+            className="rounded-full border border-[#dceeec] bg-[#f4fbfa] px-2.5 py-1 text-[11.5px] font-bold text-aventurea-ink-soft"
+          >
+            {c}
+          </span>
+        ))}
+      </div>
+      <div className="mt-auto flex items-center justify-between border-t border-[#e8f3f2] pt-4">
+        <span
+          className={`text-[13.5px] font-extrabold ${activa ? "text-aventurea-orange" : "text-aventurea-ink-soft"}`}
+        >
+          {cta}
+        </span>
+        <span
+          className={`flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-200 group-hover:translate-x-1 ${
+            activa ? "bg-aventurea-orange text-white" : "bg-[#e6f6f5] text-[#1f7a74]"
+          }`}
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </span>
+      </div>
+    </Link>
   );
 }

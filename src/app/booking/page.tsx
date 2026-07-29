@@ -3,19 +3,19 @@ import PaginaMantenimiento from "@/components/pagina-mantenimiento";
 import { IconHouse } from "@/components/icons";
 
 export const metadata: Metadata = {
-  title: "Booking",
+  title: "Hospedajes",
   description:
-    "Casas, villas, hoteles, restaurantes y aventuras en todo Costa Rica. Muy pronto en Bookea.",
+    "Casas, villas, hoteles y experiencias para tu próxima escapada. Muy pronto en Bookea.",
 };
 
 export default function BookingPage() {
   return (
     <PaginaMantenimiento
-      breadcrumb="Booking"
+      breadcrumb="Hospedajes"
       icono={<IconHouse />}
-      titulo="Alojamiento y experiencias"
-      descripcion="Dónde quedarte, dónde comer y qué vivir en todo el país — la sección de escapadas y experiencias de Bookea, para reservar directo con quien te recibe."
-      categorias={["Casas y villas", "Hoteles", "Restaurantes", "Aventuras"]}
+      titulo="Hospedajes y experiencias"
+      descripcion="Dónde quedarte, dónde comer y qué vivir en tu próxima escapada — reservá directo con quien te recibe, sin intermediarios."
+      categorias={["Casas y villas", "Hoteles", "Restaurantes", "Experiencias"]}
     />
   );
 }
