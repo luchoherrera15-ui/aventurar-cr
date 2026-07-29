@@ -274,24 +274,22 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
               )}
             </p>
           </div>
-          {!esLugar && (
-            <div className="flex flex-wrap gap-2.5">
-              {/* Todo pasa por la reserva y el chat de la plataforma —
-                  el botón de WhatsApp se quitó a propósito. */}
-              <a
-                href="#reservar"
-                className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
-              >
-                Reservar fecha
-              </a>
-              <a
-                href="#contacto"
-                className="rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-navy"
-              >
-                Ver contacto
-              </a>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2.5">
+            {/* Todo pasa por la reserva y el chat de la plataforma —
+                el botón de WhatsApp se quitó a propósito. */}
+            <a
+              href="#reservar"
+              className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+            >
+              {esLugar ? "Reservar mi fecha" : "Reservar fecha"}
+            </a>
+            <a
+              href={chatHref}
+              className="rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-navy"
+            >
+              Consultar antes de reservar
+            </a>
+          </div>
         </div>
         {!esLugar && rancho.descripcion && (
           <p className="mt-3 max-w-[70ch] text-[14px] text-aventurea-ink-soft">
@@ -442,6 +440,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           terminos={rancho.terminos ?? []}
           montoMinimo={rancho.monto_minimo ?? null}
           horarios={rancho.horarios_bloques ?? []}
+          capacidadMax={rancho.capacidad_max}
           compacto
           sinpeNumero={rancho.sinpe_numero}
           sinpeTitular={rancho.sinpe_titular}

@@ -183,6 +183,28 @@ export async function completarReservaTemporal(
 
   const supabase = await createClient();
 
+  // El límite de invitados en el formulario ya lo topa en capacidad_max,
+  // pero eso es solo del lado del navegador — se vuelve a comprobar acá
+  // por si alguien le escribe directo al servidor.
+  const { data: hold } = await supabase
+    .from("reservas")
+    .select("rancho_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (hold?.rancho_id) {
+    const { data: ranchoDatos } = await supabase
+      .from("ranchos")
+      .select("capacidad_max")
+      .eq("id", hold.rancho_id)
+      .maybeSingle();
+    const capacidadMax = ranchoDatos?.capacidad_max;
+    if (capacidadMax && input.invitados > capacidadMax) {
+      return {
+        error: `Este lugar recibe hasta ${capacidadMax} personas — no se puede reservar para más.`,
+      };
+    }
+  }
+
   // Este paso pasa por una función security definer en vez de un
   // update directo: un visitante anónimo completando su propia
   // reserva es justo el caso donde la política de RLS es más

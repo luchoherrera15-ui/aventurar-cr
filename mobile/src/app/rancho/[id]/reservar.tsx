@@ -256,6 +256,13 @@ export default function ReservarScreen() {
         ? true
         : invitadosNum > 0;
 
+  // El lugar tiene un tope físico de gente, sin importar la modalidad
+  // de cobro que haya configurado.
+  const excedeCapacidad =
+    modalidadPrecio === "rango_personas" &&
+    !!rancho?.capacidad_max &&
+    invitadosNum > rancho.capacidad_max;
+
   const puedeAvanzar =
     !!nombre.trim() &&
     CEDULA_REGEX.test(cedula.trim()) &&
@@ -263,6 +270,7 @@ export default function ReservarScreen() {
     WHATSAPP_REGEX.test(whatsapp.trim()) &&
     !!tipoEvento.trim() &&
     cotizacionCompleta &&
+    !excedeCapacidad &&
     (rancho?.horarios_bloques.length ? !!horario : true) &&
     avisoAceptado;
 
@@ -404,7 +412,24 @@ export default function ReservarScreen() {
         {modalidadPrecio === "hora" ? (
           <Campo label="Cantidad de horas" value={horasEvento} onChangeText={setHorasEvento} keyboardType="numeric" placeholder="Ej. 5" />
         ) : modalidadPrecio === "rango_personas" ? (
-          <Campo label="Cantidad de invitados" value={invitados} onChangeText={setInvitados} keyboardType="numeric" />
+          <>
+            <Campo
+              label={
+                rancho?.capacidad_max
+                  ? `Cantidad de invitados (máximo ${rancho.capacidad_max})`
+                  : "Cantidad de invitados"
+              }
+              value={invitados}
+              onChangeText={setInvitados}
+              keyboardType="numeric"
+            />
+            {excedeCapacidad && (
+              <Text style={styles.avisoCapacidad}>
+                Este lugar recibe hasta {rancho?.capacidad_max} personas — para
+                grupos más grandes, escribile directo para coordinar.
+              </Text>
+            )}
+          </>
         ) : null}
 
         {rancho && rancho.horarios_bloques.length > 0 && (
@@ -614,6 +639,7 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   avisoTiempoTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center" },
+  avisoCapacidad: { color: Colors.danger, fontFamily: Fonts.bold, fontSize: 12, marginTop: -4 },
   bloque: {
     backgroundColor: Colors.surface,
     borderRadius: 16,

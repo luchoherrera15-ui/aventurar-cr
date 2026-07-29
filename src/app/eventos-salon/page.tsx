@@ -12,7 +12,7 @@ export default async function EventosSalonPage() {
 
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("id, deposito_reserva, tarifa_diciembre_por_persona, modalidad_precio_lugar, precio_hora_lugar, precio_fijo_lugar, terminos, monto_minimo, horarios_bloques, foto_url, descripcion, sinpe_numero, sinpe_titular, cuenta_banco, cuenta_numero, cuenta_titular, cuenta_tipo")
+    .select("id, deposito_reserva, tarifa_diciembre_por_persona, modalidad_precio_lugar, precio_hora_lugar, precio_fijo_lugar, terminos, monto_minimo, horarios_bloques, foto_url, descripcion, sinpe_numero, sinpe_titular, cuenta_banco, cuenta_numero, cuenta_titular, cuenta_tipo, capacidad_max")
     .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
 
@@ -97,6 +97,7 @@ export default async function EventosSalonPage() {
         terminos={(rancho.terminos as string[] | null) ?? []}
         montoMinimo={(rancho.monto_minimo as number | null) ?? null}
         horarios={(rancho.horarios_bloques as HorarioBloqueConfig[] | null) ?? []}
+        capacidadMax={(rancho.capacidad_max as number | null) ?? null}
         sinpeNumero={(rancho.sinpe_numero as string | null) ?? null}
         sinpeTitular={(rancho.sinpe_titular as string | null) ?? null}
         cuentaBanco={(rancho.cuenta_banco as string | null) ?? null}

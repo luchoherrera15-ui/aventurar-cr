@@ -154,6 +154,33 @@ export default async function RanchoDetallePage({
       content: <EditarRanchoForm rancho={rancho} />,
     },
     {
+      id: "configuracion",
+      label: "Configuración general",
+      content: (
+        <div>
+          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+            Cuentas para recibir el depósito
+          </h2>
+          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+            El cliente ve esto en el paso de pago de la reserva, según el
+            método que elija. Sin cuentas configuradas, esa forma de pago no
+            se le ofrece.
+          </p>
+          <CuentasPagoForm
+            initial={{
+              sinpeNumero: rancho.sinpe_numero ?? "",
+              sinpeTitular: rancho.sinpe_titular ?? "",
+              cuentaBanco: rancho.cuenta_banco ?? "",
+              cuentaNumero: rancho.cuenta_numero ?? "",
+              cuentaTitular: rancho.cuenta_titular ?? "",
+              cuentaTipo: rancho.cuenta_tipo ?? "",
+            }}
+            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+          />
+        </div>
+      ),
+    },
+    {
       id: "precios",
       label: esLugar ? "Precios y descuentos" : "Cobros y descuentos",
       content: (
@@ -167,37 +194,13 @@ export default async function RanchoDetallePage({
                 Depósito para agendar
               </h2>
               <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-                Configurá el depósito y tus cuentas de cobro para que el
-                cliente agende su fecha pagando por adelantado y subiendo el
-                comprobante — igual que los lugares de eventos.
+                Con esto, más tus cuentas de cobro (pestaña Configuración
+                general), el cliente agenda su fecha pagando por adelantado y
+                subiendo el comprobante — igual que los lugares de eventos.
               </p>
               <DepositoForm
                 initialDeposito={rancho.deposito_reserva ?? 0}
                 onGuardar={guardarDepositoPropio.bind(null, rancho.id)}
-              />
-            </div>
-          )}
-
-          {!esLugar && (
-            <div>
-              <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-                Cuentas para recibir el depósito
-              </h2>
-              <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-                El cliente ve esto al agendar, según el método de pago que
-                elija. Sin cuentas configuradas, tus reservas entran como
-                solicitud sin pago.
-              </p>
-              <CuentasPagoForm
-                initial={{
-                  sinpeNumero: rancho.sinpe_numero ?? "",
-                  sinpeTitular: rancho.sinpe_titular ?? "",
-                  cuentaBanco: rancho.cuenta_banco ?? "",
-                  cuentaNumero: rancho.cuenta_numero ?? "",
-                  cuentaTitular: rancho.cuenta_titular ?? "",
-                  cuentaTipo: rancho.cuenta_tipo ?? "",
-                }}
-                onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
               />
             </div>
           )}
@@ -213,29 +216,6 @@ export default async function RanchoDetallePage({
               initialPrecioFijo={rancho.precio_fijo_lugar}
               onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
             />
-          )}
-
-          {esLugar && (
-            <div>
-              <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-                Cuentas para recibir el depósito
-              </h2>
-              <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-                El cliente ve esto en el segundo paso de la reserva, según el método de pago que
-                elija.
-              </p>
-              <CuentasPagoForm
-                initial={{
-                  sinpeNumero: rancho.sinpe_numero ?? "",
-                  sinpeTitular: rancho.sinpe_titular ?? "",
-                  cuentaBanco: rancho.cuenta_banco ?? "",
-                  cuentaNumero: rancho.cuenta_numero ?? "",
-                  cuentaTitular: rancho.cuenta_titular ?? "",
-                  cuentaTipo: rancho.cuenta_tipo ?? "",
-                }}
-                onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
-              />
-            </div>
           )}
 
           {esLugar && (

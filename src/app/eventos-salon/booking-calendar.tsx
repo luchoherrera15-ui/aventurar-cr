@@ -78,6 +78,7 @@ export default function BookingCalendar({
   cuentaNumero = null,
   cuentaTitular = null,
   cuentaTipo = null,
+  capacidadMax = null,
 }: {
   ranchoId: string;
   nombreRancho: string;
@@ -109,6 +110,8 @@ export default function BookingCalendar({
   cuentaNumero?: string | null;
   cuentaTitular?: string | null;
   cuentaTipo?: string | null;
+  /** El lugar no acepta grupos más grandes que esto (capacidad_max). */
+  capacidadMax?: number | null;
 }) {
   // Un proveedor que nunca los tocó muestra siempre los vigentes de
   // Bookea, armados con su propio depósito y monto mínimo.
@@ -339,10 +342,18 @@ export default function BookingCalendar({
         ? true
         : invitadosNum > 0;
 
+  // El lugar tiene un tope físico de gente — no se puede reservar para
+  // más de lo que da su capacidad_max, sin importar la modalidad de cobro.
+  const excedeCapacidad =
+    modalidadPrecio === "rango_personas" &&
+    !!capacidadMax &&
+    invitadosNum > capacidadMax;
+
   const puedeAvanzar =
     !!holdId &&
     !holdVencido &&
     cotizacionCompleta &&
+    !excedeCapacidad &&
     (horarios.length === 0 || !!horarioBloque) &&
     !!nombre &&
     correoValido &&
@@ -916,16 +927,26 @@ export default function BookingCalendar({
                       </div>
                     ) : modalidadPrecio === "rango_personas" ? (
                       <div>
-                        <label className={labelCls}>Número de invitados</label>
+                        <label className={labelCls}>
+                          Número de invitados
+                          {capacidadMax ? ` (máximo ${capacidadMax})` : ""}
+                        </label>
                         <input
                           type="number"
                           min={1}
+                          max={capacidadMax ?? undefined}
                           required
                           value={invitados}
                           onChange={(e) => setInvitados(e.target.value)}
                           placeholder="Ej. 40"
                           className={inputCls}
                         />
+                        {excedeCapacidad && (
+                          <p className="mt-1.5 text-[12px] font-bold text-red-700">
+                            {nombreRancho} recibe hasta {capacidadMax} personas — para
+                            grupos más grandes, escribile directo para coordinar.
+                          </p>
+                        )}
                       </div>
                     ) : null}
 
