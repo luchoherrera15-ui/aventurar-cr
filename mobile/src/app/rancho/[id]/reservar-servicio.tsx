@@ -247,6 +247,7 @@ export default function ReservarServicioScreen() {
           encoding: "base64",
         });
         const extension = comprobanteUri.split(".").pop()?.toLowerCase() || "jpg";
+        // eslint-disable-next-line react-hooks/purity -- corre dentro del handler de envío, no en el render; el timestamp evita colisiones de nombre en el bucket
         comprobantePath = `servicios/${rancho.id}/${Date.now()}-comprobante.${extension}`;
         const { error: uploadError } = await supabase.storage
           .from("comprobantes")

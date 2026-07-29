@@ -340,7 +340,12 @@ export default function CatalogoNegocioScreen() {
             ) : (
               <View key={item.id} style={[styles.fila, !item.activo && { opacity: 0.5 }]}>
                 {item.foto_url && (
-                  <Image source={{ uri: item.foto_url }} style={styles.filaFoto} contentFit="cover" />
+                  <Image
+                    source={{ uri: item.foto_url }}
+                    style={styles.filaFoto}
+                    contentFit="cover"
+                    alt={item.nombre}
+                  />
                 )}
                 <View style={styles.filaCuerpo}>
                   <Text style={styles.filaNombre}>
@@ -500,7 +505,12 @@ function Formulario({
         <Text style={styles.campoLabel}>Foto (recomendada para paquetes)</Text>
         <View style={styles.fotoFila}>
           {borrador.fotoUrl && (
-            <Image source={{ uri: borrador.fotoUrl }} style={styles.fotoMini} contentFit="cover" />
+            <Image
+              source={{ uri: borrador.fotoUrl }}
+              style={styles.fotoMini}
+              contentFit="cover"
+              alt=""
+            />
           )}
           <Pressable style={styles.botonSecundario} onPress={subirFoto} disabled={subiendoFoto}>
             <Text style={styles.botonSecundarioTexto}>
