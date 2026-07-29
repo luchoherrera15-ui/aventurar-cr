@@ -281,12 +281,6 @@ export default function Directorio({
   // (que haría lo mismo) se oculta para no repetirse.
   const mostrarCuando = tab === "todos" || tab === "lugares";
 
-  const categoriaAbierta =
-    typeof menuAbierto === "string" &&
-    (CATEGORIAS as readonly string[]).includes(menuAbierto)
-      ? (menuAbierto as Categoria)
-      : null;
-
   return (
     <div>
       <RevealOnScroll />
@@ -444,30 +438,70 @@ export default function Directorio({
         )}
       </div>
 
-      {/* Barra de categorías: ícono + label. Sin nada fijo a la derecha
-          que la tape — el degradado de la punta es la única pista de
-          que sigue scrolleando (antes "Filtros" hacía de tapón visual y
-          escondía Organización/Decoración/Otros servicios). */}
+      {/* Barra de navegación de dos niveles. Nivel 1: las categorías —
+          un clic entra DIRECTO a la categoría y muestra sus tarjetas.
+          Nivel 2 (adentro de una categoría): la misma barra muta a las
+          subcategorías de esa categoría, con un botón de volver — el
+          panel intermedio de subcategorías ya no hace falta. */}
       <div className="relative z-20 border-b border-aventurea-line">
-        <div className="flex gap-6 overflow-x-auto lg:justify-center lg:gap-8">
-          <CategoriaTab
-            label="Todos"
-            icono={<IconCompass className="h-full w-full" />}
-            activo={tab === "todos" && !subcategoria}
-            onClick={() => elegirCategoria("todos")}
-          />
-          {CATEGORIAS.map((cat) => (
+        {tab === "todos" ? (
+          <div className="flex gap-6 overflow-x-auto lg:justify-center lg:gap-8">
             <CategoriaTab
-              key={cat}
-              label={CATEGORIA_LABEL[cat]}
-              icono={CATEGORIA_ICONO[cat]}
-              activo={tab === cat}
-              onClick={() => setMenuAbierto((prev) => (prev === cat ? null : cat))}
+              label="Todos"
+              icono={<IconCompass className="h-full w-full" />}
+              activo={!subcategoria}
+              onClick={() => elegirCategoria("todos")}
             />
-          ))}
-          {/* Relleno para que el degradado nunca tape la última pestaña. */}
-          <div className="w-2 shrink-0" aria-hidden />
-        </div>
+            {CATEGORIAS.map((cat) => (
+              <CategoriaTab
+                key={cat}
+                label={CATEGORIA_LABEL[cat]}
+                icono={CATEGORIA_ICONO[cat]}
+                activo={false}
+                onClick={() => elegirCategoria(cat)}
+              />
+            ))}
+            {/* Relleno para que el degradado nunca tape la última pestaña. */}
+            <div className="w-2 shrink-0" aria-hidden />
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 overflow-x-auto pb-2.5 pt-2.5 lg:justify-center">
+            <button
+              type="button"
+              onClick={() => elegirCategoria("todos")}
+              aria-label="Volver a todas las categorías"
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-aventurea-line bg-aventurea-surface px-3.5 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
+            >
+              ← Volver
+            </button>
+            <span className="flex h-9 shrink-0 items-center gap-2 whitespace-nowrap text-[13px] font-bold text-aventurea-ink">
+              <span className="h-[18px] w-[18px] text-aventurea-orange [&_svg]:h-full [&_svg]:w-full">
+                {CATEGORIA_ICONO[tab]}
+              </span>
+              {CATEGORIA_LABEL[tab]}
+            </span>
+            <span aria-hidden className="h-5 w-px shrink-0 bg-aventurea-line" />
+            <SubcategoriaPill
+              label={`Todo (${conteoPorCategoria[tab] ?? 0})`}
+              activo={!subcategoria}
+              onClick={() => {
+                setSubcategoria("");
+                setPagina(1);
+              }}
+            />
+            {SUBCATEGORIAS[tab]
+              .filter((s) => (conteoPorSubcategoria[s.id] ?? 0) > 0)
+              .map((s) => (
+                <SubcategoriaPill
+                  key={s.id}
+                  label={`${s.label} (${conteoPorSubcategoria[s.id]})`}
+                  activo={subcategoria === s.id}
+                  onClick={() => elegirSubcategoria(tab, s.id)}
+                />
+              ))}
+            <div className="w-2 shrink-0" aria-hidden />
+          </div>
+        )}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-aventurea-cream to-transparent"
@@ -477,7 +511,7 @@ export default function Directorio({
 
       <div className="mt-4" />
 
-      {(menuAbierto === "filtros" || categoriaAbierta) && (
+      {menuAbierto === "filtros" && (
         <div className="relative z-20 mb-4">
           <button
             type="button"
@@ -486,44 +520,20 @@ export default function Directorio({
             className="fixed inset-0 z-10 cursor-default"
           />
           <div className="relative z-20 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
-            {menuAbierto === "filtros" ? (
-              <div className="max-w-xs">
-                <label className={labelCls}>Precio máximo (₡)</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={precioMax}
-                  onChange={(e) => {
-                    setPrecioMax(e.target.value);
-                    setPagina(1);
-                  }}
-                  placeholder="Ej. 150000"
-                  className={inputCls}
-                />
-              </div>
-            ) : categoriaAbierta ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => elegirCategoria(categoriaAbierta)}
-                  className="mb-2 text-[12px] font-bold text-aventurea-navy hover:underline"
-                >
-                  Ver todo en {CATEGORIA_LABEL[categoriaAbierta]} (
-                  {conteoPorCategoria[categoriaAbierta] ?? 0}) →
-                </button>
-                <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {SUBCATEGORIAS[categoriaAbierta].map((s) => (
-                    <FilterRow
-                      key={s.id}
-                      label={s.label}
-                      count={conteoPorSubcategoria[s.id] ?? 0}
-                      active={subcategoria === s.id}
-                      onClick={() => elegirSubcategoria(categoriaAbierta, s.id)}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : null}
+            <div className="max-w-xs">
+              <label className={labelCls}>Precio máximo (₡)</label>
+              <input
+                type="number"
+                min={0}
+                value={precioMax}
+                onChange={(e) => {
+                  setPrecioMax(e.target.value);
+                  setPagina(1);
+                }}
+                placeholder="Ej. 150000"
+                className={inputCls}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -765,6 +775,32 @@ function SegmentoTexto({
         className="truncate bg-transparent text-[13px] text-aventurea-ink placeholder:text-aventurea-ink-soft focus:outline-none"
       />
     </div>
+  );
+}
+
+/** Pastilla de subcategoría del nivel 2 de la barra de navegación. */
+function SubcategoriaPill({
+  label,
+  activo,
+  onClick,
+}: {
+  label: string;
+  activo: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      className={`h-9 shrink-0 whitespace-nowrap rounded-full border px-3.5 text-[12.5px] font-bold transition-colors ${
+        activo
+          ? "border-aventurea-navy bg-aventurea-navy text-white"
+          : "border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-ink"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
