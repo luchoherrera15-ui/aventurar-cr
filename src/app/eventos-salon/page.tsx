@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import ProveedorActual from "@/components/proveedor-actual";
 import BookingCalendar from "./booking-calendar";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/ranchos-eventos/constants";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
@@ -64,6 +65,9 @@ export default async function EventosSalonPage() {
 
   return (
     <div className="min-h-screen bg-aventurea-cream">
+      {/* La burbuja de chat flotante abre el chat con este proveedor
+          mientras se está en su página. */}
+      <ProveedorActual ranchoId={rancho.id} nombre="Bookea · Rancho de Eventos" />
       <SiteHeader
         breadcrumb="Rancho de Eventos"
         ancho="max-w-[1080px]"

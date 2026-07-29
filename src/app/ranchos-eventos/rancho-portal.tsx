@@ -37,6 +37,7 @@ import {
   type Resena,
 } from "./[id]/portal-secciones";
 import ReservaServicio from "./[id]/reserva-servicio";
+import ProveedorActual from "@/components/proveedor-actual";
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
@@ -243,6 +244,12 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   return (
     <div className={`min-h-screen bg-aventurea-cream ${esLugar ? "pb-16 lg:pb-0" : ""}`}>
       <RevealOnScroll />
+      {/* La burbuja de chat flotante pasa a abrir el chat con ESTE
+          proveedor mientras se está en su página. El dueño no: no se
+          puede abrir una consulta con uno mismo. */}
+      {!puedeModificar && (
+        <ProveedorActual ranchoId={rancho.id} nombre={rancho.nombre} />
+      )}
       <SiteHeader
         breadcrumb={rancho.nombre}
         ancho="max-w-[1080px]"
