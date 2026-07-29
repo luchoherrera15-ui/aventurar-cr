@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { IconCompass, IconFiltro, IconSearch } from "@/components/icons";
-import RanchoCard, { type Calificacion } from "@/components/rancho-card";
+import { type Calificacion } from "@/components/rancho-card";
+import RanchoCardGrande from "@/components/rancho-card-grande";
 import RielProveedores from "@/components/riel-proveedores";
 import { fechaISO, fmtFechaCorta, proximaFechaLibre } from "@/lib/fechas";
 import {
@@ -35,12 +36,15 @@ export default function Directorio({
   ranchos,
   fechasOcupadas,
   calificaciones,
+  resenaPorRancho,
   favoritosIniciales,
   sesionActiva,
 }: {
   ranchos: Rancho[];
   fechasOcupadas: FechaOcupada[];
   calificaciones: Calificacion[];
+  /** rancho_id → el comentario de reseña más reciente, para citarlo. */
+  resenaPorRancho: Record<string, string>;
   favoritosIniciales: string[];
   sesionActiva: boolean;
 }) {
@@ -617,13 +621,18 @@ export default function Directorio({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-5 lg:grid-cols-3 xl:grid-cols-4">
+          {/* Tarjetas grandes en la vista filtrada: collage de fotos,
+              reseña citada y botón con color — el detalle que la grilla
+              compacta del home no da. Tres columnas máximo para que se
+              aprecien. */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {visibles.map((r, i) => (
-              <RanchoCard
+              <RanchoCardGrande
                 key={r.id}
                 rancho={r}
                 index={i}
                 calificacion={calificacionPorRancho.get(r.id) ?? null}
+                resena={resenaPorRancho[r.id] ?? null}
                 proximaLibre={
                   r.categoria === "lugares"
                     ? proximaFechaLibre(r.id, ocupadosPorFecha)

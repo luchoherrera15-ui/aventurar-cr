@@ -53,6 +53,21 @@ export default async function RanchosEventosPage() {
     total: number;
   }[];
 
+  // Una reseña con comentario por proveedor, la más reciente: la
+  // tarjeta grande del directorio la muestra como cita, igual que los
+  // marketplaces de referencia. Se trae un lote y se queda la primera
+  // de cada rancho (PostgREST no hace "primera por grupo").
+  const { data: resenasData } = await supabase
+    .from("resenas")
+    .select("rancho_id, comentario")
+    .not("comentario", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  const resenaPorRancho: Record<string, string> = {};
+  for (const r of (resenasData ?? []) as { rancho_id: string; comentario: string }[]) {
+    if (!(r.rancho_id in resenaPorRancho)) resenaPorRancho[r.rancho_id] = r.comentario;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -92,6 +107,7 @@ export default async function RanchosEventosPage() {
             ranchos={ranchos}
             fechasOcupadas={fechasOcupadas}
             calificaciones={calificaciones}
+            resenaPorRancho={resenaPorRancho}
             favoritosIniciales={favoritosIniciales}
             sesionActiva={!!user}
           />

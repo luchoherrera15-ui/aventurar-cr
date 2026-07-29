@@ -38,6 +38,25 @@ export async function GET() {
   const apiKey = process.env.RESEND_API_KEY;
   const remitente = process.env.RESEND_FROM_EMAIL;
 
+  // Que la variable exista no alcanza: una llave mal pegada "existe"
+  // pero falla en silencio, y con ella se caen TODOS los correos de
+  // reserva (el reclamo de la bandera pasa por el cliente admin). Acá
+  // se prueba con una consulta real.
+  const admin = createAdminClient();
+  let servicioSupabase: string;
+  if (!admin) {
+    servicioSupabase =
+      "FALTA — sin esto no sale ningún correo de reserva (ni al cliente ni al dueño)";
+  } else {
+    const { error: errorAdmin } = await admin
+      .from("reservas")
+      .select("id", { count: "exact", head: true })
+      .limit(1);
+    servicioSupabase = errorAdmin
+      ? `puesta pero NO FUNCIONA — la base la rechaza: "${errorAdmin.message}". Casi seguro se pegó una llave equivocada (tiene que ser la Secret key, sb_secret_...) o quedó con un espacio.`
+      : "puesta y funcionando";
+  }
+
   const configuracion = {
     RESEND_API_KEY: apiKey
       ? `puesta (empieza con "${apiKey.slice(0, 3)}", ${apiKey.length} caracteres)`
@@ -45,9 +64,7 @@ export async function GET() {
     RESEND_FROM_EMAIL: remitente
       ? remitente
       : 'FALTA — se usa "Bookea <onboarding@resend.dev>", que SOLO entrega a la casilla dueña de la cuenta de Resend',
-    SUPABASE_SERVICE_ROLE_KEY: createAdminClient()
-      ? "puesta"
-      : "FALTA — sin esto no sale el aviso al dueño del lugar",
+    SUPABASE_SERVICE_ROLE_KEY: servicioSupabase,
     NEXT_PUBLIC_SITE_URL:
       process.env.NEXT_PUBLIC_SITE_URL ?? "sin definir (se usa https://bookea.lat)",
   };
