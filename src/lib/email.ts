@@ -146,12 +146,16 @@ export function plantillaConfirmacionReserva({
   nombreCliente,
   nombreRancho,
   fecha,
+  invitados,
   montoDeposito,
+  montoPendiente,
 }: {
   nombreCliente: string;
   nombreRancho: string;
   fecha: string;
+  invitados?: number | null;
   montoDeposito: number;
+  montoPendiente?: number;
 }) {
   const nombre = escaparHtml(nombreCliente);
   const rancho = escaparHtml(nombreRancho);
@@ -162,27 +166,43 @@ export function plantillaConfirmacionReserva({
     year: "numeric",
   });
   const monto = "₡" + Math.round(montoDeposito).toLocaleString("es-CR");
+  const pendiente =
+    montoPendiente !== undefined
+      ? "₡" + Math.round(montoPendiente).toLocaleString("es-CR")
+      : null;
 
   return layout({
-    kicker: "Reserva recibida",
+    kicker: "¡Reserva creada!",
     cuerpoHtml: `
       <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
-        Hola ${nombre},
+        ¡Reserva creada, ${nombre}!
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
-        Recibimos tu solicitud de reserva para <strong style="color:#101a2c;">${rancho}</strong>,
-        junto con el comprobante de tu depósito.
+        Gracias por reservar mediante Bookea. Ya recibimos tu solicitud para
+        <strong style="color:#101a2c;">${rancho}</strong> junto con el comprobante de tu depósito
+        — acá tenés los datos de tu reserva:
       </p>
 
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
         ${filaDato("Lugar", rancho)}
         ${filaDato("Fecha", fechaLarga)}
-        ${filaDato("Depósito recibido", monto)}
+        ${invitados ? filaDato("Cantidad de personas", String(invitados)) : ""}
+        ${filaDato("Adelanto pagado", monto)}
+        ${pendiente !== null ? filaDato("Pendiente por cancelar", pendiente) : ""}
         ${filaDato(
           "Estado",
           `<span style="display:inline-block;background:#e1f0e6;color:#1f7a4d;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:100px;">En aprobación</span>`,
         )}
       </table>
+
+      ${
+        pendiente !== null
+          ? `<p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+              El monto pendiente es de <strong style="color:#101a2c;">${pendiente}</strong> y se
+              cancela directamente con ${rancho} el mismo día de tu reserva.
+            </p>`
+          : ""
+      }
 
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
         Tu reserva queda <strong style="color:#101a2c;">en aprobación</strong> mientras

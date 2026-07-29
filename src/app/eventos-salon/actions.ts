@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { enviarCorreo, plantillaConfirmacionReserva } from "@/lib/email";
 import type { HorarioBloque } from "./types";
 
@@ -254,19 +255,44 @@ export async function completarReservaTemporal(
     });
   }
 
+  // Quien reserva sin sesión iniciada queda con cuenta creada en
+  // silencio (sin contraseña, como el resto del sitio): si después
+  // quiere entrar, le mandamos el código de acceso a este mismo correo
+  // y ya ve esta reserva en "Mis reservas".
+  const correoLimpio = input.correo.trim().toLowerCase();
+  const { data: yaTieneCuenta } = await supabase.rpc("existe_cuenta", {
+    p_email: correoLimpio,
+  });
+  if (!yaTieneCuenta) {
+    const admin = createAdminClient();
+    if (admin) {
+      const { data: cuentaCreada, error: errorCuenta } = await admin.auth.admin.createUser({
+        email: correoLimpio,
+        email_confirm: true,
+        user_metadata: { nombre: input.nombre, rol: "cliente" },
+      });
+      if (!errorCuenta && cuentaCreada.user) {
+        await supabase.from("reservas").update({ cliente_id: cuentaCreada.user.id }).eq("id", id);
+      }
+    }
+  }
+
   revalidatePath("/admin/eventos");
   revalidatePath("/mi-rancho", "layout");
 
   // El correo es un plus, no un requisito: si Resend falla o todavía
   // no está configurado, la reserva ya quedó guardada igual.
+  const montoPendiente = Math.max(0, input.monto_total - input.deposito_monto);
   await enviarCorreo({
     to: input.correo,
-    subject: `Reserva recibida — ${input.nombre_rancho}`,
+    subject: `¡Reserva creada! — ${input.nombre_rancho}`,
     html: plantillaConfirmacionReserva({
       nombreCliente: input.nombre,
       nombreRancho: input.nombre_rancho,
       fecha: input.fecha,
+      invitados: input.invitados,
       montoDeposito: input.deposito_monto,
+      montoPendiente,
     }),
   });
 

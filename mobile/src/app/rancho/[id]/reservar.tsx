@@ -404,10 +404,10 @@ export default function ReservarScreen() {
 
       <View style={styles.bloque}>
         <Text style={styles.bloqueTitulo}>Datos del evento — {fecha}</Text>
-        <Campo label="Nombre completo" value={nombre} onChangeText={setNombre} />
-        <Campo label="Cédula" value={cedula} onChangeText={setCedula} keyboardType="numeric" />
-        <Campo label="Correo" value={correo} onChangeText={setCorreo} keyboardType="email-address" autoCapitalize="none" />
-        <Campo label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" />
+        <Campo label="Nombre completo *" value={nombre} onChangeText={setNombre} />
+        <Campo label="Cédula *" value={cedula} onChangeText={setCedula} keyboardType="numeric" />
+        <Campo label="Correo *" value={correo} onChangeText={setCorreo} keyboardType="email-address" autoCapitalize="none" />
+        <Campo label="WhatsApp *" value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" />
         <Campo label="Tipo de evento" value={tipoEvento} onChangeText={setTipoEvento} placeholder="Ej. cumpleaños, boda" />
         {modalidadPrecio === "hora" ? (
           <Campo label="Cantidad de horas" value={horasEvento} onChangeText={setHorasEvento} keyboardType="numeric" placeholder="Ej. 5" />

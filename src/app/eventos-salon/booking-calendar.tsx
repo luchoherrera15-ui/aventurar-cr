@@ -1037,7 +1037,7 @@ export default function BookingCalendar({
                     )}
 
                     <div>
-                      <label className={labelCls}>Nombre completo</label>
+                      <label className={labelCls}>Nombre completo *</label>
                       <input
                         type="text"
                         required
@@ -1050,7 +1050,7 @@ export default function BookingCalendar({
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
-                        <label className={labelCls}>Correo electrónico</label>
+                        <label className={labelCls}>Correo electrónico *</label>
                         <input
                           type="email"
                           required
@@ -1069,7 +1069,7 @@ export default function BookingCalendar({
                         </p>
                       </div>
                       <div>
-                        <label className={labelCls}>WhatsApp</label>
+                        <label className={labelCls}>WhatsApp *</label>
                         <input
                           type="tel"
                           required
@@ -1090,7 +1090,7 @@ export default function BookingCalendar({
                     </div>
 
                     <div>
-                      <label className={labelCls}>Número de cédula</label>
+                      <label className={labelCls}>Número de cédula *</label>
                       <input
                         type="text"
                         required
