@@ -91,8 +91,20 @@ export default function GaleriaHeroFotos({
         )}
       </div>
 
+      {/* Botón explícito para ver todo el álbum en móvil — antes solo se
+          podía adivinar tocando el "+N" de la última miniatura. */}
+      {fotos.length > 1 && (
+        <button
+          type="button"
+          onClick={() => setAbierta(0)}
+          className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy hover:text-aventurea-navy sm:hidden"
+        >
+          Ver todas las fotos ({fotos.length})
+        </button>
+      )}
+
       {/* ---------- Desktop: 1 grande + hasta 4 chicas ---------- */}
-      <div className="hidden gap-2 overflow-hidden sm:grid sm:grid-cols-4 sm:grid-rows-2 sm:rounded-[13px]">
+      <div className="relative hidden gap-2 overflow-hidden sm:grid sm:grid-cols-4 sm:grid-rows-2 sm:rounded-[13px]">
         <button
           type="button"
           onClick={() => setAbierta(0)}
@@ -131,6 +143,18 @@ export default function GaleriaHeroFotos({
             </button>
           );
         })}
+
+        {/* Botón explícito para ver todo el álbum — antes solo se podía
+            adivinar tocando el "+N" de la última miniatura. */}
+        {fotos.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setAbierta(0)}
+            className="absolute bottom-3 right-3 flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-[13px] font-bold text-aventurea-ink shadow-[0_2px_10px_rgba(16,26,44,0.18)] hover:bg-aventurea-cream-2"
+          >
+            Ver todas las fotos ({fotos.length})
+          </button>
+        )}
       </div>
 
       <Lightbox
