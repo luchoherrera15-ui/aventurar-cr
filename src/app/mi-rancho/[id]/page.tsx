@@ -41,6 +41,8 @@ import {
 } from "./precios/actions";
 import DepositoForm from "./deposito-form";
 import AgendaEventos, { type EventoAgenda } from "@/components/agenda-eventos";
+import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-calendario";
+import ReservaManualForm from "@/components/reserva-manual-form";
 import { hoyISOCR } from "@/lib/fechas";
 import {
   agregarGasto,
@@ -49,6 +51,7 @@ import {
   registrarPagoFinal,
   revertirPagoFinal,
 } from "./finanzas/actions";
+import { crearReservaManual } from "./agenda-actions";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -350,16 +353,27 @@ export default async function RanchoDetallePage({
       horario_bloque: r.horario_bloque ?? null,
     }));
 
+  // El calendario de ocupados muestra todo lo activo (no solo lo
+  // próximo): así también se ve de un vistazo lo que ya pasó este mes.
+  const diasOcupados: DiaOcupado[] = reservas
+    .filter((r) => r.estado === "pendiente" || r.estado === "confirmada")
+    .map((r) => ({ fecha: r.fecha, estado: r.estado, nombre: r.nombre }));
+
   tabs.splice(1, 0, {
     id: "agenda",
     label: "Agenda",
     content: (
-      <div>
-        <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
+      <div className="flex flex-col gap-6">
+        <p className="text-[13.5px] text-aventurea-ink-soft">
           {agenda.length} evento{agenda.length === 1 ? "" : "s"} próximo
           {agenda.length === 1 ? "" : "s"}. Un día antes de cada evento te
           mandamos un recordatorio por correo.
         </p>
+        <OcupacionCalendario dias={diasOcupados} />
+        <ReservaManualForm
+          capacidadMax={esLugar ? rancho.capacidad_max : null}
+          onCrear={crearReservaManual.bind(null, rancho.id)}
+        />
         <AgendaEventos eventos={agenda} />
       </div>
     ),

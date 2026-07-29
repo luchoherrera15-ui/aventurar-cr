@@ -56,7 +56,7 @@ export default async function AdminHubPage() {
         <HubCard
           href="/admin/eventos"
           title="Reservas"
-          descripcion="Revisá los comprobantes de depósito, confirmá o rechazá cada reserva y llevá la agenda de todos los salones."
+          descripcion="Revisá los comprobantes de depósito y confirmá o rechazá cada reserva. Cada proveedor lleva su propia agenda desde su panel."
           stat={`${reservasConfirmadas} confirmada${reservasConfirmadas === 1 ? "" : "s"}`}
           alerta={
             reservasPendientes > 0 ? `${reservasPendientes} en aprobación` : null
