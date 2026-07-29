@@ -26,6 +26,14 @@ export type ReservaManualInput = {
   tipo_evento: string;
   invitados: number | null;
   notas: string | null;
+  /** Lo que vale el evento — sin esto, la reserva no aparece en Finanzas. */
+  montoTotal: number;
+  /** Adelanto acordado (puede ser 0 si no se pidió). */
+  depositoMonto: number;
+  /** Si el adelanto ya entró (efectivo, SINPE, lo que sea) al cargar la reserva. */
+  depositoRecibido: boolean;
+  /** Si ya se cobró el evento completo (poco común al cargarla, pero puede pasar). */
+  eventoPagado: boolean;
 };
 
 /**
@@ -34,6 +42,10 @@ export type ReservaManualInput = {
  * flujo público), así que se crea pendiente y se confirma enseguida con
  * un update — eso sí lo permite la política del dueño sobre sus propias
  * reservas.
+ *
+ * Los montos son obligatorios (salvo el adelanto): sin monto_total la
+ * reserva queda invisible para el panel de Finanzas, que es lo que hace
+ * el control económico de la plataforma.
  */
 export async function crearReservaManual(ranchoId: string, input: ReservaManualInput) {
   const { supabase, rancho } = await verificarDueno(ranchoId);
@@ -44,6 +56,16 @@ export async function crearReservaManual(ranchoId: string, input: ReservaManualI
   }
   const nombre = input.nombre.trim().slice(0, 120);
   if (!nombre) return { error: "Escribí el nombre de quien reserva." };
+
+  if (!Number.isFinite(input.montoTotal) || input.montoTotal <= 0) {
+    return { error: "Ingresá cuánto vale el evento." };
+  }
+  if (!Number.isFinite(input.depositoMonto) || input.depositoMonto < 0) {
+    return { error: "El adelanto no puede ser negativo." };
+  }
+  if (input.depositoMonto > input.montoTotal) {
+    return { error: "El adelanto no puede ser mayor que el total del evento." };
+  }
 
   const capacidadMax = rancho.capacidad_max as number | null;
   if (capacidadMax && input.invitados && input.invitados > capacidadMax) {
@@ -66,6 +88,8 @@ export async function crearReservaManual(ranchoId: string, input: ReservaManualI
     }
   }
 
+  const ahoraIso = new Date().toISOString();
+
   const { data: creada, error: errorInsert } = await supabase
     .from("reservas")
     .insert({
@@ -77,6 +101,12 @@ export async function crearReservaManual(ranchoId: string, input: ReservaManualI
       tipo_evento: input.tipo_evento.trim().slice(0, 60) || null,
       invitados: input.invitados,
       notas: input.notas?.trim().slice(0, 500) || null,
+      monto_total: input.montoTotal,
+      deposito_monto: input.depositoMonto,
+      deposito_validado: input.depositoRecibido,
+      deposito_pagado_en: input.depositoRecibido ? ahoraIso : null,
+      evento_pagado: input.eventoPagado,
+      saldo_pagado_en: input.eventoPagado ? ahoraIso : null,
     })
     .select("id")
     .single();

@@ -13,6 +13,10 @@ export type ReservaManualInput = {
   tipo_evento: string;
   invitados: string;
   notas: string;
+  montoTotal: string;
+  depositoMonto: string;
+  depositoRecibido: boolean;
+  eventoPagado: boolean;
 };
 
 const VACIO: ReservaManualInput = {
@@ -21,11 +25,17 @@ const VACIO: ReservaManualInput = {
   tipo_evento: "",
   invitados: "",
   notas: "",
+  montoTotal: "",
+  depositoMonto: "",
+  depositoRecibido: false,
+  eventoPagado: false,
 };
 
 /**
  * Para cargar a mano una reserva que llegó por teléfono o en persona —
- * queda confirmada de una vez, sin pasar por depósito ni comprobante.
+ * queda confirmada de una vez, sin depósito ni comprobante en línea.
+ * Los montos sí se piden: sin eso, la reserva no cuenta para nada en
+ * el panel de Finanzas y el control económico del negocio queda cojo.
  */
 export default function ReservaManualForm({
   capacidadMax,
@@ -38,6 +48,10 @@ export default function ReservaManualForm({
     tipo_evento: string;
     invitados: number | null;
     notas: string | null;
+    montoTotal: number;
+    depositoMonto: number;
+    depositoRecibido: boolean;
+    eventoPagado: boolean;
   }) => Promise<{ error: string | null }>;
 }) {
   const [datos, setDatos] = useState(VACIO);
@@ -46,7 +60,7 @@ export default function ReservaManualForm({
   const [ok, setOk] = useState(false);
   const [abierto, setAbierto] = useState(false);
 
-  function set<K extends keyof ReservaManualInput>(campo: K, valor: string) {
+  function set<K extends keyof ReservaManualInput>(campo: K, valor: ReservaManualInput[K]) {
     setDatos((prev) => ({ ...prev, [campo]: valor }));
     setOk(false);
   }
@@ -72,6 +86,20 @@ export default function ReservaManualForm({
       setError(`Este lugar recibe hasta ${capacidadMax} personas.`);
       return;
     }
+    const montoTotalNum = Number(datos.montoTotal);
+    if (!datos.montoTotal.trim() || !Number.isFinite(montoTotalNum) || montoTotalNum <= 0) {
+      setError("Ingresá cuánto vale el evento.");
+      return;
+    }
+    const depositoMontoNum = datos.depositoMonto.trim() ? Number(datos.depositoMonto) : 0;
+    if (!Number.isFinite(depositoMontoNum) || depositoMontoNum < 0) {
+      setError("El adelanto no puede ser negativo.");
+      return;
+    }
+    if (depositoMontoNum > montoTotalNum) {
+      setError("El adelanto no puede ser mayor que el total del evento.");
+      return;
+    }
 
     startTransition(async () => {
       const res = await onCrear({
@@ -80,6 +108,10 @@ export default function ReservaManualForm({
         tipo_evento: datos.tipo_evento.trim(),
         invitados: invitadosNum,
         notas: datos.notas.trim() || null,
+        montoTotal: montoTotalNum,
+        depositoMonto: depositoMontoNum,
+        depositoRecibido: datos.depositoRecibido,
+        eventoPagado: datos.eventoPagado,
       });
       if (res?.error) {
         setError(res.error);
@@ -118,7 +150,8 @@ export default function ReservaManualForm({
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
         Para cuando alguien reserva por teléfono o en persona. Queda confirmada
-        directamente, sin depósito ni comprobante.
+        directamente, sin comprobante — pero los montos sí se guardan, para que
+        cuente igual en Finanzas.
       </p>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -165,16 +198,67 @@ export default function ReservaManualForm({
             className={inputCls}
           />
         </div>
-        <div className="sm:col-span-2">
-          <label className={labelCls}>Notas</label>
-          <textarea
-            value={datos.notas}
-            onChange={(e) => set("notas", e.target.value)}
-            placeholder="Opcional"
-            rows={2}
-            className={inputCls}
-          />
+      </div>
+
+      <div className="mt-4 rounded-xl bg-aventurea-cream-2 p-3.5">
+        <p className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          Plata del evento
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Monto total del evento (₡)</label>
+            <input
+              type="number"
+              min={0}
+              value={datos.montoTotal}
+              onChange={(e) => set("montoTotal", e.target.value)}
+              placeholder="Ej. 350000"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Adelanto acordado (₡)</label>
+            <input
+              type="number"
+              min={0}
+              value={datos.depositoMonto}
+              onChange={(e) => set("depositoMonto", e.target.value)}
+              placeholder="0 si no se pidió"
+              className={inputCls}
+            />
+          </div>
         </div>
+        <div className="mt-3 flex flex-col gap-2">
+          <label className="flex items-center gap-2 text-[12.5px] font-bold text-aventurea-ink">
+            <input
+              type="checkbox"
+              checked={datos.depositoRecibido}
+              onChange={(e) => set("depositoRecibido", e.target.checked)}
+              className="h-4 w-4 rounded border-aventurea-line"
+            />
+            Ya recibí el adelanto
+          </label>
+          <label className="flex items-center gap-2 text-[12.5px] font-bold text-aventurea-ink">
+            <input
+              type="checkbox"
+              checked={datos.eventoPagado}
+              onChange={(e) => set("eventoPagado", e.target.checked)}
+              className="h-4 w-4 rounded border-aventurea-line"
+            />
+            Ya me pagaron el evento completo
+          </label>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className={labelCls}>Notas</label>
+        <textarea
+          value={datos.notas}
+          onChange={(e) => set("notas", e.target.value)}
+          placeholder="Opcional"
+          rows={2}
+          className={inputCls}
+        />
       </div>
 
       {error && (

@@ -25,6 +25,14 @@ export default function GaleriaHeroFotos({
   // Cuántas quedaron fuera de la grilla de desktop (van al chip "+N").
   const ocultasDesktop = fotos.length - 1 - chicas.length;
 
+  // El carrusel de móvil muestra las mismas 5 fotos que la grilla de
+  // desktop (grande + chicas) — el resto vive más abajo en "Conocé el
+  // espacio". Antes el carrusel recorría TODAS las fotos, así que en
+  // móvil se veían dos veces: primero deslizando acá arriba y de nuevo
+  // en la sección de abajo.
+  const previa = fotos.slice(0, 5);
+  const ocultasMovil = fotos.length - previa.length;
+
   return (
     <div className="mx-auto max-w-[1080px] px-0 sm:px-7 sm:pt-7">
       {/* ---------- Móvil: carrusel con scroll-snap ---------- */}
@@ -37,32 +45,40 @@ export default function GaleriaHeroFotos({
           }}
           className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {fotos.map((foto, i) => (
-            <button
-              key={foto + i}
-              type="button"
-              onClick={() => setAbierta(i)}
-              aria-label={`Ver la foto ${i + 1} de ${nombre} en grande`}
-              className="w-full shrink-0 snap-center"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor */}
-              <img
-                src={foto}
-                alt={`${nombre} — foto ${i + 1}`}
-                loading={i === 0 ? "eager" : "lazy"}
-                className="aspect-[16/11] w-full object-cover"
-              />
-            </button>
-          ))}
+          {previa.map((foto, i) => {
+            const esUltima = i === previa.length - 1 && ocultasMovil > 0;
+            return (
+              <button
+                key={foto + i}
+                type="button"
+                onClick={() => setAbierta(i)}
+                aria-label={`Ver la foto ${i + 1} de ${nombre} en grande`}
+                className="relative w-full shrink-0 snap-center"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor */}
+                <img
+                  src={foto}
+                  alt={`${nombre} — foto ${i + 1}`}
+                  loading={i === 0 ? "eager" : "lazy"}
+                  className="aspect-[16/11] w-full object-cover"
+                />
+                {esUltima && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[15px] font-extrabold text-white">
+                    +{ocultasMovil} fotos
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {fotos.length > 1 && (
+        {previa.length > 1 && (
           <>
             <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white backdrop-blur-sm">
-              {visible + 1} / {fotos.length}
+              {visible + 1} / {previa.length}
             </span>
             <div className="pointer-events-none absolute bottom-3.5 left-1/2 flex -translate-x-1/2 gap-1.5">
-              {fotos.map((_, i) => (
+              {previa.map((_, i) => (
                 <span
                   key={i}
                   className={`h-1.5 rounded-full transition-all duration-200 ${
