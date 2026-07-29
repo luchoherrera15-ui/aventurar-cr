@@ -1,10 +1,10 @@
 import {
-  IconBalloon,
-  IconClipboard,
-  IconHeadphones,
-  IconHouse,
-  IconSparkles,
-  IconUtensils,
+  IconBalloons,
+  IconCloche,
+  IconDisco,
+  IconPlannerCheck,
+  IconRancho,
+  IconWand,
 } from "@/components/icons";
 
 export const PROVINCIAS = [
@@ -113,13 +113,16 @@ export const CATEGORIA_LABEL: Record<Categoria, string> = {
   otros: "Otros servicios",
 };
 
+// Dibujos propios: el rancho, la campana de catering, la bola disco…
+// dan más identidad que los genéricos (casa, tenedor, clipboard) que
+// se usaban antes.
 export const CATEGORIA_ICONO: Record<Categoria, React.ReactNode> = {
-  lugares: <IconHouse />,
-  alimentacion: <IconUtensils />,
-  animacion: <IconHeadphones />,
-  organizacion: <IconClipboard />,
-  decoracion: <IconBalloon />,
-  otros: <IconSparkles />,
+  lugares: <IconRancho />,
+  alimentacion: <IconCloche />,
+  animacion: <IconDisco />,
+  organizacion: <IconPlannerCheck />,
+  decoracion: <IconBalloons />,
+  otros: <IconWand />,
 };
 
 // Fondo para cuando el negocio todavía no subió su foto principal.

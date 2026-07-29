@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
+import { IconChatBubble, IconChevronRight, IconPlus, IconStore } from "@/components/icons";
 import FormularioAuth from "./formulario-auth";
 import ResenaForm from "./resena-form";
 import { cerrarSesionCuenta } from "./actions";
@@ -143,112 +144,99 @@ export default async function CuentaPage() {
       <SiteHeader breadcrumb="Tu cuenta" />
 
       <section className="mx-auto max-w-[720px] px-6 py-10">
-        {/* Tarjeta de identidad estilo Airbnb: el avatar grande a la
-            izquierda y la columna de números a la derecha. */}
-        <div className="flex items-stretch gap-6 rounded-3xl bg-aventurea-navy px-7 py-6 text-white shadow-[0_16px_40px_-16px_rgba(16,26,44,0.5)]">
-          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 text-center">
-            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-aventurea-orange text-[34px] font-extrabold">
-              {inicial}
-            </span>
-            <p className="mt-1 max-w-full truncate text-[17px] font-extrabold">
-              {perfil?.nombre || "Tu cuenta"}
-            </p>
-            <p className="text-[12.5px] font-semibold text-white/70">
-              {tieneNegocio ? "Proveedor" : "Cliente"}
-            </p>
-          </div>
-          <div className="flex w-[46%] flex-col justify-center gap-2.5">
-            <div>
-              <p className="text-[19px] font-extrabold leading-tight">{reservasHechas}</p>
-              <p className="text-[11px] font-semibold text-white/70">
-                {reservasHechas === 1 ? "reserva" : "reservas"}
-              </p>
-            </div>
-            <div className="h-px bg-white/20" />
-            <div>
-              <p className="text-[19px] font-extrabold leading-tight">{resenasPropias.size}</p>
-              <p className="text-[11px] font-semibold text-white/70">
-                {resenasPropias.size === 1 ? "reseña" : "reseñas"}
-              </p>
-            </div>
-            <div className="h-px bg-white/20" />
-            <div>
-              <p className="text-[19px] font-extrabold leading-tight">{favoritos.length}</p>
-              <p className="text-[11px] font-semibold text-white/70">
-                {favoritos.length === 1 ? "favorito" : "favoritos"}
-              </p>
-            </div>
+        {/* Identidad: tarjeta clara centrada con el aro naranja en el
+            avatar y los números debajo — el mismo diseño del perfil de
+            la app, sin el bloque navy pesado de antes. */}
+        <div className="flex flex-col items-center rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-7 text-center shadow-[0_10px_30px_-18px_rgba(16,26,44,0.35)]">
+          <span className="flex h-20 w-20 items-center justify-center rounded-full border-[3px] border-aventurea-orange bg-aventurea-navy text-[32px] font-extrabold text-white">
+            {inicial}
+          </span>
+          <p className="mt-3 max-w-full truncate text-[18px] font-extrabold text-aventurea-ink">
+            {perfil?.nombre || "Tu cuenta"}
+          </p>
+          <p className="max-w-full truncate text-[12.5px] font-medium text-aventurea-ink-soft">
+            {user.email}
+          </p>
+          <span
+            className={`mt-2 rounded-full px-3 py-1 text-[11.5px] font-bold ${
+              tieneNegocio
+                ? "bg-aventurea-orange/10 text-aventurea-orange"
+                : "bg-aventurea-navy/10 text-aventurea-navy"
+            }`}
+          >
+            {tieneNegocio ? "Proveedor" : "Cliente"}
+          </span>
+
+          <div className="mt-4 flex w-full items-center border-t border-aventurea-line pt-4">
+            <Stat valor={String(reservasHechas)} etiqueta={reservasHechas === 1 ? "reserva" : "reservas"} />
+            <span className="h-7 w-px bg-aventurea-line" />
+            <Stat
+              valor={String(resenasPropias.size)}
+              etiqueta={resenasPropias.size === 1 ? "reseña" : "reseñas"}
+            />
+            <span className="h-7 w-px bg-aventurea-line" />
+            <Stat
+              valor={String(favoritos.length)}
+              etiqueta={favoritos.length === 1 ? "favorito" : "favoritos"}
+            />
           </div>
         </div>
 
+        {/* El negocio en una sola tarjeta clickeable con sus números. */}
         {tieneNegocio && (
-          <div className="mt-4 rounded-2xl border border-aventurea-line bg-aventurea-surface px-6 py-4">
-            <p className="text-[13.5px] font-extrabold text-aventurea-ink">Tu negocio en números</p>
-            <div className="mt-2.5 grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-[19px] font-extrabold text-aventurea-ink">{negocioIds.length}</p>
-                <p className="text-[11px] font-semibold text-aventurea-ink-soft">
-                  {negocioIds.length === 1 ? "publicación" : "publicaciones"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[19px] font-extrabold text-aventurea-ink">{vecesContratado}</p>
-                <p className="text-[11px] font-semibold text-aventurea-ink-soft">
-                  {vecesContratado === 1 ? "vez contratado" : "veces contratado"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[19px] font-extrabold text-aventurea-ink">
-                  {calificacionProveedor !== null ? `★ ${calificacionProveedor.toFixed(1)}` : "—"}
-                </p>
-                <p className="text-[11px] font-semibold text-aventurea-ink-soft">calificación</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <Link
-          href="/mensajes"
-          className="mt-4 flex items-center justify-between rounded-2xl border border-aventurea-line bg-aventurea-surface px-6 py-4 transition-colors hover:border-aventurea-navy"
-        >
-          <div>
-            <p className="text-[14.5px] font-bold text-aventurea-ink">Mensajes</p>
-            <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-              Tus conversaciones de reservas y cotizaciones.
-            </p>
-          </div>
-          <span aria-hidden className="text-aventurea-navy">→</span>
-        </Link>
-
-        {tieneNegocio ? (
           <Link
             href="/mi-rancho"
-            className="mt-4 flex items-center justify-between rounded-2xl border border-aventurea-line bg-aventurea-surface px-6 py-4 transition-colors hover:border-aventurea-navy"
+            className="mt-4 block rounded-2xl border border-aventurea-line bg-aventurea-surface px-6 py-4 transition-colors hover:border-aventurea-navy"
           >
-            <div>
-              <p className="text-[14.5px] font-bold text-aventurea-ink">Panel de proveedor</p>
-              <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                Administrá tus servicios, precios y reservas.
-              </p>
+            <div className="flex items-center justify-between">
+              <p className="text-[14.5px] font-extrabold text-aventurea-ink">Tu negocio</p>
+              <IconChevronRight className="h-4 w-4 text-aventurea-ink-soft" />
             </div>
-            <span aria-hidden className="text-aventurea-navy">→</span>
-          </Link>
-        ) : (
-          <Link
-            href="/mi-rancho/nuevo"
-            className="mt-4 flex items-center justify-between rounded-2xl border border-aventurea-line bg-aventurea-surface px-6 py-4 transition-colors hover:border-aventurea-navy"
-          >
-            <div>
-              <p className="text-[14.5px] font-bold text-aventurea-ink">
-                ¿Ofrecés un servicio para eventos?
-              </p>
-              <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                Publicá tu negocio gratis en Bookea.
-              </p>
+            <div className="mt-3 flex items-center border-t border-aventurea-line pt-3">
+              <Stat
+                valor={String(negocioIds.length)}
+                etiqueta={negocioIds.length === 1 ? "publicación" : "publicaciones"}
+              />
+              <span className="h-7 w-px bg-aventurea-line" />
+              <Stat
+                valor={String(vecesContratado)}
+                etiqueta={vecesContratado === 1 ? "contratación" : "contrataciones"}
+              />
+              <span className="h-7 w-px bg-aventurea-line" />
+              <Stat
+                valor={calificacionProveedor !== null ? `★ ${calificacionProveedor.toFixed(1)}` : "—"}
+                etiqueta="calificación"
+              />
             </div>
-            <span aria-hidden className="text-aventurea-navy">→</span>
           </Link>
         )}
+
+        {/* Accesos en dos tarjetas compactas, como en la app. */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <TarjetaAcceso
+            href="/mensajes"
+            icono={<IconChatBubble className="h-5 w-5" />}
+            titulo="Mensajes"
+            detalle="Tus conversaciones"
+          />
+          {tieneNegocio ? (
+            <TarjetaAcceso
+              href="/mi-rancho"
+              icono={<IconStore className="h-5 w-5" />}
+              titulo="Panel de proveedor"
+              detalle="Servicios y reservas"
+              acento
+            />
+          ) : (
+            <TarjetaAcceso
+              href="/mi-rancho/nuevo"
+              icono={<IconPlus className="h-5 w-5" />}
+              titulo="Publicar mi negocio"
+              detalle="Gratis en Bookea"
+              acento
+            />
+          )}
+        </div>
 
         <Seccion titulo="Reservas activas" vacio="Todavía no tenés reservas en curso.">
           {activas.map((r) => (
@@ -256,26 +244,36 @@ export default async function CuentaPage() {
           ))}
         </Seccion>
 
-        <Seccion titulo="Historial" vacio="Acá vas a ver tus reservas pasadas.">
-          {historial.map((r) => (
-            <TarjetaReserva
-              key={r.id}
-              reserva={r}
-              atenuada
-              resena={resenasPropias.get(r.id) ?? null}
-              permitirResena={r.fecha < hoy}
-            />
-          ))}
-        </Seccion>
+        {/* El historial plegado: está para consultarlo, no para ocupar
+            media página todos los días. */}
+        {historial.length > 0 && (
+          <details className="group mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 [&::-webkit-details-marker]:hidden">
+              <span className="text-[14.5px] font-bold text-aventurea-ink">
+                Historial
+                <span className="ml-2 text-[12.5px] font-semibold text-aventurea-ink-soft">
+                  {historial.length} {historial.length === 1 ? "reserva pasada" : "reservas pasadas"}
+                </span>
+              </span>
+              <IconChevronRight className="h-4 w-4 text-aventurea-ink-soft transition-transform group-open:rotate-90" />
+            </summary>
+            <div className="flex flex-col gap-2.5 border-t border-aventurea-line p-4">
+              {historial.map((r) => (
+                <TarjetaReserva
+                  key={r.id}
+                  reserva={r}
+                  atenuada
+                  resena={resenasPropias.get(r.id) ?? null}
+                  permitirResena={r.fecha < hoy}
+                />
+              ))}
+            </div>
+          </details>
+        )}
 
-        <div className="mt-8">
-          <h2 className="mb-3 text-[15px] font-bold text-aventurea-ink">Tus favoritos</h2>
-          {favoritos.length === 0 ? (
-            <p className="rounded-2xl border border-aventurea-line bg-aventurea-surface px-5 py-4 text-[13px] text-aventurea-ink-soft">
-              Todavía no guardaste ningún favorito — tocá el corazón en cualquier tarjeta del
-              directorio.
-            </p>
-          ) : (
+        {favoritos.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-[15px] font-bold text-aventurea-ink">Tus favoritos</h2>
             <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3">
               {favoritos.map((r, i) => (
                 <RanchoCard
@@ -289,8 +287,8 @@ export default async function CuentaPage() {
                 />
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <form action={cerrarSesionCuenta} className="mt-8 text-center">
           <button type="submit" className="text-[13.5px] font-bold text-red-600 hover:underline">
@@ -299,6 +297,49 @@ export default async function CuentaPage() {
         </form>
       </section>
     </div>
+  );
+}
+
+/** Un número del perfil con su etiqueta, en una fila de tercios. */
+function Stat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
+  return (
+    <div className="flex-1 text-center">
+      <p className="text-[19px] font-extrabold leading-tight text-aventurea-ink">{valor}</p>
+      <p className="text-[11px] font-semibold text-aventurea-ink-soft">{etiqueta}</p>
+    </div>
+  );
+}
+
+/** Un acceso del perfil como tarjeta con ícono en burbuja. */
+function TarjetaAcceso({
+  href,
+  icono,
+  titulo,
+  detalle,
+  acento,
+}: {
+  href: string;
+  icono: React.ReactNode;
+  titulo: string;
+  detalle: string;
+  /** true = la burbuja va en naranja (la acción principal). */
+  acento?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy"
+    >
+      <span
+        className={`flex h-10 w-10 items-center justify-center rounded-full ${
+          acento ? "bg-aventurea-orange/10 text-aventurea-orange" : "bg-aventurea-navy/10 text-aventurea-navy"
+        }`}
+      >
+        {icono}
+      </span>
+      <p className="mt-2 text-[14px] font-extrabold text-aventurea-ink">{titulo}</p>
+      <p className="truncate text-[11.5px] font-medium text-aventurea-ink-soft">{detalle}</p>
+    </Link>
   );
 }
 

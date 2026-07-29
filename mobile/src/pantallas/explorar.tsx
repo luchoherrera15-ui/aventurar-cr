@@ -16,6 +16,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import {
+  fmtFechaCortaISO,
+  hoyISOLocal,
+  interpretarBusqueda,
+  normalizarTexto,
+} from "@/lib/busqueda";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   CATEGORIA_LABEL,
@@ -30,15 +36,16 @@ type Calificacion = { promedio: number; total: number };
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
-/** Íconos de línea (nada de emojis) para la barra de categorías, en
- * el mismo espíritu sobrio de la fila de categorías de Airbnb. */
+/** Íconos de línea (nada de emojis) para la barra de categorías —
+ * los mismos conceptos que la web: disco para animación, calendario
+ * para organización, varita para otros. */
 const CATEGORIA_ICONO: Record<Categoria, IconoNombre> = {
   lugares: "home-outline",
   alimentacion: "restaurant-outline",
-  animacion: "musical-notes-outline",
-  organizacion: "clipboard-outline",
+  animacion: "disc-outline",
+  organizacion: "calendar-outline",
   decoracion: "balloon-outline",
-  otros: "sparkles-outline",
+  otros: "color-wand-outline",
 };
 
 const TAB_BAR_ESPACIO = 84;
@@ -166,17 +173,46 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
     setRefrescando(false);
   }
 
-  const q = query.trim().toLowerCase();
+  // La lupa entiende fechas ("3 de agosto", "este viernes"): esa parte
+  // se vuelve filtro de disponibilidad y el resto busca por texto.
+  const hoy = useMemo(() => hoyISOLocal(), []);
+  const interpretada = useMemo(() => interpretarBusqueda(query, hoy), [query, hoy]);
+
+  // Con fecha detectada se trae qué Lugares ya están confirmados ese
+  // día (la vista pública, sin datos de nadie) para poder excluirlos.
+  const [ocupadosFecha, setOcupadosFecha] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const fecha = interpretada.fecha;
+    if (!fecha) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia al borrar la fecha de la búsqueda
+      setOcupadosFecha(new Set());
+      return;
+    }
+    let vigente = true;
+    supabase
+      .from("disponibilidad_rancho")
+      .select("rancho_id")
+      .eq("estado", "confirmada")
+      .eq("fecha", fecha)
+      .then(({ data }) => {
+        if (vigente) setOcupadosFecha(new Set((data ?? []).map((d) => d.rancho_id as string)));
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [interpretada.fecha]);
+
+  const q = interpretada.texto;
   const coincide = useCallback(
     (r: Fila) =>
-      !q ||
-      r.nombre.toLowerCase().includes(q) ||
-      (r.provincia ?? "").toLowerCase().includes(q) ||
-      (r.canton ?? "").toLowerCase().includes(q),
-    [q],
+      (!q ||
+        normalizarTexto(`${r.nombre} ${r.provincia ?? ""} ${r.canton ?? ""}`).includes(q)) &&
+      // Solo Lugares bloquean fechas — los demás servicios no.
+      !(interpretada.fecha && r.categoria === "lugares" && ocupadosFecha.has(r.id)),
+    [q, interpretada.fecha, ocupadosFecha],
   );
 
-  const buscando = q.length > 0 || filtro !== "todos";
+  const buscando = q.length > 0 || !!interpretada.fecha || filtro !== "todos";
 
   const listaFiltrada = useMemo(() => {
     if (!ranchos) return [];
@@ -230,11 +266,19 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Buscá por nombre, provincia o cantón"
+            placeholder="Buscá por nombre, zona o fecha (ej. 3 de agosto)"
             placeholderTextColor={Colors.inkSoft}
             style={styles.busquedaInput}
           />
         </View>
+        {interpretada.fecha && (
+          <View style={styles.fechaDetectada}>
+            <Ionicons name="calendar-outline" size={13} color={Colors.accent} />
+            <Text style={styles.fechaDetectadaTexto}>
+              Mostrando lo libre el {fmtFechaCortaISO(interpretada.fecha)}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Barra de dos niveles, igual que la web: las categorías, y al
@@ -378,6 +422,11 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
   );
 }
 
+/**
+ * Chip de categoría con el ícono en su burbuja naranja — el mismo
+ * diseño que la web, en vez de las pestañas de subrayado con el ícono
+ * encima que se veían genéricas.
+ */
 function CategoriaTab({
   icono,
   label,
@@ -391,7 +440,9 @@ function CategoriaTab({
 }) {
   return (
     <Pressable onPress={onPress} style={[styles.categoriaTab, activo && styles.categoriaTabActiva]}>
-      <Ionicons name={icono} size={22} color={activo ? Colors.ink : "#8a8a8a"} />
+      <View style={[styles.categoriaBurbuja, activo && styles.categoriaBurbujaActiva]}>
+        <Ionicons name={icono} size={16} color={activo ? "#ffffff" : Colors.accent} />
+      </View>
       <Text style={[styles.categoriaLabel, activo && styles.categoriaLabelActiva]}>{label}</Text>
     </Pressable>
   );
@@ -554,12 +605,40 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   busquedaInput: { flex: 1, fontFamily: Fonts.semiBold, fontSize: 14.5, color: Colors.ink, padding: 0 },
+  fechaDetectada: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  fechaDetectadaTexto: { flex: 1, fontSize: 11.5, fontFamily: Fonts.semiBold, color: Colors.inkSoft },
   categoriasArea: { backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  categoriasFila: { gap: Spacing.four, paddingHorizontal: Spacing.three, paddingTop: Spacing.three },
-  categoriaTab: { alignItems: "center", gap: 6, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: "transparent" },
-  categoriaTabActiva: { borderBottomColor: Colors.ink },
-  categoriaLabel: { fontFamily: Fonts.semiBold, fontSize: 11.5, color: Colors.inkSoft },
-  categoriaLabelActiva: { color: Colors.ink },
+  categoriasFila: { gap: 8, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  categoriaTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    height: 40,
+    paddingLeft: 5,
+    paddingRight: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.surface,
+  },
+  categoriaTabActiva: { borderColor: Colors.navy, backgroundColor: Colors.navy },
+  categoriaBurbuja: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.accentLight,
+  },
+  categoriaBurbujaActiva: { backgroundColor: "rgba(255,255,255,0.15)" },
+  categoriaLabel: { fontFamily: Fonts.bold, fontSize: 12.5, color: Colors.ink },
+  categoriaLabelActiva: { color: "#ffffff" },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five },
   error: { color: Colors.danger, textAlign: "center", fontFamily: Fonts.medium },
   vacioTexto: { color: Colors.inkSoft, textAlign: "center", fontFamily: Fonts.medium },

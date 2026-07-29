@@ -349,6 +349,98 @@ export function IconCompass({ className = base }: IconProps) {
   );
 }
 
+// --- Íconos de categoría ---------------------------------------------
+// Dibujos propios con más carácter que los genéricos que había antes
+// (casa, tenedor, clipboard...): un rancho de verdad, la campana de
+// catering, la bola disco. Son la cara de la barra de navegación.
+
+/** Lugares: el rancho de techo alto con sus columnas. */
+export function IconRancho({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 10.5 12 3l9.5 7.5" />
+      <path strokeLinecap="round" d="M5.5 13.5h13" />
+      <path strokeLinecap="round" d="M6.5 13.5V20M17.5 13.5V20M12 13.5V20" />
+      <path strokeLinecap="round" d="M3.5 20.5h17" />
+    </svg>
+  );
+}
+
+/** Alimentación: la campana de catering sobre su bandeja. */
+export function IconCloche({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 16a7.5 7.5 0 0 1 15 0" />
+      <path strokeLinecap="round" d="M2.5 16.5h19M12 8.5V7" />
+      <circle cx="12" cy="5.5" r="1.2" />
+      <path strokeLinecap="round" d="M5.5 20h13" />
+    </svg>
+  );
+}
+
+/** Animación: la bola disco con su brillo. */
+export function IconDisco({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" d="M12 2.5V5" />
+      <circle cx="12" cy="12.5" r="7" />
+      <path strokeLinecap="round" d="M5.5 10.3h13M5.5 14.7h13" />
+      <path d="M9.6 6c-1.5 4.2-1.5 8.8 0 13M14.4 6c1.5 4.2 1.5 8.8 0 13" />
+      <circle cx="4" cy="4.5" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="20.5" cy="6" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** Organización: el calendario con el evento ya resuelto. */
+export function IconPlannerCheck({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="3" y="5" width="18" height="16" rx="2.5" />
+      <path strokeLinecap="round" d="M3 10h18M8 3v4M16 3v4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m8.5 15.3 2.4 2.4 4.6-4.9" />
+    </svg>
+  );
+}
+
+/** Decoración: los dos globos amarrados. */
+export function IconBalloons({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <ellipse cx="15.5" cy="8.5" rx="3.4" ry="4" />
+      <path strokeLinecap="round" d="M15.5 12.5c.6 2.6-.7 4.2-.2 6.5" />
+      <ellipse cx="8.3" cy="7.5" rx="3.9" ry="4.6" />
+      <path strokeLinecap="round" d="M8.3 12.1c-.6 3 .9 4.7.3 7.9" />
+      <path strokeLinecap="round" d="M7.5 12.3h1.6" />
+    </svg>
+  );
+}
+
+/** Otros servicios: la varita que resuelve lo que no tiene categoría. */
+export function IconWand({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m3.5 20.5 11.2-11.2 1.7 1.7L5.2 22.2l-1.7-1.7Z" />
+      <path strokeLinecap="round" d="M17.5 3v3.4M15.8 4.7h3.4" />
+      <circle cx="20.8" cy="10.3" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="12.5" cy="3.8" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function IconStore({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 4h16l1.5 4.5a3 3 0 0 1-2.9 3 3 3 0 0 1-3-2.5 3.1 3.1 0 0 1-3.1 2.5 3.1 3.1 0 0 1-3-2.5 3 3 0 0 1-3 2.5 3 3 0 0 1-3-3L4 4Z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12.5V20h14v-7.5M10 20v-4.5h4V20" />
+    </svg>
+  );
+}
+
 export function IconChatBubble({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>

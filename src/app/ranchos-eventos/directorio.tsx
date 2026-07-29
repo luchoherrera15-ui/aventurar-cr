@@ -8,7 +8,8 @@ import { IconCompass, IconFiltro, IconSearch } from "@/components/icons";
 import { type Calificacion } from "@/components/rancho-card";
 import RanchoCardGrande from "@/components/rancho-card-grande";
 import RielProveedores from "@/components/riel-proveedores";
-import { fechaISO, fmtFechaCorta, proximaFechaLibre } from "@/lib/fechas";
+import { fechaISO, fmtFechaCorta, hoyISOCR, proximaFechaLibre } from "@/lib/fechas";
+import { interpretarBusqueda, normalizarTexto } from "@/lib/busqueda";
 import {
   CATEGORIAS,
   CATEGORIA_ICONO,
@@ -73,12 +74,16 @@ export default function Directorio({
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
   const [pagina, setPagina] = useState(1);
-  const [menuAbierto, setMenuAbierto] = useState<
-    Categoria | "donde" | "cuando" | "personas" | "filtros" | null
-  >(null);
+  const [menuAbierto, setMenuAbierto] = useState<"filtros" | null>(null);
 
   const invitadosNum = parseInt(invitados) || 0;
   const precioMaxNum = parseInt(precioMax) || 0;
+
+  // La lupa única entiende fechas: "3 de agosto", "03/08", "este
+  // viernes"... La fecha escrita manda sobre la elegida en filtros.
+  const hoy = useMemo(() => hoyISOCR(), []);
+  const interpretada = useMemo(() => interpretarBusqueda(texto, hoy), [texto, hoy]);
+  const fechaActiva = interpretada.fecha ?? (fecha || null);
 
   const conteoPorCategoria = useMemo(() => {
     const acc: Record<string, number> = {};
@@ -159,21 +164,25 @@ export default function Directorio({
   }, [lugaresRelevantes, ocupadosPorFecha]);
 
   const filtrados = useMemo(() => {
-    const q = texto.trim().toLowerCase();
+    const q = interpretada.texto;
     return ranchos.filter((r) => {
       if (tab !== "todos" && r.categoria !== tab) return false;
       if (subcategoria && r.subcategoria !== subcategoria) return false;
       if (
         q &&
-        !`${r.nombre} ${r.provincia ?? ""} ${r.canton ?? ""} ${r.descripcion ?? ""}`
-          .toLowerCase()
-          .includes(q)
+        !normalizarTexto(
+          `${r.nombre} ${r.provincia ?? ""} ${r.canton ?? ""} ${r.descripcion ?? ""}`,
+        ).includes(q)
       ) {
         return false;
       }
       if (provincia && r.provincia !== provincia) return false;
       if (canton && r.canton !== canton) return false;
-      if (fecha && r.categoria === "lugares" && ocupadosPorFecha.get(fecha)?.has(r.id)) {
+      if (
+        fechaActiva &&
+        r.categoria === "lugares" &&
+        ocupadosPorFecha.get(fechaActiva)?.has(r.id)
+      ) {
         return false;
       }
       if (invitadosNum && (r.capacidad_max ?? 0) < invitadosNum) return false;
@@ -184,10 +193,10 @@ export default function Directorio({
     ranchos,
     tab,
     subcategoria,
-    texto,
+    interpretada.texto,
     provincia,
     canton,
-    fecha,
+    fechaActiva,
     ocupadosPorFecha,
     invitadosNum,
     precioMaxNum,
@@ -199,7 +208,7 @@ export default function Directorio({
     !!texto ||
     !!provincia ||
     !!canton ||
-    !!fecha ||
+    !!fechaActiva ||
     !!invitados ||
     !!precioMax;
 
@@ -275,10 +284,8 @@ export default function Directorio({
     setPagina(1);
   }
 
-  // Solo "lugares" reserva por fecha en línea — para el resto, "Cuándo"
-  // no aplica: el buscador de arriba cambia esa casilla por una de texto
-  // libre ("¿Qué necesitás?"), y por eso el buscador de nombre de abajo
-  // (que haría lo mismo) se oculta para no repetirse.
+  // Solo "lugares" reserva por fecha en línea — en las demás categorías
+  // el calendario del panel de filtros no aplica y no se muestra.
   const mostrarCuando = tab === "todos" || tab === "lugares";
 
   return (
@@ -289,153 +296,39 @@ export default function Directorio({
           pero la búsqueda queda siempre a mano bajo el header — patrón
           Airbnb. El fondo con blur evita que las cards se lean debajo. */}
       <div className="sticky top-14 z-30 -mx-6 bg-aventurea-cream/95 px-6 pt-3 backdrop-blur-sm lg:-mx-10 lg:px-10">
-      {/* Buscador segmentado: Dónde · Cuándo · Personas (Lugares/Todos) o
-          Dónde · ¿Qué necesitás? · Personas para el resto de categorías,
-          que no reservan por fecha en línea. */}
+      {/* La lupa única: se escribe lo que se busca — un nombre, una
+          zona o una fecha ("3 de agosto", "este viernes") — y el resto
+          de filtros vive en el botón de al lado. Reemplaza al buscador
+          segmentado tipo píldora, que no resolvía nada. */}
       <div className="relative z-30 mx-auto mb-4 flex w-full max-w-[720px] items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-stretch overflow-hidden rounded-full border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-md">
-          <SegmentoBusqueda
-            label="Dónde"
-            valor={canton || provincia || "Todo Costa Rica"}
-            activo={menuAbierto === "donde"}
-            onClick={() => setMenuAbierto((p) => (p === "donde" ? null : "donde"))}
+        <div className="relative min-w-0 flex-1">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
+            <IconSearch className="h-4 w-4" />
+          </span>
+          <input
+            type="search"
+            value={texto}
+            onChange={(e) => {
+              setTexto(e.target.value);
+              setPagina(1);
+            }}
+            placeholder='Buscá por nombre, zona o fecha — ej. "catering" o "3 de agosto"'
+            className="h-12 w-full rounded-[14px] border border-aventurea-line bg-aventurea-surface pl-11 pr-4 text-[14px] text-aventurea-ink shadow-sm transition-shadow placeholder:text-zinc-500 hover:shadow-md focus:border-aventurea-navy/50 focus:outline-none"
           />
-          {mostrarCuando ? (
-            <SegmentoBusqueda
-              borde
-              label="Cuándo"
-              valor={fecha ? fmtFechaCorta(fecha) : "Agregá la fecha"}
-              activo={menuAbierto === "cuando"}
-              onClick={() => setMenuAbierto((p) => (p === "cuando" ? null : "cuando"))}
-            />
-          ) : (
-            <SegmentoTexto
-              label="¿Qué necesitás?"
-              placeholder="Ej. catering, DJ, decoración..."
-              value={texto}
-              onChange={(v) => {
-                setTexto(v);
-                setPagina(1);
-              }}
-            />
-          )}
-          <SegmentoBusqueda
-            borde
-            className="hidden sm:flex"
-            label="Personas"
-            valor={invitados || "¿Cuántas?"}
-            activo={menuAbierto === "personas"}
-            onClick={() => setMenuAbierto((p) => (p === "personas" ? null : "personas"))}
-          />
-          <button
-            type="button"
-            onClick={soltarMenu}
-            aria-label="Buscar"
-            className="m-1.5 flex w-11 shrink-0 items-center justify-center rounded-full bg-aventurea-orange text-white hover:bg-aventurea-orange-dark"
-          >
-            <IconSearch className="h-[17px] w-[17px]" />
-          </button>
         </div>
 
         <button
           type="button"
           onClick={() => setMenuAbierto((prev) => (prev === "filtros" ? null : "filtros"))}
           aria-label="Más filtros"
-          className={`flex w-11 shrink-0 items-center justify-center rounded-full border transition-colors ${
-            precioMax || menuAbierto === "filtros"
+          className={`flex w-12 shrink-0 items-center justify-center rounded-[14px] border transition-colors ${
+            provincia || canton || invitados || precioMax || fechaActiva || menuAbierto === "filtros"
               ? "border-aventurea-navy text-aventurea-navy"
-              : "border-aventurea-line text-aventurea-ink hover:border-aventurea-navy"
+              : "border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy"
           }`}
         >
           <IconFiltro className="h-4 w-4" />
         </button>
-
-        {(menuAbierto === "donde" ||
-          menuAbierto === "cuando" ||
-          menuAbierto === "personas") && (
-          <>
-            <button
-              type="button"
-              aria-label="Cerrar menú"
-              onClick={soltarMenu}
-              className="fixed inset-0 z-10 cursor-default"
-            />
-            <div className="absolute left-0 right-0 top-full z-20 mx-auto mt-2 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
-              {menuAbierto === "donde" && (
-                <div>
-                  <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    Provincia
-                  </h4>
-                  <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
-                    {PROVINCIAS.map((p) => (
-                      <FilterRow
-                        key={p}
-                        label={p}
-                        count={conteoPorProvincia[p] ?? 0}
-                        active={provincia === p}
-                        onClick={() => elegirProvincia(p)}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Elegida la provincia, se abren sus cantones: es el
-                      segundo nivel de la búsqueda por zona. */}
-                  {provincia && (
-                    <div className="mt-4 border-t border-aventurea-line pt-3">
-                      <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                        Cantones de {provincia}
-                      </h4>
-                      <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
-                        {CANTONES[provincia as Provincia].map((ct) => (
-                          <FilterRow
-                            key={ct}
-                            label={ct}
-                            count={conteoPorCanton[ct] ?? 0}
-                            active={canton === ct}
-                            onClick={() => {
-                              elegirCanton(ct);
-                              soltarMenu();
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {menuAbierto === "cuando" && (
-                <SelectorFecha
-                  fecha={fecha}
-                  deshabilitadas={fechasSinDisponibilidad}
-                  hayLugares={lugaresRelevantes.length > 0}
-                  onElegir={(iso) => {
-                    setFecha(iso);
-                    setPagina(1);
-                    soltarMenu();
-                  }}
-                />
-              )}
-
-              {menuAbierto === "personas" && (
-                <div>
-                  <label className={labelCls}>Cantidad de invitados</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={invitados}
-                    onChange={(e) => {
-                      setInvitados(e.target.value);
-                      setPagina(1);
-                    }}
-                    placeholder="Ej. 50"
-                    className={inputCls}
-                  />
-                </div>
-              )}
-            </div>
-          </>
-        )}
       </div>
 
       {/* Barra de navegación de dos niveles. Nivel 1: las categorías —
@@ -445,7 +338,7 @@ export default function Directorio({
           panel intermedio de subcategorías ya no hace falta. */}
       <div className="relative z-20 border-b border-aventurea-line">
         {tab === "todos" ? (
-          <div className="flex gap-6 overflow-x-auto lg:justify-center lg:gap-8">
+          <div className="flex gap-2.5 overflow-x-auto py-2.5 lg:justify-center">
             <CategoriaTab
               label="Todos"
               icono={<IconCompass className="h-full w-full" />}
@@ -511,6 +404,8 @@ export default function Directorio({
 
       <div className="mt-4" />
 
+      {/* El panel de filtros junta lo que antes estaba repartido en la
+          píldora: la zona, la fecha, los invitados y el precio. */}
       {menuAbierto === "filtros" && (
         <div className="relative z-20 mb-4">
           <button
@@ -519,44 +414,93 @@ export default function Directorio({
             onClick={soltarMenu}
             className="fixed inset-0 z-10 cursor-default"
           />
-          <div className="relative z-20 rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
-            <div className="max-w-xs">
-              <label className={labelCls}>Precio máximo (₡)</label>
-              <input
-                type="number"
-                min={0}
-                value={precioMax}
-                onChange={(e) => {
-                  setPrecioMax(e.target.value);
-                  setPagina(1);
-                }}
-                placeholder="Ej. 150000"
-                className={inputCls}
-              />
+          <div className="relative z-20 max-h-[70vh] overflow-y-auto rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Provincia
+                </h4>
+                <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
+                  {PROVINCIAS.map((p) => (
+                    <FilterRow
+                      key={p}
+                      label={p}
+                      count={conteoPorProvincia[p] ?? 0}
+                      active={provincia === p}
+                      onClick={() => elegirProvincia(p)}
+                    />
+                  ))}
+                </div>
+
+                {/* Elegida la provincia, se abren sus cantones: es el
+                    segundo nivel de la búsqueda por zona. */}
+                {provincia && (
+                  <div className="mt-4 border-t border-aventurea-line pt-3">
+                    <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      Cantones de {provincia}
+                    </h4>
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
+                      {CANTONES[provincia as Provincia].map((ct) => (
+                        <FilterRow
+                          key={ct}
+                          label={ct}
+                          count={conteoPorCanton[ct] ?? 0}
+                          active={canton === ct}
+                          onClick={() => elegirCanton(ct)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>Cantidad de invitados</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={invitados}
+                      onChange={(e) => {
+                        setInvitados(e.target.value);
+                        setPagina(1);
+                      }}
+                      placeholder="Ej. 50"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Precio máximo (₡)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={precioMax}
+                      onChange={(e) => {
+                        setPrecioMax(e.target.value);
+                        setPagina(1);
+                      }}
+                      placeholder="Ej. 150000"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {mostrarCuando && (
+                <SelectorFecha
+                  fecha={fechaActiva ?? ""}
+                  deshabilitadas={fechasSinDisponibilidad}
+                  hayLugares={lugaresRelevantes.length > 0}
+                  onElegir={(iso) => {
+                    setFecha(iso);
+                    // Si la fecha venía escrita en la lupa, se limpia de
+                    // ahí para que no queden dos fechas peleando.
+                    if (interpretada.fecha) setTexto(interpretada.texto);
+                    setPagina(1);
+                  }}
+                />
+              )}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Búsqueda por nombre — complementa al buscador de arriba, que es
-          por ubicación/fecha/capacidad. En el resto de categorías esa
-          misma casilla de texto ya vive arriba ("¿Qué necesitás?"), así
-          que acá abajo no se repite. */}
-      {mostrarCuando && (
-        <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-aventurea-ink-soft">
-            <IconSearch className="h-[15px] w-[15px]" />
-          </span>
-          <input
-            type="search"
-            value={texto}
-            onChange={(e) => {
-              setTexto(e.target.value);
-              setPagina(1);
-            }}
-            placeholder="Buscá un proveedor por nombre..."
-            className="w-full rounded-[12px] border border-transparent bg-aventurea-cream-2 py-3 pl-11 pr-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/40 focus:outline-none"
-          />
         </div>
       )}
 
@@ -584,8 +528,16 @@ export default function Directorio({
           {canton && (
             <Chip label={canton} onQuitar={() => elegirCanton(canton)} />
           )}
-          {fecha && (
-            <Chip label={fmtFechaCorta(fecha)} onQuitar={() => setFecha("")} />
+          {fechaActiva && (
+            <Chip
+              label={`Libre el ${fmtFechaCorta(fechaActiva)}`}
+              onQuitar={() => {
+                // Si la fecha venía escrita en la lupa, también se borra
+                // de ahí — si no, el chip renacería al instante.
+                if (interpretada.fecha) setTexto(interpretada.texto);
+                setFecha("");
+              }}
+            />
           )}
           <button
             type="button"
@@ -722,62 +674,6 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
-function SegmentoBusqueda({
-  label,
-  valor,
-  activo,
-  borde,
-  className = "",
-  onClick,
-}: {
-  label: string;
-  valor: string;
-  activo: boolean;
-  borde?: boolean;
-  className?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex min-w-0 flex-1 flex-col px-4 py-2.5 text-left transition-colors sm:px-5 ${
-        borde ? "border-l border-aventurea-line" : ""
-      } ${activo ? "bg-aventurea-cream-2" : "hover:bg-aventurea-cream-2/60"} ${className}`}
-    >
-      <span className="text-[11px] font-bold text-aventurea-ink">{label}</span>
-      <span className="truncate text-[13px] text-aventurea-ink-soft">{valor}</span>
-    </button>
-  );
-}
-
-/** Como SegmentoBusqueda, pero editable ahí mismo — sin popover, porque
- *  es texto libre y no una lista para elegir. */
-function SegmentoTexto({
-  label,
-  placeholder,
-  value,
-  onChange,
-}: {
-  label: string;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex min-w-0 flex-1 flex-col justify-center border-l border-aventurea-line px-4 py-2.5 sm:px-5">
-      <label className="text-[11px] font-bold text-aventurea-ink">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="truncate bg-transparent text-[13px] text-aventurea-ink placeholder:text-aventurea-ink-soft focus:outline-none"
-      />
-    </div>
-  );
-}
-
 /** Pastilla de subcategoría del nivel 2 de la barra de navegación. */
 function SubcategoriaPill({
   label,
@@ -804,6 +700,11 @@ function SubcategoriaPill({
   );
 }
 
+/**
+ * Chip de categoría con el ícono en su burbuja naranja — reemplaza a
+ * las pestañas de subrayado con ícono encima, que se veían genéricas
+ * (y demasiado parecidas a Airbnb).
+ */
 function CategoriaTab({
   label,
   icono,
@@ -819,14 +720,20 @@ function CategoriaTab({
     <button
       type="button"
       onClick={onClick}
-      className={`flex shrink-0 flex-col items-center gap-1.5 whitespace-nowrap border-b-[2.5px] pb-2.5 pt-3 transition-colors ${
+      className={`flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border pl-1.5 pr-4 transition-colors ${
         activo
-          ? "border-aventurea-ink text-aventurea-ink"
-          : "border-transparent text-aventurea-ink-soft hover:text-aventurea-ink"
+          ? "border-aventurea-navy bg-aventurea-navy text-white"
+          : "border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy"
       }`}
     >
-      <span className={`h-[25px] w-[25px] ${activo ? "" : "opacity-70"}`}>{icono}</span>
-      <span className="text-[12.5px] font-bold">{label}</span>
+      <span
+        className={`flex h-8 w-8 items-center justify-center rounded-full [&_svg]:h-[18px] [&_svg]:w-[18px] ${
+          activo ? "bg-white/15 text-white" : "bg-aventurea-orange/10 text-aventurea-orange"
+        }`}
+      >
+        {icono}
+      </span>
+      <span className="text-[13px] font-bold">{label}</span>
     </button>
   );
 }
