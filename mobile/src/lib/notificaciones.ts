@@ -19,16 +19,32 @@ const TIMEOUT_MS = 8000;
  * servidor los marca una sola vez.
  */
 export async function pedirCorreosDeReserva(reservaId: string) {
+  await pedir(reservaId, "confirmacion", "el correo de confirmación");
+}
+
+/**
+ * Le pide a la web que le avise al cliente que su reserva quedó
+ * aprobada. Lo usa el panel del proveedor, que confirma escribiendo
+ * directo contra Supabase.
+ *
+ * Igual que el de arriba: no bloquea, no lanza, y llamarlo dos veces no
+ * manda correos repetidos.
+ */
+export async function pedirCorreoDeAprobacion(reservaId: string) {
+  await pedir(reservaId, "aprobacion", "el correo de aprobación");
+}
+
+async function pedir(reservaId: string, ruta: string, queEs: string) {
   const control = new AbortController();
   const corte = setTimeout(() => control.abort(), TIMEOUT_MS);
 
   try {
-    await fetch(`${SITIO_URL}/api/reservas/${reservaId}/confirmacion`, {
+    await fetch(`${SITIO_URL}/api/reservas/${reservaId}/${ruta}`, {
       method: "POST",
       signal: control.signal,
     });
   } catch (e) {
-    console.warn("[reserva] No se pudo pedir el correo de confirmación:", e);
+    console.warn(`[reserva] No se pudo pedir ${queEs}:`, e);
   } finally {
     clearTimeout(corte);
   }

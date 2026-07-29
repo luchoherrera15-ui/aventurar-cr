@@ -3,6 +3,7 @@ import { fmtFechaCorta } from "@/lib/fechas";
 import {
   enviarCorreo,
   plantillaConfirmacionReserva,
+  plantillaReservaAprobada,
   plantillaReservaNuevaProveedor,
 } from "@/lib/email";
 
@@ -155,6 +156,81 @@ export async function notificarReservaCompletada(
     // red hablando con Supabase sí puede tirar acá — y esta función no
     // puede lanzar hacia una reserva que ya se guardó.
     console.error("[reserva] Error inesperado avisando de la reserva:", err);
+    return { notificada: false, motivo: "error" };
+  }
+}
+
+/**
+ * Le avisa al cliente que el proveedor le aprobó la reserva. Este es el
+ * correo que confirma de verdad — el de `notificarReservaCompletada`
+ * solo dice "la recibimos, está en aprobación".
+ *
+ * Lo llaman los tres caminos por los que se aprueba: el panel de admin,
+ * el panel del proveedor en la web (los dos vía setEstadoReserva) y el
+ * panel del móvil, que como no tiene servidor pega en
+ * /api/reservas/[id]/aprobacion.
+ *
+ * Una sola vez por reserva: la bandera `aprobacion_enviada` se reclama
+ * dentro del mismo UPDATE que lee los datos. Eso importa porque en el
+ * móvil se puede quitar la confirmación y volver a confirmar, y sin la
+ * bandera cada ida y vuelta le mandaría otro correo al cliente.
+ *
+ * Nunca lanza: la reserva ya quedó aprobada en la base pase lo que pase
+ * con el correo.
+ */
+export async function notificarReservaAprobada(
+  reservaId: string,
+): Promise<ResultadoNotificacion> {
+  const admin = createAdminClient();
+  if (!admin) {
+    console.warn(
+      `[reserva] Falta SUPABASE_SERVICE_ROLE_KEY — no se avisó la aprobación de ${reservaId}.`,
+    );
+    return { notificada: false, motivo: "sin-service-key" };
+  }
+
+  try {
+    const { data, error } = await admin
+      .from("reservas")
+      .update({ aprobacion_enviada: true })
+      .eq("id", reservaId)
+      .eq("estado", "confirmada")
+      .eq("aprobacion_enviada", false)
+      .select(
+        "id, fecha, nombre, correo, tipo_evento, invitados, deposito_monto, monto_total, rancho_id, ranchos(nombre, owner_id)",
+      )
+      .maybeSingle();
+
+    if (error) {
+      console.error("[reserva] No se pudo reclamar el aviso de aprobación:", error);
+      return { notificada: false, motivo: "error" };
+    }
+
+    // Sin fila: ya se avisó, todavía no está confirmada, o no existe.
+    if (!data) return { notificada: false, motivo: "no-elegible" };
+
+    const reserva = data as unknown as FilaReserva;
+    if (!reserva.correo) return { notificada: false, motivo: "no-elegible" };
+
+    const nombreRancho = reserva.ranchos?.nombre ?? "el lugar reservado";
+    const deposito = Number(reserva.deposito_monto ?? 0);
+
+    await enviarCorreo({
+      to: reserva.correo,
+      subject: `¡Tu reserva quedó confirmada! — ${nombreRancho}`,
+      html: plantillaReservaAprobada({
+        nombreCliente: reserva.nombre || reserva.correo,
+        nombreRancho,
+        fecha: reserva.fecha,
+        tipoEvento: reserva.tipo_evento,
+        invitados: reserva.invitados,
+        montoPendiente: Math.max(0, Number(reserva.monto_total ?? 0) - deposito),
+      }),
+    });
+
+    return { notificada: true };
+  } catch (err) {
+    console.error("[reserva] Error inesperado avisando la aprobación:", err);
     return { notificada: false, motivo: "error" };
   }
 }

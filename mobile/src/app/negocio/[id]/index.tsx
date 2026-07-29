@@ -13,6 +13,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
+import { pedirCorreoDeAprobacion } from "@/lib/notificaciones";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
@@ -109,6 +110,13 @@ export default function AdminNegocioScreen() {
     setReservas((prev) =>
       (prev ?? []).map((r) => (r.id === reserva.id ? { ...r, estado } : r)),
     );
+
+    // El correo lo manda la web (Resend vive en el servidor). Sin await
+    // que bloquee: la aprobación ya quedó guardada, así que si esto
+    // falla el proveedor igual ve la reserva confirmada.
+    if (estado === "confirmada") {
+      void pedirCorreoDeAprobacion(reserva.id);
+    }
   }
 
   async function alternarDeposito(reserva: ReservaNegocio) {

@@ -228,6 +228,85 @@ export function plantillaConfirmacionReserva({
   });
 }
 
+/**
+ * Al cliente, cuando el proveedor le aprueba la reserva. Este es el
+ * correo que confirma de verdad: el anterior solo decía "la recibimos".
+ */
+export function plantillaReservaAprobada({
+  nombreCliente,
+  nombreRancho,
+  fecha,
+  tipoEvento,
+  invitados,
+  montoPendiente,
+}: {
+  nombreCliente: string;
+  nombreRancho: string;
+  fecha: string;
+  tipoEvento: string | null;
+  invitados: number | null;
+  montoPendiente: number | null;
+}) {
+  const nombre = escaparHtml(nombreCliente);
+  const rancho = escaparHtml(nombreRancho);
+  const fechaLarga = new Date(fecha + "T00:00:00").toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const pendiente =
+    montoPendiente && montoPendiente > 0
+      ? "₡" + Math.round(montoPendiente).toLocaleString("es-CR")
+      : null;
+
+  return layout({
+    kicker: "Reserva confirmada",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        ¡Listo ${nombre}, tu reserva quedó confirmada!
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        <strong style="color:#101a2c;">${rancho}</strong> revisó tu pago y confirmó tu reserva.
+        La fecha ya es tuya — no hay nada más que tengas que hacer para asegurarla.
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
+        ${filaDato("Lugar", rancho)}
+        ${filaDato("Fecha", fechaLarga)}
+        ${tipoEvento ? filaDato("Tipo de evento", escaparHtml(tipoEvento)) : ""}
+        ${invitados ? filaDato("Cantidad de personas", String(invitados)) : ""}
+        ${pendiente !== null ? filaDato("Pendiente por cancelar", pendiente) : ""}
+        ${filaDato(
+          "Estado",
+          `<span style="display:inline-block;background:#e1f0e6;color:#1f7a4d;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:100px;">Confirmada</span>`,
+        )}
+      </table>
+
+      ${
+        pendiente !== null
+          ? `<p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+              Te queda un saldo de <strong style="color:#101a2c;">${pendiente}</strong>, que se
+              cancela directamente con ${rancho} el mismo día del evento.
+            </p>`
+          : ""
+      }
+
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Guardá este correo como comprobante. Un día antes te vamos a escribir para
+        recordarte el evento, y si necesitás coordinar algo con ${rancho} podés
+        hacerlo por el chat de Bookea.
+      </p>
+
+      <div style="padding:6px 0 4px;">
+        <a href="${SITIO_URL}/mensajes" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          Abrir mis mensajes
+        </a>
+      </div>
+    `,
+  });
+}
+
 /** Al dueño del lugar, apenas le entra una reserva nueva por aprobar. */
 export function plantillaReservaNuevaProveedor({
   nombreProveedor,

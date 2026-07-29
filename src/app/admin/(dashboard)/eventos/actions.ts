@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { notificarReservaAprobada } from "@/lib/notificaciones-reserva";
 
 export async function setEstadoReserva(id: string, estado: string) {
   const supabase = await createClient();
@@ -13,6 +14,14 @@ export async function setEstadoReserva(id: string, estado: string) {
   if (error) {
     return { error: error.message };
   }
+
+  // Aprobar es lo que el cliente está esperando, así que se le avisa.
+  // El helper solo manda el correo una vez por reserva y nunca lanza:
+  // la reserva ya quedó aprobada aunque el correo falle.
+  if (estado === "confirmada") {
+    await notificarReservaAprobada(id);
+  }
+
   revalidatePath("/admin/eventos");
   revalidatePath("/mi-rancho", "layout");
   return { error: null };
