@@ -325,12 +325,19 @@ export default function BookingCalendar({
   const whatsappValido = WHATSAPP_REGEX.test(whatsapp.trim());
 
   // Solo se ofrece la forma de pago que el proveedor realmente configuró.
-  const metodosDisponibles = useMemo(() => {
+  const metodosReales = useMemo(() => {
     const metodos: { value: "sinpe" | "transferencia"; label: string }[] = [];
     if (sinpeNumero) metodos.push({ value: "sinpe", label: "SINPE Móvil" });
     if (cuentaNumero) metodos.push({ value: "transferencia", label: "Transferencia bancaria" });
     return metodos;
   }, [sinpeNumero, cuentaNumero]);
+
+  // "Tarjeta" se muestra siempre como vista previa de lo que vendría —
+  // no procesa nada todavía, así que nunca cuenta para poder enviar.
+  const metodosDisponibles = useMemo(
+    () => [...metodosReales, { value: "tarjeta" as const, label: "Tarjeta (vista previa)" }],
+    [metodosReales],
+  );
 
   // Lo que hace falta para avanzar cambia según la modalidad: por
   // rangos necesita invitados, por hora necesita las horas, y el
@@ -364,7 +371,7 @@ export default function BookingCalendar({
 
   const puedeEnviar =
     puedeAvanzar &&
-    !!metodoPago &&
+    (metodoPago === "sinpe" || metodoPago === "transferencia") &&
     !!comprobante &&
     terminosAceptados;
 
@@ -1270,63 +1277,65 @@ export default function BookingCalendar({
 
                     <div>
                       <label className={labelCls}>Realizar pago</label>
-                      {metodosDisponibles.length === 0 ? (
-                        <p className="rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-                          {nombreRancho} todavía no configuró sus cuentas de
-                          cobro. Escribile por el contacto que dejaste para
-                          coordinar cómo pagar el depósito.
+                      {metodosReales.length === 0 && (
+                        <p className="mb-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+                          {nombreRancho} todavía no configuró SINPE ni
+                          transferencia. Escribile por el contacto que dejaste
+                          para coordinar cómo pagar el depósito — abajo podés
+                          ver cómo se vería pagar con tarjeta más adelante.
                         </p>
-                      ) : (
-                        <>
-                          <select
-                            required
-                            value={metodoPago}
-                            onChange={(e) => setMetodoPago(e.target.value)}
-                            className={inputCls}
-                          >
-                            <option value="">Selecciona una opción</option>
-                            {metodosDisponibles.map((m) => (
-                              <option key={m.value} value={m.value}>
-                                {m.label}
-                              </option>
-                            ))}
-                          </select>
+                      )}
+                      <select
+                        required
+                        value={metodoPago}
+                        onChange={(e) => setMetodoPago(e.target.value)}
+                        className={inputCls}
+                      >
+                        <option value="">Selecciona una opción</option>
+                        {metodosDisponibles.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
 
-                          {metodoPago === "sinpe" && sinpeNumero && (
-                            <div className="mt-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
-                              <CampoCopiable etiqueta="Número SINPE" valor={sinpeNumero} />
-                              {sinpeTitular && (
-                                <CampoCopiable etiqueta="A nombre de" valor={sinpeTitular} />
-                              )}
-                            </div>
+                      {metodoPago === "sinpe" && sinpeNumero && (
+                        <div className="mt-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
+                          <CampoCopiable etiqueta="Número SINPE" valor={sinpeNumero} />
+                          {sinpeTitular && (
+                            <CampoCopiable etiqueta="A nombre de" valor={sinpeTitular} />
                           )}
+                        </div>
+                      )}
 
-                          {metodoPago === "transferencia" && cuentaNumero && (
-                            <div className="mt-2.5 flex flex-col gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
-                              {cuentaBanco && (
-                                <CampoCopiable etiqueta="Banco" valor={cuentaBanco} />
-                              )}
-                              <CampoCopiable etiqueta="Cuenta / IBAN" valor={cuentaNumero} />
-                              {cuentaTipo && (
-                                <CampoCopiable
-                                  etiqueta="Tipo"
-                                  valor={cuentaTipo === "ahorro" ? "Ahorro" : "Corriente"}
-                                />
-                              )}
-                              {cuentaTitular && (
-                                <CampoCopiable etiqueta="A nombre de" valor={cuentaTitular} />
-                              )}
-                            </div>
+                      {metodoPago === "transferencia" && cuentaNumero && (
+                        <div className="mt-2.5 flex flex-col gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
+                          {cuentaBanco && (
+                            <CampoCopiable etiqueta="Banco" valor={cuentaBanco} />
                           )}
-                        </>
+                          <CampoCopiable etiqueta="Cuenta / IBAN" valor={cuentaNumero} />
+                          {cuentaTipo && (
+                            <CampoCopiable
+                              etiqueta="Tipo"
+                              valor={cuentaTipo === "ahorro" ? "Ahorro" : "Corriente"}
+                            />
+                          )}
+                          {cuentaTitular && (
+                            <CampoCopiable etiqueta="A nombre de" valor={cuentaTitular} />
+                          )}
+                        </div>
+                      )}
+
+                      {metodoPago === "tarjeta" && (
+                        <TarjetaVistaPrevia monto={depositoReserva} />
                       )}
                     </div>
 
-                    {/* Sin cuentas configuradas no hay nada que pagar ni
-                        que comprobar — mostrar el resto del formulario
+                    {/* Sin método real elegido no hay nada que pagar ni que
+                        comprobar — mostrar el resto del formulario
                         (comprobante, términos, botón siempre gris) solo
                         confunde y no lleva a ningún lado. */}
-                    {metodosDisponibles.length > 0 && (
+                    {(metodoPago === "sinpe" || metodoPago === "transferencia") && (
                       <>
                         <p className="flex items-start gap-1.5 rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 p-3 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
                           <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aventurea-orange" />
@@ -1399,7 +1408,15 @@ export default function BookingCalendar({
                   >
                     Siguiente: Cómo pagar →
                   </button>
-                ) : metodosDisponibles.length === 0 ? null : (
+                ) : metodoPago === "tarjeta" ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="cursor-not-allowed rounded-xl bg-aventurea-cream-2 py-3 text-center text-[14px] font-bold text-aventurea-ink-soft"
+                  >
+                    Pago con tarjeta — próximamente
+                  </button>
+                ) : (
                   <button
                     type="submit"
                     disabled={submitting || !puedeEnviar}
@@ -1528,6 +1545,77 @@ function CampoCopiable({ etiqueta, valor }: { etiqueta: string; valor: string })
       >
         {copiado ? "✓ Copiado" : "Copiar"}
       </button>
+    </div>
+  );
+}
+
+/**
+ * Vista previa de cómo se vería pagar con tarjeta — no procesa nada
+ * real todavía (Bookea hoy solo recibe comprobantes de SINPE o
+ * transferencia). Los campos son decorativos a propósito: por eso el
+ * botón de confirmar queda deshabilitado mientras esta opción esté
+ * elegida.
+ */
+function TarjetaVistaPrevia({ monto }: { monto: number }) {
+  const [numero, setNumero] = useState("");
+  const [venc, setVenc] = useState("");
+  const [cvv, setCvv] = useState("");
+
+  return (
+    <div className="mt-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
+      <p className="mb-3 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-aventurea-orange">
+        <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        Vista previa — todavía no procesamos pagos con tarjeta. Elegí SINPE o
+        transferencia arriba para completar tu reserva.
+      </p>
+
+      <div className="relative aspect-[1.586/1] w-full max-w-[280px] overflow-hidden rounded-xl bg-gradient-to-br from-aventurea-navy to-aventurea-navy-2 p-4 text-white shadow-lg">
+        <div className="text-[10px] font-bold uppercase tracking-wide text-white/60">
+          Bookea Pay
+        </div>
+        <div className="mt-6 text-[15px] font-bold tracking-[0.12em] tabular-nums">
+          {numero ? numero.padEnd(19, "•") : "•••• •••• •••• ••••"}
+        </div>
+        <div className="mt-4 flex items-center justify-between text-[10.5px] text-white/70">
+          <span>{venc || "MM/AA"}</span>
+          <span className="font-bold uppercase tracking-wide">Débito / Crédito</span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-col gap-2.5">
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={19}
+          value={numero}
+          onChange={(e) => setNumero(e.target.value.replace(/[^\d]/g, ""))}
+          placeholder="Número de tarjeta"
+          className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-surface px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500"
+        />
+        <div className="grid grid-cols-2 gap-2.5">
+          <input
+            type="text"
+            maxLength={5}
+            value={venc}
+            onChange={(e) => setVenc(e.target.value)}
+            placeholder="MM/AA"
+            className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-surface px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500"
+          />
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            value={cvv}
+            onChange={(e) => setCvv(e.target.value.replace(/[^\d]/g, ""))}
+            placeholder="CVV"
+            className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-surface px-3 py-2.5 text-[13px] text-aventurea-ink placeholder:text-zinc-500"
+          />
+        </div>
+      </div>
+
+      <p className="mt-3 text-[11px] text-aventurea-ink-soft">
+        Monto a mostrar cuando esté activa: {fmtColones(monto)}.
+      </p>
     </div>
   );
 }
