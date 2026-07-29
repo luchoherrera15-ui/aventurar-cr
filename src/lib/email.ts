@@ -532,3 +532,108 @@ export function plantillaRecordatorioEvento({
       : undefined,
   });
 }
+
+/** Cita confirmada al instante (vertical de Citas) — para el cliente. */
+export function plantillaCitaConfirmada({
+  nombreCliente,
+  nombreNegocio,
+  servicio,
+  fechaLarga,
+  hora,
+  duracionMinutos,
+  monto,
+  nombreMiembro,
+  reservaId,
+}: {
+  nombreCliente: string;
+  nombreNegocio: string;
+  servicio: string;
+  fechaLarga: string;
+  hora: string;
+  duracionMinutos: number;
+  monto: number | null;
+  nombreMiembro: string | null;
+  reservaId: string;
+}) {
+  return layout({
+    kicker: "Cita confirmada",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        ¡Tu cita quedó confirmada!
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Hola ${escaparHtml(nombreCliente)} — tu cita en
+        <strong style="color:#101a2c;">${escaparHtml(nombreNegocio)}</strong>
+        quedó confirmada. No tenés que hacer nada más: llegá a tu hora.
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
+        ${filaDato("Servicio", escaparHtml(servicio))}
+        ${filaDato("Fecha", escaparHtml(fechaLarga))}
+        ${filaDato("Hora", escaparHtml(hora) + " · " + duracionMinutos + " min")}
+        ${nombreMiembro ? filaDato("Te atiende", escaparHtml(nombreMiembro)) : ""}
+        ${monto !== null ? filaDato("Precio", "₡" + Number(monto).toLocaleString("es-CR") + " — se paga en el local") : ""}
+      </table>
+
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Si necesitás cambiar o cancelar, escribile al negocio por el chat
+        de Bookea con tiempo.
+      </p>
+
+      <div style="padding:6px 0 4px;">
+        <a href="${SITIO_URL}/mensajes/${reservaId}" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          Abrir el chat del negocio
+        </a>
+      </div>
+    `,
+  });
+}
+
+/** Cita nueva (vertical de Citas) — para el dueño del negocio. */
+export function plantillaCitaNuevaProveedor({
+  nombreProveedor,
+  nombreNegocio,
+  nombreCliente,
+  servicio,
+  fechaLarga,
+  hora,
+  nombreMiembro,
+}: {
+  nombreProveedor: string;
+  nombreNegocio: string;
+  nombreCliente: string;
+  servicio: string;
+  fechaLarga: string;
+  hora: string;
+  nombreMiembro: string | null;
+}) {
+  return layout({
+    kicker: "Cita nueva",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        Tenés una cita nueva
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Hola ${escaparHtml(nombreProveedor)} —
+        <strong style="color:#101a2c;">${escaparHtml(nombreCliente)}</strong>
+        reservó una cita en
+        <strong style="color:#101a2c;">${escaparHtml(nombreNegocio)}</strong>.
+        Quedó confirmada al instante; ya aparece en tu agenda.
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
+        ${filaDato("Servicio", escaparHtml(servicio))}
+        ${filaDato("Fecha", escaparHtml(fechaLarga))}
+        ${filaDato("Hora", escaparHtml(hora))}
+        ${nombreMiembro ? filaDato("Atiende", escaparHtml(nombreMiembro)) : ""}
+      </table>
+
+      <div style="padding:6px 0 4px;">
+        <a href="${SITIO_URL}/mi-rancho" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          Ver mi agenda
+        </a>
+      </div>
+    `,
+    pie: "Recibís este correo porque administrás un negocio publicado en Bookea.",
+  });
+}

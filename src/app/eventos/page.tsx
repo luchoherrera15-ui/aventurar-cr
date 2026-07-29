@@ -17,7 +17,11 @@ export default async function EventosPage() {
     // páginas siguientes conforme se publican otros.
     .order("created_at", { ascending: false });
 
-  const ranchos = ((data ?? []) as Rancho[])
+  const ranchos = ((data ?? []) as (Rancho & { vertical?: string })[])
+    // Solo la vertical de eventos: citas y hospedajes tienen su propio
+    // directorio. Se filtra acá (no en SQL) para que la página siga
+    // viva aunque la migración 0055 no se haya corrido todavía.
+    .filter((r) => (r.vertical ?? "eventos") === "eventos")
     .map((r) => ({
       ...r,
       categoria: normalizarCategoria(r.categoria),

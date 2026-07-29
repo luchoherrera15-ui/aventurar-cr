@@ -134,9 +134,7 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
     const [{ data, error }, { data: califData }] = await Promise.all([
       supabase
         .from("ranchos")
-        .select(
-          "id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url, destacado_orden",
-        )
+        .select("*")
         .eq("estado", "aprobado")
         .order("created_at", { ascending: false }),
       // Calificación real, igual que las tarjetas de la web: sin
@@ -155,10 +153,15 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
     setCalificaciones(califs);
     // Destacados del admin de primeros — el mismo orden que la web.
     // (sort estable: el resto conserva el más-nuevo-primero)
+    // Solo la vertical de eventos: los negocios de citas (0055) llegan
+    // a la app en su propia fase. Se filtra en JS para que la pantalla
+    // siga viva aunque la migración no se haya corrido.
     setRanchos(
-      ((data ?? []) as Fila[]).sort(
-        (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
-      ),
+      ((data ?? []) as (Fila & { vertical?: string })[])
+        .filter((r) => (r.vertical ?? "eventos") === "eventos")
+        .sort(
+          (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
+        ),
     );
   }, []);
 

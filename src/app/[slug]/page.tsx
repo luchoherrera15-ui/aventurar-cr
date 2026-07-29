@@ -28,6 +28,12 @@ export default async function SlugPortalPage({
 
   if (!data) notFound();
 
+  // Los negocios de citas tienen su propia mini-página, con agenda por
+  // horas — la URL corta los manda para allá.
+  if ((data as { vertical?: string }).vertical === "citas") {
+    redirect(`/citas/${slug}`);
+  }
+
   const rancho = {
     ...(data as Rancho),
     categoria: normalizarCategoria((data as Rancho).categoria),
