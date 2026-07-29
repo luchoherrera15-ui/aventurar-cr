@@ -379,6 +379,95 @@ export function plantillaReservaNuevaProveedor({
   });
 }
 
+/**
+ * Al cliente, el día después de su evento: ya puede calificar. El cron
+ * diario lo dispara una sola vez por reserva (resena_solicitada).
+ */
+export function plantillaPedirResena({
+  nombreCliente,
+  nombreRancho,
+}: {
+  nombreCliente: string;
+  nombreRancho: string;
+}) {
+  const nombre = escaparHtml(nombreCliente);
+  const rancho = escaparHtml(nombreRancho);
+
+  return layout({
+    kicker: "¿Cómo te fue?",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        Hola ${nombre},
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        ¡Esperamos que tu evento con <strong style="color:#101a2c;">${rancho}</strong>
+        haya salido increíble! Tu opinión vale mucho: las reseñas ayudan a otras
+        personas a elegir con confianza, y al proveedor a seguir mejorando.
+      </p>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Te toma menos de un minuto — estrellas y, si querés, un comentario.
+      </p>
+      <div style="padding:6px 0 4px;">
+        <a href="${SITIO_URL}/cuenta" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          Calificar mi experiencia
+        </a>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Al dueño de un Lugar: un viernes/sábado/domingo cercano sigue libre —
+ * un descuento a tiempo puede ganarle esa fecha. Sale una sola vez por
+ * (rancho, fecha), registrado en avisos_finde_libre.
+ */
+export function plantillaFindeLibre({
+  nombreProveedor,
+  nombreRancho,
+  fecha,
+}: {
+  nombreProveedor: string;
+  nombreRancho: string;
+  fecha: string;
+}) {
+  const nombre = escaparHtml(nombreProveedor);
+  const rancho = escaparHtml(nombreRancho);
+  const fechaLarga = new Date(fecha + "T00:00:00").toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  return layout({
+    kicker: "Fecha libre este finde",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        Hola ${nombre},
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Este <strong style="color:#101a2c;">${fechaLarga}</strong> todavía no tiene
+        ninguna reserva en <strong style="color:#101a2c;">${rancho}</strong> — y los
+        fines de semana son los días que más se buscan.
+      </p>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        Un descuento de último minuto puede ganarte esa fecha: los días con
+        promoción se destacan en el calendario con su etiqueta de rebaja, y a
+        quien está comparando opciones eso le decide la reserva.
+      </p>
+      <div style="padding:6px 0 4px;">
+        <a href="${SITIO_URL}/mi-rancho" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          Poner un descuento
+        </a>
+      </div>
+      <p style="margin:18px 0 4px;color:#5b6472;font-size:13px;line-height:1.6;">
+        Este aviso sale solo cuando un fin de semana cercano está libre — no
+        te vamos a escribir por cada fecha.
+      </p>
+    `,
+    pie: "Recibís este correo porque administrás un negocio publicado en Bookea.",
+  });
+}
+
 /** Recordatorio de evento — sale 1 día antes, al cliente y al proveedor. */
 export function plantillaRecordatorioEvento({
   nombreDestinatario,

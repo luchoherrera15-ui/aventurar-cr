@@ -263,6 +263,7 @@ export default async function CuentaPage() {
               reserva={r}
               atenuada
               resena={resenasPropias.get(r.id) ?? null}
+              permitirResena={r.fecha < hoy}
             />
           ))}
         </Seccion>
@@ -329,13 +330,18 @@ function TarjetaReserva({
   reserva,
   atenuada,
   resena,
+  permitirResena,
 }: {
   reserva: ReservaCliente;
   atenuada?: boolean;
   resena?: ResenaPropia | null;
+  permitirResena?: boolean;
 }) {
   const href = reserva.ranchos?.slug ? `/${reserva.ranchos.slug}` : null;
-  const puedeResenar = reserva.estado === "confirmada" && !!reserva.rancho_id;
+  // La reseña se habilita solo desde el día después del evento (la
+  // política de la base también lo exige — esto evita el botón muerto).
+  const puedeResenar =
+    !!permitirResena && reserva.estado === "confirmada" && !!reserva.rancho_id;
 
   return (
     <div

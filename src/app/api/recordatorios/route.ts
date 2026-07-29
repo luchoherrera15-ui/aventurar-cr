@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { enviarCorreo, plantillaRecordatorioEvento } from "@/lib/email";
+import {
+  enviarCorreo,
+  plantillaFindeLibre,
+  plantillaPedirResena,
+  plantillaRecordatorioEvento,
+} from "@/lib/email";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 
 /**
- * Recordatorios de evento — lo dispara el cron de Vercel una vez al
- * día (ver vercel.json). Busca las reservas confirmadas para MAÑANA
- * (hora de Costa Rica) que todavía no fueron avisadas, le escribe al
- * cliente y al proveedor, y las marca para no repetir.
+ * Los avisos diarios — lo dispara el cron de Vercel una vez al día
+ * (ver vercel.json). Tres trabajos, cada uno con su bandera de
+ * una-sola-vez:
+ *
+ *  1. Recordatorio T-1: reservas confirmadas para MAÑANA (hora de
+ *     Costa Rica) → correo al cliente y al proveedor
+ *     (recordatorio_enviado).
+ *  2. Pedir reseña: eventos confirmados de AYER → "¿cómo te fue?
+ *     calificá tu experiencia" al cliente (resena_solicitada).
+ *  3. Finde libre: si un Lugar tiene libre un viernes/sábado/domingo
+ *     que está a 2-3 días, se le avisa al dueño para que pueda poner
+ *     un descuento y pelear esa fecha (avisos_finde_libre).
  *
  * Corre con la service key (el cron no tiene sesión de usuario). Si
  * falta la key o la de Resend, responde explicando qué falta en vez
@@ -105,5 +118,106 @@ export async function GET(request: Request) {
     enviados++;
   }
 
-  return NextResponse.json({ fecha: manana, reservas: reservas.length, avisadas: enviados });
+  // ---------- 2. Pedir reseña: los eventos de ayer ----------
+  const ayer = sumarDiasISO(hoyISOCR(), -1);
+  // El reclamo va DENTRO del update (una sola vez por reserva, aunque
+  // el cron corra dos veces) — mismo patrón que los correos de reserva.
+  const { data: paraResena } = await admin
+    .from("reservas")
+    .update({ resena_solicitada: true })
+    .eq("estado", "confirmada")
+    .eq("fecha", ayer)
+    .eq("resena_solicitada", false)
+    .not("correo", "is", null)
+    .select("id, nombre, correo, ranchos(nombre)");
+
+  let resenasPedidas = 0;
+  for (const r of (paraResena ?? []) as unknown as {
+    id: string;
+    nombre: string | null;
+    correo: string;
+    ranchos: { nombre: string } | null;
+  }[]) {
+    const nombreRancho = r.ranchos?.nombre ?? "tu proveedor";
+    await enviarCorreo({
+      to: r.correo,
+      subject: `¿Cómo te fue con ${nombreRancho}? Dejá tu reseña`,
+      html: plantillaPedirResena({
+        nombreCliente: r.nombre || r.correo,
+        nombreRancho,
+      }),
+    });
+    resenasPedidas++;
+  }
+
+  // ---------- 3. Finde libre: viernes/sábado/domingo a 2-3 días ----------
+  // Solo Lugares: son los que se reservan por fecha exclusiva y a los
+  // que un finde vacío les duele. Se avisa una única vez por
+  // (rancho, fecha) — avisos_finde_libre lleva el registro.
+  const hoy = hoyISOCR();
+  const candidatas = [sumarDiasISO(hoy, 2), sumarDiasISO(hoy, 3)].filter((f) => {
+    const dow = new Date(f + "T00:00:00").getDay();
+    return dow === 5 || dow === 6 || dow === 0; // vie, sáb, dom
+  });
+
+  let findesAvisados = 0;
+  if (candidatas.length > 0) {
+    const { data: lugares } = await admin
+      .from("ranchos")
+      .select("id, nombre, owner_id")
+      .eq("categoria", "lugares")
+      .eq("estado", "aprobado");
+
+    const { data: ocupadas } = await admin
+      .from("reservas")
+      .select("rancho_id, fecha")
+      .in("fecha", candidatas)
+      .in("estado", ["pendiente", "confirmada"]);
+    const ocupadaSet = new Set(
+      (ocupadas ?? []).map((o) => `${o.rancho_id}:${o.fecha}`),
+    );
+
+    for (const lugar of (lugares ?? []) as {
+      id: string;
+      nombre: string;
+      owner_id: string;
+    }[]) {
+      for (const fechaLibre of candidatas) {
+        if (ocupadaSet.has(`${lugar.id}:${fechaLibre}`)) continue;
+
+        // El insert es el reclamo: si ya se avisó de esta fecha, el
+        // unique lo rechaza y no se repite el correo.
+        const { error: yaAvisado } = await admin
+          .from("avisos_finde_libre")
+          .insert({ rancho_id: lugar.id, fecha: fechaLibre });
+        if (yaAvisado) continue;
+
+        const { data: perfil } = await admin
+          .from("perfiles")
+          .select("nombre, email")
+          .eq("id", lugar.owner_id)
+          .maybeSingle();
+        if (!perfil?.email) continue;
+
+        await enviarCorreo({
+          to: perfil.email,
+          subject: `${lugar.nombre}: este finde tenés una fecha libre`,
+          html: plantillaFindeLibre({
+            nombreProveedor: perfil.nombre || perfil.email,
+            nombreRancho: lugar.nombre,
+            fecha: fechaLibre,
+          }),
+        });
+        findesAvisados++;
+      }
+    }
+  }
+
+  return NextResponse.json({
+    fecha: manana,
+    reservas: reservas.length,
+    avisadas: enviados,
+    resenasPedidas,
+    findesAvisados,
+  });
 }
