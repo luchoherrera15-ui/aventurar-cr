@@ -199,10 +199,17 @@ export async function POST(request: Request) {
         modelo as "opus" | "fable"
       );
 
-      // Guardar en base
+      // Guardar en base (incluido el título que trajo el brief, para
+      // que la página pública y el historial no digan "Nueva invitación")
+      const tituloBrief =
+        config_ia && typeof config_ia.titulo === "string" && config_ia.titulo.trim()
+          ? String(config_ia.titulo).trim().slice(0, 200)
+          : null;
+
       const { error: updateError } = await supabase
         .from("invitaciones")
         .update({
+          ...(tituloBrief ? { titulo: tituloBrief } : {}),
           html_personalizado: resultado.html,
           prompt_generado: promptFinal,
           costo_tokens_input: resultado.input_tokens,

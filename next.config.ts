@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "12mb",
     },
   },
+  // La ruta bonita de las invitaciones: /invitacion/{slug} sirve la
+  // misma página que /i/{slug} — el cliente comparte una dirección
+  // con su nombre, no un código.
+  async rewrites() {
+    return [
+      {
+        source: "/invitacion/:slug",
+        destination: "/i/:slug",
+      },
+    ];
+  },
   // El directorio vivía en /ranchos-eventos; ahora es /eventos (la
   // primera de tres secciones: eventos, citas, booking). Los links ya
   // mandados por correo y lo que tenga indexado Google siguen sirviendo.

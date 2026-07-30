@@ -189,20 +189,43 @@ export async function generarConIA(
   }
 }
 
+/** "Luis Herrera" → "luis-herrera": minúsculas, sin tildes, solo a-z0-9-. */
+function normalizarSlug(v: string): string {
+  return v
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
 /**
  * Publica una invitación generada: pasa de "borrador" a "activa" para
- * que /i/{slug} la muestre al público. Solo el dueño, y solo si la
- * generación terminó bien.
+ * que /invitacion/{slug} (y /i/{slug}) la muestre al público. Solo el
+ * dueño, y solo si la generación terminó bien. Si viene slugDeseado,
+ * la invitación estrena esa dirección (ej. "luisherrera").
  */
-export async function publicarInvitacion(invitacionId: string) {
+export async function publicarInvitacion(
+  invitacionId: string,
+  slugDeseado?: string
+) {
   const user = await usuarioActual();
   if (!user) {
     return { error: "No autenticado" };
   }
 
+  let slugNuevo: string | null = null;
+  if (slugDeseado && slugDeseado.trim()) {
+    slugNuevo = normalizarSlug(slugDeseado);
+    if (slugNuevo.length < 3) {
+      return { error: "La dirección debe tener al menos 3 letras o números" };
+    }
+  }
+
   const { data, error } = await adminSupabase()
     .from("invitaciones")
-    .update({ estado: "activa" })
+    .update({ estado: "activa", ...(slugNuevo ? { slug: slugNuevo } : {}) })
     .eq("id", invitacionId)
     .eq("cliente_id", user.id)
     .eq("estado_generacion", "completado")
@@ -210,6 +233,9 @@ export async function publicarInvitacion(invitacionId: string) {
     .single();
 
   if (error) {
+    if (error.code === "23505") {
+      return { error: "Esa dirección ya está ocupada — probá con otra" };
+    }
     return { error: "No se pudo publicar (¿ya terminó la generación?)" };
   }
 

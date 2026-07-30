@@ -18,6 +18,7 @@ export default function ClientePage() {
   const [invitacionId, setInvitacionId] = useState<string | null>(null);
   const [slugInvitacion, setSlugInvitacion] = useState<string | null>(null);
   const [titulo, setTitulo] = useState("Invitación generada");
+  const [slugDeseado, setSlugDeseado] = useState("");
 
   const [htmlGenerado, setHtmlGenerado] = useState("");
   const [errorGeneracion, setErrorGeneracion] = useState("");
@@ -66,6 +67,17 @@ export default function ClientePage() {
 
       if (res.success) {
         setHtmlGenerado(res.html);
+        // Sugerir la dirección a partir del título ("Boda de Luis" →
+        // "boda-de-luis"); el usuario la puede cambiar antes de publicar.
+        setSlugDeseado(
+          (datos.config.titulo || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[̀-ͯ]/g, "")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 60)
+        );
         await cargarHistorial();
       } else {
         setErrorGeneracion(res.error || "Error al generar");
@@ -76,9 +88,9 @@ export default function ClientePage() {
   async function publicar() {
     if (!invitacionId) return;
     setErrorGeneracion("");
-    const res = await publicarInvitacion(invitacionId);
+    const res = await publicarInvitacion(invitacionId, slugDeseado);
     if (res.data) {
-      router.push(`/i/${res.data.slug ?? slugInvitacion}`);
+      router.push(`/invitacion/${res.data.slug ?? slugInvitacion}`);
     } else {
       setErrorGeneracion(res.error || "No se pudo publicar la invitación");
     }
@@ -129,7 +141,7 @@ export default function ClientePage() {
         {verHistorial && (
           <Historial
             invitaciones={invitaciones}
-            onAbrir={(slug) => router.push(`/i/${slug}`)}
+            onAbrir={(slug) => router.push(`/invitacion/${slug}`)}
           />
         )}
 
@@ -165,6 +177,33 @@ export default function ClientePage() {
               cargando={pendiente}
               error={errorGeneracion}
             />
+
+            {/* La dirección de la invitación: el cliente elige cómo se
+                llama su página antes de publicarla. */}
+            <div className="rounded-2xl border border-aventurea-line bg-white p-5">
+              <label
+                htmlFor="slug-invitacion"
+                className="block text-[13px] font-bold text-aventurea-ink"
+              >
+                Dirección de tu invitación
+              </label>
+              <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">
+                Este es el link que vas a compartir con tus invitados
+              </p>
+              <div className="mt-3 flex items-center overflow-hidden rounded-xl border border-aventurea-line bg-aventurea-cream-2 focus-within:border-aventurea-navy">
+                <span className="shrink-0 select-none pl-4 text-[13.5px] font-semibold text-aventurea-ink-soft">
+                  bookea.lat/invitacion/
+                </span>
+                <input
+                  id="slug-invitacion"
+                  type="text"
+                  value={slugDeseado}
+                  onChange={(e) => setSlugDeseado(e.target.value)}
+                  placeholder="luisherrera"
+                  className="h-11 w-full bg-transparent pr-4 text-[13.5px] font-bold text-aventurea-ink placeholder:text-aventurea-ink-soft/50 focus:outline-none"
+                />
+              </div>
+            </div>
 
             <div className="flex gap-3">
               <button
