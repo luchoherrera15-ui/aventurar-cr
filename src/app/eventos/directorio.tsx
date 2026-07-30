@@ -1,17 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import {
   IconCompass,
   IconFiltro,
-  IconHeart,
   IconMail,
   IconSearch,
   IconSparkles,
-  IconStore,
 } from "@/components/icons";
 import { type Calificacion } from "@/components/rancho-card";
 import RanchoCardGrande from "@/components/rancho-card-grande";
@@ -82,7 +80,7 @@ export default function Directorio({
   const [invitados, setInvitados] = useState("");
   const [precioMax, setPrecioMax] = useState("");
   const [pagina, setPagina] = useState(1);
-  const [menuAbierto, setMenuAbierto] = useState<"filtros" | null>(null);
+  const [menuAbierto, setMenuAbierto] = useState<"filtros" | "acciones" | null>(null);
 
   const invitadosNum = parseInt(invitados) || 0;
   const precioMaxNum = parseInt(precioMax) || 0;
@@ -250,6 +248,31 @@ export default function Directorio({
 
   const soltarMenu = useCallback(() => setMenuAbierto(null), []);
 
+  const refAcciones = useRef<HTMLDivElement>(null);
+
+  // Cierre del menú de acciones con Escape y con clic fuera. El overlay
+  // del propio menú no alcanza para el clic fuera: el backdrop-blur del
+  // bloque sticky confina cualquier `fixed` interno a la barra, así que
+  // el clic sobre el resto de la página se detecta acá, a nivel de
+  // documento.
+  useEffect(() => {
+    if (menuAbierto !== "acciones") return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuAbierto(null);
+    };
+    const alTocarFuera = (e: PointerEvent) => {
+      if (refAcciones.current && !refAcciones.current.contains(e.target as Node)) {
+        setMenuAbierto(null);
+      }
+    };
+    document.addEventListener("keydown", alTeclear);
+    document.addEventListener("pointerdown", alTocarFuera);
+    return () => {
+      document.removeEventListener("keydown", alTeclear);
+      document.removeEventListener("pointerdown", alTocarFuera);
+    };
+  }, [menuAbierto]);
+
   function limpiar() {
     setTab("todos");
     setSubcategoria("");
@@ -341,6 +364,63 @@ export default function Directorio({
         >
           <IconFiltro className="h-4 w-4" />
         </button>
+
+        {/* Las acciones que antes eran chips en la barra de categorías
+            (Boki, Publicá tu negocio, Lealtad) la desbordaban y en
+            Windows aparecía un scrollbar horizontal enorme — ahora
+            viven en este menú compacto al lado del botón de filtros. */}
+        <div ref={refAcciones} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setMenuAbierto((prev) => (prev === "acciones" ? null : "acciones"))}
+            aria-label="Más opciones"
+            aria-expanded={menuAbierto === "acciones"}
+            className={`flex h-full w-12 items-center justify-center rounded-[14px] border transition-colors ${
+              menuAbierto === "acciones"
+                ? "border-aventurea-navy bg-aventurea-navy text-white"
+                : "border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy"
+            }`}
+          >
+            <IconSparkles className="h-4 w-4" />
+          </button>
+
+          {menuAbierto === "acciones" && (
+            <>
+              {/* Cubre la barra sticky (el backdrop-blur lo confina a
+                  ella); el clic fuera en el resto de la página lo
+                  resuelve el listener de pointerdown del componente. */}
+              <button
+                type="button"
+                aria-label="Cerrar menú"
+                onClick={soltarMenu}
+                className="fixed inset-0 z-10 cursor-default"
+              />
+              <div className="absolute right-0 top-full z-20 mt-2 min-w-[230px] overflow-hidden rounded-[16px] border border-aventurea-line bg-white shadow-xl">
+                <a
+                  href="#boki"
+                  onClick={soltarMenu}
+                  className="block px-4 py-3 text-[13.5px] font-bold text-aventurea-navy hover:bg-aventurea-cream-2"
+                >
+                  ✦ Asistente Boki
+                </a>
+                <Link
+                  href="/publicar"
+                  onClick={soltarMenu}
+                  className="block px-4 py-3 text-[13.5px] font-bold text-aventurea-ink hover:bg-aventurea-cream-2"
+                >
+                  Publicá tu negocio
+                </Link>
+                <Link
+                  href="/lealtad"
+                  onClick={soltarMenu}
+                  className="block px-4 py-3 text-[13.5px] font-bold text-aventurea-ink hover:bg-aventurea-cream-2"
+                >
+                  Lealtad
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Barra de navegación de dos niveles. Nivel 1: las categorías —
@@ -379,38 +459,9 @@ export default function Directorio({
               </span>
               <span className="text-[13px] font-bold">Invitaciones Digitales</span>
             </Link>
-            {/* Chips de acción: antes flotaban apilados en la esquina
-                superior derecha y en móvil ni se veían — acá viven en
-                la misma barra scrolleable, así que siempre aparecen. */}
-            {/* El protagonista: abre el wizard de Boki por hash (ver
-                planificador.tsx) — un <a> del servidor alcanza. */}
-            <a
-              href="#boki"
-              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-navy bg-aventurea-navy pl-1.5 pr-4 text-white transition-colors hover:bg-aventurea-navy-2"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white">
-                <IconSparkles className="h-[18px] w-[18px]" />
-              </span>
-              <span className="text-[13px] font-bold">Asistente Boki</span>
-            </a>
-            <Link
-              href="/publicar"
-              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-line bg-aventurea-surface pl-1.5 pr-4 text-aventurea-ink transition-colors hover:border-aventurea-navy"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-orange/10 text-aventurea-orange">
-                <IconStore className="h-[18px] w-[18px]" />
-              </span>
-              <span className="text-[13px] font-bold">Publicá tu negocio</span>
-            </Link>
-            <Link
-              href="/lealtad"
-              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-line bg-aventurea-surface pl-1.5 pr-4 text-aventurea-ink transition-colors hover:border-aventurea-navy"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-orange/10 text-aventurea-orange">
-                <IconHeart className="h-[18px] w-[18px]" />
-              </span>
-              <span className="text-[13px] font-bold">Lealtad</span>
-            </Link>
+            {/* Las acciones (Boki, Publicá tu negocio, Lealtad) ya no
+                van acá: desbordaban la barra — viven en el menú del
+                botón de IconSparkles junto al buscador. */}
             {/* Relleno para que el degradado nunca tape la última pestaña. */}
             <div className="w-2 shrink-0" aria-hidden />
           </div>
