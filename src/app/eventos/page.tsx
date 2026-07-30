@@ -100,7 +100,7 @@ export default async function EventosPage() {
               cards. El h1 queda para lectores de pantalla y SEO. */}
           <h1 className="sr-only">Todo para tu evento — directorio nacional</h1>
           <div className="mb-4">
-            <SelectorVertical activo="eventos" accesosALaDerecha />
+            <SelectorVertical activo="eventos" />
           </div>
 
           <Directorio
@@ -114,8 +114,8 @@ export default async function EventosPage() {
         </div>
       </section>
 
-      {/* Cotizador guiado "¡Creá tu evento con IA!": botón flotante
-          abajo a la izquierda (la burbuja de chat vive a la derecha). */}
+      {/* Cotizador guiado "Asistente Boki": se abre por hash (#boki)
+          desde el chip de la barra de categorías del directorio. */}
       <Planificador
         ranchos={ranchos}
         fechasOcupadas={fechasOcupadas}

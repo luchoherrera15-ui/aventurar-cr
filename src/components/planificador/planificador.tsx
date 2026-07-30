@@ -74,12 +74,13 @@ function BokiAvatar({ tamano = 36 }: { tamano?: number }) {
 }
 
 /**
- * "¡Creá tu evento con IA!" — el cotizador guiado del directorio de
- * eventos. Un wizard de una pregunta por pantalla (nada de chat
- * libre) que termina en un plan armado SOLO con negocios reales de
- * la plataforma (ver ./motor.ts). Va montado únicamente en
- * /eventos: el botón flotante vive abajo a la IZQUIERDA para no
- * chocar con la burbuja de chat de la derecha.
+ * "Asistente Boki" — el cotizador guiado del directorio de eventos.
+ * Un wizard de una pregunta por pantalla (nada de chat libre) que
+ * termina en un plan armado SOLO con negocios reales de la
+ * plataforma (ver ./motor.ts). Va montado únicamente en /eventos y
+ * se abre POR HASH (#boki), igual que el modal de reserva: el chip
+ * "Asistente Boki" de la barra de categorías es un <a href="#boki">,
+ * así que no hay botón flotante que se apile en la esquina.
  */
 
 const STORAGE_KEY = "bookea-planificador-v1";
@@ -174,6 +175,22 @@ export default function Planificador({
     setHuboSesion(true);
   }
 
+  // El wizard se abre por hash (#boki), como el modal de reserva:
+  // el chip "Asistente Boki" de la barra de categorías es un
+  // <a href="#boki"> del servidor, sin isla de cliente de por medio.
+  const abrirRef = useRef(abrir);
+  useEffect(() => {
+    abrirRef.current = abrir;
+  });
+  useEffect(() => {
+    const revisar = () => {
+      if (window.location.hash === "#boki") abrirRef.current();
+    };
+    revisar();
+    window.addEventListener("hashchange", revisar);
+    return () => window.removeEventListener("hashchange", revisar);
+  }, []);
+
   useEffect(() => {
     if (!huboSesion) return;
     try {
@@ -199,6 +216,10 @@ export default function Planificador({
   const cerrar = useCallback(() => {
     setAbierto(false);
     setMostrandoCierre(false);
+    // Se limpia el hash para que el mismo chip pueda volver a abrirlo.
+    if (window.location.hash === "#boki") {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
   }, []);
 
   const algoRespondido =
@@ -259,18 +280,6 @@ export default function Planificador({
 
   return (
     <>
-      {/* Botón flotante: abajo a la IZQUIERDA (la burbuja de chat ya
-          ocupa la derecha). En móvil sube un poco para librar la
-          botonera inferior, igual que la burbuja. */}
-      <button
-        type="button"
-        onClick={abrir}
-        className="fixed right-4 top-[72px] z-40 flex h-11 items-center rounded-full bg-aventurea-navy px-5 text-[13px] font-bold text-white shadow-[0_14px_34px_-10px_rgba(22,41,94,0.55)] transition-transform hover:scale-[1.04] active:scale-[0.98] lg:right-6 lg:text-[13.5px] xl:top-[136px]"
-      >
-        <span className="hidden sm:inline">Creá tu evento con nuestro asistente Boki</span>
-        <span className="sm:hidden">Asistente Boki</span>
-      </button>
-
       {abierto && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
           <button

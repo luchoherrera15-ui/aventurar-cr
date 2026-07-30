@@ -4,7 +4,15 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import { IconCompass, IconFiltro, IconMail, IconSearch } from "@/components/icons";
+import {
+  IconCompass,
+  IconFiltro,
+  IconHeart,
+  IconMail,
+  IconSearch,
+  IconSparkles,
+  IconStore,
+} from "@/components/icons";
 import { type Calificacion } from "@/components/rancho-card";
 import RanchoCardGrande from "@/components/rancho-card-grande";
 import RielProveedores from "@/components/riel-proveedores";
@@ -370,6 +378,38 @@ export default function Directorio({
                 <IconMail className="h-[18px] w-[18px]" />
               </span>
               <span className="text-[13px] font-bold">Invitaciones Digitales</span>
+            </Link>
+            {/* Chips de acción: antes flotaban apilados en la esquina
+                superior derecha y en móvil ni se veían — acá viven en
+                la misma barra scrolleable, así que siempre aparecen. */}
+            {/* El protagonista: abre el wizard de Boki por hash (ver
+                planificador.tsx) — un <a> del servidor alcanza. */}
+            <a
+              href="#boki"
+              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-navy bg-aventurea-navy pl-1.5 pr-4 text-white transition-colors hover:bg-aventurea-navy-2"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white">
+                <IconSparkles className="h-[18px] w-[18px]" />
+              </span>
+              <span className="text-[13px] font-bold">Asistente Boki</span>
+            </a>
+            <Link
+              href="/publicar"
+              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-line bg-aventurea-surface pl-1.5 pr-4 text-aventurea-ink transition-colors hover:border-aventurea-navy"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-orange/10 text-aventurea-orange">
+                <IconStore className="h-[18px] w-[18px]" />
+              </span>
+              <span className="text-[13px] font-bold">Publicá tu negocio</span>
+            </Link>
+            <Link
+              href="/lealtad"
+              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-line bg-aventurea-surface pl-1.5 pr-4 text-aventurea-ink transition-colors hover:border-aventurea-navy"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-orange/10 text-aventurea-orange">
+                <IconHeart className="h-[18px] w-[18px]" />
+              </span>
+              <span className="text-[13px] font-bold">Lealtad</span>
             </Link>
             {/* Relleno para que el degradado nunca tape la última pestaña. */}
             <div className="w-2 shrink-0" aria-hidden />
