@@ -1,0 +1,1492 @@
+<!--
+  Plantilla "Revelación de género" — rústica de hacienda, profesional y
+  tierna. Paleta: cremas/kraft/madera clara + rosa empolvado + celeste
+  suave; serif elegante (Cormorant vía --inv3-serif) para los nombres y
+  redondeada cálida para lo lúdico. Guirnaldas de luces, banderines
+  kraft, florecitas, tablones de madera y DOS bebés SVG de caricatura
+  (la del moño rosa con su osito; el de camisita celeste con sus ositos
+  de corbatín) como protagonistas de la mecánica de regalos.
+
+  USO: sustituir los placeholders y guardar el resultado en
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta a
+  pantalla completa (la crema de la hacienda ES la página) y agrega ella
+  misma el bloque RSVP debajo — por eso la sección 6 llama a confirmar
+  "aquí abajito".
+
+  ESTRUCTURA (cada escena entra DISTINTO, IntersectionObserver):
+    1. Hero 100svh: "¿Niño o Niña?" gigante partido en mitades
+       celeste/rosa, guirnalda de luces, banderines y los nombres.
+    2. Los dos equipos: tarjetas kraft TOCABLES con los bebés
+       (brinco + partículas + contador local Team Niño / Team Niña) y
+       la mecánica de regalos: pañales 💙 / toallitas 🌸 (reemplaza a
+       los links de regalo).
+    3. Información principal: fecha y hora en grande sobre tablones.
+    4. Cuenta regresiva viva.
+    5. El lugar (Google Maps / Waze).
+    6. Llamado "Confirmá tu asistencia ▼" (empata con el RSVP).
+  Extra: partículas de ambiente mitad rosa mitad celeste y un osito
+  colgado de un globo mitad/mitad que SUBE por el costado con el scroll.
+
+  PLACEHOLDERS:
+    {{NOMBRES}}     los papás                 p. ej. María Jesús & Luis
+    {{FECHA}}       fecha en palabras         p. ej. sábado 1 de agosto, 2026
+    {{HORA}}        hora                      p. ej. 1:00 p. m.
+    {{FECHA_ISO}}   fecha-hora ISO con zona   p. ej. 2026-08-01T13:00:00-06:00
+    {{LUGAR}}       nombre del lugar          p. ej. Hacienda Los Reyes
+    {{DIRECCION}}   nota corta de cómo llegar
+    {{LINK_MAPS}}   URL de Google Maps
+    {{LINK_WAZE}}   URL de Waze
+    {{FOTO_NINA}}   foto real para el marco rosa (si NO se sustituye,
+    {{FOTO_NINO}}   foto real para el marco celeste       el onerror del
+                    <img> lo oculta y queda el bebé SVG — a propósito)
+
+  NOTAS TÉCNICAS:
+  - Autocontenido: CSS en el <style> y JS en el <script> de este mismo
+    fragmento; cero recursos remotos (todo SVG inline). Namespace .rg-.
+  - La intro usa <dialog>.showModal() (top layer). Sin JS o con
+    prefers-reduced-motion no hay intro y todo queda visible.
+  - Los estados "oculto antes de revelar" solo existen bajo .rg-anima,
+    clase que agrega el script: sin JS la invitación se ve completa.
+  - El HTML a la medida se inyecta SIN contenedores con transform, así
+    que el osito del globo puede ser position: fixed de verdad.
+-->
+<div class="rg">
+  <style>
+    /* ============ Tokens del tema ============ */
+    .rg {
+      --rg-crema: #faf3e7;
+      --rg-crema-2: #f4e9d6;
+      --rg-kraft: #e3c48f;
+      --rg-kraft-osc: #c79d63;
+      --rg-madera: #b98a5a;
+      --rg-madera-osc: #8a6238;
+      --rg-madera-prof: #6b4a28;
+      --rg-rosa: #e8a7b7;
+      --rg-rosa-osc: #c9758d;
+      --rg-rosa-suave: #f9e3e9;
+      --rg-celeste: #a7c9e3;
+      --rg-celeste-osc: #6f9cbf;
+      --rg-celeste-suave: #e2eff8;
+      --rg-tinta: #4a3826;
+      --rg-tinta-suave: #7d6a52;
+      --rg-luz: #ffd98a;
+      --rg-serif: var(--inv3-serif, Georgia), "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      --rg-redonda: "Arial Rounded MT Bold", "Trebuchet MS", "Chalkboard SE", "Comic Sans MS", Verdana, sans-serif;
+      display: block;
+      font-family: var(--rg-redonda);
+      color: var(--rg-tinta);
+    }
+
+    /* ============ INTRO (dialog en el top layer) ============ */
+    #rg-intro {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: var(--rg-crema);
+      overflow: hidden;
+      z-index: 2147483000;
+      cursor: pointer;
+      color: var(--rg-tinta);
+    }
+    #rg-intro:focus { outline: none; }
+    #rg-intro::backdrop { background: rgba(74, 56, 38, 0.55); }
+
+    /* Cortinas: celeste a la izquierda, rosa a la derecha, con borde
+       de banderines. Se abren hacia los lados al tocar. */
+    .rg-cortina {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 54%;
+      transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+      will-change: transform;
+      z-index: 1;
+    }
+    .rg-cortina-celeste {
+      left: 0;
+      background: linear-gradient(115deg, var(--rg-celeste-suave), var(--rg-celeste));
+      clip-path: polygon(0 0, 100% 0, 90% 7%, 100% 14%, 90% 21%, 100% 28%, 90% 35%, 100% 42%, 90% 50%, 100% 58%, 90% 65%, 100% 72%, 90% 79%, 100% 86%, 90% 93%, 100% 100%, 0 100%);
+    }
+    .rg-cortina-rosa {
+      right: 0;
+      background: linear-gradient(245deg, var(--rg-rosa-suave), var(--rg-rosa));
+      clip-path: polygon(100% 0, 0 0, 10% 7%, 0 14%, 10% 21%, 0 28%, 10% 35%, 0 42%, 10% 50%, 0 58%, 10% 65%, 0 72%, 10% 79%, 0 86%, 10% 93%, 0 100%, 100% 100%);
+    }
+    .rg-intro-abierta .rg-cortina-celeste { transform: translateX(-108%); }
+    .rg-intro-abierta .rg-cortina-rosa { transform: translateX(108%); }
+
+    .rg-intro-nucleo {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 24px;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+    .rg-intro-abierta .rg-intro-nucleo { opacity: 0; }
+    .rg-intro-guirnalda { width: min(78vw, 360px); height: auto; animation: rg-aparece 0.9s ease 0.1s both; }
+    .rg-intro-pregunta {
+      margin: 0;
+      font-size: clamp(15px, 4vw, 22px);
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--rg-madera-osc);
+      animation: rg-aparece 0.9s ease 0.3s both;
+    }
+    .rg-intro-corazones {
+      margin: 0;
+      font-size: clamp(34px, 9vw, 54px);
+      animation: rg-brinca-suave 2.2s ease-in-out 0.5s infinite;
+    }
+    .rg-intro-nombres {
+      margin: 0;
+      font-family: var(--rg-serif);
+      font-style: italic;
+      font-size: clamp(28px, 8vw, 58px);
+      color: var(--rg-tinta);
+      animation: rg-aparece 0.9s ease 0.55s both;
+    }
+    .rg-toca {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: max(26px, env(safe-area-inset-bottom));
+      z-index: 2;
+      margin: 0;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: rgba(74, 56, 38, 0.65);
+      animation: rg-late 1.8s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .rg-intro-abierta .rg-toca { opacity: 0; transition: opacity 0.3s; }
+
+    /* ============ EL LIENZO ============ */
+    /* De borde a borde: la crema de la hacienda ES la página. */
+    .rg-lienzo {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background: var(--rg-crema);
+      text-align: center;
+    }
+
+    /* ============ Partículas de ambiente (JS las siembra) ============ */
+    #rg-particulas {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .rg-p {
+      position: absolute;
+      bottom: -36px;
+      display: block;
+      will-change: transform;
+      animation: rg-p-sube linear infinite;
+    }
+    .rg-p i {
+      display: block;
+      font-style: normal;
+      animation: rg-p-vaiven ease-in-out infinite alternate;
+      opacity: 0.55;
+    }
+    .rg-p svg { display: block; }
+
+    /* ============ Osito del globo, ligado al scroll ============ */
+    #rg-globo {
+      position: fixed;
+      top: 0;
+      right: 4px;
+      z-index: 40;
+      width: 62px;
+      pointer-events: none;
+      will-change: transform;
+    }
+    #rg-globo.rg-globo-lista { transition: none; }
+    .rg-globo-btn {
+      pointer-events: auto;
+      display: block;
+      width: 100%;
+      padding: 0;
+      margin: 0;
+      background: none;
+      border: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      line-height: 0;
+      animation: rg-globo-mece 3.4s ease-in-out infinite;
+      transform-origin: 50% 8%;
+    }
+    .rg-globo-btn:focus-visible { outline: 3px dashed var(--rg-madera-osc); outline-offset: 4px; border-radius: 12px; }
+    .rg-globo-btn.rg-toc { animation: rg-globo-alegre 0.9s cubic-bezier(0.3, 1.8, 0.4, 1) 1; }
+
+    /* ============ Las escenas ============ */
+    .rg-esc {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 62vh;
+      min-height: 62svh;
+      padding: 58px 22px;
+      overflow: hidden;
+      z-index: 2;
+    }
+    .rg-esc-hero {
+      min-height: 100vh;
+      min-height: 100svh;
+      padding-top: 86px;
+      /* Las dos mitades: celeste a la izquierda, rosa a la derecha,
+         fundidas en crema al centro. */
+      background: linear-gradient(
+        100deg,
+        var(--rg-celeste-suave) 0%,
+        #edf5fa 34%,
+        var(--rg-crema) 50%,
+        #f9edf1 66%,
+        var(--rg-rosa-suave) 100%
+      );
+    }
+
+    /* --- Entradas: cada escena tiene la suya (bajo .rg-anima) --- */
+    /* a) Inmersión: emerge desde abajo con profundidad y desenfoque. */
+    .rg-anima .rg-esc .rg-rev {
+      opacity: 0;
+      transform: translateY(34px) scale(0.93);
+      filter: blur(6px);
+      transition:
+        opacity 0.7s ease var(--rg-d, 0s),
+        transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) var(--rg-d, 0s),
+        filter 0.7s ease var(--rg-d, 0s);
+    }
+    .rg-anima .rg-esc.rg-vista .rg-rev { opacity: 1; transform: none; filter: none; }
+
+    /* b) Brinco: rebote elástico para títulos y personajes. */
+    .rg-anima .rg-esc .rg-brinco { opacity: 0; }
+    .rg-anima .rg-esc.rg-vista .rg-brinco {
+      animation: rg-brinco 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) var(--rg-d, 0s) both;
+    }
+
+    /* c) Desde los costados: cada equipo llega de su esquina.
+       (--rg-rot conserva la inclinación base de las tarjetas kraft.) */
+    .rg-anima .rg-esc .rg-rev-izq,
+    .rg-anima .rg-esc .rg-rev-der {
+      opacity: 0;
+      transition: opacity 0.75s ease var(--rg-d, 0s), transform 0.75s cubic-bezier(0.34, 1.45, 0.5, 1) var(--rg-d, 0s);
+    }
+    .rg-anima .rg-esc .rg-rev-izq { transform: translateX(-64px) rotate(calc(var(--rg-rot, 0deg) - 5deg)); }
+    .rg-anima .rg-esc .rg-rev-der { transform: translateX(64px) rotate(calc(var(--rg-rot, 0deg) + 5deg)); }
+    .rg-anima .rg-esc.rg-vista .rg-rev-izq,
+    .rg-anima .rg-esc.rg-vista .rg-rev-der { opacity: 1; transform: rotate(var(--rg-rot, 0deg)); }
+
+    /* d) El cartel de madera cae de arriba y se mece al asentarse. */
+    .rg-anima .rg-esc .rg-rev-cuelga {
+      opacity: 0;
+      transform: translateY(-72px);
+      transition: opacity 0.6s ease var(--rg-d, 0s), transform 0.7s cubic-bezier(0.34, 1.3, 0.5, 1) var(--rg-d, 0s);
+    }
+    .rg-anima .rg-esc.rg-vista .rg-rev-cuelga { opacity: 1; transform: none; }
+    .rg-anima .rg-esc.rg-vista .rg-mecelo {
+      animation: rg-mece 2.6s ease-in-out var(--rg-d, 0.5s) 1;
+      transform-origin: 50% 0;
+    }
+
+    /* e) Pop: las cajitas del contador aparecen infladas en cascada. */
+    .rg-anima .rg-esc .rg-rev-pop {
+      opacity: 0;
+      transform: scale(0.4);
+      transition: opacity 0.5s ease var(--rg-d, 0s), transform 0.6s cubic-bezier(0.34, 1.7, 0.64, 1) var(--rg-d, 0s);
+    }
+    .rg-anima .rg-esc.rg-vista .rg-rev-pop { opacity: 1; transform: scale(1); }
+
+    /* ============ Guirnalda de luces y banderines ============ */
+    .rg-guirnalda { display: block; width: 100%; height: auto; }
+    .rg-luz-halo { animation: rg-titila 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .rg-banderin-borde { display: block; width: 100%; height: auto; margin-top: -2px; }
+
+    /* Florecitas decorativas (tocables: giran con la brisa del tap). */
+    .rg-flor {
+      position: absolute;
+      z-index: 3;
+      padding: 6px;
+      margin: 0;
+      background: none;
+      border: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      line-height: 0;
+    }
+    .rg-flor:focus-visible { outline: 3px dashed var(--rg-madera-osc); outline-offset: 3px; border-radius: 50%; }
+    .rg-flor > svg { display: block; animation: rg-flor-brisa 4.2s ease-in-out infinite alternate; transform-origin: 50% 90%; }
+    .rg-flor.rg-toc > svg { animation: rg-flor-gira 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+
+    /* ============ 1 · Hero ============ */
+    .rg-hero-guirnalda { position: absolute; top: 0; left: 0; right: 0; z-index: 1; }
+    /* Capas de parallax (el JS las desplaza a velocidades distintas). */
+    .rg-par {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      will-change: transform;
+    }
+    .rg-hero-contenido { position: relative; z-index: 4; }
+    .rg-hero-arriba {
+      margin: 0 0 10px;
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--rg-madera-osc);
+    }
+    .rg-titulo {
+      margin: 6px 0 0;
+      font-weight: 800;
+      line-height: 0.98;
+      letter-spacing: 0.01em;
+    }
+    .rg-titulo span { display: block; }
+    .rg-t-nino {
+      font-size: clamp(56px, 16vw, 150px);
+      color: var(--rg-celeste-osc);
+      text-shadow: 0 3px 0 #fff, 0 6px 14px rgba(111, 156, 191, 0.35);
+    }
+    .rg-t-o {
+      margin: 2px 0;
+      font-family: var(--rg-serif);
+      font-style: italic;
+      font-weight: 500;
+      font-size: clamp(22px, 5.4vw, 44px);
+      color: var(--rg-madera-osc);
+    }
+    .rg-t-nina {
+      font-size: clamp(56px, 16vw, 150px);
+      color: var(--rg-rosa-osc);
+      text-shadow: 0 3px 0 #fff, 0 6px 14px rgba(201, 117, 141, 0.35);
+    }
+    .rg-hero-de {
+      margin: 26px 0 0;
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--rg-tinta-suave);
+    }
+    .rg-hero-nombres {
+      margin: 8px 0 0;
+      font-family: var(--rg-serif);
+      font-style: italic;
+      font-weight: 600;
+      font-size: clamp(30px, 8vw, 64px);
+      line-height: 1.15;
+      color: var(--rg-tinta);
+    }
+    .rg-hero-lema {
+      margin: 18px auto 0;
+      max-width: 34ch;
+      font-size: clamp(14.5px, 1.4vw, 19px);
+      font-weight: 600;
+      line-height: 1.55;
+      color: var(--rg-tinta-suave);
+    }
+    .rg-hero-lema b { color: var(--rg-rosa-osc); }
+    .rg-hero-lema em { font-style: normal; color: var(--rg-celeste-osc); font-weight: 800; }
+    .rg-hero-baja {
+      margin: 26px 0 0;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--rg-madera-osc);
+    }
+    .rg-hero-baja b { display: block; margin-top: 4px; animation: rg-late 1.6s ease-in-out infinite; }
+
+    /* ============ Cartel kraft (etiqueta de sección) ============ */
+    .rg-cartel {
+      position: relative;
+      display: inline-block;
+      padding: 9px 20px 10px;
+      background: linear-gradient(#eccf9d, var(--rg-kraft));
+      border: 2.5px solid var(--rg-kraft-osc);
+      border-radius: 12px;
+      box-shadow: 0 4px 0 rgba(138, 98, 56, 0.35);
+      color: var(--rg-madera-prof);
+      font-weight: 800;
+      font-size: 12.5px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      transform: rotate(-1.4deg);
+    }
+    .rg-cartel::before,
+    .rg-cartel::after {
+      content: "";
+      position: absolute;
+      top: 6px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff4dc, var(--rg-madera-osc) 72%);
+    }
+    .rg-cartel::before { left: 6px; }
+    .rg-cartel::after { right: 6px; }
+
+    .rg-titulo-seccion {
+      margin: 14px 0 0;
+      font-family: var(--rg-serif);
+      font-weight: 600;
+      font-size: clamp(27px, 7.4vw, 54px);
+      line-height: 1.12;
+      color: var(--rg-tinta);
+    }
+    .rg-nota {
+      margin: 14px auto 0;
+      max-width: 46ch;
+      font-size: clamp(14px, 1.25vw, 17.5px);
+      font-weight: 600;
+      line-height: 1.6;
+      color: var(--rg-tinta-suave);
+    }
+
+    /* ============ 2 · Los dos equipos ============ */
+    .rg-equipos {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 26px;
+      margin-top: 26px;
+      width: 100%;
+    }
+    .rg-equipo {
+      position: relative;
+      display: block;
+      width: min(100%, 340px);
+      padding: 20px 18px 18px;
+      margin: 0;
+      background:
+        radial-gradient(26rem 16rem at 50% -30%, rgba(255, 249, 235, 0.55), transparent 70%),
+        linear-gradient(#ecd2a2, #dfbc85);
+      border: 2.5px solid var(--rg-kraft-osc);
+      border-radius: 22px;
+      box-shadow: 0 8px 0 rgba(138, 98, 56, 0.3), 0 18px 34px -18px rgba(107, 74, 40, 0.5);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      font-family: var(--rg-redonda);
+      color: var(--rg-tinta);
+      text-align: center;
+    }
+    .rg-equipo:focus-visible { outline: 4px dashed var(--rg-madera-osc); outline-offset: 4px; }
+    .rg-equipo::before {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border: 2px dashed rgba(107, 74, 40, 0.35);
+      border-radius: 16px;
+      pointer-events: none;
+    }
+    .rg-equipo-nino { --rg-rot: -1.2deg; transform: rotate(-1.2deg); }
+    .rg-equipo-nina { --rg-rot: 1.2deg; transform: rotate(1.2deg); }
+    .rg-equipo.rg-toc { animation: rg-brinco-carta 0.7s cubic-bezier(0.3, 1.8, 0.4, 1) 1; }
+
+    /* Cinta washi que "pega" cada tarjeta al lienzo. */
+    .rg-cinta {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      width: 92px;
+      height: 26px;
+      margin-left: -46px;
+      transform: rotate(-3deg);
+      opacity: 0.85;
+      border-left: 2px dashed rgba(255, 255, 255, 0.55);
+      border-right: 2px dashed rgba(255, 255, 255, 0.55);
+      z-index: 2;
+    }
+    .rg-equipo-nino .rg-cinta { background: var(--rg-celeste); }
+    .rg-equipo-nina .rg-cinta { background: var(--rg-rosa); }
+
+    .rg-equipo-titulo {
+      display: block;
+      margin: 6px 0 0;
+      font-size: clamp(21px, 5.6vw, 28px);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+    .rg-equipo-nino .rg-equipo-titulo { color: var(--rg-celeste-osc); }
+    .rg-equipo-nina .rg-equipo-titulo { color: var(--rg-rosa-osc); }
+
+    /* El marco: acepta foto real ({{FOTO_NINA}}/{{FOTO_NINO}}); si no
+       carga, el onerror del <img> la oculta y queda el bebé SVG. */
+    .rg-marco {
+      position: relative;
+      display: block;
+      width: min(78%, 220px);
+      margin: 14px auto 0;
+      padding: 8px;
+      background: linear-gradient(#fffaf0, #f6ecd9);
+      border: 3px solid var(--rg-madera);
+      border-radius: 18px;
+      box-shadow: inset 0 0 0 2px rgba(185, 138, 90, 0.25), 0 6px 14px -8px rgba(107, 74, 40, 0.55);
+    }
+    .rg-marco-interior {
+      position: relative;
+      display: block;
+      overflow: hidden;
+      border-radius: 12px;
+      aspect-ratio: 1 / 1.08;
+    }
+    .rg-equipo-nino .rg-marco-interior { background: linear-gradient(#eef6fb, var(--rg-celeste-suave)); }
+    .rg-equipo-nina .rg-marco-interior { background: linear-gradient(#fdf1f4, var(--rg-rosa-suave)); }
+    .rg-marco-interior > svg {
+      position: absolute;
+      inset: 4% 2%;
+      width: 96%;
+      height: 92%;
+    }
+    .rg-foto {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 2;
+    }
+
+    .rg-equipo-regla {
+      display: block;
+      margin: 14px auto 0;
+      max-width: 24ch;
+      font-size: clamp(15px, 4vw, 17.5px);
+      font-weight: 800;
+      line-height: 1.45;
+    }
+    .rg-equipo-nino .rg-equipo-regla b { color: var(--rg-celeste-osc); }
+    .rg-equipo-nina .rg-equipo-regla b { color: var(--rg-rosa-osc); }
+    .rg-equipo-cont {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 7px 16px 8px;
+      background: #fffaf0;
+      border: 2px dashed var(--rg-madera);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--rg-madera-prof);
+    }
+    .rg-equipo-cont b { font-variant-numeric: tabular-nums; }
+    .rg-equipo-cont b.rg-toc { display: inline-block; animation: rg-brinco 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+    .rg-equipo-toca {
+      display: block;
+      margin-top: 9px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(107, 74, 40, 0.6);
+    }
+
+    /* Partículas del brinco (JS las crea al tocar la tarjeta). */
+    .rg-chispa {
+      position: absolute;
+      left: 50%;
+      top: 46%;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 5;
+      animation: rg-chispa 0.85s cubic-bezier(0.16, 0.84, 0.44, 1) forwards;
+    }
+
+    /* ============ 3 · Fecha y hora sobre madera ============ */
+    .rg-esc-madera {
+      background:
+        radial-gradient(60rem 30rem at 50% 0%, rgba(255, 236, 200, 0.16), transparent 60%),
+        repeating-linear-gradient(
+          180deg,
+          #c99a63 0px, #c2925c 40px, #b98a5a 78px,
+          #8a6238 79px, #c99a63 81px
+        );
+      box-shadow: inset 0 14px 26px -14px rgba(74, 56, 38, 0.6), inset 0 -14px 26px -14px rgba(74, 56, 38, 0.6);
+    }
+    .rg-esc-madera .rg-cartel { transform: rotate(1.2deg); }
+    .rg-fecha-tag {
+      margin: 18px 0 0;
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #ffe9c4;
+      text-shadow: 0 2px 4px rgba(74, 56, 38, 0.5);
+    }
+    .rg-fecha-grande {
+      margin: 10px 0 0;
+      font-family: var(--rg-serif);
+      font-weight: 600;
+      font-size: clamp(34px, 9vw, 76px);
+      line-height: 1.12;
+      color: #fff7e8;
+      text-shadow: 0 3px 0 rgba(107, 74, 40, 0.65), 0 10px 22px rgba(58, 38, 18, 0.55);
+    }
+    .rg-hora-tag {
+      display: inline-block;
+      margin: 20px 0 0;
+      padding: 11px 26px 12px;
+      background: linear-gradient(#fffaf0, #f3e6cd);
+      border: 2.5px solid var(--rg-madera-prof);
+      border-radius: 999px;
+      box-shadow: 0 5px 0 rgba(58, 38, 18, 0.45);
+      font-size: clamp(20px, 5.6vw, 34px);
+      font-weight: 800;
+      color: var(--rg-madera-prof);
+      transform: rotate(-1.2deg);
+    }
+    .rg-madera-nota { color: #ffe9c4; text-shadow: 0 2px 4px rgba(74, 56, 38, 0.45); }
+    .rg-madera-nota b { color: #ffd3de; }
+    .rg-madera-nota em { font-style: normal; font-weight: 800; color: #cfe8fb; }
+
+    /* ============ 4 · Cuenta regresiva ============ */
+    .rg-cd { display: flex; justify-content: center; gap: 10px; margin-top: 26px; }
+    .rg-cd[hidden] { display: none; }
+    .rg-cd-c {
+      min-width: 68px;
+      padding: 13px 6px 11px;
+      background: #fffaf0;
+      border: 2.5px solid var(--rg-madera);
+      border-radius: 16px;
+      box-shadow: 0 5px 0 rgba(138, 98, 56, 0.35);
+    }
+    .rg-cd-c span {
+      display: block;
+      font-size: clamp(27px, 7.6vw, 52px);
+      font-weight: 800;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .rg-cd-c:nth-child(odd) span { color: var(--rg-celeste-osc); }
+    .rg-cd-c:nth-child(even) span { color: var(--rg-rosa-osc); }
+    .rg-cd-c small {
+      display: block;
+      margin-top: 6px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--rg-madera-osc);
+    }
+    .rg-cd-hoy {
+      margin: 24px 0 0;
+      font-size: clamp(21px, 5.6vw, 30px);
+      font-weight: 800;
+      color: var(--rg-rosa-osc);
+    }
+    .rg-cd-hoy[hidden] { display: none; }
+    .rg-cd-hoy em { font-style: normal; color: var(--rg-celeste-osc); }
+
+    /* ============ 5 · El lugar ============ */
+    .rg-pin { margin-top: 20px; line-height: 0; }
+    .rg-lugar-nombre {
+      margin: 14px 0 0;
+      font-family: var(--rg-serif);
+      font-weight: 600;
+      font-size: clamp(30px, 8.4vw, 66px);
+      line-height: 1.1;
+      color: var(--rg-tinta);
+    }
+    .rg-botones {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .rg-boton {
+      display: inline-block;
+      min-width: 128px;
+      padding: 13px 24px 14px;
+      border-radius: 999px;
+      font-family: var(--rg-redonda);
+      font-size: 15px;
+      font-weight: 800;
+      text-decoration: none;
+      color: #fff;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .rg-boton-celeste {
+      background: var(--rg-celeste-osc);
+      border: 2.5px solid #58809e;
+      box-shadow: 0 5px 0 #58809e;
+      text-shadow: 0 1px 0 rgba(60, 90, 112, 0.6);
+    }
+    .rg-boton-celeste:active { transform: translateY(4px); box-shadow: 0 1px 0 #58809e; }
+    .rg-boton-rosa {
+      background: var(--rg-rosa-osc);
+      border: 2.5px solid #a75a72;
+      box-shadow: 0 5px 0 #a75a72;
+      text-shadow: 0 1px 0 rgba(140, 70, 90, 0.6);
+    }
+    .rg-boton-rosa:active { transform: translateY(4px); box-shadow: 0 1px 0 #a75a72; }
+
+    /* ============ 6 · Llamado al RSVP ============ */
+    .rg-confirma {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 15px 28px 17px;
+      background: linear-gradient(#eccf9d, var(--rg-kraft));
+      border: 2.5px solid var(--rg-kraft-osc);
+      border-radius: 18px;
+      box-shadow: 0 6px 0 rgba(138, 98, 56, 0.4);
+      color: var(--rg-madera-prof);
+      font-size: clamp(20px, 5.6vw, 36px);
+      font-weight: 800;
+      transform: rotate(-1.2deg);
+    }
+    .rg-anima .rg-esc.rg-vista .rg-confirma { animation: rg-latido 1.8s ease-in-out 1s infinite; }
+    .rg-flecha { display: inline-block; margin-left: 8px; animation: rg-late 1.4s ease-in-out infinite; }
+
+    /* ============ Keyframes ============ */
+    @keyframes rg-titila {
+      0%, 100% { opacity: 0.25; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.25); }
+    }
+    @keyframes rg-late {
+      0%, 100% { transform: translateY(0); opacity: 0.7; }
+      50% { transform: translateY(4px); opacity: 1; }
+    }
+    @keyframes rg-aparece {
+      from { opacity: 0; transform: translateY(16px) scale(0.9); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes rg-brinco {
+      0% { opacity: 0; transform: translateY(30px) scale(0.7); }
+      60% { opacity: 1; transform: translateY(-8px) scale(1.08); }
+      80% { transform: translateY(3px) scale(0.97); }
+      100% { opacity: 1; transform: none; }
+    }
+    @keyframes rg-brinco-carta {
+      0% { transform: rotate(var(--rg-rot, 0deg)); }
+      35% { transform: translateY(-14px) rotate(var(--rg-rot, 0deg)) scale(1.04); }
+      60% { transform: translateY(4px) rotate(var(--rg-rot, 0deg)) scale(0.98); }
+      80% { transform: translateY(-5px) rotate(var(--rg-rot, 0deg)); }
+      100% { transform: rotate(var(--rg-rot, 0deg)); }
+    }
+    @keyframes rg-brinca-suave {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-9px); }
+    }
+    @keyframes rg-mece {
+      0% { transform: rotate(0deg); }
+      22% { transform: rotate(2.6deg); }
+      48% { transform: rotate(-2deg); }
+      72% { transform: rotate(1.2deg); }
+      100% { transform: rotate(0deg); }
+    }
+    @keyframes rg-latido {
+      0%, 100% { transform: rotate(-1.2deg) scale(1); }
+      12% { transform: rotate(-1.2deg) scale(1.05); }
+      24% { transform: rotate(-1.2deg) scale(1); }
+      36% { transform: rotate(-1.2deg) scale(1.04); }
+      48% { transform: rotate(-1.2deg) scale(1); }
+    }
+    @keyframes rg-chispa {
+      0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--rg-dx, 0px)), calc(-50% + var(--rg-dy, -60px))) scale(1.15); }
+    }
+    @keyframes rg-p-sube {
+      from { transform: translateY(0); }
+      to { transform: translateY(calc(-100vh - 80px)); }
+    }
+    @keyframes rg-p-vaiven {
+      from { transform: translateX(-10px) rotate(-14deg); }
+      to { transform: translateX(10px) rotate(14deg); }
+    }
+    @keyframes rg-flor-brisa {
+      from { transform: rotate(-7deg); }
+      to { transform: rotate(7deg); }
+    }
+    @keyframes rg-flor-gira {
+      0% { transform: rotate(0deg) scale(1); }
+      60% { transform: rotate(340deg) scale(1.25); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+    @keyframes rg-globo-mece {
+      0%, 100% { transform: rotate(-4deg); }
+      50% { transform: rotate(4deg); }
+    }
+    @keyframes rg-globo-alegre {
+      0% { transform: rotate(0deg) scale(1); }
+      30% { transform: rotate(-10deg) scale(1.14); }
+      60% { transform: rotate(8deg) scale(0.96); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+
+    /* ============ Responsive ============ */
+    @media (min-width: 600px) {
+      .rg-equipos { flex-direction: row; justify-content: center; align-items: stretch; }
+      .rg-equipo { width: min(46%, 340px); }
+    }
+    @media (min-width: 768px) {
+      .rg-esc { padding-left: 48px; padding-right: 48px; }
+      #rg-globo { width: 84px; right: 18px; }
+      .rg-cd { gap: 16px; }
+      .rg-cd-c { min-width: 104px; padding: 18px 10px 14px; }
+      .rg-cd-c small { font-size: 11px; }
+      .rg-equipos { gap: 40px; }
+      .rg-equipo { padding: 26px 24px 22px; }
+      .rg-flor > svg { width: 54px; height: 54px; }
+      .rg-boton { font-size: 16.5px; padding: 15px 30px 16px; }
+    }
+
+    /* Sin movimiento: todo visible y quieto; sin intro ni globo. */
+    @media (prefers-reduced-motion: reduce) {
+      #rg-intro { display: none !important; }
+      #rg-globo { display: none !important; }
+      #rg-particulas { display: none !important; }
+      .rg *, .rg *::before, .rg *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+      .rg-anima .rg-esc .rg-rev,
+      .rg-anima .rg-esc .rg-rev-izq,
+      .rg-anima .rg-esc .rg-rev-der,
+      .rg-anima .rg-esc .rg-rev-cuelga,
+      .rg-anima .rg-esc .rg-rev-pop { opacity: 1; transform: none; filter: none; }
+      .rg-anima .rg-esc .rg-brinco { opacity: 1; }
+    }
+  </style>
+
+  <!-- ================= INTRO ================= -->
+  <dialog id="rg-intro" aria-label="Abrir la invitación">
+    <div class="rg-cortina rg-cortina-celeste" aria-hidden="true"></div>
+    <div class="rg-cortina rg-cortina-rosa" aria-hidden="true"></div>
+    <div class="rg-intro-nucleo" aria-hidden="true">
+      <svg class="rg-intro-guirnalda" viewBox="0 0 360 54">
+        <path d="M0 10 Q90 42 180 12 Q270 42 360 10" fill="none" stroke="#8a6238" stroke-width="2.5" />
+        <g>
+          <circle class="rg-luz-halo" cx="45" cy="24" r="9" fill="#ffd98a" opacity="0.4" />
+          <circle cx="45" cy="24" r="4.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+          <circle class="rg-luz-halo" cx="112" cy="32" r="9" fill="#ffd98a" opacity="0.4" style="animation-delay:0.6s" />
+          <circle cx="112" cy="32" r="4.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+          <circle class="rg-luz-halo" cx="180" cy="15" r="9" fill="#ffd98a" opacity="0.4" style="animation-delay:1.1s" />
+          <circle cx="180" cy="15" r="4.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+          <circle class="rg-luz-halo" cx="248" cy="32" r="9" fill="#ffd98a" opacity="0.4" style="animation-delay:0.3s" />
+          <circle cx="248" cy="32" r="4.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+          <circle class="rg-luz-halo" cx="315" cy="24" r="9" fill="#ffd98a" opacity="0.4" style="animation-delay:0.9s" />
+          <circle cx="315" cy="24" r="4.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+        </g>
+      </svg>
+      <p class="rg-intro-pregunta">La gran revelación</p>
+      <p class="rg-intro-corazones" aria-hidden="true">💙 🌸</p>
+      <p class="rg-intro-nombres">{{NOMBRES}}</p>
+    </div>
+    <p class="rg-toca">Tocá para abrir la invitación</p>
+  </dialog>
+
+  <!-- ================= LA INVITACIÓN ================= -->
+  <div class="rg-lienzo">
+    <!-- Partículas de ambiente (mitad rosa, mitad celeste; JS). -->
+    <div id="rg-particulas" aria-hidden="true"></div>
+
+    <!-- 1 · Hero: las dos mitades, la guirnalda y la gran pregunta -->
+    <section class="rg-esc rg-esc-hero" data-rg-escena id="rg-hero">
+      <div class="rg-hero-guirnalda" aria-hidden="true">
+        <svg class="rg-guirnalda" viewBox="0 0 390 66">
+          <path d="M-4 8 Q94 48 195 12 Q296 48 394 8" fill="none" stroke="#8a6238" stroke-width="2.5" />
+          <g>
+            <path d="M38 21 l0 7" stroke="#8a6238" stroke-width="1.5" />
+            <circle class="rg-luz-halo" cx="38" cy="33" r="10" fill="#ffd98a" opacity="0.4" />
+            <circle cx="38" cy="33" r="5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+            <path d="M94 34 l0 7" stroke="#8a6238" stroke-width="1.5" />
+            <circle class="rg-luz-halo" cx="94" cy="46" r="10" fill="#ffd98a" opacity="0.4" style="animation-delay:0.5s" />
+            <circle cx="94" cy="46" r="5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+            <path d="M148 25 l0 7" stroke="#8a6238" stroke-width="1.5" />
+            <circle class="rg-luz-halo" cx="148" cy="37" r="10" fill="#ffd98a" opacity="0.4" style="animation-delay:1.2s" />
+            <circle cx="148" cy="37" r="5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+            <path d="M195 14 l0 7" stroke="#8a6238" stroke-width="1.5" />
+            <circle class="rg-luz-halo" cx="195" cy="26" r="10" fill="#ffd98a" opacity="0.4" style="animation-delay:0.2s" />
+            <circle cx="195" cy="26" r="5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+            <path d="M242 25 l0 7" stroke="#8a6238" stroke-width="1.5" />
+            <circle class="rg-luz-halo" cx="242" cy="37" r="10" fill="#ffd98a" opacity="0.4" style="animation-delay:0.8s" />
+            <circle cx="242" cy="37" r="5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+            <path d="M296 34 l0 7" stroke="#8a6238" stroke-width="1.5" />
+            <circle class="rg-luz-halo" cx="296" cy="46" r="10" fill="#ffd98a" opacity="0.4" style="animation-delay:1.5s" />
+            <circle cx="296" cy="46" r="5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+            <path d="M352 21 l0 7" stroke="#8a6238" stroke-width="1.5" />
+            <circle class="rg-luz-halo" cx="352" cy="33" r="10" fill="#ffd98a" opacity="0.4" style="animation-delay:0.4s" />
+            <circle cx="352" cy="33" r="5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.5" />
+          </g>
+        </svg>
+      </div>
+
+      <!-- Parallax capa lenta: florecitas grandes de los costados. -->
+      <div class="rg-par" data-rg-par="0.16" aria-hidden="true">
+        <svg style="position:absolute; left:4%; bottom:16%; width:44px" viewBox="0 0 40 40"><g stroke="#c9758d" stroke-width="1.6"><circle cx="20" cy="9" r="6.5" fill="#f2bcc9" /><circle cx="30" cy="16" r="6.5" fill="#f2bcc9" /><circle cx="26" cy="28" r="6.5" fill="#f2bcc9" /><circle cx="14" cy="28" r="6.5" fill="#f2bcc9" /><circle cx="10" cy="16" r="6.5" fill="#f2bcc9" /></g><circle cx="20" cy="19" r="5.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.6" /></svg>
+        <svg style="position:absolute; right:5%; bottom:30%; width:38px" viewBox="0 0 40 40"><g stroke="#6f9cbf" stroke-width="1.6"><circle cx="20" cy="9" r="6.5" fill="#bcd7ea" /><circle cx="30" cy="16" r="6.5" fill="#bcd7ea" /><circle cx="26" cy="28" r="6.5" fill="#bcd7ea" /><circle cx="14" cy="28" r="6.5" fill="#bcd7ea" /><circle cx="10" cy="16" r="6.5" fill="#bcd7ea" /></g><circle cx="20" cy="19" r="5.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.6" /></svg>
+      </div>
+      <!-- Parallax capa rápida: corazoncitos que flotan más ligero. -->
+      <div class="rg-par" data-rg-par="0.34" aria-hidden="true">
+        <svg style="position:absolute; left:14%; bottom:38%; width:22px; opacity:0.7" viewBox="0 0 24 22"><path d="M12 20 C4 13 1 8 3.5 4.5 C6 1 10 2 12 6 C14 2 18 1 20.5 4.5 C23 8 20 13 12 20 Z" fill="#e8a7b7" /></svg>
+        <svg style="position:absolute; right:16%; bottom:52%; width:18px; opacity:0.7" viewBox="0 0 24 22"><path d="M12 20 C4 13 1 8 3.5 4.5 C6 1 10 2 12 6 C14 2 18 1 20.5 4.5 C23 8 20 13 12 20 Z" fill="#a7c9e3" /></svg>
+        <svg style="position:absolute; left:10%; bottom:62%; width:16px; opacity:0.6" viewBox="0 0 24 22"><path d="M12 20 C4 13 1 8 3.5 4.5 C6 1 10 2 12 6 C14 2 18 1 20.5 4.5 C23 8 20 13 12 20 Z" fill="#a7c9e3" /></svg>
+        <svg style="position:absolute; right:9%; bottom:66%; width:20px; opacity:0.6" viewBox="0 0 24 22"><path d="M12 20 C4 13 1 8 3.5 4.5 C6 1 10 2 12 6 C14 2 18 1 20.5 4.5 C23 8 20 13 12 20 Z" fill="#e8a7b7" /></svg>
+      </div>
+
+      <!-- Florecitas tocables de las esquinas. -->
+      <button type="button" class="rg-flor" style="left:6px; bottom:14px" aria-label="Florecita rosa (tocala y gira)"
+        onclick="this.classList.remove('rg-toc');void this.offsetWidth;this.classList.add('rg-toc')">
+        <svg width="44" height="44" viewBox="0 0 40 40"><g stroke="#c9758d" stroke-width="1.6"><circle cx="20" cy="9" r="6.5" fill="#f2bcc9" /><circle cx="30" cy="16" r="6.5" fill="#f2bcc9" /><circle cx="26" cy="28" r="6.5" fill="#f2bcc9" /><circle cx="14" cy="28" r="6.5" fill="#f2bcc9" /><circle cx="10" cy="16" r="6.5" fill="#f2bcc9" /></g><circle cx="20" cy="19" r="5.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.6" /></svg>
+      </button>
+      <button type="button" class="rg-flor" style="right:6px; bottom:14px" aria-label="Florecita celeste (tocala y gira)"
+        onclick="this.classList.remove('rg-toc');void this.offsetWidth;this.classList.add('rg-toc')">
+        <svg width="44" height="44" viewBox="0 0 40 40"><g stroke="#6f9cbf" stroke-width="1.6"><circle cx="20" cy="9" r="6.5" fill="#bcd7ea" /><circle cx="30" cy="16" r="6.5" fill="#bcd7ea" /><circle cx="26" cy="28" r="6.5" fill="#bcd7ea" /><circle cx="14" cy="28" r="6.5" fill="#bcd7ea" /><circle cx="10" cy="16" r="6.5" fill="#bcd7ea" /></g><circle cx="20" cy="19" r="5.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.6" /></svg>
+      </button>
+
+      <div class="rg-hero-contenido">
+        <p class="rg-hero-arriba rg-rev">La gran revelación</p>
+        <h1 class="rg-titulo">
+          <span class="rg-t-nino rg-rev-izq" style="--rg-d: 0.1s">¿Niño</span>
+          <span class="rg-t-o rg-rev" style="--rg-d: 0.3s">o</span>
+          <span class="rg-t-nina rg-rev-der" style="--rg-d: 0.45s">Niña?</span>
+        </h1>
+        <p class="rg-hero-de rg-rev" style="--rg-d: 0.65s">El bebé de</p>
+        <p class="rg-hero-nombres rg-brinco" style="--rg-d: 0.75s">{{NOMBRES}}</p>
+        <p class="rg-hero-lema rg-rev" style="--rg-d: 0.95s">
+          Sea <em>celeste</em> o sea <b>rosa</b>, ya es el amor
+          de nuestras vidas — vení a descubrirlo con nosotros.
+        </p>
+        <p class="rg-hero-baja rg-rev" style="--rg-d: 1.1s">Deslizá para elegir equipo<b aria-hidden="true">▼</b></p>
+      </div>
+    </section>
+
+    <!-- Banderines kraft: la costura entre el hero y los equipos. -->
+    <svg class="rg-banderin-borde" viewBox="0 0 390 36" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M-2 3 Q195 13 392 3" fill="none" stroke="#8a6238" stroke-width="2.5" />
+      <path d="M8 5 L20 30 L32 6 Z" fill="#e3c48f" stroke="#c79d63" stroke-width="1.5" />
+      <path d="M47 7 L59 32 L71 8 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="1.5" />
+      <path d="M86 8 L98 33 L110 9 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="1.5" />
+      <path d="M125 9 L137 34 L149 10 Z" fill="#e3c48f" stroke="#c79d63" stroke-width="1.5" />
+      <path d="M164 10 L176 35 L188 10 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="1.5" />
+      <path d="M203 10 L215 35 L227 9 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="1.5" />
+      <path d="M242 9 L254 34 L266 8 Z" fill="#e3c48f" stroke="#c79d63" stroke-width="1.5" />
+      <path d="M281 8 L293 33 L305 7 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="1.5" />
+      <path d="M320 7 L332 32 L344 6 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="1.5" />
+      <path d="M358 5 L370 30 L382 5 Z" fill="#e3c48f" stroke="#c79d63" stroke-width="1.5" />
+    </svg>
+
+    <!-- 2 · Los dos equipos: la mecánica de regalos protagonista -->
+    <section class="rg-esc" data-rg-escena id="rg-equipos">
+      <span class="rg-cartel rg-rev">Elegí tu equipo</span>
+      <h2 class="rg-titulo-seccion rg-rev" style="--rg-d: 0.12s">¿Vos qué creés?</h2>
+      <p class="rg-nota rg-rev" style="--rg-d: 0.24s">
+        Acá la apuesta no se paga con plata — se paga con cariño
+        (y le sirve TODA al bebé). Elegí tu bando y vení con la
+        prueba en la mano:
+      </p>
+
+      <div class="rg-equipos">
+        <!-- Team Niño -->
+        <button type="button" class="rg-equipo rg-equipo-nino rg-rev-izq" style="--rg-d: 0.34s"
+          data-rg-team="nino" aria-label="Sumarle una porra al Team Niño">
+          <span class="rg-cinta" aria-hidden="true"></span>
+          <span class="rg-equipo-titulo">Team Niño 💙</span>
+          <span class="rg-marco" aria-hidden="true">
+            <span class="rg-marco-interior">
+              <svg viewBox="0 0 200 212">
+                <ellipse cx="100" cy="202" rx="72" ry="7" fill="#8a6238" opacity="0.14" />
+                <!-- Osito izquierdo con corbatín azul -->
+                <g>
+                  <circle cx="30" cy="160" r="13" fill="#c89b6b" stroke="#8a6238" stroke-width="2.5" />
+                  <circle cx="21" cy="150" r="5" fill="#c89b6b" stroke="#8a6238" stroke-width="2" />
+                  <circle cx="39" cy="150" r="5" fill="#c89b6b" stroke="#8a6238" stroke-width="2" />
+                  <circle cx="21" cy="150" r="2.2" fill="#e8cfa8" />
+                  <circle cx="39" cy="150" r="2.2" fill="#e8cfa8" />
+                  <ellipse cx="30" cy="164" rx="6.5" ry="5" fill="#e8cfa8" />
+                  <circle cx="30" cy="162" r="1.8" fill="#4a3826" />
+                  <circle cx="26" cy="157" r="1.6" fill="#4a3826" />
+                  <circle cx="34" cy="157" r="1.6" fill="#4a3826" />
+                  <ellipse cx="30" cy="186" rx="14" ry="12" fill="#c89b6b" stroke="#8a6238" stroke-width="2.5" />
+                  <path d="M30 176 L22 172 L22 180 Z M30 176 L38 172 L38 180 Z" fill="#6f9cbf" stroke="#58809e" stroke-width="1.4" />
+                  <circle cx="30" cy="176" r="2.2" fill="#58809e" />
+                </g>
+                <!-- Osito derecho con corbatín azul -->
+                <g>
+                  <circle cx="170" cy="160" r="13" fill="#b9885a" stroke="#8a6238" stroke-width="2.5" />
+                  <circle cx="161" cy="150" r="5" fill="#b9885a" stroke="#8a6238" stroke-width="2" />
+                  <circle cx="179" cy="150" r="5" fill="#b9885a" stroke="#8a6238" stroke-width="2" />
+                  <circle cx="161" cy="150" r="2.2" fill="#e8cfa8" />
+                  <circle cx="179" cy="150" r="2.2" fill="#e8cfa8" />
+                  <ellipse cx="170" cy="164" rx="6.5" ry="5" fill="#e8cfa8" />
+                  <circle cx="170" cy="162" r="1.8" fill="#4a3826" />
+                  <circle cx="166" cy="157" r="1.6" fill="#4a3826" />
+                  <circle cx="174" cy="157" r="1.6" fill="#4a3826" />
+                  <ellipse cx="170" cy="186" rx="14" ry="12" fill="#b9885a" stroke="#8a6238" stroke-width="2.5" />
+                  <path d="M170 176 L162 172 L162 180 Z M170 176 L178 172 L178 180 Z" fill="#6f9cbf" stroke="#58809e" stroke-width="1.4" />
+                  <circle cx="170" cy="176" r="2.2" fill="#58809e" />
+                </g>
+                <!-- El bebé de camisita celeste -->
+                <g>
+                  <!-- Bracitos -->
+                  <path d="M68 148 C56 156 51 166 55 176" fill="none" stroke="#fde3cf" stroke-width="11" stroke-linecap="round" />
+                  <path d="M132 148 C144 156 149 166 145 176" fill="none" stroke="#fde3cf" stroke-width="11" stroke-linecap="round" />
+                  <!-- Camisita celeste -->
+                  <path d="M70 140 C70 132 78 128 100 128 C122 128 130 132 130 140 L130 176 C130 186 122 192 100 192 C78 192 70 186 70 176 Z" fill="#cfe3f2" stroke="#9a6b4a" stroke-width="3.2" />
+                  <path d="M88 130 L100 142 L112 130" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                  <circle cx="100" cy="154" r="2.4" fill="#6f9cbf" />
+                  <circle cx="100" cy="168" r="2.4" fill="#6f9cbf" />
+                  <!-- Cabeza -->
+                  <circle cx="48" cy="84" r="8" fill="#fde3cf" stroke="#9a6b4a" stroke-width="3" />
+                  <circle cx="152" cy="84" r="8" fill="#fde3cf" stroke="#9a6b4a" stroke-width="3" />
+                  <circle cx="100" cy="80" r="52" fill="#fde3cf" stroke="#9a6b4a" stroke-width="3.5" />
+                  <!-- El rulito -->
+                  <path d="M100 28 C95 18 106 12 110 20 C113 26 106 30 102 27" fill="none" stroke="#8a5a3a" stroke-width="4" stroke-linecap="round" />
+                  <!-- Ojazos -->
+                  <circle cx="81" cy="78" r="7" fill="#4a3826" />
+                  <circle cx="83.5" cy="75.5" r="2.6" fill="#ffffff" />
+                  <circle cx="119" cy="78" r="7" fill="#4a3826" />
+                  <circle cx="121.5" cy="75.5" r="2.6" fill="#ffffff" />
+                  <!-- Cejitas -->
+                  <path d="M73 64 Q81 60 89 64" fill="none" stroke="#8a5a3a" stroke-width="2.6" stroke-linecap="round" />
+                  <path d="M111 64 Q119 60 127 64" fill="none" stroke="#8a5a3a" stroke-width="2.6" stroke-linecap="round" />
+                  <!-- Cachetes -->
+                  <circle cx="63" cy="96" r="8" fill="#f7c3cf" opacity="0.65" />
+                  <circle cx="137" cy="96" r="8" fill="#f7c3cf" opacity="0.65" />
+                  <!-- Risa abierta -->
+                  <path d="M84 98 Q100 118 116 98 Q100 106 84 98 Z" fill="#a35563" />
+                  <path d="M92 106 Q100 112 108 106 Q100 116 92 106 Z" fill="#e8848f" />
+                </g>
+              </svg>
+              <img class="rg-foto" src="{{FOTO_NINO}}" alt="" loading="lazy" onerror="this.style.display='none'" />
+            </span>
+          </span>
+          <span class="rg-equipo-regla">Si creés que es <b>NIÑO</b>,<br />traé pañales 💙</span>
+          <span class="rg-equipo-cont">Porras: <b id="rg-cont-nino">0</b></span>
+          <span class="rg-equipo-toca">Tocá para apoyar</span>
+        </button>
+
+        <!-- Team Niña -->
+        <button type="button" class="rg-equipo rg-equipo-nina rg-rev-der" style="--rg-d: 0.48s"
+          data-rg-team="nina" aria-label="Sumarle una porra al Team Niña">
+          <span class="rg-cinta" aria-hidden="true"></span>
+          <span class="rg-equipo-titulo">Team Niña 🌸</span>
+          <span class="rg-marco" aria-hidden="true">
+            <span class="rg-marco-interior">
+              <svg viewBox="0 0 200 212">
+                <ellipse cx="100" cy="202" rx="72" ry="7" fill="#8a6238" opacity="0.14" />
+                <!-- El cuerpecito rosa, sentadita -->
+                <ellipse cx="100" cy="164" rx="48" ry="36" fill="#f6cdd8" stroke="#9a6b4a" stroke-width="3.2" />
+                <!-- Piecitos -->
+                <ellipse cx="66" cy="192" rx="12" ry="8" fill="#e8a7b7" stroke="#9a6b4a" stroke-width="2.6" />
+                <ellipse cx="134" cy="192" rx="12" ry="8" fill="#e8a7b7" stroke="#9a6b4a" stroke-width="2.6" />
+                <!-- Su osito de peluche, abrazado -->
+                <g>
+                  <circle cx="88" cy="142" r="6.5" fill="#c89b6b" stroke="#8a6238" stroke-width="2.2" />
+                  <circle cx="112" cy="142" r="6.5" fill="#c89b6b" stroke="#8a6238" stroke-width="2.2" />
+                  <circle cx="88" cy="142" r="2.6" fill="#e8cfa8" />
+                  <circle cx="112" cy="142" r="2.6" fill="#e8cfa8" />
+                  <circle cx="100" cy="154" r="17" fill="#c89b6b" stroke="#8a6238" stroke-width="2.6" />
+                  <ellipse cx="100" cy="160" rx="8" ry="6" fill="#e8cfa8" />
+                  <circle cx="100" cy="158" r="2" fill="#4a3826" />
+                  <circle cx="94" cy="151" r="2" fill="#4a3826" />
+                  <circle cx="106" cy="151" r="2" fill="#4a3826" />
+                  <ellipse cx="100" cy="180" rx="15" ry="11" fill="#c89b6b" stroke="#8a6238" stroke-width="2.6" />
+                </g>
+                <!-- Bracitos abrazando al osito -->
+                <path d="M58 152 C64 170 80 180 100 178" fill="none" stroke="#fde3cf" stroke-width="11" stroke-linecap="round" />
+                <path d="M142 152 C136 170 120 180 100 178" fill="none" stroke="#fde3cf" stroke-width="11" stroke-linecap="round" />
+                <!-- Cabeza -->
+                <circle cx="48" cy="82" r="8" fill="#fde3cf" stroke="#9a6b4a" stroke-width="3" />
+                <circle cx="152" cy="82" r="8" fill="#fde3cf" stroke="#9a6b4a" stroke-width="3" />
+                <circle cx="100" cy="78" r="52" fill="#fde3cf" stroke="#9a6b4a" stroke-width="3.5" />
+                <!-- Flequillito -->
+                <path d="M78 34 Q88 28 96 33 M104 31 Q114 26 122 32" fill="none" stroke="#8a5a3a" stroke-width="3.5" stroke-linecap="round" />
+                <!-- El moño rosa -->
+                <g>
+                  <path d="M136 30 C124 22 114 24 112 32 C110 39 120 44 132 42 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="2.6" stroke-linejoin="round" />
+                  <path d="M140 30 C152 20 162 22 164 30 C166 38 156 44 144 42 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="2.6" stroke-linejoin="round" />
+                  <circle cx="138" cy="36" r="7" fill="#f2bcc9" stroke="#c9758d" stroke-width="2.6" />
+                </g>
+                <!-- Pestañitas y ojazos -->
+                <circle cx="81" cy="76" r="7" fill="#4a3826" />
+                <circle cx="83.5" cy="73.5" r="2.6" fill="#ffffff" />
+                <circle cx="119" cy="76" r="7" fill="#4a3826" />
+                <circle cx="121.5" cy="73.5" r="2.6" fill="#ffffff" />
+                <path d="M72 70 L66 66 M74 66 L69 61" stroke="#4a3826" stroke-width="2.2" stroke-linecap="round" />
+                <path d="M128 70 L134 66 M126 66 L131 61" stroke="#4a3826" stroke-width="2.2" stroke-linecap="round" />
+                <!-- Cachetes -->
+                <circle cx="63" cy="94" r="8" fill="#f7c3cf" opacity="0.75" />
+                <circle cx="137" cy="94" r="8" fill="#f7c3cf" opacity="0.75" />
+                <!-- Sonrisa dulce -->
+                <path d="M88 98 Q100 110 112 98" fill="none" stroke="#a35563" stroke-width="3.5" stroke-linecap="round" />
+              </svg>
+              <img class="rg-foto" src="{{FOTO_NINA}}" alt="" loading="lazy" onerror="this.style.display='none'" />
+            </span>
+          </span>
+          <span class="rg-equipo-regla">Si creés que es <b>NIÑA</b>,<br />traé toallitas 🌸</span>
+          <span class="rg-equipo-cont">Porras: <b id="rg-cont-nina">0</b></span>
+          <span class="rg-equipo-toca">Tocá para apoyar</span>
+        </button>
+      </div>
+
+      <p class="rg-nota rg-rev" style="--rg-d: 0.6s">
+        El equipo que adivine se lleva la gloria eterna…
+        y el bebé se queda con los pañales y las toallitas. 😉
+      </p>
+    </section>
+
+    <!-- 3 · Información principal: fecha y hora sobre madera -->
+    <section class="rg-esc rg-esc-madera" data-rg-escena>
+      <div class="rg-rev-cuelga">
+        <div class="rg-mecelo">
+          <svg width="240" height="34" viewBox="0 0 240 34" aria-hidden="true" style="display:block; margin:0 auto -4px">
+            <path d="M50 0 L58 34 M190 0 L182 34" stroke="#4a3020" stroke-width="4" stroke-linecap="round" />
+            <path d="M50 0 L58 34 M190 0 L182 34" stroke="#8a6238" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 4" />
+          </svg>
+          <span class="rg-cartel">Agenden el día</span>
+          <p class="rg-fecha-tag">La cita es el</p>
+          <p class="rg-fecha-grande">{{FECHA}}</p>
+          <p class="rg-hora-tag">a la {{HORA}}</p>
+        </div>
+      </div>
+      <p class="rg-nota rg-madera-nota rg-rev" style="--rg-d: 0.5s">
+        Vestite de tu equipo si querés: <em>celeste</em> o <b>rosa</b> —
+        el bebé no se decide todavía, pero vos sí podés.
+      </p>
+    </section>
+
+    <!-- 4 · Cuenta regresiva viva -->
+    <section class="rg-esc" data-rg-escena>
+      <button type="button" class="rg-flor" style="left:8px; top:22px" aria-label="Florecita rosa (tocala y gira)"
+        onclick="this.classList.remove('rg-toc');void this.offsetWidth;this.classList.add('rg-toc')">
+        <svg width="40" height="40" viewBox="0 0 40 40"><g stroke="#c9758d" stroke-width="1.6"><circle cx="20" cy="9" r="6.5" fill="#f2bcc9" /><circle cx="30" cy="16" r="6.5" fill="#f2bcc9" /><circle cx="26" cy="28" r="6.5" fill="#f2bcc9" /><circle cx="14" cy="28" r="6.5" fill="#f2bcc9" /><circle cx="10" cy="16" r="6.5" fill="#f2bcc9" /></g><circle cx="20" cy="19" r="5.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.6" /></svg>
+      </button>
+      <button type="button" class="rg-flor" style="right:8px; top:22px" aria-label="Florecita celeste (tocala y gira)"
+        onclick="this.classList.remove('rg-toc');void this.offsetWidth;this.classList.add('rg-toc')">
+        <svg width="40" height="40" viewBox="0 0 40 40"><g stroke="#6f9cbf" stroke-width="1.6"><circle cx="20" cy="9" r="6.5" fill="#bcd7ea" /><circle cx="30" cy="16" r="6.5" fill="#bcd7ea" /><circle cx="26" cy="28" r="6.5" fill="#bcd7ea" /><circle cx="14" cy="28" r="6.5" fill="#bcd7ea" /><circle cx="10" cy="16" r="6.5" fill="#bcd7ea" /></g><circle cx="20" cy="19" r="5.5" fill="#ffd98a" stroke="#c79d63" stroke-width="1.6" /></svg>
+      </button>
+      <span class="rg-cartel rg-rev">Cuenta regresiva</span>
+      <h2 class="rg-titulo-seccion rg-rev" style="--rg-d: 0.12s">Falta poquito para saberlo</h2>
+      <div class="rg-cd" id="rg-cd" data-fecha="{{FECHA_ISO}}" role="timer" aria-label="Tiempo restante para la revelación">
+        <div class="rg-cd-c rg-rev-pop" style="--rg-d: 0.24s"><span id="rg-cd-d">–</span><small>días</small></div>
+        <div class="rg-cd-c rg-rev-pop" style="--rg-d: 0.36s"><span id="rg-cd-h">–</span><small>horas</small></div>
+        <div class="rg-cd-c rg-rev-pop" style="--rg-d: 0.48s"><span id="rg-cd-m">–</span><small>min</small></div>
+        <div class="rg-cd-c rg-rev-pop" style="--rg-d: 0.6s"><span id="rg-cd-s">–</span><small>seg</small></div>
+      </div>
+      <p class="rg-cd-hoy" id="rg-cd-hoy" hidden>¡La revelación es <em>HOY</em>! 🎀</p>
+      <p class="rg-nota rg-rev" style="--rg-d: 0.72s">
+        Cada segundo que pasa, el moño o el corbatín está más cerca.
+      </p>
+    </section>
+
+    <!-- Banderines: costura antes del lugar -->
+    <svg class="rg-banderin-borde" viewBox="0 0 390 36" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M-2 3 Q195 13 392 3" fill="none" stroke="#8a6238" stroke-width="2.5" />
+      <path d="M20 5 L32 30 L44 6 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="1.5" />
+      <path d="M66 7 L78 32 L90 8 Z" fill="#e3c48f" stroke="#c79d63" stroke-width="1.5" />
+      <path d="M112 9 L124 34 L136 9 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="1.5" />
+      <path d="M158 10 L170 35 L182 10 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="1.5" />
+      <path d="M204 10 L216 35 L228 9 Z" fill="#e3c48f" stroke="#c79d63" stroke-width="1.5" />
+      <path d="M250 9 L262 34 L274 8 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="1.5" />
+      <path d="M296 7 L308 32 L320 6 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="1.5" />
+      <path d="M342 5 L354 30 L366 5 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="1.5" />
+    </svg>
+
+    <!-- 5 · El lugar -->
+    <section class="rg-esc" data-rg-escena>
+      <span class="rg-cartel rg-rev">El lugar</span>
+      <div class="rg-pin rg-brinco" style="--rg-d: 0.15s" aria-hidden="true">
+        <svg width="66" height="82" viewBox="0 0 66 82">
+          <path d="M33 80 C18 60 6 46 6 29 C6 14 18 3 33 3 C48 3 60 14 60 29 C60 46 45 60 33 80 Z" fill="#c9758d" stroke="#a75a72" stroke-width="3" />
+          <circle cx="33" cy="29" r="16" fill="#fffaf0" />
+          <path d="M33 38 C27 33 24 29.5 25.7 27 C27.5 24.5 30.5 25.3 33 28 C35.5 25.3 38.5 24.5 40.3 27 C42 29.5 39 33 33 38 Z" fill="#6f9cbf" />
+        </svg>
+      </div>
+      <h2 class="rg-lugar-nombre rg-rev" style="--rg-d: 0.28s">{{LUGAR}}</h2>
+      <p class="rg-nota rg-rev" style="--rg-d: 0.4s">{{DIRECCION}}</p>
+      <div class="rg-botones rg-rev" style="--rg-d: 0.52s">
+        <a class="rg-boton rg-boton-celeste" href="{{LINK_MAPS}}" target="_blank" rel="noopener noreferrer">Google Maps</a>
+        <a class="rg-boton rg-boton-rosa" href="{{LINK_WAZE}}" target="_blank" rel="noopener noreferrer">Waze</a>
+      </div>
+    </section>
+
+    <!-- 6 · Llamado al RSVP (el formulario lo agrega la página) -->
+    <section class="rg-esc" data-rg-escena style="min-height: 52svh">
+      <span class="rg-cartel rg-rev">¿Nos acompañás?</span>
+      <div class="rg-rev" style="--rg-d: 0.15s">
+        <span class="rg-confirma">Confirmá tu asistencia<span class="rg-flecha" aria-hidden="true">▼</span></span>
+      </div>
+      <p class="rg-nota rg-rev" style="--rg-d: 0.3s">
+        Contanos aquí abajito si venís — y no se te olvide
+        la apuesta: pañales 💙 o toallitas 🌸.
+      </p>
+    </section>
+
+    <!-- La costura final: banderines mirando al RSVP -->
+    <svg class="rg-banderin-borde" viewBox="0 0 390 36" preserveAspectRatio="none" aria-hidden="true" style="transform: scaleY(-1)">
+      <path d="M-2 3 Q195 13 392 3" fill="none" stroke="#8a6238" stroke-width="2.5" />
+      <path d="M28 5 L40 30 L52 6 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="1.5" />
+      <path d="M86 8 L98 33 L110 9 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="1.5" />
+      <path d="M144 10 L156 35 L168 10 Z" fill="#e3c48f" stroke="#c79d63" stroke-width="1.5" />
+      <path d="M202 10 L214 35 L226 9 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="1.5" />
+      <path d="M260 8 L272 33 L284 7 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="1.5" />
+      <path d="M318 6 L330 31 L342 5 Z" fill="#e3c48f" stroke="#c79d63" stroke-width="1.5" />
+    </svg>
+  </div>
+
+  <!-- El osito del globo mitad rosa / mitad celeste: sube por el
+       costado con el progreso del scroll (position fixed real). -->
+  <div id="rg-globo" style="transform: translateY(-220px)">
+    <button type="button" class="rg-globo-btn" aria-label="Osito del globo (tocalo y se alegra)"
+      onclick="this.classList.remove('rg-toc');void this.offsetWidth;this.classList.add('rg-toc')">
+      <svg viewBox="0 0 84 156" aria-hidden="true">
+        <!-- Globo mitad celeste / mitad rosa -->
+        <path d="M42 4 A30 30 0 0 0 42 66 Z" fill="#a7c9e3" stroke="#6f9cbf" stroke-width="2.5" />
+        <path d="M42 4 A30 30 0 0 1 42 66 Z" fill="#e8a7b7" stroke="#c9758d" stroke-width="2.5" />
+        <path d="M42 4 L42 66" stroke="#fffaf0" stroke-width="2" />
+        <ellipse cx="30" cy="22" rx="7" ry="10" fill="#ffffff" opacity="0.45" />
+        <path d="M42 66 L37 74 L47 74 Z" fill="#c9758d" />
+        <path d="M42 74 C38 86 46 94 42 104" fill="none" stroke="#8a6238" stroke-width="2" />
+        <!-- El osito colgado de la pita -->
+        <g>
+          <path d="M42 104 C36 108 34 112 35 116" fill="none" stroke="#8a6238" stroke-width="4" stroke-linecap="round" />
+          <circle cx="34" cy="112" r="4.5" fill="#c89b6b" stroke="#8a6238" stroke-width="2" />
+          <circle cx="36" cy="122" r="10.5" fill="#c89b6b" stroke="#8a6238" stroke-width="2.4" />
+          <circle cx="29" cy="114" r="4" fill="#c89b6b" stroke="#8a6238" stroke-width="1.8" />
+          <circle cx="44" cy="114" r="4" fill="#c89b6b" stroke="#8a6238" stroke-width="1.8" />
+          <circle cx="29" cy="114" r="1.7" fill="#e8cfa8" />
+          <circle cx="44" cy="114" r="1.7" fill="#e8cfa8" />
+          <ellipse cx="36.5" cy="125" rx="5" ry="4" fill="#e8cfa8" />
+          <circle cx="36.5" cy="123.5" r="1.4" fill="#4a3826" />
+          <circle cx="33" cy="119.5" r="1.3" fill="#4a3826" />
+          <circle cx="40" cy="119.5" r="1.3" fill="#4a3826" />
+          <ellipse cx="37" cy="141" rx="11.5" ry="9.5" fill="#c89b6b" stroke="#8a6238" stroke-width="2.4" />
+          <path d="M37 133 L31.5 130 L31.5 136 Z M37 133 L42.5 130 L42.5 136 Z" fill="#6f9cbf" stroke="#58809e" stroke-width="1.2" />
+          <path d="M28 146 C25 150 26 153 29 154 M46 146 C49 150 48 153 45 154" fill="none" stroke="#8a6238" stroke-width="3.5" stroke-linecap="round" />
+        </g>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  /* ============ Intro: cortinas celeste y rosa ============ */
+  (function () {
+    var dlg = document.getElementById("rg-intro");
+    if (!dlg || typeof dlg.showModal !== "function") { if (dlg) dlg.remove(); return; }
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      dlg.remove();
+      return;
+    }
+    var abierta = false;
+    var timer = null;
+    function abrir() {
+      if (abierta) return;
+      abierta = true;
+      if (timer) window.clearTimeout(timer);
+      dlg.classList.add("rg-intro-abierta");
+      window.setTimeout(function () {
+        try { dlg.close(); } catch (e) { /* ya cerrado */ }
+        dlg.remove();
+      }, 1000);
+    }
+    try { dlg.showModal(); } catch (e) { dlg.remove(); return; }
+    dlg.addEventListener("click", abrir);
+    dlg.addEventListener("cancel", function (e) { e.preventDefault(); abrir(); });
+    timer = window.setTimeout(abrir, 3200);
+  })();
+
+  /* ============ Escenas: cada una entra distinto al scrollear ======= */
+  (function () {
+    var raiz = document.querySelector(".rg");
+    if (!raiz) return;
+    var escenas = raiz.querySelectorAll("[data-rg-escena]");
+    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducido || !("IntersectionObserver" in window)) {
+      for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("rg-vista");
+      return;
+    }
+    raiz.classList.add("rg-anima");
+    var io = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (ent) {
+        if (ent.isIntersecting) {
+          ent.target.classList.add("rg-vista");
+          io.unobserve(ent.target);
+        }
+      });
+    }, { threshold: 0.18, rootMargin: "0px 0px -8% 0px" });
+    escenas.forEach(function (esc) { io.observe(esc); });
+  })();
+
+  /* ==== Ligado al scroll: el globo sube y el hero hace parallax ==== */
+  (function () {
+    var globo = document.getElementById("rg-globo");
+    var hero = document.getElementById("rg-hero");
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (globo) globo.remove();
+      return;
+    }
+    var capas = [];
+    var pares = document.querySelectorAll("[data-rg-par]");
+    for (var i = 0; i < pares.length; i++) {
+      capas.push({ el: pares[i], v: parseFloat(pares[i].getAttribute("data-rg-par")) || 0.2 });
+    }
+    var pedida = false;
+    function pintar() {
+      pedida = false;
+      var alto = window.innerHeight;
+      var doc = document.documentElement;
+      var total = Math.max(1, doc.scrollHeight - alto);
+      var p = Math.min(1, Math.max(0, (window.scrollY || doc.scrollTop || 0) / total));
+      if (globo) {
+        // De abajo (arranque) hasta arriba (final del recorrido).
+        var y = (alto - 190) * (1 - p) + 14;
+        globo.style.transform = "translateY(" + y.toFixed(1) + "px)";
+      }
+      var sy = window.scrollY || doc.scrollTop || 0;
+      var tope = hero ? hero.offsetHeight : alto;
+      var avance = Math.min(sy, tope);
+      for (var j = 0; j < capas.length; j++) {
+        capas[j].el.style.transform = "translateY(" + (-avance * capas[j].v).toFixed(1) + "px)";
+      }
+    }
+    function alScroll() {
+      if (pedida) return;
+      pedida = true;
+      window.requestAnimationFrame(pintar);
+    }
+    pintar();
+    window.addEventListener("scroll", alScroll, { passive: true });
+    window.addEventListener("resize", alScroll);
+  })();
+
+  /* ============ Cuenta regresiva viva ============ */
+  (function () {
+    var caja = document.getElementById("rg-cd");
+    if (!caja) return;
+    var objetivo = new Date(caja.getAttribute("data-fecha") || "").getTime();
+    if (isNaN(objetivo)) return;
+    var d = document.getElementById("rg-cd-d");
+    var h = document.getElementById("rg-cd-h");
+    var m = document.getElementById("rg-cd-m");
+    var s = document.getElementById("rg-cd-s");
+    var hoy = document.getElementById("rg-cd-hoy");
+    var timer = null;
+    function dosDigitos(n) { return n < 10 ? "0" + n : "" + n; }
+    function tic() {
+      var resto = objetivo - Date.now();
+      if (resto <= 0) {
+        caja.hidden = true;
+        if (hoy) hoy.hidden = false;
+        if (timer) window.clearInterval(timer);
+        return;
+      }
+      var seg = Math.floor(resto / 1000);
+      if (d) d.textContent = "" + Math.floor(seg / 86400);
+      if (h) h.textContent = dosDigitos(Math.floor((seg % 86400) / 3600));
+      if (m) m.textContent = dosDigitos(Math.floor((seg % 3600) / 60));
+      if (s) s.textContent = dosDigitos(seg % 60);
+    }
+    tic();
+    timer = window.setInterval(tic, 1000);
+  })();
+
+  /* ==== Los equipos: brinco + chispas + contador local de porras ==== */
+  (function () {
+    var COLORES = {
+      nino: ["#a7c9e3", "#bcd7ea", "#6f9cbf", "#ffd98a"],
+      nina: ["#e8a7b7", "#f2bcc9", "#c9758d", "#ffd98a"]
+    };
+    function leer(clave) {
+      try { return parseInt(window.localStorage.getItem(clave) || "0", 10) || 0; } catch (e) { return 0; }
+    }
+    function guardar(clave, valor) {
+      try { window.localStorage.setItem(clave, "" + valor); } catch (e) { /* modo incógnito */ }
+    }
+    var tarjetas = document.querySelectorAll("[data-rg-team]");
+    for (var i = 0; i < tarjetas.length; i++) {
+      (function (tarjeta) {
+        var team = tarjeta.getAttribute("data-rg-team");
+        var clave = "rg-porra-" + team;
+        var cont = document.getElementById("rg-cont-" + team);
+        var porras = leer(clave);
+        if (cont) cont.textContent = "" + porras;
+        tarjeta.addEventListener("click", function () {
+          porras += 1;
+          guardar(clave, porras);
+          if (cont) {
+            cont.textContent = "" + porras;
+            cont.classList.remove("rg-toc");
+            void cont.offsetWidth;
+            cont.classList.add("rg-toc");
+          }
+          tarjeta.classList.remove("rg-toc");
+          void tarjeta.offsetWidth;
+          tarjeta.classList.add("rg-toc");
+          var paleta = COLORES[team] || COLORES.nina;
+          var n = window.innerWidth >= 768 ? 14 : 10;
+          for (var k = 0; k < n; k++) {
+            var chispa = document.createElement("span");
+            chispa.className = "rg-chispa";
+            var ang = Math.random() * Math.PI * 2;
+            var dist = 60 + Math.random() * 90;
+            chispa.style.setProperty("--rg-dx", (Math.cos(ang) * dist).toFixed(0) + "px");
+            chispa.style.setProperty("--rg-dy", (Math.sin(ang) * dist - 40).toFixed(0) + "px");
+            chispa.style.background = paleta[k % paleta.length];
+            if (k % 3 === 0) { chispa.style.borderRadius = "2px"; }
+            chispa.style.width = chispa.style.height = (8 + Math.random() * 8).toFixed(0) + "px";
+            chispa.addEventListener("animationend", function () { this.remove(); });
+            tarjeta.appendChild(chispa);
+          }
+        });
+      })(tarjetas[i]);
+    }
+  })();
+
+  /* ==== Ambiente: partículas mitad rosa, mitad celeste ==== */
+  (function () {
+    var caja = document.getElementById("rg-particulas");
+    if (!caja) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var total = window.innerWidth >= 768 ? 34 : 22;
+    var CORAZON = 'M12 20 C4 13 1 8 3.5 4.5 C6 1 10 2 12 6 C14 2 18 1 20.5 4.5 C23 8 20 13 12 20 Z';
+    for (var i = 0; i < total; i++) {
+      var rosa = i % 2 === 0;
+      var p = document.createElement("span");
+      p.className = "rg-p";
+      p.style.left = (Math.random() * 98).toFixed(1) + "%";
+      var dur = 15 + Math.random() * 13;
+      p.style.animationDuration = dur.toFixed(1) + "s";
+      p.style.animationDelay = "-" + (Math.random() * dur).toFixed(1) + "s";
+      var giro = document.createElement("i");
+      giro.style.animationDuration = (2.6 + Math.random() * 2.2).toFixed(1) + "s";
+      giro.style.animationDelay = "-" + (Math.random() * 3).toFixed(1) + "s";
+      giro.style.opacity = (0.3 + Math.random() * 0.35).toFixed(2);
+      var tam = (9 + Math.random() * 9).toFixed(0);
+      var color = rosa
+        ? (i % 4 === 0 ? "#c9758d" : "#e8a7b7")
+        : (i % 4 === 1 ? "#6f9cbf" : "#a7c9e3");
+      giro.innerHTML =
+        '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 22"><path d="' +
+        CORAZON + '" fill="' + color + '" /></svg>';
+      p.appendChild(giro);
+      caja.appendChild(p);
+    }
+  })();
+</script>
