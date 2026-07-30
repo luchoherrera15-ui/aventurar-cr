@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { calcularCostoUSD } from "@/lib/ia/token-counter";
 
 /**
  * POST /api/invitaciones/chat
@@ -14,9 +15,11 @@ import { createClient } from "@/lib/supabase/server";
  * Body: {
  *   mensajes: [{ rol: "usuario" | "asistente", texto: string }],
  *   imagenes_count?: number,
- *   videos_count?: number
+ *   videos_count?: number,
+ *   forzar_brief?: boolean   // el botón "Generar": exige el brief YA
  * }
- * Response: { success, respuesta, prompt_final?, titulo? }
+ * Response: { success, respuesta, prompt_final?, titulo?, costo_usd,
+ *             input_tokens, output_tokens }
  */
 
 export const maxDuration = 60;
@@ -91,6 +94,7 @@ export async function POST(request: Request) {
     const mensajes = (body.mensajes ?? []) as MensajeChat[];
     const imagenesCount = Number(body.imagenes_count) || 0;
     const videosCount = Number(body.videos_count) || 0;
+    const forzarBrief = body.forzar_brief === true;
 
     if (!Array.isArray(mensajes) || mensajes.length === 0) {
       return Response.json(
@@ -132,8 +136,13 @@ export async function POST(request: Request) {
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
       model: "claude-opus-5",
-      max_tokens: 1500,
-      system: SYSTEM_CHAT,
+      max_tokens: forzarBrief ? 2500 : 1500,
+      system: forzarBrief
+        ? SYSTEM_CHAT +
+          `\n\nEL CLIENTE YA CONFIRMÓ CON EL BOTÓN DE GENERAR: respondé
+ÚNICAMENTE con los bloques <titulo> y <prompt_final> completos,
+basados en TODA la conversación. Sin saludos ni texto extra.`
+        : SYSTEM_CHAT,
       messages: historial,
     });
 
@@ -163,11 +172,27 @@ export async function POST(request: Request) {
       respuesta = respuesta.replace(matchTitulo[0], "").trim();
     }
 
+    // Con el botón de generar, el brief no es opcional: si el modelo
+    // no usó los bloques, toda su respuesta ES el brief.
+    if (forzarBrief && !prompt_final && respuesta) {
+      prompt_final = respuesta;
+      respuesta = "";
+    }
+
+    const costo_usd = calcularCostoUSD(
+      response.usage.input_tokens,
+      response.usage.output_tokens,
+      "opus"
+    );
+
     return Response.json({
       success: true,
       respuesta,
       prompt_final,
       titulo,
+      costo_usd,
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
       error: null,
     });
   } catch (error) {

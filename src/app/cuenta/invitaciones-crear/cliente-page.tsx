@@ -21,6 +21,7 @@ export default function ClientePage() {
   const [slugDeseado, setSlugDeseado] = useState("");
 
   const [htmlGenerado, setHtmlGenerado] = useState("");
+  const [costoGeneracion, setCostoGeneracion] = useState<number | null>(null);
   const [errorGeneracion, setErrorGeneracion] = useState("");
 
   const [invitaciones, setInvitaciones] = useState<InvitacionHistorial[]>([]);
@@ -67,6 +68,7 @@ export default function ClientePage() {
 
       if (res.success) {
         setHtmlGenerado(res.html);
+        setCostoGeneracion(typeof res.costo_usd === "number" ? res.costo_usd : null);
         // Sugerir la dirección a partir del título ("Boda de Luis" →
         // "boda-de-luis"); el usuario la puede cambiar antes de publicar.
         setSlugDeseado(
@@ -177,6 +179,16 @@ export default function ClientePage() {
               cargando={pendiente}
               error={errorGeneracion}
             />
+
+            {costoGeneracion !== null && (
+              <p className="rounded-xl border border-aventurea-line bg-white px-4 py-2.5 text-[12.5px] font-semibold text-aventurea-ink-soft">
+                Costo real de esta generación:{" "}
+                <span className="font-black text-aventurea-ink">
+                  ${costoGeneracion.toFixed(4)}
+                </span>{" "}
+                USD
+              </p>
+            )}
 
             {/* La dirección de la invitación: el cliente elige cómo se
                 llama su página antes de publicarla. */}

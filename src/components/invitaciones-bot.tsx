@@ -42,6 +42,8 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [errorBot, setErrorBot] = useState("");
+  // Lo gastado en la conversación (cada mensaje cuesta tokens reales).
+  const [gastoChat, setGastoChat] = useState(0);
 
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
@@ -66,12 +68,14 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
     return m;
   }
 
-  async function enviar() {
-    const texto = input.trim();
+  async function enviar(forzarBrief = false) {
+    const texto = forzarBrief
+      ? "Listo — generá mi invitación con todo lo que conversamos."
+      : input.trim();
     if (!texto || enviando) return;
 
     setErrorBot("");
-    setInput("");
+    if (!forzarBrief) setInput("");
     agregarMensaje("usuario", texto);
     setEnviando(true);
 
@@ -92,6 +96,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
           mensajes: historial,
           imagenes_count: imagenes.length,
           videos_count: videos.length,
+          forzar_brief: forzarBrief,
         }),
       });
       const data = await res.json();
@@ -101,10 +106,19 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
         // Mantener la alternancia usuario/asistente para el próximo envío.
         agregarMensaje("bot", "Perdoná, tuve un problema — ¿me lo repetís?");
       } else {
+        if (typeof data.costo_usd === "number") {
+          setGastoChat((g) => g + data.costo_usd);
+        }
         if (data.respuesta) agregarMensaje("bot", data.respuesta);
         if (data.prompt_final) {
           setPromptFinal(data.prompt_final);
           if (data.titulo) setTitulo(data.titulo);
+          if (!data.respuesta) {
+            agregarMensaje(
+              "bot",
+              "Acá está el resumen de tu invitación — elegí el modelo, revisá el costo y confirmá:"
+            );
+          }
         }
       }
     } catch {
@@ -141,11 +155,20 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
 
   return (
     <div className="rounded-2xl border border-aventurea-line bg-white overflow-hidden">
-      <div className="border-b border-aventurea-line bg-aventurea-navy px-5 py-3.5">
-        <p className="text-[14px] font-bold text-white">Asistente de invitaciones</p>
-        <p className="text-[11.5px] text-white/70">
-          Contale exactamente qué necesitás — él diseña con vos
-        </p>
+      <div className="flex items-center justify-between gap-3 border-b border-aventurea-line bg-aventurea-navy px-5 py-3.5">
+        <div>
+          <p className="text-[14px] font-bold text-white">Asistente de invitaciones</p>
+          <p className="text-[11.5px] text-white/70">
+            Contale exactamente qué necesitás — él diseña con vos
+          </p>
+        </div>
+        {/* Lo gastado conversando, siempre a la vista. */}
+        <div className="shrink-0 rounded-full bg-white/10 px-3.5 py-1.5 text-right">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-white/60">
+            Gastado en chat
+          </p>
+          <p className="text-[13px] font-black text-white">${gastoChat.toFixed(4)}</p>
+        </div>
       </div>
 
       {/* La conversación */}
@@ -256,6 +279,20 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
 
       {/* Adjuntos + entrada */}
       <div className="border-t border-aventurea-line bg-aventurea-cream-2/60 px-5 py-4">
+        {/* El botón de cierre: cuando ya hay acuerdo, el cliente genera
+            sin esperar a que el asistente decida — el brief se arma con
+            todo lo conversado y aparece la tarjeta de costo. */}
+        {mensajes.some((m) => m.de === "bot" && m.id !== 0) && !promptFinal && (
+          <button
+            type="button"
+            onClick={() => enviar(true)}
+            disabled={enviando || pendiente}
+            className="mb-3 w-full rounded-xl border-2 border-aventurea-orange bg-aventurea-orange/10 py-2.5 text-[13.5px] font-bold text-aventurea-orange transition-colors hover:bg-aventurea-orange/20 disabled:opacity-50"
+          >
+            Ya llegamos a un acuerdo — preparar mi invitación
+          </button>
+        )}
+
         {mostrarUpload && (
           <div className="mb-3">
             <UploadZone
@@ -307,7 +344,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
           />
           <button
             type="button"
-            onClick={enviar}
+            onClick={() => enviar()}
             disabled={!input.trim() || enviando || pendiente}
             className="h-11 shrink-0 rounded-xl bg-aventurea-navy px-5 font-bold text-white hover:bg-aventurea-navy-2 disabled:opacity-40"
           >
