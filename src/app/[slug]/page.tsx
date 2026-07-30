@@ -43,5 +43,12 @@ export default async function SlugPortalPage({
     redirect("/eventos-salon");
   }
 
+  // El negocio de Invitaciones Digitales es de Bookea mismo: no tiene
+  // portal con calendario ni reservas — su "perfil" es el panel de
+  // paquetes, donde el cliente pide lo que necesita y abre el chat.
+  if (rancho.slug === "bookea-invitaciones") {
+    redirect("/invitaciones");
+  }
+
   return <RanchoPortal rancho={rancho} />;
 }
