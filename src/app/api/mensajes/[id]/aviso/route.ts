@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { notificarMensajeNuevo } from "@/lib/notificaciones-mensaje";
+import { responderConAsistente } from "@/lib/asistente-ia";
 
 /**
  * "Avisale al otro participante de este mensaje" — lo llama la app
@@ -42,7 +43,14 @@ export async function POST(
     return NextResponse.json({ ok: false }, { status: 400, headers: CORS });
   }
 
-  await notificarMensajeNuevo(id, { maxAntiguedadMinutos: VENTANA_MINUTOS });
+  // El aviso push y el asistente de IA corren juntos: los mensajes que
+  // nacen en la app móvil también deben recibir respuesta automática
+  // (el asistente valida solo el autor y los negocios activos, y nunca
+  // lanza — ver src/lib/asistente-ia.ts).
+  await Promise.all([
+    notificarMensajeNuevo(id, { maxAntiguedadMinutos: VENTANA_MINUTOS }),
+    responderConAsistente(id),
+  ]);
 
   return NextResponse.json({ ok: true }, { status: 200, headers: CORS });
 }

@@ -1,17 +1,20 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizarCategoria } from "@/app/mi-rancho/types";
 
 /**
- * El asistente de IA del chat (piloto): cuando un cliente le escribe a
- * un negocio con el asistente activo, Claude responde al instante en
+ * El asistente de IA del chat: cuando un cliente le escribe a un
+ * negocio con el asistente activo, Claude responde al instante en
  * nombre del negocio usando SOLO sus datos reales (servicios, precios,
  * horarios, condiciones). El dueño puede meterse al hilo cuando
  * quiera — el asistente solo contesta mensajes del cliente.
  *
- * Piloto barato a propósito: modelo Haiku (el más económico), máximo
- * ~350 tokens de salida, y el contexto del negocio se arma compacto.
+ * Barato a propósito: modelo Haiku (el más económico), máximo ~350
+ * tokens de salida, y el contexto del negocio se arma compacto.
  *
- * Apagado por defecto: sin ANTHROPIC_API_KEY no hace nada, y solo
- * responde en los negocios listados en ASISTENTE_IA_SLUGS.
+ * Quién lo tiene activo: TODOS los negocios de la categoría "lugares"
+ * (los ranchos/salones de eventos), más cualquier slug extra listado
+ * en ASISTENTE_IA_SLUGS (para pilotear otras categorías negocio por
+ * negocio). Sin ANTHROPIC_API_KEY no hace nada.
  */
 
 const MODELO = "claude-haiku-4-5-20251001";
@@ -94,7 +97,7 @@ function armarTurnos(historial: FilaMensaje[], clienteId: string) {
 export async function responderConAsistente(mensajeId: string): Promise<void> {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey || slugsActivos().length === 0) return;
+    if (!apiKey) return;
 
     const db = createAdminClient();
     if (!db) return;
@@ -108,19 +111,27 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
 
     const { data: conversacion } = await db
       .from("conversaciones")
-      .select("id, cliente_id, rancho_id, ranchos(nombre, slug, owner_id)")
+      .select("id, cliente_id, rancho_id, ranchos(nombre, slug, owner_id, categoria)")
       .eq("id", mensaje.conversacion_id)
       .maybeSingle();
     const rancho = (
       conversacion as {
-        ranchos?: { nombre: string; slug: string | null; owner_id: string } | null;
+        ranchos?: {
+          nombre: string;
+          slug: string | null;
+          owner_id: string;
+          categoria: string | null;
+        } | null;
       } | null
     )?.ranchos;
     if (!conversacion || !rancho) return;
 
-    // Solo negocios del piloto, y solo mensajes DEL CLIENTE — lo que
-    // escriba el dueño (o el propio asistente) no dispara nada.
-    if (!rancho.slug || !slugsActivos().includes(rancho.slug)) return;
+    // Activo para TODA la categoría "lugares" y para los slugs extra
+    // del piloto; y solo con mensajes DEL CLIENTE — lo que escriba el
+    // dueño (o el propio asistente) no dispara nada.
+    const esLugar = normalizarCategoria(rancho.categoria) === "lugares";
+    const enPiloto = !!rancho.slug && slugsActivos().includes(rancho.slug);
+    if (!esLugar && !enPiloto) return;
     if (mensaje.autor_id !== conversacion.cliente_id) return;
 
     const [{ data: ranchoFull }, { data: itemsData }, { data: historialData }] =
@@ -199,7 +210,7 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
     // Se registra el consumo para poder medir el costo real del piloto.
     if (cuerpo.usage) {
       console.log(
-        `[asistente-ia] ${rancho.slug}: ${cuerpo.usage.input_tokens} tokens de entrada, ${cuerpo.usage.output_tokens} de salida.`,
+        `[asistente-ia] ${rancho.slug ?? rancho.nombre}: ${cuerpo.usage.input_tokens} tokens de entrada, ${cuerpo.usage.output_tokens} de salida.`,
       );
     }
 
