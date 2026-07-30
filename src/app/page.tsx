@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AccionesSesion from "@/components/acciones-sesion";
 import FondoPortada from "@/components/fondo-portada";
+import PopupInvitaciones from "@/components/popup-invitaciones";
 import { IconClock, IconHouse, IconRancho } from "@/components/icons";
 
 /**
@@ -18,6 +19,7 @@ export default function PortadaPage() {
   return (
     <main className="relative flex min-h-svh flex-col overflow-hidden bg-aventurea-navy">
       <FondoPortada />
+      <PopupInvitaciones />
 
       {/* Velo navy sobre la foto: más denso arriba y abajo, donde vive
           el texto, y más abierto al centro para que la foto se luzca. */}

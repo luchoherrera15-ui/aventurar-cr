@@ -875,3 +875,8 @@ body {
   letter-spacing: 0.015em;
   line-height: 1.1;
 }
+
+@keyframes popup-barra {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
