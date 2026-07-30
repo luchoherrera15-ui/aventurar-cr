@@ -10,6 +10,7 @@ const NAV: [string, string][] = [
   ["/admin/eventos", "Reservas"],
   ["/admin/balance", "Balance"],
   ["/admin/usuarios", "Cuentas"],
+  ["/admin/campanas", "Campañas"],
   ["/admin/eventos/precios", "Precios"],
 ];
 

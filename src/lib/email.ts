@@ -137,7 +137,7 @@ function layout({
  * clave, tarjeta blanca con los datos en números grandes y CTA en
  * píldora naranja. Tablas + estilos inline, como el layout clásico.
  */
-function layoutBento({
+export function layoutBento({
   kicker,
   titulo,
   introHtml,
@@ -845,5 +845,29 @@ export function plantillaCitaNuevaProveedor({
       </div>
     `,
     pie: "Recibís este correo porque administrás un negocio publicado en Bookea.",
+  });
+}
+
+/**
+ * Campaña de correo del admin (novedades, anuncios): título grande en
+ * la tarjeta navy, el mensaje en la tarjeta blanca y CTA opcional.
+ * El que llama es responsable de escapar el texto libre (titulo y
+ * mensajeHtml llegan ya listos para meter en el HTML).
+ */
+export function plantillaCampana({
+  titulo,
+  mensajeHtml,
+  cta,
+}: {
+  titulo: string;
+  mensajeHtml: string;
+  cta?: { href: string; label: string };
+}) {
+  return layoutBento({
+    kicker: "Novedades",
+    titulo,
+    cuerpoHtml: mensajeHtml,
+    cta,
+    pie: "Recibiste este correo porque tenés una cuenta en Bookea.",
   });
 }
