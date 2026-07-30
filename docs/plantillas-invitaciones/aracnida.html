@@ -5,10 +5,19 @@
   con marca registrada).
 
   USO: sustituir los placeholders y guardar el resultado en
-  invitaciones.html_personalizado. La página /i/{slug} lo inyecta tal
-  cual dentro de su lienzo (columna max-w 680px sobre fondo navy) y
-  agrega ella misma el bloque RSVP "¿Nos acompañás?" debajo — esta
-  plantilla termina con la franja de ciudad para empatar con eso.
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta a
+  pantalla completa (el fragmento ocupa todo el ancho del viewport; el
+  cómic ES la página, sin tarjeta centrada) y agrega ella misma el
+  bloque RSVP "¿Nos acompañás?" debajo — esta plantilla termina con la
+  franja de ciudad para empatar con eso.
+
+  ESCENAS (se revelan al scrollear con IntersectionObserver, bajo
+  .ara-anima que agrega el script; sin JS todo queda visible):
+    1. Cabecera a pantalla completa (telarañas que se dibujan, arañas
+       que bajan por su hilo, ¡POW! que estalla)
+    2. Datos en burbujas de cómic (arañas laterales en desktop,
+       ¡THWIP! y ¡ZAS! estallando desde los costados)
+    3. Cierre con el llamado al RSVP, ¡PUM! y la ciudad al pie
 
   PLACEHOLDERS:
     {{NOMBRE}}     nombre del festejado         p. ej. Mateo
@@ -182,15 +191,13 @@
     .ara-intro-abierta .ara-toca { opacity: 0; transition: opacity 0.3s; }
 
     /* ============ EL PANEL DE CÓMIC ============ */
+    /* De borde a borde: el degradado rojo→azul ES la página, sin
+       tarjeta centrada ni marco que encierre en pantallas grandes. */
     .ara-panel {
       position: relative;
-      max-width: 560px;
-      margin: 0 auto;
-      border: 4px solid var(--ara-tinta);
-      border-radius: 26px;
+      width: 100%;
       overflow: hidden;
       background: linear-gradient(179deg, var(--ara-rojo) 0%, #b0173a 36%, var(--ara-azul) 76%, var(--ara-azul-osc) 100%);
-      box-shadow: 8px 10px 0 rgba(4, 6, 16, 0.5);
       text-align: center;
       color: #fff;
     }
@@ -237,8 +244,32 @@
     .ara-arana svg { display: block; margin-top: -2px; }
     .ara-arana.ara-rebota { animation: ara-rebote 0.9s cubic-bezier(0.3, 1.5, 0.4, 1) 1; }
 
-    /* Cabecera */
-    .ara-cabecera { padding: 118px 22px 0; }
+    /* La percha de cada araña: el wrapper baja desde arriba cuando su
+       escena entra en pantalla (la araña adentro sigue columpiándose). */
+    .ara-cuelga {
+      position: absolute;
+      top: 0;
+      z-index: 4;
+      pointer-events: none;
+    }
+    .ara-cuelga .ara-arana { position: relative; top: 0; left: 0; pointer-events: auto; }
+    .ara-cuelga-1 { left: 9%; }
+    .ara-cuelga-2 { right: 11%; }
+    .ara-cuelga-a { right: 7%; }
+    .ara-cuelga-a .ara-hilo { height: 110px; }
+    .ara-cuelga-b { left: 5%; display: none; }
+    .ara-cuelga-b .ara-hilo { height: 170px; }
+
+    /* Cabecera: la primera escena, a pantalla completa. */
+    .ara-cabecera {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: 100svh;
+      padding: 110px 22px 48px;
+    }
     .ara-kicker {
       display: inline-block;
       margin: 0;
@@ -246,11 +277,12 @@
       background: var(--ara-tinta);
       color: #fff;
       font-family: var(--ara-f-impacto);
-      font-size: 13px;
+      font-size: clamp(13px, 1vw, 15px);
       letter-spacing: 0.22em;
       text-transform: uppercase;
       border-radius: 999px;
-      transform: rotate(-2deg);
+      --ara-rotb: -2deg;
+      transform: rotate(var(--ara-rotb));
       box-shadow: 3px 3px 0 rgba(255, 255, 255, 0.25);
     }
     .ara-titulo {
@@ -264,10 +296,11 @@
         -2px -2px 0 var(--ara-tinta), 2px -2px 0 var(--ara-tinta),
         -2px 2px 0 var(--ara-tinta), 2px 2px 0 var(--ara-tinta),
         5px 6px 0 var(--ara-tinta);
-      transform: rotate(-2deg);
+      --ara-rotb: -2deg;
+      transform: rotate(var(--ara-rotb));
     }
-    .ara-t1 { display: block; font-size: clamp(40px, 13vw, 66px); letter-spacing: 0.01em; }
-    .ara-t2 { display: block; margin-top: 4px; font-size: clamp(28px, 8.6vw, 44px); letter-spacing: 0.06em; }
+    .ara-t1 { display: block; font-size: clamp(40px, 13vw, 112px); letter-spacing: 0.01em; }
+    .ara-t2 { display: block; margin-top: 4px; font-size: clamp(28px, 8.6vw, 74px); letter-spacing: 0.06em; }
     .ara-edad {
       font-weight: 400;
       font-size: 1.5em;
@@ -279,9 +312,9 @@
     }
     .ara-sub {
       margin: 20px auto 0;
-      max-width: 34ch;
+      max-width: 36ch;
       font-family: var(--ara-f-comic);
-      font-size: 16px;
+      font-size: clamp(16px, 1.5vw, 21px);
       line-height: 1.45;
       color: rgba(255, 255, 255, 0.94);
       text-shadow: 1px 2px 0 rgba(10, 13, 30, 0.55);
@@ -309,7 +342,8 @@
       font-size: 21px;
       background: var(--ara-amarillo);
       color: var(--ara-rojo);
-      transform: rotate(10deg);
+      --ara-rot: 10deg;
+      transform: rotate(var(--ara-rot));
     }
     .ara-thwip {
       width: 104px;
@@ -319,7 +353,8 @@
       font-size: 17px;
       background: #fff;
       color: var(--ara-azul);
-      transform: rotate(-9deg);
+      --ara-rot: -9deg;
+      transform: rotate(var(--ara-rot));
       animation-delay: 0.9s;
     }
     .ara-zas {
@@ -330,12 +365,36 @@
       font-size: 19px;
       background: var(--ara-rojo);
       color: #fff;
-      transform: rotate(-12deg);
+      --ara-rot: -12deg;
+      transform: rotate(var(--ara-rot));
       animation-delay: 1.6s;
     }
+    .ara-pum {
+      width: 88px;
+      height: 88px;
+      top: 14%;
+      right: 5%;
+      font-size: 20px;
+      background: var(--ara-amarillo);
+      color: var(--ara-azul);
+      --ara-rot: 9deg;
+      transform: rotate(var(--ara-rot));
+      animation-delay: 0.6s;
+    }
 
-    /* Burbujas de cómic con los datos. */
-    .ara-datos { padding: 30px 24px 6px; }
+    /* Burbujas de cómic con los datos: escena de media pantalla con
+       la columna legible al centro y los costados para las arañas y
+       onomatopeyas en desktop. */
+    .ara-datos {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 70vh;
+      min-height: 70svh;
+      padding: 60px 24px 6px;
+    }
+    .ara-datos-col { width: min(100%, 560px); margin: 0 auto; }
     .ara-burbuja {
       position: relative;
       width: min(100%, 340px);
@@ -358,9 +417,9 @@
       border-bottom: 3px solid var(--ara-tinta);
       transform: rotate(45deg) skew(12deg, 12deg);
     }
-    .ara-bur-izq { margin-right: auto; transform: rotate(-1.4deg); }
+    .ara-bur-izq { margin-right: auto; --ara-rotb: -1.4deg; transform: rotate(var(--ara-rotb)); }
     .ara-bur-izq::after { left: 30px; }
-    .ara-bur-der { margin-left: auto; transform: rotate(1.4deg); }
+    .ara-bur-der { margin-left: auto; --ara-rotb: 1.4deg; transform: rotate(var(--ara-rotb)); }
     .ara-bur-der::after { right: 30px; }
     .ara-etiqueta {
       margin: 0;
@@ -375,17 +434,31 @@
       margin: 4px 0 0;
       font-family: var(--ara-f-comic);
       font-weight: 700;
-      font-size: 20px;
+      font-size: clamp(20px, 1.7vw, 26px);
       line-height: 1.25;
       color: var(--ara-tinta);
     }
     .ara-valor small {
       display: block;
       margin-top: 3px;
-      font-size: 13.5px;
+      font-size: clamp(13.5px, 1.1vw, 16px);
       font-weight: 400;
       color: #3c415c;
     }
+
+    /* El cierre: llamado al RSVP centrado y la ciudad pegada al pie. */
+    .ara-cierre {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      min-height: 46vh;
+      min-height: 46svh;
+      padding: 40px 22px 0;
+    }
+    .ara-cierre-nucleo { margin: auto 0; padding: 26px 0 40px; }
+    .ara-cierre .ara-esq-ii,
+    .ara-cierre .ara-esq-id { bottom: 88px; }
 
     /* Puente hacia el RSVP que la página agrega debajo. */
     .ara-confirma {
@@ -395,13 +468,14 @@
       background: var(--ara-amarillo);
       color: var(--ara-tinta);
       font-family: var(--ara-f-impacto);
-      font-size: 18px;
+      font-size: clamp(18px, 1.7vw, 25px);
       letter-spacing: 0.05em;
       text-transform: uppercase;
       border: 3px solid var(--ara-tinta);
       border-radius: 14px;
       box-shadow: 4px 4px 0 rgba(4, 6, 16, 0.5);
-      transform: rotate(-1.6deg);
+      --ara-rotb: -1.6deg;
+      transform: rotate(var(--ara-rotb));
     }
     .ara-flecha {
       display: inline-block;
@@ -411,6 +485,54 @@
 
     /* La ciudad al pie: silueta con ventanitas encendidas. */
     .ara-ciudad { display: block; width: 100%; height: 82px; margin-top: 20px; }
+
+    /* ============ Animaciones al scrollear (bajo .ara-anima) ========= */
+    /* Los estados "oculto antes de revelar" SOLO existen bajo
+       .ara-anima, la clase que agrega el script: sin JS o con
+       movimiento reducido la invitación se ve completa. */
+    .ara-anima [data-ara-escena] .ara-rev {
+      opacity: 0;
+      transform: translateY(26px) scale(0.94) rotate(var(--ara-rotb, 0deg));
+      transition:
+        opacity 0.55s ease var(--ara-d, 0s),
+        transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) var(--ara-d, 0s);
+    }
+    .ara-anima [data-ara-escena].ara-vista .ara-rev {
+      opacity: 1;
+      transform: rotate(var(--ara-rotb, 0deg));
+    }
+
+    /* Onomatopeyas: estallan al entrar su escena. */
+    .ara-anima [data-ara-escena] .ara-onoma {
+      opacity: 0;
+      transform: scale(0.2) rotate(var(--ara-rot, 0deg));
+      transition:
+        opacity 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) var(--ara-d, 0.35s),
+        transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) var(--ara-d, 0.35s);
+    }
+    .ara-anima [data-ara-escena].ara-vista .ara-onoma {
+      opacity: 1;
+      transform: scale(1) rotate(var(--ara-rot, 0deg));
+    }
+
+    /* Arañas que bajan por su hilo al entrar la escena (ocultas hasta
+       entonces para no asomarse en la escena anterior). */
+    .ara-anima [data-ara-escena] .ara-cuelga {
+      opacity: 0;
+      transform: translateY(-115%);
+      transition:
+        transform 1.4s cubic-bezier(0.34, 1.45, 0.44, 1) var(--ara-d, 0.25s),
+        opacity 0.3s ease var(--ara-d, 0.25s);
+    }
+    .ara-anima [data-ara-escena].ara-vista .ara-cuelga { opacity: 1; transform: translateY(0); }
+
+    /* Telarañas que se dibujan trazo a trazo (pathLength="1"). */
+    .ara-anima [data-ara-escena] .ara-teje path {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      transition: stroke-dashoffset 1.9s ease var(--ara-d, 0.2s);
+    }
+    .ara-anima [data-ara-escena].ara-vista .ara-teje path { stroke-dashoffset: 0; }
 
     /* ============ Keyframes ============ */
     @keyframes ara-baja {
@@ -438,14 +560,39 @@
       50% { transform: translateY(4px); opacity: 1; }
     }
 
+    /* En tablet y desktop el cómic aprovecha todo el ancho: telarañas
+       y arañas más grandes en los costados, burbujas más generosas y
+       la ciudad más alta. */
+    @media (min-width: 900px) {
+      .ara-panel .ara-esquina { width: min(20vw, 240px); height: min(20vw, 240px); }
+      .ara-cuelga-b { display: block; }
+      .ara-cuelga .ara-hilo { height: 150px; }
+      .ara-cuelga-b .ara-hilo { height: 220px; }
+      .ara-datos-col { width: min(100%, 640px); }
+      .ara-burbuja { width: min(100%, 430px); padding: 18px 22px 19px; }
+      .ara-pow { width: 132px; height: 132px; font-size: 27px; top: 90px; right: 6%; }
+      .ara-thwip { width: 144px; height: 144px; font-size: 23px; left: 4%; bottom: 8%; }
+      .ara-zas { width: 116px; height: 116px; font-size: 25px; top: 8%; left: 5%; }
+      .ara-pum { width: 120px; height: 120px; font-size: 25px; }
+      .ara-ciudad { height: 132px; }
+      .ara-cierre .ara-esq-ii,
+      .ara-cierre .ara-esq-id { bottom: 130px; }
+      .ara-cartel { font-size: 23px; }
+    }
+
     /* Sin movimiento: nada se anima y la intro ni aparece (el script
-       tampoco la abre, esto es el cinturón y los tirantes). */
+       tampoco la abre ni agrega .ara-anima, esto es el cinturón y los
+       tirantes). */
     @media (prefers-reduced-motion: reduce) {
       #ara-intro { display: none !important; }
       .ara *, .ara *::before, .ara *::after {
         animation: none !important;
         transition: none !important;
       }
+      .ara-anima [data-ara-escena] .ara-rev { opacity: 1; transform: rotate(var(--ara-rotb, 0deg)); }
+      .ara-anima [data-ara-escena] .ara-onoma { opacity: 1; transform: rotate(var(--ara-rot, 0deg)); }
+      .ara-anima [data-ara-escena] .ara-cuelga { opacity: 1; transform: none; }
+      .ara-anima [data-ara-escena] .ara-teje path { stroke-dashoffset: 0; }
     }
   </style>
 
@@ -523,24 +670,31 @@
 
   <!-- ================= LA INVITACIÓN ================= -->
   <div class="ara-panel">
-    <svg class="ara-esquina ara-esq-si" viewBox="0 0 100 100" aria-hidden="true">
+
+    <!-- 1 · Cabecera a pantalla completa: las telarañas se dibujan
+         trazo a trazo, las arañas bajan por su hilo y el ¡POW!
+         estalla al abrirse la escena. -->
+    <section class="ara-cabecera" data-ara-escena>
+    <svg class="ara-esquina ara-esq-si ara-teje" viewBox="0 0 100 100" aria-hidden="true">
       <g fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.38">
-        <path d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
-        <path d="M30 0 Q25.9 5.1 27.7 11.5 Q21.9 14.7 21.2 21.2 Q14.7 21.9 11.5 27.7 Q5.1 25.9 0 30" />
-        <path d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
-        <path d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+        <path pathLength="1" d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+        <path pathLength="1" style="--ara-d: 0.5s" d="M30 0 Q25.9 5.1 27.7 11.5 Q21.9 14.7 21.2 21.2 Q14.7 21.9 11.5 27.7 Q5.1 25.9 0 30" />
+        <path pathLength="1" style="--ara-d: 0.8s" d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+        <path pathLength="1" style="--ara-d: 1.1s" d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
       </g>
     </svg>
-    <svg class="ara-esquina ara-esq-sd" viewBox="0 0 100 100" aria-hidden="true">
+    <svg class="ara-esquina ara-esq-sd ara-teje" viewBox="0 0 100 100" aria-hidden="true">
       <g fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.38">
-        <path d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
-        <path d="M30 0 Q25.9 5.1 27.7 11.5 Q21.9 14.7 21.2 21.2 Q14.7 21.9 11.5 27.7 Q5.1 25.9 0 30" />
-        <path d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
-        <path d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+        <path pathLength="1" d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+        <path pathLength="1" style="--ara-d: 0.5s" d="M30 0 Q25.9 5.1 27.7 11.5 Q21.9 14.7 21.2 21.2 Q14.7 21.9 11.5 27.7 Q5.1 25.9 0 30" />
+        <path pathLength="1" style="--ara-d: 0.8s" d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+        <path pathLength="1" style="--ara-d: 1.1s" d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
       </g>
     </svg>
 
-    <!-- Arañitas colgantes: tocalas y rebotan en su hilo. -->
+    <!-- Arañitas colgantes: bajan al entrar la escena; tocalas y
+         rebotan en su hilo. -->
+    <div class="ara-cuelga ara-cuelga-1">
     <button type="button" class="ara-arana ara-arana-1" aria-label="Arañita amistosa (tocala y rebota)"
       onclick="this.classList.remove('ara-rebota');void this.offsetWidth;this.classList.add('ara-rebota')">
       <span class="ara-hilo" aria-hidden="true"></span>
@@ -565,6 +719,8 @@
         <path d="M54 49 Q60 54 66 49" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
       </svg>
     </button>
+    </div>
+    <div class="ara-cuelga ara-cuelga-2" style="--ara-d: 0.55s">
     <button type="button" class="ara-arana ara-arana-2" aria-label="Arañita amistosa (tocala y rebota)"
       onclick="this.classList.remove('ara-rebota');void this.offsetWidth;this.classList.add('ara-rebota')">
       <span class="ara-hilo" aria-hidden="true"></span>
@@ -589,42 +745,121 @@
         <path d="M54 49 Q60 54 66 49" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
       </svg>
     </button>
+    </div>
 
-    <div class="ara-cabecera">
-      <span class="ara-onoma ara-pow" aria-hidden="true">¡POW!</span>
-      <p class="ara-kicker">¡Alerta arácnida!</p>
-      <h1 class="ara-titulo">
+      <span class="ara-onoma ara-pow" aria-hidden="true" style="--ara-d: 0.6s">¡POW!</span>
+      <p class="ara-kicker ara-rev">¡Alerta arácnida!</p>
+      <h1 class="ara-titulo ara-rev" style="--ara-d: 0.12s">
         <span class="ara-t1">¡{{NOMBRE}}</span>
         <span class="ara-t2">cumple <b class="ara-edad">{{EDAD}}</b>!</span>
       </h1>
-      <p class="ara-sub">
+      <p class="ara-sub ara-rev" style="--ara-d: 0.24s">
         Nuestro héroe favorito anda columpiándose por la ciudad…
         ¡y necesita refuerzos para celebrar su gran día!
       </p>
-    </div>
+    </section>
 
-    <div class="ara-datos">
+    <!-- 2 · Los datos en burbujas de cómic; las onomatopeyas estallan
+         desde los costados y en desktop bajan dos arañas más. -->
+    <section class="ara-datos" data-ara-escena>
       <span class="ara-onoma ara-thwip" aria-hidden="true">¡THWIP!</span>
-      <span class="ara-onoma ara-zas" aria-hidden="true">¡ZAS!</span>
+      <span class="ara-onoma ara-zas" aria-hidden="true" style="--ara-d: 0.55s">¡ZAS!</span>
 
-      <div class="ara-burbuja ara-bur-izq">
-        <p class="ara-etiqueta">La misión es el…</p>
-        <p class="ara-valor">{{FECHA}}</p>
+      <div class="ara-cuelga ara-cuelga-a" style="--ara-d: 0.4s" aria-hidden="true">
+        <button type="button" class="ara-arana" tabindex="-1" aria-label="Arañita amistosa (tocala y rebota)"
+          onclick="this.classList.remove('ara-rebota');void this.offsetWidth;this.classList.add('ara-rebota')">
+          <span class="ara-hilo" aria-hidden="true"></span>
+          <svg width="44" height="41" viewBox="0 0 120 112" aria-hidden="true">
+            <g fill="none" stroke="#0b0e1a" stroke-width="6" stroke-linecap="round">
+              <path d="M46 52 C31 45 23 34 17 21" />
+              <path d="M43 61 C26 59 15 51 8 40" />
+              <path d="M43 70 C27 74 17 84 12 95" />
+              <path d="M48 78 C38 88 33 97 31 106" />
+              <path d="M74 52 C89 45 97 34 103 21" />
+              <path d="M77 61 C94 59 105 51 112 40" />
+              <path d="M77 70 C93 74 103 84 108 95" />
+              <path d="M72 78 C82 88 87 97 89 106" />
+            </g>
+            <ellipse cx="60" cy="76" rx="24" ry="22" fill="#e62429" stroke="#0b0e1a" stroke-width="4" />
+            <path d="M40 68 Q60 80 80 68" fill="none" stroke="#a31220" stroke-width="3.5" />
+            <circle cx="60" cy="38" r="18" fill="#2b3a8f" stroke="#0b0e1a" stroke-width="4" />
+            <ellipse cx="52.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+            <ellipse cx="67.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+            <circle cx="54" cy="38" r="3" fill="#0b0e1a" />
+            <circle cx="66" cy="38" r="3" fill="#0b0e1a" />
+            <path d="M54 49 Q60 54 66 49" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+          </svg>
+        </button>
       </div>
-      <div class="ara-burbuja ara-bur-der">
-        <p class="ara-etiqueta">Hora de acción</p>
-        <p class="ara-valor">{{HORA}}</p>
+      <div class="ara-cuelga ara-cuelga-b" style="--ara-d: 0.7s" aria-hidden="true">
+        <button type="button" class="ara-arana" tabindex="-1" aria-label="Arañita amistosa (tocala y rebota)"
+          onclick="this.classList.remove('ara-rebota');void this.offsetWidth;this.classList.add('ara-rebota')">
+          <span class="ara-hilo" aria-hidden="true"></span>
+          <svg width="52" height="48" viewBox="0 0 120 112" aria-hidden="true">
+            <g fill="none" stroke="#0b0e1a" stroke-width="6" stroke-linecap="round">
+              <path d="M46 52 C31 45 23 34 17 21" />
+              <path d="M43 61 C26 59 15 51 8 40" />
+              <path d="M43 70 C27 74 17 84 12 95" />
+              <path d="M48 78 C38 88 33 97 31 106" />
+              <path d="M74 52 C89 45 97 34 103 21" />
+              <path d="M77 61 C94 59 105 51 112 40" />
+              <path d="M77 70 C93 74 103 84 108 95" />
+              <path d="M72 78 C82 88 87 97 89 106" />
+            </g>
+            <ellipse cx="60" cy="76" rx="24" ry="22" fill="#2b3a8f" stroke="#0b0e1a" stroke-width="4" />
+            <path d="M40 68 Q60 80 80 68" fill="none" stroke="#131a45" stroke-width="3.5" />
+            <circle cx="60" cy="38" r="18" fill="#e62429" stroke="#0b0e1a" stroke-width="4" />
+            <ellipse cx="52.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+            <ellipse cx="67.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+            <circle cx="54" cy="38" r="3" fill="#0b0e1a" />
+            <circle cx="66" cy="38" r="3" fill="#0b0e1a" />
+            <path d="M54 49 Q60 54 66 49" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+          </svg>
+        </button>
       </div>
-      <div class="ara-burbuja ara-bur-izq">
-        <p class="ara-etiqueta">Cuartel general</p>
-        <p class="ara-valor">
-          {{LUGAR}}
-          <small>{{DIRECCION}}</small>
-        </p>
-      </div>
-    </div>
 
-    <span class="ara-confirma">¡Confirmá abajo!<span class="ara-flecha">▼</span></span>
+      <div class="ara-datos-col">
+        <div class="ara-burbuja ara-bur-izq ara-rev">
+          <p class="ara-etiqueta">La misión es el…</p>
+          <p class="ara-valor">{{FECHA}}</p>
+        </div>
+        <div class="ara-burbuja ara-bur-der ara-rev" style="--ara-d: 0.15s">
+          <p class="ara-etiqueta">Hora de acción</p>
+          <p class="ara-valor">{{HORA}}</p>
+        </div>
+        <div class="ara-burbuja ara-bur-izq ara-rev" style="--ara-d: 0.3s">
+          <p class="ara-etiqueta">Cuartel general</p>
+          <p class="ara-valor">
+            {{LUGAR}}
+            <small>{{DIRECCION}}</small>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · El cierre: telarañas que se tejen abajo, el ¡PUM! y la
+         ciudad al pie para aterrizar en el RSVP. -->
+    <section class="ara-cierre" data-ara-escena>
+      <svg class="ara-esquina ara-esq-ii ara-teje" viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.32">
+          <path pathLength="1" d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+          <path pathLength="1" style="--ara-d: 0.5s" d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+          <path pathLength="1" style="--ara-d: 0.85s" d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+        </g>
+      </svg>
+      <svg class="ara-esquina ara-esq-id ara-teje" viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.32">
+          <path pathLength="1" d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+          <path pathLength="1" style="--ara-d: 0.5s" d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+          <path pathLength="1" style="--ara-d: 0.85s" d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+        </g>
+      </svg>
+
+      <span class="ara-onoma ara-pum" aria-hidden="true" style="--ara-d: 0.45s">¡PUM!</span>
+
+      <div class="ara-cierre-nucleo">
+        <span class="ara-confirma ara-rev">¡Confirmá abajo!<span class="ara-flecha">▼</span></span>
+      </div>
 
     <svg class="ara-ciudad" viewBox="0 0 390 82" preserveAspectRatio="none" aria-hidden="true">
       <path fill="#0a0e22" d="M0 82 L0 40 L26 40 L26 26 L44 26 L44 46 L62 46 L62 16 L70 16 L70 9 L78 9 L78 16 L86 16 L86 46 L108 46 L108 30 L132 30 L132 50 L150 50 L150 21 L172 21 L172 44 L192 44 L192 12 L200 12 L200 5 L206 5 L206 12 L214 12 L214 42 L238 42 L238 28 L258 28 L258 50 L276 50 L276 18 L296 18 L296 46 L318 46 L318 32 L342 32 L342 52 L362 52 L362 36 L390 36 L390 82 Z" />
@@ -643,6 +878,7 @@
         <rect x="368" y="42" width="4" height="5" />
       </g>
     </svg>
+    </section>
   </div>
 </div>
 
@@ -673,5 +909,29 @@
     dlg.addEventListener("click", abrir);
     dlg.addEventListener("cancel", function (e) { e.preventDefault(); abrir(); });
     timer = window.setTimeout(abrir, 3000);
+  })();
+
+  /* ============ Escenas: telarañas, arañas y onomatopeyas al
+     scrollear (IntersectionObserver). Con movimiento reducido o sin
+     observer, todo queda visible de una vez. ============ */
+  (function () {
+    var raiz = document.querySelector(".ara");
+    if (!raiz) return;
+    var escenas = raiz.querySelectorAll("[data-ara-escena]");
+    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducido || !("IntersectionObserver" in window)) {
+      for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("ara-vista");
+      return;
+    }
+    raiz.classList.add("ara-anima");
+    var io = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (ent) {
+        if (ent.isIntersecting) {
+          ent.target.classList.add("ara-vista");
+          io.unobserve(ent.target);
+        }
+      });
+    }, { threshold: 0.18, rootMargin: "0px 0px -8% 0px" });
+    escenas.forEach(function (esc) { io.observe(esc); });
   })();
 </script>

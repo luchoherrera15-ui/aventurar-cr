@@ -7,10 +7,11 @@
   camino y animalitos tocables que hacen su sonido en una burbujita.
 
   USO: sustituir los placeholders y guardar el resultado en
-  invitaciones.html_personalizado. La página /i/{slug} lo inyecta dentro
-  de su lienzo (columna max-w 680px sobre fondo navy) y agrega ella misma
-  el bloque RSVP "¿Nos acompañás?" debajo — por eso la sección 6 llama a
-  confirmar "aquí abajito".
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta a
+  pantalla completa (el fragmento ocupa todo el ancho del viewport; la
+  crema del safari ES la página) y agrega ella misma el bloque RSVP
+  "¿Nos acompañás?" debajo — por eso la sección 6 llama a confirmar
+  "aquí abajito".
 
   ESTRUCTURA (escenas que se revelan UNA POR UNA al scrollear con
   IntersectionObserver, cada una con su propia entrada):
@@ -156,15 +157,13 @@
     .zoo-intro-abierta .zoo-toca { opacity: 0; transition: opacity 0.3s; }
 
     /* ============ EL LIENZO ============ */
+    /* De borde a borde: la crema del safari ES la página; nada de
+       tarjeta centrada con marco en pantallas grandes. */
     .zoo-lienzo {
       position: relative;
-      max-width: 600px;
-      margin: 0 auto;
-      border: 6px solid var(--zoo-selva-osc);
-      border-radius: 30px;
+      width: 100%;
       overflow: hidden;
       background: var(--zoo-crema);
-      box-shadow: 0 12px 0 rgba(10, 30, 16, 0.35), 0 34px 70px -40px rgba(0, 0, 0, 0.6);
       text-align: center;
     }
 
@@ -182,8 +181,8 @@
     }
     .zoo-esc:nth-child(odd):not(.zoo-esc-hero) { background: linear-gradient(rgba(216, 240, 197, 0.55), rgba(255, 247, 224, 0)); }
     .zoo-esc-hero {
-      min-height: 92vh;
-      min-height: 92svh;
+      min-height: 100vh;
+      min-height: 100svh;
       justify-content: flex-start;
       padding-top: 74px;
       padding-bottom: 0;
@@ -272,8 +271,8 @@
         -3px 3px 0 var(--zoo-selva-osc), 3px 3px 0 var(--zoo-selva-osc),
         5px 7px 0 rgba(20, 82, 42, 0.45);
     }
-    .zoo-t1 { display: block; font-size: clamp(38px, 11.5vw, 58px); }
-    .zoo-t2 { display: block; margin-top: 6px; font-size: clamp(26px, 8vw, 40px); }
+    .zoo-t1 { display: block; font-size: clamp(38px, 11.5vw, 100px); }
+    .zoo-t2 { display: block; margin-top: 6px; font-size: clamp(26px, 8vw, 66px); }
     .zoo-edad {
       font-style: normal;
       color: var(--zoo-sol);
@@ -285,23 +284,23 @@
     }
     .zoo-sub {
       margin: 16px auto 0;
-      max-width: 32ch;
-      font-size: 16px;
+      max-width: 34ch;
+      font-size: clamp(16px, 1.5vw, 21px);
       font-weight: 700;
       line-height: 1.5;
       color: #4c5a2e;
     }
     .zoo-titulo-seccion {
       margin: 14px 0 0;
-      font-size: clamp(25px, 7.4vw, 34px);
+      font-size: clamp(25px, 7.4vw, 52px);
       font-weight: 800;
       line-height: 1.15;
       color: var(--zoo-selva-osc);
     }
     .zoo-nota {
       margin: 14px auto 0;
-      max-width: 36ch;
-      font-size: 14.5px;
+      max-width: 40ch;
+      font-size: clamp(14.5px, 1.25vw, 18px);
       font-weight: 600;
       line-height: 1.6;
       color: #6b5a3a;
@@ -420,7 +419,7 @@
     /* ============ 3 · Fecha y hora en grande ============ */
     .zoo-fecha-grande {
       margin: 18px 0 0;
-      font-size: clamp(29px, 8.4vw, 42px);
+      font-size: clamp(29px, 8.4vw, 68px);
       font-weight: 800;
       line-height: 1.12;
       color: var(--zoo-selva-osc);
@@ -433,7 +432,7 @@
       border: 4px solid var(--zoo-cafe);
       border-radius: 999px;
       box-shadow: 0 5px 0 rgba(122, 74, 18, 0.45);
-      font-size: clamp(21px, 6vw, 27px);
+      font-size: clamp(21px, 6vw, 40px);
       font-weight: 800;
       color: var(--zoo-cafe);
       transform: rotate(-1.4deg);
@@ -457,7 +456,7 @@
     }
     .zoo-cd-c span {
       display: block;
-      font-size: clamp(26px, 7.6vw, 34px);
+      font-size: clamp(26px, 7.6vw, 52px);
       font-weight: 800;
       line-height: 1;
       font-variant-numeric: tabular-nums;
@@ -485,15 +484,15 @@
     /* ============ 5 · El lugar y el elefante ============ */
     .zoo-lugar-nombre {
       margin: 16px 0 0;
-      font-size: clamp(27px, 7.8vw, 38px);
+      font-size: clamp(27px, 7.8vw, 62px);
       font-weight: 800;
       line-height: 1.12;
       color: var(--zoo-selva-osc);
     }
     .zoo-lugar-dir {
       margin: 10px auto 0;
-      max-width: 34ch;
-      font-size: 14.5px;
+      max-width: 38ch;
+      font-size: clamp(14.5px, 1.2vw, 17px);
       font-weight: 600;
       line-height: 1.6;
       color: #6b5a3a;
@@ -539,7 +538,7 @@
       border-radius: 20px;
       box-shadow: 0 6px 0 rgba(122, 74, 18, 0.5);
       color: var(--zoo-cafe);
-      font-size: clamp(20px, 5.8vw, 26px);
+      font-size: clamp(20px, 5.8vw, 38px);
       font-weight: 800;
       transform: rotate(-1.4deg);
     }
@@ -565,7 +564,7 @@
     }
     .zoo-sinpe-num {
       margin-top: 8px !important;
-      font-size: clamp(25px, 7vw, 30px);
+      font-size: clamp(25px, 7vw, 38px);
       font-weight: 800;
       letter-spacing: 0.06em;
       color: var(--zoo-tinta);
@@ -620,6 +619,33 @@
     @media (min-width: 480px) {
       .zoo-esc { padding-left: 36px; padding-right: 36px; }
       .zoo-cd { gap: 14px; }
+    }
+
+    /* En tablet y desktop la selva aprovecha todo el ancho: los
+       animales se van a los costados (más grandes) y el contador,
+       la jirafa y el sol crecen con la pantalla. */
+    @media (min-width: 768px) {
+      .zoo-esc { padding-left: 48px; padding-right: 48px; }
+      .zoo-cd { gap: 18px; }
+      .zoo-cd-c { min-width: 100px; padding: 18px 10px 14px; }
+      .zoo-cd-c small { font-size: 11px; }
+      .zoo-jirafa { width: min(30vw, 320px); }
+      .zoo-sol-svg { top: 28px; right: 3vw; width: 132px; height: 132px; }
+      .zoo-globo-1 { top: 120px; left: 4vw; width: 56px; }
+      .zoo-globo-2 { top: 70px; left: 16%; width: 44px; }
+      .zoo-globo-3 { top: 190px; right: 4vw; width: 50px; }
+      .zoo-cebra { top: 50%; left: 2.5vw; margin-top: -62px; }
+      .zoo-cebra svg { width: 156px; height: auto; }
+      .zoo-perico { top: 50%; right: 3vw; margin-top: -62px; }
+      .zoo-perico svg { width: 96px; height: auto; }
+      .zoo-leon svg { width: 130px; height: auto; }
+      .zoo-elefante svg { width: 204px; height: auto; }
+      .zoo-vaca svg { width: 142px; height: auto; }
+      .zoo-mono svg { width: 96px; height: auto; }
+      .zoo-huella { width: 24px; height: 24px; }
+      .zoo-boton { font-size: 16.5px; padding: 14px 30px 15px; }
+      .zoo-sinpe { max-width: 360px; }
+      .zoo-pasto { height: 84px; }
     }
 
     /* Sin movimiento: nada se anima, la intro ni aparece, el cuello va

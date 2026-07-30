@@ -138,11 +138,12 @@ export default function InvitacionVista({
       {animada ? (
         <>
           {/* Fondo marfil con dos veladuras champán muy suaves y una
-              trama de puntos dorada apenas visible — papel fino, nada
+              trama de puntos dorada apenas visible — fijas al viewport
+              para que acompañen todo el recorrido, papel fino, nada
               de texturas cargadas. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none fixed inset-0"
             style={{
               background:
                 "radial-gradient(52rem 34rem at 85% -8%, rgba(201,169,106,0.14), transparent 60%)," +
@@ -152,17 +153,17 @@ export default function InvitacionVista({
           />
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-[0.12]"
+            className="pointer-events-none fixed inset-0 opacity-[0.12]"
             style={{
               backgroundImage: "radial-gradient(rgba(176,141,87,0.6) 1px, transparent 1px)",
               backgroundSize: "26px 26px",
             }}
           />
-          {/* El paspartú: un marco de línea fina dorada que acompaña
-              toda la invitación, como en las suites impresas. */}
+          {/* El paspartú: un marco fijo de línea fina dorada pegado a
+              los bordes del viewport — acompaña, no encierra. */}
           <div
             aria-hidden
-            className="pointer-events-none fixed inset-3 z-40 border border-[#c9a96a]/35 sm:inset-4"
+            className="pointer-events-none fixed inset-2.5 z-40 border border-[#c9a96a]/35"
           />
         </>
       ) : (
@@ -170,7 +171,7 @@ export default function InvitacionVista({
           {/* El lienzo navy de siempre para los diseños a la medida. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none fixed inset-0"
             style={{
               background:
                 "radial-gradient(52rem 34rem at 85% -8%, rgba(238,116,32,0.16), transparent 60%)," +
@@ -180,7 +181,7 @@ export default function InvitacionVista({
           />
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-[0.16]"
+            className="pointer-events-none fixed inset-0 opacity-[0.16]"
             style={{
               backgroundImage: "radial-gradient(rgba(255,255,255,0.5) 1px, transparent 1px)",
               backgroundSize: "26px 26px",
@@ -193,14 +194,17 @@ export default function InvitacionVista({
       {animada && <AmbienteParticulas />}
 
       <div
-        className={`relative mx-auto flex min-h-svh w-full max-w-[680px] flex-col px-6 py-12 sm:py-16 ${
+        className={`relative flex min-h-svh w-full flex-col ${
           fase === "abriendo" ? "inv2-anim-contenido" : ""
         }`}
       >
         {invitacion.html_personalizado ? (
-          /* Diseño a la medida: el HTML del equipo manda tal cual. */
+          /* Diseño a la medida: el HTML del equipo manda tal cual y
+             ocupa todo el ancho del viewport — sin columna ni marco.
+             Sin data-reveal: las plantillas traen sus propias entradas
+             y así ningún transform atrapa sus elementos fijos. */
           <div
-            data-reveal
+            className="w-full"
             dangerouslySetInnerHTML={{ __html: invitacion.html_personalizado }}
           />
         ) : (
@@ -216,7 +220,7 @@ export default function InvitacionVista({
         <BloqueRsvp invitacionId={invitacion.id} preguntas={preguntas} animada={animada} />
 
         <footer
-          className={`mt-14 pb-2 text-center text-[12px] ${
+          className={`relative mt-auto py-9 text-center text-[12px] ${
             animada ? "text-[#a39a89]" : "text-white/45"
           }`}
         >
@@ -262,7 +266,12 @@ function Ornamento({ className = "" }: { className?: string }) {
   );
 }
 
-/** La plantilla "clásico": monograma, título grande, fecha y lugar. */
+/**
+ * La plantilla "clásico" en secciones a pantalla completa, estilo
+ * storytelling: hero de 100svh con el monograma y los nombres
+ * gigantes, y luego mensaje, cuenta regresiva y el lugar, cada una
+ * de borde a borde con el contenido centrado y legible.
+ */
 function PlantillaClasico({
   invitacion,
   iniciales,
@@ -280,107 +289,141 @@ function PlantillaClasico({
   const monograma = iniciales.replace("&", " & ");
 
   return (
-    <div className="text-center">
-      {/* El monograma en su ornamento: un rombo de línea fina dorada
-          flanqueado por dos líneas, como sello de la suite. */}
-      <div data-reveal className="mb-9 flex items-center justify-center gap-4">
-        <span aria-hidden className="h-px w-12 bg-[#c9a96a]/60 sm:w-16" />
-        <span className="flex h-[72px] w-[72px] rotate-45 items-center justify-center border border-[#c9a96a]/70">
-          <span className="inv3-serif -rotate-45 whitespace-nowrap text-[19px] text-[#b08d57]">
-            {monograma}
+    <div className="w-full text-center">
+      {/* 1 · Hero a pantalla completa: monograma, nombres y fecha. */}
+      <section className="relative flex min-h-svh w-full flex-col items-center justify-center px-6 py-24">
+        {/* El monograma en su ornamento: un rombo de línea fina dorada
+            con dos líneas que corren hacia los bordes. */}
+        <div data-reveal className="flex w-full items-center justify-center gap-4 sm:gap-6">
+          <span
+            aria-hidden
+            className="h-px max-w-24 flex-1 bg-gradient-to-l from-[#c9a96a]/60 to-transparent sm:max-w-48"
+          />
+          <span className="flex h-[72px] w-[72px] rotate-45 items-center justify-center border border-[#c9a96a]/70 md:h-[92px] md:w-[92px]">
+            <span className="inv3-serif -rotate-45 whitespace-nowrap text-[19px] text-[#b08d57] md:text-[23px]">
+              {monograma}
+            </span>
           </span>
-        </span>
-        <span aria-hidden className="h-px w-12 bg-[#c9a96a]/60 sm:w-16" />
-      </div>
-
-      {invitacion.portada_url && (
-        <div
-          data-reveal
-          className="mx-auto mb-9 max-w-[440px] rounded-2xl border border-[#e6dcc6] bg-white p-2 shadow-[0_24px_60px_-32px_rgba(122,101,62,0.45)]"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- foto remota cargada por el equipo */}
-          <img
-            src={invitacion.portada_url}
-            alt={invitacion.titulo}
-            className="w-full rounded-xl object-cover"
+          <span
+            aria-hidden
+            className="h-px max-w-24 flex-1 bg-gradient-to-r from-[#c9a96a]/60 to-transparent sm:max-w-48"
           />
         </div>
-      )}
 
-      <p
-        data-reveal
-        className="pl-[0.44em] text-[11px] font-semibold uppercase tracking-[0.44em] text-[#b08d57]"
-      >
-        Te invitamos
-      </p>
-
-      <h1
-        data-reveal
-        style={{ "--reveal-delay": "120ms" } as React.CSSProperties}
-        className="inv3-serif mx-auto mt-4 max-w-[16ch] text-[clamp(38px,10vw,62px)] text-[#3d3a35]"
-      >
-        {invitacion.titulo}
-      </h1>
-
-      {invitacion.anfitriones && (
         <p
           data-reveal
-          style={{ "--reveal-delay": "220ms" } as React.CSSProperties}
-          className="inv3-serif mx-auto mt-5 max-w-[40ch] text-[clamp(16px,4.2vw,19px)] italic text-[#7d766a]"
+          style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
+          className="mt-10 pl-[0.44em] text-[11px] font-semibold uppercase tracking-[0.44em] text-[#b08d57] md:text-[13px]"
         >
-          {invitacion.anfitriones}
+          Te invitamos
         </p>
-      )}
 
-      <div data-reveal style={{ "--reveal-delay": "300ms" } as React.CSSProperties}>
-        <Ornamento className="mt-8" />
-      </div>
-
-      {invitacion.mensaje && (
-        <p
+        {/* Los nombres en Cormorant gigante, escalando con el viewport. */}
+        <h1
           data-reveal
-          className="mx-auto mt-7 max-w-[46ch] text-[15.5px] leading-relaxed text-[#5c564c]"
+          style={{ "--reveal-delay": "160ms" } as React.CSSProperties}
+          className="inv3-serif mx-auto mt-5 max-w-[16ch] text-[clamp(40px,9.5vw,118px)] text-[#3d3a35]"
         >
-          {invitacion.mensaje}
-        </p>
-      )}
+          {invitacion.titulo}
+        </h1>
 
-      {/* Cuándo: la fecha en serif grande, la hora al lado. */}
-      <div data-reveal className="mt-10">
-        <p className="inv3-serif text-[clamp(23px,5.2vw,30px)] text-[#3d3a35]">{fechaLarga}</p>
-        {invitacion.hora && (
-          <p className="mt-2 inline-flex items-center gap-2 text-[15px] font-semibold text-[#7d766a]">
-            <IconClock className="h-4 w-4 text-[#b08d57]" /> {invitacion.hora}
+        {invitacion.anfitriones && (
+          <p
+            data-reveal
+            style={{ "--reveal-delay": "260ms" } as React.CSSProperties}
+            className="inv3-serif mx-auto mt-6 max-w-[45ch] text-[clamp(16px,2vw,24px)] italic text-[#7d766a]"
+          >
+            {invitacion.anfitriones}
           </p>
         )}
-      </div>
 
-      {/* La cuenta regresiva viva, segundo a segundo. */}
-      <CuentaRegresiva fechaIso={invitacion.fecha_evento} hora={invitacion.hora} />
+        <div data-reveal style={{ "--reveal-delay": "340ms" } as React.CSSProperties}>
+          <Ornamento className="mt-9" />
+        </div>
 
-      {/* Dónde: la tarjeta del lugar con la ubicación a un toque. */}
-      {(invitacion.lugar_nombre || invitacion.direccion) && (
-        <div
-          data-reveal
-          className="mx-auto mt-8 max-w-[440px] rounded-2xl border border-[#e3d9c4] bg-white/70 p-6"
+        <div data-reveal style={{ "--reveal-delay": "420ms" } as React.CSSProperties} className="mt-8">
+          <p className="inv3-serif text-[clamp(24px,3.6vw,46px)] text-[#3d3a35]">{fechaLarga}</p>
+          {invitacion.hora && (
+            <p className="mt-3 inline-flex items-center gap-2 text-[15px] font-semibold text-[#7d766a] md:text-[17px]">
+              <IconClock className="h-4 w-4 text-[#b08d57]" /> {invitacion.hora}
+            </p>
+          )}
+        </div>
+
+        <p
+          aria-hidden
+          className="inv2-anim-pulso absolute bottom-7 left-1/2 -translate-x-1/2 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#a39a89]"
         >
-          <p className="inline-flex items-center gap-2 pl-[0.18em] text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a8378]">
+          Deslizá ▼
+        </p>
+      </section>
+
+      {/* 2 · El mensaje de los anfitriones, con la foto si la hay. */}
+      {(invitacion.portada_url || invitacion.mensaje) && (
+        <section className="relative flex min-h-[70svh] w-full flex-col items-center justify-center bg-white/40 px-6 py-24">
+          {invitacion.portada_url && (
+            <div
+              data-reveal
+              className="w-full max-w-[560px] rounded-2xl border border-[#e6dcc6] bg-white p-2 shadow-[0_24px_60px_-32px_rgba(122,101,62,0.45)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- foto remota cargada por el equipo */}
+              <img
+                src={invitacion.portada_url}
+                alt={invitacion.titulo}
+                className="w-full rounded-xl object-cover"
+              />
+            </div>
+          )}
+          {invitacion.mensaje && (
+            <p
+              data-reveal
+              className="mx-auto mt-10 max-w-[65ch] text-[clamp(15.5px,1.5vw,20px)] leading-relaxed text-[#5c564c] first:mt-0"
+            >
+              {invitacion.mensaje}
+            </p>
+          )}
+          <div data-reveal>
+            <Ornamento className="mt-10" />
+          </div>
+        </section>
+      )}
+
+      {/* 3 · La cuenta regresiva viva, segundo a segundo. */}
+      <section className="relative flex min-h-[70svh] w-full flex-col items-center justify-center px-6 py-24">
+        <CuentaRegresiva fechaIso={invitacion.fecha_evento} hora={invitacion.hora} />
+      </section>
+
+      {/* 4 · El lugar, con la ubicación a un toque. */}
+      {(invitacion.lugar_nombre || invitacion.direccion) && (
+        <section className="relative flex min-h-[70svh] w-full flex-col items-center justify-center bg-[#f4ecdb]/70 px-6 py-24">
+          <p
+            data-reveal
+            className="inline-flex items-center gap-2 pl-[0.18em] text-[11px] font-semibold uppercase tracking-[0.3em] text-[#8a8378] md:text-[12px]"
+          >
             <IconPin className="h-3.5 w-3.5 text-[#b08d57]" /> El lugar
           </p>
           {invitacion.lugar_nombre && (
-            <p className="inv3-serif mt-2 text-[22px] text-[#3d3a35]">{invitacion.lugar_nombre}</p>
+            <h2
+              data-reveal
+              className="inv3-serif mx-auto mt-4 max-w-[24ch] text-[clamp(30px,4.6vw,58px)] text-[#3d3a35]"
+            >
+              {invitacion.lugar_nombre}
+            </h2>
           )}
           {invitacion.direccion && (
-            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#7d766a]">
+            <p
+              data-reveal
+              className="mx-auto mt-4 max-w-[55ch] text-[clamp(14px,1.4vw,17px)] leading-relaxed text-[#7d766a]"
+            >
               {invitacion.direccion}
             </p>
           )}
-          <div className="mt-5 flex flex-wrap justify-center gap-2.5">
+          <div data-reveal className="mt-8 flex flex-wrap justify-center gap-3">
             <a
               href={hrefMaps}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full bg-[#b08d57] px-6 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-[#9a7847]"
+              className="rounded-full bg-[#b08d57] px-7 py-3 text-[14px] font-bold text-white transition-colors hover:bg-[#9a7847] md:px-9 md:py-3.5 md:text-[15px]"
             >
               Google Maps
             </a>
@@ -388,17 +431,20 @@ function PlantillaClasico({
               href={hrefWaze}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-[#b08d57]/50 px-5 py-2.5 text-[13.5px] font-bold text-[#8a6a3f] transition-colors hover:border-[#b08d57] hover:bg-[#b08d57]/10"
+              className="inline-flex items-center gap-2 rounded-full border border-[#b08d57]/50 px-6 py-3 text-[14px] font-bold text-[#8a6a3f] transition-colors hover:border-[#b08d57] hover:bg-[#b08d57]/10 md:px-8 md:py-3.5 md:text-[15px]"
             >
               <IconWaze className="h-4 w-4" /> Waze
             </a>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* El carrito de recién casados: avanza con el scroll y
-          responde al toque (saltito, corazones y "¡beep beep!"). */}
-      <CarritoNovios />
+      {/* 5 · El carrito de recién casados: su caminito ahora corre de
+          borde a borde del viewport; avanza con el scroll y responde
+          al toque (saltito, corazones y "¡beep beep!"). */}
+      <section className="relative w-full overflow-hidden py-14">
+        <CarritoNovios />
+      </section>
     </div>
   );
 }
@@ -453,29 +499,35 @@ function BloqueRsvp({
     });
   }
 
+  // El RSVP como sección de borde a borde: el fondo llena el viewport
+  // y la tarjeta del formulario queda centrada y legible.
+  const seccionCls = `relative flex w-full flex-col items-center justify-center px-6 py-20 sm:py-24 ${
+    animada ? "bg-[#efe5d0]/60" : "bg-black/20"
+  }`;
+
   if (enviado !== null) {
     return (
-      <section className="anim-invitacion-pop relative mx-auto mt-14 w-full max-w-[440px] overflow-hidden rounded-3xl border border-[#e3d9c4] bg-[#fffdf8] p-8 text-center shadow-[0_24px_60px_-36px_rgba(122,101,62,0.5)]">
-        {/* Si viene, ¡que estalle el confetti sobre el gracias! */}
-        {animada && enviado && <ConfettiRsvp />}
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#b08d57] text-[26px]">
-          {enviado ? "🎉" : "🤍"}
-        </span>
-        <h2 className="inv3-serif mt-4 text-[28px] text-[#3d3a35]">¡Gracias por confirmar!</h2>
-        <p className="mt-2 text-[14px] leading-relaxed text-[#6b6459]">
-          {enviado
-            ? "Quedaste en la lista — nos vemos ahí."
-            : "Lamentamos que no puedas venir. ¡Gracias por avisar!"}
-        </p>
+      <section className={seccionCls}>
+        <div className="anim-invitacion-pop relative w-full max-w-[480px] overflow-hidden rounded-3xl border border-[#e3d9c4] bg-[#fffdf8] p-8 text-center shadow-[0_24px_60px_-36px_rgba(122,101,62,0.5)]">
+          {/* Si viene, ¡que estalle el confetti sobre el gracias! */}
+          {animada && enviado && <ConfettiRsvp />}
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#b08d57] text-[26px]">
+            {enviado ? "🎉" : "🤍"}
+          </span>
+          <h2 className="inv3-serif mt-4 text-[28px] text-[#3d3a35]">¡Gracias por confirmar!</h2>
+          <p className="mt-2 text-[14px] leading-relaxed text-[#6b6459]">
+            {enviado
+              ? "Quedaste en la lista — nos vemos ahí."
+              : "Lamentamos que no puedas venir. ¡Gracias por avisar!"}
+          </p>
+        </div>
       </section>
     );
   }
 
   return (
-    <section
-      data-reveal
-      className="mx-auto mt-14 w-full max-w-[440px] rounded-3xl border border-[#e3d9c4] bg-[#fffdf8] p-7 shadow-[0_24px_60px_-36px_rgba(122,101,62,0.5)] sm:p-8"
-    >
+    <section data-reveal className={`${seccionCls} min-h-[70svh]`}>
+      <div className="w-full max-w-[560px] rounded-3xl border border-[#e3d9c4] bg-[#fffdf8] p-7 shadow-[0_24px_60px_-36px_rgba(122,101,62,0.5)] sm:p-10">
       <h2 className="inv3-serif text-center text-[clamp(26px,5.4vw,32px)] text-[#3d3a35]">
         ¿Nos acompañás?
       </h2>
@@ -604,6 +656,7 @@ function BloqueRsvp({
         >
           {pending ? "Enviando…" : "Enviar confirmación"}
         </button>
+      </div>
       </div>
     </section>
   );

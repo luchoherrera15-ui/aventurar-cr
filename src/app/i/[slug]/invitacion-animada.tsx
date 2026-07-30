@@ -245,8 +245,8 @@ export function CarritoNovios() {
   const coloresCorazon = ["#b08d57", "#c9a96a", "#8a6a3f"];
 
   return (
-    <div data-reveal className="mt-11">
-      <p className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8a8378]">
+    <div data-reveal className="w-full">
+      <p className="px-6 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8a8378]">
         Y que arranque el viaje
       </p>
 
@@ -366,7 +366,7 @@ export function CarritoNovios() {
         </button>
       </div>
 
-      <p className="mt-1 text-center text-[12px] italic text-[#a59c8a]">
+      <p className="mt-1 px-6 text-center text-[12px] italic text-[#a59c8a]">
         El carrito avanza con vos por la invitación — y pssst… tocalo.
       </p>
     </div>
@@ -428,11 +428,11 @@ export function CuentaRegresiva({
   const restante = ahora === null ? null : objetivo - ahora;
   if (restante !== null && restante <= 0) {
     return (
-      <div data-reveal className="mt-9">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b08d57]">
+      <div data-reveal className="w-full">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b08d57] md:text-[12px]">
           Cuenta regresiva
         </p>
-        <p className="inv3-serif mt-3 text-[clamp(24px,5.4vw,30px)] text-[#3d3a35]">
+        <p className="inv3-serif mt-3 text-[clamp(24px,5.4vw,30px)] text-[#3d3a35] md:text-[clamp(30px,3.4vw,48px)]">
           ¡Llegó el gran día!
         </p>
       </div>
@@ -456,24 +456,24 @@ export function CuentaRegresiva({
         ];
 
   return (
-    <div data-reveal className="mt-9">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b08d57]">
+    <div data-reveal className="w-full">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b08d57] md:text-[12px]">
         Cuenta regresiva
       </p>
-      <div className="mx-auto mt-4 grid max-w-[440px] grid-cols-4 gap-2 sm:gap-2.5">
+      <div className="mx-auto mt-4 grid w-full max-w-[440px] grid-cols-4 gap-2 sm:gap-2.5 md:mt-7 md:max-w-[640px] md:gap-4">
         {unidades.map((u) => (
           <div
             key={u.etiqueta}
-            className="rounded-2xl border border-[#d9c9a8] bg-white/70 px-1 py-3.5 sm:py-4"
+            className="rounded-2xl border border-[#d9c9a8] bg-white/70 px-1 py-3.5 sm:py-4 md:py-7"
           >
             {/* El key con el valor remonta el span → tick al cambiar. */}
             <span
               key={`${u.etiqueta}-${u.valor}`}
-              className="inv2-anim-tick inv3-serif block text-[clamp(23px,6.2vw,32px)] leading-none tabular-nums text-[#3d3a35]"
+              className="inv2-anim-tick inv3-serif block text-[clamp(23px,6.2vw,32px)] leading-none tabular-nums text-[#3d3a35] md:text-[clamp(34px,3.2vw,52px)]"
             >
               {u.valor}
             </span>
-            <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a8378]">
+            <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a8378] md:mt-2.5 md:text-[11.5px]">
               {u.etiqueta}
             </span>
           </div>
