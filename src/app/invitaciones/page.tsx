@@ -2,19 +2,35 @@ import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import PaquetesInvitaciones from "@/components/paquetes-invitaciones";
-import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 import {
+  CATALOGO_INVITACIONES,
+  type DemoInvitacion,
+} from "@/lib/catalogo-invitaciones";
+import {
+  IconBalloon,
+  IconBalloons,
   IconChartBars,
   IconCheck,
   IconClipboard,
   IconGlobe,
+  IconHeart,
   IconMail,
   IconPin,
   IconSparkles,
+  IconStar,
   IconUsers,
   IconWand,
   IconWhatsapp,
 } from "@/components/icons";
+
+/** Los íconos de línea del catálogo — formales, nada de emojis. */
+const ICONO_DEMO: Record<DemoInvitacion["icono"], React.ReactNode> = {
+  corazon: <IconHeart />,
+  destellos: <IconSparkles />,
+  estrella: <IconStar />,
+  globos: <IconBalloons />,
+  globo: <IconBalloon />,
+};
 
 export const metadata = {
   title: "Invitaciones digitales que enamoran",
@@ -305,10 +321,12 @@ export default function InvitacionesLanding() {
                 className="group flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-white p-3 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-0.5 hover:border-aventurea-navy/40 hover:shadow-[0_16px_40px_-20px_rgba(22,41,94,0.4)]"
               >
                 <div
-                  className={`flex h-16 w-20 shrink-0 items-center justify-center rounded-xl text-[26px] ${d.lienzo}`}
+                  className={`flex h-16 w-20 shrink-0 items-center justify-center rounded-xl ${d.lienzo}`}
                 >
-                  <span className="transition-transform group-hover:scale-125">
-                    {d.emoji}
+                  <span
+                    className={`transition-transform group-hover:scale-110 ${d.iconoClase} [&_svg]:h-7 [&_svg]:w-7`}
+                  >
+                    {ICONO_DEMO[d.icono]}
                   </span>
                 </div>
                 <div className="min-w-0">
