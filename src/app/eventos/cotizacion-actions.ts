@@ -221,10 +221,9 @@ export async function solicitarCotizacion(
   if (pagoRequerido && comprobantePath && user.email) {
     await enviarCorreo({
       to: user.email,
-      subject: `Recibimos tu reserva en ${rancho.nombre}`,
+      subject: "Su reserva en Bookea.lat fue exitosa",
       html: plantillaConfirmacionReserva({
         nombreCliente: perfil?.nombre || user.email,
-        nombreRancho: rancho.nombre,
         fecha,
         montoDeposito: deposito,
       }),

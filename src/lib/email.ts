@@ -131,6 +131,120 @@ function layout({
 </html>`;
 }
 
+/**
+ * El armazón "bento" nuevo (línea visual de /publicar): tarjeta navy
+ * con kicker naranja y título grande, tarjeta naranja con el mensaje
+ * clave, tarjeta blanca con los datos en números grandes y CTA en
+ * píldora naranja. Tablas + estilos inline, como el layout clásico.
+ */
+function layoutBento({
+  kicker,
+  titulo,
+  introHtml,
+  naranjaHtml,
+  statsHtml,
+  cuerpoHtml,
+  cta,
+  pie,
+}: {
+  kicker: string;
+  titulo: string;
+  introHtml?: string;
+  /** El mensaje clave que va en la tarjeta naranja. */
+  naranjaHtml?: string;
+  /** Celdas <td> de statBento con los datos grandes. */
+  statsHtml?: string;
+  cuerpoHtml?: string;
+  cta?: { href: string; label: string };
+  pie?: string;
+}) {
+  return `<!doctype html>
+<html lang="es">
+<body style="margin:0;padding:0;background:#f6f6f6;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f6;padding:32px 14px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+          <tr>
+            <td style="background:#16295e;border-radius:26px;padding:34px 32px 30px;">
+              <div style="color:#ee7420;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;">
+                &#10022; Bookea
+              </div>
+              <div style="color:#ffffff;font-size:27px;line-height:1.15;font-weight:800;letter-spacing:-0.02em;margin-top:14px;">
+                ${titulo}
+              </div>
+              ${introHtml ? `<div style="color:#c7d2e6;font-size:14px;line-height:1.65;margin-top:12px;">${introHtml}</div>` : ""}
+            </td>
+          </tr>
+          ${
+            naranjaHtml
+              ? `<tr>
+            <td style="padding-top:12px;">
+              <div style="background:#ee7420;border-radius:20px;padding:20px 24px;color:#ffffff;font-size:14.5px;font-weight:700;line-height:1.6;">
+                ${naranjaHtml}
+              </div>
+            </td>
+          </tr>`
+              : ""
+          }
+          ${
+            statsHtml
+              ? `<tr>
+            <td style="padding-top:12px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e2e2;border-radius:20px;padding:14px 12px;">
+                <tr>${statsHtml}</tr>
+              </table>
+            </td>
+          </tr>`
+              : ""
+          }
+          ${
+            cuerpoHtml
+              ? `<tr>
+            <td style="padding-top:12px;">
+              <div style="background:#ffffff;border:1px solid #e2e2e2;border-radius:20px;padding:22px 24px;color:#585858;font-size:14px;line-height:1.65;">
+                ${cuerpoHtml}
+              </div>
+            </td>
+          </tr>`
+              : ""
+          }
+          ${
+            cta
+              ? `<tr>
+            <td align="center" style="padding-top:18px;">
+              <a href="${cta.href}" style="display:inline-block;background:#ee7420;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;">
+                ${cta.label}
+              </a>
+            </td>
+          </tr>`
+              : ""
+          }
+          <tr>
+            <td align="center" style="padding:22px 10px 6px;">
+              <div style="font-size:12.5px;font-weight:700;color:#101a2c;">Bookea</div>
+              <a href="${SITIO_URL}" style="font-size:12px;color:#16295e;text-decoration:none;font-weight:700;">bookea.lat</a>
+              <div style="font-size:11px;color:#a3aab5;margin-top:8px;line-height:1.6;">
+                Costa Rica · ${pie ?? "Recibiste este correo porque hiciste una reserva en Bookea."}
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/** Una celda de dato grande (estilo tarjeta de stats de /publicar). */
+function statBento(valor: string, etiqueta: string) {
+  return `<td width="50%" style="padding:12px 14px;vertical-align:top;">
+    <div style="font-size:20px;font-weight:800;color:#101a2c;letter-spacing:-0.02em;line-height:1.2;">${valor}</div>
+    <div style="font-size:11.5px;color:#585858;margin-top:4px;line-height:1.5;">${etiqueta}</div>
+  </td>`;
+}
+
 /** Una fila "etiqueta / valor" dentro de la tarjeta de datos de la reserva. */
 /**
  * Enlaces para guardar la reserva en el calendario del teléfono con
@@ -215,24 +329,28 @@ function filaDato(etiqueta: string, valorHtml: string) {
     </tr>`;
 }
 
-/** Al cliente, apenas envía la reserva (queda "en aprobación"). */
+/**
+ * Al cliente, apenas envía la reserva (queda "en aprobación").
+ * Sin el nombre del negocio a propósito: el correo habla de "su
+ * reserva en Bookea.lat" — fecha, horario y saldo pendiente.
+ */
 export function plantillaConfirmacionReserva({
   nombreCliente,
-  nombreRancho,
   fecha,
+  horario,
   invitados,
   montoDeposito,
   montoPendiente,
 }: {
   nombreCliente: string;
-  nombreRancho: string;
   fecha: string;
+  /** Etiqueta del bloque, ej. "5:00 p. m. – 10:00 p. m." */
+  horario?: string | null;
   invitados?: number | null;
   montoDeposito: number;
   montoPendiente?: number;
 }) {
   const nombre = escaparHtml(nombreCliente);
-  const rancho = escaparHtml(nombreRancho);
   const fechaLarga = new Date(fecha + "T00:00:00").toLocaleDateString("es-CR", {
     weekday: "long",
     day: "numeric",
@@ -241,59 +359,28 @@ export function plantillaConfirmacionReserva({
   });
   const monto = "₡" + Math.round(montoDeposito).toLocaleString("es-CR");
   const pendiente =
-    montoPendiente !== undefined
+    montoPendiente !== undefined && montoPendiente > 0
       ? "₡" + Math.round(montoPendiente).toLocaleString("es-CR")
       : null;
 
-  return layout({
-    kicker: "¡Reserva creada!",
+  return layoutBento({
+    kicker: "Reserva recibida",
+    titulo: "Su reserva en Bookea.lat fue exitosa",
+    introHtml: `Gracias por reservar, ${nombre}. Recibimos su reserva junto con el
+      comprobante del depósito — queda <strong style="color:#ffffff;">en aprobación</strong>
+      y le avisamos por este mismo correo en cuanto quede confirmada.`,
+    naranjaHtml: pendiente
+      ? `Su saldo pendiente de ${pendiente} lo deberá cancelar el día del evento.`
+      : `Su saldo pendiente lo deberá cancelar el día del evento.`,
+    statsHtml:
+      statBento(fechaLarga, "Fecha del evento") +
+      statBento(horario ? escaparHtml(horario) : "A coordinar", "Horario"),
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
-        ¡Reserva creada, ${nombre}!
-      </div>
-      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
-        Gracias por reservar mediante Bookea. Ya recibimos tu solicitud para
-        <strong style="color:#101a2c;">${rancho}</strong> junto con el comprobante de tu depósito
-        — acá tenés los datos de tu reserva:
-      </p>
-
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
-        ${filaDato("Lugar", rancho)}
-        ${filaDato("Fecha", fechaLarga)}
-        ${invitados ? filaDato("Cantidad de personas", String(invitados)) : ""}
-        ${filaDato("Adelanto pagado", monto)}
-        ${pendiente !== null ? filaDato("Pendiente por cancelar", pendiente) : ""}
-        ${filaDato(
-          "Estado",
-          `<span style="display:inline-block;background:#e1f0e6;color:#1f7a4d;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:100px;">En aprobación</span>`,
-        )}
-      </table>
-
-      ${
-        pendiente !== null
-          ? `<p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
-              El monto pendiente es de <strong style="color:#101a2c;">${pendiente}</strong> y se
-              cancela directamente con ${rancho} el mismo día de tu reserva.
-            </p>`
-          : ""
-      }
-
-      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
-        Tu reserva queda <strong style="color:#101a2c;">en aprobación</strong> mientras
-        ${rancho} valida el pago. Te avisamos por este mismo correo o por el chat de Bookea en
-        cuanto quede confirmada.
-      </p>
-
-      <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}/eventos" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
-          Ver más lugares en Bookea
-        </a>
-      </div>
-
-      <p style="margin:18px 0 4px;color:#5b6472;font-size:13px;line-height:1.6;">
-        Si no reconocés esta reserva, podés ignorar este correo.
-      </p>
+      ${invitados ? `<p style="margin:0 0 10px;"><strong style="color:#101a2c;">${invitados}</strong> personas reservadas.</p>` : ""}
+      <p style="margin:0 0 10px;">Adelanto pagado: <strong style="color:#101a2c;">${monto}</strong>.</p>
+      <p style="margin:0;">Guarde este correo como comprobante. Si no reconoce esta reserva, puede ignorarlo.</p>
     `,
+    cta: { href: `${SITIO_URL}/cuenta`, label: "Ver mi reserva" },
   });
 }
 
@@ -303,16 +390,17 @@ export function plantillaConfirmacionReserva({
  */
 export function plantillaReservaAprobada({
   nombreCliente,
-  nombreRancho,
   fecha,
+  horario,
   tipoEvento,
   invitados,
   montoPendiente,
   calendario,
 }: {
   nombreCliente: string;
-  nombreRancho: string;
   fecha: string;
+  /** Etiqueta del bloque, ej. "5:00 p. m. – 10:00 p. m." */
+  horario?: string | null;
   tipoEvento: string | null;
   invitados: number | null;
   montoPendiente: number | null;
@@ -320,7 +408,6 @@ export function plantillaReservaAprobada({
   calendario?: { google: string; ics: string };
 }) {
   const nombre = escaparHtml(nombreCliente);
-  const rancho = escaparHtml(nombreRancho);
   const fechaLarga = new Date(fecha + "T00:00:00").toLocaleDateString("es-CR", {
     weekday: "long",
     day: "numeric",
@@ -332,52 +419,25 @@ export function plantillaReservaAprobada({
       ? "₡" + Math.round(montoPendiente).toLocaleString("es-CR")
       : null;
 
-  return layout({
+  return layoutBento({
     kicker: "Reserva confirmada",
+    titulo: `¡Listo ${nombre}, su reserva quedó confirmada!`,
+    introHtml: `El pago fue validado y la fecha ya es suya — no hay nada más que
+      tenga que hacer para asegurarla. Guarde este correo como comprobante.`,
+    naranjaHtml: pendiente
+      ? `Su saldo pendiente de ${pendiente} lo deberá cancelar el día del evento.`
+      : `Su saldo pendiente lo deberá cancelar el día del evento.`,
+    statsHtml:
+      statBento(fechaLarga, "Fecha del evento") +
+      statBento(horario ? escaparHtml(horario) : "A coordinar", "Horario"),
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
-        ¡Listo ${nombre}, tu reserva quedó confirmada!
-      </div>
-      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
-        <strong style="color:#101a2c;">${rancho}</strong> revisó tu pago y confirmó tu reserva.
-        La fecha ya es tuya — no hay nada más que tengas que hacer para asegurarla.
-      </p>
-
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
-        ${filaDato("Lugar", rancho)}
-        ${filaDato("Fecha", fechaLarga)}
-        ${tipoEvento ? filaDato("Tipo de evento", escaparHtml(tipoEvento)) : ""}
-        ${invitados ? filaDato("Cantidad de personas", String(invitados)) : ""}
-        ${pendiente !== null ? filaDato("Pendiente por cancelar", pendiente) : ""}
-        ${filaDato(
-          "Estado",
-          `<span style="display:inline-block;background:#e1f0e6;color:#1f7a4d;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:100px;">Confirmada</span>`,
-        )}
-      </table>
-
-      ${
-        pendiente !== null
-          ? `<p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
-              Te queda un saldo de <strong style="color:#101a2c;">${pendiente}</strong>, que se
-              cancela directamente con ${rancho} el mismo día del evento.
-            </p>`
-          : ""
-      }
-
+      ${tipoEvento ? `<p style="margin:0 0 10px;">Tipo de evento: <strong style="color:#101a2c;">${escaparHtml(tipoEvento)}</strong>.</p>` : ""}
+      ${invitados ? `<p style="margin:0 0 10px;"><strong style="color:#101a2c;">${invitados}</strong> personas reservadas.</p>` : ""}
+      <p style="margin:0 0 10px;">Un día antes le vamos a escribir para recordarle el evento. Cualquier
+      coordinación la puede hacer por el chat de Bookea.</p>
       ${calendario ? bloqueCalendario(calendario) : ""}
-
-      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
-        Guardá este correo como comprobante. Un día antes te vamos a escribir para
-        recordarte el evento, y si necesitás coordinar algo con ${rancho} podés
-        hacerlo por el chat de Bookea.
-      </p>
-
-      <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}/mensajes" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
-          Abrir mis mensajes
-        </a>
-      </div>
     `,
+    cta: { href: `${SITIO_URL}/mensajes`, label: "Abrir mis mensajes" },
   });
 }
 

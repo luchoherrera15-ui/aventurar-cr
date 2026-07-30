@@ -34,6 +34,7 @@ type FilaReserva = {
   correo: string | null;
   tipo_evento: string | null;
   invitados: number | null;
+  horario_bloque: string | null;
   deposito_monto: number | null;
   monto_total: number | null;
   rancho_id: string | null;
@@ -99,7 +100,7 @@ export async function notificarReservaCompletada(
 
     const { data, error } = await consulta
       .select(
-        "id, fecha, nombre, correo, tipo_evento, invitados, deposito_monto, monto_total, rancho_id, cliente_id, ranchos(nombre, owner_id)",
+        "id, fecha, nombre, correo, tipo_evento, invitados, horario_bloque, deposito_monto, monto_total, rancho_id, cliente_id, ranchos(nombre, owner_id)",
       )
       .maybeSingle();
 
@@ -121,11 +122,13 @@ export async function notificarReservaCompletada(
     if (reserva.correo) {
       await enviarCorreo({
         to: reserva.correo,
-        subject: `¡Reserva creada! — ${nombreRancho}`,
+        // El correo del cliente no nombra al negocio: habla de "su
+        // reserva en Bookea.lat" (pedido de producto).
+        subject: "Su reserva en Bookea.lat fue exitosa",
         html: plantillaConfirmacionReserva({
           nombreCliente: reserva.nombre || reserva.correo,
-          nombreRancho,
           fecha: reserva.fecha,
+          horario: reserva.horario_bloque ?? null,
           invitados: reserva.invitados,
           montoDeposito: deposito,
           // Lo que queda por pagarle al lugar el día del evento.
@@ -223,7 +226,7 @@ export async function notificarReservaAprobada(
       .eq("estado", "confirmada")
       .eq("aprobacion_enviada", false)
       .select(
-        "id, fecha, nombre, correo, tipo_evento, invitados, deposito_monto, monto_total, rancho_id, cliente_id, ranchos(nombre, owner_id, direccion_exacta, canton, provincia)",
+        "id, fecha, nombre, correo, tipo_evento, invitados, horario_bloque, deposito_monto, monto_total, rancho_id, cliente_id, ranchos(nombre, owner_id, direccion_exacta, canton, provincia)",
       )
       .maybeSingle();
 
@@ -243,11 +246,11 @@ export async function notificarReservaAprobada(
 
     await enviarCorreo({
       to: reserva.correo,
-      subject: `¡Tu reserva quedó confirmada! — ${nombreRancho}`,
+      subject: "Su reserva en Bookea.lat quedó confirmada",
       html: plantillaReservaAprobada({
         nombreCliente: reserva.nombre || reserva.correo,
-        nombreRancho,
         fecha: reserva.fecha,
+        horario: reserva.horario_bloque ?? null,
         tipoEvento: reserva.tipo_evento,
         invitados: reserva.invitados,
         montoPendiente: Math.max(0, Number(reserva.monto_total ?? 0) - deposito),
