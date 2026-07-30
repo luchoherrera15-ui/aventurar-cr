@@ -1,11 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { IconClock, IconPin, IconWaze } from "@/components/icons";
 import type { PreguntaInvitacion } from "@/lib/invitaciones-preguntas";
 import { confirmarAsistencia } from "./actions";
+import {
+  AmbienteParticulas,
+  CarritoNovios,
+  ConfettiRsvp,
+  CuentaRegresiva,
+  SobreApertura,
+  inicialesDe,
+  useMovimientoReducido,
+} from "./invitacion-animada";
 
 /** Los campos de la invitación que usa la vista pública. */
 export type Invitacion = {
@@ -46,6 +55,48 @@ export default function InvitacionVista({
   preguntas: PreguntaInvitacion[];
   fechaLarga: string;
 }) {
+  // La experiencia animada (sobre, carrito, pétalos…) viste solo la
+  // plantilla clásica; un HTML a la medida se respeta tal cual.
+  const animada = !invitacion.html_personalizado;
+
+  // El sobre: cerrado → abriendo (animación) → abierto (se desmonta).
+  // Con movimiento reducido se deriva "abierto" directo, sin efecto.
+  const [faseSobre, setFase] = useState<"cerrado" | "abriendo" | "abierto">(
+    animada ? "cerrado" : "abierto",
+  );
+  const aperturaRef = useRef<number | null>(null);
+  const reducido = useMovimientoReducido();
+  const fase = reducido ? "abierto" : faseSobre;
+  const iniciales = useMemo(() => inicialesDe(invitacion.titulo), [invitacion.titulo]);
+
+  // Mientras el sobre cubre la pantalla no tiene sentido scrollear.
+  useEffect(() => {
+    if (fase === "abierto") return;
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previo;
+    };
+  }, [fase]);
+
+  useEffect(
+    () => () => {
+      if (aperturaRef.current) window.clearTimeout(aperturaRef.current);
+    },
+    [],
+  );
+
+  function tocarSobre() {
+    if (fase === "cerrado") {
+      setFase("abriendo");
+      aperturaRef.current = window.setTimeout(() => setFase("abierto"), 1800);
+    } else {
+      // Segundo toque = saltarse la animación.
+      if (aperturaRef.current) window.clearTimeout(aperturaRef.current);
+      setFase("abierto");
+    }
+  }
+
   // Destino de "cómo llegar": el link exacto si el equipo lo cargó, o
   // la búsqueda por texto del lugar. Waze siempre busca por texto.
   const busqueda = [invitacion.lugar_nombre, invitacion.direccion, "Costa Rica"]
@@ -96,7 +147,14 @@ export default function InvitacionVista({
         }}
       />
 
-      <div className="relative mx-auto flex min-h-svh w-full max-w-[680px] flex-col px-6 py-12 sm:py-16">
+      {/* Pétalos y destellos en dos capas, detrás del contenido. */}
+      {animada && <AmbienteParticulas />}
+
+      <div
+        className={`relative mx-auto flex min-h-svh w-full max-w-[680px] flex-col px-6 py-12 sm:py-16 ${
+          fase === "abriendo" ? "inv2-anim-contenido" : ""
+        }`}
+      >
         {invitacion.html_personalizado ? (
           /* Diseño a la medida: el HTML del equipo manda tal cual. */
           <div
@@ -107,7 +165,7 @@ export default function InvitacionVista({
           <PlantillaClasico invitacion={invitacion} fechaLarga={fechaLarga} hrefMaps={hrefMaps} hrefWaze={hrefWaze} />
         )}
 
-        <BloqueRsvp invitacionId={invitacion.id} preguntas={preguntas} />
+        <BloqueRsvp invitacionId={invitacion.id} preguntas={preguntas} animada={animada} />
 
         <footer className="mt-14 pb-2 text-center text-[12px] text-white/45">
           Invitación digital por{" "}
@@ -117,6 +175,16 @@ export default function InvitacionVista({
           ✦
         </footer>
       </div>
+
+      {/* El sobre cerrado cubre todo hasta que lo toquen. */}
+      {animada && fase !== "abierto" && (
+        <SobreApertura
+          iniciales={iniciales}
+          titulo={invitacion.titulo}
+          abriendo={fase === "abriendo"}
+          onTocar={tocarSobre}
+        />
+      )}
     </main>
   );
 }
@@ -199,6 +267,9 @@ function PlantillaClasico({
         )}
       </div>
 
+      {/* La cuenta regresiva viva, segundo a segundo. */}
+      <CuentaRegresiva fechaIso={invitacion.fecha_evento} hora={invitacion.hora} />
+
       {/* Dónde: la tarjeta del lugar con la ubicación a un toque. */}
       {(invitacion.lugar_nombre || invitacion.direccion) && (
         <div
@@ -236,6 +307,10 @@ function PlantillaClasico({
           </div>
         </div>
       )}
+
+      {/* El carrito de recién casados: avanza con el scroll y
+          responde al toque (saltito, corazones y "¡beep beep!"). */}
+      <CarritoNovios />
     </div>
   );
 }
@@ -244,9 +319,12 @@ function PlantillaClasico({
 function BloqueRsvp({
   invitacionId,
   preguntas,
+  animada,
 }: {
   invitacionId: string;
   preguntas: PreguntaInvitacion[];
+  /** true en la plantilla clásica: habilita el confetti del "sí". */
+  animada: boolean;
 }) {
   const [nombre, setNombre] = useState("");
   const [acompanantes, setAcompanantes] = useState("0");
@@ -289,7 +367,9 @@ function BloqueRsvp({
 
   if (enviado !== null) {
     return (
-      <section className="anim-invitacion-pop mx-auto mt-14 w-full max-w-[440px] rounded-3xl border border-white/15 bg-white/[0.07] p-8 text-center backdrop-blur-sm">
+      <section className="anim-invitacion-pop relative mx-auto mt-14 w-full max-w-[440px] overflow-hidden rounded-3xl border border-white/15 bg-white/[0.07] p-8 text-center backdrop-blur-sm">
+        {/* Si viene, ¡que estalle el confetti sobre el gracias! */}
+        {animada && enviado && <ConfettiRsvp />}
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-aventurea-orange text-[26px]">
           {enviado ? "🎉" : "🤍"}
         </span>
