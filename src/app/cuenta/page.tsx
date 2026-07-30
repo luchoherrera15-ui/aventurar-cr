@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
 import TarjetaExpandible from "@/components/tarjeta-expandible";
-import { IconChatBubble, IconHeart, IconPlus, IconStore } from "@/components/icons";
+import { IconChatBubble, IconHeart, IconMail, IconPlus, IconStore } from "@/components/icons";
 import FormularioAuth from "./formulario-auth";
 import ReservasTabs, { type ReservaCliente, type ResenaPropia } from "./reservas-tabs";
 import { cerrarSesionCuenta } from "./actions";
@@ -40,6 +40,15 @@ const ESTADO_NEGOCIO_LABEL: Record<string, string> = {
   rechazado: "Publicación rechazada",
 };
 
+/** Una invitación digital del cliente, con su pulso de confirmaciones. */
+type InvitacionResumen = {
+  id: string;
+  slug: string;
+  titulo: string;
+  fecha_evento: string;
+  estado: string;
+};
+
 export default async function CuentaPage() {
   const supabase = await createClient();
   const {
@@ -63,6 +72,7 @@ export default async function CuentaPage() {
     { data: favoritosData },
     { data: negociosData },
     { data: resenasData },
+    { data: invitacionesData },
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle(),
     supabase
@@ -84,7 +94,39 @@ export default async function CuentaPage() {
       .from("resenas")
       .select("reserva_id, calificacion, comentario")
       .eq("cliente_id", user.id),
+    supabase
+      .from("invitaciones")
+      .select("id, slug, titulo, fecha_evento, estado")
+      .eq("cliente_id", user.id)
+      .order("fecha_evento", { ascending: false }),
   ]);
+
+  // Las invitaciones digitales del cliente (las diseña el equipo de
+  // Bookea y acá se ve quién confirmó): cada "sí" suma a la persona y
+  // a sus acompañantes.
+  const invitaciones = (invitacionesData ?? []) as InvitacionResumen[];
+  const confirmadosPorInvitacion = new Map<string, { si: number; personas: number }>();
+  if (invitaciones.length > 0) {
+    const { data: rsvpsData } = await supabase
+      .from("invitacion_rsvp")
+      .select("invitacion_id, asistira, acompanantes")
+      .in(
+        "invitacion_id",
+        invitaciones.map((i) => i.id),
+      );
+    for (const r of (rsvpsData ?? []) as {
+      invitacion_id: string;
+      asistira: boolean;
+      acompanantes: number;
+    }[]) {
+      const acc = confirmadosPorInvitacion.get(r.invitacion_id) ?? { si: 0, personas: 0 };
+      if (r.asistira) {
+        acc.si += 1;
+        acc.personas += 1 + (r.acompanantes ?? 0);
+      }
+      confirmadosPorInvitacion.set(r.invitacion_id, acc);
+    }
+  }
 
   const reservas = (reservasData ?? []) as unknown as ReservaCliente[];
   const resenasPropias = (resenasData ?? []) as ResenaPropia[];
@@ -276,6 +318,57 @@ export default async function CuentaPage() {
                       Administrar
                     </Link>
                   </div>
+                </div>
+              );
+            })}
+          </TarjetaExpandible>
+        )}
+
+        {/* Sus invitaciones digitales: el link para compartir y el
+            conteo de confirmados, sin salir de la cuenta. */}
+        {invitaciones.length > 0 && (
+          <TarjetaExpandible
+            className="mt-6"
+            titulo={
+              <>
+                <IconMail className="h-4 w-4 text-aventurea-orange" />
+                Tus invitaciones
+              </>
+            }
+            conteo={invitaciones.length}
+            adelanto={3}
+            genero="f"
+            claseResto="border-t border-aventurea-line"
+          >
+            {invitaciones.map((inv) => {
+              const conteo = confirmadosPorInvitacion.get(inv.id) ?? { si: 0, personas: 0 };
+              return (
+                <div
+                  key={inv.id}
+                  className="flex items-center gap-3 border-b border-aventurea-line px-4 py-2.5 last:border-none"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13.5px] font-bold text-aventurea-ink">
+                      {inv.titulo}
+                    </p>
+                    <p className="text-[11.5px] font-semibold text-aventurea-ink-soft">
+                      {inv.fecha_evento} · {conteo.si} confirmado{conteo.si === 1 ? "" : "s"} ·{" "}
+                      {conteo.personas} persona{conteo.personas === 1 ? "" : "s"}
+                      {inv.estado !== "activa" && (
+                        <span className="ml-1.5 rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10px] font-bold uppercase">
+                          {inv.estado}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {inv.estado === "activa" && (
+                    <Link
+                      href={`/i/${inv.slug}`}
+                      className="shrink-0 text-[12px] font-bold text-aventurea-navy hover:underline"
+                    >
+                      Ver y compartir
+                    </Link>
+                  )}
                 </div>
               );
             })}

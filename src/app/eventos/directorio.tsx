@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import { IconCompass, IconFiltro, IconSearch } from "@/components/icons";
+import { IconCompass, IconFiltro, IconMail, IconSearch } from "@/components/icons";
 import { type Calificacion } from "@/components/rancho-card";
 import RanchoCardGrande from "@/components/rancho-card-grande";
 import RielProveedores from "@/components/riel-proveedores";
@@ -358,6 +358,17 @@ export default function Directorio({
                 onClick={() => elegirCategoria(cat)}
               />
             ))}
+            {/* Invitaciones digitales no es un filtro: es el producto
+                propio de Bookea, con su propia landing de venta. */}
+            <Link
+              href="/invitaciones"
+              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-line bg-aventurea-surface pl-1.5 pr-4 text-aventurea-ink transition-colors hover:border-aventurea-navy"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-orange/10 text-aventurea-orange">
+                <IconMail className="h-[18px] w-[18px]" />
+              </span>
+              <span className="text-[13px] font-bold">Invitaciones Digitales</span>
+            </Link>
             {/* Relleno para que el degradado nunca tape la última pestaña. */}
             <div className="w-2 shrink-0" aria-hidden />
           </div>
