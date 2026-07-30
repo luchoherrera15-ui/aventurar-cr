@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
 import SelectorVertical from "@/components/selector-vertical";
+import Planificador from "@/components/planificador/planificador";
 import { normalizarCategoria } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
 
@@ -112,6 +113,16 @@ export default async function EventosPage() {
           />
         </div>
       </section>
+
+      {/* Cotizador guiado "¡Creá tu evento con IA!": botón flotante
+          abajo a la izquierda (la burbuja de chat vive a la derecha). */}
+      <Planificador
+        ranchos={ranchos}
+        fechasOcupadas={fechasOcupadas}
+        calificaciones={calificaciones}
+        favoritosIniciales={favoritosIniciales}
+        sesionActiva={!!user}
+      />
 
       <footer className="border-t border-aventurea-line py-9 text-center">
         <p className="text-xs text-zinc-500">
