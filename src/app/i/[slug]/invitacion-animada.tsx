@@ -55,11 +55,11 @@ export function inicialesDe(titulo: string): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * El sobre cerrado que cubre la invitación al llegar: sello de cera
- * navy con las iniciales y "Tocá para abrir". Un toque en cualquier
- * lado dispara la apertura (la solapa rota con perspective y la carta
- * emerge); un segundo toque la salta. Con movimiento reducido el CSS
- * lo esconde por completo (display:none) y el padre abre directo.
+ * El sobre cerrado que cubre la invitación al llegar: papel crema con
+ * sello de cera dorado champán y "Tocá para abrir". Un toque en
+ * cualquier lado dispara la apertura (la solapa rota con perspective y
+ * la carta emerge); un segundo toque la salta. Con movimiento reducido
+ * el CSS lo esconde por completo (display:none) y el padre abre directo.
  */
 export function SobreApertura({
   iniciales,
@@ -77,18 +77,18 @@ export function SobreApertura({
       type="button"
       onClick={onTocar}
       aria-label="Abrir la invitación"
-      className={`inv2-sobre-overlay fixed inset-0 z-[60] flex cursor-pointer select-none flex-col items-center justify-center gap-10 bg-[#16295e] px-6 text-white touch-manipulation ${
+      className={`inv2-sobre-overlay fixed inset-0 z-[60] flex cursor-pointer select-none flex-col items-center justify-center gap-10 bg-[#f2ecdf] px-6 text-[#3d3a35] touch-manipulation ${
         abriendo ? "inv2-anim-sobre-fade" : ""
       }`}
     >
-      {/* El mismo aire del lienzo: dos brillos suaves sobre el navy. */}
+      {/* El mismo aire del lienzo: dos veladuras champán sobre crema. */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(46rem 30rem at 80% -10%, rgba(238,116,32,0.16), transparent 60%)," +
-            "radial-gradient(40rem 28rem at -10% 70%, rgba(59,127,196,0.18), transparent 60%)",
+            "radial-gradient(46rem 30rem at 80% -10%, rgba(201,169,106,0.22), transparent 60%)," +
+            "radial-gradient(40rem 28rem at -10% 70%, rgba(176,141,87,0.16), transparent 60%)",
         }}
       />
 
@@ -97,29 +97,29 @@ export function SobreApertura({
         style={{ perspective: "1100px" }}
       >
         <span className="relative block aspect-[10/7]">
-          {/* Fondo del sobre. */}
-          <span className="absolute inset-0 rounded-2xl bg-[#22397c] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.85)]" />
+          {/* Fondo del sobre: papel crema profundo. */}
+          <span className="absolute inset-0 rounded-2xl bg-[#e9dfca] shadow-[0_30px_70px_-28px_rgba(107,88,53,0.55)]" />
 
-          {/* La carta adentro: emerge al abrir. */}
+          {/* La carta adentro: marfil con filo dorado, emerge al abrir. */}
           <span
-            className={`absolute inset-x-[8%] bottom-[8%] top-[12%] flex flex-col items-center justify-center rounded-xl bg-[#fdf4ea] px-4 text-center shadow-[0_10px_30px_rgba(0,0,0,0.35)] ${
+            className={`absolute inset-x-[8%] bottom-[8%] top-[12%] flex flex-col items-center justify-center rounded-xl border border-[#e6dcc4] bg-[#fffdf8] px-4 text-center shadow-[0_10px_30px_rgba(107,88,53,0.28)] ${
               abriendo ? "inv2-anim-carta-sale" : ""
             }`}
           >
-            <span aria-hidden className="block text-[13px] tracking-[0.4em] text-aventurea-orange">
+            <span aria-hidden className="block text-[12px] tracking-[0.4em] text-[#b08d57]">
               ✦ ✦ ✦
             </span>
-            <span className="titulo mt-2 block max-w-[16ch] text-[clamp(19px,5.4vw,24px)] leading-snug text-[#16295e]">
+            <span className="inv3-serif mt-2 block max-w-[16ch] text-[clamp(20px,5.6vw,26px)] leading-snug text-[#3d3a35]">
               {titulo}
             </span>
-            <span className="mt-2 block text-[10.5px] font-bold uppercase tracking-[0.24em] text-[#16295e]/55">
+            <span className="mt-2 block text-[10.5px] font-semibold uppercase tracking-[0.24em] text-[#8a8378]">
               Tenés una invitación
             </span>
           </span>
 
           {/* Frente del sobre (el bolsillo en V que guarda la carta). */}
           <span
-            className="absolute inset-0 rounded-2xl bg-[#1b3170] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+            className="absolute inset-0 rounded-2xl bg-[#efe6d1] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]"
             style={{ clipPath: "polygon(0 0, 50% 48%, 100% 0, 100% 100%, 0 100%)" }}
           />
 
@@ -132,30 +132,30 @@ export function SobreApertura({
               clipPath: "polygon(0 0, 100% 0, 50% 100%)",
             }}
           >
-            <span className="absolute inset-0 rounded-t-2xl bg-[#2f4a94] shadow-[inset_0_-14px_24px_rgba(0,0,0,0.25)]" />
+            <span className="absolute inset-0 rounded-t-2xl bg-[#f4eddd] shadow-[inset_0_-14px_24px_rgba(160,133,84,0.22)]" />
           </span>
 
-          {/* El sello de cera con las iniciales, en la punta de la
-              solapa — viaja con ella al abrirse. */}
+          {/* El sello de cera dorado champán con las iniciales, en la
+              punta de la solapa — viaja con ella al abrirse. */}
           <span
-            className={`absolute left-1/2 top-[52%] flex h-16 w-16 items-center justify-center rounded-full text-[15px] font-bold tracking-wide text-[#f5b98a] ${
+            className={`absolute left-1/2 top-[52%] flex h-16 w-16 items-center justify-center rounded-full text-[15px] font-bold tracking-wide text-[#fdf9f0] ${
               abriendo ? "" : "inv2-anim-sello"
             }`}
             style={{
               transform: "translate(-50%, -50%)",
-              background: "radial-gradient(circle at 35% 30%, #23407f, #101d43 72%)",
-              boxShadow: "0 6px 18px rgba(0,0,0,0.45), inset 0 2px 6px rgba(255,255,255,0.18)",
+              background: "radial-gradient(circle at 35% 30%, #cfae74, #9a7847 72%)",
+              boxShadow: "0 6px 18px rgba(107,88,53,0.4), inset 0 2px 6px rgba(255,255,255,0.35)",
               opacity: abriendo ? 0 : 1,
               transition: "opacity 0.3s ease-out",
             }}
           >
             {iniciales}
-            <span aria-hidden className="absolute inset-1 rounded-full border border-[#f5b98a]/40" />
+            <span aria-hidden className="absolute inset-1 rounded-full border border-[#fdf9f0]/50" />
           </span>
         </span>
       </span>
 
-      <span className="inv2-anim-pulso relative block text-[13px] font-bold uppercase tracking-[0.22em] text-white/70">
+      <span className="inv2-anim-pulso relative block text-[13px] font-semibold uppercase tracking-[0.22em] text-[#8a8378]">
         Tocá para abrir la invitación
       </span>
     </button>
@@ -242,17 +242,17 @@ export function CarritoNovios() {
     timeoutsRef.current.push(window.setTimeout(() => setTanda(0), 1400));
   }
 
-  const coloresCorazon = ["#ffffff", "#f5b98a", "#ee7420"];
+  const coloresCorazon = ["#b08d57", "#c9a96a", "#8a6a3f"];
 
   return (
     <div data-reveal className="mt-11">
-      <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-white/50">
+      <p className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8a8378]">
         Y que arranque el viaje
       </p>
 
       <div ref={franjaRef} className="relative mt-4 h-[118px]">
-        {/* El caminito punteado. */}
-        <div aria-hidden className="absolute inset-x-0 bottom-[8px] border-t-2 border-dashed border-white/25" />
+        {/* El caminito punteado, en línea fina dorada. */}
+        <div aria-hidden className="absolute inset-x-0 bottom-[8px] border-t border-dashed border-[#b08d57]/45" />
 
         <button
           type="button"
@@ -264,7 +264,7 @@ export function CarritoNovios() {
         >
           {beep && (
             <span
-              className="inv2-anim-beep absolute -top-6 left-1/2 block whitespace-nowrap rounded-full bg-white px-3 py-1 text-[12px] font-bold text-[#16295e] shadow-lg"
+              className="inv2-anim-beep absolute -top-6 left-1/2 block whitespace-nowrap rounded-full border border-[#c9a96a] bg-white px-3 py-1 text-[12px] font-bold text-[#3d3a35] shadow-md"
               style={{ transform: "translateX(-50%)" }}
             >
               ¡beep beep!
@@ -295,78 +295,78 @@ export function CarritoNovios() {
             <svg viewBox="0 0 260 150" className="block h-auto w-full" aria-hidden>
               {/* Rótulo "Recién casados" colgado atrás. */}
               <g transform="rotate(-8 34 84)">
-                <line x1="62" y1="76" x2="70" y2="90" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-                <rect x="4" y="68" width="60" height="32" rx="7" fill="#fdf4ea" stroke="#ee7420" strokeWidth="2" />
-                <text x="34" y="82" textAnchor="middle" fontSize="11" fontWeight="700" fill="#16295e">
+                <line x1="62" y1="76" x2="70" y2="90" stroke="rgba(138,106,63,0.55)" strokeWidth="1.5" />
+                <rect x="4" y="68" width="60" height="32" rx="7" fill="#fffdf8" stroke="#b08d57" strokeWidth="1.5" />
+                <text x="34" y="82" textAnchor="middle" fontSize="11" fontWeight="600" fill="#6b5636">
                   Recién
                 </text>
-                <text x="34" y="94" textAnchor="middle" fontSize="11" fontWeight="700" fill="#16295e">
+                <text x="34" y="94" textAnchor="middle" fontSize="11" fontWeight="600" fill="#6b5636">
                   casados
                 </text>
               </g>
 
               {/* Las 3 latas arrastradas, cada una con su rebote. */}
               <g className="inv2-anim-lata" style={{ "--inv2-dur": "0.5s", "--inv2-delay": "0s" } as CSSProperties}>
-                <line x1="62" y1="112" x2="14" y2="129" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
-                <rect x="6" y="125" width="14" height="9" rx="2" transform="rotate(-14 13 129)" fill="#f5f0e8" stroke="#16295e" strokeWidth="1" />
+                <line x1="62" y1="112" x2="14" y2="129" stroke="rgba(138,106,63,0.5)" strokeWidth="1.25" />
+                <rect x="6" y="125" width="14" height="9" rx="2" transform="rotate(-14 13 129)" fill="#fffdf8" stroke="#8a6a3f" strokeWidth="1" />
               </g>
               <g className="inv2-anim-lata" style={{ "--inv2-dur": "0.62s", "--inv2-delay": "0.12s" } as CSSProperties}>
-                <line x1="62" y1="113" x2="30" y2="134" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
-                <rect x="23" y="130" width="14" height="9" rx="2" transform="rotate(10 30 134)" fill="#f5f0e8" stroke="#16295e" strokeWidth="1" />
+                <line x1="62" y1="113" x2="30" y2="134" stroke="rgba(138,106,63,0.5)" strokeWidth="1.25" />
+                <rect x="23" y="130" width="14" height="9" rx="2" transform="rotate(10 30 134)" fill="#fffdf8" stroke="#8a6a3f" strokeWidth="1" />
               </g>
               <g className="inv2-anim-lata" style={{ "--inv2-dur": "0.55s", "--inv2-delay": "0.22s" } as CSSProperties}>
-                <line x1="62" y1="114" x2="46" y2="131" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
-                <rect x="39" y="127" width="14" height="9" rx="2" transform="rotate(-8 46 131)" fill="#f5f0e8" stroke="#16295e" strokeWidth="1" />
+                <line x1="62" y1="114" x2="46" y2="131" stroke="rgba(138,106,63,0.5)" strokeWidth="1.25" />
+                <rect x="39" y="127" width="14" height="9" rx="2" transform="rotate(-8 46 131)" fill="#fffdf8" stroke="#8a6a3f" strokeWidth="1" />
               </g>
 
               {/* Escape. */}
-              <rect x="44" y="104" width="14" height="6" rx="3" fill="rgba(255,255,255,0.7)" />
+              <rect x="44" y="104" width="14" height="6" rx="3" fill="rgba(138,106,63,0.35)" />
 
-              {/* Carrocería en línea elegante. */}
+              {/* Carrocería en trazo fino dorado. */}
               <path
                 d="M64 116 L64 100 Q64 88 76 88 L108 88 L122 60 Q126 52 134 52 L182 52 Q190 52 196 60 L210 88 L228 88 Q240 88 240 100 L240 112 Q240 118 234 118 L70 118 Q64 118 64 116 Z"
-                fill="rgba(255,255,255,0.08)"
-                stroke="#ffffff"
-                strokeWidth="3"
+                fill="rgba(201,169,106,0.1)"
+                stroke="#b08d57"
+                strokeWidth="2"
                 strokeLinejoin="round"
               />
               {/* Ventanas. */}
-              <rect x="131" y="60" width="23" height="24" rx="4" fill="rgba(59,127,196,0.28)" stroke="#ffffff" strokeWidth="2.5" />
-              <rect x="160" y="60" width="26" height="24" rx="4" fill="rgba(59,127,196,0.28)" stroke="#ffffff" strokeWidth="2.5" />
+              <rect x="131" y="60" width="23" height="24" rx="4" fill="rgba(201,169,106,0.16)" stroke="#b08d57" strokeWidth="1.75" />
+              <rect x="160" y="60" width="26" height="24" rx="4" fill="rgba(201,169,106,0.16)" stroke="#b08d57" strokeWidth="1.75" />
               {/* Manija, foco y parachoques. */}
-              <line x1="148" y1="96" x2="158" y2="96" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="234" cy="96" r="4" fill="#f5b98a" />
-              <line x1="240" y1="112" x2="250" y2="112" stroke="rgba(255,255,255,0.8)" strokeWidth="3" strokeLinecap="round" />
-              <line x1="48" y1="112" x2="64" y2="112" stroke="rgba(255,255,255,0.8)" strokeWidth="3" strokeLinecap="round" />
+              <line x1="148" y1="96" x2="158" y2="96" stroke="rgba(138,106,63,0.7)" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="234" cy="96" r="4" fill="#c9a96a" />
+              <line x1="240" y1="112" x2="250" y2="112" stroke="rgba(138,106,63,0.75)" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="48" y1="112" x2="64" y2="112" stroke="rgba(138,106,63,0.75)" strokeWidth="2.5" strokeLinecap="round" />
               {/* Antena con corazón. */}
-              <line x1="216" y1="88" x2="216" y2="72" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-              <text x="216" y="70" textAnchor="middle" fontSize="13" fill="#ee7420">
+              <line x1="216" y1="88" x2="216" y2="72" stroke="rgba(138,106,63,0.55)" strokeWidth="1.5" />
+              <text x="216" y="70" textAnchor="middle" fontSize="13" fill="#b08d57">
                 ♥
               </text>
 
               {/* Ruedas: giran con el recorrido (refs desde el scroll). */}
               <g ref={ruedaTraseraRef} style={{ transformBox: "fill-box", transformOrigin: "center" }}>
-                <circle cx="96" cy="118" r="19" fill="#16295e" stroke="#ffffff" strokeWidth="3" />
-                <line x1="96" y1="102" x2="96" y2="134" stroke="rgba(255,255,255,0.7)" strokeWidth="2" />
-                <line x1="80" y1="118" x2="112" y2="118" stroke="rgba(255,255,255,0.7)" strokeWidth="2" />
-                <line x1="85" y1="107" x2="107" y2="129" stroke="rgba(255,255,255,0.45)" strokeWidth="2" />
-                <line x1="107" y1="107" x2="85" y2="129" stroke="rgba(255,255,255,0.45)" strokeWidth="2" />
-                <circle cx="96" cy="118" r="4" fill="#ee7420" />
+                <circle cx="96" cy="118" r="19" fill="#fdfaf3" stroke="#b08d57" strokeWidth="2" />
+                <line x1="96" y1="102" x2="96" y2="134" stroke="rgba(138,106,63,0.55)" strokeWidth="1.5" />
+                <line x1="80" y1="118" x2="112" y2="118" stroke="rgba(138,106,63,0.55)" strokeWidth="1.5" />
+                <line x1="85" y1="107" x2="107" y2="129" stroke="rgba(138,106,63,0.35)" strokeWidth="1.5" />
+                <line x1="107" y1="107" x2="85" y2="129" stroke="rgba(138,106,63,0.35)" strokeWidth="1.5" />
+                <circle cx="96" cy="118" r="4" fill="#8a6a3f" />
               </g>
               <g ref={ruedaDelanteraRef} style={{ transformBox: "fill-box", transformOrigin: "center" }}>
-                <circle cx="204" cy="118" r="19" fill="#16295e" stroke="#ffffff" strokeWidth="3" />
-                <line x1="204" y1="102" x2="204" y2="134" stroke="rgba(255,255,255,0.7)" strokeWidth="2" />
-                <line x1="188" y1="118" x2="220" y2="118" stroke="rgba(255,255,255,0.7)" strokeWidth="2" />
-                <line x1="193" y1="107" x2="215" y2="129" stroke="rgba(255,255,255,0.45)" strokeWidth="2" />
-                <line x1="215" y1="107" x2="193" y2="129" stroke="rgba(255,255,255,0.45)" strokeWidth="2" />
-                <circle cx="204" cy="118" r="4" fill="#ee7420" />
+                <circle cx="204" cy="118" r="19" fill="#fdfaf3" stroke="#b08d57" strokeWidth="2" />
+                <line x1="204" y1="102" x2="204" y2="134" stroke="rgba(138,106,63,0.55)" strokeWidth="1.5" />
+                <line x1="188" y1="118" x2="220" y2="118" stroke="rgba(138,106,63,0.55)" strokeWidth="1.5" />
+                <line x1="193" y1="107" x2="215" y2="129" stroke="rgba(138,106,63,0.35)" strokeWidth="1.5" />
+                <line x1="215" y1="107" x2="193" y2="129" stroke="rgba(138,106,63,0.35)" strokeWidth="1.5" />
+                <circle cx="204" cy="118" r="4" fill="#8a6a3f" />
               </g>
             </svg>
           </span>
         </button>
       </div>
 
-      <p className="mt-1 text-center text-[12px] italic text-white/45">
+      <p className="mt-1 text-center text-[12px] italic text-[#a59c8a]">
         El carrito avanza con vos por la invitación — y pssst… tocalo.
       </p>
     </div>
@@ -429,10 +429,10 @@ export function CuentaRegresiva({
   if (restante !== null && restante <= 0) {
     return (
       <div data-reveal className="mt-9">
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/50">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b08d57]">
           Cuenta regresiva
         </p>
-        <p className="titulo mt-3 text-[clamp(22px,5vw,28px)] text-white">
+        <p className="inv3-serif mt-3 text-[clamp(24px,5.4vw,30px)] text-[#3d3a35]">
           ¡Llegó el gran día!
         </p>
       </div>
@@ -457,23 +457,23 @@ export function CuentaRegresiva({
 
   return (
     <div data-reveal className="mt-9">
-      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/50">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b08d57]">
         Cuenta regresiva
       </p>
       <div className="mx-auto mt-4 grid max-w-[440px] grid-cols-4 gap-2 sm:gap-2.5">
         {unidades.map((u) => (
           <div
             key={u.etiqueta}
-            className="rounded-2xl border border-white/15 bg-white/[0.07] px-1 py-3.5 backdrop-blur-sm sm:py-4"
+            className="rounded-2xl border border-[#d9c9a8] bg-white/70 px-1 py-3.5 sm:py-4"
           >
             {/* El key con el valor remonta el span → tick al cambiar. */}
             <span
               key={`${u.etiqueta}-${u.valor}`}
-              className="inv2-anim-tick titulo block text-[clamp(22px,6vw,30px)] leading-none tabular-nums text-white"
+              className="inv2-anim-tick inv3-serif block text-[clamp(23px,6.2vw,32px)] leading-none tabular-nums text-[#3d3a35]"
             >
               {u.valor}
             </span>
-            <span className="mt-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
+            <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a8378]">
               {u.etiqueta}
             </span>
           </div>
@@ -581,9 +581,11 @@ export function AmbienteParticulas() {
             height: p.esPetalo ? p.tam * 1.3 : p.tam * 0.5,
             borderRadius: p.esPetalo ? "80% 6px 80% 6px" : "9999px",
             background: p.esPetalo
-              ? "linear-gradient(135deg, rgba(245,185,138,0.85), rgba(238,116,32,0.45))"
-              : "rgba(255,255,255,0.9)",
-            boxShadow: p.esPetalo ? "none" : "0 0 8px rgba(255,255,255,0.8)",
+              ? "linear-gradient(135deg, rgba(255,253,248,0.95), rgba(201,169,106,0.55))"
+              : "rgba(176,141,87,0.5)",
+            boxShadow: p.esPetalo
+              ? "0 1px 2px rgba(138,106,63,0.18)"
+              : "0 0 8px rgba(201,169,106,0.8)",
             animationDuration: `${p.dur}s`,
             animationDelay: `${p.delay}s`,
             "--inv2-drift": `${p.drift}px`,
@@ -618,11 +620,11 @@ export function AmbienteParticulas() {
 /* 5. El confetti del "Sí asistiré"                                    */
 /* ------------------------------------------------------------------ */
 
-const COLORES_CONFETTI = ["#16295e", "#ee7420", "#e7b562", "#ffffff", "#f5b98a", "#3b7fc4"];
+const COLORES_CONFETTI = ["#b08d57", "#c9a96a", "#ffffff", "#e6d7b2", "#8a6a3f", "#efe6d2"];
 
 /**
  * El estallido sobre el mensaje de gracias cuando confirman que SÍ
- * van: ~36 piezas absolutas en los colores de la marca, sembradas con
+ * van: ~36 piezas absolutas en dorado, champán y blanco, sembradas con
  * el mismo pseudo-azar determinista de las partículas (render puro).
  */
 export function ConfettiRsvp() {

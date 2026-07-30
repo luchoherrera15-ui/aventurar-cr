@@ -1,16 +1,45 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
+import { Cormorant_Garamond } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { parsearPreguntas } from "@/lib/invitaciones-preguntas";
 import { fechaLargaCR } from "@/lib/fechas";
 import InvitacionVista, { type Invitacion } from "./invitacion-vista";
 
-// La barra del navegador se tiñe del navy del lienzo: la invitación
-// se ve inmersiva también en móvil, sin el blanco del sitio.
-export const viewport: Viewport = {
-  themeColor: "#16295e",
-  colorScheme: "only light",
-};
+// La serif fina de la plantilla clásica — la misma vía que el álbum
+// (/a/{slug}): next/font la sirve desde el propio sitio y acá solo
+// deja la variable CSS que usa .inv3-serif en globals.css.
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  style: ["normal", "italic"],
+  variable: "--inv3-serif",
+});
+
+// La barra del navegador acompaña al lienzo: marfil en la plantilla
+// clásica; si el equipo diseñó un HTML a la medida, se queda el navy
+// de siempre para no desentonar con ese diseño.
+export async function generateViewport({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Viewport> {
+  const { slug } = await params;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("invitaciones")
+    .select("html_personalizado")
+    .eq("slug", slug)
+    .eq("estado", "activa")
+    .maybeSingle();
+  const personalizada = Boolean(
+    (data as { html_personalizado?: string | null } | null)?.html_personalizado,
+  );
+  return {
+    themeColor: personalizada ? "#16295e" : "#faf7f2",
+    colorScheme: "only light",
+  };
+}
 
 export async function generateMetadata({
   params,
@@ -74,6 +103,7 @@ export default async function InvitacionPage({
       invitacion={invitacion}
       preguntas={preguntas}
       fechaLarga={fechaLargaCR(invitacion.fecha_evento)}
+      claseFuente={cormorant.variable}
     />
   );
 }

@@ -861,3 +861,17 @@ body {
     display: none;
   }
 }
+
+/* ==================================================================
+   Invitación pública v3 (inv3-*): la plantilla clásica de /i/{slug}
+   vestida en marfil, crema y dorado champán. Los keyframes siguen
+   siendo los inv2-* (solo transform/opacity, sirven igual en la nueva
+   paleta); acá solo vive la serif fina de los títulos, que llega por
+   la variable --inv3-serif definida con next/font en /i/[slug].
+   ================================================================== */
+.inv3-serif {
+  font-family: var(--inv3-serif, "Cormorant Garamond", Georgia), serif;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+  line-height: 1.1;
+}

@@ -33,27 +33,33 @@ export type Invitacion = {
   tema: string;
 };
 
+/* La paleta de la plantilla clásica: papel marfil, tinta suave y
+   dorado champán — líneas finas, nada de navy. */
 const inputCls =
-  "w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-[15px] text-white placeholder:text-white/40 focus:border-aventurea-orange focus:outline-none";
+  "w-full rounded-xl border border-[#ddd2bc] bg-white px-4 py-3 text-[15px] text-[#3d3a35] placeholder:text-[#b3aa97] focus:border-[#b08d57] focus:outline-none";
 const labelCls =
-  "mb-1.5 block text-left text-[11px] font-bold uppercase tracking-[0.14em] text-white/60";
+  "mb-1.5 block text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a8378]";
 
 /**
- * El lienzo inmersivo de la invitación: pantalla completa en navy con
- * el degradado de la marca, sin header del sitio — la invitación ES la
- * página. Si el equipo diseñó un HTML a la medida se renderiza tal
- * cual; si no, la plantilla "clásico". El bloque de confirmación va
- * siempre al pie: es el corazón del producto.
+ * El lienzo inmersivo de la invitación, pantalla completa y sin header
+ * del sitio — la invitación ES la página. La plantilla clásica va en
+ * marfil y crema con acentos dorado champán y serif fina (Cormorant,
+ * vía --inv3-serif). Si el equipo diseñó un HTML a la medida se
+ * renderiza tal cual sobre el lienzo navy de siempre. El bloque de
+ * confirmación va siempre al pie: es el corazón del producto.
  */
 export default function InvitacionVista({
   invitacion,
   preguntas,
   fechaLarga,
+  claseFuente,
 }: {
   invitacion: Invitacion;
   /** Las preguntas configurables del RSVP (vacío = como siempre). */
   preguntas: PreguntaInvitacion[];
   fechaLarga: string;
+  /** La clase de next/font que define --inv3-serif (Cormorant). */
+  claseFuente: string;
 }) {
   // La experiencia animada (sobre, carrito, pétalos…) viste solo la
   // plantilla clásica; un HTML a la medida se respeta tal cual.
@@ -108,7 +114,11 @@ export default function InvitacionVista({
   const hrefWaze = `https://waze.com/ul?q=${encodeURIComponent(busqueda)}&navigate=yes`;
 
   return (
-    <main className="relative min-h-svh overflow-hidden bg-[#16295e] text-white">
+    <main
+      className={`relative min-h-svh overflow-hidden ${
+        animada ? "bg-[#faf7f2] text-[#3d3a35]" : "bg-[#16295e] text-white"
+      } ${claseFuente}`}
+    >
       <RevealOnScroll />
 
       {/* Animación del "gracias": los keyframes viven acá porque solo
@@ -125,29 +135,61 @@ export default function InvitacionVista({
         }
       `}</style>
 
-      {/* Fondo: el navy de la marca con dos brillos suaves (naranja y
-          azul) y una trama de puntos apenas visible — elegante, nada
-          de texturas cargadas. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(52rem 34rem at 85% -8%, rgba(238,116,32,0.16), transparent 60%)," +
-            "radial-gradient(46rem 30rem at -12% 32%, rgba(59,127,196,0.2), transparent 60%)," +
-            "radial-gradient(40rem 28rem at 55% 108%, rgba(238,116,32,0.1), transparent 65%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.16]"
-        style={{
-          backgroundImage: "radial-gradient(rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "26px 26px",
-        }}
-      />
+      {animada ? (
+        <>
+          {/* Fondo marfil con dos veladuras champán muy suaves y una
+              trama de puntos dorada apenas visible — papel fino, nada
+              de texturas cargadas. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(52rem 34rem at 85% -8%, rgba(201,169,106,0.14), transparent 60%)," +
+                "radial-gradient(46rem 30rem at -12% 32%, rgba(176,141,87,0.1), transparent 60%)," +
+                "radial-gradient(40rem 28rem at 55% 108%, rgba(201,169,106,0.12), transparent 65%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.12]"
+            style={{
+              backgroundImage: "radial-gradient(rgba(176,141,87,0.6) 1px, transparent 1px)",
+              backgroundSize: "26px 26px",
+            }}
+          />
+          {/* El paspartú: un marco de línea fina dorada que acompaña
+              toda la invitación, como en las suites impresas. */}
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-3 z-40 border border-[#c9a96a]/35 sm:inset-4"
+          />
+        </>
+      ) : (
+        <>
+          {/* El lienzo navy de siempre para los diseños a la medida. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(52rem 34rem at 85% -8%, rgba(238,116,32,0.16), transparent 60%)," +
+                "radial-gradient(46rem 30rem at -12% 32%, rgba(59,127,196,0.2), transparent 60%)," +
+                "radial-gradient(40rem 28rem at 55% 108%, rgba(238,116,32,0.1), transparent 65%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.16]"
+            style={{
+              backgroundImage: "radial-gradient(rgba(255,255,255,0.5) 1px, transparent 1px)",
+              backgroundSize: "26px 26px",
+            }}
+          />
+        </>
+      )}
 
-      {/* Pétalos y destellos en dos capas, detrás del contenido. */}
+      {/* Pétalos blancos y champán en dos capas, detrás del contenido. */}
       {animada && <AmbienteParticulas />}
 
       <div
@@ -162,14 +204,31 @@ export default function InvitacionVista({
             dangerouslySetInnerHTML={{ __html: invitacion.html_personalizado }}
           />
         ) : (
-          <PlantillaClasico invitacion={invitacion} fechaLarga={fechaLarga} hrefMaps={hrefMaps} hrefWaze={hrefWaze} />
+          <PlantillaClasico
+            invitacion={invitacion}
+            iniciales={iniciales}
+            fechaLarga={fechaLarga}
+            hrefMaps={hrefMaps}
+            hrefWaze={hrefWaze}
+          />
         )}
 
         <BloqueRsvp invitacionId={invitacion.id} preguntas={preguntas} animada={animada} />
 
-        <footer className="mt-14 pb-2 text-center text-[12px] text-white/45">
+        <footer
+          className={`mt-14 pb-2 text-center text-[12px] ${
+            animada ? "text-[#a39a89]" : "text-white/45"
+          }`}
+        >
           Invitación digital por{" "}
-          <Link href="/" className="font-bold text-white/70 underline-offset-2 hover:text-white hover:underline">
+          <Link
+            href="/"
+            className={`font-bold underline-offset-2 hover:underline ${
+              animada
+                ? "text-[#8a6a3f] hover:text-[#6b5636]"
+                : "text-white/70 hover:text-white"
+            }`}
+          >
             Bookea
           </Link>{" "}
           ✦
@@ -189,34 +248,68 @@ export default function InvitacionVista({
   );
 }
 
-/** La plantilla "clásico": portada, título grande, fecha y lugar. */
+/** La línea fina — rombo — línea fina que separa secciones. */
+function Ornamento({ className = "" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`flex items-center justify-center gap-3 text-[#c9a96a] ${className}`}
+    >
+      <span className="h-px w-16 bg-current opacity-60" />
+      <span className="h-1.5 w-1.5 rotate-45 border border-current" />
+      <span className="h-px w-16 bg-current opacity-60" />
+    </span>
+  );
+}
+
+/** La plantilla "clásico": monograma, título grande, fecha y lugar. */
 function PlantillaClasico({
   invitacion,
+  iniciales,
   fechaLarga,
   hrefMaps,
   hrefWaze,
 }: {
   invitacion: Invitacion;
+  iniciales: string;
   fechaLarga: string;
   hrefMaps: string;
   hrefWaze: string;
 }) {
+  // "S&A" → "S & A" para que el monograma respire dentro del rombo.
+  const monograma = iniciales.replace("&", " & ");
+
   return (
     <div className="text-center">
+      {/* El monograma en su ornamento: un rombo de línea fina dorada
+          flanqueado por dos líneas, como sello de la suite. */}
+      <div data-reveal className="mb-9 flex items-center justify-center gap-4">
+        <span aria-hidden className="h-px w-12 bg-[#c9a96a]/60 sm:w-16" />
+        <span className="flex h-[72px] w-[72px] rotate-45 items-center justify-center border border-[#c9a96a]/70">
+          <span className="inv3-serif -rotate-45 whitespace-nowrap text-[19px] text-[#b08d57]">
+            {monograma}
+          </span>
+        </span>
+        <span aria-hidden className="h-px w-12 bg-[#c9a96a]/60 sm:w-16" />
+      </div>
+
       {invitacion.portada_url && (
-        <div data-reveal className="mx-auto mb-9 max-w-[440px]">
+        <div
+          data-reveal
+          className="mx-auto mb-9 max-w-[440px] rounded-2xl border border-[#e6dcc6] bg-white p-2 shadow-[0_24px_60px_-32px_rgba(122,101,62,0.45)]"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element -- foto remota cargada por el equipo */}
           <img
             src={invitacion.portada_url}
             alt={invitacion.titulo}
-            className="w-full rounded-3xl border border-white/15 object-cover shadow-[0_24px_70px_-30px_rgba(0,0,0,0.8)]"
+            className="w-full rounded-xl object-cover"
           />
         </div>
       )}
 
       <p
         data-reveal
-        className="text-[12px] font-bold uppercase tracking-[0.34em] text-[#f5b98a]"
+        className="pl-[0.44em] text-[11px] font-semibold uppercase tracking-[0.44em] text-[#b08d57]"
       >
         Te invitamos
       </p>
@@ -224,7 +317,7 @@ function PlantillaClasico({
       <h1
         data-reveal
         style={{ "--reveal-delay": "120ms" } as React.CSSProperties}
-        className="titulo mx-auto mt-4 max-w-[16ch] text-[clamp(36px,9vw,58px)] text-white"
+        className="inv3-serif mx-auto mt-4 max-w-[16ch] text-[clamp(38px,10vw,62px)] text-[#3d3a35]"
       >
         {invitacion.titulo}
       </h1>
@@ -233,36 +326,31 @@ function PlantillaClasico({
         <p
           data-reveal
           style={{ "--reveal-delay": "220ms" } as React.CSSProperties}
-          className="mx-auto mt-5 max-w-[40ch] text-[14.5px] font-medium italic text-white/70"
+          className="inv3-serif mx-auto mt-5 max-w-[40ch] text-[clamp(16px,4.2vw,19px)] italic text-[#7d766a]"
         >
           {invitacion.anfitriones}
         </p>
       )}
 
-      <p
-        data-reveal
-        style={{ "--reveal-delay": "300ms" } as React.CSSProperties}
-        aria-hidden
-        className="mt-7 text-[15px] tracking-[0.5em] text-aventurea-orange"
-      >
-        ✦ ✦ ✦
-      </p>
+      <div data-reveal style={{ "--reveal-delay": "300ms" } as React.CSSProperties}>
+        <Ornamento className="mt-8" />
+      </div>
 
       {invitacion.mensaje && (
         <p
           data-reveal
-          className="mx-auto mt-7 max-w-[46ch] text-[16px] leading-relaxed text-white/85"
+          className="mx-auto mt-7 max-w-[46ch] text-[15.5px] leading-relaxed text-[#5c564c]"
         >
           {invitacion.mensaje}
         </p>
       )}
 
-      {/* Cuándo: la fecha en grande, la hora al lado. */}
+      {/* Cuándo: la fecha en serif grande, la hora al lado. */}
       <div data-reveal className="mt-10">
-        <p className="titulo text-[clamp(20px,4.5vw,27px)] text-white">{fechaLarga}</p>
+        <p className="inv3-serif text-[clamp(23px,5.2vw,30px)] text-[#3d3a35]">{fechaLarga}</p>
         {invitacion.hora && (
-          <p className="mt-2 inline-flex items-center gap-2 text-[15px] font-semibold text-white/80">
-            <IconClock className="h-4 w-4 text-[#f5b98a]" /> {invitacion.hora}
+          <p className="mt-2 inline-flex items-center gap-2 text-[15px] font-semibold text-[#7d766a]">
+            <IconClock className="h-4 w-4 text-[#b08d57]" /> {invitacion.hora}
           </p>
         )}
       </div>
@@ -274,16 +362,16 @@ function PlantillaClasico({
       {(invitacion.lugar_nombre || invitacion.direccion) && (
         <div
           data-reveal
-          className="mx-auto mt-8 max-w-[440px] rounded-2xl border border-white/15 bg-white/[0.07] p-6 backdrop-blur-sm"
+          className="mx-auto mt-8 max-w-[440px] rounded-2xl border border-[#e3d9c4] bg-white/70 p-6"
         >
-          <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/55">
-            <IconPin className="h-3.5 w-3.5 text-[#f5b98a]" /> El lugar
+          <p className="inline-flex items-center gap-2 pl-[0.18em] text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a8378]">
+            <IconPin className="h-3.5 w-3.5 text-[#b08d57]" /> El lugar
           </p>
           {invitacion.lugar_nombre && (
-            <p className="titulo mt-2 text-[20px] text-white">{invitacion.lugar_nombre}</p>
+            <p className="inv3-serif mt-2 text-[22px] text-[#3d3a35]">{invitacion.lugar_nombre}</p>
           )}
           {invitacion.direccion && (
-            <p className="mt-1.5 text-[13.5px] leading-relaxed text-white/70">
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#7d766a]">
               {invitacion.direccion}
             </p>
           )}
@@ -292,7 +380,7 @@ function PlantillaClasico({
               href={hrefMaps}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-xl bg-white px-5 py-2.5 text-[13.5px] font-bold text-[#16295e] transition-colors hover:bg-[#f5b98a]"
+              className="rounded-full bg-[#b08d57] px-6 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-[#9a7847]"
             >
               Google Maps
             </a>
@@ -300,7 +388,7 @@ function PlantillaClasico({
               href={hrefWaze}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/30 px-5 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:border-white hover:bg-white/10"
+              className="inline-flex items-center gap-2 rounded-full border border-[#b08d57]/50 px-5 py-2.5 text-[13.5px] font-bold text-[#8a6a3f] transition-colors hover:border-[#b08d57] hover:bg-[#b08d57]/10"
             >
               <IconWaze className="h-4 w-4" /> Waze
             </a>
@@ -367,14 +455,14 @@ function BloqueRsvp({
 
   if (enviado !== null) {
     return (
-      <section className="anim-invitacion-pop relative mx-auto mt-14 w-full max-w-[440px] overflow-hidden rounded-3xl border border-white/15 bg-white/[0.07] p-8 text-center backdrop-blur-sm">
+      <section className="anim-invitacion-pop relative mx-auto mt-14 w-full max-w-[440px] overflow-hidden rounded-3xl border border-[#e3d9c4] bg-[#fffdf8] p-8 text-center shadow-[0_24px_60px_-36px_rgba(122,101,62,0.5)]">
         {/* Si viene, ¡que estalle el confetti sobre el gracias! */}
         {animada && enviado && <ConfettiRsvp />}
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-aventurea-orange text-[26px]">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#b08d57] text-[26px]">
           {enviado ? "🎉" : "🤍"}
         </span>
-        <h2 className="titulo mt-4 text-[26px] text-white">¡Gracias por confirmar!</h2>
-        <p className="mt-2 text-[14px] leading-relaxed text-white/75">
+        <h2 className="inv3-serif mt-4 text-[28px] text-[#3d3a35]">¡Gracias por confirmar!</h2>
+        <p className="mt-2 text-[14px] leading-relaxed text-[#6b6459]">
           {enviado
             ? "Quedaste en la lista — nos vemos ahí."
             : "Lamentamos que no puedas venir. ¡Gracias por avisar!"}
@@ -386,12 +474,12 @@ function BloqueRsvp({
   return (
     <section
       data-reveal
-      className="mx-auto mt-14 w-full max-w-[440px] rounded-3xl border border-white/15 bg-white/[0.07] p-7 backdrop-blur-sm sm:p-8"
+      className="mx-auto mt-14 w-full max-w-[440px] rounded-3xl border border-[#e3d9c4] bg-[#fffdf8] p-7 shadow-[0_24px_60px_-36px_rgba(122,101,62,0.5)] sm:p-8"
     >
-      <h2 className="titulo text-center text-[clamp(24px,5vw,30px)] text-white">
+      <h2 className="inv3-serif text-center text-[clamp(26px,5.4vw,32px)] text-[#3d3a35]">
         ¿Nos acompañás?
       </h2>
-      <p className="mt-2 text-center text-[13px] text-white/65">
+      <p className="mt-2 text-center text-[13px] text-[#8a8378]">
         Confirmá tu asistencia acá mismo — toma menos de un minuto.
       </p>
 
@@ -432,8 +520,8 @@ function BloqueRsvp({
             onClick={() => setAsistira(true)}
             className={`rounded-xl border px-4 py-3 text-[14px] font-bold transition-colors ${
               asistira === true
-                ? "border-aventurea-orange bg-aventurea-orange text-white"
-                : "border-white/25 bg-white/5 text-white/80 hover:border-white/60"
+                ? "border-[#b08d57] bg-[#b08d57] text-white"
+                : "border-[#ddd2bc] bg-white text-[#6b6459] hover:border-[#b08d57]"
             }`}
           >
             Sí asistiré
@@ -444,8 +532,8 @@ function BloqueRsvp({
             onClick={() => setAsistira(false)}
             className={`rounded-xl border px-4 py-3 text-[14px] font-bold transition-colors ${
               asistira === false
-                ? "border-white bg-white text-[#16295e]"
-                : "border-white/25 bg-white/5 text-white/80 hover:border-white/60"
+                ? "border-[#3d3a35] bg-[#3d3a35] text-[#faf7f2]"
+                : "border-[#ddd2bc] bg-white text-[#6b6459] hover:border-[#3d3a35]"
             }`}
           >
             No podré ir
@@ -466,7 +554,7 @@ function BloqueRsvp({
                   id={`rsvp-${p.id}`}
                   value={respuestas[p.id] ?? ""}
                   onChange={(e) => responder(p.id, e.target.value)}
-                  className={`${inputCls} [&>option]:text-[#16295e]`}
+                  className={`${inputCls} [&>option]:text-[#3d3a35]`}
                 >
                   <option value="">Elegí una opción…</option>
                   {(p.opciones ?? []).map((o) => (
@@ -503,7 +591,7 @@ function BloqueRsvp({
         </div>
 
         {error && (
-          <p className="rounded-xl bg-red-500/15 px-4 py-2.5 text-[13px] font-semibold text-red-200">
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-semibold text-red-700">
             {error}
           </p>
         )}
@@ -512,7 +600,7 @@ function BloqueRsvp({
           type="button"
           disabled={pending}
           onClick={enviar}
-          className="rounded-xl bg-aventurea-orange px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-[#b08d57] px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-[#9a7847] disabled:opacity-60"
         >
           {pending ? "Enviando…" : "Enviar confirmación"}
         </button>
