@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verificarAccesoRancho } from "@/lib/auth";
+import { otorgarPuntosPorCita } from "@/lib/lealtad/citas";
 import type { HorarioSemana } from "@/app/citas/tipos";
 
 /**
@@ -176,6 +177,52 @@ export async function eliminarMiembroEquipo(
 
   refrescar(ranchoId);
   return {};
+}
+
+/**
+ * Marca la asistencia de una cita: cumplida o no asistió. Solo desde
+ * una cita confirmada (o corrigiendo entre esos dos estados) — nunca
+ * revive una cancelada ni toca una temporal.
+ *
+ * Si queda cumplida, el cliente gana los puntos del programa de
+ * lealtad del negocio — desacoplado: si la lealtad falla o no existe,
+ * la cita queda cumplida igual.
+ */
+export async function marcarAsistenciaCita(
+  ranchoId: string,
+  reservaId: string,
+  asistencia: "cumplida" | "no_asistio",
+): Promise<{ error?: string; puntosOtorgados?: number }> {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
+
+  const ahora = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("reservas")
+    .update(
+      asistencia === "cumplida"
+        ? { estado: "cumplida", cumplida_en: ahora, no_asistio_en: null }
+        : { estado: "no_asistio", no_asistio_en: ahora, cumplida_en: null },
+    )
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId)
+    .in("estado", ["confirmada", "cumplida", "no_asistio"])
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: "No se pudo actualizar la cita: " + error.message };
+  if (!data) {
+    return { error: "Esa cita no se puede marcar (¿está cancelada o todavía pendiente?)." };
+  }
+
+  let puntosOtorgados: number | undefined;
+  if (asistencia === "cumplida") {
+    const puntos = await otorgarPuntosPorCita(reservaId);
+    if (puntos.otorgado) puntosOtorgados = puntos.puntos;
+  }
+
+  refrescar(ranchoId);
+  return { puntosOtorgados };
 }
 
 /**

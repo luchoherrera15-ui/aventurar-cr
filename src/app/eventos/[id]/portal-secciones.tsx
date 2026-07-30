@@ -20,6 +20,7 @@ import {
   type Categoria,
 } from "@/app/mi-rancho/types";
 import GaleriaHeroFotos from "@/components/galeria-hero";
+import AmenidadesTabs from "./amenidades-tabs";
 
 /**
  * El texto de presentación (descripción larga). Antes iba encima de una
@@ -40,7 +41,7 @@ export function PresentacionSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[720px] px-7 text-center">
-        <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy after:block after:h-[1.5px] after:w-5 after:bg-aventurea-navy">
+        <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange after:block after:h-[1.5px] after:w-5 after:bg-aventurea-orange">
           {eyebrow}
         </p>
         <h2 className="titulo mt-3 text-[26px] text-aventurea-ink">{titulo}</h2>
@@ -103,7 +104,7 @@ export function ResumenSeccion({
             key={d.titulo}
             data-reveal
             style={{ "--reveal-delay": `${i * 80}ms` } as React.CSSProperties}
-            className="flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(16,26,44,0.15)]"
+            className="flex items-center gap-3.5 rounded-[24px] border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(16,26,44,0.15)]"
           >
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange [&_svg]:h-5 [&_svg]:w-5">
               {d.icono}
@@ -124,7 +125,15 @@ export function ResumenSeccion({
 }
 
 /** Lista de amenidades del lugar, agrupada como en el panel del dueño. */
-export function AmenidadesSeccion({ amenidades }: { amenidades: string[] }) {
+export function AmenidadesSeccion({
+  amenidades,
+  enColumna = false,
+}: {
+  amenidades: string[];
+  /** true = sin sección propia: vive dentro de la columna de contenido
+   * del portal (así la tarjeta de precio sticky la acompaña). */
+  enColumna?: boolean;
+}) {
   const grupos = AMENIDADES_GRUPOS.map((g) => ({
     titulo: g.titulo,
     items: g.items.filter((i) => amenidades.includes(i.id)),
@@ -142,44 +151,28 @@ export function AmenidadesSeccion({ amenidades }: { amenidades: string[] }) {
 
   if (grupos.length === 0) return null;
 
+  const contenido = (
+    <>
+      <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+        Lo que incluye
+      </p>
+      <h2 className={`titulo mt-2 text-aventurea-ink ${enColumna ? "text-[20px]" : "text-[28px]"}`}>
+        Amenidades del lugar
+      </h2>
+
+      {/* Los grupos van como tabs arriba y solo se abre el elegido:
+          la lista completa apilada hacía la sección eterna. */}
+      <div data-reveal className={enColumna ? "mt-5" : "mt-8"}>
+        <AmenidadesTabs grupos={grupos} enColumna={enColumna} />
+      </div>
+    </>
+  );
+
+  if (enColumna) return <div className="mt-10">{contenido}</div>;
+
   return (
     <section className="py-14">
-      <div className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
-          Lo que incluye
-        </p>
-        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
-          Amenidades del lugar
-        </h2>
-
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {grupos.map((g, gi) => (
-            <div
-              key={g.titulo}
-              data-reveal
-              style={{ "--reveal-delay": `${gi * 90}ms` } as React.CSSProperties}
-              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_1px_2px_rgba(16,26,44,0.04)]"
-            >
-              <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                {g.titulo}
-              </h3>
-              <ul className="flex flex-col gap-2">
-                {g.items.map((i) => (
-                  <li
-                    key={i.id}
-                    className="flex items-center gap-2.5 text-[13.5px] text-aventurea-ink"
-                  >
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-aventurea-green/15 text-aventurea-green">
-                      <IconCheck className="h-3 w-3" />
-                    </span>
-                    {i.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
+      <div className="mx-auto max-w-[1080px] px-7">{contenido}</div>
     </section>
   );
 }
@@ -227,7 +220,7 @@ export function DetallesSeccion({
               key={g.titulo}
               data-reveal
               style={{ "--reveal-delay": `${gi * 90}ms` } as React.CSSProperties}
-              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_1px_2px_rgba(16,26,44,0.04)]"
+              className="rounded-[24px] border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_1px_2px_rgba(16,26,44,0.04)]"
             >
               <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                 {g.titulo}
@@ -287,7 +280,7 @@ export function ResenasSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
           Reseñas
         </p>
         <h2 className="titulo mt-2 flex items-center gap-2.5 text-[28px] text-aventurea-ink">
@@ -302,7 +295,7 @@ export function ResenasSeccion({
           {resenas.map((r) => (
             <div
               key={r.id}
-              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5"
+              className="rounded-[24px] border border-aventurea-line bg-aventurea-surface p-5"
             >
               <div className="flex items-center gap-1" aria-label={`${r.calificacion} de 5`}>
                 {Array.from({ length: 5 }, (_, i) => (
@@ -390,7 +383,7 @@ export function CierreSeccion({
     "inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2 text-[12.5px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/25";
 
   return (
-    <section id="contacto" className="relative overflow-hidden">
+    <section id="contacto" className="bento mx-3 mb-8 sm:mx-5 xl:mx-auto xl:max-w-[1280px]">
       {/* La foto de fondo con un velo navy: las tarjetas de vidrio
           necesitan contraste constante, venga la foto que venga. */}
       {fotoFondo && (
@@ -580,7 +573,7 @@ export function MapaSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
           Ubicación
         </p>
         <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">A dónde vas</h2>
@@ -632,10 +625,10 @@ export function MapaSeccion({
   );
 }
 
-/** Contacto: el chat de la plataforma primero, redes y ubicación después. */
+/** Redes y ubicación del negocio (el chat vive en la tarjeta de
+ * Contacto de CierreSeccion — acá no se repite el botón). */
 export function ContactoSeccion({
   nombre,
-  chatHref,
   instagram,
   facebook,
   tiktok,
@@ -645,8 +638,6 @@ export function ContactoSeccion({
   waze,
 }: {
   nombre: string;
-  /** Ruta que abre (o retoma) el hilo de consulta con este negocio. */
-  chatHref: string;
   instagram: string | null;
   facebook: string | null;
   tiktok: string | null;
@@ -710,15 +701,8 @@ export function ContactoSeccion({
         )}
 
         <div className="mt-6 flex flex-wrap items-center gap-2.5">
-          {/* Todo pasa por el chat de la plataforma: la conversación
-              queda guardada, con notificaciones en la bandeja, y no se
-              pierde en un WhatsApp externo. */}
-          <a
-            href={chatHref}
-            className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
-          >
-            Preguntar por el chat
-          </a>
+          {/* El chat vive en la tarjeta de Contacto de al lado — acá
+              solo quedan las redes, sin repetir el botón. */}
           {redes.map((r) => (
             <a
               key={r.label}

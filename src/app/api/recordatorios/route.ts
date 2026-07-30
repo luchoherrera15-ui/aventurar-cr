@@ -4,9 +4,12 @@ import {
   enviarCorreo,
   plantillaFindeLibre,
   plantillaPedirResena,
+  plantillaRecordatorioCita,
   plantillaRecordatorioEvento,
 } from "@/lib/email";
+import { enviarPush } from "@/lib/push";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
+import { horaBonita } from "@/app/citas/tipos";
 
 /**
  * Los avisos diarios — lo dispara el cron de Vercel una vez al día
@@ -46,7 +49,7 @@ export async function GET(request: Request) {
   const { data, error } = await admin
     .from("reservas")
     .select(
-      "id, fecha, nombre, correo, tipo_evento, invitados, rancho_id, ranchos(nombre, owner_id)",
+      "id, fecha, hora_inicio, nombre, correo, tipo_evento, invitados, rancho_id, cliente_id, ranchos(nombre, owner_id)",
     )
     .eq("estado", "confirmada")
     .eq("fecha", manana)
@@ -59,11 +62,13 @@ export async function GET(request: Request) {
   type Fila = {
     id: string;
     fecha: string;
+    hora_inicio: string | null;
     nombre: string | null;
     correo: string | null;
     tipo_evento: string | null;
     invitados: number | null;
     rancho_id: string;
+    cliente_id: string | null;
     ranchos: { nombre: string; owner_id: string } | null;
   };
   const reservas = (data ?? []) as unknown as Fila[];
@@ -71,20 +76,35 @@ export async function GET(request: Request) {
   let enviados = 0;
   for (const r of reservas) {
     const nombreRancho = r.ranchos?.nombre ?? "tu evento";
+    // Solo las citas llevan hora_inicio — es el discriminador entre
+    // "mañana es tu cita a las 2:30" y "mañana es tu evento".
+    const esCita = r.hora_inicio !== null;
+    const hora = esCita ? horaBonita(r.hora_inicio!.slice(0, 5)) : null;
 
     // Al cliente, al correo que dejó en la reserva.
     if (r.correo) {
       await enviarCorreo({
         to: r.correo,
-        subject: `Mañana es tu evento en ${nombreRancho}`,
-        html: plantillaRecordatorioEvento({
-          nombreDestinatario: r.nombre || r.correo,
-          nombreRancho,
-          fecha: r.fecha,
-          esProveedor: false,
-          tipoEvento: r.tipo_evento,
-          invitados: r.invitados,
-        }),
+        subject: esCita
+          ? `Mañana es tu cita en ${nombreRancho}`
+          : `Mañana es tu evento en ${nombreRancho}`,
+        html: esCita
+          ? plantillaRecordatorioCita({
+              nombreDestinatario: r.nombre || r.correo,
+              nombreNegocio: nombreRancho,
+              fecha: r.fecha,
+              hora: hora!,
+              servicio: r.tipo_evento,
+              esProveedor: false,
+            })
+          : plantillaRecordatorioEvento({
+              nombreDestinatario: r.nombre || r.correo,
+              nombreRancho,
+              fecha: r.fecha,
+              esProveedor: false,
+              tipoEvento: r.tipo_evento,
+              invitados: r.invitados,
+            }),
       });
     }
 
@@ -98,18 +118,51 @@ export async function GET(request: Request) {
       if (perfil?.email) {
         await enviarCorreo({
           to: perfil.email,
-          subject: `Mañana tenés un evento en ${nombreRancho}`,
-          html: plantillaRecordatorioEvento({
-            nombreDestinatario: perfil.nombre || perfil.email,
-            nombreRancho,
-            fecha: r.fecha,
-            esProveedor: true,
-            tipoEvento: r.tipo_evento,
-            invitados: r.invitados,
-          }),
+          subject: esCita
+            ? `Mañana tenés una cita en ${nombreRancho}`
+            : `Mañana tenés un evento en ${nombreRancho}`,
+          html: esCita
+            ? plantillaRecordatorioCita({
+                nombreDestinatario: perfil.nombre || perfil.email,
+                nombreNegocio: nombreRancho,
+                fecha: r.fecha,
+                hora: hora!,
+                servicio: r.tipo_evento,
+                esProveedor: true,
+              })
+            : plantillaRecordatorioEvento({
+                nombreDestinatario: perfil.nombre || perfil.email,
+                nombreRancho,
+                fecha: r.fecha,
+                esProveedor: true,
+                tipoEvento: r.tipo_evento,
+                invitados: r.invitados,
+              }),
         });
       }
     }
+
+    // El push acompaña al correo — al teléfono de cada parte.
+    await enviarPush({
+      usuarios: [r.cliente_id],
+      titulo: esCita
+        ? `Mañana: tu cita en ${nombreRancho}`
+        : `Mañana: tu evento en ${nombreRancho}`,
+      cuerpo: esCita
+        ? `${r.tipo_evento ?? "Tu servicio"} a las ${hora}. Si no podés llegar, avisá por el chat.`
+        : "Todo listo para mañana. Cualquier duda, escribí por el chat.",
+      data: { url: "/?tab=reservas" },
+    });
+    await enviarPush({
+      usuarios: [r.ranchos?.owner_id],
+      titulo: esCita
+        ? `Mañana tenés una cita en ${nombreRancho}`
+        : `Mañana tenés un evento en ${nombreRancho}`,
+      cuerpo: esCita
+        ? `${r.nombre || "Un cliente"} — ${r.tipo_evento ?? "servicio"} a las ${hora}.`
+        : `${r.nombre || "Un cliente"}${r.invitados ? ` — ${r.invitados} invitados` : ""}. Revisá tu agenda.`,
+      data: { url: "/?tab=reservas" },
+    });
 
     await admin
       .from("reservas")

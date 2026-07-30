@@ -16,6 +16,7 @@ import {
   type RanchoBalance,
   type ReservaBalance,
 } from "./types";
+import { SECCION_CORTA, type SeccionAdmin } from "../vertical";
 
 function fmt(n: number) {
   return "₡" + Math.round(n).toLocaleString("es-CR");
@@ -57,11 +58,13 @@ export default function BalancePanel({
   ranchos,
   gastosIniciales,
   comisionInicial,
+  seccion = "todas",
 }: {
   reservas: ReservaBalance[];
   ranchos: RanchoBalance[];
   gastosIniciales: Gasto[];
   comisionInicial: number;
+  seccion?: SeccionAdmin;
 }) {
   const hoy = new Date();
   const hoyIso = hoy.toISOString().slice(0, 10);
@@ -117,11 +120,13 @@ export default function BalancePanel({
     [ranchoFiltro],
   );
 
-  // Ingresos por rancho, según el rango de fechas elegido.
+  // Ingresos por rancho, según el rango de fechas elegido. Para la
+  // proyección cada reserva cuenta al menos 1 persona: así las citas
+  // (que no llevan invitados) también entran en el cálculo.
   const porRancho = useMemo(() => {
     const acc = new Map<
       string,
-      { nombre: string; reservas: number; personas: number }
+      { nombre: string; reservas: number; personas: number; personasProy: number }
     >();
     reservas
       .filter((r) => enRango(r.fecha))
@@ -130,9 +135,11 @@ export default function BalancePanel({
         const key = r.rancho_id ?? "sin-rancho";
         const nombre =
           (r.rancho_id && nombrePorRancho.get(r.rancho_id)) ?? "Sin asignar";
-        const prev = acc.get(key) ?? { nombre, reservas: 0, personas: 0 };
+        const prev =
+          acc.get(key) ?? { nombre, reservas: 0, personas: 0, personasProy: 0 };
         prev.reservas += 1;
         prev.personas += r.invitados ?? 0;
+        prev.personasProy += Math.max(1, r.invitados ?? 1);
         acc.set(key, prev);
       });
     return [...acc.entries()]
@@ -140,7 +147,7 @@ export default function BalancePanel({
         id,
         ...v,
         comision: v.personas * comision,
-        comisionSimulada: v.personas * comisionSimulada,
+        comisionSimulada: v.personasProy * comisionSimulada,
         reservasPorSemana: v.reservas / rangoSemanas,
         promedioPorReserva: v.reservas > 0 ? (v.personas * comision) / v.reservas : 0,
       }))
@@ -148,9 +155,10 @@ export default function BalancePanel({
   }, [reservas, coincideRancho, enRango, comision, comisionSimulada, rangoSemanas, nombrePorRancho]);
 
   const totalPersonas = porRancho.reduce((a, r) => a + r.personas, 0);
+  const totalPersonasProy = porRancho.reduce((a, r) => a + r.personasProy, 0);
   const totalReservas = porRancho.reduce((a, r) => a + r.reservas, 0);
   const totalIngresos = totalPersonas * comision;
-  const totalIngresosSimulados = totalPersonas * comisionSimulada;
+  const totalIngresosSimulados = totalPersonasProy * comisionSimulada;
   const promedioPorReserva = totalReservas > 0 ? totalIngresos / totalReservas : 0;
 
   const maxBarra = Math.max(
@@ -158,19 +166,35 @@ export default function BalancePanel({
     ...porRancho.map((r) => (totalIngresos > 0 ? r.comision : r.personas)),
   );
 
+  // Los gastos de la sección activa; los generales (sin sección) solo
+  // cuentan en la vista "Todas" para no cargárselos a una sola vertical.
+  const esDeSeccion = useCallback(
+    (g: Gasto) => seccion === "todas" || g.vertical === seccion,
+    [seccion],
+  );
   const gastosFiltrados = useMemo(
-    () => gastos.filter((g) => enRango(g.fecha)),
-    [gastos, enRango],
+    () => gastos.filter((g) => enRango(g.fecha) && esDeSeccion(g)),
+    [gastos, enRango, esDeSeccion],
+  );
+  const gastosGenerales = useMemo(
+    () =>
+      seccion === "todas"
+        ? 0
+        : gastos
+            .filter((g) => enRango(g.fecha) && !g.vertical)
+            .reduce((a, g) => a + Number(g.monto), 0),
+    [gastos, enRango, seccion],
   );
   const totalGastos = gastosFiltrados.reduce((a, g) => a + Number(g.monto), 0);
   const neto = totalIngresos - totalGastos;
+  const netoProyectado = totalIngresosSimulados - totalGastos;
 
   // Periodo anterior (misma duración, inmediatamente antes) para comparar.
   const previo = useMemo(() => {
     const filtradas = reservas.filter((r) => enRangoPrevio(r.fecha) && coincideRancho(r));
     const personas = filtradas.reduce((a, r) => a + (r.invitados ?? 0), 0);
     const gastosPrevios = gastos
-      .filter((g) => enRangoPrevio(g.fecha))
+      .filter((g) => enRangoPrevio(g.fecha) && esDeSeccion(g))
       .reduce((a, g) => a + Number(g.monto), 0);
     const ingresos = personas * comision;
     return {
@@ -181,7 +205,7 @@ export default function BalancePanel({
       neto: ingresos - gastosPrevios,
       promedioPorReserva: filtradas.length > 0 ? ingresos / filtradas.length : 0,
     };
-  }, [reservas, gastos, enRangoPrevio, coincideRancho, comision]);
+  }, [reservas, gastos, enRangoPrevio, coincideRancho, comision, esDeSeccion]);
 
   function onGuardarComision() {
     setComisionMsg(null);
@@ -202,6 +226,7 @@ export default function BalancePanel({
       recurrencia: String(fd.get("recurrencia") || "unico"),
       fecha: String(fd.get("fecha") || ""),
       notas: null,
+      vertical: String(fd.get("vertical") || "") || null,
     };
     if (!nuevo.concepto || !nuevo.fecha) return;
 
@@ -245,7 +270,7 @@ export default function BalancePanel({
                   className={`rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
                     periodoActivo === p.key
                       ? "bg-aventurea-ink text-white"
-                      : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                      : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
                   }`}
                 >
                   {p.label}
@@ -254,13 +279,13 @@ export default function BalancePanel({
             </div>
           </div>
           <div>
-            <label className={labelCls}>Salón</label>
+            <label className={labelCls}>Negocio</label>
             <select
               value={ranchoFiltro}
               onChange={(e) => setRanchoFiltro(e.target.value)}
               className="rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink"
             >
-              <option value="todos">Todos los salones</option>
+              <option value="todos">Todos los negocios</option>
               {ranchos.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.nombre}
@@ -300,7 +325,7 @@ export default function BalancePanel({
 
       {/* Resumen ejecutivo */}
       <section>
-        <p className="mb-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="mb-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
           Resumen ejecutivo
         </p>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -345,19 +370,68 @@ export default function BalancePanel({
           />
         </div>
         {comision === 0 && (
-          <p className="mt-4 rounded-[10px] bg-aventurea-orange/10 p-3 text-[12.5px] text-aventurea-orange">
-            Ahora mismo la plataforma es gratis (₡0 por persona), así que los
-            ingresos por comisión aparecen en cero. Las reservas y personas sí
-            se están registrando con normalidad.
-          </p>
+          <div className="mt-4 rounded-2xl bg-aventurea-navy p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/60">
+                  Proyección — todavía no cobramos
+                </p>
+                <p className="mt-1 max-w-[64ch] text-[12.5px] leading-relaxed text-white/75">
+                  Lo que estaría dejando la plataforma con todas las reservas
+                  confirmadas de este periodo (cada cita cuenta como mínimo 1
+                  persona). Cuando empecemos a cobrar, este número pasa a ser
+                  el ingreso real de arriba.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-[12.5px] text-white/75">
+                ₡
+                <input
+                  type="number"
+                  min={0}
+                  value={comisionSimulada}
+                  onChange={(e) => setComisionSimulada(Number(e.target.value))}
+                  className="w-24 rounded-lg border border-white/25 bg-white/10 px-2.5 py-1.5 text-[13px] font-bold text-white"
+                />
+                por persona
+              </label>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-white/10 p-3.5">
+                <div className="text-xl font-bold tabular-nums text-white">
+                  {fmt(totalIngresosSimulados)}
+                </div>
+                <div className="mt-0.5 text-[10.5px] font-bold uppercase tracking-wide text-white/60">
+                  Ingresos proyectados
+                </div>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3.5">
+                <div
+                  className={`text-xl font-bold tabular-nums ${netoProyectado < 0 ? "text-red-300" : "text-white"}`}
+                >
+                  {fmt(netoProyectado)}
+                </div>
+                <div className="mt-0.5 text-[10.5px] font-bold uppercase tracking-wide text-white/60">
+                  Neto proyectado (menos gastos)
+                </div>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3.5">
+                <div className="text-xl font-bold tabular-nums text-white">
+                  {fmt(totalReservas > 0 ? totalIngresosSimulados / totalReservas : 0)}
+                </div>
+                <div className="mt-0.5 text-[10.5px] font-bold uppercase tracking-wide text-white/60">
+                  Promedio proyectado por reserva
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </section>
 
       {/* Ranking por rancho */}
       <section>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-            Ranking de salones
+          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
+            Ranking de negocios
           </p>
           <p className="text-[12px] text-aventurea-ink-soft">
             {totalIngresos > 0 ? "Por comisión generada" : "Por volumen de personas (comisión en ₡0)"}
@@ -380,7 +454,7 @@ export default function BalancePanel({
               return (
                 <div
                   key={r.id}
-                  className="rounded-xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-orange/40"
+                  className="rounded-xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy/40"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2.5">
@@ -402,7 +476,7 @@ export default function BalancePanel({
                   </div>
                   <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-aventurea-cream-2">
                     <div
-                      className="h-full rounded-full bg-aventurea-orange transition-[width] duration-300"
+                      className="h-full rounded-full bg-aventurea-navy transition-[width] duration-300"
                       style={{ width: `${barPct}%` }}
                     />
                   </div>
@@ -423,7 +497,7 @@ export default function BalancePanel({
 
       {/* Comisión */}
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
           Modelo de cobro
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -450,7 +524,7 @@ export default function BalancePanel({
             type="button"
             disabled={pending}
             onClick={onGuardarComision}
-            className="rounded-xl bg-aventurea-orange px-5 py-2 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            className="rounded-xl bg-aventurea-navy px-5 py-2 text-[13px] font-bold text-white hover:bg-aventurea-navy-2 disabled:opacity-60"
           >
             Guardar
           </button>
@@ -462,7 +536,7 @@ export default function BalancePanel({
         </div>
 
         <div className="mt-5 border-t border-dashed border-aventurea-line pt-4">
-          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-navy">
             Simulador — &quot;¿y si cobráramos X por persona?&quot;
           </label>
           <p className="mb-2.5 text-[12px] text-aventurea-ink-soft">
@@ -479,7 +553,7 @@ export default function BalancePanel({
               className="w-32 rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
             />
             <span className="text-[12.5px] text-aventurea-ink-soft">por persona →</span>
-            <span className="text-[14px] font-bold text-aventurea-orange">
+            <span className="text-[14px] font-bold text-aventurea-navy">
               {fmt(totalIngresosSimulados)} proyectados
             </span>
           </div>
@@ -490,13 +564,13 @@ export default function BalancePanel({
 
       {/* Gastos */}
       <section>
-        <p className="mb-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="mb-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
           Gastos de la plataforma
         </p>
 
         <form
           onSubmit={onAgregarGasto}
-          className="mb-4 grid grid-cols-1 items-end gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4.5 shadow-sm sm:grid-cols-3 lg:grid-cols-6"
+          className="mb-4 grid grid-cols-1 items-end gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4.5 shadow-sm sm:grid-cols-3 lg:grid-cols-7"
         >
           <div className="lg:col-span-2">
             <label className={labelCls}>Concepto</label>
@@ -510,6 +584,20 @@ export default function BalancePanel({
                   {CATEGORIA_LABEL[c]}
                 </option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Sección</label>
+            <select
+              name="vertical"
+              key={seccion}
+              defaultValue={seccion === "todas" ? "" : seccion}
+              className={inputCls}
+            >
+              <option value="">General</option>
+              <option value="citas">Agendas y citas</option>
+              <option value="eventos">Eventos</option>
+              <option value="hospedajes">Hospedajes</option>
             </select>
           </div>
           <div>
@@ -539,17 +627,25 @@ export default function BalancePanel({
           <button
             type="submit"
             disabled={pending}
-            className="h-[42px] rounded-xl bg-aventurea-orange px-5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60 lg:col-span-6 lg:w-fit"
+            className="h-[42px] rounded-xl bg-aventurea-navy px-5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2 disabled:opacity-60 lg:col-span-7 lg:w-fit"
           >
             ＋ Agregar gasto
           </button>
         </form>
 
+        {seccion !== "todas" && gastosGenerales > 0 && (
+          <p className="mb-4 rounded-[10px] bg-aventurea-cream-2 p-3 text-[12.5px] text-aventurea-ink-soft">
+            Además hay {fmt(gastosGenerales)} en gastos generales de la
+            plataforma en este periodo — esos se cuentan solo en la vista
+            &quot;Todas&quot;.
+          </p>
+        )}
+
         <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-aventurea-cream-2/60">
-                {["Concepto", "Categoría", "Recurrencia", "Fecha", "Monto", ""].map((h) => (
+                {["Concepto", "Categoría", "Sección", "Recurrencia", "Fecha", "Monto", ""].map((h) => (
                   <th
                     key={h}
                     className="whitespace-nowrap border-b border-aventurea-line px-4 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
@@ -562,7 +658,7 @@ export default function BalancePanel({
             <tbody>
               {gastosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-[13.5px] text-zinc-500">
+                  <td colSpan={7} className="px-4 py-10 text-center text-[13.5px] text-zinc-500">
                     No hay gastos registrados en este periodo.
                   </td>
                 </tr>
@@ -577,6 +673,9 @@ export default function BalancePanel({
                   </td>
                   <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
                     {CATEGORIA_LABEL[g.categoria] ?? g.categoria}
+                  </td>
+                  <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
+                    {g.vertical ? (SECCION_CORTA[g.vertical] ?? g.vertical) : "General"}
                   </td>
                   <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
                     {RECURRENCIA_LABEL[g.recurrencia] ?? g.recurrencia}
@@ -655,7 +754,7 @@ function KpiCard({
   return (
     <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-aventurea-navy/10 text-aventurea-navy">
           {icon}
         </span>
         <span

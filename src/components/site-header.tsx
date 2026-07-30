@@ -12,12 +12,16 @@ export default function SiteHeader({
   breadcrumb,
   ancho = "max-w-[1600px]",
   extra,
+  conPublicar = true,
 }: {
   /** Texto después de la barra, ej. "Eventos", "Rancho de Eventos". */
   breadcrumb?: string;
   ancho?: string;
   /** Nav propia de la página (links de ancla, "volver al directorio"...). */
   extra?: ReactNode;
+  /** false = sin el link "Publicá tu espacio" (páginas de proveedor,
+   * donde el header ya carga bastante; el link sigue en el menú). */
+  conPublicar?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-surface/90 backdrop-blur-sm">
@@ -45,12 +49,14 @@ export default function SiteHeader({
 
         <div className="flex shrink-0 items-center gap-3 sm:gap-5">
           {extra}
-          <Link
-            href="/publicar"
-            className="hidden whitespace-nowrap text-[13.5px] font-bold text-aventurea-ink hover:text-aventurea-navy sm:block"
-          >
-            Publicá tu espacio
-          </Link>
+          {conPublicar && (
+            <Link
+              href="/publicar"
+              className="hidden whitespace-nowrap text-[13.5px] font-bold text-aventurea-ink hover:text-aventurea-navy sm:block"
+            >
+              Publicá tu espacio
+            </Link>
+          )}
           <AccionesSesion />
         </div>
       </div>

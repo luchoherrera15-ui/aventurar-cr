@@ -18,6 +18,8 @@ export type Gasto = {
   recurrencia: string;
   fecha: string;
   notas: string | null;
+  /** Sección a la que pertenece el gasto; null = general de la plataforma. */
+  vertical?: string | null;
 };
 
 export const CATEGORIAS = [

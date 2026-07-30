@@ -25,15 +25,23 @@ export type NuevoGasto = {
   recurrencia: string;
   fecha: string;
   notas: string | null;
+  /** Sección del gasto; null = general de la plataforma. */
+  vertical: string | null;
 };
 
 export async function agregarGasto(gasto: NuevoGasto) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto.", id: null };
 
+  // La columna `vertical` llega con la migración 0065: mandarla solo
+  // cuando trae valor deja funcionando los gastos generales aunque la
+  // migración todavía no se haya corrido.
+  const { vertical, ...resto } = gasto;
+  const payload: Record<string, string | number | null> = { ...resto };
+  if (vertical) payload.vertical = vertical;
   const { data, error } = await supabase
     .from("gastos")
-    .insert(gasto)
+    .insert(payload)
     .select("id")
     .single();
 

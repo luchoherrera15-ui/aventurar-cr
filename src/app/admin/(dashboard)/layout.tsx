@@ -1,21 +1,24 @@
 import Link from "next/link";
 import { logout } from "./actions";
+import { seccionActiva } from "./vertical-server";
+import VerticalSwitcher from "./vertical-switcher";
 
 const NAV: [string, string][] = [
   ["/admin", "Inicio"],
   ["/admin/agenda", "Agenda"],
-  ["/admin/ranchos", "Salones"],
+  ["/admin/ranchos", "Negocios"],
   ["/admin/eventos", "Reservas"],
   ["/admin/balance", "Balance"],
   ["/admin/usuarios", "Cuentas"],
   ["/admin/eventos/precios", "Precios"],
 ];
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const seccion = await seccionActiva();
   return (
     <div className="min-h-screen bg-aventurea-cream">
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/95 backdrop-blur-sm">
@@ -50,6 +53,11 @@ export default function DashboardLayout({
               </button>
             </form>
           </nav>
+        </div>
+        <div className="border-t border-aventurea-line/60">
+          <div className="mx-auto max-w-[1600px] px-6 py-2 lg:px-10">
+            <VerticalSwitcher actual={seccion} />
+          </div>
         </div>
       </header>
       <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-10">{children}</div>

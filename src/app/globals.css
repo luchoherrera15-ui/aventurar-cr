@@ -245,3 +245,157 @@ body {
     animation: none;
   }
 }
+
+/* --- El modal de reserva (calendario de eventos) ----------------------
+   Entrada profesional y serena: el velo funde y el panel sube con una
+   curva suave tipo spring. Con movimiento reducido, aparece sin más. */
+@keyframes velo-entrar {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes panel-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.anim-velo-entrar {
+  animation: velo-entrar 0.22s ease-out both;
+}
+.anim-panel-entrar {
+  animation: panel-entrar 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* La piel de vidrio del modal: adentro, las superficies sólidas se
+   vuelven translúcidas para que el fondo de la página pase borroso a
+   través de TODA la agenda (el blur lo pone el panel). Los textos
+   siguen en la tinta y los acentos navy/naranja de la marca. */
+.modal-vidrio .bg-aventurea-surface,
+.modal-vidrio .bg-white {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+.modal-vidrio .bg-aventurea-cream-2 {
+  background-color: rgba(255, 255, 255, 0.26);
+}
+.modal-vidrio .bg-aventurea-cream {
+  background-color: transparent;
+}
+.modal-vidrio .border-aventurea-line {
+  border-color: rgba(22, 41, 94, 0.16);
+}
+/* El panel del formulario dentro del modal es SÓLIDO: el vidrio
+   translúcido marea cuando se están llenando datos. */
+.modal-vidrio .panel-solido,
+.modal-vidrio .panel-solido .bg-white,
+.modal-vidrio .panel-solido .bg-aventurea-surface {
+  background-color: #ffffff;
+}
+.modal-vidrio .panel-solido .bg-aventurea-cream-2 {
+  background-color: var(--color-aventurea-cream-2);
+}
+.modal-vidrio .panel-solido .border-aventurea-line {
+  border-color: var(--color-aventurea-line);
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-velo-entrar,
+  .anim-panel-entrar {
+    animation: none;
+  }
+}
+
+/* --- La línea de diseño "bento" (nacida en /lealtad y /publicar) ------
+   Bloques grandes de 32px de radio sobre el lienzo crema, con cuatro
+   pieles: navy (protagonista), naranja (acento), azul suave (secciones
+   de apoyo) y blanco con borde (contenido). Los botones son píldoras.
+   TODO el sitio usa estas piezas — no inventar variantes por página. */
+.bento {
+  border-radius: 32px;
+  overflow: hidden;
+  position: relative;
+}
+.bento-navy {
+  background-color: var(--color-aventurea-navy);
+  color: #fff;
+}
+.bento-naranja {
+  background-color: var(--color-aventurea-orange);
+  color: #fff;
+}
+.bento-azul {
+  background-color: var(--color-aventurea-blue-light);
+}
+.bento-blanco {
+  background-color: #fff;
+  border: 1px solid var(--color-aventurea-line);
+}
+/* El orbe difuminado de las esquinas de los bloques navy. */
+.bento-orbe {
+  pointer-events: none;
+  position: absolute;
+  height: 18rem;
+  width: 18rem;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--color-aventurea-navy-3) 60%, transparent);
+  filter: blur(40px);
+}
+/* Botones píldora de la marca. */
+.btn-naranja {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--color-aventurea-orange);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0.75rem 1.65rem;
+  transition: background-color 0.15s ease;
+}
+.btn-naranja:hover {
+  background-color: var(--color-aventurea-orange-dark);
+}
+.btn-blanco {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background-color: #fff;
+  color: var(--color-aventurea-navy);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0.75rem 1.65rem;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease;
+}
+.btn-blanco:hover {
+  background-color: var(--color-aventurea-cream-2);
+}
+.btn-contorno {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-aventurea-navy);
+  color: var(--color-aventurea-navy);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0.72rem 1.65rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.btn-contorno:hover {
+  background-color: var(--color-aventurea-navy);
+  color: #fff;
+}

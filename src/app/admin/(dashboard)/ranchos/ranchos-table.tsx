@@ -9,6 +9,12 @@ import {
   setEstadoRancho,
 } from "./actions";
 import { CATEGORIA_LABEL, type EstadoRancho, type Rancho } from "@/app/mi-rancho/types";
+import {
+  SECCION_BADGE,
+  SECCION_CORTA,
+  verticalDeRancho,
+  type SeccionAdmin,
+} from "../vertical";
 
 export type RanchoConDueno = Rancho & { duenoEmail: string | null };
 
@@ -31,9 +37,13 @@ function fmtColones(n: number | null) {
 
 export default function RanchosTable({
   initialRanchos,
+  seccion = "todas",
 }: {
   initialRanchos: RanchoConDueno[];
+  seccion?: SeccionAdmin;
 }) {
+  // Con una sección elegida la columna sobra: todos son de la misma.
+  const mostrarSeccion = seccion === "todas";
   const [ranchos, setRanchos] = useState(initialRanchos);
   const [query, setQuery] = useState("");
   const [filtro, setFiltro] = useState("todos");
@@ -193,6 +203,7 @@ export default function RanchosTable({
               {[
                 "Destacado",
                 "Nombre",
+                ...(mostrarSeccion ? ["Sección"] : []),
                 "Categoría",
                 "Dueño",
                 "Ubicación",
@@ -214,10 +225,10 @@ export default function RanchosTable({
             {list.length === 0 && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={mostrarSeccion ? 10 : 9}
                   className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
-                  No hay salones que coincidan con la búsqueda.
+                  No hay negocios que coincidan con la búsqueda.
                 </td>
               </tr>
             )}
@@ -280,6 +291,15 @@ export default function RanchosTable({
                     </div>
                   )}
                 </td>
+                {mostrarSeccion && (
+                  <td className="whitespace-nowrap px-4 py-3.5">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${SECCION_BADGE[verticalDeRancho(r.vertical)]}`}
+                    >
+                      {SECCION_CORTA[verticalDeRancho(r.vertical)]}
+                    </span>
+                  </td>
+                )}
                 <td className="whitespace-nowrap px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
                   {CATEGORIA_LABEL[r.categoria] ?? r.categoria}
                 </td>

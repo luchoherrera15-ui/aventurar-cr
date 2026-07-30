@@ -26,7 +26,7 @@ export default async function ReservarCitaPage({
 
   let { data } = await supabase
     .from("ranchos")
-    .select("id, nombre, slug, detalles")
+    .select("id, nombre, slug, detalles, foto_url, canton, provincia")
     .eq("slug", slug)
     .eq("vertical", "citas")
     .eq("estado", "aprobado")
@@ -34,7 +34,7 @@ export default async function ReservarCitaPage({
   if (!data && /^[0-9a-f-]{36}$/.test(slug)) {
     ({ data } = await supabase
       .from("ranchos")
-      .select("id, nombre, slug, detalles")
+      .select("id, nombre, slug, detalles, foto_url, canton, provincia")
       .eq("id", slug)
       .eq("vertical", "citas")
       .eq("estado", "aprobado")
@@ -42,51 +42,66 @@ export default async function ReservarCitaPage({
   }
   if (!data) notFound();
 
-  const [{ data: itemsData }, { data: equipoData }, { data: perfil }] = await Promise.all([
-    supabase
-      .from("rancho_items")
-      .select("id, nombre, precio, duracion_minutos, grupo")
-      .eq("rancho_id", data.id)
-      .eq("activo", true)
-      .order("orden", { ascending: true }),
-    supabase
-      .from("equipo_rancho")
-      .select("id, nombre, rol, foto_url")
-      .eq("rancho_id", data.id)
-      .eq("activo", true)
-      .order("orden", { ascending: true }),
-    user
-      ? supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  const [{ data: itemsData }, { data: equipoData }, { data: califData }, { data: perfil }] =
+    await Promise.all([
+      supabase
+        .from("rancho_items")
+        .select("id, nombre, precio, duracion_minutos, grupo")
+        .eq("rancho_id", data.id)
+        .eq("activo", true)
+        .order("orden", { ascending: true }),
+      supabase
+        .from("equipo_rancho")
+        .select("id, nombre, rol, foto_url")
+        .eq("rancho_id", data.id)
+        .eq("activo", true)
+        .order("orden", { ascending: true }),
+      supabase
+        .from("calificaciones_rancho")
+        .select("promedio, total")
+        .eq("rancho_id", data.id)
+        .maybeSingle(),
+      user
+        ? supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
   const rutaBase = `/citas/${data.slug ?? data.id}`;
+  const calif = califData as { promedio: number; total: number } | null;
+  const ubicacion = [data.canton, data.provincia].filter(Boolean).join(", ");
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(175deg,#ffffff_0%,#f3fbfa_38%,#e9f6f5_100%)]">
+    <div className="min-h-screen bg-[linear-gradient(175deg,#ffffff_0%,#f5f8fd_38%,#e9f0fb_100%)]">
       <SiteHeader breadcrumb="Reservar cita" />
-      <section className="mx-auto max-w-[680px] px-6 py-8">
+      <section className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6">
         <Link
           href={rutaBase}
-          className="text-[13px] font-bold text-aventurea-ink-soft hover:text-[#1f7a74]"
+          className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy"
         >
           ← {data.nombre}
         </Link>
-        <h1 className="mt-2 text-[clamp(22px,3vw,28px)] font-black tracking-[-0.5px] text-aventurea-ink">
-          Reservá tu cita
-        </h1>
 
-        <ReservarCita
-          ranchoId={data.id}
-          rutaBase={rutaBase}
-          nombreNegocio={data.nombre}
-          items={(itemsData ?? []) as never}
-          equipo={(equipoData ?? []) as never}
-          horario={horarioDeDetalles(data.detalles)}
-          sesionActiva={!!user}
-          nombreInicial={perfil?.nombre ?? ""}
-          servicioInicial={servicio ?? null}
-        />
+        {/* La misma agenda del modal, en su tarjeta: esta ruta queda
+            para enlaces directos (correos, compartir). */}
+        <div className="mt-4 overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_20px_60px_-30px_rgba(22,41,94,0.4)]">
+          <ReservarCita
+            ranchoId={data.id}
+            rutaBase={rutaBase}
+            nombreNegocio={data.nombre}
+            items={(itemsData ?? []) as never}
+            equipo={(equipoData ?? []) as never}
+            horario={horarioDeDetalles(data.detalles)}
+            sesionActiva={!!user}
+            nombreInicial={perfil?.nombre ?? ""}
+            servicioInicial={servicio ?? null}
+            resumen={{
+              fotoUrl: data.foto_url,
+              promedio: calif?.promedio ?? null,
+              totalResenas: calif?.total ?? null,
+              ubicacion: ubicacion || null,
+            }}
+          />
+        </div>
       </section>
     </div>
   );

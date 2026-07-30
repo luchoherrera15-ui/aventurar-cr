@@ -1,6 +1,9 @@
 "use server";
 
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { notificarMensajeNuevo } from "@/lib/notificaciones-mensaje";
+import { responderConAsistente } from "@/lib/asistente-ia";
 import type { Mensaje } from "@/app/mi-rancho/types";
 
 // Devuelve la fila insertada para que el chat la pinte de una, sin
@@ -31,6 +34,20 @@ export async function enviarMensaje(
   if (error || !data) {
     return { error: "No se pudo enviar el mensaje. Intentá de nuevo." };
   }
+
+  // El push al otro participante sale después de responder — after()
+  // corre cuando la respuesta ya se mandó, así el chat no espera. El
+  // asistente de IA (piloto, apagado sin llave) contesta por la misma
+  // vía: el cliente ve la respuesta llegar por Realtime.
+  after(async () => {
+    // Independientes a propósito: si el aviso por correo falla, la
+    // respuesta del asistente sale igual (y al revés).
+    await notificarMensajeNuevo(data.id).catch((e) => {
+      console.error("[mensajes] Falló el aviso del mensaje:", e);
+    });
+    await responderConAsistente(data.id);
+  });
+
   return { error: null, mensaje: data as Mensaje };
 }
 

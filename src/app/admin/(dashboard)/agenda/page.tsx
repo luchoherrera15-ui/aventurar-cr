@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import AgendaEventos, { type EventoAgenda } from "@/components/agenda-eventos";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
+import { perteneceASeccion } from "../vertical";
+import { seccionActiva } from "../vertical-server";
 
 type ReservaAgenda = {
   id: string;
@@ -21,6 +23,7 @@ type ReservaAgenda = {
  */
 export default async function AdminAgendaPage() {
   const supabase = await createClient();
+  const seccion = await seccionActiva();
   const hoy = hoyISOCR();
 
   const [{ data, error }, ranchosRes] = await Promise.all([
@@ -30,14 +33,19 @@ export default async function AdminAgendaPage() {
       .gte("fecha", hoy)
       .in("estado", ["pendiente", "confirmada"])
       .order("fecha", { ascending: true }),
-    supabase.from("ranchos").select("id, nombre"),
+    supabase.from("ranchos").select("id, nombre, vertical"),
   ]);
 
   const nombrePorRancho = new Map(
     (ranchosRes.data ?? []).map((r) => [r.id as string, r.nombre as string]),
   );
+  const verticalPorRancho = new Map(
+    (ranchosRes.data ?? []).map((r) => [r.id as string, r.vertical as string | null]),
+  );
 
-  const eventos: EventoAgenda[] = ((data ?? []) as ReservaAgenda[]).map((r) => ({
+  const eventos: EventoAgenda[] = ((data ?? []) as ReservaAgenda[])
+    .filter((r) => perteneceASeccion(verticalPorRancho.get(r.rancho_id), seccion))
+    .map((r) => ({
     id: r.id,
     fecha: r.fecha,
     nombre: r.nombre,

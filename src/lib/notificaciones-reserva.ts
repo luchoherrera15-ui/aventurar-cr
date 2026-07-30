@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fmtFechaCorta } from "@/lib/fechas";
+import { enviarPush } from "@/lib/push";
 import {
+  enlacesCalendario,
   enviarCorreo,
   plantillaConfirmacionReserva,
   plantillaReservaAprobada,
@@ -35,7 +37,15 @@ type FilaReserva = {
   deposito_monto: number | null;
   monto_total: number | null;
   rancho_id: string | null;
-  ranchos: { nombre: string; owner_id: string } | null;
+  cliente_id: string | null;
+  ranchos: {
+    nombre: string;
+    owner_id: string;
+    /** Solo las consultas que los piden los traen. */
+    direccion_exacta?: string | null;
+    canton?: string | null;
+    provincia?: string | null;
+  } | null;
 };
 
 /**
@@ -89,7 +99,7 @@ export async function notificarReservaCompletada(
 
     const { data, error } = await consulta
       .select(
-        "id, fecha, nombre, correo, tipo_evento, invitados, deposito_monto, monto_total, rancho_id, ranchos(nombre, owner_id)",
+        "id, fecha, nombre, correo, tipo_evento, invitados, deposito_monto, monto_total, rancho_id, cliente_id, ranchos(nombre, owner_id)",
       )
       .maybeSingle();
 
@@ -150,6 +160,22 @@ export async function notificarReservaCompletada(
       }
     }
 
+    // El push acompaña al correo: al dueño le suena el teléfono con la
+    // reserva nueva, y al cliente (si reservó con cuenta) le queda el
+    // aviso de "recibida". La misma bandera de arriba evita repetidos.
+    await enviarPush({
+      usuarios: [reserva.ranchos?.owner_id],
+      titulo: `Nueva reserva en ${nombreRancho}`,
+      cuerpo: `${reserva.nombre || "Un cliente"} reservó el ${fmtFechaCorta(reserva.fecha)} — revisá el comprobante.`,
+      data: { url: "/?tab=reservas" },
+    });
+    await enviarPush({
+      usuarios: [reserva.cliente_id],
+      titulo: "Recibimos tu reserva",
+      cuerpo: `${nombreRancho} — ${fmtFechaCorta(reserva.fecha)}. Te avisamos en cuanto el negocio la confirme.`,
+      data: { url: "/?tab=reservas" },
+    });
+
     return { notificada: true };
   } catch (err) {
     // enviarCorreo ya se traga sus propios errores, pero una caída de
@@ -197,7 +223,7 @@ export async function notificarReservaAprobada(
       .eq("estado", "confirmada")
       .eq("aprobacion_enviada", false)
       .select(
-        "id, fecha, nombre, correo, tipo_evento, invitados, deposito_monto, monto_total, rancho_id, ranchos(nombre, owner_id)",
+        "id, fecha, nombre, correo, tipo_evento, invitados, deposito_monto, monto_total, rancho_id, cliente_id, ranchos(nombre, owner_id, direccion_exacta, canton, provincia)",
       )
       .maybeSingle();
 
@@ -225,7 +251,31 @@ export async function notificarReservaAprobada(
         tipoEvento: reserva.tipo_evento,
         invitados: reserva.invitados,
         montoPendiente: Math.max(0, Number(reserva.monto_total ?? 0) - deposito),
+        // "Guardar en mi calendario": evento de día completo.
+        calendario: enlacesCalendario({
+          reservaId: reserva.id,
+          titulo: `${reserva.tipo_evento ?? "Evento"} en ${nombreRancho}`,
+          fecha: reserva.fecha,
+          horaInicio: null,
+          duracionMinutos: 0,
+          ubicacion:
+            [
+              reserva.ranchos?.direccion_exacta,
+              reserva.ranchos?.canton,
+              reserva.ranchos?.provincia,
+            ]
+              .filter(Boolean)
+              .join(", ") || null,
+        }),
       }),
+    });
+
+    // Y al teléfono, si reservó con cuenta y tiene la app.
+    await enviarPush({
+      usuarios: [reserva.cliente_id],
+      titulo: "¡Tu reserva quedó confirmada!",
+      cuerpo: `${nombreRancho} te confirmó el ${fmtFechaCorta(reserva.fecha)}.`,
+      data: { url: "/?tab=reservas" },
     });
 
     return { notificada: true };

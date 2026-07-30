@@ -5,7 +5,14 @@ import { useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /** Con `href` la pestaña es un link a otra pantalla (sin contenido acá). */
-export type Tab = { id: string; label: string; content?: ReactNode; href?: string };
+export type Tab = {
+  id: string;
+  label: string;
+  content?: ReactNode;
+  href?: string;
+  /** Contador chiquito al lado del label (ej. reservas por aprobar). */
+  badge?: number;
+};
 
 /**
  * Todas las pestañas quedan montadas (solo se ocultan con `hidden`), no
@@ -41,30 +48,47 @@ export default function Tabs({ tabs, defaultTab }: { tabs: Tab[]; defaultTab: st
     router.replace(`?${params.toString()}`, { scroll: false });
   }
 
+  // Píldoras en vez de subrayado: son la única navegación del panel
+  // (los accesos rápidos duplicados se fueron) y se ven como botones
+  // de verdad — la activa en navy, el resto en blanco con borde.
+  const pillBase =
+    "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-[13px] font-bold transition-colors";
+  const pillInactiva =
+    "border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy";
+
+  const badgeDe = (t: Tab, activa: boolean) =>
+    t.badge && t.badge > 0 ? (
+      <span
+        className={`rounded-full px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none ${
+          activa ? "bg-white/25 text-white" : "bg-aventurea-orange text-white"
+        }`}
+      >
+        {t.badge}
+      </span>
+    ) : null;
+
   return (
     <div>
-      <div className="-mx-5 flex gap-1 overflow-x-auto border-b border-aventurea-line px-5 sm:mx-0 sm:px-0">
+      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 py-1 sm:mx-0 sm:px-0">
         {tabs.map((t) =>
           t.href ? (
-            <Link
-              key={t.id}
-              href={t.href}
-              className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-ink"
-            >
+            <Link key={t.id} href={t.href} className={`${pillBase} ${pillInactiva}`}>
               {t.label}
+              {badgeDe(t, false)}
             </Link>
           ) : (
             <button
               key={t.id}
               type="button"
               onClick={() => cambiar(t.id)}
-              className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-[13.5px] font-bold transition-colors ${
+              className={`${pillBase} ${
                 activo === t.id
-                  ? "border-aventurea-navy text-aventurea-navy"
-                  : "border-transparent text-aventurea-ink-soft hover:text-aventurea-ink"
+                  ? "border-aventurea-navy bg-aventurea-navy text-white shadow-sm"
+                  : pillInactiva
               }`}
             >
               {t.label}
+              {badgeDe(t, activo === t.id)}
             </button>
           ),
         )}

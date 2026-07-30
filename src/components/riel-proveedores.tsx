@@ -8,7 +8,8 @@ import type { Rancho } from "@/app/mi-rancho/types";
 
 // En móvil se ven ~2 tarjetas completas más un asomo de la tercera,
 // que es justo lo que invita a deslizar (45vw ronda eso en 360-430px).
-const ANCHO_TARJETA = "clamp(158px, 45vw, 240px)";
+// Más anchas a pedido: la foto manda y el bloque blanco es compacto.
+const ANCHO_TARJETA = "clamp(240px, 70vw, 330px)";
 
 /**
  * Fila horizontal con scroll-snap — la unidad básica del home (Fase 5).

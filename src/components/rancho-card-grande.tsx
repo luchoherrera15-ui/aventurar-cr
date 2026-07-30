@@ -62,13 +62,11 @@ export default function RanchoCardGrande({
   // eslint-disable-next-line react-hooks/purity -- "nuevo" es una etiqueta de vitrina; no pasa nada si queda desactualizada un instante entre renders
   const esNuevo = Date.now() - new Date(rancho.created_at).getTime() < 1000 * 60 * 60 * 24 * 30;
 
-  // El collage: portada + hasta 2 miniaturas, sin repetir la portada.
+  // Una sola foto de portada, como la card de Citas — el collage se
+  // fue: el diseño de card es el mismo en todas las verticales.
   const portada = rancho.foto_url ?? rancho.fotos[0] ?? null;
-  const secundarias = rancho.fotos.filter((f) => f !== portada).slice(0, 2);
-  const fotosExtra = Math.max(
-    0,
-    rancho.fotos.filter((f) => f !== portada).length - 2,
-  );
+  const fotosExtra = Math.max(0, rancho.fotos.filter((f) => f !== portada).length);
+  const esDemo = !!rancho.slug?.startsWith("demo-");
 
   const rubro = rancho.subcategoria
     ? SUBCATEGORIA_LABEL[rancho.subcategoria]
@@ -82,77 +80,77 @@ export default function RanchoCardGrande({
     >
       <Link
         href={href}
-        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-[0_12px_32px_rgba(16,26,44,0.14)]"
+        className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-aventurea-line bg-aventurea-surface shadow-[0_10px_36px_-20px_rgba(16,26,44,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(16,26,44,0.4)]"
       >
-        {/* ---------- Collage de fotos ---------- */}
-        <div className="relative h-[210px]">
-          <div
-            className={`grid h-full gap-1 ${secundarias.length > 0 ? "grid-cols-3" : "grid-cols-1"}`}
-          >
-            <div
-              className={`relative overflow-hidden ${secundarias.length > 0 ? "col-span-2" : ""}`}
-              style={
-                !portada
-                  ? { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
-                  : undefined
-              }
-            >
-              {portada ? (
-                // eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor, sin dominio fijo para next/image
-                <img
-                  src={portada}
-                  alt={rancho.nombre}
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-              ) : (
-                <span className="absolute inset-0 flex items-center justify-center text-white/25 [&_svg]:h-12 [&_svg]:w-12">
-                  {CATEGORIA_ICONO[rancho.categoria]}
-                </span>
-              )}
-              {fotosExtra > 0 && (
-                <span className="absolute bottom-2 right-2 rounded-md bg-aventurea-navy/85 px-2 py-1 text-[11px] font-bold text-white">
-                  +{fotosExtra} fotos
-                </span>
-              )}
-            </div>
-            {secundarias.length > 0 && (
-              <div className="grid grid-rows-2 gap-1">
-                {secundarias.map((f) => (
-                  <div key={f} className="relative overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor */}
-                    <img
-                      src={f}
-                      alt=""
-                      loading="lazy"
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  </div>
-                ))}
-                {secundarias.length === 1 && (
-                  <div style={{ backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }} />
-                )}
-              </div>
-            )}
-          </div>
-
-          {rancho.destacado_orden != null ? (
-            <span className="absolute left-2.5 top-2.5 rounded-full bg-aventurea-orange px-2.5 py-1 text-[11px] font-bold text-white shadow-[0_2px_7px_rgba(0,0,0,.2)]">
-              ★ Destacado
+        {/* ---------- Foto con sus insignias ---------- */}
+        <div
+          className="relative aspect-[16/10] overflow-hidden"
+          style={
+            !portada
+              ? { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
+              : undefined
+          }
+        >
+          {portada ? (
+            // eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor, sin dominio fijo para next/image
+            <img
+              src={portada}
+              alt={rancho.nombre}
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <span className="absolute inset-0 flex items-center justify-center text-white/25 [&_svg]:h-12 [&_svg]:w-12">
+              {CATEGORIA_ICONO[rancho.categoria]}
             </span>
-          ) : esNuevo && (
-            <span className="absolute left-2.5 top-2.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-aventurea-ink shadow-[0_2px_7px_rgba(0,0,0,.16)]">
-              Nuevo
+          )}
+
+          {/* El rubro, como la categoría en Citas. */}
+          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
+            {rubro}
+          </span>
+
+          <span className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
+            {esDemo && (
+              <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
+                Demo
+              </span>
+            )}
+            {rancho.destacado_orden != null ? (
+              <span className="rounded-full bg-aventurea-orange px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
+                ★ Destacado
+              </span>
+            ) : (
+              esNuevo && (
+                <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink backdrop-blur">
+                  Nuevo
+                </span>
+              )
+            )}
+          </span>
+
+          {fotosExtra > 0 && (
+            <span className="absolute bottom-2.5 right-2.5 rounded-md bg-aventurea-navy/85 px-2 py-1 text-[11px] font-bold text-white">
+              +{fotosExtra} fotos
             </span>
           )}
         </div>
 
-        {/* ---------- La info, con aire ---------- */}
+        {/* ---------- Cuerpo, igual que la card de Citas ---------- */}
         <div className="flex flex-1 flex-col p-4">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-[16.5px] font-bold leading-snug tracking-tight text-aventurea-navy">
+            <h3 className="flex-1 text-[15px] font-extrabold leading-snug text-aventurea-ink">
               {rancho.nombre}
             </h3>
+            {calificacion && (
+              <span className="flex shrink-0 items-center gap-1 pt-0.5 text-[12.5px] font-bold text-aventurea-ink">
+                <IconStar className="h-3.5 w-3.5 text-aventurea-orange" />
+                {calificacion.promedio.toFixed(1).replace(".", ",")}
+                <span className="font-semibold text-aventurea-ink-soft">
+                  ({calificacion.total})
+                </span>
+              </span>
+            )}
             <CorazonFavorito
               ranchoId={rancho.id}
               inicial={favoritoInicial}
@@ -160,64 +158,21 @@ export default function RanchoCardGrande({
             />
           </div>
 
-          {calificacion ? (
-            <p className="mt-1 flex items-center gap-1.5 text-[13px] text-aventurea-ink">
-              <IconStar className="h-3.5 w-3.5 text-aventurea-orange" />
-              <span className="font-bold">
-                {calificacion.promedio.toFixed(2).replace(".", ",")}
-              </span>
-              <span className="text-aventurea-ink-soft">
-                ({calificacion.total} reseña{calificacion.total === 1 ? "" : "s"}{" "}
-                verificada{calificacion.total === 1 ? "" : "s"})
-              </span>
-            </p>
-          ) : (
-            <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-              Sin reseñas todavía
+          {ubicacion && (
+            <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-aventurea-ink-soft">
+              <IconPin className="h-3.5 w-3.5 shrink-0 text-aventurea-orange" /> {ubicacion}
             </p>
           )}
 
-          <div className="my-3 h-px bg-aventurea-line" />
-
-          <div className="flex flex-col gap-1.5 text-[13px] text-aventurea-ink">
-            {ubicacion && (
-              <p className="flex items-center gap-2">
-                <IconPin className="h-3.5 w-3.5 shrink-0 text-aventurea-orange" />
-                {ubicacion}
-              </p>
-            )}
-            <p className="flex items-center gap-2">
-              <span className="text-aventurea-orange [&_svg]:h-3.5 [&_svg]:w-3.5">
-                {CATEGORIA_ICONO[rancho.categoria]}
-              </span>
-              {rubro}
-            </p>
-            <p className="flex items-center gap-2">
-              <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[11px] font-bold text-aventurea-orange">
-                ₡
-              </span>
-              {precio ? (
-                <>
-                  <span className="font-bold">{precio}</span>
-                  <span className="text-aventurea-ink-soft">
-                    {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}
-                  </span>
-                </>
-              ) : (
-                <span className="text-aventurea-ink-soft">Precio a consultar</span>
-              )}
-            </p>
-          </div>
-
           {resena && (
-            <p className="mt-3 line-clamp-2 border-l-2 border-aventurea-orange/40 pl-2.5 text-[12.5px] italic leading-relaxed text-aventurea-ink-soft">
+            <p className="mt-2.5 line-clamp-2 border-l-2 border-aventurea-orange/40 pl-2.5 text-[12.5px] italic leading-relaxed text-aventurea-ink-soft">
               “{resena}” — Cliente verificado
             </p>
           )}
 
           {rancho.categoria === "lugares" && proximaLibre !== undefined && (
             <span
-              className={`mt-3 inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-bold ${
+              className={`mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-bold ${
                 proximaLibre
                   ? "border-aventurea-navy text-aventurea-navy"
                   : "border-aventurea-line text-zinc-500"
@@ -235,11 +190,22 @@ export default function RanchoCardGrande({
             </span>
           )}
 
-          <span className="mt-auto block pt-4">
-            <span className="flex h-11 items-center justify-center rounded-xl bg-aventurea-orange text-[13.5px] font-bold text-white transition-colors group-hover:bg-aventurea-orange-dark">
-              {rancho.categoria === "lugares" ? "Reservar fecha" : "Ver y reservar"}
+          {/* Pie: precio a la izquierda, la acción a la derecha. */}
+          <div className="mt-auto flex items-center justify-between border-t border-aventurea-line/70 pt-3">
+            <span className="text-[12.5px] text-aventurea-ink-soft">
+              {precio ? (
+                <>
+                  Desde <strong className="font-extrabold text-aventurea-ink">{precio}</strong>
+                  <span className="hidden sm:inline"> {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}</span>
+                </>
+              ) : (
+                "Precio a consultar"
+              )}
             </span>
-          </span>
+            <span className="text-[13px] font-extrabold text-aventurea-orange">
+              {rancho.categoria === "lugares" ? "Reservar fecha →" : "Reservar →"}
+            </span>
+          </div>
         </div>
       </Link>
     </article>

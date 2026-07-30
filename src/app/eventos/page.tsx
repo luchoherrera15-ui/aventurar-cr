@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
+import SelectorVertical from "@/components/selector-vertical";
 import { normalizarCategoria } from "../mi-rancho/types";
 import type { Rancho } from "../mi-rancho/types";
 
@@ -86,25 +87,19 @@ export default async function EventosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-aventurea-cream">
+    // El lienzo crema de la línea bento (/lealtad): los bloques de
+    // color se recortan encima.
+    <div className="min-h-screen overflow-x-clip bg-aventurea-cream-2">
       <SiteHeader breadcrumb="Eventos" />
 
-      <section className="py-8 pb-16">
-        <div className="mx-auto max-w-[1600px] px-6 lg:px-10">
-          {/* Hero centrado: una sola columna vertebral — kicker, título,
-              frase de valor y (justo debajo, dentro del Directorio) el
-              buscador. Un eje, no tres. */}
-          <div className="mb-2 pt-4 text-center">
-            <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange after:block after:h-[1.5px] after:w-5 after:bg-aventurea-orange">
-              Directorio nacional
-            </p>
-            <h1 className="titulo mt-3 text-[38px] text-aventurea-ink sm:text-[52px]">
-              Todo para tu evento
-            </h1>
-            <p className="mx-auto mt-3.5 max-w-[46ch] text-balance text-[15px] leading-relaxed text-aventurea-ink-soft sm:text-[16.5px]">
-              Lugares, comida, música y todo lo demás — compará opciones
-              reales y reservá directo, sin cadenas de WhatsApp.
-            </p>
+      <section className="pb-16 pt-4">
+        <div className="mx-auto max-w-[1600px] px-4 lg:px-6">
+          {/* Sin hero: solo el conmutador de verticales y (abajo, dentro
+              del Directorio) el buscador — todo el espacio es para las
+              cards. El h1 queda para lectores de pantalla y SEO. */}
+          <h1 className="sr-only">Todo para tu evento — directorio nacional</h1>
+          <div className="mb-4">
+            <SelectorVertical activo="eventos" />
           </div>
 
           <Directorio

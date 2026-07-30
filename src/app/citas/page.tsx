@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
-import { IconClock, IconPin, IconStar } from "@/components/icons";
+import SelectorVertical from "@/components/selector-vertical";
+import { IconClock, IconPin, IconSearch, IconStar } from "@/components/icons";
 import {
   CATEGORIAS_CITAS,
   CATEGORIA_CITA_LABEL,
@@ -23,12 +24,21 @@ type Calificacion = { rancho_id: string; promedio: number; total: number };
  * esqueleto que el de eventos pero con la estética celeste de esta
  * vertical y categorías propias (belleza, barbería, uñas, spa...).
  */
+/** Para buscar sin pelear con tildes: "peluquería" encuentra "peluqueria". */
+function normalizarBusqueda(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
 export default async function CitasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ categoria?: string }>;
+  searchParams: Promise<{ categoria?: string; q?: string }>;
 }) {
-  const { categoria } = await searchParams;
+  const { categoria, q } = await searchParams;
+  const busqueda = (q ?? "").trim();
   const supabase = await createClient();
 
   const [{ data: negociosData }, { data: califData }] = await Promise.all([
@@ -54,9 +64,25 @@ export default async function CitasPage({
     ((califData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
   );
 
-  const filtrados = categoria
+  const porCategoria = categoria
     ? negocios.filter((n) => n.categoria === categoria)
     : negocios;
+
+  // El buscador filtra por nombre, zona, rubro o descripción.
+  const aguja = normalizarBusqueda(busqueda);
+  const filtrados = aguja
+    ? porCategoria.filter((n) =>
+        normalizarBusqueda(
+          [
+            n.nombre,
+            n.canton ?? "",
+            n.provincia ?? "",
+            n.descripcion ?? "",
+            CATEGORIA_CITA_LABEL[n.categoria],
+          ].join(" "),
+        ).includes(aguja),
+      )
+    : porCategoria;
 
   const conteo: Record<string, number> = {};
   negocios.forEach((n) => {
@@ -64,36 +90,65 @@ export default async function CitasPage({
   });
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(175deg,#ffffff_0%,#f3fbfa_38%,#e9f6f5_100%)]">
+    <div className="relative min-h-screen bg-aventurea-cream-2">
       <SiteHeader breadcrumb="Citas y Reservas" />
 
-      <section className="mx-auto max-w-[1100px] px-6 py-10">
-        <p className="flex items-center gap-2 text-[11.5px] font-extrabold uppercase tracking-[0.2em] text-[#2b8a84]">
-          <IconClock className="h-3.5 w-3.5" /> Citas y Reservas
-        </p>
-        <h1 className="mt-2 text-[clamp(26px,3.5vw,38px)] font-black tracking-[-0.8px] text-aventurea-ink">
-          Reservá tu cita en línea
-        </h1>
-        <p className="mt-2 max-w-[56ch] text-[14.5px] leading-relaxed text-aventurea-ink-soft">
-          Elegí el negocio, el servicio, la hora y con quién querés atenderte —
-          la cita queda confirmada al instante, sin llamadas.
-        </p>
+      <section className="relative mx-auto max-w-[1100px] px-4 pb-10 pt-4 sm:px-6">
+        {/* Sin hero: el conmutador de verticales y el buscador — el
+            espacio es para las cards. El h1 queda para lectores de
+            pantalla y SEO. */}
+        <h1 className="sr-only">Citas y Reservas — reservá tu cita en línea</h1>
+        <div className="mb-4">
+          <SelectorVertical activo="citas" />
+        </div>
+
+        {/* El buscador de agendas: filtra por nombre, zona o rubro.
+            Es un form GET — Enter busca, sin JavaScript de por medio. */}
+        <form method="get" action="/citas" className="mx-auto max-w-[640px]">
+          {categoria && <input type="hidden" name="categoria" value={categoria} />}
+          <div className="relative">
+            <IconSearch className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-aventurea-ink-soft" />
+            <input
+              type="search"
+              name="q"
+              defaultValue={busqueda}
+              placeholder='Buscá por nombre, zona o rubro — ej. "uñas" o "Moravia"'
+              className="h-12 w-full rounded-full border border-aventurea-line bg-white pl-11 pr-4 text-[13.5px] text-aventurea-ink placeholder:text-zinc-400 focus:border-aventurea-navy focus:outline-none"
+            />
+          </div>
+        </form>
 
         {/* Categorías */}
-        <div className="mt-6 flex flex-wrap gap-2">
-          <ChipCategoria href="/citas" activo={!categoria} label={`Todos (${negocios.length})`} />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <ChipCategoria
+            href={busqueda ? `/citas?q=${encodeURIComponent(busqueda)}` : "/citas"}
+            activo={!categoria}
+            label={`Todos (${negocios.length})`}
+          />
           {CATEGORIAS_CITAS.filter((c) => (conteo[c] ?? 0) > 0).map((c) => (
             <ChipCategoria
               key={c}
-              href={`/citas?categoria=${c}`}
+              href={`/citas?categoria=${c}${busqueda ? `&q=${encodeURIComponent(busqueda)}` : ""}`}
               activo={categoria === c}
               label={`${CATEGORIA_CITA_LABEL[c]} (${conteo[c]})`}
             />
           ))}
         </div>
 
-        {filtrados.length === 0 ? (
-          <div className="mt-10 rounded-3xl border border-[#dceeec] bg-white p-10 text-center shadow-sm">
+        {filtrados.length === 0 && negocios.length > 0 ? (
+          <div className="bento bento-blanco mt-10 p-10 text-center shadow-sm">
+            <p className="text-[15px] font-extrabold text-aventurea-ink">
+              No encontramos nada con esa búsqueda
+            </p>
+            <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+              Probá con otra palabra, otra zona, o quitá los filtros.
+            </p>
+            <Link href="/citas" className="btn-contorno mt-6">
+              Ver todos los negocios
+            </Link>
+          </div>
+        ) : filtrados.length === 0 ? (
+          <div className="bento bento-blanco mt-10 p-10 text-center shadow-sm">
             <p className="text-[15px] font-extrabold text-aventurea-ink">
               Los primeros negocios están por llegar
             </p>
@@ -103,8 +158,8 @@ export default async function CitasPage({
               propia página.
             </p>
             <Link
-              href="/publicar"
-              className="mt-6 inline-flex rounded-xl bg-aventurea-navy px-6 py-3 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+              href="/mi-rancho/nuevo"
+              className="btn-naranja mt-6"
             >
               Publicar mi negocio
             </Link>
@@ -119,9 +174,9 @@ export default async function CitasPage({
                 <Link
                   key={n.id}
                   href={href}
-                  className="group overflow-hidden rounded-3xl border border-[#dceeec] bg-white shadow-[0_10px_36px_-20px_rgba(21,70,67,0.3)] transition-all hover:-translate-y-1 hover:border-[#5dc4be] hover:shadow-[0_20px_44px_-20px_rgba(21,70,67,0.4)]"
+                  className="group overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
                 >
-                  <div className="relative aspect-[16/10] overflow-hidden bg-[#e6f6f5]">
+                  <div className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light">
                     {n.foto_url ? (
                       // eslint-disable-next-line @next/next/no-img-element -- fotos remotas de Supabase
                       <img
@@ -130,14 +185,21 @@ export default async function CitasPage({
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <span className="flex h-full items-center justify-center text-[#5dc4be]">
+                      <span className="flex h-full items-center justify-center text-aventurea-navy/40">
                         <IconClock className="h-10 w-10" />
                       </span>
                     )}
-                    <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-[#1f7a74] backdrop-blur">
+                    <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
                       {CATEGORIA_CITA_LABEL[n.categoria]}
                     </span>
+                    {n.slug?.startsWith("demo-") && (
+                      <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
+                        Demo
+                      </span>
+                    )}
                   </div>
+                  {/* Cuerpo al estilo Fresha: nombre + nota, ubicación y
+                      precio — nada de párrafos; la card vende sola. */}
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-[15px] font-extrabold leading-snug text-aventurea-ink">
@@ -153,17 +215,26 @@ export default async function CitasPage({
                     </div>
                     {ubicacion && (
                       <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-aventurea-ink-soft">
-                        <IconPin className="h-3.5 w-3.5 text-[#2b8a84]" /> {ubicacion}
+                        <IconPin className="h-3.5 w-3.5 text-aventurea-navy" /> {ubicacion}
                       </p>
                     )}
-                    {n.descripcion && (
-                      <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-                        {n.descripcion}
-                      </p>
-                    )}
-                    <p className="mt-3 border-t border-[#e8f3f2] pt-3 text-[13px] font-extrabold text-aventurea-orange">
-                      Ver servicios y reservar →
-                    </p>
+                    <div className="mt-3 flex items-center justify-between border-t border-[#e8eef8] pt-3">
+                      <span className="text-[12.5px] text-aventurea-ink-soft">
+                        {n.precio_desde ? (
+                          <>
+                            Desde{" "}
+                            <strong className="font-extrabold text-aventurea-ink">
+                              ₡{Number(n.precio_desde).toLocaleString("es-CR")}
+                            </strong>
+                          </>
+                        ) : (
+                          "Precios en línea"
+                        )}
+                      </span>
+                      <span className="text-[13px] font-extrabold text-aventurea-orange">
+                        Reservar →
+                      </span>
+                    </div>
                   </div>
                 </Link>
               );
@@ -171,24 +242,9 @@ export default async function CitasPage({
           </div>
         )}
 
-        {/* Invitación al proveedor */}
-        <div className="mt-14 flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-[#dceeec] bg-white/70 px-6 py-5 backdrop-blur">
-          <div>
-            <h2 className="text-[15px] font-extrabold text-aventurea-ink">
-              ¿Atendés con citas?
-            </h2>
-            <p className="mt-1 text-[13px] text-aventurea-ink-soft">
-              Salones, barberías, spas, consultorios — publicá tu negocio gratis
-              y recibí reservas en línea con tu propia página.
-            </p>
-          </div>
-          <Link
-            href="/publicar"
-            className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
-          >
-            Publicar mi negocio
-          </Link>
-        </div>
+        {/* Sin secciones informativas: esta página son las cards de los
+            negocios y nada más (la invitación a publicar vive en
+            /publicar y en el estado vacío). */}
       </section>
     </div>
   );
@@ -208,8 +264,8 @@ function ChipCategoria({
       href={href}
       className={`rounded-full border px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
         activo
-          ? "border-[#1f7a74] bg-[#1f7a74] text-white"
-          : "border-[#dceeec] bg-white text-aventurea-ink-soft hover:border-[#5dc4be] hover:text-[#1f7a74]"
+          ? "border-aventurea-navy bg-aventurea-navy text-white"
+          : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
       }`}
     >
       {label}

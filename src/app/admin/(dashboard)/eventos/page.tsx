@@ -1,22 +1,30 @@
 import { createClient } from "@/lib/supabase/server";
 import ReservasTable from "./reservas-table";
 import type { Reserva } from "./types";
+import { perteneceASeccion, SECCION_LABEL } from "../vertical";
+import { seccionActiva } from "../vertical-server";
 
 export default async function AdminReservasPage() {
   const supabase = await createClient();
+  const seccion = await seccionActiva();
   const [{ data, error }, ranchosRes] = await Promise.all([
     supabase
       .from("reservas")
       .select("*")
       .neq("estado", "temporal")
       .order("fecha", { ascending: true }),
-    supabase.from("ranchos").select("id, nombre"),
+    supabase.from("ranchos").select("id, nombre, vertical"),
   ]);
 
   const nombrePorRancho = new Map(
     (ranchosRes.data ?? []).map((r) => [r.id as string, r.nombre as string]),
   );
-  const reservas = (data ?? []) as Reserva[];
+  const verticalPorRancho = new Map(
+    (ranchosRes.data ?? []).map((r) => [r.id as string, r.vertical as string | null]),
+  );
+  const reservas = ((data ?? []) as Reserva[]).filter((r) =>
+    perteneceASeccion(r.rancho_id ? verticalPorRancho.get(r.rancho_id) : null, seccion),
+  );
 
   const now = new Date();
   const pendientes = reservas.filter((r) => r.estado === "pendiente").length;
@@ -36,8 +44,8 @@ export default async function AdminReservasPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3.5">
         <div>
-          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-            Rancho de Eventos
+          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
+            {SECCION_LABEL[seccion]}
           </p>
           <h1 className="mt-1 text-2xl font-bold text-aventurea-ink">
             Reservas

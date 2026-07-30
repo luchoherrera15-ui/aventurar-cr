@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import BookingCalendar from "@/app/eventos-salon/booking-calendar";
+import ReservaModal from "./reserva-modal";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteHeader from "@/components/site-header";
 import { IconCheck, IconPin, IconStar, IconUsers } from "@/components/icons";
@@ -240,7 +241,9 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   }
 
   return (
-    <div className={`min-h-screen bg-aventurea-cream ${esLugar ? "pb-16 lg:pb-0" : ""}`}>
+    <div
+      className={`min-h-screen bg-aventurea-cream-2 ${esLugar ? "pb-16 lg:pb-0" : ""}`}
+    >
       <RevealOnScroll />
       {/* La burbuja de chat flotante pasa a abrir el chat con ESTE
           proveedor mientras se está en su página. El dueño no: no se
@@ -248,26 +251,22 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       {!puedeModificar && (
         <ProveedorActual ranchoId={rancho.id} nombre={rancho.nombre} />
       )}
+      {/* Header liviano a propósito: logo + nombre, el botón de dueño
+          si aplica, y el menú. "Publicá tu espacio" y "Ver todos los
+          espacios" viven en el menú — acá solo estorbaban. */}
       <SiteHeader
         breadcrumb={rancho.nombre}
         ancho="max-w-[1080px]"
+        conPublicar={false}
         extra={
-          <div className="flex items-center gap-4">
-            {puedeModificar && (
-              <Link
-                href={`/mi-rancho/${rancho.id}`}
-                className="rounded-lg bg-aventurea-navy px-3.5 py-1.5 text-[13px] font-bold text-white hover:bg-aventurea-navy-2"
-              >
-                Modificar tu página
-              </Link>
-            )}
+          puedeModificar ? (
             <Link
-              href="/eventos"
-              className="hidden text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy sm:block"
+              href={`/mi-rancho/${rancho.id}`}
+              className="rounded-lg bg-aventurea-navy px-3.5 py-1.5 text-[13px] font-bold text-white hover:bg-aventurea-navy-2"
             >
-              ← Ver todos los espacios
+              Modificar tu página
             </Link>
-          </div>
+          ) : undefined
         }
       />
 
@@ -321,16 +320,12 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                 el botón de WhatsApp se quitó a propósito. */}
             <a
               href="#reservar"
-              className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+              className="inline-flex items-center gap-2 rounded-full bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
             >
               {esLugar ? "Reservar mi fecha" : "Reservar fecha"}
             </a>
-            <a
-              href={chatHref}
-              className="rounded-xl border border-aventurea-line px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink hover:border-aventurea-navy"
-            >
-              Consultar antes de reservar
-            </a>
+            {/* Las consultas van por la burbuja de chat flotante —
+                acá solo queda el camino directo a reservar. */}
           </div>
         </div>
         {!esLugar && rancho.descripcion && (
@@ -349,9 +344,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
             <div className="min-w-0">
               {(rancho.descripcion_larga || rancho.descripcion) && (
                 <div>
-                  <h2 className="text-[19px] font-bold text-aventurea-ink">
-                    Sobre este lugar
-                  </h2>
+                  <TituloSeccion kicker="El espacio">Sobre este lugar</TituloSeccion>
                   <p className="mt-2.5 whitespace-pre-line text-[14.5px] leading-relaxed text-aventurea-ink-soft">
                     {rancho.descripcion_larga || rancho.descripcion}
                   </p>
@@ -360,9 +353,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
               {(rancho.horarios_bloques ?? []).length > 0 && (
                 <div className="mt-8">
-                  <h2 className="text-[19px] font-bold text-aventurea-ink">
-                    Horarios de alquiler
-                  </h2>
+                  <TituloSeccion kicker="Horarios">Horarios de alquiler</TituloSeccion>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(rancho.horarios_bloques ?? []).map((h) => {
                       const horas = duracionHoras(h.desde, h.hasta);
@@ -386,10 +377,8 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
               )}
 
               <div className="mt-8">
-                <h2 className="text-[19px] font-bold text-aventurea-ink">
-                  Lo que debés saber
-                </h2>
-                <ul className="mt-3 flex flex-col gap-2">
+                <TituloSeccion kicker="Condiciones">Lo que debés saber</TituloSeccion>
+                <ul className="mt-3 flex flex-col gap-2.5 rounded-[24px] bg-aventurea-blue-light/60 p-5">
                   {(rancho.terminos && rancho.terminos.length > 0
                     ? rancho.terminos
                     : terminosPorDefecto(
@@ -409,11 +398,15 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                   ))}
                 </ul>
               </div>
+
+              {/* Adentro de la columna: así la tarjeta de precio
+                  sticky acompaña el scroll también por las amenidades. */}
+              <AmenidadesSeccion amenidades={amenidades} enColumna />
             </div>
 
             {/* Tarjeta de reserva sticky (desktop) */}
             <aside className="hidden lg:block">
-              <div className="sticky top-24 rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 shadow-[0_6px_20px_rgba(16,26,44,0.08)]">
+              <div className="sticky top-24 rounded-[24px] border border-aventurea-line bg-aventurea-surface p-6 shadow-[0_6px_20px_rgba(16,26,44,0.08)]">
                 <p className="text-[13px] text-aventurea-ink-soft">Desde</p>
                 <p className="text-[26px] font-bold leading-tight text-aventurea-ink">
                   {precio ?? "A consultar"}
@@ -447,26 +440,25 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
                 <a
                   href="#reservar"
-                  className="mt-5 flex h-12 items-center justify-center rounded-xl bg-aventurea-navy text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+                  className="mt-5 flex h-12 items-center justify-center rounded-full bg-aventurea-navy text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
                 >
                   Ver fechas disponibles
                 </a>
                 <p className="mt-2.5 text-center text-[11.5px] text-zinc-500">
                   Todavía no se te cobra nada — elegís la fecha primero.
                 </p>
-                <a
-                  href={chatHref}
-                  className="mt-3 block border-t border-aventurea-line pt-3 text-center text-[12.5px] font-bold text-aventurea-navy hover:underline"
-                >
-                  ¿Tenés dudas? Preguntá por el chat
-                </a>
+                {/* Las consultas van por la burbuja de chat flotante y
+                    la tarjeta de Contacto abajo — acá no se repite. */}
               </div>
             </aside>
           </div>
         </div>
       )}
 
+      {/* El calendario ya no ocupa la página: vive en un modal grande
+          que se abre desde cualquier enlace a #reservar. */}
       {esLugar && (
+        <ReservaModal nombreRancho={rancho.nombre}>
         <BookingCalendar
           ranchoId={rancho.id}
           nombreRancho={rancho.nombre}
@@ -492,6 +484,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           cuentaTipo={rancho.cuenta_tipo}
           descripcion={rancho.descripcion}
         />
+        </ReservaModal>
       )}
 
       {/* Barra fija de reserva en celular — siempre a un toque. */}
@@ -511,7 +504,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           </div>
           <a
             href="#reservar"
-            className="flex h-11 items-center justify-center rounded-xl bg-aventurea-navy px-6 text-[13.5px] font-bold text-white"
+            className="flex h-11 items-center justify-center rounded-full bg-aventurea-navy px-6 text-[13.5px] font-bold text-white"
           >
             Ver fechas
           </a>
@@ -525,7 +518,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       {!esLugar && (
         <section id="reservar" className="border-t border-aventurea-line bg-aventurea-cream-2/40 py-14">
           <div className="mx-auto max-w-[680px] px-7">
-            <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
+            <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
               Reservá con {rancho.nombre}
             </p>
             <h2 className="titulo mt-2 text-[24px] text-aventurea-ink">
@@ -595,7 +588,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                     </p>
                     <Link
                       href="/cuenta"
-                      className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+                      className="mt-3 inline-flex items-center justify-center rounded-full bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
                     >
                       Iniciar sesión
                     </Link>
@@ -603,18 +596,11 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                 </div>
               )}
             </div>
-            <p className="mt-4 text-center text-[12.5px]">
-              <a href={chatHref} className="font-bold text-aventurea-navy hover:underline">
-                ¿Tenés dudas antes de reservar? Preguntá por el chat
-              </a>
-            </p>
           </div>
         </section>
       )}
 
-      {esLugar ? (
-        <AmenidadesSeccion amenidades={amenidades} />
-      ) : (
+      {!esLugar && (
         <DetallesSeccion
           categoria={rancho.categoria}
           detalles={rancho.detalles ?? {}}
@@ -662,5 +648,27 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         </p>
       </footer>
     </div>
+  );
+}
+
+/**
+ * Encabezado de las secciones de contenido del perfil: el mismo
+ * lenguaje de las secciones oscuras (kicker naranja con su rayita +
+ * título en Figtree apretado), para que toda la página hable igual.
+ */
+function TituloSeccion({
+  kicker,
+  children,
+}: {
+  kicker: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <p className="flex items-center gap-2 text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-aventurea-orange before:block before:h-px before:w-5 before:bg-aventurea-orange">
+        {kicker}
+      </p>
+      <h2 className="titulo mt-1.5 text-[20px] text-aventurea-ink">{children}</h2>
+    </>
   );
 }

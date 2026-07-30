@@ -295,7 +295,11 @@ export default function Directorio({
       {/* Buscador + categorías en un bloque sticky: el título scrollea,
           pero la búsqueda queda siempre a mano bajo el header — patrón
           Airbnb. El fondo con blur evita que las cards se lean debajo. */}
-      <div className="sticky top-14 z-30 -mx-6 bg-aventurea-cream/95 px-6 pt-3 backdrop-blur-sm lg:-mx-10 lg:px-10">
+      {/* El bloque sticky va a sangre completa (de borde a borde de la
+          pantalla, no solo del contenedor): antes su fondo terminaba
+          donde terminaba el contenedor y se veía como una franja
+          cortada sobre el degradado. */}
+      <div className="sticky top-14 z-30 mx-[calc(50%-50vw)] bg-aventurea-cream-2/90 px-[calc(50vw-50%+1.5rem)] pt-3 backdrop-blur-sm lg:px-[calc(50vw-50%+2.5rem)]">
       {/* La lupa única: se escribe lo que se busca — un nombre, una
           zona o una fecha ("3 de agosto", "este viernes") — y el resto
           de filtros vive en el botón de al lado. Reemplaza al buscador
@@ -397,12 +401,14 @@ export default function Directorio({
         )}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-aventurea-cream to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-aventurea-cream-2 to-transparent"
         />
       </div>
       </div>{/* fin del bloque sticky */}
 
-      <div className="mt-4" />
+      {/* Aire entre la línea de las categorías y los encabezados de
+          los rieles (con sus flechas) — antes quedaban pegados. */}
+      <div className="mt-8" />
 
       {/* El panel de filtros junta lo que antes estaba repartido en la
           píldora: la zona, la fecha, los invitados y el precio. */}
@@ -659,7 +665,7 @@ export default function Directorio({
           </p>
         </div>
         <Link
-          href="/publicar"
+          href="/mi-rancho/nuevo"
           className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
         >
           Publicar mi espacio

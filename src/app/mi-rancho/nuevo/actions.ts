@@ -2,9 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { generarSlugUnico } from "@/lib/slug";
 import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "../types";
 import { CATEGORIAS_CITAS } from "@/app/citas/tipos";
+import { CATEGORIAS_HOSPEDAJES } from "@/app/booking/tipos";
+import { paisPorCodigo, zonaDePais } from "@/lib/zonas";
 
 export type NuevoRanchoState = { error?: string } | undefined;
 
@@ -18,10 +21,17 @@ export async function crearRancho(
   } = await supabase.auth.getUser();
   if (!user) redirect("/mi-rancho/login");
 
-  // La vertical del negocio: eventos (default) o citas. Cualquier otra
-  // cosa que llegue en el form cae a eventos.
-  const vertical = formData.get("vertical") === "citas" ? "citas" : "eventos";
+  // La vertical del negocio: cada una tiene su propio registro.
+  // Cualquier valor raro que llegue en el form cae a eventos.
+  const verticalRaw = String(formData.get("vertical") || "");
+  const vertical =
+    verticalRaw === "citas" || verticalRaw === "hospedajes" ? verticalRaw : "eventos";
   const categoria = String(formData.get("categoria") || "");
+  // Arrancamos solo con Costa Rica, pero el país viaja desde el alta y
+  // la zona horaria del negocio se deriva de él (lib/zonas.ts) — así
+  // abrir otro país no toca este código.
+  const paisRaw = String(formData.get("pais") || "CR");
+  const pais = paisPorCodigo(paisRaw) ? paisRaw : "CR";
   const nombre = String(formData.get("nombre") || "").trim();
   const descripcion = String(formData.get("descripcion") || "").trim();
   const provincia = String(formData.get("provincia") || "");
@@ -34,14 +44,23 @@ export async function crearRancho(
   const subcategoria = String(formData.get("subcategoria") || "");
 
   // Verificación de identidad: obligatoria para poder ofrecer servicios
-  // en el sitio (medida de seguridad contra empresas fantasma).
-  const redSocialUrl = String(formData.get("red_social_url") || "").trim();
+  // en el sitio (medida de seguridad contra empresas fantasma). La URL
+  // se normaliza: la gente escribe "www.minegocio.com" sin https://.
+  const redSocialRaw = String(formData.get("red_social_url") || "").trim();
+  const redSocialUrl =
+    redSocialRaw && !/^https?:\/\//i.test(redSocialRaw)
+      ? `https://${redSocialRaw}`
+      : redSocialRaw;
   const cedulaFrenteUrl = String(formData.get("cedula_frente_url") || "").trim();
   const cedulaDorsoUrl = String(formData.get("cedula_dorso_url") || "").trim();
 
   // Cada vertical tiene su propia lista de categorías.
   const categoriasValidas: readonly string[] =
-    vertical === "citas" ? CATEGORIAS_CITAS : CATEGORIAS;
+    vertical === "citas"
+      ? CATEGORIAS_CITAS
+      : vertical === "hospedajes"
+        ? CATEGORIAS_HOSPEDAJES
+        : CATEGORIAS;
   if (
     !nombre ||
     !categoriasValidas.includes(categoria) ||
@@ -74,7 +93,9 @@ export async function crearRancho(
       owner_id: user.id,
       vertical,
       categoria,
-      subcategoria: vertical === "citas" ? null : subcategoria,
+      subcategoria: vertical === "eventos" ? subcategoria : null,
+      pais,
+      zona_horaria: zonaDePais(pais),
       nombre,
       descripcion: descripcion || null,
       provincia,
@@ -94,7 +115,14 @@ export async function crearRancho(
     return { error: "No se pudo guardar tu rancho: " + error.message };
   }
 
-  const { error: verifError } = await supabase.from("verificacion_proveedores").insert({
+  // La verificación se escribe con el cliente admin (server-only): la
+  // tabla es sensible y quedó sin GRANT para authenticated en algunos
+  // entornos — el dueño acaba de crear el rancho acá mismo, así que
+  // escribirla desde el servidor es seguro. Sin service key (entorno
+  // local a medias) se intenta con la sesión del dueño, que con la
+  // migración 0063 también puede.
+  const adminDb = createAdminClient() ?? supabase;
+  const { error: verifError } = await adminDb.from("verificacion_proveedores").insert({
     rancho_id: data.id,
     red_social_url: redSocialUrl,
     cedula_frente_url: cedulaFrenteUrl,

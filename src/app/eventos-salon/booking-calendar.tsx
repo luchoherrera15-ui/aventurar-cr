@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   IconCalendarLine,
@@ -173,6 +173,45 @@ export default function BookingCalendar({
   } | null>(null);
   const [codigoError, setCodigoError] = useState<string | null>(null);
   const [verificandoCodigo, setVerificandoCodigo] = useState(false);
+
+  // Con sesión iniciada los datos de contacto llegan precargados — la
+  // persona no reescribe lo que la plataforma ya sabe. El perfil vive
+  // en un ref porque el formulario se RESETEA en cada elección de
+  // fecha (resetFormulario) y hay que volver a aplicarlo ahí.
+  const perfilSesionRef = useRef<{ nombre: string; correo: string; whatsapp: string } | null>(
+    null,
+  );
+
+  const aplicarPrefill = useCallback(() => {
+    const p = perfilSesionRef.current;
+    if (!p) return;
+    if (p.correo) setCorreo((prev) => prev || p.correo);
+    if (p.nombre) setNombre((prev) => prev || p.nombre);
+    if (p.whatsapp) setWhatsapp((prev) => prev || p.whatsapp);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+      const nombreMeta = [meta.nombre, meta.full_name].find(
+        (v): v is string => typeof v === "string" && v.trim() !== "",
+      );
+      const whatsappMeta = meta.whatsapp;
+      perfilSesionRef.current = {
+        nombre: nombreMeta ?? "",
+        correo: user.email ?? "",
+        whatsapp:
+          typeof whatsappMeta === "string" && whatsappMeta.trim() !== "" ? whatsappMeta : "",
+      };
+      if (user.email) setCorreo((prev) => prev || user.email!);
+      if (nombreMeta) setNombre((prev) => prev || nombreMeta);
+      if (typeof whatsappMeta === "string" && whatsappMeta.trim() !== "") {
+        setWhatsapp((prev) => prev || whatsappMeta);
+      }
+    });
+  }, []);
 
   // Devuelve una fecha al calendario: su bloqueo temporal ya se soltó.
   const soltarTemporalLocal = useCallback((fecha: string | null) => {
@@ -419,6 +458,9 @@ export default function BookingCalendar({
     setHoldVencido(false);
     setHoldError(null);
     resetFormulario();
+    // El reset borra también el precargado de la sesión — se vuelve a
+    // poner de una, para que el formulario llegue lleno.
+    aplicarPrefill();
     setHoldId(null);
     setHoldExpiraEn(null);
     setHoldCreando(true);
@@ -566,6 +608,16 @@ export default function BookingCalendar({
         },
       };
     });
+    // La próxima reserva de esta persona sale precargada: nombre y
+    // WhatsApp quedan en sus metadatos (si hay sesión; si no, no pasa nada).
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        void supabase.auth.updateUser({
+          data: { nombre, whatsapp: whatsapp.trim() },
+        });
+      }
+    });
+
     // El hold dejó de ser temporal: pasó a ser la reserva en aprobación.
     setHoldFecha(null);
     setConfirmado(true);
@@ -578,26 +630,21 @@ export default function BookingCalendar({
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
+  // Inputs grandes y etiquetas legibles (sin microtexto en
+  // mayúsculas): quien reserva no siempre es hábil con la tecnología.
   const inputCls =
-    "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
-  const labelCls =
-    "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
+    "w-full rounded-xl border border-aventurea-line bg-white px-3.5 py-2.5 text-[14px] text-aventurea-ink placeholder:text-zinc-400 focus:border-aventurea-navy focus:outline-none";
+  const labelCls = "mb-1.5 block text-[12.5px] font-bold text-aventurea-ink";
+
+  // Dentro del modal de vidrio (compacto), elegir una fecha SWAPEA la
+  // vista: el calendario se esconde y el formulario toma su lugar —
+  // nada de un segundo panel flotante encima del modal.
+  const vistaFormulario = compacto && panelAbierto && !!selectedDate;
 
   return (
-    <section id="reservar" className="border-t border-aventurea-line bg-aventurea-cream-2/40">
-      <div className="mx-auto max-w-[1080px] px-5 py-12 sm:px-7 sm:py-14">
-        {compacto ? (
-          /* Dentro del portal, el nombre y la descripción ya están arriba
-             — acá solo el encabezado de la sección. */
-          <div className="mb-7">
-            <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
-              Disponibilidad
-            </p>
-            <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
-              Reservá tu fecha
-            </h2>
-          </div>
-        ) : (
+    <section id="reservar" className={compacto ? "" : "border-t border-aventurea-line bg-aventurea-cream-2/40"}>
+      <div className={compacto ? "mx-auto max-w-[1080px] py-2" : "mx-auto max-w-[1080px] px-5 py-12 sm:px-7 sm:py-14"}>
+        {compacto ? null : (
           <div className="mb-7 max-w-[640px]">
             <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-5 before:bg-aventurea-navy">
               Reservá tu fecha
@@ -612,7 +659,7 @@ export default function BookingCalendar({
           </div>
         )}
 
-        {horarios.length > 0 && (
+        {horarios.length > 0 && !vistaFormulario && (
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-surface p-4">
             <span className="text-aventurea-navy"><IconClock className="h-5 w-5" /></span>
             <div className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
@@ -635,9 +682,11 @@ export default function BookingCalendar({
           </div>
         )}
 
-        <div className="rounded-[20px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-7">
+        <div
+          className={`rounded-[20px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-5 ${vistaFormulario ? "hidden" : ""}`}
+        >
           <div className="flex items-center justify-between">
-            <span className="titulo text-[20px] capitalize text-aventurea-ink sm:text-[24px]">
+            <span className="titulo text-[18px] capitalize text-aventurea-ink sm:text-[20px]">
               {MESES[viewMonth]} {viewYear}
             </span>
             <div className="flex gap-2">
@@ -658,7 +707,7 @@ export default function BookingCalendar({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-7 gap-1.5 sm:gap-2.5">
+          <div className="mt-3.5 grid grid-cols-7 gap-1.5">
             {DOW.map((d, i) => (
               <div
                 key={i}
@@ -678,8 +727,10 @@ export default function BookingCalendar({
               const isHeldByOther = !!(info && info.temporales > 0 && !isSelected);
               const isBlocked = isPast || !!info?.confirmada || isHeldByOther;
 
+              // Celdas compactas: el mes completo tiene que caber en el
+              // modal sin scroll — 88px de alto por día era un edificio.
               let cls =
-                "relative flex min-h-[52px] flex-col justify-between rounded-xl p-1.5 text-[14px] transition sm:min-h-[88px] sm:p-2.5 sm:text-[16px]";
+                "relative flex min-h-[40px] flex-col justify-between rounded-lg p-1 text-[12.5px] transition sm:min-h-[44px] sm:p-1.5 sm:text-[13px]";
               let etiqueta: string | null = null;
               let badge: number | null = null;
               // Solo tiene sentido anunciar el descuento en días que se
@@ -772,18 +823,28 @@ export default function BookingCalendar({
         )}
       </div>
 
-      {/* Panel de reserva sobre la página, con el fondo difuminado */}
+      {/* El panel de reserva: dentro del modal de vidrio va INLINE
+          (reemplaza al calendario — un solo vidrio, un solo scroll);
+          en la página suelta sigue siendo el flotante de siempre. */}
       {panelAbierto && selectedDate && (
         <div
-          onClick={cerrarPanel}
-          className="fixed inset-0 z-[90] flex items-end justify-center bg-aventurea-ink/35 backdrop-blur-md sm:items-center sm:p-6"
+          onClick={compacto ? undefined : cerrarPanel}
+          className={
+            compacto
+              ? ""
+              : "fixed inset-0 z-[90] flex items-end justify-center bg-aventurea-ink/35 backdrop-blur-md sm:items-center sm:p-6"
+          }
         >
           <div
             role="dialog"
-            aria-modal="true"
+            aria-modal={compacto ? undefined : "true"}
             aria-label="Reservar fecha"
             onClick={(e) => e.stopPropagation()}
-            className="flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[560px] sm:rounded-[22px] sm:border sm:border-aventurea-line"
+            className={
+              compacto
+                ? "panel-solido mx-auto flex w-full max-w-[720px] flex-col overflow-hidden rounded-[22px] border border-aventurea-line bg-aventurea-surface"
+                : "flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[560px] sm:rounded-[22px] sm:border sm:border-aventurea-line"
+            }
           >
             {/* Encabezado fijo: la cuenta regresiva nunca se va con el scroll */}
             <div className="flex items-center gap-3 border-b border-aventurea-line px-4 py-3 sm:px-6 sm:py-4">
@@ -812,7 +873,13 @@ export default function BookingCalendar({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
+            <div
+              className={
+                compacto
+                  ? "px-4 py-3.5 sm:px-5"
+                  : "flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
+              }
+            >
               {selectedDate && holdCreando && (
               <div className="py-10 text-center text-[13px] text-aventurea-ink-soft">
                 Reservando la fecha por 10 minutos...
@@ -893,17 +960,20 @@ export default function BookingCalendar({
                 }}
                 className="flex flex-col gap-3.5"
               >
-                {/* Indicador de los dos pasos: qué se llena ahora y qué falta. */}
+                {/* El camino completo, con la fecha ya lista de primera:
+                    saber dónde se está y cuánto falta baja el susto. */}
                 <div className="mb-1 flex items-center gap-2">
-                  <PasoPill numero={1} activo={paso === 1} hecho={paso > 1} label="Datos del evento" />
+                  <PasoPill numero={1} activo={false} hecho label="Fecha" />
                   <span className="h-px flex-1 bg-aventurea-line" />
-                  <PasoPill numero={2} activo={paso === 2} hecho={false} label="Cómo pagar" />
+                  <PasoPill numero={2} activo={paso === 1} hecho={paso > 1} label="Tus datos" />
+                  <span className="h-px flex-1 bg-aventurea-line" />
+                  <PasoPill numero={3} activo={paso === 2} hecho={false} label="Pagar depósito" />
                 </div>
 
-                <p className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3.5 py-2.5 text-[11.5px] leading-relaxed text-blue-700">
-                  Esta fecha te queda bloqueada 10 minutos. {paso === 1
-                    ? "Completá tus datos antes de que se acabe el tiempo, o vuelve a quedar disponible."
-                    : "Subí el comprobante del depósito antes de que se acabe el tiempo, o vuelve a quedar disponible."}
+                <p className="rounded-lg border border-blue-500/25 bg-blue-500/10 px-3 py-1.5 text-[11px] leading-snug text-blue-700">
+                  Fecha bloqueada 10 minutos —{" "}
+                  {paso === 1 ? "completá tus datos" : "subí el comprobante"} antes
+                  de que se acabe el tiempo.
                 </p>
 
                 {paso === 1 && (
@@ -917,6 +987,8 @@ export default function BookingCalendar({
                       </div>
                     )}
 
+                    {/* Dos columnas: menos alto, cero scroll. */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {modalidadPrecio === "hora" ? (
                       <div>
                         <label className={labelCls}>Cantidad de horas</label>
@@ -973,8 +1045,9 @@ export default function BookingCalendar({
                         </select>
                       </div>
                     )}
+                    </div>
 
-                    <div className="flex items-center justify-between rounded-xl border border-aventurea-line px-3.5 py-3">
+                    <div className="flex items-center justify-between rounded-xl border border-aventurea-line px-3.5 py-2.5">
                       <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                         Cotización estimada del evento
                       </span>
@@ -1041,19 +1114,39 @@ export default function BookingCalendar({
                       </div>
                     )}
 
-                    <div>
-                      <label className={labelCls}>Nombre completo *</label>
-                      <input
-                        type="text"
-                        required
-                        value={nombre}
-                        onChange={(e) => setNombre(e.target.value)}
-                        placeholder="Tu nombre"
-                        className={inputCls}
-                      />
-                    </div>
-
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={labelCls}>Nombre completo *</label>
+                        <input
+                          type="text"
+                          required
+                          value={nombre}
+                          onChange={(e) => setNombre(e.target.value)}
+                          placeholder="Tu nombre"
+                          autoComplete="name"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Número de cédula *</label>
+                        <input
+                          type="text"
+                          required
+                          value={cedula}
+                          onChange={(e) => setCedula(e.target.value)}
+                          placeholder="Ej. 1-2345-6789"
+                          inputMode="numeric"
+                          className={inputCls}
+                        />
+                        {cedula && !cedulaValida && (
+                          <p className="mt-1 text-[11px] font-bold text-red-700">
+                            Escribí solo números (y guiones si querés), sin espacios ni letras.
+                          </p>
+                        )}
+                        <p className="mt-1 text-[10.5px] leading-snug text-zinc-500">
+                          Privada — solo la ven {nombreRancho} y Bookea.
+                        </p>
+                      </div>
                       <div>
                         <label className={labelCls}>Correo electrónico *</label>
                         <input
@@ -1062,6 +1155,8 @@ export default function BookingCalendar({
                           value={correo}
                           onChange={(e) => setCorreo(e.target.value)}
                           placeholder="tucorreo@ejemplo.com"
+                          autoComplete="email"
+                          inputMode="email"
                           className={inputCls}
                         />
                         {correo && !correoValido && (
@@ -1069,9 +1164,6 @@ export default function BookingCalendar({
                             Escribí un correo válido.
                           </p>
                         )}
-                        <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
-                          Ahí te mandamos la confirmación de tu reserva.
-                        </p>
                       </div>
                       <div>
                         <label className={labelCls}>WhatsApp *</label>
@@ -1081,6 +1173,8 @@ export default function BookingCalendar({
                           value={whatsapp}
                           onChange={(e) => setWhatsapp(e.target.value)}
                           placeholder="+506 8888-8888"
+                          autoComplete="tel"
+                          inputMode="tel"
                           className={inputCls}
                         />
                         {whatsapp && !whatsappValido && (
@@ -1088,34 +1182,10 @@ export default function BookingCalendar({
                             Escribí solo números, sin espacios de más.
                           </p>
                         )}
-                        <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
-                          Para que {nombreRancho} te escriba directo.
-                        </p>
                       </div>
                     </div>
 
-                    <div>
-                      <label className={labelCls}>Número de cédula *</label>
-                      <input
-                        type="text"
-                        required
-                        value={cedula}
-                        onChange={(e) => setCedula(e.target.value)}
-                        placeholder="Ej. 1-2345-6789"
-                        className={inputCls}
-                      />
-                      <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
-                        Solo para identificar a quien reserva ante daños o
-                        problemas en el evento. Es privado — lo ve únicamente{" "}
-                        {nombreRancho} y Bookea.
-                      </p>
-                      {cedula && !cedulaValida && (
-                        <p className="mt-1 text-[11px] font-bold text-red-700">
-                          Escribí solo números (y guiones si querés), sin espacios ni letras.
-                        </p>
-                      )}
-                    </div>
-
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className={labelCls}>Tipo de evento</label>
                       <select
@@ -1138,25 +1208,23 @@ export default function BookingCalendar({
                         value={mensaje}
                         onChange={(e) => setMensaje(e.target.value)}
                         placeholder="Contanos más sobre tu evento"
-                        className={`min-h-[56px] ${inputCls}`}
+                        className={`min-h-[44px] ${inputCls}`}
                       />
+                    </div>
                     </div>
 
                     {/* Aviso importante: aparte de los términos generales, esta
                         es la aceptación específica sobre qué NO se alquila. */}
-                    <div className="rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/10 p-3.5">
-                      <p className="flex items-start gap-1.5 text-[12.5px] font-bold leading-relaxed text-aventurea-ink">
-                        <IconWarning className="mt-0.5 h-4 w-4 shrink-0" />
-                        Aviso importante
+                    <div className="rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/10 p-3">
+                      <p className="text-[11.5px] leading-snug text-aventurea-ink">
+                        <IconWarning className="mr-1 inline h-3.5 w-3.5 text-aventurea-orange" />
+                        <strong>Aviso importante:</strong> este lugar no se
+                        alquila para serenatas, fiestas de menores de edad ni
+                        fiestas clandestinas donde se venda alcohol. Si se
+                        reserva para eso, {nombreRancho} puede cancelarla sin
+                        devolución.
                       </p>
-                      <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink">
-                        Este lugar no se alquila para serenatas, fiestas de
-                        menores de edad, ni fiestas clandestinas donde se venda
-                        alcohol. Si se reserva y es para este tipo de evento,{" "}
-                        {nombreRancho} se reserva el derecho a cancelarla y no
-                        habrá devolución de dinero.
-                      </p>
-                      <label className="mt-2.5 flex items-start gap-2.5 text-[12.5px] font-bold text-aventurea-ink">
+                      <label className="mt-2 flex items-start gap-2.5 text-[12px] font-bold text-aventurea-ink">
                         <input
                           type="checkbox"
                           checked={avisoAceptado}
@@ -1236,10 +1304,11 @@ export default function BookingCalendar({
                       </p>
                     )}
 
-                    {cotizacionTotal !== null && (
-                      <div className="rounded-xl bg-aventurea-cream-2 px-3.5 py-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                    {/* Total y depósito lado a lado: dos datos, una fila. */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {cotizacionTotal !== null && (
+                        <div className="rounded-xl bg-aventurea-cream-2 px-3.5 py-2.5">
+                          <span className="block text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                             Total estimado del evento
                           </span>
                           <span className="flex items-baseline gap-1.5">
@@ -1248,29 +1317,29 @@ export default function BookingCalendar({
                                 {fmtColones(cotizacionTotal)}
                               </span>
                             )}
-                            <span className="text-lg font-bold text-aventurea-ink">
+                            <span className="text-[17px] font-bold text-aventurea-ink">
                               {fmtColones(totalFinal ?? cotizacionTotal)}
                             </span>
+                            {descuentoTotalMonto > 0 && (
+                              <span className="text-[11px] font-bold text-aventurea-green">
+                                ahorrás {fmtColones(descuentoTotalMonto)}
+                              </span>
+                            )}
                           </span>
                         </div>
-                        {descuentoTotalMonto > 0 && (
-                          <p className="mt-1 text-right text-[11px] font-bold text-aventurea-green">
-                            Ahorrás {fmtColones(descuentoTotalMonto)}
-                          </p>
-                        )}
+                      )}
+                      <div className={`rounded-xl bg-aventurea-orange/10 px-3.5 py-2.5 ${cotizacionTotal === null ? "sm:col-span-2" : ""}`}>
+                        <span className="block text-[10px] font-bold uppercase tracking-wide text-aventurea-orange">
+                          Depósito para reservar (se paga ahora)
+                        </span>
+                        <span className="text-[17px] font-bold text-aventurea-ink">
+                          {fmtColones(depositoReserva)}
+                        </span>
                       </div>
-                    )}
-
-                    <div className="flex items-center justify-between rounded-xl bg-aventurea-orange/10 px-3.5 py-3">
-                      <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-orange">
-                        Depósito para reservar
-                      </span>
-                      <span className="text-lg font-bold text-aventurea-ink">{fmtColones(depositoReserva)}</span>
                     </div>
-                    <p className="-mt-2 text-[11px] leading-relaxed text-zinc-500">
-                      Este monto fijo es lo que se paga ahora para reservar la
-                      fecha. El resto de la cotización se coordina para el día
-                      del evento.
+                    <p className="-mt-1.5 text-[10.5px] leading-snug text-zinc-500">
+                      Solo el depósito se paga ahora — el resto de la cotización
+                      se coordina para el día del evento.
                     </p>
 
                     <div>
@@ -1404,7 +1473,7 @@ export default function BookingCalendar({
                     disabled={!puedeAvanzar}
                     className="rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
                   >
-                    Siguiente: Cómo pagar →
+                    Siguiente: pagar el depósito →
                   </button>
                 ) : metodoPago === "tarjeta" ? (
                   <button

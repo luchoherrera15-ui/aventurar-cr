@@ -1,18 +1,31 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { IconWarning } from "@/components/icons";
+import { perteneceASeccion, SECCION_LABEL } from "./vertical";
+import { seccionActiva } from "./vertical-server";
 
 export default async function AdminHubPage() {
   const supabase = await createClient();
+  const seccion = await seccionActiva();
 
   const [ranchosRes, reservasRes, perfilesRes] = await Promise.all([
-    supabase.from("ranchos").select("estado"),
-    supabase.from("reservas").select("estado").neq("estado", "temporal"),
+    supabase.from("ranchos").select("id, estado, vertical"),
+    supabase.from("reservas").select("estado, rancho_id").neq("estado", "temporal"),
     supabase.from("perfiles").select("id"),
   ]);
 
-  const ranchos = ranchosRes.data ?? [];
-  const reservas = reservasRes.data ?? [];
+  const verticalPorRancho = new Map(
+    (ranchosRes.data ?? []).map((r) => [r.id as string, r.vertical as string | null]),
+  );
+  const ranchos = (ranchosRes.data ?? []).filter((r) =>
+    perteneceASeccion(r.vertical, seccion),
+  );
+  const reservas = (reservasRes.data ?? []).filter((r) =>
+    perteneceASeccion(
+      r.rancho_id ? verticalPorRancho.get(r.rancho_id as string) : null,
+      seccion,
+    ),
+  );
 
   const ranchosPendientes = ranchos.filter((r) => r.estado === "pendiente").length;
   const ranchosPublicados = ranchos.filter((r) => r.estado === "aprobado").length;
@@ -22,8 +35,8 @@ export default async function AdminHubPage() {
 
   return (
     <div className="relative isolate">
-      <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
-        Panel Admin
+      <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
+        Panel Admin{seccion !== "todas" ? ` · ${SECCION_LABEL[seccion]}` : ""}
       </p>
       <h1 className="mt-1 text-2xl font-bold text-aventurea-ink">
         ¿Qué querés gestionar?

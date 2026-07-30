@@ -44,6 +44,7 @@ import DepositoForm from "./deposito-form";
 import AgendaEventos, { type EventoAgenda } from "@/components/agenda-eventos";
 import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-calendario";
 import ReservaManualForm from "@/components/reserva-manual-form";
+import CargaHistorialForm from "@/components/carga-historial-form";
 import { hoyISOCR } from "@/lib/fechas";
 import {
   agregarGasto,
@@ -196,6 +197,10 @@ export default async function RanchoDetallePage({
           capacidadMax={esLugar ? rancho.capacidad_max : null}
           onCrear={crearReservaManual.bind(null, rancho.id)}
         />
+        {/* Para quien llega con la agenda ya vendida: sus fechas
+            históricas en lote, con montos y cobros, sin llenar el
+            formulario grande una por una. */}
+        <CargaHistorialForm onCrear={crearReservaManual.bind(null, rancho.id)} />
         <AgendaEventos eventos={agenda} />
       </div>
     ),
@@ -209,6 +214,9 @@ export default async function RanchoDetallePage({
   const tabReservas: Tab = {
     id: "reservas",
     label: esLugar ? "Reservas" : "Solicitudes",
+    // El "N por aprobar" que vivía en los accesos rápidos ahora es un
+    // puntito naranja en la propia pestaña.
+    badge: pendientes,
     content: (
       <div>
         <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
@@ -434,34 +442,6 @@ export default async function RanchoDetallePage({
     tabConfiguracion,
   ];
 
-  // Accesos rápidos a lo que el dueño más busca. Editar/Precios/Finanzas/
-  // Reservas viven en pestañas de esta misma pantalla (`?tab=`); Citas es
-  // otra pantalla.
-  const accesos: { titulo: string; detalle: string; href: string }[] = [
-    { titulo: "Editar perfil", detalle: "Datos, descripción y ubicación", href: "?tab=editar" },
-    { titulo: "Fotos", detalle: "Portada y galería", href: "?tab=editar#fotos" },
-    {
-      titulo: esLugar ? "Precios" : "Cobros",
-      detalle: "Tarifas, descuentos y términos",
-      href: "?tab=precios",
-    },
-    { titulo: "Finanzas", detalle: "Qué entró y qué falta", href: "?tab=finanzas" },
-    {
-      titulo: esLugar ? "Reservas" : "Solicitudes",
-      detalle: pendientes > 0 ? `${pendientes} por aprobar` : "Historial completo",
-      href: "?tab=reservas",
-    },
-    ...(esVerticalCitas
-      ? [
-          {
-            titulo: "Citas",
-            detalle: "Equipo, horario y agenda",
-            href: `/mi-rancho/${rancho.id}/citas`,
-          },
-        ]
-      : []),
-  ];
-
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
   return (
@@ -561,28 +541,8 @@ export default async function RanchoDetallePage({
         )}
       </p>
 
-      <nav
-        aria-label="Accesos rápidos"
-        className={`mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 ${
-          accesos.length === 6 ? "lg:grid-cols-6" : "lg:grid-cols-5"
-        }`}
-      >
-        {accesos.map((a) => (
-          <Link
-            key={a.titulo}
-            href={a.href}
-            className="group rounded-xl border border-aventurea-line bg-aventurea-surface p-3 transition-colors hover:border-aventurea-navy"
-          >
-            <span className="block text-[13px] font-bold text-aventurea-ink group-hover:text-aventurea-navy">
-              {a.titulo}
-            </span>
-            <span className="mt-0.5 block text-[11px] leading-snug text-aventurea-ink-soft">
-              {a.detalle}
-            </span>
-          </Link>
-        ))}
-      </nav>
-
+      {/* Los accesos rápidos se fueron: duplicaban una a una las
+          pestañas de abajo, que ahora son píldoras y se bastan solas. */}
       <div className="mt-5">
         <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
           Cómo te está yendo

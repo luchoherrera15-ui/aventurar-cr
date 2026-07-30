@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TELEFONO_REGEX = /^[0-9+\s-]{8,16}$/;
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:text-zinc-500";
@@ -48,8 +49,9 @@ export default function FormularioCodigoAcceso({
   datosNuevos?: Record<string, unknown>;
   soloAdmin?: boolean;
 }) {
-  const [paso, setPaso] = useState<"correo" | "codigo">("correo");
+  const [paso, setPaso] = useState<"correo" | "codigo" | "completar">("correo");
   const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
   const [codigo, setCodigo] = useState("");
   const [pendiente, setPendiente] = useState(false);
@@ -101,13 +103,19 @@ export default function FormularioCodigoAcceso({
       setError("Contanos tu nombre para crear la cuenta.");
       return;
     }
+    // El teléfono se pide junto al nombre: con eso las reservas y las
+    // citas se llenan solas después.
+    if (pideNombreAhora && !TELEFONO_REGEX.test(telefono.trim())) {
+      setError("Dejanos un teléfono válido (solo números).");
+      return;
+    }
     setPendiente(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: correoLimpio,
       options: {
         shouldCreateUser: crearCuenta,
         data: pideNombreAhora
-          ? { ...datosNuevos, nombre: nombre.trim() }
+          ? { ...datosNuevos, nombre: nombre.trim(), whatsapp: telefono.trim() }
           : datosNuevos,
       },
     });
@@ -168,9 +176,104 @@ export default function FormularioCodigoAcceso({
       }
     }
 
+    // Cuentas viejas sin nombre o teléfono: un último paso los pide
+    // acá — con eso las reservas se llenan solas de ahí en adelante.
+    if (!soloAdmin) {
+      const meta = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+      const nombreMeta = [meta.nombre, meta.full_name].find(
+        (v): v is string => typeof v === "string" && v.trim() !== "",
+      );
+      const telefonoMeta =
+        typeof meta.whatsapp === "string" && meta.whatsapp.trim() !== ""
+          ? meta.whatsapp
+          : null;
+      if (!nombreMeta || !telefonoMeta) {
+        setNombre(nombreMeta ?? "");
+        setTelefono(telefonoMeta ?? "");
+        setError(null);
+        setPendiente(false);
+        setPaso("completar");
+        return;
+      }
+    }
+
     // Navegación completa (no push): así el servidor rehace el layout
     // con la cookie de sesión recién puesta.
     window.location.href = destino;
+  }
+
+  async function completarPerfil(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!nombre.trim()) {
+      setError("Contanos tu nombre.");
+      return;
+    }
+    if (!TELEFONO_REGEX.test(telefono.trim())) {
+      setError("Dejanos un teléfono válido (solo números).");
+      return;
+    }
+    setPendiente(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.updateUser({
+      data: { nombre: nombre.trim(), whatsapp: telefono.trim() },
+    });
+    if (error) {
+      setPendiente(false);
+      setError("No se pudo guardar: " + error.message);
+      return;
+    }
+    // El nombre visible del perfil también, si la política lo permite
+    // — y si no, los metadatos ya alcanzan para el autollenado.
+    if (data.user) {
+      await supabase.from("perfiles").update({ nombre: nombre.trim() }).eq("id", data.user.id);
+    }
+    window.location.href = destino;
+  }
+
+  if (paso === "completar") {
+    return (
+      <form onSubmit={completarPerfil} className="mt-5.5 flex flex-col gap-3.5">
+        <p className="rounded-lg bg-aventurea-cream-2 px-3 py-2.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+          ¡Ya entraste! Un último paso: con tu nombre y teléfono, tus
+          reservas y citas se llenan solas — no volvés a escribirlos.
+        </p>
+        <div>
+          <label className={labelCls}>Tu nombre</label>
+          <input
+            type="text"
+            required
+            autoFocus
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Nombre completo"
+            autoComplete="name"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Tu teléfono (WhatsApp)</label>
+          <input
+            type="tel"
+            required
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
+            placeholder="+506 8888-8888"
+            autoComplete="tel"
+            inputMode="tel"
+            className={inputCls}
+          />
+        </div>
+
+        {error && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</p>
+        )}
+
+        <button type="submit" disabled={pendiente} className={botonCls}>
+          {pendiente ? "Guardando..." : "Guardar y continuar"}
+        </button>
+      </form>
+    );
   }
 
   if (paso === "codigo") {
@@ -251,18 +354,37 @@ export default function FormularioCodigoAcceso({
         </p>
       )}
       {pideNombreAhora && (
-        <div>
-          <label className={labelCls}>Tu nombre</label>
-          <input
-            type="text"
-            required
-            autoFocus={pedirNombreSiNuevo}
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder="Nombre completo"
-            className={inputCls}
-          />
-        </div>
+        <>
+          <div>
+            <label className={labelCls}>Tu nombre</label>
+            <input
+              type="text"
+              required
+              autoFocus={pedirNombreSiNuevo}
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Nombre completo"
+              autoComplete="name"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Tu teléfono (WhatsApp)</label>
+            <input
+              type="tel"
+              required
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              placeholder="+506 8888-8888"
+              autoComplete="tel"
+              inputMode="tel"
+              className={inputCls}
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+              Con esto tus reservas se llenan solas — no volvés a escribirlo.
+            </p>
+          </div>
+        </>
       )}
       <div>
         <label className={labelCls}>Correo</label>

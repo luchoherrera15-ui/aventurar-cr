@@ -13,41 +13,34 @@ import {
   type Provincia,
 } from "../types";
 import { CATEGORIAS_CITAS, CATEGORIA_CITA_LABEL } from "@/app/citas/tipos";
+import { CATEGORIAS_HOSPEDAJES, CATEGORIA_HOSPEDAJE_LABEL } from "@/app/booking/tipos";
+import { PAISES } from "@/lib/zonas";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
-type Vertical = "eventos" | "citas";
+export type Vertical = "eventos" | "citas" | "hospedajes";
 
-// Las dos verticales que se pueden publicar desde este formulario.
-const VERTICALES: { id: Vertical; titulo: string; detalle: string }[] = [
-  {
-    id: "eventos",
-    titulo: "Servicios para eventos",
-    detalle: "Salones, catering, DJ, decoración y todo lo que se contrata para un evento.",
-  },
-  {
-    id: "citas",
-    titulo: "Citas y reservas",
-    detalle: "Salón de belleza, barbería, spa, consultorio... atendés con cita por hora.",
-  },
-];
-
-export default function NuevoRanchoForm() {
+/**
+ * El formulario de alta de UNA vertical: la persona ya eligió qué tipo
+ * de negocio tiene en el selector (/mi-rancho/nuevo) y acá solo ve los
+ * campos de SU registro — cada vertical pide cosas distintas.
+ */
+export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
   const [state, formAction, pending] = useActionState<
     NuevoRanchoState,
     FormData
   >(crearRancho, undefined);
-  const [vertical, setVertical] = useState<Vertical>("eventos");
   const [categoria, setCategoria] = useState("");
   const [subcategoria, setSubcategoria] = useState("");
   const [provincia, setProvincia] = useState<Provincia | "">("");
   const [canton, setCanton] = useState("");
 
   const esEventos = vertical === "eventos";
-  // La categoría de eventos válida (para subcategorías); en citas es null.
+  const esHospedajes = vertical === "hospedajes";
+  // La categoría de eventos válida (para subcategorías); en el resto es null.
   const categoriaEvento =
     esEventos && (CATEGORIAS as readonly string[]).includes(categoria)
       ? (categoria as Categoria)
@@ -89,44 +82,15 @@ export default function NuevoRanchoForm() {
       action={formAction}
       className="mt-6 flex flex-col gap-3.5 rounded-[18px] border border-aventurea-line bg-aventurea-surface p-6"
     >
-      {/* La vertical: eventos (lo de siempre) o citas (Fresha-style).
-          Cambiar de una a otra resetea la categoría, porque cada
-          vertical tiene su propia lista. */}
-      <div>
-        <label className={labelCls}>¿Qué publicás?</label>
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          {VERTICALES.map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              aria-pressed={vertical === v.id}
-              onClick={() => {
-                if (vertical === v.id) return;
-                setVertical(v.id);
-                setCategoria("");
-                setSubcategoria("");
-              }}
-              className={`rounded-2xl border p-4 text-left transition-colors ${
-                vertical === v.id
-                  ? "border-aventurea-orange bg-aventurea-orange/5"
-                  : "border-aventurea-line bg-aventurea-cream-2 hover:border-aventurea-orange/40"
-              }`}
-            >
-              <span className="block text-[13.5px] font-bold text-aventurea-ink">
-                {v.titulo}
-              </span>
-              <span className="mt-1 block text-[12px] leading-relaxed text-zinc-500">
-                {v.detalle}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
       <input type="hidden" name="vertical" value={vertical} />
 
       <div>
         <label className={labelCls}>
-          {esEventos ? "¿Qué tipo de servicio ofrecés?" : "¿Qué tipo de negocio tenés?"}
+          {esEventos
+            ? "¿Qué tipo de servicio ofrecés?"
+            : esHospedajes
+              ? "¿Qué tipo de hospedaje tenés?"
+              : "¿Qué tipo de negocio tenés?"}
         </label>
         <select
           name="categoria"
@@ -145,12 +109,36 @@ export default function NuevoRanchoForm() {
                   {CATEGORIA_LABEL[c]}
                 </option>
               ))
-            : CATEGORIAS_CITAS.map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORIA_CITA_LABEL[c]}
-                </option>
-              ))}
+            : esHospedajes
+              ? CATEGORIAS_HOSPEDAJES.map((c) => (
+                  <option key={c} value={c}>
+                    {CATEGORIA_HOSPEDAJE_LABEL[c]}
+                  </option>
+                ))
+              : CATEGORIAS_CITAS.map((c) => (
+                  <option key={c} value={c}>
+                    {CATEGORIA_CITA_LABEL[c]}
+                  </option>
+                ))}
         </select>
+      </div>
+
+      {/* El país: arrancamos solo con Costa Rica, pero el sistema de
+          horarios ya guarda la zona horaria del negocio según el país
+          — abrir otro país es agregarlo a lib/zonas.ts. */}
+      <div>
+        <label className={labelCls}>País</label>
+        <select name="pais" required defaultValue="CR" className={inputCls}>
+          {PAISES.map((p) => (
+            <option key={p.codigo} value={p.codigo}>
+              {p.nombre}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
+          Por ahora operamos en Costa Rica — muy pronto más países. La zona
+          horaria de tu agenda se configura sola.
+        </p>
       </div>
 
       {/* Las subcategorías son de la vertical de eventos; en citas la
@@ -190,7 +178,9 @@ export default function NuevoRanchoForm() {
               ? "Ej. Rancho Los Almendros"
               : esEventos
                 ? "Ej. DJ Mauricio Eventos"
-                : "Ej. Barbería La Norteña"
+                : esHospedajes
+                  ? "Ej. Villa Vista al Mar"
+                  : "Ej. Barbería La Norteña"
           }
           className={inputCls}
         />
@@ -267,6 +257,9 @@ export default function NuevoRanchoForm() {
         </div>
       )}
 
+      {/* Capacidad: los lugares de eventos piden rango (mín–máx); los
+          hospedajes solo el máximo de huéspedes (como Airbnb); citas
+          no pide nada de esto. */}
       {esLugar && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
@@ -291,19 +284,37 @@ export default function NuevoRanchoForm() {
           </div>
         </div>
       )}
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {esHospedajes && (
         <div>
-          <label className={labelCls}>Precio desde (₡)</label>
+          <label className={labelCls}>¿Cuántos huéspedes recibís? (máximo)</label>
           <input
             type="number"
-            min={0}
-            name="precio_desde"
-            placeholder="Ej. 80000"
+            min={1}
+            name="capacidad_max"
+            placeholder="Ej. 8"
             className={inputCls}
           />
         </div>
-        <div>
+      )}
+
+      {/* El precio: en eventos es "desde", en hospedajes es por noche,
+          y en citas NO se pide — lo definen tus servicios en el panel. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {vertical !== "citas" && (
+          <div>
+            <label className={labelCls}>
+              {esHospedajes ? "Precio por noche desde (₡)" : "Precio desde (₡)"}
+            </label>
+            <input
+              type="number"
+              min={0}
+              name="precio_desde"
+              placeholder={esHospedajes ? "Ej. 45000" : "Ej. 80000"}
+              className={inputCls}
+            />
+          </div>
+        )}
+        <div className={vertical === "citas" ? "sm:col-span-2" : ""}>
           <label className={labelCls}>WhatsApp de contacto</label>
           <input
             type="text"
@@ -311,6 +322,12 @@ export default function NuevoRanchoForm() {
             placeholder="+506 ...."
             className={inputCls}
           />
+          {vertical === "citas" && (
+            <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
+              El precio no se pide acá: lo definen tus servicios (corte,
+              manicura, consulta...) cuando los configurés en tu panel.
+            </p>
+          )}
         </div>
       </div>
 
@@ -328,12 +345,16 @@ export default function NuevoRanchoForm() {
 
         <div className="mt-3">
           <label className={labelCls}>Link de tus redes o tu sitio web</label>
+          {/* type="text" a propósito: type="url" rechaza "www.negocio.com"
+              sin https:// y eso frustra a quien publica — el action le
+              agrega el https:// solo. */}
           <input
-            type="url"
+            type="text"
+            inputMode="url"
             required
             value={redSocialUrl}
             onChange={(e) => setRedSocialUrl(e.target.value)}
-            placeholder="https://instagram.com/tu_negocio"
+            placeholder="instagram.com/tu_negocio"
             className={inputCls}
           />
         </div>

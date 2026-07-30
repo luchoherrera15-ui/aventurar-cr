@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import TarjetaExpandible from "@/components/tarjeta-expandible";
 import ResenaForm from "./resena-form";
 import { CATEGORIA_LABEL, normalizarCategoria } from "../mi-rancho/types";
 
 /**
- * Las reservas de la cuenta en dos pestañas — Activas e Historial —
- * con el mismo patrón de píldoras de la bandeja de mensajes. La página
+ * Las reservas de la cuenta dentro de una TarjetaExpandible: el
+ * encabezado lleva el título y las píldoras Activas/Historial (el mismo
+ * patrón de la bandeja de mensajes) y el cuerpo enseña un adelanto de
+ * dos reservas de la pestaña activa; el resto queda plegado. La página
  * (server) separa los datos y los manda planos; acá solo se pintan.
  */
 
@@ -60,9 +63,16 @@ export default function ReservasTabs({
   const visibles = tab === "activas" ? activas : historial;
 
   return (
-    <div className="mt-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[15px] font-bold text-aventurea-ink">Tus reservas</h2>
+    <TarjetaExpandible
+      className="mt-6"
+      titulo="Tus reservas"
+      conteo={activas.length + historial.length}
+      genero="f"
+      adelanto={2}
+      claseCuerpo="p-3.5"
+      claseContenido="flex flex-col gap-2.5"
+      claseResto="pt-2.5"
+      extra={
         <div className="flex gap-2">
           <PestanaTab
             label="Activas"
@@ -77,32 +87,30 @@ export default function ReservasTabs({
             onClick={() => setTab("historial")}
           />
         </div>
-      </div>
-
+      }
+    >
       {visibles.length === 0 ? (
-        <p className="rounded-2xl border border-aventurea-line bg-aventurea-surface px-5 py-4 text-[13px] text-aventurea-ink-soft">
+        <p className="px-1.5 py-1 text-[13px] text-aventurea-ink-soft">
           {tab === "activas"
             ? "Todavía no tenés reservas en curso."
             : "Todavía no tenés reservas pasadas."}
         </p>
       ) : (
-        <div className="flex flex-col gap-2.5">
-          {visibles.map((r) =>
-            tab === "activas" ? (
-              <TarjetaReserva key={r.id} reserva={r} />
-            ) : (
-              <TarjetaReserva
-                key={r.id}
-                reserva={r}
-                atenuada
-                resena={resenas[r.id] ?? null}
-                permitirResena={r.fecha < hoy}
-              />
-            ),
-          )}
-        </div>
+        visibles.map((r) =>
+          tab === "activas" ? (
+            <TarjetaReserva key={r.id} reserva={r} />
+          ) : (
+            <TarjetaReserva
+              key={r.id}
+              reserva={r}
+              atenuada
+              resena={resenas[r.id] ?? null}
+              permitirResena={r.fecha < hoy}
+            />
+          ),
+        )
       )}
-    </div>
+    </TarjetaExpandible>
   );
 }
 
@@ -152,11 +160,11 @@ function TarjetaReserva({
 
   return (
     <div
-      className={`rounded-2xl border border-aventurea-line bg-aventurea-surface p-3 ${atenuada ? "opacity-70" : ""}`}
+      className={`rounded-xl border border-aventurea-line bg-aventurea-surface p-2.5 ${atenuada ? "opacity-70" : ""}`}
     >
       <div className="flex items-center gap-3">
         <div
-          className="h-14 w-14 shrink-0 rounded-lg bg-cover bg-center bg-aventurea-cream-2"
+          className="h-12 w-12 shrink-0 rounded-lg bg-cover bg-center bg-aventurea-cream-2"
           style={
             reserva.ranchos?.foto_url ? { backgroundImage: `url(${reserva.ranchos.foto_url})` } : undefined
           }
@@ -183,7 +191,7 @@ function TarjetaReserva({
         </span>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-4 border-t border-aventurea-line pt-2.5">
+      <div className="mt-2 flex flex-wrap items-center gap-4 border-t border-aventurea-line pt-2">
         {href && (
           <Link href={href} className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy">
             Ver proveedor

@@ -7,6 +7,8 @@ import { IconHeart, IconPin, IconStar } from "@/components/icons";
 import {
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
+  CATEGORIA_LABEL,
+  SUBCATEGORIA_LABEL,
   UNIDAD_PRECIO_LABEL,
   type Rancho,
 } from "@/app/mi-rancho/types";
@@ -59,9 +61,15 @@ export default function RanchoCard({
   // eslint-disable-next-line react-hooks/purity -- "nuevo" es una etiqueta de vitrina; no pasa nada si queda desactualizada un instante entre renders
   const esNuevo = Date.now() - new Date(rancho.created_at).getTime() < 1000 * 60 * 60 * 24 * 30;
 
+  const esDemo = !!rancho.slug?.startsWith("demo-");
+  const rubro = rancho.subcategoria
+    ? SUBCATEGORIA_LABEL[rancho.subcategoria]
+    : CATEGORIA_LABEL[rancho.categoria];
+
   return (
     <article
       data-reveal
+      className="h-full"
       // Tope en 6 para no hacer esperar de más a las cards de más
       // abajo en páginas grandes — el efecto ya se nota igual.
       style={
@@ -71,9 +79,17 @@ export default function RanchoCard({
         } as React.CSSProperties
       }
     >
-      <Link href={href} className="group block">
+      {/* El mismo lenguaje de la card de Citas: foto 16:10 con el
+          rubro encima, cuerpo blanco con nombre + nota, ubicación y el
+          pie "Desde ₡ · Reservar →". Una sola card en todo el sitio. */}
+      <Link
+        href={href}
+        className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
+      >
+        {/* 4:3 en vez de 16:10 — la foto es la protagonista y el
+            bloque blanco de abajo queda lo más chico posible. */}
         <div
-          className="relative aspect-square overflow-hidden rounded-[13px]"
+          className="relative aspect-[4/3] overflow-hidden bg-aventurea-blue-light"
           style={
             !rancho.foto_url ? { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] } : undefined
           }
@@ -91,60 +107,92 @@ export default function RanchoCard({
               {CATEGORIA_ICONO[rancho.categoria]}
             </span>
           )}
-          {/* Destacado le gana el puesto a "Nuevo": los dos van en la
-              misma esquina y el badge pagado/manual pesa más. */}
-          {rancho.destacado_orden != null ? (
-            <span className="absolute left-2.5 top-2.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-aventurea-ink shadow-[0_2px_7px_rgba(0,0,0,.16)]">
-              ★ Destacado
-            </span>
-          ) : esNuevo && (
-            <span className="absolute left-2.5 top-2.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-aventurea-ink shadow-[0_2px_7px_rgba(0,0,0,.16)]">
-              Nuevo
-            </span>
-          )}
+
+          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
+            {rubro}
+          </span>
+
+          <span className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
+            {esDemo && (
+              <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
+                Demo
+              </span>
+            )}
+            {/* Destacado le gana el puesto a "Nuevo". */}
+            {rancho.destacado_orden != null ? (
+              <span className="rounded-full bg-aventurea-orange px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
+                ★ Destacado
+              </span>
+            ) : (
+              esNuevo && (
+                <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink backdrop-blur">
+                  Nuevo
+                </span>
+              )
+            )}
+          </span>
+
           <BotonFavorito ranchoId={rancho.id} inicial={favoritoInicial} sesionActiva={sesionActiva} />
         </div>
 
-        <h3 className="mt-2.5 truncate text-[15px] font-semibold tracking-tight text-aventurea-ink">
-          {rancho.nombre}
-        </h3>
-        {ubicacion && (
-          <p className="mt-0.5 flex items-center gap-1 truncate text-[12.5px] text-aventurea-ink-soft">
-            <IconPin className="h-3 w-3 shrink-0" />
-            {ubicacion}
-          </p>
-        )}
-        <p className="mt-0.5 text-[13.5px] text-aventurea-ink-soft">
-          <span className="font-bold text-aventurea-ink">{precio ?? "Consultar"}</span>
-          {precio && ` ${UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}`}
-          {calificacion && (
-            <>
-              {" "}
-              · <IconStar className="mb-0.5 inline-block h-2.5 w-2.5 text-aventurea-ink" />{" "}
-              {calificacion.promedio.toFixed(2).replace(".", ",")}
-            </>
+        <div className="flex flex-1 flex-col px-4 pb-3 pt-2.5">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="min-w-0 flex-1 truncate text-[15px] font-extrabold leading-snug text-aventurea-ink">
+              {rancho.nombre}
+            </h3>
+            {calificacion && (
+              <span className="flex shrink-0 items-center gap-1 pt-0.5 text-[12.5px] font-bold text-aventurea-ink">
+                <IconStar className="h-3.5 w-3.5 text-aventurea-orange" />
+                {calificacion.promedio.toFixed(1).replace(".", ",")}
+                <span className="font-semibold text-aventurea-ink-soft">
+                  ({calificacion.total})
+                </span>
+              </span>
+            )}
+          </div>
+          {ubicacion && (
+            <p className="mt-0.5 flex items-center gap-1.5 truncate text-[12.5px] text-aventurea-ink-soft">
+              <IconPin className="h-3.5 w-3.5 shrink-0 text-aventurea-navy" />
+              {ubicacion}
+            </p>
           )}
-        </p>
 
-        {rancho.categoria === "lugares" && proximaLibre !== undefined && (
-          <span
-            className={`mt-2 inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-bold ${
-              proximaLibre
-                ? "border-aventurea-navy text-aventurea-navy"
-                : "border-aventurea-line text-zinc-500"
-            }`}
-          >
-            <i
-              aria-hidden
-              className={`h-1 w-1 rounded-full ${proximaLibre ? "bg-aventurea-navy" : "bg-zinc-300"}`}
-            />
-            {proximaLibre
-              ? esFechaHoy(proximaLibre)
-                ? "Libre ahora"
-                : `Libre desde ${fmtFechaCorta(proximaLibre)}`
-              : "Agotado"}
-          </span>
-        )}
+          {rancho.categoria === "lugares" && proximaLibre !== undefined && (
+            <span
+              className={`mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-bold ${
+                proximaLibre
+                  ? "border-aventurea-navy text-aventurea-navy"
+                  : "border-aventurea-line text-zinc-500"
+              }`}
+            >
+              <i
+                aria-hidden
+                className={`h-1 w-1 rounded-full ${proximaLibre ? "bg-aventurea-navy" : "bg-zinc-300"}`}
+              />
+              {proximaLibre
+                ? esFechaHoy(proximaLibre)
+                  ? "Libre ahora"
+                  : `Libre desde ${fmtFechaCorta(proximaLibre)}`
+                : "Agotado"}
+            </span>
+          )}
+
+          <div className="mt-auto flex items-center justify-between gap-2 border-t border-aventurea-line/70 pt-2.5">
+            <span className="min-w-0 truncate text-[12.5px] text-aventurea-ink-soft">
+              {precio ? (
+                <>
+                  Desde <strong className="font-extrabold text-aventurea-ink">{precio}</strong>
+                  <span className="hidden sm:inline"> {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}</span>
+                </>
+              ) : (
+                "Consultar"
+              )}
+            </span>
+            <span className="shrink-0 text-[13px] font-extrabold text-aventurea-orange">
+              Reservar →
+            </span>
+          </div>
+        </div>
       </Link>
     </article>
   );
@@ -185,9 +233,9 @@ function BotonFavorito({
       disabled={pending}
       aria-label={activo ? "Quitar de favoritos" : "Guardar en favoritos"}
       aria-pressed={activo}
-      className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center transition-transform hover:scale-110 disabled:opacity-70"
+      className="absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur transition-transform hover:scale-110 disabled:opacity-70"
     >
-      <IconHeart className={`h-[22px] w-[22px] ${activo ? "text-aventurea-orange" : "text-black/30"}`} />
+      <IconHeart className={`h-4 w-4 ${activo ? "text-aventurea-orange" : "text-aventurea-ink-soft"}`} />
     </button>
   );
 }

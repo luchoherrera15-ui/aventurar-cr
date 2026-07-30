@@ -39,10 +39,11 @@ export const metadata = {
 /** Escena Citas: celeste de la vertical, loop de 8 segundos. */
 const VARS_CITAS = {
   "--pub-dur": "8s",
-  "--pub-acento": "#1f7a74",
-  "--pub-fondo-acento": "#e6f6f5",
-  "--pub-tinta-acento": "#0f5b56",
-  "--pub-linea": "#dceeec",
+  // El azul de la vertical de Citas (ya no el teal viejo).
+  "--pub-acento": "#3b7fc4",
+  "--pub-fondo-acento": "#e8f0f9",
+  "--pub-tinta-acento": "#16295e",
+  "--pub-linea": "#dbe4f2",
 } as React.CSSProperties;
 
 /** Escena Eventos: naranja de la marca, loop de 9 segundos. */
@@ -57,7 +58,7 @@ const VARS_EVENTOS = {
 type VerticalNegocio = "Citas" | "Eventos" | "Hospedajes";
 
 const ESTILO_VERTICAL: Record<VerticalNegocio, { burbuja: string; tag: string }> = {
-  Citas: { burbuja: "bg-[#e6f6f5] text-[#1f7a74]", tag: "text-[#2b8a84]" },
+  Citas: { burbuja: "bg-aventurea-blue-light text-aventurea-navy", tag: "text-aventurea-navy" },
   Eventos: {
     burbuja: "bg-aventurea-orange-light text-aventurea-orange",
     tag: "text-aventurea-orange",
@@ -89,54 +90,85 @@ const TIPOS_NEGOCIO: {
 
 export default function PublicarPage() {
   return (
-    <div className="min-h-screen bg-aventurea-cream">
+    // Lienzo crema: los bloques bento de color viven encima.
+    <div className="min-h-screen bg-aventurea-cream-2">
       <RevealOnScroll />
       <SiteHeader ancho="max-w-[1200px]" />
 
-      {/* ---------- Hero ---------- */}
-      <section className="relative isolate overflow-hidden">
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -right-[18%] -top-[45%] h-[820px] w-[820px] rounded-full bg-aventurea-navy-3/[0.12]" />
-          <div className="absolute -left-[22%] top-[25%] h-[680px] w-[680px] rounded-full bg-[#5dc4be]/[0.12] blur-[90px]" />
-          <div className="absolute inset-0 bg-gradient-to-b from-aventurea-navy-3/[0.06] to-transparent" />
-        </div>
-
-        <div className="mx-auto max-w-[1200px] px-6 pb-14 pt-20 text-center sm:pt-28 lg:px-10">
-          <span className="inline-flex items-center gap-2 rounded-full border border-aventurea-line bg-aventurea-surface px-4 py-1.5 text-[12px] font-bold text-aventurea-ink-soft">
-            <IconSparkles className="h-3.5 w-3.5 text-aventurea-orange" />
-            Bookea para negocios
-          </span>
-
-          <h1 className="titulo mx-auto mt-6 max-w-[18ch] text-balance text-[40px] text-aventurea-ink sm:text-[58px]">
-            La plataforma de reservas para tu negocio
-          </h1>
-          <p className="mx-auto mt-5 max-w-[56ch] text-balance text-[16px] leading-relaxed text-aventurea-ink-soft sm:text-[18px]">
-            Eventos, citas y hospedajes: tus clientes reservan en línea y vos
-            administrás la agenda, el chat, los correos y los cobros — todo en
-            un solo lugar.
-          </p>
-
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/mi-rancho/nuevo"
-              className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
-            >
-              Publicar mi negocio gratis
-            </Link>
-            <Link
-              href="/citas"
-              className="rounded-xl border border-aventurea-line bg-aventurea-surface px-7 py-3.5 text-[14.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-orange hover:text-aventurea-orange"
-            >
-              Ver cómo se ve mi página
-            </Link>
+      {/* ---------- Hero bento: el collage de bloques de color ----------
+          La línea de diseño nueva: bloques grandes de color plano con
+          esquinas bien redondeadas sobre el lienzo crema — navy para
+          el mensaje, naranja de acento, blanco para los datos. */}
+      <section className="px-4 pb-2 pt-6 lg:px-10">
+        <div className="mx-auto grid max-w-[1200px] gap-4 lg:grid-cols-[1.35fr_1fr]">
+          {/* El bloque navy con el mensaje grande. */}
+          <div
+            data-reveal
+            className="relative isolate overflow-hidden rounded-[32px] bg-aventurea-navy p-8 sm:p-12"
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-28 -top-28 h-80 w-80 rounded-full bg-aventurea-navy-3/60 blur-2xl"
+            />
+            <span className="inline-flex items-center gap-2 text-[11.5px] font-extrabold uppercase tracking-[0.2em] text-aventurea-orange">
+              <IconSparkles className="h-3.5 w-3.5" />
+              Bookea para negocios
+            </span>
+            <h1 className="titulo mt-5 max-w-[14ch] text-balance text-[38px] text-white sm:text-[54px]">
+              La plataforma de reservas para tu negocio
+            </h1>
+            <p className="mt-5 max-w-[46ch] text-balance text-[15.5px] leading-relaxed text-white/80 sm:text-[17px]">
+              Eventos, citas y hospedajes: tus clientes reservan en línea y
+              vos administrás la agenda, el chat, los correos y los cobros —
+              todo en un solo lugar.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <Link
+                href="/mi-rancho/nuevo"
+                className="rounded-full bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
+              >
+                Publicar mi negocio gratis
+              </Link>
+              <Link
+                href="/citas"
+                className="rounded-full bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
+              >
+                Ver cómo se ve mi página
+              </Link>
+            </div>
           </div>
 
-          {/* Franja de números, honestos y genéricos */}
-          <div className="mx-auto mt-14 grid max-w-[900px] grid-cols-2 gap-y-8 border-t border-aventurea-line pt-10 lg:grid-cols-4">
-            <Numero dato="3" texto="verticales: eventos, citas y hospedajes" />
-            <Numero dato="7 días / 24 h" texto="la plataforma reserva por vos" />
-            <Numero dato="0" texto="comisión por publicar tu negocio" />
-            <Numero dato="100%" texto="en línea: sin llamadas ni papeleo" />
+          {/* La columna de acento: azulejo naranja + tarjeta de números. */}
+          <div className="grid gap-4">
+            <div
+              data-reveal
+              style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
+              className="relative flex min-h-[190px] items-end overflow-hidden rounded-[32px] bg-aventurea-orange p-7"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- logo estático */}
+              <img
+                src="/logo-bookea-blanco.png"
+                alt=""
+                aria-hidden
+                className="absolute right-6 top-6 h-8 w-auto opacity-95"
+              />
+              <p className="max-w-[22ch] text-[18px] font-extrabold leading-snug text-white">
+                Tus clientes reservan solos — la agenda se llena mientras
+                trabajás.
+              </p>
+            </div>
+            <div
+              data-reveal
+              style={{ "--reveal-delay": "160ms" } as React.CSSProperties}
+              className="rounded-[32px] border border-aventurea-line bg-white p-7"
+            >
+              <div className="grid grid-cols-2 gap-x-4 gap-y-7">
+                <Numero dato="3" texto="verticales: eventos, citas y hospedajes" />
+                <Numero dato="7 días / 24 h" texto="la plataforma reserva por vos" />
+                <Numero dato="0" texto="comisión por publicar tu negocio" />
+                <Numero dato="100%" texto="en línea: sin llamadas ni papeleo" />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -187,9 +219,9 @@ export default function PublicarPage() {
         </div>
       </section>
 
-      {/* ---------- Producto: Citas ---------- */}
+      {/* ---------- Producto: Citas — bloque bento azul ---------- */}
       <section
-        className="border-t border-[#dceeec] bg-[linear-gradient(175deg,#ffffff_0%,#f3fbfa_45%,#e9f6f5_100%)] py-20"
+        className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-[32px] bg-aventurea-blue-light py-16 lg:mx-auto"
         style={VARS_CITAS}
       >
         <div className="mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-14 px-6 lg:grid-cols-2 lg:px-10">
@@ -374,8 +406,9 @@ export default function PublicarPage() {
       </section>
 
       {/* ---------- Producto: Eventos ---------- */}
+      {/* ---------- Producto: Eventos — bloque bento naranja ---------- */}
       <section
-        className="relative isolate overflow-hidden border-t border-aventurea-line py-20"
+        className="relative isolate mx-4 my-4 max-w-[1200px] overflow-hidden rounded-[32px] bg-aventurea-orange-light py-16 lg:mx-auto"
         style={VARS_EVENTOS}
       >
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
@@ -571,7 +604,8 @@ export default function PublicarPage() {
       </section>
 
       {/* ---------- Producto: Hospedajes (muy pronto) ---------- */}
-      <section className="border-t border-aventurea-line bg-aventurea-cream-2 py-20">
+      {/* ---------- Producto: Hospedajes — bloque blanco ---------- */}
+      <section className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-16 lg:mx-auto">
         <div className="mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-14 px-6 lg:grid-cols-2 lg:px-10">
           <div data-reveal>
             <p className="flex items-center gap-2 text-[11.5px] font-extrabold uppercase tracking-[0.2em] text-aventurea-navy-3">
@@ -591,7 +625,7 @@ export default function PublicarPage() {
             </p>
             <Link
               href="/mi-rancho/nuevo"
-              className="mt-7 inline-flex rounded-xl bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+              className="mt-7 inline-flex rounded-full bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
             >
               Anotar mi propiedad
             </Link>
@@ -648,7 +682,7 @@ export default function PublicarPage() {
       </section>
 
       {/* ---------- Todo incluido ---------- */}
-      <section className="border-t border-aventurea-line py-20">
+      <section className="py-16">
         <div className="mx-auto max-w-[1200px] px-6 lg:px-10">
           <div data-reveal className="text-center">
             <p className="text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
@@ -705,7 +739,7 @@ export default function PublicarPage() {
       </section>
 
       {/* ---------- Apps ---------- */}
-      <section className="border-t border-aventurea-line bg-aventurea-surface py-20">
+      <section className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-16 lg:mx-auto">
         <div className="mx-auto max-w-[1200px] px-6 text-center lg:px-10">
           <div data-reveal>
             <p className="text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
@@ -732,7 +766,7 @@ export default function PublicarPage() {
       </section>
 
       {/* ---------- FAQ ---------- */}
-      <section className="border-t border-aventurea-line py-20">
+      <section className="py-16">
         <div className="mx-auto max-w-[760px] px-6">
           <div data-reveal className="text-center">
             <h2 className="titulo text-[30px] text-aventurea-ink sm:text-[36px]">

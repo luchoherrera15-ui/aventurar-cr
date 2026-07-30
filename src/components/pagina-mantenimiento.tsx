@@ -53,7 +53,7 @@ export default function PaginaMantenimiento({
 
         <Link
           href="/eventos"
-          className="mt-9 rounded-xl bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-navy-2"
+          className="mt-9 rounded-full bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-navy-2"
         >
           Mientras tanto, mirá el directorio de eventos
         </Link>

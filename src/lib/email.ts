@@ -132,6 +132,75 @@ function layout({
 }
 
 /** Una fila "etiqueta / valor" dentro de la tarjeta de datos de la reserva. */
+/**
+ * Enlaces para guardar la reserva en el calendario del teléfono con
+ * un toque: el de Google abre el evento prellenado, y el .ics (que
+ * sirve /api/calendario/[id]) lo abre Apple Calendar y Outlook.
+ * Costa Rica no tiene horario de verano, así que la conversión a UTC
+ * es un +6 fijo.
+ */
+export function enlacesCalendario({
+  reservaId,
+  titulo,
+  fecha,
+  horaInicio,
+  duracionMinutos,
+  ubicacion,
+}: {
+  reservaId: string;
+  titulo: string;
+  /** YYYY-MM-DD. */
+  fecha: string;
+  /** "HH:MM"; null = evento de día completo (eventos de salón). */
+  horaInicio: string | null;
+  duracionMinutos: number;
+  ubicacion: string | null;
+}): { google: string; ics: string } {
+  const compactaUtc = (d: Date) =>
+    `${d.toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`;
+  let dates: string;
+  if (horaInicio) {
+    const inicio = new Date(`${fecha}T${horaInicio}:00-06:00`);
+    const fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
+    dates = `${compactaUtc(inicio)}/${compactaUtc(fin)}`;
+  } else {
+    // Día completo: de la fecha al día siguiente, sin horas.
+    const siguiente = new Date(`${fecha}T00:00:00Z`);
+    siguiente.setUTCDate(siguiente.getUTCDate() + 1);
+    dates = `${fecha.replace(/-/g, "")}/${siguiente.toISOString().slice(0, 10).replace(/-/g, "")}`;
+  }
+
+  const parametros = new URLSearchParams({
+    action: "TEMPLATE",
+    text: titulo,
+    dates,
+    details: "Reservado en Bookea — el comprobante está en tu correo.",
+  });
+  if (ubicacion) parametros.set("location", ubicacion);
+
+  return {
+    google: `https://calendar.google.com/calendar/render?${parametros.toString()}`,
+    ics: `${SITIO_URL}/api/calendario/${reservaId}`,
+  };
+}
+
+/** Los dos botones de "guardar en mi calendario" para los correos. */
+export function bloqueCalendario(enlaces: { google: string; ics: string }) {
+  return `
+      <div style="margin:20px 0 6px;">
+        <p style="margin:0 0 8px;color:#5b6472;font-size:12.5px;">
+          Guardá la fecha en el calendario de tu teléfono con un toque:
+        </p>
+        <a href="${enlaces.google}" style="display:inline-block;margin:0 8px 8px 0;border:1.5px solid #16295e;border-radius:10px;color:#16295e;font-size:13px;font-weight:700;padding:10px 16px;text-decoration:none;">
+          Google Calendar
+        </a>
+        <a href="${enlaces.ics}" style="display:inline-block;margin:0 0 8px 0;border:1.5px solid #e2e4ea;border-radius:10px;color:#101a2c;font-size:13px;font-weight:700;padding:10px 16px;text-decoration:none;">
+          Apple / Outlook (.ics)
+        </a>
+      </div>
+  `;
+}
+
 function filaDato(etiqueta: string, valorHtml: string) {
   return `
     <tr>
@@ -239,6 +308,7 @@ export function plantillaReservaAprobada({
   tipoEvento,
   invitados,
   montoPendiente,
+  calendario,
 }: {
   nombreCliente: string;
   nombreRancho: string;
@@ -246,6 +316,8 @@ export function plantillaReservaAprobada({
   tipoEvento: string | null;
   invitados: number | null;
   montoPendiente: number | null;
+  /** Enlaces de "guardar en mi calendario" (enlacesCalendario). */
+  calendario?: { google: string; ics: string };
 }) {
   const nombre = escaparHtml(nombreCliente);
   const rancho = escaparHtml(nombreRancho);
@@ -291,6 +363,8 @@ export function plantillaReservaAprobada({
             </p>`
           : ""
       }
+
+      ${calendario ? bloqueCalendario(calendario) : ""}
 
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
         Guardá este correo como comprobante. Un día antes te vamos a escribir para
@@ -533,6 +607,72 @@ export function plantillaRecordatorioEvento({
   });
 }
 
+/** Recordatorio de cita — sale 1 día antes, al cliente y al negocio. */
+export function plantillaRecordatorioCita({
+  nombreDestinatario,
+  nombreNegocio,
+  fecha,
+  hora,
+  servicio,
+  esProveedor,
+}: {
+  nombreDestinatario: string;
+  nombreNegocio: string;
+  fecha: string;
+  /** Ya formateada para leer, ej. "2:30 p. m.". */
+  hora: string;
+  servicio: string | null;
+  esProveedor: boolean;
+}) {
+  const nombre = escaparHtml(nombreDestinatario);
+  const negocio = escaparHtml(nombreNegocio);
+  const fechaLarga = new Date(fecha + "T00:00:00").toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  return layout({
+    kicker: "Tu cita es mañana",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        Hola ${nombre},
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        ${
+          esProveedor
+            ? `Recordatorio: mañana tenés una cita agendada en <strong style="color:#101a2c;">${negocio}</strong>.`
+            : `Recordatorio: mañana es tu cita en <strong style="color:#101a2c;">${negocio}</strong>.`
+        }
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
+        ${servicio ? filaDato("Servicio", escaparHtml(servicio)) : ""}
+        ${filaDato("Fecha", fechaLarga)}
+        ${filaDato("Hora", escaparHtml(hora))}
+      </table>
+
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        ${
+          esProveedor
+            ? "Revisá tu agenda en el panel para tener todo listo."
+            : "Si no vas a poder llegar, avisale al negocio por el chat de Bookea con tiempo."
+        }
+      </p>
+
+      <div style="padding:6px 0 4px;">
+        <a href="${SITIO_URL}${esProveedor ? "/mi-rancho" : "/mensajes"}" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          ${esProveedor ? "Abrir mi panel" : "Abrir mis mensajes"}
+        </a>
+      </div>
+    `,
+    pie: esProveedor
+      ? "Recibís este correo porque administrás un negocio publicado en Bookea."
+      : undefined,
+  });
+}
+
 /** Cita confirmada al instante (vertical de Citas) — para el cliente. */
 export function plantillaCitaConfirmada({
   nombreCliente,
@@ -544,6 +684,7 @@ export function plantillaCitaConfirmada({
   monto,
   nombreMiembro,
   reservaId,
+  calendario,
 }: {
   nombreCliente: string;
   nombreNegocio: string;
@@ -554,6 +695,8 @@ export function plantillaCitaConfirmada({
   monto: number | null;
   nombreMiembro: string | null;
   reservaId: string;
+  /** Enlaces de "guardar en mi calendario" (enlacesCalendario). */
+  calendario?: { google: string; ics: string };
 }) {
   return layout({
     kicker: "Cita confirmada",
@@ -574,6 +717,8 @@ export function plantillaCitaConfirmada({
         ${nombreMiembro ? filaDato("Te atiende", escaparHtml(nombreMiembro)) : ""}
         ${monto !== null ? filaDato("Precio", "₡" + Number(monto).toLocaleString("es-CR") + " — se paga en el local") : ""}
       </table>
+
+      ${calendario ? bloqueCalendario(calendario) : ""}
 
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
         Si necesitás cambiar o cancelar, escribile al negocio por el chat
@@ -598,6 +743,7 @@ export function plantillaCitaNuevaProveedor({
   fechaLarga,
   hora,
   nombreMiembro,
+  calendario,
 }: {
   nombreProveedor: string;
   nombreNegocio: string;
@@ -606,6 +752,8 @@ export function plantillaCitaNuevaProveedor({
   fechaLarga: string;
   hora: string;
   nombreMiembro: string | null;
+  /** Enlaces de "guardar en mi calendario" (enlacesCalendario). */
+  calendario?: { google: string; ics: string };
 }) {
   return layout({
     kicker: "Cita nueva",
@@ -627,6 +775,8 @@ export function plantillaCitaNuevaProveedor({
         ${filaDato("Hora", escaparHtml(hora))}
         ${nombreMiembro ? filaDato("Atiende", escaparHtml(nombreMiembro)) : ""}
       </table>
+
+      ${calendario ? bloqueCalendario(calendario) : ""}
 
       <div style="padding:6px 0 4px;">
         <a href="${SITIO_URL}/mi-rancho" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">

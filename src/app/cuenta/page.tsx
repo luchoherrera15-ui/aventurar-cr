@@ -2,7 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
-import { IconChatBubble, IconChevronRight, IconHeart, IconPlus, IconStore } from "@/components/icons";
+import TarjetaExpandible from "@/components/tarjeta-expandible";
+import { IconChatBubble, IconHeart, IconPlus, IconStore } from "@/components/icons";
 import FormularioAuth from "./formulario-auth";
 import ReservasTabs, { type ReservaCliente, type ResenaPropia } from "./reservas-tabs";
 import { cerrarSesionCuenta } from "./actions";
@@ -218,95 +219,101 @@ export default async function CuentaPage() {
           )}
         </div>
 
-        {/* Sus publicaciones reales, una fila por negocio, con el link a
-            la página pública y al panel de administración de cada una. */}
+        {/* Sus publicaciones reales, una fila compacta por negocio, con
+            el link a la página pública y al panel de cada una. Solo se
+            adelantan tres; el resto queda plegado en la tarjeta. */}
         {tieneNegocio && (
-          <div className="mt-6">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <h2 className="text-[15px] font-bold text-aventurea-ink">Tus negocios</h2>
+          <TarjetaExpandible
+            className="mt-6"
+            titulo="Tus negocios"
+            conteo={negocios.length}
+            adelanto={3}
+            claseResto="border-t border-aventurea-line"
+            extra={
               <p className="text-[12px] font-semibold text-aventurea-ink-soft">
                 {vecesContratado} {vecesContratado === 1 ? "contratación" : "contrataciones"}
                 {calificacionProveedor !== null && ` · ★ ${calificacionProveedor.toFixed(1)}`}
               </p>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-              {negocios.map((n) => {
-                const vertical = VERTICAL_LABEL[n.vertical ?? "eventos"] ?? "Eventos";
-                const verPagina = n.slug
-                  ? n.vertical === "citas"
-                    ? `/citas/${n.slug}`
-                    : `/${n.slug}`
-                  : `/eventos/${n.id}`;
-                return (
+            }
+          >
+            {negocios.map((n) => {
+              const vertical = VERTICAL_LABEL[n.vertical ?? "eventos"] ?? "Eventos";
+              const verPagina = n.slug
+                ? n.vertical === "citas"
+                  ? `/citas/${n.slug}`
+                  : `/${n.slug}`
+                : `/eventos/${n.id}`;
+              return (
+                <div
+                  key={n.id}
+                  className="flex items-center gap-3 border-b border-aventurea-line px-4 py-2.5 last:border-none"
+                >
                   <div
-                    key={n.id}
-                    className="flex items-center gap-3 border-b border-aventurea-line px-4 py-3 last:border-none"
-                  >
-                    <div
-                      className="h-10 w-10 shrink-0 rounded-lg bg-aventurea-cream-2 bg-cover bg-center"
-                      style={n.foto_url ? { backgroundImage: `url(${n.foto_url})` } : undefined}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13.5px] font-bold text-aventurea-ink">{n.nombre}</p>
-                      <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-aventurea-ink-soft">
-                        {vertical}
-                        <span
-                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[n.estado] ?? "bg-zinc-300"}`}
-                          title={ESTADO_NEGOCIO_LABEL[n.estado] ?? n.estado}
-                        />
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3.5">
-                      <Link
-                        href={verPagina}
-                        className="text-[12px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy"
-                      >
-                        Ver página
-                      </Link>
-                      <Link
-                        href={`/mi-rancho/${n.id}`}
-                        className="text-[12px] font-bold text-aventurea-navy hover:underline"
-                      >
-                        Administrar
-                      </Link>
-                    </div>
+                    className="h-9 w-9 shrink-0 rounded-lg bg-aventurea-cream-2 bg-cover bg-center"
+                    style={n.foto_url ? { backgroundImage: `url(${n.foto_url})` } : undefined}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13.5px] font-bold text-aventurea-ink">{n.nombre}</p>
+                    <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-aventurea-ink-soft">
+                      {vertical}
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[n.estado] ?? "bg-zinc-300"}`}
+                        title={ESTADO_NEGOCIO_LABEL[n.estado] ?? n.estado}
+                      />
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                  <div className="flex shrink-0 items-center gap-3.5">
+                    <Link
+                      href={verPagina}
+                      className="text-[12px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy"
+                    >
+                      Ver página
+                    </Link>
+                    <Link
+                      href={`/mi-rancho/${n.id}`}
+                      className="text-[12px] font-bold text-aventurea-navy hover:underline"
+                    >
+                      Administrar
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </TarjetaExpandible>
         )}
 
         <ReservasTabs activas={activas} historial={historial} resenas={resenasPorReserva} hoy={hoy} />
 
-        {/* Los favoritos plegados: están para volver a ellos, no para
-            ocupar media página todos los días. */}
+        {/* Los favoritos con la primera fila a la vista y el resto
+            plegado: están para volver a ellos, no para ocupar media
+            página todos los días. */}
         {favoritos.length > 0 && (
-          <details className="group mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface">
-            <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center gap-2 text-[14.5px] font-bold text-aventurea-ink">
+          <TarjetaExpandible
+            className="mt-6"
+            titulo={
+              <>
                 <IconHeart className="h-4 w-4 text-aventurea-orange" />
                 Tus favoritos
-                <span className="text-[12.5px] font-semibold text-aventurea-ink-soft">
-                  ({favoritos.length})
-                </span>
-              </span>
-              <IconChevronRight className="h-4 w-4 text-aventurea-ink-soft transition-transform group-open:rotate-90" />
-            </summary>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6 border-t border-aventurea-line p-4 sm:grid-cols-3">
-              {favoritos.map((r, i) => (
-                <RanchoCard
-                  key={r.id}
-                  rancho={r}
-                  index={i}
-                  calificacion={calificaciones.get(r.id) ?? null}
-                  proximaLibre={undefined}
-                  favoritoInicial
-                  sesionActiva
-                />
-              ))}
-            </div>
-          </details>
+              </>
+            }
+            conteo={favoritos.length}
+            adelanto={3}
+            claseCuerpo="p-4"
+            claseContenido="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3"
+            claseResto="pt-6"
+          >
+            {favoritos.map((r, i) => (
+              <RanchoCard
+                key={r.id}
+                rancho={r}
+                index={i}
+                calificacion={calificaciones.get(r.id) ?? null}
+                proximaLibre={undefined}
+                favoritoInicial
+                sesionActiva
+              />
+            ))}
+          </TarjetaExpandible>
         )}
 
         <form action={cerrarSesionCuenta} className="mt-8 text-center">
