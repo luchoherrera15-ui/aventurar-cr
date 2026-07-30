@@ -2,6 +2,7 @@ import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import PaquetesInvitaciones from "@/components/paquetes-invitaciones";
+import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 import {
   IconCheck,
   IconMail,
@@ -68,6 +69,12 @@ export default function InvitacionesLanding() {
                 className="rounded-xl border border-white/30 px-7 py-3.5 text-[15px] font-bold text-white transition-colors hover:border-white hover:bg-white/10"
               >
                 Ver una de ejemplo
+              </Link>
+              <Link
+                href="#catalogo"
+                className="rounded-xl border border-white/30 px-7 py-3.5 text-[15px] font-bold text-white transition-colors hover:border-white hover:bg-white/10"
+              >
+                Ver catálogo de invitaciones
               </Link>
             </div>
           </div>
@@ -177,6 +184,53 @@ export default function InvitacionesLanding() {
             >
               Pedí la tuya
             </Link>
+          </div>
+        </div>
+
+        {/* ---------- El catálogo: una card por demo viva. Para sumar
+            diseños nuevos, agregá su entrada en
+            src/lib/catalogo-invitaciones.ts ---------- */}
+        <div id="catalogo" data-reveal className="mt-5 scroll-mt-24">
+          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+            Catálogo
+          </p>
+          <h2 className="titulo mt-1 text-2xl text-aventurea-ink">
+            Diseños listos para enamorarte
+          </h2>
+          <p className="mt-1 max-w-[62ch] text-[13.5px] text-aventurea-ink-soft">
+            Tocá cualquiera y vivila como la viviría tu invitado — cada una es
+            una invitación real. Y si querés algo único, lo diseñamos desde cero.
+          </p>
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {CATALOGO_INVITACIONES.map((d) => (
+              <Link
+                key={d.slug}
+                href={`/i/${d.slug}`}
+                className="group overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
+              >
+                <div
+                  className={`flex aspect-[4/3] items-center justify-center text-[44px] ${d.lienzo}`}
+                >
+                  <span className="transition-transform group-hover:scale-125">
+                    {d.emoji}
+                  </span>
+                </div>
+                <div className="p-4">
+                  <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-navy">
+                    {d.ocasion}
+                  </p>
+                  <p className="mt-0.5 text-[15px] font-extrabold text-aventurea-ink">
+                    {d.nombre}
+                  </p>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+                    {d.descripcion}
+                  </p>
+                  <p className="mt-2.5 text-[12.5px] font-extrabold text-aventurea-orange">
+                    Vivir la demo →
+                  </p>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
 
