@@ -41,5 +41,12 @@ export type Reserva = {
   origen: "web" | "movil" | "manual";
   /** Solo en reservas de servicios (no Lugares): el pedido del catálogo. */
   detalle_pedido: DetallePedido | null;
+  /** A qué hora empieza el evento ("15:00:00") — servicios, 0067.
+   *  Opcionales: toleran una base sin la migración corrida. */
+  hora_inicio?: string | null;
+  /** Horas contratadas del servicio. */
+  duracion_horas?: number | null;
+  /** Último día de un alquiler multi-día. */
+  fecha_fin?: string | null;
   created_at: string;
 };

@@ -547,6 +547,8 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                   cuentaTipo={rancho.cuenta_tipo}
                   disponibilidad={disponibilidadServicioPorDia}
                   eventosPorDia={rancho.eventos_por_dia ?? null}
+                  montoMinimo={rancho.monto_minimo ?? null}
+                  categoria={rancho.categoria}
                 />
               ) : (
                 <div>

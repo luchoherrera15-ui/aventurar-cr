@@ -5,7 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 import { solicitarCotizacion, type CotizacionState } from "../cotizacion-actions";
 import type { RanchoItem } from "@/app/mi-rancho/types";
 import CatalogoPaquetes from "@/components/catalogo-paquetes";
-import { totalPedido } from "@/lib/catalogo";
+import {
+  leerEleccionesIncluidas,
+  paqueteBaseElegido,
+  totalPedido,
+} from "@/lib/catalogo";
+import { sumarDiasISO } from "@/lib/fechas";
 import type { CupoDia } from "@/lib/disponibilidad";
 import {
   cotizarServicio,
@@ -57,6 +62,8 @@ export default function ReservaServicio({
   cuentaTipo = null,
   disponibilidad = {},
   eventosPorDia = null,
+  montoMinimo = null,
+  categoria = null,
 }: {
   ranchoId: string;
   items: RanchoItem[];
@@ -78,6 +85,10 @@ export default function ReservaServicio({
   disponibilidad?: Record<string, CupoDia>;
   /** Cupo de eventos por día del proveedor. null = sin tope. */
   eventosPorDia?: number | null;
+  /** Monto mínimo de contratación del negocio (se avisa antes de enviar). */
+  montoMinimo?: number | null;
+  /** Categoría del negocio — decoración/otros habilitan el alquiler multi-día. */
+  categoria?: string | null;
 }) {
   const accion = solicitarCotizacion.bind(null, ranchoId);
   const [state, formAction, pending] = useActionState<CotizacionState, FormData>(
@@ -96,6 +107,30 @@ export default function ReservaServicio({
   const [horas, setHoras] = useState(0);
   const [dias, setDias] = useState(0);
   const [horasExtra, setHorasExtra] = useState(0);
+  const [hora, setHora] = useState("");
+  // Elecciones incluidas en la tarifa (grupos "elegí hasta N"): no
+  // suman al precio — viajan como texto para el proveedor.
+  const [elegidos, setElegidos] = useState<Record<string, boolean>>({});
+  const eleccionesPorGrupo = useMemo(
+    () => leerEleccionesIncluidas(detalles),
+    [detalles],
+  );
+
+  // Pedido mínimo en unidades (detalles.minimo_pedido) — invitaciones,
+  // promocionales, alquileres. Se avisa acá y la base lo hace cumplir.
+  const minimoPedido = useMemo(() => {
+    const n = Number((detalles ?? {})["minimo_pedido"]);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  }, [detalles]);
+
+  // El paquete del catálogo que SUSTITUYE la tarifa base (0067): su
+  // precio entra por el pedido, no por la tarifa del jsonb.
+  const pb = paqueteBaseElegido(items, cantidades);
+  const paqueteBaseSel =
+    pb &&
+    (config.modalidad === "por_evento" || config.modalidad === "por_paquete")
+      ? { nombre: pb.nombre, precio: pb.precio, duracionHoras: pb.duracion_horas }
+      : null;
 
   // Solo hay paso de "armá tu servicio" si el proveedor configuró la
   // tarifa de su modalidad; si no, todo sigue siendo "a cotizar".
@@ -103,7 +138,7 @@ export default function ReservaServicio({
     (config.modalidad === "por_persona" && !!config.tarifaPersona) ||
     (config.modalidad === "por_hora" && !!config.tarifaHora) ||
     ((config.modalidad === "por_evento" || config.modalidad === "por_paquete") &&
-      !!config.tarifaEvento) ||
+      (!!config.tarifaEvento || !!paqueteBaseSel)) ||
     (config.modalidad === "por_dia" && !!config.tarifaDia);
 
   const lineasBase = cotizarServicio(config, {
@@ -111,8 +146,16 @@ export default function ReservaServicio({
     horas,
     dias,
     horasExtra,
+    paqueteBase: paqueteBaseSel,
   });
   const totalBase = totalCotizacion(lineasBase);
+
+  // Alquiler multi-día: con modalidad por día los días del cotizador
+  // definen el rango; decoración/otros lo ofrecen aparte (toldos,
+  // baños, sillas que se quedan el fin de semana completo).
+  const esAlquiler =
+    config.modalidad === "por_dia" ||
+    ((categoria === "decoracion" || categoria === "otros") && items.length > 0);
 
   // ---------- Depósito (solo si el proveedor lo configuró) ----------
   const tieneSinpe = !!sinpeNumero;
@@ -186,6 +229,24 @@ export default function ReservaServicio({
   const resumenPedido = totalPedido(items, cantidades);
   const totalEstimado = resumenPedido.total;
   const seleccionados = resumenPedido.unidades;
+
+  // Hasta qué día va el alquiler (se deriva de los días elegidos).
+  const fechaFin =
+    esAlquiler && fecha && dias > 1 ? sumarDiasISO(fecha, dias - 1) : null;
+
+  // Nombres de las elecciones incluidas, para mandarlas en el pedido.
+  const nombresElegidos = items
+    .filter((i) => elegidos[i.id])
+    .map((i) => i.nombre);
+
+  function alternarEleccion(itemId: string, elegido: boolean) {
+    setElegidos((prev) => {
+      const copia = { ...prev };
+      if (elegido) copia[itemId] = true;
+      else delete copia[itemId];
+      return copia;
+    });
+  }
 
   // La numeración de pasos se arma según lo que este proveedor tenga
   // configurado (cotizador, catálogo, depósito).
@@ -282,6 +343,7 @@ export default function ReservaServicio({
       <input type="hidden" name="horas" value={horas || ""} />
       <input type="hidden" name="dias" value={dias || ""} />
       <input type="hidden" name="horas_extra" value={horasExtra || ""} />
+      <input type="hidden" name="elecciones" value={JSON.stringify(nombresElegidos)} />
 
       {/* ---------- Paso: armá tu servicio (según cómo cobra) ---------- */}
       {pasoServicio && (
@@ -325,16 +387,30 @@ export default function ReservaServicio({
 
             {(config.modalidad === "por_evento" || config.modalidad === "por_paquete") && (
               <>
-                <p className="text-[13.5px] text-aventurea-ink-soft">
-                  {config.modalidad === "por_paquete" ? "Paquete base" : "Tarifa por evento"}:{" "}
-                  <strong className="text-aventurea-ink">
-                    {fmtColones(config.tarifaEvento!)}
-                  </strong>
-                  {config.horasIncluidas
-                    ? ` — incluye ${config.horasIncluidas} hora${config.horasIncluidas === 1 ? "" : "s"} de servicio`
-                    : ""}
-                  .
-                </p>
+                {paqueteBaseSel ? (
+                  <p className="text-[13.5px] text-aventurea-ink-soft">
+                    Paquete elegido:{" "}
+                    <strong className="text-aventurea-ink">{paqueteBaseSel.nombre}</strong>
+                    {paqueteBaseSel.precio !== null
+                      ? ` — ${fmtColones(paqueteBaseSel.precio)}`
+                      : ""}
+                    {paqueteBaseSel.duracionHoras
+                      ? ` — incluye ${paqueteBaseSel.duracionHoras} hora${paqueteBaseSel.duracionHoras === 1 ? "" : "s"} de servicio`
+                      : ""}
+                    . Sustituye la tarifa base (no se cobran las dos).
+                  </p>
+                ) : config.tarifaEvento ? (
+                  <p className="text-[13.5px] text-aventurea-ink-soft">
+                    {config.modalidad === "por_paquete" ? "Paquete base" : "Tarifa por evento"}:{" "}
+                    <strong className="text-aventurea-ink">
+                      {fmtColones(config.tarifaEvento)}
+                    </strong>
+                    {config.horasIncluidas
+                      ? ` — incluye ${config.horasIncluidas} hora${config.horasIncluidas === 1 ? "" : "s"} de servicio`
+                      : ""}
+                    .
+                  </p>
+                ) : null}
                 {config.horaExtra && (
                   <Contador
                     label="¿Horas extra?"
@@ -348,13 +424,21 @@ export default function ReservaServicio({
             )}
 
             {config.modalidad === "por_dia" && (
-              <Contador
-                label="¿Cuántos días de alquiler?"
-                ayuda={`${fmtColones(config.tarifaDia!)} por día`}
-                valor={dias}
-                sufijo={dias === 1 ? "día" : "días"}
-                onCambiar={(v) => setDias(v)}
-              />
+              <div>
+                <Contador
+                  label="¿Cuántos días de alquiler?"
+                  ayuda={`${fmtColones(config.tarifaDia!)} por día`}
+                  valor={dias}
+                  sufijo={dias === 1 ? "día" : "días"}
+                  onCambiar={(v) => setDias(v)}
+                />
+                {fechaFin && (
+                  <p className="mt-1.5 text-[12.5px] font-bold text-aventurea-navy">
+                    Tu alquiler va del {fecha} al {fechaFin} — el inventario
+                    queda apartado todos esos días.
+                  </p>
+                )}
+              </div>
             )}
 
             {lineasBase.length > 0 && (
@@ -391,6 +475,9 @@ export default function ReservaServicio({
             reservadasPorItem={reservadasDelDia}
             hayFecha={!!fecha}
             onCambiar={fijarCantidad}
+            eleccionesPorGrupo={eleccionesPorGrupo}
+            elegidos={elegidos}
+            onElegir={alternarEleccion}
           />
           {seleccionados > 0 && (
             <p className="mt-2 text-[13px] font-bold text-aventurea-ink">
@@ -540,6 +627,35 @@ export default function ReservaServicio({
               className={inputCls}
             />
           </div>
+          <div>
+            <label className={labelCls}>¿A qué hora es tu evento? (opcional)</label>
+            <input
+              type="time"
+              name="hora_inicio"
+              value={hora}
+              onChange={(e) => setHora(e.target.value)}
+              className={inputCls}
+            />
+            <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">
+              Le ayuda al proveedor a cuidar su agenda y evitar choques de
+              horario ese día.
+            </p>
+          </div>
+          {esAlquiler && config.modalidad !== "por_dia" && (
+            <div className="sm:col-span-2">
+              <Contador
+                label="¿Cuántos días necesitás el alquiler? (opcional)"
+                ayuda={
+                  fechaFin
+                    ? `Del ${fecha} al ${fechaFin} — el inventario queda apartado todos esos días.`
+                    : "Si tu alquiler es de varios días (ej. de viernes a domingo), el inventario se aparta todo el rango."
+                }
+                valor={dias}
+                sufijo={dias === 1 ? "día" : "días"}
+                onCambiar={(v) => setDias(v)}
+              />
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label className={labelCls}>Notas para el proveedor (opcional)</label>
             <textarea
@@ -551,6 +667,24 @@ export default function ReservaServicio({
           </div>
         </div>
       </div>
+
+      {/* ---------- Avisos de mínimos, antes de intentar enviar ---------- */}
+      {montoMinimo !== null &&
+        montoMinimo > 0 &&
+        totalGeneral > 0 &&
+        totalGeneral < montoMinimo && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+            Este negocio toma pedidos desde {fmtColones(montoMinimo)}. Tu pedido
+            va en {fmtColones(totalGeneral)} — agregale{" "}
+            {fmtColones(montoMinimo - totalGeneral)} más para poder reservar.
+          </p>
+        )}
+      {minimoPedido !== null && seleccionados > 0 && seleccionados < minimoPedido && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+          Este negocio despacha pedidos desde {minimoPedido} unidades y tu
+          pedido lleva {seleccionados}.
+        </p>
+      )}
 
       {state?.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{state.error}</p>

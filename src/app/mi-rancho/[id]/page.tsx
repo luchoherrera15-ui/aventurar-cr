@@ -46,6 +46,7 @@ import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-cal
 import ReservaManualForm from "@/components/reserva-manual-form";
 import CargaHistorialForm from "@/components/carga-historial-form";
 import { hoyISOCR } from "@/lib/fechas";
+import { leerEleccionesIncluidas } from "@/lib/catalogo";
 import {
   agregarGasto,
   borrarGasto,
@@ -264,6 +265,7 @@ export default async function RanchoDetallePage({
               initialItems={(itemsRes.data ?? []) as RanchoItem[]}
               etiqueta={etiquetaCatalogo}
               vertical={(data as { vertical?: string }).vertical ?? "eventos"}
+              eleccionesIniciales={leerEleccionesIncluidas(rancho.detalles)}
             />
           </>
         )}

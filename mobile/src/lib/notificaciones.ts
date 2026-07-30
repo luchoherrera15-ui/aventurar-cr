@@ -34,6 +34,49 @@ export async function pedirCorreoDeAprobacion(reservaId: string) {
   await pedir(reservaId, "aprobacion", "el correo de aprobación");
 }
 
+/**
+ * Le pide a la web que mande los avisos de una cita recién creada
+ * (correo + push al cliente y al negocio). La app llama al RPC
+ * crear_cita directo, así que los avisos salen por este endpoint.
+ * Nunca lanza, nunca bloquea, una sola vez por cita.
+ */
+export async function pedirCorreosDeCita(reservaId: string) {
+  const control = new AbortController();
+  const corte = setTimeout(() => control.abort(), TIMEOUT_MS);
+
+  try {
+    await fetch(`${SITIO_URL}/api/citas/${reservaId}/confirmacion`, {
+      method: "POST",
+      signal: control.signal,
+    });
+  } catch (e) {
+    console.warn("[citas] No se pudo pedir el aviso de la cita:", e);
+  } finally {
+    clearTimeout(corte);
+  }
+}
+
+/**
+ * Le pide a la web que le mande el push de un mensaje nuevo al otro
+ * participante del chat. Mismo contrato que los correos: nunca lanza,
+ * nunca bloquea, y el servidor avisa una sola vez por mensaje.
+ */
+export async function pedirAvisoDeMensaje(mensajeId: string) {
+  const control = new AbortController();
+  const corte = setTimeout(() => control.abort(), TIMEOUT_MS);
+
+  try {
+    await fetch(`${SITIO_URL}/api/mensajes/${mensajeId}/aviso`, {
+      method: "POST",
+      signal: control.signal,
+    });
+  } catch (e) {
+    console.warn("[mensajes] No se pudo pedir el aviso push:", e);
+  } finally {
+    clearTimeout(corte);
+  }
+}
+
 async function pedir(reservaId: string, ruta: string, queEs: string) {
   const control = new AbortController();
   const corte = setTimeout(() => control.abort(), TIMEOUT_MS);

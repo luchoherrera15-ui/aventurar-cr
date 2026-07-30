@@ -35,6 +35,7 @@ type Borrador = {
   minPorReserva: string;
   maxPorReserva: string;
   capacidadDia: string;
+  esPaqueteBase: boolean;
 };
 
 const VACIO: Borrador = {
@@ -49,6 +50,7 @@ const VACIO: Borrador = {
   minPorReserva: "1",
   maxPorReserva: "",
   capacidadDia: "",
+  esPaqueteBase: false,
 };
 
 function num(v: string): number | null {
@@ -71,6 +73,7 @@ function deItem(item: RanchoItem): Borrador {
     minPorReserva: String(item.min_por_reserva),
     maxPorReserva: item.max_por_reserva === null ? "" : String(item.max_por_reserva),
     capacidadDia: item.capacidad_dia === null ? "" : String(item.capacidad_dia),
+    esPaqueteBase: item.es_paquete_base === true,
   };
 }
 
@@ -131,7 +134,15 @@ export default function CatalogoNegocioScreen() {
       min_por_reserva: num(b.minPorReserva) ?? 1,
       max_por_reserva: num(b.maxPorReserva),
       capacidad_dia: num(b.capacidadDia),
+      es_paquete_base: b.tipo === "paquete" && b.esPaqueteBase,
     };
+  }
+
+  /** Base sin la migración 0067: se reintenta sin es_paquete_base. */
+  function sinPaqueteBase(fila: ReturnType<typeof aFila>) {
+    const copia = { ...fila } as Record<string, unknown>;
+    delete copia.es_paquete_base;
+    return copia;
   }
 
   function validar(b: Borrador): string | null {
@@ -189,13 +200,21 @@ export default function CatalogoNegocioScreen() {
     setOcupado(true);
     setError(null);
 
+    const fila = aFila(borrador);
     if (editando === "nuevo") {
       const maxOrden = Math.max(0, ...(items ?? []).map((i) => i.orden));
-      const { data, error: err } = await supabase
+      let { data, error: err } = await supabase
         .from("rancho_items")
-        .insert({ rancho_id: id, orden: maxOrden + 1, ...aFila(borrador) })
+        .insert({ rancho_id: id, orden: maxOrden + 1, ...fila })
         .select("*")
         .single();
+      if (err && err.message.includes("es_paquete_base")) {
+        ({ data, error: err } = await supabase
+          .from("rancho_items")
+          .insert({ rancho_id: id, orden: maxOrden + 1, ...sinPaqueteBase(fila) })
+          .select("*")
+          .single());
+      }
       setOcupado(false);
       if (err) {
         setError("No se pudo guardar: " + err.message);
@@ -203,13 +222,22 @@ export default function CatalogoNegocioScreen() {
       }
       setItems((prev) => [...(prev ?? []), data as RanchoItem]);
     } else if (editando) {
-      const { data, error: err } = await supabase
+      let { data, error: err } = await supabase
         .from("rancho_items")
-        .update(aFila(borrador))
+        .update(fila)
         .eq("id", editando)
         .eq("rancho_id", id)
         .select("*")
         .single();
+      if (err && err.message.includes("es_paquete_base")) {
+        ({ data, error: err } = await supabase
+          .from("rancho_items")
+          .update(sinPaqueteBase(fila))
+          .eq("id", editando)
+          .eq("rancho_id", id)
+          .select("*")
+          .single());
+      }
       setOcupado(false);
       if (err) {
         setError("No se pudo guardar: " + err.message);
@@ -360,6 +388,7 @@ export default function CatalogoNegocioScreen() {
                       ? ` · ${etiquetaDuracion(item.duracion_horas)}`
                       : ""}
                     {item.capacidad_dia !== null ? ` · hasta ${item.capacidad_dia}/día` : ""}
+                    {item.es_paquete_base === true ? " · sustituye la tarifa base" : ""}
                   </Text>
                   <View style={styles.acciones}>
                     <Accion texto="↑" deshabilitado={idx === 0} onPress={() => mover(item, -1)} />
@@ -599,6 +628,28 @@ function Formulario({
         numerico
       />
 
+      {/* Un paquete puede SUSTITUIR la tarifa base del cotizador: el
+          cliente que elige "Montaje premium" paga el premium, no
+          base + premium (0067). */}
+      {borrador.tipo === "paquete" && (
+        <Pressable
+          onPress={() =>
+            setBorrador((b) => ({ ...b, esPaqueteBase: !b.esPaqueteBase }))
+          }
+          style={[styles.checkFila, borrador.esPaqueteBase && styles.checkFilaActiva]}
+        >
+          <Text style={styles.checkMarca}>{borrador.esPaqueteBase ? "✓" : ""}</Text>
+          <Text style={styles.checkTexto}>
+            <Text style={{ fontFamily: Fonts.bold }}>
+              Este paquete sustituye la tarifa base.
+            </Text>{" "}
+            Al elegirlo, el cliente paga el precio del paquete en lugar de tu
+            tarifa por evento (no se suman), y sus horas incluidas mandan para
+            la hora extra.
+          </Text>
+        </Pressable>
+      )}
+
       <View style={styles.chipsFila}>
         <Pressable
           style={[styles.botonPrimario, { flex: 1 }, (ocupado || subiendoFoto) && { opacity: 0.5 }]}
@@ -711,6 +762,37 @@ const styles = StyleSheet.create({
     color: Colors.ink,
   },
   dosColumnas: { flexDirection: "row", gap: Spacing.three },
+  checkFila: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.two,
+    backgroundColor: Colors.cream2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    padding: Spacing.three,
+  },
+  checkFilaActiva: { borderColor: Colors.accent },
+  checkMarca: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.surface,
+    textAlign: "center",
+    fontSize: 13,
+    fontFamily: Fonts.bold,
+    color: Colors.accent,
+    overflow: "hidden",
+  },
+  checkTexto: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: Colors.ink,
+    fontFamily: Fonts.regular,
+  },
   fotoFila: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   fotoMini: { width: 56, height: 56, borderRadius: 10 },
   chipsFila: { flexDirection: "row", gap: 8 },

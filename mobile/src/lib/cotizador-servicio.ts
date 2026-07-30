@@ -33,12 +33,23 @@ export type ConfigCobro = {
   costoTraslado: number | null;
 };
 
+/** Un ítem del catálogo marcado como es_paquete_base que el cliente
+ *  eligió: su precio SUSTITUYE la tarifa por evento/paquete (viaja en
+ *  el pedido del catálogo, no acá) y sus horas mandan para la extra. */
+export type PaqueteBaseElegido = {
+  nombre: string;
+  precio: number | null;
+  duracionHoras: number | null;
+};
+
 /** Lo que el cliente eligió en el formulario de reserva. */
 export type SeleccionServicio = {
   invitados?: number | null;
   horas?: number | null;
   dias?: number | null;
   horasExtra?: number | null;
+  /** Paquete del catálogo que sustituye la tarifa base (0067). */
+  paqueteBase?: PaqueteBaseElegido | null;
 };
 
 export type LineaCotizacion = { etiqueta: string; monto: number };
@@ -116,20 +127,30 @@ export function cotizarServicio(
     }
   }
 
+  const paqueteBase =
+    (config.modalidad === "por_evento" || config.modalidad === "por_paquete")
+      ? (sel.paqueteBase ?? null)
+      : null;
+
   if (
     (config.modalidad === "por_evento" || config.modalidad === "por_paquete") &&
-    config.tarifaEvento
+    (config.tarifaEvento || paqueteBase)
   ) {
-    lineas.push({
-      etiqueta:
-        config.modalidad === "por_paquete"
-          ? "Paquete base"
-          : "Tarifa por evento" +
-            (config.horasIncluidas
-              ? ` (incluye ${config.horasIncluidas} hora${config.horasIncluidas === 1 ? "" : "s"})`
-              : ""),
-      monto: config.tarifaEvento,
-    });
+    // Con un paquete base elegido del catálogo, su precio SUSTITUYE la
+    // tarifa del jsonb — y como esa línea ya viene en el pedido del
+    // catálogo, acá no se suma nada (evita el doble cobro).
+    if (!paqueteBase && config.tarifaEvento) {
+      lineas.push({
+        etiqueta:
+          config.modalidad === "por_paquete"
+            ? "Paquete base"
+            : "Tarifa por evento" +
+              (config.horasIncluidas
+                ? ` (incluye ${config.horasIncluidas} hora${config.horasIncluidas === 1 ? "" : "s"})`
+                : ""),
+        monto: config.tarifaEvento,
+      });
+    }
     const extra = Math.max(sel.horasExtra ?? 0, 0);
     if (extra > 0 && config.horaExtra) {
       lineas.push({
@@ -156,12 +177,53 @@ export function cotizarServicio(
   // (No hay rama porque no hay tarifa única que aplicar.)
 
   // El traslado se suma solo cuando ya hay algo cotizado: solo, sin
-  // servicio, no informa nada.
-  if (lineas.length > 0 && config.costoTraslado) {
+  // servicio, no informa nada. Con paquete base elegido SÍ hay
+  // servicio (su precio viaja en el pedido), así que también aplica.
+  if ((lineas.length > 0 || paqueteBase) && config.costoTraslado) {
     lineas.push({ etiqueta: "Traslado", monto: config.costoTraslado });
   }
 
   return lineas;
+}
+
+/**
+ * Con cuántas horas incluidas se compara la hora extra — y cuántas
+ * horas dura el servicio en total: las del paquete base elegido (si
+ * las trae) o las configuradas en el jsonb.
+ */
+export function horasIncluidasEfectivas(
+  config: ConfigCobro,
+  sel: SeleccionServicio,
+): number | null {
+  if (
+    (config.modalidad === "por_evento" || config.modalidad === "por_paquete") &&
+    sel.paqueteBase?.duracionHoras
+  ) {
+    return sel.paqueteBase.duracionHoras;
+  }
+  return config.horasIncluidas;
+}
+
+/**
+ * Cuántas horas dura el evento en total según lo elegido — para
+ * guardarlo en la reserva y validar choques de franja. null cuando no
+ * se puede saber (por persona/por unidad sin horas configuradas).
+ */
+export function duracionServicio(
+  config: ConfigCobro,
+  sel: SeleccionServicio,
+): number | null {
+  if (config.modalidad === "por_hora") {
+    const horas = Math.max(sel.horas ?? 0, 0);
+    if (horas <= 0) return null;
+    return Math.max(horas, config.horasMinimas ?? 0);
+  }
+  if (config.modalidad === "por_evento" || config.modalidad === "por_paquete") {
+    const incluidas = horasIncluidasEfectivas(config, sel);
+    if (!incluidas) return null;
+    return incluidas + Math.max(sel.horasExtra ?? 0, 0);
+  }
+  return null;
 }
 
 export function totalCotizacion(lineas: LineaCotizacion[]): number {

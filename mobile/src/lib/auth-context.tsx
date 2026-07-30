@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { registrarPush } from "./push";
 
 export type Perfil = {
   id: string;
@@ -75,6 +76,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       vigente = false;
     };
   }, [session, recarga]);
+
+  // Con sesión, el teléfono queda registrado para notificaciones push
+  // (reservas, citas y mensajes). registrarPush degrada solo: en Expo
+  // Go o sin proyecto EAS simplemente no hace nada.
+  useEffect(() => {
+    if (session) void registrarPush(session.user.id);
+  }, [session]);
 
   const refrescarPerfil = useCallback(() => setRecarga((n) => n + 1), []);
 

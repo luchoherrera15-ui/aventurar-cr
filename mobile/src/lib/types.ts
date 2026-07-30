@@ -490,6 +490,9 @@ export type RanchoItem = {
   max_por_reserva: number | null;
   /** Cuántas unidades puede atender por día. null = sin límite. */
   capacidad_dia: number | null;
+  /** true = al elegirlo, su precio SUSTITUYE la tarifa por evento o
+   *  paquete del cotizador (0067). Opcional: tolera bases sin migrar. */
+  es_paquete_base?: boolean | null;
   created_at: string;
 };
 

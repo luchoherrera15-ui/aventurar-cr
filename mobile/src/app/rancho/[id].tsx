@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   Share,
@@ -10,6 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -47,7 +49,8 @@ export default function RanchoDetalleScreen() {
   const [abriendoChat, setAbriendoChat] = useState(false);
   const { width: anchoPantalla } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
-  const [fechasY, setFechasY] = useState(0);
+  // El calendario vive en un modal con velo, como el #reservar de la web.
+  const [modalFechas, setModalFechas] = useState(false);
   const [fotoActiva, setFotoActiva] = useState(0);
   const [rancho, setRancho] = useState<Rancho | null>(null);
   const [disponibilidad, setDisponibilidad] = useState<Record<string, DiaDisponibilidad>>({});
@@ -290,23 +293,38 @@ export default function RanchoDetalleScreen() {
           </View>
         )}
 
-        {/* ---------- Disponibilidad: calendario por mes, como /web ---------- */}
+        {/* ---------- Reservar: tarjeta de precio + depósito, y el
+             calendario se abre en un modal con velo — igual que la
+             tarjeta sticky y el #reservar del portal web. ---------- */}
         {esLugar && (
-          <View style={styles.seccion} onLayout={(e) => setFechasY(e.nativeEvent.layout.y)}>
+          <View style={styles.seccion}>
             <SeccionEncabezado kicker="Disponibilidad" titulo="Reservá tu fecha" />
-            <Text style={styles.hint}>
-              Tocá un día disponible para empezar tu reserva.
-            </Text>
-            <CalendarioMensual
-              disponibilidad={disponibilidad}
-              promociones={promociones}
-              onElegir={(fechaIso) =>
-                router.push({
-                  pathname: "/rancho/[id]/reservar",
-                  params: { id: rancho.id, fecha: fechaIso },
-                })
-              }
-            />
+            <View style={styles.tarjetaReserva}>
+              <Text style={styles.tarjetaReservaPrecio}>
+                {precio ? `Desde ${precio}` : "Precio a consultar"}
+                {precio ? (
+                  <Text style={styles.tarjetaReservaUnidad}>
+                    {" "}
+                    {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}
+                  </Text>
+                ) : null}
+              </Text>
+              {(rancho.capacidad_min || rancho.capacidad_max) && (
+                <Text style={styles.tarjetaReservaDato}>
+                  {rancho.capacidad_min ?? "?"}–{rancho.capacidad_max ?? "?"} personas
+                </Text>
+              )}
+              <Text style={styles.tarjetaReservaDato}>
+                Depósito para reservar: {fmtColones(rancho.deposito_reserva ?? 25000)}
+              </Text>
+              <Text style={styles.tarjetaReservaDato}>Confirmación del dueño en el día</Text>
+              <Pressable style={styles.botonVerFechas} onPress={() => setModalFechas(true)}>
+                <Text style={styles.botonPrimarioTexto}>Ver fechas disponibles</Text>
+              </Pressable>
+              <Text style={styles.tarjetaReservaNota}>
+                Todavía no se te cobra nada — elegís la fecha primero.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -481,14 +499,60 @@ export default function RanchoDetalleScreen() {
           >
             <Ionicons name="chatbubble-ellipses-outline" size={21} color={Colors.navy} />
           </Pressable>
-          <Pressable
-            style={styles.barraBoton}
-            onPress={() => scrollRef.current?.scrollTo({ y: fechasY, animated: true })}
-          >
+          <Pressable style={styles.barraBoton} onPress={() => setModalFechas(true)}>
             <Text style={styles.botonPrimarioTexto}>Ver fechas</Text>
           </Pressable>
         </View>
       )}
+
+      {/* ---------- Modal del calendario: velo azulado difuminado +
+           panel blanco con cabecera, el mismo patrón visual que el
+           modal #reservar de la web. ---------- */}
+      <Modal
+        visible={modalFechas}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalFechas(false)}
+      >
+        <BlurView intensity={28} tint="dark" style={styles.veloModal}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalFechas(false)} />
+          <View style={styles.panelModal}>
+            <View style={styles.panelModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.panelModalKicker}>Reservá tu fecha</Text>
+                <Text style={styles.panelModalTitulo} numberOfLines={1}>
+                  {rancho.nombre}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityLabel="Cerrar"
+                style={styles.panelModalCerrar}
+                onPress={() => setModalFechas(false)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={18} color={Colors.ink} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: Spacing.three, gap: Spacing.two }}>
+              <CalendarioMensual
+                disponibilidad={disponibilidad}
+                promociones={promociones}
+                onElegir={(fechaIso) => {
+                  setModalFechas(false);
+                  router.push({
+                    pathname: "/rancho/[id]/reservar",
+                    params: { id: rancho.id, fecha: fechaIso },
+                  });
+                }}
+              />
+              <Text style={styles.hint}>
+                Tocá un día disponible para indicar tus invitados, ver el precio
+                y reservar la fecha.
+              </Text>
+            </ScrollView>
+          </View>
+        </BlurView>
+      </Modal>
     </View>
   );
 }
@@ -636,6 +700,69 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.line,
+    backgroundColor: Colors.cream2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tarjetaReserva: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    borderRadius: 20,
+    padding: Spacing.four,
+    gap: 6,
+  },
+  tarjetaReservaPrecio: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink },
+  tarjetaReservaUnidad: { fontSize: 12.5, fontFamily: Fonts.medium, color: Colors.inkSoft },
+  tarjetaReservaDato: { fontSize: 13, color: Colors.inkSoft },
+  botonVerFechas: {
+    backgroundColor: Colors.navy,
+    borderRadius: 999,
+    paddingVertical: 13,
+    alignItems: "center",
+    marginTop: Spacing.two,
+  },
+  tarjetaReservaNota: { fontSize: 12, color: Colors.inkSoft, textAlign: "center" },
+  veloModal: {
+    flex: 1,
+    justifyContent: "center",
+    padding: Spacing.three,
+    backgroundColor: "rgba(10,18,42,0.30)",
+  },
+  panelModal: {
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.6)",
+    maxHeight: "92%",
+    overflow: "hidden",
+    shadowColor: "#060c20",
+    shadowOpacity: 0.45,
+    shadowRadius: 40,
+    shadowOffset: { width: 0, height: 24 },
+    elevation: 18,
+  },
+  panelModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.line,
+  },
+  panelModalKicker: {
+    fontSize: 10.5,
+    fontFamily: Fonts.bold,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    color: Colors.accent,
+  },
+  panelModalTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
+  panelModalCerrar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: Colors.cream2,
     alignItems: "center",
     justifyContent: "center",

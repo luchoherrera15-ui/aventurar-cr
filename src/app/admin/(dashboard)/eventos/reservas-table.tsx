@@ -8,7 +8,7 @@ import {
   setEstadoReserva,
 } from "./actions";
 import type { DetallePedido, Reserva } from "./types";
-import { mostrarHorarioReserva } from "@/app/mi-rancho/types";
+import { formatearHora, mostrarHorarioReserva } from "@/app/mi-rancho/types";
 
 const ESTADO_LABEL: Record<Reserva["estado"], string> = {
   pendiente: "En aprobación",
@@ -35,6 +35,29 @@ function fmtDate(iso: string) {
     month: "short",
     year: "numeric",
   });
+}
+
+/** "5 jun 2026" o "5 jun 2026 → 7 jun 2026" si es un alquiler multi-día. */
+function fmtRango(r: Reserva) {
+  return r.fecha_fin && r.fecha_fin > r.fecha
+    ? `${fmtDate(r.fecha)} → ${fmtDate(r.fecha_fin)}`
+    : fmtDate(r.fecha);
+}
+
+/**
+ * El horario de la reserva: los Lugares guardan el bloque elegido
+ * (horario_bloque); los servicios guardan hora_inicio + duración
+ * desde 0067. Sin ninguno de los dos: "—".
+ */
+function horarioDeReserva(r: Reserva) {
+  if (r.horario_bloque) return mostrarHorarioReserva(r.horario_bloque);
+  if (r.hora_inicio) {
+    const hora = formatearHora(r.hora_inicio.slice(0, 5));
+    return r.duracion_horas
+      ? `${hora} · ${r.duracion_horas} h`
+      : hora;
+  }
+  return "—";
 }
 
 /**
@@ -200,7 +223,7 @@ export default function ReservasTable({
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="text-[15px] font-bold text-aventurea-ink">
-                  {fmtDate(r.fecha)}
+                  {fmtRango(r)}
                 </div>
                 {nombrePorRancho && (
                   <div className="text-[12px] text-aventurea-ink-soft">
@@ -241,9 +264,7 @@ export default function ReservasTable({
                 <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                   Horario
                 </div>
-                <div className="text-aventurea-ink">
-                  {mostrarHorarioReserva(r.horario_bloque)}
-                </div>
+                <div className="text-aventurea-ink">{horarioDeReserva(r)}</div>
               </div>
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
@@ -354,7 +375,7 @@ export default function ReservasTable({
             {list.map((r) => (
               <Fragment key={r.id}>
               <tr className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream-2/40">
-                <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{fmtDate(r.fecha)}</td>
+                <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{fmtRango(r)}</td>
                 {nombrePorRancho && (
                   <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
                     {(r.rancho_id && nombrePorRancho.get(r.rancho_id)) ?? "—"}
@@ -377,7 +398,7 @@ export default function ReservasTable({
                 </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{r.tipo_evento}</td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">
-                  {mostrarHorarioReserva(r.horario_bloque)}
+                  {horarioDeReserva(r)}
                 </td>
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{r.invitados ?? "—"}</td>
                 <td className="px-4 py-3.5">

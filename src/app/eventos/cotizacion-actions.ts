@@ -7,9 +7,12 @@ import { hoyISOCR } from "@/lib/fechas";
 import { enviarCorreo, plantillaConfirmacionReserva } from "@/lib/email";
 import {
   cotizarServicio,
+  duracionServicio,
   leerConfigCobro,
   totalCotizacion,
+  type PaqueteBaseElegido,
 } from "@/lib/cotizador-servicio";
+import { sumarDiasISO } from "@/lib/fechas";
 
 export type CotizacionState = { error?: string } | undefined;
 
@@ -70,37 +73,8 @@ export async function solicitarCotizacion(
   } | null;
   if (!rancho) return { error: "Este negocio ya no está disponible." };
 
-  // La cotización según cómo cobra el proveedor se recalcula acá, con
-  // las tarifas de la base — el total del navegador no se usa.
-  const numForm = (nombre: string) => {
-    const n = parseInt(String(formData.get(nombre) || ""), 10);
-    return Number.isFinite(n) && n > 0 && n <= 999 ? n : null;
-  };
-  const lineasServicio = cotizarServicio(leerConfigCobro(rancho.detalles), {
-    invitados,
-    horas: numForm("horas"),
-    dias: numForm("dias"),
-    horasExtra: numForm("horas_extra"),
-  });
-  const totalServicio = totalCotizacion(lineasServicio);
-
-  const deposito = rancho.deposito_reserva ?? 0;
-  const pagoRequerido = deposito > 0 && (!!rancho.sinpe_numero || !!rancho.cuenta_numero);
-
-  const metodoPagoRaw = String(formData.get("metodo_pago") || "");
-  const metodoPago =
-    metodoPagoRaw === "sinpe" || metodoPagoRaw === "transferencia" ? metodoPagoRaw : null;
-  const comprobantePath = String(formData.get("comprobante_path") || "").trim();
-
-  if (pagoRequerido && !comprobantePath) {
-    return { error: "Subí el comprobante del depósito para agendar tu fecha." };
-  }
-
-  // El pedido llega como { item_id: cantidad }. Acá solo se le da
-  // forma; los nombres y precios NO se le creen al navegador — la
-  // función crear_reserva_servicio los relee de la base, comprueba los
-  // mínimos/máximos de cada ítem y el inventario del día, y escribe la
-  // reserva con sus líneas en una sola transacción (migración 0051).
+  // El pedido llega como { item_id: cantidad }. Se parsea ANTES de
+  // cotizar porque un ítem con es_paquete_base sustituye la tarifa.
   const pedidoRaw = String(formData.get("pedido") || "");
   let pedido: { item_id: string; cantidad: number }[] = [];
   if (pedidoRaw) {
@@ -120,19 +94,121 @@ export async function solicitarCotizacion(
       .map((id) => ({ item_id: id, cantidad: cantidades[id] }));
   }
 
+  // ¿Alguno de los ítems elegidos SUSTITUYE la tarifa base (0067)? Se
+  // relee de la base — el navegador no decide qué es paquete base. El
+  // select * tolera que la columna es_paquete_base no exista todavía.
+  let paqueteBase: PaqueteBaseElegido | null = null;
+  if (pedido.length > 0) {
+    const { data: itemsPedido } = await supabase
+      .from("rancho_items")
+      .select("*")
+      .eq("rancho_id", ranchoId)
+      .in(
+        "id",
+        pedido.map((p) => p.item_id),
+      );
+    const base = ((itemsPedido ?? []) as {
+      id: string;
+      nombre: string;
+      precio: number | null;
+      duracion_horas: number | null;
+      orden: number;
+      es_paquete_base?: boolean | null;
+    }[])
+      .sort((a, b) => a.orden - b.orden)
+      .find((i) => i.es_paquete_base === true);
+    if (base) {
+      paqueteBase = {
+        nombre: base.nombre,
+        precio: base.precio,
+        duracionHoras: base.duracion_horas,
+      };
+    }
+  }
+
+  // La cotización según cómo cobra el proveedor se recalcula acá, con
+  // las tarifas de la base — el total del navegador no se usa.
+  const numForm = (nombre: string) => {
+    const n = parseInt(String(formData.get(nombre) || ""), 10);
+    return Number.isFinite(n) && n > 0 && n <= 999 ? n : null;
+  };
+  const config = leerConfigCobro(rancho.detalles);
+  const seleccion = {
+    invitados,
+    horas: numForm("horas"),
+    dias: numForm("dias"),
+    horasExtra: numForm("horas_extra"),
+    paqueteBase,
+  };
+  const lineasServicio = cotizarServicio(config, seleccion);
+  const totalServicio = totalCotizacion(lineasServicio);
+
+  // Hora del evento (opcional) + horas contratadas: con esto la base
+  // puede detectar dos eventos montados en la misma franja.
+  const horaRaw = String(formData.get("hora_inicio") || "").trim();
+  const horaInicio = /^([01]?\d|2[0-3]):[0-5]\d$/.test(horaRaw) ? horaRaw : null;
+  const duracionHoras = duracionServicio(config, seleccion);
+
+  // Alquiler multi-día: los días elegidos definen hasta qué día se
+  // aparta el inventario (fecha_fin = fecha + días − 1).
+  const diasAlquiler = numForm("dias");
+  const fechaFin =
+    diasAlquiler && diasAlquiler > 1 && diasAlquiler <= 60
+      ? sumarDiasISO(fecha, diasAlquiler - 1)
+      : null;
+
+  // Elecciones incluidas en la tarifa ("elegí hasta N"): solo texto
+  // para el proveedor — no suman al precio.
+  let eleccionesTexto = "";
+  const eleccionesRaw = String(formData.get("elecciones") || "");
+  if (eleccionesRaw) {
+    try {
+      const lista = JSON.parse(eleccionesRaw);
+      if (Array.isArray(lista)) {
+        const nombres = lista
+          .filter((v): v is string => typeof v === "string" && !!v.trim())
+          .slice(0, 30)
+          .map((v) => v.trim().slice(0, 120));
+        if (nombres.length > 0) {
+          eleccionesTexto = `Elecciones incluidas en la tarifa (sin costo): ${nombres.join(", ")}.`;
+        }
+      }
+    } catch {
+      // Elecciones ilegibles no tumban la reserva: siguen en blanco.
+    }
+  }
+  const notasConElecciones = [notas, eleccionesTexto].filter(Boolean).join("\n");
+
+  const deposito = rancho.deposito_reserva ?? 0;
+  const pagoRequerido = deposito > 0 && (!!rancho.sinpe_numero || !!rancho.cuenta_numero);
+
+  const metodoPagoRaw = String(formData.get("metodo_pago") || "");
+  const metodoPago =
+    metodoPagoRaw === "sinpe" || metodoPagoRaw === "transferencia" ? metodoPagoRaw : null;
+  const comprobantePath = String(formData.get("comprobante_path") || "").trim();
+
+  if (pagoRequerido && !comprobantePath) {
+    return { error: "Subí el comprobante del depósito para agendar tu fecha." };
+  }
+
+  // Los nombres y precios del pedido NO se le creen al navegador — la
+  // función crear_reserva_servicio los relee de la base, comprueba los
+  // mínimos/máximos de cada ítem y el inventario del día/rango, y
+  // escribe la reserva con sus líneas en una sola transacción (0051 y
+  // 0067).
   const { data: perfil } = await supabase
     .from("perfiles")
     .select("nombre")
     .eq("id", user.id)
     .maybeSingle();
 
-  const { data: reservaId, error } = await supabase.rpc("crear_reserva_servicio", {
+  const paramsBase = {
     p_rancho_id: ranchoId,
     p_fecha: fecha,
     p_pedido: pedido,
     p_tipo_evento: tipoEvento || null,
     p_invitados: invitados && invitados > 0 ? invitados : null,
-    p_notas: notas || null,
+    p_notas: notasConElecciones || null,
     p_nombre: perfil?.nombre || user.email,
     p_correo: user.email,
     p_whatsapp: null,
@@ -141,7 +217,23 @@ export async function solicitarCotizacion(
     p_deposito_comprobante_url:
       pagoRequerido && comprobantePath ? comprobantePath : null,
     p_terminos_aceptados: false,
+  };
+
+  // Primero con los parámetros nuevos (hora, duración, rango — 0067);
+  // si la base todavía tiene la firma vieja (PGRST202), se reintenta
+  // sin ellos: la reserva sale igual, solo sin esos datos guardados.
+  let { data: reservaId, error } = await supabase.rpc("crear_reserva_servicio", {
+    ...paramsBase,
+    p_hora_inicio: horaInicio,
+    p_duracion_horas: duracionHoras,
+    p_fecha_fin: fechaFin,
   });
+  if (error && error.code === "PGRST202") {
+    ({ data: reservaId, error } = await supabase.rpc(
+      "crear_reserva_servicio",
+      paramsBase,
+    ));
+  }
 
   if (error || !reservaId) {
     // Los mensajes de la función ya vienen redactados para mostrar
@@ -177,8 +269,16 @@ export async function solicitarCotizacion(
         ? `Reserva agendada para el ${fecha} — depósito de ${fmtColones(deposito)} enviado por ${metodoPago === "transferencia" ? "transferencia" : "SINPE"}, comprobante adjunto en tu panel.`
         : `Solicitud de reserva para el ${fecha}.`,
     ];
+    if (horaInicio) partes.push(`Hora del evento: ${horaInicio}.`);
+    if (fechaFin) partes.push(`Alquiler del ${fecha} al ${fechaFin}.`);
     if (tipoEvento) partes.push(`Tipo de evento: ${tipoEvento}.`);
     if (invitados && invitados > 0) partes.push(`Invitados: ${invitados}.`);
+    if (paqueteBase) {
+      partes.push(
+        `Paquete elegido: ${paqueteBase.nombre} — sustituye la tarifa base.`,
+      );
+    }
+    if (eleccionesTexto) partes.push(eleccionesTexto);
     if (lineasServicio.length > 0) {
       partes.push(
         "Servicio cotizado:\n" +

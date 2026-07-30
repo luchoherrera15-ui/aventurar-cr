@@ -29,6 +29,9 @@ export type ItemInput = {
   minPorReserva: number;
   maxPorReserva: number | null;
   capacidadDia: number | null;
+  /** true = este paquete SUSTITUYE la tarifa por evento/paquete del
+   *  cotizador al elegirlo (0067). */
+  esPaqueteBase: boolean;
   activo: boolean;
 };
 
@@ -92,8 +95,25 @@ function aFila(datos: ItemInput) {
     min_por_reserva: datos.minPorReserva,
     max_por_reserva: datos.maxPorReserva,
     capacidad_dia: datos.capacidadDia,
+    es_paquete_base: datos.esPaqueteBase,
     activo: datos.activo,
   };
+}
+
+/**
+ * Si la migración 0067 todavía no se corrió, la columna
+ * es_paquete_base no existe y el insert/update entero fallaría. Se
+ * detecta ese caso puntual y se reintenta sin la columna, para que el
+ * catálogo siga siendo editable con la base vieja.
+ */
+function sinPaqueteBase(fila: ReturnType<typeof aFila>) {
+  const copia = { ...fila } as Record<string, unknown>;
+  delete copia.es_paquete_base;
+  return copia;
+}
+
+function faltaColumnaPaqueteBase(mensaje: string) {
+  return mensaje.includes("es_paquete_base");
 }
 
 export async function crearItemCatalogo(
@@ -115,15 +135,29 @@ export async function crearItemCatalogo(
     .limit(1)
     .maybeSingle();
 
-  const { data, error } = await supabase
+  const fila = aFila(datos);
+  let { data, error } = await supabase
     .from("rancho_items")
     .insert({
       rancho_id: ranchoId,
       orden: (ultimo?.orden ?? 0) + 1,
-      ...aFila(datos),
+      ...fila,
     })
     .select("*")
     .single();
+
+  // Base sin la migración 0067: se guarda sin es_paquete_base.
+  if (error && faltaColumnaPaqueteBase(error.message)) {
+    ({ data, error } = await supabase
+      .from("rancho_items")
+      .insert({
+        rancho_id: ranchoId,
+        orden: (ultimo?.orden ?? 0) + 1,
+        ...sinPaqueteBase(fila),
+      })
+      .select("*")
+      .single());
+  }
 
   if (error) {
     // El caso típico: las migraciones todavía no se corrieron.
@@ -149,18 +183,73 @@ export async function actualizarItemCatalogo(
   if (invalido) return { error: invalido };
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const fila = aFila(datos);
+  let { data, error } = await supabase
     .from("rancho_items")
-    .update(aFila(datos))
+    .update(fila)
     .eq("id", itemId)
     .eq("rancho_id", ranchoId)
     .select("*")
     .single();
 
+  // Base sin la migración 0067: se guarda sin es_paquete_base.
+  if (error && faltaColumnaPaqueteBase(error.message)) {
+    ({ data, error } = await supabase
+      .from("rancho_items")
+      .update(sinPaqueteBase(fila))
+      .eq("id", itemId)
+      .eq("rancho_id", ranchoId)
+      .select("*")
+      .single());
+  }
+
   if (error) return { error: "No se pudo guardar: " + error.message };
 
   revalidatePath(`/mi-rancho/${ranchoId}`);
   return { item: data as RanchoItem };
+}
+
+/**
+ * Config del "menú incluido con elección de N" por sección (jsonb
+ * ranchos.detalles.elecciones_incluidas): "de la sección Postres,
+ * elegí 1 sin costo". Con 0 (o vacío) la sección vuelve a cobrarse
+ * normal. No necesita migración: es una llave más del jsonb.
+ */
+export async function guardarEleccionesIncluidas(
+  ranchoId: string,
+  elecciones: Record<string, number>,
+): Promise<{ error?: string }> {
+  const limpio: Record<string, number> = {};
+  for (const [grupo, n] of Object.entries(elecciones)) {
+    const nombre = grupo.trim().slice(0, 40);
+    if (!nombre) continue;
+    if (!Number.isInteger(n) || n < 1 || n > 20) continue;
+    limpio[nombre] = n;
+  }
+
+  const supabase = await createClient();
+  const { data: rancho, error: errorLectura } = await supabase
+    .from("ranchos")
+    .select("detalles")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  if (errorLectura || !rancho) {
+    return { error: "No se pudo leer la configuración del negocio." };
+  }
+
+  const detalles = {
+    ...((rancho.detalles as Record<string, unknown>) ?? {}),
+    elecciones_incluidas: limpio,
+  };
+
+  const { error } = await supabase
+    .from("ranchos")
+    .update({ detalles })
+    .eq("id", ranchoId);
+  if (error) return { error: "No se pudo guardar: " + error.message };
+
+  revalidatePath(`/mi-rancho/${ranchoId}`);
+  return {};
 }
 
 /**

@@ -28,6 +28,37 @@ import {
   type Categoria,
   type Provincia,
 } from "@/lib/types";
+import { CATEGORIAS_CITAS, CATEGORIA_CITA_LABEL } from "@/lib/citas";
+import { CATEGORIAS_HOSPEDAJES, CATEGORIA_HOSPEDAJE_LABEL } from "@/lib/hospedajes";
+
+type Vertical = "eventos" | "citas" | "hospedajes";
+
+/** Las tres cards del selector — espejo de /mi-rancho/nuevo en la web. */
+const VERTICALES: {
+  id: Vertical;
+  titulo: string;
+  detalle: string;
+  icono: "sparkles-outline" | "time-outline" | "home-outline";
+}[] = [
+  {
+    id: "eventos",
+    titulo: "Eventos",
+    detalle: "Salones, catering, música, decoración — lo que se contrata para un evento.",
+    icono: "sparkles-outline",
+  },
+  {
+    id: "citas",
+    titulo: "Citas y Reservas",
+    detalle: "Belleza, barbería, spa, consultorio — atendés con cita por hora.",
+    icono: "time-outline",
+  },
+  {
+    id: "hospedajes",
+    titulo: "Hospedajes",
+    detalle: "Casa, villa, hotel, cabaña — recibís huéspedes por estadía.",
+    icono: "home-outline",
+  },
+];
 
 /**
  * Alta de un servicio o lugar desde la app — el mismo flujo que
@@ -65,12 +96,17 @@ export default function NuevoNegocioScreen() {
   const router = useRouter();
   const { session } = useAuth();
 
-  const [categoria, setCategoria] = useState<Categoria | null>(null);
+  // La vertical se elige primero (selector de 3 cards, como la web) y
+  // cada una tiene su propio registro con campos distintos.
+  const [vertical, setVertical] = useState<Vertical | null>(null);
+  const [categoria, setCategoria] = useState<string | null>(null);
   const [subcategoria, setSubcategoria] = useState<string | null>(null);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [provincia, setProvincia] = useState<Provincia | null>(null);
   const [canton, setCanton] = useState<string | null>(null);
+  const [direccion, setDireccion] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [precioDesde, setPrecioDesde] = useState("");
   const [capMin, setCapMin] = useState("");
   const [capMax, setCapMax] = useState("");
@@ -82,7 +118,16 @@ export default function NuevoNegocioScreen() {
   const [cedulaFrente, setCedulaFrente] = useState<string | null>(null);
   const [cedulaDorso, setCedulaDorso] = useState<string | null>(null);
 
-  const esLugar = categoria === "lugares";
+  const esEventos = vertical === "eventos";
+  const esHospedajes = vertical === "hospedajes";
+  // La categoría de eventos válida (para subcategorías).
+  const categoriaEvento =
+    esEventos && (CATEGORIAS as readonly string[]).includes(categoria ?? "")
+      ? (categoria as Categoria)
+      : null;
+  const esLugar = categoriaEvento === "lugares";
+  const conCapacidad = esLugar || esHospedajes;
+  const conDireccion = esLugar || !esEventos;
   const verificacionCompleta = !!redSocialUrl.trim() && !!cedulaFrente && !!cedulaDorso;
 
   async function elegirCedula(lado: "frente" | "dorso") {
@@ -120,7 +165,7 @@ export default function NuevoNegocioScreen() {
       router.replace("/cuenta");
       return;
     }
-    if (!categoria || !subcategoria || !nombre.trim() || !provincia) {
+    if (!vertical || !categoria || (esEventos && !subcategoria) || !nombre.trim() || !provincia) {
       setError("Completá al menos qué ofrecés, el nombre y la provincia.");
       return;
     }
@@ -150,15 +195,23 @@ export default function NuevoNegocioScreen() {
       .from("ranchos")
       .insert({
         owner_id: session.user.id,
+        // La vertical + país/zona horaria: espejo del alta de la web.
+        // Arrancamos solo en Costa Rica.
+        vertical,
+        pais: "CR",
+        zona_horaria: "America/Costa_Rica",
         categoria,
-        subcategoria,
+        subcategoria: esEventos ? subcategoria : null,
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || null,
         provincia,
         canton: canton || null,
+        direccion_exacta: conDireccion && direccion.trim() ? direccion.trim() : null,
+        contacto_whatsapp: whatsapp.trim() || null,
         capacidad_min: esLugar && capMin ? parseInt(capMin) : null,
-        capacidad_max: esLugar && capMax ? parseInt(capMax) : null,
-        precio_desde: precioDesde ? parseFloat(precioDesde) : null,
+        capacidad_max: conCapacidad && capMax ? parseInt(capMax) : null,
+        precio_desde:
+          vertical !== "citas" && precioDesde ? parseFloat(precioDesde) : null,
         estado: "pendiente",
         slug,
       })
@@ -171,9 +224,11 @@ export default function NuevoNegocioScreen() {
       return;
     }
 
+    // La gente escribe "www.minegocio.com" sin https:// — se lo ponemos.
+    const redSocial = redSocialUrl.trim();
     const { error: verifError } = await supabase.from("verificacion_proveedores").insert({
       rancho_id: nuevoRancho.id,
-      red_social_url: redSocialUrl.trim(),
+      red_social_url: /^https?:\/\//i.test(redSocial) ? redSocial : `https://${redSocial}`,
       cedula_frente_url: rutaFrente,
       cedula_dorso_url: rutaDorso,
     });
@@ -187,39 +242,95 @@ export default function NuevoNegocioScreen() {
       );
       return;
     }
+
+    // Quien publica su primer negocio pasa de cliente a dueño — igual
+    // que la web; nunca al revés y nunca toca a un admin.
+    await supabase
+      .from("perfiles")
+      .update({ rol: "dueno_rancho" })
+      .eq("id", session.user.id)
+      .eq("rol", "cliente");
+
     router.back();
+  }
+
+  // Paso 1: elegir la vertical — las mismas tres cards que la web.
+  if (!vertical) {
+    return (
+      <View style={styles.contenedor}>
+        <BarraSuperior titulo="Publicar" subtitulo="¿Qué tipo de negocio tenés?" />
+        <ScrollView contentContainerStyle={{ padding: Spacing.four, gap: Spacing.three }}>
+          <Text style={styles.selectorNota}>
+            Cada tipo tiene su propio registro — solo te pedimos lo que
+            aplica a tu negocio.
+          </Text>
+          {VERTICALES.map((v) => (
+            <Pressable
+              key={v.id}
+              onPress={() => setVertical(v.id)}
+              style={({ pressed }) => [styles.selectorCard, pressed && { opacity: 0.9 }]}
+            >
+              <View style={styles.selectorIcono}>
+                <Ionicons name={v.icono} size={22} color={Colors.navy} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.selectorTitulo}>{v.titulo}</Text>
+                <Text style={styles.selectorDetalle}>{v.detalle}</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={17} color={Colors.accent} />
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+    );
   }
 
   return (
     <View style={styles.contenedor}>
-      <BarraSuperior titulo="Publicar" subtitulo="Un servicio o lugar nuevo" />
+      <BarraSuperior
+        titulo="Publicar"
+        subtitulo={VERTICALES.find((v) => v.id === vertical)?.titulo}
+        onVolver={() => {
+          // Volver del formulario regresa al selector, no a la pantalla anterior.
+          setVertical(null);
+          setCategoria(null);
+          setSubcategoria(null);
+        }}
+      />
       <ScrollView
       contentContainerStyle={{ padding: Spacing.four, paddingBottom: 60, gap: Spacing.four }}
     >
       <View style={styles.bloque}>
-        <Text style={styles.bloqueTitulo}>¿Qué ofrecés?</Text>
+        <Text style={styles.bloqueTitulo}>
+          {esEventos ? "¿Qué ofrecés?" : esHospedajes ? "¿Qué tipo de hospedaje?" : "¿Qué tipo de negocio?"}
+        </Text>
         <View style={styles.chips}>
-          {CATEGORIAS.map((c) => (
+          {(esEventos
+            ? CATEGORIAS.map((c) => ({ id: c as string, label: CATEGORIA_LABEL[c] }))
+            : esHospedajes
+              ? CATEGORIAS_HOSPEDAJES.map((c) => ({ id: c as string, label: CATEGORIA_HOSPEDAJE_LABEL[c] }))
+              : CATEGORIAS_CITAS.map((c) => ({ id: c as string, label: CATEGORIA_CITA_LABEL[c] }))
+          ).map((c) => (
             <Pressable
-              key={c}
+              key={c.id}
               onPress={() => {
-                setCategoria(c);
+                setCategoria(c.id);
                 setSubcategoria(null);
               }}
-              style={[styles.chip, categoria === c && styles.chipActivo]}
+              style={[styles.chip, categoria === c.id && styles.chipActivo]}
             >
-              <Text style={[styles.chipTexto, categoria === c && styles.chipTextoActivo]}>
-                {CATEGORIA_LABEL[c]}
+              <Text style={[styles.chipTexto, categoria === c.id && styles.chipTextoActivo]}>
+                {c.label}
               </Text>
             </Pressable>
           ))}
         </View>
 
-        {categoria && (
+        {categoriaEvento && (
           <>
             <Text style={styles.campoLabel}>Exactamente qué</Text>
             <View style={styles.chips}>
-              {SUBCATEGORIAS[categoria].map((s) => (
+              {SUBCATEGORIAS[categoriaEvento].map((s) => (
                 <Pressable
                   key={s.id}
                   onPress={() => setSubcategoria(s.id)}
@@ -242,7 +353,15 @@ export default function NuevoNegocioScreen() {
           <TextInput
             value={nombre}
             onChangeText={setNombre}
-            placeholder="Ej. Rancho Los Almendros"
+            placeholder={
+              esLugar
+                ? "Ej. Rancho Los Almendros"
+                : esEventos
+                  ? "Ej. DJ Mauricio Eventos"
+                  : esHospedajes
+                    ? "Ej. Villa Vista al Mar"
+                    : "Ej. Barbería La Norteña"
+            }
             placeholderTextColor={Colors.inkSoft}
             style={styles.input}
           />
@@ -258,17 +377,30 @@ export default function NuevoNegocioScreen() {
             multiline
           />
         </View>
-        <View style={styles.gap2}>
-          <Text style={styles.campoLabel}>Precio desde (₡, opcional)</Text>
-          <TextInput
-            value={precioDesde}
-            onChangeText={setPrecioDesde}
-            placeholder="Ej. 150000"
-            placeholderTextColor={Colors.inkSoft}
-            keyboardType="numeric"
-            style={styles.input}
-          />
-        </View>
+        {/* El precio: en eventos es "desde", en hospedajes por noche, y
+            en citas no se pide — lo definen los servicios en el panel. */}
+        {vertical !== "citas" ? (
+          <View style={styles.gap2}>
+            <Text style={styles.campoLabel}>
+              {esHospedajes ? "Precio por noche desde (₡, opcional)" : "Precio desde (₡, opcional)"}
+            </Text>
+            <TextInput
+              value={precioDesde}
+              onChangeText={setPrecioDesde}
+              placeholder={esHospedajes ? "Ej. 45000" : "Ej. 150000"}
+              placeholderTextColor={Colors.inkSoft}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+          </View>
+        ) : (
+          <Text style={styles.avisoVerificacion}>
+            El precio no se pide acá: lo definen tus servicios (corte,
+            manicura, consulta...) cuando los configurés en tu panel.
+          </Text>
+        )}
+        {/* Capacidad: los lugares de eventos piden rango; los hospedajes
+            solo el máximo de huéspedes (como Airbnb). */}
         {esLugar && (
           <View style={{ flexDirection: "row", gap: Spacing.two }}>
             <View style={[styles.gap2, { flex: 1 }]}>
@@ -295,6 +427,42 @@ export default function NuevoNegocioScreen() {
             </View>
           </View>
         )}
+        {esHospedajes && (
+          <View style={styles.gap2}>
+            <Text style={styles.campoLabel}>¿Cuántos huéspedes recibís? (máx.)</Text>
+            <TextInput
+              value={capMax}
+              onChangeText={setCapMax}
+              placeholder="8"
+              placeholderTextColor={Colors.inkSoft}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+          </View>
+        )}
+        {conDireccion && (
+          <View style={styles.gap2}>
+            <Text style={styles.campoLabel}>Dirección exacta</Text>
+            <TextInput
+              value={direccion}
+              onChangeText={setDireccion}
+              placeholder="Ej. Calle Monge, 200m norte de la iglesia"
+              placeholderTextColor={Colors.inkSoft}
+              style={styles.input}
+            />
+          </View>
+        )}
+        <View style={styles.gap2}>
+          <Text style={styles.campoLabel}>WhatsApp de contacto (opcional)</Text>
+          <TextInput
+            value={whatsapp}
+            onChangeText={setWhatsapp}
+            placeholder="+506 8888-8888"
+            placeholderTextColor={Colors.inkSoft}
+            keyboardType="phone-pad"
+            style={styles.input}
+          />
+        </View>
       </View>
 
       <View style={styles.bloque}>
@@ -456,4 +624,36 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cream,
   },
   previewCedula: { width: "100%", height: "100%" },
+  selectorNota: {
+    fontSize: 13,
+    color: Colors.inkSoft,
+    lineHeight: 19,
+    textAlign: "center",
+    paddingHorizontal: Spacing.two,
+  },
+  selectorCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.three,
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    padding: Spacing.four,
+  },
+  selectorIcono: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.cream2,
+  },
+  selectorTitulo: { fontSize: 16, fontFamily: Fonts.extraBold, color: Colors.ink },
+  selectorDetalle: {
+    marginTop: 2,
+    fontSize: 12.5,
+    color: Colors.inkSoft,
+    lineHeight: 17,
+  },
 });

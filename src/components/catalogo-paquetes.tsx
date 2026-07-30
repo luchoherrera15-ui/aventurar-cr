@@ -66,6 +66,9 @@ export default function CatalogoPaquetes({
   reservadasPorItem,
   hayFecha,
   onCambiar,
+  eleccionesPorGrupo,
+  elegidos,
+  onElegir,
 }: {
   items: RanchoItem[];
   cantidades: Record<string, number>;
@@ -74,20 +77,85 @@ export default function CatalogoPaquetes({
   /** Sin fecha elegida no se muestra "Queda N" (no hay contra qué). */
   hayFecha: boolean;
   onCambiar: (itemId: string, cantidad: number) => void;
+  /** Sección → cuántos ítems van INCLUIDOS en la tarifa ("elegí hasta
+   *  N sin costo", detalles.elecciones_incluidas). Los ítems de esas
+   *  secciones se marcan con un toggle y no suman al total. */
+  eleccionesPorGrupo?: Record<string, number>;
+  /** item_id → elegido como incluido (solo secciones con elección). */
+  elegidos?: Record<string, boolean>;
+  onElegir?: (itemId: string, elegido: boolean) => void;
 }) {
   const secciones = agruparPorSeccion(items.filter((i) => i.activo));
 
   return (
     <div className="flex flex-col gap-5">
-      {secciones.map(({ grupo, items: delGrupo }) => (
+      {secciones.map(({ grupo, items: delGrupo }) => {
+        const topeEleccion =
+          grupo && onElegir ? (eleccionesPorGrupo?.[grupo] ?? 0) : 0;
+        const esEleccion = topeEleccion > 0;
+        const marcados = esEleccion
+          ? delGrupo.filter((i) => elegidos?.[i.id]).length
+          : 0;
+        return (
         <div key={grupo ?? "__sin_grupo__"}>
           {grupo && (
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
               {grupo}
             </p>
           )}
+          {esEleccion && (
+            <p className="mb-2 text-[12px] font-bold text-aventurea-green">
+              Incluido en tu tarifa — elegí hasta {topeEleccion} sin costo (
+              {marcados}/{topeEleccion})
+            </p>
+          )}
           <div className="flex flex-col gap-3">
             {delGrupo.map((item) => {
+              // Sección "incluida": nada de contadores ni precios — un
+              // toggle para marcar la elección, con tope N por sección.
+              if (esEleccion) {
+                const marcado = !!elegidos?.[item.id];
+                const bloqueado = !marcado && marcados >= topeEleccion;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={bloqueado}
+                    onClick={() => onElegir!(item.id, !marcado)}
+                    aria-pressed={marcado}
+                    className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors ${
+                      marcado
+                        ? "border-aventurea-green bg-aventurea-green/5"
+                        : bloqueado
+                          ? "border-aventurea-line opacity-50"
+                          : "border-aventurea-line bg-aventurea-surface hover:border-aventurea-green"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13.5px] font-bold text-aventurea-ink">
+                        {item.nombre}
+                      </p>
+                      {item.descripcion && (
+                        <p className="mt-0.5 line-clamp-2 text-[12px] text-aventurea-ink-soft">
+                          {item.descripcion}
+                        </p>
+                      )}
+                      <p className="mt-0.5 text-[12px] font-bold text-aventurea-green">
+                        Incluido en tu tarifa
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-xl px-3.5 py-2 text-[12.5px] font-bold ${
+                        marcado
+                          ? "bg-aventurea-green text-white"
+                          : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink"
+                      }`}
+                    >
+                      {marcado ? "Elegido ✓" : "Elegir"}
+                    </span>
+                  </button>
+                );
+              }
               const restante = hayFecha
                 ? cupoRestante(item, reservadasPorItem[item.id] ?? 0)
                 : null;
@@ -138,6 +206,12 @@ export default function CatalogoPaquetes({
                             <span className="font-normal text-aventurea-ink-soft">
                               {" "}
                               · {duracion}
+                            </span>
+                          )}
+                          {item.es_paquete_base === true && (
+                            <span className="font-normal text-aventurea-ink-soft">
+                              {" "}
+                              · sustituye la tarifa base
                             </span>
                           )}
                         </p>
@@ -234,7 +308,8 @@ export default function CatalogoPaquetes({
             })}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

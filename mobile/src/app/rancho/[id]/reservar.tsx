@@ -43,7 +43,7 @@ type MetodoPago = "sinpe" | "transferencia";
 export default function ReservarScreen() {
   const { id, fecha } = useLocalSearchParams<{ id: string; fecha: string }>();
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, cargando: cargandoAuth } = useAuth();
 
   // El chat con el proveedor, a mano DURANTE la reserva (mismo rol que
   // la burbuja flotante de la web). Ir a iniciar sesión no pierde nada:
@@ -93,6 +93,68 @@ export default function ReservarScreen() {
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
+
+  // El flujo va en dos pasos como en la web (la fecha ya quedó elegida
+  // en el calendario): 2 = datos del evento, 3 = pagar el depósito.
+  const [paso, setPaso] = useState<"datos" | "pago">("datos");
+  const scrollRef = useRef<ScrollView>(null);
+  function irAPaso(p: "datos" | "pago") {
+    setPaso(p);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
+  // Código de descuento del proveedor (mismo RPC que la web).
+  const [codigoInput, setCodigoInput] = useState("");
+  const [codigoAplicado, setCodigoAplicado] = useState<{
+    codigo: string;
+    tipo: "porcentaje" | "monto_fijo";
+    valor: number;
+  } | null>(null);
+  const [codigoError, setCodigoError] = useState<string | null>(null);
+  const [verificandoCodigo, setVerificandoCodigo] = useState(false);
+
+  async function verificarCodigo() {
+    if (!codigoInput.trim()) return;
+    setVerificandoCodigo(true);
+    setCodigoError(null);
+    const { data, error } = await supabase.rpc("verificar_codigo_descuento", {
+      p_rancho_id: id,
+      p_codigo: codigoInput.trim(),
+    });
+    setVerificandoCodigo(false);
+    if (error || !data || data.length === 0) {
+      setCodigoAplicado(null);
+      setCodigoError("Ese código no es válido o ya venció.");
+      return;
+    }
+    const fila = data[0] as { tipo: "porcentaje" | "monto_fijo"; valor: number };
+    setCodigoAplicado({ codigo: codigoInput.trim().toUpperCase(), ...fila });
+  }
+
+  function quitarCodigo() {
+    setCodigoInput("");
+    setCodigoAplicado(null);
+    setCodigoError(null);
+  }
+
+  // Con sesión, el contacto llega precargado (ajuste durante el
+  // render, el patrón de React para derivar estado de props): nombre
+  // y correo salen de la cuenta; el WhatsApp se aprende en la primera
+  // reserva (queda en los metadatos del usuario al enviar).
+  const [precargado, setPrecargado] = useState(false);
+  if (!precargado && session?.user) {
+    setPrecargado(true);
+    const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+    const nombreMeta = [meta.nombre, meta.full_name].find(
+      (v): v is string => typeof v === "string" && v.trim() !== "",
+    );
+    const whatsappMeta = meta.whatsapp;
+    if (session.user.email && !correo) setCorreo(session.user.email);
+    if (nombreMeta && !nombre) setNombre(nombreMeta);
+    if (typeof whatsappMeta === "string" && whatsappMeta.trim() !== "" && !whatsapp) {
+      setWhatsapp(whatsappMeta);
+    }
+  }
 
   // Carga el rancho y toma el hold temporal de la fecha elegida, igual
   // que /web (misma tabla `reservas`, mismo estado 'temporal').
@@ -167,9 +229,12 @@ export default function ReservarScreen() {
   }, [id, fecha]);
 
   useEffect(() => {
+    // Sin sesión no se toma el hold: reservar requiere cuenta (la
+    // pantalla muestra el aviso y, al volver del login, esto corre solo).
+    if (cargandoAuth || !session) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- toma el hold temporal al montar, sin librería de data-fetching en este proyecto
     iniciar();
-  }, [iniciar]);
+  }, [iniciar, session, cargandoAuth]);
 
   // Libera el hold si la persona sale de la pantalla sin completar.
   useEffect(() => {
@@ -241,7 +306,16 @@ export default function ReservarScreen() {
     subtotal !== null && promoAplicable
       ? Math.round(subtotal * (promoAplicable.porcentaje_descuento / 100))
       : 0;
-  const total = subtotal === null ? null : subtotal - descuentoMonto;
+  const totalConPromo = subtotal === null ? null : subtotal - descuentoMonto;
+  // El código se aplica DESPUÉS de la promoción del día, igual que la web.
+  const descuentoCodigoMonto =
+    totalConPromo === null || !codigoAplicado
+      ? 0
+      : codigoAplicado.tipo === "porcentaje"
+        ? Math.round(totalConPromo * (codigoAplicado.valor / 100))
+        : Math.min(codigoAplicado.valor, totalConPromo);
+  const total =
+    totalConPromo === null ? null : Math.max(0, totalConPromo - descuentoCodigoMonto);
 
   const metodosDisponibles: MetodoPago[] = [
     ...(rancho?.sinpe_numero ? (["sinpe"] as const) : []),
@@ -349,8 +423,8 @@ export default function ReservarScreen() {
           modalidadPrecio === "hora" && horasNum > 0
             ? `Evento contratado por ${horasNum} hora${horasNum === 1 ? "" : "s"}.`
             : null,
-        p_codigo_descuento: null,
-        p_descuento_monto: descuentoMonto,
+        p_codigo_descuento: codigoAplicado?.codigo ?? null,
+        p_descuento_monto: descuentoMonto + descuentoCodigoMonto,
       });
 
       if (error) {
@@ -369,6 +443,23 @@ export default function ReservarScreen() {
       confirmadoRef.current = true;
       setConfirmado(true);
 
+      // Marca el uso del código para que respete su límite de canjes
+      // (mismo par verificar/redimir que usa la web).
+      if (codigoAplicado) {
+        void supabase.rpc("redimir_codigo_descuento", {
+          p_rancho_id: id,
+          p_codigo: codigoAplicado.codigo,
+        });
+      }
+
+      // La próxima reserva sale precargada: nombre y WhatsApp quedan
+      // en los metadatos del usuario (solo con sesión iniciada).
+      if (session) {
+        void supabase.auth.updateUser({
+          data: { nombre: nombre.trim(), whatsapp: whatsapp.trim() },
+        });
+      }
+
       // Los correos los manda la web (Resend vive en el servidor). Va
       // después de mostrar la confirmación y sin `await` que bloquee:
       // la reserva ya está guardada, así que si esto falla la persona
@@ -384,6 +475,38 @@ export default function ReservarScreen() {
       setEnviando(false);
       setSubiendo(false);
     }
+  }
+
+  if (cargandoAuth) {
+    return (
+      <View style={styles.centro}>
+        <ActivityIndicator color={Colors.accent} />
+      </View>
+    );
+  }
+
+  // Reservar requiere cuenta: la reserva queda ligada a la persona
+  // (estado, chat, historial) y sus datos llegan precargados. Esta
+  // pantalla queda abajo en la pila — al volver del login sigue acá.
+  if (!session) {
+    return (
+      <View style={styles.contenedor}>
+        <BarraSuperior titulo="Reservar" />
+        <View style={styles.centro}>
+          <Text style={styles.tituloConfirmacion}>Iniciá sesión para reservar</Text>
+          <Text style={styles.textoConfirmacion}>
+            Tu reserva queda ligada a tu cuenta: ahí ves el estado, el chat
+            con el proveedor y tu historial — y tus datos llegan precargados.
+          </Text>
+          <Pressable style={styles.botonPrimario} onPress={() => router.push("/cuenta")}>
+            <Text style={styles.botonPrimarioTexto}>Iniciar sesión</Text>
+          </Pressable>
+          <Pressable style={styles.botonSecundario} onPress={() => router.back()}>
+            <Text style={styles.botonSecundarioTexto}>Volver</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   if (cargando) {
@@ -434,13 +557,33 @@ export default function ReservarScreen() {
           onPress: chatearConProveedor,
         }}
       />
-      <ScrollView contentContainerStyle={{ padding: Spacing.four, gap: Spacing.four }}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ padding: Spacing.four, gap: Spacing.four }}
+      >
       <View style={styles.avisoTiempo}>
         <Text style={styles.avisoTiempoTexto}>
           Fecha bloqueada por {String(minutos).padStart(2, "0")}:{String(segundos).padStart(2, "0")} min — completá la reserva antes de que se libere.
         </Text>
       </View>
 
+      {/* Los tres pasos del flujo, como en la web: la fecha ya quedó
+          hecha en el calendario. */}
+      <View style={styles.pasos}>
+        <PasoPill numero="✓" etiqueta="Fecha" estado="hecho" />
+        <PasoPill
+          numero="2"
+          etiqueta="Tus datos"
+          estado={paso === "datos" ? "activo" : "hecho"}
+        />
+        <PasoPill
+          numero="3"
+          etiqueta="Pagar depósito"
+          estado={paso === "pago" ? "activo" : "pendiente"}
+        />
+      </View>
+
+      {paso === "datos" && (<>
       <View style={styles.bloque}>
         <Text style={styles.bloqueTitulo}>Datos del evento — {fecha}</Text>
         <Campo label="Nombre completo *" value={nombre} onChangeText={setNombre} />
@@ -546,12 +689,94 @@ export default function ReservarScreen() {
         )}
       </View>
 
+      <Pressable
+        style={[styles.botonSiguiente, !puedeAvanzar && styles.botonDeshabilitado]}
+        disabled={!puedeAvanzar}
+        onPress={() => irAPaso("pago")}
+      >
+        <Text style={styles.botonPrimarioTexto}>Siguiente: pagar el depósito →</Text>
+      </Pressable>
+      </>)}
+
+      {paso === "pago" && (<>
+      <Pressable onPress={() => irAPaso("datos")}>
+        <Text style={styles.linkVolver}>← Volver a mis datos</Text>
+      </Pressable>
+
+      <View style={styles.bloque}>
+        <Text style={styles.bloqueTitulo}>Código de descuento</Text>
+        {codigoAplicado ? (
+          <View style={styles.filaCodigo}>
+            <Text style={styles.codigoOk}>
+              ✓ Código {codigoAplicado.codigo} aplicado
+              {codigoAplicado.tipo === "porcentaje"
+                ? ` (-${codigoAplicado.valor}%)`
+                : ` (-${fmtColones(codigoAplicado.valor)})`}
+            </Text>
+            <Pressable onPress={quitarCodigo}>
+              <Text style={styles.codigoQuitar}>Quitar</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.filaCodigo}>
+            <TextInput
+              value={codigoInput}
+              onChangeText={setCodigoInput}
+              placeholder="Ej. BODA10"
+              autoCapitalize="characters"
+              style={[styles.input, { flex: 1 }]}
+              placeholderTextColor={Colors.inkSoft}
+            />
+            <Pressable
+              style={[
+                styles.botonCodigo,
+                (!codigoInput.trim() || verificandoCodigo) && styles.botonDeshabilitado,
+              ]}
+              disabled={!codigoInput.trim() || verificandoCodigo}
+              onPress={verificarCodigo}
+            >
+              {verificandoCodigo ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.botonPrimarioTexto}>Aplicar</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
+        {codigoError && <Text style={styles.error}>{codigoError}</Text>}
+      </View>
+
+      {/* Total y depósito lado a lado, como en el panel de la web. */}
+      <View style={styles.filaTotales}>
+        <View style={[styles.cajaTotal, { backgroundColor: Colors.cream2 }]}>
+          <Text style={styles.cajaTotalLabel}>Total estimado del evento</Text>
+          {promoAplicable && total !== null && (
+            <Text style={styles.promoTexto}>
+              {promoAplicable.etiqueta || "Promoción"} · -{promoAplicable.porcentaje_descuento}%
+            </Text>
+          )}
+          {(descuentoMonto > 0 || descuentoCodigoMonto > 0) && subtotal !== null && (
+            <Text style={styles.precioTachado}>{fmtColones(subtotal)}</Text>
+          )}
+          <Text style={styles.cajaTotalValor}>
+            {total !== null ? fmtColones(total) : "A cotizar"}
+          </Text>
+        </View>
+        <View style={[styles.cajaTotal, { backgroundColor: Colors.accentLight }]}>
+          <Text style={styles.cajaTotalLabel}>Depósito (se paga ahora)</Text>
+          <Text style={[styles.cajaTotalValor, { color: Colors.accent }]}>
+            {fmtColones(rancho?.deposito_reserva ?? 25000)}
+          </Text>
+        </View>
+      </View>
+      <Text style={styles.hint}>
+        Solo el depósito se paga ahora — el resto de la cotización se coordina
+        para el día del evento.
+      </Text>
+
       {metodosDisponibles.length > 0 && (
         <View style={styles.bloque}>
           <Text style={styles.bloqueTitulo}>Cómo pagar</Text>
-          <Text style={styles.hint}>
-            Depósito de reserva: {fmtColones(rancho?.deposito_reserva ?? 25000)}
-          </Text>
           <View style={styles.chips}>
             {metodosDisponibles.map((m) => (
               <Pressable
@@ -564,6 +789,11 @@ export default function ReservarScreen() {
                 </Text>
               </Pressable>
             ))}
+            {/* Prevista de Stripe: se ve, todavía no cobra — cuando la
+                pasarela esté viva este chip se activa. */}
+            <View style={[styles.chip, { opacity: 0.55 }]}>
+              <Text style={styles.chipTexto}>💳 Tarjeta — muy pronto</Text>
+            </View>
           </View>
 
           {metodoPago === "sinpe" && rancho?.sinpe_numero && (
@@ -619,6 +849,7 @@ export default function ReservarScreen() {
           <Text style={styles.botonPrimarioTexto}>Confirmar mi reserva</Text>
         )}
       </Pressable>
+      </>)}
       </ScrollView>
     </View>
   );
@@ -644,6 +875,36 @@ function Campo(props: {
         style={styles.input}
         placeholderTextColor={Colors.inkSoft}
       />
+    </View>
+  );
+}
+
+function PasoPill({
+  numero,
+  etiqueta,
+  estado,
+}: {
+  numero: string;
+  etiqueta: string;
+  estado: "hecho" | "activo" | "pendiente";
+}) {
+  return (
+    <View
+      style={[
+        styles.pasoPill,
+        estado === "activo" && styles.pasoPillActivo,
+        estado === "hecho" && styles.pasoPillHecho,
+      ]}
+    >
+      <Text
+        style={[
+          styles.pasoPillTexto,
+          estado === "activo" && styles.pasoPillTextoActivo,
+          estado === "hecho" && styles.pasoPillTextoHecho,
+        ]}
+      >
+        {numero} · {etiqueta}
+      </Text>
     </View>
   );
 }
@@ -746,4 +1007,44 @@ const styles = StyleSheet.create({
   botonSecundarioTexto: { color: Colors.accent, fontFamily: Fonts.bold },
   tituloConfirmacion: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
   textoConfirmacion: { fontSize: 14, color: Colors.inkSoft, textAlign: "center" },
+  pasos: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  pasoPill: {
+    backgroundColor: Colors.cream2,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  pasoPillActivo: { backgroundColor: Colors.accent },
+  pasoPillHecho: { backgroundColor: Colors.greenLight },
+  pasoPillTexto: { fontSize: 11.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
+  pasoPillTextoActivo: { color: "#ffffff" },
+  pasoPillTextoHecho: { color: Colors.green },
+  botonSiguiente: {
+    backgroundColor: Colors.accent,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  linkVolver: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13 },
+  filaCodigo: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  botonCodigo: {
+    backgroundColor: Colors.navy,
+    borderRadius: 12,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  codigoOk: { flex: 1, fontSize: 13, fontFamily: Fonts.bold, color: Colors.green },
+  codigoQuitar: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.danger },
+  filaTotales: { flexDirection: "row", gap: Spacing.two },
+  cajaTotal: { flex: 1, borderRadius: 12, padding: Spacing.three, gap: 2 },
+  cajaTotalLabel: {
+    fontSize: 10.5,
+    fontFamily: Fonts.bold,
+    color: Colors.inkSoft,
+    textTransform: "uppercase",
+  },
+  cajaTotalValor: { fontSize: 18, fontFamily: Fonts.extraBold, color: Colors.ink },
+  precioTachado: { fontSize: 13, color: Colors.inkSoft, textDecorationLine: "line-through" },
 });

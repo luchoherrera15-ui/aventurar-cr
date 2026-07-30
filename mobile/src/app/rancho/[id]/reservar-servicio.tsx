@@ -19,9 +19,17 @@ import BarraSuperior from "@/components/barra-superior";
 import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
 import { pedirCorreosDeReserva } from "@/lib/notificaciones";
-import { agruparPorSeccion, cupoRestante, etiquetaDuracion, totalPedido } from "@/lib/catalogo";
+import {
+  agruparPorSeccion,
+  cupoRestante,
+  etiquetaDuracion,
+  leerEleccionesIncluidas,
+  paqueteBaseElegido,
+  totalPedido,
+} from "@/lib/catalogo";
 import {
   cotizarServicio,
+  duracionServicio,
   leerConfigCobro,
   totalCotizacion,
 } from "@/lib/cotizador-servicio";
@@ -36,6 +44,12 @@ const MESES = [
 
 function iso(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** Suma días a una fecha ISO sin pasar por zonas horarias. */
+function sumarDiasISO(fechaIso: string, dias: number) {
+  const [y, m, d] = fechaIso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + dias)).toISOString().slice(0, 10);
 }
 
 type CupoDia = { eventos: number; porItem: Record<string, number> };
@@ -70,6 +84,9 @@ export default function ReservarServicioScreen() {
   const [horas, setHoras] = useState(0);
   const [dias, setDias] = useState(0);
   const [horasExtra, setHorasExtra] = useState(0);
+  const [hora, setHora] = useState("");
+  // Elecciones incluidas en la tarifa ("elegí hasta N sin costo").
+  const [elegidos, setElegidos] = useState<Record<string, boolean>>({});
 
   const [tipoEvento, setTipoEvento] = useState("");
   const [notas, setNotas] = useState("");
@@ -145,23 +162,63 @@ export default function ReservarServicioScreen() {
     () => leerConfigCobro(rancho?.detalles ?? null),
     [rancho?.detalles],
   );
+
+  // El paquete del catálogo que SUSTITUYE la tarifa base (0067): su
+  // precio entra por el pedido, no por la tarifa del jsonb.
+  const pb = paqueteBaseElegido(items, cantidades);
+  const paqueteBaseSel =
+    pb &&
+    (config.modalidad === "por_evento" || config.modalidad === "por_paquete")
+      ? { nombre: pb.nombre, precio: pb.precio, duracionHoras: pb.duracion_horas }
+      : null;
+
+  const eleccionesPorGrupo = useMemo(
+    () => leerEleccionesIncluidas(rancho?.detalles ?? null),
+    [rancho?.detalles],
+  );
+
   const pasoServicio =
     (config.modalidad === "por_persona" && !!config.tarifaPersona) ||
     (config.modalidad === "por_hora" && !!config.tarifaHora) ||
     ((config.modalidad === "por_evento" || config.modalidad === "por_paquete") &&
-      !!config.tarifaEvento) ||
+      (!!config.tarifaEvento || !!paqueteBaseSel)) ||
     (config.modalidad === "por_dia" && !!config.tarifaDia);
 
-  const lineasBase = cotizarServicio(config, {
+  const seleccion = {
     invitados: invitados ? parseInt(invitados, 10) : null,
     horas,
     dias,
     horasExtra,
-  });
+    paqueteBase: paqueteBaseSel,
+  };
+  const lineasBase = cotizarServicio(config, seleccion);
   const totalBase = totalCotizacion(lineasBase);
 
   const resumenPedido = totalPedido(items, cantidades);
   const totalGeneral = totalBase + resumenPedido.total;
+
+  // Alquiler multi-día: por día usa los días del cotizador; decoración
+  // y otros lo ofrecen aparte (toldos, baños, sillas el finde entero).
+  const esAlquiler =
+    config.modalidad === "por_dia" ||
+    ((rancho?.categoria === "decoracion" || rancho?.categoria === "otros") &&
+      items.length > 0);
+  const fechaFin =
+    esAlquiler && fecha && dias > 1 && dias <= 60
+      ? sumarDiasISO(fecha, dias - 1)
+      : null;
+
+  // Hora del evento (opcional, formato 24 h) y horas contratadas.
+  const horaValida = /^([01]?\d|2[0-3]):[0-5]\d$/.test(hora.trim());
+  const horaInicio = horaValida ? hora.trim() : null;
+  const duracionHoras = duracionServicio(config, seleccion);
+
+  // Mínimos del negocio: se avisan acá y la base los hace cumplir.
+  const montoMinimo = Number(rancho?.monto_minimo) || 0;
+  const minimoPedido = (() => {
+    const n = Number(rancho?.detalles?.minimo_pedido);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  })();
 
   // ---------- Depósito ----------
   const tieneSinpe = !!rancho?.sinpe_numero;
@@ -276,14 +333,28 @@ export default function ReservarServicioScreen() {
         .eq("id", session.user.id)
         .maybeSingle();
 
+      // Las elecciones incluidas no suman al precio: van como texto
+      // en las notas, para que el proveedor arme el menú del cliente.
+      const nombresElegidos = items
+        .filter((i) => elegidos[i.id])
+        .map((i) => i.nombre);
+      const notasCompletas = [
+        notas.trim(),
+        nombresElegidos.length > 0
+          ? `Elecciones incluidas en la tarifa (sin costo): ${nombresElegidos.join(", ")}.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
       const invitadosNum = invitados ? parseInt(invitados, 10) : null;
-      const { data: nuevaId, error } = await supabase.rpc("crear_reserva_servicio", {
+      const paramsBase = {
         p_rancho_id: rancho.id,
         p_fecha: fecha,
         p_pedido: pedido,
         p_tipo_evento: tipoEvento.trim() || null,
         p_invitados: invitadosNum && invitadosNum > 0 ? invitadosNum : null,
-        p_notas: notas.trim() || null,
+        p_notas: notasCompletas || null,
         p_nombre: perfil?.nombre || session.user.email,
         p_correo: session.user.email,
         p_whatsapp: null,
@@ -291,7 +362,23 @@ export default function ReservarServicioScreen() {
         p_metodo_pago: pagoActivo && comprobantePath ? metodoPago : null,
         p_deposito_comprobante_url: comprobantePath,
         p_terminos_aceptados: false,
+      };
+
+      // Primero con los parámetros nuevos (hora, duración, rango —
+      // 0067); si la base tiene la firma vieja (PGRST202), se
+      // reintenta sin ellos y la reserva sale igual.
+      let { data: nuevaId, error } = await supabase.rpc("crear_reserva_servicio", {
+        ...paramsBase,
+        p_hora_inicio: horaInicio,
+        p_duracion_horas: duracionHoras,
+        p_fecha_fin: fechaFin,
       });
+      if (error && error.code === "PGRST202") {
+        ({ data: nuevaId, error } = await supabase.rpc(
+          "crear_reserva_servicio",
+          paramsBase,
+        ));
+      }
 
       if (error || !nuevaId) {
         // Los mensajes de la función ya vienen redactados para mostrar.
@@ -326,8 +413,20 @@ export default function ReservarServicioScreen() {
               ? `Reserva agendada para el ${fecha} — depósito de ${fmtColones(deposito)} enviado por ${metodoPago === "transferencia" ? "transferencia" : "SINPE"}, comprobante adjunto en tu panel.`
               : `Solicitud de reserva para el ${fecha}.`,
           ];
+          if (horaInicio) partes.push(`Hora del evento: ${horaInicio}.`);
+          if (fechaFin) partes.push(`Alquiler del ${fecha} al ${fechaFin}.`);
           if (tipoEvento.trim()) partes.push(`Tipo de evento: ${tipoEvento.trim()}.`);
           if (invitadosNum && invitadosNum > 0) partes.push(`Invitados: ${invitadosNum}.`);
+          if (paqueteBaseSel) {
+            partes.push(
+              `Paquete elegido: ${paqueteBaseSel.nombre} — sustituye la tarifa base.`,
+            );
+          }
+          if (nombresElegidos.length > 0) {
+            partes.push(
+              `Elecciones incluidas en la tarifa (sin costo): ${nombresElegidos.join(", ")}.`,
+            );
+          }
           if (lineasBase.length > 0) {
             partes.push(
               "Servicio cotizado:\n" +
@@ -562,14 +661,28 @@ export default function ReservarServicioScreen() {
             )}
             {(config.modalidad === "por_evento" || config.modalidad === "por_paquete") && (
               <View style={{ gap: Spacing.three }}>
-                <Text style={styles.textoNormal}>
-                  {config.modalidad === "por_paquete" ? "Paquete base" : "Tarifa por evento"}
-                  : <Text style={styles.negrita}>{fmtColones(config.tarifaEvento!)}</Text>
-                  {config.horasIncluidas
-                    ? ` — incluye ${config.horasIncluidas} hora${config.horasIncluidas === 1 ? "" : "s"}`
-                    : ""}
-                  .
-                </Text>
+                {paqueteBaseSel ? (
+                  <Text style={styles.textoNormal}>
+                    Paquete elegido:{" "}
+                    <Text style={styles.negrita}>{paqueteBaseSel.nombre}</Text>
+                    {paqueteBaseSel.precio !== null
+                      ? ` — ${fmtColones(paqueteBaseSel.precio)}`
+                      : ""}
+                    {paqueteBaseSel.duracionHoras
+                      ? ` — incluye ${paqueteBaseSel.duracionHoras} hora${paqueteBaseSel.duracionHoras === 1 ? "" : "s"}`
+                      : ""}
+                    . Sustituye la tarifa base (no se cobran las dos).
+                  </Text>
+                ) : config.tarifaEvento ? (
+                  <Text style={styles.textoNormal}>
+                    {config.modalidad === "por_paquete" ? "Paquete base" : "Tarifa por evento"}
+                    : <Text style={styles.negrita}>{fmtColones(config.tarifaEvento)}</Text>
+                    {config.horasIncluidas
+                      ? ` — incluye ${config.horasIncluidas} hora${config.horasIncluidas === 1 ? "" : "s"}`
+                      : ""}
+                    .
+                  </Text>
+                ) : null}
                 {config.horaExtra && (
                   <Stepper
                     label="¿Horas extra?"
@@ -582,13 +695,21 @@ export default function ReservarServicioScreen() {
               </View>
             )}
             {config.modalidad === "por_dia" && (
-              <Stepper
-                label="¿Cuántos días de alquiler?"
-                ayuda={`${fmtColones(config.tarifaDia!)} por día`}
-                valor={dias}
-                sufijo={dias === 1 ? "día" : "días"}
-                onCambiar={setDias}
-              />
+              <View style={{ gap: 4 }}>
+                <Stepper
+                  label="¿Cuántos días de alquiler?"
+                  ayuda={`${fmtColones(config.tarifaDia!)} por día`}
+                  valor={dias}
+                  sufijo={dias === 1 ? "día" : "días"}
+                  onCambiar={setDias}
+                />
+                {fechaFin && (
+                  <Text style={styles.fechaElegida}>
+                    Tu alquiler va del {fecha} al {fechaFin} — el inventario
+                    queda apartado todos esos días.
+                  </Text>
+                )}
+              </View>
             )}
             {lineasBase.length > 0 && (
               <View style={styles.resumenCaja}>
@@ -614,7 +735,68 @@ export default function ReservarServicioScreen() {
               {numPedido} · Elegí del {etiquetaCatalogo.toLowerCase()}
               {pasoServicio ? " (opcional)" : ""}
             </Text>
-            {secciones.map(({ grupo, items: delGrupo }) => (
+            {secciones.map(({ grupo, items: delGrupo }) => {
+              // Sección "incluida en la tarifa": el cliente marca hasta
+              // N sin costo — sin contadores ni precios.
+              const topeEleccion = grupo ? (eleccionesPorGrupo[grupo] ?? 0) : 0;
+              const marcados = delGrupo.filter((i) => elegidos[i.id]).length;
+              if (topeEleccion > 0) {
+                return (
+                  <View key={grupo ?? "__sin__"} style={{ gap: Spacing.three }}>
+                    {grupo && <Text style={styles.grupoTitulo}>{grupo}</Text>}
+                    <Text style={styles.eleccionAyuda}>
+                      Incluido en tu tarifa — elegí hasta {topeEleccion} sin
+                      costo ({marcados}/{topeEleccion})
+                    </Text>
+                    {delGrupo.map((item) => {
+                      const marcado = !!elegidos[item.id];
+                      const bloqueado = !marcado && marcados >= topeEleccion;
+                      return (
+                        <Pressable
+                          key={item.id}
+                          disabled={bloqueado}
+                          onPress={() =>
+                            setElegidos((prev) => {
+                              const copia = { ...prev };
+                              if (marcado) delete copia[item.id];
+                              else copia[item.id] = true;
+                              return copia;
+                            })
+                          }
+                          style={[
+                            styles.itemCard,
+                            marcado && styles.eleccionActiva,
+                            bloqueado && { opacity: 0.5 },
+                          ]}
+                        >
+                          <View style={styles.itemCuerpo}>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={styles.itemNombre}>{item.nombre}</Text>
+                              {item.descripcion && (
+                                <Text style={styles.itemDesc} numberOfLines={2}>
+                                  {item.descripcion}
+                                </Text>
+                              )}
+                              <Text style={styles.eleccionIncluida}>
+                                Incluido en tu tarifa
+                              </Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.eleccionBoton,
+                                marcado && styles.eleccionBotonActivo,
+                              ]}
+                            >
+                              {marcado ? "Elegido ✓" : "Elegir"}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                );
+              }
+              return (
               <View key={grupo ?? "__sin__"} style={{ gap: Spacing.three }}>
                 {grupo && <Text style={styles.grupoTitulo}>{grupo}</Text>}
                 {delGrupo.map((item) => {
@@ -662,6 +844,9 @@ export default function ReservarServicioScreen() {
                             {duracion ? (
                               <Text style={styles.itemUnidad}> · {duracion}</Text>
                             ) : null}
+                            {item.es_paquete_base === true ? (
+                              <Text style={styles.itemUnidad}> · sustituye la tarifa base</Text>
+                            ) : null}
                           </Text>
                           {restante !== null && !agotado && (
                             <Text style={styles.itemQuedan}>
@@ -690,7 +875,8 @@ export default function ReservarServicioScreen() {
                   );
                 })}
               </View>
-            ))}
+              );
+            })}
             {resumenPedido.unidades > 0 && (
               <Text style={styles.textoNormal}>
                 {resumenPedido.unidades} ítem{resumenPedido.unidades === 1 ? "" : "s"}{" "}
@@ -812,6 +998,35 @@ export default function ReservarServicioScreen() {
             />
           </View>
           <View>
+            <Text style={styles.campoLabel}>¿A qué hora es tu evento? (opcional)</Text>
+            <TextInput
+              value={hora}
+              onChangeText={setHora}
+              placeholder="Formato 24 horas, ej. 15:00"
+              placeholderTextColor={Colors.inkSoft}
+              keyboardType="numbers-and-punctuation"
+              style={styles.input}
+            />
+            <Text style={styles.ayuda}>
+              {hora.trim() && !horaValida
+                ? "Escribila como HH:MM (ej. 15:00) para que quede guardada."
+                : "Le ayuda al proveedor a cuidar su agenda y evitar choques de horario ese día."}
+            </Text>
+          </View>
+          {esAlquiler && config.modalidad !== "por_dia" && (
+            <Stepper
+              label="¿Cuántos días necesitás el alquiler? (opcional)"
+              ayuda={
+                fechaFin
+                  ? `Del ${fecha} al ${fechaFin} — el inventario queda apartado todos esos días.`
+                  : "Si tu alquiler es de varios días (ej. de viernes a domingo), el inventario se aparta todo el rango."
+              }
+              valor={dias}
+              sufijo={dias === 1 ? "día" : "días"}
+              onCambiar={setDias}
+            />
+          )}
+          <View>
             <Text style={styles.campoLabel}>Notas para el proveedor (opcional)</Text>
             <TextInput
               value={notas}
@@ -824,6 +1039,23 @@ export default function ReservarServicioScreen() {
             />
           </View>
         </View>
+
+        {/* ---------- Avisos de mínimos, antes de intentar enviar ---------- */}
+        {montoMinimo > 0 && totalGeneral > 0 && totalGeneral < montoMinimo && (
+          <Text style={styles.aviso}>
+            Este negocio toma pedidos desde {fmtColones(montoMinimo)}. Tu pedido
+            va en {fmtColones(totalGeneral)} — agregale{" "}
+            {fmtColones(montoMinimo - totalGeneral)} más para poder reservar.
+          </Text>
+        )}
+        {minimoPedido !== null &&
+          resumenPedido.unidades > 0 &&
+          resumenPedido.unidades < minimoPedido && (
+            <Text style={styles.aviso}>
+              Este negocio despacha pedidos desde {minimoPedido} unidades y tu
+              pedido lleva {resumenPedido.unidades}.
+            </Text>
+          )}
 
         {errorEnvio && <Text style={styles.error}>{errorEnvio}</Text>}
 
@@ -1042,6 +1274,43 @@ const styles = StyleSheet.create({
   itemUnidad: { fontFamily: Fonts.regular, color: Colors.inkSoft },
   itemQuedan: { fontSize: 11.5, fontFamily: Fonts.bold, color: Colors.accent, marginTop: 3 },
   itemAgotado: { fontSize: 11.5, fontFamily: Fonts.bold, color: Colors.inkSoft, marginTop: 3 },
+
+  // Secciones "incluido en tu tarifa: elegí hasta N" (0067).
+  eleccionAyuda: { fontSize: 12, fontFamily: Fonts.bold, color: Colors.green },
+  eleccionActiva: { borderColor: Colors.green, backgroundColor: "#f2faf4" },
+  eleccionIncluida: {
+    fontSize: 11.5,
+    fontFamily: Fonts.bold,
+    color: Colors.green,
+    marginTop: 3,
+  },
+  eleccionBoton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.cream2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12.5,
+    fontFamily: Fonts.bold,
+    color: Colors.ink,
+    overflow: "hidden",
+  },
+  eleccionBotonActivo: {
+    backgroundColor: Colors.green,
+    borderColor: Colors.green,
+    color: "#ffffff",
+  },
+
+  aviso: {
+    backgroundColor: "#fdf6e3",
+    borderRadius: 12,
+    padding: Spacing.three,
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#8a6d1a",
+    fontFamily: Fonts.medium,
+  },
 
   contador: { flexDirection: "row", alignItems: "center", gap: 8 },
   contadorBoton: {

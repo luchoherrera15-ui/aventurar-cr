@@ -68,3 +68,40 @@ export function etiquetaDuracion(horas: number | null): string | null {
   if (horas === null || horas <= 0) return null;
   return `${horas} hora${horas === 1 ? "" : "s"}`;
 }
+
+/**
+ * Config de "incluido: elegí hasta N" por sección del catálogo. Vive
+ * en ranchos.detalles.elecciones_incluidas ({"Postres": 1, ...}) — el
+ * cliente marca hasta N ítems de esa sección sin costo (van en notas).
+ */
+export function leerEleccionesIncluidas(
+  detalles: Record<string, unknown> | null | undefined,
+): Record<string, number> {
+  const crudo = (detalles ?? {})["elecciones_incluidas"];
+  if (!crudo || typeof crudo !== "object" || Array.isArray(crudo)) return {};
+  const limpio: Record<string, number> = {};
+  for (const [grupo, n] of Object.entries(crudo as Record<string, unknown>)) {
+    const tope = Number(n);
+    if (grupo.trim() && Number.isFinite(tope) && tope >= 1) {
+      limpio[grupo.trim()] = Math.floor(tope);
+    }
+  }
+  return limpio;
+}
+
+/**
+ * El primer paquete base elegido del carrito (es_paquete_base = true,
+ * cantidad > 0), en el orden del catálogo. Su precio sustituye la
+ * tarifa por evento/paquete del cotizador. El campo es opcional para
+ * tolerar bases sin la migración 0067 corrida.
+ */
+export function paqueteBaseElegido(
+  items: (RanchoItem & { es_paquete_base?: boolean | null })[],
+  cantidades: Record<string, number>,
+): (RanchoItem & { es_paquete_base?: boolean | null }) | null {
+  return (
+    items.find(
+      (i) => i.es_paquete_base === true && (cantidades[i.id] ?? 0) > 0,
+    ) ?? null
+  );
+}

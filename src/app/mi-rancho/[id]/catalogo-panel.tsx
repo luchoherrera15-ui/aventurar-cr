@@ -10,6 +10,7 @@ import {
   crearItemCatalogo,
   duplicarItemCatalogo,
   eliminarItemCatalogo,
+  guardarEleccionesIncluidas,
   reordenarCatalogo,
   type ItemInput,
 } from "./catalogo-actions";
@@ -43,6 +44,7 @@ type Borrador = {
   minPorReserva: string;
   maxPorReserva: string;
   capacidadDia: string;
+  esPaqueteBase: boolean;
 };
 
 const VACIO: Borrador = {
@@ -58,6 +60,7 @@ const VACIO: Borrador = {
   minPorReserva: "1",
   maxPorReserva: "",
   capacidadDia: "",
+  esPaqueteBase: false,
 };
 
 function num(v: string): number | null {
@@ -81,6 +84,7 @@ function aInput(b: Borrador, activo: boolean): ItemInput {
     minPorReserva: num(b.minPorReserva) ?? 1,
     maxPorReserva: num(b.maxPorReserva),
     capacidadDia: num(b.capacidadDia),
+    esPaqueteBase: b.tipo === "paquete" && b.esPaqueteBase,
     activo,
   };
 }
@@ -100,6 +104,7 @@ function deItem(item: RanchoItem): Borrador {
     minPorReserva: String(item.min_por_reserva),
     maxPorReserva: item.max_por_reserva === null ? "" : String(item.max_por_reserva),
     capacidadDia: item.capacidad_dia === null ? "" : String(item.capacidad_dia),
+    esPaqueteBase: item.es_paquete_base === true,
   };
 }
 
@@ -114,12 +119,15 @@ export default function CatalogoPanel({
   initialItems,
   etiqueta,
   vertical = "eventos",
+  eleccionesIniciales = {},
 }: {
   ranchoId: string;
   initialItems: RanchoItem[];
   etiqueta: string;
   /** Vertical del negocio: en "citas" la duración se edita en minutos. */
   vertical?: string;
+  /** Sección → N incluidos en la tarifa (detalles.elecciones_incluidas). */
+  eleccionesIniciales?: Record<string, number>;
 }) {
   const esCitas = vertical === "citas";
   const [items, setItems] = useState(
@@ -130,6 +138,30 @@ export default function CatalogoPanel({
   const [error, setError] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // "De esta sección, elegí N sin costo" — el menú incluido de los
+  // caterings (y de cualquier paquete por persona con opciones).
+  const [elecciones, setElecciones] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(eleccionesIniciales).map(([g, n]) => [g, String(n)]),
+    ),
+  );
+  const [eleccionesOk, setEleccionesOk] = useState(false);
+
+  function guardarElecciones() {
+    setError(null);
+    setEleccionesOk(false);
+    const limpio: Record<string, number> = {};
+    for (const [g, v] of Object.entries(elecciones)) {
+      const n = parseInt(v, 10);
+      if (Number.isInteger(n) && n >= 1) limpio[g] = Math.min(n, 20);
+    }
+    startTransition(async () => {
+      const res = await guardarEleccionesIncluidas(ranchoId, limpio);
+      if (res.error) setError(res.error);
+      else setEleccionesOk(true);
+    });
+  }
 
   const grupos = useMemo(
     () =>
@@ -453,6 +485,28 @@ export default function CatalogoPanel({
         />
       </div>
 
+      {/* Un paquete puede SUSTITUIR la tarifa base del cotizador: el
+          cliente que elige "Montaje premium" paga el premium, no
+          base + premium (0067). Solo aplica a paquetes de eventos. */}
+      {!esCitas && borrador.tipo === "paquete" && (
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3 sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={borrador.esPaqueteBase}
+            onChange={(e) =>
+              setBorrador({ ...borrador, esPaqueteBase: e.target.checked })
+            }
+            className="mt-0.5 h-4 w-4 accent-aventurea-orange"
+          />
+          <span className="text-[12.5px] leading-relaxed text-aventurea-ink">
+            <strong>Este paquete sustituye la tarifa base.</strong> Al
+            elegirlo, el cliente paga el precio del paquete en lugar de tu
+            tarifa por evento (no se suman), y sus horas incluidas mandan
+            para cobrar la hora extra.
+          </span>
+        </label>
+      )}
+
       <div className="flex gap-2 sm:col-span-2">
         <button
           type="button"
@@ -561,6 +615,12 @@ export default function CatalogoPanel({
                         · hasta {item.capacidad_dia}/día
                       </span>
                     )}
+                    {item.es_paquete_base === true && (
+                      <span className="font-normal text-aventurea-ink-soft">
+                        {" "}
+                        · sustituye la tarifa base
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-1.5">
@@ -630,6 +690,56 @@ export default function CatalogoPanel({
             Agregar a tu {etiqueta.toLowerCase()}
           </h3>
           {formulario(guardarNuevo, "Agregar")}
+        </div>
+      )}
+
+      {/* "Elegí hasta N sin costo" por sección: el menú incluido de un
+          catering por persona. El cliente marca sus elecciones al
+          reservar y no le suman al precio — le llegan en el pedido. */}
+      {!esCitas && grupos.length > 0 && (
+        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+          <h3 className="text-[15px] font-bold text-aventurea-ink">
+            Incluido en tu tarifa: elegí hasta N
+          </h3>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            Si tu tarifa ya incluye opciones de una sección (ej. &quot;elegí 2
+            platos fuertes y 1 postre&quot;), poné acá cuántas puede marcar el
+            cliente sin costo. Vacío o 0 = la sección se cobra normal.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {grupos.map((g) => (
+              <div key={g}>
+                <label className={labelCls}>{g}</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={elecciones[g] ?? ""}
+                  onChange={(e) => {
+                    setEleccionesOk(false);
+                    setElecciones((prev) => ({ ...prev, [g]: e.target.value }));
+                  }}
+                  placeholder="0 = se cobra normal"
+                  className={inputCls}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={guardarElecciones}
+              disabled={pending}
+              className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            >
+              {pending ? "Guardando..." : "Guardar elecciones incluidas"}
+            </button>
+            {eleccionesOk && (
+              <span className="text-[12.5px] font-bold text-aventurea-green">
+                ✓ Guardado
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>
