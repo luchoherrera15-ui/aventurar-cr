@@ -18,6 +18,7 @@ import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
+import OfertaInvitacion from "@/components/oferta-invitacion";
 import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
 import { obtenerIdDispositivo } from "@/lib/device";
@@ -536,6 +537,9 @@ export default function ReservarScreen() {
           Quedó en revisión — {rancho?.nombre} va a confirmarla en cuanto revise tu comprobante.
           Te llegará un correo a {correo}.
         </Text>
+        {/* Venta cruzada: recién reservó su evento — la invitación
+            digital a precio especial. */}
+        <OfertaInvitacion />
         <Pressable style={styles.botonPrimario} onPress={() => router.dismissTo("/")}>
           <Text style={styles.botonPrimarioTexto}>Volver al directorio</Text>
         </Pressable>

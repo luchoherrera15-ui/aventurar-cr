@@ -330,5 +330,7 @@ export async function solicitarCotizacion(
     });
   }
 
-  redirect(`/mensajes/${reserva.id}`);
+  // ?nueva=1: el chat sabe que el cliente viene de reservar y le
+  // muestra la oferta de la invitación digital (solo esa vez).
+  redirect(`/mensajes/${reserva.id}?nueva=1`);
 }

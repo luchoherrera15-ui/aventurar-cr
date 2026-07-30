@@ -21,6 +21,7 @@ import {
   completarReservaTemporal,
   crearReservaTemporal,
 } from "./actions";
+import OfertaInvitacionCard from "@/components/oferta-invitacion-card";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
 import { terminosPorDefecto } from "@/app/mi-rancho/types";
 import type { PromocionDia } from "@/app/mi-rancho/types";
@@ -945,6 +946,10 @@ export default function BookingCalendar({
                 >
                   Hacer otra reserva
                 </button>
+
+                {/* Venta cruzada: quien acaba de reservar el salón es el
+                    mejor candidato para la invitación digital. */}
+                <OfertaInvitacionCard className="mt-5 text-left" />
               </div>
             )}
 

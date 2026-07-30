@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import OfertaInvitacionCard from "@/components/oferta-invitacion-card";
 import HiloChat from "./hilo-chat";
 import BotonResuelto from "../boton-resuelto";
 import type { Mensaje } from "@/app/mi-rancho/types";
@@ -16,10 +17,14 @@ type ReservaConRancho = {
 
 export default async function MensajesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ reservaId: string }>;
+  searchParams: Promise<{ nueva?: string | string[] }>;
 }) {
   const { reservaId } = await params;
+  const { nueva } = await searchParams;
+  const recienReservada = (Array.isArray(nueva) ? nueva[0] : nueva) === "1";
   const supabase = await createClient();
   const {
     data: { user },
@@ -125,6 +130,10 @@ export default async function MensajesPage({
           </div>
           <BotonResuelto conversacionId={conversacionId} resuelta={resuelta} variante="cabecera" />
         </div>
+
+        {/* Recién reservado (viene con ?nueva=1): la oferta de la
+            invitación digital, solo para el cliente. */}
+        {recienReservada && esCliente && <OfertaInvitacionCard className="mb-3" />}
 
         <HiloChat
           conversacionId={conversacionId}
