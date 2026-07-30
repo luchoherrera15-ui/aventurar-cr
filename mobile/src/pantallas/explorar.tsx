@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -23,12 +24,16 @@ import {
   normalizarTexto,
 } from "@/lib/busqueda";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import {
+  CANTONES,
   CATEGORIA_LABEL,
   CATEGORIAS,
+  PROVINCIAS,
   SUBCATEGORIAS,
   fmtColones,
   type Categoria,
+  type Provincia,
   type Rancho,
 } from "@/lib/types";
 
@@ -48,7 +53,6 @@ const CATEGORIA_ICONO: Record<Categoria, IconoNombre> = {
   otros: "color-wand-outline",
 };
 
-const TAB_BAR_ESPACIO = 84;
 
 export type Fila = Pick<
   Rancho,
@@ -61,7 +65,11 @@ export type Fila = Pick<
   | "precio_desde"
   | "foto_url"
   | "destacado_orden"
->;
+> & {
+  /** Opcional: los filtros de invitados lo usan si viene en el select;
+   * favoritos.tsx no lo trae y la tarjeta no lo necesita. */
+  capacidad_max?: number | null;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- el pager pasa `activa` a todas las pestañas; Explorar no la necesita (carga al montar y con pull-refresh)
 export default function DirectorioScreen({ activa = true }: { activa?: boolean }) {
@@ -76,6 +84,27 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
   const [calificaciones, setCalificaciones] = useState<Record<string, Calificacion>>({});
   const [query, setQuery] = useState("");
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
+
+  // Filtros avanzados (el botón de opciones junto al buscador): zona,
+  // cantidad de invitados y precio tope. Viven aparte de la búsqueda
+  // por texto y de las categorías — se combinan todos.
+  const [modalFiltros, setModalFiltros] = useState(false);
+  const [filtroProvincia, setFiltroProvincia] = useState<Provincia | null>(null);
+  const [filtroCanton, setFiltroCanton] = useState<string | null>(null);
+  const [filtroInvitados, setFiltroInvitados] = useState("");
+  const [filtroPrecioMax, setFiltroPrecioMax] = useState("");
+
+  const invitadosNum = parseInt(filtroInvitados.replace(/\D/g, ""), 10) || 0;
+  const precioMaxNum = parseInt(filtroPrecioMax.replace(/\D/g, ""), 10) || 0;
+  const hayFiltros =
+    filtroProvincia !== null || filtroCanton !== null || invitadosNum > 0 || precioMaxNum > 0;
+
+  function limpiarFiltros() {
+    setFiltroProvincia(null);
+    setFiltroCanton(null);
+    setFiltroInvitados("");
+    setFiltroPrecioMax("");
+  }
 
   useEffect(() => {
     if (!session) {
@@ -215,15 +244,49 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
     [q, interpretada.fecha, ocupadosFecha],
   );
 
-  const buscando = q.length > 0 || !!interpretada.fecha || filtro !== "todos";
+  // Los filtros del panel: zona exacta, capacidad e importe tope. Los
+  // de invitados y precio solo excluyen cuando el dato existe — un
+  // proveedor sin capacidad o sin "desde ₡" no desaparece por eso.
+  const pasaFiltros = useCallback(
+    (r: Fila) =>
+      (!filtroProvincia || r.provincia === filtroProvincia) &&
+      (!filtroCanton || r.canton === filtroCanton) &&
+      (invitadosNum <= 0 || r.capacidad_max == null || r.capacidad_max >= invitadosNum) &&
+      (precioMaxNum <= 0 || r.precio_desde == null || r.precio_desde <= precioMaxNum),
+    [filtroProvincia, filtroCanton, invitadosNum, precioMaxNum],
+  );
+
+  const buscando = q.length > 0 || !!interpretada.fecha || filtro !== "todos" || hayFiltros;
 
   const listaFiltrada = useMemo(() => {
     if (!ranchos) return [];
     return ranchos
       .filter((r) => filtro === "todos" || r.categoria === filtro)
       .filter((r) => !subcategoria || r.subcategoria === subcategoria)
-      .filter(coincide);
-  }, [ranchos, filtro, subcategoria, coincide]);
+      .filter(coincide)
+      .filter(pasaFiltros);
+  }, [ranchos, filtro, subcategoria, coincide, pasaFiltros]);
+
+  // Conteos para el panel de filtros: cuántos proveedores hay por
+  // provincia, y por cantón dentro de la provincia elegida.
+  const conteoProvincias = useMemo(() => {
+    const acc: Record<string, number> = {};
+    for (const r of ranchos ?? []) {
+      if (r.provincia) acc[r.provincia] = (acc[r.provincia] ?? 0) + 1;
+    }
+    return acc;
+  }, [ranchos]);
+
+  const conteoCantones = useMemo(() => {
+    const acc: Record<string, number> = {};
+    if (!filtroProvincia) return acc;
+    for (const r of ranchos ?? []) {
+      if (r.provincia === filtroProvincia && r.canton) {
+        acc[r.canton] = (acc[r.canton] ?? 0) + 1;
+      }
+    }
+    return acc;
+  }, [ranchos, filtroProvincia]);
 
   // Conteos por subcategoría de la categoría activa, para las
   // pastillas del segundo nivel (solo se muestran las que tienen algo).
@@ -264,15 +327,41 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
       {/* Sin barra nativa en las pestañas: el buscador arranca justo
           debajo del notch, como el Explore de Airbnb. */}
       <View style={[styles.busquedaArea, { paddingTop: insets.top + Spacing.three }]}>
-        <View style={styles.busquedaPill}>
-          <Ionicons name="search" size={17} color={Colors.ink} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Buscá por nombre, zona o fecha (ej. 3 de agosto)"
-            placeholderTextColor={Colors.inkSoft}
-            style={styles.busquedaInput}
-          />
+        <View style={styles.busquedaFila}>
+          {/* De vuelta a la portada: el selector de las tres verticales
+              (Eventos / Citas / Hospedajes) siempre a un toque. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Volver a la portada"
+            onPress={() => router.push("/portada" as never)}
+            style={styles.botonPortada}
+          >
+            <Ionicons name="grid-outline" size={17} color={Colors.navy} />
+          </Pressable>
+          <View style={[styles.busquedaPill, { flex: 1 }]}>
+            <Ionicons name="search" size={17} color={Colors.ink} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Buscá por nombre, zona o fecha (ej. 3 de agosto)"
+              placeholderTextColor={Colors.inkSoft}
+              style={styles.busquedaInput}
+            />
+          </View>
+          {/* El botón de filtros: zona, invitados y precio. Con algún
+              filtro activo se pinta navy para que se note de lejos. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Filtros"
+            onPress={() => setModalFiltros(true)}
+            style={[styles.botonFiltros, hayFiltros && styles.botonFiltrosActivo]}
+          >
+            <Ionicons
+              name="options-outline"
+              size={19}
+              color={hayFiltros ? "#ffffff" : Colors.navy}
+            />
+          </Pressable>
         </View>
         {interpretada.fecha && (
           <View style={styles.fechaDetectada}>
@@ -281,6 +370,45 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
               Mostrando lo libre el {fmtFechaCortaISO(interpretada.fecha)}
             </Text>
           </View>
+        )}
+        {/* Los filtros activos como chips removibles: un toque en la ×
+            quita ese filtro sin abrir el panel. */}
+        {hayFiltros && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filtrosActivosScroll}
+            contentContainerStyle={styles.filtrosActivosFila}
+            keyboardShouldPersistTaps="handled"
+          >
+            {filtroProvincia && (
+              <ChipFiltroActivo
+                label={filtroProvincia}
+                onQuitar={() => {
+                  setFiltroProvincia(null);
+                  setFiltroCanton(null);
+                }}
+              />
+            )}
+            {filtroCanton && (
+              <ChipFiltroActivo label={filtroCanton} onQuitar={() => setFiltroCanton(null)} />
+            )}
+            {invitadosNum > 0 && (
+              <ChipFiltroActivo
+                label={`${invitadosNum}+ invitados`}
+                onQuitar={() => setFiltroInvitados("")}
+              />
+            )}
+            {precioMaxNum > 0 && (
+              <ChipFiltroActivo
+                label={`Hasta ${fmtColones(precioMaxNum)}`}
+                onQuitar={() => setFiltroPrecioMax("")}
+              />
+            )}
+            <Pressable onPress={limpiarFiltros} style={styles.limpiarTodo} hitSlop={6}>
+              <Text style={styles.limpiarTodoTexto}>Limpiar todo</Text>
+            </Pressable>
+          </ScrollView>
         )}
       </View>
 
@@ -421,7 +549,141 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
           ))}
         </ScrollView>
       )}
+
+      {/* El panel de filtros como hoja inferior: provincia, cantón,
+          invitados y precio tope. Se cierra tocando el velo o con
+          "Ver resultados". */}
+      <Modal
+        visible={modalFiltros}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalFiltros(false)}
+      >
+        <View style={styles.veloModal}>
+          <Pressable style={{ flex: 1 }} onPress={() => setModalFiltros(false)} />
+          <View style={[styles.panelFiltros, { paddingBottom: insets.bottom + Spacing.three }]}>
+            <View style={styles.panelEncabezado}>
+              <Text style={styles.panelTitulo}>Filtros</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar filtros"
+                onPress={() => setModalFiltros(false)}
+                style={styles.panelCerrar}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={18} color={Colors.ink} />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={{ flexGrow: 0 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.panelSeccion}>Provincia</Text>
+              <View style={styles.panelChips}>
+                {PROVINCIAS.map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => {
+                      setFiltroProvincia((prev) => (prev === p ? null : p));
+                      setFiltroCanton(null);
+                    }}
+                    style={[styles.panelChip, filtroProvincia === p && styles.panelChipActivo]}
+                  >
+                    <Text
+                      style={[
+                        styles.panelChipTexto,
+                        filtroProvincia === p && styles.panelChipTextoActivo,
+                      ]}
+                    >
+                      {p} ({conteoProvincias[p] ?? 0})
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {filtroProvincia && (
+                <>
+                  <Text style={styles.panelSeccion}>Cantón</Text>
+                  <View style={styles.panelChips}>
+                    {CANTONES[filtroProvincia].map((c) => (
+                      <Pressable
+                        key={c}
+                        onPress={() => setFiltroCanton((prev) => (prev === c ? null : c))}
+                        style={[styles.panelChip, filtroCanton === c && styles.panelChipActivo]}
+                      >
+                        <Text
+                          style={[
+                            styles.panelChipTexto,
+                            filtroCanton === c && styles.panelChipTextoActivo,
+                          ]}
+                        >
+                          {c} ({conteoCantones[c] ?? 0})
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              <Text style={styles.panelSeccion}>Invitados</Text>
+              <TextInput
+                value={filtroInvitados}
+                onChangeText={setFiltroInvitados}
+                placeholder="¿Cuántas personas van? Ej. 80"
+                placeholderTextColor={Colors.inkSoft}
+                keyboardType="number-pad"
+                style={styles.panelInput}
+              />
+              <Text style={styles.panelAyuda}>
+                Se muestran los que aguantan esa cantidad (y los que no indican capacidad).
+              </Text>
+
+              <Text style={styles.panelSeccion}>Precio máximo (₡)</Text>
+              <TextInput
+                value={filtroPrecioMax}
+                onChangeText={setFiltroPrecioMax}
+                placeholder="Ej. 150000"
+                placeholderTextColor={Colors.inkSoft}
+                keyboardType="number-pad"
+                style={styles.panelInput}
+              />
+              <Text style={styles.panelAyuda}>
+                Compara contra el “desde ₡” de cada proveedor (los sin precio no se excluyen).
+              </Text>
+            </ScrollView>
+
+            <View style={styles.panelBotones}>
+              <Pressable
+                onPress={limpiarFiltros}
+                style={({ pressed }) => [styles.panelBotonLimpiar, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={styles.panelBotonLimpiarTexto}>Limpiar</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setModalFiltros(false)}
+                style={({ pressed }) => [styles.panelBotonVer, pressed && { opacity: 0.9 }]}
+              >
+                <Text style={styles.panelBotonVerTexto}>
+                  Ver resultados{ranchos ? ` (${listaFiltrada.length})` : ""}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
+  );
+}
+
+/** Un filtro activo bajo el buscador, con su × para quitarlo. */
+function ChipFiltroActivo({ label, onQuitar }: { label: string; onQuitar: () => void }) {
+  return (
+    <Pressable onPress={onQuitar} style={styles.chipFiltroActivo} hitSlop={4}>
+      <Text style={styles.chipFiltroActivoTexto}>{label}</Text>
+      <Ionicons name="close" size={13} color={Colors.accent} />
+    </Pressable>
   );
 }
 
@@ -520,6 +782,12 @@ export function TarjetaRancho({
           transition={150}
           alt={item.nombre}
         />
+        {/* El rubro sobre la foto, como la card de Citas. */}
+        <View style={styles.fotoBadge}>
+          <Text style={styles.fotoBadgeTexto}>
+            {subLabel ?? CATEGORIA_LABEL[item.categoria]}
+          </Text>
+        </View>
         {!grande && corazon}
       </View>
       <View style={grande ? styles.tarjetaCuerpoGrande : styles.tarjetaCuerpo}>
@@ -531,12 +799,9 @@ export function TarjetaRancho({
             {corazon}
           </View>
         ) : (
-          <>
-            <Text style={styles.etiqueta}>{CATEGORIA_LABEL[item.categoria]}</Text>
-            <Text style={styles.nombre} numberOfLines={1}>
-              {item.nombre}
-            </Text>
-          </>
+          <Text style={styles.nombre} numberOfLines={1}>
+            {item.nombre}
+          </Text>
         )}
         {calificacion ? (
           <Text style={styles.rating}>
@@ -549,24 +814,25 @@ export function TarjetaRancho({
         ) : (
           grande && <Text style={styles.ratingSuave}>Sin reseñas todavía</Text>
         )}
-        {grande && (
-          <Text style={styles.rubro} numberOfLines={1}>
-            {subLabel ?? CATEGORIA_LABEL[item.categoria]}
-          </Text>
-        )}
         <Text style={styles.ubicacion} numberOfLines={1}>
-          {ubicacion}
+          <Ionicons name="location-outline" size={11} color="#3b7fc4" /> {ubicacion}
         </Text>
-        {item.precio_desde !== null && (
-          <Text style={styles.precio}>Desde {fmtColones(item.precio_desde)}</Text>
-        )}
-        {grande && (
-          <View style={styles.ctaBarra}>
-            <Text style={styles.ctaTexto}>
-              {item.categoria === "lugares" ? "Reservar fecha" : "Ver y reservar"}
-            </Text>
-          </View>
-        )}
+        {/* Pie como la card de Citas: precio a la izquierda, la
+            acción naranja a la derecha. */}
+        <View style={styles.ctaBarra}>
+          <Text style={styles.precio} numberOfLines={1}>
+            {item.precio_desde !== null ? (
+              <>
+                Desde <Text style={styles.precioMonto}>{fmtColones(item.precio_desde)}</Text>
+              </>
+            ) : (
+              "Consultar"
+            )}
+          </Text>
+          <Text style={styles.ctaTexto}>
+            {grande && item.categoria === "lugares" ? "Reservar fecha →" : "Reservar →"}
+          </Text>
+        </View>
       </View>
     </Pressable>
   );
@@ -593,11 +859,21 @@ function SubcatPill({
   );
 }
 
-const ANCHO_RIEL = 220;
+// Más anchas, como en la web: la foto manda.
+const ANCHO_RIEL = 264;
 
 const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   busquedaArea: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, backgroundColor: Colors.surface },
+  busquedaFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
+  botonPortada: {
+    alignItems: "center",
+    backgroundColor: Colors.cream2,
+    borderRadius: 999,
+    height: 46,
+    justifyContent: "center",
+    width: 46,
+  },
   busquedaPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -608,6 +884,118 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   busquedaInput: { flex: 1, fontFamily: Fonts.semiBold, fontSize: 14.5, color: Colors.ink, padding: 0 },
+  botonFiltros: {
+    alignItems: "center",
+    backgroundColor: Colors.cream2,
+    borderRadius: 14,
+    height: 46,
+    justifyContent: "center",
+    width: 46,
+  },
+  botonFiltrosActivo: { backgroundColor: Colors.navy },
+  filtrosActivosScroll: { flexGrow: 0, marginTop: Spacing.two },
+  filtrosActivosFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
+  chipFiltroActivo: {
+    alignItems: "center",
+    backgroundColor: Colors.accentLight,
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  chipFiltroActivoTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 12 },
+  limpiarTodo: { paddingHorizontal: 4, paddingVertical: 6 },
+  limpiarTodoTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.bold,
+    fontSize: 12,
+    textDecorationLine: "underline",
+  },
+  veloModal: { backgroundColor: "rgba(10,18,42,0.45)", flex: 1 },
+  panelFiltros: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "80%",
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+  },
+  panelEncabezado: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.two,
+  },
+  panelTitulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 19, letterSpacing: -0.3 },
+  panelCerrar: {
+    alignItems: "center",
+    backgroundColor: Colors.cream2,
+    borderRadius: 16,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  panelSeccion: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.bold,
+    fontSize: 12,
+    letterSpacing: 0.6,
+    marginBottom: Spacing.two,
+    marginTop: Spacing.three,
+    textTransform: "uppercase",
+  },
+  panelChips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+  panelChip: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  panelChipActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  panelChipTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 12 },
+  panelChipTextoActivo: { color: "#ffffff" },
+  panelInput: {
+    backgroundColor: Colors.cream2,
+    borderColor: Colors.line,
+    borderRadius: 12,
+    borderWidth: 1,
+    color: Colors.ink,
+    fontFamily: Fonts.semiBold,
+    fontSize: 14.5,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 11,
+  },
+  panelAyuda: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 6 },
+  panelBotones: {
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.two,
+    marginTop: Spacing.three,
+    paddingTop: Spacing.three,
+  },
+  panelBotonLimpiar: {
+    alignItems: "center",
+    borderColor: Colors.navy,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+  },
+  panelBotonLimpiarTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 13.5 },
+  panelBotonVer: {
+    alignItems: "center",
+    backgroundColor: Colors.navy,
+    borderRadius: 999,
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  panelBotonVerTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13.5 },
   fechaDetectada: {
     flexDirection: "row",
     alignItems: "center",
@@ -670,10 +1058,41 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rielLista: { gap: Spacing.three, paddingHorizontal: Spacing.three },
-  tarjetaRiel: { width: ANCHO_RIEL },
-  tarjetaCompleta: {},
-  fotoRiel: { width: ANCHO_RIEL, height: 170, borderRadius: 16, backgroundColor: Colors.cream2 },
-  fotoCompleta: { width: "100%", height: 200, borderRadius: 16, backgroundColor: Colors.cream2 },
+  // La misma card de Citas: contenedor blanco con borde azulado,
+  // la foto clipeada arriba y el cuerpo con padding.
+  tarjetaRiel: {
+    width: ANCHO_RIEL,
+    backgroundColor: Colors.surface,
+    borderColor: "#dbe4f2",
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  tarjetaCompleta: {
+    backgroundColor: Colors.surface,
+    borderColor: "#dbe4f2",
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  fotoRiel: { width: "100%", height: 168, backgroundColor: "#e8f0f9" },
+  fotoCompleta: { width: "100%", height: 220, backgroundColor: "#e8f0f9" },
+  fotoBadge: {
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderRadius: 99,
+    left: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    position: "absolute",
+    top: 10,
+  },
+  fotoBadgeTexto: {
+    color: Colors.navy,
+    fontFamily: Fonts.extraBold,
+    fontSize: 9.5,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   botonFavorito: {
     position: "absolute",
     top: 8,
@@ -684,8 +1103,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tarjetaCuerpo: { paddingTop: Spacing.two, gap: 2 },
-  tarjetaCuerpoGrande: { paddingTop: Spacing.two, gap: 3 },
+  tarjetaCuerpo: {
+    gap: 2,
+    paddingBottom: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+  },
+  tarjetaCuerpoGrande: {
+    gap: 3,
+    paddingBottom: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+  },
   nombreFila: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   corazonChip: {
     width: 32,
@@ -701,13 +1130,16 @@ const styles = StyleSheet.create({
   ratingSuave: { fontSize: 12, fontFamily: Fonts.regular, color: Colors.inkSoft },
   rubro: { fontSize: 12.5, fontFamily: Fonts.medium, color: Colors.inkSoft },
   ctaBarra: {
-    marginTop: Spacing.two,
-    backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingVertical: 11,
     alignItems: "center",
+    borderTopColor: "#e8eef8",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "space-between",
+    marginTop: Spacing.two,
+    paddingTop: 9,
   },
-  ctaTexto: { color: "#ffffff", fontSize: 13, fontFamily: Fonts.bold },
+  ctaTexto: { color: Colors.accent, fontSize: 12.5, fontFamily: Fonts.extraBold },
   subcatFila: {
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
@@ -748,5 +1180,6 @@ const styles = StyleSheet.create({
   },
   nombre: { fontSize: 16, fontFamily: Fonts.extraBold, letterSpacing: -0.2, color: Colors.ink },
   ubicacion: { fontSize: 13, fontFamily: Fonts.regular, color: Colors.inkSoft },
-  precio: { fontSize: 13, fontFamily: Fonts.bold, color: Colors.ink, marginTop: 2 },
+  precio: { color: Colors.inkSoft, flex: 1, fontFamily: Fonts.medium, fontSize: 12.5 },
+  precioMonto: { color: Colors.ink, fontFamily: Fonts.extraBold },
 });

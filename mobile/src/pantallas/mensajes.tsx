@@ -17,6 +17,7 @@ import Swipeable, {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import TituloPantalla from "@/components/titulo-pantalla";
 
 /**
@@ -326,7 +327,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
       )}
       <FlatList
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: Spacing.three, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: Spacing.three, paddingBottom: TAB_BAR_ESPACIO }}
         data={visibles}
         keyExtractor={(f) => f.id}
         onRefresh={cargar}

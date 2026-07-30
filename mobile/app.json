@@ -31,6 +31,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#16295e"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Bookea usa tus fotos solo para publicar las imágenes de tu negocio o servicio.",

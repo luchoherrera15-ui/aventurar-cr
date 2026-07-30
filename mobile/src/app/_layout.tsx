@@ -1,8 +1,9 @@
 import { useCallback, useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Stack } from "expo-router";
+import { Stack, useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 import {
   useFonts,
   Figtree_400Regular,
@@ -16,7 +17,31 @@ import { Colors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync();
 
+// Con la app abierta, una notificación entra como banner discreto
+// arriba (sin robar la pantalla), igual que un mensaje de WhatsApp.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function RootLayout() {
+  const router = useRouter();
+
+  // Tocar la notificación abre la pantalla que el servidor indicó en
+  // data.url (ej. "/?tab=reservas" o "/?tab=mensajes").
+  useEffect(() => {
+    const suscripcion = Notifications.addNotificationResponseReceivedListener(
+      (respuesta) => {
+        const url = respuesta.notification.request.content.data?.url;
+        if (typeof url === "string") router.push(url as Href);
+      },
+    );
+    return () => suscripcion.remove();
+  }, [router]);
   const [fontsLoaded] = useFonts({
     Figtree_400Regular,
     Figtree_500Medium,

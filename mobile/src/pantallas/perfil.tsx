@@ -13,7 +13,10 @@ import {
 import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { supabase } from "@/lib/supabase";
+import { desregistrarPush } from "@/lib/push";
+import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import TituloPantalla from "@/components/titulo-pantalla";
@@ -62,6 +65,7 @@ function FormulariosAuth() {
   const [paso, setPaso] = useState<"correo" | "codigo">("correo");
   const [email, setEmail] = useState("");
   const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [comprobando, setComprobando] = useState(false);
@@ -100,6 +104,12 @@ function FormulariosAuth() {
       setError("Contanos tu nombre para crear la cuenta.");
       return;
     }
+    // El teléfono se pide junto al nombre: con eso las reservas y las
+    // citas se llenan solas después.
+    if (pideNombre && !/^[0-9+\s-]{8,16}$/.test(telefono.trim())) {
+      setError("Dejanos un teléfono válido (solo números).");
+      return;
+    }
 
     setEnviando(true);
     const { error } = await supabase.auth.signInWithOtp({
@@ -108,7 +118,9 @@ function FormulariosAuth() {
         // Si el correo es nuevo, la cuenta nace como cliente — nunca
         // como dueño de negocio (eso lo decide "Publicar tu negocio").
         shouldCreateUser: true,
-        data: pideNombre ? { rol: "cliente", nombre: nombre.trim() } : { rol: "cliente" },
+        data: pideNombre
+          ? { rol: "cliente", nombre: nombre.trim(), whatsapp: telefono.trim() }
+          : { rol: "cliente" },
       },
     });
     setEnviando(false);
@@ -124,6 +136,19 @@ function FormulariosAuth() {
     setCodigo("");
     setPaso("codigo");
     if (esReenvio) setReenviado(true);
+  }
+
+  // El camino rápido en Android (el correo no se autocompleta como en
+  // iOS): copiás el código de la notificación y un toque lo pega —
+  // se extraen los 6 dígitos aunque venga con texto alrededor.
+  async function pegarCodigo() {
+    try {
+      const texto = await Clipboard.getStringAsync();
+      const encontrado = texto.match(/\d{6}/);
+      if (encontrado) setCodigo(encontrado[0]);
+    } catch {
+      // Sin permiso de portapapeles no pasa nada: se escribe a mano.
+    }
   }
 
   async function verificarCodigo() {
@@ -180,15 +205,33 @@ function FormulariosAuth() {
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
               />
 
               {pideNombre && (
                 <>
                   <Text style={styles.avisoNombre}>
                     No encontramos una cuenta con ese correo — vamos a
-                    crearte una nueva. Contanos tu nombre:
+                    crearte una nueva. Contanos tu nombre y tu teléfono
+                    (así tus reservas se llenan solas):
                   </Text>
-                  <Campo label="Tu nombre" value={nombre} onChangeText={setNombre} />
+                  <Campo
+                    label="Tu nombre"
+                    value={nombre}
+                    onChangeText={setNombre}
+                    autoComplete="name"
+                    textContentType="name"
+                  />
+                  <Campo
+                    label="Tu teléfono (WhatsApp)"
+                    value={telefono}
+                    onChangeText={setTelefono}
+                    keyboardType="number-pad"
+                    autoCapitalize="none"
+                    autoComplete="tel"
+                    textContentType="telephoneNumber"
+                  />
                 </>
               )}
 
@@ -218,13 +261,25 @@ function FormulariosAuth() {
             </Text>
 
             <View style={styles.bloque}>
+              {/* oneTimeCode: iOS ofrece el código apenas llega (SMS y,
+                  desde iOS 16, también Apple Mail) sobre el teclado. */}
               <Campo
                 label="Código de 6 dígitos"
                 value={codigo}
                 onChangeText={setCodigo}
-                keyboardType="numeric"
+                keyboardType="number-pad"
                 autoCapitalize="none"
+                autoComplete="one-time-code"
+                textContentType="oneTimeCode"
               />
+
+              {/* En Android el correo no se lee solo: el camino rápido
+                  es copiar el código de la notificación de Gmail y
+                  pegarlo con un toque. */}
+              <Pressable style={styles.botonPegar} onPress={pegarCodigo}>
+                <Ionicons name="clipboard-outline" size={14} color={Colors.navy} />
+                <Text style={styles.botonPegarTexto}>Pegar el código copiado</Text>
+              </Pressable>
 
               {error && <Text style={styles.error}>{error}</Text>}
               {reenviado && !error && (
@@ -263,13 +318,125 @@ function FormulariosAuth() {
   );
 }
 
+/**
+ * Tarjeta "completá tu perfil" para cuentas que entraron antes de que
+ * pidiéramos el teléfono (o sin nombre): con esos dos datos, las
+ * reservas y citas se llenan solas. Solo aparece si falta algo y
+ * desaparece al guardar.
+ */
+function CompletarPerfilCard({
+  nombrePerfil,
+  refrescarPerfil,
+}: {
+  nombrePerfil: string | null;
+  refrescarPerfil: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let vigente = true;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!vigente || !user) return;
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+      const nombreMeta =
+        [meta.nombre, meta.full_name].find(
+          (v): v is string => typeof v === "string" && v.trim() !== "",
+        ) ??
+        nombrePerfil ??
+        "";
+      const telMeta =
+        typeof meta.whatsapp === "string" && meta.whatsapp.trim() !== ""
+          ? meta.whatsapp
+          : "";
+      if (!nombreMeta || !telMeta) {
+        setNombre(nombreMeta);
+        setTelefono(telMeta);
+        setVisible(true);
+      }
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [nombrePerfil]);
+
+  if (!visible) return null;
+
+  async function guardar() {
+    setError(null);
+    if (!nombre.trim()) {
+      setError("Contanos tu nombre.");
+      return;
+    }
+    if (!/^[0-9+\s-]{8,16}$/.test(telefono.trim())) {
+      setError("Dejanos un teléfono válido (solo números).");
+      return;
+    }
+    setGuardando(true);
+    const { data, error: err } = await supabase.auth.updateUser({
+      data: { nombre: nombre.trim(), whatsapp: telefono.trim() },
+    });
+    setGuardando(false);
+    if (err) {
+      setError("No se pudo guardar: " + err.message);
+      return;
+    }
+    // El nombre visible del perfil también, si la política lo permite.
+    if (data.user) {
+      await supabase.from("perfiles").update({ nombre: nombre.trim() }).eq("id", data.user.id);
+    }
+    refrescarPerfil();
+    setVisible(false);
+  }
+
+  return (
+    <View style={styles.completarCard}>
+      <Text style={styles.completarTitulo}>Completá tu perfil</Text>
+      <Text style={styles.completarTexto}>
+        Con tu nombre y teléfono, tus reservas y citas se llenan solas —
+        no volvés a escribirlos.
+      </Text>
+      <Campo
+        label="Tu nombre"
+        value={nombre}
+        onChangeText={setNombre}
+        autoComplete="name"
+        textContentType="name"
+      />
+      <Campo
+        label="Tu teléfono (WhatsApp)"
+        value={telefono}
+        onChangeText={setTelefono}
+        keyboardType="number-pad"
+        autoCapitalize="none"
+        autoComplete="tel"
+        textContentType="telephoneNumber"
+      />
+      {error && <Text style={styles.error}>{error}</Text>}
+      <Pressable style={styles.botonPrimario} disabled={guardando} onPress={guardar}>
+        {guardando ? (
+          <ActivityIndicator color="#ffffff" />
+        ) : (
+          <Text style={styles.botonPrimarioTexto}>Guardar</Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
 function Campo(props: {
   label: string;
   value: string;
   onChangeText: (v: string) => void;
   secure?: boolean;
-  keyboardType?: "default" | "email-address" | "numeric";
+  keyboardType?: "default" | "email-address" | "numeric" | "number-pad";
   autoCapitalize?: "none" | "sentences";
+  /** Para que el sistema ofrezca llenar solo (código OTP, correo...). */
+  autoComplete?: React.ComponentProps<typeof TextInput>["autoComplete"];
+  textContentType?: React.ComponentProps<typeof TextInput>["textContentType"];
 }) {
   return (
     <View style={styles.gap2}>
@@ -280,6 +447,8 @@ function Campo(props: {
         secureTextEntry={props.secure}
         keyboardType={props.keyboardType ?? "default"}
         autoCapitalize={props.autoCapitalize ?? "sentences"}
+        autoComplete={props.autoComplete}
+        textContentType={props.textContentType}
         style={styles.input}
         placeholderTextColor={Colors.inkSoft}
       />
@@ -401,7 +570,13 @@ function PerfilVista({
   return (
     <View style={styles.contenedor}>
       <TituloPantalla titulo="Perfil" />
-      <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingBottom: 100, gap: Spacing.three }}>
+      <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingBottom: TAB_BAR_ESPACIO, gap: Spacing.three }}>
+        {/* Cuentas viejas sin nombre o teléfono: se completan acá una
+            sola vez y las reservas quedan llenándose solas. */}
+        <CompletarPerfilCard
+          nombrePerfil={perfil?.nombre ?? null}
+          refrescarPerfil={refrescarPerfil}
+        />
         {/* Identidad: tarjeta clara con el avatar centrado y los
             números debajo — sin el bloque navy pesado de antes. */}
         <View style={styles.tarjetaIdentidad}>
@@ -509,7 +684,26 @@ function PerfilVista({
           />
         </View>
 
-        <Pressable style={styles.botonSalir} onPress={() => supabase.auth.signOut()}>
+        {/* Invitaciones digitales y álbumes: los eventos propios y los
+            paquetes a la venta viven en su propia pantalla. */}
+        <View style={styles.grid}>
+          <TarjetaAccion
+            icono="mail-outline"
+            titulo="Invitaciones y álbumes"
+            detalle="Tus eventos y fotos"
+            onPress={() => router.push("/invitaciones" as never)}
+          />
+        </View>
+
+        <Pressable
+          style={styles.botonSalir}
+          onPress={async () => {
+            // El token push se suelta ANTES del signOut: la política
+            // RLS solo deja borrarlo mientras la sesión sigue viva.
+            await desregistrarPush();
+            await supabase.auth.signOut();
+          }}
+        >
           <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
           <Text style={styles.botonSalirTexto}>Cerrar sesión</Text>
         </Pressable>
@@ -618,8 +812,36 @@ function TarjetaAccion({
 const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.three },
-  contenedorForm: { flexGrow: 1, padding: Spacing.four, paddingBottom: 100, gap: Spacing.two },
+  contenedorForm: { flexGrow: 1, padding: Spacing.four, paddingBottom: TAB_BAR_ESPACIO, gap: Spacing.two },
   logoMarca: { width: 170, height: 60, marginBottom: Spacing.two },
+  botonPegar: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderColor: "#dbe4f2",
+    borderRadius: 99,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  botonPegarTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
+  completarCard: {
+    backgroundColor: "#f4f7fd",
+    borderColor: "#dbe4f2",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: Spacing.two,
+    padding: Spacing.three,
+  },
+  completarTitulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 15.5 },
+  completarTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
   titulo: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink },
   subtitulo: { fontSize: 13.5, color: Colors.inkSoft, marginBottom: Spacing.two },
   bloque: {

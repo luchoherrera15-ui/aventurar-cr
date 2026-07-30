@@ -13,9 +13,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import TituloPantalla from "@/components/titulo-pantalla";
 import ResenaModal from "@/components/resena-modal";
-import { CATEGORIA_LABEL, fmtColones, type Categoria } from "@/lib/types";
+import { CATEGORIA_LABEL, fmtColones } from "@/lib/types";
+import {
+  CATEGORIA_CITA_LABEL,
+  DIAS_CORTO,
+  MESES_CORTO,
+  horaBonita,
+} from "@/lib/citas";
+import { CATEGORIA_HOSPEDAJE_LABEL } from "@/lib/hospedajes";
 
 /**
  * Pestaña de reservas, espejo de los "viajes" de Airbnb: lo que viene
@@ -41,9 +49,26 @@ type ReservaCliente = {
   estado: string;
   monto_total: number | null;
   horario_bloque: string | null;
+  hora_inicio: string | null;
   rancho_id: string | null;
-  ranchos: { nombre: string; foto_url: string | null; categoria: Categoria } | null;
+  ranchos: { nombre: string; foto_url: string | null; categoria: string } | null;
 };
+
+/** "2026-08-08" → "vie 8 ago 2026" sin corrimiento de zona horaria. */
+function fechaBonita(fecha: string): string {
+  const d = new Date(fecha + "T00:00:00");
+  return `${DIAS_CORTO[d.getDay()]} ${d.getDate()} ${MESES_CORTO[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** Etiqueta de la categoría cruzando las tres verticales. */
+function etiquetaCategoria(cat: string): string {
+  return (
+    (CATEGORIA_LABEL as Record<string, string>)[cat] ??
+    (CATEGORIA_CITA_LABEL as Record<string, string>)[cat] ??
+    (CATEGORIA_HOSPEDAJE_LABEL as Record<string, string>)[cat] ??
+    cat
+  );
+}
 
 type ResenaPropia = {
   id: string;
@@ -66,7 +91,7 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
       supabase
         .from("reservas")
         .select(
-          "id, fecha, estado, monto_total, horario_bloque, rancho_id, ranchos(nombre, foto_url, categoria)",
+          "id, fecha, estado, monto_total, horario_bloque, hora_inicio, rancho_id, ranchos(nombre, foto_url, categoria)",
         )
         .eq("cliente_id", session.user.id)
         .in("estado", ["pendiente", "confirmada", "rechazada"])
@@ -236,14 +261,18 @@ function TarjetaReserva({
         />
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.categoriaReserva}>
-            {reserva.ranchos ? CATEGORIA_LABEL[reserva.ranchos.categoria] : ""}
+            {reserva.ranchos ? etiquetaCategoria(reserva.ranchos.categoria) : ""}
           </Text>
           <Text style={styles.nombreReserva} numberOfLines={1}>
             {reserva.ranchos?.nombre ?? "Proveedor"}
           </Text>
           <Text style={styles.fechaReserva}>
-            {reserva.fecha}
-            {reserva.horario_bloque ? ` · ${reserva.horario_bloque}` : ""}
+            {fechaBonita(reserva.fecha)}
+            {reserva.hora_inicio
+              ? ` · ${horaBonita(reserva.hora_inicio)}`
+              : reserva.horario_bloque
+                ? ` · ${reserva.horario_bloque}`
+                : ""}
           </Text>
           {reserva.monto_total !== null && (
             <Text style={styles.montoReserva}>{fmtColones(reserva.monto_total)}</Text>
@@ -275,7 +304,7 @@ function TarjetaReserva({
 const styles = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: Colors.cream },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.two },
-  lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: 100 },
+  lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: TAB_BAR_ESPACIO },
   vacioTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
   vacioTexto: { fontSize: 13.5, color: Colors.inkSoft, textAlign: "center", lineHeight: 19 },
   boton: {

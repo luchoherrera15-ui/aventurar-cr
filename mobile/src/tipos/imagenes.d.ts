@@ -8,3 +8,9 @@ declare module "*.png" {
   const contenido: ImageSourcePropType;
   export default contenido;
 }
+
+declare module "*.jpg" {
+  import type { ImageSourcePropType } from "react-native";
+  const contenido: ImageSourcePropType;
+  export default contenido;
+}

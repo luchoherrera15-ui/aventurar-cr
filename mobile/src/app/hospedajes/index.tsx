@@ -20,13 +20,13 @@ import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import { normalizarTexto } from "@/lib/busqueda";
 import {
-  CATEGORIA_CITA_LABEL,
-  CATEGORIAS_CITAS,
-  normalizarCategoriaCita,
-  type CategoriaCita,
-} from "@/lib/citas";
+  CATEGORIA_HOSPEDAJE_LABEL,
+  CATEGORIAS_HOSPEDAJES,
+  normalizarCategoriaHospedaje,
+  type CategoriaHospedaje,
+} from "@/lib/hospedajes";
 
-type Negocio = {
+type Hospedaje = {
   id: string;
   nombre: string;
   slug: string | null;
@@ -40,31 +40,39 @@ type Negocio = {
 
 type Calificacion = { promedio: number; total: number };
 
+/** La categoría viene libre de la base; si no calza con la vertical,
+ * cae en un rótulo genérico. */
+function etiquetaCategoria(categoria: string | null): string {
+  const cat = normalizarCategoriaHospedaje(categoria);
+  return cat ? CATEGORIA_HOSPEDAJE_LABEL[cat] : "Hospedaje";
+}
+
 /**
- * El directorio de Citas del app — espejo de /citas en la web: las
- * cards de los negocios que atienden con turno (belleza, barbería,
- * uñas, spa...), con su nota y su "desde ₡". Tocar una entra al
- * negocio; todo desemboca en la agenda.
+ * El directorio de Hospedajes del app — espejo de /hospedajes en la
+ * web y gemelo del directorio de Citas: buscador, chips por tipo con
+ * conteo y las cards de casas, villas, cabañas y hoteles con su nota y
+ * su "Desde ₡ por noche". Tocar una entra al detalle del hospedaje;
+ * todo desemboca en la reserva por noches.
  */
-export default function CitasDirectorioScreen() {
+export default function HospedajesDirectorioScreen() {
   const router = useRouter();
-  const [negocios, setNegocios] = useState<Negocio[] | null>(null);
+  const [hospedajes, setHospedajes] = useState<Hospedaje[] | null>(null);
   const [calificaciones, setCalificaciones] = useState<Record<string, Calificacion>>({});
   const [refrescando, setRefrescando] = useState(false);
   const [busqueda, setBusqueda] = useState("");
-  const [categoriaActiva, setCategoriaActiva] = useState<CategoriaCita | null>(null);
+  const [categoriaActiva, setCategoriaActiva] = useState<CategoriaHospedaje | null>(null);
 
   const cargar = useCallback(async () => {
     const [{ data: filas }, { data: califs }] = await Promise.all([
       supabase
         .from("ranchos")
         .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde")
-        .eq("vertical", "citas")
+        .eq("vertical", "hospedajes")
         .eq("estado", "aprobado")
         .order("created_at", { ascending: false }),
       supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
     ]);
-    setNegocios((filas ?? []) as Negocio[]);
+    setHospedajes((filas ?? []) as Hospedaje[]);
     setCalificaciones(
       Object.fromEntries(
         ((califs ?? []) as (Calificacion & { rancho_id: string })[]).map((c) => [
@@ -86,73 +94,79 @@ export default function CitasDirectorioScreen() {
     setRefrescando(false);
   }
 
-  // Conteo por categoría sobre TODOS los negocios (los chips no cambian
-  // con la búsqueda), igual que en /citas de la web.
+  // Conteo por tipo sobre TODOS los hospedajes (los chips no cambian
+  // con la búsqueda), igual que en el directorio de Citas.
   const conteo = useMemo(() => {
-    const c: Partial<Record<CategoriaCita, number>> = {};
-    (negocios ?? []).forEach((n) => {
-      const cat = normalizarCategoriaCita(n.categoria);
-      c[cat] = (c[cat] ?? 0) + 1;
+    const c: Partial<Record<CategoriaHospedaje, number>> = {};
+    (hospedajes ?? []).forEach((h) => {
+      const cat = normalizarCategoriaHospedaje(h.categoria);
+      if (cat) c[cat] = (c[cat] ?? 0) + 1;
     });
     return c;
-  }, [negocios]);
+  }, [hospedajes]);
 
-  // El buscador filtra en memoria por nombre, zona, rubro o descripción,
-  // sin pelear con tildes: "unas" encuentra "Uñas".
+  // El buscador filtra en memoria por nombre, zona, tipo o descripción,
+  // sin pelear con tildes: "cabana" encuentra "Cabaña".
   const filtrados = useMemo(() => {
     const base = categoriaActiva
-      ? (negocios ?? []).filter(
-          (n) => normalizarCategoriaCita(n.categoria) === categoriaActiva,
+      ? (hospedajes ?? []).filter(
+          (h) => normalizarCategoriaHospedaje(h.categoria) === categoriaActiva,
         )
-      : (negocios ?? []);
+      : (hospedajes ?? []);
     const aguja = normalizarTexto(busqueda).trim();
     if (!aguja) return base;
-    return base.filter((n) =>
+    return base.filter((h) =>
       normalizarTexto(
         [
-          n.nombre,
-          n.canton ?? "",
-          n.provincia ?? "",
-          n.descripcion ?? "",
-          CATEGORIA_CITA_LABEL[normalizarCategoriaCita(n.categoria)],
+          h.nombre,
+          h.canton ?? "",
+          h.provincia ?? "",
+          h.descripcion ?? "",
+          etiquetaCategoria(h.categoria),
         ].join(" "),
       ).includes(aguja),
     );
-  }, [negocios, categoriaActiva, busqueda]);
+  }, [hospedajes, categoriaActiva, busqueda]);
 
   return (
     <View style={styles.contenedor}>
       {/* Volver siempre tiene a dónde: si la pila está vacía (deep
           link directo), cae a las pestañas en vez de no hacer nada. */}
       <BarraSuperior
-        titulo="Citas y Reservas"
-        subtitulo="Reservá tu cita en línea"
+        titulo="Booking Hospedajes"
+        subtitulo="Casas, villas y hoteles en Costa Rica"
         onVolver={() => (router.canGoBack() ? router.back() : router.replace("/"))}
       />
 
-      {negocios === null ? (
+      {hospedajes === null ? (
         <View style={styles.centro}>
           <ActivityIndicator color={Colors.accent} />
         </View>
-      ) : negocios.length === 0 ? (
+      ) : hospedajes.length === 0 ? (
         <View style={styles.centro}>
-          <Text style={styles.vacioTitulo}>Los primeros negocios están por llegar</Text>
+          <Text style={styles.vacioTitulo}>Los primeros hospedajes están por llegar</Text>
           <Text style={styles.vacioTexto}>
-            Estamos abriendo esta sección. Muy pronto vas a poder reservar tu
-            cita de belleza, barbería o spa desde acá.
+            Estamos abriendo esta vertical. ¿Tenés una casa, villa, cabaña u
+            hotel? Publicalo gratis y recibí reservas con tu propia página.
           </Text>
+          <Pressable
+            onPress={() => router.push("/negocio/nuevo" as never)}
+            style={({ pressed }) => [styles.vacioBoton, pressed && { opacity: 0.9 }]}
+          >
+            <Text style={styles.vacioBotonTexto}>Publicar mi hospedaje</Text>
+          </Pressable>
         </View>
       ) : (
         <>
-          {/* El buscador de agendas — espejo del de /citas en la web:
-              filtra en memoria por nombre, zona o rubro. */}
+          {/* El buscador de hospedajes — espejo del de /hospedajes en
+              la web: filtra en memoria por nombre, zona o tipo. */}
           <View style={styles.buscadorZona}>
             <View style={styles.buscador}>
               <Ionicons name="search" size={16} color="#3b7fc4" />
               <TextInput
                 value={busqueda}
                 onChangeText={setBusqueda}
-                placeholder={'Buscá por nombre, zona o rubro — ej. "uñas" o "Moravia"'}
+                placeholder={'Buscá por nombre, zona o tipo — ej. "villa" o "Nosara"'}
                 placeholderTextColor="#94a3bd"
                 style={styles.buscadorInput}
                 autoCapitalize="none"
@@ -162,8 +176,8 @@ export default function CitasDirectorioScreen() {
             </View>
           </View>
 
-          {/* Chips de categoría con conteo: "Todos" y solo las que
-              tienen negocios. */}
+          {/* Chips de tipo con conteo: "Todos" y solo los que tienen
+              hospedajes publicados. */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -181,10 +195,10 @@ export default function CitasDirectorioScreen() {
                   categoriaActiva === null && styles.chipTextoActivo,
                 ]}
               >
-                Todos ({negocios.length})
+                Todos ({hospedajes.length})
               </Text>
             </Pressable>
-            {CATEGORIAS_CITAS.filter((c) => (conteo[c] ?? 0) > 0).map((c) => (
+            {CATEGORIAS_HOSPEDAJES.filter((c) => (conteo[c] ?? 0) > 0).map((c) => (
               <Pressable
                 key={c}
                 onPress={() => setCategoriaActiva(categoriaActiva === c ? null : c)}
@@ -196,15 +210,15 @@ export default function CitasDirectorioScreen() {
                     categoriaActiva === c && styles.chipTextoActivo,
                   ]}
                 >
-                  {CATEGORIA_CITA_LABEL[c]} ({conteo[c]})
+                  {CATEGORIA_HOSPEDAJE_LABEL[c]} ({conteo[c]})
                 </Text>
               </Pressable>
             ))}
           </ScrollView>
 
           {filtrados.length === 0 ? (
-            /* Vacío de búsqueda: hay negocios, pero ninguno calza con
-               el filtro — distinto del vacío sin negocios de arriba. */
+            /* Vacío de búsqueda: hay hospedajes, pero ninguno calza con
+               el filtro — distinto del vacío sin hospedajes de arriba. */
             <View style={styles.centro}>
               <Text style={styles.vacioTitulo}>
                 No encontramos nada con esa búsqueda
@@ -222,44 +236,42 @@ export default function CitasDirectorioScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.botonContornoTexto}>Ver todos los negocios</Text>
+                <Text style={styles.botonContornoTexto}>Ver todos los hospedajes</Text>
               </Pressable>
             </View>
           ) : (
             <FlatList
               data={filtrados}
-              keyExtractor={(n) => n.id}
+              keyExtractor={(h) => h.id}
               contentContainerStyle={styles.lista}
               keyboardShouldPersistTaps="handled"
               refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
-              renderItem={({ item: n }) => {
-                const calif = calificaciones[n.id];
-                const ubicacion = [n.canton, n.provincia].filter(Boolean).join(", ");
+              renderItem={({ item: h }) => {
+                const calif = calificaciones[h.id];
+                const ubicacion = [h.canton, h.provincia].filter(Boolean).join(", ");
                 return (
                   <Pressable
-                    onPress={() => router.push(`/citas/${n.id}` as never)}
+                    onPress={() => router.push(`/rancho/${h.id}` as never)}
                     style={({ pressed }) => [styles.tarjeta, pressed && { opacity: 0.92 }]}
                   >
                     <View style={styles.fotoMarco}>
-                      {n.foto_url ? (
+                      {h.foto_url ? (
                         <Image
-                          source={{ uri: n.foto_url }}
-                          alt={n.nombre}
+                          source={{ uri: h.foto_url }}
+                          alt={h.nombre}
                           style={styles.foto}
                           contentFit="cover"
                           transition={250}
                         />
                       ) : (
                         <View style={styles.fotoVacia}>
-                          <Ionicons name="time-outline" size={34} color="#3b7fc4" />
+                          <Ionicons name="home-outline" size={34} color="#3b7fc4" />
                         </View>
                       )}
                       <View style={styles.badge}>
-                        <Text style={styles.badgeTexto}>
-                          {CATEGORIA_CITA_LABEL[normalizarCategoriaCita(n.categoria)]}
-                        </Text>
+                        <Text style={styles.badgeTexto}>{etiquetaCategoria(h.categoria)}</Text>
                       </View>
-                      {n.slug?.startsWith("demo-") && (
+                      {h.slug?.startsWith("demo-") && (
                         <View style={styles.badgeDemo}>
                           <Text style={styles.badgeDemoTexto}>Demo</Text>
                         </View>
@@ -268,7 +280,7 @@ export default function CitasDirectorioScreen() {
                     <View style={styles.cuerpo}>
                       <View style={styles.filaNombre}>
                         <Text style={styles.nombre} numberOfLines={1}>
-                          {n.nombre}
+                          {h.nombre}
                         </Text>
                         {calif && (
                           <View style={styles.calif}>
@@ -290,13 +302,14 @@ export default function CitasDirectorioScreen() {
                       )}
                       <View style={styles.filaPie}>
                         <Text style={styles.precio}>
-                          {n.precio_desde ? (
+                          {h.precio_desde ? (
                             <>
                               Desde{" "}
-                              <Text style={styles.precioMonto}>{fmtColones(n.precio_desde)}</Text>
+                              <Text style={styles.precioMonto}>{fmtColones(h.precio_desde)}</Text>{" "}
+                              por noche
                             </>
                           ) : (
-                            "Precios en línea"
+                            "Consultar"
                           )}
                         </Text>
                         <Text style={styles.reservar}>Reservar →</Text>
@@ -339,6 +352,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
+  vacioBoton: {
+    backgroundColor: Colors.accent,
+    borderRadius: 99,
+    marginTop: 18,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+  },
+  vacioBotonTexto: { color: "#fff", fontFamily: Fonts.extraBold, fontSize: 14 },
   lista: { gap: Spacing.three, padding: Spacing.three, paddingBottom: BARRA_RAPIDA_ESPACIO },
   tarjeta: {
     backgroundColor: Colors.surface,

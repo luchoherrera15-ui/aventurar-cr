@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { pedirAvisoDeMensaje } from "@/lib/notificaciones";
 import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -223,6 +224,9 @@ export default function MensajesScreen() {
     }
     const nuevo = data as Mensaje;
     setMensajes((prev) => (prev.some((m) => m.id === nuevo.id) ? prev : [...prev, nuevo]));
+    // El push al otro participante lo manda la web — sin await: el
+    // mensaje ya está guardado y el aviso es un plus.
+    void pedirAvisoDeMensaje(nuevo.id);
   }
 
   // Estado compartido (migración 0054): si cualquiera de los dos la

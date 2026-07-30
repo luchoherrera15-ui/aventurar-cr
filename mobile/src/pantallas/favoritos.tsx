@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import TituloPantalla from "@/components/titulo-pantalla";
+import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { TarjetaRancho, type Fila } from "@/pantallas/explorar";
 
 /**
@@ -135,7 +136,7 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
 const styles = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: Colors.cream },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.two },
-  lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: 100, flexGrow: 1 },
+  lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: TAB_BAR_ESPACIO, flexGrow: 1 },
   vacioTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
   vacioTexto: { fontSize: 13.5, color: Colors.inkSoft, textAlign: "center", lineHeight: 19 },
   boton: {

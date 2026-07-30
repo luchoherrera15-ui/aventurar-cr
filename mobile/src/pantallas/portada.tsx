@@ -97,9 +97,10 @@ export default function Portada({ onEntrar }: { onEntrar: () => void }) {
               titulo="Hospedajes"
               descripcion="Casas, villas y hoteles para reservar tu próxima escapada directo."
               onPress={() => {
-                // La pantalla nativa de hospedajes todavía no existe:
-                // mientras tanto abre el directorio real del sitio.
-                void WebBrowser.openBrowserAsync(`${SITIO_URL}/hospedajes`);
+                // Solo push, SIN descartar la portada: así "volver"
+                // desde Hospedajes regresa acá — al selector de las
+                // tres verticales — y nunca a una pantalla muerta.
+                router.push("/hospedajes" as never);
               }}
             />
           </View>
