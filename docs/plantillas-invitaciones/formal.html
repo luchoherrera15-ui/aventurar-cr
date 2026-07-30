@@ -1,0 +1,766 @@
+<!--
+  Plantilla "Formal" — gala elegante (aniversarios, bodas de plata/oro,
+  cenas de etiqueta). Paleta: negro humo, marfil y dorado; serif display,
+  ornamentos de línea fina y monograma en sello.
+
+  USO: sustituir los placeholders y guardar el resultado en
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta dentro
+  de su lienzo (columna max-w 680px sobre fondo navy) y agrega ella misma
+  el bloque RSVP "¿Nos acompañás?" debajo — por eso la sección 6 llama a
+  confirmar "aquí abajo".
+
+  ESTRUCTURA (secciones que se revelan UNA POR UNA al scrollear con
+  IntersectionObserver, cada una con su propia escena):
+    1. Portada/hero con monograma y cortina de luz
+    2. Código de vestimenta (siluetas de esmoquin y vestido en trazo)
+    3. Información principal (fecha y hora en grande)
+    4. Cuenta regresiva viva
+    5. El lugar (Google Maps / Waze)
+    6. Llamado "Confirmá tu asistencia ▼" (empata con el RSVP de la página)
+    7. Muestras de cariño (regalos + SINPE)
+
+  PLACEHOLDERS:
+    {{NOMBRES}}        los festejados            p. ej. Elena & Rodrigo
+    {{MONOGRAMA}}      iniciales del sello       p. ej. E · R
+    {{OCASION}}        la ocasión                p. ej. Gala 50 aniversario
+    {{FECHA}}          fecha en palabras         p. ej. sábado 21 de noviembre
+    {{HORA}}           hora                      p. ej. 7:00 p. m.
+    {{FECHA_ISO}}      fecha-hora ISO con zona   p. ej. 2026-11-21T19:00:00-06:00
+    {{LUGAR}}          nombre del lugar          p. ej. Hotel Casa Real
+    {{DIRECCION}}      dirección corta           p. ej. San José, costado norte…
+    {{LINK_MAPS}}      URL de Google Maps
+    {{LINK_WAZE}}      URL de Waze
+    {{LINK_REGALO_1}}  URL lista de regalos
+    {{LINK_REGALO_2}}  URL mesa de regalos
+    {{SINPE}}          número SINPE Móvil        p. ej. 8888-8888
+
+  NOTAS TÉCNICAS:
+  - Autocontenido: CSS en el <style> y JS en el <script> de este mismo
+    fragmento; cero librerías, cero recursos remotos (solo SVG inline).
+    Estilos namespaced con .fm-/#fm- para no tocar el RSVP ni la página.
+  - La intro usa <dialog>.showModal() (top layer: escapa el transform del
+    contenedor [data-reveal] de la página). Sin JS o con
+    prefers-reduced-motion no hay intro y todo queda visible.
+  - Los estados "oculto antes de revelar" solo existen bajo .fm-anima,
+    clase que agrega el script: sin JS la invitación se ve completa.
+-->
+<div class="fm">
+  <style>
+    /* ============ Tokens del tema ============ */
+    .fm {
+      --fm-negro: #14120f;
+      --fm-negro-2: #1c1915;
+      --fm-marfil: #f5f1ea;
+      --fm-marfil-suave: rgba(245, 241, 234, 0.72);
+      --fm-oro: #c8a878;
+      --fm-oro-suave: rgba(200, 168, 120, 0.45);
+      --fm-oro-tenue: rgba(200, 168, 120, 0.22);
+      --fm-serif: var(--inv3-serif, Georgia), "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
+      --fm-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      display: block;
+      font-family: var(--fm-serif);
+      color: var(--fm-marfil);
+    }
+
+    /* ============ INTRO (dialog en el top layer) ============ */
+    #fm-intro {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background:
+        radial-gradient(46rem 34rem at 50% 18%, rgba(200, 168, 120, 0.12), transparent 60%),
+        radial-gradient(60rem 44rem at 50% 110%, rgba(200, 168, 120, 0.08), transparent 55%),
+        #0d0c0a;
+      overflow: hidden;
+      z-index: 2147483000;
+      cursor: pointer;
+      color: var(--fm-marfil);
+      opacity: 1;
+      transition: opacity 0.8s ease 0.25s;
+    }
+    #fm-intro:focus { outline: none; }
+    #fm-intro::backdrop { background: rgba(6, 5, 3, 0.7); }
+    #fm-intro.fm-intro-abierta { opacity: 0; }
+
+    /* La cortina de luz que barre la pantalla al abrir. */
+    #fm-intro::before {
+      content: "";
+      position: absolute;
+      inset: -20% -40%;
+      background: linear-gradient(105deg, transparent 34%, rgba(200, 168, 120, 0.16) 46%, rgba(245, 241, 234, 0.3) 50%, rgba(200, 168, 120, 0.16) 54%, transparent 66%);
+      transform: translateX(-120%);
+      pointer-events: none;
+    }
+    #fm-intro.fm-intro-abierta::before { animation: fm-luz-intro 0.9s ease both; }
+
+    .fm-intro-marco {
+      position: absolute;
+      inset: 14px;
+      border: 1px solid var(--fm-oro-suave);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      padding: 24px;
+      text-align: center;
+      pointer-events: none;
+    }
+    .fm-intro-marco::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border: 1px solid var(--fm-oro-tenue);
+    }
+    .fm-intro-sello { width: 128px; height: 128px; animation: fm-aparece 1.4s ease 0.2s both; }
+    .fm-intro-nombres {
+      margin: 0;
+      font-size: clamp(26px, 7vw, 38px);
+      letter-spacing: 0.06em;
+      animation: fm-aparece 1.4s ease 0.5s both;
+    }
+    .fm-intro-ocasion {
+      margin: 0;
+      font-family: var(--fm-sans);
+      font-size: 11px;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: var(--fm-oro);
+      animation: fm-aparece 1.4s ease 0.7s both;
+    }
+    .fm-toca {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: max(30px, env(safe-area-inset-bottom));
+      margin: 0;
+      text-align: center;
+      font-family: var(--fm-sans);
+      font-size: 12.5px;
+      letter-spacing: 0.14em;
+      color: rgba(245, 241, 234, 0.55);
+      animation: fm-late 2s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    /* ============ EL LIENZO ============ */
+    .fm-lienzo {
+      position: relative;
+      max-width: 600px;
+      margin: 0 auto;
+      background:
+        radial-gradient(42rem 30rem at 50% -6%, rgba(200, 168, 120, 0.1), transparent 60%),
+        radial-gradient(38rem 30rem at 50% 106%, rgba(200, 168, 120, 0.07), transparent 60%),
+        linear-gradient(var(--fm-negro), var(--fm-negro-2) 55%, var(--fm-negro));
+      border: 1px solid var(--fm-oro-suave);
+      box-shadow: 0 0 0 5px var(--fm-negro), 0 0 0 6px var(--fm-oro-tenue), 0 30px 70px -40px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+      text-align: center;
+    }
+    /* Doble filete interior, como tarjetería impresa. */
+    .fm-lienzo::before {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      border: 1px solid var(--fm-oro-tenue);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .fm-lienzo > * { position: relative; z-index: 2; }
+
+    /* ============ Las escenas ============ */
+    .fm-esc {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 64vh;
+      min-height: 64svh;
+      padding: 64px 26px;
+      overflow: hidden;
+    }
+    .fm-esc-hero { min-height: 84vh; min-height: 84svh; }
+
+    /* Estado previo al reveal: SOLO bajo .fm-anima (la agrega el JS). */
+    .fm-anima .fm-esc .fm-rev {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.9s ease var(--fm-d, 0s), transform 0.9s ease var(--fm-d, 0s);
+    }
+    .fm-anima .fm-esc.fm-vista .fm-rev { opacity: 1; transform: none; }
+
+    /* Las líneas doradas que se dibujan al entrar cada sección. */
+    .fm-linea {
+      width: min(210px, 58%);
+      height: 1px;
+      margin: 0 auto;
+      background: linear-gradient(90deg, transparent, var(--fm-oro), transparent);
+    }
+    .fm-anima .fm-esc .fm-linea {
+      transform: scaleX(0);
+      transition: transform 1.1s cubic-bezier(0.22, 1, 0.36, 1) var(--fm-d, 0.15s);
+    }
+    .fm-anima .fm-esc.fm-vista .fm-linea { transform: scaleX(1); }
+
+    /* El ornamento línea — rombo — línea. */
+    .fm-orna {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--fm-oro);
+    }
+    .fm-orna::before,
+    .fm-orna::after {
+      content: "";
+      height: 1px;
+      width: 56px;
+      background: linear-gradient(90deg, transparent, currentColor);
+    }
+    .fm-orna::after { background: linear-gradient(90deg, currentColor, transparent); }
+    .fm-anima .fm-esc .fm-orna::before,
+    .fm-anima .fm-esc .fm-orna::after {
+      transform: scaleX(0);
+      transition: transform 1s ease var(--fm-d, 0.2s);
+    }
+    .fm-anima .fm-esc.fm-vista .fm-orna::before,
+    .fm-anima .fm-esc.fm-vista .fm-orna::after { transform: scaleX(1); }
+    .fm-rombo {
+      width: 7px;
+      height: 7px;
+      border: 1px solid currentColor;
+      transform: rotate(45deg);
+      flex: none;
+    }
+
+    /* La cortina de luz que cruza el hero al revelarse. */
+    .fm-anima .fm-esc-hero::after {
+      content: "";
+      position: absolute;
+      inset: -10% -30%;
+      background: linear-gradient(105deg, transparent 36%, rgba(200, 168, 120, 0.1) 46%, rgba(245, 241, 234, 0.17) 50%, rgba(200, 168, 120, 0.1) 54%, transparent 64%);
+      transform: translateX(-130%);
+      pointer-events: none;
+    }
+    .fm-anima .fm-esc-hero.fm-vista::after { animation: fm-luz 1.7s ease 0.35s both; }
+
+    /* Tipos base */
+    .fm-etiqueta {
+      margin: 0;
+      font-family: var(--fm-sans);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: var(--fm-oro);
+    }
+    .fm-titulo-seccion {
+      margin: 14px 0 0;
+      font-weight: 400;
+      font-size: clamp(27px, 7.6vw, 38px);
+      line-height: 1.12;
+      letter-spacing: 0.02em;
+      color: var(--fm-marfil);
+    }
+    .fm-nota {
+      margin: 16px auto 0;
+      max-width: 42ch;
+      font-family: var(--fm-sans);
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: var(--fm-marfil-suave);
+    }
+
+    /* ============ 1 · Hero ============ */
+    .fm-sello { width: 132px; height: 132px; margin: 0 auto 26px; }
+    .fm-sello-giro {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: fm-gira 36s linear infinite;
+    }
+    .fm-sello text {
+      font-family: var(--fm-serif);
+      font-size: 26px;
+      letter-spacing: 0.1em;
+      fill: var(--fm-marfil);
+    }
+    .fm-hero-nombres {
+      margin: 22px 0 0;
+      font-weight: 400;
+      font-size: clamp(40px, 11.5vw, 58px);
+      line-height: 1.06;
+      letter-spacing: 0.02em;
+    }
+    .fm-hero-sub {
+      margin: 22px auto 0;
+      max-width: 40ch;
+      font-size: 16.5px;
+      font-style: italic;
+      line-height: 1.6;
+      color: var(--fm-marfil-suave);
+    }
+    .fm-hero-baja {
+      margin: 40px auto 0;
+      font-family: var(--fm-sans);
+      font-size: 11px;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: rgba(245, 241, 234, 0.5);
+    }
+    .fm-hero-baja b {
+      display: block;
+      margin-top: 8px;
+      font-weight: 400;
+      color: var(--fm-oro);
+      animation: fm-late 1.8s ease-in-out infinite;
+    }
+
+    /* ============ 2 · Código de vestimenta ============ */
+    .fm-siluetas {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: clamp(26px, 9vw, 54px);
+      margin-top: 34px;
+    }
+    .fm-silueta { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .fm-silueta svg { width: clamp(96px, 27vw, 124px); height: auto; }
+    .fm-silueta figcaption {
+      font-family: var(--fm-sans);
+      font-size: 10.5px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--fm-marfil-suave);
+    }
+    /* Los trazos se dibujan al entrar la escena (pathLength="1"). */
+    .fm-anima .fm-trazo [pathLength] {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      transition: stroke-dashoffset 1.9s ease var(--fm-d, 0.3s);
+    }
+    .fm-anima .fm-vista .fm-trazo [pathLength] { stroke-dashoffset: 0; }
+
+    /* ============ 3 · Información principal ============ */
+    .fm-fecha-grande {
+      margin: 20px 0 0;
+      font-weight: 400;
+      font-size: clamp(33px, 9vw, 46px);
+      line-height: 1.15;
+      color: var(--fm-marfil);
+    }
+    .fm-hora-grande {
+      margin: 14px 0 0;
+      font-size: clamp(23px, 6.4vw, 30px);
+      color: var(--fm-oro);
+      letter-spacing: 0.06em;
+    }
+
+    /* ============ 4 · Cuenta regresiva ============ */
+    .fm-cd {
+      display: flex;
+      justify-content: center;
+      gap: clamp(10px, 3.4vw, 20px);
+      margin-top: 30px;
+    }
+    .fm-cd-c {
+      min-width: 64px;
+      padding: 14px 6px 12px;
+      border-top: 1px solid var(--fm-oro-suave);
+      border-bottom: 1px solid var(--fm-oro-suave);
+    }
+    .fm-cd-c span {
+      display: block;
+      font-size: clamp(28px, 8vw, 38px);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: var(--fm-marfil);
+    }
+    .fm-cd-c small {
+      display: block;
+      margin-top: 8px;
+      font-family: var(--fm-sans);
+      font-size: 9.5px;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--fm-oro);
+    }
+    .fm-cd-hoy {
+      margin: 26px 0 0;
+      font-size: 24px;
+      font-style: italic;
+      color: var(--fm-oro);
+    }
+    .fm-cd-hoy[hidden] { display: none; }
+    .fm-cd[hidden] { display: none; }
+
+    /* ============ 5 · El lugar ============ */
+    .fm-lugar-nombre {
+      margin: 18px 0 0;
+      font-weight: 400;
+      font-size: clamp(28px, 8vw, 40px);
+      line-height: 1.15;
+    }
+    .fm-lugar-dir {
+      margin: 12px auto 0;
+      max-width: 38ch;
+      font-family: var(--fm-sans);
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--fm-marfil-suave);
+    }
+    .fm-botones {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 26px;
+    }
+    .fm-boton {
+      display: inline-block;
+      padding: 12px 26px 13px;
+      font-family: var(--fm-sans);
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: var(--fm-negro);
+      background: var(--fm-oro);
+      border: 1px solid var(--fm-oro);
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+    .fm-boton:hover { background: #d8bc90; }
+    .fm-boton-linea {
+      background: transparent;
+      color: var(--fm-oro);
+    }
+    .fm-boton-linea:hover { background: var(--fm-oro-tenue); color: var(--fm-marfil); }
+
+    /* ============ 6 · Llamado al RSVP ============ */
+    .fm-confirma-titulo {
+      margin: 16px 0 0;
+      font-weight: 400;
+      font-size: clamp(30px, 8.6vw, 42px);
+      line-height: 1.15;
+    }
+    .fm-flecha {
+      display: block;
+      margin: 26px auto 0;
+      font-size: 20px;
+      color: var(--fm-oro);
+      animation: fm-late 1.6s ease-in-out infinite;
+    }
+
+    /* ============ 7 · Muestras de cariño ============ */
+    .fm-sinpe {
+      margin: 26px auto 0;
+      padding: 20px 26px 22px;
+      max-width: 320px;
+      border: 1px solid var(--fm-oro-suave);
+      background: rgba(200, 168, 120, 0.06);
+    }
+    .fm-sinpe p { margin: 0; }
+    .fm-sinpe-tag {
+      font-family: var(--fm-sans);
+      font-size: 10.5px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--fm-oro);
+    }
+    .fm-sinpe-num {
+      margin-top: 10px !important;
+      font-size: clamp(26px, 7.4vw, 32px);
+      letter-spacing: 0.1em;
+      color: var(--fm-marfil);
+      font-variant-numeric: tabular-nums;
+    }
+    .fm-cierre {
+      padding: 0 26px 46px;
+    }
+
+    /* ============ Keyframes ============ */
+    @keyframes fm-gira { to { transform: rotate(360deg); } }
+    @keyframes fm-luz { to { transform: translateX(130%); } }
+    @keyframes fm-luz-intro { to { transform: translateX(120%); } }
+    @keyframes fm-aparece {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes fm-late {
+      0%, 100% { transform: translateY(0); opacity: 0.7; }
+      50% { transform: translateY(4px); opacity: 1; }
+    }
+
+    @media (min-width: 480px) {
+      .fm-esc { padding: 76px 40px; }
+    }
+
+    /* Sin movimiento: nada se anima, la intro ni aparece y todo el
+       contenido queda visible (el script tampoco agrega .fm-anima). */
+    @media (prefers-reduced-motion: reduce) {
+      #fm-intro { display: none !important; }
+      .fm *, .fm *::before, .fm *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+      .fm-anima .fm-esc .fm-rev { opacity: 1; transform: none; }
+      .fm-anima .fm-esc .fm-linea,
+      .fm-anima .fm-esc .fm-orna::before,
+      .fm-anima .fm-esc .fm-orna::after { transform: scaleX(1); }
+      .fm-anima .fm-trazo [pathLength] { stroke-dashoffset: 0; }
+    }
+  </style>
+
+  <!-- ================= INTRO ================= -->
+  <dialog id="fm-intro" aria-label="Abrir la invitación">
+    <div class="fm-intro-marco">
+      <svg class="fm-intro-sello" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="fm-sello-giro" fill="none" stroke="#c8a878">
+          <circle cx="60" cy="60" r="56" stroke-width="1" opacity="0.7" />
+          <circle cx="60" cy="60" r="49" stroke-width="1" stroke-dasharray="2 5" opacity="0.6" />
+          <path d="M60 1 l3.4 3.4 -3.4 3.4 -3.4 -3.4 Z" fill="#c8a878" stroke="none" />
+          <path d="M60 112.2 l3.4 3.4 -3.4 3.4 -3.4 -3.4 Z" fill="#c8a878" stroke="none" />
+          <path d="M1 60 l3.4 -3.4 3.4 3.4 -3.4 3.4 Z" fill="#c8a878" stroke="none" />
+          <path d="M112.2 60 l3.4 -3.4 3.4 3.4 -3.4 3.4 Z" fill="#c8a878" stroke="none" />
+        </g>
+        <circle cx="60" cy="60" r="41" fill="none" stroke="#c8a878" stroke-width="1" opacity="0.9" />
+        <text x="60" y="60" text-anchor="middle" dominant-baseline="central"
+          style="font-family: Georgia, 'Times New Roman', serif; font-size: 24px; letter-spacing: 0.08em; fill: #f5f1ea;">{{MONOGRAMA}}</text>
+      </svg>
+      <p class="fm-intro-nombres">{{NOMBRES}}</p>
+      <p class="fm-intro-ocasion">{{OCASION}}</p>
+    </div>
+    <p class="fm-toca">Tocá para abrir la invitación</p>
+  </dialog>
+
+  <!-- ================= LA INVITACIÓN ================= -->
+  <div class="fm-lienzo">
+
+    <!-- 1 · Portada -->
+    <section class="fm-esc fm-esc-hero" data-fm-escena>
+      <div class="fm-rev">
+        <svg class="fm-sello" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="fm-sello-giro" fill="none" stroke="#c8a878">
+            <circle cx="60" cy="60" r="56" stroke-width="1" opacity="0.7" />
+            <circle cx="60" cy="60" r="49" stroke-width="1" stroke-dasharray="2 5" opacity="0.6" />
+            <path d="M60 1 l3.4 3.4 -3.4 3.4 -3.4 -3.4 Z" fill="#c8a878" stroke="none" />
+            <path d="M60 112.2 l3.4 3.4 -3.4 3.4 -3.4 -3.4 Z" fill="#c8a878" stroke="none" />
+            <path d="M1 60 l3.4 -3.4 3.4 3.4 -3.4 3.4 Z" fill="#c8a878" stroke="none" />
+            <path d="M112.2 60 l3.4 -3.4 3.4 3.4 -3.4 3.4 Z" fill="#c8a878" stroke="none" />
+          </g>
+          <circle cx="60" cy="60" r="41" fill="none" stroke="#c8a878" stroke-width="1" opacity="0.9" />
+          <text x="60" y="60" text-anchor="middle" dominant-baseline="central">{{MONOGRAMA}}</text>
+        </svg>
+      </div>
+      <p class="fm-etiqueta fm-rev" style="--fm-d: 0.15s">{{OCASION}}</p>
+      <h1 class="fm-hero-nombres fm-rev" style="--fm-d: 0.3s">{{NOMBRES}}</h1>
+      <div class="fm-orna fm-rev" style="--fm-d: 0.5s; margin-top: 24px"><span class="fm-rombo"></span></div>
+      <p class="fm-hero-sub fm-rev" style="--fm-d: 0.62s">
+        Será un honor contar con su presencia
+        en esta velada tan especial.
+      </p>
+      <p class="fm-hero-baja fm-rev" style="--fm-d: 0.8s">La historia continúa<b aria-hidden="true">▼</b></p>
+    </section>
+
+    <!-- 2 · Código de vestimenta -->
+    <section class="fm-esc" data-fm-escena>
+      <p class="fm-etiqueta fm-rev">Código de vestimenta</p>
+      <h2 class="fm-titulo-seccion fm-rev" style="--fm-d: 0.12s">Etiqueta rigurosa</h2>
+      <div class="fm-linea fm-rev" style="--fm-d: 0.24s; margin-top: 20px"></div>
+      <div class="fm-siluetas">
+        <figure class="fm-silueta fm-rev" style="--fm-d: 0.3s; margin: 0">
+          <svg class="fm-trazo" viewBox="0 0 140 220" fill="none" stroke="#c8a878" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <!-- Esmoquin: saco, solapas, corbatín y botones. -->
+            <path pathLength="1" style="--fm-d: 0.35s" d="M56 22 C48 26 38 30 32 34 C24 40 22 52 22 64 L22 196 L118 196 L118 64 C118 52 116 40 108 34 C102 30 92 26 84 22" />
+            <path pathLength="1" style="--fm-d: 0.7s" d="M56 22 L54 64 L70 96 L86 64 L84 22" />
+            <path pathLength="1" style="--fm-d: 0.95s" d="M56 22 Q70 32 84 22" />
+            <path pathLength="1" style="--fm-d: 1.1s" d="M70 96 L70 196" />
+            <path pathLength="1" style="--fm-d: 1.2s" d="M58 40 L70 46 L82 40 L82 52 L70 46 L58 52 Z" />
+            <circle pathLength="1" style="--fm-d: 1.35s" cx="70" cy="116" r="2.4" />
+            <circle pathLength="1" style="--fm-d: 1.45s" cx="70" cy="140" r="2.4" />
+            <circle pathLength="1" style="--fm-d: 1.55s" cx="70" cy="164" r="2.4" />
+            <path pathLength="1" style="--fm-d: 1.6s" d="M96 104 L110 104 L103 114 Z" />
+          </svg>
+          <figcaption>Ellos</figcaption>
+        </figure>
+        <figure class="fm-silueta fm-rev" style="--fm-d: 0.45s; margin: 0">
+          <svg class="fm-trazo" viewBox="0 0 140 220" fill="none" stroke="#c8a878" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <!-- Vestido de gala: corpiño, talle y falda con caída. -->
+            <path pathLength="1" style="--fm-d: 0.5s" d="M70 22 C63 28 57 32 50 34 L46 62 Q70 74 94 62 L90 34 C83 32 77 28 70 22 Z" />
+            <path pathLength="1" style="--fm-d: 0.85s" d="M50 34 L58 16" />
+            <path pathLength="1" style="--fm-d: 0.95s" d="M90 34 L82 16" />
+            <path pathLength="1" style="--fm-d: 1.05s" d="M46 62 C36 108 26 148 18 194 Q70 210 122 194 C114 148 104 108 94 62" />
+            <path pathLength="1" style="--fm-d: 1.35s" d="M60 74 C58 112 52 152 46 190" />
+            <path pathLength="1" style="--fm-d: 1.5s" d="M80 74 C82 112 88 152 94 190" />
+            <path pathLength="1" style="--fm-d: 1.65s" d="M64 50 l3 3 -3 3 -3 -3 Z" />
+          </svg>
+          <figcaption>Ellas</figcaption>
+        </figure>
+      </div>
+      <p class="fm-nota fm-rev" style="--fm-d: 0.6s">
+        Caballeros: esmoquin o traje oscuro.
+        Señoras: vestido de gala largo.
+      </p>
+    </section>
+
+    <!-- 3 · Información principal -->
+    <section class="fm-esc" data-fm-escena>
+      <p class="fm-etiqueta fm-rev">La cita</p>
+      <p class="fm-fecha-grande fm-rev" style="--fm-d: 0.15s">{{FECHA}}</p>
+      <div class="fm-linea fm-rev" style="--fm-d: 0.3s; margin-top: 22px"></div>
+      <p class="fm-hora-grande fm-rev" style="--fm-d: 0.42s">{{HORA}}</p>
+      <p class="fm-nota fm-rev" style="--fm-d: 0.56s">
+        Recepción con copa de bienvenida al ingresar.
+        Agradecemos su puntualidad.
+      </p>
+    </section>
+
+    <!-- 4 · Cuenta regresiva -->
+    <section class="fm-esc" data-fm-escena>
+      <p class="fm-etiqueta fm-rev">Cuenta regresiva</p>
+      <h2 class="fm-titulo-seccion fm-rev" style="--fm-d: 0.12s">Cada segundo nos acerca</h2>
+      <div class="fm-cd fm-rev" id="fm-cd" data-fecha="{{FECHA_ISO}}" role="timer" aria-label="Tiempo restante para la gala" style="--fm-d: 0.28s">
+        <div class="fm-cd-c"><span id="fm-cd-d">–</span><small>días</small></div>
+        <div class="fm-cd-c"><span id="fm-cd-h">–</span><small>horas</small></div>
+        <div class="fm-cd-c"><span id="fm-cd-m">–</span><small>min</small></div>
+        <div class="fm-cd-c"><span id="fm-cd-s">–</span><small>seg</small></div>
+      </div>
+      <p class="fm-cd-hoy" id="fm-cd-hoy" hidden>La gran noche es hoy.</p>
+      <div class="fm-orna fm-rev" style="--fm-d: 0.5s; margin-top: 30px"><span class="fm-rombo"></span></div>
+    </section>
+
+    <!-- 5 · El lugar -->
+    <section class="fm-esc" data-fm-escena>
+      <p class="fm-etiqueta fm-rev">El lugar</p>
+      <h2 class="fm-lugar-nombre fm-rev" style="--fm-d: 0.15s">{{LUGAR}}</h2>
+      <p class="fm-lugar-dir fm-rev" style="--fm-d: 0.3s">{{DIRECCION}}</p>
+      <div class="fm-linea fm-rev" style="--fm-d: 0.42s; margin-top: 22px"></div>
+      <div class="fm-botones fm-rev" style="--fm-d: 0.54s">
+        <a class="fm-boton" href="{{LINK_MAPS}}" target="_blank" rel="noopener noreferrer">Google Maps</a>
+        <a class="fm-boton fm-boton-linea" href="{{LINK_WAZE}}" target="_blank" rel="noopener noreferrer">Waze</a>
+      </div>
+    </section>
+
+    <!-- 6 · Llamado al RSVP (el formulario lo agrega la página, abajo) -->
+    <section class="fm-esc" data-fm-escena>
+      <div class="fm-orna fm-rev"><span class="fm-rombo"></span></div>
+      <h2 class="fm-confirma-titulo fm-rev" style="--fm-d: 0.15s">Confirmá tu asistencia</h2>
+      <p class="fm-nota fm-rev" style="--fm-d: 0.3s">
+        Al final de esta invitación está el formulario —
+        toma menos de un minuto.
+      </p>
+      <span class="fm-flecha fm-rev" style="--fm-d: 0.45s" aria-hidden="true">▼</span>
+    </section>
+
+    <!-- 7 · Muestras de cariño -->
+    <section class="fm-esc" data-fm-escena style="min-height: 0; padding-bottom: 30px">
+      <p class="fm-etiqueta fm-rev">Muestras de cariño</p>
+      <p class="fm-nota fm-rev" style="--fm-d: 0.15s; font-size: 14.5px">
+        Su compañía es nuestro mayor regalo. Si además desean
+        tener un gesto con nosotros, estas son algunas opciones:
+      </p>
+      <div class="fm-botones fm-rev" style="--fm-d: 0.3s">
+        <a class="fm-boton fm-boton-linea" href="{{LINK_REGALO_1}}" target="_blank" rel="noopener noreferrer">Lista de regalos</a>
+        <a class="fm-boton fm-boton-linea" href="{{LINK_REGALO_2}}" target="_blank" rel="noopener noreferrer">Mesa de regalos</a>
+      </div>
+      <div class="fm-sinpe fm-rev" style="--fm-d: 0.45s">
+        <p class="fm-sinpe-tag">SINPE Móvil</p>
+        <p class="fm-sinpe-num">{{SINPE}}</p>
+      </div>
+    </section>
+
+    <div class="fm-cierre">
+      <div class="fm-orna" style="color: rgba(200, 168, 120, 0.5)"><span class="fm-rombo"></span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ============ Intro: <dialog> con cortina de luz ============ */
+  (function () {
+    var dlg = document.getElementById("fm-intro");
+    if (!dlg || typeof dlg.showModal !== "function") { if (dlg) dlg.remove(); return; }
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      dlg.remove();
+      return;
+    }
+    var abierta = false;
+    var timer = null;
+    function abrir() {
+      if (abierta) return;
+      abierta = true;
+      if (timer) window.clearTimeout(timer);
+      dlg.classList.add("fm-intro-abierta");
+      window.setTimeout(function () {
+        try { dlg.close(); } catch (e) { /* ya cerrado */ }
+        dlg.remove();
+      }, 1100);
+    }
+    try { dlg.showModal(); } catch (e) { dlg.remove(); return; }
+    dlg.addEventListener("click", abrir);
+    dlg.addEventListener("cancel", function (e) { e.preventDefault(); abrir(); });
+    timer = window.setTimeout(abrir, 3200);
+  })();
+
+  /* ============ Escenas: se revelan una por una al scrollear ========= */
+  (function () {
+    var raiz = document.querySelector(".fm");
+    if (!raiz) return;
+    var escenas = raiz.querySelectorAll("[data-fm-escena]");
+    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducido || !("IntersectionObserver" in window)) {
+      // Sin movimiento o sin observer: todo visible de una vez.
+      for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("fm-vista");
+      return;
+    }
+    raiz.classList.add("fm-anima");
+    var io = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (ent) {
+        if (ent.isIntersecting) {
+          ent.target.classList.add("fm-vista");
+          io.unobserve(ent.target);
+        }
+      });
+    }, { threshold: 0.22, rootMargin: "0px 0px -8% 0px" });
+    escenas.forEach(function (esc) { io.observe(esc); });
+  })();
+
+  /* ============ Cuenta regresiva viva ============ */
+  (function () {
+    var caja = document.getElementById("fm-cd");
+    if (!caja) return;
+    var objetivo = new Date(caja.getAttribute("data-fecha") || "").getTime();
+    if (isNaN(objetivo)) return;
+    var d = document.getElementById("fm-cd-d");
+    var h = document.getElementById("fm-cd-h");
+    var m = document.getElementById("fm-cd-m");
+    var s = document.getElementById("fm-cd-s");
+    var hoy = document.getElementById("fm-cd-hoy");
+    var timer = null;
+    function dosDigitos(n) { return n < 10 ? "0" + n : "" + n; }
+    function tic() {
+      var resto = objetivo - Date.now();
+      if (resto <= 0) {
+        caja.hidden = true;
+        if (hoy) hoy.hidden = false;
+        if (timer) window.clearInterval(timer);
+        return;
+      }
+      var seg = Math.floor(resto / 1000);
+      if (d) d.textContent = "" + Math.floor(seg / 86400);
+      if (h) h.textContent = dosDigitos(Math.floor((seg % 86400) / 3600));
+      if (m) m.textContent = dosDigitos(Math.floor((seg % 3600) / 60));
+      if (s) s.textContent = dosDigitos(seg % 60);
+    }
+    tic();
+    timer = window.setInterval(tic, 1000);
+  })();
+</script>
