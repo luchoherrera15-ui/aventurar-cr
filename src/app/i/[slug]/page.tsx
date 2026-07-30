@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { parsearPreguntas } from "@/lib/invitaciones-preguntas";
+import { fechaLargaCR } from "@/lib/fechas";
 import InvitacionVista, { type Invitacion } from "./invitacion-vista";
 
 // La barra del navegador se tiñe del navy del lienzo: la invitación
@@ -9,37 +11,6 @@ export const viewport: Viewport = {
   themeColor: "#16295e",
   colorScheme: "only light",
 };
-
-const DIAS = [
-  "domingo",
-  "lunes",
-  "martes",
-  "miércoles",
-  "jueves",
-  "viernes",
-  "sábado",
-];
-const MESES = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "setiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
-
-/** "2026-12-12" → "Sábado 12 de diciembre de 2026" (es-CR, sin dudas de zona horaria). */
-function fechaLargaCR(iso: string) {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dia = DIAS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${d} de ${MESES[m - 1]} de ${y}`;
-}
 
 export async function generateMetadata({
   params,
@@ -86,9 +57,22 @@ export default async function InvitacionPage({
   const invitacion = data as Invitacion | null;
   if (!invitacion) notFound();
 
+  // Las preguntas configurables llegaron con la 0068. Se piden aparte
+  // para tolerar que esa migración no haya corrido: si la columna no
+  // existe, esta consulta falla sola y el RSVP sigue sin preguntas.
+  const { data: extra } = await supabase
+    .from("invitaciones")
+    .select("preguntas")
+    .eq("id", invitacion.id)
+    .maybeSingle();
+  const preguntas = parsearPreguntas(
+    (extra as { preguntas?: unknown } | null)?.preguntas,
+  );
+
   return (
     <InvitacionVista
       invitacion={invitacion}
+      preguntas={preguntas}
       fechaLarga={fechaLargaCR(invitacion.fecha_evento)}
     />
   );

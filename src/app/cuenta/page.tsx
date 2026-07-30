@@ -361,14 +361,14 @@ export default async function CuentaPage() {
                       )}
                     </p>
                   </div>
-                  {inv.estado === "activa" && (
-                    <Link
-                      href={`/i/${inv.slug}`}
-                      className="shrink-0 text-[12px] font-bold text-aventurea-navy hover:underline"
-                    >
-                      Ver y compartir
-                    </Link>
-                  )}
+                  {/* Su espacio del evento: link de la invitación, tablero
+                      de confirmaciones y el QR del álbum de fotos. */}
+                  <Link
+                    href={`/cuenta/evento/${inv.id}`}
+                    className="shrink-0 text-[12px] font-bold text-aventurea-navy hover:underline"
+                  >
+                    Abrir mi espacio
+                  </Link>
                 </div>
               );
             })}

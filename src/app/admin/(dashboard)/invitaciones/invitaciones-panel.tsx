@@ -2,7 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { archivarInvitacion, guardarInvitacion, type DatosInvitacion } from "./actions";
+import { MAX_PREGUNTAS, type PreguntaInvitacion } from "@/lib/invitaciones-preguntas";
+import {
+  archivarAlbum,
+  archivarInvitacion,
+  crearAlbum,
+  guardarInvitacion,
+  type DatosInvitacion,
+} from "./actions";
+
+/** El álbum de fotos de una invitación, para la columna del panel. */
+export type AlbumAdmin = {
+  id: string;
+  slug: string;
+  estado: string;
+  fotos: number;
+};
 
 /** Una invitación con su cliente y el resumen de confirmaciones. */
 export type InvitacionAdmin = {
@@ -25,6 +40,17 @@ export type InvitacionAdmin = {
   confirmadosNo: number;
   /** Personas que sí van, contando a cada invitado + sus acompañantes. */
   totalPersonas: number;
+  /** Preguntas configurables del RSVP (0068; vacío si no hay o no corrió). */
+  preguntas: PreguntaInvitacion[];
+  album: AlbumAdmin | null;
+};
+
+/** Una pregunta como se edita en el formulario (opciones en un solo texto). */
+type PreguntaForm = {
+  etiqueta: string;
+  tipo: "opciones" | "texto";
+  /** Separadas por coma: "No, Vegetariano/a, Vegano/a". */
+  opciones: string;
 };
 
 type Formulario = {
@@ -41,6 +67,7 @@ type Formulario = {
   htmlPersonalizado: string;
   estado: "borrador" | "activa";
   clienteCorreo: string;
+  preguntas: PreguntaForm[];
 };
 
 const FORM_VACIO: Formulario = {
@@ -57,6 +84,7 @@ const FORM_VACIO: Formulario = {
   htmlPersonalizado: "",
   estado: "activa",
   clienteCorreo: "",
+  preguntas: [],
 };
 
 const inputCls =
@@ -69,6 +97,15 @@ const ESTADO_CHIP: Record<string, string> = {
   borrador: "bg-aventurea-cream-2 text-aventurea-ink-soft",
   archivada: "bg-zinc-200 text-zinc-500",
 };
+
+// Base absoluta para armar los links y el QR del álbum (misma
+// constante que usa el resto del sitio para links compartibles).
+const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://bookea.lat";
+
+/** El PNG del QR de una URL, listo para mostrar o imprimir. */
+function urlQr(url: string, lado = 300) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${lado}x${lado}&data=${encodeURIComponent(url)}`;
+}
 
 function deFila(i: InvitacionAdmin): Formulario {
   return {
@@ -85,7 +122,32 @@ function deFila(i: InvitacionAdmin): Formulario {
     htmlPersonalizado: i.html_personalizado ?? "",
     estado: i.estado === "borrador" ? "borrador" : "activa",
     clienteCorreo: i.clienteCorreo ?? "",
+    preguntas: i.preguntas.map((p) => ({
+      etiqueta: p.etiqueta,
+      tipo: p.tipo,
+      opciones: (p.opciones ?? []).join(", "),
+    })),
   };
+}
+
+/** Del formulario a la forma jsonb: ids p1…p3 y opciones como lista. */
+function preguntasParaGuardar(preguntas: PreguntaForm[]): PreguntaInvitacion[] {
+  return preguntas
+    .filter((p) => p.etiqueta.trim())
+    .slice(0, MAX_PREGUNTAS)
+    .map((p, idx) => ({
+      id: `p${idx + 1}`,
+      etiqueta: p.etiqueta.trim(),
+      tipo: p.tipo,
+      ...(p.tipo === "opciones"
+        ? {
+            opciones: p.opciones
+              .split(",")
+              .map((o) => o.trim())
+              .filter(Boolean),
+          }
+        : {}),
+    }));
 }
 
 /**
@@ -145,6 +207,7 @@ export default function InvitacionesPanel({
       tema: "clasico",
       estado: form.estado,
       clienteCorreo: form.clienteCorreo || null,
+      preguntas: preguntasParaGuardar(form.preguntas),
     };
     startTransition(async () => {
       const res = await guardarInvitacion(id, datos);
@@ -165,10 +228,55 @@ export default function InvitacionesPanel({
     });
   }
 
-  function copiarLink(slug: string) {
-    const url = `${window.location.origin}/i/${slug}`;
+  function crearAlbumDe(i: InvitacionAdmin) {
+    setError(null);
+    startTransition(async () => {
+      const res = await crearAlbum(i.id);
+      if (res.error) setError(res.error);
+      else router.refresh();
+    });
+  }
+
+  function archivarAlbumDe(album: AlbumAdmin) {
+    setError(null);
+    startTransition(async () => {
+      const res = await archivarAlbum(album.id, album.estado !== "archivado");
+      if (res.error) setError(res.error);
+      else router.refresh();
+    });
+  }
+
+  // Edición de las preguntas del RSVP dentro del formulario.
+  function preguntaCampo(idx: number, cambios: Partial<PreguntaForm>) {
+    setForm((prev) => ({
+      ...prev,
+      preguntas: prev.preguntas.map((p, i) => (i === idx ? { ...p, ...cambios } : p)),
+    }));
+  }
+
+  function agregarPregunta() {
+    setForm((prev) =>
+      prev.preguntas.length >= MAX_PREGUNTAS
+        ? prev
+        : {
+            ...prev,
+            preguntas: [...prev.preguntas, { etiqueta: "", tipo: "opciones", opciones: "" }],
+          },
+    );
+  }
+
+  function quitarPregunta(idx: number) {
+    setForm((prev) => ({
+      ...prev,
+      preguntas: prev.preguntas.filter((_, i) => i !== idx),
+    }));
+  }
+
+  /** Copia un link del sitio a partir de su ruta ("i/boda-x", "a/fotos-x"). */
+  function copiarLink(ruta: string) {
+    const url = `${window.location.origin}/${ruta}`;
     navigator.clipboard?.writeText(url).then(() => {
-      setCopiada(slug);
+      setCopiada(ruta);
       setTimeout(() => setCopiada(null), 1600);
     });
   }
@@ -318,6 +426,69 @@ export default function InvitacionesPanel({
                 className={`${inputCls} font-mono text-[12.5px]`}
               />
             </div>
+            {/* Preguntas del RSVP: hasta 3, con respuestas cerradas
+                (para poder contar "Vegetarianos: 5") o de texto libre. */}
+            <div className="md:col-span-2">
+              <label className={labelCls}>
+                Preguntas del RSVP (máx. {MAX_PREGUNTAS} — el invitado las responde al
+                confirmar)
+              </label>
+              <div className="grid gap-2.5">
+                {form.preguntas.map((p, idx) => (
+                  <div
+                    key={idx}
+                    className="grid gap-2 rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 p-3 md:grid-cols-[1fr_auto_1fr_auto]"
+                  >
+                    <input
+                      type="text"
+                      value={p.etiqueta}
+                      onChange={(e) => preguntaCampo(idx, { etiqueta: e.target.value })}
+                      placeholder="¿Sos vegetariano/a o vegano/a?"
+                      className={`${inputCls} bg-white`}
+                    />
+                    <select
+                      value={p.tipo}
+                      onChange={(e) =>
+                        preguntaCampo(idx, { tipo: e.target.value as "opciones" | "texto" })
+                      }
+                      className={`${inputCls} bg-white md:w-[150px]`}
+                    >
+                      <option value="opciones">Opciones</option>
+                      <option value="texto">Texto libre</option>
+                    </select>
+                    {p.tipo === "opciones" ? (
+                      <input
+                        type="text"
+                        value={p.opciones}
+                        onChange={(e) => preguntaCampo(idx, { opciones: e.target.value })}
+                        placeholder="No, Vegetariano/a, Vegano/a (separadas por coma)"
+                        className={`${inputCls} bg-white`}
+                      />
+                    ) : (
+                      <p className="self-center text-[12px] text-aventurea-ink-soft">
+                        El invitado escribe su respuesta.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => quitarPregunta(idx)}
+                      className="self-center text-[12px] font-bold text-red-600 hover:underline"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+                {form.preguntas.length < MAX_PREGUNTAS && (
+                  <button
+                    type="button"
+                    onClick={agregarPregunta}
+                    className="justify-self-start rounded-[10px] border border-dashed border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
+                  >
+                    ＋ Agregar pregunta
+                  </button>
+                )}
+              </div>
+            </div>
             <div>
               <label className={labelCls}>Estado</label>
               <select
@@ -372,7 +543,7 @@ export default function InvitacionesPanel({
             </p>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white">
-              <table className="w-full min-w-[820px] text-left">
+              <table className="w-full min-w-[1000px] text-left">
                 <thead>
                   <tr className="border-b border-aventurea-line text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                     <th className="px-5 py-3">Invitación</th>
@@ -380,12 +551,17 @@ export default function InvitacionesPanel({
                     <th className="px-5 py-3">Cliente</th>
                     <th className="px-5 py-3">Fecha</th>
                     <th className="px-5 py-3">Confirmaciones</th>
+                    <th className="px-5 py-3">Álbum</th>
                     <th className="px-5 py-3">Estado</th>
                     <th className="px-5 py-3 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {invitaciones.map((i) => (
+                  {invitaciones.map((i) => {
+                    // Constante local para que TypeScript conserve el
+                    // "no es null" dentro de los onClick.
+                    const album = i.album;
+                    return (
                     <tr key={i.id} className="border-b border-aventurea-line last:border-none">
                       <td className="px-5 py-3.5">
                         <p className="text-[13.5px] font-bold text-aventurea-ink">{i.titulo}</p>
@@ -402,10 +578,10 @@ export default function InvitacionesPanel({
                           </a>
                           <button
                             type="button"
-                            onClick={() => copiarLink(i.slug)}
+                            onClick={() => copiarLink(`i/${i.slug}`)}
                             className="rounded-md border border-aventurea-line px-2 py-0.5 text-[11px] font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
                           >
-                            {copiada === i.slug ? "¡Copiado!" : "Copiar"}
+                            {copiada === `i/${i.slug}` ? "¡Copiado!" : "Copiar"}
                           </button>
                         </div>
                       </td>
@@ -423,6 +599,72 @@ export default function InvitacionesPanel({
                         <span className="font-semibold">
                           {i.totalPersonas} persona{i.totalPersonas === 1 ? "" : "s"}
                         </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {album ? (
+                          <div className="flex items-start gap-2.5 text-[12px]">
+                            {/* El QR chiquito a la vista; el link de al
+                                lado abre el PNG de 300px para imprimir. */}
+                            {/* eslint-disable-next-line @next/next/no-img-element -- QR generado por servicio externo */}
+                            <img
+                              src={urlQr(`${SITIO_URL}/a/${album.slug}`, 120)}
+                              alt={`QR del álbum /a/${album.slug}`}
+                              width={52}
+                              height={52}
+                              className="mt-0.5 h-[52px] w-[52px] shrink-0 rounded border border-aventurea-line bg-white p-0.5"
+                            />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <a
+                                  href={`/a/${album.slug}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-semibold text-aventurea-navy hover:underline"
+                                >
+                                  /a/{album.slug}
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => copiarLink(`a/${album.slug}`)}
+                                  className="rounded-md border border-aventurea-line px-1.5 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
+                                >
+                                  {copiada === `a/${album.slug}` ? "¡Copiado!" : "Copiar"}
+                                </button>
+                              </div>
+                              <p className="mt-0.5 text-aventurea-ink-soft">
+                                {album.fotos} foto{album.fotos === 1 ? "" : "s"}
+                                {album.estado === "archivado" && " · archivado"}
+                              </p>
+                              <div className="mt-1 flex gap-2.5">
+                                <a
+                                  href={urlQr(`${SITIO_URL}/a/${album.slug}`)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-bold text-aventurea-navy hover:underline"
+                                >
+                                  QR imprimible
+                                </a>
+                                <button
+                                  type="button"
+                                  disabled={pending}
+                                  onClick={() => archivarAlbumDe(album)}
+                                  className="font-bold text-aventurea-ink-soft hover:text-aventurea-ink disabled:opacity-50"
+                                >
+                                  {album.estado === "archivado" ? "Reactivar" : "Archivar"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() => crearAlbumDe(i)}
+                            className="rounded-md border border-aventurea-line px-2.5 py-1 text-[11.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy disabled:opacity-50"
+                          >
+                            ＋ Crear álbum
+                          </button>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         <span
@@ -451,7 +693,8 @@ export default function InvitacionesPanel({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

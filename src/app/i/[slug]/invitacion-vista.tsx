@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { IconClock, IconPin, IconWaze } from "@/components/icons";
+import type { PreguntaInvitacion } from "@/lib/invitaciones-preguntas";
 import { confirmarAsistencia } from "./actions";
 
 /** Los campos de la invitación que usa la vista pública. */
@@ -37,9 +38,12 @@ const labelCls =
  */
 export default function InvitacionVista({
   invitacion,
+  preguntas,
   fechaLarga,
 }: {
   invitacion: Invitacion;
+  /** Las preguntas configurables del RSVP (vacío = como siempre). */
+  preguntas: PreguntaInvitacion[];
   fechaLarga: string;
 }) {
   // Destino de "cómo llegar": el link exacto si el equipo lo cargó, o
@@ -103,7 +107,7 @@ export default function InvitacionVista({
           <PlantillaClasico invitacion={invitacion} fechaLarga={fechaLarga} hrefMaps={hrefMaps} hrefWaze={hrefWaze} />
         )}
 
-        <BloqueRsvp invitacionId={invitacion.id} />
+        <BloqueRsvp invitacionId={invitacion.id} preguntas={preguntas} />
 
         <footer className="mt-14 pb-2 text-center text-[12px] text-white/45">
           Invitación digital por{" "}
@@ -237,14 +241,25 @@ function PlantillaClasico({
 }
 
 /** "¿Nos acompañás?" — el formulario de confirmación, al pie. */
-function BloqueRsvp({ invitacionId }: { invitacionId: string }) {
+function BloqueRsvp({
+  invitacionId,
+  preguntas,
+}: {
+  invitacionId: string;
+  preguntas: PreguntaInvitacion[];
+}) {
   const [nombre, setNombre] = useState("");
   const [acompanantes, setAcompanantes] = useState("0");
   const [asistira, setAsistira] = useState<boolean | null>(null);
   const [mensaje, setMensaje] = useState("");
+  const [respuestas, setRespuestas] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState<boolean | null>(null);
   const [pending, startTransition] = useTransition();
+
+  function responder(id: string, valor: string) {
+    setRespuestas((prev) => ({ ...prev, [id]: valor }));
+  }
 
   function enviar() {
     if (asistira === null) {
@@ -264,6 +279,8 @@ function BloqueRsvp({ invitacionId }: { invitacionId: string }) {
         acompanantes: parseInt(acompanantes) || 0,
         asistira: respuesta,
         mensaje: mensaje || null,
+        // Si al final no viene, sus respuestas de dieta no aplican.
+        respuestas: respuesta ? respuestas : {},
       });
       if (res.error) setError(res.error);
       else setEnviado(respuesta);
@@ -354,6 +371,42 @@ function BloqueRsvp({ invitacionId }: { invitacionId: string }) {
             No podré ir
           </button>
         </div>
+
+        {/* Las preguntas que configuró el equipo (dieta, alergias…):
+            solo tienen sentido para quien sí viene, así que se esconden
+            al marcar "No podré ir". */}
+        {asistira !== false &&
+          preguntas.map((p) => (
+            <div key={p.id}>
+              <label htmlFor={`rsvp-${p.id}`} className={labelCls}>
+                {p.etiqueta}
+              </label>
+              {p.tipo === "opciones" ? (
+                <select
+                  id={`rsvp-${p.id}`}
+                  value={respuestas[p.id] ?? ""}
+                  onChange={(e) => responder(p.id, e.target.value)}
+                  className={`${inputCls} [&>option]:text-[#16295e]`}
+                >
+                  <option value="">Elegí una opción…</option>
+                  {(p.opciones ?? []).map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={`rsvp-${p.id}`}
+                  type="text"
+                  value={respuestas[p.id] ?? ""}
+                  onChange={(e) => responder(p.id, e.target.value)}
+                  placeholder="Escribí tu respuesta"
+                  className={inputCls}
+                />
+              )}
+            </div>
+          ))}
 
         <div>
           <label htmlFor="rsvp-mensaje" className={labelCls}>

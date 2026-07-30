@@ -56,6 +56,41 @@ export function fechaISO(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+const DIAS_LARGOS = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+];
+const MESES_LARGOS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "setiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+/**
+ * "2026-12-12" → "Sábado 12 de diciembre de 2026" (es-CR, sin dudas de
+ * zona horaria). La usan la invitación pública y el espacio del
+ * anfitrión para hablar de la fecha del evento en grande.
+ */
+export function fechaLargaCR(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dia = DIAS_LARGOS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${d} de ${MESES_LARGOS[m - 1]} de ${y}`;
+}
+
 export function fmtFechaCorta(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("es-CR", {

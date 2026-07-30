@@ -1,9 +1,10 @@
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
-import InvitacionesPanel, { type InvitacionAdmin } from "./invitaciones-panel";
+import { parsearPreguntas } from "@/lib/invitaciones-preguntas";
+import InvitacionesPanel, { type AlbumAdmin, type InvitacionAdmin } from "./invitaciones-panel";
 
 type FilaInvitacion = Omit<
   InvitacionAdmin,
-  "clienteCorreo" | "confirmadosSi" | "confirmadosNo" | "totalPersonas"
+  "clienteCorreo" | "confirmadosSi" | "confirmadosNo" | "totalPersonas" | "preguntas" | "album"
 > & { cliente_id: string | null };
 
 type FilaRsvp = { invitacion_id: string; asistira: boolean; acompanantes: number };
@@ -26,7 +27,7 @@ export default async function AdminInvitacionesPage() {
     );
   }
 
-  const [invRes, rsvpRes, perfilesRes] = await Promise.all([
+  const [invRes, rsvpRes, perfilesRes, pregRes, albumesRes, fotosRes] = await Promise.all([
     admin
       .from("invitaciones")
       .select(
@@ -35,11 +36,44 @@ export default async function AdminInvitacionesPage() {
       .order("created_at", { ascending: false }),
     admin.from("invitacion_rsvp").select("invitacion_id, asistira, acompanantes"),
     admin.from("perfiles").select("id, email"),
+    // Lo de la 0068 se pide aparte, tolerando el error: sin esa
+    // migración el panel sigue andando, solo que sin preguntas ni álbumes.
+    admin.from("invitaciones").select("id, preguntas"),
+    admin.from("albumes").select("id, invitacion_id, slug, estado"),
+    admin.from("album_fotos").select("album_id"),
   ]);
 
   const emailPorId = new Map(
     (perfilesRes.data ?? []).map((p) => [p.id as string, p.email as string | null]),
   );
+
+  const preguntasPorId = new Map(
+    ((pregRes.data ?? []) as { id: string; preguntas: unknown }[]).map((p) => [
+      p.id,
+      parsearPreguntas(p.preguntas),
+    ]),
+  );
+
+  // El álbum de cada invitación con su conteo de fotos.
+  const fotosPorAlbum = new Map<string, number>();
+  for (const f of (fotosRes.data ?? []) as { album_id: string }[]) {
+    fotosPorAlbum.set(f.album_id, (fotosPorAlbum.get(f.album_id) ?? 0) + 1);
+  }
+  const albumPorInvitacion = new Map<string, AlbumAdmin>();
+  for (const a of (albumesRes.data ?? []) as {
+    id: string;
+    invitacion_id: string | null;
+    slug: string;
+    estado: string;
+  }[]) {
+    if (!a.invitacion_id || albumPorInvitacion.has(a.invitacion_id)) continue;
+    albumPorInvitacion.set(a.invitacion_id, {
+      id: a.id,
+      slug: a.slug,
+      estado: a.estado,
+      fotos: fotosPorAlbum.get(a.id) ?? 0,
+    });
+  }
 
   // El resumen por invitación: cuántos dijeron sí / no, y cuántas
   // personas llegan en total (cada "sí" cuenta con sus acompañantes).
@@ -64,6 +98,8 @@ export default async function AdminInvitacionesPage() {
         confirmadosSi: conteo.si,
         confirmadosNo: conteo.no,
         totalPersonas: conteo.personas,
+        preguntas: preguntasPorId.get(i.id) ?? [],
+        album: albumPorInvitacion.get(i.id) ?? null,
       };
     },
   );
