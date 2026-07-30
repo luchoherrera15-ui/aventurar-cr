@@ -327,17 +327,22 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
       {/* Sin barra nativa en las pestañas: el buscador arranca justo
           debajo del notch, como el Explore de Airbnb. */}
       <View style={[styles.busquedaArea, { paddingTop: insets.top + Spacing.three }]}>
+        {/* Cambio de vertical al toque, sin pasar por la portada:
+            Eventos (esta pantalla), Citas y Hospedajes. */}
+        <View style={styles.verticalesFila}>
+          <ChipVertical icono="sparkles-outline" label="Eventos" activo />
+          <ChipVertical
+            icono="time-outline"
+            label="Citas"
+            onPress={() => router.push("/citas" as never)}
+          />
+          <ChipVertical
+            icono="home-outline"
+            label="Hospedajes"
+            onPress={() => router.push("/hospedajes" as never)}
+          />
+        </View>
         <View style={styles.busquedaFila}>
-          {/* De vuelta a la portada: el selector de las tres verticales
-              (Eventos / Citas / Hospedajes) siempre a un toque. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Volver a la portada"
-            onPress={() => router.push("/portada" as never)}
-            style={styles.botonPortada}
-          >
-            <Ionicons name="grid-outline" size={17} color={Colors.navy} />
-          </Pressable>
           <View style={[styles.busquedaPill, { flex: 1 }]}>
             <Ionicons name="search" size={17} color={Colors.ink} />
             <TextInput
@@ -677,6 +682,35 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
   );
 }
 
+/** Chip compacto para saltar de vertical (Eventos / Citas / Hospedajes)
+ * sin pasar por la portada. El activo va en navy y no navega. */
+function ChipVertical({
+  icono,
+  label,
+  activo = false,
+  onPress,
+}: {
+  icono: IconoNombre;
+  label: string;
+  activo?: boolean;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={activo}
+      onPress={onPress}
+      style={[styles.chipVertical, activo && styles.chipVerticalActivo]}
+    >
+      <Ionicons name={icono} size={14} color={activo ? "#ffffff" : Colors.navy} />
+      <Text style={[styles.chipVerticalTexto, activo && styles.chipVerticalTextoActivo]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 /** Un filtro activo bajo el buscador, con su × para quitarlo. */
 function ChipFiltroActivo({ label, onQuitar }: { label: string; onQuitar: () => void }) {
   return (
@@ -866,14 +900,21 @@ const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   busquedaArea: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, backgroundColor: Colors.surface },
   busquedaFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
-  botonPortada: {
+  verticalesFila: { flexDirection: "row", gap: Spacing.two, marginBottom: Spacing.two },
+  chipVertical: {
     alignItems: "center",
-    backgroundColor: Colors.cream2,
+    backgroundColor: Colors.surface,
+    borderColor: "#dbe4f2",
     borderRadius: 999,
-    height: 46,
-    justifyContent: "center",
-    width: 46,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    height: 34,
+    paddingHorizontal: 13,
   },
+  chipVerticalActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  chipVerticalTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
+  chipVerticalTextoActivo: { color: "#ffffff" },
   busquedaPill: {
     flexDirection: "row",
     alignItems: "center",

@@ -8,30 +8,24 @@ import Favoritos from "@/pantallas/favoritos";
 import Reservas from "@/pantallas/reservas";
 import Mensajes from "@/pantallas/mensajes";
 import Perfil from "@/pantallas/perfil";
-import Portada from "@/pantallas/portada";
 
 /**
- * Al abrir la app en frío aparece la portada — la misma intro que la
- * web — para escoger qué se quiere reservar; entrar a Eventos revela
- * las pestañas. El resto de la sesión la portada no vuelve a salir
- * (bandera de módulo), y los enlaces internos con ?tab=... la saltan.
+ * La app abre directo en las pestañas, con Explorar (eventos) activa —
+ * sin portada de por medio: cambiar de vertical se hace con los chips
+ * de Explorar. La portada sigue existiendo como ruta (/portada) para
+ * los enlaces que la pidan.
  *
  * Las cinco pestañas viven en un pager horizontal: se cambia tocando
  * la barra inferior O deslizando la pantalla hacia los lados, como
  * Instagram. Las rutas viejas (/favoritos, /cuenta...) redirigen acá
  * con ?tab=... para que todos los enlaces internos sigan funcionando.
  */
-let portadaVista = false;
-
 // El pager animado deja que onPageScroll alimente un Animated.Value
 // en el hilo nativo — la píldora de la tab bar sigue el dedo sin jank.
 const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
 export default function TabsScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string }>();
-  const [mostrarPortada, setMostrarPortada] = useState(
-    () => !portadaVista && tab == null,
-  );
   const [activa, setActiva] = useState(() => {
     const i = TABS.findIndex((t) => t.id === tab);
     return i >= 0 ? i : 0;
@@ -57,19 +51,6 @@ export default function TabsScreen() {
     [posicion, corrimiento],
   );
 
-  // Si llega un ?tab=... con la portada todavía visible, se descarta
-  // durante el render mismo (el patrón de React para ajustar estado
-  // cuando cambian las props — sin efecto de por medio).
-  if (mostrarPortada && tab != null) {
-    setMostrarPortada(false);
-  }
-
-  // La bandera de módulo se escribe fuera del render: apenas la
-  // portada sale de pantalla, no vuelve a aparecer en esta sesión.
-  useEffect(() => {
-    if (!mostrarPortada) portadaVista = true;
-  }, [mostrarPortada]);
-
   // Navegaciones tipo router.replace("/?tab=perfil") mueven el pager.
   useEffect(() => {
     const i = TABS.findIndex((t) => t.id === tab);
@@ -83,10 +64,6 @@ export default function TabsScreen() {
   function irA(i: number) {
     pagerRef.current?.setPage(i);
     setActiva(i);
-  }
-
-  if (mostrarPortada) {
-    return <Portada onEntrar={() => setMostrarPortada(false)} />;
   }
 
   return (
