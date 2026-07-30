@@ -1,0 +1,677 @@
+<!--
+  Plantilla "Aracnida" — invitación de cumpleaños infantil con tema de
+  superhéroe arácnido (genérico: telarañas, arañas caricaturescas y
+  paleta rojo/azul/negro; sin nombres, logos ni máscaras de personajes
+  con marca registrada).
+
+  USO: sustituir los placeholders y guardar el resultado en
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta tal
+  cual dentro de su lienzo (columna max-w 680px sobre fondo navy) y
+  agrega ella misma el bloque RSVP "¿Nos acompañás?" debajo — esta
+  plantilla termina con la franja de ciudad para empatar con eso.
+
+  PLACEHOLDERS:
+    {{NOMBRE}}     nombre del festejado         p. ej. Mateo
+    {{EDAD}}       edad que cumple              p. ej. 6
+    {{FECHA}}      fecha en palabras            p. ej. sábado 19 de setiembre
+    {{HORA}}       hora                         p. ej. 2:00 p. m.
+    {{LUGAR}}      nombre del lugar             p. ej. Salón Villa Aventura
+    {{DIRECCION}}  dirección corta              p. ej. Curridabat, 200 m este del parque
+
+  NOTAS TÉCNICAS:
+  - Autocontenido: todo el CSS vive en el <style> y el JS en el <script>
+    de este fragmento. Cero librerías, cero imágenes remotas (solo SVG
+    inline). Los estilos van namespaced con .ara-/#ara- para no tocar el
+    RSVP ni el resto de la página.
+  - La intro usa <dialog>.showModal(): el top layer escapa el transform
+    del contenedor [data-reveal] de la página (position:fixed normal
+    quedaría atrapado ahí). Sin JS o con prefers-reduced-motion la intro
+    simplemente no aparece y la invitación se ve completa.
+  - Las arañitas rebotan al tocarlas vía onclick inline (funciona aunque
+    el <script> no corra).
+-->
+<div class="ara">
+  <style>
+    /* ============ Tokens del tema ============ */
+    .ara {
+      --ara-rojo: #e62429;
+      --ara-rojo-osc: #a31220;
+      --ara-azul: #2b3a8f;
+      --ara-azul-osc: #131a45;
+      --ara-tinta: #0b0e1a;
+      --ara-amarillo: #ffd427;
+      --ara-f-impacto: "Impact", "Arial Black", "Haettenschweiler", sans-serif;
+      --ara-f-comic: "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Segoe Print", "Trebuchet MS", cursive;
+      display: block;
+    }
+
+    /* ============ INTRO (dialog en el top layer) ============ */
+    #ara-intro {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      overflow: hidden;
+      z-index: 2147483000;
+      cursor: pointer;
+      color: #fff;
+    }
+    #ara-intro:focus { outline: none; }
+    #ara-intro::backdrop { background: rgba(4, 6, 16, 0.55); }
+
+    .ara-cortina {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 54%;
+      background:
+        radial-gradient(60rem 40rem at 50% 120%, rgba(43, 58, 143, 0.5), transparent 60%),
+        radial-gradient(40rem 30rem at 50% -20%, rgba(230, 36, 41, 0.28), transparent 55%),
+        #0a0e22;
+      transition: transform 0.85s cubic-bezier(0.65, 0, 0.35, 1);
+      will-change: transform;
+    }
+    /* Corte dentado tipo telaraña rasgada en el borde de encuentro. */
+    .ara-cortina-izq {
+      left: 0;
+      z-index: 2;
+      clip-path: polygon(0 0, 92% 0, 100% 6%, 94% 13%, 99% 21%, 93% 30%, 100% 38%, 95% 47%, 99% 55%, 93% 63%, 100% 71%, 94% 79%, 99% 87%, 93% 94%, 97% 100%, 0 100%);
+    }
+    .ara-cortina-der {
+      right: 0;
+      z-index: 1;
+      clip-path: polygon(100% 0, 8% 0, 0 6%, 6% 13%, 1% 21%, 7% 30%, 0 38%, 5% 47%, 1% 55%, 7% 63%, 0 71%, 6% 79%, 1% 87%, 7% 94%, 3% 100%, 100% 100%);
+    }
+    .ara-intro-abierta .ara-cortina-izq { transform: translateX(-105%); }
+    .ara-intro-abierta .ara-cortina-der { transform: translateX(105%); }
+
+    .ara-esquina {
+      position: absolute;
+      width: min(38vw, 190px);
+      height: min(38vw, 190px);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .ara-esq-si { top: 0; left: 0; }
+    .ara-esq-sd { top: 0; right: 0; transform: scaleX(-1); }
+    .ara-esq-ii { bottom: 0; left: 0; transform: scaleY(-1); }
+    .ara-esq-id { bottom: 0; right: 0; transform: scale(-1, -1); }
+
+    /* La araña que baja por su hilo con el cartelito. */
+    .ara-percha {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 150px;
+      margin-left: -75px;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .ara-bajada {
+      animation: ara-baja 1.3s cubic-bezier(0.34, 1.45, 0.44, 1) 0.25s both;
+      transition: transform 0.7s cubic-bezier(0.5, 0, 0.9, 0.4);
+      will-change: transform;
+    }
+    .ara-intro-abierta .ara-bajada {
+      animation: none;
+      transform: translateY(-130vh);
+    }
+    .ara-columpio {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform-origin: 50% 0;
+      animation: ara-columpio 3s ease-in-out 1.6s infinite;
+    }
+    .ara-hilo-intro {
+      display: block;
+      width: 2px;
+      height: 34vh;
+      background: linear-gradient(rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.85));
+    }
+    .ara-columpio > svg { display: block; margin-top: -2px; }
+    .ara-cartel {
+      position: relative;
+      margin-top: 16px;
+      padding: 8px 14px 9px;
+      background: var(--ara-amarillo);
+      color: var(--ara-tinta);
+      font-family: var(--ara-f-impacto);
+      font-size: 19px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 3px solid var(--ara-tinta);
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55);
+      transform: rotate(-4deg);
+      white-space: nowrap;
+    }
+    .ara-cartel::before,
+    .ara-cartel::after {
+      content: "";
+      position: absolute;
+      top: -15px;
+      width: 2px;
+      height: 16px;
+      background: rgba(255, 255, 255, 0.85);
+    }
+    .ara-cartel::before { left: 22%; transform: rotate(20deg); }
+    .ara-cartel::after { right: 22%; transform: rotate(-20deg); }
+
+    .ara-toca {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: max(26px, env(safe-area-inset-bottom));
+      z-index: 3;
+      margin: 0;
+      text-align: center;
+      font-family: var(--ara-f-comic);
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.75);
+      animation: ara-late 1.8s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .ara-intro-abierta .ara-toca { opacity: 0; transition: opacity 0.3s; }
+
+    /* ============ EL PANEL DE CÓMIC ============ */
+    .ara-panel {
+      position: relative;
+      max-width: 560px;
+      margin: 0 auto;
+      border: 4px solid var(--ara-tinta);
+      border-radius: 26px;
+      overflow: hidden;
+      background: linear-gradient(179deg, var(--ara-rojo) 0%, #b0173a 36%, var(--ara-azul) 76%, var(--ara-azul-osc) 100%);
+      box-shadow: 8px 10px 0 rgba(4, 6, 16, 0.5);
+      text-align: center;
+      color: #fff;
+    }
+    /* Trama de semitono, como página impresa. */
+    .ara-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(10, 13, 30, 0.2) 1.3px, transparent 1.4px);
+      background-size: 13px 13px;
+      pointer-events: none;
+    }
+    .ara-panel > * { position: relative; }
+
+    .ara-panel .ara-esquina { width: min(30vw, 150px); height: min(30vw, 150px); opacity: 0.8; }
+
+    /* Arañitas colgantes que se columpian; al tocarlas, rebotan. */
+    .ara-arana {
+      position: absolute;
+      top: -3px;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 6px 6px;
+      margin: 0;
+      background: none;
+      border: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transform-origin: 50% 0;
+      animation: ara-columpio 3.4s ease-in-out infinite;
+    }
+    .ara-arana:focus-visible { outline: 2px dashed var(--ara-amarillo); outline-offset: 3px; border-radius: 8px; }
+    .ara-arana-1 { left: 9%; }
+    .ara-arana-2 { right: 11%; animation-delay: 1.1s; animation-duration: 3.9s; }
+    .ara-arana .ara-hilo {
+      display: block;
+      width: 2px;
+      height: 52px;
+      background: linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.85));
+    }
+    .ara-arana-2 .ara-hilo { height: 84px; }
+    .ara-arana svg { display: block; margin-top: -2px; }
+    .ara-arana.ara-rebota { animation: ara-rebote 0.9s cubic-bezier(0.3, 1.5, 0.4, 1) 1; }
+
+    /* Cabecera */
+    .ara-cabecera { padding: 118px 22px 0; }
+    .ara-kicker {
+      display: inline-block;
+      margin: 0;
+      padding: 6px 15px 7px;
+      background: var(--ara-tinta);
+      color: #fff;
+      font-family: var(--ara-f-impacto);
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      transform: rotate(-2deg);
+      box-shadow: 3px 3px 0 rgba(255, 255, 255, 0.25);
+    }
+    .ara-titulo {
+      margin: 18px 0 0;
+      font-family: var(--ara-f-impacto);
+      font-weight: 400;
+      text-transform: uppercase;
+      line-height: 0.94;
+      color: #fff;
+      text-shadow:
+        -2px -2px 0 var(--ara-tinta), 2px -2px 0 var(--ara-tinta),
+        -2px 2px 0 var(--ara-tinta), 2px 2px 0 var(--ara-tinta),
+        5px 6px 0 var(--ara-tinta);
+      transform: rotate(-2deg);
+    }
+    .ara-t1 { display: block; font-size: clamp(40px, 13vw, 66px); letter-spacing: 0.01em; }
+    .ara-t2 { display: block; margin-top: 4px; font-size: clamp(28px, 8.6vw, 44px); letter-spacing: 0.06em; }
+    .ara-edad {
+      font-weight: 400;
+      font-size: 1.5em;
+      color: var(--ara-amarillo);
+      text-shadow:
+        -2px -2px 0 var(--ara-tinta), 2px -2px 0 var(--ara-tinta),
+        -2px 2px 0 var(--ara-tinta), 2px 2px 0 var(--ara-tinta),
+        5px 6px 0 var(--ara-rojo-osc);
+    }
+    .ara-sub {
+      margin: 20px auto 0;
+      max-width: 34ch;
+      font-family: var(--ara-f-comic);
+      font-size: 16px;
+      line-height: 1.45;
+      color: rgba(255, 255, 255, 0.94);
+      text-shadow: 1px 2px 0 rgba(10, 13, 30, 0.55);
+    }
+
+    /* Onomatopeyas: ráfagas de cómic con micro-animación. */
+    .ara-onoma {
+      position: absolute;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--ara-f-impacto);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      clip-path: polygon(50% 0%, 59% 16%, 74% 7%, 74% 24%, 92% 22%, 82% 37%, 100% 44%, 84% 53%, 95% 68%, 77% 66%, 79% 84%, 63% 74%, 56% 92%, 47% 75%, 33% 88%, 33% 69%, 15% 73%, 24% 57%, 6% 51%, 22% 42%, 10% 27%, 28% 29%, 26% 11%, 42% 20%);
+      animation: ara-flota 2.8s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+    .ara-pow {
+      width: 96px;
+      height: 96px;
+      top: 54px;
+      right: 4%;
+      font-size: 21px;
+      background: var(--ara-amarillo);
+      color: var(--ara-rojo);
+      transform: rotate(10deg);
+    }
+    .ara-thwip {
+      width: 104px;
+      height: 104px;
+      bottom: -34px;
+      left: 2%;
+      font-size: 17px;
+      background: #fff;
+      color: var(--ara-azul);
+      transform: rotate(-9deg);
+      animation-delay: 0.9s;
+    }
+    .ara-zas {
+      width: 84px;
+      height: 84px;
+      top: -6px;
+      left: 4%;
+      font-size: 19px;
+      background: var(--ara-rojo);
+      color: #fff;
+      transform: rotate(-12deg);
+      animation-delay: 1.6s;
+    }
+
+    /* Burbujas de cómic con los datos. */
+    .ara-datos { padding: 30px 24px 6px; }
+    .ara-burbuja {
+      position: relative;
+      width: min(100%, 340px);
+      margin: 0 0 26px;
+      padding: 15px 18px 16px;
+      background: #fff;
+      border: 3px solid var(--ara-tinta);
+      border-radius: 20px;
+      box-shadow: 5px 5px 0 rgba(4, 6, 16, 0.45);
+      text-align: left;
+    }
+    .ara-burbuja::after {
+      content: "";
+      position: absolute;
+      bottom: -12px;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-right: 3px solid var(--ara-tinta);
+      border-bottom: 3px solid var(--ara-tinta);
+      transform: rotate(45deg) skew(12deg, 12deg);
+    }
+    .ara-bur-izq { margin-right: auto; transform: rotate(-1.4deg); }
+    .ara-bur-izq::after { left: 30px; }
+    .ara-bur-der { margin-left: auto; transform: rotate(1.4deg); }
+    .ara-bur-der::after { right: 30px; }
+    .ara-etiqueta {
+      margin: 0;
+      font-family: var(--ara-f-impacto);
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ara-rojo);
+    }
+    .ara-bur-der .ara-etiqueta { color: var(--ara-azul); }
+    .ara-valor {
+      margin: 4px 0 0;
+      font-family: var(--ara-f-comic);
+      font-weight: 700;
+      font-size: 20px;
+      line-height: 1.25;
+      color: var(--ara-tinta);
+    }
+    .ara-valor small {
+      display: block;
+      margin-top: 3px;
+      font-size: 13.5px;
+      font-weight: 400;
+      color: #3c415c;
+    }
+
+    /* Puente hacia el RSVP que la página agrega debajo. */
+    .ara-confirma {
+      display: inline-block;
+      margin: 10px auto 0;
+      padding: 10px 20px 11px;
+      background: var(--ara-amarillo);
+      color: var(--ara-tinta);
+      font-family: var(--ara-f-impacto);
+      font-size: 18px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border: 3px solid var(--ara-tinta);
+      border-radius: 14px;
+      box-shadow: 4px 4px 0 rgba(4, 6, 16, 0.5);
+      transform: rotate(-1.6deg);
+    }
+    .ara-flecha {
+      display: inline-block;
+      margin-left: 8px;
+      animation: ara-late 1.4s ease-in-out infinite;
+    }
+
+    /* La ciudad al pie: silueta con ventanitas encendidas. */
+    .ara-ciudad { display: block; width: 100%; height: 82px; margin-top: 20px; }
+
+    /* ============ Keyframes ============ */
+    @keyframes ara-baja {
+      from { transform: translateY(-120%); }
+      to { transform: translateY(0); }
+    }
+    @keyframes ara-columpio {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(5.5deg); }
+      75% { transform: rotate(-5.5deg); }
+    }
+    @keyframes ara-rebote {
+      0% { transform: translateY(0); }
+      35% { transform: translateY(30px); }
+      62% { transform: translateY(-10px); }
+      82% { transform: translateY(7px); }
+      100% { transform: translateY(0); }
+    }
+    @keyframes ara-flota {
+      from { translate: 0 0; }
+      to { translate: 0 -8px; }
+    }
+    @keyframes ara-late {
+      0%, 100% { transform: translateY(0); opacity: 0.75; }
+      50% { transform: translateY(4px); opacity: 1; }
+    }
+
+    /* Sin movimiento: nada se anima y la intro ni aparece (el script
+       tampoco la abre, esto es el cinturón y los tirantes). */
+    @media (prefers-reduced-motion: reduce) {
+      #ara-intro { display: none !important; }
+      .ara *, .ara *::before, .ara *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+
+  <!-- ================= INTRO ================= -->
+  <dialog id="ara-intro" aria-label="Abrir la invitación">
+    <div class="ara-cortina ara-cortina-izq" aria-hidden="true">
+      <svg class="ara-esquina ara-esq-si" viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="none" stroke="#ffffff" stroke-width="1.4" opacity="0.4">
+          <path d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+          <path d="M30 0 Q25.9 5.1 27.7 11.5 Q21.9 14.7 21.2 21.2 Q14.7 21.9 11.5 27.7 Q5.1 25.9 0 30" />
+          <path d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+          <path d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+        </g>
+      </svg>
+      <svg class="ara-esquina ara-esq-ii" viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="none" stroke="#ffffff" stroke-width="1.4" opacity="0.32">
+          <path d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+          <path d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+          <path d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+        </g>
+      </svg>
+    </div>
+    <div class="ara-cortina ara-cortina-der" aria-hidden="true">
+      <svg class="ara-esquina ara-esq-sd" viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="none" stroke="#ffffff" stroke-width="1.4" opacity="0.4">
+          <path d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+          <path d="M30 0 Q25.9 5.1 27.7 11.5 Q21.9 14.7 21.2 21.2 Q14.7 21.9 11.5 27.7 Q5.1 25.9 0 30" />
+          <path d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+          <path d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+        </g>
+      </svg>
+      <svg class="ara-esquina ara-esq-id" viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="none" stroke="#ffffff" stroke-width="1.4" opacity="0.32">
+          <path d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+          <path d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+          <path d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+        </g>
+      </svg>
+    </div>
+
+    <div class="ara-percha" aria-hidden="true">
+      <div class="ara-bajada">
+        <div class="ara-columpio">
+          <span class="ara-hilo-intro"></span>
+          <svg width="112" height="104" viewBox="0 0 120 112">
+            <g fill="none" stroke="#0b0e1a" stroke-width="5" stroke-linecap="round">
+              <path d="M46 52 C31 45 23 34 17 21" />
+              <path d="M43 61 C26 59 15 51 8 40" />
+              <path d="M43 70 C27 74 17 84 12 95" />
+              <path d="M48 78 C38 88 33 97 31 106" />
+              <path d="M74 52 C89 45 97 34 103 21" />
+              <path d="M77 61 C94 59 105 51 112 40" />
+              <path d="M77 70 C93 74 103 84 108 95" />
+              <path d="M72 78 C82 88 87 97 89 106" />
+            </g>
+            <ellipse cx="60" cy="76" rx="24" ry="22" fill="#e62429" stroke="#0b0e1a" stroke-width="3.5" />
+            <path d="M40 68 Q60 80 80 68" fill="none" stroke="#a31220" stroke-width="3" />
+            <path d="M42 84 Q60 94 78 84" fill="none" stroke="#a31220" stroke-width="3" />
+            <circle cx="60" cy="38" r="18" fill="#2b3a8f" stroke="#0b0e1a" stroke-width="3.5" />
+            <ellipse cx="52.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+            <ellipse cx="67.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+            <circle cx="54" cy="38" r="2.8" fill="#0b0e1a" />
+            <circle cx="66" cy="38" r="2.8" fill="#0b0e1a" />
+            <circle cx="55" cy="37" r="1" fill="#ffffff" />
+            <circle cx="67" cy="37" r="1" fill="#ffffff" />
+            <path d="M54 49 Q60 54 66 49" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+          </svg>
+          <div class="ara-cartel">¡Estás invitado!</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="ara-toca">Tocá para abrir la invitación</p>
+  </dialog>
+
+  <!-- ================= LA INVITACIÓN ================= -->
+  <div class="ara-panel">
+    <svg class="ara-esquina ara-esq-si" viewBox="0 0 100 100" aria-hidden="true">
+      <g fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.38">
+        <path d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+        <path d="M30 0 Q25.9 5.1 27.7 11.5 Q21.9 14.7 21.2 21.2 Q14.7 21.9 11.5 27.7 Q5.1 25.9 0 30" />
+        <path d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+        <path d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+      </g>
+    </svg>
+    <svg class="ara-esquina ara-esq-sd" viewBox="0 0 100 100" aria-hidden="true">
+      <g fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.38">
+        <path d="M0 0 L100 0 M0 0 L96 40 M0 0 L71 71 M0 0 L40 96 M0 0 L0 100" />
+        <path d="M30 0 Q25.9 5.1 27.7 11.5 Q21.9 14.7 21.2 21.2 Q14.7 21.9 11.5 27.7 Q5.1 25.9 0 30" />
+        <path d="M58 0 Q50 9.9 53.6 22.2 Q42.4 28.4 41 41 Q28.4 42.4 22.2 53.6 Q9.9 50 0 58" />
+        <path d="M86 0 Q74.3 14.8 79.5 32.9 Q62.9 42.1 60.8 60.8 Q42.1 62.9 32.9 79.5 Q14.8 74.3 0 86" />
+      </g>
+    </svg>
+
+    <!-- Arañitas colgantes: tocalas y rebotan en su hilo. -->
+    <button type="button" class="ara-arana ara-arana-1" aria-label="Arañita amistosa (tocala y rebota)"
+      onclick="this.classList.remove('ara-rebota');void this.offsetWidth;this.classList.add('ara-rebota')">
+      <span class="ara-hilo" aria-hidden="true"></span>
+      <svg width="52" height="48" viewBox="0 0 120 112" aria-hidden="true">
+        <g fill="none" stroke="#0b0e1a" stroke-width="6" stroke-linecap="round">
+          <path d="M46 52 C31 45 23 34 17 21" />
+          <path d="M43 61 C26 59 15 51 8 40" />
+          <path d="M43 70 C27 74 17 84 12 95" />
+          <path d="M48 78 C38 88 33 97 31 106" />
+          <path d="M74 52 C89 45 97 34 103 21" />
+          <path d="M77 61 C94 59 105 51 112 40" />
+          <path d="M77 70 C93 74 103 84 108 95" />
+          <path d="M72 78 C82 88 87 97 89 106" />
+        </g>
+        <ellipse cx="60" cy="76" rx="24" ry="22" fill="#e62429" stroke="#0b0e1a" stroke-width="4" />
+        <path d="M40 68 Q60 80 80 68" fill="none" stroke="#a31220" stroke-width="3.5" />
+        <circle cx="60" cy="38" r="18" fill="#2b3a8f" stroke="#0b0e1a" stroke-width="4" />
+        <ellipse cx="52.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+        <ellipse cx="67.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+        <circle cx="54" cy="38" r="3" fill="#0b0e1a" />
+        <circle cx="66" cy="38" r="3" fill="#0b0e1a" />
+        <path d="M54 49 Q60 54 66 49" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+      </svg>
+    </button>
+    <button type="button" class="ara-arana ara-arana-2" aria-label="Arañita amistosa (tocala y rebota)"
+      onclick="this.classList.remove('ara-rebota');void this.offsetWidth;this.classList.add('ara-rebota')">
+      <span class="ara-hilo" aria-hidden="true"></span>
+      <svg width="40" height="37" viewBox="0 0 120 112" aria-hidden="true">
+        <g fill="none" stroke="#0b0e1a" stroke-width="6" stroke-linecap="round">
+          <path d="M46 52 C31 45 23 34 17 21" />
+          <path d="M43 61 C26 59 15 51 8 40" />
+          <path d="M43 70 C27 74 17 84 12 95" />
+          <path d="M48 78 C38 88 33 97 31 106" />
+          <path d="M74 52 C89 45 97 34 103 21" />
+          <path d="M77 61 C94 59 105 51 112 40" />
+          <path d="M77 70 C93 74 103 84 108 95" />
+          <path d="M72 78 C82 88 87 97 89 106" />
+        </g>
+        <ellipse cx="60" cy="76" rx="24" ry="22" fill="#2b3a8f" stroke="#0b0e1a" stroke-width="4" />
+        <path d="M40 68 Q60 80 80 68" fill="none" stroke="#131a45" stroke-width="3.5" />
+        <circle cx="60" cy="38" r="18" fill="#e62429" stroke="#0b0e1a" stroke-width="4" />
+        <ellipse cx="52.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+        <ellipse cx="67.5" cy="36" rx="6.5" ry="8" fill="#ffffff" />
+        <circle cx="54" cy="38" r="3" fill="#0b0e1a" />
+        <circle cx="66" cy="38" r="3" fill="#0b0e1a" />
+        <path d="M54 49 Q60 54 66 49" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+      </svg>
+    </button>
+
+    <div class="ara-cabecera">
+      <span class="ara-onoma ara-pow" aria-hidden="true">¡POW!</span>
+      <p class="ara-kicker">¡Alerta arácnida!</p>
+      <h1 class="ara-titulo">
+        <span class="ara-t1">¡{{NOMBRE}}</span>
+        <span class="ara-t2">cumple <b class="ara-edad">{{EDAD}}</b>!</span>
+      </h1>
+      <p class="ara-sub">
+        Nuestro héroe favorito anda columpiándose por la ciudad…
+        ¡y necesita refuerzos para celebrar su gran día!
+      </p>
+    </div>
+
+    <div class="ara-datos">
+      <span class="ara-onoma ara-thwip" aria-hidden="true">¡THWIP!</span>
+      <span class="ara-onoma ara-zas" aria-hidden="true">¡ZAS!</span>
+
+      <div class="ara-burbuja ara-bur-izq">
+        <p class="ara-etiqueta">La misión es el…</p>
+        <p class="ara-valor">{{FECHA}}</p>
+      </div>
+      <div class="ara-burbuja ara-bur-der">
+        <p class="ara-etiqueta">Hora de acción</p>
+        <p class="ara-valor">{{HORA}}</p>
+      </div>
+      <div class="ara-burbuja ara-bur-izq">
+        <p class="ara-etiqueta">Cuartel general</p>
+        <p class="ara-valor">
+          {{LUGAR}}
+          <small>{{DIRECCION}}</small>
+        </p>
+      </div>
+    </div>
+
+    <span class="ara-confirma">¡Confirmá abajo!<span class="ara-flecha">▼</span></span>
+
+    <svg class="ara-ciudad" viewBox="0 0 390 82" preserveAspectRatio="none" aria-hidden="true">
+      <path fill="#0a0e22" d="M0 82 L0 40 L26 40 L26 26 L44 26 L44 46 L62 46 L62 16 L70 16 L70 9 L78 9 L78 16 L86 16 L86 46 L108 46 L108 30 L132 30 L132 50 L150 50 L150 21 L172 21 L172 44 L192 44 L192 12 L200 12 L200 5 L206 5 L206 12 L214 12 L214 42 L238 42 L238 28 L258 28 L258 50 L276 50 L276 18 L296 18 L296 46 L318 46 L318 32 L342 32 L342 52 L362 52 L362 36 L390 36 L390 82 Z" />
+      <g fill="#ffd427" opacity="0.85">
+        <rect x="30" y="32" width="4" height="5" />
+        <rect x="65" y="24" width="4" height="5" />
+        <rect x="72" y="34" width="4" height="5" />
+        <rect x="113" y="36" width="4" height="5" />
+        <rect x="155" y="28" width="4" height="5" />
+        <rect x="163" y="38" width="4" height="5" />
+        <rect x="196" y="20" width="4" height="5" />
+        <rect x="243" y="34" width="4" height="5" />
+        <rect x="281" y="26" width="4" height="5" />
+        <rect x="288" y="38" width="4" height="5" />
+        <rect x="324" y="38" width="4" height="5" />
+        <rect x="368" y="42" width="4" height="5" />
+      </g>
+    </svg>
+  </div>
+</div>
+
+<script>
+  /* La intro: <dialog> en el top layer (escapa el transform del lienzo).
+     Se abre en dos como cortinas al tocar o a los 3 segundos. Con
+     movimiento reducido, sin soporte de dialog o sin JS: no hay intro. */
+  (function () {
+    var dlg = document.getElementById("ara-intro");
+    if (!dlg || typeof dlg.showModal !== "function") { if (dlg) dlg.remove(); return; }
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      dlg.remove();
+      return;
+    }
+    var abierta = false;
+    var timer = null;
+    function abrir() {
+      if (abierta) return;
+      abierta = true;
+      if (timer) window.clearTimeout(timer);
+      dlg.classList.add("ara-intro-abierta");
+      window.setTimeout(function () {
+        try { dlg.close(); } catch (e) { /* ya cerrado */ }
+        dlg.remove();
+      }, 950);
+    }
+    try { dlg.showModal(); } catch (e) { dlg.remove(); return; }
+    dlg.addEventListener("click", abrir);
+    dlg.addEventListener("cancel", function (e) { e.preventDefault(); abrir(); });
+    timer = window.setTimeout(abrir, 3000);
+  })();
+</script>
