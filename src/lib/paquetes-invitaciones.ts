@@ -66,6 +66,23 @@ export const PAQUETES_INVITACIONES: PaqueteInvitacion[] = [
   },
 ];
 
+/**
+ * El paquete Base (₡12 500): la invitación generada con IA, exclusiva
+ * para quienes reservan su espacio en Bookea. No viaja por el chat de
+ * pedidos: se ofrece en la card post-reserva y acá se explica.
+ */
+export const PAQUETE_BASE = {
+  nombre: "Base",
+  precio: 12500,
+  badge: "Solo con tu reserva",
+  lema: "La invitación generada con IA — el precio especial de quienes ya reservaron su espacio en Bookea.",
+  incluye: [
+    "Invitación digital generada con IA en minutos",
+    "Tus invitados confirman en el link y vos ves la lista en vivo",
+    "Dirección personalizada: bookea.lat/invitacion/tu-nombre",
+  ],
+} as const;
+
 /** ₡44 900 con el formato local del sitio. */
 export function precioPaquete(precio: number): string {
   return "₡" + Math.round(precio).toLocaleString("es-CR");

@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { IconCheck } from "@/components/icons";
 import { pedirPaquete } from "@/app/invitaciones/actions";
 import {
+  PAQUETE_BASE,
   PAQUETES_INVITACIONES,
   precioPaquete,
   type PaqueteInvitacion,
@@ -48,6 +50,50 @@ export default function PaquetesInvitaciones({
         {PAQUETES_INVITACIONES.map((p) => (
           <CardPaquete key={p.id} paquete={p} />
         ))}
+      </div>
+
+      {/* El paquete Base: no compite en la fila — es el beneficio de
+          quienes reservan su espacio en Bookea, y acá se explica. */}
+      <div className="mt-5 flex flex-col gap-5 rounded-[24px] border border-aventurea-orange/25 bg-aventurea-orange/5 p-7 md:flex-row md:items-center">
+        <div className="flex-1">
+          <span className="inline-flex w-fit items-center rounded-full bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white">
+            {PAQUETE_BASE.badge}
+          </span>
+          <h3 className="titulo mt-3 text-[20px] text-aventurea-ink">
+            {PAQUETE_BASE.nombre}
+            <span className="ml-2.5 text-[24px] font-extrabold tracking-[-0.5px]">
+              {precioPaquete(PAQUETE_BASE.precio)}
+            </span>
+            <span className="ml-1.5 text-[12.5px] font-semibold text-aventurea-ink-soft">
+              por evento
+            </span>
+          </h3>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-aventurea-ink-soft">
+            {PAQUETE_BASE.lema}
+          </p>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3 sm:gap-3">
+            {PAQUETE_BASE.incluye.map((linea) => (
+              <li
+                key={linea}
+                className="flex items-start gap-2 text-[12.5px] leading-snug text-aventurea-ink"
+              >
+                <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-aventurea-green" />
+                {linea}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="shrink-0 text-center md:w-[200px]">
+          <Link
+            href="/eventos"
+            className="inline-block w-full rounded-xl bg-aventurea-navy px-6 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+          >
+            Reservar un espacio →
+          </Link>
+          <p className="mt-2 text-[10.5px] leading-relaxed text-aventurea-ink-soft">
+            La oferta aparece al completar tu reserva de salón o servicio.
+          </p>
+        </div>
       </div>
     </section>
   );
