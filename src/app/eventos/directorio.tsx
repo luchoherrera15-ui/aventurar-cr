@@ -360,11 +360,13 @@ export default function Directorio({
             ))}
             {/* Invitaciones digitales no es un filtro: es el producto
                 propio de Bookea, con su propia landing de venta. */}
+            {/* En azul a propósito: es el producto propio de Bookea y
+                debe distinguirse de los filtros naranjas de categoría. */}
             <Link
               href="/invitaciones"
-              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-line bg-aventurea-surface pl-1.5 pr-4 text-aventurea-ink transition-colors hover:border-aventurea-navy"
+              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-navy/40 bg-aventurea-blue-light pl-1.5 pr-4 text-aventurea-navy transition-colors hover:border-aventurea-navy hover:bg-aventurea-navy hover:text-white"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-orange/10 text-aventurea-orange">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-navy text-white">
                 <IconMail className="h-[18px] w-[18px]" />
               </span>
               <span className="text-[13px] font-bold">Invitaciones Digitales</span>
