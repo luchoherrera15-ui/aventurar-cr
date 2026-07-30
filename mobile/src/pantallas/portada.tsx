@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
@@ -9,9 +8,6 @@ import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Fonts } from "@/constants/theme";
 import logoBlanco from "../../assets/images/logo-bookea-blanco.png";
-import fondoEventos from "../../assets/fondos/portada-eventos.jpg";
-import fondoCitas from "../../assets/fondos/portada-citas.jpg";
-import fondoHospedajes from "../../assets/fondos/portada-hospedajes.jpg";
 
 /**
  * La misma portada que la web (src/app/page.tsx), adaptada al
@@ -25,29 +21,19 @@ import fondoHospedajes from "../../assets/fondos/portada-hospedajes.jpg";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
-const FONDOS = [fondoEventos, fondoCitas, fondoHospedajes];
-
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
 export default function Portada({ onEntrar }: { onEntrar: () => void }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  // El sorteo pasa una sola vez, al montar — no en cada render.
-  const [fondo] = useState(() => FONDOS[Math.floor(Math.random() * FONDOS.length)]);
 
   return (
     <View style={styles.contenedor}>
-      {/* Sobre la foto los íconos del sistema van claros; al salir de
-          la portada vuelve el estilo oscuro del layout raíz. */}
+      {/* Fondo navy sólido de marca (sin foto, pedido del dueño); los
+          íconos del sistema van claros sobre el azul. */}
       <StatusBar style="light" />
-      <Image
-        source={fondo}
-        alt=""
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        transition={400}
-      />
-      <View style={styles.velo} />
+      <View style={styles.orbe} />
+      <View style={styles.orbeAbajo} />
 
       <ScrollView
         style={StyleSheet.absoluteFill}
@@ -184,9 +170,25 @@ function TarjetaSeccion({
 
 const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.navy },
-  velo: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(10, 18, 42, 0.52)",
+  // Dos orbes suaves para que el navy no sea plano — el mismo recurso
+  // de los bentos de la web.
+  orbe: {
+    position: "absolute",
+    top: -90,
+    right: -70,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: "rgba(47,74,148,0.35)",
+  },
+  orbeAbajo: {
+    position: "absolute",
+    bottom: -110,
+    left: -80,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: "rgba(238,116,32,0.12)",
   },
   contenido: {
     flexGrow: 1,

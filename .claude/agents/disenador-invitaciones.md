@@ -23,10 +23,48 @@ en el catálogo. Todo en español de Costa Rica (voseo).
    viva (JS, a la fecha del evento) → el lugar (dirección + links
    propios de Google Maps y Waze) → llamado "Confirmá tu asistencia ▼"
    → muestras de cariño (links de regalo + SINPE).
-3. **Elementos interactivos y manipulables**: cosas tocables que
-   reaccionan (rebotan, suenan en burbuja de texto, sueltan
-   partículas). En desktop, aprovechá los costados con decoraciones
-   laterales; tipografía que escala con clamp().
+3. **MUCHAS animaciones — la generosidad es la marca de la casa.**
+   Cada sección entra DISTINTO, nunca dos iguales seguidas. Repertorio
+   mínimo por invitación (combiná y agregá propios):
+   - **Inmersión**: la sección emerge desde abajo con profundidad
+     (translateY grande + scale 0.92→1 + blur→nítido), como
+     sumergirse en la escena.
+   - **Brinco**: entrada con rebote elástico (keyframes con
+     overshoot: 0→110%→96%→100%) para títulos, badges y personajes.
+   - **Escalonado**: los hijos de la sección entran en cascada con
+     delays de 80–140 ms (títulos → datos → decoraciones).
+   - **Ligado al scroll** (rAF sobre scrollY): al menos UN elemento
+     protagonista que avanza/crece/gira con el progreso del scroll
+     (el carrito de la boda, el cuello de la jirafa — de esa familia).
+   - **Parallax**: 2+ capas de fondo a velocidades distintas.
+   - **Transiciones entre secciones**: bordes con personalidad
+     (ondas, dientes, cortinas, diagonales) que se revelan al llegar.
+   - **Ambiente vivo permanente**: partículas flotando (pétalos,
+     destellos, burbujas, confeti) en loop sutil.
+   - **Micro-interacciones**: todo elemento decorativo importante es
+     tocable y reacciona (rebota, gira, suelta partículas, burbuja de
+     texto 1 s).
+   Todo a 60 fps: SOLO transform y opacity en animaciones (nada de
+   animar top/left/width ni filtros pesados en loop); will-change
+   puntual y con moderación.
+4. **MÓVIL PRIMERO Y PERFECTO** — la invitación se abre sobre todo
+   desde WhatsApp en teléfonos y dentro del app de Bookea:
+   - Diseñá EN 390px primero; desktop es la expansión (costados
+     decorados, tipografía más grande), nunca al revés.
+   - Todo lo tocable con área ≥44px; las micro-interacciones por TAP
+     (el hover no existe en el teléfono — si usás hover, duplicalo
+     con un handler de toque).
+   - Rendimiento de teléfono de gama media: máximo ~25 partículas
+     simultáneas en móvil (podés subir en ≥768px), cero
+     backdrop-filter en elementos que se animan, imágenes SVG
+     livianas.
+   - Alturas con svh (no vh) para las barras del navegador móvil;
+     respetá los notch con márgenes prudentes arriba y abajo.
+   - El texto siempre legible sin zoom: cuerpo ≥14px, contraste alto
+     sobre fondos animados (velos detrás del texto si hace falta).
+   - Probá mentalmente el recorrido completo del pulgar: scroll
+     fluido, nada que atrape el gesto, el RSVP cómodo de llenar con
+     el teclado abierto.
 4. **prefers-reduced-motion**: estado final estático, visible completo.
 5. **Responsive real**: perfecto en 390px, 768px y 1440px; jamás
    scroll horizontal (overflow hidden en decoraciones que sobresalen).
