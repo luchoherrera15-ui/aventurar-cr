@@ -1,6 +1,7 @@
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import RevealOnScroll from "@/components/reveal-on-scroll";
+import PaquetesInvitaciones from "@/components/paquetes-invitaciones";
 import {
   IconCheck,
   IconMail,
@@ -57,7 +58,7 @@ export default function InvitacionesLanding() {
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/cuenta"
+                href="#paquetes"
                 className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
               >
                 Pedí la tuya
@@ -171,12 +172,21 @@ export default function InvitacionesLanding() {
               </ul>
             </div>
             <Link
-              href="/cuenta"
+              href="#paquetes"
               className="mt-6 rounded-xl bg-aventurea-orange px-6 py-3 text-center text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
             >
               Pedí la tuya
             </Link>
           </div>
+        </div>
+
+        {/* ---------- Los paquetes: acá aterrizan todos los CTA ---------- */}
+        <div
+          id="paquetes"
+          data-reveal
+          className="mt-5 scroll-mt-24 rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-10 sm:px-10 sm:py-12"
+        >
+          <PaquetesInvitaciones titulo="Elegí tu paquete" />
         </div>
       </section>
     </div>

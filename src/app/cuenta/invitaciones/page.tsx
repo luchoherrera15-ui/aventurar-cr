@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import PaquetesInvitaciones from "@/components/paquetes-invitaciones";
 
 type FilaInvitacion = {
   id: string;
@@ -57,21 +58,28 @@ export default async function CuentaInvitacionesPage() {
         </p>
 
         {invitaciones.length === 0 && albumes.length === 0 ? (
-          <div className="rounded-[24px] border border-aventurea-line bg-white p-8 text-center">
-            <p className="titulo text-lg text-aventurea-ink">
-              Todavía no tenés invitaciones ni álbumes
-            </p>
-            <p className="mx-auto mt-2 max-w-[46ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-              Bookea diseña tu invitación digital a la medida: tus invitados
-              confirman desde el link, vos ves la lista en vivo, y con el
-              álbum del evento todos suben sus fotos escaneando un QR.
-            </p>
-            <Link
-              href="/invitaciones"
-              className="mt-5 inline-flex items-center justify-center rounded-full bg-aventurea-navy px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
-            >
-              Conocer las invitaciones digitales
-            </Link>
+          <div className="flex flex-col gap-8">
+            <div className="rounded-[24px] border border-aventurea-line bg-white p-8 text-center">
+              <p className="titulo text-lg text-aventurea-ink">
+                Todavía no tenés invitaciones ni álbumes
+              </p>
+              <p className="mx-auto mt-2 max-w-[46ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                Bookea diseña tu invitación digital a la medida: tus invitados
+                confirman desde el link, vos ves la lista en vivo, y con el
+                álbum del evento todos suben sus fotos escaneando un QR.{" "}
+                <Link
+                  href="/invitaciones"
+                  className="font-bold text-aventurea-navy underline-offset-2 hover:underline"
+                >
+                  Conocé cómo funcionan
+                </Link>
+                .
+              </p>
+            </div>
+            <PaquetesInvitaciones
+              disposicion="pila"
+              intro="Elegí el que le calce a tu evento y contanos tu idea por el chat — te la entregamos lista para compartir."
+            />
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -129,6 +137,13 @@ export default async function CuentaInvitacionesPage() {
                 </Link>
               </div>
             ))}
+
+            <div className="mt-8">
+              <PaquetesInvitaciones
+                disposicion="pila"
+                intro="¿Se viene otro evento? Elegí el paquete y contanos tu idea por el chat — te la entregamos lista para compartir."
+              />
+            </div>
           </div>
         )}
       </main>
