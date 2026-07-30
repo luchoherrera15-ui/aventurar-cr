@@ -35,6 +35,45 @@ import {
 import type { Calificacion } from "@/components/rancho-card";
 
 /**
+ * Boki, el personaje del asistente: una chispa redonda y sonriente de
+ * la marca (navy + naranja). Existe para darle calidez al wizard — la
+ * gente le responde a alguien, no a un formulario.
+ */
+function BokiAvatar({ tamano = 36 }: { tamano?: number }) {
+  return (
+    <svg
+      width={tamano}
+      height={tamano}
+      viewBox="0 0 48 48"
+      aria-hidden
+      className="shrink-0"
+    >
+      <circle cx="24" cy="26" r="19" fill="#ee7420" />
+      <circle cx="24" cy="26" r="19" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
+      {/* Antena chispa */}
+      <line x1="24" y1="7" x2="24" y2="2.5" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M24 1l1.2 2.4L27.6 4l-2.4 1.2L24 7.6l-1.2-2.4L20.4 4l2.4-1.2z" fill="#ffd9b8" />
+      {/* Ojos */}
+      <circle cx="17.5" cy="23.5" r="3.2" fill="#ffffff" />
+      <circle cx="30.5" cy="23.5" r="3.2" fill="#ffffff" />
+      <circle cx="18.3" cy="24.2" r="1.6" fill="#16295e" />
+      <circle cx="31.3" cy="24.2" r="1.6" fill="#16295e" />
+      {/* Sonrisa */}
+      <path
+        d="M17 32c2 2.6 4.4 3.9 7 3.9s5-1.3 7-3.9"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+      />
+      {/* Cachetes */}
+      <circle cx="13.5" cy="29" r="2" fill="rgba(255,255,255,0.35)" />
+      <circle cx="34.5" cy="29" r="2" fill="rgba(255,255,255,0.35)" />
+    </svg>
+  );
+}
+
+/**
  * "¡Creá tu evento con IA!" — el cotizador guiado del directorio de
  * eventos. Un wizard de una pregunta por pantalla (nada de chat
  * libre) que termina en un plan armado SOLO con negocios reales de
@@ -226,10 +265,11 @@ export default function Planificador({
       <button
         type="button"
         onClick={abrir}
-        className="fixed bottom-20 left-4 z-50 flex h-12 items-center gap-2 rounded-full bg-aventurea-orange pl-4 pr-5 text-[13px] font-bold text-white shadow-[0_14px_34px_-10px_rgba(194,65,12,0.6)] transition-transform hover:scale-[1.04] active:scale-[0.98] lg:bottom-6 lg:left-6 lg:text-[13.5px]"
+        className="fixed right-4 top-[72px] z-40 flex h-12 items-center gap-2.5 rounded-full bg-aventurea-navy pl-1.5 pr-5 text-[13px] font-bold text-white shadow-[0_14px_34px_-10px_rgba(22,41,94,0.55)] transition-transform hover:scale-[1.04] active:scale-[0.98] lg:right-6 lg:top-20 lg:text-[13.5px]"
       >
-        <span aria-hidden className="text-[16px]">✨</span>
-        ¡Creá tu evento con IA!
+        <BokiAvatar tamano={36} />
+        <span className="hidden sm:inline">Creá tu evento con nuestro asistente Boki</span>
+        <span className="sm:hidden">Asistente Boki</span>
       </button>
 
       {abierto && (
@@ -249,13 +289,17 @@ export default function Planificador({
           >
             {/* Encabezado navy de la marca */}
             <div className="flex items-start justify-between gap-3 bg-aventurea-navy px-5 py-4">
-              <div>
-                <p className="text-[15px] font-extrabold text-white">
-                  <span aria-hidden>✨</span> Creá tu evento con IA
-                </p>
-                <p className="mt-0.5 text-[12px] text-white/70">
-                  Contestá unas preguntas y armamos tu plan con negocios reales de Bookea.
-                </p>
+              <div className="flex items-center gap-3">
+                <BokiAvatar tamano={44} />
+                <div>
+                  <p className="text-[15px] font-extrabold text-white">
+                    ¡Hola! Soy Boki, tu asistente
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-white/70">
+                    Contestame unas preguntas y te armo el plan con negocios
+                    reales de Bookea.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
