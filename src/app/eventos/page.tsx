@@ -99,7 +99,7 @@ export default async function EventosPage() {
               cards. El h1 queda para lectores de pantalla y SEO. */}
           <h1 className="sr-only">Todo para tu evento — directorio nacional</h1>
           <div className="mb-4">
-            <SelectorVertical activo="eventos" />
+            <SelectorVertical activo="eventos" accesosALaDerecha />
           </div>
 
           <Directorio

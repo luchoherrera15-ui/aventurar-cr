@@ -61,7 +61,7 @@ export default async function HospedajesPage() {
         <div className="mx-auto max-w-[1600px] px-4 lg:px-6">
           <h1 className="sr-only">Booking Hospedajes — Costa Rica</h1>
           <div className="mb-4">
-            <SelectorVertical activo="hospedajes" />
+            <SelectorVertical activo="hospedajes" accesosALaDerecha />
           </div>
 
           {hospedajes.length === 0 ? (

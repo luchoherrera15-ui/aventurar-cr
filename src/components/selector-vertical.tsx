@@ -14,7 +14,16 @@ const VERTICALES = [
 
 export type VerticalActiva = (typeof VERTICALES)[number]["id"];
 
-export default function SelectorVertical({ activo }: { activo: VerticalActiva }) {
+export default function SelectorVertical({
+  activo,
+  accesosALaDerecha = false,
+}: {
+  activo: VerticalActiva;
+  /** Muestra "Publicá tu negocio" y "Lealtad" a la derecha. Solo para
+   *  páginas de contenedor ancho (1600px): en /citas (1100px) los
+   *  botones chocaban con la tarjeta de Hospedajes. */
+  accesosALaDerecha?: boolean;
+}) {
   return (
     <div className="relative">
       <nav
@@ -46,7 +55,8 @@ export default function SelectorVertical({ activo }: { activo: VerticalActiva })
       {/* Accesos directos en el espacio libre a la derecha del
           conmutador; en pantallas chicas no hay espacio y el header
           ya trae "Publicá tu espacio". */}
-      <div className="absolute inset-y-0 right-0 hidden items-center gap-2 lg:flex">
+      {accesosALaDerecha && (
+      <div className="absolute inset-y-0 right-0 hidden items-center gap-2 xl:flex">
         <Link
           href="/publicar"
           className="rounded-full bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
@@ -60,6 +70,7 @@ export default function SelectorVertical({ activo }: { activo: VerticalActiva })
           Lealtad
         </Link>
       </div>
+      )}
     </div>
   );
 }
