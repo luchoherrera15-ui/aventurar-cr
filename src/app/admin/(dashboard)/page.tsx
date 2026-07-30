@@ -85,6 +85,14 @@ export default async function AdminHubPage() {
           icon={<IconUsers />}
         />
         <HubCard
+          href="/admin/invitaciones"
+          title="Invitaciones digitales"
+          descripcion="El producto propio de Bookea: creá la invitación, asignásela a un cliente y seguí en vivo las confirmaciones de sus invitados."
+          stat="Diseñadas y vendidas por Bookea"
+          alerta={null}
+          icon={<IconSobre />}
+        />
+        <HubCard
           href="/admin/balance"
           title="Balance y finanzas"
           descripcion="Seguí las comisiones que deja cada salón, registrá los gastos fijos del negocio y mirá cómo va el mes."
@@ -156,6 +164,15 @@ function HubCard({
         </span>
       </div>
     </Link>
+  );
+}
+
+function IconSobre() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m3 7.5 9 6 9-6" />
+    </svg>
   );
 }
 
