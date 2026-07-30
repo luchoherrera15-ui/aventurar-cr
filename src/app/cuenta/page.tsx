@@ -259,6 +259,14 @@ export default async function CuentaPage() {
               acento
             />
           )}
+          {/* El espacio del producto propio: siempre visible, tenga o
+              no invitaciones asignadas todavía. */}
+          <TarjetaAcceso
+            href="/cuenta/invitaciones"
+            icono={<IconMail className="h-5 w-5" />}
+            titulo="Invitaciones y álbumes"
+            detalle="Tus eventos, confirmados y fotos"
+          />
         </div>
 
         {/* Sus publicaciones reales, una fila compacta por negocio, con
