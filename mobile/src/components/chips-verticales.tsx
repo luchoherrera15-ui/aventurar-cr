@@ -57,7 +57,15 @@ const styles = StyleSheet.create({
   // flexShrink: 0 evita que la fila se comprima (y recorte los chips)
   // cuando compite por altura con la lista de abajo.
   scroll: { flexGrow: 0, flexShrink: 0, marginBottom: Spacing.two },
-  fila: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
+  // flexGrow + justifyContent centran los chips cuando caben en el
+  // ancho; si no caben (pantallas angostas), la fila sigue scrolleando.
+  fila: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexGrow: 1,
+    gap: Spacing.two,
+    justifyContent: "center",
+  },
   chip: {
     alignItems: "center",
     backgroundColor: Colors.surface,

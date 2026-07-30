@@ -61,14 +61,21 @@ Genera ${numeroVariantes} variantes de prompts detallados para una invitación H
       messages: [{ role: "user", content: userMessage }],
     });
 
-    const textContent = response.content[0];
-    const texto =
-      textContent && "type" in textContent && textContent.type === "text" && "text" in textContent
-        ? textContent.text
-        : "[]";
+    // Con thinking activo el primer bloque puede ser "thinking":
+    // hay que buscar el bloque de texto, no asumir content[0].
+    const bloqueTexto = response.content.find(
+      (b): b is Extract<typeof b, { type: "text" }> => b.type === "text"
+    );
+    let texto = (bloqueTexto?.text ?? "[]").trim();
 
-    // Parsear JSON
+    // Quitar fences de markdown si el modelo los agrega igual.
+    const fence = texto.match(/^```(?:json)?\s*\n([\s\S]*?)\n?```\s*$/);
+    if (fence) texto = fence[1].trim();
+
     const variantes = JSON.parse(texto) as RefinedPromptVariant[];
+    if (!Array.isArray(variantes) || variantes.length === 0) {
+      throw new Error("La IA no devolvió variantes válidas");
+    }
     return variantes;
   } catch (e) {
     console.error("Error en refinar-prompt:", e);

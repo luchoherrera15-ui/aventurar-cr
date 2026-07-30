@@ -123,10 +123,12 @@ function HubCard({
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-aventurea-orange/40 hover:shadow-lg"
+      className="group flex flex-col rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-aventurea-navy/40 hover:shadow-lg"
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange [&_svg]:h-[22px] [&_svg]:w-[22px]">
+        {/* Navy, no naranja: el admin es sobrio; el naranja queda solo
+            para las alertas de pendientes. */}
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-[22px] [&_svg]:w-[22px]">
           {icon}
         </span>
         {alerta && (
@@ -146,7 +148,7 @@ function HubCard({
         <span className="text-[12px] font-bold text-aventurea-ink-soft">
           {stat}
         </span>
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-aventurea-orange">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-aventurea-navy">
           Entrar
           <svg
             viewBox="0 0 20 20"

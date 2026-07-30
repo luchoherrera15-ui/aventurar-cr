@@ -1,10 +1,12 @@
 import { refinarPromptConIA } from "@/lib/ia/refiner-prompt";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * POST /api/invitaciones/refinar-prompt
  *
  * Toma una descripción simple del usuario y genera N variantes
- * de prompts mejorados para que elija. No requiere autenticación.
+ * de prompts mejorados para que elija. Requiere sesión: cada llamada
+ * gasta tokens reales de Anthropic.
  *
  * Body:
  * {
@@ -29,8 +31,26 @@ import { refinarPromptConIA } from "@/lib/ia/refiner-prompt";
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return Response.json(
+        { success: false, error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { descripcion, numero_variantes = 3 } = body;
+
+    if (typeof descripcion === "string" && descripcion.length > 4000) {
+      return Response.json(
+        { success: false, error: "La descripción es demasiado larga (máx 4.000 caracteres)" },
+        { status: 400 }
+      );
+    }
 
     if (!descripcion || typeof descripcion !== "string") {
       return Response.json(
