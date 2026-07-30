@@ -265,9 +265,8 @@ export default function Planificador({
       <button
         type="button"
         onClick={abrir}
-        className="fixed right-4 top-[72px] z-40 flex h-12 items-center gap-2.5 rounded-full bg-aventurea-navy pl-1.5 pr-5 text-[13px] font-bold text-white shadow-[0_14px_34px_-10px_rgba(22,41,94,0.55)] transition-transform hover:scale-[1.04] active:scale-[0.98] lg:right-6 lg:top-20 lg:text-[13.5px]"
+        className="fixed right-4 top-[72px] z-40 flex h-11 items-center rounded-full bg-aventurea-navy px-5 text-[13px] font-bold text-white shadow-[0_14px_34px_-10px_rgba(22,41,94,0.55)] transition-transform hover:scale-[1.04] active:scale-[0.98] lg:right-6 lg:text-[13.5px] xl:top-[136px]"
       >
-        <BokiAvatar tamano={36} />
         <span className="hidden sm:inline">Creá tu evento con nuestro asistente Boki</span>
         <span className="sm:hidden">Asistente Boki</span>
       </button>
