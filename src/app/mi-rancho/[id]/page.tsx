@@ -43,6 +43,8 @@ import {
 import DepositoForm from "./deposito-form";
 import AgendaEventos, { type EventoAgenda } from "@/components/agenda-eventos";
 import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-calendario";
+import SincronizarCalendario from "@/components/sincronizar-calendario";
+import AgendasExternas, { type AgendaExternaFila } from "@/components/agendas-externas";
 import ReservaManualForm from "@/components/reserva-manual-form";
 import CargaHistorialForm from "@/components/carga-historial-form";
 import { hoyISOCR } from "@/lib/fechas";
@@ -161,6 +163,46 @@ export default async function RanchoDetallePage({
   const promociones = (promocionesRes.data ?? []) as PromocionDia[];
   const totalDescuentos = codigos.length + promociones.length;
 
+  // El feed .ics para suscribir la agenda en Google/Apple Calendar.
+  // Si la 0071 no ha corrido (o un admin abre un panel ajeno y la RLS
+  // no lo deja crear el token), feedUrl queda null y la tarjeta no
+  // aparece — nada se rompe.
+  let feedUrl: string | null = null;
+  {
+    const { data: tokenFila, error: tokenError } = await supabase
+      .from("calendario_tokens")
+      .select("token")
+      .eq("rancho_id", rancho.id)
+      .maybeSingle();
+    if (!tokenError) {
+      let token = (tokenFila?.token as string | undefined) ?? undefined;
+      if (!token) {
+        const { data: creado } = await supabase
+          .from("calendario_tokens")
+          .insert({ rancho_id: rancho.id })
+          .select("token")
+          .maybeSingle();
+        token = (creado?.token as string | undefined) ?? undefined;
+      }
+      if (token) {
+        const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://bookea.lat";
+        feedUrl = `${sitio}/api/calendario/feed/${token}`;
+      }
+    }
+  }
+
+  // Los calendarios externos conectados (0072). null = la migración
+  // no ha corrido y la tarjeta de importar no se muestra.
+  let agendasExternas: AgendaExternaFila[] | null = null;
+  {
+    const { data, error } = await supabase
+      .from("agendas_externas")
+      .select("id, nombre, url, ultima_sync, ultimo_error, eventos_importados")
+      .eq("rancho_id", rancho.id)
+      .order("created_at", { ascending: true });
+    if (!error) agendasExternas = (data ?? []) as AgendaExternaFila[];
+  }
+
   // La agenda: los eventos que vienen, ordenados, con HOY y MAÑANA
   // resaltados — el control operativo del día a día.
   const hoyCR = hoyISOCR();
@@ -179,8 +221,15 @@ export default async function RanchoDetallePage({
 
   // El calendario de ocupados muestra todo lo activo (no solo lo
   // próximo): así también se ve de un vistazo lo que ya pasó este mes.
+  // Incluye los bloqueos (manuales o importados de agendas externas):
+  // desde la 0072 también tapan disponibilidad.
   const diasOcupados: DiaOcupado[] = reservas
-    .filter((r) => r.estado === "pendiente" || r.estado === "confirmada")
+    .filter(
+      (r) =>
+        r.estado === "pendiente" ||
+        r.estado === "confirmada" ||
+        r.estado === "bloqueada",
+    )
     .map((r) => ({ fecha: r.fecha, estado: r.estado, nombre: r.nombre }));
 
   const tabAgenda: Tab = {
@@ -194,6 +243,8 @@ export default async function RanchoDetallePage({
           mandamos un recordatorio por correo.
         </p>
         <OcupacionCalendario dias={diasOcupados} />
+        <AgendasExternas ranchoId={rancho.id} agendas={agendasExternas} />
+        <SincronizarCalendario feedUrl={feedUrl} />
         <ReservaManualForm
           capacidadMax={esLugar ? rancho.capacidad_max : null}
           onCrear={crearReservaManual.bind(null, rancho.id)}

@@ -25,6 +25,7 @@ import {
 } from "@/lib/busqueda";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
+import ChipsVerticales from "@/components/chips-verticales";
 import {
   CANTONES,
   CATEGORIA_LABEL,
@@ -329,19 +330,7 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
       <View style={[styles.busquedaArea, { paddingTop: insets.top + Spacing.three }]}>
         {/* Cambio de vertical al toque, sin pasar por la portada:
             Eventos (esta pantalla), Citas y Hospedajes. */}
-        <View style={styles.verticalesFila}>
-          <ChipVertical icono="sparkles-outline" label="Eventos" activo />
-          <ChipVertical
-            icono="time-outline"
-            label="Citas"
-            onPress={() => router.push("/citas" as never)}
-          />
-          <ChipVertical
-            icono="home-outline"
-            label="Hospedajes"
-            onPress={() => router.push("/hospedajes" as never)}
-          />
-        </View>
+        <ChipsVerticales activo="eventos" />
         <View style={styles.busquedaFila}>
           <View style={[styles.busquedaPill, { flex: 1 }]}>
             <Ionicons name="search" size={17} color={Colors.ink} />
@@ -682,35 +671,6 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
   );
 }
 
-/** Chip compacto para saltar de vertical (Eventos / Citas / Hospedajes)
- * sin pasar por la portada. El activo va en navy y no navega. */
-function ChipVertical({
-  icono,
-  label,
-  activo = false,
-  onPress,
-}: {
-  icono: IconoNombre;
-  label: string;
-  activo?: boolean;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={activo}
-      onPress={onPress}
-      style={[styles.chipVertical, activo && styles.chipVerticalActivo]}
-    >
-      <Ionicons name={icono} size={14} color={activo ? "#ffffff" : Colors.navy} />
-      <Text style={[styles.chipVerticalTexto, activo && styles.chipVerticalTextoActivo]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 /** Un filtro activo bajo el buscador, con su × para quitarlo. */
 function ChipFiltroActivo({ label, onQuitar }: { label: string; onQuitar: () => void }) {
   return (
@@ -900,21 +860,6 @@ const styles = StyleSheet.create({
   contenedor: { flex: 1, backgroundColor: Colors.cream },
   busquedaArea: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, backgroundColor: Colors.surface },
   busquedaFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
-  verticalesFila: { flexDirection: "row", gap: Spacing.two, marginBottom: Spacing.two },
-  chipVertical: {
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    height: 34,
-    paddingHorizontal: 13,
-  },
-  chipVerticalActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  chipVerticalTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
-  chipVerticalTextoActivo: { color: "#ffffff" },
   busquedaPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -1169,7 +1114,6 @@ const styles = StyleSheet.create({
   },
   rating: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.ink },
   ratingSuave: { fontSize: 12, fontFamily: Fonts.regular, color: Colors.inkSoft },
-  rubro: { fontSize: 12.5, fontFamily: Fonts.medium, color: Colors.inkSoft },
   ctaBarra: {
     alignItems: "center",
     borderTopColor: "#e8eef8",
@@ -1212,13 +1156,6 @@ const styles = StyleSheet.create({
   subcatPillActiva: { backgroundColor: Colors.navy, borderColor: Colors.navy },
   subcatPillTexto: { fontSize: 12, fontFamily: Fonts.bold, color: Colors.inkSoft },
   subcatPillTextoActivo: { color: "#ffffff" },
-  etiqueta: {
-    fontSize: 10.5,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    color: Colors.accent,
-  },
   nombre: { fontSize: 16, fontFamily: Fonts.extraBold, letterSpacing: -0.2, color: Colors.ink },
   ubicacion: { fontSize: 13, fontFamily: Fonts.regular, color: Colors.inkSoft },
   precio: { color: Colors.inkSoft, flex: 1, fontFamily: Fonts.medium, fontSize: 12.5 },

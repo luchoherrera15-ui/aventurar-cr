@@ -448,6 +448,34 @@ export function IconWand({ className = base }: IconProps) {
   );
 }
 
+export function IconImagePlus({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m5 17 4.5-5 3 3.5L19 11l-3 6" />
+      <path strokeLinecap="round" d="M17 9.5v7M13.5 13h7" />
+    </svg>
+  );
+}
+
+export function IconVideoPlus({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2l2-2h4l2 2h2Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 13v4M10 15h4" />
+    </svg>
+  );
+}
+
+export function IconX({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5.5 5.5 18.5 18.5M18.5 5.5 5.5 18.5" />
+    </svg>
+  );
+}
+
 export function IconStore({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>

@@ -39,3 +39,5 @@ create policy "Cualquiera deja su lead con consentimiento" on planificador_leads
   with check (consentimiento = true);
 
 grant insert on planificador_leads to anon, authenticated;
+
+

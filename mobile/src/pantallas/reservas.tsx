@@ -36,12 +36,22 @@ const ESTADO_LABEL: Record<string, string> = {
   pendiente: "En revisión",
   confirmada: "Confirmada",
   rechazada: "Rechazada",
+  // Estados de citas (0061): el negocio marca la asistencia.
+  cumplida: "Cumplida",
+  no_asistio: "No asististe",
+  cancelada: "Cancelada",
 };
 const ESTADO_COLOR: Record<string, string> = {
   pendiente: Colors.accent,
   confirmada: Colors.green,
   rechazada: Colors.danger,
+  cumplida: Colors.green,
+  no_asistio: Colors.danger,
+  cancelada: Colors.inkSoft,
 };
+
+// Estados finales: viven en el historial aunque la fecha sea hoy.
+const ESTADOS_FINALES = new Set(["rechazada", "cumplida", "no_asistio", "cancelada"]);
 
 type ReservaCliente = {
   id: string;
@@ -94,7 +104,16 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
           "id, fecha, estado, monto_total, horario_bloque, hora_inicio, rancho_id, ranchos(nombre, foto_url, categoria)",
         )
         .eq("cliente_id", session.user.id)
-        .in("estado", ["pendiente", "confirmada", "rechazada"])
+        // Con los estados de citas: una cita cumplida sigue siendo
+        // historial (y habilita la reseña), no puede desaparecer.
+        .in("estado", [
+          "pendiente",
+          "confirmada",
+          "rechazada",
+          "cumplida",
+          "no_asistio",
+          "cancelada",
+        ])
         .order("fecha", { ascending: false }),
       supabase
         .from("resenas")
@@ -147,10 +166,10 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
 
   const hoy = new Date().toISOString().slice(0, 10);
   const activas = (reservas ?? []).filter(
-    (r) => r.estado !== "rechazada" && r.fecha >= hoy,
+    (r) => !ESTADOS_FINALES.has(r.estado) && r.fecha >= hoy,
   );
   const historial = (reservas ?? []).filter(
-    (r) => r.estado === "rechazada" || r.fecha < hoy,
+    (r) => ESTADOS_FINALES.has(r.estado) || r.fecha < hoy,
   );
 
   return (
@@ -189,7 +208,7 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
                 atenuada
                 resena={resenasPropias.get(r.id) ?? null}
                 onResena={
-                  r.estado === "confirmada" && r.rancho_id
+                  (r.estado === "confirmada" || r.estado === "cumplida") && r.rancho_id
                     ? () => setResenaAbierta(r)
                     : undefined
                 }

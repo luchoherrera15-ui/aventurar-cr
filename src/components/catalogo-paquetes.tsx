@@ -1,6 +1,7 @@
 "use client";
 
 import type { RanchoItem } from "@/app/mi-rancho/types";
+import { IconChevronDown } from "@/components/icons";
 import { agruparPorSeccion, cupoRestante, etiquetaDuracion } from "@/lib/catalogo";
 
 /**
@@ -88,7 +89,7 @@ export default function CatalogoPaquetes({
   const secciones = agruparPorSeccion(items.filter((i) => i.activo));
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3">
       {secciones.map(({ grupo, items: delGrupo }) => {
         const topeEleccion =
           grupo && onElegir ? (eleccionesPorGrupo?.[grupo] ?? 0) : 0;
@@ -96,19 +97,18 @@ export default function CatalogoPaquetes({
         const marcados = esEleccion
           ? delGrupo.filter((i) => elegidos?.[i.id]).length
           : 0;
-        return (
-        <div key={grupo ?? "__sin_grupo__"}>
-          {grupo && (
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-              {grupo}
-            </p>
-          )}
-          {esEleccion && (
-            <p className="mb-2 text-[12px] font-bold text-aventurea-green">
-              Incluido en tu tarifa — elegí hasta {topeEleccion} sin costo (
-              {marcados}/{topeEleccion})
-            </p>
-          )}
+        // Cuántos ítems de la sección ya eligió el cliente — se asoma
+        // en el resumen para que lo elegido no se "pierda" al plegar.
+        const seleccionadosSeccion = esEleccion
+          ? marcados
+          : delGrupo.filter((i) => (cantidades[i.id] ?? 0) > 0).length;
+        const nota = esEleccion && (
+          <p className="mb-2 text-[12px] font-bold text-aventurea-green">
+            Incluido en tu tarifa — elegí hasta {topeEleccion} sin costo (
+            {marcados}/{topeEleccion})
+          </p>
+        );
+        const lista = (
           <div className="flex flex-col gap-3">
             {delGrupo.map((item) => {
               // Sección "incluida": nada de contadores ni precios — un
@@ -265,6 +265,14 @@ export default function CatalogoPaquetes({
                     agotado ? "opacity-50" : ""
                   }`}
                 >
+                  {item.foto_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.foto_url}
+                      alt={item.nombre}
+                      className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] font-bold text-aventurea-ink">
                       {item.nombre}
@@ -307,7 +315,41 @@ export default function CatalogoPaquetes({
               );
             })}
           </div>
-        </div>
+        );
+
+        // Los ítems sin sección van al final y quedan siempre a la
+        // vista: no hay título con qué plegarlos.
+        if (!grupo) {
+          return <div key="__sin_grupo__">{lista}</div>;
+        }
+
+        // Cada sección arranca cerrada: la página respira y el cliente
+        // abre solo lo que le interesa. <details> mantiene el contenido
+        // montado, así que las cantidades elegidas no se pierden.
+        return (
+          <details key={grupo} className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-aventurea-line bg-white px-4 py-3.5 transition-colors hover:border-aventurea-orange [&::-webkit-details-marker]:hidden">
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="truncate text-[13.5px] font-bold text-aventurea-ink">
+                  {grupo}
+                </span>
+                <span className="shrink-0 text-[13px] text-aventurea-ink-soft">
+                  · {delGrupo.length}
+                </span>
+                {seleccionadosSeccion > 0 && (
+                  <span className="shrink-0 rounded-full bg-aventurea-orange px-2 py-0.5 text-[11px] font-bold text-white">
+                    {seleccionadosSeccion} elegido
+                    {seleccionadosSeccion === 1 ? "" : "s"}
+                  </span>
+                )}
+              </span>
+              <IconChevronDown className="h-4 w-4 shrink-0 text-aventurea-ink-soft transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-3">
+              {nota}
+              {lista}
+            </div>
+          </details>
         );
       })}
     </div>

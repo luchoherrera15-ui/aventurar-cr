@@ -8,6 +8,7 @@ import {
   CATEGORIAS_CITAS,
   CATEGORIA_CITA_LABEL,
   normalizarCategoriaCita,
+  type CategoriaCita,
 } from "./tipos";
 import type { Rancho } from "../mi-rancho/types";
 
@@ -23,7 +24,22 @@ type Calificacion = { rancho_id: string; promedio: number; total: number };
  * El directorio de Citas: los negocios que atienden con turno. Mismo
  * esqueleto que el de eventos pero con la estética celeste de esta
  * vertical y categorías propias (belleza, barbería, uñas, spa...).
+ *
+ * Sin filtro activo, cada categoría es una fila horizontal con sus
+ * cards (estilo riel); al filtrar o buscar se pasa al grid clásico.
  */
+
+/** Títulos de las filas del directorio: más vendedores que el label
+ *  corto de la categoría (que sigue mandando en badges y formularios). */
+const TITULO_FILA: Record<string, string> = {
+  belleza: "Salones de belleza",
+  barberia: "Barberías",
+  unas: "Uñas",
+  spa: "Spa y masajes",
+  consultorio: "Consultorios médicos",
+  otros: "Otros servicios",
+};
+
 /** Para buscar sin pelear con tildes: "peluquería" encuentra "peluqueria". */
 function normalizarBusqueda(s: string): string {
   return s
@@ -32,12 +48,27 @@ function normalizarBusqueda(s: string): string {
     .replace(/[̀-ͯ]/g, "");
 }
 
+type Fila = Pick<
+  Rancho,
+  "id" | "nombre" | "slug" | "descripcion" | "provincia" | "canton" | "foto_url" | "precio_desde"
+> & { categoria: string };
+
+/** Una fila ya normalizada: la categoría es una de las oficiales. */
+type Negocio = Omit<Fila, "categoria"> & { categoria: CategoriaCita };
+
+/** Next entrega string | string[] con parámetros repetidos en la URL. */
+function unSolo(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
 export default async function CitasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ categoria?: string; q?: string }>;
+  searchParams: Promise<{ categoria?: string | string[]; q?: string | string[] }>;
 }) {
-  const { categoria, q } = await searchParams;
+  const params = await searchParams;
+  const categoria = unSolo(params.categoria);
+  const q = unSolo(params.q);
   const busqueda = (q ?? "").trim();
   const supabase = await createClient();
 
@@ -51,12 +82,7 @@ export default async function CitasPage({
     supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
   ]);
 
-  type Fila = Pick<
-    Rancho,
-    "id" | "nombre" | "slug" | "descripcion" | "provincia" | "canton" | "foto_url" | "precio_desde"
-  > & { categoria: string };
-
-  const negocios = ((negociosData ?? []) as Fila[]).map((n) => ({
+  const negocios: Negocio[] = ((negociosData ?? []) as Fila[]).map((n) => ({
     ...n,
     categoria: normalizarCategoriaCita(n.categoria),
   }));
@@ -64,14 +90,12 @@ export default async function CitasPage({
     ((califData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
   );
 
-  const porCategoria = categoria
-    ? negocios.filter((n) => n.categoria === categoria)
-    : negocios;
-
-  // El buscador filtra por nombre, zona, rubro o descripción.
+  // El buscador filtra por nombre, zona, rubro o descripción. Se
+  // aplica ANTES que la categoría para que los conteos de los chips
+  // prometan exactamente lo que el clic entrega.
   const aguja = normalizarBusqueda(busqueda);
-  const filtrados = aguja
-    ? porCategoria.filter((n) =>
+  const baseBusqueda = aguja
+    ? negocios.filter((n) =>
         normalizarBusqueda(
           [
             n.nombre,
@@ -82,12 +106,25 @@ export default async function CitasPage({
           ].join(" "),
         ).includes(aguja),
       )
-    : porCategoria;
+    : negocios;
+
+  const filtrados = categoria
+    ? baseBusqueda.filter((n) => n.categoria === categoria)
+    : baseBusqueda;
 
   const conteo: Record<string, number> = {};
-  negocios.forEach((n) => {
+  baseBusqueda.forEach((n) => {
     conteo[n.categoria] = (conteo[n.categoria] ?? 0) + 1;
   });
+
+  // Vista de filas (sin filtro ni búsqueda): una línea por categoría,
+  // en el orden oficial, saltando las vacías.
+  const filas = CATEGORIAS_CITAS.map((c) => ({
+    categoria: c,
+    items: negocios.filter((n) => n.categoria === c),
+  })).filter((f) => f.items.length > 0);
+
+  const vistaFilas = !categoria && !aguja;
 
   return (
     <div className="relative min-h-screen bg-aventurea-cream-2">
@@ -111,6 +148,7 @@ export default async function CitasPage({
             <input
               type="search"
               name="q"
+              aria-label="Buscar negocios por nombre, zona o rubro"
               defaultValue={busqueda}
               placeholder='Buscá por nombre, zona o rubro — ej. "uñas" o "Moravia"'
               className="h-12 w-full rounded-full border border-aventurea-line bg-white pl-11 pr-4 text-[13.5px] text-aventurea-ink placeholder:text-zinc-400 focus:border-aventurea-navy focus:outline-none"
@@ -123,7 +161,7 @@ export default async function CitasPage({
           <ChipCategoria
             href={busqueda ? `/citas?q=${encodeURIComponent(busqueda)}` : "/citas"}
             activo={!categoria}
-            label={`Todos (${negocios.length})`}
+            label={`Todos (${baseBusqueda.length})`}
           />
           {CATEGORIAS_CITAS.filter((c) => (conteo[c] ?? 0) > 0).map((c) => (
             <ChipCategoria
@@ -164,81 +202,43 @@ export default async function CitasPage({
               Publicar mi negocio
             </Link>
           </div>
+        ) : vistaFilas ? (
+          /* Una fila por categoría: título + línea horizontal de cards. */
+          <div className="mt-6 space-y-8">
+            {filas.map((f) => (
+              <section key={f.categoria}>
+                <div className="flex items-end justify-between gap-3">
+                  <h2 className="text-[17px] font-extrabold tracking-tight text-aventurea-ink">
+                    {TITULO_FILA[f.categoria] ?? CATEGORIA_CITA_LABEL[f.categoria]}
+                    <span className="ml-2 text-[13px] font-bold text-aventurea-ink-soft">
+                      ({f.items.length})
+                    </span>
+                  </h2>
+                  <Link
+                    href={`/citas?categoria=${f.categoria}`}
+                    className="shrink-0 text-[12.5px] font-extrabold text-aventurea-navy hover:text-aventurea-orange"
+                  >
+                    Ver todos →
+                  </Link>
+                </div>
+                <div className="mt-3.5 flex snap-x gap-4 overflow-x-auto pb-2 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {f.items.map((n) => (
+                    <CardNegocio
+                      key={n.id}
+                      negocio={n}
+                      calif={califPorNegocio.get(n.id)}
+                      className="w-[270px] shrink-0 snap-start sm:w-[300px]"
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filtrados.map((n) => {
-              const calif = califPorNegocio.get(n.id);
-              const href = n.slug ? `/citas/${n.slug}` : `/citas/${n.id}`;
-              const ubicacion = [n.canton, n.provincia].filter(Boolean).join(", ");
-              return (
-                <Link
-                  key={n.id}
-                  href={href}
-                  className="group overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
-                >
-                  <div className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light">
-                    {n.foto_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- fotos remotas de Supabase
-                      <img
-                        src={n.foto_url}
-                        alt={n.nombre}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <span className="flex h-full items-center justify-center text-aventurea-navy/40">
-                        <IconClock className="h-10 w-10" />
-                      </span>
-                    )}
-                    <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
-                      {CATEGORIA_CITA_LABEL[n.categoria]}
-                    </span>
-                    {n.slug?.startsWith("demo-") && (
-                      <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
-                        Demo
-                      </span>
-                    )}
-                  </div>
-                  {/* Cuerpo al estilo Fresha: nombre + nota, ubicación y
-                      precio — nada de párrafos; la card vende sola. */}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-[15px] font-extrabold leading-snug text-aventurea-ink">
-                        {n.nombre}
-                      </p>
-                      {calif && (
-                        <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-bold text-aventurea-ink">
-                          <IconStar className="h-3.5 w-3.5 text-aventurea-orange" />
-                          {calif.promedio.toFixed(1)}
-                          <span className="font-semibold text-aventurea-ink-soft">({calif.total})</span>
-                        </span>
-                      )}
-                    </div>
-                    {ubicacion && (
-                      <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-aventurea-ink-soft">
-                        <IconPin className="h-3.5 w-3.5 text-aventurea-navy" /> {ubicacion}
-                      </p>
-                    )}
-                    <div className="mt-3 flex items-center justify-between border-t border-[#e8eef8] pt-3">
-                      <span className="text-[12.5px] text-aventurea-ink-soft">
-                        {n.precio_desde ? (
-                          <>
-                            Desde{" "}
-                            <strong className="font-extrabold text-aventurea-ink">
-                              ₡{Number(n.precio_desde).toLocaleString("es-CR")}
-                            </strong>
-                          </>
-                        ) : (
-                          "Precios en línea"
-                        )}
-                      </span>
-                      <span className="text-[13px] font-extrabold text-aventurea-orange">
-                        Reservar →
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+            {filtrados.map((n) => (
+              <CardNegocio key={n.id} negocio={n} calif={califPorNegocio.get(n.id)} />
+            ))}
           </div>
         )}
 
@@ -247,6 +247,86 @@ export default async function CitasPage({
             /publicar y en el estado vacío). */}
       </section>
     </div>
+  );
+}
+
+function CardNegocio({
+  negocio: n,
+  calif,
+  className = "",
+}: {
+  negocio: Negocio;
+  calif?: Calificacion;
+  className?: string;
+}) {
+  const href = n.slug ? `/citas/${n.slug}` : `/citas/${n.id}`;
+  const ubicacion = [n.canton, n.provincia].filter(Boolean).join(", ");
+  return (
+    <Link
+      href={href}
+      className={`group overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)] ${className}`}
+    >
+      <div className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light">
+        {n.foto_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- fotos remotas de Supabase
+          <img
+            src={n.foto_url}
+            alt={n.nombre}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <span className="flex h-full items-center justify-center text-aventurea-navy/40">
+            <IconClock className="h-10 w-10" />
+          </span>
+        )}
+        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
+          {CATEGORIA_CITA_LABEL[n.categoria]}
+        </span>
+        {n.slug?.startsWith("demo-") && (
+          <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
+            Demo
+          </span>
+        )}
+      </div>
+      {/* Cuerpo al estilo Fresha: nombre + nota, ubicación y
+          precio — nada de párrafos; la card vende sola. */}
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[15px] font-extrabold leading-snug text-aventurea-ink">
+            {n.nombre}
+          </p>
+          {calif && (
+            <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-bold text-aventurea-ink">
+              <IconStar className="h-3.5 w-3.5 text-aventurea-orange" />
+              {calif.promedio.toFixed(1)}
+              <span className="font-semibold text-aventurea-ink-soft">({calif.total})</span>
+            </span>
+          )}
+        </div>
+        {ubicacion && (
+          <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-aventurea-ink-soft">
+            <IconPin className="h-3.5 w-3.5 text-aventurea-navy" /> {ubicacion}
+          </p>
+        )}
+        <div className="mt-3 flex items-center justify-between border-t border-[#e8eef8] pt-3">
+          <span className="text-[12.5px] text-aventurea-ink-soft">
+            {n.precio_desde ? (
+              <>
+                Desde{" "}
+                <strong className="font-extrabold text-aventurea-ink">
+                  ₡{Number(n.precio_desde).toLocaleString("es-CR")}
+                </strong>
+              </>
+            ) : (
+              "Precios en línea"
+            )}
+          </span>
+          <span className="text-[13px] font-extrabold text-aventurea-orange">
+            Reservar →
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }
 

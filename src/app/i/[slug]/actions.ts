@@ -11,6 +11,8 @@ export type NuevoRsvp = {
   mensaje: string | null;
   /** Respuestas a las preguntas configurables ({id → respuesta}). */
   respuestas?: Record<string, string> | null;
+  /** Correo de contacto del invitado (opcional). */
+  correo?: string | null;
 };
 
 /**
@@ -28,6 +30,13 @@ export async function confirmarAsistencia(rsvp: NuevoRsvp) {
   const mensaje = rsvp.mensaje?.trim().slice(0, 500) || null;
   const respuestas = limpiarRespuestas(rsvp.respuestas);
 
+  // El correo es opcional, pero si lo escribieron tiene que verse como
+  // correo — un typo acá deja al anfitrión con un contacto inservible.
+  const correo = rsvp.correo?.trim().toLowerCase().slice(0, 200) || null;
+  if (correo && !/^\S+@\S+\.\S+$/.test(correo)) {
+    return { error: "Ese correo no se ve bien — revisalo o dejalo vacío." };
+  }
+
   const fila: {
     invitacion_id: string;
     nombre: string;
@@ -35,6 +44,7 @@ export async function confirmarAsistencia(rsvp: NuevoRsvp) {
     asistira: boolean;
     mensaje: string | null;
     respuestas?: Record<string, string>;
+    correo?: string;
   } = {
     invitacion_id: rsvp.invitacionId,
     nombre,
@@ -43,21 +53,26 @@ export async function confirmarAsistencia(rsvp: NuevoRsvp) {
     mensaje,
   };
   if (respuestas) fila.respuestas = respuestas;
+  if (correo) fila.correo = correo;
 
   const supabase = await createClient();
   let { error } = await supabase.from("invitacion_rsvp").insert(fila);
 
-  // La columna `respuestas` llegó con la 0068. Si esa migración no ha
-  // corrido, PostgREST rechaza la columna desconocida (PGRST204) — se
-  // reintenta sin respuestas para que la confirmación no se pierda.
+  // Las columnas `respuestas` (0068) y `correo` (0070) son opcionales:
+  // si su migración no ha corrido, PostgREST rechaza la columna
+  // desconocida (PGRST204) — se reintenta con lo básico para que la
+  // confirmación no se pierda.
   if (
     error &&
-    respuestas &&
-    (error.code === "PGRST204" || error.message?.includes("respuestas"))
+    (respuestas || correo) &&
+    (error.code === "PGRST204" ||
+      error.message?.includes("respuestas") ||
+      error.message?.includes("correo"))
   ) {
-    const { respuestas: _omitidas, ...sinRespuestas } = fila;
-    void _omitidas;
-    ({ error } = await supabase.from("invitacion_rsvp").insert(sinRespuestas));
+    const { respuestas: _r, correo: _c, ...basica } = fila;
+    void _r;
+    void _c;
+    ({ error } = await supabase.from("invitacion_rsvp").insert(basica));
   }
 
   if (error) {

@@ -39,11 +39,18 @@ const ESTADO_LABEL: Record<string, string> = {
   pendiente: "En revisión",
   confirmada: "Confirmada",
   rechazada: "Rechazada",
+  // Estados de citas (0061): el negocio marca la asistencia.
+  cumplida: "Cumplida",
+  no_asistio: "No asististe",
+  cancelada: "Cancelada",
 };
 const ESTADO_CLASE: Record<string, string> = {
   pendiente: "bg-aventurea-orange/10 text-aventurea-ink",
   confirmada: "bg-aventurea-green/10 text-aventurea-green",
   rechazada: "bg-red-100 text-red-700",
+  cumplida: "bg-aventurea-green/10 text-aventurea-green",
+  no_asistio: "bg-red-100 text-red-700",
+  cancelada: "bg-aventurea-cream-2 text-aventurea-ink-soft",
 };
 
 export default function ReservasTabs({
@@ -105,7 +112,7 @@ export default function ReservasTabs({
               reserva={r}
               atenuada
               resena={resenas[r.id] ?? null}
-              permitirResena={r.fecha < hoy}
+              permitirResena={r.fecha < hoy || r.estado === "cumplida"}
             />
           ),
         )
@@ -153,10 +160,13 @@ function TarjetaReserva({
   permitirResena?: boolean;
 }) {
   const href = reserva.ranchos?.slug ? `/${reserva.ranchos.slug}` : null;
-  // La reseña se habilita solo desde el día después del evento (la
-  // política de la base también lo exige — esto evita el botón muerto).
+  // La reseña se habilita desde el día después del evento, o de una
+  // vez si la cita quedó cumplida (la política de la base exige lo
+  // mismo — esto evita el botón muerto).
   const puedeResenar =
-    !!permitirResena && reserva.estado === "confirmada" && !!reserva.rancho_id;
+    !!permitirResena &&
+    (reserva.estado === "confirmada" || reserva.estado === "cumplida") &&
+    !!reserva.rancho_id;
 
   return (
     <div

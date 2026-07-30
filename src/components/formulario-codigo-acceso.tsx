@@ -223,10 +223,11 @@ export default function FormularioCodigoAcceso({
       setError("No se pudo guardar: " + error.message);
       return;
     }
-    // El nombre visible del perfil también, si la política lo permite
-    // — y si no, los metadatos ya alcanzan para el autollenado.
+    // El nombre visible del perfil va por el RPC (0041): un update
+    // directo a `perfiles` solo lo permite la RLS a los admins, así
+    // que afectaba 0 filas en silencio y el perfil quedaba sin nombre.
     if (data.user) {
-      await supabase.from("perfiles").update({ nombre: nombre.trim() }).eq("id", data.user.id);
+      await supabase.rpc("actualizar_mi_nombre", { p_nombre: nombre.trim() });
     }
     window.location.href = destino;
   }

@@ -92,6 +92,9 @@ export default function OcupacionCalendario({ dias }: { dias: DiaOcupado[] }) {
             cls += " bg-red-50 font-bold text-red-700";
           } else if (info?.estado === "pendiente") {
             cls += " bg-amber-50 font-bold text-amber-800";
+          } else if (info?.estado === "bloqueada") {
+            // Bloqueos: manuales o importados de una agenda externa.
+            cls += " bg-zinc-100 font-bold text-zinc-500";
           } else {
             cls += " text-aventurea-ink-soft";
           }
@@ -111,6 +114,9 @@ export default function OcupacionCalendario({ dias }: { dias: DiaOcupado[] }) {
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> En aprobación
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-zinc-400" /> Bloqueado / agenda externa
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full border border-aventurea-line" /> Libre

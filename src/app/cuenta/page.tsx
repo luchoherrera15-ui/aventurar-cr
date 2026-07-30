@@ -1,54 +1,40 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
-import RanchoCard, { type Calificacion } from "@/components/rancho-card";
-import TarjetaExpandible from "@/components/tarjeta-expandible";
-import { IconChatBubble, IconHeart, IconMail, IconPlus, IconStore } from "@/components/icons";
+import {
+  IconCalendarLine,
+  IconChatBubble,
+  IconHeart,
+  IconMail,
+  IconPlus,
+  IconStore,
+} from "@/components/icons";
 import FormularioAuth from "./formulario-auth";
-import ReservasTabs, { type ReservaCliente, type ResenaPropia } from "./reservas-tabs";
 import { cerrarSesionCuenta } from "./actions";
-import { normalizarCategoria, type Rancho } from "../mi-rancho/types";
 import { hoyISOCR } from "@/lib/fechas";
 
-/** Lo mínimo de cada publicación para listarla en la cuenta. */
-type NegocioResumen = {
-  id: string;
-  nombre: string;
-  slug: string | null;
-  foto_url: string | null;
-  categoria: string;
-  vertical: string | null;
-  estado: string;
-};
+/** Lo mínimo de cada publicación para el resumen del tablero. */
+type NegocioResumen = { id: string; estado: string };
 
-const VERTICAL_LABEL: Record<string, string> = {
-  eventos: "Eventos",
-  citas: "Citas",
-  hospedajes: "Hospedajes",
-};
+/**
+ * Desde cuándo contar "lo nuevo" de una card: la marca de su cookie
+ * (la última vez que la abrieron) o, si nunca, la última semana.
+ */
+function desdeISO(marcaCookie: string | undefined): string {
+  const v = Number(marcaCookie);
+  const ms = Number.isFinite(v) && v > 0 ? v : Date.now() - 7 * 86400_000;
+  return new Date(ms).toISOString();
+}
 
-// El estado de cada publicación como un punto de color, sin texto:
-// verde = aprobada, naranja = en revisión, rojo = rechazada.
-const ESTADO_PUNTO: Record<string, string> = {
-  aprobado: "bg-aventurea-green",
-  pendiente: "bg-aventurea-orange",
-  rechazado: "bg-red-500",
-};
-const ESTADO_NEGOCIO_LABEL: Record<string, string> = {
-  aprobado: "Publicación aprobada",
-  pendiente: "Publicación en revisión",
-  rechazado: "Publicación rechazada",
-};
-
-/** Una invitación digital del cliente, con su pulso de confirmaciones. */
-type InvitacionResumen = {
-  id: string;
-  slug: string;
-  titulo: string;
-  fecha_evento: string;
-  estado: string;
-};
-
+/**
+ * El perfil como tablero de tarjetas: identidad arriba y una card por
+ * sección (mensajes, panel de proveedor, invitaciones, reservas,
+ * favoritos). Cada card con movimientos desde la última visita enseña
+ * su "+N"; abrirla lo pone en cero (la marca vive en la cookie
+ * `visto_{seccion}` que estampa /cuenta/ir/{seccion}). Los detalles
+ * viven en las páginas de cada sección — acá solo el resumen.
+ */
 export default async function CuentaPage() {
   const supabase = await createClient();
   const {
@@ -69,121 +55,113 @@ export default async function CuentaPage() {
   const [
     { data: perfil },
     { data: reservasData },
-    { data: favoritosData },
+    { count: favoritosCount },
     { data: negociosData },
-    { data: resenasData },
+    { count: resenasCount },
     { data: invitacionesData },
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle(),
     supabase
       .from("reservas")
-      .select("id, fecha, estado, monto_total, horario_bloque, rancho_id, ranchos(nombre, foto_url, categoria, slug)")
+      .select("id, fecha, estado")
       .eq("cliente_id", user.id)
-      .in("estado", ["pendiente", "confirmada", "rechazada"])
-      .order("fecha", { ascending: false }),
+      .in("estado", [
+        "pendiente",
+        "confirmada",
+        "rechazada",
+        "cumplida",
+        "no_asistio",
+        "cancelada",
+      ]),
     supabase
       .from("favoritos")
-      .select("ranchos(*)")
+      .select("rancho_id", { count: "exact", head: true })
       .eq("cliente_id", user.id),
-    supabase
-      .from("ranchos")
-      .select("id, nombre, slug, foto_url, categoria, vertical, estado")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: true }),
+    supabase.from("ranchos").select("id, estado").eq("owner_id", user.id),
     supabase
       .from("resenas")
-      .select("reserva_id, calificacion, comentario")
+      .select("reserva_id", { count: "exact", head: true })
       .eq("cliente_id", user.id),
-    supabase
-      .from("invitaciones")
-      .select("id, slug, titulo, fecha_evento, estado")
-      .eq("cliente_id", user.id)
-      .order("fecha_evento", { ascending: false }),
+    supabase.from("invitaciones").select("id").eq("cliente_id", user.id),
   ]);
 
-  // Las invitaciones digitales del cliente (las diseña el equipo de
-  // Bookea y acá se ve quién confirmó): cada "sí" suma a la persona y
-  // a sus acompañantes.
-  const invitaciones = (invitacionesData ?? []) as InvitacionResumen[];
-  const confirmadosPorInvitacion = new Map<string, { si: number; personas: number }>();
-  if (invitaciones.length > 0) {
-    const { data: rsvpsData } = await supabase
-      .from("invitacion_rsvp")
-      .select("invitacion_id, asistira, acompanantes")
-      .in(
-        "invitacion_id",
-        invitaciones.map((i) => i.id),
-      );
-    for (const r of (rsvpsData ?? []) as {
-      invitacion_id: string;
-      asistira: boolean;
-      acompanantes: number;
-    }[]) {
-      const acc = confirmadosPorInvitacion.get(r.invitacion_id) ?? { si: 0, personas: 0 };
-      if (r.asistira) {
-        acc.si += 1;
-        acc.personas += 1 + (r.acompanantes ?? 0);
-      }
-      confirmadosPorInvitacion.set(r.invitacion_id, acc);
-    }
-  }
-
-  const reservas = (reservasData ?? []) as unknown as ReservaCliente[];
-  const resenasPropias = (resenasData ?? []) as ResenaPropia[];
-  const resenasPorReserva: Record<string, ResenaPropia> = Object.fromEntries(
-    resenasPropias.map((r) => [r.reserva_id, r]),
-  );
-
-  // Los números del perfil: reservas hechas, reseñas dejadas y
-  // favoritos — y si publica servicios, cuántas veces lo han
-  // contratado y su calificación promedio ponderada.
+  const reservas = (reservasData ?? []) as { id: string; fecha: string; estado: string }[];
   const negocios = (negociosData ?? []) as NegocioResumen[];
-  const negocioIds = negocios.map((n) => n.id);
-  let vecesContratado = 0;
-  let calificacionProveedor: number | null = null;
-  if (negocioIds.length > 0) {
-    const [{ count: contratadoCount }, { data: califs }] = await Promise.all([
-      supabase
-        .from("reservas")
-        .select("id", { count: "exact", head: true })
-        .in("rancho_id", negocioIds)
-        .eq("estado", "confirmada"),
-      supabase
-        .from("calificaciones_rancho")
-        .select("promedio, total")
-        .in("rancho_id", negocioIds),
-    ]);
-    vecesContratado = contratadoCount ?? 0;
-    const filas = (califs ?? []) as { promedio: number; total: number }[];
-    const totalResenas = filas.reduce((acc, c) => acc + c.total, 0);
-    calificacionProveedor =
-      totalResenas > 0
-        ? filas.reduce((acc, c) => acc + c.promedio * c.total, 0) / totalResenas
-        : null;
-  }
-  const reservasHechas = reservas.filter((r) => r.estado !== "rechazada").length;
-  const hoy = hoyISOCR();
-  const activas = reservas.filter((r) => r.estado !== "rechazada" && r.fecha >= hoy);
-  const historial = reservas.filter((r) => r.estado === "rechazada" || r.fecha < hoy);
-
-  const favoritos = ((favoritosData ?? []) as unknown as { ranchos: Rancho | null }[])
-    .map((f) => f.ranchos)
-    .filter((r): r is Rancho => r !== null)
-    .map((r) => ({ ...r, categoria: normalizarCategoria(r.categoria) }));
-
-  const favoritoIds = favoritos.map((r) => r.id);
-  const { data: calificacionesData } =
-    favoritoIds.length > 0
-      ? await supabase
-          .from("calificaciones_rancho")
-          .select("rancho_id, promedio, total")
-          .in("rancho_id", favoritoIds)
-      : { data: [] as Calificacion[] };
-  const calificaciones = new Map<string, Calificacion>(
-    ((calificacionesData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
-  );
-
+  const invitacionIds = ((invitacionesData ?? []) as { id: string }[]).map((i) => i.id);
   const tieneNegocio = negocios.length > 0;
+
+  const hoy = hoyISOCR();
+  // Mismo criterio que /cuenta/reservas: los estados finales van al
+  // historial aunque la fecha sea hoy.
+  const FINALES = new Set(["rechazada", "cumplida", "no_asistio", "cancelada"]);
+  const reservasHechas = reservas.filter(
+    (r) => r.estado !== "rechazada" && r.estado !== "cancelada",
+  ).length;
+  const activas = reservas.filter((r) => !FINALES.has(r.estado) && r.fecha >= hoy).length;
+  const historial = reservas.length - activas;
+
+  const cookieStore = await cookies();
+  const visto = (seccion: string) => desdeISO(cookieStore.get(`visto_${seccion}`)?.value);
+
+  // Los "+N" de cada card, en paralelo: mensajes de otros en mis hilos,
+  // reservas que entraron a mis negocios y confirmaciones de invitados.
+  const negocioIds = negocios.map((n) => n.id);
+  const { data: convsData } = await supabase
+    .from("conversaciones")
+    .select("id")
+    .or(`cliente_id.eq.${user.id},proveedor_id.eq.${user.id}`);
+  const convIds = ((convsData ?? []) as { id: string }[]).map((c) => c.id);
+
+  const [mensajesRes, reservasNegocioRes, rsvpRes, contratadoRes] = await Promise.all([
+    convIds.length > 0
+      ? supabase
+          .from("mensajes")
+          .select("id", { count: "exact", head: true })
+          .in("conversacion_id", convIds)
+          .neq("autor_id", user.id)
+          .gt("created_at", visto("mensajes"))
+      : Promise.resolve({ count: 0 }),
+    negocioIds.length > 0
+      ? supabase
+          .from("reservas")
+          .select("id", { count: "exact", head: true })
+          .in("rancho_id", negocioIds)
+          // Solo movimientos reales: sin holds temporales del carrito
+          // ni bloqueos que puso el propio dueño.
+          .in("estado", ["pendiente", "confirmada", "cumplida", "no_asistio", "cancelada"])
+          .gt("created_at", visto("proveedor"))
+      : Promise.resolve({ count: 0 }),
+    invitacionIds.length > 0
+      ? supabase
+          .from("invitacion_rsvp")
+          .select("invitacion_id, asistira, acompanantes, created_at")
+          .in("invitacion_id", invitacionIds)
+      : Promise.resolve({ data: [] }),
+    negocioIds.length > 0
+      ? supabase
+          .from("reservas")
+          .select("id", { count: "exact", head: true })
+          .in("rancho_id", negocioIds)
+          .eq("estado", "confirmada")
+      : Promise.resolve({ count: 0 }),
+  ]);
+
+  const nuevosMensajes = mensajesRes.count ?? 0;
+  const reservasNuevasNegocio = reservasNegocioRes.count ?? 0;
+  const vecesContratado = contratadoRes.count ?? 0;
+
+  const rsvps = ((rsvpRes.data ?? []) as {
+    invitacion_id: string;
+    asistira: boolean;
+    acompanantes: number;
+    created_at: string;
+  }[]);
+  const desdeInvitaciones = visto("invitaciones");
+  const confirmacionesNuevas = rsvps.filter((r) => r.created_at > desdeInvitaciones).length;
+  const personasConfirmadas = rsvps
+    .filter((r) => r.asistira)
+    .reduce((acc, r) => acc + 1 + (r.acompanantes ?? 0), 0);
+
   const inicial = (perfil?.nombre || user.email || "?").trim().charAt(0).toUpperCase();
 
   return (
@@ -223,31 +201,37 @@ export default async function CuentaPage() {
             <Stat valor={String(reservasHechas)} etiqueta={reservasHechas === 1 ? "reserva" : "reservas"} />
             <span className="h-7 w-px bg-aventurea-line" />
             <Stat
-              valor={String(resenasPropias.length)}
-              etiqueta={resenasPropias.length === 1 ? "reseña" : "reseñas"}
+              valor={String(resenasCount ?? 0)}
+              etiqueta={(resenasCount ?? 0) === 1 ? "reseña" : "reseñas"}
             />
             <span className="h-7 w-px bg-aventurea-line" />
             <Stat
-              valor={String(favoritos.length)}
-              etiqueta={favoritos.length === 1 ? "favorito" : "favoritos"}
+              valor={String(favoritosCount ?? 0)}
+              etiqueta={(favoritosCount ?? 0) === 1 ? "favorito" : "favoritos"}
             />
           </div>
         </div>
 
-        {/* Accesos en dos tarjetas compactas, como en la app. */}
+        {/* El tablero: una card por sección, cada una con su "+N" de
+            movimientos nuevos. Nada de listas largas acá — cada card
+            lleva a su propia página. */}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <TarjetaAcceso
-            href="/mensajes"
+            href="/cuenta/ir/mensajes"
             icono={<IconChatBubble className="h-5 w-5" />}
             titulo="Mensajes"
             detalle="Tus conversaciones"
+            badge={nuevosMensajes}
           />
           {tieneNegocio ? (
             <TarjetaAcceso
-              href="/mi-rancho"
+              href="/cuenta/ir/proveedor"
               icono={<IconStore className="h-5 w-5" />}
               titulo="Panel de proveedor"
-              detalle="Servicios y reservas"
+              detalle={`${negocios.length} ${negocios.length === 1 ? "negocio" : "negocios"} · ${vecesContratado} ${
+                vecesContratado === 1 ? "contratación" : "contrataciones"
+              }`}
+              badge={reservasNuevasNegocio}
               acento
             />
           ) : (
@@ -259,163 +243,32 @@ export default async function CuentaPage() {
               acento
             />
           )}
-          {/* El espacio del producto propio: siempre visible, tenga o
-              no invitaciones asignadas todavía. */}
           <TarjetaAcceso
-            href="/cuenta/invitaciones"
+            href="/cuenta/ir/invitaciones"
             icono={<IconMail className="h-5 w-5" />}
             titulo="Invitaciones y álbumes"
-            detalle="Tus eventos, confirmados y fotos"
+            detalle={
+              invitacionIds.length > 0
+                ? `${invitacionIds.length} ${invitacionIds.length === 1 ? "evento" : "eventos"} · ${personasConfirmadas} ${
+                    personasConfirmadas === 1 ? "persona confirmada" : "personas confirmadas"
+                  }`
+                : "Tus eventos, confirmados y fotos"
+            }
+            badge={confirmacionesNuevas}
+          />
+          <TarjetaAcceso
+            href="/cuenta/reservas"
+            icono={<IconCalendarLine className="h-5 w-5" />}
+            titulo="Tus reservas"
+            detalle={`${activas} ${activas === 1 ? "activa" : "activas"} · ${historial} en historial`}
+          />
+          <TarjetaAcceso
+            href="/cuenta/favoritos"
+            icono={<IconHeart className="h-5 w-5" />}
+            titulo="Tus favoritos"
+            detalle={`${favoritosCount ?? 0} ${(favoritosCount ?? 0) === 1 ? "guardado" : "guardados"}`}
           />
         </div>
-
-        {/* Sus publicaciones reales, una fila compacta por negocio, con
-            el link a la página pública y al panel de cada una. Solo se
-            adelantan tres; el resto queda plegado en la tarjeta. */}
-        {tieneNegocio && (
-          <TarjetaExpandible
-            className="mt-6"
-            titulo="Tus negocios"
-            conteo={negocios.length}
-            adelanto={3}
-            claseResto="border-t border-aventurea-line"
-            extra={
-              <p className="text-[12px] font-semibold text-aventurea-ink-soft">
-                {vecesContratado} {vecesContratado === 1 ? "contratación" : "contrataciones"}
-                {calificacionProveedor !== null && ` · ★ ${calificacionProveedor.toFixed(1)}`}
-              </p>
-            }
-          >
-            {negocios.map((n) => {
-              const vertical = VERTICAL_LABEL[n.vertical ?? "eventos"] ?? "Eventos";
-              const verPagina = n.slug
-                ? n.vertical === "citas"
-                  ? `/citas/${n.slug}`
-                  : `/${n.slug}`
-                : `/eventos/${n.id}`;
-              return (
-                <div
-                  key={n.id}
-                  className="flex items-center gap-3 border-b border-aventurea-line px-4 py-2.5 last:border-none"
-                >
-                  <div
-                    className="h-9 w-9 shrink-0 rounded-lg bg-aventurea-cream-2 bg-cover bg-center"
-                    style={n.foto_url ? { backgroundImage: `url(${n.foto_url})` } : undefined}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-bold text-aventurea-ink">{n.nombre}</p>
-                    <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-aventurea-ink-soft">
-                      {vertical}
-                      <span
-                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[n.estado] ?? "bg-zinc-300"}`}
-                        title={ESTADO_NEGOCIO_LABEL[n.estado] ?? n.estado}
-                      />
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3.5">
-                    <Link
-                      href={verPagina}
-                      className="text-[12px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy"
-                    >
-                      Ver página
-                    </Link>
-                    <Link
-                      href={`/mi-rancho/${n.id}`}
-                      className="text-[12px] font-bold text-aventurea-navy hover:underline"
-                    >
-                      Administrar
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </TarjetaExpandible>
-        )}
-
-        {/* Sus invitaciones digitales: el link para compartir y el
-            conteo de confirmados, sin salir de la cuenta. */}
-        {invitaciones.length > 0 && (
-          <TarjetaExpandible
-            className="mt-6"
-            titulo={
-              <>
-                <IconMail className="h-4 w-4 text-aventurea-orange" />
-                Tus invitaciones
-              </>
-            }
-            conteo={invitaciones.length}
-            adelanto={3}
-            genero="f"
-            claseResto="border-t border-aventurea-line"
-          >
-            {invitaciones.map((inv) => {
-              const conteo = confirmadosPorInvitacion.get(inv.id) ?? { si: 0, personas: 0 };
-              return (
-                <div
-                  key={inv.id}
-                  className="flex items-center gap-3 border-b border-aventurea-line px-4 py-2.5 last:border-none"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-bold text-aventurea-ink">
-                      {inv.titulo}
-                    </p>
-                    <p className="text-[11.5px] font-semibold text-aventurea-ink-soft">
-                      {inv.fecha_evento} · {conteo.si} confirmado{conteo.si === 1 ? "" : "s"} ·{" "}
-                      {conteo.personas} persona{conteo.personas === 1 ? "" : "s"}
-                      {inv.estado !== "activa" && (
-                        <span className="ml-1.5 rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10px] font-bold uppercase">
-                          {inv.estado}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  {/* Su espacio del evento: link de la invitación, tablero
-                      de confirmaciones y el QR del álbum de fotos. */}
-                  <Link
-                    href={`/cuenta/evento/${inv.id}`}
-                    className="shrink-0 text-[12px] font-bold text-aventurea-navy hover:underline"
-                  >
-                    Abrir mi espacio
-                  </Link>
-                </div>
-              );
-            })}
-          </TarjetaExpandible>
-        )}
-
-        <ReservasTabs activas={activas} historial={historial} resenas={resenasPorReserva} hoy={hoy} />
-
-        {/* Los favoritos con la primera fila a la vista y el resto
-            plegado: están para volver a ellos, no para ocupar media
-            página todos los días. */}
-        {favoritos.length > 0 && (
-          <TarjetaExpandible
-            className="mt-6"
-            titulo={
-              <>
-                <IconHeart className="h-4 w-4 text-aventurea-orange" />
-                Tus favoritos
-              </>
-            }
-            conteo={favoritos.length}
-            adelanto={3}
-            claseCuerpo="p-4"
-            claseContenido="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3"
-            claseResto="pt-6"
-          >
-            {favoritos.map((r, i) => (
-              <RanchoCard
-                key={r.id}
-                rancho={r}
-                index={i}
-                calificacion={calificaciones.get(r.id) ?? null}
-                proximaLibre={undefined}
-                favoritoInicial
-                sesionActiva
-              />
-            ))}
-          </TarjetaExpandible>
-        )}
 
         <form action={cerrarSesionCuenta} className="mt-8 text-center">
           <button type="submit" className="text-[13.5px] font-bold text-red-600 hover:underline">
@@ -437,26 +290,34 @@ function Stat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
   );
 }
 
-/** Un acceso del perfil como tarjeta con ícono en burbuja. */
+/** Un acceso del perfil como tarjeta con ícono en burbuja y su "+N". */
 function TarjetaAcceso({
   href,
   icono,
   titulo,
   detalle,
+  badge,
   acento,
 }: {
   href: string;
   icono: React.ReactNode;
   titulo: string;
   detalle: string;
+  /** Movimientos nuevos desde la última visita; 0 = sin pastilla. */
+  badge?: number;
   /** true = la burbuja va en naranja (la acción principal). */
   acento?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy"
+      className="relative rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy"
     >
+      {badge != null && badge > 0 && (
+        <span className="absolute right-3 top-3 rounded-full bg-aventurea-orange px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-white">
+          +{badge > 99 ? "99" : badge}
+        </span>
+      )}
       <span
         className={`flex h-10 w-10 items-center justify-center rounded-full ${
           acento ? "bg-aventurea-orange/10 text-aventurea-orange" : "bg-aventurea-navy/10 text-aventurea-navy"

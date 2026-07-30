@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import BarraRapida, { BARRA_RAPIDA_ESPACIO } from "@/components/barra-rapida";
+import ChipsVerticales from "@/components/chips-verticales";
 import { supabase } from "@/lib/supabase";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
@@ -59,11 +60,12 @@ export default function HospedajesDirectorioScreen() {
   const [hospedajes, setHospedajes] = useState<Hospedaje[] | null>(null);
   const [calificaciones, setCalificaciones] = useState<Record<string, Calificacion>>({});
   const [refrescando, setRefrescando] = useState(false);
+  const [errorCarga, setErrorCarga] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState<CategoriaHospedaje | null>(null);
 
   const cargar = useCallback(async () => {
-    const [{ data: filas }, { data: califs }] = await Promise.all([
+    const [{ data: filas, error: errorHospedajes }, { data: califs }] = await Promise.all([
       supabase
         .from("ranchos")
         .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde")
@@ -72,6 +74,12 @@ export default function HospedajesDirectorioScreen() {
         .order("created_at", { ascending: false }),
       supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
     ]);
+    // Sin esto, un fallo de red se disfrazaría de "vertical vacía".
+    if (errorHospedajes) {
+      setErrorCarga(true);
+      return;
+    }
+    setErrorCarga(false);
     setHospedajes((filas ?? []) as Hospedaje[]);
     setCalificaciones(
       Object.fromEntries(
@@ -138,7 +146,29 @@ export default function HospedajesDirectorioScreen() {
         onVolver={() => (router.canGoBack() ? router.back() : router.replace("/"))}
       />
 
-      {hospedajes === null ? (
+      {/* El mismo menú de verticales que Explorar: saltar a Eventos o
+          Citas con un toque, sin depender de la flecha de volver. */}
+      <View style={styles.verticalesZona}>
+        <ChipsVerticales activo="hospedajes" />
+      </View>
+
+      {errorCarga && hospedajes === null ? (
+        <View style={styles.centro}>
+          <Text style={styles.vacioTitulo}>No pudimos cargar los hospedajes</Text>
+          <Text style={styles.vacioTexto}>
+            Revisá tu conexión e intentá de nuevo.
+          </Text>
+          <Pressable
+            onPress={() => {
+              setErrorCarga(false);
+              cargar();
+            }}
+            style={({ pressed }) => [styles.vacioBoton, pressed && { opacity: 0.9 }]}
+          >
+            <Text style={styles.vacioBotonTexto}>Reintentar</Text>
+          </Pressable>
+        </View>
+      ) : hospedajes === null ? (
         <View style={styles.centro}>
           <ActivityIndicator color={Colors.accent} />
         </View>
@@ -190,6 +220,7 @@ export default function HospedajesDirectorioScreen() {
               style={[styles.chip, categoriaActiva === null && styles.chipActivo]}
             >
               <Text
+                numberOfLines={1}
                 style={[
                   styles.chipTexto,
                   categoriaActiva === null && styles.chipTextoActivo,
@@ -205,6 +236,7 @@ export default function HospedajesDirectorioScreen() {
                 style={[styles.chip, categoriaActiva === c && styles.chipActivo]}
               >
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.chipTexto,
                     categoriaActiva === c && styles.chipTextoActivo,
@@ -332,10 +364,12 @@ export default function HospedajesDirectorioScreen() {
 
 const styles = StyleSheet.create({
   contenedor: { backgroundColor: Colors.cream, flex: 1 },
+  verticalesZona: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two },
   centro: {
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
+    paddingBottom: BARRA_RAPIDA_ESPACIO,
     paddingHorizontal: Spacing.five,
   },
   vacioTitulo: {
@@ -423,7 +457,7 @@ const styles = StyleSheet.create({
   precio: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5 },
   precioMonto: { color: Colors.ink, fontFamily: Fonts.extraBold },
   reservar: { color: Colors.accent, fontFamily: Fonts.extraBold, fontSize: 13 },
-  buscadorZona: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
+  buscadorZona: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.two },
   buscador: {
     flexDirection: "row",
     alignItems: "center",
@@ -438,12 +472,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Fonts.medium,
     color: Colors.ink,
+    // Sin esto, Android mete padding propio y el texto queda
+    // descentrado dentro de la píldora de 46px.
+    padding: 0,
   },
-  chipsScroll: { flexGrow: 0, marginBottom: Spacing.two },
+  // flexShrink: 0 evita que la fila se aplaste (y recorte los chips)
+  // al competir por altura con la lista de abajo.
+  chipsScroll: { flexGrow: 0, flexShrink: 0, marginBottom: Spacing.two },
   chips: {
+    alignItems: "center",
     flexDirection: "row",
     gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 2,
   },
   chip: {
     borderRadius: 999,

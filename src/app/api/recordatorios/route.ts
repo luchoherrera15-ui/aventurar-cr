@@ -8,6 +8,7 @@ import {
   plantillaRecordatorioEvento,
 } from "@/lib/email";
 import { enviarPush } from "@/lib/push";
+import { sincronizarAgendaExterna } from "@/lib/agenda/importar-ics";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { horaBonita } from "@/app/citas/tipos";
 
@@ -266,11 +267,32 @@ export async function GET(request: Request) {
     }
   }
 
+  // 4. Refresco diario de las agendas externas conectadas (0072): lo
+  // que el proveedor agregó en su Google/Apple Calendar entra solo,
+  // sin que tenga que tocar "Sincronizar ahora". Tolerante: si la
+  // tabla no existe o una agenda falla, el resto de avisos ya salió.
+  let agendasSincronizadas = 0;
+  {
+    const { data: agendasData } = await admin
+      .from("agendas_externas")
+      .select("id")
+      .limit(100);
+    for (const a of (agendasData ?? []) as { id: string }[]) {
+      try {
+        const r = await sincronizarAgendaExterna(a.id);
+        if (r.ok) agendasSincronizadas++;
+      } catch {
+        // El error queda anotado en la propia agenda (ultimo_error).
+      }
+    }
+  }
+
   return NextResponse.json({
     fecha: manana,
     reservas: reservas.length,
     avisadas: enviados,
     resenasPedidas,
     findesAvisados,
+    agendasSincronizadas,
   });
 }

@@ -14,6 +14,7 @@ import * as FileSystem from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
 import { abrirHiloConsulta } from "@/lib/consulta";
@@ -87,6 +88,12 @@ export default function ReservarServicioScreen() {
   const [hora, setHora] = useState("");
   // Elecciones incluidas en la tarifa ("elegí hasta N sin costo").
   const [elegidos, setElegidos] = useState<Record<string, boolean>>({});
+  // Secciones del catálogo abiertas — cerradas por defecto para que el
+  // menú completo no haga la pantalla eterna. La selección vive en
+  // `cantidades`/`elegidos` (arriba), así que sobrevive al colapsar.
+  const [seccionesAbiertas, setSeccionesAbiertas] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const [tipoEvento, setTipoEvento] = useState("");
   const [notas, setNotas] = useState("");
@@ -252,6 +259,15 @@ export default function ReservarServicioScreen() {
   }
 
   const reservadasDelDia = fecha ? (disponibilidad[fecha]?.porItem ?? {}) : {};
+
+  function alternarSeccion(clave: string) {
+    setSeccionesAbiertas((prev) => {
+      const copia = new Set(prev);
+      if (copia.has(clave)) copia.delete(clave);
+      else copia.add(clave);
+      return copia;
+    });
+  }
 
   function fijarCantidad(itemId: string, cantidad: number) {
     setCantidades((prev) => {
@@ -740,10 +756,48 @@ export default function ReservarServicioScreen() {
               // N sin costo — sin contadores ni precios.
               const topeEleccion = grupo ? (eleccionesPorGrupo[grupo] ?? 0) : 0;
               const marcados = delGrupo.filter((i) => elegidos[i.id]).length;
+
+              // Cada sección arranca cerrada y se abre al toque. Si el
+              // catálogo entero es una sola lista sin secciones, se
+              // muestra plano como siempre (nada que colapsar).
+              const clave = grupo ?? "__sin__";
+              const colapsable = grupo !== null || secciones.length > 1;
+              const abierta = !colapsable || seccionesAbiertas.has(clave);
+              const enSeccion =
+                topeEleccion > 0
+                  ? marcados
+                  : delGrupo.filter((i) => (cantidades[i.id] ?? 0) > 0).length;
+              const encabezado = colapsable ? (
+                <Pressable
+                  onPress={() => alternarSeccion(clave)}
+                  style={styles.seccionHeader}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: abierta }}
+                  accessibilityLabel={`${grupo ?? "Otros"}, ${delGrupo.length} ítem${delGrupo.length === 1 ? "" : "s"}${enSeccion > 0 ? `, ${enSeccion} elegido${enSeccion === 1 ? "" : "s"}` : ""}`}
+                >
+                  <Text style={styles.seccionNombre} numberOfLines={1}>
+                    {grupo ?? "Otros"}
+                    <Text style={styles.seccionConteo}> · {delGrupo.length}</Text>
+                  </Text>
+                  {enSeccion > 0 && (
+                    <View style={styles.seccionBadge}>
+                      <Text style={styles.seccionBadgeTexto}>{enSeccion}</Text>
+                    </View>
+                  )}
+                  <Ionicons
+                    name={abierta ? "chevron-down" : "chevron-forward"}
+                    size={16}
+                    color={Colors.inkSoft}
+                  />
+                </Pressable>
+              ) : null;
+
               if (topeEleccion > 0) {
                 return (
-                  <View key={grupo ?? "__sin__"} style={{ gap: Spacing.three }}>
-                    {grupo && <Text style={styles.grupoTitulo}>{grupo}</Text>}
+                  <View key={clave} style={{ gap: Spacing.three }}>
+                    {encabezado}
+                    {abierta && (
+                    <>
                     <Text style={styles.eleccionAyuda}>
                       Incluido en tu tarifa — elegí hasta {topeEleccion} sin
                       costo ({marcados}/{topeEleccion})
@@ -793,13 +847,15 @@ export default function ReservarServicioScreen() {
                         </Pressable>
                       );
                     })}
+                    </>
+                    )}
                   </View>
                 );
               }
               return (
-              <View key={grupo ?? "__sin__"} style={{ gap: Spacing.three }}>
-                {grupo && <Text style={styles.grupoTitulo}>{grupo}</Text>}
-                {delGrupo.map((item) => {
+              <View key={clave} style={{ gap: Spacing.three }}>
+                {encabezado}
+                {abierta && delGrupo.map((item) => {
                   const restante = fecha
                     ? cupoRestante(item, reservadasDelDia[item.id] ?? 0)
                     : null;
@@ -1245,14 +1301,35 @@ const styles = StyleSheet.create({
   calDiaLleno: { color: Colors.inkSoft, textDecorationLine: "line-through" },
   fechaElegida: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.navy },
 
-  grupoTitulo: {
-    fontSize: 11,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    color: Colors.inkSoft,
-    marginTop: 2,
+  // Encabezado tocable de cada sección del catálogo (cerrada por defecto).
+  seccionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.cream2,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 12,
   },
+  seccionNombre: {
+    flex: 1,
+    fontSize: 13.5,
+    fontFamily: Fonts.bold,
+    color: Colors.ink,
+  },
+  seccionConteo: { fontFamily: Fonts.regular, color: Colors.inkSoft },
+  seccionBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: Colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  seccionBadgeTexto: { color: "#ffffff", fontSize: 11.5, fontFamily: Fonts.bold },
   itemCard: {
     borderRadius: 14,
     borderWidth: 1,

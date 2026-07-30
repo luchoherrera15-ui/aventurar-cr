@@ -5,16 +5,32 @@ import Link from "next/link";
 import { IconMenu, IconUserCircle } from "./icons";
 
 /**
+ * Primer nombre + primer apellido: "Luis Herrera Ovares" → "LH" (no
+ * "LO" — el segundo apellido no cuenta). Un solo nombre → su inicial.
+ */
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase();
+}
+
+/**
  * Píldora de hamburguesa + avatar del header — abre un menú, no navega
- * directo a ningún lado. "Publicá tu espacio" vive tanto acá (para que
- * en el celular, donde el link de texto de al lado está oculto, siga
- * habiendo por dónde llegar) como afuera en desktop.
+ * directo a ningún lado. Con sesión, el círculo muestra la foto del
+ * perfil (si entró con Google) o las iniciales del nombre; el ícono
+ * genérico queda solo para visitas sin sesión. "Publicá tu espacio"
+ * vive tanto acá (para que en el celular, donde el link de texto de al
+ * lado está oculto, siga habiendo por dónde llegar) como afuera en
+ * desktop.
  */
 export default function MenuCuenta({
   sesionActiva,
+  nombre,
+  fotoUrl,
   cerrarSesion,
 }: {
   sesionActiva: boolean;
+  nombre?: string | null;
+  fotoUrl?: string | null;
   cerrarSesion: () => Promise<void>;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -32,9 +48,25 @@ export default function MenuCuenta({
         className="flex items-center gap-2 rounded-full border border-aventurea-line bg-aventurea-surface py-1 pl-3 pr-1 shadow-sm transition-shadow hover:shadow-md"
       >
         <IconMenu className="h-[15px] w-[15px] text-aventurea-ink" />
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-300 text-white">
-          <IconUserCircle className="h-[15px] w-[15px]" />
-        </span>
+        {sesionActiva && fotoUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element -- avatar
+             de Google, dominio externo variable: next/image pediría
+             registrar cada host. */
+          <img
+            src={fotoUrl}
+            alt={nombre ?? "Tu perfil"}
+            referrerPolicy="no-referrer"
+            className="h-7 w-7 rounded-full object-cover"
+          />
+        ) : sesionActiva && nombre ? (
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-aventurea-navy text-[10.5px] font-bold leading-none text-white">
+            {iniciales(nombre)}
+          </span>
+        ) : (
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-300 text-white">
+            <IconUserCircle className="h-[15px] w-[15px]" />
+          </span>
+        )}
       </button>
 
       {abierto && (

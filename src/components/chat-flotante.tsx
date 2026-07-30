@@ -193,11 +193,14 @@ export default function ChatFlotante() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Solo las activas: las resueltas viven en /mensajes ("Ver todo")
+    // y vuelven solas acá si llega un mensaje nuevo (trigger de 0054).
     const { data: convData } = await supabase
       .from("conversaciones")
       .select(
         "id, reserva_id, cliente_id, created_at, ranchos(nombre, foto_url), reservas(nombre)",
-      );
+      )
+      .eq("resuelta", false);
     const conversaciones = (convData ?? []) as unknown as {
       id: string;
       reserva_id: string | null;
@@ -275,6 +278,24 @@ export default function ChatFlotante() {
         .sort((a, b) => (a.actividad < b.actividad ? 1 : -1)),
     );
   }, []);
+
+  /**
+   * "✓ Resuelto": archiva la conversación para ambos lados (columna
+   * `resuelta` de 0054 — la RLS deja a cualquier participante). Sale
+   * de la lista de una; si el update falla, se recarga y reaparece.
+   */
+  const marcarResuelta = useCallback(
+    async (conversacionId: string) => {
+      setFilas((prev) => prev.filter((f) => f.id !== conversacionId));
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("conversaciones")
+        .update({ resuelta: true })
+        .eq("id", conversacionId);
+      if (error) cargarLista();
+    },
+    [cargarLista],
+  );
 
   /** Abre (o crea) el hilo de consulta con el negocio de esta página. */
   const abrirConsultaProveedor = useCallback(
@@ -432,33 +453,47 @@ export default function ChatFlotante() {
                 </p>
               ) : (
                 filas.map((f) => (
-                  <button
+                  <div
                     key={f.id}
-                    type="button"
-                    onClick={() => abrirHilo(f.id, f.titulo)}
-                    className="flex w-full items-center gap-3 border-b border-aventurea-line/60 px-4 py-3 text-left hover:bg-aventurea-cream-2/60"
+                    className="flex w-full items-center gap-2 border-b border-aventurea-line/60 pr-2 hover:bg-aventurea-cream-2/60"
                   >
-                    <div
-                      className="h-10 w-10 shrink-0 rounded-full bg-aventurea-cream-2 bg-cover bg-center"
-                      style={f.foto ? { backgroundImage: `url(${f.foto})` } : undefined}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13.5px] font-bold text-aventurea-ink">
-                        {f.titulo}
-                        <span className="ml-1.5 text-[11px] font-normal text-aventurea-ink-soft">
-                          {f.subtitulo}
+                    <button
+                      type="button"
+                      onClick={() => abrirHilo(f.id, f.titulo)}
+                      className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left"
+                    >
+                      <div
+                        className="h-10 w-10 shrink-0 rounded-full bg-aventurea-cream-2 bg-cover bg-center"
+                        style={f.foto ? { backgroundImage: `url(${f.foto})` } : undefined}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13.5px] font-bold text-aventurea-ink">
+                          {f.titulo}
+                          <span className="ml-1.5 text-[11px] font-normal text-aventurea-ink-soft">
+                            {f.subtitulo}
+                          </span>
+                        </p>
+                        <p className="truncate text-[12.5px] text-aventurea-ink-soft">
+                          {f.ultimoTexto}
+                        </p>
+                      </div>
+                      {f.pendientes > 0 && (
+                        <span className="flex h-[20px] min-w-[20px] shrink-0 items-center justify-center rounded-full bg-aventurea-orange px-1 text-[10.5px] font-bold text-white">
+                          {f.pendientes > 99 ? "99+" : f.pendientes}
                         </span>
-                      </p>
-                      <p className="truncate text-[12.5px] text-aventurea-ink-soft">
-                        {f.ultimoTexto}
-                      </p>
-                    </div>
-                    {f.pendientes > 0 && (
-                      <span className="flex h-[20px] min-w-[20px] shrink-0 items-center justify-center rounded-full bg-aventurea-orange px-1 text-[10.5px] font-bold text-white">
-                        {f.pendientes > 99 ? "99+" : f.pendientes}
-                      </span>
-                    )}
-                  </button>
+                      )}
+                    </button>
+                    {/* Despeja la bandeja sin abrir el hilo; si llega un
+                        mensaje nuevo, la conversación vuelve sola. */}
+                    <button
+                      type="button"
+                      onClick={() => marcarResuelta(f.id)}
+                      title="Marcar como resuelta y archivar"
+                      className="shrink-0 rounded-full border border-aventurea-line px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-green hover:text-aventurea-green"
+                    >
+                      ✓ Resuelto
+                    </button>
+                  </div>
                 ))
               )}
             </div>

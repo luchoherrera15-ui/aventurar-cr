@@ -29,12 +29,23 @@ import { fmtColones } from "@/lib/types";
 type ReservaNegocio = {
   id: string;
   fecha: string;
+  fecha_fin: string | null;
+  hora_inicio: string | null;
+  duracion_minutos: number | null;
   nombre: string | null;
   correo: string | null;
   whatsapp: string | null;
   tipo_evento: string | null;
   invitados: number | null;
-  estado: "pendiente" | "confirmada" | "rechazada" | "bloqueada";
+  estado:
+    | "pendiente"
+    | "confirmada"
+    | "rechazada"
+    | "bloqueada"
+    // Estados de citas (0061): la asistencia que marca el negocio.
+    | "cumplida"
+    | "no_asistio"
+    | "cancelada";
   horario_bloque: string | null;
   monto_total: number | null;
   deposito_monto: number | null;
@@ -48,15 +59,32 @@ const ESTADO_LABEL: Record<string, string> = {
   confirmada: "Confirmada",
   rechazada: "Rechazada",
   bloqueada: "Bloqueada",
+  cumplida: "Cumplida",
+  no_asistio: "No asistió",
+  cancelada: "Cancelada",
 };
 const ESTADO_COLOR: Record<string, string> = {
   pendiente: Colors.accent,
   confirmada: Colors.green,
   rechazada: Colors.danger,
   bloqueada: Colors.inkSoft,
+  cumplida: Colors.green,
+  no_asistio: Colors.danger,
+  cancelada: Colors.inkSoft,
 };
 
-const FILTROS = ["todas", "pendiente", "confirmada", "rechazada"] as const;
+/** "10:00" o "10:00–10:45" si se sabe cuánto dura. */
+function rangoHora(hora: string, duracionMin: number | null): string {
+  const inicio = hora.slice(0, 5);
+  if (!duracionMin) return inicio;
+  const [h, m] = inicio.split(":").map(Number);
+  const fin = h * 60 + m + duracionMin;
+  const hf = String(Math.floor(fin / 60) % 24).padStart(2, "0");
+  const mf = String(fin % 60).padStart(2, "0");
+  return `${inicio}–${hf}:${mf}`;
+}
+
+const FILTROS = ["todas", "pendiente", "confirmada", "cumplida", "rechazada"] as const;
 
 export default function AdminNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -75,7 +103,7 @@ export default function AdminNegocioScreen() {
       supabase
         .from("reservas")
         .select(
-          "id, fecha, nombre, correo, whatsapp, tipo_evento, invitados, estado, horario_bloque, monto_total, deposito_monto, deposito_comprobante_url, deposito_validado, notas",
+          "id, fecha, fecha_fin, hora_inicio, duracion_minutos, nombre, correo, whatsapp, tipo_evento, invitados, estado, horario_bloque, monto_total, deposito_monto, deposito_comprobante_url, deposito_validado, notas",
         )
         .eq("rancho_id", id)
         .neq("estado", "temporal")
@@ -184,6 +212,21 @@ export default function AdminNegocioScreen() {
           {/* Administración del negocio, todo desde la app: la página,
               el catálogo reservable y los cobros/tarifas. */}
           <View style={styles.adminFila}>
+            {/* La agenda por horas: el día a día del negocio de citas
+                y el feed para sincronizar Google/Apple Calendar. */}
+            <Pressable
+              style={styles.adminBoton}
+              onPress={() => router.push(`/negocio/${id}/agenda` as never)}
+            >
+              <Text style={styles.adminBotonTexto}>Agenda</Text>
+            </Pressable>
+            {/* Importar el calendario viejo (Google/Apple) como bloqueos. */}
+            <Pressable
+              style={styles.adminBoton}
+              onPress={() => router.push(`/negocio/${id}/sincronizar` as never)}
+            >
+              <Text style={styles.adminBotonTexto}>Sincronizar agendas</Text>
+            </Pressable>
             <Pressable
               style={styles.adminBoton}
               onPress={() => router.push(`/negocio/${id}/editar` as never)}
@@ -235,7 +278,12 @@ export default function AdminNegocioScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.fecha}>
                 {item.fecha}
-                {item.horario_bloque ? ` · ${item.horario_bloque}` : ""}
+                {item.fecha_fin && item.fecha_fin !== item.fecha ? ` → ${item.fecha_fin}` : ""}
+                {item.hora_inicio
+                  ? ` · ${rangoHora(item.hora_inicio, item.duracion_minutos)}`
+                  : item.horario_bloque
+                    ? ` · ${item.horario_bloque}`
+                    : ""}
               </Text>
               <Text style={styles.cliente} numberOfLines={1}>
                 {item.nombre ?? "Sin nombre"}

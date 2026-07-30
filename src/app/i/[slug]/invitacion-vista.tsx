@@ -461,6 +461,7 @@ function BloqueRsvp({
   animada: boolean;
 }) {
   const [nombre, setNombre] = useState("");
+  const [correo, setCorreo] = useState("");
   const [acompanantes, setAcompanantes] = useState("0");
   const [asistira, setAsistira] = useState<boolean | null>(null);
   const [mensaje, setMensaje] = useState("");
@@ -488,6 +489,7 @@ function BloqueRsvp({
       const res = await confirmarAsistencia({
         invitacionId,
         nombre,
+        correo: correo || null,
         acompanantes: parseInt(acompanantes) || 0,
         asistira: respuesta,
         mensaje: mensaje || null,
@@ -546,6 +548,22 @@ function BloqueRsvp({
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Nombre y apellido"
+            className={inputCls}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="rsvp-correo" className={labelCls}>
+            Tu correo (opcional)
+          </label>
+          <input
+            id="rsvp-correo"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
+            placeholder="Por si los anfitriones necesitan avisarte algo"
             className={inputCls}
           />
         </div>

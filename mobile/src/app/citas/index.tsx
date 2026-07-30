@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import BarraRapida, { BARRA_RAPIDA_ESPACIO } from "@/components/barra-rapida";
+import ChipsVerticales from "@/components/chips-verticales";
 import { supabase } from "@/lib/supabase";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
@@ -40,6 +41,17 @@ type Negocio = {
 
 type Calificacion = { promedio: number; total: number };
 
+/** Títulos de las filas del directorio — espejo de /citas en la web:
+ * más vendedores que el label corto (que sigue mandando en badges). */
+const TITULO_FILA: Record<CategoriaCita, string> = {
+  belleza: "Salones de belleza",
+  barberia: "Barberías",
+  unas: "Uñas",
+  spa: "Spa y masajes",
+  consultorio: "Consultorios médicos",
+  otros: "Otros servicios",
+};
+
 /**
  * El directorio de Citas del app — espejo de /citas en la web: las
  * cards de los negocios que atienden con turno (belleza, barbería,
@@ -51,11 +63,12 @@ export default function CitasDirectorioScreen() {
   const [negocios, setNegocios] = useState<Negocio[] | null>(null);
   const [calificaciones, setCalificaciones] = useState<Record<string, Calificacion>>({});
   const [refrescando, setRefrescando] = useState(false);
+  const [errorCarga, setErrorCarga] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState<CategoriaCita | null>(null);
 
   const cargar = useCallback(async () => {
-    const [{ data: filas }, { data: califs }] = await Promise.all([
+    const [{ data: filas, error: errorNegocios }, { data: califs }] = await Promise.all([
       supabase
         .from("ranchos")
         .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde")
@@ -64,6 +77,12 @@ export default function CitasDirectorioScreen() {
         .order("created_at", { ascending: false }),
       supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
     ]);
+    // Sin esto, un fallo de red se disfrazaría de "directorio vacío".
+    if (errorNegocios) {
+      setErrorCarga(true);
+      return;
+    }
+    setErrorCarga(false);
     setNegocios((filas ?? []) as Negocio[]);
     setCalificaciones(
       Object.fromEntries(
@@ -120,6 +139,94 @@ export default function CitasDirectorioScreen() {
     );
   }, [negocios, categoriaActiva, busqueda]);
 
+  // Sin filtro ni búsqueda: una fila horizontal por categoría, en el
+  // orden oficial y saltando las vacías — espejo de /citas en la web.
+  const filas = useMemo(
+    () =>
+      CATEGORIAS_CITAS.map((c) => ({
+        categoria: c,
+        items: (negocios ?? []).filter(
+          (n) => normalizarCategoriaCita(n.categoria) === c,
+        ),
+      })).filter((f) => f.items.length > 0),
+    [negocios],
+  );
+  const vistaFilas = !categoriaActiva && !normalizarTexto(busqueda).trim();
+
+  const renderTarjeta = (n: Negocio, extra?: object) => {
+    const calif = calificaciones[n.id];
+    const ubicacion = [n.canton, n.provincia].filter(Boolean).join(", ");
+    return (
+      <Pressable
+        onPress={() => router.push(`/citas/${n.id}` as never)}
+        style={({ pressed }) => [styles.tarjeta, extra, pressed && { opacity: 0.92 }]}
+      >
+        <View style={styles.fotoMarco}>
+          {n.foto_url ? (
+            <Image
+              source={{ uri: n.foto_url }}
+              alt={n.nombre}
+              style={styles.foto}
+              contentFit="cover"
+              transition={250}
+            />
+          ) : (
+            <View style={styles.fotoVacia}>
+              <Ionicons name="time-outline" size={34} color="#3b7fc4" />
+            </View>
+          )}
+          <View style={styles.badge}>
+            <Text style={styles.badgeTexto}>
+              {CATEGORIA_CITA_LABEL[normalizarCategoriaCita(n.categoria)]}
+            </Text>
+          </View>
+          {n.slug?.startsWith("demo-") && (
+            <View style={styles.badgeDemo}>
+              <Text style={styles.badgeDemoTexto}>Demo</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.cuerpo}>
+          <View style={styles.filaNombre}>
+            <Text style={styles.nombre} numberOfLines={1}>
+              {n.nombre}
+            </Text>
+            {calif && (
+              <View style={styles.calif}>
+                <Ionicons name="star" size={12} color={Colors.accent} />
+                <Text style={styles.califTexto}>
+                  {calif.promedio.toFixed(1)}
+                  <Text style={styles.califTotal}> ({calif.total})</Text>
+                </Text>
+              </View>
+            )}
+          </View>
+          {!!ubicacion && (
+            <View style={styles.filaUbicacion}>
+              <Ionicons name="location-outline" size={12} color="#3b7fc4" />
+              <Text style={styles.ubicacion} numberOfLines={1}>
+                {ubicacion}
+              </Text>
+            </View>
+          )}
+          <View style={styles.filaPie}>
+            <Text style={styles.precio}>
+              {n.precio_desde ? (
+                <>
+                  Desde{" "}
+                  <Text style={styles.precioMonto}>{fmtColones(n.precio_desde)}</Text>
+                </>
+              ) : (
+                "Precios en línea"
+              )}
+            </Text>
+            <Text style={styles.reservar}>Reservar →</Text>
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
     <View style={styles.contenedor}>
       {/* Volver siempre tiene a dónde: si la pila está vacía (deep
@@ -130,7 +237,29 @@ export default function CitasDirectorioScreen() {
         onVolver={() => (router.canGoBack() ? router.back() : router.replace("/"))}
       />
 
-      {negocios === null ? (
+      {/* El mismo menú de verticales que Explorar: saltar a Eventos u
+          Hospedajes con un toque, sin depender de la flecha de volver. */}
+      <View style={styles.verticalesZona}>
+        <ChipsVerticales activo="citas" />
+      </View>
+
+      {errorCarga && negocios === null ? (
+        <View style={styles.centro}>
+          <Text style={styles.vacioTitulo}>No pudimos cargar el directorio</Text>
+          <Text style={styles.vacioTexto}>
+            Revisá tu conexión e intentá de nuevo.
+          </Text>
+          <Pressable
+            onPress={() => {
+              setErrorCarga(false);
+              cargar();
+            }}
+            style={({ pressed }) => [styles.botonContorno, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.botonContornoTexto}>Reintentar</Text>
+          </Pressable>
+        </View>
+      ) : negocios === null ? (
         <View style={styles.centro}>
           <ActivityIndicator color={Colors.accent} />
         </View>
@@ -176,6 +305,7 @@ export default function CitasDirectorioScreen() {
               style={[styles.chip, categoriaActiva === null && styles.chipActivo]}
             >
               <Text
+                numberOfLines={1}
                 style={[
                   styles.chipTexto,
                   categoriaActiva === null && styles.chipTextoActivo,
@@ -191,6 +321,7 @@ export default function CitasDirectorioScreen() {
                 style={[styles.chip, categoriaActiva === c && styles.chipActivo]}
               >
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.chipTexto,
                     categoriaActiva === c && styles.chipTextoActivo,
@@ -225,6 +356,38 @@ export default function CitasDirectorioScreen() {
                 <Text style={styles.botonContornoTexto}>Ver todos los negocios</Text>
               </Pressable>
             </View>
+          ) : vistaFilas ? (
+            /* Una fila por categoría: título + línea horizontal de
+               cards. "Ver todos" activa el chip de esa categoría. */
+            <ScrollView
+              contentContainerStyle={styles.listaFilas}
+              keyboardShouldPersistTaps="handled"
+              refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+              showsVerticalScrollIndicator={false}
+            >
+              {filas.map((f) => (
+                <View key={f.categoria}>
+                  <View style={styles.filaEncabezado}>
+                    <Text style={styles.filaTitulo}>
+                      {TITULO_FILA[f.categoria]}{" "}
+                      <Text style={styles.filaConteo}>({f.items.length})</Text>
+                    </Text>
+                    <Pressable onPress={() => setCategoriaActiva(f.categoria)} hitSlop={8}>
+                      <Text style={styles.filaVerTodos}>Ver todos →</Text>
+                    </Pressable>
+                  </View>
+                  <FlatList
+                    horizontal
+                    data={f.items}
+                    keyExtractor={(n) => n.id}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filaListaCards}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item: n }) => renderTarjeta(n, styles.tarjetaRiel)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
           ) : (
             <FlatList
               data={filtrados}
@@ -232,79 +395,7 @@ export default function CitasDirectorioScreen() {
               contentContainerStyle={styles.lista}
               keyboardShouldPersistTaps="handled"
               refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
-              renderItem={({ item: n }) => {
-                const calif = calificaciones[n.id];
-                const ubicacion = [n.canton, n.provincia].filter(Boolean).join(", ");
-                return (
-                  <Pressable
-                    onPress={() => router.push(`/citas/${n.id}` as never)}
-                    style={({ pressed }) => [styles.tarjeta, pressed && { opacity: 0.92 }]}
-                  >
-                    <View style={styles.fotoMarco}>
-                      {n.foto_url ? (
-                        <Image
-                          source={{ uri: n.foto_url }}
-                          alt={n.nombre}
-                          style={styles.foto}
-                          contentFit="cover"
-                          transition={250}
-                        />
-                      ) : (
-                        <View style={styles.fotoVacia}>
-                          <Ionicons name="time-outline" size={34} color="#3b7fc4" />
-                        </View>
-                      )}
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeTexto}>
-                          {CATEGORIA_CITA_LABEL[normalizarCategoriaCita(n.categoria)]}
-                        </Text>
-                      </View>
-                      {n.slug?.startsWith("demo-") && (
-                        <View style={styles.badgeDemo}>
-                          <Text style={styles.badgeDemoTexto}>Demo</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.cuerpo}>
-                      <View style={styles.filaNombre}>
-                        <Text style={styles.nombre} numberOfLines={1}>
-                          {n.nombre}
-                        </Text>
-                        {calif && (
-                          <View style={styles.calif}>
-                            <Ionicons name="star" size={12} color={Colors.accent} />
-                            <Text style={styles.califTexto}>
-                              {calif.promedio.toFixed(1)}
-                              <Text style={styles.califTotal}> ({calif.total})</Text>
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      {!!ubicacion && (
-                        <View style={styles.filaUbicacion}>
-                          <Ionicons name="location-outline" size={12} color="#3b7fc4" />
-                          <Text style={styles.ubicacion} numberOfLines={1}>
-                            {ubicacion}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.filaPie}>
-                        <Text style={styles.precio}>
-                          {n.precio_desde ? (
-                            <>
-                              Desde{" "}
-                              <Text style={styles.precioMonto}>{fmtColones(n.precio_desde)}</Text>
-                            </>
-                          ) : (
-                            "Precios en línea"
-                          )}
-                        </Text>
-                        <Text style={styles.reservar}>Reservar →</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              }}
+              renderItem={({ item: n }) => renderTarjeta(n)}
             />
           )}
         </>
@@ -319,10 +410,12 @@ export default function CitasDirectorioScreen() {
 
 const styles = StyleSheet.create({
   contenedor: { backgroundColor: Colors.cream, flex: 1 },
+  verticalesZona: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two },
   centro: {
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
+    paddingBottom: BARRA_RAPIDA_ESPACIO,
     paddingHorizontal: Spacing.five,
   },
   vacioTitulo: {
@@ -340,6 +433,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   lista: { gap: Spacing.three, padding: Spacing.three, paddingBottom: BARRA_RAPIDA_ESPACIO },
+  listaFilas: { gap: Spacing.four, paddingBottom: BARRA_RAPIDA_ESPACIO, paddingTop: Spacing.two },
+  filaEncabezado: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  filaTitulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 16 },
+  filaConteo: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 13 },
+  filaVerTodos: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 12.5 },
+  filaListaCards: { gap: Spacing.three, paddingHorizontal: Spacing.three },
+  tarjetaRiel: { width: 264 },
   tarjeta: {
     backgroundColor: Colors.surface,
     borderColor: "#dbe4f2",
@@ -402,7 +508,7 @@ const styles = StyleSheet.create({
   precio: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5 },
   precioMonto: { color: Colors.ink, fontFamily: Fonts.extraBold },
   reservar: { color: Colors.accent, fontFamily: Fonts.extraBold, fontSize: 13 },
-  buscadorZona: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
+  buscadorZona: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.two },
   buscador: {
     flexDirection: "row",
     alignItems: "center",
@@ -417,12 +523,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Fonts.medium,
     color: Colors.ink,
+    // Sin esto, Android mete padding propio y el texto queda
+    // descentrado dentro de la píldora de 46px.
+    padding: 0,
   },
-  chipsScroll: { flexGrow: 0, marginBottom: Spacing.two },
+  // flexShrink: 0 evita que la fila se aplaste (y recorte los chips)
+  // al competir por altura con la lista de abajo.
+  chipsScroll: { flexGrow: 0, flexShrink: 0, marginBottom: Spacing.two },
   chips: {
+    alignItems: "center",
     flexDirection: "row",
     gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 2,
   },
   chip: {
     borderRadius: 999,

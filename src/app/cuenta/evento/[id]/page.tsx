@@ -6,7 +6,7 @@ import SiteHeader from "@/components/site-header";
 import BotonCopiar from "@/components/boton-copiar";
 import { IconCamera, IconClock, IconMail, IconPin, IconUsers } from "@/components/icons";
 import { parsearPreguntas, type PreguntaInvitacion } from "@/lib/invitaciones-preguntas";
-import { fechaLargaCR } from "@/lib/fechas";
+import { fechaCortaMensaje, fechaLargaCR } from "@/lib/fechas";
 
 export const metadata: Metadata = {
   title: "Tu evento",
@@ -22,6 +22,8 @@ type Rsvp = {
   asistira: boolean;
   mensaje: string | null;
   respuestas: Record<string, string> | null;
+  correo: string | null;
+  created_at: string;
 };
 
 type AlbumResumen = {
@@ -65,7 +67,7 @@ export default async function EspacioEventoPage({
     supabase.from("invitaciones").select("preguntas").eq("id", id).maybeSingle(),
     supabase
       .from("invitacion_rsvp")
-      .select("id, nombre, acompanantes, asistira, mensaje, respuestas")
+      .select("id, nombre, acompanantes, asistira, mensaje, respuestas, correo, created_at")
       .eq("invitacion_id", id)
       .order("created_at", { ascending: false }),
     supabase
@@ -83,16 +85,27 @@ export default async function EspacioEventoPage({
 
   let rsvps: Rsvp[];
   if (rsvpConRes.error) {
-    // La columna `respuestas` no existe todavía: se piden sin ella.
-    const { data } = await supabase
-      .from("invitacion_rsvp")
-      .select("id, nombre, acompanantes, asistira, mensaje")
-      .eq("invitacion_id", id)
-      .order("created_at", { ascending: false });
-    rsvps = ((data ?? []) as Omit<Rsvp, "respuestas">[]).map((r) => ({
-      ...r,
-      respuestas: null,
-    }));
+    // `respuestas` (0068) o `correo` (0070) no existen todavía: se van
+    // recortando columnas hasta el select básico, que siempre está.
+    rsvps = [];
+    for (const columnas of [
+      "id, nombre, acompanantes, asistira, mensaje, respuestas, created_at",
+      "id, nombre, acompanantes, asistira, mensaje, created_at",
+    ]) {
+      const { data, error } = await supabase
+        .from("invitacion_rsvp")
+        .select(columnas)
+        .eq("invitacion_id", id)
+        .order("created_at", { ascending: false });
+      if (!error) {
+        rsvps = ((data ?? []) as unknown as Partial<Rsvp>[]).map((r) => ({
+          respuestas: null,
+          correo: null,
+          ...r,
+        })) as Rsvp[];
+        break;
+      }
+    }
   } else {
     rsvps = (rsvpConRes.data ?? []) as Rsvp[];
   }
@@ -101,8 +114,14 @@ export default async function EspacioEventoPage({
 
   // El tablero: cada "sí" cuenta a la persona más sus acompañantes.
   const asistiran = rsvps.filter((r) => r.asistira);
-  const noVienen = rsvps.length - asistiran.length;
+  const noVienen = rsvps.filter((r) => !r.asistira);
   const totalPersonas = asistiran.reduce((acc, r) => acc + 1 + (r.acompanantes ?? 0), 0);
+  const acompanantesTotal = totalPersonas - asistiran.length;
+
+  // Los correos que dejaron los invitados, listos para copiarlos en un
+  // solo clic (avisos de última hora, agradecimientos…).
+  const correosDe = (lista: Rsvp[]) =>
+    [...new Set(lista.map((r) => r.correo).filter((c): c is string => !!c))].join(", ");
 
   // Conteos por pregunta de opciones, solo entre quienes sí vienen:
   // "Vegetarianos: 5" listo para dictárselo al catering.
@@ -193,10 +212,11 @@ export default async function EspacioEventoPage({
             <IconUsers className="h-4.5 w-4.5 text-aventurea-orange" /> Confirmaciones
           </h2>
 
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Cifra valor={totalPersonas} etiqueta="personas en total" destacada />
             <Cifra valor={asistiran.length} etiqueta={asistiran.length === 1 ? "sí asistirá" : "sí asistirán"} />
-            <Cifra valor={noVienen} etiqueta={noVienen === 1 ? "no podrá ir" : "no podrán ir"} />
+            <Cifra valor={acompanantesTotal} etiqueta={acompanantesTotal === 1 ? "acompañante" : "acompañantes"} />
+            <Cifra valor={noVienen.length} etiqueta={noVienen.length === 1 ? "no podrá ir" : "no podrán ir"} />
           </div>
           <p className="mt-2 text-[12px] text-aventurea-ink-soft">
             El total cuenta a cada confirmado con sus acompañantes — es el número que le
@@ -238,18 +258,30 @@ export default async function EspacioEventoPage({
             </div>
           )}
 
-          {/* La lista completa, con mensajes y respuestas. */}
+          {/* Las listas, separadas: quiénes vienen y quiénes avisaron
+              que no, cada quien con su correo y su fecha de respuesta. */}
           {rsvps.length === 0 ? (
             <p className="mt-5 rounded-xl border border-dashed border-aventurea-line p-5 text-center text-[13px] text-aventurea-ink-soft">
               Todavía nadie ha confirmado. Compartí el link de arriba y acá van a ir
               apareciendo.
             </p>
           ) : (
-            <div className="mt-5 overflow-hidden rounded-xl border border-aventurea-line">
-              {rsvps.map((r) => (
-                <FilaRsvp key={r.id} rsvp={r} preguntas={preguntas} />
-              ))}
-            </div>
+            <>
+              <ListaRsvp
+                titulo={`Sí asistirán (${asistiran.length})`}
+                vacio="Todavía nadie ha confirmado que viene."
+                rsvps={asistiran}
+                correos={correosDe(asistiran)}
+                preguntas={preguntas}
+              />
+              <ListaRsvp
+                titulo={`No podrán ir (${noVienen.length})`}
+                vacio="Nadie ha avisado que no puede ir."
+                rsvps={noVienen}
+                correos={correosDe(noVienen)}
+                preguntas={preguntas}
+              />
+            </>
           )}
         </div>
 
@@ -343,18 +375,51 @@ function Cifra({
   );
 }
 
-/** Una confirmación: nombre, acompañantes, mensaje y sus respuestas. */
+/**
+ * Una de las dos listas del tablero ("Sí asistirán" / "No podrán ir"):
+ * encabezado con el conteo, botón para copiar todos los correos de esa
+ * lista y las filas una por una.
+ */
+function ListaRsvp({
+  titulo,
+  vacio,
+  rsvps,
+  correos,
+  preguntas,
+}: {
+  titulo: string;
+  vacio: string;
+  rsvps: Rsvp[];
+  correos: string;
+  preguntas: PreguntaInvitacion[];
+}) {
+  return (
+    <div className="mt-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[13px] font-extrabold text-aventurea-ink">{titulo}</h3>
+        {correos && <BotonCopiar texto={correos} etiqueta="Copiar correos" />}
+      </div>
+      {rsvps.length === 0 ? (
+        <p className="mt-2 rounded-xl border border-dashed border-aventurea-line px-4 py-3 text-[12.5px] text-aventurea-ink-soft">
+          {vacio}
+        </p>
+      ) : (
+        <div className="mt-2 overflow-hidden rounded-xl border border-aventurea-line">
+          {rsvps.map((r) => (
+            <FilaRsvp key={r.id} rsvp={r} preguntas={preguntas} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Una confirmación: nombre, acompañantes, correo, mensaje y respuestas. */
 function FilaRsvp({
   rsvp,
   preguntas,
 }: {
-  rsvp: {
-    nombre: string;
-    acompanantes: number;
-    asistira: boolean;
-    mensaje: string | null;
-    respuestas: Record<string, string> | null;
-  };
+  rsvp: Rsvp;
   preguntas: PreguntaInvitacion[];
 }) {
   const etiquetaDe = new Map(preguntas.map((p) => [p.id, p.etiqueta]));
@@ -378,6 +443,20 @@ function FilaRsvp({
           {rsvp.asistira ? "Sí asistirá" : "No podrá ir"}
         </span>
       </div>
+      {(rsvp.correo || rsvp.created_at) && (
+        <p className="mt-1 text-[12px] text-aventurea-ink-soft">
+          {rsvp.correo && (
+            <a
+              href={`mailto:${rsvp.correo}`}
+              className="font-semibold text-aventurea-navy hover:underline"
+            >
+              {rsvp.correo}
+            </a>
+          )}
+          {rsvp.correo && rsvp.created_at && " · "}
+          {rsvp.created_at && fechaCortaMensaje(rsvp.created_at)}
+        </p>
+      )}
       {respuestas.length > 0 && (
         <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">
           {respuestas.map(([pid, valor], idx) => (

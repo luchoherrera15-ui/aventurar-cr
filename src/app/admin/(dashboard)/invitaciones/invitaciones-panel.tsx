@@ -526,7 +526,14 @@ export default function InvitacionesPanel({
         </div>
       ) : (
         <>
-          <div className="mb-4 flex justify-end">
+          <div className="mb-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => router.push("/cuenta/invitaciones-crear")}
+              className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-2"
+            >
+              ✨ Generar con IA
+            </button>
             <button
               type="button"
               onClick={abrirNueva}

@@ -4,12 +4,16 @@ import RevealOnScroll from "@/components/reveal-on-scroll";
 import PaquetesInvitaciones from "@/components/paquetes-invitaciones";
 import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 import {
+  IconChartBars,
   IconCheck,
+  IconClipboard,
+  IconGlobe,
   IconMail,
   IconPin,
   IconSparkles,
   IconUsers,
   IconWand,
+  IconWhatsapp,
 } from "@/components/icons";
 
 export const metadata = {
@@ -100,6 +104,94 @@ export default function InvitacionesLanding() {
             titulo="Diseño a tu medida"
             texto="El equipo de Bookea la diseña con tus colores, tu foto y tu historia. ¿Querés algo único? También hacemos diseños 100% personalizados."
           />
+        </div>
+
+        {/* ---------- Ofrecemos: todo lo que incluye el producto ---------- */}
+        <div
+          data-reveal
+          className="mt-5 rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-10 sm:px-10 sm:py-12"
+        >
+          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-aventurea-orange">
+            <IconSparkles className="h-4 w-4" /> Ofrecemos
+          </p>
+          <h2 className="titulo mt-2 max-w-[26ch] text-[clamp(22px,3.5vw,30px)] text-aventurea-ink">
+            Todo lo que incluye tu invitación
+          </h2>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                icono: <IconMail className="h-5 w-5" />,
+                titulo: "Invitación digital",
+                texto:
+                  "Un link precioso, a pantalla completa y animado, que se abre en cualquier teléfono sin instalar nada.",
+              },
+              {
+                icono: <IconUsers className="h-5 w-5" />,
+                titulo: "Personalizadas por invitado",
+                texto:
+                  "Cada persona recibe su invitación con su nombre — nada de copias genéricas.",
+              },
+              {
+                icono: <IconCheck className="h-5 w-5" />,
+                titulo: "Confirmación en tiempo real",
+                texto:
+                  "Tus invitados confirman en el mismo link y la lista se actualiza al instante.",
+              },
+              {
+                icono: <IconChartBars className="h-5 w-5" />,
+                titulo: "Panel administrativo",
+                texto:
+                  "Vé en tiempo real quiénes asisten y quiénes no, con el conteo de personas al día, desde tu cuenta.",
+              },
+              {
+                icono: <IconClipboard className="h-5 w-5" />,
+                titulo: "PDF descargable",
+                texto:
+                  "Tu invitación también en documento PDF, lista para imprimir o guardar de recuerdo.",
+              },
+              {
+                icono: <IconWhatsapp className="h-5 w-5" />,
+                titulo: "Envíos ilimitados",
+                texto:
+                  "Compartila por WhatsApp, correo o redes las veces que querás — sin límite de invitados.",
+              },
+              {
+                icono: <IconGlobe className="h-5 w-5" />,
+                titulo: "Diversidad de idiomas",
+                texto:
+                  "¿Invitados de afuera? La hacemos en español, inglés o el idioma que necesités.",
+              },
+            ].map((f) => (
+              <div
+                key={f.titulo}
+                className="flex items-start gap-3.5 rounded-2xl border border-aventurea-line bg-white p-5"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy">
+                  {f.icono}
+                </span>
+                <div>
+                  <h3 className="text-[15px] font-extrabold tracking-[-0.2px] text-aventurea-ink">
+                    {f.titulo}
+                  </h3>
+                  <p className="mt-1 text-[13px] leading-relaxed text-aventurea-ink-soft">
+                    {f.texto}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {/* La nota que amarra todo: se configura según el paquete. */}
+            {/* En sm (2 columnas) ocupa 1 celda para cerrar la cuadrícula
+                sin huecos (7+1=8); en lg (3 columnas) se extiende a 2. */}
+            <div className="flex items-center gap-3.5 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 p-5 lg:col-span-2">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aventurea-orange/15 text-aventurea-orange">
+                <IconWand className="h-5 w-5" />
+              </span>
+              <p className="text-[14px] font-bold leading-relaxed text-aventurea-ink">
+                Totalmente configurables según el tipo de invitación que
+                elijás — vos decidís qué lleva la tuya.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* ---------- Mockups animados: la confirmación en vivo ----------
@@ -201,31 +293,32 @@ export default function InvitacionesLanding() {
             Tocá cualquiera y vivila como la viviría tu invitado — cada una es
             una invitación real. Y si querés algo único, lo diseñamos desde cero.
           </p>
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Tarjetas rectangulares compactas: el lienzo como miniatura
+              a la izquierda y lo esencial al lado — la demo se vive al
+              tocarla, no hace falta contarla entera acá. */}
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {CATALOGO_INVITACIONES.map((d) => (
               <Link
                 key={d.slug}
                 href={`/i/${d.slug}`}
-                className="group overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
+                title={d.descripcion}
+                className="group flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-white p-3 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-0.5 hover:border-aventurea-navy/40 hover:shadow-[0_16px_40px_-20px_rgba(22,41,94,0.4)]"
               >
                 <div
-                  className={`flex aspect-[4/3] items-center justify-center text-[44px] ${d.lienzo}`}
+                  className={`flex h-16 w-20 shrink-0 items-center justify-center rounded-xl text-[26px] ${d.lienzo}`}
                 >
                   <span className="transition-transform group-hover:scale-125">
                     {d.emoji}
                   </span>
                 </div>
-                <div className="p-4">
-                  <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-navy">
+                <div className="min-w-0">
+                  <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-navy">
                     {d.ocasion}
                   </p>
-                  <p className="mt-0.5 text-[15px] font-extrabold text-aventurea-ink">
+                  <p className="truncate text-[14px] font-extrabold text-aventurea-ink">
                     {d.nombre}
                   </p>
-                  <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-                    {d.descripcion}
-                  </p>
-                  <p className="mt-2.5 text-[12.5px] font-extrabold text-aventurea-orange">
+                  <p className="mt-0.5 text-[12px] font-extrabold text-aventurea-orange">
                     Vivir la demo →
                   </p>
                 </div>

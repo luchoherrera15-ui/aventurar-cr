@@ -269,7 +269,14 @@ export async function completarReservaTemporal(
         user_metadata: { nombre: input.nombre, rol: "cliente" },
       });
       if (!errorCuenta && cuentaCreada.user) {
-        await supabase.from("reservas").update({ cliente_id: cuentaCreada.user.id }).eq("id", id);
+        // Con el cliente admin a propósito: el visitante es anónimo y
+        // la RLS de reservas (solo dueño/admin editan) haría que este
+        // update afecte 0 filas sin error — la cuenta quedaría creada
+        // pero jamás vinculada a su reserva.
+        await admin
+          .from("reservas")
+          .update({ cliente_id: cuentaCreada.user.id })
+          .eq("id", id);
       }
     }
   }

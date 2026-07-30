@@ -51,4 +51,13 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     lienzo: "bg-[linear-gradient(150deg,#f7c948_0%,#8bc34a_55%,#2e7d32_100%)]",
     emoji: "🦒",
   },
+  {
+    slug: "revelacion-maria-jesus-y-luis",
+    nombre: "¿Niño o Niña?",
+    ocasion: "Revelación de género",
+    descripcion:
+      "Rosa y celeste para la gran pregunta: fotos a marco completo y la confirmación en un toque.",
+    lienzo: "bg-[linear-gradient(150deg,#f9c5d1_0%,#f3e8ee_50%,#a8d8ea_100%)]",
+    emoji: "👶",
+  },
 ];

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import PaquetesInvitaciones from "@/components/paquetes-invitaciones";
+import { IconChevronDown } from "@/components/icons";
 
 type FilaInvitacion = {
   id: string;
@@ -138,12 +139,21 @@ export default async function CuentaInvitacionesPage() {
               </div>
             ))}
 
-            <div className="mt-8">
-              <PaquetesInvitaciones
-                disposicion="pila"
-                intro="¿Se viene otro evento? Elegí el paquete y contanos tu idea por el chat — te la entregamos lista para compartir."
-              />
-            </div>
+            {/* Los paquetes viven cerrados: quien ya tiene su evento
+                entra a ver confirmados, no a que le vendan de nuevo.
+                <details> nativo — se abre sin JS. */}
+            <details className="group mt-8">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-aventurea-line bg-white px-5 py-4 text-[14px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy hover:text-aventurea-navy [&::-webkit-details-marker]:hidden">
+                ¡Ver opciones de álbumes e invitaciones!
+                <IconChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-6">
+                <PaquetesInvitaciones
+                  disposicion="pila"
+                  intro="¿Se viene otro evento? Elegí el paquete y contanos tu idea por el chat — te la entregamos lista para compartir."
+                />
+              </div>
+            </details>
           </div>
         )}
       </main>
