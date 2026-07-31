@@ -3,23 +3,30 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 
-type Vertical = "eventos" | "citas" | "hospedajes";
+type Vertical = "eventos" | "citas" | "hospedajes" | "restaurantes";
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
 const VERTICALES: { id: Vertical; icono: IconoNombre; label: string; ruta: string }[] = [
   { id: "eventos", icono: "sparkles-outline", label: "Eventos", ruta: "/" },
   { id: "citas", icono: "time-outline", label: "Citas", ruta: "/citas" },
   { id: "hospedajes", icono: "home-outline", label: "Hospedajes", ruta: "/hospedajes" },
+  {
+    id: "restaurantes",
+    icono: "restaurant-outline",
+    label: "Restaurantes",
+    ruta: "/restaurantes",
+  },
 ];
 
 /**
- * La fila de chips para saltar de vertical (Eventos / Citas / Hospedajes)
- * — el mismo menú superior en las tres pantallas. El activo va en navy y
- * no navega; `router.navigate` reutiliza la pantalla si ya está en la
- * pila (volver de Citas a Eventos no apila un Explorar nuevo).
+ * La fila de chips para saltar de vertical (Eventos / Citas /
+ * Hospedajes / Restaurantes) — el mismo menú superior en las cuatro
+ * pantallas. El activo va en navy y no navega; `router.navigate`
+ * reutiliza la pantalla si ya está en la pila (volver de Citas a
+ * Eventos no apila un Explorar nuevo).
  *
  * Va en un ScrollView horizontal para que en pantallas angostas
- * (320-360dp) el tercer chip no se corte: se desliza.
+ * (320-360dp) el cuarto chip no se corte: se desliza.
  */
 export default function ChipsVerticales({ activo }: { activo: Vertical }) {
   const router = useRouter();
