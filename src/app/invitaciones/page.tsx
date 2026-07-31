@@ -42,21 +42,71 @@ export const metadata = {
 type EntradaCatalogo = DemoInvitacion & { generada?: boolean };
 
 /**
- * Lo que lleva la invitación. Acá van SOLO los títulos: la página
- * antes explicaba cada uno con dos líneas de texto y se leía como un
- * pliego de condiciones. El detalle real vive en las cards de cada
- * paquete, que es donde el cliente lo necesita para decidir.
+ * Lo que lleva la invitación. Cada cosa con UNA línea que explique
+ * qué es: los títulos solos no vendían nada, y dos párrafos por ítem
+ * se leían como pliego de condiciones. Una línea es el punto justo.
  */
-const INCLUYE: { icono: React.ReactNode; titulo: string }[] = [
-  { icono: <IconMail />, titulo: "Link a pantalla completa" },
-  { icono: <IconCheck />, titulo: "Confirmación en tiempo real" },
-  { icono: <IconChartBars />, titulo: "Panel de invitados" },
-  { icono: <IconUsers />, titulo: "Personalizada por invitado" },
-  { icono: <IconWhatsapp />, titulo: "Envíos ilimitados" },
-  { icono: <IconClipboard />, titulo: "PDF para imprimir" },
-  { icono: <IconGlobe />, titulo: "En el idioma que necesités" },
-  { icono: <IconWand />, titulo: "Diseño a tu medida" },
+const INCLUYE: { icono: React.ReactNode; titulo: string; texto: string }[] = [
+  {
+    icono: <IconMail />,
+    titulo: "Link a pantalla completa",
+    texto: "Se abre en cualquier teléfono, sin instalar nada.",
+  },
+  {
+    icono: <IconCheck />,
+    titulo: "Confirmación en tiempo real",
+    texto: "Tus invitados confirman ahí mismo y la lista se actualiza sola.",
+  },
+  {
+    icono: <IconChartBars />,
+    titulo: "Panel de invitados",
+    texto: "Quién asiste, quién no y el conteo de personas al día.",
+  },
+  {
+    icono: <IconUsers />,
+    titulo: "Personalizada por invitado",
+    texto: "Cada persona la recibe con su nombre.",
+  },
+  {
+    icono: <IconWhatsapp />,
+    titulo: "Envíos ilimitados",
+    texto: "Compartila por WhatsApp, correo o redes las veces que querás.",
+  },
+  {
+    icono: <IconClipboard />,
+    titulo: "PDF para imprimir",
+    texto: "También en documento, para repartir o guardar de recuerdo.",
+  },
+  {
+    icono: <IconGlobe />,
+    titulo: "En el idioma que necesités",
+    texto: "Español, inglés o bilingüe si tenés invitados de afuera.",
+  },
+  {
+    icono: <IconWand />,
+    titulo: "Diseño a tu medida",
+    texto: "Tus colores, tus fotos y tu historia — o algo 100% exclusivo.",
+  },
 ];
+
+/** Tarjeta de crédito, para el bloque de medios de pago. */
+function IconTarjeta() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
+      <path strokeLinecap="round" d="M2.5 9.5h19M6 15h3.5" />
+    </svg>
+  );
+}
+
+/** Manzana simple para Apple Pay (sin marca registrada). */
+function IconApple() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M16.4 12.6c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.8-3.5 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.2 2.6 2.1 1-.04 1.4-.7 2.7-.7 1.2 0 1.6.7 2.7.6 1.1-.02 1.8-1 2.5-2.1.8-1.2 1.1-2.3 1.1-2.4-.02-.01-2.1-.8-2.1-3zM14.3 5.6c.6-.7 1-1.7.9-2.6-.8.03-1.9.5-2.5 1.3-.5.6-1 1.6-.9 2.5.9.07 1.9-.5 2.5-1.2z" />
+    </svg>
+  );
+}
 
 /** Para que las generadas no salgan todas con el mismo lienzo — azules
  *  sólidos de la paleta, igual que las del catálogo fijo. */
@@ -299,38 +349,54 @@ export default async function InvitacionesLanding() {
         </div>
       </section>
 
-      {/* ---------- Qué lleva — chips, sin párrafos ---------- */}
-      <section className="py-12">
-        <div className="mx-auto max-w-[1100px] px-6 text-center lg:px-10">
-          <p
-            data-reveal
-            className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange"
-          >
-            Todas las invitaciones llevan
-          </p>
-          <div
-            data-reveal
-            className="mt-5 flex flex-wrap items-center justify-center gap-2.5"
-          >
-            {INCLUYE.map((f) => (
-              <span
+      {/* ---------- Qué ofrecemos — ficha técnica a dos columnas:
+           el argumento a la izquierda, el desglose a la derecha en
+           filas con línea fina. Explica sin verse como pliego. ------ */}
+      <section className="px-4 py-12 lg:px-10">
+        <div className="mx-auto grid max-w-[1100px] items-start gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+          <div data-reveal className="lg:sticky lg:top-24">
+            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+              Qué ofrecemos
+            </p>
+            <h2 className="titulo mt-2 text-[28px] leading-tight text-aventurea-ink sm:text-[34px]">
+              Todo lo que lleva tu invitación
+            </h2>
+            <p className="mt-3 max-w-[42ch] text-[14px] leading-relaxed text-aventurea-ink-soft">
+              No es una imagen que se reenvía: es una página viva con la
+              información del evento, la confirmación de tus invitados y el
+              control de la lista en tu cuenta.
+            </p>
+            <Link
+              href="#paquetes"
+              className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-extrabold text-aventurea-navy hover:text-aventurea-orange"
+            >
+              Ver qué trae cada paquete →
+            </Link>
+          </div>
+
+          {/* El desglose: dos columnas de filas con hairline arriba. */}
+          <div className="grid sm:grid-cols-2 sm:gap-x-8">
+            {INCLUYE.map((f, i) => (
+              <div
                 key={f.titulo}
-                className="inline-flex items-center gap-2 rounded-full border border-aventurea-line bg-white px-4 py-2 text-[13px] font-bold text-aventurea-ink"
+                data-reveal
+                style={{ "--reveal-delay": `${i * 50}ms` } as React.CSSProperties}
+                className="flex items-start gap-3.5 border-t border-aventurea-line py-4 first:border-t-0 sm:[&:nth-child(2)]:border-t-0"
               >
-                <span className="text-aventurea-navy [&_svg]:h-4 [&_svg]:w-4">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-[17px] [&_svg]:w-[17px]">
                   {f.icono}
                 </span>
-                {f.titulo}
-              </span>
+                <div>
+                  <h3 className="text-[14.5px] font-extrabold leading-snug text-aventurea-ink">
+                    {f.titulo}
+                  </h3>
+                  <p className="mt-1 text-[13px] leading-snug text-aventurea-ink-soft">
+                    {f.texto}
+                  </p>
+                </div>
+              </div>
             ))}
           </div>
-          <p
-            data-reveal
-            className="mx-auto mt-5 max-w-[56ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft"
-          >
-            Qué trae la tuya depende del paquete que elijás — todo eso lo ves
-            al final, en los precios.
-          </p>
         </div>
       </section>
 
@@ -420,15 +486,32 @@ export default async function InvitacionesLanding() {
             <PaquetesInvitaciones titulo="Elegí tu invitación" />
           </div>
 
-          {/* Medios de pago: la última duda antes de comprar. */}
-          <p className="mx-auto mt-8 max-w-[64ch] text-center text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-            Pagás con <strong className="text-aventurea-ink">tarjeta</strong> de
-            crédito o débito por la pasarela{" "}
-            <strong className="text-aventurea-ink">Stripe</strong>, con{" "}
-            <strong className="text-aventurea-ink">Apple&nbsp;Pay</strong>, o en
-            colones por <strong className="text-aventurea-ink">SINPE Móvil</strong>{" "}
-            y transferencia bancaria.
-          </p>
+          {/* Medios de pago: la última duda antes de comprar, acá
+              abajo de los precios que es donde aparece. */}
+          <div
+            data-reveal
+            className="mt-9 flex flex-col items-center gap-4 rounded-[24px] bg-aventurea-cream-2 px-6 py-6 sm:flex-row sm:gap-6"
+          >
+            <span className="flex shrink-0 items-center gap-3 text-[14px] font-extrabold text-aventurea-ink">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-aventurea-navy shadow-sm [&_svg]:h-5 [&_svg]:w-5">
+                <IconTarjeta />
+              </span>
+              Pagá como te quede mejor
+            </span>
+            <p className="text-center text-[13px] leading-relaxed text-aventurea-ink-soft sm:text-left">
+              Tarjeta de crédito o débito por la pasarela{" "}
+              <strong className="text-aventurea-ink">Stripe</strong>, con{" "}
+              <strong className="inline-flex items-baseline gap-1 text-aventurea-ink">
+                <span className="translate-y-[2px] [&_svg]:h-[13px] [&_svg]:w-[13px]">
+                  <IconApple />
+                </span>
+                Apple&nbsp;Pay
+              </strong>
+              , o en colones por{" "}
+              <strong className="text-aventurea-ink">SINPE Móvil</strong> y
+              transferencia bancaria.
+            </p>
+          </div>
         </div>
       </section>
 
