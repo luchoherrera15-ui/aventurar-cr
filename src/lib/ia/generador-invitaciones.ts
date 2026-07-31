@@ -1,21 +1,45 @@
 /**
  * Generador de invitaciones HTML usando Claude.
- * Soporta Opus y Fable con diferentes niveles de creatividad.
+ *
+ * El modelo ya no está clavado acá: lo decide quien llama (el cliente que
+ * eligió, o el que el admin configuró en /admin/ia). Este archivo solo
+ * sabe hablarle a Anthropic y devolver el consumo para que la ruta lo
+ * registre en uso_ia.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELOS, type ModeloIA } from "./modelos";
+import type { UsageAnthropic } from "./registrar-uso";
 
 interface GenerarInvitacionOpts {
   prompt: string;
-  modelo: "opus" | "fable";
+  modelo: ModeloIA;
   systemPrompt?: string;
 }
 
 interface GenerarInvitacionResult {
   html: string;
+  usage: UsageAnthropic;
   input_tokens: number;
   output_tokens: number;
   tiempo_ms: number;
+}
+
+/**
+ * Falla que ocurrió DESPUÉS de que Anthropic ya cobró los tokens: una
+ * respuesta cortada por max_tokens, un rechazo, o texto que no era HTML.
+ * Lleva el usage encima para que la ruta pueda dejar constancia del gasto.
+ */
+export class ErrorGeneracionIA extends Error {
+  readonly usage: UsageAnthropic | null;
+  readonly tiempoMs: number;
+
+  constructor(mensaje: string, usage: UsageAnthropic | null, tiempoMs: number) {
+    super(mensaje);
+    this.name = "ErrorGeneracionIA";
+    this.usage = usage;
+    this.tiempoMs = tiempoMs;
+  }
 }
 
 export const SYSTEM_PROMPT_DEFAULT = `Eres un diseñador experto en invitaciones digitales interactivas.
@@ -42,8 +66,8 @@ que no incluyas <html>, <head> ni <body> — solo el contenido con su
 <style>.`;
 
 /**
- * Llama a Claude (Opus o Fable) para generar el HTML.
- * Retorna { html, input_tokens, output_tokens, tiempo_ms }
+ * Llama al modelo que le pasen para generar el HTML.
+ * Retorna { html, usage, input_tokens, output_tokens, tiempo_ms }
  */
 export async function generarInvitacionHTML(
   opts: GenerarInvitacionOpts
@@ -54,17 +78,18 @@ export async function generarInvitacionHTML(
   }
 
   const client = new Anthropic({ apiKey });
-  const modelMap = {
-    opus: "claude-opus-5",
-    fable: "claude-fable-5",
-  };
+  const info = MODELOS[opts.modelo];
+
+  // Una invitación entra de sobra en 16k, pero Haiku responde como mucho
+  // 64k y los demás 128k: nunca pedir más de lo que el modelo puede dar.
+  const maxTokens = Math.min(16384, info.salidaMaxima);
 
   const inicio = Date.now();
 
   try {
     const response = await client.messages.create({
-      model: modelMap[opts.modelo],
-      max_tokens: 16384,
+      model: opts.modelo,
+      max_tokens: maxTokens,
       system: opts.systemPrompt || SYSTEM_PROMPT_DEFAULT,
       messages: [
         {
@@ -74,18 +99,25 @@ export async function generarInvitacionHTML(
       ],
     });
 
+    const tiempoMs = Date.now() - inicio;
+    const usage = aUsage(response.usage);
+
     if (response.stop_reason === "max_tokens") {
-      throw new Error(
-        "La invitación quedó incompleta (se alcanzó el límite de tokens). Intenta con un prompt más corto o menos efectos."
+      throw new ErrorGeneracionIA(
+        "La invitación quedó incompleta (se alcanzó el límite de tokens). Intenta con un prompt más corto o menos efectos.",
+        usage,
+        tiempoMs
       );
     }
     if (response.stop_reason === "refusal") {
-      throw new Error(
-        "La IA declinó generar este contenido. Ajusta la descripción e intenta de nuevo."
+      throw new ErrorGeneracionIA(
+        "La IA declinó generar este contenido. Ajusta la descripción e intenta de nuevo.",
+        usage,
+        tiempoMs
       );
     }
 
-    // Con thinking activo (siempre en Fable 5, adaptativo en Opus 5) el
+    // Con los modelos que razonan (Opus 5 y Fable 5 lo hacen solos) el
     // primer bloque es "thinking" — hay que buscar el bloque de texto.
     const bloqueTexto = response.content.find(
       (b): b is Extract<typeof b, { type: "text" }> => b.type === "text"
@@ -93,21 +125,42 @@ export async function generarInvitacionHTML(
     const html = bloqueTexto ? limpiarHTML(bloqueTexto.text) : "";
 
     if (!html) {
-      throw new Error("La IA no devolvió HTML. Intenta de nuevo.");
+      throw new ErrorGeneracionIA(
+        "La IA no devolvió HTML. Intenta de nuevo.",
+        usage,
+        tiempoMs
+      );
     }
-
-    const tiempoMs = Date.now() - inicio;
 
     return {
       html,
-      input_tokens: response.usage.input_tokens,
-      output_tokens: response.usage.output_tokens,
+      usage,
+      input_tokens: usage.input_tokens ?? 0,
+      output_tokens: usage.output_tokens ?? 0,
       tiempo_ms: tiempoMs,
     };
   } catch (e) {
     console.error("Error en generador-invitaciones:", e);
     throw e;
   }
+}
+
+/**
+ * El usage del SDK trae null donde el nuestro espera número: se traduce
+ * una sola vez acá para que el registro de gasto no tenga que adivinar.
+ */
+function aUsage(usage: {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+}): UsageAnthropic {
+  return {
+    input_tokens: usage.input_tokens,
+    output_tokens: usage.output_tokens,
+    cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+    cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+  };
 }
 
 /**

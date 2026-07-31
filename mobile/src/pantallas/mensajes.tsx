@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Pressable,
@@ -232,18 +233,48 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     [session],
   );
 
-  const eliminarChat = useCallback(
-    async (fila: Fila) => {
-      if (!session) return;
-      setFilas((prev) => (prev ?? []).filter((f) => f.id !== fila.id));
-      await supabase.from("conversacion_ocultas").upsert({
-        conversacion_id: fila.id,
-        usuario_id: session.user.id,
-        oculta_desde: new Date().toISOString(),
-      });
+  const ocultar = useCallback(
+    async (ids: string[]) => {
+      if (!session || ids.length === 0) return;
+      const ahora = new Date().toISOString();
+      setFilas((prev) => (prev ?? []).filter((f) => !ids.includes(f.id)));
+      await supabase.from("conversacion_ocultas").upsert(
+        ids.map((id) => ({
+          conversacion_id: id,
+          usuario_id: session.user.id,
+          oculta_desde: ahora,
+        })),
+      );
+      // Eliminar es también decir "ya lo vi": si el hilo se va de la
+      // bandeja con pendientes sin marcar, esos pendientes se quedan
+      // sumando en la burbuja de chat de la web sin forma de bajarlos.
+      await supabase.from("conversacion_lecturas").upsert(
+        ids.map((id) => ({
+          conversacion_id: id,
+          usuario_id: session.user.id,
+          leido_hasta: ahora,
+        })),
+      );
     },
     [session],
   );
+
+  const eliminarChat = useCallback((fila: Fila) => ocultar([fila.id]), [ocultar]);
+
+  /** Vaciar de un golpe todo lo archivado — el caso real de una bandeja
+   *  saturada, sin tener que deslizar hilo por hilo. */
+  const vaciarResueltas = useCallback(() => {
+    const ids = (filas ?? []).filter((f) => f.resuelta).map((f) => f.id);
+    if (ids.length === 0) return;
+    Alert.alert(
+      "Vaciar resueltas",
+      `¿Eliminar ${ids.length} ${ids.length === 1 ? "conversación resuelta" : "conversaciones resueltas"} de tu bandeja?\n\nLos mensajes no se borran y el chat vuelve solo si la otra persona escribe.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Eliminar", style: "destructive", onPress: () => void ocultar(ids) },
+      ],
+    );
+  }, [filas, ocultar]);
 
   // Estado compartido (migración 0054): si cualquiera de los dos la
   // marca resuelta, se archiva para ambos — y un mensaje nuevo la
@@ -344,6 +375,12 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
               Resueltas {resueltas.length}
             </Text>
           </Pressable>
+          {tab === "resueltas" && resueltas.length > 0 && (
+            <Pressable style={styles.tabVaciar} onPress={vaciarResueltas}>
+              <Ionicons name="trash-outline" size={14} color={Colors.inkSoft} />
+              <Text style={styles.tabVaciarTexto}>Vaciar</Text>
+            </Pressable>
+          )}
         </View>
       )}
       <FlatList
@@ -533,6 +570,19 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   tabBotonActivo: { borderColor: Colors.navy, backgroundColor: Colors.navy },
+  tabVaciar: {
+    marginLeft: "auto",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  tabVaciarTexto: { fontFamily: Fonts.bold, fontSize: 12.5, color: Colors.inkSoft },
   tabTexto: { fontFamily: Fonts.bold, fontSize: 12.5, color: Colors.inkSoft },
   tabTextoActivo: { color: "#ffffff" },
   swipeContenedor: { marginBottom: Spacing.two },

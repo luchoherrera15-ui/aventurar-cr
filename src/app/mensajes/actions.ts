@@ -88,3 +88,80 @@ export async function alternarResuelto(
   }
   return { error: null };
 }
+
+/** Ocultar para mí + marcar leído, la operación de "eliminar" completa. */
+async function ocultarPara(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  usuarioId: string,
+  conversacionIds: string[],
+): Promise<{ error: string | null }> {
+  if (conversacionIds.length === 0) return { error: null };
+  const ahora = new Date().toISOString();
+
+  const { error } = await supabase.from("conversacion_ocultas").upsert(
+    conversacionIds.map((id) => ({
+      conversacion_id: id,
+      usuario_id: usuarioId,
+      oculta_desde: ahora,
+    })),
+    { onConflict: "conversacion_id,usuario_id" },
+  );
+  if (error) return { error: "No se pudo eliminar. Intentá de nuevo." };
+
+  // Eliminar es también decir "ya lo vi": un hilo que sale de la bandeja
+  // con pendientes sin marcar deja esos pendientes sumando para siempre
+  // en la burbuja de chat, sin ningún lado desde donde bajarlos.
+  await supabase.from("conversacion_lecturas").upsert(
+    conversacionIds.map((id) => ({
+      conversacion_id: id,
+      usuario_id: usuarioId,
+      leido_hasta: ahora,
+    })),
+    { onConflict: "conversacion_id,usuario_id" },
+  );
+  return { error: null };
+}
+
+/**
+ * "Eliminar" un chat de la bandeja. Los mensajes nunca se borran de
+ * verdad (diseño de la migración 0034): el hilo se oculta SOLO para
+ * quien lo elimina (conversacion_ocultas, 0040) y el otro participante
+ * conserva todo su historial. Si después llega un mensaje nuevo, el
+ * chat vuelve solo a la bandeja — así nadie pierde una consulta o una
+ * venta por haber limpiado. Es el mismo gesto que el swipe a la
+ * izquierda de la app (mobile/src/pantallas/mensajes.tsx).
+ */
+export async function eliminarConversacion(
+  conversacionId: string,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tu sesión expiró — iniciá sesión de nuevo." };
+
+  return ocultarPara(supabase, user.id, [conversacionId]);
+}
+
+/**
+ * Vaciar de un solo golpe todo lo que ya está archivado — el caso real
+ * de una bandeja saturada. Misma mecánica que eliminar una por una: se
+ * ocultan solo para mí y cualquiera vuelve sola si revive.
+ */
+export async function vaciarResueltas(): Promise<{
+  error: string | null;
+  eliminadas: number;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tu sesión expiró — iniciá sesión de nuevo.", eliminadas: 0 };
+
+  // RLS ya limita esto a las conversaciones donde participo.
+  const { data } = await supabase.from("conversaciones").select("id").eq("resuelta", true);
+  const ids = ((data ?? []) as { id: string }[]).map((c) => c.id);
+
+  const { error } = await ocultarPara(supabase, user.id, ids);
+  return { error, eliminadas: error ? 0 : ids.length };
+}

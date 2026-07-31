@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { IconWarning } from "@/components/icons";
+import { leerConfigIA } from "@/lib/ia/config-ia";
+import { formatearAmbas } from "@/lib/ia/modelos";
 import { perteneceASeccion, SECCION_LABEL } from "./vertical";
 import { seccionActiva } from "./vertical-server";
 
@@ -20,6 +22,25 @@ export default async function AdminHubPage() {
   const ranchosPendientes = ranchos.filter((r) => r.estado === "pendiente").length;
   const ranchosPublicados = ranchos.filter((r) => r.estado === "aprobado").length;
   const cuentas = (perfilesRes.data ?? []).length;
+
+  // Lo que llevamos gastado en IA este mes, en las dos monedas. Si la
+  // migración 0078 todavía no corrió, PostgREST devuelve error (no
+  // lanza) y la tarjeta cae en su texto genérico.
+  const ahora = new Date();
+  const desdeMes = new Date(
+    Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1),
+  ).toISOString();
+  const [usoIaRes, configIA] = await Promise.all([
+    supabase.from("uso_ia").select("costo_usd").gte("created_at", desdeMes),
+    leerConfigIA(),
+  ]);
+  const gastoIaUSD = ((usoIaRes.data ?? []) as { costo_usd: number | string }[]).reduce(
+    (total, fila) => total + Number(fila.costo_usd ?? 0),
+    0,
+  );
+  const statIA = usoIaRes.error
+    ? "Gasto · Modelos · Conocimiento"
+    : `${formatearAmbas(gastoIaUSD, configIA.tipoCambio)} este mes`;
 
   return (
     <div className="relative isolate">
@@ -77,6 +98,14 @@ export default async function AdminHubPage() {
           stat="Alquileres · Promoción · Invitaciones"
           alerta={null}
           icon={<IconChart />}
+        />
+        <HubCard
+          href="/admin/ia"
+          title="Inteligencia artificial"
+          descripcion="Cuánto gastan los asistentes, con qué modelo trabaja cada uno, y qué información nueva puede responder el chat de los negocios."
+          stat={statIA}
+          alerta={null}
+          icon={<IconIA />}
         />
       </div>
     </div>
@@ -170,6 +199,18 @@ function IconChart() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
       <path strokeLinecap="round" d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+    </svg>
+  );
+}
+
+function IconIA() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <rect x="7" y="7" width="10" height="10" rx="2" />
+      <path
+        strokeLinecap="round"
+        d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"
+      />
     </svg>
   );
 }

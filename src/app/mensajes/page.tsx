@@ -62,7 +62,12 @@ export default async function BandejaMensajesPage() {
   const conversaciones = (convData ?? []) as unknown as ConversacionRow[];
   const ids = conversaciones.map((c) => c.id);
 
-  const [{ data: mensajesData }, { data: lecturasData }, { data: contactosData }] = ids.length
+  const [
+    { data: mensajesData },
+    { data: lecturasData },
+    { data: ocultasData },
+    { data: contactosData },
+  ] = ids.length
     ? await Promise.all([
         supabase
           .from("mensajes")
@@ -74,16 +79,27 @@ export default async function BandejaMensajesPage() {
           .from("conversacion_lecturas")
           .select("conversacion_id, leido_hasta")
           .eq("usuario_id", user.id),
+        // Los chats que esta persona eliminó de su bandeja (0040).
+        supabase
+          .from("conversacion_ocultas")
+          .select("conversacion_id, oculta_desde")
+          .eq("usuario_id", user.id),
         // El nombre (o correo) de la otra persona, para las consultas
         // directas que todavía no tienen una reserva de dónde sacarlo.
         supabase.from("conversaciones_contacto").select("conversacion_id, nombre_contacto"),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const contactoPorConversacion = new Map<string, string>(
     ((contactosData ?? []) as { conversacion_id: string; nombre_contacto: string | null }[])
       .filter((c) => !!c.nombre_contacto)
       .map((c) => [c.conversacion_id, c.nombre_contacto as string]),
+  );
+
+  const ocultaDesde = new Map<string, string>(
+    ((ocultasData ?? []) as { conversacion_id: string; oculta_desde: string }[]).map(
+      (o) => [o.conversacion_id, o.oculta_desde],
+    ),
   );
 
   const leidoHasta = new Map<string, string>(
@@ -137,6 +153,13 @@ export default async function BandejaMensajesPage() {
         resuelta: c.resuelta,
         tag: tagDeChat(c),
       };
+    })
+    // Un chat eliminado se queda oculto mientras no pase nada nuevo; si
+    // su última actividad es posterior al momento en que se ocultó,
+    // vuelve a la bandeja (mismo criterio que la app).
+    .filter((f) => {
+      const oculta = ocultaDesde.get(f.id);
+      return !oculta || f.actividad > oculta;
     })
     .sort((a, b) => (a.actividad < b.actividad ? 1 : -1));
 

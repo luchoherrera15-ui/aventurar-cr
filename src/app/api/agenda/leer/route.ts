@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verificarAccesoRancho } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR } from "@/lib/fechas";
+import { motivoParaNoGastar } from "@/lib/ia/config-ia";
 import {
   leerAgendaDeFotos,
   leerAgendaDeTexto,
@@ -22,11 +23,12 @@ import type { VerticalAgenda } from "@/lib/agenda/importar-agenda";
  * una reserva. Guardar es otro paso, gratuito, y pasa por la revisión
  * del dueño (guardarLoteAgenda).
  *
- * Tres puertas antes de gastar un token:
+ * Cuatro puertas antes de gastar un token:
  *   1. Sesión válida y dueño (o admin) de ese negocio.
  *   2. El add-on `agenda_ia` activo y vigente — se consulta con la
  *      llave de servicio, nunca con lo que diga el navegador.
- *   3. Tamaño y cantidad de imágenes dentro de lo razonable.
+ *   3. La IA encendida y el tope de gasto del mes sin alcanzar.
+ *   4. Tamaño y cantidad de imágenes dentro de lo razonable.
  */
 
 /** Tope de payload: ~12 MB de base64 ≈ 9 MB de fotos. */
@@ -90,6 +92,13 @@ export async function POST(request: Request) {
     );
   }
 
+  // 3. ¿La plataforma está en condiciones de gastar? (IA apagada o tope
+  //    del mes alcanzado). Se avisa antes de llamar al modelo, no después.
+  const motivo = await motivoParaNoGastar();
+  if (motivo) {
+    return NextResponse.json({ error: motivo }, { status: 503 });
+  }
+
   const modo = cuerpo.modo === "texto" ? "texto" : "foto";
   const hoy = hoyISOCR();
   const contexto = typeof cuerpo.contexto === "string" ? cuerpo.contexto : undefined;
@@ -111,9 +120,12 @@ export async function POST(request: Request) {
       if (texto.trim().length < 10) {
         return NextResponse.json({ error: "Pegá el texto de la agenda." }, { status: 400 });
       }
-      resultado = await leerAgendaDeTexto(texto, vertical, hoy);
+      resultado = await leerAgendaDeTexto(texto, vertical, hoy, {
+        ranchoId,
+        usuarioId: user.id,
+      });
     } else {
-      // 3. Validar las imágenes antes de gastar un token.
+      // 4. Validar las imágenes antes de gastar un token.
       const crudas = Array.isArray(cuerpo.fotos) ? cuerpo.fotos : [];
       if (crudas.length === 0) {
         return NextResponse.json({ error: "Subí al menos una foto." }, { status: 400 });
@@ -149,7 +161,10 @@ export async function POST(request: Request) {
         fotos.push({ mediaType, datos });
       }
 
-      resultado = await leerAgendaDeFotos(fotos, vertical, hoy, contexto);
+      resultado = await leerAgendaDeFotos(fotos, vertical, hoy, contexto, {
+        ranchoId,
+        usuarioId: user.id,
+      });
     }
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : "No se pudo leer la agenda.";

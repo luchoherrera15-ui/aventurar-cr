@@ -13,14 +13,21 @@
  * Se usa salida estructurada (output_config.format) para que el
  * modelo devuelva JSON validado por el esquema y no haya que parsear
  * texto suelto ni reintentar por comas mal puestas.
+ *
+ * Qué modelo lee lo decide el panel de IA (agente "agenda_leer"), así que
+ * acá nada se puede dar por sentado: hay modelos que no aceptan esfuerzo ni
+ * pensamiento y mandárselos devuelve un 400.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { calcularCostoUSD } from "./token-counter";
+import { modeloDe } from "./config-ia";
+import { calcularCosto, MODELOS, type ModeloIA } from "./modelos";
+import { registrarDesdeUsage, registrarFalloIA } from "./registrar-uso";
 import type { FilaAgenda, FilaCruda, VerticalAgenda } from "@/lib/agenda/importar-agenda";
 import { normalizarFila } from "@/lib/agenda/importar-agenda";
 
-const MODELO = "claude-opus-5";
+/** Con qué se lee si el panel todavía no configuró nada o la base no responde. */
+const MODELO_POR_DEFECTO: ModeloIA = "claude-opus-5";
 
 /** Tope de imágenes por corrida — cada foto de agenda es cara en tokens. */
 export const MAX_FOTOS = 8;
@@ -32,6 +39,15 @@ export type ImagenAgenda = {
   mediaType: string;
   /** base64 sin el prefijo data:. */
   datos: string;
+};
+
+/**
+ * A quién se le atribuye el gasto. La lectura funciona igual sin esto, pero
+ * el panel de IA no podría decir qué negocio consumió los tokens.
+ */
+export type OpcionesLectura = {
+  ranchoId?: string | null;
+  usuarioId?: string | null;
 };
 
 export type ResultadoLectura = {
@@ -183,58 +199,106 @@ Trabajás para la persona dueña del negocio, que va a revisar cada fila antes d
 
 type ContenidoUsuario = Anthropic.Messages.ContentBlockParam[];
 
+/**
+ * Qué modelo lee la agenda. Lo manda el panel de IA; si la configuración no
+ * se puede leer se sigue con Opus, que es lo que el add-on venía usando —
+ * una lectura cara es mejor que un add-on pago caído.
+ */
+async function modeloDeAgenda(): Promise<ModeloIA> {
+  try {
+    return await modeloDe("agenda_leer");
+  } catch {
+    return MODELO_POR_DEFECTO;
+  }
+}
+
 async function pedirLectura(
   contenido: ContenidoUsuario,
   vertical: VerticalAgenda,
   hoy: string,
+  opciones: OpcionesLectura = {},
 ): Promise<ResultadoLectura> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY no configurada");
 
+  const modelo = await modeloDeAgenda();
+  const info = MODELOS[modelo];
+
   const client = new Anthropic({ apiKey });
   const inicio = Date.now();
+
+  // La salida estructurada la aceptan todos los modelos; el esfuerzo NO.
+  // Mandarle output_config.effort a Haiku 4.5 devuelve un 400 y el add-on
+  // se cae entero, así que se pregunta antes en vez de darlo por hecho.
+  const salida: Anthropic.Messages.OutputConfig = {
+    format: { type: "json_schema", schema: ESQUEMA_SALIDA },
+  };
+  if (info.soportaEsfuerzo) salida.effort = "high";
+
+  const parametros: Anthropic.Messages.MessageStreamParams = {
+    model: modelo,
+    // Nunca pedir más de lo que el modelo puede responder de una vez.
+    max_tokens: Math.min(MAX_TOKENS, info.salidaMaxima),
+    system: systemPrompt(vertical, hoy),
+    output_config: salida,
+    messages: [{ role: "user", content: contenido }],
+  };
+  // Mismo cuidado con el pensamiento: los modelos que no razonan lo rechazan.
+  if (info.razonaPorDefecto) parametros.thinking = { type: "adaptive" };
 
   // Streaming: una agenda grande genera bastante JSON y, con el
   // pensamiento adaptativo encendido, una llamada sin stream se puede
   // pasar del timeout HTTP del SDK.
-  const stream = client.messages.stream({
-    model: MODELO,
-    max_tokens: MAX_TOKENS,
-    system: systemPrompt(vertical, hoy),
-    thinking: { type: "adaptive" },
-    output_config: {
-      effort: "high",
-      format: { type: "json_schema", schema: ESQUEMA_SALIDA },
-    },
-    messages: [{ role: "user", content: contenido }],
-  });
+  const stream = client.messages.stream(parametros);
 
   const mensaje = await stream.finalMessage();
   const tiempoMs = Date.now() - inicio;
+  const usage = mensaje.usage;
+
+  /**
+   * Corta la lectura dejando constancia del gasto: cuando el modelo declina
+   * o se pasa de largo los tokens ya se facturaron, así que tienen que
+   * aparecer en el panel aunque el dueño no reciba ninguna fila.
+   */
+  const abortar = async (motivo: string): Promise<never> => {
+    await registrarFalloIA({
+      agente: "agenda_leer",
+      modelo,
+      tokensInput: usage.input_tokens ?? 0,
+      tokensOutput: usage.output_tokens ?? 0,
+      tokensCacheWrite: usage.cache_creation_input_tokens ?? 0,
+      tokensCacheRead: usage.cache_read_input_tokens ?? 0,
+      tiempoMs,
+      error: motivo,
+      ranchoId: opciones.ranchoId ?? null,
+      usuarioId: opciones.usuarioId ?? null,
+    });
+    throw new Error(motivo);
+  };
 
   // Los clasificadores pueden declinar: hay que mirar stop_reason
   // ANTES de tocar content, que puede venir vacío.
   if (mensaje.stop_reason === "refusal") {
-    throw new Error(
+    return abortar(
       "El modelo no pudo procesar esa imagen. Probá con otra foto o cargá la agenda a mano.",
     );
   }
   if (mensaje.stop_reason === "max_tokens") {
-    throw new Error(
+    return abortar(
       "La agenda es demasiado larga para una sola corrida. Subila por partes (por ejemplo, un mes a la vez).",
     );
   }
 
   const bloqueTexto = mensaje.content.find((b) => b.type === "text");
   if (!bloqueTexto || bloqueTexto.type !== "text") {
-    throw new Error("El modelo no devolvió datos legibles.");
+    return abortar("El modelo no devolvió datos legibles.");
   }
 
   let crudo: { resumen?: unknown; filas?: unknown };
   try {
     crudo = JSON.parse(bloqueTexto.text) as { resumen?: unknown; filas?: unknown };
   } catch {
-    throw new Error("El modelo devolvió una respuesta que no se pudo interpretar.");
+    return abortar("El modelo devolvió una respuesta que no se pudo interpretar.");
   }
 
   const filasCrudas = Array.isArray(crudo.filas) ? crudo.filas : [];
@@ -245,16 +309,36 @@ async function pedirLectura(
     )
     .map((f) => normalizarFila(f as FilaCruda));
 
-  const tokensInput = mensaje.usage.input_tokens ?? 0;
-  const tokensOutput = mensaje.usage.output_tokens ?? 0;
+  const tokensInput = usage.input_tokens ?? 0;
+  const tokensOutput = usage.output_tokens ?? 0;
+
+  // El add-on se cobra por importaciones_agenda (lo escribe la ruta), pero el
+  // panel de IA mira una sola tabla: acá queda la copia de este gasto.
+  await registrarDesdeUsage(
+    {
+      input_tokens: tokensInput,
+      output_tokens: tokensOutput,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+      cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+    },
+    {
+      agente: "agenda_leer",
+      modelo,
+      tiempoMs,
+      ranchoId: opciones.ranchoId ?? null,
+      usuarioId: opciones.usuarioId ?? null,
+    },
+  );
 
   return {
     filas,
     resumen: typeof crudo.resumen === "string" ? crudo.resumen : null,
-    modelo: MODELO,
+    modelo,
     tokensInput,
     tokensOutput,
-    costoUsd: calcularCostoUSD(tokensInput, tokensOutput, "opus"),
+    // Con el modelo real: si el panel cambia a Sonnet, el costo no puede
+    // seguir contándose a precio de Opus.
+    costoUsd: calcularCosto(modelo, tokensInput, tokensOutput),
     tiempoMs,
   };
 }
@@ -264,6 +348,7 @@ export async function leerAgendaDeTexto(
   texto: string,
   vertical: VerticalAgenda,
   hoy: string,
+  opciones: OpcionesLectura = {},
 ): Promise<ResultadoLectura> {
   return pedirLectura(
     [
@@ -274,6 +359,7 @@ export async function leerAgendaDeTexto(
     ],
     vertical,
     hoy,
+    opciones,
   );
 }
 
@@ -283,6 +369,7 @@ export async function leerAgendaDeFotos(
   vertical: VerticalAgenda,
   hoy: string,
   contexto?: string,
+  opciones: OpcionesLectura = {},
 ): Promise<ResultadoLectura> {
   if (imagenes.length === 0) throw new Error("No llegó ninguna foto.");
 
@@ -309,5 +396,5 @@ export async function leerAgendaDeFotos(
       : "Transcribí estas páginas de la agenda a filas estructuradas.",
   });
 
-  return pedirLectura(contenido, vertical, hoy);
+  return pedirLectura(contenido, vertical, hoy, opciones);
 }

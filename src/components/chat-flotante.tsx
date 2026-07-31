@@ -225,20 +225,29 @@ export default function ChatFlotante() {
     }
 
     const ids = conversaciones.map((c) => c.id);
-    const [{ data: mensajesData }, { data: lecturasData }, { data: contactosData }] =
-      await Promise.all([
-        supabase
-          .from("mensajes")
-          .select("conversacion_id, autor_id, texto, created_at")
-          .in("conversacion_id", ids)
-          .order("created_at", { ascending: false })
-          .limit(500),
-        supabase
-          .from("conversacion_lecturas")
-          .select("conversacion_id, leido_hasta")
-          .eq("usuario_id", user.id),
-        supabase.from("conversaciones_contacto").select("conversacion_id, nombre_contacto"),
-      ]);
+    const [
+      { data: mensajesData },
+      { data: lecturasData },
+      { data: ocultasData },
+      { data: contactosData },
+    ] = await Promise.all([
+      supabase
+        .from("mensajes")
+        .select("conversacion_id, autor_id, texto, created_at")
+        .in("conversacion_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("conversacion_lecturas")
+        .select("conversacion_id, leido_hasta")
+        .eq("usuario_id", user.id),
+      // Los chats eliminados de la bandeja (0040) tampoco salen acá.
+      supabase
+        .from("conversacion_ocultas")
+        .select("conversacion_id, oculta_desde")
+        .eq("usuario_id", user.id),
+      supabase.from("conversaciones_contacto").select("conversacion_id, nombre_contacto"),
+    ]);
 
     const contacto = new Map<string, string>(
       ((contactosData ?? []) as { conversacion_id: string; nombre_contacto: string | null }[])
@@ -248,6 +257,11 @@ export default function ChatFlotante() {
     const leidoHasta = new Map<string, string>(
       ((lecturasData ?? []) as { conversacion_id: string; leido_hasta: string }[]).map(
         (l) => [l.conversacion_id, l.leido_hasta],
+      ),
+    );
+    const ocultaDesde = new Map<string, string>(
+      ((ocultasData ?? []) as { conversacion_id: string; oculta_desde: string }[]).map(
+        (o) => [o.conversacion_id, o.oculta_desde],
       ),
     );
 
@@ -284,6 +298,12 @@ export default function ChatFlotante() {
             actividad: ult?.created_at ?? c.created_at,
             pendientes: pendientes.get(c.id) ?? 0,
           };
+        })
+        // Eliminado de la bandeja = eliminado también de esta lista,
+        // mientras no llegue algo nuevo que lo reviva.
+        .filter((f) => {
+          const oculta = ocultaDesde.get(f.id);
+          return !oculta || f.actividad > oculta;
         })
         .sort((a, b) => (a.actividad < b.actividad ? 1 : -1)),
     );

@@ -513,6 +513,15 @@ export default async function RanchoDetallePage({
     tabPrecios,
     tabFinanzas,
     tabPerfil,
+    // El asistente del chat vive en su propia pantalla: se le enseñan
+    // respuestas y se prende o apaga desde ahí. Aparece para todos los
+    // negocios porque cualquiera puede encenderlo, no solo la categoría
+    // que lo trae activo por defecto.
+    {
+      id: "asistente",
+      label: "Asistente",
+      href: `/mi-rancho/${rancho.id}/asistente`,
+    } satisfies Tab,
     tabConfiguracion,
   ];
 

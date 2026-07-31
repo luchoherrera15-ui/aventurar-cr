@@ -1,15 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { fechaCortaMensaje } from "@/lib/fechas";
+import { IconTrash } from "@/components/icons";
 import BotonResuelto from "./boton-resuelto";
+import { eliminarConversacion, vaciarResueltas } from "./actions";
 
 /**
  * La lista de la bandeja de mensajes, separada de la página para poder
  * probarla con datos de mentira. No sabe nada de Supabase: recibe las
  * filas ya armadas. Dos pestañas — Activas y Resueltas — para poder
  * archivar una conversación ya cerrada sin perderla de vista del todo.
+ *
+ * Y para que las resueltas no se acumulen sin fin, cada fila se puede
+ * eliminar (una por una o todas las archivadas de un golpe): el hilo
+ * desaparece SOLO de esta bandeja — los mensajes no se borran y el otro
+ * lado conserva su historial — y vuelve solo si llega un mensaje nuevo.
  */
 
 export type TagChat = { texto: string; clase: string };
@@ -30,12 +38,45 @@ export type FilaConversacion = {
 };
 
 export default function ListaConversaciones({ filas }: { filas: FilaConversacion[] }) {
+  const router = useRouter();
   const [tab, setTab] = useState<"activas" | "resueltas">("activas");
-  const activas = filas.filter((f) => !f.resuelta);
-  const resueltas = filas.filter((f) => f.resuelta);
+  // Lo que ya se eliminó en esta pantalla: la fila se va de una, sin
+  // esperar el viaje al servidor ni el refresh de la página.
+  const [eliminadas, setEliminadas] = useState<string[]>([]);
+  const [vaciando, empezarVaciado] = useTransition();
+
+  const presentes = filas.filter((f) => !eliminadas.includes(f.id));
+  const activas = presentes.filter((f) => !f.resuelta);
+  const resueltas = presentes.filter((f) => f.resuelta);
   const visibles = tab === "activas" ? activas : resueltas;
 
-  if (filas.length === 0) {
+  function eliminar(id: string) {
+    setEliminadas((prev) => [...prev, id]);
+    void eliminarConversacion(id).then((r) => {
+      // Si falló, la fila vuelve: mejor verla de nuevo que creer que se
+      // limpió algo que sigue ahí.
+      if (r.error) setEliminadas((prev) => prev.filter((x) => x !== id));
+      router.refresh();
+    });
+  }
+
+  function vaciar() {
+    const ok = window.confirm(
+      `¿Eliminar las ${resueltas.length} conversaciones resueltas de tu bandeja?\n\n` +
+        "Los mensajes no se borran: podés seguir viéndolos desde la reserva, " +
+        "y el chat vuelve solo si la otra persona escribe.",
+    );
+    if (!ok) return;
+    const ids = resueltas.map((f) => f.id);
+    setEliminadas((prev) => [...prev, ...ids]);
+    empezarVaciado(async () => {
+      const r = await vaciarResueltas();
+      if (r.error) setEliminadas((prev) => prev.filter((x) => !ids.includes(x)));
+      router.refresh();
+    });
+  }
+
+  if (presentes.length === 0) {
     return (
       <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-8 text-center">
         <p className="text-[14px] font-bold text-aventurea-ink">
@@ -57,7 +98,7 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
 
   return (
     <div>
-      <div className="mb-3 flex gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <PestanaTab
           label="Activas"
           cantidad={activas.length}
@@ -70,6 +111,17 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
           activo={tab === "resueltas"}
           onClick={() => setTab("resueltas")}
         />
+        {tab === "resueltas" && resueltas.length > 0 && (
+          <button
+            type="button"
+            onClick={vaciar}
+            disabled={vaciando}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft transition-colors hover:border-red-300 hover:text-red-600 disabled:opacity-50"
+          >
+            <IconTrash className="h-3.5 w-3.5" />
+            {vaciando ? "Vaciando…" : "Vaciar resueltas"}
+          </button>
+        )}
       </div>
 
       {visibles.length === 0 ? (
@@ -77,7 +129,7 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
           <p className="text-[13.5px] text-aventurea-ink-soft">
             {tab === "activas"
               ? "No tenés conversaciones activas — todo al día."
-              : "Todavía no marcaste ninguna conversación como resuelta."}
+              : "No tenés conversaciones archivadas."}
           </p>
         </div>
       ) : (
@@ -133,7 +185,10 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
                       {f.pendientes} nuevo{f.pendientes === 1 ? "" : "s"}
                     </span>
                   )}
-                  <BotonResuelto conversacionId={f.id} resuelta={f.resuelta} />
+                  <div className="flex items-center gap-1.5">
+                    <BotonResuelto conversacionId={f.id} resuelta={f.resuelta} />
+                    <BotonEliminar onEliminar={() => eliminar(f.id)} />
+                  </div>
                 </div>
               </Link>
             );
@@ -141,6 +196,26 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
         </div>
       )}
     </div>
+  );
+}
+
+/** Saca el chat de la bandeja. Va dentro del <Link> de la fila, así que
+ *  frena el clic para no abrir el hilo que se está eliminando. */
+function BotonEliminar({ onEliminar }: { onEliminar: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Eliminar de mi bandeja"
+      title="Eliminar de mi bandeja"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onEliminar();
+      }}
+      className="shrink-0 rounded-lg border border-aventurea-line p-1.5 text-aventurea-ink-soft transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+    >
+      <IconTrash className="h-3.5 w-3.5" />
+    </button>
   );
 }
 

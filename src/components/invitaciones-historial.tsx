@@ -1,14 +1,30 @@
 "use client";
 
 import { InvitacionHistorial } from "@/lib/tipos/invitaciones";
+import {
+  MODELOS,
+  TIPO_CAMBIO_POR_DEFECTO,
+  formatearAmbas,
+  normalizarModelo,
+} from "@/lib/ia/modelos";
 
 interface HistorialProps {
   invitaciones: InvitacionHistorial[];
   /** Recibe el SLUG (la ruta pública es /i/[slug], no /i/[id]). */
   onAbrir?: (slug: string) => void;
+  /**
+   * Tipo de cambio con el que se convierten los costos a colones. Es
+   * opcional porque la consulta del historial todavía no trae el que se
+   * guardó con cada generación; mientras tanto se usa el de respaldo.
+   */
+  tipoCambio?: number;
 }
 
-export default function Historial({ invitaciones, onAbrir }: HistorialProps) {
+export default function Historial({
+  invitaciones,
+  onAbrir,
+  tipoCambio = TIPO_CAMBIO_POR_DEFECTO,
+}: HistorialProps) {
   if (!invitaciones || invitaciones.length === 0) {
     return (
       <div className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-6 text-center">
@@ -26,6 +42,17 @@ export default function Historial({ invitaciones, onAbrir }: HistorialProps) {
       hour: "numeric",
       minute: "2-digit",
     });
+  }
+
+  /**
+   * El nombre lindo del modelo. En la base conviven las etiquetas viejas
+   * ("opus", "fable") con los ids reales que guarda la generación de hoy
+   * ("claude-opus-5"): normalizarModelo mapea las dos formas, así que la
+   * columna nunca vuelve a mostrar un id en mayúsculas.
+   */
+  function nombreModelo(modeloUsado: string | null | undefined): string {
+    if (!modeloUsado) return "—";
+    return MODELOS[normalizarModelo(modeloUsado)].nombre;
   }
 
   function estadoColor(estado: string | null): string {
@@ -84,15 +111,18 @@ export default function Historial({ invitaciones, onAbrir }: HistorialProps) {
                   {inv.titulo}
                 </td>
                 <td className="px-5 py-3 text-aventurea-ink-soft">
-                  {inv.modelo_usado ? inv.modelo_usado.toUpperCase() : "—"}
+                  {nombreModelo(inv.modelo_usado)}
                 </td>
                 <td className="px-5 py-3 text-aventurea-ink-soft">
                   {inv.costo_tokens_input
                     ? `${(inv.costo_tokens_input + (inv.costo_tokens_output || 0)).toLocaleString("es-CR")}`
                     : "—"}
                 </td>
-                <td className="px-5 py-3 text-right font-bold text-aventurea-ink">
-                  {inv.costo_usd ? `$${inv.costo_usd.toFixed(4)}` : "—"}
+                {/* El gasto siempre en las dos monedas, igual que el resto del flujo. */}
+                <td className="px-5 py-3 text-right font-bold text-aventurea-ink whitespace-nowrap">
+                  {typeof inv.costo_usd === "number"
+                    ? formatearAmbas(inv.costo_usd, tipoCambio)
+                    : "—"}
                 </td>
                 <td className="px-5 py-3">
                   <span

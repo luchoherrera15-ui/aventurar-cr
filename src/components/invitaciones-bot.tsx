@@ -3,6 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import UploadZone from "@/components/invitaciones-upload-zone";
 import CostPreview from "@/components/invitaciones-cost-preview";
+import {
+  formatearAmbas,
+  MODELOS,
+  preciosVigentes,
+  TIPO_CAMBIO_POR_DEFECTO,
+  type ModeloIA,
+} from "@/lib/ia/modelos";
 import { InvitacionConfig } from "@/lib/tipos/invitaciones";
 
 /**
@@ -35,6 +42,22 @@ interface Mensaje {
 const SALUDO =
   "¡Hola! Soy el diseñador de invitaciones de Bookea. Contame con tus palabras qué invitación necesitás: la ocasión, para quién es, el estilo que te imaginás, colores, lo que sea. Yo te voy proponiendo ideas y cuando estés conforme te muestro el costo y la generamos.";
 
+/**
+ * Los únicos dos modelos que el generador acepta: "opus" y "fable" son
+ * los alias que validan /api/invitaciones/preview-token-count y
+ * /api/invitaciones/generar-con-ia. Cada uno se mapea a su modelo del
+ * catálogo para que el nombre y el precio salgan de MODELOS: escritos a
+ * mano quedaban viejos apenas cambiaba una tarifa.
+ */
+const MODELOS_GENERADOR: {
+  id: DatosGeneracion["modelo"];
+  modelo: ModeloIA;
+  rol: string;
+}[] = [
+  { id: "opus", modelo: "claude-opus-5", rol: "Equilibrado" },
+  { id: "fable", modelo: "claude-fable-5", rol: "Premium" },
+];
+
 export default function InvitacionesBot({ onGenerar, pendiente = false }: BotProps) {
   const [mensajes, setMensajes] = useState<Mensaje[]>([
     { id: 0, de: "bot", texto: SALUDO },
@@ -44,6 +67,10 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
   const [errorBot, setErrorBot] = useState("");
   // Lo gastado en la conversación (cada mensaje cuesta tokens reales).
   const [gastoChat, setGastoChat] = useState(0);
+  // El tipo de cambio lo manda el servidor con cada respuesta: es el
+  // mismo que se guardó en el registro de gasto, así que la pantalla y
+  // el panel de consumo cuentan siempre los mismos colones.
+  const [tipoCambio, setTipoCambio] = useState(TIPO_CAMBIO_POR_DEFECTO);
 
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
@@ -51,7 +78,9 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
 
   const [promptFinal, setPromptFinal] = useState<string | null>(null);
   const [titulo, setTitulo] = useState("Invitación");
-  const [modelo, setModelo] = useState<"opus" | "fable">("opus");
+  // El tipo sale de DatosGeneracion: si mañana cambia lo que acepta el
+  // generador, el selector deja de compilar en vez de ofrecer de más.
+  const [modelo, setModelo] = useState<DatosGeneracion["modelo"]>("opus");
   // El costo lo pinta CostPreview; acá solo interesa para el registro
   // del gasto acumulado, no para bloquear el botón de generar.
   const [, setCostoEstimado] = useState(0);
@@ -107,14 +136,20 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
       });
       const data = await res.json();
 
+      // El gasto se suma pase lo que pase: una respuesta cortada o
+      // vacía se cobró igual, y esconderla haría que el total mienta.
+      if (typeof data.costo_usd === "number") {
+        setGastoChat((g) => g + data.costo_usd);
+      }
+      if (typeof data.tipo_cambio === "number" && data.tipo_cambio > 0) {
+        setTipoCambio(data.tipo_cambio);
+      }
+
       if (!res.ok || !data.success) {
         setErrorBot(data.error || "El asistente tuvo un problema; intentá de nuevo");
         // Mantener la alternancia usuario/asistente para el próximo envío.
         agregarMensaje("bot", "Perdoná, tuve un problema — ¿me lo repetís?");
       } else {
-        if (typeof data.costo_usd === "number") {
-          setGastoChat((g) => g + data.costo_usd);
-        }
         if (data.respuesta) agregarMensaje("bot", data.respuesta);
         if (data.prompt_final) {
           setPromptFinal(data.prompt_final);
@@ -172,7 +207,9 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
           <p className="text-[10px] font-bold uppercase tracking-wide text-white/60">
             Gastado en chat
           </p>
-          <p className="text-[13px] font-black text-white">${gastoChat.toFixed(4)}</p>
+          <p className="whitespace-nowrap text-[13px] font-black text-white">
+            {formatearAmbas(gastoChat, tipoCambio)}
+          </p>
         </div>
       </div>
 
@@ -223,33 +260,41 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
             </p>
 
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {[
-                {
-                  id: "opus" as const,
-                  nombre: "Opus (Equilibrado)",
-                  desc: "Excelente calidad a mejor precio. ~$0.05-0.15",
-                },
-                {
-                  id: "fable" as const,
-                  nombre: "Fable (Premium)",
-                  desc: "Nuestro modelo más capaz — máximo detalle. ~$0.15-0.50",
-                },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setModelo(m.id)}
-                  disabled={pendiente}
-                  className={`rounded-xl border-2 p-3 text-left transition-all ${
-                    modelo === m.id
-                      ? "border-aventurea-navy bg-white"
-                      : "border-aventurea-line bg-white/60 hover:border-aventurea-navy/50"
-                  }`}
-                >
-                  <p className="text-[13px] font-bold text-aventurea-ink">{m.nombre}</p>
-                  <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">{m.desc}</p>
-                </button>
-              ))}
+              {MODELOS_GENERADOR.map((opcion) => {
+                const info = MODELOS[opcion.modelo];
+                const precio = preciosVigentes(opcion.modelo);
+                return (
+                  <button
+                    key={opcion.id}
+                    type="button"
+                    onClick={() => setModelo(opcion.id)}
+                    disabled={pendiente}
+                    className={`rounded-xl border-2 p-3 text-left transition-all ${
+                      modelo === opcion.id
+                        ? "border-aventurea-navy bg-white"
+                        : "border-aventurea-line bg-white/60 hover:border-aventurea-navy/50"
+                    }`}
+                  >
+                    <p className="text-[13px] font-bold text-aventurea-ink">
+                      {info.nombre} ({opcion.rol})
+                    </p>
+                    <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
+                      {info.paraQue}
+                    </p>
+                    {/* El precio de la tarifa, que es un dato verdadero:
+                        el rango por invitación que había acá se inventaba
+                        y encima quedaba corto (el generador permite 16.384
+                        tokens de salida, y 8.000 en Opus ya son $0.20). Lo
+                        que cuesta ESTA invitación lo estima CostPreview
+                        acá abajo con los tokens reales del brief. */}
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-aventurea-ink-soft">
+                      Entrada {formatearAmbas(precio.entradaUSD, tipoCambio)} · salida{" "}
+                      {formatearAmbas(precio.salidaUSD, tipoCambio)} por millón de tokens
+                      {precio.enPromo ? " (precio de lanzamiento)" : ""}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="mt-3">

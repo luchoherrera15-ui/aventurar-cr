@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { sesionDesdeBearer } from "@/lib/supabase/bearer";
-import { calcularCostoUSD } from "@/lib/ia/token-counter";
+import { modeloDe, motivoParaNoGastar } from "@/lib/ia/config-ia";
+import { registrarDesdeUsage, registrarFalloIA } from "@/lib/ia/registrar-uso";
+import { MODELOS, type AgenteIA, type ModeloIA } from "@/lib/ia/modelos";
 
 /**
  * POST /api/invitaciones/chat
@@ -13,6 +15,11 @@ import { calcularCostoUSD } from "@/lib/ia/token-counter";
  *
  * Requiere sesión (cada mensaje gasta tokens reales).
  *
+ * Son DOS agentes con modelos distintos: conversar es la llamada que
+ * más se repite y va en el modelo barato; el brief de cierre se corre
+ * una sola vez por invitación y decide cómo sale la invitación entera,
+ * así que va en el mejor. Ahí está casi todo el ahorro del chat.
+ *
  * Body: {
  *   mensajes: [{ rol: "usuario" | "asistente", texto: string }],
  *   imagenes_count?: number,
@@ -20,7 +27,7 @@ import { calcularCostoUSD } from "@/lib/ia/token-counter";
  *   forzar_brief?: boolean   // el botón "Generar": exige el brief YA
  * }
  * Response: { success, respuesta, prompt_final?, titulo?, costo_usd,
- *             input_tokens, output_tokens }
+ *             costo_crc, tipo_cambio, modelo, input_tokens, output_tokens }
  */
 
 export const maxDuration = 60;
@@ -75,18 +82,20 @@ export async function POST(request: Request) {
     // El sitio autentica por cookies; la app móvil manda su token en
     // el header. Se prueba el token primero porque una petición del
     // app nunca trae cookies y no tiene sentido ir a buscarlas.
+    // El id del usuario se guarda: cada llamada queda a nombre de quien
+    // la gastó, que es lo que después mira el panel de consumo.
     const sesionApp = await sesionDesdeBearer(request);
-    let autenticado = sesionApp !== null;
+    let usuarioId: string | null = sesionApp?.usuarioId ?? null;
 
-    if (!autenticado) {
+    if (!usuarioId) {
       const supabase = await createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      autenticado = user !== null;
+      usuarioId = user?.id ?? null;
     }
 
-    if (!autenticado) {
+    if (!usuarioId) {
       return Response.json(
         { success: false, error: "No autenticado" },
         { status: 401 }
@@ -127,6 +136,39 @@ export async function POST(request: Request) {
       );
     }
 
+    // Dos agentes distintos con dos modelos distintos. Si la
+    // configuración no se puede leer se sigue con estos, que son los
+    // mismos que trae el panel por defecto: nunca se cae el chat por
+    // no poder consultar qué modelo usar.
+    const agente: AgenteIA = forzarBrief ? "invitacion_brief" : "invitacion_chat";
+    let modelo: ModeloIA = forzarBrief ? "claude-opus-5" : "claude-haiku-4-5";
+    try {
+      modelo = await modeloDe(agente);
+    } catch {
+      // Se queda con el modelo por defecto.
+    }
+
+    // El freno de gasto se consulta ANTES de quemar tokens, y si la
+    // consulta falla se corta igual. El criterio es a propósito el
+    // contrario al del modelo: elegir modelo por defecto no gasta nada
+    // de más, pero dejar pasar el freno cuando no se pudo leer volvería
+    // opcionales el interruptor general y el tope del mes — una base
+    // caída alcanzaría para evadirlos y seguir facturando. leerConfigIA
+    // ya absorbe los casos esperables (sin service key, sin migración)
+    // devolviendo los valores por defecto, así que un throw acá es un
+    // problema real y merece frenar.
+    let motivo: string | null = null;
+    try {
+      motivo = await motivoParaNoGastar();
+    } catch (e) {
+      console.error("[invitaciones/chat] No se pudo consultar el freno de gasto:", e);
+      motivo =
+        "No pudimos verificar el estado del asistente; probá de nuevo en un momento.";
+    }
+    if (motivo) {
+      return Response.json({ success: false, error: motivo }, { status: 503 });
+    }
+
     // El historial va tal cual; el aviso de media se antepone al último
     // mensaje del usuario para que el diseñador lo tenga presente.
     const historial = mensajes.map((m, i) => {
@@ -144,12 +186,26 @@ export async function POST(request: Request) {
       };
     });
 
+    // Cuánto margen darle a la respuesta depende del modelo: los que
+    // razonan por su cuenta (Opus, Sonnet, Fable) meten ese
+    // razonamiento dentro de este mismo tope y con márgenes chicos el
+    // brief salía cortado a la mitad. Haiku no razona por defecto, así
+    // que el tope entero es para el texto y alcanza con mucho menos.
+    const razona = MODELOS[modelo].razonaPorDefecto;
+    const topeDeseado = razona
+      ? forzarBrief
+        ? 12000
+        : 8000
+      : forzarBrief
+        ? 6000
+        : 3000;
+    const maxTokens = Math.min(topeDeseado, MODELOS[modelo].salidaMaxima);
+
     const client = new Anthropic({ apiKey });
+    const arranque = Date.now();
     const response = await client.messages.create({
-      model: "claude-opus-5",
-      // El thinking está activo por defecto y comparte este tope con el
-      // texto: con márgenes chicos el brief salía cortado a la mitad.
-      max_tokens: forzarBrief ? 12000 : 8000,
+      model: modelo,
+      max_tokens: maxTokens,
       system: forzarBrief
         ? SYSTEM_CHAT +
           `\n\nEL CLIENTE YA CONFIRMÓ CON EL BOTÓN DE GENERAR: respondé
@@ -158,26 +214,96 @@ basados en TODA la conversación. Sin saludos ni texto extra.`
         : SYSTEM_CHAT,
       messages: historial,
     });
+    const tiempoMs = Date.now() - arranque;
+
+    // El SDK reporta los tokens de caché como number | null; el
+    // registro los quiere en números, así que se normalizan una vez.
+    const uso = {
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+      cache_creation_input_tokens: response.usage.cache_creation_input_tokens ?? 0,
+      cache_read_input_tokens: response.usage.cache_read_input_tokens ?? 0,
+    };
+
+    // Estos tokens ya se facturaron aunque el cliente no reciba nada
+    // útil, así que los caminos de error también dejan constancia.
+    const registrarFallo = (error: string) =>
+      registrarFalloIA({
+        agente,
+        modelo,
+        tokensInput: uso.input_tokens,
+        tokensOutput: uso.output_tokens,
+        tokensCacheWrite: uso.cache_creation_input_tokens,
+        tokensCacheRead: uso.cache_read_input_tokens,
+        tiempoMs,
+        error,
+        usuarioId,
+      });
+
+    // stop_reason se mira ANTES de tocar content, igual que en
+    // refiner-prompt.ts y leer-agenda.ts. El brief corre en un modelo
+    // que razona por defecto, y ese razonamiento comparte el tope de
+    // max_tokens con el texto: si se corta mientras piensa, content
+    // trae solo el bloque de pensamiento y ningún texto. Mirando el
+    // texto primero, ese caso se reportaba como "respuesta vacía" —
+    // mensaje inútil para el cliente y diagnóstico falso en uso_ia,
+    // justo lo que el panel viene a mostrar.
+
+    // Respuesta truncada: mandar un brief cortado produciría una
+    // invitación a medias que igual se cobra.
+    if (response.stop_reason === "max_tokens") {
+      const gasto = await registrarFallo("La respuesta se cortó por max_tokens");
+      return Response.json(
+        {
+          success: false,
+          error:
+            "La respuesta quedó incompleta. Pedile el resumen de nuevo o contale la idea en menos palabras.",
+          costo_usd: gasto.costoUSD,
+          costo_crc: gasto.costoCRC,
+          tipo_cambio: gasto.tipoCambio,
+          modelo,
+        },
+        { status: 502 }
+      );
+    }
+
+    // Los clasificadores de seguridad pueden declinar: llega HTTP 200
+    // con content vacío, así que también hay que atajarlo antes.
+    if (response.stop_reason === "refusal") {
+      const gasto = await registrarFallo("El modelo declinó responder (refusal)");
+      return Response.json(
+        {
+          success: false,
+          error:
+            "El asistente no puede trabajar con esa idea. Contale la invitación con otras palabras.",
+          costo_usd: gasto.costoUSD,
+          costo_crc: gasto.costoCRC,
+          tipo_cambio: gasto.tipoCambio,
+          modelo,
+        },
+        { status: 502 }
+      );
+    }
 
     const bloqueTexto = response.content.find(
       (b): b is Extract<typeof b, { type: "text" }> => b.type === "text"
     );
     let respuesta = (bloqueTexto?.text ?? "").trim();
     if (!respuesta) {
-      return Response.json(
-        { success: false, error: "El asistente no respondió; intentá de nuevo" },
-        { status: 502 }
+      // Acá ya se descartaron las causas conocidas de un content sin
+      // texto; el stop_reason va en el registro para que el panel
+      // muestre la causa real y no una etiqueta genérica.
+      const gasto = await registrarFallo(
+        `El asistente devolvió una respuesta vacía (stop_reason: ${response.stop_reason ?? "desconocido"})`
       );
-    }
-
-    // Respuesta truncada: mandar un brief cortado produciría una
-    // invitación a medias que igual se cobra.
-    if (response.stop_reason === "max_tokens") {
       return Response.json(
         {
           success: false,
-          error:
-            "La respuesta quedó incompleta. Pedile el resumen de nuevo o contale la idea en menos palabras.",
+          error: "El asistente no respondió; intentá de nuevo",
+          costo_usd: gasto.costoUSD,
+          costo_crc: gasto.costoCRC,
+          tipo_cambio: gasto.tipoCambio,
+          modelo,
         },
         { status: 502 }
       );
@@ -207,30 +333,41 @@ basados en TODA la conversación. Sin saludos ni texto extra.`
 
     // Un brief demasiado corto no alcanza para generar nada decente.
     if (prompt_final && prompt_final.length < 80) {
+      const gasto = await registrarFallo("El brief quedó demasiado corto");
       return Response.json(
         {
           success: false,
           error:
             "El resumen quedó muy corto. Contale un poco más del evento y volvé a intentar.",
+          costo_usd: gasto.costoUSD,
+          costo_crc: gasto.costoCRC,
+          tipo_cambio: gasto.tipoCambio,
+          modelo,
         },
         { status: 502 }
       );
     }
 
-    const costo_usd = calcularCostoUSD(
-      response.usage.input_tokens,
-      response.usage.output_tokens,
-      "opus"
-    );
+    const gasto = await registrarDesdeUsage(uso, {
+      agente,
+      modelo,
+      tiempoMs,
+      usuarioId,
+    });
 
     return Response.json({
       success: true,
       respuesta,
       prompt_final,
       titulo,
-      costo_usd,
-      input_tokens: response.usage.input_tokens,
-      output_tokens: response.usage.output_tokens,
+      // costo_usd se mantiene por el front viejo; costo_crc y
+      // tipo_cambio son lo que se muestra en pantalla.
+      costo_usd: gasto.costoUSD,
+      costo_crc: gasto.costoCRC,
+      tipo_cambio: gasto.tipoCambio,
+      modelo,
+      input_tokens: uso.input_tokens,
+      output_tokens: uso.output_tokens,
       error: null,
     });
   } catch (error) {
