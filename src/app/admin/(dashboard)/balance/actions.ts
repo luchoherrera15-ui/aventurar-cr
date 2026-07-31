@@ -14,7 +14,7 @@ export async function guardarComision(comisionPorPersona: number) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/admin/balance");
+  revalidatePath("/admin/finanzas");
   return { error: null };
 }
 
@@ -47,7 +47,7 @@ export async function agregarGasto(gasto: NuevoGasto) {
 
   if (error) return { error: error.message, id: null };
 
-  revalidatePath("/admin/balance");
+  revalidatePath("/admin/finanzas");
   return { error: null, id: data.id as string };
 }
 
@@ -58,6 +58,6 @@ export async function borrarGasto(id: string) {
   const { error } = await supabase.from("gastos").delete().eq("id", id);
   if (error) return { error: error.message };
 
-  revalidatePath("/admin/balance");
+  revalidatePath("/admin/finanzas");
   return { error: null };
 }

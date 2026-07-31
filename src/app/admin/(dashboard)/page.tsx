@@ -8,29 +8,17 @@ export default async function AdminHubPage() {
   const supabase = await createClient();
   const seccion = await seccionActiva();
 
-  const [ranchosRes, reservasRes, perfilesRes] = await Promise.all([
+  const [ranchosRes, perfilesRes] = await Promise.all([
     supabase.from("ranchos").select("id, estado, vertical"),
-    supabase.from("reservas").select("estado, rancho_id").neq("estado", "temporal"),
     supabase.from("perfiles").select("id"),
   ]);
 
-  const verticalPorRancho = new Map(
-    (ranchosRes.data ?? []).map((r) => [r.id as string, r.vertical as string | null]),
-  );
   const ranchos = (ranchosRes.data ?? []).filter((r) =>
     perteneceASeccion(r.vertical, seccion),
-  );
-  const reservas = (reservasRes.data ?? []).filter((r) =>
-    perteneceASeccion(
-      r.rancho_id ? verticalPorRancho.get(r.rancho_id as string) : null,
-      seccion,
-    ),
   );
 
   const ranchosPendientes = ranchos.filter((r) => r.estado === "pendiente").length;
   const ranchosPublicados = ranchos.filter((r) => r.estado === "aprobado").length;
-  const reservasPendientes = reservas.filter((r) => r.estado === "pendiente").length;
-  const reservasConfirmadas = reservas.filter((r) => r.estado === "confirmada").length;
   const cuentas = (perfilesRes.data ?? []).length;
 
   return (
@@ -42,8 +30,8 @@ export default async function AdminHubPage() {
         ¿Qué querés gestionar?
       </h1>
       <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
-        Control completo de la plataforma: publicaciones, reservas, cuentas y
-        finanzas.
+        Control completo de la plataforma: publicaciones, cuentas,
+        invitaciones y finanzas.
       </p>
 
       {ranchosPendientes > 0 && (
@@ -67,16 +55,6 @@ export default async function AdminHubPage() {
           icon={<IconNegocio />}
         />
         <HubCard
-          href="/admin/eventos"
-          title="Reservas"
-          descripcion="Revisá los comprobantes de depósito y confirmá o rechazá cada reserva. Cada proveedor lleva su propia agenda desde su panel."
-          stat={`${reservasConfirmadas} confirmada${reservasConfirmadas === 1 ? "" : "s"}`}
-          alerta={
-            reservasPendientes > 0 ? `${reservasPendientes} en aprobación` : null
-          }
-          icon={<IconCalendar />}
-        />
-        <HubCard
           href="/admin/usuarios"
           title="Cuentas y accesos"
           descripcion="Creá cuentas nuevas, cambiá el correo o la contraseña de cualquier dueño, y decidí quién tiene permisos de administrador."
@@ -93,18 +71,10 @@ export default async function AdminHubPage() {
           icon={<IconSobre />}
         />
         <HubCard
-          href="/admin/ingresos"
-          title="Dineros de invitaciones"
-          descripcion="Cuánto entra por SINPE, transferencia y Stripe, día por día, de los pedidos de invitaciones digitales. Las reservas llevan su control en Balance."
-          stat="Ingresos por método de pago"
-          alerta={null}
-          icon={<IconBilletes />}
-        />
-        <HubCard
-          href="/admin/balance"
-          title="Balance y finanzas"
-          descripcion="Seguí las comisiones que deja cada salón, registrá los gastos fijos del negocio y mirá cómo va el mes."
-          stat="Comisiones y gastos fijos"
+          href="/admin/finanzas"
+          title="Finanzas"
+          descripcion="Toda la plata en una sola pantalla: las comisiones y los gastos de los alquileres, y lo que entra por invitaciones digitales — cada cosa en su pestaña."
+          stat="Alquileres · Promoción · Invitaciones"
           alerta={null}
           icon={<IconChart />}
         />
@@ -140,7 +110,7 @@ function HubCard({
           {icon}
         </span>
         {alerta && (
-          <span className="rounded-full bg-aventurea-orange px-2.5 py-1 text-[11px] font-bold text-white">
+          <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[11px] font-bold text-white">
             {alerta}
           </span>
         )}
@@ -192,25 +162,6 @@ function IconNegocio() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10v9a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-9" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.5 4.6 4.7a1 1 0 0 1 .95-.7h12.9a1 1 0 0 1 .95.7L21 9.5a2.6 2.6 0 0 1-5.2.6 2.6 2.6 0 0 1-5.2 0 2.6 2.6 0 0 1-5.2 0" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.8 20v-4.6h4.4V20" />
-    </svg>
-  );
-}
-
-function IconCalendar() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path strokeLinecap="round" d="M3 10h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
-function IconBilletes() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <rect x="2.5" y="6" width="19" height="12" rx="2" />
-      <circle cx="12" cy="12" r="2.6" />
-      <path strokeLinecap="round" d="M6 12h.01M18 12h.01" />
     </svg>
   );
 }
