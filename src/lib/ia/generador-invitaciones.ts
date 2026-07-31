@@ -98,7 +98,18 @@ export async function generarInvitacionHTML(
   const inicio = Date.now();
 
   try {
-    const response = await client.messages.create({
+    // Streaming obligatorio, igual que en leer-agenda.ts. El SDK estima
+    // cuánto puede tardar una llamada sin stream a partir de max_tokens
+    // (3600 s × max_tokens ÷ 128.000) y si le da más de 10 minutos ni
+    // siquiera la manda: tira "Streaming is required for operations that
+    // may take longer than 10 minutes". El corte cae en ~21.300 tokens,
+    // así que los modelos que razonan (32.768) reventaban SIEMPRE y Haiku
+    // (16.384) pasaba — por eso fallaba solo con Opus y Fable.
+    //
+    // No se arregla subiéndole el timeout al cliente: eso calla al SDK
+    // pero la ruta muere igual en el maxDuration de Vercel. Con stream la
+    // conexión no queda muda esperando, que es lo que rompía.
+    const stream = client.messages.stream({
       model: opts.modelo,
       max_tokens: maxTokens,
       system: opts.systemPrompt || SYSTEM_PROMPT_DEFAULT,
@@ -109,6 +120,9 @@ export async function generarInvitacionHTML(
         },
       ],
     });
+    // El mensaje ya armado: mismo objeto que devolvía create(), así que
+    // stop_reason, content y usage se leen igual que antes.
+    const response = await stream.finalMessage();
 
     const tiempoMs = Date.now() - inicio;
     const usage = aUsage(response.usage);

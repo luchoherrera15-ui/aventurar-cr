@@ -83,7 +83,16 @@ begin
   with objetos as (
     select o.name,
            coalesce((o.metadata->>'size')::bigint, 0) as peso,
-           o.owner,
+           -- `owner` es la columna vieja y `owner_id` la nueva (texto):
+           -- según cuándo se subió el archivo viene una o la otra.
+           coalesce(
+             o.owner,
+             case
+               when o.owner_id ~
+                 '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+               then o.owner_id::uuid
+             end
+           ) as owner,
            -- La invitación dueña del archivo, si la ruta la nombra.
            case
              when o.name like 'invitaciones/%'

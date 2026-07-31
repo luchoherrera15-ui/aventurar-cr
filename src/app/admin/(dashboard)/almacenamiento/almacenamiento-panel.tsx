@@ -92,6 +92,16 @@ export default function AlmacenamientoPanel({
     [invitaciones],
   );
 
+  /**
+   * Lo que el total tiene de más frente a la suma por cuenta: archivos
+   * sin dueño en storage y sin invitación que los reclame. Se dice en
+   * voz alta para que la tabla no parezca que miente.
+   */
+  const sinDueno = useMemo(
+    () => Math.max(0, total - usuarios.reduce((s, u) => s + u.bytes, 0)),
+    [total, usuarios],
+  );
+
   const maxUsuario = Math.max(1, ...usuarios.map((u) => u.bytes));
   const maxInvitacion = Math.max(1, ...invitaciones.map((i) => i.bytes));
 
@@ -210,6 +220,14 @@ export default function AlmacenamientoPanel({
 
       {/* Por usuario ---------------------------------------------- */}
       <div className={`mt-6 ${activa === "usuarios" ? "" : "hidden"}`}>
+        {sinDueno > 0 && (
+          <p className="mb-3 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[12.5px] text-aventurea-ink-soft">
+            <strong className="text-aventurea-ink">{pesoBonito(sinDueno)}</strong> del
+            total no tiene dueño identificable (archivos viejos subidos antes de que
+            Storage guardara quién los mandaba); cuentan en el total pero no en esta
+            tabla.
+          </p>
+        )}
         <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm">
           <table className="w-full text-left text-[13px]">
             <thead className="bg-aventurea-cream-2/60">

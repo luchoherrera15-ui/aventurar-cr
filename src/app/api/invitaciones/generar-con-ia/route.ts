@@ -415,25 +415,43 @@ export async function POST(request: Request) {
           ? String(config_ia.titulo).trim().slice(0, 200)
           : null;
 
-      const { error: updateError } = await supabase
+      const camposGuardados = {
+        ...(tituloBrief ? { titulo: tituloBrief } : {}),
+        html_personalizado: resultado.html,
+        prompt_generado: promptFinal,
+        costo_tokens_input: resultado.input_tokens,
+        costo_tokens_output: resultado.output_tokens,
+        costo_usd,
+        modelo_usado: modelo,
+        config_ia: config_ia || null,
+        imagenes_urls: imagenesFinales,
+        videos_urls: videosFinales,
+        estado_generacion: "completado",
+        error_generacion: null,
+        tiempo_generacion_ms: resultado.tiempo_ms,
+      };
+
+      // audio_urls llega con la migración 0079. Si todavía no corrió,
+      // PostgREST rechaza la columna entera: en ese caso se guarda todo
+      // lo demás en vez de perder una generación ya pagada.
+      let { error: updateError } = await supabase
         .from("invitaciones")
-        .update({
-          ...(tituloBrief ? { titulo: tituloBrief } : {}),
-          html_personalizado: resultado.html,
-          prompt_generado: promptFinal,
-          costo_tokens_input: resultado.input_tokens,
-          costo_tokens_output: resultado.output_tokens,
-          costo_usd,
-          modelo_usado: modelo,
-          config_ia: config_ia || null,
-          imagenes_urls: imagenesFinales,
-          videos_urls: videosFinales,
-          audio_urls: audiosFinales,
-          estado_generacion: "completado",
-          error_generacion: null,
-          tiempo_generacion_ms: resultado.tiempo_ms,
-        })
+        .update(
+          audiosFinales.length > 0
+            ? { ...camposGuardados, audio_urls: audiosFinales }
+            : camposGuardados,
+        )
         .eq("id", invitacion_id);
+
+      if (updateError && /audio_urls/.test(updateError.message)) {
+        console.error(
+          "[generar-con-ia] Falta la columna audio_urls (migración 0079): la música no se guardó.",
+        );
+        ({ error: updateError } = await supabase
+          .from("invitaciones")
+          .update(camposGuardados)
+          .eq("id", invitacion_id));
+      }
 
       if (updateError) {
         throw new Error(`Error guardando invitación: ${updateError.message}`);
