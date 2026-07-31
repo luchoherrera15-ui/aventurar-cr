@@ -20,7 +20,7 @@ import {
   type Categoria,
 } from "@/app/mi-rancho/types";
 import GaleriaHeroFotos from "@/components/galeria-hero";
-import AmenidadesTabs from "./amenidades-tabs";
+import AmenidadesLista from "./amenidades-tabs";
 
 /**
  * El texto de presentación (descripción larga). Antes iba encima de una
@@ -160,10 +160,10 @@ export function AmenidadesSeccion({
         Amenidades del lugar
       </h2>
 
-      {/* Los grupos van como tabs arriba y solo se abre el elegido:
-          la lista completa apilada hacía la sección eterna. */}
-      <div data-reveal className={enColumna ? "mt-5" : "mt-8"}>
-        <AmenidadesTabs grupos={grupos} enColumna={enColumna} />
+      {/* Todos los grupos a la vista, cada uno en su tarjeta: las
+          amenidades son material de decisión, no un acordeón. */}
+      <div data-reveal className={enColumna ? "mt-4" : "mt-6"}>
+        <AmenidadesLista grupos={grupos} enColumna={enColumna} />
       </div>
     </>
   );
