@@ -106,11 +106,12 @@ const FEATURES: { icono: React.ReactNode; titulo: string; texto: string }[] = [
   },
 ];
 
-/** Para que las generadas no salgan todas con el mismo lienzo. */
+/** Para que las generadas no salgan todas con el mismo lienzo — azules
+ *  sólidos de la paleta, igual que las del catálogo fijo. */
 const LIENZOS_GENERADOS = [
-  "bg-[linear-gradient(150deg,#16295e_0%,#3b7fc4_55%,#ee7420_100%)]",
-  "bg-[linear-gradient(150deg,#7b2d5e_0%,#c65a86_55%,#f5b98a_100%)]",
-  "bg-[linear-gradient(150deg,#1f7a4d_0%,#7bbf6a_55%,#f7c948_100%)]",
+  "bg-aventurea-navy",
+  "bg-aventurea-navy-3",
+  "bg-aventurea-blue",
 ] as const;
 const ICONOS_GENERADOS: DemoInvitacion["icono"][] = [
   "destellos",
