@@ -4,7 +4,6 @@ import { BlurView } from "expo-blur";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Fonts } from "@/constants/theme";
 import logoBlanco from "../../assets/images/logo-bookea-blanco.png";
@@ -17,8 +16,6 @@ import logoBlanco from "../../assets/images/logo-bookea-blanco.png";
  * navegan a su directorio. Debajo, dos píldoras: publicar un negocio y
  * el programa de Lealtad.
  */
-
-const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
@@ -124,7 +121,7 @@ export default function Portada({ onEntrar }: { onEntrar: () => void }) {
           </Pressable>
           <Pressable
             style={styles.pildora}
-            onPress={() => void WebBrowser.openBrowserAsync(`${SITIO_URL}/lealtad`)}
+            onPress={() => router.push("/lealtad" as never)}
           >
             <Text style={styles.pildoraTexto}>Lealtad</Text>
           </Pressable>

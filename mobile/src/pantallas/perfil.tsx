@@ -691,13 +691,20 @@ function PerfilVista({
         </View>
 
         {/* Invitaciones digitales y álbumes: los eventos propios y los
-            paquetes a la venta viven en su propia pantalla. */}
+            paquetes a la venta viven en su propia pantalla. Al lado,
+            Lealtad — el add-on para negocios con clientela que vuelve. */}
         <View style={styles.grid}>
           <TarjetaAccion
             icono="mail-outline"
             titulo="Invitaciones y álbumes"
             detalle="Tus eventos y fotos"
             onPress={() => router.push("/invitaciones" as never)}
+          />
+          <TarjetaAccion
+            icono="ribbon-outline"
+            titulo="Lealtad"
+            detalle="Clientes que vuelven"
+            onPress={() => router.push("/lealtad" as never)}
           />
         </View>
 
