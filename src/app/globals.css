@@ -138,27 +138,30 @@ body {
    las clases base dejan el estado "final" visible, que es lo que se ve
    con prefers-reduced-motion. */
 
-/* El elemento que el cliente "toca": pasa de reposo a seleccionado,
-   se queda un rato y suelta antes de que el loop reinicie. */
+/* Las escenas de /publicar corren UNA sola vez y se quedan en su
+   estado final: el mockup tiene que leerse completo siempre. Antes
+   iban en loop infinito y la escena se vaciaba cada 8 segundos —
+   quien llegaba scrolleando encontraba teléfonos a medio llenar. */
+
+/* El elemento que el cliente "toca": arranca en reposo, se selecciona
+   y se queda seleccionado. */
 @keyframes publicar-seleccionar {
-  0%,
-  78%,
-  100% {
+  0% {
     background-color: var(--pub-reposo, #ffffff);
     box-shadow: inset 0 0 0 1.5px var(--pub-linea, #e2e2e2);
     color: var(--pub-tinta, #161616);
     transform: scale(1);
   }
   6%,
-  70% {
-    background-color: var(--pub-fondo-acento, #e6f6f5);
-    box-shadow: inset 0 0 0 2px var(--pub-acento, #1f7a74);
-    color: var(--pub-tinta-acento, #0f5b56);
+  100% {
+    background-color: var(--pub-fondo-acento, #e8f0f9);
+    box-shadow: inset 0 0 0 2px var(--pub-acento, #3b7fc4);
+    color: var(--pub-tinta-acento, #16295e);
     transform: scale(1.02);
   }
 }
 
-/* El "tap" sobre un botón: un apretón corto al 30% del ciclo. */
+/* El "tap" sobre un botón: un apretón corto al 30% de la escena. */
 @keyframes publicar-pulsar {
   0%,
   26%,
@@ -172,7 +175,7 @@ body {
 }
 
 /* Lo que le "llega" al dueño (o la confirmación del cliente): entra
-   deslizándose pasado el tap, se queda y se despide al final. */
+   deslizándose pasado el tap y se queda para siempre. */
 @keyframes publicar-entrar {
   0%,
   30% {
@@ -180,14 +183,9 @@ body {
     transform: translateY(14px);
   }
   36%,
-  82% {
+  100% {
     opacity: 1;
     transform: translateY(0);
-  }
-  90%,
-  100% {
-    opacity: 0;
-    transform: translateY(-6px);
   }
 }
 
@@ -215,17 +213,20 @@ body {
   }
 }
 
+/* `1 both` — una pasada y se congela en el fotograma final. Lo único
+   que sigue en loop es el conector (punto/flotar), que nunca esconde
+   contenido: solo le pone vida al bloque. */
 .anim-publicar-seleccionar {
   animation: publicar-seleccionar var(--pub-dur, 8s) ease-in-out
-    var(--pub-delay, 0s) infinite both;
+    var(--pub-delay, 0s) 1 both;
 }
 .anim-publicar-pulsar {
   animation: publicar-pulsar var(--pub-dur, 8s) ease-in-out
-    var(--pub-delay, 0s) infinite both;
+    var(--pub-delay, 0s) 1 both;
 }
 .anim-publicar-entrar {
-  animation: publicar-entrar var(--pub-dur, 8s) ease-out var(--pub-delay, 0s)
-    infinite both;
+  animation: publicar-entrar var(--pub-dur, 8s) ease-out var(--pub-delay, 0s) 1
+    both;
 }
 .anim-publicar-flotar {
   animation: publicar-flotar 7s ease-in-out var(--pub-delay, 0s) infinite;
