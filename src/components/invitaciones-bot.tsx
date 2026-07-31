@@ -26,6 +26,7 @@ export interface DatosGeneracion {
   config: InvitacionConfig;
   imagenes: string[];
   videos: string[];
+  audios: string[];
 }
 
 interface BotProps {
@@ -74,7 +75,9 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
 
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
+  const [audios, setAudios] = useState<string[]>([]);
   const [mostrarUpload, setMostrarUpload] = useState(false);
+  const adjuntos = imagenes.length + videos.length + audios.length;
 
   const [promptFinal, setPromptFinal] = useState<string | null>(null);
   const [titulo, setTitulo] = useState("Invitación");
@@ -131,6 +134,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
           mensajes: historial,
           imagenes_count: imagenes.length,
           videos_count: videos.length,
+          audios_count: audios.length,
           forzar_brief: forzarBrief,
         }),
       });
@@ -190,6 +194,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
       },
       imagenes,
       videos,
+      audios,
     });
   }
 
@@ -351,8 +356,10 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
             <UploadZone
               imagenes={imagenes}
               videos={videos}
+              audios={audios}
               onImagenesChange={setImagenes}
               onVideosChange={setVideos}
+              onAudiosChange={setAudios}
               disabled={pendiente}
             />
           </div>
@@ -369,15 +376,15 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
             type="button"
             onClick={() => setMostrarUpload((v) => !v)}
             disabled={pendiente}
-            title="Adjuntar fotos o videos"
-            aria-label="Adjuntar fotos o videos"
+            title="Adjuntar fotos, videos o música"
+            aria-label="Adjuntar fotos, videos o música"
             className={`h-11 shrink-0 rounded-xl border px-3.5 text-[13px] font-bold transition-colors disabled:opacity-50 ${
-              mostrarUpload || imagenes.length + videos.length > 0
+              mostrarUpload || adjuntos > 0
                 ? "border-aventurea-navy bg-aventurea-navy text-white"
                 : "border-aventurea-line bg-white text-aventurea-ink hover:border-aventurea-navy"
             }`}
           >
-            Fotos{imagenes.length + videos.length > 0 ? ` (${imagenes.length + videos.length})` : ""}
+            Archivos{adjuntos > 0 ? ` (${adjuntos})` : ""}
           </button>
           <textarea
             ref={inputRef}

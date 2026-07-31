@@ -1,30 +1,37 @@
 "use client";
 
 import { InvitacionHistorial } from "@/lib/tipos/invitaciones";
-import {
-  MODELOS,
-  TIPO_CAMBIO_POR_DEFECTO,
-  formatearAmbas,
-  normalizarModelo,
-} from "@/lib/ia/modelos";
+import { MODELOS, formatearCRC, formatearUSD, normalizarModelo } from "@/lib/ia/modelos";
+
+/**
+ * El gasto de una generación tal como quedó asentado en la bitácora
+ * uso_ia: los colones vienen de ahí (columna generada con el
+ * tipo_cambio que se congeló ese día), nunca de multiplicar por el
+ * tipo de cambio de hoy.
+ */
+export interface CostoCongelado {
+  usd: number;
+  /**
+   * null cuando la invitación no tiene fila en uso_ia (las anteriores
+   * a la bitácora): en ese caso NO hay colones que mostrar.
+   */
+  crc: number | null;
+}
 
 interface HistorialProps {
   invitaciones: InvitacionHistorial[];
   /** Recibe el SLUG (la ruta pública es /i/[slug], no /i/[id]). */
   onAbrir?: (slug: string) => void;
   /**
-   * Tipo de cambio con el que se convierten los costos a colones. Es
-   * opcional porque la consulta del historial todavía no trae el que se
-   * guardó con cada generación; mientras tanto se usa el de respaldo.
+   * Costos ya resueltos en las dos monedas, indexados por id de
+   * invitación. Los arma el servidor leyendo uso_ia
+   * (invitaciones-costos-actions.ts); este componente no convierte
+   * monedas por su cuenta a propósito.
    */
-  tipoCambio?: number;
+  costos?: Record<string, CostoCongelado>;
 }
 
-export default function Historial({
-  invitaciones,
-  onAbrir,
-  tipoCambio = TIPO_CAMBIO_POR_DEFECTO,
-}: HistorialProps) {
+export default function Historial({ invitaciones, onAbrir, costos }: HistorialProps) {
   if (!invitaciones || invitaciones.length === 0) {
     return (
       <div className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-6 text-center">
@@ -53,6 +60,28 @@ export default function Historial({
   function nombreModelo(modeloUsado: string | null | undefined): string {
     if (!modeloUsado) return "—";
     return MODELOS[normalizarModelo(modeloUsado)].nombre;
+  }
+
+  /**
+   * El costo de la fila. Las dos monedas SOLO cuando los colones
+   * vienen congelados de uso_ia; si esa fila no existe se muestran
+   * únicamente los dólares de la invitación.
+   *
+   * El porqué: `invitaciones` (0073) guarda costo_usd pero ni colones
+   * ni tipo de cambio. Reconvertir acá con el cambio de hoy pintaría
+   * un monto que nunca se cobró — una invitación generada cuando el
+   * dólar estaba en 560 se vería en 520. Es mejor no mostrar colones
+   * que mostrar unos inventados.
+   */
+  function etiquetaCosto(inv: InvitacionHistorial): string {
+    const congelado = costos?.[inv.id];
+    if (congelado) {
+      return congelado.crc === null
+        ? formatearUSD(congelado.usd)
+        : `${formatearUSD(congelado.usd)} · ${formatearCRC(congelado.crc)}`;
+    }
+    if (typeof inv.costo_usd === "number") return formatearUSD(inv.costo_usd);
+    return "—";
   }
 
   function estadoColor(estado: string | null): string {
@@ -118,11 +147,9 @@ export default function Historial({
                     ? `${(inv.costo_tokens_input + (inv.costo_tokens_output || 0)).toLocaleString("es-CR")}`
                     : "—"}
                 </td>
-                {/* El gasto siempre en las dos monedas, igual que el resto del flujo. */}
+                {/* El gasto congelado de la bitácora; ver etiquetaCosto. */}
                 <td className="px-5 py-3 text-right font-bold text-aventurea-ink whitespace-nowrap">
-                  {typeof inv.costo_usd === "number"
-                    ? formatearAmbas(inv.costo_usd, tipoCambio)
-                    : "—"}
+                  {etiquetaCosto(inv)}
                 </td>
                 <td className="px-5 py-3">
                   <span

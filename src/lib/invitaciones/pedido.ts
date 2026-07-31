@@ -251,8 +251,11 @@ export async function notificarPedidoPagado(pedido: PedidoPagado): Promise<void>
       titulo: "Entró un pedido de invitación",
       introHtml: `${nombre} pidió el paquete <strong>${paquete?.nombre ?? pedido.paquete}</strong> para ${evento} (${pedido.fecha_evento}).`,
       cta: {
-        href: "https://www.bookea.lat/admin/invitaciones",
-        label: "Ver en el panel",
+        // Directo a la pestaña de Pedidos: la de Invitaciones lista las
+        // ya creadas y no muestra los pedidos, que era justo lo que
+        // hacía parecer que el formulario no llegaba.
+        href: "https://www.bookea.lat/admin/invitaciones?tab=pedidos",
+        label: "Ver el pedido en el panel",
       },
       pie: `Aviso interno de ${SLUG_NEGOCIO_INVITACIONES}.`,
     }),

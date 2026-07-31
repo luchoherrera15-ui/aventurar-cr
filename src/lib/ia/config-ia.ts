@@ -83,8 +83,10 @@ export async function leerConfigIA(): Promise<ConfigIA> {
   // Sin migración 0078 las columnas no existen y PostgREST devuelve
   // error en vez de lanzar. Se sigue con los valores por defecto.
   if (error || !data) {
+    // A propósito NO se cachea el respaldo: si la lectura falló por algo
+    // pasajero, cachearlo un minuto dejaría al interruptor general y a
+    // los modelos elegidos sin efecto durante ese rato.
     if (error) console.error("[config-ia] No se pudo leer la configuración:", error.message);
-    cache = { valor: porDefecto, expira: Date.now() + TTL_MS };
     return porDefecto;
   }
 
@@ -136,6 +138,45 @@ export async function modeloDe(agente: AgenteIA): Promise<ModeloIA> {
  */
 export function inicioDelMesCR(): string {
   return `${hoyISOCR().slice(0, 7)}-01T06:00:00.000Z`;
+}
+
+/** El instante en que arranca el mes siguiente, también contado en CR. */
+export function finDelMesCR(): string {
+  const [anio, mes] = hoyISOCR().split("-").map(Number);
+  const siguiente =
+    mes === 12 ? `${anio + 1}-01` : `${anio}-${String(mes + 1).padStart(2, "0")}`;
+  return `${siguiente}-01T06:00:00.000Z`;
+}
+
+/**
+ * Lo gastado en el mes corriente, en las dos monedas.
+ *
+ * Los colones NO se recalculan: salen de costo_crc, que cada fila
+ * congeló con el tipo de cambio del momento. Si se recalcularan con el
+ * cambio de hoy, corregir el tipo de cambio movería el total de un mes
+ * ya cerrado sin que se hubiera gastado un colón más.
+ */
+export async function gastoDelMesIA(): Promise<{ usd: number; crc: number }> {
+  const db = createAdminClient();
+  if (!db) return { usd: 0, crc: 0 };
+
+  const { data, error } = await db.rpc("gasto_ia_resumen", {
+    p_desde: inicioDelMesCR(),
+    p_hasta: finDelMesCR(),
+  });
+  if (error || !data) {
+    if (error) console.error("[config-ia] No se pudo resumir el gasto del mes:", error.message);
+    return { usd: 0, crc: 0 };
+  }
+
+  const filas = data as { costo_usd: number | string; costo_crc: number | string }[];
+  return filas.reduce(
+    (total, fila) => ({
+      usd: total.usd + Number(fila.costo_usd ?? 0),
+      crc: total.crc + Number(fila.costo_crc ?? 0),
+    }),
+    { usd: 0, crc: 0 },
+  );
 }
 
 /**

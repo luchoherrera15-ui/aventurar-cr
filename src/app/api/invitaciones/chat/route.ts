@@ -24,6 +24,7 @@ import { MODELOS, type AgenteIA, type ModeloIA } from "@/lib/ia/modelos";
  *   mensajes: [{ rol: "usuario" | "asistente", texto: string }],
  *   imagenes_count?: number,
  *   videos_count?: number,
+ *   audios_count?: number,
  *   forzar_brief?: boolean   // el botón "Generar": exige el brief YA
  * }
  * Response: { success, respuesta, prompt_final?, titulo?, costo_usd,
@@ -114,6 +115,7 @@ export async function POST(request: Request) {
     const mensajes = (body.mensajes ?? []) as MensajeChat[];
     const imagenesCount = Number(body.imagenes_count) || 0;
     const videosCount = Number(body.videos_count) || 0;
+    const audiosCount = Number(body.audios_count) || 0;
     const forzarBrief = body.forzar_brief === true;
 
     if (!Array.isArray(mensajes) || mensajes.length === 0) {
@@ -176,9 +178,11 @@ export async function POST(request: Request) {
       if (
         i === mensajes.length - 1 &&
         m.rol === "usuario" &&
-        (imagenesCount > 0 || videosCount > 0)
+        (imagenesCount > 0 || videosCount > 0 || audiosCount > 0)
       ) {
-        texto = `[El cliente tiene adjuntas ${imagenesCount} foto(s) y ${videosCount} video(s) para la invitación]\n${texto}`;
+        texto =
+          `[El cliente tiene adjuntas ${imagenesCount} foto(s), ${videosCount} video(s) y ` +
+          `${audiosCount} pista(s) de música para la invitación]\n${texto}`;
       }
       return {
         role: m.rol === "usuario" ? ("user" as const) : ("assistant" as const),

@@ -95,21 +95,58 @@ async function generacionVencida(
   return Date.now() - desde > GENERACION_VENCIDA_MS;
 }
 
+const BUCKET_MEDIA = "ranchos-fotos";
+const MARCA_PUBLICA = `/storage/v1/object/public/${BUCKET_MEDIA}/`;
+
+/** La ruta dentro del bucket si la URL es de nuestro storage público. */
+function rutaEnBucket(url: string): string | null {
+  const i = url.indexOf(MARCA_PUBLICA);
+  if (i === -1) return null;
+  return decodeURIComponent(url.slice(i + MARCA_PUBLICA.length).split("?")[0]);
+}
+
 /**
- * Sube los data URLs (base64) del cliente al bucket público y devuelve
- * URLs; los que ya son http(s) pasan tal cual. Así el prompt lleva
- * URLs livianas y la fila no guarda megas de base64.
+ * Deja toda la media del cliente colgando de `invitaciones/{id}/`.
+ *
+ * Llegan dos cosas distintas: el navegador nuevo sube el archivo directo
+ * al bucket (a `invitaciones/subidas/{usuario}/…`, porque al momento de
+ * arrastrarlo todavía no existe la invitación) y manda la URL, que acá
+ * se MUDA a la carpeta de la invitación; y los clientes viejos —o la
+ * app— todavía mandan data URLs en base64, que se suben igual que antes.
+ * Cualquier otra URL pasa tal cual.
+ *
+ * Que todo termine bajo `invitaciones/{id}/` es lo que le permite al
+ * panel de almacenamiento decir de quién y de cuál invitación es cada
+ * mega guardado.
  */
 async function subirMediaAStorage(
   supabase: SupabaseClient,
   invitacionId: string,
   dataUrls: string[],
-  prefijo: "img" | "vid"
+  prefijo: "img" | "vid" | "aud"
 ): Promise<string[]> {
   const urls: string[] = [];
   for (let i = 0; i < dataUrls.length; i++) {
     const item = dataUrls[i];
     if (!item.startsWith("data:")) {
+      const ruta = rutaEnBucket(item);
+      if (ruta?.startsWith("invitaciones/subidas/")) {
+        const ext = ruta.split(".").pop() || "bin";
+        const destino = `invitaciones/${invitacionId}/${prefijo}-${i}.${ext}`;
+        const { error } = await supabase.storage
+          .from(BUCKET_MEDIA)
+          .move(ruta, destino);
+        if (error) {
+          // Mudarlo es cosmético: si falla, el archivo sigue donde está
+          // y la invitación se genera igual con la URL original.
+          console.error("No se pudo mudar media de invitación:", error.message);
+          urls.push(item);
+          continue;
+        }
+        const { data } = supabase.storage.from(BUCKET_MEDIA).getPublicUrl(destino);
+        urls.push(data?.publicUrl ?? item);
+        continue;
+      }
       urls.push(item);
       continue;
     }
@@ -149,7 +186,8 @@ async function subirMediaAStorage(
  *              uno más caro se ignora y corre el configurado),
  *   "config_ia": { ... },
  *   "imagenes_urls": [ ... ],
- *   "videos_urls": [ ... ]
+ *   "videos_urls": [ ... ],
+ *   "audio_urls": [ ... ]   (la música de fondo)
  * }
  *
  * Response:
@@ -184,6 +222,7 @@ export async function POST(request: Request) {
       config_ia,
       imagenes_urls,
       videos_urls,
+      audio_urls,
     } = body;
 
     if (!invitacion_id || !prompt) {
@@ -317,6 +356,12 @@ export async function POST(request: Request) {
         (videos_urls ?? []) as string[],
         "vid"
       );
+      const audiosFinales = await subirMediaAStorage(
+        supabase,
+        invitacion_id,
+        (audio_urls ?? []) as string[],
+        "aud"
+      );
 
       let promptFinal = prompt as string;
       if (imagenesFinales.length > 0) {
@@ -324,6 +369,16 @@ export async function POST(request: Request) {
       }
       if (videosFinales.length > 0) {
         promptFinal += `\n\nVIDEOS DEL CLIENTE (incluilos con <video src="..." autoplay muted loop playsinline>):\n${videosFinales.join("\n")}`;
+      }
+      if (audiosFinales.length > 0) {
+        // Ningún navegador deja sonar audio sin un gesto previo: por eso
+        // se pide el botón, no un autoplay que quede mudo y confunda.
+        promptFinal +=
+          `\n\nMÚSICA DEL CLIENTE (es la banda sonora de la invitación):\n${audiosFinales.join("\n")}` +
+          `\nIncluí <audio id="musica" src="LA_PRIMERA_URL" loop preload="auto"></audio> y un botón flotante ` +
+          `(esquina inferior derecha, por encima de todo) que la prenda y la apague, con ícono de nota musical ` +
+          `y estado visible. Arrancá intentando reproducirla al abrir; si el navegador lo bloquea, el botón queda ` +
+          `parpadeando suave para invitar a tocarlo. Nunca dejes música sin forma de apagarla.`;
       }
 
       // Generar el HTML
@@ -373,6 +428,7 @@ export async function POST(request: Request) {
           config_ia: config_ia || null,
           imagenes_urls: imagenesFinales,
           videos_urls: videosFinales,
+          audio_urls: audiosFinales,
           estado_generacion: "completado",
           error_generacion: null,
           tiempo_generacion_ms: resultado.tiempo_ms,

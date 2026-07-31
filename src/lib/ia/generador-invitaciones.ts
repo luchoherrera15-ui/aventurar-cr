@@ -80,9 +80,20 @@ export async function generarInvitacionHTML(
   const client = new Anthropic({ apiKey });
   const info = MODELOS[opts.modelo];
 
-  // Una invitación entra de sobra en 16k, pero Haiku responde como mucho
-  // 64k y los demás 128k: nunca pedir más de lo que el modelo puede dar.
-  const maxTokens = Math.min(16384, info.salidaMaxima);
+  // El tope se dimensiona según el modelo, igual que en el chat, el
+  // refinador y el asistente: los que razonan por defecto (Opus 5,
+  // Sonnet 5, Fable 5) sacan el razonamiento de ESTE MISMO presupuesto,
+  // y este es el agente con la salida más grande del producto — una
+  // invitación full-screen animada con el CSS embebido son 3.000 a
+  // 8.000+ tokens de HTML. Con 16k compartidos una invitación recargada
+  // salía cortada: el cliente pagaba la generación entera y se quedaba
+  // sin invitación. Haiku no razona, así que el tope entero es HTML y
+  // con 16k le sobra. Y nunca se pide más de lo que el modelo puede dar
+  // de una vez (Haiku corta en 64k, el resto en 128k).
+  const maxTokens = Math.min(
+    info.razonaPorDefecto ? 32768 : 16384,
+    info.salidaMaxima
+  );
 
   const inicio = Date.now();
 
@@ -117,8 +128,8 @@ export async function generarInvitacionHTML(
       );
     }
 
-    // Con los modelos que razonan (Opus 5 y Fable 5 lo hacen solos) el
-    // primer bloque es "thinking" — hay que buscar el bloque de texto.
+    // Con los modelos que razonan por defecto (Opus 5, Sonnet 5 y Fable 5)
+    // el primer bloque es "thinking" — hay que buscar el bloque de texto.
     const bloqueTexto = response.content.find(
       (b): b is Extract<typeof b, { type: "text" }> => b.type === "text"
     );

@@ -212,6 +212,30 @@ async function modeloDeAgenda(): Promise<ModeloIA> {
   }
 }
 
+/**
+ * El `usage` que se puede rescatar de un stream, ya sea del mensaje completo o
+ * del borrador a medias. Todos los campos son opcionales porque una respuesta
+ * cortada puede no traerlos.
+ */
+type UsoDeStream =
+  | {
+      input_tokens?: number | null;
+      output_tokens?: number | null;
+      cache_creation_input_tokens?: number | null;
+      cache_read_input_tokens?: number | null;
+    }
+  | undefined;
+
+/** Tokens siempre enteros y no negativos: uso_ia no admite basura. */
+const entero = (v: number | null | undefined): number =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v) : 0;
+
+/** Texto del error para la bitácora, sin romperse con lo que no sea Error. */
+function motivoDelError(e: unknown): string {
+  if (e instanceof Error) return e.message || e.name;
+  return typeof e === "string" && e.trim() ? e : "La lectura se cortó sin explicación.";
+}
+
 async function pedirLectura(
   contenido: ContenidoUsuario,
   vertical: VerticalAgenda,
@@ -251,97 +275,149 @@ async function pedirLectura(
   // pasar del timeout HTTP del SDK.
   const stream = client.messages.stream(parametros);
 
-  const mensaje = await stream.finalMessage();
-  const tiempoMs = Date.now() - inicio;
-  const usage = mensaje.usage;
+  // Anthropic factura los tokens que alcanzó a generar aunque el stream se
+  // corte a la mitad. Este add-on es PAGO: un gasto que no llega a uso_ia es
+  // plata que el panel nunca ve. Por eso ningún camino de salida de esta
+  // función puede irse sin dejar su fila.
+  let registrado = false;
+  // El consumo definitivo, apenas el mensaje cierra. El SDK borra su borrador
+  // interno cuando el stream termina bien, así que si algo revienta DESPUÉS
+  // (parseo, normalización de filas) esta copia es la única que queda.
+  let usoConocido: UsoDeStream;
 
   /**
-   * Corta la lectura dejando constancia del gasto: cuando el modelo declina
-   * o se pasa de largo los tokens ya se facturaron, así que tienen que
-   * aparecer en el panel aunque el dueño no reciba ninguna fila.
+   * Deja constancia del gasto de una llamada que no terminó bien.
+   * Nunca lanza (registrarFalloIA se traga sus propios errores), así que
+   * puede llamarse desde el catch sin tapar el error original.
    */
-  const abortar = async (motivo: string): Promise<never> => {
+  const registrarFallo = async (uso: UsoDeStream, motivo: string, tiempoMs: number) => {
+    registrado = true;
     await registrarFalloIA({
       agente: "agenda_leer",
       modelo,
-      tokensInput: usage.input_tokens ?? 0,
-      tokensOutput: usage.output_tokens ?? 0,
-      tokensCacheWrite: usage.cache_creation_input_tokens ?? 0,
-      tokensCacheRead: usage.cache_read_input_tokens ?? 0,
+      tokensInput: entero(uso?.input_tokens),
+      tokensOutput: entero(uso?.output_tokens),
+      tokensCacheWrite: entero(uso?.cache_creation_input_tokens),
+      tokensCacheRead: entero(uso?.cache_read_input_tokens),
       tiempoMs,
-      error: motivo,
+      error: motivo.slice(0, 500),
       ranchoId: opciones.ranchoId ?? null,
       usuarioId: opciones.usuarioId ?? null,
     });
-    throw new Error(motivo);
   };
 
-  // Los clasificadores pueden declinar: hay que mirar stop_reason
-  // ANTES de tocar content, que puede venir vacío.
-  if (mensaje.stop_reason === "refusal") {
-    return abortar(
-      "El modelo no pudo procesar esa imagen. Probá con otra foto o cargá la agenda a mano.",
-    );
-  }
-  if (mensaje.stop_reason === "max_tokens") {
-    return abortar(
-      "La agenda es demasiado larga para una sola corrida. Subila por partes (por ejemplo, un mes a la vez).",
-    );
-  }
-
-  const bloqueTexto = mensaje.content.find((b) => b.type === "text");
-  if (!bloqueTexto || bloqueTexto.type !== "text") {
-    return abortar("El modelo no devolvió datos legibles.");
-  }
-
-  let crudo: { resumen?: unknown; filas?: unknown };
   try {
-    crudo = JSON.parse(bloqueTexto.text) as { resumen?: unknown; filas?: unknown };
-  } catch {
-    return abortar("El modelo devolvió una respuesta que no se pudo interpretar.");
-  }
+    const mensaje = await stream.finalMessage();
+    const tiempoMs = Date.now() - inicio;
+    const usage = mensaje.usage;
+    usoConocido = usage;
 
-  const filasCrudas = Array.isArray(crudo.filas) ? crudo.filas : [];
-  const filas = filasCrudas
-    .filter(
-      (f): f is Record<string, unknown> =>
-        typeof f === "object" && f !== null && typeof (f as { fecha?: unknown }).fecha === "string",
-    )
-    .map((f) => normalizarFila(f as FilaCruda));
+    /**
+     * Corta la lectura dejando constancia del gasto: cuando el modelo declina
+     * o se pasa de largo los tokens ya se facturaron, así que tienen que
+     * aparecer en el panel aunque el dueño no reciba ninguna fila.
+     */
+    const abortar = async (motivo: string): Promise<never> => {
+      await registrarFallo(usage, motivo, tiempoMs);
+      throw new Error(motivo);
+    };
 
-  const tokensInput = usage.input_tokens ?? 0;
-  const tokensOutput = usage.output_tokens ?? 0;
+    // Los clasificadores pueden declinar: hay que mirar stop_reason
+    // ANTES de tocar content, que puede venir vacío.
+    if (mensaje.stop_reason === "refusal") {
+      return abortar(
+        "El modelo no pudo procesar esa imagen. Probá con otra foto o cargá la agenda a mano.",
+      );
+    }
+    if (mensaje.stop_reason === "max_tokens") {
+      return abortar(
+        "La agenda es demasiado larga para una sola corrida. Subila por partes (por ejemplo, un mes a la vez).",
+      );
+    }
 
-  // El add-on se cobra por importaciones_agenda (lo escribe la ruta), pero el
-  // panel de IA mira una sola tabla: acá queda la copia de este gasto.
-  await registrarDesdeUsage(
-    {
-      input_tokens: tokensInput,
-      output_tokens: tokensOutput,
-      cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
-      cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
-    },
-    {
-      agente: "agenda_leer",
+    const bloqueTexto = mensaje.content.find((b) => b.type === "text");
+    if (!bloqueTexto || bloqueTexto.type !== "text") {
+      return abortar("El modelo no devolvió datos legibles.");
+    }
+
+    let crudo: { resumen?: unknown; filas?: unknown };
+    try {
+      crudo = JSON.parse(bloqueTexto.text) as { resumen?: unknown; filas?: unknown };
+    } catch {
+      return abortar("El modelo devolvió una respuesta que no se pudo interpretar.");
+    }
+
+    const filasCrudas = Array.isArray(crudo.filas) ? crudo.filas : [];
+    const filas = filasCrudas
+      .filter(
+        (f): f is Record<string, unknown> =>
+          typeof f === "object" &&
+          f !== null &&
+          typeof (f as { fecha?: unknown }).fecha === "string",
+      )
+      .map((f) => normalizarFila(f as FilaCruda));
+
+    const tokensInput = entero(usage.input_tokens);
+    const tokensOutput = entero(usage.output_tokens);
+
+    // El add-on se cobra por importaciones_agenda (lo escribe la ruta), pero el
+    // panel de IA mira una sola tabla: acá queda la copia de este gasto.
+    // Se marca ANTES de esperar el insert: si el registro fallara, ya lo reporta
+    // por dentro registrarUsoIA y no queremos que el catch escriba una segunda
+    // fila diciendo que la lectura falló, porque no falló.
+    registrado = true;
+    await registrarDesdeUsage(
+      {
+        input_tokens: tokensInput,
+        output_tokens: tokensOutput,
+        cache_creation_input_tokens: entero(usage.cache_creation_input_tokens),
+        cache_read_input_tokens: entero(usage.cache_read_input_tokens),
+      },
+      {
+        agente: "agenda_leer",
+        modelo,
+        tiempoMs,
+        ranchoId: opciones.ranchoId ?? null,
+        usuarioId: opciones.usuarioId ?? null,
+      },
+    );
+
+    return {
+      filas,
+      resumen: typeof crudo.resumen === "string" ? crudo.resumen : null,
       modelo,
+      tokensInput,
+      tokensOutput,
+      // Con el modelo real: si el panel cambia a Sonnet, el costo no puede
+      // seguir contándose a precio de Opus.
+      costoUsd: calcularCosto(modelo, tokensInput, tokensOutput),
       tiempoMs,
-      ranchoId: opciones.ranchoId ?? null,
-      usuarioId: opciones.usuarioId ?? null,
-    },
-  );
-
-  return {
-    filas,
-    resumen: typeof crudo.resumen === "string" ? crudo.resumen : null,
-    modelo,
-    tokensInput,
-    tokensOutput,
-    // Con el modelo real: si el panel cambia a Sonnet, el costo no puede
-    // seguir contándose a precio de Opus.
-    costoUsd: calcularCosto(modelo, tokensInput, tokensOutput),
-    tiempoMs,
-  };
+    };
+  } catch (e) {
+    // Acá cae lo que no pasa por abortar(): se cortó la conexión, timeout del
+    // SDK, 429/500 de Anthropic, o el proceso murió a media generación. Los
+    // tokens que el modelo alcanzó a producir ya están facturados.
+    if (!registrado) {
+      // Si el mensaje llegó a cerrar, `usoConocido` trae la cuenta exacta. Si se
+      // cortó antes, se rescata el borrador que el SDK va armando con los
+      // eventos recibidos hasta el corte.
+      //
+      // OJO con ese número: `input_tokens` y el caché son exactos (llegan en el
+      // primer evento), pero `output_tokens` recién se actualiza en el evento
+      // de cierre de la generación. Si el corte fue antes de ese evento, la
+      // salida queda contada de menos —a veces en 0— aunque Anthropic sí la
+      // haya cobrado. Se registra igual a propósito: una fila corta con el
+      // error escrito deja ver que hubo una llamada que gastó, y eso vale
+      // infinitamente más que no dejar ninguna fila.
+      const uso = usoConocido ?? stream.currentMessage?.usage;
+      await registrarFallo(uso, motivoDelError(e), Date.now() - inicio);
+    }
+    // El error sigue viaje tal cual: la ruta necesita el mensaje para
+    // `importaciones_agenda` y para contestarle al dueño.
+    throw e;
+  }
 }
+
 
 /** Interpreta texto pegado (add-on: es IA igual que la foto). */
 export async function leerAgendaDeTexto(

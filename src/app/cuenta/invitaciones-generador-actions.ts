@@ -144,7 +144,8 @@ export async function generarConIA(
   modelo: "opus" | "fable",
   config_ia?: Record<string, unknown>,
   imagenes_urls?: string[],
-  videos_urls?: string[]
+  videos_urls?: string[],
+  audio_urls?: string[]
 ) {
   const supabase = await createServerClient();
 
@@ -172,6 +173,7 @@ export async function generarConIA(
           config_ia,
           imagenes_urls,
           videos_urls,
+          audio_urls,
         }),
       }
     );

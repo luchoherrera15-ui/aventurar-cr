@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import InvitacionesBot, { DatosGeneracion } from "@/components/invitaciones-bot";
 import PreviewIframe from "@/components/invitaciones-preview-iframe";
-import Historial from "@/components/invitaciones-historial";
+import Historial, { CostoCongelado } from "@/components/invitaciones-historial";
 import {
   crearInvitacionBorrador,
   generarConIA,
   listarInvitacionesDeUsuario,
   publicarInvitacion,
 } from "@/app/cuenta/invitaciones-generador-actions";
+import { costosDeInvitaciones } from "@/app/cuenta/invitaciones-costos-actions";
 import { InvitacionHistorial } from "@/lib/tipos/invitaciones";
 
 export default function ClientePage() {
@@ -26,13 +27,20 @@ export default function ClientePage() {
   const [errorGeneracion, setErrorGeneracion] = useState("");
 
   const [invitaciones, setInvitaciones] = useState<InvitacionHistorial[]>([]);
+  const [costos, setCostos] = useState<Record<string, CostoCongelado>>({});
   const [verHistorial, setVerHistorial] = useState(false);
   const [pendiente, startTransition] = useTransition();
 
   async function cargarHistorial() {
     const res = await listarInvitacionesDeUsuario();
     if (res.data) {
-      setInvitaciones(res.data);
+      const lista: InvitacionHistorial[] = res.data;
+      setInvitaciones(lista);
+      // Los colones de cada invitación salen de la bitácora uso_ia, con
+      // el tipo de cambio congelado el día que se generó. Va en una
+      // consulta aparte para no tocar el listado: si falla, el historial
+      // igual se ve, solo que en dólares.
+      setCostos(await costosDeInvitaciones(lista.map((inv) => inv.id)));
     }
   }
 
@@ -64,7 +72,8 @@ export default function ClientePage() {
         datos.modelo,
         datos.config as unknown as Record<string, unknown>,
         datos.imagenes,
-        datos.videos
+        datos.videos,
+        datos.audios
       );
 
       if (res.success) {
@@ -147,6 +156,7 @@ export default function ClientePage() {
         {verHistorial && (
           <Historial
             invitaciones={invitaciones}
+            costos={costos}
             onAbrir={(slug) => router.push(`/invitacion/${slug}`)}
           />
         )}

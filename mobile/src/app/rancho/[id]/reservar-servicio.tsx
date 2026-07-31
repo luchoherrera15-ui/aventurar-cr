@@ -17,7 +17,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
-import OfertaInvitacion from "@/components/oferta-invitacion";
 import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
 import { pedirCorreosDeReserva } from "@/lib/notificaciones";
@@ -544,9 +543,9 @@ export default function ReservarServicioScreen() {
             {session.user.email}, y el chat quedó abierto con tu pedido ya
             detallado.
           </Text>
-          {/* Venta cruzada: recién reservó su evento — la invitación
-              digital a precio especial. */}
-          <OfertaInvitacion />
+          {/* Acá iba la venta cruzada de la invitación digital. Salió
+              del app: es contenido digital y ofrecerlo adentro obliga a
+              compra in-app (guía 3.1.1 de Apple). Vive en bookea.lat. */}
           {reservaId && (
             <Pressable
               style={styles.botonPrimario}

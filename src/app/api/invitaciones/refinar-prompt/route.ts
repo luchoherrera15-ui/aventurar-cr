@@ -82,16 +82,31 @@ export async function POST(request: Request) {
       );
     }
 
-    // Antes de gastar: si la IA está apagada o el mes llegó al tope, se
-    // contesta sin llamar a Anthropic. Si la configuración no se puede
-    // leer, el cliente sigue como antes en vez de quedarse sin servicio.
-    let motivo: string | null = null;
+    // El modelo va en su propio try: si no se puede leer la configuración
+    // se refina con el barato de siempre, que es lo mismo que hacía antes.
     let modelo: ModeloIA = "claude-haiku-4-5";
     try {
-      motivo = await motivoParaNoGastar();
       modelo = await modeloDe("invitacion_refinar");
     } catch (e) {
-      console.error("[refinar-prompt] No se pudo leer la configuración de IA:", e);
+      console.error("[refinar-prompt] No se pudo leer el modelo configurado:", e);
+    }
+
+    // El freno de gasto se consulta ANTES de quemar tokens, y en su propio
+    // try: si la consulta falla se corta igual. El criterio es a propósito
+    // el contrario al del modelo — elegir modelo por defecto no gasta de
+    // más, pero dejar pasar el freno cuando no se pudo leer volvería
+    // opcionales el interruptor general y el tope del mes: una base caída
+    // alcanzaría para evadirlos y seguir facturando. leerConfigIA ya
+    // absorbe los casos esperables (sin service key, sin migración)
+    // devolviendo los valores por defecto, así que un throw acá es un
+    // problema real y merece frenar.
+    let motivo: string | null = null;
+    try {
+      motivo = await motivoParaNoGastar();
+    } catch (e) {
+      console.error("[refinar-prompt] No se pudo consultar el freno de gasto:", e);
+      motivo =
+        "No pudimos verificar el estado del asistente; probá de nuevo en un momento.";
     }
     if (motivo) {
       return Response.json({ success: false, error: motivo }, { status: 503 });

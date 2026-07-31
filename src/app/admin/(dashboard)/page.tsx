@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { IconWarning } from "@/components/icons";
-import { leerConfigIA } from "@/lib/ia/config-ia";
-import { formatearAmbas } from "@/lib/ia/modelos";
+import { gastoDelMesIA } from "@/lib/ia/config-ia";
+import { formatearCRC, formatearUSD } from "@/lib/ia/modelos";
 import { perteneceASeccion, SECCION_LABEL } from "./vertical";
 import { seccionActiva } from "./vertical-server";
 
@@ -23,24 +23,17 @@ export default async function AdminHubPage() {
   const ranchosPublicados = ranchos.filter((r) => r.estado === "aprobado").length;
   const cuentas = (perfilesRes.data ?? []).length;
 
-  // Lo que llevamos gastado en IA este mes, en las dos monedas. Si la
-  // migración 0078 todavía no corrió, PostgREST devuelve error (no
-  // lanza) y la tarjeta cae en su texto genérico.
-  const ahora = new Date();
-  const desdeMes = new Date(
-    Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1),
-  ).toISOString();
-  const [usoIaRes, configIA] = await Promise.all([
-    supabase.from("uso_ia").select("costo_usd").gte("created_at", desdeMes),
-    leerConfigIA(),
-  ]);
-  const gastoIaUSD = ((usoIaRes.data ?? []) as { costo_usd: number | string }[]).reduce(
-    (total, fila) => total + Number(fila.costo_usd ?? 0),
-    0,
-  );
-  const statIA = usoIaRes.error
-    ? "Gasto · Modelos · Conocimiento"
-    : `${formatearAmbas(gastoIaUSD, configIA.tipoCambio)} este mes`;
+  // Lo que llevamos gastado en IA este mes, sumado en la base y con el
+  // mes contado en hora de Costa Rica — el mismo que muestra /admin/ia.
+  // Los colones vienen congelados de cada llamada, así que corregir el
+  // tipo de cambio no mueve un total ya cerrado. Si la migración 0078
+  // todavía no corrió, la suma vuelve en cero y la tarjeta muestra su
+  // texto genérico en vez de un ₡0 que parecería un dato.
+  const gastoIA = await gastoDelMesIA();
+  const statIA =
+    gastoIA.usd > 0
+      ? `${formatearUSD(gastoIA.usd)} · ${formatearCRC(gastoIA.crc)} este mes`
+      : "Gasto · Modelos · Conocimiento";
 
   return (
     <div className="relative isolate">

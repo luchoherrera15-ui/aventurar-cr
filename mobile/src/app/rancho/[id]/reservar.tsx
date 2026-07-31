@@ -19,7 +19,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
-import OfertaInvitacion from "@/components/oferta-invitacion";
 import {
   Aviso,
   BarraConfirmacion,
@@ -572,9 +571,9 @@ export default function ReservarScreen() {
           {/* La misma barra del mockup: lo que pasó, y qué sigue. */}
           <BarraConfirmacion titulo="Reserva enviada" nota="Esperando al proveedor" />
 
-          {/* Venta cruzada: recién reservó su evento — la invitación
-              digital a precio especial. */}
-          <OfertaInvitacion />
+          {/* Acá iba la venta cruzada de la invitación digital. Salió
+              del app: es contenido digital y ofrecerlo adentro obliga a
+              compra in-app (guía 3.1.1 de Apple). Vive en bookea.lat. */}
 
           <Boton
             texto="Volver al directorio"

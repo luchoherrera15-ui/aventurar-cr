@@ -218,6 +218,87 @@ export async function crearAlbum(invitacionId: string) {
   return { error: null };
 }
 
+// ------------------------------------------------------------
+// Pedidos de invitación (0075): lo que el cliente llenó en el
+// formulario del sitio y del app, antes de que exista la invitación.
+// ------------------------------------------------------------
+
+/** Los mismos estados que acepta el check de la 0075. */
+const ESTADOS_PEDIDO = [
+  "pendiente_pago",
+  "en_revision",
+  "pagado",
+  "en_diseno",
+  "entregado",
+  "cancelado",
+];
+
+/**
+ * Mueve un pedido por su flujo (comprobante revisado → en diseño →
+ * entregado). Va con la service key porque la RLS de la 0075 solo deja
+ * al CLIENTE tocar sus pedidos, y solo mientras siguen abiertos.
+ *
+ * `pagado_en` se sella acá si todavía venía vacío: es la fecha que usa
+ * el reporte de ingresos de Finanzas, y un pedido que el equipo marca
+ * como pagado a mano no pasa por el endpoint que la escribe.
+ */
+export async function cambiarEstadoPedido(id: string, estado: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  if (!ESTADOS_PEDIDO.includes(estado)) {
+    return { error: "Ese estado no existe." };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) return { error: FALTA_SERVICE_KEY };
+
+  const { data: actual, error: errorLectura } = await admin
+    .from("pedidos_invitacion")
+    .select("pagado_en")
+    .eq("id", id)
+    .maybeSingle();
+  if (errorLectura) return { error: errorLectura.message };
+  if (!actual) return { error: "Ese pedido ya no existe." };
+
+  const fila: { estado: string; pagado_en?: string } = { estado };
+  const yaCobrado = ["pagado", "en_diseno", "entregado"].includes(estado);
+  if (yaCobrado && !actual.pagado_en) {
+    fila.pagado_en = new Date().toISOString();
+  }
+
+  const { error } = await admin
+    .from("pedidos_invitacion")
+    .update(fila)
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/invitaciones");
+  // El monto entra al reporte apenas el pedido queda cobrado.
+  revalidatePath("/admin/finanzas");
+  return { error: null };
+}
+
+/**
+ * El comprobante de pago vive en un bucket privado, así que se abre con
+ * una URL firmada de un minuto — igual que en el panel de eventos.
+ */
+export async function urlComprobantePedido(path: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { url: null, error: "No tenés permiso para esto." };
+
+  const admin = createAdminClient();
+  if (!admin) return { url: null, error: FALTA_SERVICE_KEY };
+
+  const { data, error } = await admin.storage
+    .from("comprobantes")
+    .createSignedUrl(path, 60);
+
+  if (error) return { url: null, error: error.message };
+  return { url: data.signedUrl, error: null };
+}
+
 /** Archiva (o reactiva) un álbum: el link /a/… deja de ser público. */
 export async function archivarAlbum(id: string, archivar: boolean) {
   const { ok } = await requireAdmin();
