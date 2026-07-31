@@ -12,7 +12,6 @@ import {
   IconBalloons,
   IconChartBars,
   IconCheck,
-  IconChevronDown,
   IconClipboard,
   IconGlobe,
   IconHeart,
@@ -42,68 +41,21 @@ export const metadata = {
 /** Una entrada del catálogo, venga del archivo o de la base. */
 type EntradaCatalogo = DemoInvitacion & { generada?: boolean };
 
-/** Tarjeta de crédito, para el bloque de medios de pago. */
-function IconTarjeta() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
-      <path strokeLinecap="round" d="M2.5 9.5h19M6 15h3.5" />
-    </svg>
-  );
-}
-
-/** Manzana simple para Apple Pay (sin marca registrada). */
-function IconApple() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M16.4 12.6c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.8-3.5 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.2 2.6 2.1 1-.04 1.4-.7 2.7-.7 1.2 0 1.6.7 2.7.6 1.1-.02 1.8-1 2.5-2.1.8-1.2 1.1-2.3 1.1-2.4-.02-.01-2.1-.8-2.1-3zM14.3 5.6c.6-.7 1-1.7.9-2.6-.8.03-1.9.5-2.5 1.3-.5.6-1 1.6-.9 2.5.9.07 1.9-.5 2.5-1.2z" />
-    </svg>
-  );
-}
-
-/** Lo que incluye la invitación. Las tres primeras se ven de una;
- *  el resto vive detrás del "Ver más". */
-const FEATURES: { icono: React.ReactNode; titulo: string; texto: string }[] = [
-  {
-    icono: <IconMail />,
-    titulo: "Invitación digital",
-    texto: "Link a pantalla completa, animado y con la ubicación en Maps y Waze.",
-  },
-  {
-    icono: <IconCheck />,
-    titulo: "Confirmación en tiempo real",
-    texto: "Tus invitados confirman en el link y la lista se actualiza al instante.",
-  },
-  {
-    icono: <IconChartBars />,
-    titulo: "Panel administrativo",
-    texto: "Quiénes asisten y quiénes no, con el conteo de personas al día.",
-  },
-  {
-    icono: <IconUsers />,
-    titulo: "Personalizadas por invitado",
-    texto: "Cada persona recibe su invitación con su nombre.",
-  },
-  {
-    icono: <IconClipboard />,
-    titulo: "PDF descargable",
-    texto: "También en documento, lista para imprimir o guardar de recuerdo.",
-  },
-  {
-    icono: <IconWhatsapp />,
-    titulo: "Envíos ilimitados",
-    texto: "Compartila por WhatsApp, correo o redes sin límite de invitados.",
-  },
-  {
-    icono: <IconGlobe />,
-    titulo: "Diversidad de idiomas",
-    texto: "Español, inglés o el idioma que necesités.",
-  },
-  {
-    icono: <IconWand />,
-    titulo: "Diseño a tu medida",
-    texto: "Tus colores, tus fotos y tu historia — o algo 100% exclusivo.",
-  },
+/**
+ * Lo que lleva la invitación. Acá van SOLO los títulos: la página
+ * antes explicaba cada uno con dos líneas de texto y se leía como un
+ * pliego de condiciones. El detalle real vive en las cards de cada
+ * paquete, que es donde el cliente lo necesita para decidir.
+ */
+const INCLUYE: { icono: React.ReactNode; titulo: string }[] = [
+  { icono: <IconMail />, titulo: "Link a pantalla completa" },
+  { icono: <IconCheck />, titulo: "Confirmación en tiempo real" },
+  { icono: <IconChartBars />, titulo: "Panel de invitados" },
+  { icono: <IconUsers />, titulo: "Personalizada por invitado" },
+  { icono: <IconWhatsapp />, titulo: "Envíos ilimitados" },
+  { icono: <IconClipboard />, titulo: "PDF para imprimir" },
+  { icono: <IconGlobe />, titulo: "En el idioma que necesités" },
+  { icono: <IconWand />, titulo: "Diseño a tu medida" },
 ];
 
 /** Para que las generadas no salgan todas con el mismo lienzo — azules
@@ -154,366 +106,553 @@ async function catalogoGenerado(): Promise<EntradaCatalogo[]> {
 }
 
 /**
- * La landing de venta de Invitaciones Digitales — el producto que
- * Bookea diseña y entrega llave en mano: el cliente comparte un link
- * y los invitados confirman ahí mismo.
+ * La landing de venta de Invitaciones Digitales.
  *
- * Está pensada para leerse de un scroll: hero, qué incluye, tres
- * pasos, ejemplos y paquetes. Lo que solo algunos quieren ver (la
- * escena animada) vive plegado en un <details>.
+ * Rehecha con el mismo lenguaje de /lealtad y /publicar: lienzo gris,
+ * bloques bento de color plano con esquinas de 32px y botones píldora.
+ * Nada de tarjetas dentro de tarjetas dentro de tarjetas.
+ *
+ * Dos decisiones de fondo:
+ *
+ * 1. La escena animada es LA pieza de la página, no un extra plegado.
+ *    Antes vivía escondida tras un "Ver cómo lo viven tus invitados" —
+ *    justo lo único que explica el producto sin que haya que leer. Ahora
+ *    ocupa su propio bloque, corre sola y cada aparato lleva su paso
+ *    numerado en texto de verdad (los mockups son decorativos).
+ *
+ * 2. Los paquetes van al final. El visitante primero entiende qué es y
+ *    lo ve funcionando; el precio es lo último, cuando ya lo quiere.
  */
 export default async function InvitacionesLanding() {
   const generadas = await catalogoGenerado();
   // Primero los diseños de la casa (los más pulidos) y después las
   // que hicieron clientes reales, como prueba social.
-  const catalogo: EntradaCatalogo[] = [...CATALOGO_INVITACIONES, ...generadas];
+  const catalogo: EntradaCatalogo[] = [
+    ...CATALOGO_INVITACIONES,
+    ...generadas,
+  ].slice(0, 6);
 
   return (
-    <div className="min-h-screen bg-aventurea-cream">
-      <SiteHeader breadcrumb="Invitaciones digitales" />
+    // El mismo lienzo gris de /lealtad: los bloques bento encima.
+    <div className="min-h-screen bg-aventurea-cream-2">
       <RevealOnScroll />
+      <SiteHeader breadcrumb="Invitaciones digitales" ancho="max-w-[1200px]" />
 
-      <section className="mx-auto max-w-[1080px] px-6 py-8 sm:py-10">
-        {/* ---------- Hero navy: se ve como la invitación real ---------- */}
-        <div
-          data-reveal
-          className="relative overflow-hidden rounded-3xl bg-[#16295e] px-7 py-10 text-center text-white sm:px-12 sm:py-12"
-        >
+      {/* ---------- Hero bento ---------- */}
+      <section className="px-4 pb-2 pt-6 lg:px-10">
+        <div className="mx-auto grid max-w-[1200px] gap-4 lg:grid-cols-[1.35fr_1fr]">
           <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(42rem 26rem at 88% -10%, rgba(238,116,32,0.22), transparent 60%)," +
-                "radial-gradient(36rem 24rem at -8% 110%, rgba(59,127,196,0.25), transparent 60%)",
-            }}
-          />
-          <div className="relative">
-            <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#f5b98a]">
-              <IconMail className="h-3.5 w-3.5" /> Nuevo de Bookea
-            </p>
-            <h1 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(28px,5vw,46px)]">
-              Invitaciones digitales que enamoran
+            data-reveal
+            className="relative isolate overflow-hidden rounded-[32px] bg-aventurea-navy p-8 sm:p-12"
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-28 -top-28 h-80 w-80 rounded-full bg-aventurea-navy-3/60 blur-2xl"
+            />
+            <span className="inline-flex items-center gap-2 text-[11.5px] font-extrabold uppercase tracking-[0.2em] text-aventurea-orange">
+              <IconMail className="h-3.5 w-3.5" />
+              Invitaciones digitales
+            </span>
+            <h1 className="titulo mt-5 max-w-[15ch] text-balance text-[38px] text-white sm:text-[52px]">
+              Un link que enamora y confirma solo
             </h1>
-            <p className="mx-auto mt-3 max-w-[52ch] text-[14.5px] leading-relaxed text-white/80">
-              Un link precioso que tus invitados abren, admiran y confirman en
-              un minuto — sin papel, sin cadenas de WhatsApp.
+            <p className="mt-5 max-w-[46ch] text-balance text-[15.5px] leading-relaxed text-white/80 sm:text-[17px]">
+              Bookea diseña la invitación de tu evento. Vos la compartís,
+              tus invitados confirman ahí mismo y la lista se te arma sola —
+              sin papel y sin cadenas de WhatsApp.
             </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
+            <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href="#paquetes"
-                className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+                className="rounded-full bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
               >
                 Pedí la tuya
               </Link>
-              <Link
-                href="#catalogo"
-                className="rounded-xl border border-white/30 px-6 py-3 text-[14.5px] font-bold text-white transition-colors hover:border-white hover:bg-white/10"
+              <a
+                href="#como-funciona"
+                className="rounded-full bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
               >
-                Ver catálogos de ejemplo
-              </Link>
+                Ver cómo funciona
+              </a>
             </div>
           </div>
-        </div>
 
-        {/* ---------- Qué incluye: la única lista de features de la
-            página (antes había además tres bentos que decían lo
-            mismo) ---------- */}
-        <div
-          data-reveal
-          className="mt-4 rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-7 sm:px-8"
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="titulo text-[clamp(19px,3vw,24px)] text-aventurea-ink">
-              Todo lo que incluye tu invitación
-            </h2>
-            <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-aventurea-orange">
-              Ofrecemos
-            </p>
-          </div>
-          {/* Tres a la vista; el resto detrás del "Ver más". */}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.slice(0, 3).map((f) => (
-              <CardFeature key={f.titulo} {...f} />
-            ))}
-          </div>
-
-          <details className="group/mas mt-3">
-            <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
-              Ver todo lo que incluye
-              <IconChevronDown className="h-4 w-4 transition-transform group-open/mas:rotate-180" />
-            </summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.slice(3).map((f) => (
-                <CardFeature key={f.titulo} {...f} />
-              ))}
-              <div className="flex items-center gap-3 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 p-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-orange/15 text-aventurea-orange">
-                  <IconWand className="h-4 w-4" />
-                </span>
-                <p className="text-[12.5px] font-bold leading-snug text-aventurea-ink">
-                  Configurables según el paquete — vos decidís qué lleva la tuya.
+          {/* El link viajando por WhatsApp: así es como el cliente
+              reparte la invitación en Costa Rica. */}
+          <div className="grid gap-4">
+            <div
+              data-reveal
+              style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
+              className="relative overflow-hidden rounded-[32px] bg-aventurea-orange p-7"
+            >
+              <div
+                aria-hidden
+                className="anim-publicar-flotar mx-auto w-[270px] rounded-2xl bg-white p-3.5 shadow-[0_24px_50px_-18px_rgba(6,12,32,0.5)]"
+              >
+                <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1f7a4d]">
+                  <IconWhatsapp className="h-3.5 w-3.5" /> WhatsApp
                 </p>
+                {/* La burbuja con la vista previa del link */}
+                <div className="mt-2.5 rounded-2xl rounded-tr-md bg-[#e1f0e6] p-2">
+                  <div className="overflow-hidden rounded-xl bg-white">
+                    <div className="flex h-[86px] flex-col items-center justify-center bg-aventurea-navy text-center">
+                      <p className="text-[7.5px] font-bold uppercase tracking-[0.28em] text-[#f5b98a]">
+                        Nuestra boda
+                      </p>
+                      <p
+                        className="mt-1 text-[19px] italic leading-tight text-white"
+                        style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                      >
+                        Sofía &amp; Andrés
+                      </p>
+                      <p className="mt-1 text-[8px] font-bold text-white/70">
+                        14 de noviembre · 4:00 p.&nbsp;m.
+                      </p>
+                    </div>
+                    <p className="truncate px-2.5 py-1.5 text-[8.5px] font-semibold text-aventurea-ink-soft">
+                      bookea.lat/i/sofia-y-andres
+                    </p>
+                  </div>
+                  <p className="mt-1.5 px-1 text-[10.5px] font-semibold leading-snug text-aventurea-ink">
+                    ¡Nos casamos! Abrí el link y confirmanos 💛
+                  </p>
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <span className="rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[9px] font-bold text-aventurea-ink-soft">
+                    Enviado a 120 invitados
+                  </span>
+                </div>
               </div>
+              <p className="mt-5 text-center text-[13px] font-extrabold text-white">
+                Un solo link — lo mandás por WhatsApp, correo o redes
+              </p>
             </div>
-          </details>
-
-          {/* Medios de pago: confianza antes de llegar a los precios. */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-aventurea-navy/15 bg-aventurea-navy/5 p-4">
-            <span className="flex items-center gap-2 text-[13px] font-extrabold text-aventurea-ink">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-4 [&_svg]:w-4">
-                <IconTarjeta />
+            <div
+              data-reveal
+              style={{ "--reveal-delay": "160ms" } as React.CSSProperties}
+              className="flex items-center gap-4 rounded-[32px] border border-aventurea-line bg-white p-6"
+            >
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-aventurea-blue-light text-aventurea-navy">
+                <IconSparkles className="h-6 w-6" />
               </span>
-              Pagá como te quede mejor
-            </span>
-            <p className="text-[12.5px] leading-snug text-aventurea-ink-soft">
-              Pasarela <strong className="text-aventurea-ink">Stripe</strong> para
-              tarjetas de crédito y débito, con{" "}
-              <strong className="inline-flex items-center gap-1 text-aventurea-ink">
-                <span className="[&_svg]:h-3.5 [&_svg]:w-3.5">
-                  <IconApple />
-                </span>
-                Apple&nbsp;Pay
-              </strong>
-              . También SINPE Móvil y transferencia bancaria.
-            </p>
+              <p className="text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                <strong className="text-aventurea-ink">Sin instalar nada:</strong>{" "}
+                se abre en el navegador de cualquier teléfono, aunque tu tía
+                no sepa bajar apps.
+              </p>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* ---------- Tres pasos + la escena animada, plegada ---------- */}
-        <div
-          data-reveal
-          className="mt-4 rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-7 sm:px-8"
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="titulo text-[clamp(19px,3vw,24px)] text-aventurea-ink">
-              De la idea al link en tres pasos
+      {/* ---------- La escena animada — el corazón de la página ------- */}
+      <section
+        id="como-funciona"
+        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] bg-aventurea-blue-light py-14 lg:mx-auto"
+      >
+        <div className="mx-auto max-w-[1140px] px-6 lg:px-10">
+          <div data-reveal className="text-center">
+            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-navy">
+              En vivo, ahora mismo
+            </p>
+            <h2 className="titulo mt-2 text-[28px] text-aventurea-ink sm:text-[34px]">
+              Del link de tu invitado a tu lista de confirmados
             </h2>
-            <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-aventurea-orange">
-              Así de simple
+            <p className="mx-auto mt-2.5 max-w-[54ch] text-[14.5px] text-aventurea-ink-soft">
+              Esto no es un dibujo: es exactamente lo que ve tu invitado en su
+              teléfono y lo que ves vos en tu cuenta, al mismo tiempo.
             </p>
           </div>
-          <ol className="mt-4 grid gap-3 md:grid-cols-3">
-            <Paso n="1" texto="Elegís tu paquete y nos contás del evento en el formulario." />
-            <Paso n="2" texto="Bookea la diseña a tu medida y te la entrega lista en pocos días." />
-            <Paso n="3" texto="La compartís y ves quién confirma, en vivo, desde tu cuenta." />
-          </ol>
-          <p className="mt-3 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-            Cada invitación se diseña desde cero con tus colores, tus fotos y tu
-            historia — y si querés algo único, lo creamos 100% personalizado.
-          </p>
 
-          {/* La escena animada vive plegada: es linda, pero no todos
-              necesitan verla para decidir — y costaba media pantalla. */}
-          <details
-            className="group mt-4"
+          {/* Una sola línea de tiempo (--inv-dur) sincroniza teléfono,
+              conector y panel: el toque del invitado y la fila que le
+              entra al anfitrión caen en el mismo compás. */}
+          <div
+            className="mt-11 flex flex-col items-center justify-center gap-10 lg:flex-row lg:items-start lg:gap-7"
             style={{ "--inv-dur": "9s" } as React.CSSProperties}
           >
-            <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
-              Ver cómo lo viven tus invitados
-              <IconChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-            </summary>
-            <div
-              aria-hidden
-              className="mt-6 flex flex-col items-center justify-center gap-6 text-aventurea-orange md:flex-row md:gap-5"
+            <PasoEscena
+              n="1"
+              titulo="Abre tu invitación"
+              texto="Pantalla completa y animada, con la cuenta regresiva y la ubicación en Maps y Waze."
             >
               <TelefonoInvitado />
-              <ConectorViaje />
-              <PanelAnfitrion />
-            </div>
-          </details>
-        </div>
+            </PasoEscena>
 
-        {/* ---------- El catálogo: las generadas con IA que el cliente
-            marcó para la vitrina, y luego las demos de la casa
-            (src/lib/catalogo-invitaciones.ts) ---------- */}
-        <div
-          id="catalogo"
-          data-reveal
-          className="mt-4 scroll-mt-24 rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-7 sm:px-8"
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="titulo text-[clamp(19px,3vw,24px)] text-aventurea-ink">
-              Catálogos de ejemplo
-            </h2>
-            <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-aventurea-orange">
-              Tocá cualquiera y vivila
-            </p>
+            <PasoEscena
+              n="2"
+              titulo="Confirma con un toque"
+              texto="Sin apps ni formularios eternos: toca «Sí asistiré» y dice cuántos van."
+              angosta
+            >
+              <ConectorViaje />
+            </PasoEscena>
+
+            <PasoEscena
+              n="3"
+              titulo="A vos te entra al instante"
+              texto="La fila aparece sola en tu panel y el conteo de personas sube solo."
+            >
+              <PanelAnfitrion />
+            </PasoEscena>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {catalogo.slice(0, 3).map((d) => (
-              <CardDemo key={d.slug} demo={d} />
+        </div>
+      </section>
+
+      {/* ---------- Qué lleva — chips, sin párrafos ---------- */}
+      <section className="py-12">
+        <div className="mx-auto max-w-[1100px] px-6 text-center lg:px-10">
+          <p
+            data-reveal
+            className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange"
+          >
+            Todas las invitaciones llevan
+          </p>
+          <div
+            data-reveal
+            className="mt-5 flex flex-wrap items-center justify-center gap-2.5"
+          >
+            {INCLUYE.map((f) => (
+              <span
+                key={f.titulo}
+                className="inline-flex items-center gap-2 rounded-full border border-aventurea-line bg-white px-4 py-2 text-[13px] font-bold text-aventurea-ink"
+              >
+                <span className="text-aventurea-navy [&_svg]:h-4 [&_svg]:w-4">
+                  {f.icono}
+                </span>
+                {f.titulo}
+              </span>
             ))}
           </div>
-
-          {catalogo.length > 3 && (
-            <details className="group/mas mt-3">
-              <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
-                Ver más diseños ({catalogo.length - 3})
-                <IconChevronDown className="h-4 w-4 transition-transform group-open/mas:rotate-180" />
-              </summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {catalogo.slice(3).map((d) => (
-                  <CardDemo key={d.slug} demo={d} />
-                ))}
-              </div>
-            </details>
-          )}
+          <p
+            data-reveal
+            className="mx-auto mt-5 max-w-[56ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft"
+          >
+            Qué trae la tuya depende del paquete que elijás — todo eso lo ves
+            al final, en los precios.
+          </p>
         </div>
+      </section>
 
-        {/* ---------- Los paquetes: acá aterrizan todos los CTA ---------- */}
+      {/* ---------- Cómo se pide — bloque blanco ---------- */}
+      <section className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-14 lg:mx-auto">
+        <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
+          <div data-reveal className="text-center">
+            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+              Así de simple
+            </p>
+            <h2 className="titulo mt-2 text-[28px] text-aventurea-ink sm:text-[34px]">
+              De la idea al link en tres pasos
+            </h2>
+          </div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                paso: "1",
+                titulo: "Elegís tu paquete",
+                texto:
+                  "Nos contás del evento en un formulario corto: fecha, lugar y cómo querés que se vea.",
+              },
+              {
+                paso: "2",
+                titulo: "Bookea la diseña",
+                texto:
+                  "Con tus colores, tus fotos y tu historia. En pocos días te llega lista — o 100% exclusiva si la querés así.",
+              },
+              {
+                paso: "3",
+                titulo: "La compartís",
+                texto:
+                  "Mandás el link y ves quién confirma, en vivo, desde tu cuenta de Bookea.",
+              },
+            ].map((p, i) => (
+              <div
+                key={p.paso}
+                data-reveal
+                style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
+                className="rounded-3xl bg-aventurea-cream-2 p-6"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-aventurea-navy text-[16px] font-extrabold text-white">
+                  {p.paso}
+                </span>
+                <h3 className="mt-4 text-[16.5px] font-extrabold text-aventurea-ink">
+                  {p.titulo}
+                </h3>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                  {p.texto}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- El catálogo: demos de la casa y las que hicieron
+           clientes reales (src/lib/catalogo-invitaciones.ts) -------- */}
+      <section
+        id="catalogo"
+        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] bg-aventurea-navy py-14 lg:mx-auto"
+      >
+        <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
+          <div data-reveal className="text-center">
+            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+              Tocá cualquiera y vivila
+            </p>
+            <h2 className="titulo mt-2 text-[28px] text-white sm:text-[34px]">
+              Invitaciones que ya están andando
+            </h2>
+          </div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {catalogo.map((d, i) => (
+              <CardDemo key={d.slug} demo={d} orden={i} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- Los paquetes: al final, cuando ya lo quiere ------- */}
+      <section
+        id="paquetes"
+        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-14 lg:mx-auto"
+      >
+        <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
+          <div data-reveal>
+            <PaquetesInvitaciones titulo="Elegí tu invitación" />
+          </div>
+
+          {/* Medios de pago: la última duda antes de comprar. */}
+          <p className="mx-auto mt-8 max-w-[64ch] text-center text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            Pagás con <strong className="text-aventurea-ink">tarjeta</strong> de
+            crédito o débito por la pasarela{" "}
+            <strong className="text-aventurea-ink">Stripe</strong>, con{" "}
+            <strong className="text-aventurea-ink">Apple&nbsp;Pay</strong>, o en
+            colones por <strong className="text-aventurea-ink">SINPE Móvil</strong>{" "}
+            y transferencia bancaria.
+          </p>
+        </div>
+      </section>
+
+      {/* ---------- CTA final — bloque navy ---------- */}
+      <section className="px-4 pb-16 pt-4 lg:px-10">
         <div
-          id="paquetes"
           data-reveal
-          className="mt-4 scroll-mt-24 rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-8 sm:px-8"
+          className="relative isolate mx-auto max-w-[1200px] overflow-hidden rounded-[32px] bg-aventurea-navy px-6 py-14 text-center sm:py-16"
         >
-          <PaquetesInvitaciones titulo="Elegí tu invitación" />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-aventurea-navy-3/60 blur-2xl"
+          />
+          <p className="flex items-center justify-center gap-2 text-[11.5px] font-extrabold uppercase tracking-[0.2em] text-aventurea-orange">
+            <IconSparkles className="h-3.5 w-3.5" /> Invitaciones digitales
+          </p>
+          <h2 className="titulo mx-auto mt-4 max-w-[22ch] text-balance text-[28px] text-white sm:text-[36px]">
+            Dejá de perseguir invitados por WhatsApp
+          </h2>
+          <div className="mt-8">
+            <Link
+              href="#paquetes"
+              className="inline-flex rounded-full bg-aventurea-orange px-8 py-4 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+            >
+              Pedí tu invitación
+            </Link>
+          </div>
         </div>
       </section>
     </div>
   );
 }
 
-/* ---------- Los mockups animados de "Así se vive" ----------
-   Escena decorativa (aria-hidden en el contenedor): todo es CSS puro
-   con los keyframes invitacion-* de globals.css, sincronizados por la
-   misma --inv-dur y desfasados con --inv-delay. */
+/* ---------- La escena animada ----------------------------------------
+   Los mockups son decorativos (aria-hidden): quien no los ve igual se
+   entera de todo por el número, el título y el texto de cada paso, que
+   son texto de verdad. Todo el movimiento es CSS puro con los keyframes
+   invitacion-* de globals.css, sincronizados por la misma --inv-dur y
+   desfasados con --inv-delay. */
+
+/** Un paso de la escena: el rótulo explicativo arriba y el aparato
+ *  (o el conector) debajo. `angosta` es para la columna del medio, que
+ *  no lleva pantalla y no tiene por qué ocupar lo mismo. */
+function PasoEscena({
+  n,
+  titulo,
+  texto,
+  angosta,
+  children,
+}: {
+  n: string;
+  titulo: string;
+  texto: string;
+  angosta?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-reveal
+      style={{ "--reveal-delay": `${(Number(n) - 1) * 110}ms` } as React.CSSProperties}
+      className={`flex shrink-0 flex-col items-center ${
+        angosta ? "lg:w-[200px]" : ""
+      }`}
+    >
+      {/* Los tres rótulos arrancan a la misma altura: así se leen como
+          1-2-3 de un vistazo, aunque debajo cuelguen piezas de alturas
+          muy distintas. */}
+      <div className={`text-center ${angosta ? "max-w-[26ch]" : "max-w-[34ch]"}`}>
+        <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-aventurea-navy text-[15px] font-extrabold text-white">
+          {n}
+        </span>
+        <h3 className="mt-3 text-[16px] font-extrabold text-aventurea-ink">
+          {titulo}
+        </h3>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-aventurea-ink-soft">
+          {texto}
+        </p>
+      </div>
+      {/* La flecha del medio baja hasta el centro de los aparatos; las
+          pantallas cuelgan directo del rótulo. */}
+      <div className={angosta ? "mt-6 lg:mt-32" : "mt-6"}>{children}</div>
+    </div>
+  );
+}
 
 /** El teléfono del invitado: la invitación navy con scroll simulado
  *  hasta "¿Nos acompañás?" y el tap en "Sí asistiré". */
 function TelefonoInvitado() {
   return (
-    <div className="flex shrink-0 flex-col items-center gap-3">
-      <div className="w-[248px] rounded-[40px] bg-aventurea-ink p-[9px] shadow-[0_24px_60px_-24px_rgba(16,26,44,0.5)]">
-        <div className="relative h-[430px] overflow-hidden rounded-[32px] bg-[#16295e]">
-          {/* El notch */}
-          <div className="absolute left-1/2 top-2 z-10 h-[15px] w-[76px] -translate-x-1/2 rounded-full bg-aventurea-ink" />
+    <div
+      aria-hidden
+      className="w-[248px] rounded-[40px] bg-aventurea-ink p-[9px] shadow-[0_24px_60px_-24px_rgba(16,26,44,0.5)]"
+    >
+      <div className="relative h-[430px] overflow-hidden rounded-[32px] bg-aventurea-navy">
+        {/* El notch */}
+        <div className="absolute left-1/2 top-2 z-10 h-[15px] w-[76px] -translate-x-1/2 rounded-full bg-aventurea-ink" />
 
-          {/* El contenido que "scrollea" dentro de la pantalla */}
-          <div
-            className="anim-invitacion-scroll px-4 pb-6 pt-11 text-center text-white"
-            style={{ "--inv-scroll": "-170px" } as React.CSSProperties}
+        {/* El contenido que "scrollea" dentro de la pantalla */}
+        <div
+          className="anim-invitacion-scroll px-4 pb-6 pt-11 text-center text-white"
+          style={{ "--inv-scroll": "-170px" } as React.CSSProperties}
+        >
+          <p className="text-[8.5px] font-bold uppercase tracking-[0.3em] text-[#f5b98a]">
+            Nuestra boda
+          </p>
+          <p
+            className="mt-2 text-[27px] italic leading-tight"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
           >
-            <p className="text-[8.5px] font-bold uppercase tracking-[0.3em] text-[#f5b98a]">
-              Nuestra boda
-            </p>
-            <p
-              className="mt-2 text-[27px] italic leading-tight"
+            Sofía &amp; Andrés
+          </p>
+          <div className="mx-auto mt-3 h-px w-12 bg-white/25" />
+          <p className="mt-3 text-[11px] font-bold text-white/85">
+            Sábado 14 de noviembre · 4:00 p.&nbsp;m.
+          </p>
+          <p className="mt-1 text-[9.5px] font-semibold text-white/60">
+            Hacienda La Ceiba, Alajuela
+          </p>
+
+          {/* La cuenta regresiva, para que el scroll tenga camino */}
+          <div className="mt-4 grid grid-cols-3 gap-1.5">
+            {[
+              ["108", "días"],
+              ["06", "horas"],
+              ["42", "min"],
+            ].map(([n, u]) => (
+              <div key={u} className="rounded-lg bg-white/10 py-1.5">
+                <p className="text-[13px] font-extrabold leading-tight">{n}</p>
+                <p className="text-[7.5px] font-bold uppercase tracking-[0.14em] text-white/60">
+                  {u}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* La "foto" de la pareja */}
+          <div className="mt-4 flex h-[110px] items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(238,116,32,0.35)_0%,rgba(59,127,196,0.35)_100%)]">
+            <span
+              className="text-[22px] italic text-white/90"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
-              Sofía &amp; Andrés
-            </p>
-            <div className="mx-auto mt-3 h-px w-12 bg-white/25" />
-            <p className="mt-3 text-[11px] font-bold text-white/85">
-              Sábado 14 de noviembre · 4:00 p.&nbsp;m.
-            </p>
-            <p className="mt-1 text-[9.5px] font-semibold text-white/60">
-              Hacienda La Ceiba, Alajuela
-            </p>
-
-            {/* La cuenta regresiva, para que el scroll tenga camino */}
-            <div className="mt-4 grid grid-cols-3 gap-1.5">
-              {[
-                ["108", "días"],
-                ["06", "horas"],
-                ["42", "min"],
-              ].map(([n, u]) => (
-                <div key={u} className="rounded-lg bg-white/10 py-1.5">
-                  <p className="text-[13px] font-extrabold leading-tight">{n}</p>
-                  <p className="text-[7.5px] font-bold uppercase tracking-[0.14em] text-white/60">
-                    {u}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* La "foto" de la pareja */}
-            <div className="mt-4 flex h-[110px] items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(238,116,32,0.35)_0%,rgba(59,127,196,0.35)_100%)]">
-              <span
-                className="text-[22px] italic text-white/90"
-                style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-              >
-                S <span className="text-[#f5b98a]">♥</span> A
-              </span>
-            </div>
-
-            {/* El bloque al que llega el scroll: la confirmación */}
-            <div className="mt-5 rounded-2xl bg-white/[0.07] p-4 [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.14)]">
-              <p
-                className="text-[18px] italic"
-                style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-              >
-                ¿Nos acompañás?
-              </p>
-              <p className="mt-1 text-[9.5px] font-semibold text-white/70">
-                Confirmá antes del 30 de octubre
-              </p>
-
-              <div className="relative mt-3">
-                <div className="anim-invitacion-pulsar rounded-xl bg-aventurea-orange py-2.5 text-[12px] font-extrabold text-white">
-                  Sí asistiré ✓
-                </div>
-                {/* El estado confirmado que cubre al botón tras el tap */}
-                <div className="anim-invitacion-confirmar absolute inset-0 flex items-center justify-center gap-1.5 rounded-xl bg-[#1f7a4d] text-[12px] font-extrabold text-white">
-                  <IconCheck className="h-3.5 w-3.5 shrink-0" /> ¡Confirmado!
-                </div>
-                {/* El dedo que toca el botón */}
-                <span className="anim-invitacion-dedo absolute -bottom-3 right-7 h-9 w-9 rounded-full border-2 border-white/80 bg-white/30 opacity-0 shadow-lg" />
-              </div>
-
-              <div className="mt-2 rounded-xl border border-white/25 py-2 text-[11px] font-bold text-white/80">
-                No podré ir
-              </div>
-            </div>
-
-            <p className="mt-4 text-[9px] font-semibold text-white/50">
-              Con cariño, las familias Vargas y Solís
-            </p>
+              S <span className="text-[#f5b98a]">♥</span> A
+            </span>
           </div>
+
+          {/* El bloque al que llega el scroll: la confirmación */}
+          <div className="mt-5 rounded-2xl bg-white/[0.07] p-4 [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.14)]">
+            <p
+              className="text-[18px] italic"
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            >
+              ¿Nos acompañás?
+            </p>
+            <p className="mt-1 text-[9.5px] font-semibold text-white/70">
+              Confirmá antes del 30 de octubre
+            </p>
+
+            <div className="relative mt-3">
+              <div className="anim-invitacion-pulsar rounded-xl bg-aventurea-orange py-2.5 text-[12px] font-extrabold text-white">
+                Sí asistiré ✓
+              </div>
+              {/* El estado confirmado que cubre al botón tras el tap */}
+              <div className="anim-invitacion-confirmar absolute inset-0 flex items-center justify-center gap-1.5 rounded-xl bg-aventurea-green text-[12px] font-extrabold text-white">
+                <IconCheck className="h-3.5 w-3.5 shrink-0" /> ¡Confirmado!
+              </div>
+              {/* El dedo que toca el botón */}
+              <span className="anim-invitacion-dedo absolute -bottom-3 right-7 h-9 w-9 rounded-full border-2 border-white/80 bg-white/30 opacity-0 shadow-lg" />
+            </div>
+
+            <div className="mt-2 rounded-xl border border-white/25 py-2 text-[11px] font-bold text-white/80">
+              No podré ir
+            </div>
+          </div>
+
+          <p className="mt-4 text-[9px] font-semibold text-white/50">
+            Con cariño, las familias Vargas y Solís
+          </p>
         </div>
       </div>
-      <p className="text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">
-        Tu invitado confirma
-      </p>
     </div>
   );
 }
 
 /** El conector entre aparatos: un puntito (con su caravana) que viaja
- *  del teléfono al panel justo después del tap. */
+ *  del teléfono al panel justo después del tap. En pantalla angosta la
+ *  fila se apila, así que la flecha baja en vez de cruzar. */
 function ConectorViaje() {
   return (
-    <div className="flex shrink-0 flex-col items-center gap-2 self-center">
-      <div className="flex items-center gap-1">
-        <div className="relative h-2 w-16">
-          <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-current opacity-20" />
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="anim-invitacion-viaje absolute left-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-current opacity-0"
-              style={
-                {
-                  "--inv-delay": `${i * 0.12}s`,
-                  "--inv-viaje": "56px",
-                } as React.CSSProperties
-              }
-            />
-          ))}
+    <div aria-hidden className="flex flex-col items-center gap-2">
+      {/* En móvil la fila se apila, así que la flecha gira y apunta
+          hacia abajo. La caja de 88px le da el alto que el rotate
+          necesita (transform no reserva espacio por sí solo). */}
+      <div className="flex h-[88px] w-[88px] items-center justify-center lg:h-auto lg:w-auto">
+        <div className="flex rotate-90 items-center gap-1 text-aventurea-orange lg:rotate-0">
+          <div className="relative h-2 w-16">
+            <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-current opacity-25" />
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="anim-invitacion-viaje absolute left-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-current opacity-0"
+                style={
+                  {
+                    "--inv-delay": `${i * 0.12}s`,
+                    "--inv-viaje": "56px",
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+          </div>
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
         </div>
-        <svg
-          viewBox="0 0 24 24"
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.4}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 12h14M13 6l6 6-6 6" />
-        </svg>
       </div>
-      <p className="max-w-[16ch] text-center text-[11px] font-bold leading-snug text-aventurea-ink-soft">
-        la confirmación llega al instante
+      <p className="rounded-full bg-white px-3.5 py-1.5 text-[11px] font-extrabold text-aventurea-navy">
+        En menos de un segundo
       </p>
     </div>
   );
@@ -523,67 +662,62 @@ function ConectorViaje() {
  *  fila nueva y el contador sube de 12 a 15 personas. */
 function PanelAnfitrion() {
   return (
-    <div className="flex shrink-0 flex-col items-center gap-3">
-      <div className="w-[300px] sm:w-[340px]">
-        {/* El bisel de la pantalla */}
-        <div className="rounded-t-[18px] bg-aventurea-ink px-2.5 pt-2.5 shadow-[0_24px_60px_-24px_rgba(16,26,44,0.5)]">
-          <div className="overflow-hidden rounded-t-[10px] bg-white">
-            {/* La barra del navegador */}
-            <div className="flex items-center gap-1.5 border-b border-aventurea-line bg-aventurea-cream-2 px-3 py-2">
-              <span className="h-2 w-2 rounded-full bg-[#e35a4f]/70" />
-              <span className="h-2 w-2 rounded-full bg-[#f0b429]/70" />
-              <span className="h-2 w-2 rounded-full bg-[#1f7a4d]/60" />
-              <span className="ml-2 min-w-0 flex-1 truncate rounded-md bg-white px-2 py-0.5 text-[8.5px] font-semibold text-aventurea-ink-soft">
-                bookea.lat/cuenta · Invitación Sofía &amp; Andrés
+    <div aria-hidden className="w-[300px] sm:w-[340px]">
+      {/* El bisel de la pantalla */}
+      <div className="rounded-t-[18px] bg-aventurea-ink px-2.5 pt-2.5 shadow-[0_24px_60px_-24px_rgba(16,26,44,0.5)]">
+        <div className="overflow-hidden rounded-t-[10px] bg-white">
+          {/* La barra del navegador */}
+          <div className="flex items-center gap-1.5 border-b border-aventurea-line bg-aventurea-cream-2 px-3 py-2">
+            <span className="h-2 w-2 rounded-full bg-[#e35a4f]/70" />
+            <span className="h-2 w-2 rounded-full bg-[#f0b429]/70" />
+            <span className="h-2 w-2 rounded-full bg-aventurea-green/60" />
+            <span className="ml-2 min-w-0 flex-1 truncate rounded-md bg-white px-2 py-0.5 text-[8.5px] font-semibold text-aventurea-ink-soft">
+              bookea.lat/cuenta · Invitación Sofía &amp; Andrés
+            </span>
+          </div>
+
+          <div className="p-4">
+            {/* El contador grande de personas */}
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">
+                  Personas confirmadas
+                </p>
+                <div className="titulo relative mt-1 h-9 w-[2.2ch] overflow-hidden text-[34px] leading-none">
+                  <span className="anim-invitacion-num-sale absolute inset-0 text-aventurea-ink opacity-0">
+                    12
+                  </span>
+                  <span className="anim-invitacion-num-entra absolute inset-0 text-aventurea-green">
+                    15
+                  </span>
+                </div>
+              </div>
+              <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-aventurea-green-light px-2.5 py-1 text-[8.5px] font-extrabold uppercase tracking-wide text-aventurea-green">
+                <span className="anim-invitacion-latir h-1.5 w-1.5 rounded-full bg-aventurea-green" />
+                En tiempo real
               </span>
             </div>
 
-            <div className="p-4">
-              {/* El contador grande de personas */}
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">
-                    Personas confirmadas
-                  </p>
-                  <div className="titulo relative mt-1 h-9 w-[2.2ch] overflow-hidden text-[34px] leading-none">
-                    <span className="anim-invitacion-num-sale absolute inset-0 text-aventurea-ink opacity-0">
-                      12
-                    </span>
-                    <span className="anim-invitacion-num-entra absolute inset-0 text-[#1f7a4d]">
-                      15
-                    </span>
-                  </div>
-                </div>
-                <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-[#e1f0e6] px-2.5 py-1 text-[8.5px] font-extrabold uppercase tracking-wide text-[#1f7a4d]">
-                  <span className="anim-invitacion-latir h-1.5 w-1.5 rounded-full bg-[#1f7a4d]" />
-                  En tiempo real
-                </span>
-              </div>
-
-              {/* La lista de confirmaciones */}
-              <p className="mt-3.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">
-                Confirmaciones
-              </p>
-              <div className="mt-1.5 space-y-1.5">
-                <FilaConfirmacion nombre="Carlos Mora" detalle="1 acompañante" />
-                <FilaConfirmacion nombre="Ana Chaves" detalle="sin acompañantes" />
-                <FilaConfirmacion
-                  nombre="María José"
-                  detalle="2 acompañantes"
-                  animada
-                />
-              </div>
+            {/* La lista de confirmaciones */}
+            <p className="mt-3.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">
+              Confirmaciones
+            </p>
+            <div className="mt-1.5 space-y-1.5">
+              <FilaConfirmacion nombre="Carlos Mora" detalle="1 acompañante" />
+              <FilaConfirmacion nombre="Ana Chaves" detalle="sin acompañantes" />
+              <FilaConfirmacion
+                nombre="María José"
+                detalle="2 acompañantes"
+                animada
+              />
             </div>
           </div>
         </div>
-        {/* La base de la laptop */}
-        <div className="relative h-[13px] rounded-b-[14px] bg-[#2a3242]">
-          <span className="absolute left-1/2 top-0 h-[5px] w-16 -translate-x-1/2 rounded-b-md bg-[#1c2330]" />
-        </div>
       </div>
-      <p className="text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">
-        Vos lo ves al instante
-      </p>
+      {/* La base de la laptop */}
+      <div className="relative h-[13px] rounded-b-[14px] bg-[#2a3242]">
+        <span className="absolute left-1/2 top-0 h-[5px] w-16 -translate-x-1/2 rounded-b-md bg-[#1c2330]" />
+      </div>
     </div>
   );
 }
@@ -602,14 +736,12 @@ function FilaConfirmacion({
   return (
     <div
       className={`flex items-center gap-2 rounded-lg px-2.5 py-2 ${
-        animada
-          ? "anim-invitacion-entrar bg-[#e1f0e6]"
-          : "bg-aventurea-cream-2"
+        animada ? "anim-invitacion-entrar bg-aventurea-green-light" : "bg-aventurea-cream-2"
       }`}
     >
       <span
         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white ${
-          animada ? "bg-[#1f7a4d]" : "bg-aventurea-ink-soft/60"
+          animada ? "bg-aventurea-green" : "bg-aventurea-ink-soft/60"
         }`}
       >
         <IconCheck className="h-2.5 w-2.5" />
@@ -624,71 +756,36 @@ function FilaConfirmacion({
   );
 }
 
-/** Una card de "lo que incluye". */
-function CardFeature({
-  icono,
-  titulo,
-  texto,
-}: {
-  icono: React.ReactNode;
-  titulo: string;
-  texto: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-2xl border border-aventurea-line bg-white p-4">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-4 [&_svg]:w-4">
-        {icono}
-      </span>
-      <div>
-        <h3 className="text-[13.5px] font-extrabold tracking-[-0.2px] text-aventurea-ink">
-          {titulo}
-        </h3>
-        <p className="mt-1 text-[12px] leading-snug text-aventurea-ink-soft">{texto}</p>
-      </div>
-    </div>
-  );
-}
-
-/** Una card del catálogo de ejemplos. */
-function CardDemo({ demo: d }: { demo: EntradaCatalogo }) {
+/** Una card del catálogo: el lienzo manda y el texto acompaña. */
+function CardDemo({ demo: d, orden }: { demo: EntradaCatalogo; orden: number }) {
   return (
     <Link
       href={`/invitacion/${d.slug}`}
       title={d.descripcion}
-      className="group flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-white p-3 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-0.5 hover:border-aventurea-navy/40 hover:shadow-[0_16px_40px_-20px_rgba(22,41,94,0.4)]"
+      data-reveal
+      style={{ "--reveal-delay": `${orden * 70}ms` } as React.CSSProperties}
+      className="group overflow-hidden rounded-3xl bg-white transition-transform hover:-translate-y-1"
     >
       <div
-        className={`flex h-14 w-18 shrink-0 items-center justify-center rounded-xl ${d.lienzo}`}
+        className={`flex h-[132px] items-center justify-center ${d.lienzo}`}
       >
         <span
-          className={`transition-transform group-hover:scale-110 ${d.iconoClase} [&_svg]:h-6 [&_svg]:w-6`}
+          className={`transition-transform group-hover:scale-110 ${d.iconoClase} [&_svg]:h-11 [&_svg]:w-11`}
         >
           {ICONO_DEMO[d.icono]}
         </span>
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-navy">
+      <div className="p-5">
+        <p className="truncate text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-navy">
           {d.ocasion}
         </p>
-        <p className="truncate text-[13.5px] font-extrabold text-aventurea-ink">
+        <p className="mt-1 truncate text-[16px] font-extrabold text-aventurea-ink">
           {d.nombre}
         </p>
-        <p className="mt-0.5 text-[11.5px] font-extrabold text-aventurea-orange">
+        <p className="mt-2 text-[12.5px] font-extrabold text-aventurea-orange">
           {d.generada ? "Ver la muestra →" : "Vivir la demo →"}
         </p>
       </div>
     </Link>
-  );
-}
-
-/** Un paso numerado del "cómo funciona". */
-function Paso({ n, texto }: { n: string; texto: string }) {
-  return (
-    <li className="flex items-start gap-3 rounded-2xl border border-aventurea-line bg-white p-4">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-[12.5px] font-extrabold text-white">
-        {n}
-      </span>
-      <p className="text-[13px] leading-snug text-aventurea-ink">{texto}</p>
-    </li>
   );
 }
