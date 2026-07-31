@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export type TabIA = "gasto" | "modelos" | "conocimiento";
+import type { TabIA } from "./pestanas";
 
 const TABS: { id: TabIA; label: string; hint: string }[] = [
   {
@@ -21,10 +21,6 @@ const TABS: { id: TabIA; label: string; hint: string }[] = [
     hint: "Lo que el asistente sabe de cada negocio",
   },
 ];
-
-export function esTabIA(valor: string | undefined): valor is TabIA {
-  return TABS.some((t) => t.id === valor);
-}
 
 /**
  * Las tres caras del panel de IA viven en una sola pantalla, igual que

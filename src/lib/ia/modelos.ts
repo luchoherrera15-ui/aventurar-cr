@@ -260,8 +260,26 @@ export function formatearAmbas(usd: number, tipoCambio: number): string {
   return `${formatearUSD(usd)} · ${formatearCRC(usd * tipoCambio)}`;
 }
 
-/** "$1 / $5 por millón" — el precio de un modelo, para el panel. */
+/** "$1.00 / $5.00 por millón" — el precio de lista de un modelo. */
 export function etiquetaPrecio(modelo: ModeloIA, fecha: Date = new Date()): string {
   const { entradaUSD, salidaUSD } = preciosVigentes(modelo, fecha);
-  return `$${entradaUSD} entrada / $${salidaUSD} salida por millón`;
+  return `${formatearUSD(entradaUSD)} entrada / ${formatearUSD(salidaUSD)} salida por millón`;
+}
+
+/**
+ * El precio de un modelo en las dos monedas. Se le pasa la fecha desde
+ * el servidor a propósito: si un componente de cliente la calculara por
+ * su cuenta, el día que vence un precio de lanzamiento el servidor y el
+ * navegador pintarían números distintos y React se quejaría.
+ */
+export function etiquetaPrecioAmbas(
+  modelo: ModeloIA,
+  tipoCambio: number,
+  fecha: Date = new Date(),
+): string {
+  const { entradaUSD, salidaUSD } = preciosVigentes(modelo, fecha);
+  return `${formatearAmbas(entradaUSD, tipoCambio)} entrada · ${formatearAmbas(
+    salidaUSD,
+    tipoCambio,
+  )} salida, por millón de tokens`;
 }

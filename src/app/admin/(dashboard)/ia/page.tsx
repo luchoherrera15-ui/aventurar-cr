@@ -10,7 +10,8 @@ import GastoPanel, {
   type ResumenAgente,
   type ResumenDia,
 } from "./gasto-panel";
-import IaTabs, { esTabIA } from "./ia-tabs";
+import IaTabs from "./ia-tabs";
+import { esTabIA } from "./pestanas";
 import ModelosPanel, { type ConsumoAgente } from "./modelos-panel";
 
 /** Cuántos días mira la proyección de "cuánto cambiaría si cambio el modelo". */
@@ -279,6 +280,13 @@ export default async function AdminIaPage({
   const params = await searchParams;
   const tab = unSolo(params.tab);
   const hoy = hoyCR();
+  // El instante con el que se resuelven los precios de lanzamiento. Se
+  // fija acá, en el servidor, y baja al panel como texto ISO: si el
+  // componente de cliente llamara a new Date() por su cuenta, el día que
+  // vence una promo (Sonnet 5, 31/08/2026) el servidor y el navegador
+  // podrían quedar de lados distintos del vencimiento y React marcaría
+  // mismatch de hidratación.
+  const fechaPrecios = new Date().toISOString();
   const desdeParam = unSolo(params.desde);
   const hastaParam = unSolo(params.hasta);
   // Por defecto, el mes corriente EN HORA DE COSTA RICA: es exactamente
@@ -501,6 +509,7 @@ export default async function AdminIaPage({
             diasConsumo={DIAS_CONSUMO}
             consumoAproximado={!consumoAgregado && !faltaBitacora}
             maxRespaldo={MAX_RESPALDO}
+            fechaISO={fechaPrecios}
           />
         }
         conocimiento={

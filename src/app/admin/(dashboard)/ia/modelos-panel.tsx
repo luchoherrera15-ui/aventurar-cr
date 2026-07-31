@@ -6,7 +6,7 @@ import {
   AGENTES,
   calcularCosto,
   esModeloValido,
-  etiquetaPrecio,
+  etiquetaPrecioAmbas,
   formatearAmbas,
   formatearCRC,
   formatearUSD,
@@ -89,6 +89,7 @@ export default function ModelosPanel({
   diasConsumo,
   consumoAproximado,
   maxRespaldo,
+  fechaISO,
 }: {
   config: ConfigIaPanel;
   consumo: Record<AgenteIA, ConsumoAgente>;
@@ -96,6 +97,15 @@ export default function ModelosPanel({
   /** true si el consumo salió de filas acotadas y no de la agregación. */
   consumoAproximado: boolean;
   maxRespaldo: number;
+  /**
+   * El instante que el SERVIDOR usó para resolver los precios, en ISO.
+   * Baja como texto porque es lo único que cruza el límite servidor →
+   * cliente sin deformarse. Sin esto, este componente llamaría a
+   * new Date() por su cuenta y el día que vence un precio de
+   * lanzamiento (Sonnet 5, 31/08/2026) el HTML del servidor y el del
+   * navegador dirían precios distintos: mismatch de hidratación.
+   */
+  fechaISO: string;
 }) {
   const [modelos, setModelos] = useState<Record<AgenteIA, ModeloIA>>(config.modelos);
   const [activa, setActiva] = useState(config.activa);
@@ -106,6 +116,12 @@ export default function ModelosPanel({
   const [guardando, startTransition] = useTransition();
 
   const tipoCambioNum = Number(tipoCambio) > 0 ? Number(tipoCambio) : config.tipoCambio;
+
+  // La fecha de referencia se reconstruye una sola vez y se le pasa a
+  // TODO lo que resuelve precios (preciosVigentes, calcularCosto,
+  // etiquetaPrecioAmbas). Que sea la misma en las dos corridas es lo que
+  // garantiza que el render del servidor y el del navegador coincidan.
+  const fechaRef = useMemo(() => new Date(fechaISO), [fechaISO]);
 
   const hayCambios = useMemo(() => {
     if (activa !== config.activa) return true;
@@ -131,11 +147,11 @@ export default function ModelosPanel({
       realUSD += c.costoUSD;
       realCRC += c.costoCRC;
       llamadas += c.llamadas;
-      actual += calcularCosto(config.modelos[a.id], c.tokensInput, c.tokensOutput);
-      nuevo += calcularCosto(modelos[a.id], c.tokensInput, c.tokensOutput);
+      actual += calcularCosto(config.modelos[a.id], c.tokensInput, c.tokensOutput, fechaRef);
+      nuevo += calcularCosto(modelos[a.id], c.tokensInput, c.tokensOutput, fechaRef);
     }
     return { realUSD, realCRC, llamadas, actual, nuevo, diferencia: nuevo - actual };
-  }, [consumo, modelos, config.modelos]);
+  }, [consumo, modelos, config.modelos, fechaRef]);
 
   function onGuardar() {
     setMensaje(null);
@@ -229,8 +245,8 @@ export default function ModelosPanel({
             // Proyecciones: los dos lados se recalculan a precios de hoy
             // para que la comparación sea entre peras y peras. Ninguno de
             // los dos es el gasto histórico — ese es uso.costoUSD.
-            const costoActual = calcularCosto(guardado, uso.tokensInput, uso.tokensOutput);
-            const costoNuevo = calcularCosto(elegido, uso.tokensInput, uso.tokensOutput);
+            const costoActual = calcularCosto(guardado, uso.tokensInput, uso.tokensOutput, fechaRef);
+            const costoNuevo = calcularCosto(elegido, uso.tokensInput, uso.tokensOutput, fechaRef);
             const diferencia = costoNuevo - costoActual;
             const modelosUsados = uso.modelos
               .map((m) => `${nombreModelo(m.modelo)} (${miles(m.llamadas)})`)
@@ -266,7 +282,7 @@ export default function ModelosPanel({
                     >
                       {LISTA_MODELOS.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.nombre} — {etiquetaPrecio(m.id)}
+                          {m.nombre} — {etiquetaPrecioAmbas(m.id, tipoCambioNum, fechaRef)}
                         </option>
                       ))}
                     </select>
@@ -304,7 +320,8 @@ export default function ModelosPanel({
                           <span className={chipProyeccion}>Proyección</span>
                           Con ese mismo consumo y los precios de hoy:{" "}
                           <span className="text-aventurea-ink-soft line-through">
-                            {formatearUSD(costoActual)} con {MODELOS[guardado].nombre}
+                            {formatearAmbas(costoActual, tipoCambioNum)} con{" "}
+                            {MODELOS[guardado].nombre}
                           </span>{" "}
                           → <strong>{formatearAmbas(costoNuevo, tipoCambioNum)}</strong>{" "}
                           <span
@@ -313,7 +330,7 @@ export default function ModelosPanel({
                             }`}
                           >
                             ({diferencia > 0 ? "+" : ""}
-                            {formatearUSD(diferencia)} cada {diasConsumo} días)
+                            {formatearAmbas(diferencia, tipoCambioNum)} cada {diasConsumo} días)
                           </span>
                         </p>
                       )}
@@ -485,7 +502,7 @@ export default function ModelosPanel({
             </thead>
             <tbody>
               {LISTA_MODELOS.map((m) => {
-                const precios = preciosVigentes(m.id);
+                const precios = preciosVigentes(m.id, fechaRef);
                 const enUso = AGENTES.filter((a) => modelos[a.id] === m.id);
                 return (
                   <tr
@@ -497,7 +514,8 @@ export default function ModelosPanel({
                       {precios.enPromo && precios.promoHasta && (
                         <span className="mt-1 block rounded-md bg-aventurea-orange-light px-2 py-1 text-[11px] font-bold text-aventurea-orange-dark">
                           Precio de lanzamiento hasta el {fechaCorta(precios.promoHasta)}; después
-                          sube a ${m.entradaUSD} / ${m.salidaUSD}
+                          sube a {formatearAmbas(m.entradaUSD, tipoCambioNum)} entrada /{" "}
+                          {formatearAmbas(m.salidaUSD, tipoCambioNum)} salida
                         </span>
                       )}
                       {enUso.length > 0 && (
