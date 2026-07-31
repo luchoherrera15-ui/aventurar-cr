@@ -13,6 +13,7 @@ import {
   IconBalloons,
   IconChartBars,
   IconCheck,
+  IconChevronDown,
   IconClipboard,
   IconGlobe,
   IconHeart,
@@ -485,14 +486,28 @@ export default async function InvitacionesLanding() {
             </Link>
           </div>
 
-          {/* Cuadrícula, no riel: en riel la última invitación quedaba
-              cortada contra el borde del bloque y no se veía que
-              hubiera más. Acá se ven todas de una. */}
-          <div className="mt-9 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {catalogo.map((d, i) => (
+          {/* Cuatro a la vista y el resto detrás del "Ver más": el
+              catálogo es prueba, no el argumento — no puede comerse
+              media pantalla antes de llegar a los precios. */}
+          <div className="mt-8 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+            {catalogo.slice(0, 4).map((d, i) => (
               <CardDemo key={d.slug} demo={d} orden={i} />
             ))}
           </div>
+
+          {catalogo.length > 4 && (
+            <details className="group/mas mt-4">
+              <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-2 rounded-full border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
+                Ver más diseños ({catalogo.length - 4})
+                <IconChevronDown className="h-4 w-4 transition-transform group-open/mas:rotate-180" />
+              </summary>
+              <div className="mt-3.5 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+                {catalogo.slice(4).map((d, i) => (
+                  <CardDemo key={d.slug} demo={d} orden={i} />
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </section>
 
@@ -885,7 +900,7 @@ function CardDemo({ demo: d, orden }: { demo: EntradaCatalogo; orden: number }) 
       className="group block"
     >
       <div
-        className={`relative flex aspect-[4/5] flex-col items-center justify-center overflow-hidden rounded-[22px] px-5 text-center shadow-[0_16px_40px_-22px_rgba(16,26,44,0.55)] transition-transform duration-300 group-hover:-translate-y-1.5 ${d.lienzo}`}
+        className={`relative flex aspect-[5/6] flex-col items-center justify-center overflow-hidden rounded-[18px] px-4 text-center shadow-[0_14px_32px_-20px_rgba(16,26,44,0.5)] transition-transform duration-300 group-hover:-translate-y-1.5 ${d.lienzo}`}
       >
         {/* El brillo de esquina que llevan las invitaciones reales */}
         <span
@@ -894,19 +909,19 @@ function CardDemo({ demo: d, orden }: { demo: EntradaCatalogo; orden: number }) 
         />
 
         <span
-          className={`relative text-[9px] font-extrabold uppercase tracking-[0.26em] ${tintaSuave}`}
+          className={`relative text-[8px] font-extrabold uppercase tracking-[0.22em] ${tintaSuave}`}
         >
           {d.ocasion}
         </span>
         <p
-          className={`relative mt-3 text-balance text-[20px] italic leading-[1.15] sm:text-[23px] ${tinta}`}
+          className={`relative mt-2 text-balance text-[17px] italic leading-[1.15] sm:text-[18.5px] ${tinta}`}
           style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
         >
           {d.nombre}
         </p>
-        <span className={`relative mt-3.5 h-px w-9 ${linea}`} />
+        <span className={`relative mt-2.5 h-px w-7 ${linea}`} />
         <span
-          className={`relative mt-3.5 transition-transform duration-300 group-hover:scale-110 ${d.iconoClase} [&_svg]:h-6 [&_svg]:w-6`}
+          className={`relative mt-2.5 transition-transform duration-300 group-hover:scale-110 ${d.iconoClase} [&_svg]:h-5 [&_svg]:w-5`}
         >
           {ICONO_DEMO[d.icono]}
         </span>
@@ -919,10 +934,10 @@ function CardDemo({ demo: d, orden }: { demo: EntradaCatalogo; orden: number }) 
         </span>
       </div>
 
-      <p className="mt-3 truncate text-[13.5px] font-extrabold text-aventurea-ink">
+      <p className="mt-2.5 truncate text-[12.5px] font-extrabold text-aventurea-ink">
         {d.nombre}
       </p>
-      <p className="text-[12px] font-extrabold text-aventurea-orange">
+      <p className="text-[11.5px] font-extrabold text-aventurea-orange">
         {d.generada ? "Ver la muestra →" : "Vivir la demo →"}
       </p>
     </Link>
