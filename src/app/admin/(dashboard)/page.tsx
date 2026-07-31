@@ -94,8 +94,8 @@ export default async function AdminHubPage() {
         />
         <HubCard
           href="/admin/ingresos"
-          title="Control de dineros"
-          descripcion="Cuánto entra por SINPE, transferencia y Stripe, día por día — depósitos de reservas y pedidos de invitaciones en una sola vista."
+          title="Dineros de invitaciones"
+          descripcion="Cuánto entra por SINPE, transferencia y Stripe, día por día, de los pedidos de invitaciones digitales. Las reservas llevan su control en Balance."
           stat="Ingresos por método de pago"
           alerta={null}
           icon={<IconBilletes />}

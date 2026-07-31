@@ -5,8 +5,10 @@ import { fmtColones } from "@/lib/finanzas";
 
 export type Cobro = {
   id: string;
-  fuente: "reserva" | "invitacion";
+  /** El evento de la invitación. */
   concepto: string;
+  cliente: string;
+  paquete: string;
   metodo: "sinpe" | "transferencia" | "stripe";
   monto: number;
   /** YYYY-MM-DD del día en que entró la plata. */
@@ -216,7 +218,7 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                     colSpan={5}
                     className="px-4 py-8 text-center text-[13px] text-aventurea-ink-soft"
                   >
-                    Todavía no hay cobros registrados en este periodo.
+                    Todavía no hay pagos de invitaciones en este periodo.
                   </td>
                 </tr>
               )}
@@ -261,7 +263,7 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
           <table className="w-full text-left text-[13px]">
             <thead className="bg-aventurea-cream-2/60">
               <tr>
-                {["Fecha", "Concepto", "Origen", "Método", "Estado", "Monto"].map(
+                {["Fecha", "Evento", "Cliente", "Paquete", "Método", "Estado", "Monto"].map(
                   (h) => (
                     <th
                       key={h}
@@ -282,11 +284,14 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                   className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream-2/40"
                 >
                   <td className="px-4 py-3 text-aventurea-ink-soft">{c.fecha}</td>
-                  <td className="max-w-[260px] truncate px-4 py-3 font-semibold text-aventurea-ink">
+                  <td className="max-w-[220px] truncate px-4 py-3 font-semibold text-aventurea-ink">
                     {c.concepto}
                   </td>
-                  <td className="px-4 py-3 text-aventurea-ink-soft">
-                    {c.fuente === "reserva" ? "Reservas" : "Invitaciones"}
+                  <td className="max-w-[160px] truncate px-4 py-3 text-aventurea-ink-soft">
+                    {c.cliente || "—"}
+                  </td>
+                  <td className="px-4 py-3 capitalize text-aventurea-ink-soft">
+                    {c.paquete || "—"}
                   </td>
                   <td className="px-4 py-3 text-aventurea-ink-soft">
                     {METODOS.find((m) => m.id === c.metodo)?.label ?? c.metodo}
