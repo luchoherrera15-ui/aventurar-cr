@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export type TabFinanzas = "alquileres" | "promocion" | "invitaciones";
+import type { TabFinanzas } from "./pestanas";
 
 const TABS: { id: TabFinanzas; label: string; hint: string }[] = [
   {
@@ -21,10 +21,6 @@ const TABS: { id: TabFinanzas; label: string; hint: string }[] = [
     hint: "SINPE, transferencia y Stripe",
   },
 ];
-
-export function esTabFinanzas(valor: string | undefined): valor is TabFinanzas {
-  return TABS.some((t) => t.id === valor);
-}
 
 /**
  * Las finanzas del negocio viven todas en una sola pantalla: cada

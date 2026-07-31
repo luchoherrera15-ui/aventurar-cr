@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import BalancePanel from "../balance/balance-panel";
 import type { Gasto, RanchoBalance, ReservaBalance } from "../balance/types";
 import IngresosPanel, { type Cobro } from "../ingresos/ingresos-panel";
-import FinanzasTabs, { esTabFinanzas } from "./finanzas-tabs";
+import FinanzasTabs from "./finanzas-tabs";
+import { esTabFinanzas } from "./pestanas";
 import { perteneceASeccion, SECCION_LABEL } from "../vertical";
 import { seccionActiva } from "../vertical-server";
 
