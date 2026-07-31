@@ -30,9 +30,12 @@ alter table ranchos add constraint ranchos_categoria_check
     'belleza', 'barberia', 'unas', 'spa', 'consultorio',
     -- Hospedajes
     'casa', 'villa', 'hotel', 'cabana', 'apartamento', 'experiencia',
-    -- Restaurantes
-    'soda', 'restaurante', 'cafeteria', 'marisqueria',
-    'pizzeria', 'bar', 'panaderia', 'heladeria'
+    -- Restaurantes: por tipo de COMIDA, que es como busca la gente
+    -- ('otros' es compartida con eventos y citas)
+    'tipica', 'carnes', 'mariscos', 'pastas', 'pizza', 'hamburguesas',
+    'china', 'japonesa', 'coreana', 'mexicana', 'peruana',
+    'mediterranea', 'vegetariana', 'cafeteria', 'postres', 'bar',
+    'fusion'
   ));
 
 -- 3) Los gastos del panel admin también se separan por sección ---------

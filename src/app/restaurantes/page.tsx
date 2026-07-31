@@ -256,11 +256,18 @@ function CardLocal({
         <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
           {CATEGORIA_RESTAURANTE_LABEL[n.categoria]}
         </span>
-        {rangoPrecio && (
-          <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-extrabold text-aventurea-navy backdrop-blur">
-            {RANGO_PRECIO_LABEL[rangoPrecio]}
-          </span>
-        )}
+        <span className="absolute right-3 top-3 flex items-center gap-1.5">
+          {rangoPrecio && (
+            <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-extrabold text-aventurea-navy backdrop-blur">
+              {RANGO_PRECIO_LABEL[rangoPrecio]}
+            </span>
+          )}
+          {n.slug?.startsWith("demo-") && (
+            <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
+              Demo
+            </span>
+          )}
+        </span>
       </div>
 
       <div className="p-4">

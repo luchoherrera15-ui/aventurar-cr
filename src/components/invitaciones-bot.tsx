@@ -52,7 +52,9 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
   const [promptFinal, setPromptFinal] = useState<string | null>(null);
   const [titulo, setTitulo] = useState("Invitación");
   const [modelo, setModelo] = useState<"opus" | "fable">("opus");
-  const [costoEstimado, setCostoEstimado] = useState(0);
+  // El costo lo pinta CostPreview; acá solo interesa para el registro
+  // del gasto acumulado, no para bloquear el botón de generar.
+  const [, setCostoEstimado] = useState(0);
 
   const finRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);

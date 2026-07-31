@@ -2,30 +2,55 @@
  * La vertical de Restaurantes: sus categorías y la lectura de lo que
  * cada local ofrece (reserva de mesa, pickup, rango de precio). Puro y
  * sin Supabase, espejo del patrón de citas/tipos.ts.
+ *
+ * Las categorías son por TIPO DE COMIDA, no por tipo de local: la
+ * gente busca "pastas" o "coreana", no "restaurante de mesa". El
+ * orden es el de las filas del directorio — arriba lo que más se
+ * busca en Costa Rica.
  */
 
 export const CATEGORIAS_RESTAURANTES = [
-  "soda",
-  "restaurante",
+  "tipica",
+  "carnes",
+  "mariscos",
+  "pastas",
+  "pizza",
+  "hamburguesas",
+  "china",
+  "japonesa",
+  "coreana",
+  "mexicana",
+  "peruana",
+  "mediterranea",
+  "vegetariana",
   "cafeteria",
-  "marisqueria",
-  "pizzeria",
+  "postres",
   "bar",
-  "panaderia",
-  "heladeria",
+  "fusion",
+  "otros",
 ] as const;
 
 export type CategoriaRestaurante = (typeof CATEGORIAS_RESTAURANTES)[number];
 
 export const CATEGORIA_RESTAURANTE_LABEL: Record<CategoriaRestaurante, string> = {
-  soda: "Sodas y comida típica",
-  restaurante: "Restaurantes",
-  cafeteria: "Cafeterías",
-  marisqueria: "Mariscos",
-  pizzeria: "Pizzerías",
+  tipica: "Comida típica y sodas",
+  carnes: "Carnes y parrilla",
+  mariscos: "Mariscos",
+  pastas: "Pastas e italiana",
+  pizza: "Pizzas",
+  hamburguesas: "Hamburguesas",
+  china: "Comida china",
+  japonesa: "Japonesa y sushi",
+  coreana: "Comida coreana",
+  mexicana: "Comida mexicana",
+  peruana: "Comida peruana",
+  mediterranea: "Mediterránea y árabe",
+  vegetariana: "Vegetariana y saludable",
+  cafeteria: "Cafeterías y brunch",
+  postres: "Postres y heladerías",
   bar: "Bares y cervecerías",
-  panaderia: "Panaderías",
-  heladeria: "Heladerías y postres",
+  fusion: "Cocina de autor",
+  otros: "Otros sabores",
 };
 
 export function normalizarCategoriaRestaurante(
@@ -33,7 +58,7 @@ export function normalizarCategoriaRestaurante(
 ): CategoriaRestaurante {
   return (CATEGORIAS_RESTAURANTES as readonly string[]).includes(valor ?? "")
     ? (valor as CategoriaRestaurante)
-    : "restaurante";
+    : "otros";
 }
 
 /** ₡ / ₡₡ / ₡₡₡ — lo que la gente espera gastar por persona. */
