@@ -7,6 +7,7 @@ import { generarSlugUnico } from "@/lib/slug";
 import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "../types";
 import { CATEGORIAS_CITAS } from "@/app/citas/tipos";
 import { CATEGORIAS_HOSPEDAJES } from "@/app/booking/tipos";
+import { CATEGORIAS_RESTAURANTES } from "@/app/restaurantes/tipos";
 import { paisPorCodigo, zonaDePais } from "@/lib/zonas";
 
 export type NuevoRanchoState = { error?: string } | undefined;
@@ -24,8 +25,11 @@ export async function crearRancho(
   // La vertical del negocio: cada una tiene su propio registro.
   // Cualquier valor raro que llegue en el form cae a eventos.
   const verticalRaw = String(formData.get("vertical") || "");
-  const vertical =
-    verticalRaw === "citas" || verticalRaw === "hospedajes" ? verticalRaw : "eventos";
+  const vertical = (
+    ["citas", "hospedajes", "restaurantes"].includes(verticalRaw)
+      ? verticalRaw
+      : "eventos"
+  ) as "eventos" | "citas" | "hospedajes" | "restaurantes";
   const categoria = String(formData.get("categoria") || "");
   // Arrancamos solo con Costa Rica, pero el país viaja desde el alta y
   // la zona horaria del negocio se deriva de él (lib/zonas.ts) — así
@@ -60,7 +64,9 @@ export async function crearRancho(
       ? CATEGORIAS_CITAS
       : vertical === "hospedajes"
         ? CATEGORIAS_HOSPEDAJES
-        : CATEGORIAS;
+        : vertical === "restaurantes"
+          ? CATEGORIAS_RESTAURANTES
+          : CATEGORIAS;
   if (
     !nombre ||
     !categoriasValidas.includes(categoria) ||

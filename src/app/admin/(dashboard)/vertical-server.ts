@@ -5,5 +5,10 @@ import { COOKIE_SECCION, type SeccionAdmin } from "./vertical";
 export async function seccionActiva(): Promise<SeccionAdmin> {
   const jar = await cookies();
   const v = jar.get(COOKIE_SECCION)?.value;
-  return v === "citas" || v === "eventos" || v === "hospedajes" ? v : "todas";
+  return v === "citas" ||
+    v === "eventos" ||
+    v === "hospedajes" ||
+    v === "restaurantes"
+    ? v
+    : "todas";
 }

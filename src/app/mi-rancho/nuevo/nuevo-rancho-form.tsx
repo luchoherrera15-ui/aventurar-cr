@@ -14,6 +14,10 @@ import {
 } from "../types";
 import { CATEGORIAS_CITAS, CATEGORIA_CITA_LABEL } from "@/app/citas/tipos";
 import { CATEGORIAS_HOSPEDAJES, CATEGORIA_HOSPEDAJE_LABEL } from "@/app/booking/tipos";
+import {
+  CATEGORIAS_RESTAURANTES,
+  CATEGORIA_RESTAURANTE_LABEL,
+} from "@/app/restaurantes/tipos";
 import { PAISES } from "@/lib/zonas";
 
 const inputCls =
@@ -21,7 +25,7 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
-export type Vertical = "eventos" | "citas" | "hospedajes";
+export type Vertical = "eventos" | "citas" | "hospedajes" | "restaurantes";
 
 /**
  * El formulario de alta de UNA vertical: la persona ya eligió qué tipo
@@ -40,6 +44,7 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
 
   const esEventos = vertical === "eventos";
   const esHospedajes = vertical === "hospedajes";
+  const esRestaurantes = vertical === "restaurantes";
   // La categoría de eventos válida (para subcategorías); en el resto es null.
   const categoriaEvento =
     esEventos && (CATEGORIAS as readonly string[]).includes(categoria)
@@ -90,7 +95,9 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
             ? "¿Qué tipo de servicio ofrecés?"
             : esHospedajes
               ? "¿Qué tipo de hospedaje tenés?"
-              : "¿Qué tipo de negocio tenés?"}
+              : esRestaurantes
+                ? "¿Qué tipo de lugar es?"
+                : "¿Qué tipo de negocio tenés?"}
         </label>
         <select
           name="categoria"
@@ -115,11 +122,17 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
                     {CATEGORIA_HOSPEDAJE_LABEL[c]}
                   </option>
                 ))
-              : CATEGORIAS_CITAS.map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORIA_CITA_LABEL[c]}
-                  </option>
-                ))}
+              : esRestaurantes
+                ? CATEGORIAS_RESTAURANTES.map((c) => (
+                    <option key={c} value={c}>
+                      {CATEGORIA_RESTAURANTE_LABEL[c]}
+                    </option>
+                  ))
+                : CATEGORIAS_CITAS.map((c) => (
+                    <option key={c} value={c}>
+                      {CATEGORIA_CITA_LABEL[c]}
+                    </option>
+                  ))}
         </select>
       </div>
 
@@ -303,13 +316,19 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
         {vertical !== "citas" && (
           <div>
             <label className={labelCls}>
-              {esHospedajes ? "Precio por noche desde (₡)" : "Precio desde (₡)"}
+              {esHospedajes
+                ? "Precio por noche desde (₡)"
+                : esRestaurantes
+                  ? "Precio promedio por persona (₡)"
+                  : "Precio desde (₡)"}
             </label>
             <input
               type="number"
               min={0}
               name="precio_desde"
-              placeholder={esHospedajes ? "Ej. 45000" : "Ej. 80000"}
+              placeholder={
+                esHospedajes ? "Ej. 45000" : esRestaurantes ? "Ej. 6500" : "Ej. 80000"
+              }
               className={inputCls}
             />
           </div>

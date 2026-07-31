@@ -10,6 +10,7 @@ const TITULO: Record<SeccionAdmin, string> = {
   citas: "Agendas y citas",
   eventos: "Salones y ranchos",
   hospedajes: "Hospedajes",
+  restaurantes: "Restaurantes",
 };
 
 export default async function AdminRanchosPage() {

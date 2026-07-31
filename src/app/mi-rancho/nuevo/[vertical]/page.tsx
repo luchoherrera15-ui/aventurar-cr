@@ -25,6 +25,12 @@ const VERTICALES: Record<
     detalle:
       "El tipo de propiedad, dónde está y cuántos huéspedes recibe — las fotos y tarifas van después en tu panel.",
   },
+  restaurantes: {
+    kicker: "Restaurantes",
+    titulo: "Contanos de tu restaurante",
+    detalle:
+      "Lo básico para tu perfil; el menú, las mesas y el horario los configurás después en tu panel.",
+  },
 };
 
 /**

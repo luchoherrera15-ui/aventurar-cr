@@ -34,6 +34,11 @@ export default async function SlugPortalPage({
     redirect(`/citas/${slug}`);
   }
 
+  // Los restaurantes también: menú, mesas y pickup viven en su ficha.
+  if ((data as { vertical?: string }).vertical === "restaurantes") {
+    redirect(`/restaurantes/${slug}`);
+  }
+
   const rancho = {
     ...(data as Rancho),
     categoria: normalizarCategoria((data as Rancho).categoria),
