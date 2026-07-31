@@ -1,14 +1,23 @@
+import Link from "next/link";
 import { IconCheck, IconChevronDown } from "@/components/icons";
 import InvitacionesComparador from "@/components/invitaciones-comparador";
-import { pedirPaquete } from "@/app/invitaciones/actions";
 import {
   PAQUETE_BASE,
   PAQUETES_INVITACIONES,
   PAQUETES_PRINCIPALES,
   precioPaquete,
+  resolverPaquete,
+  montoEnColones,
   type PaqueteInvitacion,
   type PaquetePrincipal,
 } from "@/lib/paquetes-invitaciones";
+
+/** "≈₡10.400" — SINPE y transferencia cobran en colones. */
+function equivalenteColones(id: string): string | null {
+  const p = resolverPaquete(id);
+  if (!p || p.precioUSD === null) return null;
+  return "≈" + precioPaquete(montoEnColones(p));
+}
 
 /**
  * Los paquetes de Invitaciones Digitales:
@@ -20,8 +29,8 @@ import {
  * Todo con <details> nativo: cero JavaScript, funciona en el server.
  */
 export default function PaquetesInvitaciones({
-  titulo = "Elegí tu paquete",
-  intro = "Precio único por evento, sin mensualidades: nos contás tu idea por el chat y te la entregamos lista para compartir.",
+  titulo = "Elegí tu invitación",
+  intro = "Precio único por evento, sin mensualidades: elegís, nos contás los datos de tu fiesta y te la entregamos lista para compartir.",
   disposicion = "fila",
 }: {
   titulo?: string;
@@ -32,7 +41,7 @@ export default function PaquetesInvitaciones({
     <section>
       <div className="text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aventurea-orange">
-          Paquetes
+          Precios
         </p>
         <h2 className="titulo mx-auto mt-2 max-w-[24ch] text-[clamp(22px,3.5vw,30px)] text-aventurea-ink">
           {titulo}
@@ -128,6 +137,16 @@ function CardPrincipal({ paquete }: { paquete: PaquetePrincipal }) {
           </span>
         )}
       </h3>
+      {equivalenteColones(paquete.id) && (
+        <p
+          className={`mt-0.5 text-[11.5px] font-semibold ${
+            destacado ? "text-white/55" : "text-aventurea-ink-soft"
+          }`}
+        >
+          {equivalenteColones(paquete.id)} · pagás en colones por SINPE o
+          transferencia
+        </p>
+      )}
       <p
         className={`mt-1.5 text-[12.5px] leading-relaxed ${
           destacado ? "text-white/75" : "text-aventurea-ink-soft"
@@ -185,18 +204,18 @@ function CardPrincipal({ paquete }: { paquete: PaquetePrincipal }) {
         </ul>
       </details>
 
-      <form action={pedirPaquete.bind(null, paquete.id)} className="mt-5 flex flex-1 items-end">
-        <button
-          type="submit"
+      <div className="mt-5 flex flex-1 items-end">
+        <Link
+          href={`/invitaciones/pedido/${paquete.id}`}
           className={
             destacado
-              ? "w-full rounded-xl bg-aventurea-orange px-6 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
-              : "w-full rounded-xl bg-aventurea-navy px-6 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+              ? "w-full rounded-xl bg-aventurea-orange px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              : "w-full rounded-xl bg-aventurea-navy px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
           }
         >
           Quiero este paquete
-        </button>
-      </form>
+        </Link>
+      </div>
     </div>
   );
 }
@@ -269,18 +288,18 @@ function CardPaquete({ paquete }: { paquete: PaqueteInvitacion }) {
         ))}
       </ul>
 
-      <form action={pedirPaquete.bind(null, paquete.id)} className="mt-5 flex flex-1 items-end">
-        <button
-          type="submit"
+      <div className="mt-5 flex flex-1 items-end">
+        <Link
+          href={`/invitaciones/pedido/${paquete.id}`}
           className={
             destacado
-              ? "w-full rounded-xl bg-aventurea-orange px-6 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
-              : "w-full rounded-xl bg-aventurea-navy px-6 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+              ? "w-full rounded-xl bg-aventurea-orange px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              : "w-full rounded-xl bg-aventurea-navy px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
           }
         >
           Quiero este paquete
-        </button>
-      </form>
+        </Link>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,20 @@
 
 export const SLUG_NEGOCIO_INVITACIONES = "bookea-invitaciones";
 
+/** Los tipos de fiesta del formulario de pedido (y su validación). */
+export const TIPOS_EVENTO = [
+  "Boda",
+  "Quince años",
+  "Cumpleaños infantil",
+  "Cumpleaños adulto",
+  "Baby shower",
+  "Revelación de género",
+  "Graduación",
+  "Aniversario",
+  "Evento corporativo",
+  "Otro",
+] as const;
+
 export type PaqueteInvitacion = {
   /** Identificador estable que viaja a la server action. */
   id: "destello" | "celebracion" | "legado";
@@ -75,8 +89,10 @@ export const PAQUETES_INVITACIONES: PaqueteInvitacion[] = [
 export type PaquetePrincipal = {
   id: "basico" | "intermedio" | "plus";
   nombre: string;
-  /** Etiqueta de precio lista para mostrar ("$20" o "Consultanos"). */
+  /** Etiqueta de precio lista para mostrar ("$20"). */
   precioEtiqueta: string;
+  /** El monto en dólares, para el pedido y el cobro. */
+  precioUSD: number;
   badge: string;
   destacado?: boolean;
   lema: string;
@@ -91,6 +107,7 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
     id: "basico",
     nombre: "Básico",
     precioEtiqueta: "$20",
+    precioUSD: 20,
     badge: "Para arrancar",
     lema: "Tu invitación virtual personalizada, lista para compartir.",
     incluye: [
@@ -104,6 +121,7 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
     id: "intermedio",
     nombre: "Intermedio",
     precioEtiqueta: "$40",
+    precioUSD: 40,
     badge: "El favorito",
     destacado: true,
     lema: "Control automático y completo de tu lista de invitados.",
@@ -122,6 +140,7 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
     id: "plus",
     nombre: "Plus",
     precioEtiqueta: "$60",
+    precioUSD: 60,
     badge: "Diseño premium",
     lema: "Todo lo del Intermedio, con nuestro diseño más alto.",
     incluye: [
@@ -154,4 +173,62 @@ export const PAQUETE_BASE = {
 /** ₡44 900 con el formato local del sitio. */
 export function precioPaquete(precio: number): string {
   return "₡" + Math.round(precio).toLocaleString("es-CR");
+}
+
+/**
+ * Un paquete cualquiera (principal o con álbum) resuelto a lo que
+ * necesita el pedido: cómo se llama, cuánto cuesta y si trae panel.
+ * Devuelve null si el id no existe.
+ */
+export type PaqueteResuelto = {
+  id: string;
+  nombre: string;
+  /** Uno de los dos viene lleno según la familia del paquete. */
+  precioUSD: number | null;
+  precioCRC: number | null;
+  etiqueta: string;
+  /** El Básico se maneja por WhatsApp: sin panel de asistencia. */
+  tienePanel: boolean;
+};
+
+export function resolverPaquete(id: string): PaqueteResuelto | null {
+  const principal = PAQUETES_PRINCIPALES.find((p) => p.id === id);
+  if (principal) {
+    return {
+      id: principal.id,
+      nombre: principal.nombre,
+      precioUSD: principal.precioUSD,
+      precioCRC: null,
+      etiqueta: principal.precioEtiqueta,
+      tienePanel: principal.id !== "basico",
+    };
+  }
+  const conAlbum = PAQUETES_INVITACIONES.find((p) => p.id === id);
+  if (conAlbum) {
+    return {
+      id: conAlbum.id,
+      nombre: conAlbum.nombre,
+      precioUSD: null,
+      precioCRC: conAlbum.precio,
+      etiqueta: precioPaquete(conAlbum.precio),
+      tienePanel: true,
+    };
+  }
+  return null;
+}
+
+/**
+ * Tipo de cambio para mostrar el equivalente en colones de los
+ * paquetes en dólares (SINPE y transferencia cobran en ₡).
+ * Se ajusta con TIPO_CAMBIO_USD sin tocar código.
+ */
+export function tipoCambioUSD(): number {
+  const v = Number(process.env.TIPO_CAMBIO_USD);
+  return Number.isFinite(v) && v > 0 ? v : 520;
+}
+
+/** El monto a cobrar en colones, venga el paquete en $ o en ₡. */
+export function montoEnColones(p: PaqueteResuelto): number {
+  if (p.precioCRC !== null) return p.precioCRC;
+  return Math.round(((p.precioUSD ?? 0) * tipoCambioUSD()) / 100) * 100;
 }

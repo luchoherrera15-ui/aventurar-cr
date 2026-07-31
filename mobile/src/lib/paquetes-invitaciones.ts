@@ -7,6 +7,64 @@
 
 export const SLUG_NEGOCIO_INVITACIONES = "bookea-invitaciones";
 
+/**
+ * Los tres paquetes principales — espejo de PAQUETES_PRINCIPALES en
+ * la web. Se piden por el chat del negocio de invitaciones; el
+ * formulario y el pago viven en el sitio (bookea.lat/invitaciones).
+ */
+export type PaquetePrincipal = {
+  id: "basico" | "intermedio" | "plus";
+  nombre: string;
+  precioEtiqueta: string;
+  badge: string;
+  destacado?: boolean;
+  lema: string;
+  incluye: string[];
+};
+
+export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
+  {
+    id: "basico",
+    nombre: "Básico",
+    precioEtiqueta: "$20",
+    badge: "Para arrancar",
+    lema: "Tu invitación virtual personalizada, lista para compartir.",
+    incluye: [
+      "Invitación virtual personalizada",
+      "Confirmación vía WhatsApp (la llevás vos, sin sistema)",
+      "Cuenta regresiva al gran día",
+      "Personalización de diseño básica",
+    ],
+  },
+  {
+    id: "intermedio",
+    nombre: "Intermedio",
+    precioEtiqueta: "$40",
+    badge: "El favorito",
+    destacado: true,
+    lema: "Control automático y completo de tu lista de invitados.",
+    incluye: [
+      "Todo lo del paquete Básico",
+      "Confirmación en el website: tus invitados confirman en el link",
+      "Panel en bookea.lat para administrar la lista de invitados",
+      "PDFs imprimibles de tu invitación",
+      "Personalización de diseño intermedia",
+    ],
+  },
+  {
+    id: "plus",
+    nombre: "Plus",
+    precioEtiqueta: "$60",
+    badge: "Diseño premium",
+    lema: "Todo lo del Intermedio, con nuestro diseño más alto.",
+    incluye: [
+      "Todo lo del paquete Intermedio",
+      "Diseño Plus: animaciones y acabado premium",
+      "Personalización al máximo nivel, creada solo para vos",
+    ],
+  },
+];
+
 export type PaqueteInvitacion = {
   /** Identificador estable del paquete. */
   id: "destello" | "celebracion" | "legado";

@@ -11,7 +11,16 @@ import { createClient } from "@/lib/supabase/client";
 // que roto. Para activarlo: NEXT_PUBLIC_AUTH_GOOGLE=1.
 const GOOGLE_HABILITADO = process.env.NEXT_PUBLIC_AUTH_GOOGLE === "1";
 
-export default function FormularioAuth() {
+export default function FormularioAuth({
+  destino = "/cuenta",
+  titulo = "Entrá con tu correo",
+  intro = "Para ver tus reservas, favoritos y mensajes en un solo lugar. Escribí tu correo: si ya tenés cuenta entrás directo, y si es tu primera vez te la creamos ahí mismo — solo hace falta tu nombre.",
+}: {
+  /** A dónde vuelve la persona después de entrar (ruta interna). */
+  destino?: string;
+  titulo?: string;
+  intro?: string;
+} = {}) {
   const [pendienteGoogle, setPendienteGoogle] = useState(false);
   const [errorGoogle, setErrorGoogle] = useState<string | null>(null);
 
@@ -22,7 +31,7 @@ export default function FormularioAuth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/cuenta`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destino)}`,
       },
     });
     // Si todo sale bien el navegador se va a Google y este código ya no
@@ -35,20 +44,14 @@ export default function FormularioAuth() {
 
   return (
     <div className="mx-auto max-w-sm rounded-2xl border border-aventurea-line bg-aventurea-surface p-9 shadow-2xl">
-      <h1 className="text-xl font-bold text-aventurea-ink">
-        Entrá con tu correo
-      </h1>
-      <p className="mt-1.5 text-sm text-aventurea-ink-soft">
-        Para ver tus reservas, favoritos y mensajes en un solo lugar. Escribí
-        tu correo: si ya tenés cuenta entrás directo, y si es tu primera vez
-        te la creamos ahí mismo — solo hace falta tu nombre.
-      </p>
+      <h1 className="text-xl font-bold text-aventurea-ink">{titulo}</h1>
+      <p className="mt-1.5 text-sm text-aventurea-ink-soft">{intro}</p>
 
       {/* Si el correo es nuevo, la cuenta nace como cliente — nunca como
           dueño de negocio (eso lo decide el alta en /publicar). El
           nombre solo se pide cuando el correo resulta ser nuevo. */}
       <FormularioCodigoAcceso
-        destino="/cuenta"
+        destino={destino}
         acento="navy"
         crearCuenta
         pedirNombreSiNuevo

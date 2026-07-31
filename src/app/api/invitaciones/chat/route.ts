@@ -136,7 +136,9 @@ export async function POST(request: Request) {
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
       model: "claude-opus-5",
-      max_tokens: forzarBrief ? 2500 : 1500,
+      // El thinking está activo por defecto y comparte este tope con el
+      // texto: con márgenes chicos el brief salía cortado a la mitad.
+      max_tokens: forzarBrief ? 12000 : 8000,
       system: forzarBrief
         ? SYSTEM_CHAT +
           `\n\nEL CLIENTE YA CONFIRMÓ CON EL BOTÓN DE GENERAR: respondé
@@ -153,6 +155,19 @@ basados en TODA la conversación. Sin saludos ni texto extra.`
     if (!respuesta) {
       return Response.json(
         { success: false, error: "El asistente no respondió; intentá de nuevo" },
+        { status: 502 }
+      );
+    }
+
+    // Respuesta truncada: mandar un brief cortado produciría una
+    // invitación a medias que igual se cobra.
+    if (response.stop_reason === "max_tokens") {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "La respuesta quedó incompleta. Pedile el resumen de nuevo o contale la idea en menos palabras.",
+        },
         { status: 502 }
       );
     }
@@ -177,6 +192,18 @@ basados en TODA la conversación. Sin saludos ni texto extra.`
     if (forzarBrief && !prompt_final && respuesta) {
       prompt_final = respuesta;
       respuesta = "";
+    }
+
+    // Un brief demasiado corto no alcanza para generar nada decente.
+    if (prompt_final && prompt_final.length < 80) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "El resumen quedó muy corto. Contale un poco más del evento y volvé a intentar.",
+        },
+        { status: 502 }
+      );
     }
 
     const costo_usd = calcularCostoUSD(

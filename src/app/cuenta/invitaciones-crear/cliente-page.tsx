@@ -19,6 +19,7 @@ export default function ClientePage() {
   const [slugInvitacion, setSlugInvitacion] = useState<string | null>(null);
   const [titulo, setTitulo] = useState("Invitación generada");
   const [slugDeseado, setSlugDeseado] = useState("");
+  const [enCatalogo, setEnCatalogo] = useState(false);
 
   const [htmlGenerado, setHtmlGenerado] = useState("");
   const [costoGeneracion, setCostoGeneracion] = useState<number | null>(null);
@@ -90,8 +91,11 @@ export default function ClientePage() {
   async function publicar() {
     if (!invitacionId) return;
     setErrorGeneracion("");
-    const res = await publicarInvitacion(invitacionId, slugDeseado);
+    const res = await publicarInvitacion(invitacionId, slugDeseado, enCatalogo);
     if (res.data) {
+      // Si la vitrina falló, la invitación igual quedó publicada: se
+      // avisa antes de salir para que nadie la dé por listada.
+      if (res.aviso) alert(res.aviso);
       router.push(`/invitacion/${res.data.slug ?? slugInvitacion}`);
     } else {
       setErrorGeneracion(res.error || "No se pudo publicar la invitación");
@@ -215,6 +219,27 @@ export default function ClientePage() {
                   className="h-11 w-full bg-transparent pr-4 text-[13.5px] font-bold text-aventurea-ink placeholder:text-aventurea-ink-soft/50 focus:outline-none"
                 />
               </div>
+
+              {/* Vitrina: sumarla a los ejemplos públicos de la landing. */}
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
+                <input
+                  type="checkbox"
+                  checked={enCatalogo}
+                  onChange={(e) => setEnCatalogo(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-aventurea-line accent-aventurea-navy"
+                />
+                <span>
+                  <span className="block text-[13px] font-bold text-aventurea-ink">
+                    Publicarla en el catálogo de ejemplos
+                  </span>
+                  <span className="mt-0.5 block text-[12px] leading-snug text-aventurea-ink-soft">
+                    Publicamos una <strong>copia sin confirmaciones</strong> como
+                    muestra en la página de invitaciones — tu invitación real y
+                    su lista de invitados quedan intactas. Se ve tal cual, con
+                    los datos de tu evento.
+                  </span>
+                </span>
+              </label>
             </div>
 
             <div className="flex gap-3">

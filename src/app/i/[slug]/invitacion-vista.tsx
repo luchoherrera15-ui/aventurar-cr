@@ -51,12 +51,15 @@ const labelCls =
 export default function InvitacionVista({
   invitacion,
   preguntas,
+  esEjemplo = false,
   fechaLarga,
   claseFuente,
 }: {
   invitacion: Invitacion;
   /** Las preguntas configurables del RSVP (vacío = como siempre). */
   preguntas: PreguntaInvitacion[];
+  /** Copia de vitrina: se ve el diseño, pero no se puede confirmar. */
+  esEjemplo?: boolean;
   fechaLarga: string;
   /** La clase de next/font que define --inv3-serif (Cormorant). */
   claseFuente: string;
@@ -217,7 +220,35 @@ export default function InvitacionVista({
           />
         )}
 
-        <BloqueRsvp invitacionId={invitacion.id} preguntas={preguntas} animada={animada} />
+        {esEjemplo ? (
+          /* Muestra del catálogo: sin RSVP, para que nadie confirme en
+             el evento de otra persona. */
+          <div className="relative mx-auto w-full max-w-[640px] px-5 py-10 text-center">
+            <p
+              className={`text-[11px] font-bold uppercase tracking-[0.18em] ${
+                animada ? "text-[#8a6a3f]" : "text-white/60"
+              }`}
+            >
+              Muestra de diseño
+            </p>
+            <p
+              className={`mt-2 text-[14px] leading-relaxed ${
+                animada ? "text-[#5b5449]" : "text-white/75"
+              }`}
+            >
+              Así se vería tu invitación. En la tuya, tus invitados confirman
+              acá mismo y vos ves la lista en vivo.
+            </p>
+            <Link
+              href="/invitaciones#paquetes"
+              className="mt-5 inline-block rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+            >
+              Quiero la mía
+            </Link>
+          </div>
+        ) : (
+          <BloqueRsvp invitacionId={invitacion.id} preguntas={preguntas} animada={animada} />
+        )}
 
         <footer
           className={`relative mt-auto py-9 text-center text-[12px] ${

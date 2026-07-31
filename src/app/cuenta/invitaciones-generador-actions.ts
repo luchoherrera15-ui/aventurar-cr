@@ -208,7 +208,8 @@ function normalizarSlug(v: string): string {
  */
 export async function publicarInvitacion(
   invitacionId: string,
-  slugDeseado?: string
+  slugDeseado?: string,
+  enCatalogo = false
 ) {
   const user = await usuarioActual();
   if (!user) {
@@ -239,7 +240,80 @@ export async function publicarInvitacion(
     return { error: "No se pudo publicar (¿ya terminó la generación?)" };
   }
 
-  return { data };
+  // La vitrina va aparte y NUNCA expone la invitación viva: se publica
+  // una COPIA marcada es_ejemplo (sin RSVP), para que nadie que llegue
+  // desde la landing confirme en el evento real. Si la 0074 todavía no
+  // corrió, la invitación igual queda publicada y se avisa.
+  const avisoCatalogo = await sincronizarVitrina(
+    invitacionId,
+    user.id,
+    String(data.slug),
+    enCatalogo,
+  );
+
+  return { data, aviso: avisoCatalogo };
+}
+
+/**
+ * Crea, actualiza o retira la copia de vitrina de una invitación.
+ * Es idempotente en los dos sentidos: desmarcar el check la saca.
+ * Devuelve un aviso legible si algo no se pudo hacer.
+ */
+async function sincronizarVitrina(
+  invitacionId: string,
+  clienteId: string,
+  slugOriginal: string,
+  enCatalogo: boolean,
+): Promise<string | null> {
+  const admin = adminSupabase();
+  const slugEjemplo = `ejemplo-${slugOriginal}`.slice(0, 80);
+
+  if (!enCatalogo) {
+    const { error } = await admin
+      .from("invitaciones")
+      .update({ estado: "archivada", en_catalogo: false })
+      .eq("slug", slugEjemplo)
+      .eq("cliente_id", clienteId)
+      .eq("es_ejemplo", true);
+    if (error && error.code !== "42703" && error.code !== "PGRST204") {
+      console.error("No se pudo retirar del catálogo:", error.message);
+    }
+    return null;
+  }
+
+  const { data: original, error: errorLectura } = await admin
+    .from("invitaciones")
+    .select("titulo, fecha_evento, tema, html_personalizado, portada_url")
+    .eq("id", invitacionId)
+    .eq("cliente_id", clienteId)
+    .single();
+
+  if (errorLectura || !original) {
+    return "Tu invitación quedó publicada, pero no pudimos armar la muestra del catálogo.";
+  }
+
+  const { error } = await admin.from("invitaciones").upsert(
+    {
+      slug: slugEjemplo,
+      cliente_id: clienteId,
+      titulo: original.titulo,
+      fecha_evento: original.fecha_evento,
+      tema: original.tema,
+      html_personalizado: original.html_personalizado,
+      portada_url: original.portada_url,
+      estado: "activa",
+      estado_generacion: "completado",
+      en_catalogo: true,
+      es_ejemplo: true,
+    },
+    { onConflict: "slug" },
+  );
+
+  if (error) {
+    console.error("No se pudo publicar en el catálogo:", error.message);
+    return "Tu invitación quedó publicada, pero todavía no aparece en el catálogo de ejemplos.";
+  }
+  return null;
 }
 
 /**

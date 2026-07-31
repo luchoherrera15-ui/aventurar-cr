@@ -98,10 +98,21 @@ export default async function InvitacionPage({
     (extra as { preguntas?: unknown } | null)?.preguntas,
   );
 
+  // Las copias de vitrina (0074) se ven pero no se confirman: nadie
+  // que llegue desde la landing debe caer en la lista de invitados de
+  // un evento real. Consulta aparte por si la 0074 no corrió.
+  const { data: muestra } = await supabase
+    .from("invitaciones")
+    .select("es_ejemplo")
+    .eq("id", invitacion.id)
+    .maybeSingle();
+  const esEjemplo = (muestra as { es_ejemplo?: boolean } | null)?.es_ejemplo === true;
+
   return (
     <InvitacionVista
       invitacion={invitacion}
       preguntas={preguntas}
+      esEjemplo={esEjemplo}
       fechaLarga={fechaLargaCR(invitacion.fecha_evento)}
       claseFuente={cormorant.variable}
     />

@@ -76,6 +76,10 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
 
     setErrorBot("");
     if (!forzarBrief) setInput("");
+    // La conversación siguió: el brief anterior ya no representa lo
+    // que se está hablando, así que la tarjeta se retira.
+    setPromptFinal(null);
+    setCostoEstimado(0);
     agregarMensaje("usuario", texto);
     setEnviando(true);
 
@@ -112,13 +116,11 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
         if (data.respuesta) agregarMensaje("bot", data.respuesta);
         if (data.prompt_final) {
           setPromptFinal(data.prompt_final);
-          if (data.titulo) setTitulo(data.titulo);
-          if (!data.respuesta) {
-            agregarMensaje(
-              "bot",
-              "Acá está el resumen de tu invitación — elegí el modelo, revisá el costo y confirmá:"
-            );
-          }
+          setTitulo(data.titulo || "Invitación");
+        }
+        // Ni texto ni brief: la llamada se pagó y no pasó nada visible.
+        if (!data.respuesta && !data.prompt_final) {
+          setErrorBot("El asistente no devolvió nada; probá de nuevo.");
         }
       }
     } catch {
@@ -132,6 +134,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
   function seguirAjustando() {
     setPromptFinal(null);
     setCostoEstimado(0);
+    setTitulo("Invitación");
     inputRef.current?.focus();
   }
 
@@ -209,7 +212,10 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
         {/* La tarjeta final: modelo + costo + generar */}
         {promptFinal && (
           <div className="rounded-2xl border-2 border-aventurea-navy/20 bg-aventurea-cream-2/60 p-4">
-            <p className="text-[13px] font-bold text-aventurea-ink">{titulo}</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-aventurea-orange">
+              Resumen de tu invitación
+            </p>
+            <p className="mt-1 text-[13px] font-bold text-aventurea-ink">{titulo}</p>
             <p className="mt-1 line-clamp-3 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
               {promptFinal}
             </p>
@@ -257,7 +263,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
               <button
                 type="button"
                 onClick={generar}
-                disabled={pendiente || costoEstimado === 0}
+                disabled={pendiente}
                 className="flex-1 rounded-xl bg-aventurea-orange px-6 py-3 font-bold text-white hover:bg-aventurea-orange-2 disabled:opacity-50"
               >
                 {pendiente ? "Generando tu invitación..." : "Generar invitación"}
