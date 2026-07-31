@@ -240,7 +240,7 @@ export default function RanchosTable({
                 <td className="whitespace-nowrap px-4 py-3.5">
                   {r.destacado_orden != null ? (
                     <div className="flex items-center gap-1">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-aventurea-orange/15 px-2 py-1 text-[11.5px] font-bold text-aventurea-orange">
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-aventurea-orange/15 px-2 py-1 text-[11.5px] font-bold text-aventurea-orange">
                         ★ {puestoDestacado.get(r.id)}
                       </span>
                       <button
@@ -294,7 +294,7 @@ export default function RanchosTable({
                 {mostrarSeccion && (
                   <td className="whitespace-nowrap px-4 py-3.5">
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${SECCION_BADGE[verticalDeRancho(r.vertical)]}`}
+                      className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold ${SECCION_BADGE[verticalDeRancho(r.vertical)]}`}
                     >
                       {SECCION_CORTA[verticalDeRancho(r.vertical)]}
                     </span>
@@ -318,7 +318,7 @@ export default function RanchosTable({
                 </td>
                 <td className="px-4 py-3.5">
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${ESTADO_BADGE[r.estado]}`}
+                    className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold ${ESTADO_BADGE[r.estado]}`}
                   >
                     {ESTADO_LABEL[r.estado]}
                   </span>

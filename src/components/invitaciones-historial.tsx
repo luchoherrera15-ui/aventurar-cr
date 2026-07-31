@@ -96,7 +96,7 @@ export default function Historial({ invitaciones, onAbrir }: HistorialProps) {
                 </td>
                 <td className="px-5 py-3">
                   <span
-                    className={`inline-block rounded-full border px-2.5 py-1 text-[11px] font-semibold ${estadoColor(inv.estado_generacion)}`}
+                    className={`inline-block rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${estadoColor(inv.estado_generacion)}`}
                   >
                     {estadoLabel(inv.estado_generacion)}
                   </span>

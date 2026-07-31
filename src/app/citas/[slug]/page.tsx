@@ -191,7 +191,7 @@ export default async function NegocioCitasPage({
               )}
             </div>
             <div className="flex flex-col p-6 sm:p-7">
-              <span className="w-fit rounded-full bg-aventurea-blue-light px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy">
+              <span className="w-fit rounded-lg bg-aventurea-blue-light px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy">
                 {CATEGORIA_CITA_LABEL[categoria]}
               </span>
               <h1 className="mt-2.5 text-[clamp(24px,3vw,32px)] font-black leading-tight tracking-[-0.6px] text-aventurea-ink">

@@ -15,8 +15,19 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
+import {
+  Aviso,
+  AvisoAgenda,
+  Boton,
+  Estado,
+  FilaHora,
+  Micro,
+  Tarjeta,
+  Vacio,
+  type TonoEstado,
+} from "@/components/ui";
 import { useAuth } from "@/lib/auth-context";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import {
   DIAS_CORTO,
@@ -36,6 +47,10 @@ import {
  * botón para suscribir la agenda en Google/Apple Calendar. Espejo de
  * la agenda del panel web (/mi-rancho/[id]/citas); las políticas RLS
  * limitan la lectura y la edición al dueño del negocio.
+ *
+ * La línea de tiempo es la del mockup: la hora en su columna fija a la
+ * izquierda, la cita a la derecha, y los huecos como ranuras punteadas
+ * de "Libre" — el espacio vacío tiene que verse tan claro como la cita.
  */
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
@@ -64,20 +79,25 @@ type CitaAgenda = ReservaAgenda & { hora_inicio: string };
 
 const ESTADO_LABEL: Record<string, string> = {
   pendiente: "En aprobación",
-  confirmada: "Confirmada",
+  confirmada: "Cita confirmada",
   cumplida: "Cumplida",
   no_asistio: "No asistió",
   cancelada: "Cancelada",
   bloqueada: "Bloqueada",
 };
 
-const ESTADO_COLOR: Record<string, string> = {
-  pendiente: Colors.accent,
-  confirmada: Colors.green,
-  cumplida: Colors.green,
-  no_asistio: Colors.danger,
-  cancelada: Colors.inkSoft,
-  bloqueada: Colors.inkSoft,
+/**
+ * Confirmada va en NAVY sólido — es la cita que está por pasar, lo
+ * único que se rellena en la línea del día. Cumplida ya pasó, así que
+ * baja a verde tinte; pendiente pide acción y va en naranja.
+ */
+const ESTADO_TONO: Record<string, TonoEstado> = {
+  pendiente: "naranja",
+  confirmada: "navy",
+  cumplida: "verde",
+  no_asistio: "rojo",
+  cancelada: "gris",
+  bloqueada: "gris",
 };
 
 /** Solo desde estos estados se corrige la asistencia (igual que la web). */
@@ -313,7 +333,10 @@ export default function AgendaNegocioScreen() {
   }
 
   const seleccionada = deISO(fecha);
-  const tituloFecha = `${DIAS_SEMANA_LABEL[seleccionada.getDay()]} ${seleccionada.getDate()} de ${MESES_CORTO[seleccionada.getMonth()]}`;
+  const esHoyElegido = fecha === hoyISO;
+  const tituloFecha = esHoyElegido
+    ? `Hoy · ${DIAS_SEMANA_LABEL[seleccionada.getDay()].toLowerCase()}`
+    : `${DIAS_SEMANA_LABEL[seleccionada.getDay()]} ${seleccionada.getDate()} de ${MESES_CORTO[seleccionada.getMonth()]}`;
 
   const citas = (filas ?? []).filter((f): f is CitaAgenda => f.hora_inicio !== null);
   const diaCompleto = (filas ?? []).filter((f) => f.hora_inicio === null);
@@ -343,7 +366,8 @@ export default function AgendaNegocioScreen() {
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
-        titulo="Agenda"
+        kicker="Panel"
+        titulo="Tu agenda"
         subtitulo={nombreNegocio ?? undefined}
         accion={{
           icono: "sync-outline",
@@ -377,6 +401,7 @@ export default function AgendaNegocioScreen() {
                 onPress={() => setFecha(d.iso)}
                 style={[styles.dia, activo && styles.diaActivo]}
                 accessibilityRole="button"
+                accessibilityState={{ selected: activo }}
                 accessibilityLabel={`Ver el ${d.etiqueta} ${d.numero}`}
               >
                 <Text style={[styles.diaEtiqueta, activo && styles.diaTextoActivo]}>
@@ -391,13 +416,13 @@ export default function AgendaNegocioScreen() {
           })}
         </ScrollView>
         <View style={styles.tiraPie}>
-          <Text style={styles.tituloFecha}>
+          <Micro>
             {tituloFecha}
-            {cargandoDia && filas !== null ? "  · Cargando..." : ""}
-          </Text>
-          {fecha !== hoyISO && (
+            {cargandoDia && filas !== null ? "  ·  cargando" : ""}
+          </Micro>
+          {!esHoyElegido && (
             <Pressable onPress={() => setFecha(hoyISO)} style={styles.botonHoy} hitSlop={6}>
-              <Text style={styles.botonHoyTexto}>Hoy</Text>
+              <Text style={styles.botonHoyTexto}>Ir a hoy</Text>
             </Pressable>
           )}
         </View>
@@ -420,12 +445,21 @@ export default function AgendaNegocioScreen() {
             />
           }
         >
+          {/* Lo último que entró, arriba de todo — el aviso azul del
+              diseño de referencia. */}
+          {(() => {
+            const nueva = citas.find((c) => c.estado === "pendiente");
+            return nueva ? (
+              <AvisoAgenda texto={`Nueva reserva de ${nueva.nombre ?? "un cliente"}`} />
+            ) : null;
+          })()}
+
           {/* Reservas sin hora: eventos de día completo o bloqueos. */}
           {diaCompleto.length > 0 && (
             <View style={styles.seccion}>
-              <Text style={styles.seccionTitulo}>Reservas del día</Text>
+              <Micro>Todo el día</Micro>
               {diaCompleto.map((r) => (
-                <View key={r.id} style={styles.filaDiaCompleto}>
+                <Tarjeta key={r.id} style={styles.filaDiaCompleto}>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.citaNombre} numberOfLines={1}>
                       {r.nombre ?? "Sin nombre"}
@@ -436,44 +470,47 @@ export default function AgendaNegocioScreen() {
                       {r.monto_total !== null ? ` · ${fmtColones(r.monto_total)}` : ""}
                     </Text>
                   </View>
-                  <ChipEstado estado={r.estado} />
-                </View>
+                  <Estado
+                    texto={ESTADO_LABEL[r.estado] ?? r.estado}
+                    tono={ESTADO_TONO[r.estado] ?? "gris"}
+                  />
+                </Tarjeta>
               ))}
             </View>
           )}
 
           {cerrado && citas.length === 0 ? (
-            <View style={styles.avisoCerrado}>
-              <Ionicons name="moon-outline" size={18} color={Colors.inkSoft} />
-              <Text style={styles.avisoCerradoTexto}>
-                Cerrado este día. Si querés atender, ajustá tu horario en el panel de citas.
-              </Text>
-            </View>
+            <Vacio
+              icono="moon-outline"
+              titulo="Cerrado este día"
+              texto="Si querés atender, ajustá tu horario en el panel de citas."
+            />
           ) : (
             <View style={styles.seccion}>
+              <Micro>La línea del día</Micro>
               {cerrado && (
-                <Text style={styles.notaCerrado}>
-                  Según tu horario este día está cerrado, pero tenés citas agendadas.
-                </Text>
+                <Aviso
+                  tono="atencion"
+                  texto="Según tu horario este día está cerrado, pero tenés citas agendadas."
+                />
               )}
               {citas.length === 0 && (
-                <Text style={styles.vacio}>
-                  {fecha === hoyISO
-                    ? "Hoy no tenés citas agendadas."
-                    : "Ese día no hay citas agendadas."}
-                </Text>
+                <Aviso
+                  icono="calendar-clear-outline"
+                  texto={
+                    esHoyElegido
+                      ? "Hoy no tenés citas agendadas — la agenda está libre."
+                      : "Ese día no hay citas agendadas."
+                  }
+                />
               )}
-              <View style={styles.lineaTiempo}>
+              <Tarjeta style={styles.lineaTiempo}>
                 {horas.map((h) => {
                   const deEstaHora = porHora.get(h) ?? [];
                   return (
-                    <View key={h} style={styles.filaHora}>
-                      <Text style={styles.horaLabel}>{String(h).padStart(2, "0")}:00</Text>
-                      <View style={styles.horaContenido}>
-                        {deEstaHora.length === 0 ? (
-                          <View style={styles.horaLibre} />
-                        ) : (
-                          deEstaHora.map((c) => (
+                    <FilaHora key={h} hora={`${String(h).padStart(2, "0")}:00`}>
+                      {deEstaHora.length > 0
+                        ? deEstaHora.map((c) => (
                             <TarjetaCita
                               key={c.id}
                               cita={c}
@@ -481,49 +518,42 @@ export default function AgendaNegocioScreen() {
                               onMarcar={confirmarAsistencia}
                             />
                           ))
-                        )}
-                      </View>
-                    </View>
+                        : undefined}
+                    </FilaHora>
                   );
                 })}
-              </View>
+              </Tarjeta>
             </View>
           )}
 
           {/* Suscribir la agenda en el calendario personal del dueño. */}
-          <View style={styles.tarjetaSync}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.syncTitulo}>Sincronizar calendario</Text>
-              <Text style={styles.syncTexto}>
-                Suscribite desde Google Calendar o el calendario del iPhone y tus citas
-                aparecen solas, siempre al día.
-              </Text>
-            </View>
-            <Pressable
-              style={[styles.botonSync, sincronizando && { opacity: 0.5 }]}
-              disabled={sincronizando}
+          <Tarjeta style={styles.tarjetaSync}>
+            <Micro>Calendario</Micro>
+            <Text style={styles.syncTitulo}>Que tus citas lleguen solas</Text>
+            <Text style={styles.syncTexto}>
+              Suscribite desde Google Calendar o el calendario del iPhone y tus citas
+              aparecen ahí, siempre al día.
+            </Text>
+            <Boton
+              texto={sincronizando ? "Preparando…" : "Sincronizar calendario"}
+              tono="navy"
+              icono="calendar-outline"
+              cargando={sincronizando}
               onPress={sincronizarCalendario}
-            >
-              <Ionicons name="calendar-outline" size={15} color="#ffffff" />
-              <Text style={styles.botonSyncTexto}>
-                {sincronizando ? "Preparando..." : "Sincronizar"}
-              </Text>
-            </Pressable>
-          </View>
+              style={{ marginTop: Spacing.three }}
+            />
+          </Tarjeta>
         </ScrollView>
       )}
     </View>
   );
 }
 
-function ChipEstado({ estado }: { estado: string }) {
-  return (
-    <View style={[styles.chipEstado, { backgroundColor: ESTADO_COLOR[estado] ?? Colors.inkSoft }]}>
-      <Text style={styles.chipEstadoTexto}>{ESTADO_LABEL[estado] ?? estado}</Text>
-    </View>
-  );
-}
-
+/**
+ * Una cita en la línea de tiempo. Sigue la tarjeta del mockup: la hora
+ * arriba a la izquierda, el estado a la derecha, y las dos acciones del
+ * mostrador (llegó / no llegó) solo cuando corresponde.
+ */
 function TarjetaCita({
   cita,
   ocupada,
@@ -537,14 +567,21 @@ function TarjetaCita({
   const fin = sumarMinutosHora(inicio, cita.duracion_minutos ?? 30);
   const marcable = MARCABLES.includes(cita.estado);
   const monto = cita.monto_total !== null ? fmtColones(cita.monto_total) : null;
+  // La cita confirmada es la que manda: sale en blanco con la barra
+  // navy. Las demás quedan en gris, un escalón atrás.
+  const destacada = cita.estado === "confirmada";
 
   return (
-    <View style={styles.tarjetaCita}>
+    <View style={[styles.tarjetaCita, destacada && styles.tarjetaCitaDestacada]}>
+      {destacada && <View style={styles.citaBarra} />}
       <View style={styles.citaCabecera}>
         <Text style={styles.citaHora}>
           {inicio}–{fin}
         </Text>
-        <ChipEstado estado={cita.estado} />
+        <Estado
+          texto={ESTADO_LABEL[cita.estado] ?? cita.estado}
+          tono={ESTADO_TONO[cita.estado] ?? "gris"}
+        />
       </View>
       <Text style={styles.citaNombre} numberOfLines={1}>
         {cita.nombre ?? "Cliente"}
@@ -571,7 +608,7 @@ function TarjetaCita({
             onPress={() => onMarcar(cita, "cumplida")}
           >
             <Ionicons name="checkmark" size={14} color={Colors.green} />
-            <Text style={[styles.botonAsistenciaTexto, { color: Colors.green }]}>Cumplida</Text>
+            <Text style={[styles.botonAsistenciaTexto, { color: Colors.green }]}>Llegó</Text>
           </Pressable>
           <Pressable
             style={[
@@ -584,7 +621,7 @@ function TarjetaCita({
           >
             <Ionicons name="close" size={14} color={Colors.danger} />
             <Text style={[styles.botonAsistenciaTexto, { color: Colors.danger }]}>
-              No asistió
+              No llegó
             </Text>
           </Pressable>
         </View>
@@ -594,213 +631,136 @@ function TarjetaCita({
 }
 
 const styles = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: Colors.cream },
-  centro: { flex: 1, alignItems: "center", justifyContent: "center" },
-  cuerpo: { padding: Spacing.three, paddingBottom: 48, gap: Spacing.three },
+  contenedor: { backgroundColor: Colors.canvas, flex: 1 },
+  centro: { alignItems: "center", flex: 1, justifyContent: "center" },
+  cuerpo: { gap: Spacing.four, padding: Spacing.three, paddingBottom: 48 },
 
   tiraBloque: {
-    borderBottomWidth: 1,
+    backgroundColor: Colors.canvas,
     borderBottomColor: Colors.line,
-    paddingBottom: Spacing.two,
-    backgroundColor: Colors.cream,
+    borderBottomWidth: 1,
+    paddingBottom: Spacing.two + 2,
   },
-  tiraContenido: { paddingHorizontal: Spacing.three, gap: 8 },
+  tiraContenido: { gap: Spacing.two, paddingHorizontal: Spacing.three },
   dia: {
-    width: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.surface,
     alignItems: "center",
-    paddingVertical: 8,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.md,
+    borderWidth: 1,
     gap: 1,
+    paddingVertical: 9,
+    width: 52,
   },
   diaActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
   diaEtiqueta: {
-    fontSize: 10.5,
+    color: Colors.inkMuted,
     fontFamily: Fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
-    color: Colors.inkSoft,
   },
-  diaNumero: { fontSize: 16, fontFamily: Fonts.extraBold, color: Colors.ink },
+  diaNumero: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 16 },
   diaTextoActivo: { color: "#ffffff" },
   diaPunto: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
     backgroundColor: Colors.accent,
+    borderRadius: 2,
+    height: 4,
     marginTop: 1,
+    width: 4,
   },
   diaPuntoActivo: { backgroundColor: "#ffffff" },
   tiraPie: {
-    flexDirection: "row",
     alignItems: "center",
+    flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
+    paddingTop: Spacing.two + 2,
   },
-  tituloFecha: { fontSize: 13, fontFamily: Fonts.extraBold, color: Colors.navy },
   botonHoy: {
-    borderRadius: 999,
-    borderWidth: 1,
+    backgroundColor: Colors.surface,
     borderColor: Colors.line,
-    backgroundColor: Colors.cream2,
+    borderRadius: 8,
+    borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 5,
   },
-  botonHoyTexto: { fontSize: 12, fontFamily: Fonts.bold, color: Colors.navy },
+  botonHoyTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12 },
 
-  seccion: { gap: Spacing.two },
-  seccionTitulo: {
-    fontSize: 11,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    color: Colors.inkSoft,
-  },
+  seccion: { gap: Spacing.two + 2 },
   filaDiaCompleto: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.two,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 12,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 10,
-  },
-
-  avisoCerrado: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.two,
-    backgroundColor: Colors.cream2,
-    borderRadius: 14,
-    padding: Spacing.four,
-  },
-  avisoCerradoTexto: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-    color: Colors.inkSoft,
-    fontFamily: Fonts.regular,
-  },
-  notaCerrado: {
-    backgroundColor: Colors.accentLight,
-    borderRadius: 10,
-    padding: Spacing.two,
-    fontSize: 12,
-    lineHeight: 17,
-    color: Colors.ink,
-    fontFamily: Fonts.medium,
-  },
-  vacio: {
-    backgroundColor: Colors.cream2,
-    borderRadius: 12,
-    padding: Spacing.three,
-    fontSize: 13,
-    color: Colors.inkSoft,
-    fontFamily: Fonts.regular,
-  },
-
-  lineaTiempo: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 16,
-    paddingVertical: Spacing.two,
-  },
-  filaHora: {
-    flexDirection: "row",
-    alignItems: "flex-start",
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
-    minHeight: 34,
-  },
-  horaLabel: {
-    width: 44,
-    fontSize: 12,
-    fontFamily: Fonts.bold,
-    color: Colors.inkSoft,
-    paddingTop: 2,
-  },
-  horaContenido: { flex: 1, gap: Spacing.two, minWidth: 0 },
-  horaLibre: {
-    height: 1,
-    backgroundColor: Colors.line,
-    marginTop: 9,
+    paddingVertical: 12,
   },
 
+  lineaTiempo: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+
+  // En reposo: gris plano, sin borde — como las citas de fondo del
+  // diseño de referencia.
   tarjetaCita: {
-    backgroundColor: Colors.cream2,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 12,
-    padding: Spacing.three,
+    backgroundColor: "#f4f5f7",
+    borderRadius: Radios.sm,
     gap: 3,
+    overflow: "hidden",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  tarjetaCitaDestacada: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderWidth: 1,
+    paddingLeft: 12 + 4,
+  },
+  citaBarra: {
+    backgroundColor: Colors.navy,
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    top: 0,
+    width: 4,
   },
   citaCabecera: {
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row",
     gap: Spacing.two,
+    justifyContent: "space-between",
   },
-  citaHora: { fontSize: 13.5, fontFamily: Fonts.extraBold, color: Colors.navy },
-  citaNombre: { fontSize: 14, fontFamily: Fonts.bold, color: Colors.ink },
-  citaDetalle: { fontSize: 12.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
-  citaNotas: { fontSize: 12, color: Colors.ink, fontFamily: Fonts.regular, marginTop: 2 },
+  citaHora: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 13 },
+  citaNombre: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
+  citaDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5 },
+  citaNotas: { color: Colors.ink, fontFamily: Fonts.regular, fontSize: 12, marginTop: 2 },
   citaAcciones: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.two },
   botonAsistencia: {
+    alignItems: "center",
+    borderRadius: Radios.sm,
+    borderWidth: 1,
     flex: 1,
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
     gap: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingVertical: 8,
-  },
-  botonCumplida: { borderColor: Colors.green, backgroundColor: Colors.greenLight },
-  botonNoAsistio: { borderColor: Colors.danger, backgroundColor: Colors.dangerLight },
-  botonApagado: { opacity: 0.45 },
-  botonAsistenciaTexto: { fontSize: 12.5, fontFamily: Fonts.bold },
-
-  chipEstado: {
-    alignSelf: "flex-start",
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  chipEstadoTexto: { color: "#ffffff", fontSize: 10, fontFamily: Fonts.bold },
-
-  tarjetaSync: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.three,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 16,
-    padding: Spacing.three,
-  },
-  syncTitulo: { fontSize: 13.5, fontFamily: Fonts.extraBold, color: Colors.ink },
-  syncTexto: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: Colors.inkSoft,
-    fontFamily: Fonts.regular,
-    marginTop: 2,
-  },
-  botonSync: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.navy,
-    borderRadius: 10,
-    paddingHorizontal: 13,
+    justifyContent: "center",
     paddingVertical: 9,
   },
-  botonSyncTexto: { color: "#ffffff", fontSize: 12.5, fontFamily: Fonts.bold },
+  botonCumplida: { backgroundColor: Colors.greenLight, borderColor: Colors.green },
+  botonNoAsistio: { backgroundColor: Colors.dangerLight, borderColor: Colors.danger },
+  botonApagado: { opacity: 0.45 },
+  botonAsistenciaTexto: { fontFamily: Fonts.bold, fontSize: 12.5 },
+
+  tarjetaSync: { padding: Spacing.three },
+  syncTitulo: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 16,
+    letterSpacing: -0.3,
+    marginTop: 6,
+  },
+  syncTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
+  },
 });

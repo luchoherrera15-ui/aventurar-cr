@@ -71,10 +71,21 @@ export default function ChatFlotante() {
       return;
     }
 
-    const { data: convData } = await supabase.from("conversaciones").select("id");
-    const ids = (convData ?? []).map((c) => c.id as string);
-    if (ids.length === 0) {
+    const { data: convData } = await supabase.from("conversaciones").select("id, resuelta");
+    const conversaciones = (convData ?? []) as { id: string; resuelta: boolean }[];
+    if (conversaciones.length === 0) {
       setVisible(false);
+      return;
+    }
+    // La burbuja sigue estando (hay historial que ver), pero el contador
+    // cuenta SOLO los hilos activos: los archivados no aparecen en el
+    // panel, así que un pendiente ahí sería un número imposible de
+    // bajar. Si llega un mensaje nuevo, el hilo se reabre solo (trigger
+    // de 0054) y vuelve a contar.
+    setVisible(true);
+    const ids = conversaciones.filter((c) => !c.resuelta).map((c) => c.id);
+    if (ids.length === 0) {
+      setSinLeer(0);
       return;
     }
 
@@ -108,7 +119,6 @@ export default function ChatFlotante() {
     }
 
     setSinLeer(pendientes);
-    setVisible(true);
   }, []);
 
   useEffect(() => {
@@ -283,18 +293,40 @@ export default function ChatFlotante() {
    * "✓ Resuelto": archiva la conversación para ambos lados (columna
    * `resuelta` de 0054 — la RLS deja a cualquier participante). Sale
    * de la lista de una; si el update falla, se recarga y reaparece.
+   *
+   * Archivar cuenta como "ya lo vi": se marca leído también. Sin esto,
+   * si el hilo tenía mensajes sin leer, esos pendientes se quedaban
+   * sumando en la burbuja para siempre — el hilo ya no salía en ningún
+   * lado desde donde abrirlo y bajarlos.
    */
   const marcarResuelta = useCallback(
     async (conversacionId: string) => {
       setFilas((prev) => prev.filter((f) => f.id !== conversacionId));
       const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       const { error } = await supabase
         .from("conversaciones")
         .update({ resuelta: true })
         .eq("id", conversacionId);
-      if (error) cargarLista();
+      if (error) {
+        cargarLista();
+        return;
+      }
+      if (user) {
+        await supabase.from("conversacion_lecturas").upsert(
+          {
+            conversacion_id: conversacionId,
+            usuario_id: user.id,
+            leido_hasta: new Date().toISOString(),
+          },
+          { onConflict: "conversacion_id,usuario_id" },
+        );
+      }
+      cargar();
     },
-    [cargarLista],
+    [cargar, cargarLista],
   );
 
   /** Abre (o crea) el hilo de consulta con el negocio de esta página. */
@@ -382,7 +414,7 @@ export default function ChatFlotante() {
         <div
           role="dialog"
           aria-label="Chat"
-          className="anim-panel-entrar fixed bottom-[140px] right-4 z-50 flex h-[480px] max-h-[calc(100dvh-170px)] w-[360px] max-w-[calc(100vw-28px)] flex-col overflow-hidden rounded-[20px] border border-aventurea-line bg-white shadow-[0_18px_50px_rgba(16,26,44,0.28)] lg:bottom-[88px] lg:right-6"
+          className="anim-panel-entrar fixed bottom-[140px] right-4 z-50 flex h-[480px] max-h-[calc(100dvh-170px)] w-[360px] max-w-[calc(100vw-28px)] flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_18px_50px_rgba(16,26,44,0.28)] lg:bottom-[88px] lg:right-6"
         >
           {/* Cabecera navy, como los chats de soporte en vivo. */}
           <div className="flex items-center gap-2.5 bg-aventurea-navy px-4 py-3 text-white">
@@ -431,7 +463,7 @@ export default function ChatFlotante() {
               </p>
               <Link
                 href="/cuenta"
-                className="rounded-full bg-aventurea-navy px-5 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-navy-2"
+                className="rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-navy-2"
               >
                 Iniciar sesión
               </Link>
@@ -489,7 +521,7 @@ export default function ChatFlotante() {
                       type="button"
                       onClick={() => marcarResuelta(f.id)}
                       title="Marcar como resuelta y archivar"
-                      className="shrink-0 rounded-full border border-aventurea-line px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-green hover:text-aventurea-green"
+                      className="shrink-0 rounded-lg border border-aventurea-line px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-green hover:text-aventurea-green"
                     >
                       ✓ Resuelto
                     </button>
@@ -515,7 +547,7 @@ export default function ChatFlotante() {
         className="group fixed bottom-20 right-5 z-50 flex items-center gap-0 lg:bottom-6 lg:right-6"
       >
         {proveedor && !abierto && (
-          <span className="mr-2.5 hidden max-w-[220px] truncate rounded-full border border-aventurea-line bg-aventurea-surface px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink shadow-[0_4px_14px_rgba(16,26,44,0.14)] sm:block">
+          <span className="mr-2.5 hidden max-w-[220px] truncate rounded-xl border border-aventurea-line bg-aventurea-surface px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink shadow-[0_4px_14px_rgba(16,26,44,0.14)] sm:block">
             ¿Dudas? Escribile a {proveedor.nombre}
           </span>
         )}

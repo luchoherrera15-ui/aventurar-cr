@@ -770,12 +770,12 @@ function FotoMiniatura({
         <img src={src} alt="" className="h-full w-full object-cover" />
       </button>
       {presentacion ? (
-        <span className="absolute left-1.5 top-1.5 rounded-full bg-aventurea-orange px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+        <span className="absolute left-1.5 top-1.5 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
           Presentación
         </span>
       ) : (
         destacada && (
-          <span className="absolute left-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+          <span className="absolute left-1.5 top-1.5 rounded-lg bg-black/60 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
             Destacada
           </span>
         )
@@ -788,7 +788,7 @@ function FotoMiniatura({
         {presentacion ? "Quitar de presentación" : "Usar de presentación"}
       </button>
       {nueva && (
-        <span className="absolute right-1.5 bottom-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white group-hover:opacity-0">
+        <span className="absolute right-1.5 bottom-1.5 rounded-lg bg-black/60 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white group-hover:opacity-0">
           Sin guardar
         </span>
       )}

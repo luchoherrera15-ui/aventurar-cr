@@ -26,6 +26,13 @@ import {
   precioPaquete,
 } from "@/lib/paquetes-invitaciones";
 import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
+import {
+  MESES_RETENCION_INVITACION,
+  fechaBorradoBonita,
+  fechaBorradoInvitacion,
+  hoyISO,
+  invitacionFinalizada,
+} from "@/lib/retencion-invitaciones";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
@@ -77,6 +84,7 @@ export default function InvitacionesScreen() {
   /** Qué paquete tiene abierto su "Ver más" (uno a la vez). */
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
   const [verAlbumes, setVerAlbumes] = useState(false);
+  const [verFinalizadas, setVerFinalizadas] = useState(false);
 
   const cargar = useCallback(async () => {
     if (!session) return;
@@ -593,7 +601,7 @@ const styles = StyleSheet.create({
   },
   botonNavy: {
     backgroundColor: Colors.navy,
-    borderRadius: 999,
+    borderRadius: 12,
     marginTop: Spacing.two,
     paddingHorizontal: 22,
     paddingVertical: 11,
@@ -668,7 +676,7 @@ const styles = StyleSheet.create({
   botonNavyChico: {
     alignItems: "center",
     backgroundColor: Colors.navy,
-    borderRadius: 999,
+    borderRadius: 12,
     flexDirection: "row",
     gap: 5,
     paddingHorizontal: 14,
@@ -678,7 +686,7 @@ const styles = StyleSheet.create({
   botonContornoChico: {
     alignItems: "center",
     borderColor: Colors.navy,
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1.5,
     flexDirection: "row",
     gap: 5,
@@ -709,7 +717,7 @@ const styles = StyleSheet.create({
   },
   paqueteBadge: {
     backgroundColor: Colors.accentLight,
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -747,7 +755,7 @@ const styles = StyleSheet.create({
   paqueteBoton: {
     alignItems: "center",
     backgroundColor: Colors.navy,
-    borderRadius: 999,
+    borderRadius: 12,
     justifyContent: "center",
     marginTop: Spacing.three,
     paddingVertical: 12,
@@ -793,7 +801,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "center",
     borderColor: Colors.line,
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1,
     flexDirection: "row",
     gap: 6,

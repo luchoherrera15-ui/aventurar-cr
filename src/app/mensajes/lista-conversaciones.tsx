@@ -47,7 +47,7 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
         </p>
         <Link
           href="/eventos"
-          className="mt-5 inline-flex rounded-full bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+          className="mt-5 inline-flex rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
         >
           Ver el directorio
         </Link>
@@ -114,7 +114,7 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
                   >
                     {f.ultimoTexto}
                   </p>
-                  <span className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${f.tag.clase}`}>
+                  <span className={`mt-1.5 inline-flex rounded-lg px-2 py-0.5 text-[10px] font-bold ${f.tag.clase}`}>
                     {f.tag.texto}
                   </span>
                 </div>
@@ -159,7 +159,7 @@ function PestanaTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full border px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
+      className={`rounded-xl border px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
         activo
           ? "border-aventurea-navy bg-aventurea-navy text-white"
           : "border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-ink"

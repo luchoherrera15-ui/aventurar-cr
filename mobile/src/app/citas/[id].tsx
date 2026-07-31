@@ -12,8 +12,19 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
+import {
+  Avatar,
+  Boton,
+  Estado,
+  FilaLista,
+  Lista,
+  Micro,
+  Tarjeta,
+  Vacio,
+  iniciales,
+} from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import {
   CATEGORIA_CITA_LABEL,
@@ -58,10 +69,12 @@ type Stats = {
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
 /**
- * La mini-página de un negocio de citas en el app — espejo de
- * /citas/[slug] en la web: servicios con precio y duración, equipo
- * con fotos, horario y reseñas. "Consultar fechas" (o el Reservar de
- * cada servicio) abre la agenda.
+ * La mini-página de un negocio de servicios — espejo de /citas/[slug]
+ * en la web, en el lenguaje de la marca: la foto a sangre arriba, la
+ * identidad del negocio (iniciales, nota y zona) sobre ella, y debajo
+ * los bloques rotulados — servicios, equipo, horario, reseñas. El
+ * "Reservar" naranja es siempre el mismo botón que en las otras tres
+ * verticales.
  */
 export default function NegocioCitasScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -152,9 +165,16 @@ export default function NegocioCitasScreen() {
   if (!negocio) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo="Citas" />
-        <View style={styles.centro}>
-          <Text style={styles.tituloEstado}>Este negocio ya no está disponible</Text>
+        <BarraSuperior kicker="Servicios" titulo="Negocio" />
+        <View style={styles.centrado}>
+          <Vacio
+            icono="close-circle-outline"
+            titulo="Este negocio ya no está disponible"
+            accion={{
+              texto: "Ver otros negocios",
+              onPress: () => router.replace("/citas" as never),
+            }}
+          />
         </View>
       </View>
     );
@@ -181,8 +201,8 @@ export default function NegocioCitasScreen() {
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
+        kicker="Servicios"
         titulo={negocio.nombre}
-        subtitulo="Citas y Reservas"
         onVolver={() => (router.canGoBack() ? router.back() : router.replace("/citas" as never))}
       />
       <ScrollView contentContainerStyle={styles.contenido}>
@@ -198,105 +218,127 @@ export default function NegocioCitasScreen() {
             />
           ) : (
             <View style={styles.heroVacio}>
-              <Ionicons name="time-outline" size={40} color="#3b7fc4" />
+              <Ionicons name="time-outline" size={40} color={Colors.blue} />
             </View>
           )}
-        </View>
-        <View style={styles.badge}>
-          <Text style={styles.badgeTexto}>
-            {CATEGORIA_CITA_LABEL[normalizarCategoriaCita(negocio.categoria)]}
-          </Text>
-        </View>
-        <Text style={styles.nombre}>{negocio.nombre}</Text>
-        <View style={styles.filaDatos}>
-          {calif && calif.total > 0 && (
-            <View style={styles.dato}>
-              <Ionicons name="star" size={13} color={Colors.accent} />
-              <Text style={styles.datoTexto}>
-                {calif.promedio.toFixed(1)}{" "}
-                <Text style={styles.datoSuave}>
-                  ({calif.total} {calif.total === 1 ? "reseña" : "reseñas"})
-                </Text>
-              </Text>
-            </View>
-          )}
-          {!!ubicacion && (
-            <View style={styles.dato}>
-              <Ionicons name="location-outline" size={13} color="#3b7fc4" />
-              <Text style={styles.datoSuave}>{ubicacion}</Text>
-            </View>
-          )}
-        </View>
-        {!!negocio.descripcion && <Text style={styles.descripcion}>{negocio.descripcion}</Text>}
-
-        {/* Los números que dan confianza — espejo de la web. */}
-        {stats && (stats.citasTotales > 0 || stats.clientesAtendidos > 0) && (
-          <View style={styles.statsFila}>
-            <View style={styles.stat}>
-              <Text style={styles.statNumero}>{stats.citasTotales}</Text>
-              <Text style={styles.statLabel}>
-                cita{stats.citasTotales === 1 ? "" : "s"} agendada{stats.citasTotales === 1 ? "" : "s"}
-              </Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={styles.statNumero}>{stats.clientesAtendidos}</Text>
-              <Text style={styles.statLabel}>
-                cliente{stats.clientesAtendidos === 1 ? "" : "s"} atendido{stats.clientesAtendidos === 1 ? "" : "s"}
-              </Text>
-            </View>
+          <View style={styles.heroEtiqueta}>
+            <Text style={styles.heroEtiquetaTexto}>
+              {CATEGORIA_CITA_LABEL[normalizarCategoriaCita(negocio.categoria)]}
+            </Text>
           </View>
-        )}
+        </View>
 
-        {items.length > 0 && (
-          <Pressable style={styles.botonAgenda} onPress={() => irAReservar()}>
-            <Ionicons name="calendar-outline" size={16} color="#fff" />
-            <Text style={styles.botonAgendaTexto}>Consultar fechas</Text>
-          </Pressable>
-        )}
-
-        {/* ---------- Servicios ---------- */}
-        <Text style={styles.seccion}>Servicios</Text>
-        {items.length === 0 ? (
-          <Text style={styles.aviso}>
-            Este negocio todavía no publicó sus servicios.
-          </Text>
-        ) : (
-          [...grupos.entries()].map(([grupo, lista]) => (
-            <View key={grupo} style={{ marginTop: Spacing.two }}>
-              {grupos.size > 1 && <Text style={styles.grupo}>{grupo}</Text>}
-              <View style={styles.tarjetaLista}>
-                {lista.map((s, i) => (
-                  <View key={s.id} style={[styles.servicio, i > 0 && styles.servicioBorde]}>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.servicioNombre}>{s.nombre}</Text>
-                      <Text style={styles.servicioDetalle} numberOfLines={1}>
-                        {etiquetaMinutos(s.duracion_minutos ?? 30)}
-                        {s.descripcion ? ` · ${s.descripcion}` : ""}
-                      </Text>
-                    </View>
-                    <Text style={styles.servicioPrecio}>
-                      {s.precio !== null ? fmtColones(s.precio) : "Consultar"}
-                    </Text>
-                    <Pressable style={styles.servicioBoton} onPress={() => irAReservar(s.id)}>
-                      <Text style={styles.servicioBotonTexto}>Reservar</Text>
-                    </Pressable>
-                  </View>
-                ))}
+        {/* La identidad, montada sobre la foto: el encabezado del mockup. */}
+        <Tarjeta style={styles.identidad}>
+          <View style={styles.identidadFila}>
+            <Avatar nombre={negocio.nombre} tamano={46} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.nombre} numberOfLines={2}>
+                {negocio.nombre}
+              </Text>
+              <View style={styles.meta}>
+                {calif && calif.total > 0 && (
+                  <>
+                    <Ionicons name="star" size={12} color={Colors.accent} />
+                    <Text style={styles.metaFuerte}>{calif.promedio.toFixed(1)}</Text>
+                    <Text style={styles.metaTexto}>({calif.total})</Text>
+                  </>
+                )}
+                <Text style={styles.metaTexto} numberOfLines={1}>
+                  {calif && calif.total > 0 ? "· " : ""}
+                  {CATEGORIA_CITA_LABEL[normalizarCategoriaCita(negocio.categoria)]}
+                  {ubicacion ? ` · ${ubicacion}` : ""}
+                </Text>
               </View>
             </View>
-          ))
-        )}
+          </View>
+
+          {!!negocio.descripcion && (
+            <Text style={styles.descripcion}>{negocio.descripcion}</Text>
+          )}
+
+          {/* Los números que dan confianza — espejo de la web. */}
+          {stats && (stats.citasTotales > 0 || stats.clientesAtendidos > 0) && (
+            <View style={styles.statsFila}>
+              {stats.citasTotales > 0 && (
+                <Estado
+                  tono="gris"
+                  texto={`${stats.citasTotales} cita${stats.citasTotales === 1 ? "" : "s"} agendada${stats.citasTotales === 1 ? "" : "s"}`}
+                />
+              )}
+              {stats.clientesAtendidos > 0 && (
+                <Estado
+                  tono="gris"
+                  texto={`${stats.clientesAtendidos} cliente${stats.clientesAtendidos === 1 ? "" : "s"}`}
+                />
+              )}
+            </View>
+          )}
+
+          {items.length > 0 && (
+            <Boton
+              texto="Ver fechas disponibles"
+              tono="navy"
+              icono="calendar-outline"
+              onPress={() => irAReservar()}
+              style={{ marginTop: Spacing.three }}
+            />
+          )}
+        </Tarjeta>
+
+        {/* ---------- Servicios ---------- */}
+        <View style={styles.bloque}>
+          <Micro>Elegí tu servicio</Micro>
+          {items.length === 0 ? (
+            <Text style={styles.aviso}>Este negocio todavía no publicó sus servicios.</Text>
+          ) : (
+            [...grupos.entries()].map(([grupo, lista]) => (
+              <View key={grupo} style={{ gap: Spacing.two }}>
+                {grupos.size > 1 && <Text style={styles.grupo}>{grupo}</Text>}
+                <Lista>
+                  {lista.map((s, i) => (
+                    <FilaLista key={s.id} primera={i === 0}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.servicioNombre} numberOfLines={1}>
+                          {s.nombre}
+                        </Text>
+                        <Text style={styles.servicioDetalle} numberOfLines={1}>
+                          {etiquetaMinutos(s.duracion_minutos ?? 30)}
+                          {s.precio !== null ? ` · ${fmtColones(s.precio)}` : " · Consultar"}
+                          {s.descripcion ? ` · ${s.descripcion}` : ""}
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.servicioBoton,
+                          pressed && { opacity: 0.85 },
+                        ]}
+                        onPress={() => irAReservar(s.id)}
+                      >
+                        <Text style={styles.servicioBotonTexto}>Reservar</Text>
+                      </Pressable>
+                    </FilaLista>
+                  ))}
+                </Lista>
+              </View>
+            ))
+          )}
+        </View>
 
         {/* ---------- Equipo ---------- */}
         {equipo.length > 0 && (
-          <>
-            <Text style={styles.seccion}>El equipo</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.equipoFila}>
+          <View style={styles.bloque}>
+            <Micro>¿Con quién?</Micro>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.equipoFila}
+            >
               {equipo.map((m) => (
                 <Pressable
                   key={m.id}
                   onPress={() => setPerfilMiembro(m)}
-                  style={({ pressed }) => [styles.miembro, pressed && { transform: [{ scale: 1.06 }] }]}
+                  style={({ pressed }) => [styles.miembro, pressed && { opacity: 0.85 }]}
                 >
                   {m.foto_url ? (
                     <Image
@@ -306,11 +348,7 @@ export default function NegocioCitasScreen() {
                       contentFit="cover"
                     />
                   ) : (
-                    <View style={styles.miembroInicial}>
-                      <Text style={styles.miembroInicialTexto}>
-                        {m.nombre.trim().charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
+                    <Avatar nombre={m.nombre} tamano={68} />
                   )}
                   <Text style={styles.miembroNombre} numberOfLines={1}>
                     {m.nombre}
@@ -323,50 +361,53 @@ export default function NegocioCitasScreen() {
                 </Pressable>
               ))}
             </ScrollView>
-          </>
+          </View>
         )}
 
         {/* ---------- Horario ---------- */}
         {horario && (
-          <>
-            <Text style={styles.seccion}>Horario</Text>
-            <View style={styles.tarjetaLista}>
+          <View style={styles.bloque}>
+            <Micro>Horario</Micro>
+            <Lista>
               {DIAS_SEMANA_LABEL.map((dia, dow) => {
                 const d = horario[String(dow)];
                 return (
-                  <View key={dia} style={[styles.horarioFila, dow > 0 && styles.servicioBorde]}>
+                  <FilaLista key={dia} primera={dow === 0}>
                     <Text style={styles.horarioDia}>{dia}</Text>
                     <Text style={d ? styles.horarioHoras : styles.horarioCerrado}>
                       {d ? `${horaBonita(d.abre)} – ${horaBonita(d.cierra)}` : "Cerrado"}
                     </Text>
-                  </View>
+                  </FilaLista>
                 );
               })}
-            </View>
-          </>
+            </Lista>
+          </View>
         )}
 
         {/* ---------- Reseñas ---------- */}
         {resenas.length > 0 && (
-          <>
-            <Text style={styles.seccion}>Reseñas</Text>
+          <View style={styles.bloque}>
+            <Micro>Lo que dicen</Micro>
             {resenas.map((r, i) => (
-              <View key={i} style={styles.resena}>
+              <Tarjeta key={i} style={styles.resena}>
                 <View style={{ flexDirection: "row", gap: 1 }}>
                   {Array.from({ length: r.calificacion }, (_, j) => (
                     <Ionicons key={j} name="star" size={12} color={Colors.accent} />
                   ))}
                 </View>
                 {!!r.comentario && <Text style={styles.resenaTexto}>“{r.comentario}”</Text>}
-              </View>
+              </Tarjeta>
             ))}
-          </>
+          </View>
         )}
 
         {!!negocio.direccion_exacta && (
-          <View style={styles.direccion}>
-            <Ionicons name="location-outline" size={15} color="#3b7fc4" />
-            <Text style={styles.direccionTexto}>{negocio.direccion_exacta}</Text>
+          <View style={styles.bloque}>
+            <Micro>Dónde queda</Micro>
+            <Tarjeta style={styles.direccion}>
+              <Ionicons name="location-outline" size={16} color={Colors.blue} />
+              <Text style={styles.direccionTexto}>{negocio.direccion_exacta}</Text>
+            </Tarjeta>
           </View>
         )}
       </ScrollView>
@@ -391,34 +432,26 @@ export default function NegocioCitasScreen() {
                 />
               ) : (
                 <View style={[styles.perfilFoto, styles.perfilFotoVacia]}>
-                  <Text style={styles.perfilInicial}>
-                    {perfilMiembro.nombre.trim().charAt(0).toUpperCase()}
-                  </Text>
+                  <Text style={styles.perfilInicial}>{iniciales(perfilMiembro.nombre)}</Text>
                 </View>
               )}
               <Text style={styles.perfilNombre}>{perfilMiembro.nombre}</Text>
-              {!!perfilMiembro.rol && (
-                <Text style={styles.perfilRol}>{perfilMiembro.rol}</Text>
-              )}
-              <View style={styles.perfilChip}>
-                <Text style={styles.perfilChipTexto}>
-                  {stats?.citasPorMiembro[perfilMiembro.id] ?? 0} cita
-                  {(stats?.citasPorMiembro[perfilMiembro.id] ?? 0) === 1 ? "" : "s"}{" "}
-                  atendida{(stats?.citasPorMiembro[perfilMiembro.id] ?? 0) === 1 ? "" : "s"} en Bookea
-                </Text>
+              {!!perfilMiembro.rol && <Text style={styles.perfilRol}>{perfilMiembro.rol}</Text>}
+              <View style={{ marginTop: Spacing.three }}>
+                <Estado
+                  tono="gris"
+                  texto={`${stats?.citasPorMiembro[perfilMiembro.id] ?? 0} cita${(stats?.citasPorMiembro[perfilMiembro.id] ?? 0) === 1 ? "" : "s"} en Bookea`}
+                />
               </View>
-              <Pressable
-                style={styles.perfilBoton}
+              <Boton
+                texto={`Reservar con ${perfilMiembro.nombre.split(" ")[0]}`}
                 onPress={() => {
                   const m = perfilMiembro;
                   setPerfilMiembro(null);
                   irAReservar(undefined, m.id);
                 }}
-              >
-                <Text style={styles.perfilBotonTexto}>
-                  Reservar con {perfilMiembro.nombre.split(" ")[0]}
-                </Text>
-              </Pressable>
+                style={{ marginTop: Spacing.four }}
+              />
             </View>
           )}
         </View>
@@ -428,143 +461,94 @@ export default function NegocioCitasScreen() {
 }
 
 const styles = StyleSheet.create({
-  contenedor: { backgroundColor: Colors.cream, flex: 1 },
-  centro: { alignItems: "center", flex: 1, justifyContent: "center", padding: Spacing.five },
-  tituloEstado: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 16 },
-  contenido: { padding: Spacing.three, paddingBottom: Spacing.six },
+  contenedor: { backgroundColor: Colors.canvas, flex: 1 },
+  centro: {
+    alignItems: "center",
+    backgroundColor: Colors.canvas,
+    flex: 1,
+    justifyContent: "center",
+  },
+  centrado: { flex: 1, justifyContent: "center", paddingHorizontal: Spacing.three },
+  contenido: { gap: Spacing.four, padding: Spacing.three, paddingBottom: Spacing.six },
+
   hero: {
     aspectRatio: 16 / 9,
-    backgroundColor: "#e8f0f9",
-    borderRadius: 20,
+    backgroundColor: Colors.blueLight,
+    borderRadius: Radios.lg,
     overflow: "hidden",
   },
   heroFoto: { height: "100%", width: "100%" },
   heroVacio: { alignItems: "center", flex: 1, justifyContent: "center" },
-  badge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#e8f0f9",
-    borderRadius: 99,
-    marginTop: Spacing.three,
+  heroEtiqueta: {
+    backgroundColor: "rgba(255,255,255,0.94)",
+    borderRadius: 8,
+    left: 12,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
+    position: "absolute",
+    top: 12,
   },
-  badgeTexto: {
+  heroEtiquetaTexto: {
     color: Colors.navy,
     fontFamily: Fonts.extraBold,
-    fontSize: 10,
-    letterSpacing: 0.5,
+    fontSize: 9,
+    letterSpacing: 1,
     textTransform: "uppercase",
   },
-  nombre: {
-    color: Colors.ink,
-    fontFamily: Fonts.extraBold,
-    fontSize: 24,
-    letterSpacing: -0.5,
-    marginTop: 6,
-  },
-  filaDatos: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 6 },
-  dato: { alignItems: "center", flexDirection: "row", gap: 4 },
-  datoTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 13 },
-  datoSuave: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 13 },
+
+  identidad: { marginTop: -Spacing.four, padding: Spacing.three },
+  identidadFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
+  nombre: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 19, letterSpacing: -0.5 },
+  meta: { alignItems: "center", flexDirection: "row", gap: 3, marginTop: 3 },
+  metaFuerte: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
+  metaTexto: { color: Colors.inkSoft, flexShrink: 1, fontFamily: Fonts.medium, fontSize: 12.5 },
   descripcion: {
     color: Colors.inkSoft,
     fontFamily: Fonts.medium,
     fontSize: 13.5,
     lineHeight: 20,
-    marginTop: 10,
-  },
-  botonAgenda: {
-    alignItems: "center",
-    backgroundColor: Colors.navy,
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
     marginTop: Spacing.three,
-    paddingVertical: 14,
   },
-  botonAgendaTexto: { color: "#fff", fontFamily: Fonts.bold, fontSize: 14.5 },
-  seccion: {
-    color: Colors.ink,
-    fontFamily: Fonts.extraBold,
-    fontSize: 17,
-    letterSpacing: -0.3,
-    marginBottom: Spacing.two,
-    marginTop: Spacing.four,
-  },
+  statsFila: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: Spacing.three },
+
+  bloque: { gap: Spacing.two + 2 },
+  aviso: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 13 },
   grupo: {
-    color: "#3b7fc4",
+    color: Colors.blue,
     fontFamily: Fonts.extraBold,
     fontSize: 11,
-    letterSpacing: 0.6,
-    marginBottom: 6,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
   },
-  aviso: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 13 },
-  tarjetaLista: {
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  servicio: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 12,
-  },
-  servicioBorde: { borderTopColor: "#eef3fb", borderTopWidth: 1 },
-  servicioNombre: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 13.5 },
-  servicioDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12, marginTop: 1 },
-  servicioPrecio: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 13.5 },
+  servicioNombre: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
+  servicioDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12, marginTop: 2 },
+  // Acción secundaria en el navy de Servicios (no en naranja): el
+  // naranja es de Eventos y Restaurantes.
   servicioBoton: {
-    borderColor: Colors.navy,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    backgroundColor: Colors.blueLight,
+    borderRadius: Radios.sm,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
   },
-  servicioBotonTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
+  servicioBotonTexto: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 12.5 },
+
   equipoFila: { gap: Spacing.three, paddingRight: Spacing.three },
   miembro: { alignItems: "center", width: 92 },
-  miembroFoto: { borderRadius: 999, height: 72, width: 72 },
-  miembroInicial: {
-    alignItems: "center",
-    backgroundColor: Colors.navy,
-    borderRadius: 999,
-    height: 72,
-    justifyContent: "center",
-    width: 72,
-  },
-  miembroInicialTexto: { color: "#fff", fontFamily: Fonts.extraBold, fontSize: 24 },
+  miembroFoto: { borderRadius: Radios.full, height: 68, width: 68 },
   miembroNombre: {
     color: Colors.ink,
     fontFamily: Fonts.bold,
     fontSize: 12.5,
-    marginTop: 6,
+    marginTop: 8,
     textAlign: "center",
   },
   miembroRol: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11 },
-  horarioFila: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 9,
-  },
-  horarioDia: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 13 },
+
+  horarioDia: { color: Colors.ink, flex: 1, fontFamily: Fonts.bold, fontSize: 13 },
   horarioHoras: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 13 },
-  horarioCerrado: { color: "#9aa1ad", fontFamily: Fonts.semiBold, fontSize: 13 },
-  resena: {
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: Spacing.two,
-    padding: Spacing.three,
-  },
+  horarioCerrado: { color: Colors.inkMuted, fontFamily: Fonts.semiBold, fontSize: 13 },
+
+  resena: { padding: Spacing.three },
   resenaTexto: {
     color: Colors.ink,
     fontFamily: Fonts.medium,
@@ -572,17 +556,8 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 6,
   },
-  direccion: {
-    alignItems: "flex-start",
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    marginTop: Spacing.four,
-    padding: Spacing.three,
-  },
+
+  direccion: { alignItems: "flex-start", flexDirection: "row", gap: Spacing.two, padding: Spacing.three },
   direccionTexto: {
     color: Colors.inkSoft,
     flex: 1,
@@ -590,43 +565,20 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
   },
-  statsFila: { flexDirection: "row", gap: 10, marginTop: 12 },
-  stat: {
-    alignItems: "center",
-    backgroundColor: "#f4f7fd",
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-  },
-  statNumero: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 15 },
-  statLabel: { color: Colors.inkSoft, fontFamily: Fonts.semiBold, fontSize: 11.5 },
-  perfilVelo: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(10,18,42,0.5)",
-  },
-  perfilCentro: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-    padding: Spacing.four,
-  },
+
+  perfilVelo: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(10,18,42,0.5)" },
+  perfilCentro: { alignItems: "center", flex: 1, justifyContent: "center", padding: Spacing.four },
   perfilTarjeta: {
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 24,
+    backgroundColor: Colors.surface,
+    borderRadius: Radios.xl,
+    maxWidth: 340,
     padding: Spacing.four,
     width: "100%",
-    maxWidth: 340,
   },
-  perfilFoto: { borderRadius: 999, height: 104, width: 104 },
-  perfilFotoVacia: {
-    alignItems: "center",
-    backgroundColor: Colors.navy,
-    justifyContent: "center",
-  },
-  perfilInicial: { color: "#fff", fontFamily: Fonts.extraBold, fontSize: 36 },
+  perfilFoto: { borderRadius: Radios.full, height: 104, width: 104 },
+  perfilFotoVacia: { alignItems: "center", backgroundColor: Colors.navy, justifyContent: "center" },
+  perfilInicial: { color: "#ffffff", fontFamily: Fonts.extraBold, fontSize: 34 },
   perfilNombre: {
     color: Colors.ink,
     fontFamily: Fonts.extraBold,
@@ -635,21 +587,4 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   perfilRol: { color: Colors.inkSoft, fontFamily: Fonts.semiBold, fontSize: 13, marginTop: 2 },
-  perfilChip: {
-    backgroundColor: "#e8f0f9",
-    borderRadius: 99,
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  perfilChipTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
-  perfilBoton: {
-    alignItems: "center",
-    backgroundColor: Colors.accent,
-    borderRadius: 999,
-    marginTop: 16,
-    paddingVertical: 13,
-    width: "100%",
-  },
-  perfilBotonTexto: { color: "#fff", fontFamily: Fonts.bold, fontSize: 14 },
 });

@@ -33,15 +33,15 @@ export default function InvitacionesComparador() {
   const esPlus = nivel === "plus";
 
   return (
-    <div className="mt-8 rounded-[24px] border border-aventurea-line bg-white p-5 sm:p-7">
+    <div className="mt-8 rounded-2xl border border-aventurea-line bg-white p-5 sm:p-7">
       {/* Las pestañas */}
-      <div className="mx-auto flex w-fit rounded-full border border-aventurea-line bg-aventurea-cream-2 p-1">
+      <div className="mx-auto flex w-fit rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-1">
         {NIVELES.map((n) => (
           <button
             key={n.id}
             type="button"
             onClick={() => setNivel(n.id)}
-            className={`rounded-full px-5 py-2 text-[13px] font-bold transition-colors ${
+            className={`rounded-lg px-5 py-2 text-[13px] font-bold transition-colors ${
               nivel === n.id
                 ? "bg-aventurea-navy text-white"
                 : "text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -55,13 +55,13 @@ export default function InvitacionesComparador() {
       <div className="mt-6 flex flex-col items-center justify-center gap-6 sm:flex-row sm:gap-10">
         {/* La mini invitación */}
         <div
-          className={`w-[190px] shrink-0 rounded-[22px] p-[7px] transition-all duration-300 ${
+          className={`w-[190px] shrink-0 rounded-2xl p-[7px] transition-all duration-300 ${
             esPlus
               ? "bg-[linear-gradient(135deg,#d9b96a_0%,#16295e_45%,#ee7420_100%)] shadow-[0_18px_44px_-18px_rgba(217,185,106,0.55)]"
               : "bg-aventurea-ink shadow-[0_18px_44px_-20px_rgba(16,26,44,0.45)]"
           }`}
         >
-          <div className="relative overflow-hidden rounded-[16px] bg-[#16295e] px-3 pb-4 pt-5 text-center text-white">
+          <div className="relative overflow-hidden rounded-2xl bg-[#16295e] px-3 pb-4 pt-5 text-center text-white">
             <p className="text-[7px] font-bold uppercase tracking-[0.28em] text-[#f5b98a]">
               {esPlus ? "Edición premium" : "Nuestra fiesta"}
             </p>
@@ -120,7 +120,7 @@ export default function InvitacionesComparador() {
                 <span className="truncate text-[9px] font-semibold text-aventurea-ink-soft">
                   bookea.lat/cuenta · Tu panel
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#e1f0e6] px-2 py-0.5 text-[7.5px] font-extrabold uppercase tracking-wide text-[#1f7a4d]">
+                <span className="inline-flex items-center gap-1 rounded-lg bg-[#e1f0e6] px-2 py-0.5 text-[7.5px] font-extrabold uppercase tracking-wide text-[#1f7a4d]">
                   <span className="h-1 w-1 animate-pulse rounded-full bg-[#1f7a4d]" />
                   En vivo
                 </span>
@@ -161,10 +161,10 @@ export default function InvitacionesComparador() {
                   ))}
                 </div>
                 <div className="mt-2.5 flex gap-1.5">
-                  <span className="rounded-full bg-aventurea-navy/10 px-2 py-0.5 text-[8px] font-extrabold text-aventurea-navy">
+                  <span className="rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[8px] font-extrabold text-aventurea-navy">
                     PDF imprimible
                   </span>
-                  <span className="rounded-full bg-aventurea-navy/10 px-2 py-0.5 text-[8px] font-extrabold text-aventurea-navy">
+                  <span className="rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[8px] font-extrabold text-aventurea-navy">
                     Lista de invitados
                   </span>
                 </div>

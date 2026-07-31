@@ -1,14 +1,13 @@
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing, type Vertical } from "@/constants/theme";
 
-type Vertical = "eventos" | "citas" | "hospedajes" | "restaurantes";
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
 const VERTICALES: { id: Vertical; icono: IconoNombre; label: string; ruta: string }[] = [
   { id: "eventos", icono: "sparkles-outline", label: "Eventos", ruta: "/" },
-  { id: "citas", icono: "time-outline", label: "Citas", ruta: "/citas" },
+  { id: "citas", icono: "time-outline", label: "Servicios", ruta: "/citas" },
   { id: "hospedajes", icono: "home-outline", label: "Hospedajes", ruta: "/hospedajes" },
   {
     id: "restaurantes",
@@ -76,15 +75,15 @@ const styles = StyleSheet.create({
   chip: {
     alignItems: "center",
     backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 999,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
     borderWidth: 1,
     flexDirection: "row",
     gap: 6,
-    height: 34,
-    paddingHorizontal: 13,
+    height: 36,
+    paddingHorizontal: 14,
   },
   chipActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  texto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
+  texto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 12.5 },
   textoActivo: { color: "#ffffff" },
 });

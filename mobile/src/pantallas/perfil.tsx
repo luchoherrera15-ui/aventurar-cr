@@ -969,7 +969,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
     marginTop: 6,
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: Colors.blueLight,
     paddingHorizontal: 11,
     paddingVertical: 5,

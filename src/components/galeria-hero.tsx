@@ -74,7 +74,7 @@ export default function GaleriaHeroFotos({
 
         {previa.length > 1 && (
           <>
-            <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white backdrop-blur-sm">
+            <span className="pointer-events-none absolute bottom-3 right-3 rounded-lg bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white backdrop-blur-sm">
               {visible + 1} / {previa.length}
             </span>
             <div className="pointer-events-none absolute bottom-3.5 left-1/2 flex -translate-x-1/2 gap-1.5">
@@ -104,7 +104,7 @@ export default function GaleriaHeroFotos({
       )}
 
       {/* ---------- Desktop: 1 grande + hasta 4 chicas ---------- */}
-      <div className="relative hidden gap-2 overflow-hidden sm:grid sm:grid-cols-4 sm:grid-rows-2 sm:rounded-[13px]">
+      <div className="relative hidden gap-2 overflow-hidden sm:grid sm:grid-cols-4 sm:grid-rows-2 sm:rounded-xl">
         <button
           type="button"
           onClick={() => setAbierta(0)}

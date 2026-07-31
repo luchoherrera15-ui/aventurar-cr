@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   pestana: {
     borderColor: Colors.line,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     borderWidth: 1,
     flex: 1,
     paddingVertical: 9,
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
   botonPrimario: {
     alignItems: "center",
     backgroundColor: Colors.navy,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     marginTop: Spacing.one,
     paddingVertical: 13,
   },

@@ -133,7 +133,7 @@ export default async function RestaurantePage({
         </Link>
 
         {/* La portada */}
-        <div className="mt-3 overflow-hidden rounded-[24px] border border-aventurea-line bg-white">
+        <div className="mt-3 overflow-hidden rounded-2xl border border-aventurea-line bg-white">
           <div className="relative aspect-[16/7] bg-aventurea-blue-light">
             {local.foto_url ? (
               // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
@@ -168,7 +168,7 @@ export default async function RestaurantePage({
                 )}
               </div>
               {calif && (
-                <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-aventurea-cream-2 px-3 py-1.5 text-[13px] font-bold text-aventurea-ink">
+                <span className="flex shrink-0 items-center gap-1.5 rounded-xl bg-aventurea-cream-2 px-3 py-1.5 text-[13px] font-bold text-aventurea-ink">
                   <IconStar className="h-4 w-4 text-aventurea-orange" />
                   {Number(calif.promedio).toFixed(1)}
                   <span className="font-semibold text-aventurea-ink-soft">

@@ -150,7 +150,7 @@ export default function AgendasExternas({
                 type="button"
                 disabled={pendiente && ocupada === a.id}
                 onClick={() => resincronizar(a.id)}
-                className="rounded-full border border-aventurea-line px-3 py-1 text-[11.5px] font-bold text-aventurea-navy hover:border-aventurea-navy disabled:opacity-50"
+                className="rounded-lg border border-aventurea-line px-3 py-1 text-[11.5px] font-bold text-aventurea-navy hover:border-aventurea-navy disabled:opacity-50"
               >
                 {pendiente && ocupada === a.id ? "Sincronizando…" : "Sincronizar ahora"}
               </button>

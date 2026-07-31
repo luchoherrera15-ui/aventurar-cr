@@ -153,7 +153,7 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
               <p className="mt-2 text-2xl font-bold leading-tight tabular-nums text-aventurea-ink">
                 {fmtColones(d.total)}
               </p>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-aventurea-cream-2">
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-xl bg-aventurea-cream-2">
                 <div
                   className={`h-full rounded-full ${m.color} transition-[width] duration-300`}
                   style={{ width: `${pct}%` }}
@@ -298,7 +298,7 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                      className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-bold ${
                         c.confirmado
                           ? "bg-[#e1f0e6] text-[#1f7a4d]"
                           : "bg-amber-100 text-amber-800"

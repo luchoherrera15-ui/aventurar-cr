@@ -99,7 +99,7 @@ export default function EquipoNegocio({
             onClick={() => setPerfil(null)}
             className="absolute inset-0 cursor-default bg-[rgba(10,18,42,0.5)] backdrop-blur-[2px]"
           />
-          <div className="relative w-full max-w-[380px] rounded-[24px] bg-white p-7 text-center shadow-[0_40px_100px_-32px_rgba(6,12,32,0.6)]">
+          <div className="relative w-full max-w-[380px] rounded-2xl bg-white p-7 text-center shadow-[0_40px_100px_-32px_rgba(6,12,32,0.6)]">
             <button
               type="button"
               aria-label="Cerrar"
@@ -128,7 +128,7 @@ export default function EquipoNegocio({
               </p>
             )}
 
-            <p className="mx-auto mt-4 w-fit rounded-full bg-aventurea-blue-light px-4 py-1.5 text-[12.5px] font-bold text-aventurea-navy">
+            <p className="mx-auto mt-4 w-fit rounded-xl bg-aventurea-blue-light px-4 py-1.5 text-[12.5px] font-bold text-aventurea-navy">
               {citasPorMiembro[perfil.id] ?? 0} cita
               {(citasPorMiembro[perfil.id] ?? 0) === 1 ? "" : "s"} atendida
               {(citasPorMiembro[perfil.id] ?? 0) === 1 ? "" : "s"} en Bookea
@@ -137,7 +137,7 @@ export default function EquipoNegocio({
             <button
               type="button"
               onClick={() => reservarCon(perfil)}
-              className="mt-5 flex h-11 w-full items-center justify-center rounded-full bg-aventurea-orange text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              className="mt-5 flex h-11 w-full items-center justify-center rounded-xl bg-aventurea-orange text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
             >
               Reservar con {perfil.nombre.split(" ")[0]}
             </button>

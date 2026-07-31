@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import PaquetesInvitaciones from "@/components/paquetes-invitaciones";
 import { IconChevronDown } from "@/components/icons";
+import { hoyISOCR } from "@/lib/fechas";
+import {
+  MESES_RETENCION_INVITACION,
+  fechaBorradoBonita,
+  fechaBorradoInvitacion,
+  invitacionFinalizada,
+} from "@/lib/invitaciones-retencion";
 
 type FilaInvitacion = {
   id: string;
@@ -15,11 +22,66 @@ type FilaInvitacion = {
 
 type FilaAlbum = { id: string; slug: string; titulo: string; estado: string };
 
+/** La fecha del evento, en largo: "jueves, 30 de julio de 2026". */
+function fechaEventoLarga(iso: string): string {
+  return new Date(iso + "T00:00:00").toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/**
+ * Una invitación en la lista. La misma tarjeta sirve para las próximas
+ * y para las finalizadas: lo único que cambia es la segunda línea —
+ * en las finalizadas dice cuándo se borra, para que nadie descubra la
+ * política el día que su invitación ya no está.
+ */
+function TarjetaInvitacion({ inv }: { inv: FilaInvitacion }) {
+  const finalizada = invitacionFinalizada(inv.fecha_evento, hoyISOCR());
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-aventurea-line bg-white p-4">
+      <div>
+        <p className="text-[14.5px] font-bold text-aventurea-ink">{inv.titulo}</p>
+        <p className="text-[12.5px] text-aventurea-ink-soft">
+          {fechaEventoLarga(inv.fecha_evento)}
+          {inv.estado !== "activa" ? ` · ${inv.estado}` : ""}
+        </p>
+        {finalizada && (
+          <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft/80">
+            Se borra el {fechaBorradoBonita(fechaBorradoInvitacion(inv.fecha_evento))}
+          </p>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Link
+          href={`/i/${inv.slug}`}
+          className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
+        >
+          Ver invitación
+        </Link>
+        <Link
+          href={`/cuenta/evento/${inv.id}`}
+          className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-navy-2"
+        >
+          Abrir mi espacio
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 /**
  * El espacio fijo de Invitaciones y álbumes del cliente: siempre
  * accesible desde /cuenta aunque todavía no tenga nada asignado —
  * en ese caso vende el producto. Tolera que las migraciones 0066/0068
  * no estén corridas (las consultas fallan y se listan vacíos).
+ *
+ * Pasado el evento, la invitación baja sola a la carpeta de
+ * finalizadas (ver `@/lib/invitaciones-retencion`): la lista de arriba
+ * queda con lo que todavía va a pasar, que es lo que el cliente entra
+ * a ver. Los álbumes no se mueven — duran años y son para volver.
  */
 export default async function CuentaInvitacionesPage() {
   const supabase = await createClient();
@@ -43,6 +105,15 @@ export default async function CuentaInvitacionesPage() {
   const invitaciones = (invRes.data ?? []) as FilaInvitacion[];
   const albumes = (albRes.data ?? []) as FilaAlbum[];
 
+  // La consulta ya vino por fecha ascendente: las próximas quedan con
+  // la más cercana primero, y las finalizadas se dan vuelta para que
+  // arriba esté el evento más reciente.
+  const hoy = hoyISOCR();
+  const proximas = invitaciones.filter((i) => !invitacionFinalizada(i.fecha_evento, hoy));
+  const finalizadas = invitaciones
+    .filter((i) => invitacionFinalizada(i.fecha_evento, hoy))
+    .reverse();
+
   return (
     <div className="min-h-screen bg-aventurea-cream">
       <SiteHeader breadcrumb="Invitaciones y álbumes" ancho="max-w-[720px]" />
@@ -60,7 +131,7 @@ export default async function CuentaInvitacionesPage() {
 
         {invitaciones.length === 0 && albumes.length === 0 ? (
           <div className="flex flex-col gap-8">
-            <div className="rounded-[24px] border border-aventurea-line bg-white p-8 text-center">
+            <div className="rounded-2xl border border-aventurea-line bg-white p-8 text-center">
               <p className="titulo text-lg text-aventurea-ink">
                 Todavía no tenés invitaciones ni álbumes
               </p>
@@ -84,38 +155,8 @@ export default async function CuentaInvitacionesPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {invitaciones.map((inv) => (
-              <div
-                key={inv.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-aventurea-line bg-white p-4"
-              >
-                <div>
-                  <p className="text-[14.5px] font-bold text-aventurea-ink">
-                    {inv.titulo}
-                  </p>
-                  <p className="text-[12.5px] text-aventurea-ink-soft">
-                    {new Date(inv.fecha_evento + "T00:00:00").toLocaleDateString(
-                      "es-CR",
-                      { weekday: "long", day: "numeric", month: "long", year: "numeric" },
-                    )}
-                    {inv.estado !== "activa" ? ` · ${inv.estado}` : ""}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Link
-                    href={`/i/${inv.slug}`}
-                    className="rounded-full border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
-                  >
-                    Ver invitación
-                  </Link>
-                  <Link
-                    href={`/cuenta/evento/${inv.id}`}
-                    className="rounded-full bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-navy-2"
-                  >
-                    Abrir mi espacio
-                  </Link>
-                </div>
-              </div>
+            {proximas.map((inv) => (
+              <TarjetaInvitacion key={inv.id} inv={inv} />
             ))}
             {albumes.map((alb) => (
               <div
@@ -132,12 +173,39 @@ export default async function CuentaInvitacionesPage() {
                 </div>
                 <Link
                   href={`/a/${alb.slug}`}
-                  className="rounded-full bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-navy-2"
+                  className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-navy-2"
                 >
                   Ver álbum
                 </Link>
               </div>
             ))}
+
+            {/* La carpeta de lo que ya pasó. Cerrada por defecto para
+                no competir con los eventos que vienen — salvo que no
+                haya nada más que mostrar, ahí se abre sola para que la
+                página no se vea vacía. */}
+            {finalizadas.length > 0 && (
+              <details
+                className="group mt-3"
+                open={proximas.length === 0 && albumes.length === 0}
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-aventurea-line bg-white px-5 py-4 text-[14px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy hover:text-aventurea-navy [&::-webkit-details-marker]:hidden">
+                  Invitaciones finalizadas ({finalizadas.length})
+                  <IconChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="mb-3 mt-3 px-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+                  Tus eventos que ya pasaron. El link sigue funcionando y la
+                  lista de confirmados queda acá {MESES_RETENCION_INVITACION}{" "}
+                  meses después del evento; luego se borran para siempre. Si
+                  querés guardar algo, descargalo antes de esa fecha.
+                </p>
+                <div className="flex flex-col gap-3">
+                  {finalizadas.map((inv) => (
+                    <TarjetaInvitacion key={inv.id} inv={inv} />
+                  ))}
+                </div>
+              </details>
+            )}
 
             {/* Los paquetes viven cerrados: quien ya tiene su evento
                 entra a ver confirmados, no a que le vendan de nuevo.

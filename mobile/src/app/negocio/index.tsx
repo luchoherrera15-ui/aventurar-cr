@@ -184,13 +184,13 @@ const styles = StyleSheet.create({
   foto: { width: 52, height: 52, borderRadius: 12 },
   categoria: {
     fontSize: 10,
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.extraBold,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 1.7,
     color: Colors.accent,
   },
   nombre: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink },
   provincia: { fontSize: 12, color: Colors.inkSoft },
-  badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
+  badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeTexto: { color: "#ffffff", fontSize: 9.5, fontFamily: Fonts.bold },
 });

@@ -337,7 +337,7 @@ export default function CatalogoPaquetes({
                   · {delGrupo.length}
                 </span>
                 {seleccionadosSeccion > 0 && (
-                  <span className="shrink-0 rounded-full bg-aventurea-orange px-2 py-0.5 text-[11px] font-bold text-white">
+                  <span className="shrink-0 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[11px] font-bold text-white">
                     {seleccionadosSeccion} elegido
                     {seleccionadosSeccion === 1 ? "" : "s"}
                   </span>

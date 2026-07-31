@@ -159,7 +159,7 @@ export default function AgendaCitas({
                 </p>
               </div>
               <span
-                className={`shrink-0 rounded-full px-3 py-1 text-[11.5px] font-bold ${ESTADO_BADGE[cita.estado]}`}
+                className={`shrink-0 rounded-lg px-3 py-1 text-[11.5px] font-bold ${ESTADO_BADGE[cita.estado]}`}
               >
                 {ESTADO_LABEL[cita.estado]}
               </span>

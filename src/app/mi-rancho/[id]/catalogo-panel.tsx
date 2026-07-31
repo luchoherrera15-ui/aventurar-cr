@@ -578,12 +578,12 @@ export default function CatalogoPanel({
                   <p className="text-[14px] font-bold text-aventurea-ink">
                     {item.nombre}
                     {item.grupo && (
-                      <span className="ml-2 rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
+                      <span className="ml-2 rounded-lg bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
                         {item.grupo}
                       </span>
                     )}
                     {!item.activo && (
-                      <span className="ml-2 rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-zinc-500">
+                      <span className="ml-2 rounded-lg bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-zinc-500">
                         Pausado
                       </span>
                     )}

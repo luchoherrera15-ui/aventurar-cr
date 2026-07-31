@@ -168,7 +168,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
           </p>
         </div>
         {/* Lo gastado conversando, siempre a la vista. */}
-        <div className="shrink-0 rounded-full bg-white/10 px-3.5 py-1.5 text-right">
+        <div className="shrink-0 rounded-xl bg-white/10 px-3.5 py-1.5 text-right">
           <p className="text-[10px] font-bold uppercase tracking-wide text-white/60">
             Gastado en chat
           </p>

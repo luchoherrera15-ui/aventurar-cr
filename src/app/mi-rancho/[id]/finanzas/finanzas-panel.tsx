@@ -287,7 +287,7 @@ function SemanasCard({ resumen }: { resumen: ResumenFinanzas }) {
                     {s.rango}
                   </span>
                   {s.esActual && (
-                    <span className="ml-2 rounded-full bg-aventurea-ink px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+                    <span className="ml-2 rounded-lg bg-aventurea-ink px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
                       Esta semana
                     </span>
                   )}

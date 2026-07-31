@@ -199,7 +199,7 @@ export default async function EspacioEventoPage({
                 Ver invitación
               </a>
             ) : (
-              <span className="shrink-0 rounded-full bg-aventurea-cream px-2.5 py-1 text-[10.5px] font-bold uppercase text-aventurea-ink-soft">
+              <span className="shrink-0 rounded-lg bg-aventurea-cream px-2.5 py-1 text-[10.5px] font-bold uppercase text-aventurea-ink-soft">
                 {inv.estado as string}
               </span>
             )}
@@ -434,7 +434,7 @@ function FilaRsvp({
           </span>
         )}
         <span
-          className={`ml-auto rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase ${
+          className={`ml-auto rounded-lg px-2.5 py-0.5 text-[10.5px] font-bold uppercase ${
             rsvp.asistira
               ? "bg-aventurea-green-light text-aventurea-green"
               : "bg-aventurea-cream-2 text-aventurea-ink-soft"

@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
   },
   pestana: {
     borderColor: Colors.line,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     borderWidth: 1,
     flex: 1,
     paddingVertical: 9,
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
   botonChico: {
     alignItems: "center",
     backgroundColor: Colors.navy,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     flexDirection: "row",
     gap: 4,
     minWidth: 84,
@@ -850,7 +850,7 @@ const styles = StyleSheet.create({
   categorias: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   categoria: {
     borderColor: Colors.lineFuerte,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -869,7 +869,7 @@ const styles = StyleSheet.create({
   botonGuardar: {
     alignItems: "center",
     backgroundColor: Colors.accent,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     paddingVertical: 14,
   },
   botonGuardarTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 14.5 },

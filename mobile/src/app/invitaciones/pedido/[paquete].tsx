@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
   opciones: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   opcion: {
     borderColor: Colors.lineFuerte,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 13,
     paddingVertical: 8,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   botonEnviar: {
     alignItems: "center",
     backgroundColor: Colors.accent,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     paddingVertical: 15,
   },
   botonEnviarTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },

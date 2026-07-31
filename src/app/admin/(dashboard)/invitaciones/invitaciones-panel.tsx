@@ -675,7 +675,7 @@ export default function InvitacionesPanel({
                       </td>
                       <td className="px-5 py-3.5">
                         <span
-                          className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase ${ESTADO_CHIP[i.estado] ?? "bg-aventurea-cream-2 text-aventurea-ink-soft"}`}
+                          className={`rounded-lg px-2.5 py-1 text-[10.5px] font-bold uppercase ${ESTADO_CHIP[i.estado] ?? "bg-aventurea-cream-2 text-aventurea-ink-soft"}`}
                         >
                           {i.estado}
                         </span>

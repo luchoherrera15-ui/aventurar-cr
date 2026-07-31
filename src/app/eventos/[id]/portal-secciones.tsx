@@ -104,7 +104,7 @@ export function ResumenSeccion({
             key={d.titulo}
             data-reveal
             style={{ "--reveal-delay": `${i * 80}ms` } as React.CSSProperties}
-            className="flex items-center gap-3.5 rounded-[24px] border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(16,26,44,0.15)]"
+            className="flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(16,26,44,0.15)]"
           >
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange [&_svg]:h-5 [&_svg]:w-5">
               {d.icono}
@@ -220,7 +220,7 @@ export function DetallesSeccion({
               key={g.titulo}
               data-reveal
               style={{ "--reveal-delay": `${gi * 90}ms` } as React.CSSProperties}
-              className="rounded-[24px] border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_1px_2px_rgba(16,26,44,0.04)]"
+              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_1px_2px_rgba(16,26,44,0.04)]"
             >
               <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                 {g.titulo}
@@ -295,7 +295,7 @@ export function ResenasSeccion({
           {resenas.map((r) => (
             <div
               key={r.id}
-              className="rounded-[24px] border border-aventurea-line bg-aventurea-surface p-5"
+              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5"
             >
               <div className="flex items-center gap-1" aria-label={`${r.calificacion} de 5`}>
                 {Array.from({ length: 5 }, (_, i) => (

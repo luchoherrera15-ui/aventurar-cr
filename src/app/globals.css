@@ -78,6 +78,29 @@
   }
 }
 
+/*
+ * Escala de radios de la marca. El sitio venía de una etapa muy
+ * redondeada (píldoras de 9999px en cada botón, bloques de 32px); el
+ * lenguaje nuevo es el de los mockups de /publicar: rectángulos con la
+ * esquina apenas suavizada. Son los MISMOS números que ya usa la app
+ * (`Radios` en mobile/src/constants/theme.ts), para que web y teléfono
+ * se lean como un solo producto:
+ *
+ *   chips y etiquetas ...... 8px   (rounded-lg)
+ *   botones e inputs ....... 12px  (rounded-xl)
+ *   tarjetas ............... 14px  (rounded-2xl)
+ *   bloques y secciones .... 18px  (rounded-3xl)
+ *   hojas y modales ........ 24px  (rounded-4xl)
+ *
+ * `rounded-full` queda SOLO para lo que de verdad es un círculo:
+ * avatares, puntos, orbes, contadores y barras de progreso.
+ */
+@theme {
+  --radius-2xl: 14px;
+  --radius-3xl: 18px;
+  --radius-4xl: 24px;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -313,12 +336,13 @@ body {
 }
 
 /* --- La línea de diseño "bento" (nacida en /lealtad y /publicar) ------
-   Bloques grandes de 32px de radio sobre el lienzo crema, con cuatro
+   Bloques grandes de 18px de radio sobre el lienzo crema, con cuatro
    pieles: navy (protagonista), naranja (acento), azul suave (secciones
-   de apoyo) y blanco con borde (contenido). Los botones son píldoras.
+   de apoyo) y blanco con borde (contenido). Los botones son rectángulos
+   de esquina suave (12px), como los de los mockups de teléfono.
    TODO el sitio usa estas piezas — no inventar variantes por página. */
 .bento {
-  border-radius: 32px;
+  border-radius: 18px;
   overflow: hidden;
   position: relative;
 }
@@ -347,13 +371,13 @@ body {
   background-color: color-mix(in srgb, var(--color-aventurea-navy-3) 60%, transparent);
   filter: blur(40px);
 }
-/* Botones píldora de la marca. */
+/* Botones de la marca: rectángulo de esquina suave, nunca píldora. */
 .btn-naranja {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 9999px;
+  border-radius: 12px;
   background-color: var(--color-aventurea-orange);
   color: #fff;
   font-weight: 700;
@@ -369,7 +393,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 9999px;
+  border-radius: 12px;
   background-color: #fff;
   color: var(--color-aventurea-navy);
   font-weight: 700;
@@ -386,7 +410,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 9999px;
+  border-radius: 12px;
   border: 1px solid var(--color-aventurea-navy);
   color: var(--color-aventurea-navy);
   font-weight: 700;

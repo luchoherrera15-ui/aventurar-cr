@@ -11,7 +11,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,9 +22,12 @@ import {
   interpretarBusqueda,
   normalizarTexto,
 } from "@/lib/busqueda";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import ChipsVerticales from "@/components/chips-verticales";
+import Buscador, { ChipFiltro } from "@/components/buscador";
+import TarjetaNegocio from "@/components/tarjeta-negocio";
+import { Boton, ChipCategoria, Encabezado, Micro, Vacio } from "@/components/ui";
 import {
   CANTONES,
   CATEGORIA_LABEL,
@@ -53,7 +55,6 @@ const CATEGORIA_ICONO: Record<Categoria, IconoNombre> = {
   decoracion: "balloon-outline",
   otros: "color-wand-outline",
 };
-
 
 export type Fila = Pick<
   Rancho,
@@ -97,8 +98,12 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
 
   const invitadosNum = parseInt(filtroInvitados.replace(/\D/g, ""), 10) || 0;
   const precioMaxNum = parseInt(filtroPrecioMax.replace(/\D/g, ""), 10) || 0;
-  const hayFiltros =
-    filtroProvincia !== null || filtroCanton !== null || invitadosNum > 0 || precioMaxNum > 0;
+  const filtrosPuestos =
+    (filtroProvincia !== null ? 1 : 0) +
+    (filtroCanton !== null ? 1 : 0) +
+    (invitadosNum > 0 ? 1 : 0) +
+    (precioMaxNum > 0 ? 1 : 0);
+  const hayFiltros = filtrosPuestos > 0;
 
   function limpiarFiltros() {
     setFiltroProvincia(null);
@@ -323,40 +328,43 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
     })).filter((r) => r.items.length > 0);
   }, [ranchos, coincide]);
 
+  const renderTarjeta = (item: Fila, ancho: "riel" | "completo") => {
+    const subLabel = item.subcategoria
+      ? SUBCATEGORIAS[item.categoria]?.find((s) => s.id === item.subcategoria)?.label
+      : null;
+    return (
+      <TarjetaNegocio
+        ancho={ancho}
+        nombre={item.nombre}
+        foto={item.foto_url}
+        iconoVacio={CATEGORIA_ICONO[item.categoria]}
+        etiqueta={subLabel ?? CATEGORIA_LABEL[item.categoria]}
+        calificacion={calificaciones[item.id] ?? null}
+        ubicacion={[item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"}
+        precio={item.precio_desde !== null ? fmtColones(item.precio_desde) : null}
+        cta={item.categoria === "lugares" ? "Reservar fecha" : "Reservar"}
+        favorito={favoritos.has(item.id)}
+        onToggleFavorito={() => alternarFavorito(item.id)}
+        onPress={() => router.push(`/rancho/${item.id}`)}
+      />
+    );
+  };
+
   return (
     <View style={styles.contenedor}>
       {/* Sin barra nativa en las pestañas: el buscador arranca justo
-          debajo del notch, como el Explore de Airbnb. */}
+          debajo del notch. */}
       <View style={[styles.busquedaArea, { paddingTop: insets.top + Spacing.three }]}>
-        {/* Cambio de vertical al toque, sin pasar por la portada:
-            Eventos (esta pantalla), Citas y Hospedajes. */}
+        {/* Cambio de vertical al toque, sin pasar por la portada. */}
         <ChipsVerticales activo="eventos" />
-        <View style={styles.busquedaFila}>
-          <View style={[styles.busquedaPill, { flex: 1 }]}>
-            <Ionicons name="search" size={17} color={Colors.ink} />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Buscá por nombre, zona o fecha (ej. 3 de agosto)"
-              placeholderTextColor={Colors.inkSoft}
-              style={styles.busquedaInput}
-            />
-          </View>
-          {/* El botón de filtros: zona, invitados y precio. Con algún
-              filtro activo se pinta navy para que se note de lejos. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Filtros"
-            onPress={() => setModalFiltros(true)}
-            style={[styles.botonFiltros, hayFiltros && styles.botonFiltrosActivo]}
-          >
-            <Ionicons
-              name="options-outline"
-              size={19}
-              color={hayFiltros ? "#ffffff" : Colors.navy}
-            />
-          </Pressable>
-        </View>
+
+        <Buscador
+          valor={query}
+          onCambiar={setQuery}
+          placeholder="Buscá por nombre, zona o fecha (ej. 3 de agosto)"
+          filtros={{ activos: filtrosPuestos, onPress: () => setModalFiltros(true) }}
+        />
+
         {interpretada.fecha && (
           <View style={styles.fechaDetectada}>
             <Ionicons name="calendar-outline" size={13} color={Colors.accent} />
@@ -365,6 +373,7 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
             </Text>
           </View>
         )}
+
         {/* Los filtros activos como chips removibles: un toque en la ×
             quita ese filtro sin abrir el panel. */}
         {hayFiltros && (
@@ -376,8 +385,8 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
             keyboardShouldPersistTaps="handled"
           >
             {filtroProvincia && (
-              <ChipFiltroActivo
-                label={filtroProvincia}
+              <ChipFiltro
+                texto={filtroProvincia}
                 onQuitar={() => {
                   setFiltroProvincia(null);
                   setFiltroCanton(null);
@@ -385,17 +394,17 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
               />
             )}
             {filtroCanton && (
-              <ChipFiltroActivo label={filtroCanton} onQuitar={() => setFiltroCanton(null)} />
+              <ChipFiltro texto={filtroCanton} onQuitar={() => setFiltroCanton(null)} />
             )}
             {invitadosNum > 0 && (
-              <ChipFiltroActivo
-                label={`${invitadosNum}+ invitados`}
+              <ChipFiltro
+                texto={`${invitadosNum}+ invitados`}
                 onQuitar={() => setFiltroInvitados("")}
               />
             )}
             {precioMaxNum > 0 && (
-              <ChipFiltroActivo
-                label={`Hasta ${fmtColones(precioMaxNum)}`}
+              <ChipFiltro
+                texto={`Hasta ${fmtColones(precioMaxNum)}`}
                 onQuitar={() => setFiltroPrecioMax("")}
               />
             )}
@@ -411,18 +420,22 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
           botón de volver. */}
       <View style={styles.categoriasArea}>
         {filtro === "todos" ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriasFila}>
-            <CategoriaTab
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriasFila}
+          >
+            <ChipCategoria
               icono="compass-outline"
-              label="Todos"
+              texto="Todos"
               activo
               onPress={() => elegirCategoria("todos")}
             />
             {CATEGORIAS.map((cat) => (
-              <CategoriaTab
+              <ChipCategoria
                 key={cat}
                 icono={CATEGORIA_ICONO[cat]}
-                label={CATEGORIA_LABEL[cat]}
+                texto={CATEGORIA_LABEL[cat]}
                 activo={false}
                 onPress={() => elegirCategoria(cat)}
               />
@@ -432,31 +445,26 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subcatFila}
+            contentContainerStyle={styles.categoriasFila}
           >
             <Pressable style={styles.volverChip} onPress={() => elegirCategoria("todos")}>
               <Ionicons name="chevron-back" size={14} color={Colors.ink} />
               <Text style={styles.volverTexto}>Volver</Text>
             </Pressable>
-            <View style={styles.subcatCategoria}>
-              <Ionicons name={CATEGORIA_ICONO[filtro]} size={15} color={Colors.accent} />
-              <Text style={styles.subcatCategoriaTexto}>{CATEGORIA_LABEL[filtro]}</Text>
-            </View>
-            <SubcatPill
-              label={`Todo (${totalCategoria})`}
+            <ChipCategoria
+              icono={CATEGORIA_ICONO[filtro]}
+              texto={`Todo (${totalCategoria})`}
               activo={!subcategoria}
               onPress={() => setSubcategoria("")}
             />
             {SUBCATEGORIAS[filtro]
               .filter((s) => (conteoSubcategorias[s.id] ?? 0) > 0)
               .map((s) => (
-                <SubcatPill
+                <ChipCategoria
                   key={s.id}
-                  label={`${s.label} (${conteoSubcategorias[s.id]})`}
+                  texto={`${s.label} (${conteoSubcategorias[s.id]})`}
                   activo={subcategoria === s.id}
-                  onPress={() =>
-                    setSubcategoria((prev) => (prev === s.id ? "" : s.id))
-                  }
+                  onPress={() => setSubcategoria((prev) => (prev === s.id ? "" : s.id))}
                 />
               ))}
           </ScrollView>
@@ -471,7 +479,12 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
 
       {error && (
         <View style={styles.centro}>
-          <Text style={styles.error}>{error}</Text>
+          <Vacio
+            icono="cloud-offline-outline"
+            titulo="No pudimos cargar el directorio"
+            texto={error}
+            accion={{ texto: "Reintentar", onPress: () => cargar() }}
+          />
         </View>
       )}
 
@@ -483,22 +496,20 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
           onRefresh={alRefrescar}
           refreshing={refrescando}
           ListEmptyComponent={
-            <View style={styles.centro}>
-              <Text style={styles.vacioTexto}>
-                No encontramos proveedores con esa búsqueda.
-              </Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <TarjetaRancho
-              item={item}
-              ancho="completo"
-              calificacion={calificaciones[item.id] ?? null}
-              onPress={() => router.push(`/rancho/${item.id}`)}
-              favorito={favoritos.has(item.id)}
-              onToggleFavorito={() => alternarFavorito(item.id)}
+            <Vacio
+              titulo="No encontramos proveedores con esa búsqueda"
+              texto="Probá con otra palabra, otra zona, o quitá los filtros."
+              accion={{
+                texto: "Limpiar la búsqueda",
+                onPress: () => {
+                  setQuery("");
+                  elegirCategoria("todos");
+                  limpiarFiltros();
+                },
+              }}
             />
-          )}
+          }
+          renderItem={({ item }) => renderTarjeta(item, "completo")}
         />
       )}
 
@@ -508,19 +519,20 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
           refreshControl={<RefreshControl refreshing={refrescando} onRefresh={alRefrescar} />}
         >
           {rieles.length === 0 && (
-            <View style={styles.centro}>
-              <Text style={styles.vacioTexto}>Todavía no hay proveedores publicados.</Text>
-            </View>
+            <Vacio
+              icono="sparkles-outline"
+              titulo="Todavía no hay proveedores publicados"
+              texto="Estamos abriendo el directorio de eventos. Muy pronto vas a ver salones, catering, música y decoración acá."
+            />
           )}
           {rieles.map((riel) => (
             <View key={riel.categoria} style={styles.riel}>
-              <View style={styles.rielTitulo}>
-                <Text style={styles.rielTituloTexto}>
-                  {CATEGORIA_LABEL[riel.categoria]} para tu evento
-                </Text>
-                <Pressable style={styles.verTodosBoton} onPress={() => elegirCategoria(riel.categoria)}>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.ink} />
-                </Pressable>
+              <View style={styles.rielEncabezado}>
+                <Encabezado
+                  kicker={`${riel.items.length} ${riel.items.length === 1 ? "proveedor" : "proveedores"}`}
+                  titulo={`${CATEGORIA_LABEL[riel.categoria]} para tu evento`}
+                  accion={{ texto: "Ver todos", onPress: () => elegirCategoria(riel.categoria) }}
+                />
               </View>
               <ScrollView
                 horizontal
@@ -528,15 +540,7 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
                 contentContainerStyle={styles.rielLista}
               >
                 {riel.items.map((item) => (
-                  <TarjetaRancho
-                    key={item.id}
-                    item={item}
-                    ancho="riel"
-                    calificacion={calificaciones[item.id] ?? null}
-                    onPress={() => router.push(`/rancho/${item.id}`)}
-                    favorito={favoritos.has(item.id)}
-                    onToggleFavorito={() => alternarFavorito(item.id)}
-                  />
+                  <View key={item.id}>{renderTarjeta(item, "riel")}</View>
                 ))}
               </ScrollView>
             </View>
@@ -556,8 +560,12 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
         <View style={styles.veloModal}>
           <Pressable style={{ flex: 1 }} onPress={() => setModalFiltros(false)} />
           <View style={[styles.panelFiltros, { paddingBottom: insets.bottom + Spacing.three }]}>
+            <View style={styles.panelAgarre} />
             <View style={styles.panelEncabezado}>
-              <Text style={styles.panelTitulo}>Filtros</Text>
+              <View>
+                <Micro>Afinar</Micro>
+                <Text style={styles.panelTitulo}>Filtros</Text>
+              </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Cerrar filtros"
@@ -574,59 +582,43 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.panelSeccion}>Provincia</Text>
+              <Micro style={styles.panelSeccion}>Provincia</Micro>
               <View style={styles.panelChips}>
                 {PROVINCIAS.map((p) => (
-                  <Pressable
+                  <ChipCategoria
                     key={p}
+                    texto={`${p} (${conteoProvincias[p] ?? 0})`}
+                    activo={filtroProvincia === p}
                     onPress={() => {
                       setFiltroProvincia((prev) => (prev === p ? null : p));
                       setFiltroCanton(null);
                     }}
-                    style={[styles.panelChip, filtroProvincia === p && styles.panelChipActivo]}
-                  >
-                    <Text
-                      style={[
-                        styles.panelChipTexto,
-                        filtroProvincia === p && styles.panelChipTextoActivo,
-                      ]}
-                    >
-                      {p} ({conteoProvincias[p] ?? 0})
-                    </Text>
-                  </Pressable>
+                  />
                 ))}
               </View>
 
               {filtroProvincia && (
                 <>
-                  <Text style={styles.panelSeccion}>Cantón</Text>
+                  <Micro style={styles.panelSeccion}>Cantón</Micro>
                   <View style={styles.panelChips}>
                     {CANTONES[filtroProvincia].map((c) => (
-                      <Pressable
+                      <ChipCategoria
                         key={c}
+                        texto={`${c} (${conteoCantones[c] ?? 0})`}
+                        activo={filtroCanton === c}
                         onPress={() => setFiltroCanton((prev) => (prev === c ? null : c))}
-                        style={[styles.panelChip, filtroCanton === c && styles.panelChipActivo]}
-                      >
-                        <Text
-                          style={[
-                            styles.panelChipTexto,
-                            filtroCanton === c && styles.panelChipTextoActivo,
-                          ]}
-                        >
-                          {c} ({conteoCantones[c] ?? 0})
-                        </Text>
-                      </Pressable>
+                      />
                     ))}
                   </View>
                 </>
               )}
 
-              <Text style={styles.panelSeccion}>Invitados</Text>
+              <Micro style={styles.panelSeccion}>Invitados</Micro>
               <TextInput
                 value={filtroInvitados}
                 onChangeText={setFiltroInvitados}
                 placeholder="¿Cuántas personas van? Ej. 80"
-                placeholderTextColor={Colors.inkSoft}
+                placeholderTextColor="#98a0b0"
                 keyboardType="number-pad"
                 style={styles.panelInput}
               />
@@ -634,12 +626,12 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
                 Se muestran los que aguantan esa cantidad (y los que no indican capacidad).
               </Text>
 
-              <Text style={styles.panelSeccion}>Precio máximo (₡)</Text>
+              <Micro style={styles.panelSeccion}>Precio máximo (₡)</Micro>
               <TextInput
                 value={filtroPrecioMax}
                 onChangeText={setFiltroPrecioMax}
                 placeholder="Ej. 150000"
-                placeholderTextColor={Colors.inkSoft}
+                placeholderTextColor="#98a0b0"
                 keyboardType="number-pad"
                 style={styles.panelInput}
               />
@@ -649,20 +641,13 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
             </ScrollView>
 
             <View style={styles.panelBotones}>
-              <Pressable
-                onPress={limpiarFiltros}
-                style={({ pressed }) => [styles.panelBotonLimpiar, pressed && { opacity: 0.85 }]}
-              >
-                <Text style={styles.panelBotonLimpiarTexto}>Limpiar</Text>
-              </Pressable>
-              <Pressable
+              <Boton compacto tono="contorno" texto="Limpiar" onPress={limpiarFiltros} />
+              <Boton
+                tono="navy"
+                texto={`Ver resultados${ranchos ? ` (${listaFiltrada.length})` : ""}`}
                 onPress={() => setModalFiltros(false)}
-                style={({ pressed }) => [styles.panelBotonVer, pressed && { opacity: 0.9 }]}
-              >
-                <Text style={styles.panelBotonVerTexto}>
-                  Ver resultados{ranchos ? ` (${listaFiltrada.length})` : ""}
-                </Text>
-              </Pressable>
+                style={{ flex: 1 }}
+              />
             </View>
           </View>
         </View>
@@ -671,226 +656,28 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
   );
 }
 
-/** Un filtro activo bajo el buscador, con su × para quitarlo. */
-function ChipFiltroActivo({ label, onQuitar }: { label: string; onQuitar: () => void }) {
-  return (
-    <Pressable onPress={onQuitar} style={styles.chipFiltroActivo} hitSlop={4}>
-      <Text style={styles.chipFiltroActivoTexto}>{label}</Text>
-      <Ionicons name="close" size={13} color={Colors.accent} />
-    </Pressable>
-  );
-}
-
-/**
- * Chip de categoría con el ícono en su burbuja naranja — el mismo
- * diseño que la web, en vez de las pestañas de subrayado con el ícono
- * encima que se veían genéricas.
- */
-function CategoriaTab({
-  icono,
-  label,
-  activo,
-  onPress,
-}: {
-  icono: IconoNombre;
-  label: string;
-  activo: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={[styles.categoriaTab, activo && styles.categoriaTabActiva]}>
-      <View style={[styles.categoriaBurbuja, activo && styles.categoriaBurbujaActiva]}>
-        <Ionicons name={icono} size={16} color={activo ? "#ffffff" : Colors.accent} />
-      </View>
-      <Text style={[styles.categoriaLabel, activo && styles.categoriaLabelActiva]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-export function TarjetaRancho({
-  item,
-  ancho,
-  calificacion = null,
-  onPress,
-  favorito = false,
-  onToggleFavorito,
-}: {
-  item: Fila;
-  ancho: "riel" | "completo";
-  calificacion?: Calificacion | null;
-  onPress: () => void;
-  favorito?: boolean;
-  onToggleFavorito?: () => void;
-}) {
-  const ubicacion = [item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica";
-  const subLabel = item.subcategoria
-    ? SUBCATEGORIAS[item.categoria]?.find((s) => s.id === item.subcategoria)?.label
-    : null;
-  const grande = ancho === "completo";
-
-  const corazon = onToggleFavorito && (
-    <Pressable
-      style={grande ? styles.corazonChip : styles.botonFavorito}
-      hitSlop={8}
-      onPress={(e) => {
-        e.stopPropagation();
-        onToggleFavorito();
-      }}
-    >
-      {grande ? (
-        <Ionicons
-          name={favorito ? "heart" : "heart-outline"}
-          size={17}
-          color={favorito ? Colors.accent : Colors.inkSoft}
-        />
-      ) : (
-        /* Corazón estilo Airbnb sobre la foto: relleno translúcido con
-           borde blanco, para que se lea sobre cualquier imagen. */
-        <View>
-          <Ionicons
-            name="heart"
-            size={24}
-            color={favorito ? Colors.navy : "rgba(16,22,34,0.5)"}
-          />
-          <Ionicons
-            name="heart-outline"
-            size={24}
-            color="#ffffff"
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
-      )}
-    </Pressable>
-  );
-
-  return (
-    <Pressable
-      style={grande ? styles.tarjetaCompleta : styles.tarjetaRiel}
-      onPress={onPress}
-    >
-      <View>
-        <Image
-          source={item.foto_url ? { uri: item.foto_url } : undefined}
-          style={grande ? styles.fotoCompleta : styles.fotoRiel}
-          contentFit="cover"
-          transition={150}
-          alt={item.nombre}
-        />
-        {/* El rubro sobre la foto, como la card de Citas. */}
-        <View style={styles.fotoBadge}>
-          <Text style={styles.fotoBadgeTexto}>
-            {subLabel ?? CATEGORIA_LABEL[item.categoria]}
-          </Text>
-        </View>
-        {!grande && corazon}
-      </View>
-      <View style={grande ? styles.tarjetaCuerpoGrande : styles.tarjetaCuerpo}>
-        {grande ? (
-          <View style={styles.nombreFila}>
-            <Text style={[styles.nombre, { flex: 1 }]} numberOfLines={1}>
-              {item.nombre}
-            </Text>
-            {corazon}
-          </View>
-        ) : (
-          <Text style={styles.nombre} numberOfLines={1}>
-            {item.nombre}
-          </Text>
-        )}
-        {calificacion ? (
-          <Text style={styles.rating}>
-            <Ionicons name="star" size={12} color={Colors.accent} />{" "}
-            {calificacion.promedio.toFixed(2).replace(".", ",")}{" "}
-            <Text style={styles.ratingSuave}>
-              ({calificacion.total} reseña{calificacion.total === 1 ? "" : "s"})
-            </Text>
-          </Text>
-        ) : (
-          grande && <Text style={styles.ratingSuave}>Sin reseñas todavía</Text>
-        )}
-        <Text style={styles.ubicacion} numberOfLines={1}>
-          <Ionicons name="location-outline" size={11} color="#3b7fc4" /> {ubicacion}
-        </Text>
-        {/* Pie como la card de Citas: precio a la izquierda, la
-            acción naranja a la derecha. */}
-        <View style={styles.ctaBarra}>
-          <Text style={styles.precio} numberOfLines={1}>
-            {item.precio_desde !== null ? (
-              <>
-                Desde <Text style={styles.precioMonto}>{fmtColones(item.precio_desde)}</Text>
-              </>
-            ) : (
-              "Consultar"
-            )}
-          </Text>
-          <Text style={styles.ctaTexto}>
-            {grande && item.categoria === "lugares" ? "Reservar fecha →" : "Reservar →"}
-          </Text>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-function SubcatPill({
-  label,
-  activo,
-  onPress,
-}: {
-  label: string;
-  activo: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.subcatPill, activo && styles.subcatPillActiva]}
-    >
-      <Text style={[styles.subcatPillTexto, activo && styles.subcatPillTextoActivo]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-// Más anchas, como en la web: la foto manda.
-const ANCHO_RIEL = 264;
-
 const styles = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: Colors.cream },
-  busquedaArea: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, backgroundColor: Colors.surface },
-  busquedaFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
-  busquedaPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.two,
-    backgroundColor: Colors.cream2,
-    borderRadius: 999,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: 13,
+  contenedor: { backgroundColor: Colors.canvas, flex: 1 },
+  busquedaArea: {
+    backgroundColor: Colors.canvas,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
   },
-  busquedaInput: { flex: 1, fontFamily: Fonts.semiBold, fontSize: 14.5, color: Colors.ink, padding: 0 },
-  botonFiltros: {
+  fechaDetectada: {
     alignItems: "center",
-    backgroundColor: Colors.cream2,
-    borderRadius: 14,
-    height: 46,
-    justifyContent: "center",
-    width: 46,
-  },
-  botonFiltrosActivo: { backgroundColor: Colors.navy },
-  filtrosActivosScroll: { flexGrow: 0, marginTop: Spacing.two },
-  filtrosActivosFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
-  chipFiltroActivo: {
-    alignItems: "center",
-    backgroundColor: Colors.accentLight,
-    borderRadius: 999,
     flexDirection: "row",
     gap: 5,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
-  chipFiltroActivoTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 12 },
+  fechaDetectadaTexto: {
+    color: Colors.inkSoft,
+    flex: 1,
+    fontFamily: Fonts.semiBold,
+    fontSize: 11.5,
+  },
+  filtrosActivosScroll: { flexGrow: 0, marginTop: Spacing.two },
+  filtrosActivosFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
   limpiarTodo: { paddingHorizontal: 4, paddingVertical: 6 },
   limpiarTodoTexto: {
     color: Colors.inkSoft,
@@ -898,61 +685,94 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textDecorationLine: "underline",
   },
+
+  categoriasArea: {
+    backgroundColor: Colors.canvas,
+    borderBottomColor: Colors.line,
+    borderBottomWidth: 1,
+  },
+  categoriasFila: {
+    alignItems: "center",
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+  },
+  volverChip: {
+    alignItems: "center",
+    backgroundColor: Colors.cream2,
+    borderColor: Colors.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  volverTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
+
+  centro: { alignItems: "center", flex: 1, justifyContent: "center", padding: Spacing.three },
+  listaVertical: {
+    gap: Spacing.three,
+    padding: Spacing.three,
+    paddingBottom: TAB_BAR_ESPACIO,
+  },
+  rieles: { gap: Spacing.five, paddingBottom: TAB_BAR_ESPACIO, paddingTop: Spacing.four },
+  riel: { gap: Spacing.three },
+  rielEncabezado: { paddingHorizontal: Spacing.three },
+  rielLista: { gap: Spacing.three, paddingHorizontal: Spacing.three },
+
   veloModal: { backgroundColor: "rgba(10,18,42,0.45)", flex: 1 },
   panelFiltros: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "80%",
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    backgroundColor: Colors.canvas,
+    borderTopLeftRadius: Radios.xl,
+    borderTopRightRadius: Radios.xl,
+    maxHeight: "82%",
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+  },
+  panelAgarre: {
+    alignSelf: "center",
+    backgroundColor: "#d6dae6",
+    borderRadius: Radios.full,
+    height: 4,
+    marginBottom: Spacing.three,
+    width: 44,
   },
   panelEncabezado: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: Spacing.two,
   },
-  panelTitulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 19, letterSpacing: -0.3 },
+  panelTitulo: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 19,
+    letterSpacing: -0.4,
+    marginTop: 3,
+  },
   panelCerrar: {
     alignItems: "center",
-    backgroundColor: Colors.cream2,
-    borderRadius: 16,
-    height: 32,
-    justifyContent: "center",
-    width: 32,
-  },
-  panelSeccion: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.bold,
-    fontSize: 12,
-    letterSpacing: 0.6,
-    marginBottom: Spacing.two,
-    marginTop: Spacing.three,
-    textTransform: "uppercase",
-  },
-  panelChips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-  panelChip: {
     backgroundColor: Colors.surface,
     borderColor: Colors.line,
-    borderRadius: 999,
+    borderRadius: Radios.full,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
   },
-  panelChipActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  panelChipTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 12 },
-  panelChipTextoActivo: { color: "#ffffff" },
+  panelSeccion: { marginBottom: Spacing.two, marginTop: Spacing.three },
+  panelChips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   panelInput: {
-    backgroundColor: Colors.cream2,
+    backgroundColor: Colors.surface,
     borderColor: Colors.line,
-    borderRadius: 12,
+    borderRadius: Radios.md,
     borderWidth: 1,
     color: Colors.ink,
-    fontFamily: Fonts.semiBold,
-    fontSize: 14.5,
+    fontFamily: Fonts.medium,
+    fontSize: 14,
     paddingHorizontal: Spacing.three,
-    paddingVertical: 11,
+    paddingVertical: 13,
   },
   panelAyuda: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 6 },
   panelBotones: {
@@ -963,201 +783,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.three,
     paddingTop: Spacing.three,
   },
-  panelBotonLimpiar: {
-    alignItems: "center",
-    borderColor: Colors.navy,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    justifyContent: "center",
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-  },
-  panelBotonLimpiarTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 13.5 },
-  panelBotonVer: {
-    alignItems: "center",
-    backgroundColor: Colors.navy,
-    borderRadius: 999,
-    flex: 1,
-    justifyContent: "center",
-    paddingVertical: 12,
-  },
-  panelBotonVerTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13.5 },
-  fechaDetectada: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 6,
-    paddingHorizontal: 4,
-  },
-  fechaDetectadaTexto: { flex: 1, fontSize: 11.5, fontFamily: Fonts.semiBold, color: Colors.inkSoft },
-  categoriasArea: { backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  categoriasFila: { gap: 8, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  categoriaTab: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    height: 40,
-    paddingLeft: 5,
-    paddingRight: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.surface,
-  },
-  categoriaTabActiva: { borderColor: Colors.navy, backgroundColor: Colors.navy },
-  categoriaBurbuja: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.accentLight,
-  },
-  categoriaBurbujaActiva: { backgroundColor: "rgba(255,255,255,0.15)" },
-  categoriaLabel: { fontFamily: Fonts.bold, fontSize: 12.5, color: Colors.ink },
-  categoriaLabelActiva: { color: "#ffffff" },
-  centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five },
-  error: { color: Colors.danger, textAlign: "center", fontFamily: Fonts.medium },
-  vacioTexto: { color: Colors.inkSoft, textAlign: "center", fontFamily: Fonts.medium },
-  listaVertical: { padding: Spacing.three, gap: Spacing.four, paddingBottom: TAB_BAR_ESPACIO },
-  rieles: { paddingVertical: Spacing.four, paddingBottom: TAB_BAR_ESPACIO, gap: Spacing.five },
-  riel: { gap: Spacing.three },
-  rielTitulo: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.three,
-  },
-  rielTituloTexto: {
-    fontFamily: Fonts.extraBold,
-    fontSize: 19,
-    letterSpacing: -0.4,
-    color: Colors.ink,
-    flexShrink: 1,
-  },
-  verTodosBoton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: Colors.cream2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rielLista: { gap: Spacing.three, paddingHorizontal: Spacing.three },
-  // La misma card de Citas: contenedor blanco con borde azulado,
-  // la foto clipeada arriba y el cuerpo con padding.
-  tarjetaRiel: {
-    width: ANCHO_RIEL,
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  tarjetaCompleta: {
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  fotoRiel: { width: "100%", height: 168, backgroundColor: "#e8f0f9" },
-  fotoCompleta: { width: "100%", height: 220, backgroundColor: "#e8f0f9" },
-  fotoBadge: {
-    backgroundColor: "rgba(255,255,255,0.92)",
-    borderRadius: 99,
-    left: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    position: "absolute",
-    top: 10,
-  },
-  fotoBadgeTexto: {
-    color: Colors.navy,
-    fontFamily: Fonts.extraBold,
-    fontSize: 9.5,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  botonFavorito: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tarjetaCuerpo: {
-    gap: 2,
-    paddingBottom: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-  },
-  tarjetaCuerpoGrande: {
-    gap: 3,
-    paddingBottom: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-  },
-  nombreFila: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  corazonChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.cream2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rating: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.ink },
-  ratingSuave: { fontSize: 12, fontFamily: Fonts.regular, color: Colors.inkSoft },
-  ctaBarra: {
-    alignItems: "center",
-    borderTopColor: "#e8eef8",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "space-between",
-    marginTop: Spacing.two,
-    paddingTop: 9,
-  },
-  ctaTexto: { color: Colors.accent, fontSize: 12.5, fontFamily: Fonts.extraBold },
-  subcatFila: {
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    alignItems: "center",
-  },
-  volverChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.cream2,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-  },
-  volverTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.ink },
-  subcatCategoria: { flexDirection: "row", alignItems: "center", gap: 5 },
-  subcatCategoriaTexto: { fontSize: 13, fontFamily: Fonts.bold, color: Colors.ink },
-  subcatPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  subcatPillActiva: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  subcatPillTexto: { fontSize: 12, fontFamily: Fonts.bold, color: Colors.inkSoft },
-  subcatPillTextoActivo: { color: "#ffffff" },
-  nombre: { fontSize: 16, fontFamily: Fonts.extraBold, letterSpacing: -0.2, color: Colors.ink },
-  ubicacion: { fontSize: 13, fontFamily: Fonts.regular, color: Colors.inkSoft },
-  precio: { color: Colors.inkSoft, flex: 1, fontFamily: Fonts.medium, fontSize: 12.5 },
-  precioMonto: { color: Colors.ink, fontFamily: Fonts.extraBold },
 });

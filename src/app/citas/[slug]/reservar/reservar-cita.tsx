@@ -254,7 +254,7 @@ export default function ReservarCita({
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
             href={`/mensajes/${exito}`}
-            className="rounded-full bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+            className="rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
           >
             Abrir el chat del negocio
           </Link>
@@ -471,7 +471,7 @@ export default function ReservarCita({
                 comprobante y podés escribirle al negocio por el chat.
                 <Link
                   href="/cuenta"
-                  className="mt-3 block w-fit rounded-full bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+                  className="mt-3 block w-fit rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
                 >
                   Iniciar sesión
                 </Link>
@@ -599,7 +599,7 @@ export default function ReservarCita({
               type="button"
               disabled={!puedeContinuar}
               onClick={() => setPaso("confirmar")}
-              className="flex items-center justify-center gap-2 rounded-full bg-aventurea-navy px-6 py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center justify-center gap-2 rounded-xl bg-aventurea-navy px-6 py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Continuar
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
@@ -618,7 +618,7 @@ export default function ReservarCita({
           ) : (
             <Link
               href="/cuenta"
-              className="rounded-full bg-aventurea-navy px-6 py-3.5 text-center text-[14px] font-bold text-white hover:bg-aventurea-navy-2"
+              className="rounded-xl bg-aventurea-navy px-6 py-3.5 text-center text-[14px] font-bold text-white hover:bg-aventurea-navy-2"
             >
               Iniciar sesión para confirmar
             </Link>
@@ -678,7 +678,7 @@ export function ReservarCitaModal({
         onClick={onCerrar}
         className="absolute inset-0 cursor-default bg-[rgba(10,18,42,0.55)] backdrop-blur-[2px]"
       />
-      <div className="relative flex max-h-[92vh] w-full max-w-[1020px] flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_48px_120px_-40px_rgba(6,12,32,0.65)]">
+      <div className="relative flex max-h-[92vh] w-full max-w-[1020px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_48px_120px_-40px_rgba(6,12,32,0.65)]">
         <button
           type="button"
           aria-label="Cerrar"
@@ -739,7 +739,7 @@ function BotonMiembro({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-[12.5px] font-bold transition-colors ${
+      className={`flex items-center gap-2 rounded-xl border py-1.5 pl-1.5 pr-3.5 text-[12.5px] font-bold transition-colors ${
         activo
           ? "border-aventurea-navy bg-aventurea-navy text-white"
           : "border-aventurea-line bg-white text-aventurea-ink hover:border-aventurea-navy"

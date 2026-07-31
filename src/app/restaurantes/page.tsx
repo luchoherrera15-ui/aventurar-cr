@@ -233,7 +233,7 @@ function CardLocal({
   return (
     <Link
       href={href}
-      className={`group overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)] ${className}`}
+      className={`group overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)] ${className}`}
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light">
         {n.foto_url ? (
@@ -248,17 +248,17 @@ function CardLocal({
             <IconCloche className="h-10 w-10" />
           </span>
         )}
-        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
+        <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
           {CATEGORIA_RESTAURANTE_LABEL[n.categoria]}
         </span>
         <span className="absolute right-3 top-3 flex items-center gap-1.5">
           {rangoPrecio && (
-            <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-extrabold text-aventurea-navy backdrop-blur">
+            <span className="rounded-lg bg-white/90 px-2.5 py-1 text-[11px] font-extrabold text-aventurea-navy backdrop-blur">
               {RANGO_PRECIO_LABEL[rangoPrecio]}
             </span>
           )}
           {n.slug?.startsWith("demo-") && (
-            <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
+            <span className="rounded-lg bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
               Demo
             </span>
           )}
@@ -301,7 +301,7 @@ function CardLocal({
 
 function Etiqueta({ texto }: { texto: string }) {
   return (
-    <span className="rounded-full bg-aventurea-navy/10 px-2.5 py-1 text-[11px] font-bold text-aventurea-navy">
+    <span className="rounded-lg bg-aventurea-navy/10 px-2.5 py-1 text-[11px] font-bold text-aventurea-navy">
       {texto}
     </span>
   );

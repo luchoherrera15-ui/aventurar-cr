@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing, Tipo } from "@/constants/theme";
 import type { DiaDisponibilidad, PromocionDia } from "@/lib/types";
 
 const MESES = [
@@ -28,11 +28,13 @@ function iso(y: number, m: number, d: number) {
 }
 
 /**
- * Calendario por mes, espejo del BookingCalendar del sitio: nombre del
- * mes con flechas para navegar, semanas en filas de domingo a sábado y
+ * Calendario por mes, espejo del BookingCalendar del sitio: el mes en
+ * micro-mayúsculas con sus flechas, las semanas de domingo a sábado y
  * los mismos estados por color (libre, bloqueada temporal, en
- * aprobación, reservada) con su leyenda. Los días con promoción llevan
- * la etiqueta verde del descuento.
+ * aprobación, reservada) con su leyenda. Hoy va marcado con el
+ * recuadro naranja del mockup — un contorno, no un relleno, para que
+ * no compita con el estado del día. Los días con promoción llevan la
+ * etiqueta verde del descuento.
  */
 export default function CalendarioMensual({
   disponibilidad,
@@ -90,9 +92,10 @@ export default function CalendarioMensual({
   return (
     <View style={styles.tarjeta}>
       <View style={styles.encabezado}>
-        <Text style={styles.mesTitulo}>
-          {MESES[mes]} {anio}
-        </Text>
+        <View>
+          <Text style={styles.mesMicro}>{MESES[mes]}</Text>
+          <Text style={styles.mesAnio}>{anio}</Text>
+        </View>
         <View style={styles.navBotones}>
           <Pressable style={styles.navBoton} onPress={() => cambiarMes(-1)} hitSlop={6}>
             <Ionicons name="chevron-back" size={17} color={Colors.ink} />
@@ -126,6 +129,8 @@ export default function CalendarioMensual({
           return (
             <View key={fecha} style={styles.celda}>
               <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: deshabilitada }}
                 disabled={deshabilitada}
                 onPress={() => onElegir(fecha)}
                 style={[
@@ -141,6 +146,7 @@ export default function CalendarioMensual({
                   style={[
                     styles.diaNumero,
                     esPasado && styles.diaNumeroPasado,
+                    esHoy && styles.diaNumeroHoy,
                     reservada && { color: ROJO_TEXTO },
                     bloqueada && { color: CELESTE_TEXTO },
                     !deshabilitada && pendientes > 0 && { color: AMBAR_TEXTO },
@@ -186,81 +192,92 @@ function LeyendaItem({ fondo, borde, label }: { fondo: string; borde: string; la
 const styles = StyleSheet.create({
   tarjeta: {
     backgroundColor: Colors.surface,
-    borderWidth: 1,
     borderColor: Colors.line,
-    borderRadius: 20,
-    padding: Spacing.three,
+    borderRadius: Radios.lg,
+    borderWidth: 1,
     gap: Spacing.three,
+    padding: Spacing.three,
   },
   encabezado: {
-    flexDirection: "row",
     alignItems: "center",
+    flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 2,
   },
-  mesTitulo: { fontSize: 19, fontFamily: Fonts.extraBold, letterSpacing: -0.3, color: Colors.ink },
+  mesMicro: { ...Tipo.micro, color: Colors.accent },
+  mesAnio: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 20,
+    letterSpacing: -0.4,
+    marginTop: 2,
+  },
   navBotones: { flexDirection: "row", gap: Spacing.two },
   navBoton: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.line,
     alignItems: "center",
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    height: 34,
     justifyContent: "center",
+    width: 34,
   },
   grilla: { flexDirection: "row", flexWrap: "wrap" },
-  celda: { width: `${100 / 7}%`, padding: 2 },
+  celda: { padding: 2, width: `${100 / 7}%` },
   dowTexto: {
+    color: Colors.inkMuted,
+    fontFamily: Fonts.extraBold,
+    fontSize: 10,
+    letterSpacing: 1,
+    paddingBottom: 6,
     textAlign: "center",
-    fontSize: 10.5,
-    fontFamily: Fonts.bold,
-    color: "#8a8a8a",
     textTransform: "uppercase",
-    paddingBottom: 4,
   },
   dia: {
-    minHeight: 46,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.surface,
     alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
     gap: 2,
+    justifyContent: "center",
+    minHeight: 46,
   },
-  diaPasado: { borderColor: "transparent", backgroundColor: "transparent" },
-  diaHoy: { borderWidth: 2, borderColor: Colors.navy },
-  diaNumero: { fontSize: 14, fontFamily: Fonts.bold, color: Colors.ink },
-  diaNumeroPasado: { color: "#c9c9c9" },
+  diaPasado: { backgroundColor: "transparent", borderColor: "transparent" },
+  // Hoy va con el contorno naranja del mockup: se nota sin taparle el
+  // estado (reservada, en aprobación) al día.
+  diaHoy: { borderColor: Colors.accent, borderWidth: 1.5 },
+  diaNumero: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
+  diaNumeroHoy: { color: Colors.accent, fontFamily: Fonts.extraBold },
+  diaNumeroPasado: { color: "#c9cdd6" },
   promoBadge: {
     backgroundColor: Colors.green,
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
-  promoBadgeTexto: { color: "#ffffff", fontSize: 8.5, fontFamily: Fonts.bold },
+  promoBadgeTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 8.5 },
   badgePendientes: {
-    position: "absolute",
-    top: 3,
-    right: 3,
-    width: 15,
-    height: 15,
-    borderRadius: 8,
-    backgroundColor: Colors.navy,
     alignItems: "center",
+    backgroundColor: Colors.navy,
+    borderRadius: 8,
+    height: 15,
     justifyContent: "center",
+    position: "absolute",
+    right: 3,
+    top: 3,
+    width: 15,
   },
-  badgePendientesTexto: { color: "#ffffff", fontSize: 8.5, fontFamily: Fonts.bold },
+  badgePendientesTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 8.5 },
   leyenda: {
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.three,
-    borderTopWidth: 1,
-    borderTopColor: Colors.line,
     paddingTop: Spacing.three,
   },
-  leyendaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  leyendaPunto: { width: 11, height: 11, borderRadius: 3, borderWidth: 1 },
-  leyendaTexto: { fontSize: 11.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
+  leyendaItem: { alignItems: "center", flexDirection: "row", gap: 6 },
+  leyendaPunto: { borderRadius: 3, borderWidth: 1, height: 11, width: 11 },
+  leyendaTexto: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5 },
 });

@@ -137,7 +137,7 @@ export default function PublicarPage() {
           {/* El bloque navy con el mensaje grande. */}
           <div
             data-reveal
-            className="relative isolate overflow-hidden rounded-[32px] bg-aventurea-navy p-8 sm:p-12"
+            className="relative isolate overflow-hidden rounded-3xl bg-aventurea-navy p-8 sm:p-12"
           >
             <div
               aria-hidden
@@ -158,13 +158,13 @@ export default function PublicarPage() {
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href="/mi-rancho/nuevo"
-                className="rounded-full bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
+                className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
               >
                 Publicar mi negocio gratis
               </Link>
               <Link
                 href="/citas"
-                className="rounded-full bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
+                className="rounded-xl bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
               >
                 Ver cómo se ve mi página
               </Link>
@@ -176,7 +176,7 @@ export default function PublicarPage() {
             <div
               data-reveal
               style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-              className="relative flex min-h-[190px] items-end overflow-hidden rounded-[32px] bg-aventurea-orange p-7"
+              className="relative flex min-h-[190px] items-end overflow-hidden rounded-3xl bg-aventurea-orange p-7"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- logo estático */}
               <img
@@ -193,7 +193,7 @@ export default function PublicarPage() {
             <div
               data-reveal
               style={{ "--reveal-delay": "160ms" } as React.CSSProperties}
-              className="rounded-[32px] border border-aventurea-line bg-white p-7"
+              className="rounded-3xl border border-aventurea-line bg-white p-7"
             >
               <div className="grid grid-cols-2 gap-x-4 gap-y-7">
                 <Numero dato="4" texto="verticales: citas, eventos, restaurantes y hospedajes" />
@@ -284,7 +284,7 @@ export default function PublicarPage() {
             />
             <Link
               href="/mi-rancho/nuevo"
-              className="mt-6 inline-flex rounded-full bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+              className="mt-6 inline-flex rounded-xl bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
             >
               Crear mi página de citas
             </Link>
@@ -406,7 +406,7 @@ export default function PublicarPage() {
                       <p className="text-[10.5px] font-extrabold text-aventurea-ink">
                         María P.
                       </p>
-                      <span className="rounded-full bg-aventurea-navy px-1.5 py-0.5 text-[7.5px] font-extrabold uppercase tracking-wide text-white">
+                      <span className="rounded-lg bg-aventurea-navy px-1.5 py-0.5 text-[7.5px] font-extrabold uppercase tracking-wide text-white">
                         Cita confirmada
                       </span>
                     </div>
@@ -537,7 +537,7 @@ export default function PublicarPage() {
                   <p className="text-[10.5px] font-extrabold text-aventurea-ink">
                     Boda de Laura
                   </p>
-                  <span className="rounded-full bg-aventurea-green-light px-1.5 py-0.5 text-[7.5px] font-extrabold uppercase tracking-wide text-aventurea-green">
+                  <span className="rounded-lg bg-aventurea-green-light px-1.5 py-0.5 text-[7.5px] font-extrabold uppercase tracking-wide text-aventurea-green">
                     Aprobada
                   </span>
                 </div>
@@ -550,7 +550,7 @@ export default function PublicarPage() {
                 className="anim-publicar-entrar mt-2 rounded-xl border border-aventurea-orange/40 bg-white p-2.5 shadow-sm"
                 style={{ "--pub-delay": "0.4s" } as React.CSSProperties}
               >
-                <span className="rounded-full bg-aventurea-orange-light px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-aventurea-orange">
+                <span className="rounded-lg bg-aventurea-orange-light px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-aventurea-orange">
                   Nueva reserva
                 </span>
                 <p className="mt-1.5 text-[11px] font-extrabold text-aventurea-ink">
@@ -608,7 +608,7 @@ export default function PublicarPage() {
             />
             <Link
               href="/mi-rancho/nuevo"
-              className="mt-6 inline-flex rounded-full bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              className="mt-6 inline-flex rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
             >
               Publicar mi salón o servicio
             </Link>
@@ -623,7 +623,7 @@ export default function PublicarPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <div
             data-reveal
-            className="rounded-[32px] border border-aventurea-line bg-white p-8 sm:p-10"
+            className="rounded-3xl border border-aventurea-line bg-white p-8 sm:p-10"
           >
             <Eyebrow tono="text-aventurea-navy-3">
               <IconHouse className="h-3.5 w-3.5" /> Hospedajes
@@ -661,7 +661,7 @@ export default function PublicarPage() {
 
             <Link
               href="/mi-rancho/nuevo"
-              className="mt-6 inline-flex rounded-full bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+              className="mt-6 inline-flex rounded-xl bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
             >
               Anotar mi propiedad
             </Link>
@@ -670,7 +670,7 @@ export default function PublicarPage() {
           <div
             data-reveal
             style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-            className="relative isolate overflow-hidden rounded-[32px] bg-aventurea-navy p-8 sm:p-10"
+            className="relative isolate overflow-hidden rounded-3xl bg-aventurea-navy p-8 sm:p-10"
           >
             <div
               aria-hidden
@@ -790,7 +790,7 @@ export default function PublicarPage() {
       <section className="px-4 pb-10 pt-0 lg:px-10">
         <div
           data-reveal
-          className="relative isolate mx-auto max-w-[1200px] overflow-hidden rounded-[32px] bg-aventurea-navy px-6 py-14 text-center"
+          className="relative isolate mx-auto max-w-[1200px] overflow-hidden rounded-3xl bg-aventurea-navy px-6 py-14 text-center"
         >
           <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
             <div className="absolute -left-[10%] -top-[40%] h-[420px] w-[420px] rounded-full bg-white/[0.05]" />
@@ -805,7 +805,7 @@ export default function PublicarPage() {
           </p>
           <Link
             href="/mi-rancho/nuevo"
-            className="mt-7 inline-flex rounded-full bg-aventurea-orange px-9 py-4 text-[15.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
+            className="mt-7 inline-flex rounded-xl bg-aventurea-orange px-9 py-4 text-[15.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
           >
             Publicar mi negocio gratis
           </Link>
@@ -841,7 +841,7 @@ function Bento({
   return (
     <section
       style={style}
-      className={`mx-4 my-4 overflow-hidden rounded-[32px] p-8 sm:p-10 lg:mx-auto lg:max-w-[1200px] lg:p-12 ${className}`}
+      className={`mx-4 my-4 overflow-hidden rounded-3xl p-8 sm:p-10 lg:mx-auto lg:max-w-[1200px] lg:p-12 ${className}`}
     >
       {children}
     </section>
@@ -868,7 +868,7 @@ function Eyebrow({
 /** La etiqueta "muy pronto" de las verticales que aún no abren. */
 function ChipPronto() {
   return (
-    <span className="rounded-full bg-aventurea-orange-light px-2.5 py-0.5 text-[10px] font-extrabold normal-case tracking-normal text-aventurea-orange">
+    <span className="rounded-lg bg-aventurea-orange-light px-2.5 py-0.5 text-[10px] font-extrabold normal-case tracking-normal text-aventurea-orange">
       Muy pronto
     </span>
   );
@@ -926,7 +926,7 @@ function Telefono({
         <div className="relative h-[430px] overflow-hidden rounded-[28px] bg-white">
           <div
             aria-hidden
-            className="absolute left-1/2 top-2 z-10 h-[15px] w-[76px] -translate-x-1/2 rounded-full bg-aventurea-ink"
+            className="absolute left-1/2 top-2 z-10 h-[15px] w-[76px] -translate-x-1/2 rounded-xl bg-aventurea-ink"
           />
           <div className="flex h-full flex-col px-3 pb-3 pt-8">{children}</div>
         </div>

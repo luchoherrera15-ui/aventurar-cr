@@ -731,7 +731,7 @@ const styles = StyleSheet.create({
   },
   pestana: {
     borderColor: Colors.line,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     borderWidth: 1,
     flex: 1,
     paddingVertical: 9,
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
   dias: { flexDirection: "row", flexWrap: "wrap", gap: 5 },
   dia: {
     borderColor: Colors.lineFuerte,
-    borderRadius: Radios.full,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
   botonAgregar: {
     alignItems: "center",
     backgroundColor: Colors.navy,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     flexDirection: "row",
     gap: 3,
     paddingHorizontal: 12,
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
   botonGuardar: {
     alignItems: "center",
     backgroundColor: Colors.accent,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     paddingVertical: 15,
   },
   botonGuardarTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },

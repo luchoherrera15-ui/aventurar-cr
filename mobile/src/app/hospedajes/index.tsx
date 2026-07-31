@@ -1,23 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { Image } from "expo-image";
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import BarraRapida, { BARRA_RAPIDA_ESPACIO } from "@/components/barra-rapida";
 import ChipsVerticales from "@/components/chips-verticales";
+import Buscador from "@/components/buscador";
+import TarjetaNegocio from "@/components/tarjeta-negocio";
+import { ChipCategoria, Vacio } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import { normalizarTexto } from "@/lib/busqueda";
 import {
@@ -50,10 +41,10 @@ function etiquetaCategoria(categoria: string | null): string {
 
 /**
  * El directorio de Hospedajes del app — espejo de /hospedajes en la
- * web y gemelo del directorio de Citas: buscador, chips por tipo con
- * conteo y las cards de casas, villas, cabañas y hoteles con su nota y
- * su "Desde ₡ por noche". Tocar una entra al detalle del hospedaje;
- * todo desemboca en la reserva por noches.
+ * web y gemelo del de Servicios: buscador, chips por tipo con conteo y
+ * las cards de casas, villas, cabañas y hoteles con su nota y su
+ * "Desde ₡ por noche". Tocar una entra al detalle; todo desemboca en
+ * la reserva por noches.
  */
 export default function HospedajesDirectorioScreen() {
   const router = useRouter();
@@ -103,7 +94,7 @@ export default function HospedajesDirectorioScreen() {
   }
 
   // Conteo por tipo sobre TODOS los hospedajes (los chips no cambian
-  // con la búsqueda), igual que en el directorio de Citas.
+  // con la búsqueda), igual que en el directorio de Servicios.
   const conteo = useMemo(() => {
     const c: Partial<Record<CategoriaHospedaje, number>> = {};
     (hospedajes ?? []).forEach((h) => {
@@ -141,32 +132,32 @@ export default function HospedajesDirectorioScreen() {
       {/* Volver siempre tiene a dónde: si la pila está vacía (deep
           link directo), cae a las pestañas en vez de no hacer nada. */}
       <BarraSuperior
-        titulo="Booking Hospedajes"
-        subtitulo="Casas, villas y hoteles en Costa Rica"
+        kicker="Hospedajes"
+        titulo="Reservá tu escapada"
+        subtitulo="Casas, villas, cabañas y hoteles en Costa Rica"
         onVolver={() => (router.canGoBack() ? router.back() : router.replace("/"))}
       />
 
       {/* El mismo menú de verticales que Explorar: saltar a Eventos o
-          Citas con un toque, sin depender de la flecha de volver. */}
+          Servicios con un toque, sin depender de la flecha de volver. */}
       <View style={styles.verticalesZona}>
         <ChipsVerticales activo="hospedajes" />
       </View>
 
       {errorCarga && hospedajes === null ? (
         <View style={styles.centro}>
-          <Text style={styles.vacioTitulo}>No pudimos cargar los hospedajes</Text>
-          <Text style={styles.vacioTexto}>
-            Revisá tu conexión e intentá de nuevo.
-          </Text>
-          <Pressable
-            onPress={() => {
-              setErrorCarga(false);
-              cargar();
+          <Vacio
+            icono="cloud-offline-outline"
+            titulo="No pudimos cargar los hospedajes"
+            texto="Revisá tu conexión e intentá de nuevo."
+            accion={{
+              texto: "Reintentar",
+              onPress: () => {
+                setErrorCarga(false);
+                cargar();
+              },
             }}
-            style={({ pressed }) => [styles.vacioBoton, pressed && { opacity: 0.9 }]}
-          >
-            <Text style={styles.vacioBotonTexto}>Reintentar</Text>
-          </Pressable>
+          />
         </View>
       ) : hospedajes === null ? (
         <View style={styles.centro}>
@@ -174,36 +165,25 @@ export default function HospedajesDirectorioScreen() {
         </View>
       ) : hospedajes.length === 0 ? (
         <View style={styles.centro}>
-          <Text style={styles.vacioTitulo}>Los primeros hospedajes están por llegar</Text>
-          <Text style={styles.vacioTexto}>
-            Estamos abriendo esta vertical. ¿Tenés una casa, villa, cabaña u
-            hotel? Publicalo gratis y recibí reservas con tu propia página.
-          </Text>
-          <Pressable
-            onPress={() => router.push("/negocio/nuevo" as never)}
-            style={({ pressed }) => [styles.vacioBoton, pressed && { opacity: 0.9 }]}
-          >
-            <Text style={styles.vacioBotonTexto}>Publicar mi hospedaje</Text>
-          </Pressable>
+          <Vacio
+            icono="home-outline"
+            titulo="Los primeros hospedajes están por llegar"
+            texto="Estamos abriendo esta vertical. ¿Tenés una casa, villa, cabaña u hotel? Publicalo gratis y recibí reservas con tu propia página."
+            accion={{
+              texto: "Publicar mi hospedaje",
+              onPress: () => router.push("/negocio/nuevo" as never),
+            }}
+          />
         </View>
       ) : (
         <>
-          {/* El buscador de hospedajes — espejo del de /hospedajes en
-              la web: filtra en memoria por nombre, zona o tipo. */}
+          {/* El mismo buscador que las otras tres verticales. */}
           <View style={styles.buscadorZona}>
-            <View style={styles.buscador}>
-              <Ionicons name="search" size={16} color="#3b7fc4" />
-              <TextInput
-                value={busqueda}
-                onChangeText={setBusqueda}
-                placeholder={'Buscá por nombre, zona o tipo — ej. "villa" o "Nosara"'}
-                placeholderTextColor="#94a3bd"
-                style={styles.buscadorInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="search"
-              />
-            </View>
+            <Buscador
+              valor={busqueda}
+              onCambiar={setBusqueda}
+              placeholder={'Buscá por nombre, zona o tipo — ej. "Nosara"'}
+            />
           </View>
 
           {/* Chips de tipo con conteo: "Todos" y solo los que tienen
@@ -215,36 +195,18 @@ export default function HospedajesDirectorioScreen() {
             contentContainerStyle={styles.chips}
             keyboardShouldPersistTaps="handled"
           >
-            <Pressable
+            <ChipCategoria
+              texto={`Todos (${hospedajes.length})`}
+              activo={categoriaActiva === null}
               onPress={() => setCategoriaActiva(null)}
-              style={[styles.chip, categoriaActiva === null && styles.chipActivo]}
-            >
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.chipTexto,
-                  categoriaActiva === null && styles.chipTextoActivo,
-                ]}
-              >
-                Todos ({hospedajes.length})
-              </Text>
-            </Pressable>
+            />
             {CATEGORIAS_HOSPEDAJES.filter((c) => (conteo[c] ?? 0) > 0).map((c) => (
-              <Pressable
+              <ChipCategoria
                 key={c}
+                texto={`${CATEGORIA_HOSPEDAJE_LABEL[c]} (${conteo[c]})`}
+                activo={categoriaActiva === c}
                 onPress={() => setCategoriaActiva(categoriaActiva === c ? null : c)}
-                style={[styles.chip, categoriaActiva === c && styles.chipActivo]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.chipTexto,
-                    categoriaActiva === c && styles.chipTextoActivo,
-                  ]}
-                >
-                  {CATEGORIA_HOSPEDAJE_LABEL[c]} ({conteo[c]})
-                </Text>
-              </Pressable>
+              />
             ))}
           </ScrollView>
 
@@ -252,24 +214,17 @@ export default function HospedajesDirectorioScreen() {
             /* Vacío de búsqueda: hay hospedajes, pero ninguno calza con
                el filtro — distinto del vacío sin hospedajes de arriba. */
             <View style={styles.centro}>
-              <Text style={styles.vacioTitulo}>
-                No encontramos nada con esa búsqueda
-              </Text>
-              <Text style={styles.vacioTexto}>
-                Probá con otra palabra, otra zona, o quitá los filtros.
-              </Text>
-              <Pressable
-                onPress={() => {
-                  setBusqueda("");
-                  setCategoriaActiva(null);
+              <Vacio
+                titulo="No encontramos nada con esa búsqueda"
+                texto="Probá con otra palabra, otra zona, o quitá los filtros."
+                accion={{
+                  texto: "Ver todos los hospedajes",
+                  onPress: () => {
+                    setBusqueda("");
+                    setCategoriaActiva(null);
+                  },
                 }}
-                style={({ pressed }) => [
-                  styles.botonContorno,
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                <Text style={styles.botonContornoTexto}>Ver todos los hospedajes</Text>
-              </Pressable>
+              />
             </View>
           ) : (
             <FlatList
@@ -278,78 +233,22 @@ export default function HospedajesDirectorioScreen() {
               contentContainerStyle={styles.lista}
               keyboardShouldPersistTaps="handled"
               refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
-              renderItem={({ item: h }) => {
-                const calif = calificaciones[h.id];
-                const ubicacion = [h.canton, h.provincia].filter(Boolean).join(", ");
-                return (
-                  <Pressable
-                    onPress={() => router.push(`/rancho/${h.id}` as never)}
-                    style={({ pressed }) => [styles.tarjeta, pressed && { opacity: 0.92 }]}
-                  >
-                    <View style={styles.fotoMarco}>
-                      {h.foto_url ? (
-                        <Image
-                          source={{ uri: h.foto_url }}
-                          alt={h.nombre}
-                          style={styles.foto}
-                          contentFit="cover"
-                          transition={250}
-                        />
-                      ) : (
-                        <View style={styles.fotoVacia}>
-                          <Ionicons name="home-outline" size={34} color="#3b7fc4" />
-                        </View>
-                      )}
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeTexto}>{etiquetaCategoria(h.categoria)}</Text>
-                      </View>
-                      {h.slug?.startsWith("demo-") && (
-                        <View style={styles.badgeDemo}>
-                          <Text style={styles.badgeDemoTexto}>Demo</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.cuerpo}>
-                      <View style={styles.filaNombre}>
-                        <Text style={styles.nombre} numberOfLines={1}>
-                          {h.nombre}
-                        </Text>
-                        {calif && (
-                          <View style={styles.calif}>
-                            <Ionicons name="star" size={12} color={Colors.accent} />
-                            <Text style={styles.califTexto}>
-                              {calif.promedio.toFixed(1)}
-                              <Text style={styles.califTotal}> ({calif.total})</Text>
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      {!!ubicacion && (
-                        <View style={styles.filaUbicacion}>
-                          <Ionicons name="location-outline" size={12} color="#3b7fc4" />
-                          <Text style={styles.ubicacion} numberOfLines={1}>
-                            {ubicacion}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.filaPie}>
-                        <Text style={styles.precio}>
-                          {h.precio_desde ? (
-                            <>
-                              Desde{" "}
-                              <Text style={styles.precioMonto}>{fmtColones(h.precio_desde)}</Text>{" "}
-                              por noche
-                            </>
-                          ) : (
-                            "Consultar"
-                          )}
-                        </Text>
-                        <Text style={styles.reservar}>Reservar →</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              }}
+              renderItem={({ item: h }) => (
+                <TarjetaNegocio
+                  nombre={h.nombre}
+                  foto={h.foto_url}
+                  iconoVacio="home-outline"
+                  etiqueta={etiquetaCategoria(h.categoria)}
+                  calificacion={calificaciones[h.id] ?? null}
+                  ubicacion={[h.canton, h.provincia].filter(Boolean).join(", ") || null}
+                  precio={h.precio_desde ? fmtColones(h.precio_desde) : null}
+                  sufijoPrecio="por noche"
+                  cta="Reservar"
+                  tonoCta="navy"
+                  demo={h.slug?.startsWith("demo-")}
+                  onPress={() => router.push(`/rancho/${h.id}` as never)}
+                />
+              )}
             />
           )}
         </>
@@ -363,122 +262,19 @@ export default function HospedajesDirectorioScreen() {
 }
 
 const styles = StyleSheet.create({
-  contenedor: { backgroundColor: Colors.cream, flex: 1 },
+  contenedor: { backgroundColor: Colors.canvas, flex: 1 },
   verticalesZona: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two },
   centro: {
-    alignItems: "center",
     flex: 1,
     justifyContent: "center",
     paddingBottom: BARRA_RAPIDA_ESPACIO,
-    paddingHorizontal: Spacing.five,
-  },
-  vacioTitulo: {
-    color: Colors.ink,
-    fontFamily: Fonts.extraBold,
-    fontSize: 16,
-    textAlign: "center",
-  },
-  vacioTexto: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.medium,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 8,
-    textAlign: "center",
-  },
-  vacioBoton: {
-    backgroundColor: Colors.accent,
-    borderRadius: 99,
-    marginTop: 18,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-  },
-  vacioBotonTexto: { color: "#fff", fontFamily: Fonts.extraBold, fontSize: 14 },
-  lista: { gap: Spacing.three, padding: Spacing.three, paddingBottom: BARRA_RAPIDA_ESPACIO },
-  tarjeta: {
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  fotoMarco: { aspectRatio: 16 / 10, backgroundColor: "#e8f0f9" },
-  foto: { height: "100%", width: "100%" },
-  fotoVacia: { alignItems: "center", flex: 1, justifyContent: "center" },
-  badge: {
-    backgroundColor: "rgba(255,255,255,0.92)",
-    borderRadius: 99,
-    left: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    position: "absolute",
-    top: 10,
-  },
-  badgeTexto: {
-    color: Colors.navy,
-    fontFamily: Fonts.extraBold,
-    fontSize: 9.5,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  badgeDemo: {
-    backgroundColor: "#fbbf24",
-    borderRadius: 99,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    position: "absolute",
-    right: 10,
-    top: 10,
-  },
-  badgeDemoTexto: {
-    color: "#1c1c1c",
-    fontFamily: Fonts.extraBold,
-    fontSize: 9.5,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  cuerpo: { padding: Spacing.three },
-  filaNombre: { alignItems: "flex-start", flexDirection: "row", gap: 8 },
-  nombre: { color: Colors.ink, flex: 1, fontFamily: Fonts.extraBold, fontSize: 15 },
-  calif: { alignItems: "center", flexDirection: "row", gap: 3 },
-  califTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
-  califTotal: { color: Colors.inkSoft, fontFamily: Fonts.semiBold },
-  filaUbicacion: { alignItems: "center", flexDirection: "row", gap: 4, marginTop: 3 },
-  ubicacion: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5 },
-  filaPie: {
-    alignItems: "center",
-    borderTopColor: "#eef3fb",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-    paddingTop: 10,
-  },
-  precio: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5 },
-  precioMonto: { color: Colors.ink, fontFamily: Fonts.extraBold },
-  reservar: { color: Colors.accent, fontFamily: Fonts.extraBold, fontSize: 13 },
-  buscadorZona: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.two },
-  buscador: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.two,
-    backgroundColor: Colors.cream2,
-    borderRadius: 999,
     paddingHorizontal: Spacing.three,
-    height: 46,
   },
-  buscadorInput: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: Fonts.medium,
-    color: Colors.ink,
-    // Sin esto, Android mete padding propio y el texto queda
-    // descentrado dentro de la píldora de 46px.
-    padding: 0,
-  },
+  lista: { gap: Spacing.three, padding: Spacing.three, paddingBottom: BARRA_RAPIDA_ESPACIO },
+  buscadorZona: { paddingBottom: Spacing.two + 2, paddingHorizontal: Spacing.three },
   // flexShrink: 0 evita que la fila se aplaste (y recorte los chips)
   // al competir por altura con la lista de abajo.
-  chipsScroll: { flexGrow: 0, flexShrink: 0, marginBottom: Spacing.two },
+  chipsScroll: { flexGrow: 0, flexShrink: 0, marginBottom: Spacing.two + 2 },
   chips: {
     alignItems: "center",
     flexDirection: "row",
@@ -486,24 +282,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: 2,
   },
-  chip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#dbe4f2",
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  chipActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  chipTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
-  chipTextoActivo: { color: "#ffffff" },
-  botonContorno: {
-    marginTop: Spacing.three,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: Colors.navy,
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-  },
-  botonContornoTexto: { fontSize: 13, fontFamily: Fonts.bold, color: Colors.navy },
 });

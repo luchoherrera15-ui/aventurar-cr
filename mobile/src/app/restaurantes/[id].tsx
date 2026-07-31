@@ -14,11 +14,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import BarraRapida, { BARRA_RAPIDA_ESPACIO } from "@/components/barra-rapida";
+import { Avatar, Boton, Micro, Tarjeta, Vacio } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { abrirHiloConsulta } from "@/lib/consulta";
 import { pedirAvisoDeMensaje } from "@/lib/notificaciones";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones, linkGoogleMaps, linkWaze } from "@/lib/types";
 import {
   CATEGORIA_RESTAURANTE_LABEL,
@@ -183,6 +184,7 @@ export default function RestauranteFichaScreen() {
     return (
       <View style={styles.contenedor}>
         <BarraSuperior
+          kicker="Restaurantes"
           titulo="Restaurante"
           onVolver={() =>
             router.canGoBack() ? router.back() : router.replace("/restaurantes" as never)
@@ -199,22 +201,22 @@ export default function RestauranteFichaScreen() {
     return (
       <View style={styles.contenedor}>
         <BarraSuperior
+          kicker="Restaurantes"
           titulo="Restaurante"
           onVolver={() =>
             router.canGoBack() ? router.back() : router.replace("/restaurantes" as never)
           }
         />
-        <View style={styles.centro}>
-          <Text style={styles.vacioTitulo}>No encontramos este restaurante</Text>
-          <Text style={styles.vacioTexto}>
-            Puede que ya no esté publicado. Mirá el resto del directorio.
-          </Text>
-          <Pressable
-            onPress={() => router.replace("/restaurantes" as never)}
-            style={({ pressed }) => [styles.botonContorno, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={styles.botonContornoTexto}>Ver los restaurantes</Text>
-          </Pressable>
+        <View style={styles.centrado}>
+          <Vacio
+            icono="close-circle-outline"
+            titulo="No encontramos este restaurante"
+            texto="Puede que ya no esté publicado. Mirá el resto del directorio."
+            accion={{
+              texto: "Ver los restaurantes",
+              onPress: () => router.replace("/restaurantes" as never),
+            }}
+          />
         </View>
       </View>
     );
@@ -231,8 +233,8 @@ export default function RestauranteFichaScreen() {
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
+        kicker="Restaurantes"
         titulo={local.nombre}
-        subtitulo={CATEGORIA_RESTAURANTE_LABEL[categoria]}
         onVolver={() =>
           router.canGoBack() ? router.back() : router.replace("/restaurantes" as never)
         }
@@ -260,108 +262,118 @@ export default function RestauranteFichaScreen() {
           )}
         </View>
 
-        <View style={styles.bloque}>
-          <View style={styles.encabezado}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.rubro}>
-                {CATEGORIA_RESTAURANTE_LABEL[categoria]}
-                {rangoPrecio !== null ? ` · ${RANGO_PRECIO_LABEL[rangoPrecio]}` : ""}
-              </Text>
-              <Text style={styles.nombre}>{local.nombre}</Text>
-            </View>
-            {calif && (
-              <View style={styles.calif}>
-                <Ionicons name="star" size={14} color={Colors.accent} />
-                <Text style={styles.califTexto}>
-                  {Number(calif.promedio).toFixed(1)}
-                  <Text style={styles.califTotal}> ({calif.total})</Text>
+        {/* La identidad del local, montada sobre la foto — el mismo
+            encabezado que en Servicios, Eventos y Hospedajes. */}
+        <View style={styles.zonaIdentidad}>
+          <Tarjeta style={styles.identidad}>
+            <Micro>
+              {CATEGORIA_RESTAURANTE_LABEL[categoria]}
+              {rangoPrecio !== null ? ` · ${RANGO_PRECIO_LABEL[rangoPrecio]}` : ""}
+            </Micro>
+            <View style={styles.identidadFila}>
+              <Avatar nombre={local.nombre} tamano={46} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.nombre} numberOfLines={2}>
+                  {local.nombre}
                 </Text>
+                <View style={styles.metaFila}>
+                  {calif && (
+                    <>
+                      <Ionicons name="star" size={12} color={Colors.accent} />
+                      <Text style={styles.metaFuerte}>
+                        {Number(calif.promedio).toFixed(1)}
+                      </Text>
+                      <Text style={styles.metaTexto}>({calif.total})</Text>
+                    </>
+                  )}
+                  {!!ubicacion && (
+                    <Text style={styles.metaTexto} numberOfLines={1}>
+                      {calif ? "· " : ""}
+                      {ubicacion}
+                    </Text>
+                  )}
+                </View>
               </View>
-            )}
-          </View>
-
-          {!!ubicacion && (
-            <View style={styles.filaUbicacion}>
-              <Ionicons name="location-outline" size={14} color={Colors.navy} />
-              <Text style={styles.ubicacion}>
-                {local.direccion_exacta ? `${local.direccion_exacta} · ` : ""}
-                {ubicacion}
-              </Text>
             </View>
-          )}
 
-          {!!local.descripcion && <Text style={styles.descripcion}>{local.descripcion}</Text>}
+            {!!local.descripcion && <Text style={styles.descripcion}>{local.descripcion}</Text>}
 
-          <View style={styles.acciones}>
-            {aceptaReservaMesa && (
-              <Pressable
-                disabled={abriendo}
-                onPress={() => escribir("mesa")}
-                style={({ pressed }) => [
-                  styles.botonNavy,
-                  (pressed || abriendo) && { opacity: 0.88 },
-                ]}
-              >
-                <Ionicons name="calendar-outline" size={15} color="#ffffff" />
-                <Text style={styles.botonNavyTexto}>Reservar mesa</Text>
-              </Pressable>
-            )}
-            {aceptaPickup && (
-              <Pressable
-                disabled={abriendo}
-                onPress={() => escribir("pickup")}
-                style={({ pressed }) => [
-                  styles.botonNaranja,
-                  (pressed || abriendo) && { opacity: 0.88 },
-                ]}
-              >
-                <Ionicons name="bag-handle-outline" size={15} color="#ffffff" />
-                <Text style={styles.botonNavyTexto}>Pedir para recoger</Text>
-              </Pressable>
-            )}
-            <Pressable
-              disabled={abriendo}
-              onPress={() => escribir("consulta")}
-              style={({ pressed }) => [
-                styles.botonContornoChico,
-                (pressed || abriendo) && { opacity: 0.85 },
-              ]}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={15} color={Colors.navy} />
-              <Text style={styles.botonContornoChicoTexto}>Escribirle</Text>
-            </Pressable>
-            {whatsapp && (
-              <Pressable
-                onPress={() => Linking.openURL(`https://wa.me/${whatsapp}`)}
-                style={({ pressed }) => [
-                  styles.botonContornoChico,
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                <Ionicons name="logo-whatsapp" size={15} color={Colors.green} />
-                <Text style={styles.botonContornoChicoTexto}>WhatsApp</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {(hrefMaps || hrefWaze) && (
-            <View style={styles.comoLlegar}>
-              {hrefMaps && (
-                <Pressable onPress={() => Linking.openURL(hrefMaps)} hitSlop={6}>
-                  <Text style={styles.enlace}>Cómo llegar (Maps) →</Text>
-                </Pressable>
+            {/* La acción principal, en el naranja de siempre; las
+                secundarias en contorno. */}
+            <View style={styles.acciones}>
+              {aceptaReservaMesa && (
+                <Boton
+                  texto="Reservar mesa"
+                  icono="calendar-outline"
+                  cargando={abriendo}
+                  onPress={() => escribir("mesa")}
+                />
               )}
-              {hrefWaze && (
-                <Pressable onPress={() => Linking.openURL(hrefWaze)} hitSlop={6}>
-                  <Text style={styles.enlace}>Waze →</Text>
+              <View style={styles.accionesFila}>
+                {aceptaPickup && (
+                  <Boton
+                    compacto
+                    tono="navy"
+                    texto="Pedir para recoger"
+                    icono="bag-handle-outline"
+                    cargando={abriendo}
+                    onPress={() => escribir("pickup")}
+                    style={{ flex: 1 }}
+                  />
+                )}
+                <Boton
+                  compacto
+                  tono="contorno"
+                  texto="Escribirle"
+                  icono="chatbubble-ellipses-outline"
+                  cargando={abriendo}
+                  onPress={() => escribir("consulta")}
+                  style={{ flex: 1 }}
+                />
+              </View>
+              {whatsapp && (
+                <Pressable
+                  onPress={() => Linking.openURL(`https://wa.me/${whatsapp}`)}
+                  style={({ pressed }) => [styles.filaWhatsapp, pressed && { opacity: 0.85 }]}
+                >
+                  <Ionicons name="logo-whatsapp" size={16} color={Colors.green} />
+                  <Text style={styles.filaWhatsappTexto}>Escribir por WhatsApp</Text>
                 </Pressable>
               )}
             </View>
-          )}
+          </Tarjeta>
         </View>
 
+        {(!!local.direccion_exacta || hrefMaps || hrefWaze) && (
+          <View style={styles.bloque}>
+            <Micro>Dónde queda</Micro>
+            <Tarjeta style={styles.tarjetaUbicacion}>
+              {!!senas && (
+                <View style={styles.filaUbicacion}>
+                  <Ionicons name="location-outline" size={15} color={Colors.blue} />
+                  <Text style={styles.ubicacion}>{senas}</Text>
+                </View>
+              )}
+              {(hrefMaps || hrefWaze) && (
+                <View style={styles.comoLlegar}>
+                  {hrefMaps && (
+                    <Pressable onPress={() => Linking.openURL(hrefMaps)} hitSlop={6}>
+                      <Text style={styles.enlace}>Cómo llegar (Maps) →</Text>
+                    </Pressable>
+                  )}
+                  {hrefWaze && (
+                    <Pressable onPress={() => Linking.openURL(hrefWaze)} hitSlop={6}>
+                      <Text style={styles.enlace}>Waze →</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+            </Tarjeta>
+          </View>
+        )}
+
         <View style={styles.menuZona}>
-          <Text style={styles.menuTitulo}>Menú</Text>
+          <Micro>El menú</Micro>
 
           {items.length === 0 ? (
             <View style={styles.menuVacio}>
@@ -415,39 +427,27 @@ export default function RestauranteFichaScreen() {
 }
 
 const styles = StyleSheet.create({
-  contenedor: { backgroundColor: Colors.cream, flex: 1 },
-  scroll: { paddingBottom: BARRA_RAPIDA_ESPACIO },
+  contenedor: { backgroundColor: Colors.canvas, flex: 1 },
+  scroll: { gap: Spacing.four, paddingBottom: BARRA_RAPIDA_ESPACIO },
   centro: {
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
     paddingBottom: BARRA_RAPIDA_ESPACIO,
-    paddingHorizontal: Spacing.five,
   },
-  vacioTitulo: {
-    color: Colors.ink,
-    fontFamily: Fonts.extraBold,
-    fontSize: 16,
-    textAlign: "center",
+  centrado: {
+    flex: 1,
+    justifyContent: "center",
+    paddingBottom: BARRA_RAPIDA_ESPACIO,
+    paddingHorizontal: Spacing.three,
   },
-  vacioTexto: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.medium,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 8,
-    textAlign: "center",
-  },
-  portadaMarco: {
-    aspectRatio: 16 / 9,
-    backgroundColor: Colors.blueLight,
-    width: "100%",
-  },
+
+  portadaMarco: { aspectRatio: 16 / 9, backgroundColor: Colors.blueLight, width: "100%" },
   portada: { height: "100%", width: "100%" },
   portadaVacia: { alignItems: "center", flex: 1, justifyContent: "center" },
   badgeDemo: {
     backgroundColor: "#fbbf24",
-    borderRadius: 99,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
     position: "absolute",
@@ -457,38 +457,34 @@ const styles = StyleSheet.create({
   badgeDemoTexto: {
     color: "#1c1c1c",
     fontFamily: Fonts.extraBold,
-    fontSize: 10,
-    letterSpacing: 0.5,
+    fontSize: 9,
+    letterSpacing: 1,
     textTransform: "uppercase",
   },
-  bloque: { gap: Spacing.two, padding: Spacing.three },
-  encabezado: { flexDirection: "row", gap: Spacing.two },
-  rubro: {
-    color: Colors.navy,
-    fontFamily: Fonts.extraBold,
-    fontSize: 10.5,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
-  nombre: {
-    color: Colors.ink,
-    fontFamily: Fonts.extraBold,
-    fontSize: 22,
-    letterSpacing: -0.4,
-    marginTop: 3,
-  },
-  calif: {
+
+  zonaIdentidad: { marginTop: -Spacing.four - Spacing.two, paddingHorizontal: Spacing.three },
+  identidad: { gap: Spacing.two + 2, padding: Spacing.three },
+  identidadFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
+  nombre: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 20, letterSpacing: -0.5 },
+  metaFila: { alignItems: "center", flexDirection: "row", gap: 3, marginTop: 3 },
+  metaFuerte: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
+  metaTexto: { color: Colors.inkSoft, flexShrink: 1, fontFamily: Fonts.medium, fontSize: 12.5 },
+  descripcion: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 13.5, lineHeight: 20 },
+
+  acciones: { gap: Spacing.two, marginTop: 2 },
+  accionesFila: { flexDirection: "row", gap: Spacing.two },
+  filaWhatsapp: {
     alignItems: "center",
-    backgroundColor: Colors.cream2,
-    borderRadius: 999,
     flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 11,
+    gap: 6,
+    justifyContent: "center",
     paddingVertical: 6,
   },
-  califTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 13 },
-  califTotal: { color: Colors.inkSoft, fontFamily: Fonts.semiBold },
-  filaUbicacion: { alignItems: "flex-start", flexDirection: "row", gap: 5 },
+  filaWhatsappTexto: { color: Colors.green, fontFamily: Fonts.bold, fontSize: 13 },
+
+  bloque: { gap: Spacing.two + 2, paddingHorizontal: Spacing.three },
+  tarjetaUbicacion: { gap: Spacing.two + 2, padding: Spacing.three },
+  filaUbicacion: { alignItems: "flex-start", flexDirection: "row", gap: 6 },
   ubicacion: {
     color: Colors.inkSoft,
     flex: 1,
@@ -496,59 +492,22 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
   },
-  descripcion: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.medium,
-    fontSize: 13.5,
-    lineHeight: 20,
-    marginTop: 2,
-  },
-  acciones: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, marginTop: Spacing.two },
-  botonNavy: {
-    alignItems: "center",
-    backgroundColor: Colors.navy,
-    borderRadius: 14,
+  comoLlegar: {
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
     flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    gap: Spacing.four,
+    paddingTop: Spacing.two + 2,
   },
-  botonNaranja: {
-    alignItems: "center",
-    backgroundColor: Colors.accent,
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-  },
-  botonNavyTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13 },
-  botonContornoChico: {
-    alignItems: "center",
-    borderColor: "#dbe4f2",
-    borderRadius: 14,
-    borderWidth: 1.5,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-  },
-  botonContornoChicoTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 13 },
-  comoLlegar: { flexDirection: "row", gap: Spacing.three, marginTop: 2 },
   enlace: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 12.5 },
-  menuZona: { gap: Spacing.two, paddingHorizontal: Spacing.three, paddingTop: Spacing.two },
-  menuTitulo: {
-    color: Colors.ink,
-    fontFamily: Fonts.extraBold,
-    fontSize: 18,
-    letterSpacing: -0.3,
-  },
+
+  menuZona: { gap: Spacing.two + 2, paddingHorizontal: Spacing.three },
   menuVacio: {
     alignItems: "center",
-    borderColor: Colors.line,
-    borderRadius: 18,
+    borderColor: "#cfd5e2",
+    borderRadius: Radios.lg,
     borderStyle: "dashed",
-    borderWidth: 1,
+    borderWidth: 1.5,
     padding: Spacing.four,
   },
   menuVacioTitulo: {
@@ -569,26 +528,26 @@ const styles = StyleSheet.create({
   seccionTitulo: {
     color: Colors.accent,
     fontFamily: Fonts.extraBold,
-    fontSize: 11,
-    letterSpacing: 1,
+    fontSize: 10,
+    letterSpacing: 1.7,
   },
   plato: {
     backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 16,
+    borderColor: Colors.line,
+    borderRadius: Radios.md,
     borderWidth: 1,
     flexDirection: "row",
-    gap: Spacing.two,
+    gap: Spacing.two + 2,
     padding: Spacing.two + 2,
   },
-  platoFoto: { borderRadius: 12, height: 60, width: 60 },
+  platoFoto: { borderRadius: Radios.sm, height: 60, width: 60 },
   platoEncabezado: {
     alignItems: "baseline",
     flexDirection: "row",
     gap: Spacing.two,
     justifyContent: "space-between",
   },
-  platoNombre: { color: Colors.ink, flex: 1, fontFamily: Fonts.extraBold, fontSize: 13.5 },
+  platoNombre: { color: Colors.ink, flex: 1, fontFamily: Fonts.bold, fontSize: 14 },
   platoPrecio: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 13.5 },
   platoUnidad: { color: Colors.inkSoft, fontFamily: Fonts.semiBold, fontSize: 10.5 },
   platoDescripcion: {
@@ -598,13 +557,4 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 3,
   },
-  botonContorno: {
-    borderColor: Colors.navy,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    marginTop: Spacing.three,
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-  },
-  botonContornoTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 13 },
 });

@@ -293,7 +293,7 @@ export default function Planificador({
             role="dialog"
             aria-modal="true"
             aria-label="Creá tu evento con IA"
-            className="anim-panel-entrar relative flex max-h-[92vh] w-full max-w-[580px] flex-col overflow-hidden rounded-t-[24px] bg-white shadow-[0_30px_80px_-20px_rgba(16,26,44,0.5)] sm:rounded-[24px]"
+            className="anim-panel-entrar relative flex max-h-[92vh] w-full max-w-[580px] flex-col overflow-hidden rounded-t-[24px] bg-white shadow-[0_30px_80px_-20px_rgba(16,26,44,0.5)] sm:rounded-2xl"
           >
             {/* Encabezado navy de la marca */}
             <div className="flex items-start justify-between gap-3 bg-aventurea-navy px-5 py-4">
@@ -344,7 +344,7 @@ export default function Planificador({
                           disabled={!alcanzable}
                           onClick={() => irA(i)}
                           aria-current={actual ? "step" : undefined}
-                          className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[10.5px] font-bold transition-colors ${
+                          className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1 text-[10.5px] font-bold transition-colors ${
                             actual
                               ? "bg-aventurea-navy text-white"
                               : alcanzable
@@ -357,7 +357,7 @@ export default function Planificador({
                       );
                     })}
                   </div>
-                  <div className="h-[3px] w-full overflow-hidden rounded-full bg-aventurea-line/60">
+                  <div className="h-[3px] w-full overflow-hidden rounded-xl bg-aventurea-line/60">
                     <div
                       className="h-full rounded-full bg-aventurea-orange transition-all duration-300"
                       style={{ width: `${(etapaIdx / (ETAPAS.length - 1)) * 100}%` }}
@@ -395,7 +395,7 @@ export default function Planificador({
                         min={hoy}
                         value={respuestas.fecha ?? ""}
                         onChange={(e) => actualizar({ fecha: e.target.value || null })}
-                        className="w-full rounded-[14px] border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[14px] text-aventurea-ink focus:border-aventurea-navy/50 focus:outline-none"
+                        className="w-full rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[14px] text-aventurea-ink focus:border-aventurea-navy/50 focus:outline-none"
                       />
                       <PieBotones
                         onAtras={atras}
@@ -478,7 +478,7 @@ export default function Planificador({
                           actualizar({ invitados: Number.isFinite(n) && n > 0 ? n : null });
                         }}
                         placeholder="Otra cantidad — ej. 120"
-                        className="w-full rounded-[14px] border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/50 focus:outline-none"
+                        className="w-full rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/50 focus:outline-none"
                       />
                       <PieBotones
                         onAtras={atras}
@@ -514,7 +514,7 @@ export default function Planificador({
                           actualizar({ presupuesto: Number.isFinite(n) && n > 0 ? n : null });
                         }}
                         placeholder="Otro monto — ej. 1500000"
-                        className="w-full rounded-[14px] border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/50 focus:outline-none"
+                        className="w-full rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/50 focus:outline-none"
                       />
                       <PieBotones
                         onAtras={atras}
@@ -564,7 +564,7 @@ export default function Planificador({
                                     : [...respuestas.servicios, s.id],
                                 })
                               }
-                              className={`flex items-center gap-2 rounded-[14px] border px-3 py-2.5 text-left text-[12.5px] font-bold transition-colors ${
+                              className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[12.5px] font-bold transition-colors ${
                                 activo
                                   ? "border-aventurea-navy bg-aventurea-navy text-white"
                                   : "border-aventurea-line bg-white text-aventurea-ink hover:border-aventurea-navy"
@@ -587,7 +587,7 @@ export default function Planificador({
                           onChange={(e) => actualizar({ preferencias: e.target.value.slice(0, 400) })}
                           rows={2}
                           placeholder="Ej. con piscina, pet friendly, comida vegetariana…"
-                          className="w-full resize-none rounded-[14px] border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/50 focus:outline-none"
+                          className="w-full resize-none rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/50 focus:outline-none"
                         />
                       </div>
 
@@ -602,7 +602,7 @@ export default function Planificador({
 
                   {etapa === "resultados" && resultados && (
                     <div>
-                      <div className="rounded-[18px] bg-aventurea-navy px-4 py-3.5">
+                      <div className="rounded-2xl bg-aventurea-navy px-4 py-3.5">
                         <p className="text-[13.5px] font-bold leading-snug text-white">
                           {resultados.resumen}
                         </p>
@@ -612,7 +612,7 @@ export default function Planificador({
                       </div>
 
                       {resultados.vacio ? (
-                        <div className="mt-5 rounded-[18px] border border-aventurea-line bg-aventurea-cream-2 p-6 text-center">
+                        <div className="mt-5 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-6 text-center">
                           <p className="text-[14px] font-bold text-aventurea-ink">
                             Todavía no hay negocios que calcen con todo lo que pediste.
                           </p>
@@ -634,7 +634,7 @@ export default function Planificador({
                               ) : null}
                             </h3>
                             {g.candidatos.length === 0 ? (
-                              <p className="rounded-[14px] border border-dashed border-aventurea-line px-4 py-3 text-[12.5px] text-aventurea-ink-soft">
+                              <p className="rounded-xl border border-dashed border-aventurea-line px-4 py-3 text-[12.5px] text-aventurea-ink-soft">
                                 Aún no tenemos opciones de {g.servicio.label.toLowerCase()} que
                                 calcen — probá ajustar la zona o el presupuesto.
                               </p>
@@ -722,7 +722,7 @@ function PieBotones({
       <button
         type="button"
         onClick={onSiguiente}
-        className={`rounded-full px-5 py-2.5 text-[13px] font-bold text-white transition-colors ${
+        className={`rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-colors ${
           destacado
             ? "bg-aventurea-orange hover:bg-aventurea-orange-dark"
             : "bg-aventurea-navy hover:bg-aventurea-navy/85"
@@ -750,7 +750,7 @@ function ChipGrande({
       type="button"
       aria-pressed={activo}
       onClick={onClick}
-      className={`flex items-center gap-2 rounded-[14px] border px-3 py-3 text-left text-[13px] font-bold transition-colors ${
+      className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-left text-[13px] font-bold transition-colors ${
         activo
           ? "border-aventurea-navy bg-aventurea-navy text-white"
           : "border-aventurea-line bg-white text-aventurea-ink hover:border-aventurea-navy"
@@ -776,7 +776,7 @@ function ChipChico({
       type="button"
       aria-pressed={activo}
       onClick={onClick}
-      className={`rounded-full border px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
+      className={`rounded-xl border px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
         activo
           ? "border-aventurea-navy bg-aventurea-navy text-white"
           : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-ink"
@@ -812,10 +812,10 @@ function CardResultado({
   const ubicacion = [rancho.canton, rancho.provincia].filter(Boolean).join(", ");
 
   return (
-    <article className="rounded-[18px] border border-aventurea-line bg-white p-3 shadow-[0_8px_28px_-18px_rgba(22,41,94,0.3)] transition-shadow hover:shadow-[0_14px_34px_-18px_rgba(22,41,94,0.4)]">
+    <article className="rounded-2xl border border-aventurea-line bg-white p-3 shadow-[0_8px_28px_-18px_rgba(22,41,94,0.3)] transition-shadow hover:shadow-[0_14px_34px_-18px_rgba(22,41,94,0.4)]">
       <div className="flex gap-3">
         <div
-          className="relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-[14px] bg-aventurea-blue-light"
+          className="relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-xl bg-aventurea-blue-light"
           style={
             !rancho.foto_url
               ? { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
@@ -870,7 +870,7 @@ function CardResultado({
               {etiquetaDisponibilidad}
             </span>
             {esDemo && (
-              <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-zinc-900">
+              <span className="rounded-lg bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-zinc-900">
                 Demo
               </span>
             )}
@@ -881,13 +881,13 @@ function CardResultado({
       <div className="mt-2.5 flex items-center gap-2 border-t border-aventurea-line/70 pt-2.5">
         <Link
           href={href}
-          className="flex h-8 flex-1 items-center justify-center rounded-full border border-aventurea-navy px-3 text-[12px] font-bold text-aventurea-navy transition-colors hover:bg-aventurea-navy hover:text-white"
+          className="flex h-8 flex-1 items-center justify-center rounded-xl border border-aventurea-navy px-3 text-[12px] font-bold text-aventurea-navy transition-colors hover:bg-aventurea-navy hover:text-white"
         >
           Ver perfil
         </Link>
         <Link
           href={`/mensajes/consulta/${rancho.id}`}
-          className="flex h-8 flex-1 items-center justify-center rounded-full bg-aventurea-orange px-3 text-[12px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+          className="flex h-8 flex-1 items-center justify-center rounded-xl bg-aventurea-orange px-3 text-[12px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
         >
           Pedir cotización
         </Link>
@@ -968,7 +968,7 @@ function PantallaGuardar({
   }
 
   const inputCls =
-    "w-full rounded-[14px] border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/50 focus:outline-none";
+    "w-full rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-3 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy/50 focus:outline-none";
 
   return (
     <div className="flex-1 overflow-y-auto px-5 py-5">
@@ -1029,7 +1029,7 @@ function PantallaGuardar({
           type="button"
           onClick={guardar}
           disabled={!puedeGuardar || pending}
-          className="rounded-full bg-aventurea-orange px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-40"
+          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-40"
         >
           {pending ? "Guardando…" : "Guardar mi plan"}
         </button>

@@ -85,7 +85,7 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
   return (
     <form
       action={formAction}
-      className="mt-6 flex flex-col gap-3.5 rounded-[18px] border border-aventurea-line bg-aventurea-surface p-6"
+      className="mt-6 flex flex-col gap-3.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-6"
     >
       <input type="hidden" name="vertical" value={vertical} />
 

@@ -84,7 +84,7 @@ export default function RanchoCard({
           pie "Desde ₡ · Reservar →". Una sola card en todo el sitio. */}
       <Link
         href={href}
-        className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
+        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
       >
         {/* 4:3 en vez de 16:10 — la foto es la protagonista y el
             bloque blanco de abajo queda lo más chico posible. */}
@@ -108,24 +108,24 @@ export default function RanchoCard({
             </span>
           )}
 
-          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
+          <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
             {rubro}
           </span>
 
           <span className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
             {esDemo && (
-              <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
+              <span className="rounded-lg bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
                 Demo
               </span>
             )}
             {/* Destacado le gana el puesto a "Nuevo". */}
             {rancho.destacado_orden != null ? (
-              <span className="rounded-full bg-aventurea-orange px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
+              <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
                 ★ Destacado
               </span>
             ) : (
               esNuevo && (
-                <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink backdrop-blur">
+                <span className="rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink backdrop-blur">
                   Nuevo
                 </span>
               )

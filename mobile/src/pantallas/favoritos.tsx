@@ -1,25 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import TituloPantalla from "@/components/titulo-pantalla";
+import TarjetaNegocio from "@/components/tarjeta-negocio";
+import { Vacio } from "@/components/ui";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
-import { TarjetaRancho, type Fila } from "@/pantallas/explorar";
+import { CATEGORIA_LABEL, SUBCATEGORIAS, fmtColones } from "@/lib/types";
+import { type Fila } from "@/pantallas/explorar";
 
 /**
- * Pestaña de favoritos, espejo de los "wishlists" de Airbnb: todo lo
- * que la persona marcó con el corazón en el directorio, en un solo
- * lugar. Se recarga cada vez que la pestaña gana foco, porque los
- * corazones se tocan desde Explorar y el detalle.
+ * Pestaña de favoritos: todo lo que la persona marcó con el corazón en
+ * el directorio, en un solo lugar. Se recarga cada vez que la pestaña
+ * gana foco, porque los corazones se tocan desde Explorar y el detalle.
+ * Usa la misma `TarjetaNegocio` que los cuatro directorios.
  */
 export default function FavoritosScreen({ activa = true }: { activa?: boolean }) {
   const router = useRouter();
@@ -77,15 +73,17 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
   if (!session) {
     return (
       <View style={styles.raiz}>
-        <TituloPantalla titulo="Favoritos" />
+        <TituloPantalla kicker="Guardados" titulo="Favoritos" />
         <View style={styles.centro}>
-          <Text style={styles.vacioTitulo}>Iniciá sesión</Text>
-          <Text style={styles.vacioTexto}>
-            Entrá a tu cuenta para guardar y ver tus proveedores favoritos.
-          </Text>
-          <Pressable style={styles.boton} onPress={() => router.replace("/?tab=perfil" as never)}>
-            <Text style={styles.botonTexto}>Ir a mi perfil</Text>
-          </Pressable>
+          <Vacio
+            icono="heart-outline"
+            titulo="Iniciá sesión"
+            texto="Entrá a tu cuenta para guardar y ver tus proveedores favoritos."
+            accion={{
+              texto: "Ir a mi perfil",
+              onPress: () => router.replace("/?tab=perfil" as never),
+            }}
+          />
         </View>
       </View>
     );
@@ -94,6 +92,7 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
   return (
     <View style={styles.raiz}>
       <TituloPantalla
+        kicker="Guardados"
         titulo="Favoritos"
         subtitulo="Los proveedores que guardaste con el corazón."
       />
@@ -107,26 +106,34 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.lista}
           ListEmptyComponent={
-            <View style={styles.centro}>
-              <Text style={styles.vacioTitulo}>Todavía no hay favoritos</Text>
-              <Text style={styles.vacioTexto}>
-                Tocá el corazón en cualquier tarjeta del directorio y aparece
-                acá.
-              </Text>
-              <Pressable style={styles.boton} onPress={() => router.replace("/?tab=explorar" as never)}>
-                <Text style={styles.botonTexto}>Explorar proveedores</Text>
-              </Pressable>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <TarjetaRancho
-              item={item}
-              ancho="completo"
-              favorito
-              onPress={() => router.push(`/rancho/${item.id}`)}
-              onToggleFavorito={() => quitar(item.id)}
+            <Vacio
+              icono="heart-outline"
+              titulo="Todavía no hay favoritos"
+              texto="Tocá el corazón en cualquier tarjeta del directorio y aparece acá."
+              accion={{
+                texto: "Explorar proveedores",
+                onPress: () => router.replace("/?tab=explorar" as never),
+              }}
             />
-          )}
+          }
+          renderItem={({ item }) => {
+            const subLabel = item.subcategoria
+              ? SUBCATEGORIAS[item.categoria]?.find((s) => s.id === item.subcategoria)?.label
+              : null;
+            return (
+              <TarjetaNegocio
+                nombre={item.nombre}
+                foto={item.foto_url}
+                etiqueta={subLabel ?? CATEGORIA_LABEL[item.categoria]}
+                ubicacion={[item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"}
+                precio={item.precio_desde !== null ? fmtColones(item.precio_desde) : null}
+                cta="Reservar"
+                favorito
+                onToggleFavorito={() => quitar(item.id)}
+                onPress={() => router.push(`/rancho/${item.id}`)}
+              />
+            );
+          }}
         />
       )}
     </View>
@@ -134,17 +141,12 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
 }
 
 const styles = StyleSheet.create({
-  raiz: { flex: 1, backgroundColor: Colors.cream },
-  centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.two },
-  lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: TAB_BAR_ESPACIO, flexGrow: 1 },
-  vacioTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
-  vacioTexto: { fontSize: 13.5, color: Colors.inkSoft, textAlign: "center", lineHeight: 19 },
-  boton: {
-    marginTop: Spacing.two,
-    backgroundColor: Colors.navy,
-    borderRadius: 12,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: 12,
+  raiz: { backgroundColor: Colors.canvas, flex: 1 },
+  centro: { flex: 1, justifyContent: "center", paddingHorizontal: Spacing.three },
+  lista: {
+    flexGrow: 1,
+    gap: Spacing.three,
+    padding: Spacing.three,
+    paddingBottom: TAB_BAR_ESPACIO,
   },
-  botonTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13.5 },
 });

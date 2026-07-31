@@ -136,7 +136,7 @@ function PestanaTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full border px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
+      className={`rounded-xl border px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
         activo
           ? "border-aventurea-navy bg-aventurea-navy text-white"
           : "border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-ink"
@@ -195,7 +195,7 @@ function TarjetaReserva({
           )}
         </div>
         <span
-          className={`shrink-0 self-start rounded-full px-2.5 py-1 text-[10.5px] font-bold ${ESTADO_CLASE[reserva.estado] ?? "bg-zinc-100 text-zinc-600"}`}
+          className={`shrink-0 self-start rounded-lg px-2.5 py-1 text-[10.5px] font-bold ${ESTADO_CLASE[reserva.estado] ?? "bg-zinc-100 text-zinc-600"}`}
         >
           {ESTADO_LABEL[reserva.estado] ?? reserva.estado}
         </span>

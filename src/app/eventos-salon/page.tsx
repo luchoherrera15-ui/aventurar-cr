@@ -137,7 +137,7 @@ export default async function EventosSalonPage() {
               </div>
             ))}
             <div className="relative rounded-2xl border border-aventurea-orange/40 bg-aventurea-surface p-5">
-              <span className="absolute right-4 top-4 rounded-full bg-aventurea-orange/15 px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide text-aventurea-orange">
+              <span className="absolute right-4 top-4 rounded-lg bg-aventurea-orange/15 px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide text-aventurea-orange">
                 Costo adicional
               </span>
               <h3 className="text-[15px] font-bold text-aventurea-ink">

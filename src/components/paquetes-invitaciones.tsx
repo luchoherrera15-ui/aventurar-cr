@@ -106,15 +106,15 @@ function CardPrincipal({ paquete }: { paquete: PaquetePrincipal }) {
     <div
       className={
         destacado
-          ? "relative flex flex-col rounded-[24px] bg-aventurea-navy p-6 text-white shadow-[0_24px_60px_-24px_rgba(16,26,44,0.55)]"
-          : "relative flex flex-col rounded-[24px] border border-aventurea-line bg-white p-6 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)]"
+          ? "relative flex flex-col rounded-2xl bg-aventurea-navy p-6 text-white shadow-[0_24px_60px_-24px_rgba(16,26,44,0.55)]"
+          : "relative flex flex-col rounded-2xl border border-aventurea-line bg-white p-6 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)]"
       }
     >
       <span
         className={
           destacado
-            ? "inline-flex w-fit items-center rounded-full bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
-            : "inline-flex w-fit items-center rounded-full bg-aventurea-orange/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
+            ? "inline-flex w-fit items-center rounded-lg bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
+            : "inline-flex w-fit items-center rounded-lg bg-aventurea-orange/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
         }
       >
         {paquete.badge}
@@ -227,15 +227,15 @@ function CardPaquete({ paquete }: { paquete: PaqueteInvitacion }) {
     <div
       className={
         destacado
-          ? "relative flex flex-col rounded-[24px] bg-aventurea-navy p-6 text-white shadow-[0_24px_60px_-24px_rgba(16,26,44,0.55)]"
-          : "relative flex flex-col rounded-[24px] border border-aventurea-line bg-white p-6 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)]"
+          ? "relative flex flex-col rounded-2xl bg-aventurea-navy p-6 text-white shadow-[0_24px_60px_-24px_rgba(16,26,44,0.55)]"
+          : "relative flex flex-col rounded-2xl border border-aventurea-line bg-white p-6 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)]"
       }
     >
       <span
         className={
           destacado
-            ? "inline-flex w-fit items-center rounded-full bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
-            : "inline-flex w-fit items-center rounded-full bg-aventurea-orange/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
+            ? "inline-flex w-fit items-center rounded-lg bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
+            : "inline-flex w-fit items-center rounded-lg bg-aventurea-orange/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
         }
       >
         {paquete.badge}

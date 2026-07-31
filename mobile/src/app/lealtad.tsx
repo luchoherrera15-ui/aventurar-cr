@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   botonAccent: {
     alignItems: "center",
     backgroundColor: Colors.accent,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     marginTop: Spacing.four,
     paddingVertical: 15,
   },
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   chip: {
     backgroundColor: Colors.surface,
     borderColor: Colors.line,
-    borderRadius: Radios.full,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   planBoton: {
     alignItems: "center",
     borderColor: Colors.navy,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     borderWidth: 1,
     marginTop: Spacing.three,
     paddingVertical: 12,

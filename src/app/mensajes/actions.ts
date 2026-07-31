@@ -66,5 +66,25 @@ export async function alternarResuelto(
   if (error) {
     return { error: "No se pudo actualizar. Intentá de nuevo." };
   }
+
+  // Dar por resuelto es también decir "ya lo vi": si el hilo tenía
+  // mensajes sin leer y se archiva sin marcarlos, esos pendientes se
+  // siguen contando en la burbuja de chat aunque el hilo ya no salga
+  // en la bandeja de activas — un contador que no baja nunca.
+  if (resuelta) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("conversacion_lecturas").upsert(
+        {
+          conversacion_id: conversacionId,
+          usuario_id: user.id,
+          leido_hasta: new Date().toISOString(),
+        },
+        { onConflict: "conversacion_id,usuario_id" },
+      );
+    }
+  }
   return { error: null };
 }

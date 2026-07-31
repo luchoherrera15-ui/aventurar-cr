@@ -137,7 +137,7 @@ export default function HiloChat({
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           placeholder="Escribí un mensaje..."
-          className="flex-1 rounded-full border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500 focus:outline-none"
+          className="flex-1 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500 focus:outline-none"
         />
         <button
           type="submit"

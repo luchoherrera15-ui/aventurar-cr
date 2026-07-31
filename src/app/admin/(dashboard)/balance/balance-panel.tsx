@@ -474,7 +474,7 @@ export default function BalancePanel({
                       </span>
                     </div>
                   </div>
-                  <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-aventurea-cream-2">
+                  <div className="mt-2.5 h-2 w-full overflow-hidden rounded-xl bg-aventurea-cream-2">
                     <div
                       className="h-full rounded-full bg-aventurea-navy transition-[width] duration-300"
                       style={{ width: `${barPct}%` }}

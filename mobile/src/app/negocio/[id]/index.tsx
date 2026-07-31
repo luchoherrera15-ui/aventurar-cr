@@ -13,9 +13,18 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
+import {
+  Boton,
+  ChipCategoria,
+  Estado,
+  Micro,
+  Tarjeta,
+  Vacio,
+  type TonoEstado,
+} from "@/components/ui";
 import { pedirCorreoDeAprobacion } from "@/lib/notificaciones";
 import { useAuth } from "@/lib/auth-context";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 
 /**
@@ -63,14 +72,26 @@ const ESTADO_LABEL: Record<string, string> = {
   no_asistio: "No asistió",
   cancelada: "Cancelada",
 };
-const ESTADO_COLOR: Record<string, string> = {
+/** El mismo código de color que la agenda y las reservas del cliente. */
+const ESTADO_TONO: Record<string, TonoEstado> = {
+  pendiente: "naranja",
+  confirmada: "verde",
+  rechazada: "rojo",
+  bloqueada: "gris",
+  cumplida: "verde",
+  no_asistio: "rojo",
+  cancelada: "gris",
+};
+
+/** La barra de acento a la izquierda de cada reserva. */
+const ESTADO_BARRA: Record<string, string> = {
   pendiente: Colors.accent,
   confirmada: Colors.green,
   rechazada: Colors.danger,
-  bloqueada: Colors.inkSoft,
+  bloqueada: Colors.line,
   cumplida: Colors.green,
   no_asistio: Colors.danger,
-  cancelada: Colors.inkSoft,
+  cancelada: Colors.line,
 };
 
 /** "10:00" o "10:00–10:45" si se sabe cuánto dura. */
@@ -92,6 +113,9 @@ export default function AdminNegocioScreen() {
   const { session } = useAuth();
   const [nombreNegocio, setNombreNegocio] = useState<string | null>(null);
   const [categoria, setCategoria] = useState<string | null>(null);
+  /** La vertical decide qué atajos tienen sentido (equipo y horario
+   *  solo existen en Citas). */
+  const [vertical, setVertical] = useState<string | null>(null);
   const [reservas, setReservas] = useState<ReservaNegocio[] | null>(null);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>("todas");
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -99,7 +123,7 @@ export default function AdminNegocioScreen() {
   const cargar = useCallback(async () => {
     if (!session) return;
     const [{ data: rancho }, { data: reservasData }] = await Promise.all([
-      supabase.from("ranchos").select("nombre, categoria").eq("id", id).maybeSingle(),
+      supabase.from("ranchos").select("nombre, categoria, vertical").eq("id", id).maybeSingle(),
       supabase
         .from("reservas")
         .select(
@@ -111,6 +135,7 @@ export default function AdminNegocioScreen() {
     ]);
     setNombreNegocio(rancho?.nombre ?? null);
     setCategoria((rancho?.categoria as string) ?? null);
+    setVertical((rancho?.vertical as string) ?? null);
     setReservas((reservasData ?? []) as ReservaNegocio[]);
   }, [id, session]);
 
@@ -181,7 +206,7 @@ export default function AdminNegocioScreen() {
   if (reservas === null) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo={nombreNegocio ?? "Reservas"} />
+        <BarraSuperior kicker="Panel" titulo="Panel de reservas" />
         <View style={styles.centro}>
           <ActivityIndicator color={Colors.accent} />
         </View>
@@ -189,11 +214,14 @@ export default function AdminNegocioScreen() {
     );
   }
 
+  const pendientes = (reservas ?? []).filter((r) => r.estado === "pendiente").length;
+
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
-        titulo={nombreNegocio ?? "Reservas"}
-        subtitulo="Reservas de este negocio"
+        kicker="Panel"
+        titulo="Panel de reservas"
+        subtitulo={nombreNegocio ?? undefined}
         accion={{
           icono: "create-outline",
           etiqueta: "Editar negocio",
@@ -208,74 +236,110 @@ export default function AdminNegocioScreen() {
       onRefresh={cargar}
       refreshing={false}
       ListHeaderComponent={
-        <View>
-          {/* Administración del negocio, todo desde la app: la página,
-              el catálogo reservable y los cobros/tarifas. */}
-          <View style={styles.adminFila}>
-            {/* La agenda por horas: el día a día del negocio de citas
-                y el feed para sincronizar Google/Apple Calendar. */}
-            <Pressable
-              style={styles.adminBoton}
-              onPress={() => router.push(`/negocio/${id}/agenda` as never)}
-            >
-              <Text style={styles.adminBotonTexto}>Agenda</Text>
-            </Pressable>
-            {/* Importar el calendario viejo (Google/Apple) como bloqueos. */}
-            <Pressable
-              style={styles.adminBoton}
-              onPress={() => router.push(`/negocio/${id}/sincronizar` as never)}
-            >
-              <Text style={styles.adminBotonTexto}>Sincronizar agendas</Text>
-            </Pressable>
-            <Pressable
-              style={styles.adminBoton}
-              onPress={() => router.push(`/negocio/${id}/editar` as never)}
-            >
-              <Text style={styles.adminBotonTexto}>Editar página</Text>
-            </Pressable>
-            {categoria && categoria !== "lugares" && (
-              <Pressable
-                style={styles.adminBoton}
-                onPress={() => router.push(`/negocio/${id}/catalogo` as never)}
-              >
-                <Text style={styles.adminBotonTexto}>Catálogo</Text>
-              </Pressable>
-            )}
-            <Pressable
-              style={styles.adminBoton}
-              onPress={() => router.push(`/negocio/${id}/cobros` as never)}
-            >
-              <Text style={styles.adminBotonTexto}>Cobros y tarifas</Text>
-            </Pressable>
+        <View style={styles.cabecera}>
+          {/* Administración del negocio, todo desde la app: la agenda,
+              la página, el catálogo reservable y los cobros. */}
+          <View style={{ gap: Spacing.two }}>
+            <Micro>Tu negocio</Micro>
+            <View style={styles.adminFila}>
+              {/* La agenda por horas: el día a día del negocio de citas
+                  y el feed para sincronizar Google/Apple Calendar. */}
+              <AtajoPanel
+                icono="calendar-outline"
+                texto="Agenda"
+                onPress={() => router.push(`/negocio/${id}/agenda` as never)}
+              />
+              {/* Importar el calendario viejo (Google/Apple) como bloqueos. */}
+              <AtajoPanel
+                icono="sync-outline"
+                texto="Sincronizar"
+                onPress={() => router.push(`/negocio/${id}/sincronizar` as never)}
+              />
+              <AtajoPanel
+                icono="create-outline"
+                texto="Editar página"
+                onPress={() => router.push(`/negocio/${id}/editar` as never)}
+              />
+              {categoria && categoria !== "lugares" && (
+                <AtajoPanel
+                  icono="list-outline"
+                  texto="Catálogo"
+                  onPress={() => router.push(`/negocio/${id}/catalogo` as never)}
+                />
+              )}
+              <AtajoPanel
+                icono="wallet-outline"
+                texto="Cobros y tarifas"
+                onPress={() => router.push(`/negocio/${id}/cobros` as never)}
+              />
+              {/* Rangos por invitados, extras y descuentos. */}
+              <AtajoPanel
+                icono="pricetags-outline"
+                texto="Precios"
+                onPress={() => router.push(`/negocio/${id}/precios` as never)}
+              />
+              {/* Lo que entró, lo que falta cobrar y los gastos. */}
+              <AtajoPanel
+                icono="trending-up-outline"
+                texto="Finanzas"
+                onPress={() => router.push(`/negocio/${id}/finanzas` as never)}
+              />
+              {/* Equipo, horario y giftcards — solo la vertical de citas. */}
+              {vertical === "citas" && (
+                <AtajoPanel
+                  icono="people-outline"
+                  texto="Equipo y horario"
+                  onPress={() => router.push(`/negocio/${id}/citas` as never)}
+                />
+              )}
+            </View>
           </View>
-          <View style={styles.filtros}>
-            {FILTROS.map((f) => (
-              <Pressable
-                key={f}
-                onPress={() => setFiltro(f)}
-                style={[styles.filtroChip, filtro === f && styles.filtroChipActivo]}
-              >
-                <Text style={[styles.filtroTexto, filtro === f && styles.filtroTextoActivo]}>
-                  {f === "todas" ? "Todas" : ESTADO_LABEL[f]}
-                </Text>
-              </Pressable>
-            ))}
+
+          <View style={{ gap: Spacing.two }}>
+            <Micro>
+              {pendientes > 0
+                ? `${pendientes} ${pendientes === 1 ? "espera" : "esperan"} tu aprobación`
+                : "Todo al día"}
+            </Micro>
+            <View style={styles.filtros}>
+              {FILTROS.map((f) => (
+                <ChipCategoria
+                  key={f}
+                  texto={f === "todas" ? "Todas" : ESTADO_LABEL[f]}
+                  activo={filtro === f}
+                  onPress={() => setFiltro(f)}
+                />
+              ))}
+            </View>
           </View>
         </View>
       }
       ListEmptyComponent={
-        <View style={styles.centro}>
-          <Text style={styles.vacioTitulo}>Sin reservas por aquí</Text>
-          <Text style={styles.vacioTexto}>
-            Cuando alguien reserve tu {""}servicio, aparece acá para que la
-            revisés y la confirmés.
-          </Text>
-        </View>
+        <Vacio
+          icono="calendar-clear-outline"
+          titulo="Sin reservas por aquí"
+          texto="Cuando alguien reserve, aparece acá para que la revisés y la confirmés."
+        />
       }
       renderItem={({ item }) => (
-        <View style={styles.tarjeta}>
+        // La que espera aprobación se contornea en naranja: es la única
+        // que pide algo del dueño, y tiene que saltar en la lista.
+        <Tarjeta
+          style={[
+            styles.tarjeta,
+            item.estado === "pendiente" && styles.tarjetaPendiente,
+          ]}
+        >
+          {item.estado !== "pendiente" && (
+            <View
+              style={[
+                styles.barraEstado,
+                { backgroundColor: ESTADO_BARRA[item.estado] ?? Colors.line },
+              ]}
+            />
+          )}
           <View style={styles.filaSuperior}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.fecha}>
                 {item.fecha}
                 {item.fecha_fin && item.fecha_fin !== item.fecha ? ` → ${item.fecha_fin}` : ""}
@@ -304,9 +368,10 @@ export default function AdminNegocioScreen() {
                 </Text>
               ) : null}
             </View>
-            <View style={[styles.badge, { backgroundColor: ESTADO_COLOR[item.estado] }]}>
-              <Text style={styles.badgeTexto}>{ESTADO_LABEL[item.estado]}</Text>
-            </View>
+            <Estado
+              texto={ESTADO_LABEL[item.estado]}
+              tono={ESTADO_TONO[item.estado] ?? "gris"}
+            />
           </View>
 
           {/* Depósito: cuánto era, si ya se validó, y el comprobante */}
@@ -328,18 +393,25 @@ export default function AdminNegocioScreen() {
             )}
           </View>
 
+          {/* La acción del mockup: aprobar con un toque. */}
           {item.estado === "pendiente" && (
             <View style={styles.acciones}>
-              <Pressable
-                style={[styles.botonAccion, styles.botonConfirmar, ocupado === item.id && { opacity: 0.5 }]}
-                disabled={ocupado === item.id}
+              <Boton
+                compacto
+                tono="verde"
+                icono="checkmark"
+                texto="Aprobar"
+                deshabilitado={ocupado === item.id}
                 onPress={() => cambiarEstado(item, "confirmada")}
-              >
-                <Ionicons name="checkmark" size={16} color="#ffffff" />
-                <Text style={styles.botonAccionTexto}>Confirmar</Text>
-              </Pressable>
+                style={{ flex: 1 }}
+              />
+              {/* Secundaria en contorno, como el "Ver detalle" del
+                  diseño — el verde de aprobar es lo único sólido. */}
               <Pressable
-                style={[styles.botonAccion, styles.botonRechazar, ocupado === item.id && { opacity: 0.5 }]}
+                style={({ pressed }) => [
+                  styles.botonRechazar,
+                  (pressed || ocupado === item.id) && { opacity: 0.6 },
+                ]}
                 disabled={ocupado === item.id}
                 onPress={() =>
                   Alert.alert("Rechazar reserva", "¿Seguro? El cliente verá su reserva como rechazada.", [
@@ -348,8 +420,7 @@ export default function AdminNegocioScreen() {
                   ])
                 }
               >
-                <Ionicons name="close" size={16} color={Colors.danger} />
-                <Text style={[styles.botonAccionTexto, { color: Colors.danger }]}>Rechazar</Text>
+                <Text style={styles.botonRechazarTexto}>Rechazar</Text>
               </Pressable>
             </View>
           )}
@@ -381,82 +452,115 @@ export default function AdminNegocioScreen() {
               <Text style={styles.deshacerTexto}>Quitar confirmación</Text>
             </Pressable>
           )}
-        </View>
+        </Tarjeta>
       )}
       />
     </View>
   );
 }
 
+/** Un atajo del panel: ícono en burbuja + rótulo, todos del mismo alto. */
+function AtajoPanel({
+  icono,
+  texto,
+  onPress,
+}: {
+  icono: keyof typeof Ionicons.glyphMap;
+  texto: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={texto}
+      onPress={onPress}
+      style={({ pressed }) => [styles.atajo, pressed && { opacity: 0.85 }]}
+    >
+      <Ionicons name={icono} size={15} color={Colors.navy} />
+      <Text style={styles.atajoTexto}>{texto}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: Colors.cream },
-  centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.two },
-  vacioTitulo: { fontSize: 16, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
-  vacioTexto: { fontSize: 13, color: Colors.inkSoft, textAlign: "center", lineHeight: 19, maxWidth: 300 },
-  filtros: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, marginBottom: Spacing.two },
-  adminFila: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.two,
-    marginBottom: Spacing.three,
-  },
-  adminBoton: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-  },
-  adminBotonTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.navy },
-  filtroChip: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.cream2,
-  },
-  filtroChipActivo: { backgroundColor: Colors.navy },
-  filtroTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
-  filtroTextoActivo: { color: "#ffffff" },
-  tarjeta: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 16,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  filaSuperior: { flexDirection: "row", gap: Spacing.two },
-  fecha: { fontSize: 13, fontFamily: Fonts.extraBold, color: Colors.navy },
-  cliente: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink, marginTop: 2 },
-  detalle: { fontSize: 12.5, color: Colors.inkSoft, marginTop: 1 },
-  notas: { fontSize: 12.5, color: Colors.ink, marginTop: 4, fontFamily: Fonts.medium },
-  badge: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
-  badgeTexto: { color: "#ffffff", fontSize: 10, fontFamily: Fonts.bold },
-  filaDeposito: {
-    flexDirection: "row",
+  contenedor: { backgroundColor: Colors.canvas, flex: 1 },
+  centro: { alignItems: "center", flex: 1, justifyContent: "center" },
+  cabecera: { gap: Spacing.four, marginBottom: Spacing.two },
+
+  adminFila: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+  atajo: {
     alignItems: "center",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: Colors.line,
-    paddingTop: Spacing.two,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  depositoCheck: { flexDirection: "row", alignItems: "center", gap: 7, flexShrink: 1 },
-  depositoTexto: { fontSize: 12.5, fontFamily: Fonts.semiBold, color: Colors.ink, flexShrink: 1 },
-  verComprobante: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.navy, textDecorationLine: "underline" },
+  atajoTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
+
+  filtros: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+
+  tarjeta: {
+    gap: Spacing.two + 2,
+    overflow: "hidden",
+    paddingHorizontal: Spacing.three,
+    paddingLeft: Spacing.three + 4,
+    paddingVertical: Spacing.three,
+  },
+  // La que espera aprobación se contornea en naranja, sin barra: es la
+  // única que le pide algo al dueño.
+  tarjetaPendiente: {
+    borderColor: Colors.accent,
+    borderWidth: 1.5,
+    paddingLeft: Spacing.three,
+  },
+  barraEstado: { bottom: 0, left: 0, position: "absolute", top: 0, width: 4 },
+  filaSuperior: { flexDirection: "row", gap: Spacing.two },
+  fecha: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 13 },
+  cliente: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 15,
+    letterSpacing: -0.2,
+    marginTop: 3,
+  },
+  detalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5, marginTop: 2 },
+  notas: { color: Colors.ink, fontFamily: Fonts.medium, fontSize: 12.5, marginTop: 5 },
+
+  filaDeposito: {
+    alignItems: "center",
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingTop: Spacing.two + 2,
+  },
+  depositoCheck: { alignItems: "center", flexDirection: "row", flexShrink: 1, gap: 7 },
+  depositoTexto: { color: Colors.ink, flexShrink: 1, fontFamily: Fonts.semiBold, fontSize: 12.5 },
+  verComprobante: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 12.5 },
+
   acciones: { flexDirection: "row", gap: Spacing.two },
-  botonAccion: {
+  botonRechazar: {
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
     flex: 1,
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
     gap: 6,
-    borderRadius: 12,
-    paddingVertical: 11,
+    justifyContent: "center",
+    paddingVertical: 13,
   },
-  botonConfirmar: { backgroundColor: Colors.green },
-  botonRechazar: { backgroundColor: Colors.dangerLight },
-  botonAccionTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13 },
+  botonRechazarTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 13.5 },
   deshacer: { alignItems: "center", paddingVertical: 4 },
-  deshacerTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft, textDecorationLine: "underline" },
+  deshacerTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.bold,
+    fontSize: 12.5,
+    textDecorationLine: "underline",
+  },
 });

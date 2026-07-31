@@ -66,7 +66,7 @@ export default function Portada({ onEntrar }: { onEntrar: () => void }) {
             <TarjetaSeccion
               activa
               icono="time-outline"
-              titulo="Citas y Reservas"
+              titulo="Servicios"
               descripcion="Belleza, barbería, uñas y spa — elegí el servicio, la hora y con quién."
               onPress={() => {
                 // Solo push, SIN descartar la portada: así "volver"
@@ -85,6 +85,7 @@ export default function Portada({ onEntrar }: { onEntrar: () => void }) {
               }}
             />
             <TarjetaSeccion
+              activa
               icono="home-outline"
               titulo="Hospedajes"
               descripcion="Casas, villas y hoteles para reservar tu próxima escapada directo."
@@ -219,11 +220,13 @@ const styles = StyleSheet.create({
     height: 2,
     width: 22,
   },
+  // El mismo micro-rótulo que rotula los bloques del resto de la app
+  // (Tipo.micro), en claro sobre el navy.
   kickerTexto: {
     color: "rgba(255,255,255,0.85)",
     fontFamily: Fonts.extraBold,
-    fontSize: 11,
-    letterSpacing: 2.4,
+    fontSize: 10,
+    letterSpacing: 1.7,
     textTransform: "uppercase",
   },
   titulo: {
@@ -330,7 +333,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   pildora: {
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
     paddingHorizontal: 18,

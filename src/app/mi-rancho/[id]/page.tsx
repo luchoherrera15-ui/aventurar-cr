@@ -46,7 +46,9 @@ import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-cal
 import SincronizarCalendario from "@/components/sincronizar-calendario";
 import AgendasExternas, { type AgendaExternaFila } from "@/components/agendas-externas";
 import ReservaManualForm from "@/components/reserva-manual-form";
-import CargaHistorialForm from "@/components/carga-historial-form";
+import ImportarAgenda from "@/components/importar-agenda";
+import type { VerticalAgenda } from "@/lib/agenda/importar-agenda";
+import { puedeUsarAgendaIA } from "./importar-agenda-actions";
 import { hoyISOCR } from "@/lib/fechas";
 import { leerEleccionesIncluidas } from "@/lib/catalogo";
 import {
@@ -203,6 +205,12 @@ export default async function RanchoDetallePage({
     if (!error) agendasExternas = (data ?? []) as AgendaExternaFila[];
   }
 
+  // El complemento de pago que desbloquea leer la agenda con IA. Se
+  // resuelve en el servidor con la llave de servicio: la tarjeta del
+  // panel solo pinta lo que corresponda, y el endpoint lo vuelve a
+  // comprobar antes de gastar un token (0077).
+  const addonAgendaIA = await puedeUsarAgendaIA(rancho.id);
+
   // La agenda: los eventos que vienen, ordenados, con HOY y MAÑANA
   // resaltados — el control operativo del día a día.
   const hoyCR = hoyISOCR();
@@ -249,10 +257,23 @@ export default async function RanchoDetallePage({
           capacidadMax={esLugar ? rancho.capacidad_max : null}
           onCrear={crearReservaManual.bind(null, rancho.id)}
         />
-        {/* Para quien llega con la agenda ya vendida: sus fechas
-            históricas en lote, con montos y cobros, sin llenar el
-            formulario grande una por una. */}
-        <CargaHistorialForm onCrear={crearReservaManual.bind(null, rancho.id)} />
+        {/* Para quien llega con la agenda ya vendida: la pasa completa
+            de una vez. A mano es gratis; leer las fotos con IA es el
+            complemento `agenda_ia` (0077), y el gate se resuelve en el
+            servidor — acá solo se pinta lo que corresponda. */}
+        <ImportarAgenda
+          ranchoId={rancho.id}
+          hoy={hoyCR}
+          addonActivo={addonAgendaIA}
+          negocio={{
+            id: rancho.id,
+            vertical: (rancho.vertical ?? "eventos") as VerticalAgenda,
+            categoria: rancho.categoria ?? null,
+            capacidadMin: rancho.capacidad_min ?? null,
+            capacidadMax: rancho.capacidad_max ?? null,
+            eventosPorDia: rancho.eventos_por_dia ?? null,
+          }}
+        />
         <AgendaEventos eventos={agenda} />
       </div>
     ),

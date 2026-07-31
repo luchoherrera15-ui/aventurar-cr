@@ -36,7 +36,7 @@ export default function VerticalSwitcher({ actual }: { actual: SeccionAdmin }) {
           type="button"
           disabled={pending}
           onClick={() => elegir(s.key)}
-          className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold transition-colors ${
+          className={`rounded-lg px-3.5 py-1.5 text-[12px] font-bold transition-colors ${
             actual === s.key
               ? "bg-aventurea-navy text-white"
               : "border border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"

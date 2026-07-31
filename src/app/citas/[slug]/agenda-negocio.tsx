@@ -70,7 +70,7 @@ export default function AgendaNegocio({
           <button
             type="button"
             onClick={() => abrir(null)}
-            className="rounded-full bg-aventurea-navy px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+            className="rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
           >
             Consultar fechas
           </button>

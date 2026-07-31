@@ -255,7 +255,7 @@ function CardNegocio({
   return (
     <Link
       href={href}
-      className={`group overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)] ${className}`}
+      className={`group overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)] ${className}`}
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light">
         {n.foto_url ? (
@@ -270,11 +270,11 @@ function CardNegocio({
             <IconClock className="h-10 w-10" />
           </span>
         )}
-        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
+        <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
           {CATEGORIA_CITA_LABEL[n.categoria]}
         </span>
         {n.slug?.startsWith("demo-") && (
-          <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
+          <span className="absolute right-3 top-3 rounded-lg bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
             Demo
           </span>
         )}

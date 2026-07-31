@@ -21,7 +21,7 @@ export default function OfertaInvitacionCard({ className = "" }: { className?: s
         }}
       />
       <div className="relative">
-        <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#f5b98a]">
+        <p className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#f5b98a]">
           <IconMail className="h-3.5 w-3.5" /> Oferta por tu reserva
         </p>
         <h3 className="mt-3 text-[20px] font-black leading-tight">

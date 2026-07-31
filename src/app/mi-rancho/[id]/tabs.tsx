@@ -52,14 +52,14 @@ export default function Tabs({ tabs, defaultTab }: { tabs: Tab[]; defaultTab: st
   // (los accesos rápidos duplicados se fueron) y se ven como botones
   // de verdad — la activa en navy, el resto en blanco con borde.
   const pillBase =
-    "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-[13px] font-bold transition-colors";
+    "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2 text-[13px] font-bold transition-colors";
   const pillInactiva =
     "border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy";
 
   const badgeDe = (t: Tab, activa: boolean) =>
     t.badge && t.badge > 0 ? (
       <span
-        className={`rounded-full px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none ${
+        className={`rounded-lg px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none ${
           activa ? "bg-white/25 text-white" : "bg-aventurea-orange text-white"
         }`}
       >

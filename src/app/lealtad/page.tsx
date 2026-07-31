@@ -89,7 +89,7 @@ export default function LealtadPage() {
         <div className="mx-auto grid max-w-[1200px] gap-4 lg:grid-cols-[1.35fr_1fr]">
           <div
             data-reveal
-            className="relative isolate overflow-hidden rounded-[32px] bg-aventurea-navy p-8 sm:p-12"
+            className="relative isolate overflow-hidden rounded-3xl bg-aventurea-navy p-8 sm:p-12"
           >
             <div
               aria-hidden
@@ -110,13 +110,13 @@ export default function LealtadPage() {
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href="/mi-rancho/nuevo"
-                className="rounded-full bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
+                className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
               >
                 Quiero el programa en mi negocio
               </Link>
               <a
                 href="#precios"
-                className="rounded-full bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
+                className="rounded-xl bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
               >
                 Ver precios
               </a>
@@ -128,7 +128,7 @@ export default function LealtadPage() {
             <div
               data-reveal
               style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-              className="relative overflow-hidden rounded-[32px] bg-aventurea-orange p-7"
+              className="relative overflow-hidden rounded-3xl bg-aventurea-orange p-7"
             >
               {/* Mock de la tarjeta en el Wallet, flotando suave. */}
               <div className="anim-publicar-flotar mx-auto w-[260px] rounded-2xl bg-white p-4 shadow-[0_24px_50px_-18px_rgba(6,12,32,0.5)]">
@@ -170,7 +170,7 @@ export default function LealtadPage() {
             <div
               data-reveal
               style={{ "--reveal-delay": "160ms" } as React.CSSProperties}
-              className="flex items-center gap-4 rounded-[32px] border border-aventurea-line bg-white p-6"
+              className="flex items-center gap-4 rounded-3xl border border-aventurea-line bg-white p-6"
             >
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-aventurea-blue-light text-aventurea-navy">
                 <IconHeart className="h-6 w-6" />
@@ -188,7 +188,7 @@ export default function LealtadPage() {
       </section>
 
       {/* ---------- Cómo funciona — bloque azul ---------- */}
-      <section className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-[32px] bg-aventurea-blue-light py-14 lg:mx-auto">
+      <section className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-3xl bg-aventurea-blue-light py-14 lg:mx-auto">
         <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
           <div data-reveal className="text-center">
             <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-navy">
@@ -250,7 +250,7 @@ export default function LealtadPage() {
             {NEGOCIOS.map((n) => (
               <span
                 key={n}
-                className="rounded-full border border-aventurea-line bg-white px-4 py-2 text-[13px] font-bold text-aventurea-ink"
+                className="rounded-xl border border-aventurea-line bg-white px-4 py-2 text-[13px] font-bold text-aventurea-ink"
               >
                 {n}
               </span>
@@ -260,7 +260,7 @@ export default function LealtadPage() {
       </section>
 
       {/* ---------- Precios — bloques bento ---------- */}
-      <section id="precios" className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-14 lg:mx-auto">
+      <section id="precios" className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-3xl border border-aventurea-line bg-white py-14 lg:mx-auto">
         <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
           <div data-reveal className="text-center">
             <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
@@ -320,7 +320,7 @@ export default function LealtadPage() {
                 </ul>
                 <Link
                   href="/mi-rancho/nuevo"
-                  className={`mt-7 flex h-11 items-center justify-center rounded-full text-[14px] font-bold transition-colors ${
+                  className={`mt-7 flex h-11 items-center justify-center rounded-xl text-[14px] font-bold transition-colors ${
                     plan.destacado
                       ? "bg-aventurea-orange text-white hover:bg-aventurea-orange-dark"
                       : "border border-aventurea-navy text-aventurea-navy hover:bg-aventurea-navy hover:text-white"
@@ -343,7 +343,7 @@ export default function LealtadPage() {
       <section className="px-4 pb-16 pt-4 lg:px-10">
         <div
           data-reveal
-          className="relative isolate mx-auto max-w-[1200px] overflow-hidden rounded-[32px] bg-aventurea-navy px-6 py-14 text-center sm:py-16"
+          className="relative isolate mx-auto max-w-[1200px] overflow-hidden rounded-3xl bg-aventurea-navy px-6 py-14 text-center sm:py-16"
         >
           <div
             aria-hidden
@@ -359,7 +359,7 @@ export default function LealtadPage() {
           <div className="mt-8">
             <Link
               href="/mi-rancho/nuevo"
-              className="inline-flex rounded-full bg-aventurea-orange px-8 py-4 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              className="inline-flex rounded-xl bg-aventurea-orange px-8 py-4 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
             >
               Quiero mi programa de lealtad
             </Link>

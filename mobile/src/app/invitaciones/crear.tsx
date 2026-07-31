@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-end",
     backgroundColor: Colors.navy,
-    borderRadius: Radios.full,
+    borderRadius: 8,
     marginBottom: Spacing.two,
     marginRight: Spacing.three,
     paddingHorizontal: 14,
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
   botonAccent: {
     alignItems: "center",
     backgroundColor: Colors.accent,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     paddingVertical: 14,
   },
   botonAccentTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 14.5 },
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   botonNavy: {
     alignItems: "center",
     backgroundColor: Colors.navy,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     flexDirection: "row",
     gap: 7,
     justifyContent: "center",
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
   botonContorno: {
     alignItems: "center",
     borderColor: Colors.lineFuerte,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     borderWidth: 1,
     flexDirection: "row",
     gap: 7,

@@ -684,7 +684,7 @@ export default function BookingCalendar({
         )}
 
         <div
-          className={`rounded-[20px] border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-5 ${vistaFormulario ? "hidden" : ""}`}
+          className={`rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-5 ${vistaFormulario ? "hidden" : ""}`}
         >
           <div className="flex items-center justify-between">
             <span className="titulo text-[18px] capitalize text-aventurea-ink sm:text-[20px]">
@@ -769,7 +769,7 @@ export default function BookingCalendar({
                 >
                   <span className="font-bold leading-none">{d}</span>
                   {promoDia ? (
-                    <span className="mt-1 self-start rounded-full bg-aventurea-green px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-white sm:px-2 sm:py-1 sm:text-[10.5px]">
+                    <span className="mt-1 self-start rounded-lg bg-aventurea-green px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-white sm:px-2 sm:py-1 sm:text-[10.5px]">
                       {promoDia.porcentaje_descuento}% off
                     </span>
                   ) : (
@@ -843,8 +843,8 @@ export default function BookingCalendar({
             onClick={(e) => e.stopPropagation()}
             className={
               compacto
-                ? "panel-solido mx-auto flex w-full max-w-[720px] flex-col overflow-hidden rounded-[22px] border border-aventurea-line bg-aventurea-surface"
-                : "flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[560px] sm:rounded-[22px] sm:border sm:border-aventurea-line"
+                ? "panel-solido mx-auto flex w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface"
+                : "flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[560px] sm:rounded-2xl sm:border sm:border-aventurea-line"
             }
           >
             {/* Encabezado fijo: la cuenta regresiva nunca se va con el scroll */}
@@ -858,7 +858,7 @@ export default function BookingCalendar({
                 </p>
               </div>
               {holdId && !holdVencido && !confirmado && (
-                <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-blue-700">
+                <span className="flex shrink-0 items-center gap-1.5 rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-blue-700">
                   <IconStopwatch className="h-3.5 w-3.5" />
                   <span className="font-mono text-[13.5px] font-bold">
                     {fmtCountdown(secondsLeft)}
@@ -1566,7 +1566,7 @@ function PasoPill({
 }) {
   return (
     <span
-      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold ${
         activo
           ? "bg-aventurea-orange text-white"
           : hecho

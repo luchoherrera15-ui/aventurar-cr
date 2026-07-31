@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   botonAccent: {
     alignItems: "center",
     backgroundColor: Colors.accent,
-    borderRadius: Radios.full,
+    borderRadius: 12,
     paddingVertical: 15,
   },
   botonApagado: { opacity: 0.5 },

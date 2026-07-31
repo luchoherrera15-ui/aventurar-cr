@@ -231,7 +231,7 @@ export default function CampanasPanel({
                     {p.email}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="inline-block rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
+                    <span className="inline-block rounded-lg bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
                       {ROL_LABEL[p.rol] ?? p.rol}
                     </span>
                   </td>
@@ -287,7 +287,7 @@ export default function CampanasPanel({
             />
           </div>
 
-          <div className="rounded-[12px] border border-dashed border-aventurea-line bg-aventurea-cream-2/50 p-3.5">
+          <div className="rounded-xl border border-dashed border-aventurea-line bg-aventurea-cream-2/50 p-3.5">
             <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-navy">
               Botón (opcional)
             </p>

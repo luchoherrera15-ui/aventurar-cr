@@ -83,7 +83,7 @@ export default async function ReservarCitaPage({
 
         {/* La misma agenda del modal, en su tarjeta: esta ruta queda
             para enlaces directos (correos, compartir). */}
-        <div className="mt-4 overflow-hidden rounded-[24px] border border-aventurea-line bg-white shadow-[0_20px_60px_-30px_rgba(22,41,94,0.4)]">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_20px_60px_-30px_rgba(22,41,94,0.4)]">
           <ReservarCita
             ranchoId={data.id}
             rutaBase={rutaBase}

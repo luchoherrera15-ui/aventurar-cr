@@ -85,7 +85,7 @@ export default async function NuevoRanchoPage() {
           <Link
             key={v.id}
             href={`/mi-rancho/nuevo/${v.id}`}
-            className={`group flex flex-col gap-3 rounded-[28px] border border-aventurea-line bg-white p-6 shadow-[0_10px_36px_-24px_rgba(16,26,44,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_20px_44px_-24px_rgba(16,26,44,0.45)] ${v.borde}`}
+            className={`group flex flex-col gap-3 rounded-3xl border border-aventurea-line bg-white p-6 shadow-[0_10px_36px_-24px_rgba(16,26,44,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_20px_44px_-24px_rgba(16,26,44,0.45)] ${v.borde}`}
           >
             <span
               className={`flex h-12 w-12 items-center justify-center rounded-2xl [&_svg]:h-6 [&_svg]:w-6 ${v.color}`}

@@ -143,3 +143,82 @@ export async function crearReservaManual(ranchoId: string, input: ReservaManualI
   revalidatePath("/admin/eventos");
   return { error: null };
 }
+
+export type ReservaEditable = {
+  nombre: string;
+  tipo_evento: string | null;
+  invitados: number | null;
+  notas: string | null;
+  montoTotal: number | null;
+  depositoMonto: number | null;
+  /** Texto libre del bloque horario — solo eventos/hospedajes. */
+  horarioBloque: string | null;
+};
+
+/**
+ * Corrige una reserva que ya existe.
+ *
+ * Hasta ahora el panel solo dejaba tocar los PAGOS de una reserva
+ * (marcar el adelanto, cerrar el cobro). Los datos del evento —
+ * nombre, personas, monto, horario — solo se podían fijar al crearla,
+ * así que una reserva cargada con un dato a medias quedaba así para
+ * siempre. Con el importador eso deja de ser aceptable: media agenda
+ * de papel entra incompleta a propósito, para completarse después.
+ *
+ * No se toca la FECHA acá. Mover una reserva de día es otra operación
+ * (dispara el cupo del día, puede chocar con otra confirmada y afecta
+ * al cliente); se resuelve aparte, no colada en un formulario de
+ * corrección de datos.
+ */
+export async function actualizarReservaManual(
+  ranchoId: string,
+  reservaId: string,
+  input: ReservaEditable,
+) {
+  const { supabase, rancho } = await verificarDueno(ranchoId);
+  if (!rancho) return { error: "No encontramos tu publicación." };
+
+  const nombre = input.nombre.trim().slice(0, 120);
+  if (!nombre) return { error: "Escribí el nombre de quien reserva." };
+
+  if (input.montoTotal != null) {
+    if (!Number.isFinite(input.montoTotal) || input.montoTotal < 0) {
+      return { error: "El monto no puede ser negativo." };
+    }
+  }
+  if (input.depositoMonto != null) {
+    if (!Number.isFinite(input.depositoMonto) || input.depositoMonto < 0) {
+      return { error: "El adelanto no puede ser negativo." };
+    }
+    if (input.montoTotal != null && input.depositoMonto > input.montoTotal) {
+      return { error: "El adelanto no puede ser mayor que el total del evento." };
+    }
+  }
+
+  const capacidadMax = rancho.capacidad_max as number | null;
+  if (capacidadMax && input.invitados && input.invitados > capacidadMax) {
+    return { error: `Este lugar recibe hasta ${capacidadMax} personas.` };
+  }
+
+  // `.eq("rancho_id")` además de la RLS: el id de la reserva viene del
+  // navegador y no puede servir para editar la de otro negocio.
+  const { error } = await supabase
+    .from("reservas")
+    .update({
+      nombre,
+      tipo_evento: input.tipo_evento?.trim().slice(0, 60) || null,
+      invitados: input.invitados,
+      notas: input.notas?.trim().slice(0, 500) || null,
+      monto_total: input.montoTotal,
+      deposito_monto: input.depositoMonto,
+      horario_bloque: input.horarioBloque?.trim().slice(0, 120) || null,
+    })
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId);
+
+  if (error) return { error: "No se pudo guardar: " + error.message };
+
+  revalidatePath(`/mi-rancho/${ranchoId}`);
+  revalidatePath("/admin/eventos");
+  return { error: null };
+}

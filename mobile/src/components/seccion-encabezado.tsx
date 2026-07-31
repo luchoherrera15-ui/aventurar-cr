@@ -1,11 +1,11 @@
 import { StyleSheet, Text, View } from "react-native";
-import { Colors, Fonts } from "@/constants/theme";
+import { Colors, Fonts, Tipo } from "@/constants/theme";
 
 /**
- * El encabezado de sección de la marca, igual que en el sitio web: un
- * "kicker" naranja en mayúsculas con su guioncito adelante, y debajo
- * el título en ExtraBold con tracking cerrado (la clase `titulo` de
- * globals.css en /web).
+ * El encabezado de sección de la marca: el rótulo en micro-mayúsculas
+ * con su guioncito naranja adelante, y debajo el título en ExtraBold
+ * con tracking cerrado (la clase `titulo` de globals.css en /web).
+ * Es la versión con guión de `Micro` — misma familia, mismo tamaño.
  */
 export default function SeccionEncabezado({
   kicker,
@@ -27,14 +27,8 @@ export default function SeccionEncabezado({
 
 const styles = StyleSheet.create({
   contenedor: { gap: 6 },
-  kickerFila: { flexDirection: "row", alignItems: "center", gap: 8 },
-  kickerGuion: { width: 18, height: 1.5, backgroundColor: Colors.accent },
-  kickerTexto: {
-    fontSize: 11,
-    fontFamily: Fonts.medium,
-    textTransform: "uppercase",
-    letterSpacing: 1.6,
-    color: Colors.accent,
-  },
-  titulo: { fontSize: 22, fontFamily: Fonts.extraBold, letterSpacing: -0.5, color: Colors.ink },
+  kickerFila: { alignItems: "center", flexDirection: "row", gap: 8 },
+  kickerGuion: { backgroundColor: Colors.accent, height: 1.5, width: 18 },
+  kickerTexto: { ...Tipo.micro, color: Colors.accent },
+  titulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 20, letterSpacing: -0.5 },
 });

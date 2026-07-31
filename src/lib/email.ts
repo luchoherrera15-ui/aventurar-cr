@@ -94,9 +94,9 @@ function layout({
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;padding:32px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid #e2e4ea;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;border:1px solid #e2e4ea;">
           <tr>
-            <td style="background:#16295e;padding:22px 30px;border-radius:16px 16px 0 0;">
+            <td style="background:#16295e;padding:22px 30px;border-radius:14px 14px 0 0;">
               <div style="color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.01em;">
                 BOOKEAR<span style="color:#f6a05e;">CR</span>
               </div>
@@ -166,7 +166,7 @@ export function layoutBento({
       <td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
           <tr>
-            <td style="background:#16295e;border-radius:26px;padding:34px 32px 30px;">
+            <td style="background:#16295e;border-radius:18px;padding:34px 32px 30px;">
               <div style="color:#ee7420;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;">
                 &#10022; Bookea
               </div>
@@ -180,7 +180,7 @@ export function layoutBento({
             naranjaHtml
               ? `<tr>
             <td style="padding-top:12px;">
-              <div style="background:#ee7420;border-radius:20px;padding:20px 24px;color:#ffffff;font-size:14.5px;font-weight:700;line-height:1.6;">
+              <div style="background:#ee7420;border-radius:14px;padding:20px 24px;color:#ffffff;font-size:14.5px;font-weight:700;line-height:1.6;">
                 ${naranjaHtml}
               </div>
             </td>
@@ -191,7 +191,7 @@ export function layoutBento({
             statsHtml
               ? `<tr>
             <td style="padding-top:12px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e2e2;border-radius:20px;padding:14px 12px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e2e2;border-radius:14px;padding:14px 12px;">
                 <tr>${statsHtml}</tr>
               </table>
             </td>
@@ -202,7 +202,7 @@ export function layoutBento({
             cuerpoHtml
               ? `<tr>
             <td style="padding-top:12px;">
-              <div style="background:#ffffff;border:1px solid #e2e2e2;border-radius:20px;padding:22px 24px;color:#585858;font-size:14px;line-height:1.65;">
+              <div style="background:#ffffff;border:1px solid #e2e2e2;border-radius:14px;padding:22px 24px;color:#585858;font-size:14px;line-height:1.65;">
                 ${cuerpoHtml}
               </div>
             </td>
@@ -213,7 +213,7 @@ export function layoutBento({
             cta
               ? `<tr>
             <td align="center" style="padding-top:18px;">
-              <a href="${cta.href}" style="display:inline-block;background:#ee7420;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;">
+              <a href="${cta.href}" style="display:inline-block;background:#ee7420;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:13px 28px;border-radius:12px;">
                 ${cta.label}
               </a>
             </td>
@@ -494,7 +494,7 @@ export function plantillaReservaNuevaProveedor({
         ${monto ? filaDato("Depósito", monto) : ""}
         ${filaDato(
           "Estado",
-          `<span style="display:inline-block;background:#fdeadb;color:#b45309;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:100px;">Por aprobar</span>`,
+          `<span style="display:inline-block;background:#fdeadb;color:#b45309;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:8px;">Por aprobar</span>`,
         )}
       </table>
 

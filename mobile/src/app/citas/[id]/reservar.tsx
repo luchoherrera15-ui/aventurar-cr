@@ -13,10 +13,23 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BarraSuperior from "@/components/barra-superior";
+import {
+  Aviso,
+  BarraAccion,
+  BarraConfirmacion,
+  Boton,
+  Casilla,
+  Identidad,
+  Micro,
+  Opcion,
+  RejillaHoras,
+  Tarjeta,
+  Vacio,
+} from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { pedirCorreosDeCita } from "@/lib/notificaciones";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import {
   DIAS_CORTO,
@@ -45,11 +58,12 @@ const DIAS_VISIBLES = 28;
 
 /**
  * La agenda de citas del app — espejo del modal Fresha de la web
- * (src/app/citas/[slug]/reservar/reservar-cita.tsx): tira de fechas,
- * horas en filas, "¿con quién?", y la barra de resumen abajo con el
- * total y el botón de avanzar. Confirmar llama al mismo RPC
- * crear_cita y los avisos salen por /api/citas/[id]/confirmacion.
- * Reservar exige sesión, como todo el app.
+ * (src/app/citas/[slug]/reservar/reservar-cita.tsx), en el lenguaje de
+ * la marca: el servicio y la persona se eligen en filas de ancho
+ * completo (no chips), las horas en rejilla, y la barra de abajo lleva
+ * el total y el paso siguiente. Confirmar llama al mismo RPC crear_cita
+ * y los avisos salen por /api/citas/[id]/confirmacion. Reservar exige
+ * sesión, como todo el app.
  */
 export default function ReservarCitaScreen() {
   const { id, servicio: servicioParam, miembro: miembroParam } = useLocalSearchParams<{
@@ -249,19 +263,17 @@ export default function ReservarCitaScreen() {
   if (!session) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo="Reservar cita" />
-        <View style={styles.centro}>
-          <Text style={styles.tituloEstado}>Iniciá sesión para reservar</Text>
-          <Text style={styles.textoEstado}>
-            Tu cita queda ligada a tu cuenta: ahí ves el comprobante, el chat
-            con el negocio y tu historial — y tus datos llegan precargados.
-          </Text>
-          <Pressable style={styles.botonPrimario} onPress={() => router.push("/cuenta")}>
-            <Text style={styles.botonPrimarioTexto}>Iniciar sesión</Text>
-          </Pressable>
-          <Pressable style={styles.botonSecundario} onPress={() => router.back()}>
-            <Text style={styles.botonSecundarioTexto}>Volver</Text>
-          </Pressable>
+        <BarraSuperior kicker="Servicios" titulo="Reservar cita" />
+        <View style={styles.centrado}>
+          <Vacio
+            icono="lock-closed-outline"
+            titulo="Iniciá sesión para reservar"
+            texto="Tu cita queda ligada a tu cuenta: ahí ves el comprobante, el chat con el negocio y tu historial — y tus datos llegan precargados."
+          />
+          <View style={styles.botonesEstado}>
+            <Boton texto="Iniciar sesión" tono="navy" onPress={() => router.push("/cuenta")} />
+            <Boton texto="Volver" tono="contorno" onPress={() => router.back()} />
+          </View>
         </View>
       </View>
     );
@@ -270,40 +282,61 @@ export default function ReservarCitaScreen() {
   if (!nombreNegocio) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo="Reservar cita" />
-        <View style={styles.centro}>
-          <Text style={styles.tituloEstado}>Este negocio ya no está disponible</Text>
+        <BarraSuperior kicker="Servicios" titulo="Reservar cita" />
+        <View style={styles.centrado}>
+          <Vacio
+            icono="close-circle-outline"
+            titulo="Este negocio ya no está disponible"
+            texto="Puede que haya cerrado su agenda. Mirá el resto del directorio."
+            accion={{ texto: "Ver otros negocios", onPress: () => router.replace("/citas" as never) }}
+          />
         </View>
       </View>
     );
   }
 
+  // ---------- Cita confirmada ----------
   if (exito) {
     const dEx = diaElegido;
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo="Cita confirmada" subtitulo={nombreNegocio} />
-        <View style={styles.centro}>
-          <View style={styles.check}>
-            <Ionicons name="checkmark" size={30} color={Colors.green} />
+        <BarraSuperior kicker="Servicios" titulo="Cita confirmada" contexto={nombreNegocio} />
+        <ScrollView contentContainerStyle={styles.contenido}>
+          <Tarjeta style={styles.tarjetaExito}>
+            <View style={styles.exitoCheck}>
+              <Ionicons name="checkmark" size={28} color={Colors.green} />
+            </View>
+            <Text style={styles.exitoTitulo}>¡Tu cita quedó confirmada!</Text>
+            <Text style={styles.exitoTexto}>
+              Te mandamos el comprobante por correo. El pago es en el local.
+            </Text>
+
+            <View style={styles.exitoResumen}>
+              <FilaResumen etiqueta="Servicio" valor={servicio?.nombre ?? "—"} />
+              <FilaResumen etiqueta="Negocio" valor={nombreNegocio} />
+              <FilaResumen
+                etiqueta="Cuándo"
+                valor={`${dEx ? `${DIAS_CORTO[dEx.dow]} ${dEx.dia} de ${MESES_CORTO[dEx.mes]} · ` : ""}${horaBonita(hora)}`}
+              />
+            </View>
+          </Tarjeta>
+
+          <BarraConfirmacion
+            tono="verde"
+            titulo="Cita confirmada"
+            nota="Se le avisó al negocio"
+          />
+
+          <View style={{ gap: Spacing.two }}>
+            <Boton
+              texto="Abrir el chat del negocio"
+              tono="navy"
+              icono="chatbubble-outline"
+              onPress={() => router.replace(`/mensajes/${exito}` as never)}
+            />
+            <Boton texto="Volver al negocio" tono="contorno" onPress={() => router.back()} />
           </View>
-          <Text style={styles.tituloEstado}>¡Tu cita quedó confirmada!</Text>
-          <Text style={styles.textoEstado}>
-            {servicio?.nombre} en {nombreNegocio}
-            {dEx ? ` — ${DIAS_CORTO[dEx.dow]} ${dEx.dia} de ${MESES_CORTO[dEx.mes]}` : ""},{" "}
-            {horaBonita(hora)}. Te mandamos el comprobante por correo; el pago
-            es en el local.
-          </Text>
-          <Pressable
-            style={styles.botonPrimario}
-            onPress={() => router.replace(`/mensajes/${exito}` as never)}
-          >
-            <Text style={styles.botonPrimarioTexto}>Abrir el chat del negocio</Text>
-          </Pressable>
-          <Pressable style={styles.botonSecundario} onPress={() => router.back()}>
-            <Text style={styles.botonSecundarioTexto}>Volver al negocio</Text>
-          </Pressable>
-        </View>
+        </ScrollView>
       </View>
     );
   }
@@ -314,420 +347,363 @@ export default function ReservarCitaScreen() {
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
-        titulo={paso === "hora" ? "Seleccioná fecha y hora" : "Confirmá tu cita"}
-        subtitulo={nombreNegocio}
+        kicker="Servicios"
+        titulo={paso === "hora" ? "Elegí fecha y hora" : "Confirmá tu cita"}
+        contexto={nombreNegocio}
         onVolver={paso === "confirmar" ? () => setPaso("hora") : undefined}
       />
 
-      <ScrollView contentContainerStyle={styles.contenido}>
-        {paso === "hora" ? (
-          <>
-            {/* Servicio */}
-            <Text style={styles.etiqueta}>Servicio</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsFila}>
-              {items.map((s) => {
-                const activo = s.id === servicioId;
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => setServicioId(s.id)}
-                    style={[styles.chipServicio, activo && styles.chipServicioActivo]}
-                  >
-                    <Text style={[styles.chipServicioNombre, activo && { color: "#fff" }]}>
-                      {s.nombre}
-                    </Text>
-                    <Text style={[styles.chipServicioDetalle, activo && { color: "rgba(255,255,255,0.8)" }]}>
-                      {etiquetaMinutos(s.duracion_minutos ?? 30)}
-                      {s.precio !== null ? ` · ${fmtColones(s.precio)}` : ""}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            {/* ¿Con quién? */}
-            {equipo.length > 0 && (
-              <>
-                <Text style={styles.etiqueta}>¿Con quién?</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsFila}>
-                  <Pressable
-                    onPress={() => setMiembroId(null)}
-                    style={[styles.chipMiembro, miembroId === null && styles.chipMiembroActivo]}
-                  >
-                    <Text style={[styles.chipMiembroTexto, miembroId === null && { color: "#fff" }]}>
-                      Cualquiera
-                    </Text>
-                  </Pressable>
-                  {equipo.map((m) => {
-                    const activo = miembroId === m.id;
-                    return (
-                      <Pressable
-                        key={m.id}
-                        onPress={() => setMiembroId(m.id)}
-                        style={[styles.chipMiembro, activo && styles.chipMiembroActivo]}
-                      >
-                        {m.foto_url && (
-                          <Image
-                            source={{ uri: m.foto_url }}
-                            alt={m.nombre}
-                            style={styles.chipMiembroFoto}
-                            contentFit="cover"
-                          />
-                        )}
-                        <Text style={[styles.chipMiembroTexto, activo && { color: "#fff" }]}>
-                          {m.nombre.split(" ")[0]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </>
-            )}
-
-            {/* Fecha */}
-            <Text style={styles.etiqueta}>Seleccioná una fecha</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.diasFila}>
-              {dias.map((d) => {
-                const elegido = d.iso === fecha;
-                return (
-                  <Pressable
-                    key={d.iso}
-                    disabled={!d.abierto}
-                    onPress={() => setFecha(d.iso)}
-                    style={[
-                      styles.dia,
-                      elegido && styles.diaActivo,
-                      !d.abierto && styles.diaCerrado,
-                    ]}
-                  >
-                    <Text style={[styles.diaDow, elegido && { color: "rgba(255,255,255,0.85)" }]}>
-                      {DIAS_CORTO[d.dow]}
-                    </Text>
-                    <Text style={[styles.diaNumero, elegido && { color: "#fff" }, !d.abierto && { color: "#c3c8d2" }]}>
-                      {d.dia}
-                    </Text>
-                    <Text style={[styles.diaMes, elegido && { color: "rgba(255,255,255,0.75)" }]}>
-                      {MESES_CORTO[d.mes]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            {/* Hora */}
-            <Text style={styles.etiqueta}>Escogé una hora</Text>
-            {horas.length === 0 ? (
-              <Text style={styles.sinHoras}>
-                No quedan espacios libres ese día — probá con otra fecha
-                {equipo.length > 0 ? " u otra persona" : ""}.
-              </Text>
-            ) : (
-              <View style={{ gap: 8 }}>
-                {horas.map((h) => {
-                  const activa = h === horaElegida;
-                  return (
-                    <Pressable
-                      key={h}
-                      onPress={() => setHora(h)}
-                      style={[styles.horaFila, activa && styles.horaFilaActiva]}
-                    >
-                      <Text style={styles.horaTexto}>{horaBonita(h)}</Text>
-                      {activa && <Ionicons name="checkmark-circle" size={18} color={Colors.navy} />}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-          </>
-        ) : (
-          <>
-            {/* Resumen de lo elegido */}
-            <View style={styles.resumen}>
-              {fotoNegocio ? (
+      <ScrollView contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
+        {/* La identidad del negocio arriba de todo, como en el mockup. */}
+        <Tarjeta style={styles.identidadTarjeta}>
+          <Identidad
+            nombre={nombreNegocio}
+            meta={["Servicios", diaElegido ? `${DIAS_CORTO[diaElegido.dow]} ${diaElegido.dia} de ${MESES_CORTO[diaElegido.mes]}` : null]}
+            derecha={
+              fotoNegocio ? (
                 <Image
                   source={{ uri: fotoNegocio }}
                   alt={nombreNegocio}
-                  style={styles.resumenFoto}
+                  style={styles.fotoMini}
                   contentFit="cover"
                 />
-              ) : (
-                <View style={styles.resumenFotoVacia}>
-                  <Ionicons name="time-outline" size={20} color="#3b7fc4" />
-                </View>
-              )}
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.resumenNegocio}>{nombreNegocio}</Text>
-                <Text style={styles.resumenDetalle}>
-                  {servicio?.nombre}
-                  {diaElegido
-                    ? ` — ${DIAS_CORTO[diaElegido.dow]} ${diaElegido.dia} de ${MESES_CORTO[diaElegido.mes]}`
-                    : ""}
-                </Text>
-                {horaElegida && horaFin && (
-                  <Text style={styles.resumenDetalle}>
-                    {horaBonita(horaElegida)} – {horaBonita(horaFin)} ({etiquetaMinutos(duracion)})
-                  </Text>
-                )}
+              ) : undefined
+            }
+          />
+        </Tarjeta>
+
+        {paso === "hora" ? (
+          <>
+            {/* ---------- Servicio ---------- */}
+            <View style={styles.bloque}>
+              <Micro tono="navy">Elegí tu servicio</Micro>
+              <View style={styles.opciones}>
+                {items.map((s) => (
+                  <Opcion
+                    key={s.id}
+                    titulo={s.nombre}
+                    detalle={etiquetaMinutos(s.duracion_minutos ?? 30)}
+                    derecha={fmtColones(s.precio) ?? "Consultar"}
+                    seleccionada={s.id === servicioId}
+                    onPress={() => setServicioId(s.id)}
+                  />
+                ))}
               </View>
             </View>
 
-            <Text style={styles.etiqueta}>Tus datos</Text>
-            <TextInput
-              value={nombre}
-              onChangeText={setNombre}
-              placeholder="Tu nombre"
-              placeholderTextColor="#9aa1ad"
-              style={styles.campo}
+            {/* ---------- ¿Con quién? ---------- */}
+            {equipo.length > 0 && (
+              <View style={styles.bloque}>
+                <Micro tono="navy">¿Con quién?</Micro>
+                <View style={styles.opciones}>
+                  <Opcion
+                    titulo="Cualquiera"
+                    detalle="La primera persona disponible"
+                    seleccionada={miembroId === null}
+                    onPress={() => setMiembroId(null)}
+                  />
+                  {equipo.map((m) => (
+                    <Opcion
+                      key={m.id}
+                      titulo={m.nombre}
+                      seleccionada={miembroId === m.id}
+                      onPress={() => setMiembroId(m.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* ---------- Fecha ---------- */}
+            <View style={styles.bloque}>
+              <Micro tono="navy">Elegí la fecha</Micro>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.diasFila}
+              >
+                {dias.map((d) => {
+                  const elegido = d.iso === fecha;
+                  return (
+                    <Pressable
+                      key={d.iso}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: elegido, disabled: !d.abierto }}
+                      disabled={!d.abierto}
+                      onPress={() => setFecha(d.iso)}
+                      style={[
+                        styles.dia,
+                        elegido && styles.diaActivo,
+                        !d.abierto && styles.diaCerrado,
+                      ]}
+                    >
+                      <Text style={[styles.diaDow, elegido && styles.diaTextoActivo]}>
+                        {DIAS_CORTO[d.dow]}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.diaNumero,
+                          elegido && styles.diaTextoActivo,
+                          !d.abierto && styles.diaTextoCerrado,
+                        ]}
+                      >
+                        {d.dia}
+                      </Text>
+                      <Text style={[styles.diaMes, elegido && styles.diaTextoActivo]}>
+                        {MESES_CORTO[d.mes]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* ---------- Hora ---------- */}
+            <View style={styles.bloque}>
+              <Micro tono="navy">Elegí la hora</Micro>
+              {horas.length === 0 ? (
+                <Aviso
+                  tono="atencion"
+                  icono="calendar-outline"
+                  texto={`No quedan espacios libres ese día — probá con otra fecha${equipo.length > 0 ? " u otra persona" : ""}.`}
+                />
+              ) : (
+                <RejillaHoras>
+                  {horas.map((h) => (
+                    <Casilla
+                      key={h}
+                      texto={horaBonita(h)}
+                      seleccionada={h === horaElegida}
+                      onPress={() => setHora(h)}
+                    />
+                  ))}
+                </RejillaHoras>
+              )}
+            </View>
+
+            {/* El botón principal, en el navy de Servicios — como el
+                "Reservar" del diseño de referencia. */}
+            <Boton
+              texto="Reservar"
+              tono="navy"
+              deshabilitado={!puedeContinuar}
+              onPress={() => setPaso("confirmar")}
             />
-            <TextInput
-              value={telefono}
-              onChangeText={setTelefono}
-              placeholder="Tu teléfono (opcional)"
-              placeholderTextColor="#9aa1ad"
-              keyboardType="phone-pad"
-              style={styles.campo}
-            />
-            <TextInput
-              value={notas}
-              onChangeText={setNotas}
-              placeholder="¿Algo que el negocio deba saber? (opcional)"
-              placeholderTextColor="#9aa1ad"
-              multiline
-              style={[styles.campo, { height: 84, textAlignVertical: "top" }]}
-            />
-            {error && <Text style={styles.error}>{error}</Text>}
+          </>
+        ) : (
+          <>
+            {/* ---------- Resumen de lo elegido ---------- */}
+            <View style={styles.bloque}>
+              <Micro tono="navy">Tu cita</Micro>
+              <Tarjeta style={styles.resumen}>
+                <FilaResumen etiqueta="Servicio" valor={servicio?.nombre ?? "—"} />
+                <FilaResumen
+                  etiqueta="Fecha"
+                  valor={
+                    diaElegido
+                      ? `${DIAS_CORTO[diaElegido.dow]} ${diaElegido.dia} de ${MESES_CORTO[diaElegido.mes]}`
+                      : "—"
+                  }
+                />
+                {horaElegida && horaFin && (
+                  <FilaResumen
+                    etiqueta="Hora"
+                    valor={`${horaBonita(horaElegida)} – ${horaBonita(horaFin)} (${etiquetaMinutos(duracion)})`}
+                  />
+                )}
+                <FilaResumen
+                  etiqueta="Total"
+                  valor={(servicio ? fmtColones(servicio.precio) : null) ?? "A consultar"}
+                  fuerte
+                />
+              </Tarjeta>
+            </View>
+
+            {/* ---------- Datos de contacto ---------- */}
+            <View style={styles.bloque}>
+              <Micro tono="navy">Tus datos</Micro>
+              <TextInput
+                value={nombre}
+                onChangeText={setNombre}
+                placeholder="Tu nombre"
+                placeholderTextColor="#98a0b0"
+                style={styles.campo}
+              />
+              <TextInput
+                value={telefono}
+                onChangeText={setTelefono}
+                placeholder="Tu teléfono (opcional)"
+                placeholderTextColor="#98a0b0"
+                keyboardType="phone-pad"
+                style={styles.campo}
+              />
+              <TextInput
+                value={notas}
+                onChangeText={setNotas}
+                placeholder="¿Algo que el negocio deba saber? (opcional)"
+                placeholderTextColor="#98a0b0"
+                multiline
+                style={[styles.campo, styles.campoLargo]}
+              />
+            </View>
+
+            {error && <Aviso tono="error" texto={error} />}
           </>
         )}
       </ScrollView>
 
-      {/* Barra de resumen y avance, pegada abajo */}
-      <View style={[styles.barra, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          {servicio && (
-            <Text style={styles.barraTotal}>
-              {servicio.precio !== null ? fmtColones(servicio.precio) : "Precio a consultar"}
-            </Text>
-          )}
-          <Text style={styles.barraNota} numberOfLines={1}>
-            {horaElegida && diaElegido
-              ? `${DIAS_CORTO[diaElegido.dow]} ${diaElegido.dia} · ${horaBonita(horaElegida)} — pago en el local`
-              : "Elegí fecha y hora"}
-          </Text>
-        </View>
+      {/* Barra de resumen y avance, pegada abajo. */}
+      <BarraAccion
+        paddingBottom={Math.max(insets.bottom, 12)}
+        total={servicio ? (fmtColones(servicio.precio) ?? "A consultar") : undefined}
+        nota={
+          horaElegida && diaElegido
+            ? `${DIAS_CORTO[diaElegido.dow]} ${diaElegido.dia} · ${horaBonita(horaElegida)} — pago en el local`
+            : "Elegí fecha y hora"
+        }
+      >
         {paso === "hora" ? (
-          <Pressable
-            disabled={!puedeContinuar}
+          <Boton
+            compacto
+            texto="Continuar"
+            icono="arrow-forward"
+            tono="navy"
+            deshabilitado={!puedeContinuar}
             onPress={() => setPaso("confirmar")}
-            style={[styles.botonAvanzar, !puedeContinuar && { opacity: 0.4 }]}
-          >
-            <Text style={styles.botonAvanzarTexto}>Continuar</Text>
-            <Ionicons name="arrow-forward" size={15} color="#fff" />
-          </Pressable>
+          />
         ) : (
-          <Pressable
-            disabled={enviando || !puedeContinuar || !nombre.trim()}
+          <Boton
+            compacto
+            tono="navy"
+            texto="Confirmar cita"
+            cargando={enviando}
+            deshabilitado={!puedeContinuar || !nombre.trim()}
             onPress={confirmar}
-            style={[
-              styles.botonAvanzar,
-              { backgroundColor: Colors.accent },
-              (enviando || !nombre.trim()) && { opacity: 0.5 },
-            ]}
-          >
-            <Text style={styles.botonAvanzarTexto}>
-              {enviando ? "Confirmando…" : "Confirmar cita"}
-            </Text>
-          </Pressable>
+          />
         )}
-      </View>
+      </BarraAccion>
+    </View>
+  );
+}
+
+/** Una línea del resumen: etiqueta gris a la izquierda, dato a la derecha. */
+function FilaResumen({
+  etiqueta,
+  valor,
+  fuerte = false,
+}: {
+  etiqueta: string;
+  valor: string;
+  fuerte?: boolean;
+}) {
+  return (
+    <View style={styles.filaResumen}>
+      <Text style={styles.filaResumenEtiqueta}>{etiqueta}</Text>
+      <Text style={[styles.filaResumenValor, fuerte && styles.filaResumenFuerte]} numberOfLines={2}>
+        {valor}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  contenedor: { backgroundColor: Colors.cream, flex: 1 },
+  contenedor: { backgroundColor: Colors.canvas, flex: 1 },
   centro: {
     alignItems: "center",
+    backgroundColor: Colors.canvas,
     flex: 1,
-    gap: 10,
     justifyContent: "center",
-    padding: Spacing.five,
   },
-  tituloEstado: {
-    color: Colors.ink,
-    fontFamily: Fonts.extraBold,
-    fontSize: 18,
-    textAlign: "center",
-  },
-  textoEstado: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.medium,
-    fontSize: 13.5,
-    lineHeight: 20,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  check: {
-    alignItems: "center",
-    backgroundColor: Colors.greenLight,
-    borderRadius: 999,
-    height: 56,
-    justifyContent: "center",
-    marginBottom: 4,
-    width: 56,
-  },
-  botonPrimario: {
-    backgroundColor: Colors.navy,
-    borderRadius: 12,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-  },
-  botonPrimarioTexto: { color: "#fff", fontFamily: Fonts.bold, fontSize: 14 },
-  botonSecundario: {
-    borderColor: "#dbe4f2",
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-  },
-  botonSecundarioTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
-  contenido: { padding: Spacing.three, paddingBottom: Spacing.five },
-  etiqueta: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.extraBold,
-    fontSize: 11,
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    marginTop: Spacing.three,
-    textTransform: "uppercase",
-  },
-  chipsFila: { gap: 8, paddingRight: Spacing.three },
-  chipServicio: {
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  chipServicioActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  chipServicioNombre: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 13 },
-  chipServicioDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 1 },
-  chipMiembro: {
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 99,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 7,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-  },
-  chipMiembroActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  chipMiembroFoto: { borderRadius: 999, height: 22, width: 22 },
-  chipMiembroTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
-  diasFila: { gap: 8, paddingRight: Spacing.three },
+  centrado: { flex: 1, justifyContent: "center", paddingHorizontal: Spacing.three },
+  botonesEstado: { gap: Spacing.two, paddingHorizontal: Spacing.three },
+  contenido: { gap: Spacing.four, padding: Spacing.three, paddingBottom: Spacing.five },
+
+  identidadTarjeta: { padding: Spacing.three },
+  fotoMini: { borderRadius: Radios.sm, height: 44, width: 44 },
+
+  bloque: { gap: Spacing.two + 2 },
+  opciones: { gap: 6 },
+
+  diasFila: { gap: Spacing.two, paddingRight: Spacing.three },
   dia: {
     alignItems: "center",
     backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 16,
+    borderColor: Colors.line,
+    borderRadius: Radios.md,
     borderWidth: 1,
     paddingHorizontal: 4,
     paddingVertical: 10,
     width: 58,
   },
   diaActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  diaCerrado: { backgroundColor: "#fafbfd", borderColor: "#eef2f9" },
-  diaDow: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 10.5 },
-  diaNumero: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 16, marginVertical: 1 },
-  diaMes: { color: Colors.inkSoft, fontFamily: Fonts.semiBold, fontSize: 10 },
-  sinHoras: {
-    backgroundColor: "#fafbfe",
-    borderColor: "#dbe4f2",
-    borderRadius: 14,
-    borderWidth: 1,
-    color: Colors.inkSoft,
-    fontFamily: Fonts.medium,
-    fontSize: 13,
-    lineHeight: 19,
-    padding: Spacing.three,
-  },
-  horaFila: {
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 14,
-    borderWidth: 1,
+  diaCerrado: { backgroundColor: "#fafbfc", borderColor: "#eef0f5" },
+  diaDow: { color: Colors.inkMuted, fontFamily: Fonts.bold, fontSize: 10, letterSpacing: 0.5, textTransform: "uppercase" },
+  diaNumero: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 17, marginVertical: 1 },
+  diaMes: { color: Colors.inkSoft, fontFamily: Fonts.semiBold, fontSize: 9.5, textTransform: "uppercase" },
+  diaTextoActivo: { color: "#ffffff" },
+  diaTextoCerrado: { color: "#c3c8d2" },
+
+  resumen: { gap: 10, padding: Spacing.three },
+  filaResumen: {
+    alignItems: "flex-start",
     flexDirection: "row",
+    gap: Spacing.three,
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 13,
   },
-  horaFilaActiva: { borderColor: Colors.navy, borderWidth: 2 },
-  horaTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
-  resumen: {
-    alignItems: "center",
-    backgroundColor: "#fafbfe",
-    borderColor: "#dbe4f2",
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    marginTop: Spacing.two,
-    padding: Spacing.three,
+  filaResumenEtiqueta: { color: Colors.inkMuted, fontFamily: Fonts.bold, fontSize: 12 },
+  filaResumenValor: {
+    color: Colors.ink,
+    flex: 1,
+    fontFamily: Fonts.semiBold,
+    fontSize: 13.5,
+    textAlign: "right",
   },
-  resumenFoto: { borderRadius: 12, height: 48, width: 48 },
-  resumenFotoVacia: {
-    alignItems: "center",
-    backgroundColor: "#e8f0f9",
-    borderRadius: 12,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
-  resumenNegocio: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 14 },
-  resumenDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5, marginTop: 1 },
+  filaResumenFuerte: { fontFamily: Fonts.extraBold, fontSize: 15 },
+
   campo: {
     backgroundColor: Colors.surface,
-    borderColor: "#dbe4f2",
-    borderRadius: 12,
+    borderColor: Colors.line,
+    borderRadius: Radios.md,
     borderWidth: 1,
     color: Colors.ink,
     fontFamily: Fonts.medium,
-    fontSize: 13.5,
-    marginBottom: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  error: {
-    backgroundColor: Colors.dangerLight,
-    borderRadius: 12,
-    color: Colors.danger,
-    fontFamily: Fonts.semiBold,
-    fontSize: 12.5,
-    padding: 12,
-  },
-  barra: {
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderTopColor: "#e6edf8",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 12,
+    fontSize: 14,
     paddingHorizontal: Spacing.three,
-    paddingTop: 12,
-  },
-  barraTotal: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 17 },
-  barraNota: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 1 },
-  botonAvanzar: {
-    alignItems: "center",
-    backgroundColor: Colors.navy,
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 7,
-    paddingHorizontal: 22,
     paddingVertical: 13,
   },
-  botonAvanzarTexto: { color: "#fff", fontFamily: Fonts.bold, fontSize: 14 },
+  campoLargo: { height: 88, textAlignVertical: "top" },
+
+  tarjetaExito: { alignItems: "center", padding: Spacing.four },
+  exitoCheck: {
+    alignItems: "center",
+    backgroundColor: Colors.greenLight,
+    borderRadius: Radios.full,
+    height: 58,
+    justifyContent: "center",
+    marginBottom: Spacing.three,
+    width: 58,
+  },
+  exitoTitulo: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 19,
+    letterSpacing: -0.4,
+    textAlign: "center",
+  },
+  exitoTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 13.5,
+    lineHeight: 20,
+    marginTop: 6,
+    textAlign: "center",
+  },
+  exitoResumen: {
+    alignSelf: "stretch",
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
+    gap: 10,
+    marginTop: Spacing.three,
+    paddingTop: Spacing.three,
+  },
 });

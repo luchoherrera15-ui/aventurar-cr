@@ -25,11 +25,11 @@ export default function PaginaMantenimiento({
       <SiteHeader breadcrumb={breadcrumb} />
 
       <section className="mx-auto flex max-w-[640px] flex-col items-center px-6 py-20 text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-[18px] border border-aventurea-line bg-aventurea-surface text-aventurea-orange shadow-sm [&_svg]:h-8 [&_svg]:w-8">
+        <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-aventurea-line bg-aventurea-surface text-aventurea-orange shadow-sm [&_svg]:h-8 [&_svg]:w-8">
           {icono}
         </span>
 
-        <span className="mt-5 rounded-full bg-aventurea-orange/10 px-3.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wide text-aventurea-orange">
+        <span className="mt-5 rounded-lg bg-aventurea-orange/10 px-3.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wide text-aventurea-orange">
           En mantenimiento
         </span>
 
@@ -44,7 +44,7 @@ export default function PaginaMantenimiento({
           {categorias.map((c) => (
             <span
               key={c}
-              className="rounded-full border border-aventurea-line bg-aventurea-surface px-3 py-1 text-[12px] font-bold text-aventurea-ink-soft"
+              className="rounded-lg border border-aventurea-line bg-aventurea-surface px-3 py-1 text-[12px] font-bold text-aventurea-ink-soft"
             >
               {c}
             </span>
@@ -53,7 +53,7 @@ export default function PaginaMantenimiento({
 
         <Link
           href="/eventos"
-          className="mt-9 rounded-full bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-navy-2"
+          className="mt-9 rounded-xl bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-navy-2"
         >
           Mientras tanto, mirá el directorio de eventos
         </Link>

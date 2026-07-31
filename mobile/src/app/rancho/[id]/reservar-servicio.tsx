@@ -1240,20 +1240,22 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
+  // Los dos rótulos usan el mismo micro (Tipo.micro) que encabeza los
+  // bloques en el resto de la app.
   etiqueta: {
-    fontSize: 11,
-    fontFamily: Fonts.bold,
+    color: Colors.inkMuted,
+    fontFamily: Fonts.extraBold,
+    fontSize: 10,
+    letterSpacing: 1.7,
     textTransform: "uppercase",
-    letterSpacing: 1,
-    color: Colors.inkSoft,
   },
   campoLabel: {
-    fontSize: 11,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    color: Colors.inkSoft,
+    color: Colors.inkMuted,
+    fontFamily: Fonts.extraBold,
+    fontSize: 10,
+    letterSpacing: 1.7,
     marginBottom: 6,
+    textTransform: "uppercase",
   },
   input: {
     backgroundColor: Colors.cream2,

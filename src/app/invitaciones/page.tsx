@@ -195,7 +195,7 @@ export default async function InvitacionesLanding() {
         <div className="mx-auto grid max-w-[1200px] gap-4 lg:grid-cols-[1.35fr_1fr]">
           <div
             data-reveal
-            className="relative isolate overflow-hidden rounded-[32px] bg-aventurea-navy p-8 sm:p-12"
+            className="relative isolate overflow-hidden rounded-3xl bg-aventurea-navy p-8 sm:p-12"
           >
             <div
               aria-hidden
@@ -216,13 +216,13 @@ export default async function InvitacionesLanding() {
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href="#paquetes"
-                className="rounded-full bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
+                className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
               >
                 Pedí la tuya
               </Link>
               <a
                 href="#como-funciona"
-                className="rounded-full bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
+                className="rounded-xl bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
               >
                 Ver cómo funciona
               </a>
@@ -235,7 +235,7 @@ export default async function InvitacionesLanding() {
             <div
               data-reveal
               style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-              className="relative overflow-hidden rounded-[32px] bg-aventurea-orange p-7"
+              className="relative overflow-hidden rounded-3xl bg-aventurea-orange p-7"
             >
               <div
                 aria-hidden
@@ -270,7 +270,7 @@ export default async function InvitacionesLanding() {
                   </p>
                 </div>
                 <div className="mt-2 flex justify-end">
-                  <span className="rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[9px] font-bold text-aventurea-ink-soft">
+                  <span className="rounded-lg bg-aventurea-cream-2 px-2.5 py-1 text-[9px] font-bold text-aventurea-ink-soft">
                     Enviado a 120 invitados
                   </span>
                 </div>
@@ -282,7 +282,7 @@ export default async function InvitacionesLanding() {
             <div
               data-reveal
               style={{ "--reveal-delay": "160ms" } as React.CSSProperties}
-              className="flex items-center gap-4 rounded-[32px] border border-aventurea-line bg-white p-6"
+              className="flex items-center gap-4 rounded-3xl border border-aventurea-line bg-white p-6"
             >
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-aventurea-blue-light text-aventurea-navy">
                 <IconSparkles className="h-6 w-6" />
@@ -300,7 +300,7 @@ export default async function InvitacionesLanding() {
       {/* ---------- La escena animada — el corazón de la página ------- */}
       <section
         id="como-funciona"
-        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] bg-aventurea-blue-light py-14 lg:mx-auto"
+        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-3xl bg-aventurea-blue-light py-14 lg:mx-auto"
       >
         <div className="mx-auto max-w-[1140px] px-6 lg:px-10">
           <div data-reveal className="text-center">
@@ -403,7 +403,7 @@ export default async function InvitacionesLanding() {
       </section>
 
       {/* ---------- Cómo se pide — bloque blanco ---------- */}
-      <section className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-14 lg:mx-auto">
+      <section className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-3xl border border-aventurea-line bg-white py-14 lg:mx-auto">
         <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
           <div data-reveal className="text-center">
             <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
@@ -459,7 +459,7 @@ export default async function InvitacionesLanding() {
            clientes reales (src/lib/catalogo-invitaciones.ts) -------- */}
       <section
         id="catalogo"
-        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-14 lg:mx-auto"
+        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-3xl border border-aventurea-line bg-white py-14 lg:mx-auto"
       >
         <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
           <div
@@ -497,7 +497,7 @@ export default async function InvitacionesLanding() {
 
           {catalogo.length > 4 && (
             <details className="group/mas mt-4">
-              <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-2 rounded-full border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
+              <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
                 Ver más diseños ({catalogo.length - 4})
                 <IconChevronDown className="h-4 w-4 transition-transform group-open/mas:rotate-180" />
               </summary>
@@ -514,7 +514,7 @@ export default async function InvitacionesLanding() {
       {/* ---------- Los paquetes: al final, cuando ya lo quiere ------- */}
       <section
         id="paquetes"
-        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-14 lg:mx-auto"
+        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-3xl border border-aventurea-line bg-white py-14 lg:mx-auto"
       >
         <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
           <div data-reveal>
@@ -525,7 +525,7 @@ export default async function InvitacionesLanding() {
               abajo de los precios que es donde aparece. */}
           <div
             data-reveal
-            className="mt-9 flex flex-col items-center gap-4 rounded-[24px] bg-aventurea-cream-2 px-6 py-6 sm:flex-row sm:gap-6"
+            className="mt-9 flex flex-col items-center gap-4 rounded-2xl bg-aventurea-cream-2 px-6 py-6 sm:flex-row sm:gap-6"
           >
             <span className="flex shrink-0 items-center gap-3 text-[14px] font-extrabold text-aventurea-ink">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-aventurea-navy shadow-sm [&_svg]:h-5 [&_svg]:w-5">
@@ -554,7 +554,7 @@ export default async function InvitacionesLanding() {
       <section className="px-4 pb-16 pt-4 lg:px-10">
         <div
           data-reveal
-          className="relative isolate mx-auto max-w-[1200px] overflow-hidden rounded-[32px] bg-aventurea-navy px-6 py-14 text-center sm:py-16"
+          className="relative isolate mx-auto max-w-[1200px] overflow-hidden rounded-3xl bg-aventurea-navy px-6 py-14 text-center sm:py-16"
         >
           <div
             aria-hidden
@@ -569,7 +569,7 @@ export default async function InvitacionesLanding() {
           <div className="mt-8">
             <Link
               href="#paquetes"
-              className="inline-flex rounded-full bg-aventurea-orange px-8 py-4 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              className="inline-flex rounded-xl bg-aventurea-orange px-8 py-4 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
             >
               Pedí tu invitación
             </Link>
@@ -644,7 +644,7 @@ function TelefonoInvitado() {
     >
       <div className="relative h-[430px] overflow-hidden rounded-[32px] bg-aventurea-navy">
         {/* El notch */}
-        <div className="absolute left-1/2 top-2 z-10 h-[15px] w-[76px] -translate-x-1/2 rounded-full bg-aventurea-ink" />
+        <div className="absolute left-1/2 top-2 z-10 h-[15px] w-[76px] -translate-x-1/2 rounded-xl bg-aventurea-ink" />
 
         {/* El contenido que "scrollea" dentro de la pantalla */}
         <div
@@ -771,7 +771,7 @@ function ConectorViaje() {
           </svg>
         </div>
       </div>
-      <p className="rounded-full bg-white px-3.5 py-1.5 text-[11px] font-extrabold text-aventurea-navy">
+      <p className="rounded-lg bg-white px-3.5 py-1.5 text-[11px] font-extrabold text-aventurea-navy">
         En menos de un segundo
       </p>
     </div>
@@ -812,7 +812,7 @@ function PanelAnfitrion() {
                   </span>
                 </div>
               </div>
-              <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-aventurea-green-light px-2.5 py-1 text-[8.5px] font-extrabold uppercase tracking-wide text-aventurea-green">
+              <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-lg bg-aventurea-green-light px-2.5 py-1 text-[8.5px] font-extrabold uppercase tracking-wide text-aventurea-green">
                 <span className="anim-invitacion-latir h-1.5 w-1.5 rounded-full bg-aventurea-green" />
                 En tiempo real
               </span>
@@ -900,7 +900,7 @@ function CardDemo({ demo: d, orden }: { demo: EntradaCatalogo; orden: number }) 
       className="group block"
     >
       <div
-        className={`relative flex aspect-[5/6] flex-col items-center justify-center overflow-hidden rounded-[18px] px-4 text-center shadow-[0_14px_32px_-20px_rgba(16,26,44,0.5)] transition-transform duration-300 group-hover:-translate-y-1.5 ${d.lienzo}`}
+        className={`relative flex aspect-[5/6] flex-col items-center justify-center overflow-hidden rounded-2xl px-4 text-center shadow-[0_14px_32px_-20px_rgba(16,26,44,0.5)] transition-transform duration-300 group-hover:-translate-y-1.5 ${d.lienzo}`}
       >
         {/* El brillo de esquina que llevan las invitaciones reales */}
         <span

@@ -238,7 +238,7 @@ export default function UsuariosPanel({
                 </td>
                 <td className="px-4 py-3.5">
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                    className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold ${
                       p.rol === "admin"
                         ? "bg-aventurea-navy text-white"
                         : "bg-aventurea-cream-2 text-aventurea-ink-soft"

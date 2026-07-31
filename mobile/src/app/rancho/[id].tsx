@@ -18,10 +18,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import CalendarioMensual from "@/components/calendario-mensual";
 import SeccionEncabezado from "@/components/seccion-encabezado";
 import { BotonFlotante, FilaFlotante } from "@/components/boton-flotante";
+import { Avatar, Boton, Micro, Tarjeta, Vacio } from "@/components/ui";
 import {
   AMENIDADES,
   AMENIDADES_GRUPOS,
@@ -135,7 +136,12 @@ export default function RanchoDetalleScreen() {
   if (error) {
     return (
       <View style={styles.centro}>
-        <Text style={styles.error}>{error}</Text>
+        <Vacio
+          icono="close-circle-outline"
+          titulo="No encontramos esta publicación"
+          texto="Puede que ya no esté disponible."
+          accion={{ texto: "Volver", onPress: () => router.back() }}
+        />
       </View>
     );
   }
@@ -246,24 +252,43 @@ export default function RanchoDetalleScreen() {
           <View style={[styles.portadaVacia, { width: anchoPantalla }]} />
         )}
 
-        {/* ---------- Título + línea de confianza ---------- */}
-        <View style={styles.seccion}>
-          <Text style={styles.etiqueta}>
-            {rancho.subcategoria
-              ? (SUBCATEGORIA_LABEL[rancho.subcategoria] ?? CATEGORIA_LABEL[rancho.categoria])
-              : CATEGORIA_LABEL[rancho.categoria]}
-          </Text>
-          <Text style={styles.titulo}>{rancho.nombre}</Text>
-          <Text style={styles.lineaConfianza}>
-            {calificacion
-              ? `★ ${calificacion.promedio.toFixed(2).replace(".", ",")} · ${calificacion.total} reseña${calificacion.total === 1 ? "" : "s"}`
-              : null}
-            {calificacion && (esLugar || ubicacion) ? "  ·  " : ""}
-            {esLugar && (rancho.capacidad_min || rancho.capacidad_max)
-              ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas  ·  `
-              : ""}
-            {ubicacion}
-          </Text>
+        {/* ---------- Identidad del lugar: el mismo encabezado que en
+             Servicios y Restaurantes — iniciales, nombre y la línea de
+             contexto con nota, capacidad y zona. ---------- */}
+        <View style={styles.seccionIdentidad}>
+          <Tarjeta style={styles.identidad}>
+            <Micro>
+              {rancho.subcategoria
+                ? (SUBCATEGORIA_LABEL[rancho.subcategoria] ?? CATEGORIA_LABEL[rancho.categoria])
+                : CATEGORIA_LABEL[rancho.categoria]}
+            </Micro>
+            <View style={styles.identidadFila}>
+              <Avatar nombre={rancho.nombre} tamano={46} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.titulo} numberOfLines={2}>
+                  {rancho.nombre}
+                </Text>
+                <View style={styles.metaFila}>
+                  {calificacion && (
+                    <>
+                      <Ionicons name="star" size={12} color={Colors.accent} />
+                      <Text style={styles.metaFuerte}>
+                        {calificacion.promedio.toFixed(1).replace(".", ",")}
+                      </Text>
+                      <Text style={styles.metaTexto}>({calificacion.total})</Text>
+                    </>
+                  )}
+                  <Text style={styles.metaTexto} numberOfLines={1}>
+                    {calificacion ? "· " : ""}
+                    {esLugar && (rancho.capacidad_min || rancho.capacidad_max)
+                      ? `${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas · `
+                      : ""}
+                    {ubicacion}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Tarjeta>
         </View>
 
         {/* ---------- Sobre este lugar ---------- */}
@@ -282,7 +307,7 @@ export default function RanchoDetalleScreen() {
         {/* ---------- Horarios de alquiler ---------- */}
         {esLugar && (rancho.horarios_bloques ?? []).length > 0 && (
           <View style={styles.seccion}>
-            <Text style={styles.bloqueTitulo}>Horarios de alquiler</Text>
+            <Micro>Horarios de alquiler</Micro>
             <View style={styles.chips}>
               {(rancho.horarios_bloques ?? []).map((h) => (
                 <View key={h.id} style={styles.chipBorde}>
@@ -299,7 +324,7 @@ export default function RanchoDetalleScreen() {
         {esLugar && (
           <View style={styles.seccion}>
             <SeccionEncabezado kicker="Disponibilidad" titulo="Reservá tu fecha" />
-            <View style={styles.tarjetaReserva}>
+            <Tarjeta style={styles.tarjetaReserva}>
               <Text style={styles.tarjetaReservaPrecio}>
                 {precio ? `Desde ${precio}` : "Precio a consultar"}
                 {precio ? (
@@ -309,22 +334,32 @@ export default function RanchoDetalleScreen() {
                   </Text>
                 ) : null}
               </Text>
-              {(rancho.capacidad_min || rancho.capacidad_max) && (
-                <Text style={styles.tarjetaReservaDato}>
-                  {rancho.capacidad_min ?? "?"}–{rancho.capacidad_max ?? "?"} personas
-                </Text>
-              )}
-              <Text style={styles.tarjetaReservaDato}>
-                Depósito para reservar: {fmtColones(rancho.deposito_reserva ?? 25000)}
-              </Text>
-              <Text style={styles.tarjetaReservaDato}>Confirmación del dueño en el día</Text>
-              <Pressable style={styles.botonVerFechas} onPress={() => setModalFechas(true)}>
-                <Text style={styles.botonPrimarioTexto}>Ver fechas disponibles</Text>
-              </Pressable>
+              <View style={styles.tarjetaReservaDatos}>
+                {(rancho.capacidad_min || rancho.capacidad_max) && (
+                  <FilaDato
+                    icono="people-outline"
+                    texto={`${rancho.capacidad_min ?? "?"}–${rancho.capacidad_max ?? "?"} personas`}
+                  />
+                )}
+                <FilaDato
+                  icono="wallet-outline"
+                  texto={`Depósito para reservar: ${fmtColones(rancho.deposito_reserva ?? 25000)}`}
+                />
+                <FilaDato
+                  icono="checkmark-circle-outline"
+                  texto="Confirmación del dueño en el día"
+                />
+              </View>
+              <Boton
+                texto="Ver fechas disponibles"
+                icono="calendar-outline"
+                onPress={() => setModalFechas(true)}
+                style={{ marginTop: Spacing.three }}
+              />
               <Text style={styles.tarjetaReservaNota}>
                 Todavía no se te cobra nada — elegís la fecha primero.
               </Text>
-            </View>
+            </Tarjeta>
           </View>
         )}
 
@@ -332,17 +367,16 @@ export default function RanchoDetalleScreen() {
              catálogo con inventario por fecha y depósito, igual que /web. ---------- */}
         {!esLugar && (
           <View style={styles.seccion}>
-            <Pressable
-              style={styles.botonPrimario}
+            <Boton
+              texto="Reservar fecha y armar pedido"
+              icono="calendar-outline"
               onPress={() =>
                 router.push({
                   pathname: "/rancho/[id]/reservar-servicio" as never,
                   params: { id: rancho.id },
                 } as never)
               }
-            >
-              <Text style={styles.botonPrimarioTexto}>Reservar fecha y armar pedido</Text>
-            </Pressable>
+            />
             <Text style={styles.hint}>
               Elegís la fecha, armás tu reserva con el catálogo y pagás el
               depósito — sin salir de la app.
@@ -352,15 +386,13 @@ export default function RanchoDetalleScreen() {
 
         {/* ---------- Dudas antes de reservar: chat de consulta ---------- */}
         <View style={styles.seccion}>
-          <Pressable
-            style={[styles.botonChat, abriendoChat && { opacity: 0.6 }]}
-            disabled={abriendoChat}
+          <Boton
+            tono="contorno"
+            icono="chatbubble-ellipses-outline"
+            texto={abriendoChat ? "Abriendo chat…" : "¿Tenés dudas? Preguntá por el chat"}
+            cargando={abriendoChat}
             onPress={preguntarPorChat}
-          >
-            <Text style={styles.botonChatTexto}>
-              {abriendoChat ? "Abriendo chat..." : "¿Tenés dudas? Preguntá por el chat"}
-            </Text>
-          </Pressable>
+          />
         </View>
 
         {/* ---------- Amenidades: agrupadas como en el portal web ---------- */}
@@ -387,8 +419,8 @@ export default function RanchoDetalleScreen() {
                   })(),
                 )
                 .map((g) => (
-                  <View key={g.titulo} style={styles.grupoAmenidades}>
-                    <Text style={styles.grupoTitulo}>{g.titulo}</Text>
+                  <Tarjeta key={g.titulo} style={styles.grupoAmenidades}>
+                    <Micro>{g.titulo}</Micro>
                     <View style={{ gap: 8 }}>
                       {g.items.map((i) => (
                         <View key={i.id} style={styles.amenidadFila}>
@@ -399,7 +431,7 @@ export default function RanchoDetalleScreen() {
                         </View>
                       ))}
                     </View>
-                  </View>
+                  </Tarjeta>
                 ))}
             </View>
           </View>
@@ -431,7 +463,7 @@ export default function RanchoDetalleScreen() {
             />
             <View style={{ gap: Spacing.two }}>
               {resenas.map((r) => (
-                <View key={r.id} style={styles.resena}>
+                <Tarjeta key={r.id} style={styles.resena}>
                   <Text style={styles.resenaEstrellas}>
                     {"★".repeat(r.calificacion)}
                     <Text style={{ color: Colors.line }}>{"★".repeat(5 - r.calificacion)}</Text>
@@ -447,7 +479,7 @@ export default function RanchoDetalleScreen() {
                       year: "numeric",
                     })}
                   </Text>
-                </View>
+                </Tarjeta>
               ))}
             </View>
           </View>
@@ -477,8 +509,8 @@ export default function RanchoDetalleScreen() {
       {/* ---------- Barra fija de reserva (solo lugares) ---------- */}
       {esLugar && (
         <View style={styles.barraReserva}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.barraDesde}>Desde</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Micro>Desde</Micro>
             <Text style={styles.barraPrecio}>
               {precio ?? "A consultar"}
               {precio ? (
@@ -499,9 +531,7 @@ export default function RanchoDetalleScreen() {
           >
             <Ionicons name="chatbubble-ellipses-outline" size={21} color={Colors.navy} />
           </Pressable>
-          <Pressable style={styles.barraBoton} onPress={() => setModalFechas(true)}>
-            <Text style={styles.botonPrimarioTexto}>Ver fechas</Text>
-          </Pressable>
+          <Boton compacto texto="Ver fechas" onPress={() => setModalFechas(true)} />
         </View>
       )}
 
@@ -518,8 +548,8 @@ export default function RanchoDetalleScreen() {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalFechas(false)} />
           <View style={styles.panelModal}>
             <View style={styles.panelModalHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.panelModalKicker}>Reservá tu fecha</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Micro style={{ color: Colors.accent }}>Reservá tu fecha</Micro>
                 <Text style={styles.panelModalTitulo} numberOfLines={1}>
                   {rancho.nombre}
                 </Text>
@@ -557,214 +587,193 @@ export default function RanchoDetalleScreen() {
   );
 }
 
+/** Una línea de dato de la tarjeta de reserva: ícono gris + texto. */
+function FilaDato({
+  icono,
+  texto,
+}: {
+  icono: keyof typeof Ionicons.glyphMap;
+  texto: string;
+}) {
+  return (
+    <View style={styles.filaDato}>
+      <Ionicons name={icono} size={14} color={Colors.inkMuted} />
+      <Text style={styles.filaDatoTexto}>{texto}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  raiz: { flex: 1, backgroundColor: Colors.cream },
+  raiz: { backgroundColor: Colors.canvas, flex: 1 },
   contenedor: { flex: 1 },
-  centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five },
-  error: { color: Colors.danger, textAlign: "center" },
-  portadaVacia: { height: 220, backgroundColor: Colors.cream2 },
+  centro: {
+    backgroundColor: Colors.canvas,
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.three,
+  },
+  portadaVacia: { backgroundColor: Colors.cream2, height: 220 },
   contadorFotos: {
-    position: "absolute",
-    right: Spacing.three,
-    bottom: Spacing.three,
     backgroundColor: "rgba(16,26,44,0.75)",
-    borderRadius: 999,
+    borderRadius: 8,
+    bottom: Spacing.four,
     paddingHorizontal: 10,
     paddingVertical: 4,
-  },
-  contadorFotosTexto: { color: "#ffffff", fontSize: 11.5, fontFamily: Fonts.bold },
-  seccion: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    gap: Spacing.two,
-  },
-  etiqueta: {
-    fontSize: 11,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    color: Colors.accent,
-  },
-  titulo: { fontSize: 24, fontFamily: Fonts.extraBold, color: Colors.ink },
-  lineaConfianza: { fontSize: 13.5, color: Colors.inkSoft, lineHeight: 19 },
-  bloqueTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
-  descripcion: { fontSize: 14, color: Colors.inkSoft, lineHeight: 21 },
-  hint: { fontSize: 13, color: Colors.inkSoft },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-  chip: {
-    backgroundColor: Colors.cream2,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  chipBorde: {
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  chipTexto: { fontSize: 12.5, fontFamily: Fonts.semiBold, color: Colors.ink },
-  terminoFila: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-start" },
-  terminoTexto: { flex: 1, fontSize: 13, color: Colors.inkSoft, lineHeight: 19 },
-  resena: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 14,
-    padding: Spacing.three,
-    gap: 6,
-  },
-  resenaEstrellas: { fontSize: 14, color: Colors.ink },
-  resenaComentario: { fontSize: 13.5, color: Colors.ink, lineHeight: 20 },
-  resenaMeta: { fontSize: 11.5, color: Colors.inkSoft },
-  grupoAmenidades: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 16,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  grupoTitulo: {
-    fontSize: 10.5,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    color: Colors.inkSoft,
-    marginBottom: 2,
-  },
-  amenidadFila: { flexDirection: "row", alignItems: "center", gap: 10 },
-  amenidadCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.greenLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  amenidadTexto: { fontSize: 13.5, color: Colors.ink, fontFamily: Fonts.medium, flexShrink: 1 },
-  botonPrimario: {
-    backgroundColor: Colors.navy,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  botonPrimarioTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 14.5 },
-  botonSecundario: {
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 10,
-  },
-  botonSecundarioTexto: { fontSize: 13, fontFamily: Fonts.bold, color: Colors.ink },
-  botonChat: {
-    borderWidth: 1.5,
-    borderColor: Colors.navy,
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    paddingVertical: 13,
-    alignItems: "center",
-  },
-  botonChatTexto: { fontSize: 14, fontFamily: Fonts.bold, color: Colors.navy },
-  barraReserva: {
     position: "absolute",
-    left: 0,
-    right: 0,
+    right: Spacing.three,
+  },
+  contadorFotosTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 11.5 },
+
+  seccion: { gap: Spacing.two + 2, paddingHorizontal: Spacing.three, paddingTop: Spacing.four },
+  // La identidad monta sobre la foto, como el encabezado del mockup.
+  seccionIdentidad: { marginTop: -Spacing.four, paddingHorizontal: Spacing.three },
+  identidad: { gap: Spacing.two + 2, padding: Spacing.three },
+  identidadFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
+  titulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 20, letterSpacing: -0.5 },
+  metaFila: { alignItems: "center", flexDirection: "row", gap: 3, marginTop: 3 },
+  metaFuerte: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
+  metaTexto: { color: Colors.inkSoft, flexShrink: 1, fontFamily: Fonts.medium, fontSize: 12.5 },
+
+  descripcion: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 14, lineHeight: 21 },
+  hint: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5, lineHeight: 18 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+  chipBorde: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 8,
+  },
+  chipTexto: { color: Colors.ink, fontFamily: Fonts.semiBold, fontSize: 12.5 },
+
+  terminoFila: { alignItems: "flex-start", flexDirection: "row", gap: Spacing.two },
+  terminoTexto: { color: Colors.inkSoft, flex: 1, fontFamily: Fonts.medium, fontSize: 13, lineHeight: 19 },
+
+  resena: { gap: 6, padding: Spacing.three },
+  resenaEstrellas: { color: Colors.accent, fontSize: 14 },
+  resenaComentario: { color: Colors.ink, fontFamily: Fonts.medium, fontSize: 13.5, lineHeight: 20 },
+  resenaMeta: { color: Colors.inkMuted, fontFamily: Fonts.semiBold, fontSize: 11.5 },
+
+  grupoAmenidades: { gap: Spacing.two, padding: Spacing.three },
+  amenidadFila: { alignItems: "center", flexDirection: "row", gap: 10 },
+  amenidadCheck: {
+    alignItems: "center",
+    backgroundColor: Colors.greenLight,
+    borderRadius: Radios.full,
+    height: 20,
+    justifyContent: "center",
+    width: 20,
+  },
+  amenidadTexto: { color: Colors.ink, flexShrink: 1, fontFamily: Fonts.medium, fontSize: 13.5 },
+
+  botonSecundario: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.md,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 11,
+  },
+  botonSecundarioTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 13 },
+
+  barraReserva: {
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
     bottom: 0,
     flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.three,
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.line,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.three,
+    gap: Spacing.two + 2,
+    left: 0,
     paddingBottom: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
+    position: "absolute",
+    right: 0,
   },
-  barraDesde: { fontSize: 11, color: Colors.inkSoft },
-  barraPrecio: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
-  barraUnidad: { fontSize: 11.5, fontFamily: Fonts.medium, color: Colors.inkSoft },
-  barraBoton: {
-    backgroundColor: Colors.navy,
-    borderRadius: 12,
-    paddingHorizontal: Spacing.five,
-    paddingVertical: 12,
-  },
+  barraPrecio: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 18, marginTop: 2 },
+  barraUnidad: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5 },
   barraChat: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    backgroundColor: Colors.cream2,
     alignItems: "center",
-    justifyContent: "center",
-  },
-  tarjetaReserva: {
     backgroundColor: Colors.surface,
-    borderWidth: 1,
     borderColor: Colors.line,
-    borderRadius: 20,
-    padding: Spacing.four,
-    gap: 6,
+    borderRadius: Radios.md,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
   },
-  tarjetaReservaPrecio: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink },
-  tarjetaReservaUnidad: { fontSize: 12.5, fontFamily: Fonts.medium, color: Colors.inkSoft },
-  tarjetaReservaDato: { fontSize: 13, color: Colors.inkSoft },
-  botonVerFechas: {
-    backgroundColor: Colors.navy,
-    borderRadius: 999,
-    paddingVertical: 13,
-    alignItems: "center",
-    marginTop: Spacing.two,
+
+  tarjetaReserva: { padding: Spacing.three },
+  tarjetaReservaPrecio: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 24,
+    letterSpacing: -0.6,
   },
-  tarjetaReservaNota: { fontSize: 12, color: Colors.inkSoft, textAlign: "center" },
+  tarjetaReservaUnidad: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5 },
+  tarjetaReservaDatos: {
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
+    gap: 8,
+    marginTop: Spacing.three,
+    paddingTop: Spacing.three,
+  },
+  filaDato: { alignItems: "center", flexDirection: "row", gap: 8 },
+  filaDatoTexto: { color: Colors.inkSoft, flex: 1, fontFamily: Fonts.medium, fontSize: 12.5 },
+  tarjetaReservaNota: {
+    color: Colors.inkMuted,
+    fontFamily: Fonts.medium,
+    fontSize: 11.5,
+    marginTop: 10,
+    textAlign: "center",
+  },
+
   veloModal: {
+    backgroundColor: "rgba(10,18,42,0.30)",
     flex: 1,
     justifyContent: "center",
     padding: Spacing.three,
-    backgroundColor: "rgba(10,18,42,0.30)",
   },
   panelModal: {
-    backgroundColor: "#ffffff",
-    borderRadius: 24,
-    borderWidth: 1,
+    backgroundColor: Colors.canvas,
     borderColor: "rgba(255,255,255,0.6)",
+    borderRadius: Radios.xl,
+    borderWidth: 1,
+    elevation: 18,
     maxHeight: "92%",
     overflow: "hidden",
     shadowColor: "#060c20",
+    shadowOffset: { width: 0, height: 24 },
     shadowOpacity: 0.45,
     shadowRadius: 40,
-    shadowOffset: { width: 0, height: 24 },
-    elevation: 18,
   },
   panelModalHeader: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.three,
-    borderBottomWidth: 1,
+    backgroundColor: Colors.surface,
     borderBottomColor: Colors.line,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
   },
-  panelModalKicker: {
-    fontSize: 10.5,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: Colors.accent,
+  panelModalTitulo: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 18,
+    letterSpacing: -0.4,
+    marginTop: 3,
   },
-  panelModalTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
   panelModalCerrar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.cream2,
     alignItems: "center",
+    backgroundColor: Colors.canvas,
+    borderColor: Colors.line,
+    borderRadius: Radios.full,
+    borderWidth: 1,
+    height: 34,
     justifyContent: "center",
+    width: 34,
   },
 });

@@ -232,7 +232,7 @@ export default function ReservasTable({
                 )}
               </div>
               <span
-                className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${ESTADO_BADGE[r.estado]}`}
+                className={`inline-flex shrink-0 items-center rounded-lg px-2.5 py-1 text-[11px] font-bold ${ESTADO_BADGE[r.estado]}`}
               >
                 {ESTADO_LABEL[r.estado]}
               </span>
@@ -277,15 +277,15 @@ export default function ReservasTable({
                   Depósito
                 </div>
                 {r.deposito_validado ? (
-                  <span className="inline-flex items-center rounded-full bg-aventurea-green/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-green">
+                  <span className="inline-flex items-center rounded-lg bg-aventurea-green/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-green">
                     ✓ {fmtMoney(r.deposito_monto)}
                   </span>
                 ) : r.deposito_comprobante_url ? (
-                  <span className="inline-flex items-center rounded-full bg-aventurea-orange/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-orange">
+                  <span className="inline-flex items-center rounded-lg bg-aventurea-orange/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-orange">
                     Por validar
                   </span>
                 ) : (
-                  <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[11px] font-bold text-zinc-500">
+                  <span className="inline-flex items-center rounded-lg bg-aventurea-cream-2 px-2 py-0.5 text-[11px] font-bold text-zinc-500">
                     Sin comprobante
                   </span>
                 )}
@@ -403,7 +403,7 @@ export default function ReservasTable({
                 <td className="px-4 py-3.5 text-[13.5px] text-aventurea-ink-soft">{r.invitados ?? "—"}</td>
                 <td className="px-4 py-3.5">
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${ESTADO_BADGE[r.estado]}`}
+                    className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold ${ESTADO_BADGE[r.estado]}`}
                   >
                     {ESTADO_LABEL[r.estado]}
                   </span>
@@ -411,15 +411,15 @@ export default function ReservasTable({
                 <td className="px-4 py-3.5">
                   <div className="flex flex-col items-start gap-1">
                     {r.deposito_validado ? (
-                      <span className="inline-flex items-center rounded-full bg-aventurea-green/15 px-2.5 py-1 text-[11px] font-bold text-aventurea-green">
+                      <span className="inline-flex items-center rounded-lg bg-aventurea-green/15 px-2.5 py-1 text-[11px] font-bold text-aventurea-green">
                         ✓ Validado · {fmtMoney(r.deposito_monto)}
                       </span>
                     ) : r.deposito_comprobante_url ? (
-                      <span className="inline-flex items-center rounded-full bg-aventurea-orange/15 px-2.5 py-1 text-[11px] font-bold text-aventurea-orange">
+                      <span className="inline-flex items-center rounded-lg bg-aventurea-orange/15 px-2.5 py-1 text-[11px] font-bold text-aventurea-orange">
                         Por validar · {fmtMoney(r.deposito_monto)}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-zinc-500">
+                      <span className="inline-flex items-center rounded-lg bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-zinc-500">
                         Sin comprobante
                       </span>
                     )}

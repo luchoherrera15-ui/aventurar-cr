@@ -1,35 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import TituloPantalla from "@/components/titulo-pantalla";
 import ResenaModal from "@/components/resena-modal";
+import { Estado, Micro, Tarjeta, Vacio, type TonoEstado } from "@/components/ui";
 import { CATEGORIA_LABEL, fmtColones } from "@/lib/types";
-import {
-  CATEGORIA_CITA_LABEL,
-  DIAS_CORTO,
-  MESES_CORTO,
-  horaBonita,
-} from "@/lib/citas";
+import { CATEGORIA_CITA_LABEL, DIAS_CORTO, MESES_CORTO, horaBonita } from "@/lib/citas";
 import { CATEGORIA_HOSPEDAJE_LABEL } from "@/lib/hospedajes";
 
 /**
- * Pestaña de reservas, espejo de los "viajes" de Airbnb: lo que viene
- * (pendiente o confirmado) arriba, y el historial abajo. La lista se
- * recarga cada vez que la pestaña gana foco porque los estados cambian
- * del lado del proveedor.
+ * Pestaña de reservas: lo que viene (pendiente o confirmado) arriba, y
+ * el historial abajo. La lista se recarga cada vez que la pestaña gana
+ * foco porque los estados cambian del lado del proveedor.
+ *
+ * Cada reserva usa la misma barra navy a la izquierda y la misma
+ * píldora de estado que la agenda del negocio — es la otra cara de la
+ * misma reserva, así que se ve igual.
  */
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -41,13 +33,14 @@ const ESTADO_LABEL: Record<string, string> = {
   no_asistio: "No asististe",
   cancelada: "Cancelada",
 };
-const ESTADO_COLOR: Record<string, string> = {
-  pendiente: Colors.accent,
-  confirmada: Colors.green,
-  rechazada: Colors.danger,
-  cumplida: Colors.green,
-  no_asistio: Colors.danger,
-  cancelada: Colors.inkSoft,
+
+const ESTADO_TONO: Record<string, TonoEstado> = {
+  pendiente: "naranja",
+  confirmada: "verde",
+  rechazada: "rojo",
+  cumplida: "verde",
+  no_asistio: "rojo",
+  cancelada: "gris",
 };
 
 // Estados finales: viven en el historial aunque la fecha sea hoy.
@@ -70,7 +63,7 @@ function fechaBonita(fecha: string): string {
   return `${DIAS_CORTO[d.getDay()]} ${d.getDate()} ${MESES_CORTO[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** Etiqueta de la categoría cruzando las tres verticales. */
+/** Etiqueta de la categoría cruzando las cuatro verticales. */
 function etiquetaCategoria(cat: string): string {
   return (
     (CATEGORIA_LABEL as Record<string, string>)[cat] ??
@@ -123,9 +116,7 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
       if (!vigente) return;
       setReservas((data ?? []) as unknown as ReservaCliente[]);
       setResenasPropias(
-        new Map(
-          ((resenasData ?? []) as ResenaPropia[]).map((r) => [r.reserva_id, r]),
-        ),
+        new Map(((resenasData ?? []) as ResenaPropia[]).map((r) => [r.reserva_id, r])),
       );
     });
     return () => {
@@ -150,15 +141,17 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
   if (!session) {
     return (
       <View style={styles.raiz}>
-        <TituloPantalla titulo="Reservas" />
-        <View style={styles.centro}>
-          <Text style={styles.vacioTitulo}>Iniciá sesión</Text>
-          <Text style={styles.vacioTexto}>
-            Entrá a tu cuenta para ver tus reservas activas y tu historial.
-          </Text>
-          <Pressable style={styles.boton} onPress={() => router.replace("/?tab=perfil" as never)}>
-            <Text style={styles.botonTexto}>Ir a mi perfil</Text>
-          </Pressable>
+        <TituloPantalla kicker="Tu actividad" titulo="Reservas" />
+        <View style={styles.centrado}>
+          <Vacio
+            icono="calendar-outline"
+            titulo="Iniciá sesión"
+            texto="Entrá a tu cuenta para ver tus reservas activas y tu historial."
+            accion={{
+              texto: "Ir a mi perfil",
+              onPress: () => router.replace("/?tab=perfil" as never),
+            }}
+          />
         </View>
       </View>
     );
@@ -175,6 +168,7 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
   return (
     <View style={styles.raiz}>
       <TituloPantalla
+        kicker="Tu actividad"
         titulo="Reservas"
         subtitulo="Lo que tenés en curso y lo que ya pasó."
       />
@@ -183,15 +177,16 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
           <ActivityIndicator color={Colors.accent} />
         </View>
       ) : reservas.length === 0 ? (
-        <View style={styles.centro}>
-          <Text style={styles.vacioTitulo}>Todavía no tenés reservas</Text>
-          <Text style={styles.vacioTexto}>
-            Cuando reservés un lugar o servicio para tu evento, lo vas a ver
-            acá con su estado.
-          </Text>
-          <Pressable style={styles.boton} onPress={() => router.replace("/?tab=explorar" as never)}>
-            <Text style={styles.botonTexto}>Explorar proveedores</Text>
-          </Pressable>
+        <View style={styles.centrado}>
+          <Vacio
+            icono="calendar-outline"
+            titulo="Todavía no tenés reservas"
+            texto="Cuando reservés un lugar, una cita, una mesa o una noche, lo vas a ver acá con su estado."
+            accion={{
+              texto: "Explorar",
+              onPress: () => router.replace("/?tab=explorar" as never),
+            }}
+          />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.lista}>
@@ -246,7 +241,7 @@ function Seccion({
   const hayContenido = Array.isArray(children) ? children.length > 0 : !!children;
   return (
     <View style={styles.bloque}>
-      <Text style={styles.bloqueTitulo}>{titulo}</Text>
+      <Micro>{titulo}</Micro>
       {hayContenido ? (
         <View style={{ gap: Spacing.two }}>{children}</View>
       ) : (
@@ -269,19 +264,35 @@ function TarjetaReserva({
   onResena?: () => void;
 }) {
   const router = useRouter();
+  const tono = ESTADO_TONO[reserva.estado] ?? "gris";
   return (
-    <View style={[styles.tarjetaReserva, atenuada && styles.tarjetaAtenuada]}>
-      <View style={{ flexDirection: "row", gap: Spacing.three }}>
+    <Tarjeta style={[styles.tarjetaReserva, atenuada && styles.tarjetaAtenuada]}>
+      {/* La barra de estado a la izquierda: verde cerrado, naranja
+          esperando, gris pasado — se lee de un vistazo en la lista. */}
+      <View
+        style={[
+          styles.barraEstado,
+          {
+            backgroundColor:
+              tono === "verde"
+                ? Colors.green
+                : tono === "naranja"
+                  ? Colors.accent
+                  : tono === "rojo"
+                    ? Colors.danger
+                    : Colors.line,
+          },
+        ]}
+      />
+      <View style={styles.filaPrincipal}>
         <Image
           source={reserva.ranchos?.foto_url ? { uri: reserva.ranchos.foto_url } : undefined}
           style={styles.fotoReserva}
           contentFit="cover"
           alt={reserva.ranchos?.nombre ?? ""}
         />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.categoriaReserva}>
-            {reserva.ranchos ? etiquetaCategoria(reserva.ranchos.categoria) : ""}
-          </Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Micro>{reserva.ranchos ? etiquetaCategoria(reserva.ranchos.categoria) : ""}</Micro>
           <Text style={styles.nombreReserva} numberOfLines={1}>
             {reserva.ranchos?.nombre ?? "Proveedor"}
           </Text>
@@ -297,18 +308,15 @@ function TarjetaReserva({
             <Text style={styles.montoReserva}>{fmtColones(reserva.monto_total)}</Text>
           )}
         </View>
-        <View
-          style={[styles.badgeEstado, { backgroundColor: ESTADO_COLOR[reserva.estado] ?? Colors.inkSoft }]}
-        >
-          <Text style={styles.badgeEstadoTexto}>{ESTADO_LABEL[reserva.estado] ?? reserva.estado}</Text>
-        </View>
+        <Estado texto={ESTADO_LABEL[reserva.estado] ?? reserva.estado} tono={tono} />
       </View>
+
       <View style={styles.filaAcciones}>
-        <Pressable onPress={() => router.push(`/mensajes/${reserva.id}`)}>
-          <Text style={styles.botonMensajesTexto}>Mensajes</Text>
+        <Pressable onPress={() => router.push(`/mensajes/${reserva.id}`)} hitSlop={8}>
+          <Text style={styles.botonMensajesTexto}>Mensajes →</Text>
         </Pressable>
         {onResena && (
-          <Pressable onPress={onResena} style={styles.botonResena}>
+          <Pressable onPress={onResena} style={styles.botonResena} hitSlop={8}>
             <Ionicons name={resena ? "star" : "star-outline"} size={13} color={Colors.accent} />
             <Text style={styles.botonResenaTexto}>
               {resena ? `Tu reseña: ${resena.calificacion}★ — editar` : "Dejar reseña"}
@@ -316,64 +324,61 @@ function TarjetaReserva({
           </Pressable>
         )}
       </View>
-    </View>
+    </Tarjeta>
   );
 }
 
 const styles = StyleSheet.create({
-  raiz: { flex: 1, backgroundColor: Colors.cream },
-  centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.two },
-  lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: TAB_BAR_ESPACIO },
-  vacioTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
-  vacioTexto: { fontSize: 13.5, color: Colors.inkSoft, textAlign: "center", lineHeight: 19 },
-  boton: {
-    marginTop: Spacing.two,
-    backgroundColor: Colors.navy,
-    borderRadius: 12,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: 12,
+  raiz: { backgroundColor: Colors.canvas, flex: 1 },
+  centro: { alignItems: "center", flex: 1, justifyContent: "center" },
+  centrado: { flex: 1, justifyContent: "center", paddingHorizontal: Spacing.three },
+  lista: { gap: Spacing.four, padding: Spacing.three, paddingBottom: TAB_BAR_ESPACIO },
+
+  bloque: { gap: Spacing.two + 2 },
+  hint: {
+    backgroundColor: Colors.cream2,
+    borderRadius: Radios.md,
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 12.5,
+    padding: Spacing.three,
   },
-  botonTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13.5 },
-  bloque: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: Spacing.four,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    gap: Spacing.three,
-  },
-  bloqueTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
-  hint: { fontSize: 13, color: Colors.inkSoft },
+
   tarjetaReserva: {
     gap: Spacing.two,
-    padding: Spacing.two,
-    borderRadius: 12,
-    backgroundColor: Colors.cream,
+    overflow: "hidden",
+    paddingHorizontal: Spacing.three,
+    paddingLeft: Spacing.three + 4,
+    paddingVertical: Spacing.three,
   },
-  tarjetaAtenuada: { opacity: 0.7 },
-  fotoReserva: { width: 56, height: 56, borderRadius: 10, backgroundColor: Colors.cream2 },
-  categoriaReserva: {
-    fontSize: 10.5,
-    fontFamily: Fonts.bold,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-    color: Colors.accent,
+  tarjetaAtenuada: { opacity: 0.72 },
+  barraEstado: { bottom: 0, left: 0, position: "absolute", top: 0, width: 4 },
+  filaPrincipal: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
+  fotoReserva: {
+    backgroundColor: Colors.cream2,
+    borderRadius: Radios.sm,
+    height: 56,
+    width: 56,
   },
-  nombreReserva: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink },
-  fechaReserva: { fontSize: 12.5, color: Colors.inkSoft },
-  montoReserva: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.ink },
-  badgeEstado: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, alignSelf: "flex-start" },
-  badgeEstadoTexto: { color: "#ffffff", fontSize: 10.5, fontFamily: Fonts.bold },
+  nombreReserva: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 15,
+    letterSpacing: -0.2,
+    marginTop: 3,
+  },
+  fechaReserva: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5, marginTop: 2 },
+  montoReserva: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5, marginTop: 2 },
+
   filaAcciones: {
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 2,
-    borderTopWidth: 1,
     borderTopColor: Colors.line,
-    paddingTop: 8,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingTop: 10,
   },
-  botonMensajesTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
-  botonResena: { flexDirection: "row", alignItems: "center", gap: 4 },
-  botonResenaTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 12.5 },
+  botonMensajesTexto: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 12.5 },
+  botonResena: { alignItems: "center", flexDirection: "row", gap: 4 },
+  botonResenaTexto: { color: Colors.accent, fontFamily: Fonts.extraBold, fontSize: 12.5 },
 });

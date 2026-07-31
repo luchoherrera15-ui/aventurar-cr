@@ -16,14 +16,26 @@ import * as FileSystem from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
 import OfertaInvitacion from "@/components/oferta-invitacion";
+import {
+  Aviso,
+  BarraConfirmacion,
+  Boton,
+  Estado,
+  Identidad,
+  Micro,
+  Opcion,
+  Tarjeta,
+  Vacio,
+} from "@/components/ui";
 import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
 import { obtenerIdDispositivo } from "@/lib/device";
 import { pedirCorreosDeReserva } from "@/lib/notificaciones";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import {
   etiquetaHorario,
   fmtColones,
@@ -41,6 +53,14 @@ const WHATSAPP_REGEX = /^[0-9+\s-]{8,16}$/;
 
 type MetodoPago = "sinpe" | "transferencia";
 
+/**
+ * El flujo de reserva de un lugar de eventos, en el lenguaje de la
+ * marca: la fecha ya viene elegida del calendario, acá van los datos
+ * del evento y el depósito. Cada bloque lleva su rótulo en
+ * micro-mayúsculas, el horario y el método de pago se eligen en filas
+ * de ancho completo, y la cuenta regresiva del bloqueo va arriba de
+ * todo — es lo único con reloj en la pantalla.
+ */
 export default function ReservarScreen() {
   const { id, fecha } = useLocalSearchParams<{ id: string; fecha: string }>();
   const router = useRouter();
@@ -492,19 +512,17 @@ export default function ReservarScreen() {
   if (!session) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo="Reservar" />
-        <View style={styles.centro}>
-          <Text style={styles.tituloConfirmacion}>Iniciá sesión para reservar</Text>
-          <Text style={styles.textoConfirmacion}>
-            Tu reserva queda ligada a tu cuenta: ahí ves el estado, el chat
-            con el proveedor y tu historial — y tus datos llegan precargados.
-          </Text>
-          <Pressable style={styles.botonPrimario} onPress={() => router.push("/cuenta")}>
-            <Text style={styles.botonPrimarioTexto}>Iniciar sesión</Text>
-          </Pressable>
-          <Pressable style={styles.botonSecundario} onPress={() => router.back()}>
-            <Text style={styles.botonSecundarioTexto}>Volver</Text>
-          </Pressable>
+        <BarraSuperior kicker="Eventos" titulo="Reservar" />
+        <View style={styles.centrado}>
+          <Vacio
+            icono="lock-closed-outline"
+            titulo="Iniciá sesión para reservar"
+            texto="Tu reserva queda ligada a tu cuenta: ahí ves el estado, el chat con el proveedor y tu historial — y tus datos llegan precargados."
+          />
+          <View style={styles.botonesEstado}>
+            <Boton texto="Iniciar sesión" tono="navy" onPress={() => router.push("/cuenta")} />
+            <Boton texto="Volver" tono="contorno" onPress={() => router.back()} />
+          </View>
         </View>
       </View>
     );
@@ -520,39 +538,62 @@ export default function ReservarScreen() {
 
   if (errorCarga || errorHold) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.error}>{errorCarga ?? errorHold}</Text>
-        <Pressable style={styles.botonSecundario} onPress={() => router.back()}>
-          <Text style={styles.botonSecundarioTexto}>Volver</Text>
-        </Pressable>
+      <View style={styles.contenedor}>
+        <BarraSuperior kicker="Eventos" titulo="Reservar" />
+        <View style={styles.centrado}>
+          <Vacio
+            icono="alert-circle-outline"
+            titulo="No se pudo abrir la reserva"
+            texto={errorCarga ?? errorHold ?? undefined}
+            accion={{ texto: "Volver", onPress: () => router.back() }}
+          />
+        </View>
       </View>
     );
   }
 
+  // ---------- Reserva enviada ----------
   if (confirmado) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.tituloConfirmacion}>¡Reserva recibida!</Text>
-        <Text style={styles.textoConfirmacion}>
-          Quedó en revisión — {rancho?.nombre} va a confirmarla en cuanto revise tu comprobante.
-          Te llegará un correo a {correo}.
-        </Text>
-        {/* Venta cruzada: recién reservó su evento — la invitación
-            digital a precio especial. */}
-        <OfertaInvitacion />
-        <Pressable style={styles.botonPrimario} onPress={() => router.dismissTo("/")}>
-          <Text style={styles.botonPrimarioTexto}>Volver al directorio</Text>
-        </Pressable>
+      <View style={styles.contenedor}>
+        <BarraSuperior kicker="Eventos" titulo="Reserva enviada" contexto={rancho?.nombre} />
+        <ScrollView contentContainerStyle={styles.contenido}>
+          <Tarjeta style={styles.tarjetaExito}>
+            <View style={styles.exitoCheck}>
+              <Ionicons name="checkmark" size={28} color={Colors.navy} />
+            </View>
+            <Text style={styles.exitoTitulo}>¡Reserva recibida!</Text>
+            <Text style={styles.exitoTexto}>
+              Quedó en revisión — {rancho?.nombre} la confirma en cuanto revise tu
+              comprobante. Te llega un correo a {correo}.
+            </Text>
+          </Tarjeta>
+
+          {/* La misma barra del mockup: lo que pasó, y qué sigue. */}
+          <BarraConfirmacion titulo="Reserva enviada" nota="Esperando al proveedor" />
+
+          {/* Venta cruzada: recién reservó su evento — la invitación
+              digital a precio especial. */}
+          <OfertaInvitacion />
+
+          <Boton
+            texto="Volver al directorio"
+            tono="contorno"
+            onPress={() => router.dismissTo("/")}
+          />
+        </ScrollView>
       </View>
     );
   }
 
   const minutos = segundosRestantes !== null ? Math.floor(segundosRestantes / 60) : 0;
   const segundos = segundosRestantes !== null ? segundosRestantes % 60 : 0;
+  const apurado = segundosRestantes !== null && segundosRestantes < 120;
 
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
+        kicker="Eventos"
         titulo="Reservar"
         subtitulo={rancho?.nombre ?? undefined}
         accion={{
@@ -561,299 +602,374 @@ export default function ReservarScreen() {
           onPress: chatearConProveedor,
         }}
       />
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={{ padding: Spacing.four, gap: Spacing.four }}
-      >
-      <View style={styles.avisoTiempo}>
-        <Text style={styles.avisoTiempoTexto}>
-          Fecha bloqueada por {String(minutos).padStart(2, "0")}:{String(segundos).padStart(2, "0")} min — completá la reserva antes de que se libere.
-        </Text>
-      </View>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.contenido}>
+        {/* El reloj del bloqueo: lo primero que se ve, siempre. */}
+        <View style={[styles.reloj, apurado && styles.relojApurado]}>
+          <Ionicons
+            name="time-outline"
+            size={17}
+            color={apurado ? Colors.danger : Colors.accent}
+          />
+          <Text style={[styles.relojTexto, apurado && { color: Colors.danger }]}>
+            Fecha bloqueada {String(minutos).padStart(2, "0")}:
+            {String(segundos).padStart(2, "0")} — completá antes de que se libere.
+          </Text>
+        </View>
 
-      {/* Los tres pasos del flujo, como en la web: la fecha ya quedó
-          hecha en el calendario. */}
-      <View style={styles.pasos}>
-        <PasoPill numero="✓" etiqueta="Fecha" estado="hecho" />
-        <PasoPill
-          numero="2"
-          etiqueta="Tus datos"
-          estado={paso === "datos" ? "activo" : "hecho"}
-        />
-        <PasoPill
-          numero="3"
-          etiqueta="Pagar depósito"
-          estado={paso === "pago" ? "activo" : "pendiente"}
-        />
-      </View>
-
-      {paso === "datos" && (<>
-      <View style={styles.bloque}>
-        <Text style={styles.bloqueTitulo}>Datos del evento — {fecha}</Text>
-        <Campo label="Nombre completo *" value={nombre} onChangeText={setNombre} />
-        <Campo label="Cédula *" value={cedula} onChangeText={setCedula} keyboardType="numeric" />
-        <Campo label="Correo *" value={correo} onChangeText={setCorreo} keyboardType="email-address" autoCapitalize="none" />
-        <Campo label="WhatsApp *" value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" />
-        <Campo label="Tipo de evento" value={tipoEvento} onChangeText={setTipoEvento} placeholder="Ej. cumpleaños, boda" />
-        {modalidadPrecio === "hora" ? (
-          <Campo label="Cantidad de horas" value={horasEvento} onChangeText={setHorasEvento} keyboardType="numeric" placeholder="Ej. 5" />
-        ) : modalidadPrecio === "rango_personas" ? (
-          <>
-            <Campo
-              label={
-                rancho?.capacidad_max
-                  ? `Cantidad de invitados (máximo ${rancho.capacidad_max})`
-                  : "Cantidad de invitados"
-              }
-              value={invitados}
-              onChangeText={setInvitados}
-              keyboardType="numeric"
+        {/* La identidad del lugar y la fecha elegida, como en el mockup. */}
+        {rancho && (
+          <Tarjeta style={styles.identidadTarjeta}>
+            <Identidad
+              nombre={rancho.nombre}
+              meta={[
+                "Eventos",
+                [rancho.canton, rancho.provincia].filter(Boolean).join(", ") || null,
+              ]}
+              derecha={<Estado texto={fecha} tono="navy" />}
             />
-            {excedeCapacidad && (
-              <Text style={styles.avisoCapacidad}>
-                Este lugar recibe hasta {rancho?.capacidad_max} personas — para
-                grupos más grandes, escribile directo para coordinar.
-              </Text>
-            )}
-          </>
-        ) : null}
+          </Tarjeta>
+        )}
 
-        {rancho && rancho.horarios_bloques.length > 0 && (
-          <View style={styles.gap2}>
-            <Text style={styles.campoLabel}>Horario</Text>
-            <View style={styles.chips}>
-              {rancho.horarios_bloques.map((h) => (
+        {/* Los tres pasos del flujo, como en la web: la fecha ya quedó
+            hecha en el calendario. */}
+        <View style={styles.pasos}>
+          <PasoPill numero="✓" etiqueta="Fecha" estado="hecho" />
+          <PasoPill
+            numero="2"
+            etiqueta="Tus datos"
+            estado={paso === "datos" ? "activo" : "hecho"}
+          />
+          <PasoPill
+            numero="3"
+            etiqueta="Depósito"
+            estado={paso === "pago" ? "activo" : "pendiente"}
+          />
+        </View>
+
+        {paso === "datos" && (
+          <>
+            <View style={styles.bloque}>
+              <Micro>Datos del evento</Micro>
+              <Tarjeta style={styles.tarjetaCampos}>
+                <Campo label="Nombre completo *" value={nombre} onChangeText={setNombre} />
+                <Campo
+                  label="Cédula *"
+                  value={cedula}
+                  onChangeText={setCedula}
+                  keyboardType="numeric"
+                />
+                <Campo
+                  label="Correo *"
+                  value={correo}
+                  onChangeText={setCorreo}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <Campo
+                  label="WhatsApp *"
+                  value={whatsapp}
+                  onChangeText={setWhatsapp}
+                  keyboardType="phone-pad"
+                />
+                <Campo
+                  label="Tipo de evento *"
+                  value={tipoEvento}
+                  onChangeText={setTipoEvento}
+                  placeholder="Ej. cumpleaños, boda"
+                />
+                {modalidadPrecio === "hora" ? (
+                  <Campo
+                    label="Cantidad de horas"
+                    value={horasEvento}
+                    onChangeText={setHorasEvento}
+                    keyboardType="numeric"
+                    placeholder="Ej. 5"
+                  />
+                ) : modalidadPrecio === "rango_personas" ? (
+                  <Campo
+                    label={
+                      rancho?.capacidad_max
+                        ? `Invitados (máximo ${rancho.capacidad_max})`
+                        : "Cantidad de invitados"
+                    }
+                    value={invitados}
+                    onChangeText={setInvitados}
+                    keyboardType="numeric"
+                  />
+                ) : null}
+              </Tarjeta>
+              {excedeCapacidad && (
+                <Aviso
+                  tono="error"
+                  texto={`Este lugar recibe hasta ${rancho?.capacidad_max} personas — para grupos más grandes, escribile directo para coordinar.`}
+                />
+              )}
+            </View>
+
+            {rancho && rancho.horarios_bloques.length > 0 && (
+              <View style={styles.bloque}>
+                <Micro>Elegí el horario</Micro>
+                <View style={styles.opciones}>
+                  {rancho.horarios_bloques.map((h) => (
+                    <Opcion
+                      key={h.id}
+                      titulo={etiquetaHorario(h)}
+                      seleccionada={horario?.id === h.id}
+                      onPress={() => setHorario(h)}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {servicios.length > 0 && (
+              <View style={styles.bloque}>
+                <Micro>Servicios adicionales</Micro>
+                <View style={styles.opciones}>
+                  {servicios.map((s) => (
+                    <Opcion
+                      key={s.id}
+                      titulo={s.nombre}
+                      derecha={fmtColones(s.precio) ?? undefined}
+                      seleccionada={!!addons[s.id]}
+                      onPress={() => setAddons((a) => ({ ...a, [s.id]: !a[s.id] }))}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            <Pressable style={styles.filaCheckbox} onPress={() => setAvisoAceptado((v) => !v)}>
+              <Switch
+                value={avisoAceptado}
+                onValueChange={setAvisoAceptado}
+                trackColor={{ true: Colors.navy }}
+              />
+              <Text style={styles.avisoTexto}>
+                Entiendo que este lugar no se alquila para serenatas, fiestas de menores de
+                edad ni fiestas clandestinas donde se venda alcohol. Si reservo para uno de
+                estos casos, acepto que se cancele sin devolución de dinero.
+              </Text>
+            </Pressable>
+
+            <View style={styles.bloque}>
+              <Micro>Cotización estimada</Micro>
+              <Tarjeta style={styles.tarjetaTotal}>
+                {promoAplicable && total !== null && (
+                  <Estado
+                    tono="verde"
+                    texto={`${promoAplicable.etiqueta || "Promoción"} −${promoAplicable.porcentaje_descuento}%`}
+                  />
+                )}
+                {total !== null ? (
+                  <Text style={styles.totalTexto}>{fmtColones(total)}</Text>
+                ) : (
+                  <Text style={styles.hint}>
+                    {modalidadPrecio === "hora"
+                      ? horasNum
+                        ? "Consultá el precio por hora con el proveedor."
+                        : "Indicá cuántas horas necesitás para ver el precio."
+                      : modalidadPrecio === "fijo"
+                        ? "Consultá el precio del evento con el proveedor."
+                        : invitadosNum
+                          ? "Cotización personalizada — el proveedor te confirma el monto."
+                          : "Indicá tus invitados para ver el precio."}
+                  </Text>
+                )}
+              </Tarjeta>
+            </View>
+
+            <Boton
+              texto="Siguiente: pagar el depósito"
+              icono="arrow-forward"
+              deshabilitado={!puedeAvanzar}
+              onPress={() => irAPaso("pago")}
+            />
+          </>
+        )}
+
+        {paso === "pago" && (
+          <>
+            <Pressable onPress={() => irAPaso("datos")} hitSlop={8}>
+              <Text style={styles.linkVolver}>← Volver a mis datos</Text>
+            </Pressable>
+
+            <View style={styles.bloque}>
+              <Micro>Código de descuento</Micro>
+              {codigoAplicado ? (
+                <Tarjeta style={styles.filaCodigoAplicado}>
+                  <Text style={styles.codigoOk}>
+                    ✓ Código {codigoAplicado.codigo} aplicado
+                    {codigoAplicado.tipo === "porcentaje"
+                      ? ` (−${codigoAplicado.valor}%)`
+                      : ` (−${fmtColones(codigoAplicado.valor)})`}
+                  </Text>
+                  <Pressable onPress={quitarCodigo} hitSlop={8}>
+                    <Text style={styles.codigoQuitar}>Quitar</Text>
+                  </Pressable>
+                </Tarjeta>
+              ) : (
+                <View style={styles.filaCodigo}>
+                  <TextInput
+                    value={codigoInput}
+                    onChangeText={setCodigoInput}
+                    placeholder="Ej. BODA10"
+                    autoCapitalize="characters"
+                    style={[styles.input, { flex: 1 }]}
+                    placeholderTextColor="#98a0b0"
+                  />
+                  <Boton
+                    compacto
+                    tono="navy"
+                    texto="Aplicar"
+                    cargando={verificandoCodigo}
+                    deshabilitado={!codigoInput.trim()}
+                    onPress={verificarCodigo}
+                  />
+                </View>
+              )}
+              {codigoError && <Aviso tono="error" texto={codigoError} />}
+            </View>
+
+            {/* Total y depósito lado a lado, como en el panel de la web. */}
+            <View style={styles.filaTotales}>
+              <Tarjeta style={styles.cajaTotal}>
+                <Micro>Total del evento</Micro>
+                {(descuentoMonto > 0 || descuentoCodigoMonto > 0) && subtotal !== null && (
+                  <Text style={styles.precioTachado}>{fmtColones(subtotal)}</Text>
+                )}
+                <Text style={styles.cajaTotalValor}>
+                  {total !== null ? fmtColones(total) : "A cotizar"}
+                </Text>
+              </Tarjeta>
+              <Tarjeta style={[styles.cajaTotal, styles.cajaDeposito]}>
+                <Micro>Depósito ahora</Micro>
+                <Text style={[styles.cajaTotalValor, { color: Colors.accent }]}>
+                  {fmtColones(rancho?.deposito_reserva ?? 25000)}
+                </Text>
+              </Tarjeta>
+            </View>
+            <Text style={styles.hint}>
+              Solo el depósito se paga ahora — el resto de la cotización se coordina para el
+              día del evento.
+            </Text>
+
+            {metodosDisponibles.length > 0 && (
+              <>
+                <View style={styles.bloque}>
+                  <Micro>Cómo pagar</Micro>
+                  <View style={styles.opciones}>
+                    {metodosDisponibles.map((m) => (
+                      <Opcion
+                        key={m}
+                        titulo={m === "sinpe" ? "SINPE Móvil" : "Transferencia bancaria"}
+                        detalle={
+                          m === "sinpe"
+                            ? "Al número del proveedor"
+                            : "A la cuenta del proveedor"
+                        }
+                        seleccionada={metodoPago === m}
+                        onPress={() => setMetodoPago(m)}
+                      />
+                    ))}
+                    {/* Prevista de Stripe: se ve, todavía no cobra —
+                        cuando la pasarela esté viva esta fila se activa. */}
+                    <Opcion
+                      titulo="Tarjeta"
+                      detalle="Muy pronto"
+                      deshabilitada
+                      onPress={() => {}}
+                    />
+                  </View>
+                </View>
+
+                {metodoPago === "sinpe" && rancho?.sinpe_numero && (
+                  <Tarjeta style={styles.tarjetaDatos}>
+                    <CampoCopiable
+                      label="Número SINPE"
+                      valor={rancho.sinpe_numero}
+                      onCopiar={copiar}
+                    />
+                    {rancho.sinpe_titular && (
+                      <CampoCopiable
+                        label="A nombre de"
+                        valor={rancho.sinpe_titular}
+                        onCopiar={copiar}
+                      />
+                    )}
+                  </Tarjeta>
+                )}
+                {metodoPago === "transferencia" && rancho?.cuenta_numero && (
+                  <Tarjeta style={styles.tarjetaDatos}>
+                    {rancho.cuenta_banco && (
+                      <CampoCopiable
+                        label="Banco"
+                        valor={rancho.cuenta_banco}
+                        onCopiar={copiar}
+                      />
+                    )}
+                    <CampoCopiable
+                      label="Número de cuenta"
+                      valor={rancho.cuenta_numero}
+                      onCopiar={copiar}
+                    />
+                    {rancho.cuenta_titular && (
+                      <CampoCopiable
+                        label="A nombre de"
+                        valor={rancho.cuenta_titular}
+                        onCopiar={copiar}
+                      />
+                    )}
+                  </Tarjeta>
+                )}
+
+                <View style={styles.bloque}>
+                  <Micro>Comprobante del depósito</Micro>
+                  <Pressable style={styles.zonaFoto} onPress={elegirComprobante}>
+                    {comprobanteUri ? (
+                      <Image
+                        source={{ uri: comprobanteUri }}
+                        style={styles.previewFoto}
+                        contentFit="cover"
+                        alt="Comprobante de depósito"
+                      />
+                    ) : (
+                      <>
+                        <Ionicons name="cloud-upload-outline" size={22} color={Colors.blue} />
+                        <Text style={styles.zonaFotoTexto}>
+                          Tocá para subir una foto del comprobante
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+
                 <Pressable
-                  key={h.id}
-                  onPress={() => setHorario(h)}
-                  style={[styles.chip, horario?.id === h.id && styles.chipActivo]}
+                  style={styles.filaCheckbox}
+                  onPress={() => setTerminosAceptados((v) => !v)}
                 >
-                  <Text style={[styles.chipTexto, horario?.id === h.id && styles.chipTextoActivo]}>
-                    {etiquetaHorario(h)}
+                  <Switch
+                    value={terminosAceptados}
+                    onValueChange={setTerminosAceptados}
+                    trackColor={{ true: Colors.navy }}
+                  />
+                  <Text style={styles.avisoTexto}>
+                    Acepto los términos y condiciones de la reserva.
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {servicios.length > 0 && (
-          <View style={styles.gap2}>
-            <Text style={styles.campoLabel}>Servicios adicionales</Text>
-            {servicios.map((s) => (
-              <Pressable
-                key={s.id}
-                style={styles.filaAddon}
-                onPress={() => setAddons((a) => ({ ...a, [s.id]: !a[s.id] }))}
-              >
-                <Switch
-                  value={!!addons[s.id]}
-                  onValueChange={(v) => setAddons((a) => ({ ...a, [s.id]: v }))}
-                  trackColor={{ true: Colors.navy }}
-                />
-                <Text style={styles.addonTexto}>
-                  {s.nombre} — {fmtColones(s.precio)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        <Pressable style={styles.filaCheckbox} onPress={() => setAvisoAceptado((v) => !v)}>
-          <Switch value={avisoAceptado} onValueChange={setAvisoAceptado} trackColor={{ true: Colors.navy }} />
-          <Text style={styles.avisoTexto}>
-            Entiendo que este lugar no se alquila para serenatas, fiestas de menores de edad ni
-            fiestas clandestinas donde se venda alcohol. Si reservo para uno de estos casos, acepto
-            que se cancele sin devolución de dinero.
-          </Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.bloque}>
-        <Text style={styles.bloqueTitulo}>Cotización estimada</Text>
-        {promoAplicable && total !== null && (
-          <Text style={styles.promoTexto}>
-            {promoAplicable.etiqueta || "Promoción"} · -{promoAplicable.porcentaje_descuento}%
-          </Text>
-        )}
-        {total !== null ? (
-          <Text style={styles.totalTexto}>{fmtColones(total)}</Text>
-        ) : (
-          <Text style={styles.hint}>
-            {modalidadPrecio === "hora"
-              ? horasNum
-                ? "Consultá el precio por hora con el proveedor."
-                : "Indicá cuántas horas necesitás para ver el precio."
-              : modalidadPrecio === "fijo"
-                ? "Consultá el precio del evento con el proveedor."
-                : invitadosNum
-                  ? "Cotización personalizada — el proveedor te confirma el monto."
-                  : "Indicá tus invitados para ver el precio."}
-          </Text>
-        )}
-      </View>
-
-      <Pressable
-        style={[styles.botonSiguiente, !puedeAvanzar && styles.botonDeshabilitado]}
-        disabled={!puedeAvanzar}
-        onPress={() => irAPaso("pago")}
-      >
-        <Text style={styles.botonPrimarioTexto}>Siguiente: pagar el depósito →</Text>
-      </Pressable>
-      </>)}
-
-      {paso === "pago" && (<>
-      <Pressable onPress={() => irAPaso("datos")}>
-        <Text style={styles.linkVolver}>← Volver a mis datos</Text>
-      </Pressable>
-
-      <View style={styles.bloque}>
-        <Text style={styles.bloqueTitulo}>Código de descuento</Text>
-        {codigoAplicado ? (
-          <View style={styles.filaCodigo}>
-            <Text style={styles.codigoOk}>
-              ✓ Código {codigoAplicado.codigo} aplicado
-              {codigoAplicado.tipo === "porcentaje"
-                ? ` (-${codigoAplicado.valor}%)`
-                : ` (-${fmtColones(codigoAplicado.valor)})`}
-            </Text>
-            <Pressable onPress={quitarCodigo}>
-              <Text style={styles.codigoQuitar}>Quitar</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.filaCodigo}>
-            <TextInput
-              value={codigoInput}
-              onChangeText={setCodigoInput}
-              placeholder="Ej. BODA10"
-              autoCapitalize="characters"
-              style={[styles.input, { flex: 1 }]}
-              placeholderTextColor={Colors.inkSoft}
-            />
-            <Pressable
-              style={[
-                styles.botonCodigo,
-                (!codigoInput.trim() || verificandoCodigo) && styles.botonDeshabilitado,
-              ]}
-              disabled={!codigoInput.trim() || verificandoCodigo}
-              onPress={verificarCodigo}
-            >
-              {verificandoCodigo ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.botonPrimarioTexto}>Aplicar</Text>
-              )}
-            </Pressable>
-          </View>
-        )}
-        {codigoError && <Text style={styles.error}>{codigoError}</Text>}
-      </View>
-
-      {/* Total y depósito lado a lado, como en el panel de la web. */}
-      <View style={styles.filaTotales}>
-        <View style={[styles.cajaTotal, { backgroundColor: Colors.cream2 }]}>
-          <Text style={styles.cajaTotalLabel}>Total estimado del evento</Text>
-          {promoAplicable && total !== null && (
-            <Text style={styles.promoTexto}>
-              {promoAplicable.etiqueta || "Promoción"} · -{promoAplicable.porcentaje_descuento}%
-            </Text>
-          )}
-          {(descuentoMonto > 0 || descuentoCodigoMonto > 0) && subtotal !== null && (
-            <Text style={styles.precioTachado}>{fmtColones(subtotal)}</Text>
-          )}
-          <Text style={styles.cajaTotalValor}>
-            {total !== null ? fmtColones(total) : "A cotizar"}
-          </Text>
-        </View>
-        <View style={[styles.cajaTotal, { backgroundColor: Colors.accentLight }]}>
-          <Text style={styles.cajaTotalLabel}>Depósito (se paga ahora)</Text>
-          <Text style={[styles.cajaTotalValor, { color: Colors.accent }]}>
-            {fmtColones(rancho?.deposito_reserva ?? 25000)}
-          </Text>
-        </View>
-      </View>
-      <Text style={styles.hint}>
-        Solo el depósito se paga ahora — el resto de la cotización se coordina
-        para el día del evento.
-      </Text>
-
-      {metodosDisponibles.length > 0 && (
-        <View style={styles.bloque}>
-          <Text style={styles.bloqueTitulo}>Cómo pagar</Text>
-          <View style={styles.chips}>
-            {metodosDisponibles.map((m) => (
-              <Pressable
-                key={m}
-                onPress={() => setMetodoPago(m)}
-                style={[styles.chip, metodoPago === m && styles.chipActivo]}
-              >
-                <Text style={[styles.chipTexto, metodoPago === m && styles.chipTextoActivo]}>
-                  {m === "sinpe" ? "SINPE Móvil" : "Transferencia bancaria"}
-                </Text>
-              </Pressable>
-            ))}
-            {/* Prevista de Stripe: se ve, todavía no cobra — cuando la
-                pasarela esté viva este chip se activa. */}
-            <View style={[styles.chip, { opacity: 0.55 }]}>
-              <Text style={styles.chipTexto}>💳 Tarjeta — muy pronto</Text>
-            </View>
-          </View>
-
-          {metodoPago === "sinpe" && rancho?.sinpe_numero && (
-            <View style={styles.tarjetaDatos}>
-              <CampoCopiable label="Número SINPE" valor={rancho.sinpe_numero} onCopiar={copiar} />
-              {rancho.sinpe_titular && (
-                <CampoCopiable label="A nombre de" valor={rancho.sinpe_titular} onCopiar={copiar} />
-              )}
-            </View>
-          )}
-          {metodoPago === "transferencia" && rancho?.cuenta_numero && (
-            <View style={styles.tarjetaDatos}>
-              {rancho.cuenta_banco && (
-                <CampoCopiable label="Banco" valor={rancho.cuenta_banco} onCopiar={copiar} />
-              )}
-              <CampoCopiable label="Número de cuenta" valor={rancho.cuenta_numero} onCopiar={copiar} />
-              {rancho.cuenta_titular && (
-                <CampoCopiable label="A nombre de" valor={rancho.cuenta_titular} onCopiar={copiar} />
-              )}
-            </View>
-          )}
-
-          <Pressable style={styles.zonaFoto} onPress={elegirComprobante}>
-            {comprobanteUri ? (
-              <Image
-                source={{ uri: comprobanteUri }}
-                style={styles.previewFoto}
-                contentFit="cover"
-                alt="Comprobante de depósito"
-              />
-            ) : (
-              <Text style={styles.zonaFotoTexto}>Tocá para subir una foto del comprobante</Text>
+              </>
             )}
-          </Pressable>
 
-          <Pressable style={styles.filaCheckbox} onPress={() => setTerminosAceptados((v) => !v)}>
-            <Switch value={terminosAceptados} onValueChange={setTerminosAceptados} trackColor={{ true: Colors.navy }} />
-            <Text style={styles.avisoTexto}>Acepto los términos y condiciones de la reserva.</Text>
-          </Pressable>
-        </View>
-      )}
+            {errorEnvio && <Aviso tono="error" texto={errorEnvio} />}
 
-      {errorEnvio && <Text style={styles.error}>{errorEnvio}</Text>}
-
-      <Pressable
-        style={[styles.botonPrimario, !puedeEnviar && styles.botonDeshabilitado]}
-        disabled={!puedeEnviar}
-        onPress={enviarReserva}
-      >
-        {enviando ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text style={styles.botonPrimarioTexto}>Confirmar mi reserva</Text>
+            <Boton
+              texto="Confirmar mi reserva"
+              cargando={enviando}
+              deshabilitado={!puedeEnviar}
+              onPress={enviarReserva}
+            />
+          </>
         )}
-      </Pressable>
-      </>)}
       </ScrollView>
     </View>
   );
@@ -868,8 +984,8 @@ function Campo(props: {
   autoCapitalize?: "none" | "sentences";
 }) {
   return (
-    <View style={styles.gap2}>
-      <Text style={styles.campoLabel}>{props.label}</Text>
+    <View style={{ gap: 6 }}>
+      <Micro>{props.label}</Micro>
       <TextInput
         value={props.value}
         onChangeText={props.onChangeText}
@@ -877,7 +993,7 @@ function Campo(props: {
         keyboardType={props.keyboardType ?? "default"}
         autoCapitalize={props.autoCapitalize ?? "sentences"}
         style={styles.input}
-        placeholderTextColor={Colors.inkSoft}
+        placeholderTextColor="#98a0b0"
       />
     </View>
   );
@@ -924,8 +1040,8 @@ function CampoCopiable({
 }) {
   return (
     <Pressable style={styles.filaCopiable} onPress={() => onCopiar(valor)}>
-      <View>
-        <Text style={styles.copiableLabel}>{label}</Text>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Micro>{label}</Micro>
         <Text style={styles.copiableValor}>{valor}</Text>
       </View>
       <Text style={styles.copiableAccion}>Copiar</Text>
@@ -934,121 +1050,141 @@ function CampoCopiable({
 }
 
 const styles = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: Colors.cream },
-  centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.five, gap: Spacing.three },
-  error: { color: Colors.danger, textAlign: "center" },
-  avisoTiempo: {
-    backgroundColor: Colors.accentLight,
-    borderRadius: 12,
-    padding: Spacing.three,
-  },
-  avisoTiempoTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center" },
-  avisoCapacidad: { color: Colors.danger, fontFamily: Fonts.bold, fontSize: 12, marginTop: -4 },
-  bloque: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: Spacing.four,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    gap: Spacing.three,
-  },
-  bloqueTitulo: { fontSize: 17, fontFamily: Fonts.extraBold, color: Colors.ink },
-  gap2: { gap: 6 },
-  campoLabel: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft, textTransform: "uppercase" },
-  input: {
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 10,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: Colors.ink,
-    backgroundColor: Colors.cream,
-  },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-  chip: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: Colors.cream2,
-  },
-  chipActivo: { backgroundColor: Colors.navy },
-  chipTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
-  chipTextoActivo: { color: "#ffffff" },
-  filaAddon: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  addonTexto: { fontSize: 14, color: Colors.ink, flexShrink: 1 },
-  filaCheckbox: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.two, marginTop: Spacing.two },
-  avisoTexto: { fontSize: 12.5, color: Colors.inkSoft, flex: 1, lineHeight: 18 },
-  promoTexto: { fontSize: 13, fontFamily: Fonts.bold, color: Colors.green },
-  totalTexto: { fontSize: 26, fontFamily: Fonts.extraBold, color: Colors.ink },
-  hint: { fontSize: 13, color: Colors.inkSoft },
-  tarjetaDatos: { backgroundColor: Colors.cream, borderRadius: 12, padding: Spacing.three, gap: Spacing.two },
-  filaCopiable: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  copiableLabel: { fontSize: 11, color: Colors.inkSoft, textTransform: "uppercase", fontFamily: Fonts.bold },
-  copiableValor: { fontSize: 15, fontFamily: Fonts.bold, color: Colors.ink },
-  copiableAccion: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.accent },
-  zonaFoto: {
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: Colors.line,
-    borderRadius: 12,
-    minHeight: 120,
+  contenedor: { backgroundColor: Colors.canvas, flex: 1 },
+  centro: {
     alignItems: "center",
+    backgroundColor: Colors.canvas,
+    flex: 1,
     justifyContent: "center",
-    overflow: "hidden",
   },
-  zonaFotoTexto: { color: Colors.inkSoft, fontSize: 13, padding: Spacing.three, textAlign: "center" },
-  previewFoto: { width: "100%", height: 160 },
-  botonPrimario: {
-    backgroundColor: Colors.navy,
-    borderRadius: 14,
-    paddingVertical: 14,
+  centrado: { flex: 1, justifyContent: "center", paddingHorizontal: Spacing.three },
+  botonesEstado: { gap: Spacing.two, paddingHorizontal: Spacing.three },
+  contenido: { gap: Spacing.four, padding: Spacing.three, paddingBottom: Spacing.five },
+
+  reloj: {
     alignItems: "center",
+    backgroundColor: Colors.accentLight,
+    borderRadius: Radios.md,
+    flexDirection: "row",
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 12,
   },
-  botonDeshabilitado: { opacity: 0.4 },
-  botonPrimarioTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },
-  botonSecundario: { paddingVertical: 10, paddingHorizontal: Spacing.four },
-  botonSecundarioTexto: { color: Colors.accent, fontFamily: Fonts.bold },
-  tituloConfirmacion: { fontSize: 22, fontFamily: Fonts.extraBold, color: Colors.ink, textAlign: "center" },
-  textoConfirmacion: { fontSize: 14, color: Colors.inkSoft, textAlign: "center" },
-  pasos: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  relojApurado: { backgroundColor: Colors.dangerLight },
+  relojTexto: { color: "#a2490c", flex: 1, fontFamily: Fonts.bold, fontSize: 12.5 },
+
+  identidadTarjeta: { padding: Spacing.three },
+
+  pasos: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   pasoPill: {
     backgroundColor: Colors.cream2,
-    borderRadius: 999,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
   pasoPillActivo: { backgroundColor: Colors.accent },
   pasoPillHecho: { backgroundColor: Colors.greenLight },
-  pasoPillTexto: { fontSize: 11.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
+  pasoPillTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 11.5 },
   pasoPillTextoActivo: { color: "#ffffff" },
   pasoPillTextoHecho: { color: Colors.green },
-  botonSiguiente: {
-    backgroundColor: Colors.accent,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  linkVolver: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13 },
-  filaCodigo: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  botonCodigo: {
-    backgroundColor: Colors.navy,
-    borderRadius: 12,
-    paddingHorizontal: Spacing.four,
+
+  bloque: { gap: Spacing.two + 2 },
+  opciones: { gap: Spacing.two },
+  tarjetaCampos: { gap: Spacing.three, padding: Spacing.three },
+  input: {
+    backgroundColor: Colors.canvas,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    color: Colors.ink,
+    fontFamily: Fonts.medium,
+    fontSize: 14.5,
+    paddingHorizontal: Spacing.three,
     paddingVertical: 12,
+  },
+
+  filaCheckbox: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: Spacing.two,
+  },
+  avisoTexto: { color: Colors.inkSoft, flex: 1, fontFamily: Fonts.medium, fontSize: 12.5, lineHeight: 18 },
+
+  tarjetaTotal: { gap: 6, padding: Spacing.three },
+  totalTexto: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 27, letterSpacing: -0.8 },
+  hint: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5, lineHeight: 18 },
+
+  linkVolver: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13 },
+  filaCodigo: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
+  filaCodigoAplicado: {
     alignItems: "center",
-    justifyContent: "center",
+    flexDirection: "row",
+    gap: Spacing.two,
+    padding: Spacing.three,
   },
-  codigoOk: { flex: 1, fontSize: 13, fontFamily: Fonts.bold, color: Colors.green },
-  codigoQuitar: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.danger },
+  codigoOk: { color: Colors.green, flex: 1, fontFamily: Fonts.bold, fontSize: 13 },
+  codigoQuitar: { color: Colors.danger, fontFamily: Fonts.bold, fontSize: 12.5 },
+
   filaTotales: { flexDirection: "row", gap: Spacing.two },
-  cajaTotal: { flex: 1, borderRadius: 12, padding: Spacing.three, gap: 2 },
-  cajaTotalLabel: {
-    fontSize: 10.5,
-    fontFamily: Fonts.bold,
+  cajaTotal: { flex: 1, gap: 4, padding: Spacing.three },
+  cajaDeposito: { backgroundColor: Colors.accentLight, borderColor: "#f7d8bd" },
+  cajaTotalValor: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 19, letterSpacing: -0.4 },
+  precioTachado: {
     color: Colors.inkSoft,
-    textTransform: "uppercase",
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    textDecorationLine: "line-through",
   },
-  cajaTotalValor: { fontSize: 18, fontFamily: Fonts.extraBold, color: Colors.ink },
-  precioTachado: { fontSize: 13, color: Colors.inkSoft, textDecorationLine: "line-through" },
+
+  tarjetaDatos: { gap: Spacing.three, padding: Spacing.three },
+  filaCopiable: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
+  copiableValor: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 15, marginTop: 2 },
+  copiableAccion: { color: Colors.accent, fontFamily: Fonts.extraBold, fontSize: 12.5 },
+
+  zonaFoto: {
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderColor: "#cfd5e2",
+    borderRadius: Radios.md,
+    borderStyle: "dashed",
+    borderWidth: 1.5,
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 130,
+    overflow: "hidden",
+  },
+  zonaFotoTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    paddingHorizontal: Spacing.three,
+    textAlign: "center",
+  },
+  previewFoto: { height: 180, width: "100%" },
+
+  tarjetaExito: { alignItems: "center", padding: Spacing.four },
+  exitoCheck: {
+    alignItems: "center",
+    backgroundColor: Colors.blueLight,
+    borderRadius: Radios.full,
+    height: 58,
+    justifyContent: "center",
+    marginBottom: Spacing.three,
+    width: 58,
+  },
+  exitoTitulo: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    fontSize: 21,
+    letterSpacing: -0.5,
+    textAlign: "center",
+  },
+  exitoTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 13.5,
+    lineHeight: 20,
+    marginTop: 8,
+    textAlign: "center",
+  },
 });

@@ -503,7 +503,7 @@ export default function ReservaServicio({
 
       {/* ---------- El total de todo, siempre a la vista ---------- */}
       {lineasBase.length > 0 && totalGeneral > totalBase && (
-        <p className="rounded-full bg-aventurea-navy px-4 py-3 text-[14px] font-bold text-white">
+        <p className="rounded-xl bg-aventurea-navy px-4 py-3 text-[14px] font-bold text-white">
           Total estimado (servicio + pedido):{" "}
           <span className="float-right">{fmtColones(totalGeneral)}</span>
         </p>
@@ -694,7 +694,7 @@ export default function ReservaServicio({
         <button
           type="submit"
           disabled={pending || subiendo || !listoParaEnviar}
-          className="flex h-11 w-full items-center justify-center rounded-full bg-aventurea-navy px-6 text-sm font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-60 sm:w-fit"
+          className="flex h-11 w-full items-center justify-center rounded-xl bg-aventurea-navy px-6 text-sm font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-60 sm:w-fit"
         >
           {pending
             ? "Enviando..."

@@ -65,7 +65,7 @@ export default function TarjetaExpandible({
       >
         <h2 className="flex items-center gap-2 text-[14.5px] font-bold text-aventurea-ink">
           {titulo}
-          <span className="rounded-full bg-aventurea-navy/10 px-2 py-0.5 text-[11px] font-extrabold leading-none text-aventurea-navy">
+          <span className="rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[11px] font-extrabold leading-none text-aventurea-navy">
             {conteo}
           </span>
         </h2>

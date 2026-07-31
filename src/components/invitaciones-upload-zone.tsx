@@ -156,7 +156,7 @@ export default function UploadZone({
                 <button
                   type="button"
                   onClick={() => removeImagen(idx)}
-                  className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                  className="absolute right-1 top-1 rounded-xl bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
                 >
                   <IconX className="h-4 w-4" />
                 </button>
@@ -203,7 +203,7 @@ export default function UploadZone({
                 <button
                   type="button"
                   onClick={() => removeVideo(idx)}
-                  className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                  className="absolute right-1 top-1 rounded-xl bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
                 >
                   <IconX className="h-4 w-4" />
                 </button>

@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: Spacing.three,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: Colors.cream2,
   },
   chipActivo: { backgroundColor: Colors.navy },

@@ -183,7 +183,7 @@ export default async function CuentaPage() {
                   {perfil?.nombre || "Tu cuenta"}
                 </p>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+                  className={`shrink-0 rounded-lg px-2 py-0.5 text-[10.5px] font-bold ${
                     tieneNegocio
                       ? "bg-aventurea-orange/10 text-aventurea-orange"
                       : "bg-aventurea-navy/10 text-aventurea-navy"
@@ -314,7 +314,7 @@ function TarjetaAcceso({
       className="relative rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy"
     >
       {badge != null && badge > 0 && (
-        <span className="absolute right-3 top-3 rounded-full bg-aventurea-orange px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-white">
+        <span className="absolute right-3 top-3 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-white">
           +{badge > 99 ? "99" : badge}
         </span>
       )}

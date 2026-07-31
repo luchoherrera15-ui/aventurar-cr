@@ -248,11 +248,19 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   // Estado compartido (migración 0054): si cualquiera de los dos la
   // marca resuelta, se archiva para ambos — y un mensaje nuevo la
   // reabre sola, así que no hace falta tocar nada acá para eso.
+  //
+  // Archivar cuenta como "ya lo vi": se marca leído también. Si no, los
+  // pendientes del hilo se quedan sumando en el contador de la web
+  // (burbuja de chat) sin forma de bajarlos desde las activas.
   const alternarResuelto = useCallback(
     async (fila: Fila) => {
       const siguiente = !fila.resuelta;
       setFilas((prev) =>
-        (prev ?? []).map((f) => (f.id === fila.id ? { ...f, resuelta: siguiente } : f)),
+        (prev ?? []).map((f) =>
+          f.id === fila.id
+            ? { ...f, resuelta: siguiente, pendientes: siguiente ? 0 : f.pendientes }
+            : f,
+        ),
       );
       const { error } = await supabase
         .from("conversaciones")
@@ -260,17 +268,29 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
         .eq("id", fila.id);
       if (error) {
         setFilas((prev) =>
-          (prev ?? []).map((f) => (f.id === fila.id ? { ...f, resuelta: !siguiente } : f)),
+          (prev ?? []).map((f) =>
+            f.id === fila.id
+              ? { ...f, resuelta: !siguiente, pendientes: fila.pendientes }
+              : f,
+          ),
         );
+        return;
+      }
+      if (siguiente && session) {
+        await supabase.from("conversacion_lecturas").upsert({
+          conversacion_id: fila.id,
+          usuario_id: session.user.id,
+          leido_hasta: new Date().toISOString(),
+        });
       }
     },
-    [],
+    [session],
   );
 
   if (!session) {
     return (
       <View style={styles.contenedor}>
-        <TituloPantalla titulo="Mensajes" />
+        <TituloPantalla kicker="Tu actividad" titulo="Mensajes" />
         <View style={styles.centro}>
           <Text style={styles.vacioTitulo}>Iniciá sesión</Text>
           <Text style={styles.vacioTexto}>
@@ -287,7 +307,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   if (filas === null) {
     return (
       <View style={styles.contenedor}>
-        <TituloPantalla titulo="Mensajes" />
+        <TituloPantalla kicker="Tu actividad" titulo="Mensajes" />
         <View style={styles.centro}>
           <ActivityIndicator color={Colors.accent} />
         </View>
@@ -302,6 +322,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   return (
     <View style={styles.contenedor}>
       <TituloPantalla
+        kicker="Tu actividad"
         titulo="Mensajes"
         subtitulo="Deslizá un chat: derecha lo marca leído, izquierda lo elimina."
       />
@@ -504,7 +525,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
   },
   tabBoton: {
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.line,
     backgroundColor: Colors.surface,
@@ -543,7 +564,7 @@ const styles = StyleSheet.create({
   previewNoLeido: { fontFamily: Fonts.bold, color: Colors.ink },
   tagsFila: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 5 },
   tag: {
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },

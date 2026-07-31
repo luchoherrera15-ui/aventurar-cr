@@ -66,7 +66,7 @@ export default function BarraFiltrosDirectorio({
           aria-label={ariaLabel}
           defaultValue={busqueda}
           placeholder={placeholder}
-          className="h-12 w-full rounded-full border border-aventurea-line bg-white pl-11 pr-4 text-[13.5px] text-aventurea-ink shadow-sm transition-shadow placeholder:text-zinc-500 hover:shadow-md focus:border-aventurea-navy focus:outline-none"
+          className="h-12 w-full rounded-xl border border-aventurea-line bg-white pl-11 pr-4 text-[13.5px] text-aventurea-ink shadow-sm transition-shadow placeholder:text-zinc-500 hover:shadow-md focus:border-aventurea-navy focus:outline-none"
         />
       </form>
 
@@ -136,7 +136,7 @@ function ChipCategoria({
     <Link
       href={href}
       aria-current={activo ? "page" : undefined}
-      className={`flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border pl-1.5 pr-4 transition-colors ${
+      className={`flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border pl-1.5 pr-4 transition-colors ${
         activo
           ? "border-aventurea-navy bg-aventurea-navy text-white"
           : "border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy"

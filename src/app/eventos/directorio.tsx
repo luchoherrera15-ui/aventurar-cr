@@ -348,7 +348,7 @@ export default function Directorio({
               setPagina(1);
             }}
             placeholder='Buscá por nombre, zona o fecha — ej. "catering" o "3 de agosto"'
-            className="h-12 w-full rounded-[14px] border border-aventurea-line bg-aventurea-surface pl-11 pr-4 text-[14px] text-aventurea-ink shadow-sm transition-shadow placeholder:text-zinc-500 hover:shadow-md focus:border-aventurea-navy/50 focus:outline-none"
+            className="h-12 w-full rounded-xl border border-aventurea-line bg-aventurea-surface pl-11 pr-4 text-[14px] text-aventurea-ink shadow-sm transition-shadow placeholder:text-zinc-500 hover:shadow-md focus:border-aventurea-navy/50 focus:outline-none"
           />
         </div>
 
@@ -356,7 +356,7 @@ export default function Directorio({
           type="button"
           onClick={() => setMenuAbierto((prev) => (prev === "filtros" ? null : "filtros"))}
           aria-label="Más filtros"
-          className={`flex w-12 shrink-0 items-center justify-center rounded-[14px] border transition-colors ${
+          className={`flex w-12 shrink-0 items-center justify-center rounded-xl border transition-colors ${
             provincia || canton || invitados || precioMax || fechaActiva || menuAbierto === "filtros"
               ? "border-aventurea-navy text-aventurea-navy"
               : "border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy"
@@ -375,7 +375,7 @@ export default function Directorio({
             onClick={() => setMenuAbierto((prev) => (prev === "acciones" ? null : "acciones"))}
             aria-label="Más opciones"
             aria-expanded={menuAbierto === "acciones"}
-            className={`flex h-full w-12 items-center justify-center rounded-[14px] border transition-colors ${
+            className={`flex h-full w-12 items-center justify-center rounded-xl border transition-colors ${
               menuAbierto === "acciones"
                 ? "border-aventurea-navy bg-aventurea-navy text-white"
                 : "border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy"
@@ -395,7 +395,7 @@ export default function Directorio({
                 onClick={soltarMenu}
                 className="fixed inset-0 z-10 cursor-default"
               />
-              <div className="absolute right-0 top-full z-20 mt-2 min-w-[230px] overflow-hidden rounded-[16px] border border-aventurea-line bg-white shadow-xl">
+              <div className="absolute right-0 top-full z-20 mt-2 min-w-[230px] overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-xl">
                 <a
                   href="#boki"
                   onClick={soltarMenu}
@@ -452,7 +452,7 @@ export default function Directorio({
                 debe distinguirse de los filtros naranjas de categoría. */}
             <Link
               href="/invitaciones"
-              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-aventurea-navy/40 bg-aventurea-blue-light pl-1.5 pr-4 text-aventurea-navy transition-colors hover:border-aventurea-navy hover:bg-aventurea-navy hover:text-white"
+              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-aventurea-navy/40 bg-aventurea-blue-light pl-1.5 pr-4 text-aventurea-navy transition-colors hover:border-aventurea-navy hover:bg-aventurea-navy hover:text-white"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-navy text-white">
                 <IconMail className="h-[18px] w-[18px]" />
@@ -471,7 +471,7 @@ export default function Directorio({
               type="button"
               onClick={() => elegirCategoria("todos")}
               aria-label="Volver a todas las categorías"
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-aventurea-line bg-aventurea-surface px-3.5 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-aventurea-line bg-aventurea-surface px-3.5 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
             >
               ← Volver
             </button>
@@ -524,7 +524,7 @@ export default function Directorio({
             onClick={soltarMenu}
             className="fixed inset-0 z-10 cursor-default"
           />
-          <div className="relative z-20 max-h-[70vh] overflow-y-auto rounded-[16px] border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
+          <div className="relative z-20 max-h-[70vh] overflow-y-auto rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
             <div className="grid gap-6 md:grid-cols-2">
               <div>
                 <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
@@ -665,7 +665,7 @@ export default function Directorio({
       </p>
 
       {filtrados.length === 0 ? (
-        <div className="rounded-[16px] border border-aventurea-line bg-aventurea-surface p-10 text-center">
+        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-10 text-center">
           <p className="text-[14px] font-bold text-aventurea-ink">
             No encontramos espacios con esa búsqueda.
           </p>
@@ -758,7 +758,7 @@ export default function Directorio({
       </div>
 
       {/* Invitación a publicar */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-aventurea-orange/25 bg-aventurea-orange/5 px-6 py-5">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 px-6 py-5">
         <div>
           <h2 className="text-[15px] font-bold text-aventurea-ink">
             ¿Tenés un negocio para eventos?
@@ -799,7 +799,7 @@ function SubcategoriaPill({
       type="button"
       onClick={onClick}
       aria-pressed={activo}
-      className={`h-9 shrink-0 whitespace-nowrap rounded-full border px-3.5 text-[12.5px] font-bold transition-colors ${
+      className={`h-9 shrink-0 whitespace-nowrap rounded-xl border px-3.5 text-[12.5px] font-bold transition-colors ${
         activo
           ? "border-aventurea-navy bg-aventurea-navy text-white"
           : "border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-ink"
@@ -830,7 +830,7 @@ function CategoriaTab({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border pl-1.5 pr-4 transition-colors ${
+      className={`flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border pl-1.5 pr-4 transition-colors ${
         activo
           ? "border-aventurea-navy bg-aventurea-navy text-white"
           : "border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy"
@@ -912,7 +912,7 @@ function SelectorFecha({
 
 function Chip({ label, onQuitar }: { label: string; onQuitar: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-aventurea-orange/10 py-1 pl-3 pr-1.5 text-[12px] font-bold text-aventurea-orange">
+    <span className="inline-flex items-center gap-1.5 rounded-lg bg-aventurea-orange/10 py-1 pl-3 pr-1.5 text-[12px] font-bold text-aventurea-orange">
       {label}
       <button
         type="button"

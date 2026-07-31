@@ -45,7 +45,7 @@ export default function MenuCuenta({
         onClick={() => setAbierto((v) => !v)}
         aria-label="Menú de cuenta"
         aria-expanded={abierto}
-        className="flex items-center gap-2 rounded-full border border-aventurea-line bg-aventurea-surface py-1 pl-3 pr-1 shadow-sm transition-shadow hover:shadow-md"
+        className="flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface py-1 pl-3 pr-1 shadow-sm transition-shadow hover:shadow-md"
       >
         <IconMenu className="h-[15px] w-[15px] text-aventurea-ink" />
         {sesionActiva && fotoUrl ? (

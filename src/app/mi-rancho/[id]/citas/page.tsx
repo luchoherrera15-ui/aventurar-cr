@@ -248,7 +248,7 @@ export default async function CitasConfigPage({
                       )}
                     </div>
                     <span
-                      className={`rounded-full px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide ${GIFTCARD_ESTADO[g.estado].cls}`}
+                      className={`rounded-lg px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide ${GIFTCARD_ESTADO[g.estado].cls}`}
                     >
                       {GIFTCARD_ESTADO[g.estado].label}
                     </span>

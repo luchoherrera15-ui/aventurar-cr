@@ -70,7 +70,7 @@ export default function AgendaEventos({ eventos }: { eventos: EventoAgenda[] }) 
               </p>
               {(esHoy || esManana) && (
                 <span
-                  className={`mt-1 inline-flex rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-white ${
+                  className={`mt-1 inline-flex rounded-lg px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-white ${
                     esHoy ? "bg-aventurea-orange" : "bg-aventurea-navy"
                   }`}
                 >
@@ -108,7 +108,7 @@ export default function AgendaEventos({ eventos }: { eventos: EventoAgenda[] }) 
 
             {badge && (
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${badge.cls}`}
+                className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold ${badge.cls}`}
               >
                 {badge.label}
               </span>
