@@ -21,9 +21,9 @@ import { pedirAvisoDeMensaje } from "@/lib/notificaciones";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   PAQUETES_INVITACIONES,
+  PAQUETES_PRINCIPALES,
   SLUG_NEGOCIO_INVITACIONES,
   precioPaquete,
-  type PaqueteInvitacion,
 } from "@/lib/paquetes-invitaciones";
 import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 
@@ -74,6 +74,9 @@ export default function InvitacionesScreen() {
   const [albumes, setAlbumes] = useState<Album[] | null>(null);
   const [refrescando, setRefrescando] = useState(false);
   const [pidiendo, setPidiendo] = useState<string | null>(null);
+  /** Qué paquete tiene abierto su "Ver más" (uno a la vez). */
+  const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
+  const [verAlbumes, setVerAlbumes] = useState(false);
 
   const cargar = useCallback(async () => {
     if (!session) return;
@@ -117,18 +120,31 @@ export default function InvitacionesScreen() {
   }
 
   /**
-   * El pedido del paquete cae en la bandeja de mensajes normal: se
-   * abre (o retoma) el hilo con el negocio de Invitaciones de Bookea,
-   * se manda el primer mensaje solo si el hilo está vacío, y se entra
-   * al chat.
+   * "Quiero este paquete" ya no cae en el chat: abre el formulario de
+   * pedido, igual que en la web. El chat quedó para las dudas —
+   * pedir por conversación obligaba al equipo a sacarle los datos de
+   * la fiesta uno por uno, y la mitad se perdía en el camino.
    */
-  async function pedirPaquete(paquete: PaqueteInvitacion) {
+  function pedirPaquete(paqueteId: string) {
+    if (!session) {
+      router.push("/cuenta" as never);
+      return;
+    }
+    router.push(`/invitaciones/pedido/${paqueteId}` as never);
+  }
+
+  /**
+   * Abre (o retoma) el hilo con el negocio de Invitaciones de Bookea
+   * para consultar antes de pedir. El primer mensaje se manda solo si
+   * el hilo está vacío.
+   */
+  async function consultarPorChat() {
     if (!session) {
       router.push("/cuenta" as never);
       return;
     }
     if (pidiendo) return;
-    setPidiendo(paquete.id);
+    setPidiendo("consulta");
     try {
       const { data: negocio } = await supabase
         .from("ranchos")
@@ -163,9 +179,8 @@ export default function InvitacionesScreen() {
 
       if (!count) {
         const texto =
-          `¡Hola! Quiero el paquete ${paquete.nombre} (${precioPaquete(paquete.precio)}) ` +
-          "para mi invitación digital. Mi evento es: (contanos fecha, tipo de " +
-          "evento y estilo que soñás)";
+          "¡Hola! Tengo una consulta sobre las invitaciones digitales de " +
+          "Bookea antes de hacer mi pedido:";
         const { data: mensaje } = await supabase
           .from("mensajes")
           .insert({ conversacion_id: convId, autor_id: session.user.id, texto })
@@ -350,19 +365,19 @@ export default function InvitacionesScreen() {
           </ScrollView>
         </View>
 
-        {/* Los tres paquetes a la venta — siempre visibles, con o sin
-            sesión, igual que la landing /invitaciones de la web. */}
+        {/* Los tres paquetes principales — siempre visibles, con o sin
+            sesión, igual que la landing /invitaciones de la web. Los
+            de álbumes quedan plegados abajo: son más caros y le
+            robaban la atención a los de venta directa. */}
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>Paquetes de invitación digital</Text>
           <Text style={styles.seccionSubtitulo}>
-            El equipo de Bookea diseña tu invitación, tus invitados confirman
-            en el link y las fotos quedan en un álbum para siempre.
+            El equipo de Bookea diseña tu invitación y tus invitados confirman
+            en el link. Elegí el tuyo y contanos de tu fiesta.
           </Text>
-          {PAQUETES_INVITACIONES.map((p) => (
-            <View
-              key={p.id}
-              style={[styles.paquete, p.destacado && styles.paqueteDestacado]}
-            >
+
+          {PAQUETES_PRINCIPALES.map((p) => (
+            <View key={p.id} style={[styles.paquete, p.destacado && styles.paqueteDestacado]}>
               <View style={styles.paqueteEncabezado}>
                 <Text style={[styles.paqueteNombre, p.destacado && styles.textoBlanco]}>
                   {p.nombre}
@@ -379,11 +394,12 @@ export default function InvitacionesScreen() {
                 </View>
               </View>
               <Text style={[styles.paquetePrecio, p.destacado && styles.textoBlanco]}>
-                {precioPaquete(p.precio)}
+                {p.precioEtiqueta}
               </Text>
               <Text style={[styles.paqueteLema, p.destacado && styles.textoBlancoSuave]}>
                 {p.lema}
               </Text>
+
               <View style={styles.paqueteLista}>
                 {p.incluye.map((linea) => (
                   <View key={linea} style={styles.paqueteItem}>
@@ -392,31 +408,140 @@ export default function InvitacionesScreen() {
                       size={15}
                       color={p.destacado ? Colors.accent : Colors.green}
                     />
-                    <Text
-                      style={[styles.paqueteItemTexto, p.destacado && styles.textoBlancoSuave]}
-                    >
+                    <Text style={[styles.paqueteItemTexto, p.destacado && styles.textoBlancoSuave]}>
                       {linea}
                     </Text>
                   </View>
                 ))}
+
+                {/* El detalle fino solo si lo piden: la card compacta
+                    es la que vende, la letra chica espanta. */}
+                {detalleAbierto === p.id &&
+                  p.detalle.map((linea) => (
+                    <View key={linea} style={styles.paqueteItem}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={15}
+                        color={p.destacado ? Colors.accent : Colors.green}
+                      />
+                      <Text
+                        style={[styles.paqueteItemTexto, p.destacado && styles.textoBlancoSuave]}
+                      >
+                        {linea}
+                      </Text>
+                    </View>
+                  ))}
               </View>
+
+              {p.detalle.length > 0 && (
+                <Pressable
+                  onPress={() => setDetalleAbierto(detalleAbierto === p.id ? null : p.id)}
+                  hitSlop={6}
+                >
+                  <Text style={[styles.verMas, p.destacado && styles.verMasDestacado]}>
+                    {detalleAbierto === p.id ? "Ver menos ↑" : "Ver más ↓"}
+                  </Text>
+                </Pressable>
+              )}
+
               <Pressable
-                disabled={pidiendo !== null}
-                onPress={() => pedirPaquete(p)}
+                onPress={() => pedirPaquete(p.id)}
                 style={({ pressed }) => [
                   styles.paqueteBoton,
                   p.destacado && styles.paqueteBotonDestacado,
-                  (pressed || pidiendo === p.id) && { opacity: 0.85 },
+                  pressed && { opacity: 0.85 },
                 ]}
               >
-                {pidiendo === p.id ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={styles.paqueteBotonTexto}>Quiero este paquete</Text>
-                )}
+                <Text style={styles.paqueteBotonTexto}>Quiero este paquete</Text>
               </Pressable>
             </View>
           ))}
+
+          {/* Los packs con álbum, plegados. */}
+          <Pressable
+            onPress={() => setVerAlbumes(!verAlbumes)}
+            style={({ pressed }) => [styles.plegable, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons
+              name={verAlbumes ? "chevron-up" : "chevron-down"}
+              size={16}
+              color={Colors.navy}
+            />
+            <Text style={styles.plegableTexto}>
+              {verAlbumes ? "Ocultar los packs con álbumes" : "Ver packs con álbumes digitales"}
+            </Text>
+          </Pressable>
+
+          {verAlbumes &&
+            PAQUETES_INVITACIONES.map((p) => (
+              <View key={p.id} style={[styles.paquete, p.destacado && styles.paqueteDestacado]}>
+                <View style={styles.paqueteEncabezado}>
+                  <Text style={[styles.paqueteNombre, p.destacado && styles.textoBlanco]}>
+                    {p.nombre}
+                  </Text>
+                  <View
+                    style={[styles.paqueteBadge, p.destacado && styles.paqueteBadgeDestacado]}
+                  >
+                    <Text
+                      style={[
+                        styles.paqueteBadgeTexto,
+                        p.destacado && styles.paqueteBadgeTextoDestacado,
+                      ]}
+                    >
+                      {p.badge}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.paquetePrecio, p.destacado && styles.textoBlanco]}>
+                  {precioPaquete(p.precio)}
+                </Text>
+                <Text style={[styles.paqueteLema, p.destacado && styles.textoBlancoSuave]}>
+                  {p.lema}
+                </Text>
+                <View style={styles.paqueteLista}>
+                  {p.incluye.map((linea) => (
+                    <View key={linea} style={styles.paqueteItem}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={15}
+                        color={p.destacado ? Colors.accent : Colors.green}
+                      />
+                      <Text
+                        style={[styles.paqueteItemTexto, p.destacado && styles.textoBlancoSuave]}
+                      >
+                        {linea}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                <Pressable
+                  onPress={() => pedirPaquete(p.id)}
+                  style={({ pressed }) => [
+                    styles.paqueteBoton,
+                    p.destacado && styles.paqueteBotonDestacado,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                >
+                  <Text style={styles.paqueteBotonTexto}>Quiero este paquete</Text>
+                </Pressable>
+              </View>
+            ))}
+
+          {/* El chat queda para las dudas, no para pedir. */}
+          <Pressable
+            disabled={pidiendo !== null}
+            onPress={consultarPorChat}
+            style={({ pressed }) => [styles.consulta, pressed && { opacity: 0.85 }]}
+          >
+            {pidiendo === "consulta" ? (
+              <ActivityIndicator color={Colors.navy} size="small" />
+            ) : (
+              <>
+                <Ionicons name="chatbubble-ellipses-outline" size={15} color={Colors.navy} />
+                <Text style={styles.consultaTexto}>¿Dudas? Escribinos por el chat</Text>
+              </>
+            )}
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -607,6 +732,37 @@ const styles = StyleSheet.create({
   },
   paqueteBotonDestacado: { backgroundColor: Colors.accent },
   paqueteBotonTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13.5 },
+  verMas: {
+    color: Colors.navy,
+    fontFamily: Fonts.bold,
+    fontSize: 12.5,
+    marginTop: Spacing.two,
+  },
+  verMasDestacado: { color: Colors.accent },
+  // El plegable de los packs con álbum y el acceso al chat: los dos
+  // son acciones de segunda fila, así que van en contorno, no sólidos.
+  plegable: {
+    alignItems: "center",
+    alignSelf: "center",
+    borderColor: Colors.line,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    marginTop: Spacing.two,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  plegableTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
+  consulta: {
+    alignItems: "center",
+    alignSelf: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: Spacing.three,
+    paddingVertical: 8,
+  },
+  consultaTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
   textoBlanco: { color: "#ffffff" },
   textoBlancoSuave: { color: "rgba(255,255,255,0.85)" },
 });
