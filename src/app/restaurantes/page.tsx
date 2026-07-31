@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SelectorVertical from "@/components/selector-vertical";
 import BarraFiltrosDirectorio from "@/components/barra-filtros-directorio";
+import { CATEGORIA_RESTAURANTE_ICONO } from "./iconos";
 import { IconCloche, IconPin, IconStar } from "@/components/icons";
 import {
   CATEGORIAS_RESTAURANTES,
@@ -130,26 +131,20 @@ export default async function RestaurantesPage({
           <SelectorVertical activo="restaurantes" />
         </div>
 
-        {/* Buscador + panel de filtros — la misma pieza que usa /citas. */}
+        {/* Buscador + la fila de categorías — la misma pieza que /citas.
+            Las 18 de comida caben en una línea porque la fila scrollea
+            en horizontal. */}
         <BarraFiltrosDirectorio
           ruta="/restaurantes"
           ariaLabel="Buscar restaurantes por nombre, zona o tipo de comida"
           placeholder='Buscá por nombre, zona o comida — ej. "mariscos" o "Escazú"'
-          tituloPanel="Tipo de comida"
-          quitarCategoria="Quitar el filtro de comida"
           categoria={categoria}
-          labelCategoria={
-            categoria ? CATEGORIA_RESTAURANTE_LABEL[categoria] : undefined
-          }
           busqueda={busqueda}
-          totalSinFiltro={baseBusqueda.length}
           resultados={filtrados.length}
-          opciones={CATEGORIAS_RESTAURANTES.filter(
-            (c) => (conteo[c] ?? 0) > 0,
-          ).map((c) => ({
+          opciones={CATEGORIAS_RESTAURANTES.map((c) => ({
             valor: c,
             label: CATEGORIA_RESTAURANTE_LABEL[c],
-            conteo: conteo[c] ?? 0,
+            icono: CATEGORIA_RESTAURANTE_ICONO[c],
           }))}
         />
 

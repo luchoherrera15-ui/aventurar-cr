@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SelectorVertical from "@/components/selector-vertical";
 import BarraFiltrosDirectorio from "@/components/barra-filtros-directorio";
+import { CATEGORIA_CITA_ICONO } from "./iconos";
 import { IconClock, IconPin, IconStar } from "@/components/icons";
 import {
   CATEGORIAS_CITAS,
@@ -147,28 +148,20 @@ export default async function CitasPage({
           <SelectorVertical activo="citas" />
         </div>
 
-        {/* Buscador + panel de filtros. Las categorías salían como una
-            tira de chips que comía dos líneas antes de que se viera un
-            solo negocio; ahora viven dentro del panel y afuera solo
-            queda lo que el visitante está usando de verdad. */}
+        {/* Buscador + la fila de categorías, con el mismo chip de
+            /eventos: ícono en burbuja naranja y sin conteos. */}
         <BarraFiltrosDirectorio
           ruta="/citas"
           ariaLabel="Buscar negocios por nombre, zona o rubro"
           placeholder='Buscá por nombre, zona o rubro — ej. "uñas" o "Moravia"'
-          tituloPanel="Tipo de servicio"
-          quitarCategoria="Quitar el filtro de servicio"
           categoria={categoria}
-          labelCategoria={categoria ? CATEGORIA_CITA_LABEL[categoria] : undefined}
           busqueda={busqueda}
-          totalSinFiltro={baseBusqueda.length}
           resultados={filtrados.length}
-          opciones={CATEGORIAS_CITAS.filter((c) => (conteo[c] ?? 0) > 0).map(
-            (c) => ({
-              valor: c,
-              label: CATEGORIA_CITA_LABEL[c],
-              conteo: conteo[c] ?? 0,
-            }),
-          )}
+          opciones={CATEGORIAS_CITAS.map((c) => ({
+            valor: c,
+            label: CATEGORIA_CITA_LABEL[c],
+            icono: CATEGORIA_CITA_ICONO[c],
+          }))}
         />
 
         {filtrados.length === 0 && negocios.length > 0 ? (

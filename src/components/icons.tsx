@@ -519,3 +519,262 @@ export function IconChatBubble({ className = base }: IconProps) {
     </svg>
   );
 }
+
+/* ---------- Categorías de Citas ------------------------------------
+   Íconos propios por rubro, en la misma línea que los de Eventos
+   (IconRancho, IconCloche, IconDisco...): la barra de categorías de
+   cada vertical se lee igual en todo el sitio. */
+
+/** Belleza: tijeras de salón. */
+export function IconTijeras({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <circle cx="6.5" cy="18" r="2.6" />
+      <circle cx="17.5" cy="18" r="2.6" />
+      <path strokeLinecap="round" d="M8.4 16.1 18.5 3.5M15.6 16.1 5.5 3.5" />
+    </svg>
+  );
+}
+
+/** Barbería: el poste rayado de la puerta. */
+export function IconPosteBarbero({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="8" y="6" width="8" height="12" rx="4" />
+      <path strokeLinecap="round" d="M8.4 10.5 15.6 8M8.4 14.5 15.6 12" />
+      <path strokeLinecap="round" d="M7 4.5h10M7 19.5h10M12 19.5V22" />
+    </svg>
+  );
+}
+
+/** Uñas: el frasco de esmalte con su pincel. */
+export function IconEsmalte({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinejoin="round" d="M7.5 11h9v8.5a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5V11Z" />
+      <path strokeLinecap="round" d="M7.5 14.5h9" />
+      <path strokeLinejoin="round" d="M9.8 11V8.2a1 1 0 0 1 1-1h2.4a1 1 0 0 1 1 1V11" />
+      <path strokeLinecap="round" d="M12 7.2V3.5" />
+    </svg>
+  );
+}
+
+/** Spa y bienestar: la flor de loto. */
+export function IconLoto({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19.5c-2.6 0-4.8-1.7-5.7-4.2 1.9-1.1 4-1 5.7.4 1.7-1.4 3.8-1.5 5.7-.4-.9 2.5-3.1 4.2-5.7 4.2Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19.5c-1.9-2-2.4-4.9-1.2-7.4.5-1 1.2-1.9 1.2-1.9s.7.9 1.2 1.9c1.2 2.5.7 5.4-1.2 7.4Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.3 15.3c-1.4-.6-2.4-1.9-2.6-3.4 1.6-.6 3.2-.2 4.3 1M17.7 15.3c1.4-.6 2.4-1.9 2.6-3.4-1.6-.6-3.2-.2-4.3 1" />
+    </svg>
+  );
+}
+
+/** Consultorios: el estetoscopio. */
+export function IconEstetoscopio({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" d="M6 3v4.5a4 4 0 0 0 8 0V3" />
+      <path strokeLinecap="round" d="M4.5 3H6M12.5 3H14" />
+      <path strokeLinecap="round" d="M10 11.5v2.2a4.8 4.8 0 0 0 9.6 0v-1" />
+      <circle cx="19.6" cy="10.5" r="2.1" />
+    </svg>
+  );
+}
+
+/* ---------- Categorías de Restaurantes ------------------------------
+   Un dibujo por tipo de comida. Se buscó que ninguno se confunda con
+   otro a 18px, que es el tamaño al que viven en la barra: la olla, la
+   caja china y el cuenco coreano se distinguen por su silueta, no por
+   el detalle. */
+
+/** Comida típica y sodas: la olla humeante. */
+export function IconOlla({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinejoin="round" d="M4.5 10h15v5.5a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4V10Z" />
+      <path strokeLinecap="round" d="M3 10h18M2.5 12.5h2M19.5 12.5h2" />
+      <path strokeLinecap="round" d="M9.5 7.5c0-1.2 1-1.4 1-2.5M14 7.5c0-1.2 1-1.4 1-2.5" />
+    </svg>
+  );
+}
+
+/** Carnes y parrilla. */
+export function IconParrilla({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinejoin="round" d="M3.5 8.5h17l-1.6 5.2a4 4 0 0 1-3.8 2.8H8.9a4 4 0 0 1-3.8-2.8L3.5 8.5Z" />
+      <path strokeLinecap="round" d="M8 11.5h8" />
+      <path strokeLinecap="round" d="m8.5 16.5-1.5 4M15.5 16.5l1.5 4" />
+      <path strokeLinecap="round" d="M9.5 5.5c0-1 .8-1.2.8-2.2M14.2 5.5c0-1 .8-1.2.8-2.2" />
+    </svg>
+  );
+}
+
+/** Mariscos: el pez. */
+export function IconPez({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12c2.3-3.5 5.4-5.2 9.2-5.2S18.6 8.5 20.2 12c-1.6 3.5-4.7 5.2-8.5 5.2S4.8 15.5 2.5 12Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.2 12c-.2-1.7.3-3.1 1.4-4.1M20.2 12c-.2 1.7.3 3.1 1.4 4.1" />
+      <circle cx="7.6" cy="10.9" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** Pastas e italiana: el plato de fideos con el tenedor. */
+export function IconPasta({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 13.5h13a6.5 6.5 0 0 1-6.5 6.2h0a6.5 6.5 0 0 1-6.5-6.2Z" />
+      <path strokeLinecap="round" d="M4.2 11c1.4-1.6 3-2.4 4.8-2.4s3.5.8 4.8 2.4" />
+      <path strokeLinecap="round" d="M6 8.6C7.1 6.9 8.4 6 10 6" />
+      <path strokeLinecap="round" d="M20 3.5v8.2a2 2 0 0 1-2 2M20 3.5v5.2" />
+    </svg>
+  );
+}
+
+/** Pizzas: la porción. */
+export function IconPizza({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.2 21 20a1 1 0 0 1-1.2 1.4C17.4 20.6 14.8 20.2 12 20.2s-5.4.4-7.8 1.2A1 1 0 0 1 3 20L12 3.2Z" />
+      <path strokeLinecap="round" d="M6.2 15.5c3.8-1 7.8-1 11.6 0" />
+      <circle cx="10.6" cy="11.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="13.6" cy="16.4" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** Hamburguesas. */
+export function IconHamburguesa({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 9.5c0-3 3.8-5 8.5-5s8.5 2 8.5 5H3.5Z" />
+      <path strokeLinecap="round" d="M3.5 12.8h17" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.5 16c0 2.2-3.8 3.5-8.5 3.5S3.5 18.2 3.5 16h17Z" />
+    </svg>
+  );
+}
+
+/** Comida china: la caja para llevar. */
+export function IconCajaComida({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinejoin="round" d="M5.5 8.5h13l-1.3 10.2a1.5 1.5 0 0 1-1.5 1.3H8.3a1.5 1.5 0 0 1-1.5-1.3L5.5 8.5Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 8.5 3-4.5h9l3 4.5" />
+      <path strokeLinecap="round" d="M12 8.5v11.5" />
+    </svg>
+  );
+}
+
+/** Japonesa y sushi: el nigiri. */
+export function IconSushi({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="3.5" y="12.5" width="17" height="6" rx="3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.6 12.5c1.5-2.6 4.2-4.2 7.4-4.2s5.9 1.6 7.4 4.2" />
+      <path strokeLinecap="round" d="M9.5 12.8v5.4M14.5 12.8v5.4" />
+    </svg>
+  );
+}
+
+/** Comida coreana: el cuenco con los palillos apoyados. */
+export function IconCuencoPalillos({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12.5h14a7 7 0 0 1-7 7h0a7 7 0 0 1-7-7Z" />
+      <path strokeLinecap="round" d="M2 21.5h15" />
+      <path strokeLinecap="round" d="M13.5 10.8 21.5 3M16.4 12.4 21.5 7.2" />
+    </svg>
+  );
+}
+
+/** Comida mexicana: el taco. */
+export function IconTaco({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 17.5a9.5 9.5 0 0 1 19 0 1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 15.2c1.6-1.4 3.4-2.1 5.5-2.1s3.9.7 5.5 2.1" />
+      <path strokeLinecap="round" d="M9 12.4c.8-1.7 2-2.6 3-2.6s2.2.9 3 2.6" />
+    </svg>
+  );
+}
+
+/** Comida peruana: el limón del ceviche. */
+export function IconLimon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path strokeLinecap="round" d="M12 3.5v17M3.5 12h17M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
+/** Mediterránea y árabe: la rama de olivo. */
+export function IconOliva({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" d="M4 21c1.5-6.5 6-11 13.5-13.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.5 3.5c0 2.6-1.6 4.6-4.2 4.9-.4-2.7 1.4-4.6 4.2-4.9Z" />
+      <circle cx="9.5" cy="14" r="2.1" />
+      <circle cx="14.6" cy="9.6" r="2.1" />
+    </svg>
+  );
+}
+
+/** Vegetariana y saludable: la hoja. */
+export function IconHoja({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20 4c0 8-4.6 12.5-11 12.5H5.5C5.5 9 11 4 20 4Z" />
+      <path strokeLinecap="round" d="M3.5 20.5c1.6-3.4 4.4-6.2 8.5-8.5" />
+    </svg>
+  );
+}
+
+/** Cafeterías y brunch: la taza con vapor. */
+export function IconCafe({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinejoin="round" d="M4 10h13v4.5a4.5 4.5 0 0 1-4.5 4.5h-4A4.5 4.5 0 0 1 4 14.5V10Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 11.5h1.8a2.6 2.6 0 0 1 0 5.2H17" />
+      <path strokeLinecap="round" d="M3 21.5h15" />
+      <path strokeLinecap="round" d="M8 6.8c0-1.1 1-1.3 1-2.3M12.5 6.8c0-1.1 1-1.3 1-2.3" />
+    </svg>
+  );
+}
+
+/** Postres y heladerías: el cono. */
+export function IconHelado({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 10.5h10L12.9 20a1 1 0 0 1-1.8 0L7 10.5Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 10.5a5.5 5.5 0 0 1 11 0" />
+      <path strokeLinecap="round" d="M8.4 14.2h7.2" />
+    </svg>
+  );
+}
+
+/** Bares y cervecerías: la jarra. */
+export function IconJarraCerveza({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinejoin="round" d="M5 8h10v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 19V8Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5h2.8a1.7 1.7 0 0 1 1.7 1.7v3.1a1.7 1.7 0 0 1-1.7 1.7H15" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 8c0-2 2.2-3.5 5-3.5S15 6 15 8" />
+      <path strokeLinecap="round" d="M8.5 11.5v6M11.5 11.5v6" />
+    </svg>
+  );
+}
+
+/** Cocina de autor: el gorro de chef. */
+export function IconGorroChef({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinejoin="round" d="M6.5 14.5c-2.2-.5-3.8-2.3-3.8-4.5 0-2.6 2.2-4.7 4.9-4.7.5 0 1 .07 1.5.2C9.8 3.8 11.3 3 13 3c2.7 0 4.9 2.1 4.9 4.7v.1c1.9.5 3.4 2.2 3.4 4.2 0 1.2-.5 2.3-1.4 3.1" />
+      <path strokeLinejoin="round" d="M6.5 14.5h13v4.2a1.8 1.8 0 0 1-1.8 1.8H8.3a1.8 1.8 0 0 1-1.8-1.8v-4.2Z" />
+      <path strokeLinecap="round" d="M6.5 17.5h13" />
+    </svg>
+  );
+}
