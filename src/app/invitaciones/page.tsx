@@ -485,11 +485,10 @@ export default async function InvitacionesLanding() {
             </Link>
           </div>
 
-          {/* Riel: las invitaciones se ven como invitaciones — lienzo
-              vertical con su nombre en serif, no un ícono en una caja.
-              El scroll horizontal evita los huecos del grid cuando el
-              catálogo no llena la última fila. */}
-          <div className="mt-9 flex snap-x gap-4 overflow-x-auto pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* Cuadrícula, no riel: en riel la última invitación quedaba
+              cortada contra el borde del bloque y no se veía que
+              hubiera más. Acá se ven todas de una. */}
+          <div className="mt-9 grid grid-cols-2 gap-4 sm:grid-cols-3">
             {catalogo.map((d, i) => (
               <CardDemo key={d.slug} demo={d} orden={i} />
             ))}
@@ -883,10 +882,10 @@ function CardDemo({ demo: d, orden }: { demo: EntradaCatalogo; orden: number }) 
       title={d.descripcion}
       data-reveal
       style={{ "--reveal-delay": `${orden * 70}ms` } as React.CSSProperties}
-      className="group w-[210px] shrink-0 snap-start sm:w-[232px]"
+      className="group block"
     >
       <div
-        className={`relative flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-[22px] px-6 text-center shadow-[0_16px_40px_-22px_rgba(16,26,44,0.55)] transition-transform duration-300 group-hover:-translate-y-1.5 ${d.lienzo}`}
+        className={`relative flex aspect-[4/5] flex-col items-center justify-center overflow-hidden rounded-[22px] px-5 text-center shadow-[0_16px_40px_-22px_rgba(16,26,44,0.55)] transition-transform duration-300 group-hover:-translate-y-1.5 ${d.lienzo}`}
       >
         {/* El brillo de esquina que llevan las invitaciones reales */}
         <span
@@ -900,7 +899,7 @@ function CardDemo({ demo: d, orden }: { demo: EntradaCatalogo; orden: number }) 
           {d.ocasion}
         </span>
         <p
-          className={`relative mt-3 text-[23px] italic leading-[1.15] ${tinta}`}
+          className={`relative mt-3 text-balance text-[20px] italic leading-[1.15] sm:text-[23px] ${tinta}`}
           style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
         >
           {d.nombre}
