@@ -58,8 +58,21 @@ create table if not exists pedidos_invitacion (
   created_at timestamptz not null default now()
 );
 
+-- El monto realmente cobrado en colones (los paquetes en dólares se
+-- convierten al hacer el pedido). Es lo que suma el control de
+-- dineros del panel, sin depender del tipo de cambio del día.
+alter table pedidos_invitacion
+  add column if not exists monto_crc integer,
+  -- Cuándo entró la plata (no cuándo se hizo el pedido): es la fecha
+  -- que usa el control de ingresos diarios.
+  add column if not exists pagado_en timestamptz;
+
 create index if not exists pedidos_invitacion_cliente_idx
   on pedidos_invitacion (cliente_id, created_at desc);
+-- Para el reporte de ingresos por método de pago.
+create index if not exists pedidos_invitacion_pago_idx
+  on pedidos_invitacion (metodo_pago, created_at desc)
+  where metodo_pago is not null;
 create index if not exists pedidos_invitacion_estado_idx
   on pedidos_invitacion (estado, created_at desc);
 

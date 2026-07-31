@@ -93,6 +93,14 @@ export default async function AdminHubPage() {
           icon={<IconSobre />}
         />
         <HubCard
+          href="/admin/ingresos"
+          title="Control de dineros"
+          descripcion="Cuánto entra por SINPE, transferencia y Stripe, día por día — depósitos de reservas y pedidos de invitaciones en una sola vista."
+          stat="Ingresos por método de pago"
+          alerta={null}
+          icon={<IconBilletes />}
+        />
+        <HubCard
           href="/admin/balance"
           title="Balance y finanzas"
           descripcion="Seguí las comisiones que deja cada salón, registrá los gastos fijos del negocio y mirá cómo va el mes."
@@ -193,6 +201,16 @@ function IconCalendar() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path strokeLinecap="round" d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+function IconBilletes() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <rect x="2.5" y="6" width="19" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.6" />
+      <path strokeLinecap="round" d="M6 12h.01M18 12h.01" />
     </svg>
   );
 }

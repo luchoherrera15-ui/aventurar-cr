@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { enviarCorreo, layoutBento } from "@/lib/email";
 import {
+  montoEnColones,
   resolverPaquete,
   SLUG_NEGOCIO_INVITACIONES,
   TIPOS_EVENTO,
@@ -71,6 +72,9 @@ export async function crearPedido(
       paquete: paquete.id,
       precio_usd: paquete.precioUSD,
       precio_crc: paquete.precioCRC,
+      // Lo que de verdad se cobra, ya convertido: el reporte de
+      // ingresos no debe depender del tipo de cambio de mañana.
+      monto_crc: montoEnColones(paquete),
       tipo_evento: tipoEvento,
       nombre_evento: nombreEvento,
       anfitriones: texto(form, "anfitriones", 200) || null,
@@ -136,6 +140,7 @@ export async function registrarPago(
       comprobante_url: comprobanteUrl,
       referencia_pago: texto(form, "referencia_pago", 120) || null,
       estado: "en_revision",
+      pagado_en: new Date().toISOString(),
     })
     .eq("id", pedidoId)
     .eq("cliente_id", user.id)

@@ -45,15 +45,18 @@ export default async function PagoPage({
   if (!paquete) notFound();
   const colones = montoEnColones(paquete);
 
-  // Los datos de cobro viven en variables de entorno: no van al repo.
+  // Los datos de cobro son públicos (el cliente tiene que verlos para
+  // pagar), así que van con valor por defecto y se pueden cambiar sin
+  // tocar código con las variables de entorno.
   const sinpe = {
-    numero: process.env.SINPE_NUMERO ?? "",
-    titular: process.env.SINPE_TITULAR ?? "",
+    numero: process.env.SINPE_NUMERO ?? "8689 3939",
+    titular: process.env.SINPE_TITULAR ?? "José Pablo Herrera Ovares",
   };
   const banco = {
-    nombre: process.env.BANCO_NOMBRE ?? "",
+    nombre: process.env.BANCO_NOMBRE ?? "Banco Nacional",
+    // Pendiente: se llena con BANCO_CUENTA_IBAN sin tocar código.
     cuenta: process.env.BANCO_CUENTA_IBAN ?? "",
-    titular: process.env.BANCO_TITULAR ?? "",
+    titular: process.env.BANCO_TITULAR ?? "José Pablo Herrera Ovares",
   };
   const stripeListo = Boolean(process.env.STRIPE_SECRET_KEY);
 

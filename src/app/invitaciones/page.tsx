@@ -42,6 +42,70 @@ export const metadata = {
 /** Una entrada del catálogo, venga del archivo o de la base. */
 type EntradaCatalogo = DemoInvitacion & { generada?: boolean };
 
+/** Tarjeta de crédito, para el bloque de medios de pago. */
+function IconTarjeta() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
+      <path strokeLinecap="round" d="M2.5 9.5h19M6 15h3.5" />
+    </svg>
+  );
+}
+
+/** Manzana simple para Apple Pay (sin marca registrada). */
+function IconApple() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M16.4 12.6c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.8-3.5 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.2 2.6 2.1 1-.04 1.4-.7 2.7-.7 1.2 0 1.6.7 2.7.6 1.1-.02 1.8-1 2.5-2.1.8-1.2 1.1-2.3 1.1-2.4-.02-.01-2.1-.8-2.1-3zM14.3 5.6c.6-.7 1-1.7.9-2.6-.8.03-1.9.5-2.5 1.3-.5.6-1 1.6-.9 2.5.9.07 1.9-.5 2.5-1.2z" />
+    </svg>
+  );
+}
+
+/** Lo que incluye la invitación. Las tres primeras se ven de una;
+ *  el resto vive detrás del "Ver más". */
+const FEATURES: { icono: React.ReactNode; titulo: string; texto: string }[] = [
+  {
+    icono: <IconMail />,
+    titulo: "Invitación digital",
+    texto: "Link a pantalla completa, animado y con la ubicación en Maps y Waze.",
+  },
+  {
+    icono: <IconCheck />,
+    titulo: "Confirmación en tiempo real",
+    texto: "Tus invitados confirman en el link y la lista se actualiza al instante.",
+  },
+  {
+    icono: <IconChartBars />,
+    titulo: "Panel administrativo",
+    texto: "Quiénes asisten y quiénes no, con el conteo de personas al día.",
+  },
+  {
+    icono: <IconUsers />,
+    titulo: "Personalizadas por invitado",
+    texto: "Cada persona recibe su invitación con su nombre.",
+  },
+  {
+    icono: <IconClipboard />,
+    titulo: "PDF descargable",
+    texto: "También en documento, lista para imprimir o guardar de recuerdo.",
+  },
+  {
+    icono: <IconWhatsapp />,
+    titulo: "Envíos ilimitados",
+    texto: "Compartila por WhatsApp, correo o redes sin límite de invitados.",
+  },
+  {
+    icono: <IconGlobe />,
+    titulo: "Diversidad de idiomas",
+    texto: "Español, inglés o el idioma que necesités.",
+  },
+  {
+    icono: <IconWand />,
+    titulo: "Diseño a tu medida",
+    texto: "Tus colores, tus fotos y tu historia — o algo 100% exclusivo.",
+  },
+];
+
 /** Para que las generadas no salgan todas con el mismo lienzo. */
 const LIENZOS_GENERADOS = [
   "bg-[linear-gradient(150deg,#16295e_0%,#3b7fc4_55%,#ee7420_100%)]",
@@ -166,72 +230,52 @@ export default async function InvitacionesLanding() {
               Ofrecemos
             </p>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                icono: <IconMail />,
-                titulo: "Invitación digital",
-                texto:
-                  "Link a pantalla completa, animado y con la ubicación en Maps y Waze.",
-              },
-              {
-                icono: <IconUsers />,
-                titulo: "Personalizadas por invitado",
-                texto: "Cada persona recibe su invitación con su nombre.",
-              },
-              {
-                icono: <IconCheck />,
-                titulo: "Confirmación en tiempo real",
-                texto: "Confirman en el link y la lista se actualiza al instante.",
-              },
-              {
-                icono: <IconChartBars />,
-                titulo: "Panel administrativo",
-                texto: "Quiénes asisten y quiénes no, con el conteo al día.",
-              },
-              {
-                icono: <IconClipboard />,
-                titulo: "PDF descargable",
-                texto: "También en documento, lista para imprimir o guardar.",
-              },
-              {
-                icono: <IconWhatsapp />,
-                titulo: "Envíos ilimitados",
-                texto: "Compartila por WhatsApp, correo o redes sin límite.",
-              },
-              {
-                icono: <IconGlobe />,
-                titulo: "Diversidad de idiomas",
-                texto: "Español, inglés o el idioma que necesités.",
-              },
-            ].map((f) => (
-              <div
-                key={f.titulo}
-                className="flex items-start gap-3 rounded-2xl border border-aventurea-line bg-white p-4"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-4 [&_svg]:w-4">
-                  {f.icono}
-                </span>
-                <div>
-                  <h3 className="text-[13.5px] font-extrabold tracking-[-0.2px] text-aventurea-ink">
-                    {f.titulo}
-                  </h3>
-                  <p className="mt-1 text-[12px] leading-snug text-aventurea-ink-soft">
-                    {f.texto}
-                  </p>
-                </div>
-              </div>
+          {/* Tres a la vista; el resto detrás del "Ver más". */}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.slice(0, 3).map((f) => (
+              <CardFeature key={f.titulo} {...f} />
             ))}
-            {/* 7 features + esta nota = 8 celdas: la cuadrícula cierra
-                exacta en 2 y 4 columnas, sin huecos. */}
-            <div className="flex items-center gap-3 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 p-4">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-orange/15 text-aventurea-orange">
-                <IconWand className="h-4 w-4" />
-              </span>
-              <p className="text-[12.5px] font-bold leading-snug text-aventurea-ink">
-                Configurables según el paquete — vos decidís qué lleva la tuya.
-              </p>
+          </div>
+
+          <details className="group/mas mt-3">
+            <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
+              Ver todo lo que incluye
+              <IconChevronDown className="h-4 w-4 transition-transform group-open/mas:rotate-180" />
+            </summary>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {FEATURES.slice(3).map((f) => (
+                <CardFeature key={f.titulo} {...f} />
+              ))}
+              <div className="flex items-center gap-3 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 p-4">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-orange/15 text-aventurea-orange">
+                  <IconWand className="h-4 w-4" />
+                </span>
+                <p className="text-[12.5px] font-bold leading-snug text-aventurea-ink">
+                  Configurables según el paquete — vos decidís qué lleva la tuya.
+                </p>
+              </div>
             </div>
+          </details>
+
+          {/* Medios de pago: confianza antes de llegar a los precios. */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-aventurea-navy/15 bg-aventurea-navy/5 p-4">
+            <span className="flex items-center gap-2 text-[13px] font-extrabold text-aventurea-ink">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-4 [&_svg]:w-4">
+                <IconTarjeta />
+              </span>
+              Pagá como te quede mejor
+            </span>
+            <p className="text-[12.5px] leading-snug text-aventurea-ink-soft">
+              Pasarela <strong className="text-aventurea-ink">Stripe</strong> para
+              tarjetas de crédito y débito, con{" "}
+              <strong className="inline-flex items-center gap-1 text-aventurea-ink">
+                <span className="[&_svg]:h-3.5 [&_svg]:w-3.5">
+                  <IconApple />
+                </span>
+                Apple&nbsp;Pay
+              </strong>
+              . También SINPE Móvil y transferencia bancaria.
+            </p>
           </div>
         </div>
 
@@ -296,36 +340,24 @@ export default async function InvitacionesLanding() {
             </p>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {catalogo.map((d) => (
-              <Link
-                key={d.slug}
-                href={`/invitacion/${d.slug}`}
-                title={d.descripcion}
-                className="group flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-white p-3 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-0.5 hover:border-aventurea-navy/40 hover:shadow-[0_16px_40px_-20px_rgba(22,41,94,0.4)]"
-              >
-                <div
-                  className={`flex h-14 w-18 shrink-0 items-center justify-center rounded-xl ${d.lienzo}`}
-                >
-                  <span
-                    className={`transition-transform group-hover:scale-110 ${d.iconoClase} [&_svg]:h-6 [&_svg]:w-6`}
-                  >
-                    {ICONO_DEMO[d.icono]}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-navy">
-                    {d.ocasion}
-                  </p>
-                  <p className="truncate text-[13.5px] font-extrabold text-aventurea-ink">
-                    {d.nombre}
-                  </p>
-                  <p className="mt-0.5 text-[11.5px] font-extrabold text-aventurea-orange">
-                    {d.generada ? "Ver la muestra →" : "Vivir la demo →"}
-                  </p>
-                </div>
-              </Link>
+            {catalogo.slice(0, 3).map((d) => (
+              <CardDemo key={d.slug} demo={d} />
             ))}
           </div>
+
+          {catalogo.length > 3 && (
+            <details className="group/mas mt-3">
+              <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
+                Ver más diseños ({catalogo.length - 3})
+                <IconChevronDown className="h-4 w-4 transition-transform group-open/mas:rotate-180" />
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {catalogo.slice(3).map((d) => (
+                  <CardDemo key={d.slug} demo={d} />
+                ))}
+              </div>
+            </details>
+          )}
         </div>
 
         {/* ---------- Los paquetes: acá aterrizan todos los CTA ---------- */}
@@ -588,6 +620,63 @@ function FilaConfirmacion({
         {detalle} ✓
       </span>
     </div>
+  );
+}
+
+/** Una card de "lo que incluye". */
+function CardFeature({
+  icono,
+  titulo,
+  texto,
+}: {
+  icono: React.ReactNode;
+  titulo: string;
+  texto: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-aventurea-line bg-white p-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-4 [&_svg]:w-4">
+        {icono}
+      </span>
+      <div>
+        <h3 className="text-[13.5px] font-extrabold tracking-[-0.2px] text-aventurea-ink">
+          {titulo}
+        </h3>
+        <p className="mt-1 text-[12px] leading-snug text-aventurea-ink-soft">{texto}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Una card del catálogo de ejemplos. */
+function CardDemo({ demo: d }: { demo: EntradaCatalogo }) {
+  return (
+    <Link
+      href={`/invitacion/${d.slug}`}
+      title={d.descripcion}
+      className="group flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-white p-3 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-0.5 hover:border-aventurea-navy/40 hover:shadow-[0_16px_40px_-20px_rgba(22,41,94,0.4)]"
+    >
+      <div
+        className={`flex h-14 w-18 shrink-0 items-center justify-center rounded-xl ${d.lienzo}`}
+      >
+        <span
+          className={`transition-transform group-hover:scale-110 ${d.iconoClase} [&_svg]:h-6 [&_svg]:w-6`}
+        >
+          {ICONO_DEMO[d.icono]}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-navy">
+          {d.ocasion}
+        </p>
+        <p className="truncate text-[13.5px] font-extrabold text-aventurea-ink">
+          {d.nombre}
+        </p>
+        <p className="mt-0.5 text-[11.5px] font-extrabold text-aventurea-orange">
+          {d.generada ? "Ver la muestra →" : "Vivir la demo →"}
+        </p>
+      </div>
+    </Link>
   );
 }
 
