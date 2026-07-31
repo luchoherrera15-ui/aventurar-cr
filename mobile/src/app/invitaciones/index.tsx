@@ -323,6 +323,28 @@ export default function InvitacionesScreen() {
           </>
         )}
 
+        {/* El asistente con IA: el camino rápido para quien quiere su
+            invitación ya, sin esperar al equipo de diseño. */}
+        <Pressable
+          style={({ pressed }) => [styles.asistente, pressed && { opacity: 0.9 }]}
+          onPress={() =>
+            router.push(
+              (session ? "/invitaciones/crear" : "/cuenta") as never,
+            )
+          }
+        >
+          <View style={styles.asistenteIcono}>
+            <Ionicons name="sparkles" size={20} color={Colors.accent} />
+          </View>
+          <View style={styles.asistenteCuerpo}>
+            <Text style={styles.asistenteTitulo}>Creala vos con IA</Text>
+            <Text style={styles.asistenteTexto}>
+              Contale al diseñador qué querés y la genera en minutos
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
+        </Pressable>
+
         {/* La vitrina de diseños — espejo de "Diseños listos para
             enamorarte" de la web. Cada card abre la demo real en el
             navegador. Lienzos azules SÓLIDOS de la paleta, sin
@@ -732,6 +754,32 @@ const styles = StyleSheet.create({
   },
   paqueteBotonDestacado: { backgroundColor: Colors.accent },
   paqueteBotonTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13.5 },
+  // El acceso al asistente: en navy, para que se lea como la acción
+  // fuerte de la pantalla sin competir con el naranja de los paquetes.
+  asistente: {
+    alignItems: "center",
+    backgroundColor: Colors.navy,
+    borderRadius: 18,
+    flexDirection: "row",
+    gap: Spacing.three,
+    padding: Spacing.three,
+  },
+  asistenteIcono: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 999,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  asistenteCuerpo: { flex: 1, gap: 2 },
+  asistenteTitulo: { color: "#ffffff", fontFamily: Fonts.extraBold, fontSize: 15.5 },
+  asistenteTexto: {
+    color: "rgba(255,255,255,0.75)",
+    fontFamily: Fonts.medium,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   verMas: {
     color: Colors.navy,
     fontFamily: Fonts.bold,

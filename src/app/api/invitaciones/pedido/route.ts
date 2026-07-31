@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { sesionDesdeBearer } from "@/lib/supabase/bearer";
 import {
   crearPedidoInvitacion,
   notificarPedidoPagado,
@@ -29,28 +29,6 @@ import { montoEnColones, precioPaquete, resolverPaquete } from "@/lib/paquetes-i
 const SIN_SESION = "Entrá con tu cuenta para hacer el pedido.";
 
 /**
- * Un cliente de Supabase que actúa COMO el usuario del app: la RLS lo
- * ve igual que a una sesión del navegador.
- */
-function clienteDelToken(token: string) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) return null;
-
-  return createSupabaseClient(url, anon, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-}
-
-/** Saca el token del header, o null si no vino uno usable. */
-function tokenDeLaPeticion(req: Request): string | null {
-  const header = req.headers.get("authorization") ?? "";
-  const token = header.replace(/^Bearer\s+/i, "").trim();
-  return token.length > 0 ? token : null;
-}
-
-/**
  * GET /api/invitaciones/pedido?id=<uuid>
  *
  * El pedido y CÓMO pagarlo, para la pantalla de pago del app. Los
@@ -60,15 +38,11 @@ function tokenDeLaPeticion(req: Request): string | null {
  * obligaría a publicar una versión nueva en las tiendas.
  */
 export async function GET(req: Request) {
-  const token = tokenDeLaPeticion(req);
-  if (!token) {
+  const sesion = await sesionDesdeBearer(req);
+  if (!sesion) {
     return Response.json({ ok: false, error: SIN_SESION }, { status: 401 });
   }
-
-  const supabase = clienteDelToken(token);
-  if (!supabase) {
-    return Response.json({ ok: false, error: "Servidor sin configurar." }, { status: 500 });
-  }
+  const { supabase } = sesion;
 
   const id = new URL(req.url).searchParams.get("id") ?? "";
   if (!id) {
@@ -116,25 +90,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const token = tokenDeLaPeticion(req);
-  if (!token) {
+  const sesion = await sesionDesdeBearer(req);
+  if (!sesion) {
     return Response.json({ ok: false, error: SIN_SESION }, { status: 401 });
   }
-
-  const supabase = clienteDelToken(token);
-  if (!supabase) {
-    return Response.json(
-      { ok: false, error: "El servidor no está configurado para recibir pedidos." },
-      { status: 500 },
-    );
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return Response.json({ ok: false, error: SIN_SESION }, { status: 401 });
-  }
+  const { supabase, usuarioId, correo } = sesion;
 
   let cuerpo: { paquete?: unknown; datos?: DatosPedido };
   try {
@@ -145,8 +105,8 @@ export async function POST(req: Request) {
 
   const resultado = await crearPedidoInvitacion({
     supabase,
-    clienteId: user.id,
-    correoCuenta: user.email ?? null,
+    clienteId: usuarioId,
+    correoCuenta: correo,
     paqueteId: String(cuerpo.paquete ?? ""),
     datos: cuerpo.datos ?? {},
   });
@@ -168,25 +128,11 @@ export async function POST(req: Request) {
  * Body: { pedidoId, metodo, comprobanteUrl, referencia? }
  */
 export async function PATCH(req: Request) {
-  const token = tokenDeLaPeticion(req);
-  if (!token) {
+  const sesion = await sesionDesdeBearer(req);
+  if (!sesion) {
     return Response.json({ ok: false, error: SIN_SESION }, { status: 401 });
   }
-
-  const supabase = clienteDelToken(token);
-  if (!supabase) {
-    return Response.json(
-      { ok: false, error: "El servidor no está configurado para recibir pagos." },
-      { status: 500 },
-    );
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return Response.json({ ok: false, error: SIN_SESION }, { status: 401 });
-  }
+  const { supabase, usuarioId } = sesion;
 
   let cuerpo: {
     pedidoId?: unknown;
@@ -203,7 +149,7 @@ export async function PATCH(req: Request) {
   const resultado = await registrarPagoPedido({
     supabase,
     pedidoId: String(cuerpo.pedidoId ?? ""),
-    clienteId: user.id,
+    clienteId: usuarioId,
     metodo: String(cuerpo.metodo ?? "").trim(),
     comprobanteUrl: String(cuerpo.comprobanteUrl ?? "").trim(),
     referencia: String(cuerpo.referencia ?? "").trim() || null,

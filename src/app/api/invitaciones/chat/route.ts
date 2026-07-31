@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { sesionDesdeBearer } from "@/lib/supabase/bearer";
 import { calcularCostoUSD } from "@/lib/ia/token-counter";
 
 /**
@@ -71,11 +72,21 @@ interface MensajeChat {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    // El sitio autentica por cookies; la app móvil manda su token en
+    // el header. Se prueba el token primero porque una petición del
+    // app nunca trae cookies y no tiene sentido ir a buscarlas.
+    const sesionApp = await sesionDesdeBearer(request);
+    let autenticado = sesionApp !== null;
+
+    if (!autenticado) {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      autenticado = user !== null;
+    }
+
+    if (!autenticado) {
       return Response.json(
         { success: false, error: "No autenticado" },
         { status: 401 }
