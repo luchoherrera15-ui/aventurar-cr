@@ -8,6 +8,14 @@
 export const Colors = {
   navy: "#16295e",
   navyDark: "#0f1d45",
+  // Los dos escalones intermedios del navy y el azul claro: los mismos
+  // --color-aventurea-navy-2/-3 y -blue/-blue-light de globals.css. Se
+  // usan donde la web pide una escala de azules (los lienzos del
+  // catálogo de invitaciones) en vez de un solo navy plano.
+  navy2: "#22397c",
+  navy3: "#2f4a94",
+  blue: "#3b7fc4",
+  blueLight: "#e8f0f9",
   accent: "#ee7420",
   accentLight: "#fdeee1",
   green: "#1f7a4d",

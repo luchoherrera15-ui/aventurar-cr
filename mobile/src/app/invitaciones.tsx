@@ -25,6 +25,7 @@ import {
   precioPaquete,
   type PaqueteInvitacion,
 } from "@/lib/paquetes-invitaciones";
+import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
@@ -307,6 +308,48 @@ export default function InvitacionesScreen() {
           </>
         )}
 
+        {/* La vitrina de diseños — espejo de "Diseños listos para
+            enamorarte" de la web. Cada card abre la demo real en el
+            navegador. Lienzos azules SÓLIDOS de la paleta, sin
+            degradados, igual que allá. */}
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>Diseños listos para enamorarte</Text>
+          <Text style={styles.seccionSubtitulo}>
+            Tocá cualquiera y vivila como la viviría tu invitado — cada una es
+            una invitación real. Y si querés algo único, lo diseñamos desde cero.
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.vitrina}
+          >
+            {CATALOGO_INVITACIONES.map((d) => (
+              <Pressable
+                key={d.slug}
+                accessibilityRole="button"
+                accessibilityLabel={`Ver la demo de ${d.nombre}`}
+                onPress={() =>
+                  void WebBrowser.openBrowserAsync(`${SITIO_URL}/i/${d.slug}`)
+                }
+                style={({ pressed }) => [styles.demo, pressed && { opacity: 0.9 }]}
+              >
+                <View style={[styles.demoLienzo, { backgroundColor: d.lienzo }]}>
+                  <Ionicons name={d.icono} size={26} color={d.tintaIcono} />
+                </View>
+                <View style={styles.demoCuerpo}>
+                  <Text style={styles.demoOcasion} numberOfLines={1}>
+                    {d.ocasion.toUpperCase()}
+                  </Text>
+                  <Text style={styles.demoNombre} numberOfLines={1}>
+                    {d.nombre}
+                  </Text>
+                  <Text style={styles.demoVivir}>Vivir la demo →</Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
         {/* Los tres paquetes a la venta — siempre visibles, con o sin
             sesión, igual que la landing /invitaciones de la web. */}
         <View style={styles.seccion}>
@@ -428,6 +471,32 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.medium,
     fontSize: 13,
     lineHeight: 19,
+  },
+  // La vitrina va en riel horizontal: cinco cards apiladas empujarían
+  // los paquetes (que es lo que se vende) demasiado abajo.
+  vitrina: { gap: Spacing.two, paddingBottom: 4, paddingRight: Spacing.three },
+  demo: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: "hidden",
+    width: 190,
+  },
+  demoLienzo: { alignItems: "center", height: 84, justifyContent: "center" },
+  demoCuerpo: { gap: 1, padding: Spacing.two + 2 },
+  demoOcasion: {
+    color: Colors.navy,
+    fontFamily: Fonts.extraBold,
+    fontSize: 9.5,
+    letterSpacing: 0.6,
+  },
+  demoNombre: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 14 },
+  demoVivir: {
+    color: Colors.accent,
+    fontFamily: Fonts.extraBold,
+    fontSize: 11.5,
+    marginTop: 2,
   },
   tarjeta: {
     backgroundColor: Colors.surface,
