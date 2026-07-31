@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { IconImagePlus, IconVideoPlus, IconX } from "./icons";
 
@@ -89,11 +89,6 @@ export default function UploadZone({
   const [dragActive, setDragActive] = useState<Tipo | null>(null);
   const [aviso, setAviso] = useState("");
   const [subiendo, setSubiendo] = useState(0);
-  const inputRefs = {
-    imagenes: useRef<HTMLInputElement>(null),
-    videos: useRef<HTMLInputElement>(null),
-    audios: useRef<HTMLInputElement>(null),
-  };
 
   const valores: Record<Tipo, string[]> = { imagenes, videos, audios };
   const setters: Record<Tipo, (urls: string[]) => void> = {
@@ -196,16 +191,13 @@ export default function UploadZone({
 
   const ocupado = disabled || subiendo > 0;
 
-  /** Las props que comparten las tres cajas; se arman una sola vez. */
-  const propsCaja = (tipo: Tipo) => ({
-    tipo,
-    activa: dragActive === tipo,
+  /** Lo que las tres cajas comparten tal cual. */
+  const comunes = {
     ocupado,
-    inputRef: inputRefs[tipo],
     onDrag: handleDrag,
     onDrop: handleDrop,
     onFileChange: handleFileChange,
-  });
+  };
 
   return (
     <div className="grid gap-6">
@@ -222,7 +214,9 @@ export default function UploadZone({
 
       <div>
         <CajaSubida
-          {...propsCaja("imagenes")}
+          {...comunes}
+          tipo="imagenes"
+          activa={dragActive === "imagenes"}
           icono={
             <IconImagePlus className="mb-0.5 mr-1.5 inline h-4 w-4 text-aventurea-orange" />
           }
@@ -250,7 +244,9 @@ export default function UploadZone({
 
       <div>
         <CajaSubida
-          {...propsCaja("videos")}
+          {...comunes}
+          tipo="videos"
+          activa={dragActive === "videos"}
           icono={
             <IconVideoPlus className="mb-0.5 mr-1.5 inline h-4 w-4 text-aventurea-orange" />
           }
@@ -274,7 +270,12 @@ export default function UploadZone({
       </div>
 
       <div>
-        <CajaSubida {...propsCaja("audios")} icono={<IconNota />} />
+        <CajaSubida
+          {...comunes}
+          tipo="audios"
+          activa={dragActive === "audios"}
+          icono={<IconNota />}
+        />
         {audios.length > 0 && (
           <ul className="mt-3 grid gap-2">
             {audios.map((aud, idx) => (
@@ -310,7 +311,6 @@ function CajaSubida({
   icono,
   activa,
   ocupado,
-  inputRef,
   onDrag,
   onDrop,
   onFileChange,
@@ -319,20 +319,23 @@ function CajaSubida({
   icono: React.ReactNode;
   activa: boolean;
   ocupado: boolean;
-  inputRef: React.RefObject<HTMLInputElement | null>;
   onDrag: (e: React.DragEvent, tipo: Tipo) => void;
   onDrop: (e: React.DragEvent, tipo: Tipo) => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>, tipo: Tipo) => void;
 }) {
   const { titulo, accept, formatos } = AJUSTES[tipo];
+  const id = `subir-${tipo}`;
   return (
     <div>
       <h4 className="mb-3 text-[13px] font-bold text-aventurea-ink">
         {icono}
         {titulo}
       </h4>
-      <div
-        className={`relative rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
+      {/* El <label> abre el selector sin necesidad de un ref: el input
+          vive adentro, escondido, y el clic en la caja lo dispara. */}
+      <label
+        htmlFor={id}
+        className={`relative block rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
           activa
             ? "border-aventurea-orange bg-aventurea-orange/10"
             : "border-aventurea-line bg-aventurea-cream-2 hover:border-aventurea-orange/50"
@@ -341,10 +344,9 @@ function CajaSubida({
         onDragLeave={(e) => onDrag(e, tipo)}
         onDragOver={(e) => onDrag(e, tipo)}
         onDrop={(e) => onDrop(e, tipo)}
-        onClick={() => !ocupado && inputRef.current?.click()}
       >
         <input
-          ref={inputRef}
+          id={id}
           type="file"
           multiple
           accept={accept}
@@ -356,7 +358,7 @@ function CajaSubida({
           Arrastrá {titulo.toLowerCase()} aquí o clickeá
         </p>
         <p className="text-[11.5px] text-aventurea-ink-soft">{formatos}</p>
-      </div>
+      </label>
     </div>
   );
 }
