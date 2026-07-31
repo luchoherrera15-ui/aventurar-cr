@@ -335,6 +335,27 @@ body {
   }
 }
 
+/* El avisito de invitaciones digitales en la página del rancho: entra
+   discreto desde abajo, sin robarle protagonismo a la reserva. */
+@keyframes aviso-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.anim-aviso-entrar {
+  animation: aviso-entrar 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-aviso-entrar {
+    animation: none;
+  }
+}
+
 /* --- La línea de diseño "bento" (nacida en /lealtad y /publicar) ------
    Bloques grandes de 18px de radio sobre el lienzo crema, con cuatro
    pieles: navy (protagonista), naranja (acento), azul suave (secciones

@@ -37,6 +37,7 @@ import {
 } from "./[id]/portal-secciones";
 import ReservaServicio from "./[id]/reserva-servicio";
 import ProveedorActual from "@/components/proveedor-actual";
+import AvisoInvitacionesFlotante from "@/components/aviso-invitaciones-flotante";
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
@@ -251,6 +252,11 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       {!puedeModificar && (
         <ProveedorActual ranchoId={rancho.id} nombre={rancho.nombre} />
       )}
+      {/* Quien está eligiendo dónde hacer su evento es quien va a
+          necesitar mandar invitaciones: el avisito va abajo a la
+          izquierda y se aparta solo cuando se abre el calendario. Al
+          dueño no se le muestra: él no viene a reservarse a sí mismo. */}
+      {!puedeModificar && <AvisoInvitacionesFlotante conBarraMovil={esLugar} />}
       {/* Header liviano a propósito: logo + nombre, el botón de dueño
           si aplica, y el menú. "Publicá tu espacio" y "Ver todos los
           espacios" viven en el menú — acá solo estorbaban. */}

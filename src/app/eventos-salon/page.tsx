@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import ProveedorActual from "@/components/proveedor-actual";
+import AvisoInvitacionesFlotante from "@/components/aviso-invitaciones-flotante";
 import BookingCalendar from "./booking-calendar";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
@@ -68,6 +69,10 @@ export default async function EventosSalonPage() {
       {/* La burbuja de chat flotante abre el chat con este proveedor
           mientras se está en su página. */}
       <ProveedorActual ranchoId={rancho.id} nombre="Bookea · Rancho de Eventos" />
+      {/* La misma venta cruzada suave que en el portal de cualquier
+          rancho: acá el calendario va en la página, así que el aviso se
+          aparta apenas alguien salta a #reservar. */}
+      <AvisoInvitacionesFlotante />
       <SiteHeader
         breadcrumb="Rancho de Eventos"
         ancho="max-w-[1080px]"
