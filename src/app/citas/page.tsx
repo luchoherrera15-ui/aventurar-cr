@@ -3,7 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SelectorVertical from "@/components/selector-vertical";
-import { IconClock, IconPin, IconSearch, IconStar } from "@/components/icons";
+import BarraFiltrosDirectorio from "@/components/barra-filtros-directorio";
+import { IconClock, IconPin, IconStar } from "@/components/icons";
 import {
   CATEGORIAS_CITAS,
   CATEGORIA_CITA_LABEL,
@@ -67,7 +68,14 @@ export default async function CitasPage({
   searchParams: Promise<{ categoria?: string | string[]; q?: string | string[] }>;
 }) {
   const params = await searchParams;
-  const categoria = unSolo(params.categoria);
+  const categoriaParam = unSolo(params.categoria);
+  // Una categoría inventada en la URL no debe vaciar el directorio:
+  // si no es una de las nuestras, se ignora y se ven todos.
+  const categoria = (CATEGORIAS_CITAS as readonly string[]).includes(
+    categoriaParam ?? "",
+  )
+    ? (categoriaParam as CategoriaCita)
+    : undefined;
   const q = unSolo(params.q);
   const busqueda = (q ?? "").trim();
   const supabase = await createClient();
@@ -139,39 +147,29 @@ export default async function CitasPage({
           <SelectorVertical activo="citas" />
         </div>
 
-        {/* El buscador de agendas: filtra por nombre, zona o rubro.
-            Es un form GET — Enter busca, sin JavaScript de por medio. */}
-        <form method="get" action="/citas" className="mx-auto max-w-[640px]">
-          {categoria && <input type="hidden" name="categoria" value={categoria} />}
-          <div className="relative">
-            <IconSearch className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-aventurea-ink-soft" />
-            <input
-              type="search"
-              name="q"
-              aria-label="Buscar negocios por nombre, zona o rubro"
-              defaultValue={busqueda}
-              placeholder='Buscá por nombre, zona o rubro — ej. "uñas" o "Moravia"'
-              className="h-12 w-full rounded-full border border-aventurea-line bg-white pl-11 pr-4 text-[13.5px] text-aventurea-ink placeholder:text-zinc-400 focus:border-aventurea-navy focus:outline-none"
-            />
-          </div>
-        </form>
-
-        {/* Categorías */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <ChipCategoria
-            href={busqueda ? `/citas?q=${encodeURIComponent(busqueda)}` : "/citas"}
-            activo={!categoria}
-            label={`Todos (${baseBusqueda.length})`}
-          />
-          {CATEGORIAS_CITAS.filter((c) => (conteo[c] ?? 0) > 0).map((c) => (
-            <ChipCategoria
-              key={c}
-              href={`/citas?categoria=${c}${busqueda ? `&q=${encodeURIComponent(busqueda)}` : ""}`}
-              activo={categoria === c}
-              label={`${CATEGORIA_CITA_LABEL[c]} (${conteo[c]})`}
-            />
-          ))}
-        </div>
+        {/* Buscador + panel de filtros. Las categorías salían como una
+            tira de chips que comía dos líneas antes de que se viera un
+            solo negocio; ahora viven dentro del panel y afuera solo
+            queda lo que el visitante está usando de verdad. */}
+        <BarraFiltrosDirectorio
+          ruta="/citas"
+          ariaLabel="Buscar negocios por nombre, zona o rubro"
+          placeholder='Buscá por nombre, zona o rubro — ej. "uñas" o "Moravia"'
+          tituloPanel="Tipo de servicio"
+          quitarCategoria="Quitar el filtro de servicio"
+          categoria={categoria}
+          labelCategoria={categoria ? CATEGORIA_CITA_LABEL[categoria] : undefined}
+          busqueda={busqueda}
+          totalSinFiltro={baseBusqueda.length}
+          resultados={filtrados.length}
+          opciones={CATEGORIAS_CITAS.filter((c) => (conteo[c] ?? 0) > 0).map(
+            (c) => ({
+              valor: c,
+              label: CATEGORIA_CITA_LABEL[c],
+              conteo: conteo[c] ?? 0,
+            }),
+          )}
+        />
 
         {filtrados.length === 0 && negocios.length > 0 ? (
           <div className="bento bento-blanco mt-10 p-10 text-center shadow-sm">
@@ -330,25 +328,3 @@ function CardNegocio({
   );
 }
 
-function ChipCategoria({
-  href,
-  activo,
-  label,
-}: {
-  href: string;
-  activo: boolean;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`rounded-full border px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
-        activo
-          ? "border-aventurea-navy bg-aventurea-navy text-white"
-          : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
-      }`}
-    >
-      {label}
-    </Link>
-  );
-}
