@@ -1,5 +1,6 @@
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import PaquetesInvitaciones from "@/components/paquetes-invitaciones";
 import { createClient } from "@/lib/supabase/server";
@@ -457,18 +458,38 @@ export default async function InvitacionesLanding() {
            clientes reales (src/lib/catalogo-invitaciones.ts) -------- */}
       <section
         id="catalogo"
-        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] bg-aventurea-navy py-14 lg:mx-auto"
+        className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-[32px] border border-aventurea-line bg-white py-14 lg:mx-auto"
       >
         <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
-          <div data-reveal className="text-center">
-            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
-              Tocá cualquiera y vivila
-            </p>
-            <h2 className="titulo mt-2 text-[28px] text-white sm:text-[34px]">
-              Invitaciones que ya están andando
-            </h2>
+          <div
+            data-reveal
+            className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3"
+          >
+            <div>
+              <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+                Catálogo
+              </p>
+              <h2 className="titulo mt-2 text-[28px] text-aventurea-ink sm:text-[34px]">
+                Invitaciones que ya están andando
+              </h2>
+              <p className="mt-2 max-w-[54ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                Cada una es una invitación de verdad, abierta al público. Tocá
+                la que te guste y vivila como la viviría tu invitado.
+              </p>
+            </div>
+            <Link
+              href="#paquetes"
+              className="shrink-0 text-[13.5px] font-extrabold text-aventurea-navy hover:text-aventurea-orange"
+            >
+              Quiero la mía →
+            </Link>
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+          {/* Riel: las invitaciones se ven como invitaciones — lienzo
+              vertical con su nombre en serif, no un ícono en una caja.
+              El scroll horizontal evita los huecos del grid cuando el
+              catálogo no llena la última fila. */}
+          <div className="mt-9 flex snap-x gap-4 overflow-x-auto pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {catalogo.map((d, i) => (
               <CardDemo key={d.slug} demo={d} orden={i} />
             ))}
@@ -541,6 +562,8 @@ export default async function InvitacionesLanding() {
           </div>
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }
@@ -840,35 +863,69 @@ function FilaConfirmacion({
 }
 
 /** Una card del catálogo: el lienzo manda y el texto acompaña. */
+/**
+ * Una invitación del catálogo, con forma de invitación: lienzo
+ * vertical con su paleta, la ocasión en versalitas y el nombre en
+ * serif — como se ve el diseño real al abrirlo. El ícono queda de
+ * remate, no de protagonista.
+ */
 function CardDemo({ demo: d, orden }: { demo: EntradaCatalogo; orden: number }) {
+  // Los lienzos claros llevan tinta navy; los oscuros, blanca. La
+  // pista está en el color que el catálogo eligió para el ícono.
+  const claro = d.iconoClase.includes("navy");
+  const tinta = claro ? "text-aventurea-navy" : "text-white";
+  const tintaSuave = claro ? "text-aventurea-navy/55" : "text-white/60";
+  const linea = claro ? "bg-aventurea-navy/25" : "bg-white/30";
+
   return (
     <Link
       href={`/invitacion/${d.slug}`}
       title={d.descripcion}
       data-reveal
       style={{ "--reveal-delay": `${orden * 70}ms` } as React.CSSProperties}
-      className="group overflow-hidden rounded-3xl bg-white transition-transform hover:-translate-y-1"
+      className="group w-[210px] shrink-0 snap-start sm:w-[232px]"
     >
       <div
-        className={`flex h-[132px] items-center justify-center ${d.lienzo}`}
+        className={`relative flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-[22px] px-6 text-center shadow-[0_16px_40px_-22px_rgba(16,26,44,0.55)] transition-transform duration-300 group-hover:-translate-y-1.5 ${d.lienzo}`}
       >
+        {/* El brillo de esquina que llevan las invitaciones reales */}
         <span
-          className={`transition-transform group-hover:scale-110 ${d.iconoClase} [&_svg]:h-11 [&_svg]:w-11`}
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/10 blur-2xl"
+        />
+
+        <span
+          className={`relative text-[9px] font-extrabold uppercase tracking-[0.26em] ${tintaSuave}`}
+        >
+          {d.ocasion}
+        </span>
+        <p
+          className={`relative mt-3 text-[23px] italic leading-[1.15] ${tinta}`}
+          style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+        >
+          {d.nombre}
+        </p>
+        <span className={`relative mt-3.5 h-px w-9 ${linea}`} />
+        <span
+          className={`relative mt-3.5 transition-transform duration-300 group-hover:scale-110 ${d.iconoClase} [&_svg]:h-6 [&_svg]:w-6`}
         >
           {ICONO_DEMO[d.icono]}
         </span>
+
+        {/* Al pasar el mouse, la invitación invita */}
+        <span
+          className={`absolute inset-x-0 bottom-0 translate-y-full bg-black/25 py-2.5 text-[11.5px] font-extrabold backdrop-blur-sm transition-transform duration-300 group-hover:translate-y-0 ${claro ? "text-aventurea-navy" : "text-white"}`}
+        >
+          {d.generada ? "Ver la muestra" : "Abrir la invitación"}
+        </span>
       </div>
-      <div className="p-5">
-        <p className="truncate text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-navy">
-          {d.ocasion}
-        </p>
-        <p className="mt-1 truncate text-[16px] font-extrabold text-aventurea-ink">
-          {d.nombre}
-        </p>
-        <p className="mt-2 text-[12.5px] font-extrabold text-aventurea-orange">
-          {d.generada ? "Ver la muestra →" : "Vivir la demo →"}
-        </p>
-      </div>
+
+      <p className="mt-3 truncate text-[13.5px] font-extrabold text-aventurea-ink">
+        {d.nombre}
+      </p>
+      <p className="text-[12px] font-extrabold text-aventurea-orange">
+        {d.generada ? "Ver la muestra →" : "Vivir la demo →"}
+      </p>
     </Link>
   );
 }
