@@ -122,18 +122,19 @@ export default function InvitacionesLanding() {
           />
         </div>
 
-        {/* ---------- Ofrecemos: todo lo que incluye el producto ---------- */}
+        {/* ---------- Ofrecemos: todo lo que incluye el producto,
+            compacto — la letra grande vive en los paquetes ---------- */}
         <div
           data-reveal
-          className="mt-5 rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-10 sm:px-10 sm:py-12"
+          className="mt-5 rounded-3xl border border-aventurea-line bg-aventurea-surface px-6 py-7 sm:px-8 sm:py-8"
         >
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-aventurea-orange">
             <IconSparkles className="h-4 w-4" /> Ofrecemos
           </p>
-          <h2 className="titulo mt-2 max-w-[26ch] text-[clamp(22px,3.5vw,30px)] text-aventurea-ink">
+          <h2 className="titulo mt-2 max-w-[26ch] text-[clamp(19px,3vw,24px)] text-aventurea-ink">
             Todo lo que incluye tu invitación
           </h2>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icono: <IconMail className="h-5 w-5" />,
@@ -180,29 +181,28 @@ export default function InvitacionesLanding() {
             ].map((f) => (
               <div
                 key={f.titulo}
-                className="flex items-start gap-3.5 rounded-2xl border border-aventurea-line bg-white p-5"
+                className="flex items-start gap-3 rounded-2xl border border-aventurea-line bg-white p-4"
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-4 [&_svg]:w-4">
                   {f.icono}
                 </span>
                 <div>
-                  <h3 className="text-[15px] font-extrabold tracking-[-0.2px] text-aventurea-ink">
+                  <h3 className="text-[13.5px] font-extrabold tracking-[-0.2px] text-aventurea-ink">
                     {f.titulo}
                   </h3>
-                  <p className="mt-1 text-[13px] leading-relaxed text-aventurea-ink-soft">
+                  <p className="mt-1 text-[12px] leading-snug text-aventurea-ink-soft">
                     {f.texto}
                   </p>
                 </div>
               </div>
             ))}
-            {/* La nota que amarra todo: se configura según el paquete. */}
-            {/* En sm (2 columnas) ocupa 1 celda para cerrar la cuadrícula
-                sin huecos (7+1=8); en lg (3 columnas) se extiende a 2. */}
-            <div className="flex items-center gap-3.5 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 p-5 lg:col-span-2">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aventurea-orange/15 text-aventurea-orange">
-                <IconWand className="h-5 w-5" />
+            {/* La nota que amarra todo: 7 features + esta celda = 8, la
+                cuadrícula cierra exacta en 2 y 4 columnas, sin huecos. */}
+            <div className="flex items-center gap-3 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 p-4">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-orange/15 text-aventurea-orange">
+                <IconWand className="h-4 w-4" />
               </span>
-              <p className="text-[14px] font-bold leading-relaxed text-aventurea-ink">
+              <p className="text-[12.5px] font-bold leading-snug text-aventurea-ink">
                 Totalmente configurables según el tipo de invitación que
                 elijás — vos decidís qué lleva la tuya.
               </p>

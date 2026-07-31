@@ -1,21 +1,23 @@
-import Link from "next/link";
-import { IconCheck } from "@/components/icons";
+import { IconCheck, IconChevronDown } from "@/components/icons";
+import InvitacionesComparador from "@/components/invitaciones-comparador";
 import { pedirPaquete } from "@/app/invitaciones/actions";
 import {
   PAQUETE_BASE,
   PAQUETES_INVITACIONES,
+  PAQUETES_PRINCIPALES,
   precioPaquete,
   type PaqueteInvitacion,
+  type PaquetePrincipal,
 } from "@/lib/paquetes-invitaciones";
 
 /**
- * Las tres price cards de Invitaciones Digitales, en el bento de la
- * marca: la del medio ("El favorito") va en navy sólido y las otras en
- * blanco con borde. Cada botón dispara la server action que abre el
- * pedido por chat con el negocio de Invitaciones de Bookea.
- *
- * `disposicion`: "fila" (3 columnas en pantallas anchas — la landing)
- * o "pila" (una debajo de otra — el espacio angosto de /cuenta).
+ * Los paquetes de Invitaciones Digitales:
+ * - Los tres PRINCIPALES (Básico / Intermedio / Plus) siempre a la
+ *   vista, compactos, con "Ver más" para extender cada card.
+ * - Los packs con álbumes digitales (Destello / Celebración / Legado)
+ *   plegados tras "Ver packs con álbumes digitales".
+ * - Una nota compacta del paquete Base (₡12 500 con reserva).
+ * Todo con <details> nativo: cero JavaScript, funciona en el server.
  */
 export default function PaquetesInvitaciones({
   titulo = "Elegí tu paquete",
@@ -35,79 +37,68 @@ export default function PaquetesInvitaciones({
         <h2 className="titulo mx-auto mt-2 max-w-[24ch] text-[clamp(22px,3.5vw,30px)] text-aventurea-ink">
           {titulo}
         </h2>
-        <p className="mx-auto mt-2.5 max-w-[52ch] text-[14px] leading-relaxed text-aventurea-ink-soft">
+        <p className="mx-auto mt-2.5 max-w-[52ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
           {intro}
         </p>
       </div>
 
+      {/* Los tres principales, siempre visibles */}
       <div
         className={
           disposicion === "fila"
-            ? "mt-8 grid items-stretch gap-5 md:grid-cols-3"
-            : "mt-8 grid gap-5"
+            ? "mt-7 grid items-start gap-4 md:grid-cols-3"
+            : "mt-7 grid gap-4"
         }
       >
-        {PAQUETES_INVITACIONES.map((p) => (
-          <CardPaquete key={p.id} paquete={p} />
+        {PAQUETES_PRINCIPALES.map((p) => (
+          <CardPrincipal key={p.id} paquete={p} />
         ))}
       </div>
 
-      {/* El paquete Base: no compite en la fila — es el beneficio de
-          quienes reservan su espacio en Bookea, y acá se explica. */}
-      <div className="mt-5 flex flex-col gap-5 rounded-[24px] border border-aventurea-orange/25 bg-aventurea-orange/5 p-7 md:flex-row md:items-center">
-        <div className="flex-1">
-          <span className="inline-flex w-fit items-center rounded-full bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white">
-            {PAQUETE_BASE.badge}
-          </span>
-          <h3 className="titulo mt-3 text-[20px] text-aventurea-ink">
-            {PAQUETE_BASE.nombre}
-            <span className="ml-2.5 text-[24px] font-extrabold tracking-[-0.5px]">
-              {precioPaquete(PAQUETE_BASE.precio)}
-            </span>
-            <span className="ml-1.5 text-[12.5px] font-semibold text-aventurea-ink-soft">
-              por evento
-            </span>
-          </h3>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-aventurea-ink-soft">
-            {PAQUETE_BASE.lema}
-          </p>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-3 sm:gap-3">
-            {PAQUETE_BASE.incluye.map((linea) => (
-              <li
-                key={linea}
-                className="flex items-start gap-2 text-[12.5px] leading-snug text-aventurea-ink"
-              >
-                <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-aventurea-green" />
-                {linea}
-              </li>
-            ))}
-          </ul>
+      {/* El comparador interactivo: qué cambia entre paquete y paquete,
+          contado con un mockup en vez de con letra. */}
+      <InvitacionesComparador />
+
+      {/* La nota del Base: compacta, sin robar protagonismo */}
+      <p className="mx-auto mt-4 max-w-[64ch] rounded-xl border border-aventurea-orange/25 bg-aventurea-orange/5 px-4 py-2.5 text-center text-[12.5px] leading-relaxed text-aventurea-ink">
+        ¿Reservaste tu salón o servicio en Bookea? Tenés la invitación{" "}
+        <strong className="font-extrabold">{PAQUETE_BASE.nombre}</strong>{" "}
+        generada con IA por{" "}
+        <strong className="font-extrabold">{precioPaquete(PAQUETE_BASE.precio)}</strong>{" "}
+        — la oferta aparece al completar tu reserva.
+      </p>
+
+      {/* Los packs con álbumes digitales, plegados */}
+      <details className="group mt-6">
+        <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-2 rounded-xl border border-aventurea-line bg-white px-6 py-3 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy [&::-webkit-details-marker]:hidden">
+          Ver packs con álbumes digitales
+          <IconChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+        </summary>
+        <div
+          className={
+            disposicion === "fila"
+              ? "mt-5 grid items-stretch gap-4 md:grid-cols-3"
+              : "mt-5 grid gap-4"
+          }
+        >
+          {PAQUETES_INVITACIONES.map((p) => (
+            <CardPaquete key={p.id} paquete={p} />
+          ))}
         </div>
-        <div className="shrink-0 text-center md:w-[200px]">
-          <Link
-            href="/eventos"
-            className="inline-block w-full rounded-xl bg-aventurea-navy px-6 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
-          >
-            Reservar un espacio →
-          </Link>
-          <p className="mt-2 text-[10.5px] leading-relaxed text-aventurea-ink-soft">
-            La oferta aparece al completar tu reserva de salón o servicio.
-          </p>
-        </div>
-      </div>
+      </details>
     </section>
   );
 }
 
-/** Una price card; la destacada vive en navy y las demás en blanco. */
-function CardPaquete({ paquete }: { paquete: PaqueteInvitacion }) {
+/** Una card principal compacta: 3 líneas a la vista y "Ver más". */
+function CardPrincipal({ paquete }: { paquete: PaquetePrincipal }) {
   const { destacado } = paquete;
   return (
     <div
       className={
         destacado
-          ? "relative flex flex-col rounded-[24px] bg-aventurea-navy p-7 text-white shadow-[0_24px_60px_-24px_rgba(16,26,44,0.55)] md:-translate-y-2"
-          : "relative flex flex-col rounded-[24px] border border-aventurea-line bg-white p-7 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)]"
+          ? "relative flex flex-col rounded-[24px] bg-aventurea-navy p-6 text-white shadow-[0_24px_60px_-24px_rgba(16,26,44,0.55)]"
+          : "relative flex flex-col rounded-[24px] border border-aventurea-line bg-white p-6 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)]"
       }
     >
       <span
@@ -121,39 +112,35 @@ function CardPaquete({ paquete }: { paquete: PaqueteInvitacion }) {
       </span>
 
       <h3
-        className={`titulo mt-4 text-[22px] ${
-          destacado ? "text-white" : "text-aventurea-ink"
-        }`}
+        className={`titulo mt-3.5 text-[20px] ${destacado ? "text-white" : "text-aventurea-ink"}`}
       >
         {paquete.nombre}
+        <span className="ml-2 text-[22px] font-extrabold tracking-[-0.5px]">
+          {paquete.precioEtiqueta}
+        </span>
+        {paquete.precioEtiqueta.startsWith("$") && (
+          <span
+            className={`ml-1.5 text-[12px] font-semibold ${
+              destacado ? "text-white/60" : "text-aventurea-ink-soft"
+            }`}
+          >
+            por evento
+          </span>
+        )}
       </h3>
       <p
-        className={`mt-1 text-[26px] font-extrabold tracking-[-0.5px] ${
-          destacado ? "text-white" : "text-aventurea-ink"
-        }`}
-      >
-        {precioPaquete(paquete.precio)}
-        <span
-          className={`ml-1.5 text-[12.5px] font-semibold ${
-            destacado ? "text-white/60" : "text-aventurea-ink-soft"
-          }`}
-        >
-          por evento
-        </span>
-      </p>
-      <p
-        className={`mt-2 text-[13px] leading-relaxed ${
+        className={`mt-1.5 text-[12.5px] leading-relaxed ${
           destacado ? "text-white/75" : "text-aventurea-ink-soft"
         }`}
       >
         {paquete.lema}
       </p>
 
-      <ul className="mt-4 grid gap-2.5">
+      <ul className="mt-3.5 grid gap-2">
         {paquete.incluye.map((linea) => (
           <li
             key={linea}
-            className={`flex items-start gap-2 text-[13.5px] leading-snug ${
+            className={`flex items-start gap-2 text-[13px] leading-snug ${
               destacado ? "text-white/90" : "text-aventurea-ink"
             }`}
           >
@@ -167,13 +154,128 @@ function CardPaquete({ paquete }: { paquete: PaqueteInvitacion }) {
         ))}
       </ul>
 
-      <form action={pedirPaquete.bind(null, paquete.id)} className="mt-6 flex flex-1 items-end">
+      {/* "Ver más": extiende el rectángulo con el resto del detalle */}
+      <details className="group/mas mt-2.5">
+        <summary
+          className={`flex cursor-pointer list-none items-center gap-1.5 text-[12.5px] font-bold [&::-webkit-details-marker]:hidden ${
+            destacado
+              ? "text-[#f5b98a] hover:text-white"
+              : "text-aventurea-navy hover:text-aventurea-orange"
+          }`}
+        >
+          Ver más
+          <IconChevronDown className="h-3.5 w-3.5 transition-transform group-open/mas:rotate-180" />
+        </summary>
+        <ul className="mt-2.5 grid gap-2">
+          {paquete.detalle.map((linea) => (
+            <li
+              key={linea}
+              className={`flex items-start gap-2 text-[13px] leading-snug ${
+                destacado ? "text-white/90" : "text-aventurea-ink"
+              }`}
+            >
+              <IconCheck
+                className={`mt-0.5 h-4 w-4 shrink-0 ${
+                  destacado ? "text-[#f5b98a]" : "text-aventurea-green"
+                }`}
+              />
+              {linea}
+            </li>
+          ))}
+        </ul>
+      </details>
+
+      <form action={pedirPaquete.bind(null, paquete.id)} className="mt-5 flex flex-1 items-end">
         <button
           type="submit"
           className={
             destacado
-              ? "w-full rounded-xl bg-aventurea-orange px-6 py-3 text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
-              : "w-full rounded-xl bg-aventurea-navy px-6 py-3 text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+              ? "w-full rounded-xl bg-aventurea-orange px-6 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              : "w-full rounded-xl bg-aventurea-navy px-6 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
+          }
+        >
+          Quiero este paquete
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/** Una price card de los packs con álbumes; la destacada vive en navy. */
+function CardPaquete({ paquete }: { paquete: PaqueteInvitacion }) {
+  const { destacado } = paquete;
+  return (
+    <div
+      className={
+        destacado
+          ? "relative flex flex-col rounded-[24px] bg-aventurea-navy p-6 text-white shadow-[0_24px_60px_-24px_rgba(16,26,44,0.55)]"
+          : "relative flex flex-col rounded-[24px] border border-aventurea-line bg-white p-6 shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)]"
+      }
+    >
+      <span
+        className={
+          destacado
+            ? "inline-flex w-fit items-center rounded-full bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
+            : "inline-flex w-fit items-center rounded-full bg-aventurea-orange/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
+        }
+      >
+        {paquete.badge}
+      </span>
+
+      <h3
+        className={`titulo mt-3.5 text-[20px] ${
+          destacado ? "text-white" : "text-aventurea-ink"
+        }`}
+      >
+        {paquete.nombre}
+      </h3>
+      <p
+        className={`mt-1 text-[24px] font-extrabold tracking-[-0.5px] ${
+          destacado ? "text-white" : "text-aventurea-ink"
+        }`}
+      >
+        {precioPaquete(paquete.precio)}
+        <span
+          className={`ml-1.5 text-[12px] font-semibold ${
+            destacado ? "text-white/60" : "text-aventurea-ink-soft"
+          }`}
+        >
+          por evento
+        </span>
+      </p>
+      <p
+        className={`mt-1.5 text-[12.5px] leading-relaxed ${
+          destacado ? "text-white/75" : "text-aventurea-ink-soft"
+        }`}
+      >
+        {paquete.lema}
+      </p>
+
+      <ul className="mt-3.5 grid gap-2">
+        {paquete.incluye.map((linea) => (
+          <li
+            key={linea}
+            className={`flex items-start gap-2 text-[13px] leading-snug ${
+              destacado ? "text-white/90" : "text-aventurea-ink"
+            }`}
+          >
+            <IconCheck
+              className={`mt-0.5 h-4 w-4 shrink-0 ${
+                destacado ? "text-[#f5b98a]" : "text-aventurea-green"
+              }`}
+            />
+            {linea}
+          </li>
+        ))}
+      </ul>
+
+      <form action={pedirPaquete.bind(null, paquete.id)} className="mt-5 flex flex-1 items-end">
+        <button
+          type="submit"
+          className={
+            destacado
+              ? "w-full rounded-xl bg-aventurea-orange px-6 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              : "w-full rounded-xl bg-aventurea-navy px-6 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
           }
         >
           Quiero este paquete

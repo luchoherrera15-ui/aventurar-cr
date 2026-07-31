@@ -67,6 +67,74 @@ export const PAQUETES_INVITACIONES: PaqueteInvitacion[] = [
 ];
 
 /**
+ * Los tres paquetes PRINCIPALES de venta directa: Básico, Intermedio y
+ * Plus. Son los que se ven de una vez en /invitaciones; los de arriba
+ * (con álbumes digitales) quedan plegados tras un "Ver packs con
+ * álbumes digitales".
+ */
+export type PaquetePrincipal = {
+  id: "basico" | "intermedio" | "plus";
+  nombre: string;
+  /** Etiqueta de precio lista para mostrar ("$20" o "Consultanos"). */
+  precioEtiqueta: string;
+  badge: string;
+  destacado?: boolean;
+  lema: string;
+  /** Lo que se ve de una vez (la card compacta). */
+  incluye: string[];
+  /** Lo que aparece al tocar "Ver más". */
+  detalle: string[];
+};
+
+export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
+  {
+    id: "basico",
+    nombre: "Básico",
+    precioEtiqueta: "$20",
+    badge: "Para arrancar",
+    lema: "Tu invitación virtual personalizada, lista para compartir.",
+    incluye: [
+      "Invitación virtual personalizada",
+      "Confirmación vía WhatsApp (la llevás vos, sin sistema)",
+      "Cuenta regresiva al gran día",
+    ],
+    detalle: ["Personalización de diseño básica"],
+  },
+  {
+    id: "intermedio",
+    nombre: "Intermedio",
+    precioEtiqueta: "Consultanos",
+    badge: "El favorito",
+    destacado: true,
+    lema: "Control automático y completo de tu lista de invitados.",
+    incluye: [
+      "Todo lo del paquete Básico",
+      "Confirmación en el website: tus invitados confirman en el link",
+      "Panel en bookea.lat para administrar la lista de invitados",
+    ],
+    detalle: [
+      "Vé en tiempo real quién confirma y quién no puede asistir",
+      "PDFs imprimibles de tu invitación",
+      "Personalización de diseño intermedia",
+    ],
+  },
+  {
+    id: "plus",
+    nombre: "Plus",
+    precioEtiqueta: "Consultanos",
+    badge: "Diseño premium",
+    lema: "Todo lo del Intermedio, con nuestro diseño más alto.",
+    incluye: [
+      "Todo lo del paquete Intermedio",
+      "Diseño Plus: animaciones y acabado premium",
+    ],
+    detalle: [
+      "Personalización al máximo nivel — un diseño creado solo para vos",
+    ],
+  },
+];
+
+/**
  * El paquete Base (₡12 500): la invitación generada con IA, exclusiva
  * para quienes reservan su espacio en Bookea. No viaja por el chat de
  * pedidos: se ofrece en la card post-reserva y acá se explica.

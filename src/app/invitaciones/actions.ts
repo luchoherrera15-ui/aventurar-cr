@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notificarMensajeNuevo } from "@/lib/notificaciones-mensaje";
 import {
   PAQUETES_INVITACIONES,
+  PAQUETES_PRINCIPALES,
   SLUG_NEGOCIO_INVITACIONES,
   precioPaquete,
 } from "@/lib/paquetes-invitaciones";
@@ -19,8 +20,14 @@ import {
  * iniciar sesión.
  */
 export async function pedirPaquete(paqueteId: string): Promise<void> {
-  const paquete = PAQUETES_INVITACIONES.find((p) => p.id === paqueteId);
+  const conAlbum = PAQUETES_INVITACIONES.find((p) => p.id === paqueteId);
+  const principal = PAQUETES_PRINCIPALES.find((p) => p.id === paqueteId);
+  const paquete = conAlbum ?? principal;
   if (!paquete) notFound();
+
+  const etiquetaPrecio = conAlbum
+    ? precioPaquete(conAlbum.precio)
+    : principal!.precioEtiqueta;
 
   const supabase = await createClient();
   const {
@@ -73,7 +80,7 @@ export async function pedirPaquete(paqueteId: string): Promise<void> {
   }
 
   const texto =
-    `¡Hola! Quiero el paquete ${paquete.nombre} (${precioPaquete(paquete.precio)}) ` +
+    `¡Hola! Quiero el paquete ${paquete.nombre} (${etiquetaPrecio}) ` +
     "para mi invitación digital. Mi evento es: (contanos fecha, tipo de " +
     "evento y estilo que soñás)";
 
