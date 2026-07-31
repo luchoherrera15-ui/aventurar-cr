@@ -1,5 +1,6 @@
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import {
   IconCalendarLine,
@@ -814,14 +815,9 @@ export default function PublicarPage() {
         </div>
       </section>
 
-      <footer className="border-t border-aventurea-line py-9 text-center">
-        <p className="text-xs text-zinc-500">
-          BOOKEA — Costa Rica ·{" "}
-          <Link href="/eventos" className="font-bold text-aventurea-orange">
-            Ver el directorio
-          </Link>
-        </p>
-      </footer>
+      {/* El pie compartido, que además es donde viven los enlaces a los
+          términos, las políticas y la privacidad. */}
+      <SiteFooter />
     </div>
   );
 }

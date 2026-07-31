@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { IconCheck, IconHeart, IconSparkles, IconStar } from "@/components/icons";
 
@@ -365,6 +366,8 @@ export default function LealtadPage() {
           </div>
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }
