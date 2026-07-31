@@ -103,7 +103,7 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
   {
     id: "intermedio",
     nombre: "Intermedio",
-    precioEtiqueta: "Consultanos",
+    precioEtiqueta: "$40",
     badge: "El favorito",
     destacado: true,
     lema: "Control automático y completo de tu lista de invitados.",
@@ -121,7 +121,7 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
   {
     id: "plus",
     nombre: "Plus",
-    precioEtiqueta: "Consultanos",
+    precioEtiqueta: "$60",
     badge: "Diseño premium",
     lema: "Todo lo del Intermedio, con nuestro diseño más alto.",
     incluye: [
