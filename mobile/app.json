@@ -65,6 +65,12 @@
         "projectId": "4d127275-ef9f-4ce8-8486-4bb422171878"
       }
     },
-    "owner": "luchitos15"
+    "owner": "luchitos15",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4d127275-ef9f-4ce8-8486-4bb422171878"
+    }
   }
 }
