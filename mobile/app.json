@@ -22,7 +22,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "lat.bookea.app"
+      "package": "lat.bookea.app",
+      "permissions": []
     },
     "web": {
       "output": "static",
@@ -41,7 +42,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Bookea usa tus fotos solo para publicar las imágenes de tu negocio o servicio.",
-          "cameraPermission": "Bookea usa la cámara solo si querés tomar una foto para tu negocio."
+          "cameraPermission": "Bookea usa la cámara solo si querés tomar una foto para tu negocio.",
+          "microphonePermission": false
         }
       ],
       [
@@ -56,6 +58,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4d127275-ef9f-4ce8-8486-4bb422171878"
+      }
+    },
+    "owner": "luchitos15"
   }
 }
