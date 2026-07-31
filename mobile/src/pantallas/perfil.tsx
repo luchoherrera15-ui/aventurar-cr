@@ -21,6 +21,7 @@ import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import TituloPantalla from "@/components/titulo-pantalla";
 import PieLegal from "@/components/pie-legal";
+import BotonesSociales from "@/components/botones-sociales";
 import logoBookea from "../../assets/images/logo-bookea.png";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
@@ -251,6 +252,10 @@ function FormulariosAuth() {
                   </Text>
                 )}
               </Pressable>
+
+              {/* Google y Facebook, igual que en la web. Si no están
+                  configurados en Supabase, esto no dibuja nada. */}
+              <BotonesSociales />
             </View>
           </>
         ) : (
@@ -832,7 +837,7 @@ const styles = StyleSheet.create({
   botonPegar: {
     alignItems: "center",
     alignSelf: "flex-start",
-    borderColor: "#dbe4f2",
+    borderColor: Colors.line,
     borderRadius: 99,
     borderWidth: 1,
     flexDirection: "row",
@@ -842,8 +847,8 @@ const styles = StyleSheet.create({
   },
   botonPegarTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
   completarCard: {
-    backgroundColor: "#f4f7fd",
-    borderColor: "#dbe4f2",
+    backgroundColor: Colors.blueLight,
+    borderColor: Colors.line,
     borderRadius: 18,
     borderWidth: 1,
     gap: Spacing.two,
@@ -868,7 +873,15 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   gap2: { gap: 6 },
-  campoLabel: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft, textTransform: "uppercase" },
+  // El mismo micro-rótulo (Tipo.micro) que encabeza los bloques en el
+  // resto de la app, para que los formularios no hablen otro idioma.
+  campoLabel: {
+    color: Colors.inkMuted,
+    fontFamily: Fonts.extraBold,
+    fontSize: 10,
+    letterSpacing: 1.7,
+    textTransform: "uppercase",
+  },
   input: {
     borderWidth: 1,
     borderColor: Colors.line,
@@ -957,7 +970,7 @@ const styles = StyleSheet.create({
     gap: 5,
     marginTop: 6,
     borderRadius: 999,
-    backgroundColor: "#e8ecf6",
+    backgroundColor: Colors.blueLight,
     paddingHorizontal: 11,
     paddingVertical: 5,
   },
@@ -999,7 +1012,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#e8ecf6",
+    backgroundColor: Colors.blueLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,

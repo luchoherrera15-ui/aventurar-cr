@@ -75,10 +75,14 @@ export default function RootLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: Colors.cream },
-          // Volver deslizando desde cualquier parte de la pantalla (no
-          // solo el borde), como Instagram — navegación mucho más fluida.
+          // Volver deslizando SOLO desde el borde izquierdo, como el
+          // gesto nativo de iOS. Con el gesto a pantalla completa
+          // (fullScreenGestureEnabled) cualquier arrastre horizontal
+          // dentro de la pantalla salía como "volver": los carruseles
+          // de fotos, las filas de chips y el calendario se quedaban
+          // sin sus deslizamientos porque la navegación se los robaba.
           gestureEnabled: true,
-          fullScreenGestureEnabled: true,
+          fullScreenGestureEnabled: false,
         }}
       />
     </AuthProvider>
