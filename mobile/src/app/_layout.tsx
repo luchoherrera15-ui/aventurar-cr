@@ -4,6 +4,8 @@ import { Stack, useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
+import * as Linking from "expo-linking";
+import { completarSesionDesdeUrl } from "@/lib/auth-social";
 import {
   useFonts,
   Figtree_400Regular,
@@ -42,6 +44,22 @@ export default function RootLayout() {
     );
     return () => suscripcion.remove();
   }, [router]);
+
+  // El rescate del login social. En Android, expo-web-browser resuelve
+  // con un Promise.race que a veces pierde la URL de vuelta (Expo Go
+  // recarga el proyecto al recibir el intent y se lleva el listener
+  // efímero por delante). Este listener es persistente: si la URL llega
+  // por acá, la sesión se completa igual y la persona ni se entera.
+  useEffect(() => {
+    Linking.getInitialURL().then((url) => {
+      if (url) void completarSesionDesdeUrl(url);
+    });
+    const sub = Linking.addEventListener("url", ({ url }) => {
+      void completarSesionDesdeUrl(url);
+    });
+    return () => sub.remove();
+  }, []);
+
   const [fontsLoaded] = useFonts({
     Figtree_400Regular,
     Figtree_500Medium,

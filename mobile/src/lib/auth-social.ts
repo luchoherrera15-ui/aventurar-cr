@@ -16,26 +16,48 @@ import { supabase } from "@/lib/supabase";
  *      Safari/Chrome Custom Tabs, no un WebView nuestro, para que la
  *      persona vea la barra de direcciones y sepa a quién le está
  *      dando su contraseña.
- *   3. El proveedor devuelve a `bookea://auth` y de esa URL sale la
- *      sesión.
+ *   3. El proveedor devuelve al deep link del app y de esa URL sale la
+ *      sesión. Cuál es ese deep link depende del entorno — ver
+ *      REDIRECT_URL acá abajo, que NO siempre es `bookea://auth`.
  *
- * Del paso 3 hay dos variantes según cómo esté el proyecto: PKCE
- * devuelve `?code=...` (hay que canjearlo) y el flujo implícito
- * devuelve los tokens en el fragmento `#access_token=...`. Se
- * soportan las dos porque el flowType lo decide la config de Supabase
- * y no queremos que cambiarlo rompa el login del app.
+ * Del paso 3 se soportan las dos formas en que Supabase puede devolver
+ * la sesión: PKCE (`?code=...`, hay que canjearlo — es lo que usamos) y
+ * el flujo implícito (`#access_token=...`). Las dos porque el flowType
+ * es del cliente y cambiarlo no debería romper el login.
  *
  * PENDIENTE DE CONFIGURACIÓN (una vez, en el panel de Supabase):
  *   · Authentication → Providers: habilitar Google y/o Facebook.
- *   · Authentication → URL Configuration → Redirect URLs: agregar
- *     `bookea://auth`. Sin esto el proveedor rebota con
- *     "requested path is invalid".
- * Hasta que eso esté, las banderas de abajo dejan los botones
- * ocultos: mejor ausente que roto, igual que en la web.
+ *   · Authentication → URL Configuration → Redirect URLs: agregar el
+ *     redirect que el app IMPRIME al arrancar (ver abajo), no uno
+ *     supuesto. Para el build propio es `bookea://auth`; en Expo Go es
+ *     un `exp://...` distinto.
+ * Si el redirect no está en la lista, Supabase NO da error: manda a la
+ * Site URL. Se ve como "entré con Google y quedé en bookea.lat", con
+ * el app todavía deslogueado.
+ *
+ * Hasta que eso esté, las banderas de abajo dejan los botones ocultos:
+ * mejor ausente que roto, igual que en la web.
  */
 
-/** El deep link al que vuelve el proveedor. `bookea` es el scheme de app.json. */
+/**
+ * El deep link al que vuelve el proveedor.
+ *
+ * OJO — NO siempre es `bookea://auth`. Ese scheme solo existe en un
+ * build propio (APK, TestFlight, tiendas). Dentro de Expo Go el scheme
+ * de app.json SE IGNORA y esto devuelve `exp://<host>/--/auth`, donde
+ * el host es la IP y el puerto del dev server — o sea que cambia de
+ * red en red. Por eso el valor se imprime abajo: la allow list de
+ * Supabase hay que llenarla con lo que el teléfono dice, no con lo que
+ * uno supone.
+ */
 const REDIRECT_URL = Linking.createURL("auth");
+
+if (__DEV__) {
+  // El diagnóstico más útil de todo el login social: sin esto, un
+  // redirect que no está en la allow list falla en silencio (Supabase
+  // manda a la Site URL en vez de dar error) y no hay pista de por qué.
+  console.log("[bookea] redirect del login social:", REDIRECT_URL);
+}
 
 export type ProveedorSocial = "google" | "facebook";
 
@@ -94,7 +116,18 @@ export async function entrarConProveedor(
   const resultado = await WebBrowser.openAuthSessionAsync(data.url, REDIRECT_URL);
 
   if (resultado.type !== "success") {
-    // "cancel" y "dismiss" son la persona cerrando la hoja.
+    // "cancel" y "dismiss" son, casi siempre, la persona cerrando la
+    // hoja. Pero en Android no se puede confiar en eso: ahí
+    // openAuthSessionAsync no es nativo, es un Promise.race entre "el
+    // app volvió a primer plano" y "llegó la URL de vuelta". Cuando la
+    // pestaña devuelve el control, la primera rama puede ganarle a la
+    // segunda y un login PERFECTO se reporta como cancelado.
+    //
+    // Por eso, antes de rendirse, se le pregunta a Supabase. Si el
+    // listener de _layout.tsx alcanzó a canjear el código, la sesión ya
+    // existe y esto la encuentra.
+    const { data: sesion } = await supabase.auth.getSession();
+    if (sesion.session) return { ok: true };
     return { ok: false, cancelado: true };
   }
 
@@ -134,4 +167,50 @@ export async function entrarConProveedor(
     ok: false,
     error: `${NOMBRE_PROVEEDOR[proveedor]} no devolvió una sesión. Probá de nuevo o entrá con tu correo.`,
   };
+}
+
+/**
+ * Completa la sesión desde una URL de vuelta que llegó por deep link en
+ * vez de por `openAuthSessionAsync`.
+ *
+ * Existe por un caso muy concreto de Android + Expo Go: al recibir el
+ * intent `exp://`, Expo Go a veces RECARGA el proyecto entero. Esa
+ * recarga mata el listener efímero que registra expo-web-browser, así
+ * que la URL de vuelta —con la sesión adentro— se pierde y la persona
+ * se queda deslogueada sin ningún mensaje de error.
+ *
+ * Con PKCE esto se recupera bien incluso después de la recarga: el
+ * `code_verifier` sigue guardado en AsyncStorage, así que el canje del
+ * código funciona igual.
+ *
+ * Lo llama el listener de _layout.tsx. Nunca lanza.
+ */
+export async function completarSesionDesdeUrl(url: string): Promise<boolean> {
+  if (!url.includes("auth")) return false;
+
+  try {
+    const params = parametrosDeRetorno(url);
+
+    const code = params.get("code");
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      return !error;
+    }
+
+    // Respaldo para el flujo implícito, por si algún día se vuelve.
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    if (accessToken && refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      return !error;
+    }
+
+    return false;
+  } catch {
+    // Una URL rara no puede tumbar el arranque del app.
+    return false;
+  }
 }

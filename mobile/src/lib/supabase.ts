@@ -30,5 +30,21 @@ export const supabase = createClient(url, anonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // PKCE en vez del 'implicit' que supabase-js trae por defecto.
+    //
+    // Con el flujo implícito, el proveedor devuelve la sesión como
+    // `#access_token=...&refresh_token=...` EN CRUDO: cualquier URL que
+    // logre recibir ese redirect se queda con una sesión usable. En un
+    // teléfono el redirect pasa por el navegador del sistema y por un
+    // deep link, así que hay varios puntos donde puede filtrarse.
+    //
+    // Con PKCE vuelve un `?code=` que no sirve de nada sin el
+    // `code_verifier`, que vive en el AsyncStorage de ESTA app. Además
+    // el código viaja en el query, que sobrevive mucho mejor que el
+    // fragmento a los saltos entre Custom Tab, Expo Go y el deep link.
+    //
+    // La web no se ve afectada: usa @supabase/ssr, que ya fuerza pkce
+    // por su cuenta. El flowType es del cliente, no del proyecto.
+    flowType: "pkce",
   },
 });
