@@ -20,6 +20,7 @@ import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import TituloPantalla from "@/components/titulo-pantalla";
+import PieLegal from "@/components/pie-legal";
 import logoBookea from "../../assets/images/logo-bookea.png";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
@@ -313,6 +314,11 @@ function FormulariosAuth() {
             </View>
           </>
         )}
+
+        {/* Los legales también acá: quien revisa la app en App Store o
+            Play no siempre entra con una cuenta, y la política de
+            privacidad tiene que alcanzarse igual. */}
+        <PieLegal />
       </ScrollView>
     </View>
   );
@@ -713,6 +719,8 @@ function PerfilVista({
         <Pressable style={styles.botonEliminar} onPress={confirmarEliminarCuenta}>
           <Text style={styles.botonEliminarTexto}>Eliminar mi cuenta</Text>
         </Pressable>
+
+        <PieLegal />
       </ScrollView>
     </View>
   );

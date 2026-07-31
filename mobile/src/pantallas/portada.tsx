@@ -11,12 +11,11 @@ import logoBlanco from "../../assets/images/logo-bookea-blanco.png";
 
 /**
  * La misma portada que la web (src/app/page.tsx), adaptada al
- * teléfono: una foto a pantalla completa — evento, spa o playa,
- * sorteada en cada apertura — con velo navy y tres tarjetas de vidrio
- * en fila compacta para escoger qué se quiere reservar. Eventos entra
- * a la app de siempre; Citas y Hospedajes navegan a su directorio.
- * Debajo, dos píldoras: publicar un negocio y el programa de Lealtad
- * (que por ahora vive solo en la web).
+ * teléfono: fondo navy de marca y cuatro tarjetas de vidrio en fila
+ * compacta para escoger qué se quiere reservar — una por vertical.
+ * Eventos entra a la app de siempre; Citas, Hospedajes y Restaurantes
+ * navegan a su directorio. Debajo, dos píldoras: publicar un negocio y
+ * el programa de Lealtad.
  */
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
@@ -54,8 +53,9 @@ export default function Portada({ onEntrar }: { onEntrar: () => void }) {
           </View>
           <Text style={styles.titulo}>Todo lo que se reserva, en un solo lugar</Text>
           <Text style={styles.subtitulo}>
-            Un evento, una cita o una escapada: elegí lo que necesitás y
-            reservalo directo, con confirmación y chat incluidos.
+            Un evento, una cita, una mesa o una escapada: elegí lo que
+            necesitás y reservalo directo, con confirmación y chat
+            incluidos.
           </Text>
 
           <View style={styles.tarjetas}>
@@ -73,9 +73,18 @@ export default function Portada({ onEntrar }: { onEntrar: () => void }) {
               descripcion="Belleza, barbería, uñas y spa — elegí el servicio, la hora y con quién."
               onPress={() => {
                 // Solo push, SIN descartar la portada: así "volver"
-                // desde Citas regresa acá — al selector de las tres
+                // desde Citas regresa acá — al selector de las cuatro
                 // verticales — y nunca a una pantalla muerta.
                 router.push("/citas" as never);
+              }}
+            />
+            <TarjetaSeccion
+              activa
+              icono="restaurant-outline"
+              titulo="Restaurantes"
+              descripcion="Sodas, marisquerías y cafeterías: mirá el menú, reservá mesa o pedí para recoger."
+              onPress={() => {
+                router.push("/restaurantes" as never);
               }}
             />
             <TarjetaSeccion
@@ -85,7 +94,7 @@ export default function Portada({ onEntrar }: { onEntrar: () => void }) {
               onPress={() => {
                 // Solo push, SIN descartar la portada: así "volver"
                 // desde Hospedajes regresa acá — al selector de las
-                // tres verticales — y nunca a una pantalla muerta.
+                // cuatro verticales — y nunca a una pantalla muerta.
                 router.push("/hospedajes" as never);
               }}
             />
@@ -196,7 +205,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   logo: { alignSelf: "center", height: 30, width: 128 },
-  centro: { paddingVertical: 26 },
+  // La cuarta tarjeta (Restaurantes) alarga la columna: el aire de
+  // arriba y abajo se recorta para que las cuatro sigan entrando sin
+  // scroll en un teléfono normal.
+  centro: { paddingVertical: 18 },
   kicker: {
     alignItems: "center",
     flexDirection: "row",
@@ -233,7 +245,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: "center",
   },
-  tarjetas: { gap: 12, marginTop: 26 },
+  tarjetas: { gap: 10, marginTop: 20 },
   tarjetaPresionada: { transform: [{ scale: 0.98 }] },
   tarjetaMarco: {
     borderColor: "rgba(255,255,255,0.25)",
