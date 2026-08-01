@@ -31,10 +31,16 @@ export async function enviarCorreo({
   to,
   subject,
   html,
+  bajaOneClickUrl,
 }: {
   to: string;
   subject: string;
   html: string;
+  /** Correos de MARKETING: el endpoint one-click del destinatario
+   * (enlacesBaja().oneClick, 0082). Va en las cabeceras
+   * List-Unsubscribe (RFC 8058) para el botón "Cancelar suscripción"
+   * de Gmail/Apple; el link visible del pie lo pinta la plantilla. */
+  bajaOneClickUrl?: string;
 }) {
   const resend = obtenerCliente();
   if (!resend) {
@@ -45,7 +51,20 @@ export async function enviarCorreo({
   }
 
   try {
-    const { error } = await resend.emails.send({ from: REMITENTE, to, subject, html });
+    const { error } = await resend.emails.send({
+      from: REMITENTE,
+      to,
+      subject,
+      html,
+      ...(bajaOneClickUrl
+        ? {
+            headers: {
+              "List-Unsubscribe": `<${bajaOneClickUrl}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          }
+        : {}),
+    });
     if (error) {
       console.error("[email] Resend rechazó el envío:", error);
       return { enviado: false };
@@ -146,6 +165,7 @@ export function layoutBento({
   cuerpoHtml,
   cta,
   pie,
+  bajaUrl,
 }: {
   kicker: string;
   titulo: string;
@@ -157,6 +177,9 @@ export function layoutBento({
   cuerpoHtml?: string;
   cta?: { href: string; label: string };
   pie?: string;
+  /** Correos de MARKETING: el link "Darme de baja" del destinatario
+   * (urlBaja). Los transaccionales no lo llevan. */
+  bajaUrl?: string;
 }) {
   return `<!doctype html>
 <html lang="es">
@@ -227,6 +250,13 @@ export function layoutBento({
               <div style="font-size:11px;color:#a3aab5;margin-top:8px;line-height:1.6;">
                 Costa Rica · ${pie ?? "Recibiste este correo porque hiciste una reserva en Bookea."}
               </div>
+              ${
+                bajaUrl
+                  ? `<div style="font-size:11px;margin-top:6px;">
+                <a href="${bajaUrl}" style="color:#a3aab5;text-decoration:underline;">Darme de baja de estos correos</a>
+              </div>`
+                  : ""
+              }
             </td>
           </tr>
         </table>
@@ -858,10 +888,14 @@ export function plantillaCampana({
   titulo,
   mensajeHtml,
   cta,
+  bajaUrl,
 }: {
   titulo: string;
   mensajeHtml: string;
   cta?: { href: string; label: string };
+  /** El link de baja del DESTINATARIO (urlBaja) — obligatorio para
+   * campañas reales; el HTML varía por persona a propósito. */
+  bajaUrl?: string;
 }) {
   return layoutBento({
     kicker: "Novedades",
@@ -869,5 +903,6 @@ export function plantillaCampana({
     cuerpoHtml: mensajeHtml,
     cta,
     pie: "Recibiste este correo porque tenés una cuenta en Bookea.",
+    bajaUrl,
   });
 }

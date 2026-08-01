@@ -325,7 +325,11 @@ export default function CampanasPanel({
             <p className="rounded-[10px] bg-aventurea-navy p-3.5 text-[13px] font-bold text-white">
               Campaña enviada: {resultado.enviados} enviado
               {resultado.enviados === 1 ? "" : "s"} · {resultado.fallidos}{" "}
-              fallido{resultado.fallidos === 1 ? "" : "s"}.
+              fallido{resultado.fallidos === 1 ? "" : "s"}
+              {(resultado.excluidos ?? 0) > 0
+                ? ` · ${resultado.excluidos} fuera por baja o rebote`
+                : ""}
+              .
             </p>
           )}
 
