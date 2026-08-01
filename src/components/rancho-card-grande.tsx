@@ -56,10 +56,15 @@ export default function RanchoCardGrande({
   // eslint-disable-next-line react-hooks/purity -- "nuevo" es una etiqueta de vitrina; no pasa nada si queda desactualizada un instante entre renders
   const esNuevo = Date.now() - new Date(rancho.created_at).getTime() < 1000 * 60 * 60 * 24 * 30;
 
-  // Una sola foto de portada, como la card de Citas — el collage se
-  // fue: el diseño de card es el mismo en todas las verticales.
+  // Collage de tres: la portada manda (dos tercios del ancho) y al lado
+  // van dos miniaturas del álbum. Un salón se elige por cómo se ve, y
+  // una sola foto no alcanza para mostrar el lugar. Si el dueño subió
+  // menos fotos, el bloque se acomoda solo: con dos queda partido en
+  // dos, con una la portada ocupa todo.
   const portada = rancho.foto_url ?? rancho.fotos[0] ?? null;
-  const fotosExtra = Math.max(0, rancho.fotos.filter((f) => f !== portada).length);
+  const galeria = rancho.fotos.filter((f) => f !== portada);
+  const miniaturas = galeria.slice(0, 2);
+  const fotosExtra = Math.max(0, galeria.length - miniaturas.length);
   const esDemo = !!rancho.slug?.startsWith("demo-");
 
   const rubro = rancho.subcategoria
@@ -76,7 +81,7 @@ export default function RanchoCardGrande({
         href={href}
         className="group flex h-full flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-[0_10px_36px_-20px_rgba(16,26,44,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(16,26,44,0.4)]"
       >
-        {/* ---------- Foto con sus insignias ---------- */}
+        {/* ---------- El collage con sus insignias ---------- */}
         <div
           className="relative aspect-[16/10] overflow-hidden"
           style={
@@ -86,13 +91,33 @@ export default function RanchoCardGrande({
           }
         >
           {portada ? (
-            // eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor, sin dominio fijo para next/image
-            <img
-              src={portada}
-              alt={rancho.nombre}
-              loading="lazy"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
+            <div className="absolute inset-0 flex gap-[3px]">
+              <div className="relative flex-1 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor, sin dominio fijo para next/image */}
+                <img
+                  src={portada}
+                  alt={rancho.nombre}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+
+              {miniaturas.length > 0 && (
+                <div className="flex w-[32%] shrink-0 flex-col gap-[3px]">
+                  {miniaturas.map((foto, i) => (
+                    <div key={foto} className="relative flex-1 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- ídem */}
+                      <img
+                        src={foto}
+                        alt={`${rancho.nombre} — foto ${i + 2}`}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-white/25 [&_svg]:h-12 [&_svg]:w-12">
               {CATEGORIA_ICONO[rancho.categoria]}
@@ -125,7 +150,7 @@ export default function RanchoCardGrande({
 
           {fotosExtra > 0 && (
             <span className="absolute bottom-2.5 right-2.5 rounded-md bg-aventurea-navy/85 px-2 py-1 text-[11px] font-bold text-white">
-              +{fotosExtra} fotos
+              +{fotosExtra} foto{fotosExtra === 1 ? "" : "s"}
             </span>
           )}
         </div>
