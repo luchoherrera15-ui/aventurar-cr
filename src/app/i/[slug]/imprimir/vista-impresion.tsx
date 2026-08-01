@@ -39,20 +39,44 @@ export default function VistaImpresion({
     @media print {
       .no-imprimir { display: none !important; }
       html, body { background: #fff !important; }
+
+      /* La paleta, la tipografía y los ornamentos se respetan: en papel
+         tiene que reconocerse la misma invitación. Lo que se va es todo
+         lo que solo existe porque hay una pantalla. */
       .hoja, .hoja * {
         animation: none !important;
         transition: none !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-      /* Un contador en papel miente desde que sale de la impresora. */
+
+      /* Un contador impreso miente desde que sale de la impresora. */
       .hoja [data-bookea="cuenta-regresiva"] { display: none !important; }
-      /* Nada de secciones a pantalla completa: en papel eso deja hojas
-         casi vacías. Se deja fluir el contenido. */
-      .hoja [style*="100vh"], .hoja [style*="100svh"] {
+
+      /* Video, audio y botones no existen en papel; un mapa embebido
+         imprime un rectángulo gris. */
+      .hoja video,
+      .hoja audio,
+      .hoja iframe,
+      .hoja button { display: none !important; }
+
+      /* Un elemento fijo se imprime encima del contenido o se repite en
+         cada hoja: en papel pasa a fluir con el resto. */
+      .hoja [style*="position:fixed"],
+      .hoja [style*="position: fixed"] { position: static !important; }
+
+      /* Alturas pensadas para el viewport dejan hojas casi vacías. */
+      .hoja [style*="100vh"],
+      .hoja [style*="100svh"],
+      .hoja [style*="100dvh"] {
         min-height: 0 !important;
         height: auto !important;
       }
+
+      /* Que un bloque no quede partido entre dos hojas. */
+      .hoja section,
+      .hoja article,
+      .hoja figure { break-inside: avoid; }
     }
   `;
 
@@ -65,7 +89,7 @@ export default function VistaImpresion({
           <div className="min-w-0">
             <p className="truncate text-[14px] font-bold text-aventurea-ink">{titulo}</p>
             <p className="text-[12px] text-aventurea-ink-soft">
-              Versión para imprimir — sin animaciones
+              Versión para papel — mismo estilo, sin lo que solo vive en pantalla
             </p>
           </div>
 

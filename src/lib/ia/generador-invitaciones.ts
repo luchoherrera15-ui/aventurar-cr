@@ -67,12 +67,23 @@ REGLAS CLAVE:
     La plataforma monta ahí una cuenta viva que corre sola. Podés
     envolver ese div en tu propia sección y darle el fondo, el margen y
     el título que quieras — lo de adentro no lo toques.
-12. IMPRESIÓN: la invitación también se imprime en papel. Agregá al
-    final del <style> un bloque @media print que deje el diseño legible
-    en blanco sobre papel: sin animaciones (animation:none e
-    transition:none), sin fondos oscuros a sangre, texto en color
-    oscuro, y evitá cortar bloques por la mitad
-    (break-inside: avoid en las tarjetas y secciones).
+12. IMPRESIÓN: la invitación también se lleva a papel. Agregá al final
+    del <style> un bloque @media print. En papel NO se busca una copia
+    idéntica sino la MISMA invitación adaptada: se mantienen la paleta,
+    la tipografía, los ornamentos y la temática — se reconoce que es la
+    misma pieza — y se va todo lo que solo existe porque hay pantalla.
+    Concretamente:
+    - sin animaciones (animation:none y transition:none);
+    - las secciones dejan de medir 100vh y fluyen una tras otra, para
+      no dejar hojas medio vacías;
+    - los elementos con position:fixed pasan a fluir con el resto;
+    - nada de indicaciones de "deslizá" o "seguí bajando";
+    - texto en color oscuro y legible; si el diseño es sobre fondo
+      oscuro, en papel conviene invertirlo a fondo claro;
+    - break-inside: avoid en tarjetas y secciones, para que un bloque
+      no quede partido entre dos hojas.
+    La cuenta regresiva no la contemples: la plataforma la esconde en
+    papel por su cuenta.
 
 CALIDAD DEL DISEÑO — esto es lo que separa una invitación que emociona
 de una plantilla genérica:
