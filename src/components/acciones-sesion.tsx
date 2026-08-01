@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { tieneNegocioPropio } from "@/lib/negocio-propio";
 import MenuCuenta from "./menu-cuenta";
 
 // Se queda en el directorio en vez de mandar a /mi-rancho/login: acá
@@ -39,11 +40,16 @@ export default async function AccionesSesion() {
       ) ?? null;
   }
 
+  // Cacheado con el mismo helper que usa el header de escritorio: en un
+  // render se consulta una sola vez.
+  const yaPublica = user ? await tieneNegocioPropio() : false;
+
   return (
     <MenuCuenta
       sesionActiva={!!user}
       nombre={nombre}
       fotoUrl={fotoUrl}
+      yaPublica={yaPublica}
       cerrarSesion={cerrarSesionPublica}
     />
   );

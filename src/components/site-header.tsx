@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { tieneNegocioPropio } from "@/lib/negocio-propio";
 import AccionesSesion from "./acciones-sesion";
 
 /**
@@ -8,7 +9,7 @@ import AccionesSesion from "./acciones-sesion";
  * cuadrado de la marca — el resto del header es blanco, a propósito
  * (regla del rediseño: el navy no pasa del 5% de la pantalla).
  */
-export default function SiteHeader({
+export default async function SiteHeader({
   breadcrumb,
   ancho = "max-w-[1600px]",
   extra,
@@ -23,6 +24,10 @@ export default function SiteHeader({
    * donde el header ya carga bastante; el link sigue en el menú). */
   conPublicar?: boolean;
 }) {
+  // A quien ya publicó no se le ofrece publicar: lo que necesita es la
+  // puerta a su panel.
+  const yaPublica = conPublicar ? await tieneNegocioPropio() : false;
+
   return (
     <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-surface/90 backdrop-blur-sm">
       <div
@@ -51,10 +56,10 @@ export default function SiteHeader({
           {extra}
           {conPublicar && (
             <Link
-              href="/publicar"
+              href={yaPublica ? "/mi-rancho" : "/publicar"}
               className="hidden whitespace-nowrap text-[13.5px] font-bold text-aventurea-ink hover:text-aventurea-navy sm:block"
             >
-              Publicá tu espacio
+              {yaPublica ? "Manejá tu espacio" : "Publicá tu espacio"}
             </Link>
           )}
           <AccionesSesion />

@@ -26,11 +26,14 @@ export default function MenuCuenta({
   sesionActiva,
   nombre,
   fotoUrl,
+  yaPublica = false,
   cerrarSesion,
 }: {
   sesionActiva: boolean;
   nombre?: string | null;
   fotoUrl?: string | null;
+  /** Ya tiene un negocio publicado: el link lleva a su panel. */
+  yaPublica?: boolean;
   cerrarSesion: () => Promise<void>;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -90,11 +93,11 @@ export default function MenuCuenta({
                   Ver el directorio
                 </Link>
                 <Link
-                  href="/publicar"
+                  href={yaPublica ? "/mi-rancho" : "/publicar"}
                   className={`${itemCls} sm:hidden`}
                   onClick={() => setAbierto(false)}
                 >
-                  Publicá tu espacio
+                  {yaPublica ? "Manejá tu espacio" : "Publicá tu espacio"}
                 </Link>
                 <div className="my-1 border-t border-aventurea-line" />
                 <form action={cerrarSesion}>
