@@ -114,8 +114,12 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
       "Invitación virtual personalizada",
       "Confirmación vía WhatsApp (la llevás vos, sin sistema)",
       "Cuenta regresiva al gran día",
+      "Derecho a 1 cambio de diseño",
     ],
-    detalle: ["Personalización de diseño básica"],
+    detalle: [
+      "Personalización de diseño básica",
+      "Después de ver tu invitación podés pedir un cambio de diseño; si querés más, se cobran aparte",
+    ],
   },
   {
     id: "intermedio",
@@ -129,11 +133,13 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
       "Todo lo del paquete Básico",
       "Confirmación en el website: tus invitados confirman en el link",
       "Panel en bookea.lat para administrar la lista de invitados",
+      "Derecho a 2 cambios de diseño",
     ],
     detalle: [
       "Vé en tiempo real quién confirma y quién no puede asistir",
       "PDFs imprimibles de tu invitación",
       "Personalización de diseño intermedia",
+      "Dos rondas de cambios sobre el diseño que te presentamos",
     ],
   },
   {
@@ -146,9 +152,13 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
     incluye: [
       "Todo lo del paquete Intermedio",
       "Diseño Plus: animaciones y acabado premium",
+      "Derecho a 3 cambios de diseño",
+      "Versión para imprimir en Carta o A4",
     ],
     detalle: [
       "Personalización al máximo nivel — un diseño creado solo para vos",
+      "Tres rondas de cambios: la afinamos hasta que quede como la querés",
+      "Tu invitación en PDF para llevar a imprimir, con el mismo diseño",
     ],
   },
 ];
