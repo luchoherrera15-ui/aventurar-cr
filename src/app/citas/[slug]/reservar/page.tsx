@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import ReservarCita from "./reservar-cita";
 import { horarioDeDetalles } from "../../tipos";
+import { cargarAgendaPro } from "../../agenda-pro";
 
 /**
  * El flujo de reserva de una cita: servicio → con quién → día → hora
@@ -26,7 +27,7 @@ export default async function ReservarCitaPage({
 
   let { data } = await supabase
     .from("ranchos")
-    .select("id, nombre, slug, detalles, foto_url, canton, provincia")
+    .select("id, nombre, slug, detalles, foto_url, canton, provincia, zona_horaria")
     .eq("slug", slug)
     .eq("vertical", "citas")
     .eq("estado", "aprobado")
@@ -34,7 +35,7 @@ export default async function ReservarCitaPage({
   if (!data && /^[0-9a-f-]{36}$/.test(slug)) {
     ({ data } = await supabase
       .from("ranchos")
-      .select("id, nombre, slug, detalles, foto_url, canton, provincia")
+      .select("id, nombre, slug, detalles, foto_url, canton, provincia, zona_horaria")
       .eq("id", slug)
       .eq("vertical", "citas")
       .eq("estado", "aprobado")
@@ -46,7 +47,7 @@ export default async function ReservarCitaPage({
     await Promise.all([
       supabase
         .from("rancho_items")
-        .select("id, nombre, precio, duracion_minutos, grupo")
+        .select("id, nombre, precio, duracion_minutos, buffer_min, grupo")
         .eq("rancho_id", data.id)
         .eq("activo", true)
         .order("orden", { ascending: true }),
@@ -65,6 +66,8 @@ export default async function ReservarCitaPage({
         ? supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
+
+  const agendaPro = await cargarAgendaPro(supabase, data.id);
 
   const rutaBase = `/citas/${data.slug ?? data.id}`;
   const calif = califData as { promedio: number; total: number } | null;
@@ -91,6 +94,10 @@ export default async function ReservarCitaPage({
             items={(itemsData ?? []) as never}
             equipo={(equipoData ?? []) as never}
             horario={horarioDeDetalles(data.detalles)}
+            zonaHoraria={data.zona_horaria ?? "America/Costa_Rica"}
+            horariosRecurso={agendaPro.horariosRecurso}
+            bloqueos={agendaPro.bloqueos}
+            serviciosRecurso={agendaPro.serviciosRecurso}
             sesionActiva={!!user}
             nombreInicial={perfil?.nombre ?? ""}
             servicioInicial={servicio ?? null}

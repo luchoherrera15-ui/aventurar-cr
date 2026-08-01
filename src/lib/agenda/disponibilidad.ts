@@ -25,7 +25,7 @@ import {
  */
 
 /** Un rango laboral dentro de un día, en minutos desde medianoche. */
-type Rango = { inicio: number; fin: number };
+export type Rango = { inicio: number; fin: number };
 
 export type RecursoDisponibilidad = {
   id: string;
@@ -139,8 +139,25 @@ function seSolapan(a: Rango, b: Rango): boolean {
   return a.inicio < b.fin && b.inicio < a.fin;
 }
 
+/**
+ * Agrupa las filas de horarios_recurso en el objeto que espera
+ * RecursoDisponibilidad: claves SOLO para los días con filas — un día
+ * sin filas queda `undefined` y hereda el horario del negocio (misma
+ * convención que el RPC crear_cita en la 0081).
+ */
+export function agruparHorarioRecurso(
+  filas: { dow: number; abre: string; cierra: string }[],
+): RecursoDisponibilidad["horario"] {
+  if (filas.length === 0) return null;
+  const horario: NonNullable<RecursoDisponibilidad["horario"]> = {};
+  for (const f of filas) {
+    (horario[String(f.dow)] ??= []).push({ abre: f.abre.slice(0, 5), cierra: f.cierra.slice(0, 5) });
+  }
+  return horario;
+}
+
 /** Los rangos laborales del recurso ese día, con herencia del negocio. */
-function rangosDelDia(
+export function rangosDelDia(
   recurso: RecursoDisponibilidad | null,
   dow: number,
   horarioNegocio: HorarioSemana | null,
