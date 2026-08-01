@@ -92,6 +92,8 @@ const DIAS_SILENCIO = 7;
 const DEMORA_MS = 3500;
 /** Si ya bajó a mirar el lugar, está enganchado: sale sin esperar más. */
 const SCROLL_GATILLO = 600;
+/** Cuánto se queda en pantalla si nadie lo toca. */
+const VIDA_MS = 10_000;
 
 export default function AvisoInvitacionesFlotante({
   conBarraMovil = false,
@@ -101,6 +103,7 @@ export default function AvisoInvitacionesFlotante({
 }) {
   const [visible, setVisible] = useState(false);
   const [reservando, setReservando] = useState(false);
+  const [pausado, setPausado] = useState(false);
 
   useEffect(() => {
     let cerradoEn = 0;
@@ -137,6 +140,24 @@ export default function AvisoInvitacionesFlotante({
     return () => window.removeEventListener("hashchange", revisar);
   }, []);
 
+  /**
+   * Se retira solo a los 10 segundos. Dos cuidados:
+   *
+   *  - el reloj corre únicamente mientras el aviso está DE VERDAD en
+   *    pantalla: si el calendario de reserva lo tapó, no cuenta, o se
+   *    consumiría la vida entera detrás del modal;
+   *  - se pausa mientras alguien lo tiene bajo el mouse o con el foco
+   *    del teclado, que es justo cuando lo está leyendo.
+   *
+   * A diferencia de la X, irse solo NO silencia el aviso por una
+   * semana: nadie lo rechazó, así que puede volver a aparecer.
+   */
+  useEffect(() => {
+    if (!visible || reservando || pausado) return;
+    const t = window.setTimeout(() => setVisible(false), VIDA_MS);
+    return () => window.clearTimeout(t);
+  }, [visible, reservando, pausado]);
+
   const cerrar = useCallback(() => {
     setVisible(false);
     try {
@@ -154,7 +175,13 @@ export default function AvisoInvitacionesFlotante({
         conBarraMovil ? "bottom-[86px]" : "bottom-4"
       }`}
     >
-      <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-[#16295e] p-4 pr-8 text-white shadow-[0_18px_50px_rgba(16,26,44,0.34)]">
+      <div
+        onMouseEnter={() => setPausado(true)}
+        onMouseLeave={() => setPausado(false)}
+        onFocusCapture={() => setPausado(true)}
+        onBlurCapture={() => setPausado(false)}
+        className="relative overflow-hidden rounded-2xl border border-white/15 bg-[#16295e] p-4 pr-8 text-white shadow-[0_18px_50px_rgba(16,26,44,0.34)]"
+      >
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
