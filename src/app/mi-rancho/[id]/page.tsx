@@ -58,7 +58,12 @@ import {
   registrarPagoFinal,
   revertirPagoFinal,
 } from "./finanzas/actions";
-import { crearReservaManual } from "./agenda-actions";
+import {
+  actualizarReservaManual,
+  cancelarReserva,
+  confirmarReserva,
+  crearReservaManual,
+} from "./agenda-actions";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -238,7 +243,18 @@ export default async function RanchoDetallePage({
         r.estado === "confirmada" ||
         r.estado === "bloqueada",
     )
-    .map((r) => ({ fecha: r.fecha, estado: r.estado, nombre: r.nombre }));
+    .map((r) => ({
+      id: r.id,
+      fecha: r.fecha,
+      estado: r.estado,
+      nombre: r.nombre,
+      tipo_evento: r.tipo_evento ?? null,
+      invitados: r.invitados ?? null,
+      notas: r.notas ?? null,
+      montoTotal: r.monto_total ?? null,
+      depositoMonto: r.deposito_monto ?? null,
+      horarioBloque: r.horario_bloque ?? null,
+    }));
 
   const tabAgenda: Tab = {
     id: "agenda",
@@ -250,7 +266,15 @@ export default async function RanchoDetallePage({
           {agenda.length === 1 ? "" : "s"}. Un día antes de cada evento te
           mandamos un recordatorio por correo.
         </p>
-        <OcupacionCalendario dias={diasOcupados} />
+        {/* El calendario no es solo para mirar: desde acá se confirma,
+            se corrige y se cancela lo del día, que es como se maneja la
+            agenda cuando alguien llama para mover su fiesta. */}
+        <OcupacionCalendario
+          dias={diasOcupados}
+          onConfirmar={confirmarReserva.bind(null, rancho.id)}
+          onCancelar={cancelarReserva.bind(null, rancho.id)}
+          onEditar={actualizarReservaManual.bind(null, rancho.id)}
+        />
         <AgendasExternas ranchoId={rancho.id} agendas={agendasExternas} />
         <SincronizarCalendario feedUrl={feedUrl} />
         <ReservaManualForm

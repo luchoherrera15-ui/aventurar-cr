@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { hoyISOCR } from "@/lib/fechas";
 
 const MESES = [
@@ -13,21 +13,98 @@ function iso(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-export type DiaOcupado = { fecha: string; estado: string; nombre: string | null };
+function fechaLarga(isoFecha: string) {
+  const [y, m, d] = isoFecha.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+function colones(n: number | null) {
+  return n === null ? null : "₡" + Number(n).toLocaleString("es-CR");
+}
+
+export type DiaOcupado = {
+  id: string;
+  fecha: string;
+  estado: string;
+  nombre: string | null;
+  tipo_evento?: string | null;
+  invitados?: number | null;
+  notas?: string | null;
+  montoTotal?: number | null;
+  depositoMonto?: number | null;
+  horarioBloque?: string | null;
+};
+
+/** Lo que acepta `actualizarReservaManual` (la fecha no se toca acá). */
+export type ReservaEditable = {
+  nombre: string;
+  tipo_evento: string | null;
+  invitados: number | null;
+  notas: string | null;
+  montoTotal: number | null;
+  depositoMonto: number | null;
+  horarioBloque: string | null;
+};
+
+type Resultado = { error: string | null };
+
+const ETIQUETA: Record<string, { texto: string; cls: string }> = {
+  confirmada: { texto: "Confirmada", cls: "bg-red-50 text-red-700" },
+  pendiente: { texto: "En aprobación", cls: "bg-amber-50 text-amber-800" },
+  bloqueada: { texto: "Bloqueado", cls: "bg-zinc-100 text-zinc-600" },
+};
 
 /**
- * Calendario mensual de solo lectura: de un vistazo, qué días ya tienen
- * una reserva (confirmada o en aprobación). El proveedor lo usa para
- * saber qué fechas ofrecer cuando alguien le escribe o llama fuera del
- * flujo en línea.
+ * Calendario mensual de ocupación, y el lugar desde donde se maneja la
+ * agenda del día a día.
+ *
+ * Antes era de solo lectura: se veía qué días estaban tomados y para
+ * tocar algo había que irse a otra pantalla. Ahora se toca un día y
+ * ahí mismo se confirma, se corrige o se cancela lo que haya — que es
+ * como se trabaja cuando alguien llama para mover su fiesta.
+ *
+ * Si no se le pasan acciones, se comporta como antes (solo lectura):
+ * así la misma pieza sirve para una vista donde nadie puede editar.
  */
-export default function OcupacionCalendario({ dias }: { dias: DiaOcupado[] }) {
+export default function OcupacionCalendario({
+  dias,
+  onConfirmar,
+  onCancelar,
+  onEditar,
+}: {
+  dias: DiaOcupado[];
+  onConfirmar?: (reservaId: string) => Promise<Resultado>;
+  onCancelar?: (reservaId: string) => Promise<Resultado>;
+  onEditar?: (reservaId: string, datos: ReservaEditable) => Promise<Resultado>;
+}) {
   const hoy = hoyISOCR();
   const [y0, m0] = hoy.split("-").map(Number);
   const [viewYear, setViewYear] = useState(y0);
   const [viewMonth, setViewMonth] = useState(m0 - 1);
+  const [seleccion, setSeleccion] = useState<string | null>(null);
 
-  const porFecha = new Map(dias.map((d) => [d.fecha, d]));
+  const editable = Boolean(onConfirmar || onCancelar || onEditar);
+
+  // Un mismo día puede tener varias reservas (un bloqueo y una fiesta,
+  // o dos eventos si el negocio admite más de uno por día), así que se
+  // agrupa en lista y no en un solo valor por fecha.
+  const porFecha = new Map<string, DiaOcupado[]>();
+  for (const d of dias) {
+    const lista = porFecha.get(d.fecha);
+    if (lista) lista.push(d);
+    else porFecha.set(d.fecha, [d]);
+  }
+
+  /** Lo confirmado manda sobre lo pendiente, y eso sobre un bloqueo. */
+  function estadoDelDia(lista: DiaOcupado[]): string {
+    if (lista.some((r) => r.estado === "confirmada")) return "confirmada";
+    if (lista.some((r) => r.estado === "pendiente")) return "pendiente";
+    return "bloqueada";
+  }
 
   function cambiarMes(dir: number) {
     let m = viewMonth + dir;
@@ -36,6 +113,7 @@ export default function OcupacionCalendario({ dias }: { dias: DiaOcupado[] }) {
     if (m > 11) { m = 0; y += 1; }
     setViewMonth(m);
     setViewYear(y);
+    setSeleccion(null);
   }
 
   const firstDow = new Date(viewYear, viewMonth, 1).getDay();
@@ -44,6 +122,8 @@ export default function OcupacionCalendario({ dias }: { dias: DiaOcupado[] }) {
     ...Array(firstDow).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
+
+  const delDia = seleccion ? (porFecha.get(seleccion) ?? []) : [];
 
   return (
     <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-6">
@@ -83,27 +163,48 @@ export default function OcupacionCalendario({ dias }: { dias: DiaOcupado[] }) {
         {celdas.map((d, i) => {
           if (d === null) return <div key={i} />;
           const fecha = iso(viewYear, viewMonth, d);
-          const info = porFecha.get(fecha);
+          const lista = porFecha.get(fecha);
+          const estado = lista ? estadoDelDia(lista) : null;
           const esHoy = fecha === hoy;
+          const elegido = fecha === seleccion;
 
           let cls =
-            "relative flex min-h-[40px] flex-col items-center justify-center rounded-lg text-[12.5px] sm:min-h-[52px] sm:text-[13.5px]";
-          if (info?.estado === "confirmada") {
-            cls += " bg-red-50 font-bold text-red-700";
-          } else if (info?.estado === "pendiente") {
-            cls += " bg-amber-50 font-bold text-amber-800";
-          } else if (info?.estado === "bloqueada") {
-            // Bloqueos: manuales o importados de una agenda externa.
-            cls += " bg-zinc-100 font-bold text-zinc-500";
-          } else {
-            cls += " text-aventurea-ink-soft";
-          }
+            "relative flex min-h-[40px] flex-col items-center justify-center rounded-lg text-[12.5px] transition-colors sm:min-h-[52px] sm:text-[13.5px]";
+          if (estado === "confirmada") cls += " bg-red-50 font-bold text-red-700";
+          else if (estado === "pendiente") cls += " bg-amber-50 font-bold text-amber-800";
+          else if (estado === "bloqueada") cls += " bg-zinc-100 font-bold text-zinc-500";
+          else cls += " text-aventurea-ink-soft";
           if (esHoy) cls += " ring-1 ring-aventurea-navy";
+          // El día abierto se marca con un anillo grueso, que se lee
+          // igual sobre cualquiera de los cuatro fondos.
+          if (elegido) cls += " ring-2 ring-aventurea-navy ring-offset-1";
+
+          if (!editable) {
+            return (
+              <div key={i} className={cls} title={lista?.[0]?.nombre ?? undefined}>
+                {d}
+              </div>
+            );
+          }
 
           return (
-            <div key={i} className={cls} title={info?.nombre ?? undefined}>
+            <button
+              key={i}
+              type="button"
+              onClick={() => setSeleccion(elegido ? null : fecha)}
+              aria-pressed={elegido}
+              aria-label={`${fechaLarga(fecha)}${
+                lista ? ` — ${lista.length} reserva${lista.length === 1 ? "" : "s"}` : " — libre"
+              }`}
+              className={`${cls} cursor-pointer hover:ring-2 hover:ring-aventurea-navy`}
+            >
               {d}
-            </div>
+              {lista && lista.length > 1 && (
+                <span className="text-[9px] font-bold leading-none opacity-70">
+                  {lista.length}
+                </span>
+              )}
+            </button>
           );
         })}
       </div>
@@ -122,6 +223,307 @@ export default function OcupacionCalendario({ dias }: { dias: DiaOcupado[] }) {
           <span className="h-2.5 w-2.5 rounded-full border border-aventurea-line" /> Libre
         </span>
       </div>
+
+      {editable && (
+        <p className="mt-3 text-[12px] text-aventurea-ink-soft">
+          Tocá un día para ver lo que hay y confirmarlo, corregirlo o cancelarlo.
+        </p>
+      )}
+
+      {seleccion && (
+        <div className="mt-4 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[14px] font-bold capitalize text-aventurea-ink">
+              {fechaLarga(seleccion)}
+            </p>
+            <button
+              type="button"
+              onClick={() => setSeleccion(null)}
+              className="shrink-0 text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          {delDia.length === 0 ? (
+            <p className="mt-2 text-[13px] text-aventurea-ink-soft">
+              Este día está libre. Podés cargar una reserva con el formulario de
+              más abajo.
+            </p>
+          ) : (
+            <div className="mt-3 flex flex-col gap-3">
+              {delDia.map((r) => (
+                <FilaReserva
+                  key={r.id}
+                  reserva={r}
+                  onConfirmar={onConfirmar}
+                  onCancelar={onCancelar}
+                  onEditar={onEditar}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+/** Una reserva del día abierto: su resumen y lo que se puede hacer con ella. */
+function FilaReserva({
+  reserva,
+  onConfirmar,
+  onCancelar,
+  onEditar,
+}: {
+  reserva: DiaOcupado;
+  onConfirmar?: (reservaId: string) => Promise<Resultado>;
+  onCancelar?: (reservaId: string) => Promise<Resultado>;
+  onEditar?: (reservaId: string, datos: ReservaEditable) => Promise<Resultado>;
+}) {
+  const [editando, setEditando] = useState(false);
+  // Cancelar pide un segundo clic en vez de un confirm() del navegador:
+  // liberar un día por accidente se arregla volviendo a cargar la
+  // reserva a mano, y eso nadie quiere hacerlo un sábado.
+  const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pendiente, startTransition] = useTransition();
+
+  const badge = ETIQUETA[reserva.estado] ?? {
+    texto: reserva.estado,
+    cls: "bg-aventurea-cream-2 text-aventurea-ink-soft",
+  };
+
+  function correr(accion: () => Promise<Resultado>) {
+    setError(null);
+    startTransition(async () => {
+      const res = await accion();
+      if (res.error) setError(res.error);
+      else {
+        setEditando(false);
+        setConfirmandoBaja(false);
+      }
+    });
+  }
+
+  const detalle = [
+    reserva.tipo_evento,
+    reserva.invitados ? `${reserva.invitados} personas` : null,
+    reserva.horarioBloque,
+    colones(reserva.montoTotal ?? null),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[13.5px] font-bold text-aventurea-ink">
+          {reserva.nombre ?? "Sin nombre"}
+        </p>
+        <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${badge.cls}`}>
+          {badge.texto}
+        </span>
+      </div>
+      {detalle && (
+        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">{detalle}</p>
+      )}
+      {reserva.notas && (
+        <p className="mt-1 text-[12px] italic text-aventurea-ink-soft">{reserva.notas}</p>
+      )}
+
+      {error && (
+        <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[12.5px] font-semibold text-red-700">
+          {error}
+        </p>
+      )}
+
+      {editando && onEditar ? (
+        <FormularioReserva
+          reserva={reserva}
+          pendiente={pendiente}
+          onCancelarEdicion={() => setEditando(false)}
+          onGuardar={(datos) => correr(() => onEditar(reserva.id, datos))}
+        />
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {onConfirmar && reserva.estado === "pendiente" && (
+            <button
+              type="button"
+              disabled={pendiente}
+              onClick={() => correr(() => onConfirmar(reserva.id))}
+              className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-50"
+            >
+              Confirmar
+            </button>
+          )}
+          {onEditar && reserva.estado !== "bloqueada" && (
+            <button
+              type="button"
+              disabled={pendiente}
+              onClick={() => setEditando(true)}
+              className="rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy disabled:opacity-50"
+            >
+              Modificar
+            </button>
+          )}
+          {onCancelar &&
+            (confirmandoBaja ? (
+              <>
+                <button
+                  type="button"
+                  disabled={pendiente}
+                  onClick={() => correr(() => onCancelar(reserva.id))}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                >
+                  {pendiente ? "Cancelando…" : "Sí, cancelar y liberar el día"}
+                </button>
+                <button
+                  type="button"
+                  disabled={pendiente}
+                  onClick={() => setConfirmandoBaja(false)}
+                  className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-50"
+                >
+                  Mejor no
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={pendiente}
+                onClick={() => setConfirmandoBaja(true)}
+                className="rounded-xl border border-red-200 bg-white px-4 py-2 text-[12.5px] font-bold text-red-700 transition-colors hover:border-red-400 disabled:opacity-50"
+              >
+                {reserva.estado === "bloqueada" ? "Liberar el día" : "Cancelar"}
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * El formulario de corrección. La FECHA no está: mover una reserva de
+ * día cambia el cupo, puede chocar con otra confirmada y afecta al
+ * cliente — es otra operación, no un campo más de este formulario.
+ */
+function FormularioReserva({
+  reserva,
+  pendiente,
+  onGuardar,
+  onCancelarEdicion,
+}: {
+  reserva: DiaOcupado;
+  pendiente: boolean;
+  onGuardar: (datos: ReservaEditable) => void;
+  onCancelarEdicion: () => void;
+}) {
+  const numero = (v: FormDataEntryValue | null): number | null => {
+    const t = String(v ?? "").trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  };
+  const texto = (v: FormDataEntryValue | null): string | null => {
+    const t = String(v ?? "").trim();
+    return t || null;
+  };
+
+  const campo =
+    "w-full rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2 text-[13px] text-aventurea-ink";
+  const rotulo = "text-[11.5px] font-bold text-aventurea-ink-soft";
+
+  return (
+    <form
+      className="mt-3 flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        onGuardar({
+          nombre: String(f.get("nombre") ?? "").trim(),
+          tipo_evento: texto(f.get("tipo_evento")),
+          invitados: numero(f.get("invitados")),
+          notas: texto(f.get("notas")),
+          montoTotal: numero(f.get("montoTotal")),
+          depositoMonto: numero(f.get("depositoMonto")),
+          horarioBloque: texto(f.get("horarioBloque")),
+        });
+      }}
+    >
+      <label className="flex flex-col gap-1">
+        <span className={rotulo}>Nombre de quien reserva</span>
+        <input name="nombre" defaultValue={reserva.nombre ?? ""} required className={campo} />
+      </label>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1">
+          <span className={rotulo}>Tipo de evento</span>
+          <input name="tipo_evento" defaultValue={reserva.tipo_evento ?? ""} className={campo} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={rotulo}>Personas</span>
+          <input
+            name="invitados"
+            type="number"
+            min={0}
+            defaultValue={reserva.invitados ?? ""}
+            className={campo}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={rotulo}>Horario</span>
+          <input
+            name="horarioBloque"
+            defaultValue={reserva.horarioBloque ?? ""}
+            placeholder="Ej: 2 p. m. a 10 p. m."
+            className={campo}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={rotulo}>Total del evento (₡)</span>
+          <input
+            name="montoTotal"
+            type="number"
+            min={0}
+            defaultValue={reserva.montoTotal ?? ""}
+            className={campo}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={rotulo}>Adelanto (₡)</span>
+          <input
+            name="depositoMonto"
+            type="number"
+            min={0}
+            defaultValue={reserva.depositoMonto ?? ""}
+            className={campo}
+          />
+        </label>
+      </div>
+
+      <label className="flex flex-col gap-1">
+        <span className={rotulo}>Notas</span>
+        <textarea name="notas" rows={2} defaultValue={reserva.notas ?? ""} className={campo} />
+      </label>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={pendiente}
+          className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-50"
+        >
+          {pendiente ? "Guardando…" : "Guardar cambios"}
+        </button>
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={onCancelarEdicion}
+          className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-50"
+        >
+          Descartar
+        </button>
+      </div>
+    </form>
   );
 }

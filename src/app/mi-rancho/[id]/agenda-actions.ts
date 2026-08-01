@@ -222,3 +222,64 @@ export async function actualizarReservaManual(
   revalidatePath("/admin/eventos");
   return { error: null };
 }
+
+/**
+ * Confirma una reserva que estaba en aprobación.
+ *
+ * Es el mismo update que hace `crearReservaManual` al final, pero
+ * suelto: desde el calendario se aprueba lo que entró por el sitio sin
+ * tener que ir a buscarlo a otra pantalla.
+ */
+export async function confirmarReserva(ranchoId: string, reservaId: string) {
+  const { supabase, rancho } = await verificarDueno(ranchoId);
+  if (!rancho) return { error: "No encontramos tu publicación." };
+
+  // `.eq("rancho_id")` sobre la RLS: el id viene del navegador y no
+  // puede servir para tocar la reserva de otro negocio. El filtro por
+  // estado evita revivir una reserva ya cancelada de un doble clic.
+  const { error } = await supabase
+    .from("reservas")
+    .update({ estado: "confirmada" })
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId)
+    .eq("estado", "pendiente");
+
+  if (error) return { error: "No se pudo confirmar: " + error.message };
+
+  revalidatePath(`/mi-rancho/${ranchoId}`);
+  revalidatePath("/admin/eventos");
+  return { error: null };
+}
+
+/**
+ * Cancela una reserva y libera el día.
+ *
+ * El esquema no tiene un estado 'cancelada' para eventos: el estado
+ * final es 'rechazada' (0001), que es el mismo que usa el admin desde
+ * su panel y el que la pantalla del cliente ya trata como final. Se
+ * reusa ese en vez de inventar uno nuevo, que obligaría a tocar el
+ * check de la tabla y todas las pantallas que ya filtran por estado.
+ *
+ * Un bloqueo (manual o importado de una agenda externa) también se
+ * cancela por acá: es la forma de liberar una fecha que se tapó por
+ * error.
+ */
+export async function cancelarReserva(ranchoId: string, reservaId: string) {
+  const { supabase, rancho } = await verificarDueno(ranchoId);
+  if (!rancho) return { error: "No encontramos tu publicación." };
+
+  const { error } = await supabase
+    .from("reservas")
+    .update({ estado: "rechazada" })
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId)
+    // Solo lo que todavía ocupa el día. Sin esto, un doble clic sobre
+    // una reserva ya cancelada devolvería "listo" sin haber hecho nada.
+    .in("estado", ["pendiente", "confirmada", "bloqueada"]);
+
+  if (error) return { error: "No se pudo cancelar: " + error.message };
+
+  revalidatePath(`/mi-rancho/${ranchoId}`);
+  revalidatePath("/admin/eventos");
+  return { error: null };
+}
