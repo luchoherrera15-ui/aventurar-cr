@@ -7,7 +7,11 @@ import {
   horaBonita,
   type HorarioSemana,
 } from "../tipos";
-import { ReservarCitaModal, type ResumenNegocio } from "./reservar/reservar-cita";
+import {
+  ReservarCitaModal,
+  type DatosAgendaPro,
+  type ResumenNegocio,
+} from "./reservar/reservar-cita";
 
 type PropsAgenda = {
   ranchoId: string;
@@ -18,10 +22,12 @@ type PropsAgenda = {
     nombre: string;
     precio: number | null;
     duracion_minutos: number | null;
+    buffer_min: number | null;
     grupo: string | null;
   }[];
   equipo: { id: string; nombre: string; rol: string | null; foto_url: string | null }[];
   horario: HorarioSemana | null;
+  agendaPro: DatosAgendaPro;
   sesionActiva: boolean;
   nombreInicial: string;
   resumen: ResumenNegocio;
@@ -206,6 +212,7 @@ export default function TarjetaReservaSticky({
         items={agenda.items}
         equipo={agenda.equipo}
         horario={agenda.horario}
+        {...agenda.agendaPro}
         sesionActiva={agenda.sesionActiva}
         nombreInicial={agenda.nombreInicial}
         servicioInicial={null}

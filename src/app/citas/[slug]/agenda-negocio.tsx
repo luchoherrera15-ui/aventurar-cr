@@ -4,13 +4,18 @@ import { useState } from "react";
 import { IconClock } from "@/components/icons";
 import { fmtColones } from "@/lib/finanzas";
 import { etiquetaMinutos, type HorarioSemana } from "../tipos";
-import { ReservarCitaModal, type ResumenNegocio } from "./reservar/reservar-cita";
+import {
+  ReservarCitaModal,
+  type DatosAgendaPro,
+  type ResumenNegocio,
+} from "./reservar/reservar-cita";
 
 type ServicioFila = {
   id: string;
   nombre: string;
   precio: number | null;
   duracion_minutos: number | null;
+  buffer_min: number | null;
   grupo: string | null;
   descripcion: string | null;
 };
@@ -31,6 +36,7 @@ export default function AgendaNegocio({
   items,
   equipo,
   horario,
+  agendaPro,
   sesionActiva,
   nombreInicial,
 }: {
@@ -41,6 +47,7 @@ export default function AgendaNegocio({
   items: ServicioFila[];
   equipo: Miembro[];
   horario: HorarioSemana | null;
+  agendaPro: DatosAgendaPro;
   sesionActiva: boolean;
   nombreInicial: string;
 }) {
@@ -129,6 +136,7 @@ export default function AgendaNegocio({
         items={items}
         equipo={equipo}
         horario={horario}
+        {...agendaPro}
         sesionActiva={sesionActiva}
         nombreInicial={nombreInicial}
         servicioInicial={servicioElegido}

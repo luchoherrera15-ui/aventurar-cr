@@ -507,6 +507,8 @@ export type Rancho = {
   /** Cuántos eventos atiende por día (0049). null = sin tope; los
    *  Lugares quedan en 1 — el salón se alquila entero. */
   eventos_por_dia?: number | null;
+  /** Zona IANA del negocio (0062) — 'America/Costa_Rica' por defecto. */
+  zona_horaria?: string | null;
   sinpe_numero: string | null;
   sinpe_titular: string | null;
   cuenta_banco: string | null;
@@ -637,6 +639,8 @@ export type RanchoItem = {
   /** true = al elegirlo, su precio SUSTITUYE la tarifa por evento o
    *  paquete del cotizador (0067). Opcional: tolera bases sin migrar. */
   es_paquete_base?: boolean | null;
+  /** Minutos de limpieza/preparación después de la cita (0061). */
+  buffer_min?: number | null;
   created_at: string;
 };
 

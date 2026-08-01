@@ -14,6 +14,7 @@ import {
   horarioDeDetalles,
   normalizarCategoriaCita,
 } from "../tipos";
+import { cargarAgendaPro } from "../agenda-pro";
 import { linkGoogleMaps, type Rancho, type RanchoItem } from "@/app/mi-rancho/types";
 
 type Miembro = {
@@ -99,8 +100,12 @@ export default async function NegocioCitasPage({
         : Promise.resolve({ data: null }),
     ]);
 
-  const items = (itemsData ?? []) as (RanchoItem & { duracion_minutos: number | null })[];
+  const items = (itemsData ?? []) as (RanchoItem & {
+    duracion_minutos: number | null;
+    buffer_min: number | null;
+  })[];
   const equipo = (equipoData ?? []) as Miembro[];
+  const agendaPro = await cargarAgendaPro(supabase, negocio.id);
   const calif = califData as { promedio: number; total: number } | null;
   const resenas = (resenasData ?? []) as Resena[];
   const horario = horarioDeDetalles(negocio.detalles);
@@ -157,6 +162,10 @@ export default async function NegocioCitasPage({
     items,
     equipo,
     horario,
+    agendaPro: {
+      zonaHoraria: negocio.zona_horaria ?? "America/Costa_Rica",
+      ...agendaPro,
+    },
     sesionActiva: !!user,
     nombreInicial: perfil?.nombre ?? "",
     resumen,

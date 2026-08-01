@@ -41,6 +41,15 @@ export type ServicioRecurso = { item_id: string; miembro_id: string };
 /** Filas de horarios_recurso agrupadas por miembro (agruparHorarioRecurso). */
 export type HorariosPorMiembro = Record<string, RecursoDisponibilidad["horario"]>;
 
+/** El paquete de datos "pro" de la agenda (0061) que las puertas de la
+ * página del negocio le pasan al modal — lo carga cargarAgendaPro. */
+export type DatosAgendaPro = {
+  zonaHoraria: string;
+  horariosRecurso: HorariosPorMiembro;
+  bloqueos: BloqueoPublico[];
+  serviciosRecurso: ServicioRecurso[];
+};
+
 /** Sin horario configurado, el negocio "abre" 8–18 todos los días —
  * el mismo default de siempre de esta pantalla (el RPC tampoco
  * restringe cuando no hay horario guardado). */
@@ -92,6 +101,10 @@ export default function ReservarCita({
   items,
   equipo,
   horario,
+  zonaHoraria,
+  horariosRecurso,
+  bloqueos,
+  serviciosRecurso,
   sesionActiva,
   nombreInicial,
   servicioInicial,
@@ -226,6 +239,7 @@ export default function ReservarCita({
   // respeta horario por persona, bloqueos y buffers — lo mismo que el
   // RPC valida en el servidor desde la 0081.
   const diaElegido = dias.find((d) => d.iso === fecha);
+  const ahora = new Date();
   const disponibilidad = !diaElegido?.abierto
     ? null
     : calcularDisponibilidad({
@@ -249,7 +263,7 @@ export default function ReservarCita({
         // Para hoy: media hora de cortesía — nadie llega a una cita
         // reservada para dentro de tres minutos (mismo margen que
         // esta pantalla ofrecía antes).
-        ahora: diaElegido.esHoy ? new Date(Date.now() + 30 * 60000) : undefined,
+        ahora: diaElegido.esHoy ? new Date(ahora.getTime() + 30 * 60000) : undefined,
       });
   const horas = !disponibilidad
     ? []
