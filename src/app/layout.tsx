@@ -10,6 +10,12 @@ const figtree = Figtree({
 });
 
 export const metadata: Metadata = {
+  // El sitio vive en www.bookea.lat. Fijarlo acá hace que TODA URL
+  // absoluta de metadata (Open Graph, Twitter, imágenes de preview)
+  // salga con ese dominio aunque la página se haya servido desde otro
+  // host apuntado al mismo proyecto — si no, lo que se comparte por
+  // WhatsApp queda con el dominio por el que entró esa persona.
+  metadataBase: new URL("https://www.bookea.lat"),
   // Genérico a propósito: Bookea no es solo eventos — también vienen
   // hospedajes y escapadas. La geografía sí se queda (posiciona), la
   // intención de "evento" no. Las páginas internas anteponen lo suyo
@@ -34,6 +40,7 @@ export const metadata: Metadata = {
       "Espacios, servicios y experiencias en un solo lugar. Compará opciones reales y reservá directo.",
     locale: "es_CR",
     siteName: "Bookea",
+    url: "https://www.bookea.lat",
   },
 };
 
