@@ -160,6 +160,67 @@ export async function archivarInvitacion(id: string, archivar: boolean) {
 }
 
 /**
+ * Le pone dueño a una invitación.
+ *
+ * Todo lo que se crea desde el panel —y sobre todo lo que sale de
+ * "Generar con IA"— queda a nombre de quien lo generó, que es el admin.
+ * Así el cliente no la ve en su cuenta, no puede administrar su lista
+ * de confirmados y el gate del PDF no lo reconoce. Este es el paso de
+ * "asignar" del flujo: una vez que el cliente aprobó su invitación, se
+ * le pasa a su cuenta.
+ *
+ * Correo vacío = dejarla sin dueño (vuelve a ser del equipo).
+ *
+ * El álbum de esa invitación viaja con ella: si no, quedaría colgando
+ * de la cuenta del admin y el cliente no vería las fotos de su evento.
+ */
+export async function asignarCliente(id: string, correo: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  const admin = createAdminClient();
+  if (!admin) return { error: FALTA_SERVICE_KEY };
+
+  const limpio = correo.trim().toLowerCase();
+  let clienteId: string | null = null;
+
+  if (limpio) {
+    const { data: perfil } = await admin
+      .from("perfiles")
+      .select("id")
+      .ilike("email", limpio)
+      .maybeSingle();
+    if (!perfil) {
+      return {
+        error: `No hay ninguna cuenta con el correo ${limpio}. Creala primero en Cuentas.`,
+      };
+    }
+    clienteId = perfil.id as string;
+  }
+
+  const { data, error } = await admin
+    .from("invitaciones")
+    .update({ cliente_id: clienteId })
+    .eq("id", id)
+    .select("slug")
+    .single();
+  if (error) return { error: error.message };
+
+  // El álbum sigue a su invitación. Si la tabla todavía no existe
+  // (0068 sin correr), no es motivo para fallar la asignación.
+  const { error: errorAlbum } = await admin
+    .from("albumes")
+    .update({ cliente_id: clienteId })
+    .eq("invitacion_id", id);
+  if (errorAlbum && !faltaTablaAlbumes(errorAlbum)) {
+    console.error("[admin] No se pudo reasignar el álbum:", errorAlbum.message);
+  }
+
+  refrescar(data.slug as string);
+  return { error: null };
+}
+
+/**
  * Retira una invitación del catálogo de ejemplos.
  *
  * Publicar al catálogo no mueve la invitación: crea una COPIA con slug

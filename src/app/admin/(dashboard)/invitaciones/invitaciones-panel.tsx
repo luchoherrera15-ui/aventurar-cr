@@ -7,6 +7,7 @@ import {
   archivarAlbum,
   archivarInvitacion,
   quitarDelCatalogo,
+  asignarCliente,
   crearAlbum,
   guardarInvitacion,
   type DatosInvitacion,
@@ -224,6 +225,24 @@ export default function InvitacionesPanel({
   function archivar(i: InvitacionAdmin) {
     startTransition(async () => {
       const res = await archivarInvitacion(i.id, i.estado !== "archivada");
+      if (res.error) setError(res.error);
+      else router.refresh();
+    });
+  }
+
+  function asignarClienteA(i: InvitacionAdmin) {
+    // prompt() y no un modal propio: esto es el paso operativo que
+    // faltaba y hacia falta hoy. El correo se valida del lado del
+    // servidor contra las cuentas registradas.
+    const correo = window.prompt(
+      `Correo de la cuenta que va a ser dueña de "${i.titulo}".\n\n` +
+        "Tiene que ser una cuenta ya registrada. Dejalo vacío para quitarle el dueño.",
+      i.clienteCorreo ?? "",
+    );
+    if (correo === null) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await asignarCliente(i.id, correo);
       if (res.error) setError(res.error);
       else router.refresh();
     });
@@ -710,6 +729,14 @@ export default function InvitacionesPanel({
                           {/* Saca la muestra del catálogo público. La
                               invitación del cliente no se toca: sigue
                               viva en su link de siempre. */}
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() => asignarClienteA(i)}
+                            className="text-[12.5px] font-bold text-aventurea-navy hover:underline disabled:opacity-50"
+                          >
+                            Asignar cliente
+                          </button>
                           <button
                             type="button"
                             disabled={pending}
