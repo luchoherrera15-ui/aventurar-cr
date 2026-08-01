@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
 import { IconChatBubble, IconClock, IconPin, IconStar } from "@/components/icons";
 import AgendaNegocio from "./agenda-negocio";
 import EquipoNegocio from "./equipo-negocio";
@@ -306,6 +307,8 @@ export default async function NegocioCitasPage({
           />
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

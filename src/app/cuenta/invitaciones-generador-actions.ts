@@ -22,13 +22,33 @@ function adminSupabase() {
   );
 }
 
-/** El usuario autenticado del request, o null. */
+/**
+ * El usuario del request, y SOLO si es admin. Devuelve null para todos
+ * los demás — incluida una sesión perfectamente válida de un cliente.
+ *
+ * Este es el cuello de botella por donde pasan las siete acciones del
+ * archivo, así que la verificación va acá una vez en lugar de repetirse
+ * (y olvidarse) en cada una.
+ *
+ * Hace falta aunque la página ya exija admin: una server action se
+ * invoca por su id desde CUALQUIER ruta, sin pasar por la página que la
+ * contiene ni por el middleware de /admin. Sin esto, cualquiera con una
+ * cuenta podía disparar generaciones con Opus a costa de la casa.
+ */
 async function usuarioActual() {
   const supabase = await createServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user;
+  if (!user) return null;
+
+  const { data: perfil } = await supabase
+    .from("perfiles")
+    .select("rol")
+    .eq("id", user.id)
+    .single();
+
+  return perfil?.rol === "admin" ? user : null;
 }
 
 /**

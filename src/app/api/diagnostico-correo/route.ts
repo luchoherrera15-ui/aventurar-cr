@@ -35,6 +35,18 @@ export async function GET() {
     );
   }
 
+  // Solo admin: la respuesta dice qué variables de entorno están puestas
+  // y qué contesta Resend. Nada de eso es un secreto en sí, pero es un
+  // mapa del servidor que no tiene por qué leer un cliente cualquiera.
+  const { data: perfil } = await supabase
+    .from("perfiles")
+    .select("rol")
+    .eq("id", user.id)
+    .single();
+  if (perfil?.rol !== "admin") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   const remitente = process.env.RESEND_FROM_EMAIL;
 

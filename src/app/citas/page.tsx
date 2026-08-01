@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
 import BarraFiltrosDirectorio from "@/components/barra-filtros-directorio";
 import { CATEGORIA_CITA_ICONO } from "./iconos";
@@ -237,6 +238,8 @@ export default async function CitasPage({
             negocios y nada más (la invitación a publicar vive en
             /publicar y en el estado vacío). */}
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

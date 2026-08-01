@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
 import type { Rancho } from "@/app/mi-rancho/types";
@@ -94,6 +95,8 @@ export default async function HospedajesPage() {
           )}
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

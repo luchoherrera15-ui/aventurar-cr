@@ -1,10 +1,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { notificarReservaAprobada } from "@/lib/notificaciones-reserva";
 
+/**
+ * Estas tres acciones NO las cubre el middleware de /admin.
+ *
+ * Una server action se invoca por su id, y ese id sirve desde CUALQUIER
+ * ruta: quien lo saque del bundle puede mandarla por POST a "/" y
+ * proxy.ts ni se entera, porque esa ruta no empieza con /admin. Por eso
+ * cada una pregunta por su cuenta.
+ *
+ * Hasta ahora lo único que las frenaba era RLS (la política de reservas
+ * desde la 0011 exige admin o dueño, y puede_ver_comprobante hace lo
+ * mismo). Eso funcionaba, pero dejaba al panel colgando de una sola
+ * capa: si mañana alguien afloja una política, la puerta queda abierta
+ * sin que nada más avise.
+ */
+const SIN_PERMISO = "No tenés permiso para esto.";
+
 export async function setEstadoReserva(id: string, estado: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: SIN_PERMISO };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("reservas")
@@ -35,6 +55,9 @@ export async function setEstadoReserva(id: string, estado: string) {
 }
 
 export async function marcarDepositoValidado(id: string, validado: boolean) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: SIN_PERMISO };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("reservas")
@@ -48,6 +71,9 @@ export async function marcarDepositoValidado(id: string, validado: boolean) {
 }
 
 export async function obtenerUrlComprobante(path: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { url: null, error: SIN_PERMISO };
+
   const supabase = await createClient();
   const { data, error } = await supabase.storage
     .from("comprobantes")

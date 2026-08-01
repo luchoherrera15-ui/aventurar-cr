@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { createClient } from "@/lib/supabase/server";
-import { sesionDesdeBearer } from "@/lib/supabase/bearer";
+import { adminDeLaPeticion } from "@/lib/auth";
 import { modeloDe, motivoParaNoGastar } from "@/lib/ia/config-ia";
 import { registrarDesdeUsage, registrarFalloIA } from "@/lib/ia/registrar-uso";
 import { MODELOS, type AgenteIA, type ModeloIA } from "@/lib/ia/modelos";
@@ -85,21 +84,14 @@ export async function POST(request: Request) {
     // app nunca trae cookies y no tiene sentido ir a buscarlas.
     // El id del usuario se guarda: cada llamada queda a nombre de quien
     // la gastó, que es lo que después mira el panel de consumo.
-    const sesionApp = await sesionDesdeBearer(request);
-    let usuarioId: string | null = sesionApp?.usuarioId ?? null;
-
-    if (!usuarioId) {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      usuarioId = user?.id ?? null;
-    }
-
-    if (!usuarioId) {
+    // SOLO ADMIN. Antes bastaba con estar logueado, así que cualquiera
+    // que se creara una cuenta podía conversar con Opus a costa de la
+    // plataforma. Las invitaciones las genera el equipo desde el panel.
+    const { ok: esAdmin, usuarioId } = await adminDeLaPeticion(request);
+    if (!esAdmin) {
       return Response.json(
-        { success: false, error: "No autenticado" },
-        { status: 401 }
+        { success: false, error: "No autorizado" },
+        { status: 403 }
       );
     }
 

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import ProveedorActual from "@/components/proveedor-actual";
 import AvisoInvitacionesFlotante from "@/components/aviso-invitaciones-flotante";
+import SiteFooter from "@/components/site-footer";
 import BookingCalendar from "./booking-calendar";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
@@ -157,14 +158,12 @@ export default async function EventosSalonPage() {
         </div>
       </section>
 
-      <footer className="border-t border-aventurea-line py-9 text-center">
-        <p className="text-xs text-zinc-500">
-          BOOKEA — Costa Rica ·{" "}
-          <Link href="/eventos" className="font-bold text-aventurea-orange">
-            Volver al inicio
-          </Link>
-        </p>
-      </footer>
+      <p className="border-t border-aventurea-line py-6 text-center text-xs text-zinc-500">
+        <Link href="/eventos" className="font-bold text-aventurea-orange">
+          Volver al inicio
+        </Link>
+      </p>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { autorizarCron } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR } from "@/lib/fechas";
 
@@ -12,10 +13,8 @@ import { hoyISOCR } from "@/lib/fechas";
  * de Finanzas (revertirPagoFinal).
  */
 export async function GET(request: Request) {
-  const secreto = process.env.CRON_SECRET;
-  if (secreto && request.headers.get("authorization") !== `Bearer ${secreto}`) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const noAutorizado = autorizarCron(request);
+  if (noAutorizado) return noAutorizado;
 
   const admin = createAdminClient();
   if (!admin) {

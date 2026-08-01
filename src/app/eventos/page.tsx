@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
+import AvisoInvitacionesFlotante from "@/components/aviso-invitaciones-flotante";
 import SelectorVertical from "@/components/selector-vertical";
 import Planificador from "@/components/planificador/planificador";
 import { normalizarCategoria } from "../mi-rancho/types";
@@ -124,14 +126,19 @@ export default async function EventosPage() {
         sesionActiva={!!user}
       />
 
-      <footer className="border-t border-aventurea-line py-9 text-center">
-        <p className="text-xs text-zinc-500">
-          BOOKEA — Costa Rica ·{" "}
-          <Link href="/puntaleona-web" className="font-bold text-aventurea-orange">
-            Paquetes vacacionales
-          </Link>
-        </p>
-      </footer>
+      {/* La venta cruzada suave también acá: el directorio de salones es
+          donde arranca la búsqueda, no solo la ficha de cada rancho. */}
+      <AvisoInvitacionesFlotante />
+
+      {/* El pie chiquito de antes solo decía "BOOKEA — Costa Rica": los
+          legales quedaban publicados pero sin que los enlazara nadie.
+          El pie del sitio los lleva, y de paso el link de paquetes. */}
+      <p className="border-t border-aventurea-line py-6 text-center text-xs text-zinc-500">
+        <Link href="/puntaleona-web" className="font-bold text-aventurea-orange">
+          Paquetes vacacionales
+        </Link>
+      </p>
+      <SiteFooter />
     </div>
   );
 }

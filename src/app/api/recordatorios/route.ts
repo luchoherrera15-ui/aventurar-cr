@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { autorizarCron } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   enviarCorreo,
@@ -31,11 +32,8 @@ import { horaBonita } from "@/app/citas/tipos";
  * de fallar en silencio.
  */
 export async function GET(request: Request) {
-  // Vercel manda el header con CRON_SECRET si está configurado.
-  const secreto = process.env.CRON_SECRET;
-  if (secreto && request.headers.get("authorization") !== `Bearer ${secreto}`) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const noAutorizado = autorizarCron(request);
+  if (noAutorizado) return noAutorizado;
 
   const admin = createAdminClient();
   if (!admin) {

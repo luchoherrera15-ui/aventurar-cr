@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
 import { IconCloche, IconPin, IconStar, IconWhatsapp } from "@/components/icons";
 import { linkGoogleMaps, linkWaze } from "@/app/mi-rancho/types";
 import {
@@ -314,6 +315,8 @@ export default async function RestaurantePage({
           )}
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/auth";
 import { logout } from "./actions";
 import { seccionActiva } from "./vertical-server";
 import VerticalSwitcher from "./vertical-switcher";
@@ -17,11 +19,28 @@ const NAV: [string, string][] = [
   ["/admin/eventos/precios", "Precios"],
 ];
 
+/**
+ * La segunda puerta del panel, y la que de verdad importa.
+ *
+ * La primera es proxy.ts, que corta toda ruta /admin de quien no tenga
+ * rol admin. Pero el middleware es UNA capa: si le cambian el matcher,
+ * si aparece una ruta con otro patrón, o si algún día Next trae un
+ * bypass, se cae solita — y todas las páginas de acá adentro leen con
+ * la llave de servicio, que se salta RLS por completo. Sin esta
+ * verificación, esa caída expone la plataforma entera.
+ *
+ * Ojo con lo que esto NO cubre: las server actions se pueden invocar
+ * por su id desde cualquier ruta, así que no pasan por acá. Cada acción
+ * verifica por su cuenta con requireAdmin() — ver ./eventos/actions.ts.
+ */
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { ok } = await requireAdmin();
+  if (!ok) redirect("/admin/login");
+
   const seccion = await seccionActiva();
   return (
     <div className="min-h-screen bg-aventurea-cream">

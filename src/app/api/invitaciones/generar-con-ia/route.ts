@@ -254,13 +254,38 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar que sea el dueño (comparar cliente_id con el token)
+    // SOLO ADMIN. Esta es la ruta que quema los tokens caros: antes le
+    // bastaba a cualquier cuenta ser dueña de la invitación, así que
+    // quien se registrara podía generar con Opus a costa de la casa.
+    // Ahora las invitaciones las hace el equipo desde el panel.
+    //
+    // Se sigue comprobando el dueño después: ser admin habilita a
+    // generar, no a pisar el borrador de otra persona por error.
     const {
       data: { user },
     } = await supabase.auth.getUser(token);
-    if (!user || user.id !== invitacion.cliente_id) {
+    if (!user) {
       return Response.json(
-        { success: false, error: "No tienes acceso a esta invitación" },
+        { success: false, error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
+    const { data: perfil } = await supabase
+      .from("perfiles")
+      .select("rol")
+      .eq("id", user.id)
+      .single();
+    if (perfil?.rol !== "admin") {
+      return Response.json(
+        { success: false, error: "Solo el equipo de Bookea genera invitaciones." },
+        { status: 403 }
+      );
+    }
+
+    if (user.id !== invitacion.cliente_id) {
+      return Response.json(
+        { success: false, error: "Esa invitación es de otro borrador" },
         { status: 403 }
       );
     }

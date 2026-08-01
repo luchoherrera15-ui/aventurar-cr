@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sesionDesdeBearer } from "@/lib/supabase/bearer";
+import { adminDeLaPeticion } from "@/lib/auth";
 
 /**
  * El generador de invitaciones con IA, para la app móvil.
@@ -21,7 +21,7 @@ import { sesionDesdeBearer } from "@/lib/supabase/bearer";
  * desde acá a propósito: esa curación la hace el equipo desde la web.
  */
 
-const SIN_SESION = "Entrá con tu cuenta.";
+const SIN_SESION = "Solo el equipo de Bookea genera invitaciones.";
 const SIN_SERVICE_KEY =
   "El servidor no está configurado para crear invitaciones (falta la service key).";
 
@@ -37,9 +37,9 @@ function normalizarSlug(v: string): string {
 }
 
 export async function POST(req: Request) {
-  const sesion = await sesionDesdeBearer(req);
-  if (!sesion) {
-    return Response.json({ ok: false, error: SIN_SESION }, { status: 401 });
+  const sesion = await adminDeLaPeticion(req);
+  if (!sesion.ok || !sesion.usuarioId) {
+    return Response.json({ ok: false, error: SIN_SESION }, { status: 403 });
   }
 
   const admin = createAdminClient();
@@ -77,9 +77,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const sesion = await sesionDesdeBearer(req);
-  if (!sesion) {
-    return Response.json({ ok: false, error: SIN_SESION }, { status: 401 });
+  const sesion = await adminDeLaPeticion(req);
+  if (!sesion.ok || !sesion.usuarioId) {
+    return Response.json({ ok: false, error: SIN_SESION }, { status: 403 });
   }
 
   const admin = createAdminClient();
