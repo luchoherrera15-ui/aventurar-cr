@@ -61,6 +61,17 @@ function TarjetaInvitacion({ inv }: { inv: FilaInvitacion }) {
         >
           Ver invitación
         </Link>
+        {/* Para imprimir. El link se ofrece siempre y el paquete se
+            verifica del otro lado: esconderlo acá obligaría a consultar
+            el pedido de cada invitación de la lista, y quien no tenga
+            Plus llega a una pantalla que le explica qué es y cómo
+            obtenerlo — que vende más que un botón ausente. */}
+        <Link
+          href={`/i/${inv.slug}/imprimir`}
+          className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
+        >
+          Imprimir
+        </Link>
         <Link
           href={`/cuenta/evento/${inv.id}`}
           className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-navy-2"
