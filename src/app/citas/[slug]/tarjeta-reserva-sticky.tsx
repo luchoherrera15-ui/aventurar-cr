@@ -7,6 +7,7 @@ import {
   horaBonita,
   type HorarioSemana,
 } from "../tipos";
+import { diaDeSemana, instanteEnZona } from "@/lib/agenda/disponibilidad";
 import {
   ReservarCitaModal,
   type DatosAgendaPro,
@@ -53,12 +54,17 @@ export default function TarjetaReservaSticky({
 }) {
   const [abierta, setAbierta] = useState(false);
   const [horarioAbierto, setHorarioAbierto] = useState(false);
-  const { resumen, horario } = agenda;
+  const { resumen, horario, agendaPro } = agenda;
 
-  // Estado de apertura según la hora actual (mercado CR — hora local).
-  const ahora = new Date();
-  const dow = ahora.getDay();
-  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+  // Estado de apertura en la hora DEL NEGOCIO, no en la del aparato
+  // que pinta. Antes se leía el reloj local: en el servidor eso es UTC
+  // (Vercel), así que a las 3 de la tarde en Costa Rica el HTML salía
+  // diciendo "Cerrado" — y encima el navegador lo corregía después,
+  // con el parpadeo correspondiente. Ahora los dos calculan lo mismo
+  // porque parten del instante, no del huso de quien renderiza.
+  const local = instanteEnZona(new Date().toISOString(), agendaPro.zonaHoraria);
+  const dow = diaDeSemana(local.fecha);
+  const minutosAhora = local.minutos;
   const hoy = horario?.[String(dow)] ?? null;
   const aMin = (h: string) => {
     const [hh, mm] = h.split(":").map(Number);

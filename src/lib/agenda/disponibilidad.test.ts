@@ -44,6 +44,22 @@ describe("diaDeSemana e instanteEnZona", () => {
       minutos: 9 * 60 + 30,
     });
   });
+
+  /**
+   * El caso que rompía la agenda en producción: de 6 de la tarde en
+   * adelante, en Costa Rica ya es "mañana" para un servidor en UTC
+   * (Vercel). Leer el reloj del servidor corría la tira de días un
+   * día entero y pintaba el negocio como cerrado. Por eso todo lo que
+   * se muestre parte del instante y de la zona DEL NEGOCIO.
+   */
+  it("a las 8 de la noche en CR el servidor ya está en el día siguiente", () => {
+    // 2026-08-04T02:00Z: en UTC es martes 4; en CR, lunes 3 a las 20:00.
+    expect(instanteEnZona("2026-08-04T02:00:00Z", ZONA)).toEqual({
+      fecha: "2026-08-03",
+      minutos: 20 * 60,
+    });
+    expect(diaDeSemana(instanteEnZona("2026-08-04T02:00:00Z", ZONA).fecha)).toBe(1); // lunes
+  });
 });
 
 describe("horario y herencia", () => {

@@ -43,6 +43,7 @@ import {
 } from "@/lib/citas";
 import {
   calcularDisponibilidad,
+  instanteEnZona,
   rangosDelDia,
   type BloqueoDisponibilidad,
   type CitaExistente,
@@ -209,30 +210,6 @@ export default function ReservarCitaScreen() {
       });
     }
 
-    const horarioEfectivo = horarioCargado ?? HORARIO_DEFAULT;
-    // El primer día abierto de los visibles como fecha inicial (el
-    // detalle por servicio se refina en el render).
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    let primeraFecha = "";
-    for (let k = 0; k < DIAS_VISIBLES && !primeraFecha; k++) {
-      const d = new Date(hoy);
-      d.setDate(d.getDate() + k);
-      const dow = d.getDay();
-      const abierto =
-        listaEquipo.length > 0
-          ? listaEquipo.some(
-              (m) =>
-                rangosDelDia(
-                  { id: m.id, horario: porMiembro[m.id] ?? null },
-                  dow,
-                  horarioEfectivo,
-                ).length > 0,
-            )
-          : rangosDelDia(null, dow, horarioEfectivo).length > 0;
-      if (abierto) primeraFecha = fechaISOLocal(d);
-    }
-
     setNombreNegocio(n.data?.nombre ?? null);
     setFotoNegocio(n.data?.foto_url ?? null);
     setItems(listaItems);
@@ -261,7 +238,11 @@ export default function ReservarCitaScreen() {
     );
     // "Reservar con X" llega con la persona ya elegida en la URL.
     setMiembroId(miembroElegido);
-    setFecha(primeraFecha);
+    // La fecha inicial NO se calcula acá: `fechaElegida` (en el
+    // render) ya se corre sola al primer día abierto, y ahí sí se
+    // conoce el servicio elegido y la zona del negocio. Duplicar el
+    // barrido de días era la forma segura de que las dos versiones se
+    // fueran separando.
     setCargando(false);
   }, [id, servicioParam, miembroParam]);
 
@@ -305,8 +286,13 @@ export default function ReservarCitaScreen() {
   // Los próximos días: abierto si ALGÚN recurso del servicio trabaja
   // ese día — o el negocio, si no hay equipo. (Cálculo barato: una
   // grilla de 28 días.)
-  const hoyBase = new Date();
-  hoyBase.setHours(0, 0, 0, 0);
+  // La tira arranca en el "hoy" DEL NEGOCIO, no en el del teléfono:
+  // un cliente en otro huso (o con el reloj corrido) veía la agenda
+  // empezada un día antes o después.
+  const [ay, am, ad] = instanteEnZona(new Date().toISOString(), zonaHoraria)
+    .fecha.split("-")
+    .map(Number);
+  const hoyBase = new Date(ay, am - 1, ad);
   const dias = Array.from({ length: DIAS_VISIBLES }, (_, k) => {
     const d = new Date(hoyBase);
     d.setDate(d.getDate() + k);

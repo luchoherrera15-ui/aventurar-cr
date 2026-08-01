@@ -9,6 +9,7 @@ import { crearCita } from "../../actions";
 import { etiquetaMinutos, horaBonita, type HorarioSemana } from "../../tipos";
 import {
   calcularDisponibilidad,
+  instanteEnZona,
   rangosDelDia,
   type BloqueoDisponibilidad,
   type CitaExistente,
@@ -210,8 +211,16 @@ export default function ReservarCita({
   // ese día (horario propio o heredado) — o el negocio, si no hay
   // equipo. Sin nadie que atienda, ningún día se ofrece.
   const dias = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
+    // La tira arranca en el "hoy" DEL NEGOCIO. Antes salía del reloj
+    // del aparato: en el servidor eso es UTC, así que después de las
+    // 6 de la tarde en Costa Rica el HTML ya empezaba en mañana —
+    // corrido un día entero, con `esHoy` marcando el día equivocado.
+    const [ay, am, ad] = instanteEnZona(new Date().toISOString(), zonaHoraria)
+      .fecha.split("-")
+      .map(Number);
+    // Medianoche local de ESA fecha: así getDate/getMonth/getDay y el
+    // formato es-CR siguen leyéndose igual en cualquier huso.
+    const hoy = new Date(ay, am - 1, ad);
     return Array.from({ length: DIAS_VISIBLES }, (_, i) => {
       const d = new Date(hoy);
       d.setDate(d.getDate() + i);
@@ -223,7 +232,7 @@ export default function ReservarCita({
           : rangosDelDia(null, dow, horarioNegocio).length > 0;
       return { date: d, iso: fechaISOLocal(d), dow, abierto, esHoy: i === 0 };
     });
-  }, [recursos, horarioNegocio, sinNadieQueAtienda]);
+  }, [recursos, horarioNegocio, sinNadieQueAtienda, zonaHoraria]);
 
   // Arranca en el primer día abierto de los visibles.
   const [fecha, setFecha] = useState(() => dias.find((d) => d.abierto)?.iso ?? "");
