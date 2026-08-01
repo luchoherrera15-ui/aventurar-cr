@@ -74,67 +74,10 @@ export function horaBonita(hora: string): string {
   return `${h12}:${String(m || 0).padStart(2, "0")} ${sufijo}`;
 }
 
-export type CitaOcupada = {
-  hora_inicio: string; // "14:30:00" como viene de la vista
-  duracion_minutos: number | null;
-  miembro_id: string | null;
-};
-
-/**
- * Los espacios libres de un día, cada 30 minutos, para un servicio de
- * `duracionServicio` minutos:
- *
- * - Con una persona elegida: chocan solo las citas de ESA persona.
- * - Con "cualquiera" (miembroId null y hay equipo): el espacio está
- *   libre si al menos una persona del equipo no tiene choque.
- * - Sin equipo: el negocio es un solo recurso — choca cualquier cita.
- */
-export function espaciosLibres({
-  horarioDia,
-  duracionServicio,
-  ocupadas,
-  miembroId,
-  equipoIds,
-  minutosMinimos,
-}: {
-  horarioDia: DiaHorario | undefined;
-  duracionServicio: number;
-  ocupadas: CitaOcupada[];
-  miembroId: string | null;
-  equipoIds: string[];
-  /** Para hoy: no ofrecer horas que ya pasaron (minutos desde 00:00). */
-  minutosMinimos?: number;
-}): string[] {
-  if (!horarioDia) return [];
-  const abre = horaAMinutos(horarioDia.abre);
-  const cierra = horaAMinutos(horarioDia.cierra);
-
-  const chocaCon = (citas: CitaOcupada[], inicio: number, fin: number) =>
-    citas.some((c) => {
-      const cInicio = horaAMinutos(c.hora_inicio.slice(0, 5));
-      const cFin = cInicio + (c.duracion_minutos ?? 30);
-      return inicio < cFin && cInicio < fin;
-    });
-
-  const libres: string[] = [];
-  for (let t = abre; t + duracionServicio <= cierra; t += 30) {
-    if (minutosMinimos !== undefined && t < minutosMinimos) continue;
-    const fin = t + duracionServicio;
-
-    let libre: boolean;
-    if (miembroId) {
-      libre = !chocaCon(ocupadas.filter((c) => c.miembro_id === miembroId), t, fin);
-    } else if (equipoIds.length > 0) {
-      libre = equipoIds.some(
-        (id) => !chocaCon(ocupadas.filter((c) => c.miembro_id === id), t, fin),
-      );
-    } else {
-      libre = !chocaCon(ocupadas, t, fin);
-    }
-    if (libre) libres.push(minutosAHora(t));
-  }
-  return libres;
-}
+// El armado de espacios libres vive en src/lib/agenda/disponibilidad.ts
+// (calcularDisponibilidad, el motor pro de la 0061): horario por
+// recurso, buffers y bloqueos. El espaciosLibres v1 que vivía acá se
+// retiró cuando la reserva pública pasó al motor pro (0081).
 
 /** "45" → "45 min" · "90" → "1 h 30 min" — como lo muestra Fresha. */
 export function etiquetaMinutos(min: number): string {

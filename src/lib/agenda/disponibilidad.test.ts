@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  agruparHorarioRecurso,
   calcularDisponibilidad,
   diaDeSemana,
   instanteEnZona,
+  rangosDelDia,
   type ParametrosDisponibilidad,
 } from "./disponibilidad";
 
@@ -239,5 +241,109 @@ describe("cierre, intervalo y hoy", () => {
   it("una fecha ya pasada no ofrece nada", () => {
     const r = calcularDisponibilidad(base({ ahora: new Date("2026-08-04T12:00:00Z") }));
     expect(r.cualquiera).toEqual([]);
+  });
+});
+
+/**
+ * La convención de herencia que comparten el motor, el armado de las
+ * filas de horarios_recurso y el RPC crear_cita (migración 0081):
+ * clave presente = ese día MANDA el horario propio (aunque esté
+ * vacío); clave ausente = hereda el del negocio.
+ */
+describe("agruparHorarioRecurso y rangosDelDia", () => {
+  it("sin filas devuelve null: el recurso hereda todo el horario del negocio", () => {
+    expect(agruparHorarioRecurso([])).toBeNull();
+  });
+
+  it("agrupa por día y recorta los segundos de las horas de Postgres", () => {
+    const h = agruparHorarioRecurso([
+      { dow: 1, abre: "09:00:00", cierra: "12:00:00" },
+      { dow: 1, abre: "14:00:00", cierra: "18:00:00" },
+      { dow: 3, abre: "08:00:00", cierra: "16:00:00" },
+    ]);
+    expect(h).toEqual({
+      "1": [
+        { abre: "09:00", cierra: "12:00" },
+        { abre: "14:00", cierra: "18:00" },
+      ],
+      "3": [{ abre: "08:00", cierra: "16:00" }],
+    });
+  });
+
+  it("un día con filas manda; un día sin filas hereda al negocio", () => {
+    const negocio = { "1": { abre: "09:00", cierra: "12:00" } };
+    const recurso = {
+      id: "r1",
+      horario: agruparHorarioRecurso([{ dow: 1, abre: "14:00:00", cierra: "18:00:00" }]),
+    };
+    // Lunes (dow 1): tiene filas propias → mandan las suyas.
+    expect(rangosDelDia(recurso, 1, negocio)).toEqual([{ inicio: 840, fin: 1080 }]);
+    // Martes (dow 2): sin filas propias → hereda (y el negocio cierra).
+    expect(rangosDelDia(recurso, 2, negocio)).toEqual([]);
+  });
+
+  it("sin recurso, rige el horario del negocio", () => {
+    const negocio = { "1": { abre: "09:00", cierra: "12:00" } };
+    expect(rangosDelDia(null, 1, negocio)).toEqual([{ inicio: 540, fin: 720 }]);
+    expect(rangosDelDia(null, 2, negocio)).toEqual([]);
+  });
+});
+
+/**
+ * El caso que el RPC crear_cita también contempla (0081): un negocio
+ * SIN equipo activo es un recurso único y choca contra TODAS sus
+ * citas — incluidas las que quedaron con el miembro_id de alguien que
+ * después se desactivó.
+ */
+describe("negocio sin equipo como recurso único", () => {
+  it("una cita con miembro_id sigue bloqueando cuando ya no hay equipo", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [],
+        citas: [{ miembroId: "quien-se-fue", horaInicio: "09:00:00", duracionMinutos: 60 }],
+      }),
+    );
+    expect(r.cualquiera).not.toContain("09:00");
+    expect(r.cualquiera).toContain("10:00");
+  });
+});
+
+/**
+ * Los compromisos que el sync .ics trae del calendario del dueño
+ * (migración 0072) entran como citas SIN miembro: son del negocio
+ * entero y tienen que tapar la franja de TODO el equipo. El RPC
+ * crear_cita (0081) aplica la misma regla en franja_chocada.
+ */
+describe("citas del negocio entero (sin miembro)", () => {
+  it("una cita sin miembro tapa esa hora para todo el equipo", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [
+          { id: "ana", horario: null },
+          { id: "bea", horario: null },
+        ],
+        citas: [{ miembroId: null, horaInicio: "10:00:00", duracionMinutos: 60 }],
+      }),
+    );
+    expect(r.porRecurso.ana).not.toContain("10:00");
+    expect(r.porRecurso.bea).not.toContain("10:00");
+    expect(r.cualquiera).not.toContain("10:00");
+    // Y no tapa de más: las 9 siguen libres para las dos.
+    expect(r.porRecurso.ana).toContain("09:00");
+    expect(r.porRecurso.bea).toContain("09:00");
+  });
+
+  it("la cita de una persona sigue sin estorbarle a la otra", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [
+          { id: "ana", horario: null },
+          { id: "bea", horario: null },
+        ],
+        citas: [{ miembroId: "ana", horaInicio: "10:00:00", duracionMinutos: 60 }],
+      }),
+    );
+    expect(r.porRecurso.ana).not.toContain("10:00");
+    expect(r.porRecurso.bea).toContain("10:00");
   });
 });

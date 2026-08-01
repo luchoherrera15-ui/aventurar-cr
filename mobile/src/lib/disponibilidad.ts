@@ -1,24 +1,20 @@
-import {
-  horaAMinutos,
-  minutosAHora,
-  type HorarioSemana,
-} from "@/app/citas/tipos";
+import { horaAMinutos, minutosAHora, type HorarioSemana } from "./citas";
 
 /**
- * FASE 2 de la Agenda — el motor PRO de disponibilidad.
+ * El motor PRO de disponibilidad en el app: espejo a mano de
+ * src/lib/agenda/disponibilidad.ts de /web (misma base de Supabase,
+ * misma lógica pura). Si cambiás algo acá, cambialo también allá —
+ * son gemelos porque el app no puede importar código del proyecto
+ * Next. Y el RPC crear_cita (0081) valida exactamente estas reglas
+ * en el servidor.
  *
- * 100% PURO: recibe todos los datos ya cargados y no toca Supabase ni
- * el reloj — por eso se puede probar con datos de mentira y corre
- * igual en el servidor o en el navegador. Extiende `espaciosLibres`
- * (v1, src/app/citas/tipos.ts) con lo que llegó en la 0061:
- *
+ * Qué sabe este motor que espaciosLibres (v1) no sabía:
  * - Horario propio por recurso (horarios_recurso), con HERENCIA: un
  *   recurso sin horario propio trabaja el horario del negocio.
  * - Buffer del servicio (limpieza/preparación): el espacio que una
  *   cita ocupa es su duración + su buffer.
  * - Bloqueos (bloqueos_agenda_publicos): vacaciones u horas cerradas,
- *   de un recurso o del negocio entero, como instantes con zona
- *   horaria que acá se traducen al día consultado.
+ *   de un recurso o del negocio entero.
  * - Asignación servicio↔recurso (servicios_recurso): sin filas, el
  *   servicio lo dan todos; con filas, solo esos.
  * - "Cualquier profesional": la unión de los espacios de los recursos.
@@ -32,8 +28,8 @@ export type RecursoDisponibilidad = {
   /**
    * Horario propio: llaves "0" (domingo) a "6" (sábado), cada día con
    * sus rangos (puede ser partido: mañana y tarde). `null` = sin
-   * horario propio → hereda el del negocio. Un array vacío en un día
-   * = ese día no trabaja.
+   * horario propio → hereda el del negocio. La convención (igual que
+   * la web y el RPC): claves SOLO para los días con filas.
    */
   horario: Partial<Record<string, { abre: string; cierra: string }[]>> | null;
 };
@@ -95,27 +91,37 @@ export function diaDeSemana(fecha: string): number {
 
 /**
  * Traduce un instante ISO a la fecha y minutos locales de una zona
- * IANA. Puro respecto al reloj: solo depende del instante recibido.
+ * IANA. En Hermes el Intl completo llegó hace poco: si el motor del
+ * teléfono no soporta la zona, se cae con gracia a UTC-6 fijo — la
+ * hora de Costa Rica, que no tiene horario de verano.
  */
 export function instanteEnZona(
   iso: string,
   zona: string,
 ): { fecha: string; minutos: number } {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: zona,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-  const partes: Record<string, string> = {};
-  for (const p of fmt.formatToParts(new Date(iso))) partes[p.type] = p.value;
-  return {
-    fecha: `${partes.year}-${partes.month}-${partes.day}`,
-    minutos: Number(partes.hour) * 60 + Number(partes.minute),
-  };
+  try {
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zona,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    const partes: Record<string, string> = {};
+    for (const p of fmt.formatToParts(new Date(iso))) partes[p.type] = p.value;
+    return {
+      fecha: `${partes.year}-${partes.month}-${partes.day}`,
+      minutos: Number(partes.hour) * 60 + Number(partes.minute),
+    };
+  } catch {
+    const d = new Date(new Date(iso).getTime() - 6 * 60 * 60 * 1000);
+    return {
+      fecha: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`,
+      minutos: d.getUTCHours() * 60 + d.getUTCMinutes(),
+    };
+  }
 }
 
 /** Recorta un bloqueo al día consultado, en minutos [0, 1440]. */
@@ -137,23 +143,6 @@ function bloqueoDelDia(
 
 function seSolapan(a: Rango, b: Rango): boolean {
   return a.inicio < b.fin && b.inicio < a.fin;
-}
-
-/**
- * Agrupa las filas de horarios_recurso en el objeto que espera
- * RecursoDisponibilidad: claves SOLO para los días con filas — un día
- * sin filas queda `undefined` y hereda el horario del negocio (misma
- * convención que el RPC crear_cita en la 0081).
- */
-export function agruparHorarioRecurso(
-  filas: { dow: number; abre: string; cierra: string }[],
-): RecursoDisponibilidad["horario"] {
-  if (filas.length === 0) return null;
-  const horario: NonNullable<RecursoDisponibilidad["horario"]> = {};
-  for (const f of filas) {
-    (horario[String(f.dow)] ??= []).push({ abre: f.abre.slice(0, 5), cierra: f.cierra.slice(0, 5) });
-  }
-  return horario;
 }
 
 /** Los rangos laborales del recurso ese día, con herencia del negocio. */

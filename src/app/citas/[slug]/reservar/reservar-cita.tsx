@@ -136,11 +136,21 @@ export default function ReservarCita({
    * la miga "Servicios" navega a la página del negocio. */
   onVolverServicios?: () => void;
 }) {
-  const [servicioId, setServicioId] = useState(
-    servicioInicial && items.some((i) => i.id === servicioInicial)
-      ? servicioInicial
-      : (items[0]?.id ?? ""),
-  );
+  const [servicioId, setServicioId] = useState(() => {
+    if (servicioInicial && items.some((i) => i.id === servicioInicial)) return servicioInicial;
+    // "Reservar con X" entra sin servicio elegido: se arranca en el
+    // primero que X SÍ da — si no, la persona que el cliente acaba de
+    // tocar desaparecería sola de la lista.
+    if (miembroInicial) {
+      const daElServicio = (itemId: string) => {
+        const asignados = serviciosRecurso.filter((sr) => sr.item_id === itemId);
+        return asignados.length === 0 || asignados.some((sr) => sr.miembro_id === miembroInicial);
+      };
+      const suyo = items.find((i) => daElServicio(i.id));
+      if (suyo) return suyo.id;
+    }
+    return items[0]?.id ?? "";
+  });
   const [paso, setPaso] = useState<"hora" | "confirmar">("hora");
   const [miembroId, setMiembroId] = useState<string | null>(
     miembroInicial && equipo.some((m) => m.id === miembroInicial) ? miembroInicial : null,
@@ -162,12 +172,27 @@ export default function ReservarCita({
 
   // El equipo que da el servicio elegido: con filas en
   // servicios_recurso solo esas personas; sin filas, todas (0061).
-  const equipoDelServicio = useMemo(() => {
+  // `restringido` se guarda aparte porque no es lo mismo "este
+  // servicio lo da cualquiera" que "lo daban dos personas y las dos
+  // están inactivas" — en el segundo caso NADIE lo da, y ofrecer las
+  // horas del negocio como recurso único sería mentir (el RPC las
+  // rechaza siempre).
+  const { equipoDelServicio, restringido } = useMemo(() => {
     const asignados = new Set(
       serviciosRecurso.filter((sr) => sr.item_id === servicioId).map((sr) => sr.miembro_id),
     );
-    return asignados.size > 0 ? equipo.filter((m) => asignados.has(m.id)) : equipo;
+    return asignados.size > 0
+      ? { equipoDelServicio: equipo.filter((m) => asignados.has(m.id)), restringido: true }
+      : { equipoDelServicio: equipo, restringido: false };
   }, [equipo, serviciosRecurso, servicioId]);
+
+  // Nadie puede dar este servicio: estaba restringido a gente que ya
+  // no atiende. Ojo con `equipo.length`: si el negocio se quedó SIN
+  // equipo activo, vuelve a ser un recurso único y sus filas viejas
+  // de servicios_recurso dejan de aplicar — el RPC decide igual
+  // (0081), así que la agenda no puede apagarse por su cuenta.
+  const sinNadieQueAtienda =
+    equipo.length > 0 && restringido && equipoDelServicio.length === 0;
 
   // Derivada, no un efecto: si la persona marcada no da el servicio
   // recién elegido, la elección vuelve a "cualquiera".
@@ -183,7 +208,7 @@ export default function ReservarCita({
 
   // Los próximos días: abierto si ALGÚN recurso del servicio trabaja
   // ese día (horario propio o heredado) — o el negocio, si no hay
-  // equipo.
+  // equipo. Sin nadie que atienda, ningún día se ofrece.
   const dias = useMemo(() => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -191,35 +216,44 @@ export default function ReservarCita({
       const d = new Date(hoy);
       d.setDate(d.getDate() + i);
       const dow = d.getDay();
-      const abierto =
-        recursos.length > 0
+      const abierto = sinNadieQueAtienda
+        ? false
+        : recursos.length > 0
           ? recursos.some((r) => rangosDelDia(r, dow, horarioNegocio).length > 0)
           : rangosDelDia(null, dow, horarioNegocio).length > 0;
       return { date: d, iso: fechaISOLocal(d), dow, abierto, esHoy: i === 0 };
     });
-  }, [recursos, horarioNegocio]);
+  }, [recursos, horarioNegocio, sinNadieQueAtienda]);
 
   // Arranca en el primer día abierto de los visibles.
   const [fecha, setFecha] = useState(() => dias.find((d) => d.abierto)?.iso ?? "");
 
+  // Derivada, no un efecto: si el día marcado dejó de estar abierto
+  // (cambió el servicio y esa persona no trabaja los martes), la
+  // elección se corre sola al primer día que sí — nunca queda un
+  // chip en navy con la lista de horas vacía.
+  const fechaElegida = dias.some((d) => d.iso === fecha && d.abierto)
+    ? fecha
+    : (dias.find((d) => d.abierto)?.iso ?? "");
+
   // Al cambiar el día se traen sus citas confirmadas (vista pública,
   // desde 0081 con el buffer de limpieza de cada una).
   useEffect(() => {
-    if (!fecha) return;
+    if (!fechaElegida) return;
     let vigente = true;
     const supabase = createClient();
     supabase
       .from("disponibilidad_citas")
       .select("hora_inicio, duracion_minutos, miembro_id, buffer_minutos")
       .eq("rancho_id", ranchoId)
-      .eq("fecha", fecha)
+      .eq("fecha", fechaElegida)
       .then(({ data }) => {
         if (vigente) setOcupadas((data ?? []) as CitaDelDia[]);
       });
     return () => {
       vigente = false;
     };
-  }, [ranchoId, fecha]);
+  }, [ranchoId, fechaElegida]);
 
   // El teléfono se aprende de reservas anteriores (queda en los
   // metadatos del usuario): con sesión el formulario llega listo.
@@ -238,12 +272,12 @@ export default function ReservarCita({
   // min) y el compilador de React memoiza solo. El motor pro (0061)
   // respeta horario por persona, bloqueos y buffers — lo mismo que el
   // RPC valida en el servidor desde la 0081.
-  const diaElegido = dias.find((d) => d.iso === fecha);
+  const diaElegido = dias.find((d) => d.iso === fechaElegida);
   const ahora = new Date();
   const disponibilidad = !diaElegido?.abierto
     ? null
     : calcularDisponibilidad({
-        fecha,
+        fecha: fechaElegida,
         zonaHoraria,
         horarioNegocio,
         recursos,
@@ -278,13 +312,13 @@ export default function ReservarCita({
   const horaElegida = horas.includes(hora) ? hora : "";
 
   function confirmar() {
-    if (!servicio || !fecha || !horaElegida) return;
+    if (!servicio || !fechaElegida || !horaElegida) return;
     setError(null);
     startTransition(async () => {
       const res = await crearCita({
         ranchoId,
         itemId: servicio.id,
-        fecha,
+        fecha: fechaElegida,
         hora: horaElegida,
         miembroId: miembroValido,
         nombre: nombre.trim(),
@@ -332,7 +366,7 @@ export default function ReservarCita({
           {servicio?.nombre} en {nombreNegocio} —{" "}
           {diaElegido
             ? `${DIAS_CORTO[diaElegido.dow]} ${diaElegido.date.getDate()} de ${MESES_CORTO[diaElegido.date.getMonth()]}`
-            : fecha}
+            : fechaElegida}
           , {horaBonita(hora)}. Te mandamos el comprobante por correo; el pago
           es en el local.
         </p>
@@ -374,7 +408,7 @@ export default function ReservarCita({
     : null;
   const inputCls =
     "w-full rounded-xl border border-aventurea-line bg-white px-4 py-3 text-[13.5px] text-aventurea-ink placeholder:text-zinc-400 focus:border-aventurea-navy focus:outline-none";
-  const puedeContinuar = !!servicio && !!fecha && !!horaElegida;
+  const puedeContinuar = !!servicio && !!fechaElegida && !!horaElegida;
 
   return (
     <div className="grid lg:grid-cols-[1fr_330px]">
@@ -479,7 +513,7 @@ export default function ReservarCita({
             >
               {dias.map((d) => {
                 const cerrado = !d.abierto;
-                const elegido = d.iso === fecha;
+                const elegido = d.iso === fechaElegida;
                 return (
                   <button
                     key={d.iso}
@@ -510,8 +544,11 @@ export default function ReservarCita({
             <p className="mt-6 text-[14px] font-extrabold text-aventurea-ink">Escogé una hora</p>
             {horas.length === 0 ? (
               <p className="mt-2.5 rounded-2xl border border-aventurea-line bg-[#fafbfe] px-5 py-4 text-[13px] text-aventurea-ink-soft">
-                No quedan espacios libres ese día — probá con otra fecha
-                {equipoDelServicio.length > 0 ? " u otra persona" : ""}.
+                {sinNadieQueAtienda
+                  ? "Nadie está atendiendo este servicio por ahora — elegí otro o consultale al negocio."
+                  : !fechaElegida
+                    ? "Este negocio no tiene días de atención abiertos por ahora — consultale por el chat."
+                    : `No quedan espacios libres ese día — probá con otra fecha${equipoDelServicio.length > 0 ? " u otra persona" : ""}.`}
               </p>
             ) : (
               /* La lista scrollea dentro de su propia caja: por larga

@@ -34,27 +34,47 @@ import { fmtColones } from "@/lib/types";
 import {
   DIAS_CORTO,
   MESES_CORTO,
-  espaciosLibres,
   etiquetaMinutos,
   fechaISOLocal,
   horaBonita,
   horarioDeDetalles,
   sumarMinutosHora,
-  type CitaOcupada,
   type HorarioSemana,
 } from "@/lib/citas";
+import {
+  calcularDisponibilidad,
+  rangosDelDia,
+  type BloqueoDisponibilidad,
+  type CitaExistente,
+  type RecursoDisponibilidad,
+} from "@/lib/disponibilidad";
 
 type Servicio = {
   id: string;
   nombre: string;
   precio: number | null;
   duracion_minutos: number | null;
+  buffer_min: number | null;
 };
 
 type Miembro = { id: string; nombre: string; foto_url: string | null };
 
+/** Fila de la vista disponibilidad_citas (desde 0081 con su buffer). */
+type CitaDelDia = {
+  hora_inicio: string;
+  duracion_minutos: number | null;
+  miembro_id: string | null;
+  buffer_minutos: number | null;
+};
+
 /** Cuatro semanas hacia adelante, igual que la agenda de la web. */
 const DIAS_VISIBLES = 28;
+
+/** Sin horario configurado, el negocio "abre" 8–18 todos los días —
+ * el mismo default de siempre de esta pantalla. */
+const HORARIO_DEFAULT: HorarioSemana = Object.fromEntries(
+  Array.from({ length: 7 }, (_, d) => [String(d), { abre: "08:00", cierra: "18:00" }]),
+);
 
 /**
  * La agenda de citas del app — espejo del modal Fresha de la web
@@ -81,8 +101,17 @@ export default function ReservarCitaScreen() {
   const [items, setItems] = useState<Servicio[]>([]);
   const [equipo, setEquipo] = useState<Miembro[]>([]);
   const [horario, setHorario] = useState<HorarioSemana | null>(null);
-  const [dias, setDias] = useState<
-    { iso: string; dow: number; dia: number; mes: number; abierto: boolean; esHoy: boolean }[]
+  const [zonaHoraria, setZonaHoraria] = useState("America/Costa_Rica");
+  // Los datos "pro" de la agenda (0061): horario propio por persona,
+  // bloqueos vigentes y qué recursos dan qué servicio.
+  const [horariosRecurso, setHorariosRecurso] = useState<
+    Record<string, RecursoDisponibilidad["horario"]>
+  >({});
+  const [bloqueos, setBloqueos] = useState<
+    { miembro_id: string | null; inicio: string; fin: string }[]
+  >([]);
+  const [serviciosRecurso, setServiciosRecurso] = useState<
+    { item_id: string; miembro_id: string }[]
   >([]);
 
   const [paso, setPaso] = useState<"hora" | "confirmar">("hora");
@@ -90,7 +119,7 @@ export default function ReservarCitaScreen() {
   const [miembroId, setMiembroId] = useState<string | null>(null);
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
-  const [ocupadas, setOcupadas] = useState<CitaOcupada[]>([]);
+  const [ocupadas, setOcupadas] = useState<CitaDelDia[]>([]);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [notas, setNotas] = useState("");
@@ -119,14 +148,14 @@ export default function ReservarCitaScreen() {
     const [n, i, e] = await Promise.all([
       supabase
         .from("ranchos")
-        .select("id, nombre, foto_url, detalles")
+        .select("id, nombre, foto_url, detalles, zona_horaria")
         .eq("id", id)
         .eq("vertical", "citas")
         .eq("estado", "aprobado")
         .maybeSingle(),
       supabase
         .from("rancho_items")
-        .select("id, nombre, precio, duracion_minutos")
+        .select("id, nombre, precio, duracion_minutos, buffer_min")
         .eq("rancho_id", id)
         .eq("activo", true)
         .order("orden", { ascending: true }),
@@ -140,45 +169,99 @@ export default function ReservarCitaScreen() {
 
     const horarioCargado = horarioDeDetalles(n.data?.detalles);
     const listaItems = (i.data ?? []) as Servicio[];
+    const listaEquipo = (e.data ?? []) as Miembro[];
 
-    // Los próximos días con su estado abierto/cerrado, y el primer
-    // día abierto como fecha inicial.
+    // Los datos "pro" (0061): horario por persona, bloqueos vigentes y
+    // la asignación servicio↔recurso — el motor y el RPC los respetan.
+    const [h, b, sr] = await Promise.all([
+      listaEquipo.length > 0
+        ? supabase
+            .from("horarios_recurso")
+            .select("miembro_id, dow, abre, cierra")
+            .in("miembro_id", listaEquipo.map((m) => m.id))
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("bloqueos_agenda_publicos")
+        .select("miembro_id, inicio, fin")
+        .eq("rancho_id", id)
+        .gte("fin", new Date().toISOString()),
+      listaItems.length > 0
+        ? supabase
+            .from("servicios_recurso")
+            .select("item_id, miembro_id")
+            .in("item_id", listaItems.map((s) => s.id))
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    // Filas → objeto por miembro, claves SOLO para los días con filas
+    // (la convención de herencia del motor y del RPC 0081).
+    const porMiembro: Record<string, RecursoDisponibilidad["horario"]> = {};
+    for (const fila of (h.data ?? []) as {
+      miembro_id: string;
+      dow: number;
+      abre: string;
+      cierra: string;
+    }[]) {
+      const horarioMiembro = (porMiembro[fila.miembro_id] ??= {});
+      (horarioMiembro![String(fila.dow)] ??= []).push({
+        abre: fila.abre.slice(0, 5),
+        cierra: fila.cierra.slice(0, 5),
+      });
+    }
+
+    const horarioEfectivo = horarioCargado ?? HORARIO_DEFAULT;
+    // El primer día abierto de los visibles como fecha inicial (el
+    // detalle por servicio se refina en el render).
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    const listaDias = Array.from({ length: DIAS_VISIBLES }, (_, k) => {
+    let primeraFecha = "";
+    for (let k = 0; k < DIAS_VISIBLES && !primeraFecha; k++) {
       const d = new Date(hoy);
       d.setDate(d.getDate() + k);
       const dow = d.getDay();
-      const abierto = horarioCargado
-        ? !!(horarioCargado[String(dow)] ?? null)
-        : true;
-      return {
-        iso: fechaISOLocal(d),
-        dow,
-        dia: d.getDate(),
-        mes: d.getMonth(),
-        abierto,
-        esHoy: k === 0,
-      };
-    });
+      const abierto =
+        listaEquipo.length > 0
+          ? listaEquipo.some(
+              (m) =>
+                rangosDelDia(
+                  { id: m.id, horario: porMiembro[m.id] ?? null },
+                  dow,
+                  horarioEfectivo,
+                ).length > 0,
+            )
+          : rangosDelDia(null, dow, horarioEfectivo).length > 0;
+      if (abierto) primeraFecha = fechaISOLocal(d);
+    }
 
-    const listaEquipo = (e.data ?? []) as Miembro[];
     setNombreNegocio(n.data?.nombre ?? null);
     setFotoNegocio(n.data?.foto_url ?? null);
     setItems(listaItems);
     setEquipo(listaEquipo);
     setHorario(horarioCargado);
-    setDias(listaDias);
+    setZonaHoraria((n.data?.zona_horaria as string | null) ?? "America/Costa_Rica");
+    setHorariosRecurso(porMiembro);
+    setBloqueos((b.data ?? []) as { miembro_id: string | null; inicio: string; fin: string }[]);
+    setServiciosRecurso((sr.data ?? []) as { item_id: string; miembro_id: string }[]);
+    // "Reservar con X" entra sin servicio elegido: se arranca en el
+    // primero que X SÍ da — si no, la persona que el cliente acaba de
+    // tocar desaparecería sola de la lista. (Igual que la web.)
+    const asignaciones = (sr.data ?? []) as { item_id: string; miembro_id: string }[];
+    const daElServicio = (itemId: string, miembroId: string) => {
+      const deEse = asignaciones.filter((a) => a.item_id === itemId);
+      return deEse.length === 0 || deEse.some((a) => a.miembro_id === miembroId);
+    };
+    const miembroElegido =
+      miembroParam && listaEquipo.some((m) => m.id === miembroParam) ? miembroParam : null;
     setServicioId(
       servicioParam && listaItems.some((s) => s.id === servicioParam)
         ? servicioParam
-        : (listaItems[0]?.id ?? null),
+        : (miembroElegido
+            ? (listaItems.find((s) => daElServicio(s.id, miembroElegido))?.id ?? null)
+            : null) ?? (listaItems[0]?.id ?? null),
     );
     // "Reservar con X" llega con la persona ya elegida en la URL.
-    setMiembroId(
-      miembroParam && listaEquipo.some((m) => m.id === miembroParam) ? miembroParam : null,
-    );
-    setFecha(listaDias.find((d) => d.abierto)?.iso ?? "");
+    setMiembroId(miembroElegido);
+    setFecha(primeraFecha);
     setCargando(false);
   }, [id, servicioParam, miembroParam]);
 
@@ -188,52 +271,132 @@ export default function ReservarCitaScreen() {
     cargar();
   }, [cargar, session, cargandoAuth]);
 
-  // Al cambiar el día se traen sus citas confirmadas (vista pública).
+  const servicio = items.find((s) => s.id === servicioId) ?? null;
+  const duracion = servicio?.duracion_minutos ?? 30;
+  const buffer = servicio?.buffer_min ?? 0;
+  const horarioNegocio = horario ?? HORARIO_DEFAULT;
+
+  // El equipo que da el servicio elegido: con filas en
+  // servicios_recurso solo esas personas; sin filas, todas (0061).
+  const asignados = new Set(
+    serviciosRecurso.filter((sr) => sr.item_id === servicioId).map((sr) => sr.miembro_id),
+  );
+  const restringido = asignados.size > 0;
+  const equipoDelServicio = restringido ? equipo.filter((m) => asignados.has(m.id)) : equipo;
+  // Nadie da este servicio: estaba restringido a gente que ya no
+  // atiende. Ojo con `equipo.length`: si el negocio se quedó SIN
+  // equipo activo, vuelve a ser un recurso único y sus filas viejas
+  // de servicios_recurso dejan de aplicar — el RPC decide igual
+  // (0081), así que la agenda no puede apagarse por su cuenta.
+  const sinNadieQueAtienda =
+    equipo.length > 0 && restringido && equipoDelServicio.length === 0;
+
+  // Derivada, no un efecto: si la persona marcada no da el servicio
+  // recién elegido, la elección vuelve a "cualquiera".
+  const miembroValido =
+    miembroId && equipoDelServicio.some((m) => m.id === miembroId) ? miembroId : null;
+
+  // Cada recurso con su horario propio (o herencia del negocio).
+  const recursos: RecursoDisponibilidad[] = equipoDelServicio.map((m) => ({
+    id: m.id,
+    horario: horariosRecurso[m.id] ?? null,
+  }));
+
+  // Los próximos días: abierto si ALGÚN recurso del servicio trabaja
+  // ese día — o el negocio, si no hay equipo. (Cálculo barato: una
+  // grilla de 28 días.)
+  const hoyBase = new Date();
+  hoyBase.setHours(0, 0, 0, 0);
+  const dias = Array.from({ length: DIAS_VISIBLES }, (_, k) => {
+    const d = new Date(hoyBase);
+    d.setDate(d.getDate() + k);
+    const dow = d.getDay();
+    const abierto = sinNadieQueAtienda
+      ? false
+      : recursos.length > 0
+        ? recursos.some((r) => rangosDelDia(r, dow, horarioNegocio).length > 0)
+        : rangosDelDia(null, dow, horarioNegocio).length > 0;
+    return { iso: fechaISOLocal(d), dow, dia: d.getDate(), mes: d.getMonth(), abierto, esHoy: k === 0 };
+  });
+
+  // Derivada, no un efecto: si el día marcado dejó de estar abierto
+  // (cambió el servicio y esa persona no trabaja los martes), la
+  // elección se corre sola al primer día que sí.
+  const fechaElegida = dias.some((d) => d.iso === fecha && d.abierto)
+    ? fecha
+    : (dias.find((d) => d.abierto)?.iso ?? "");
+
+  // Al cambiar el día se traen sus citas ocupadas (vista pública,
+  // desde 0081 con el buffer de limpieza de cada una). Va después de
+  // las derivaciones porque depende del día realmente elegido.
   useEffect(() => {
-    if (!fecha) return;
+    // Mientras carga, `fechaElegida` sale del horario por defecto y
+    // caería en HOY: pedir esas citas sería una consulta al pedo y,
+    // peor, pintaría la grilla del primer día abierto restando las
+    // citas de hoy hasta que llegue la respuesta buena.
+    if (cargando || !fechaElegida) return;
     let vigente = true;
     supabase
       .from("disponibilidad_citas")
-      .select("hora_inicio, duracion_minutos, miembro_id")
+      .select("hora_inicio, duracion_minutos, miembro_id, buffer_minutos")
       .eq("rancho_id", id)
-      .eq("fecha", fecha)
+      .eq("fecha", fechaElegida)
       .then(({ data }) => {
-        if (vigente) setOcupadas((data ?? []) as CitaOcupada[]);
+        if (vigente) setOcupadas((data ?? []) as CitaDelDia[]);
       });
     return () => {
       vigente = false;
     };
-  }, [id, fecha]);
+  }, [id, fechaElegida, cargando]);
 
-  const servicio = items.find((s) => s.id === servicioId) ?? null;
-  const duracion = servicio?.duracion_minutos ?? 30;
-  const diaElegido = dias.find((d) => d.iso === fecha);
+  const diaElegido = dias.find((d) => d.iso === fechaElegida);
   const ahora = new Date();
-  const horas =
+  // El motor pro (0061) respeta horario por persona, bloqueos y
+  // buffers — lo mismo que el RPC valida en el servidor desde la 0081.
+  const disponibilidad =
     !diaElegido || !diaElegido.abierto
-      ? []
-      : espaciosLibres({
-          horarioDia: horario ? (horario[String(diaElegido.dow)] ?? null) : { abre: "08:00", cierra: "18:00" },
-          duracionServicio: duracion,
-          ocupadas,
-          miembroId,
-          equipoIds: equipo.map((m) => m.id),
-          minutosMinimos: diaElegido.esHoy
-            ? Math.ceil((ahora.getHours() * 60 + ahora.getMinutes() + 30) / 30) * 30
-            : undefined,
+      ? null
+      : calcularDisponibilidad({
+          fecha: fechaElegida,
+          zonaHoraria,
+          horarioNegocio,
+          recursos,
+          duracionMinutos: duracion,
+          bufferMinutos: buffer,
+          citas: ocupadas.map<CitaExistente>((c) => ({
+            miembroId: c.miembro_id,
+            horaInicio: c.hora_inicio,
+            duracionMinutos: c.duracion_minutos ?? 30,
+            bufferMinutos: c.buffer_minutos ?? 0,
+          })),
+          bloqueos: bloqueos.map<BloqueoDisponibilidad>((b) => ({
+            miembroId: b.miembro_id,
+            inicio: b.inicio,
+            fin: b.fin,
+          })),
+          // Para hoy: media hora de cortesía — nadie llega a una cita
+          // reservada para dentro de tres minutos.
+          ahora: diaElegido.esHoy ? new Date(ahora.getTime() + 30 * 60000) : undefined,
         });
+  const horas = !disponibilidad
+    ? []
+    : miembroValido
+      ? (disponibilidad.porRecurso[miembroValido] ?? [])
+      : recursos.length > 0
+        ? disponibilidad.cualquiera
+        : (disponibilidad.porRecurso[""] ?? []);
   const horaElegida = horas.includes(hora) ? hora : "";
 
   async function confirmar() {
-    if (!servicio || !fecha || !horaElegida || !session) return;
+    if (!servicio || !fechaElegida || !horaElegida || !session) return;
     setError(null);
     setEnviando(true);
     const { data, error: errorRpc } = await supabase.rpc("crear_cita", {
       p_rancho_id: id,
       p_item_id: servicio.id,
-      p_fecha: fecha,
+      p_fecha: fechaElegida,
       p_hora: horaElegida,
-      p_miembro_id: miembroId,
+      p_miembro_id: miembroValido,
       p_nombre: nombre.trim(),
       p_telefono: telefono.trim(),
       p_notas: notas.trim(),
@@ -342,7 +505,7 @@ export default function ReservarCitaScreen() {
   }
 
   const horaFin = horaElegida ? sumarMinutosHora(horaElegida, duracion) : null;
-  const puedeContinuar = !!servicio && !!fecha && !!horaElegida;
+  const puedeContinuar = !!servicio && !!fechaElegida && !!horaElegida;
 
   return (
     <View style={styles.contenedor}>
@@ -391,22 +554,22 @@ export default function ReservarCitaScreen() {
               </View>
             </View>
 
-            {/* ---------- ¿Con quién? ---------- */}
-            {equipo.length > 0 && (
+            {/* ---------- ¿Con quién? — solo quienes dan este servicio ---------- */}
+            {equipoDelServicio.length > 0 && (
               <View style={styles.bloque}>
                 <Micro tono="navy">¿Con quién?</Micro>
                 <View style={styles.opciones}>
                   <Opcion
                     titulo="Cualquiera"
                     detalle="La primera persona disponible"
-                    seleccionada={miembroId === null}
+                    seleccionada={miembroValido === null}
                     onPress={() => setMiembroId(null)}
                   />
-                  {equipo.map((m) => (
+                  {equipoDelServicio.map((m) => (
                     <Opcion
                       key={m.id}
                       titulo={m.nombre}
-                      seleccionada={miembroId === m.id}
+                      seleccionada={miembroValido === m.id}
                       onPress={() => setMiembroId(m.id)}
                     />
                   ))}
@@ -423,7 +586,7 @@ export default function ReservarCitaScreen() {
                 contentContainerStyle={styles.diasFila}
               >
                 {dias.map((d) => {
-                  const elegido = d.iso === fecha;
+                  const elegido = d.iso === fechaElegida;
                   return (
                     <Pressable
                       key={d.iso}
@@ -465,7 +628,13 @@ export default function ReservarCitaScreen() {
                 <Aviso
                   tono="atencion"
                   icono="calendar-outline"
-                  texto={`No quedan espacios libres ese día — probá con otra fecha${equipo.length > 0 ? " u otra persona" : ""}.`}
+                  texto={
+                    sinNadieQueAtienda
+                      ? "Nadie está atendiendo este servicio por ahora — elegí otro o consultale al negocio."
+                      : !fechaElegida
+                        ? "Este negocio no tiene días de atención abiertos por ahora — consultale por el chat."
+                        : `No quedan espacios libres ese día — probá con otra fecha${equipoDelServicio.length > 0 ? " u otra persona" : ""}.`
+                  }
                 />
               ) : (
                 <RejillaHoras>
