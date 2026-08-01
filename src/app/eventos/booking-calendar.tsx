@@ -20,9 +20,9 @@ import {
   cancelarReservaTemporal,
   completarReservaTemporal,
   crearReservaTemporal,
-} from "./actions";
+} from "./reserva-actions";
 import OfertaInvitacionCard from "@/components/oferta-invitacion-card";
-import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./types";
+import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./tipos-lugar";
 import { terminosPorDefecto } from "@/app/mi-rancho/types";
 import type { PromocionDia } from "@/app/mi-rancho/types";
 

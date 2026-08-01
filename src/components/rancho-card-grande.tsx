@@ -12,7 +12,6 @@ import {
   UNIDAD_PRECIO_LABEL,
   type Rancho,
 } from "@/app/mi-rancho/types";
-import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
 import type { Calificacion } from "@/components/rancho-card";
@@ -51,12 +50,7 @@ export default function RanchoCardGrande({
   favoritoInicial: boolean;
   sesionActiva: boolean;
 }) {
-  const esBookear = rancho.nombre === NOMBRE_RANCHO_BOOKEAR;
-  const href = esBookear
-    ? "/eventos-salon"
-    : rancho.slug
-      ? `/${rancho.slug}`
-      : `/eventos/${rancho.id}`;
+  const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   const ubicacion = [rancho.canton, rancho.provincia].filter(Boolean).join(", ");
   // eslint-disable-next-line react-hooks/purity -- "nuevo" es una etiqueta de vitrina; no pasa nada si queda desactualizada un instante entre renders

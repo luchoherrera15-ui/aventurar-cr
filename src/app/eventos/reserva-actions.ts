@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notificarReservaCompletada } from "@/lib/notificaciones-reserva";
-import type { HorarioBloque } from "./types";
+import type { HorarioBloque } from "./tipos-lugar";
 
 const MINUTOS_HOLD = 10;
 

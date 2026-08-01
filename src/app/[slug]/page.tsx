@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizarCategoria, type Rancho } from "@/app/mi-rancho/types";
-import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import RanchoPortal from "@/app/eventos/rancho-portal";
 
 /**
@@ -43,10 +42,6 @@ export default async function SlugPortalPage({
     ...(data as Rancho),
     categoria: normalizarCategoria((data as Rancho).categoria),
   };
-
-  if (rancho.nombre === NOMBRE_RANCHO_BOOKEAR) {
-    redirect("/eventos-salon");
-  }
 
   // El negocio de Invitaciones Digitales es de Bookea mismo: no tiene
   // portal con calendario ni reservas — su "perfil" es el panel de

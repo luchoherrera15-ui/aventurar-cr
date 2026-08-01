@@ -68,7 +68,6 @@ export async function guardarPreciosRancho(
 
   revalidatePath("/admin/eventos/precios");
   revalidatePath("/mi-rancho", "layout");
-  revalidatePath("/eventos-salon");
   revalidatePath("/eventos");
   return { error: null };
 }

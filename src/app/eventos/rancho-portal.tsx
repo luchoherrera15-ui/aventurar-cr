@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import BookingCalendar from "@/app/eventos-salon/booking-calendar";
+import BookingCalendar from "./booking-calendar";
 import ReservaModal from "./reserva-modal";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteHeader from "@/components/site-header";
@@ -23,7 +23,7 @@ import type {
   DiaDisponibilidad,
   PrecioTier,
   ServicioAdicional,
-} from "@/app/eventos-salon/types";
+} from "./tipos-lugar";
 import { disponibilidadServicio, type CupoDia } from "@/lib/disponibilidad";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import {

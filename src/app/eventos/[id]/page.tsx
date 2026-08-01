@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizarCategoria, type Rancho } from "@/app/mi-rancho/types";
-import { NOMBRE_RANCHO_BOOKEAR } from "../constants";
 import RanchoPortal from "../rancho-portal";
 
 /**
@@ -33,10 +32,6 @@ export default async function RanchoPortalPage({
     ...(data as Rancho),
     categoria: normalizarCategoria((data as Rancho).categoria),
   };
-
-  if (rancho.nombre === NOMBRE_RANCHO_BOOKEAR) {
-    redirect("/eventos-salon");
-  }
 
   if (rancho.slug) {
     redirect(`/${rancho.slug}`);

@@ -14,7 +14,6 @@ import {
   type Provincia,
   type Rancho,
 } from "@/app/mi-rancho/types";
-import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { IconHeart, IconStar } from "@/components/icons";
 import { hoyISOCR } from "@/lib/fechas";
@@ -798,12 +797,7 @@ function CardResultado({
   sesionActiva: boolean;
 }) {
   const { rancho, calificacion, etiquetaDisponibilidad } = candidato;
-  const esBookear = rancho.nombre === NOMBRE_RANCHO_BOOKEAR;
-  const href = esBookear
-    ? "/eventos-salon"
-    : rancho.slug
-      ? `/${rancho.slug}`
-      : `/eventos/${rancho.id}`;
+  const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
   const esDemo = !!rancho.slug?.startsWith("demo-");
   const precio = fmtColones(rancho.precio_desde);
   const rubro = rancho.subcategoria

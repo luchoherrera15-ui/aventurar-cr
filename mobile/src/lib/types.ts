@@ -1,6 +1,6 @@
 /**
  * Mismo esquema que /web (src/app/mi-rancho/types.tsx y
- * src/app/eventos-salon/types.ts) — se repiten acá los tipos y
+ * src/app/eventos/tipos-lugar.ts) — se repiten acá los tipos y
  * constantes que la app necesita en vez de importarlos cruzando de
  * /web a /mobile porque son dos proyectos npm independientes (Next.js
  * vs Expo, cada uno con su propio bundler y árbol de node_modules).

@@ -12,7 +12,6 @@ import {
   UNIDAD_PRECIO_LABEL,
   type Rancho,
 } from "@/app/mi-rancho/types";
-import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
 
@@ -48,12 +47,7 @@ export default function RanchoCard({
   /** Ancho CSS (ej. "220px" o un clamp()) para uso en riel horizontal; sin esto, ocupa el 100% de su celda de grilla. */
   ancho?: string;
 }) {
-  const esBookear = rancho.nombre === NOMBRE_RANCHO_BOOKEAR;
-  const href = esBookear
-    ? "/eventos-salon"
-    : rancho.slug
-      ? `/${rancho.slug}`
-      : `/eventos/${rancho.id}`;
+  const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
   // quedaba cortada a media palabra.
