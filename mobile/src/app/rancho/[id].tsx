@@ -23,6 +23,7 @@ import CalendarioMensual from "@/components/calendario-mensual";
 import SeccionEncabezado from "@/components/seccion-encabezado";
 import { BotonFlotante, FilaFlotante } from "@/components/boton-flotante";
 import { Avatar, Boton, Micro, Tarjeta, Vacio } from "@/components/ui";
+import AvisoInvitaciones from "@/components/aviso-invitaciones";
 import {
   AMENIDADES,
   AMENIDADES_GRUPOS,
@@ -505,6 +506,11 @@ export default function RanchoDetalleScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* ---------- El avisito de invitaciones digitales ----------
+           Va ANTES de la barra en el árbol a propósito: si alguna vez
+           llegaran a solaparse, la barra de reservar pinta encima. ---- */}
+      <AvisoInvitaciones conBarraReserva={esLugar} oculto={modalFechas} />
 
       {/* ---------- Barra fija de reserva (solo lugares) ---------- */}
       {esLugar && (
