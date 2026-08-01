@@ -106,6 +106,14 @@ export default async function CuentaInvitacionesPage() {
       .from("invitaciones")
       .select("id, slug, titulo, fecha_evento, estado")
       .eq("cliente_id", user.id)
+      // Fuera las muestras del catálogo. Al publicar una invitación
+      // como ejemplo se crea una COPIA (slug "ejemplo-…") que lleva el
+      // mismo cliente_id, para poder retirarla después. Esa copia no es
+      // un evento del cliente: aparecía acá duplicando su invitación, y
+      // sus botones apuntaban a una muestra que no se puede administrar
+      // ni imprimir. `is not true` y no `eq false` porque las filas
+      // anteriores a la 0074 tienen la columna en null.
+      .not("es_ejemplo", "is", true)
       .order("fecha_evento", { ascending: true }),
     supabase
       .from("albumes")
