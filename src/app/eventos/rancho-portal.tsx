@@ -38,6 +38,7 @@ import {
 import ReservaServicio from "./[id]/reserva-servicio";
 import ProveedorActual from "@/components/proveedor-actual";
 import AvisoInvitacionesFlotante from "@/components/aviso-invitaciones-flotante";
+import SiteFooter from "@/components/site-footer";
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
@@ -254,9 +255,14 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       )}
       {/* Quien está eligiendo dónde hacer su evento es quien va a
           necesitar mandar invitaciones: el avisito va abajo a la
-          izquierda y se aparta solo cuando se abre el calendario. Al
-          dueño no se le muestra: él no viene a reservarse a sí mismo. */}
-      {!puedeModificar && <AvisoInvitacionesFlotante conBarraMovil={esLugar} />}
+          izquierda y se aparta solo cuando se abre el calendario.
+          Solo se le oculta al DUEÑO de esta publicación — él no viene a
+          reservarse a sí mismo. Al admin sí se le muestra: colgarlo de
+          `puedeModificar` lo dejaba invisible para todo el equipo en
+          todas las páginas. */}
+      {user?.id !== rancho.owner_id && (
+        <AvisoInvitacionesFlotante conBarraMovil={esLugar} />
+      )}
       {/* Header liviano a propósito: logo + nombre, el botón de dueño
           si aplica, y el menú. "Publicá tu espacio" y "Ver todos los
           espacios" viven en el menú — acá solo estorbaban. */}
@@ -647,14 +653,12 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         sitioWeb={rancho.sitio_web}
       />
 
-      <footer className="border-t border-aventurea-line py-9 text-center">
-        <p className="text-xs text-zinc-500">
-          BOOKEA — Costa Rica ·{" "}
-          <Link href="/eventos" className="font-bold text-aventurea-orange">
-            Ver todos los espacios
-          </Link>
-        </p>
-      </footer>
+      <p className="border-t border-aventurea-line py-6 text-center text-xs text-zinc-500">
+        <Link href="/eventos" className="font-bold text-aventurea-orange">
+          Ver todos los espacios
+        </Link>
+      </p>
+      <SiteFooter />
     </div>
   );
 }

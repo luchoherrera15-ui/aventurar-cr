@@ -396,6 +396,20 @@ export default function Directorio({
                 className="fixed inset-0 z-10 cursor-default"
               />
               <div className="absolute right-0 top-full z-20 mt-2 min-w-[230px] overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-xl">
+                {/* Invitaciones digitales no es un filtro: es el
+                    producto propio de Bookea. Va de primera y con su
+                    ícono en navy para que no se lea como una opción
+                    más de la lista. */}
+                <Link
+                  href="/invitaciones"
+                  onClick={soltarMenu}
+                  className="flex items-center gap-2.5 border-b border-aventurea-line bg-aventurea-blue-light/50 px-4 py-3 text-[13.5px] font-bold text-aventurea-navy hover:bg-aventurea-blue-light"
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-white">
+                    <IconMail className="h-4 w-4" />
+                  </span>
+                  Invitaciones Digitales
+                </Link>
                 <a
                   href="#boki"
                   onClick={soltarMenu}
@@ -446,22 +460,12 @@ export default function Directorio({
                 onClick={() => elegirCategoria(cat)}
               />
             ))}
-            {/* Invitaciones digitales no es un filtro: es el producto
-                propio de Bookea, con su propia landing de venta. */}
-            {/* En azul a propósito: es el producto propio de Bookea y
-                debe distinguirse de los filtros naranjas de categoría. */}
-            <Link
-              href="/invitaciones"
-              className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-aventurea-navy/40 bg-aventurea-blue-light pl-1.5 pr-4 text-aventurea-navy transition-colors hover:border-aventurea-navy hover:bg-aventurea-navy hover:text-white"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-navy text-white">
-                <IconMail className="h-[18px] w-[18px]" />
-              </span>
-              <span className="text-[13px] font-bold">Invitaciones Digitales</span>
-            </Link>
-            {/* Las acciones (Boki, Publicá tu negocio, Lealtad) ya no
-                van acá: desbordaban la barra — viven en el menú del
-                botón de IconSparkles junto al buscador. */}
+            {/* Las acciones (Boki, Publicá tu negocio, Lealtad) y las
+                Invitaciones Digitales ya no van acá: desbordaban la
+                barra — viven en el menú del botón de IconSparkles junto
+                al buscador. La píldora de Invitaciones era la más ancha
+                de todas y en iPad (por debajo de `lg`) dejaba la fila
+                sin centrar y cortada. */}
             {/* Relleno para que el degradado nunca tape la última pestaña. */}
             <div className="w-2 shrink-0" aria-hidden />
           </div>

@@ -23,7 +23,9 @@ import { IconMail, IconX } from "@/components/icons";
 
 const CLAVE = "bookea_aviso_invitaciones";
 const DIAS_SILENCIO = 7;
-const DEMORA_MS = 5000;
+const DEMORA_MS = 3500;
+/** Si ya bajó a mirar el lugar, está enganchado: sale sin esperar más. */
+const SCROLL_GATILLO = 600;
 
 export default function AvisoInvitacionesFlotante({
   conBarraMovil = false,
@@ -43,8 +45,21 @@ export default function AvisoInvitacionesFlotante({
     }
     if (Date.now() - cerradoEn < DIAS_SILENCIO * 86_400_000) return;
 
-    const t = window.setTimeout(() => setVisible(true), DEMORA_MS);
-    return () => window.clearTimeout(t);
+    // Lo que pase primero: el ratito de cortesía o que empiece a bajar.
+    const mostrar = () => {
+      setVisible(true);
+      window.clearTimeout(t);
+      window.removeEventListener("scroll", alBajar);
+    };
+    const alBajar = () => {
+      if (window.scrollY > SCROLL_GATILLO) mostrar();
+    };
+    const t = window.setTimeout(mostrar, DEMORA_MS);
+    window.addEventListener("scroll", alBajar, { passive: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("scroll", alBajar);
+    };
   }, []);
 
   // El modal del calendario se abre con el hash #reservar: mientras esté
