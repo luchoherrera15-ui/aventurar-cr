@@ -21,6 +21,13 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
+// Componer la hoja es una llamada larga al modelo (minutos, no
+// segundos). Las server actions corren con el límite de la ruta que las
+// invoca, así que sin esto la función se corta a la mitad y el error
+// que ve el cliente no dice nada útil. Es el mismo tope que ya usa la
+// generación de la invitación digital.
+export const maxDuration = 300;
+
 /** Los estados de pedido en los que el paquete ya está pagado. */
 const PEDIDO_VIGENTE = ["pagado", "en_diseno", "entregado"];
 

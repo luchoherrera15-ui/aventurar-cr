@@ -78,7 +78,12 @@ export async function generarVersionImpresa(invitacionId: string) {
 
   try {
     const { html, usage, tiempoMs } = await generarInvitacionImpresa({
-      htmlDigital,
+      // Una invitación animada puede pesar decenas de miles de
+      // caracteres, y el modelo solo la necesita como referencia de
+      // identidad visual: con el arranque le alcanza para tomar fondo,
+      // paleta y tipografías. Mandarla entera alarga la llamada hasta
+      // rozar el tope de tiempo y encarece cada composición.
+      htmlDigital: htmlDigital.slice(0, 45000),
       datosEvento: datos || "(los datos están dentro del HTML digital)",
       modelo,
     });
@@ -114,8 +119,15 @@ export async function generarVersionImpresa(invitacionId: string) {
       });
       return { error: e.message };
     }
+    // Acá caen los fallos que NO son del modelo: se quedó sin tiempo,
+    // se cortó la conexión, falta la llave. El mensaje viaja al cliente
+    // porque esta pantalla es del dueño de la invitación (o del admin):
+    // un "intentá de nuevo" a secas obliga a ir a buscar los logs, y en
+    // producción eso significa no enterarse nunca.
     const mensaje = e instanceof Error ? e.message : "Error desconocido";
     console.error("[imprimir] No se pudo componer la versión impresa:", mensaje);
-    return { error: "No se pudo componer la versión impresa; intentá de nuevo." };
+    return {
+      error: `No se pudo componer la versión impresa: ${mensaje.slice(0, 200)}`,
+    };
   }
 }
