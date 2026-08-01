@@ -6,7 +6,7 @@ import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
 import BarraFiltrosDirectorio from "@/components/barra-filtros-directorio";
 import { CATEGORIA_RESTAURANTE_ICONO } from "./iconos";
-import { IconCloche, IconPin, IconSearch, IconStar } from "@/components/icons";
+import { IconCloche, IconPin, IconStar } from "@/components/icons";
 import {
   CATEGORIAS_RESTAURANTES,
   CATEGORIA_RESTAURANTE_LABEL,

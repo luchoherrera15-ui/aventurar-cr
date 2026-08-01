@@ -168,7 +168,7 @@ export function layoutBento({
           <tr>
             <td style="background:#16295e;border-radius:18px;padding:34px 32px 30px;">
               <div style="color:#ee7420;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;">
-                &#10022; Bookea
+                &#10022; ${kicker}
               </div>
               <div style="color:#ffffff;font-size:27px;line-height:1.15;font-weight:800;letter-spacing:-0.02em;margin-top:14px;">
                 ${titulo}

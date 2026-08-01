@@ -356,6 +356,61 @@ body {
   }
 }
 
+/* El desfile de mini-invitaciones dentro de ese avisito: las cinco
+   demos del catálogo pasando en un riel continuo.
+
+   La lista se pinta DOS veces seguidas y el riel se corre exactamente
+   -50%: al llegar ahí, la segunda copia está justo donde arrancó la
+   primera, así que el salto al reiniciar es invisible. Por eso el ancho
+   de las miniaturas y su separación son fijos — con anchos variables la
+   mitad no cae en el mismo lugar y el corte se nota.
+
+   Va con translate3d para que el compositor lo suba a la GPU: es una
+   animación infinita en una página que además tiene scroll, y en
+   celular la diferencia se siente. */
+@keyframes mini-inv-desfile {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+.anim-mini-inv-desfile {
+  animation: mini-inv-desfile 22s linear infinite;
+  width: max-content;
+}
+/* Al pasar el mouse se frena, para poder mirar un diseño con calma. */
+.anim-mini-inv-desfile:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-mini-inv-desfile {
+    animation: none;
+  }
+}
+
+/* Los papelitos que flotan detrás del desfile — el toque de fiesta. */
+@keyframes mini-inv-flotar {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    opacity: 0.6;
+    transform: translateY(-7px) rotate(8deg);
+  }
+}
+.anim-mini-inv-flotar {
+  animation: mini-inv-flotar 4.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-mini-inv-flotar {
+    animation: none;
+  }
+}
+
 /* --- La línea de diseño "bento" (nacida en /lealtad y /publicar) ------
    Bloques grandes de 18px de radio sobre el lienzo crema, con cuatro
    pieles: navy (protagonista), naranja (acento), azul suave (secciones

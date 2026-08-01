@@ -12,7 +12,36 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generado por Expo (está en mobile/.gitignore): sus tipos traen un
+    // eslint-disable que acá sobra, y no tiene sentido corregir un
+    // archivo que se reescribe solo en cada build.
+    "mobile/.expo/**",
   ]),
+  // El guion bajo adelante ya se usa en el código para decir "esto no se
+  // usa y es a propósito" (_e en un catch, _estado en un destructuring).
+  // La config de Next no lo reconoce por defecto, así que avisaba de
+  // cosas que ya estaban marcadas como intencionales.
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  // Los archivos de configuración de Node son CommonJS y no pueden dejar
+  // de serlo: Metro carga mobile/metro.config.js haciendo literalmente
+  // require() sobre él, así que escribirlo con `import` no es un estilo
+  // más limpio, es un build roto. La regla no-require-imports viene de la
+  // config de Next, pensada para el código de la app — acá no aplica.
+  {
+    files: ["**/*.config.js", "**/*.config.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
 ]);
 
 export default eslintConfig;

@@ -2,7 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { IconMail, IconX } from "@/components/icons";
+import {
+  IconBalloon,
+  IconBalloons,
+  IconHeart,
+  IconMail,
+  IconSparkles,
+  IconStar,
+  IconX,
+} from "@/components/icons";
+import {
+  CATALOGO_INVITACIONES,
+  type DemoInvitacion,
+} from "@/lib/catalogo-invitaciones";
 
 /**
  * La venta cruzada suave en la página de un rancho: quien está viendo
@@ -20,6 +32,60 @@ import { IconMail, IconX } from "@/components/icons";
  *    armado de su reserva;
  *  - quien lo cierra no lo vuelve a ver por una semana.
  */
+
+const ICONO_DEMO: Record<DemoInvitacion["icono"], React.ReactNode> = {
+  corazon: <IconHeart />,
+  destellos: <IconSparkles />,
+  estrella: <IconStar />,
+  globos: <IconBalloons />,
+  globo: <IconBalloon />,
+};
+
+/**
+ * Una miniatura del desfile: la silueta de una invitación real, no una
+ * captura. Lienzo de la demo, su ícono, la ocasión y tres rayitas que
+ * insinúan el texto — a este tamaño una captura de verdad se leería
+ * como una mancha, y esto sugiere "invitación" en un vistazo.
+ *
+ * aria-hidden en todo el riel: es decoración. Lo que la persona
+ * necesita saber está en el texto y en el botón de al lado.
+ */
+function MiniInvitacion({ demo }: { demo: DemoInvitacion }) {
+  return (
+    <div
+      className={`relative flex h-[92px] w-[62px] shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-[9px] px-1.5 shadow-[0_6px_16px_rgba(6,12,28,0.4)] ring-1 ring-white/15 ${demo.lienzo}`}
+    >
+      {/* El brillo diagonal que tienen las invitaciones de verdad. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(255,255,255,0.22), transparent 55%)",
+        }}
+      />
+      <span className={`relative [&_svg]:h-4 [&_svg]:w-4 ${demo.iconoClase}`}>
+        {ICONO_DEMO[demo.icono]}
+      </span>
+      <span
+        className={`relative text-center text-[5.5px] font-black uppercase leading-[1.15] tracking-[0.08em] ${demo.iconoClase}`}
+      >
+        {demo.ocasion}
+      </span>
+      {/* Las rayitas del cuerpo del texto. Llevan la misma clase de color
+          que el ícono porque `bg-current` toma el color de TEXTO heredado:
+          sin esto salían blancas, y sobre el lienzo claro de "¿Niño o
+          Niña?" no se veían. */}
+      <span
+        aria-hidden
+        className={`relative flex w-full flex-col items-center gap-[3px] ${demo.iconoClase}`}
+      >
+        <span className="h-[2px] w-8 rounded-full bg-current opacity-30" />
+        <span className="h-[2px] w-6 rounded-full bg-current opacity-20" />
+      </span>
+    </div>
+  );
+}
 
 const CLAVE = "bookea_aviso_invitaciones";
 const DIAS_SILENCIO = 7;
@@ -84,7 +150,7 @@ export default function AvisoInvitacionesFlotante({
 
   return (
     <div
-      className={`anim-aviso-entrar fixed left-4 z-30 w-[calc(100vw-6.5rem)] max-w-[290px] sm:left-6 sm:w-[300px] lg:bottom-6 lg:w-[320px] ${
+      className={`anim-aviso-entrar fixed left-4 z-30 w-[calc(100vw-5rem)] max-w-[330px] sm:left-6 sm:w-[344px] lg:bottom-6 lg:w-[368px] ${
         conBarraMovil ? "bottom-[86px]" : "bottom-4"
       }`}
     >
@@ -110,7 +176,50 @@ export default function AvisoInvitacionesFlotante({
           <p className="flex items-center gap-1.5 text-[9.5px] font-extrabold uppercase tracking-[0.16em] text-[#f5b98a]">
             <IconMail className="h-3 w-3" /> Invitaciones digitales
           </p>
-          <p className="mt-2 text-[15px] font-black leading-tight">
+
+          {/* ---------- El desfile de diseños ---------- */}
+          <div
+            aria-hidden
+            className="relative mt-3 h-[92px] overflow-hidden rounded-xl"
+          >
+            {/* Papelitos flotando detrás del riel. */}
+            <span className="anim-mini-inv-flotar pointer-events-none absolute left-[12%] top-1 h-1.5 w-1.5 rounded-[2px] bg-aventurea-orange" />
+            <span
+              className="anim-mini-inv-flotar pointer-events-none absolute right-[18%] top-2 h-1 w-2 rounded-[2px] bg-white"
+              style={{ animationDelay: "1.4s" }}
+            />
+            <span
+              className="anim-mini-inv-flotar pointer-events-none absolute left-[46%] bottom-1 h-1.5 w-1.5 rounded-full bg-[#f5b98a]"
+              style={{ animationDelay: "2.6s" }}
+            />
+
+            {/* El riel. La lista va DOS veces para que el ciclo cierre
+                sin salto (ver mini-inv-desfile en globals.css). */}
+            <div className="anim-mini-inv-desfile flex gap-2.5">
+              {[...CATALOGO_INVITACIONES, ...CATALOGO_INVITACIONES].map(
+                (demo, i) => (
+                  <MiniInvitacion key={`${demo.slug}-${i}`} demo={demo} />
+                ),
+              )}
+            </div>
+
+            {/* Los bordes se desvanecen: las miniaturas entran y salen
+                en vez de aparecer cortadas contra el filo del card. */}
+            <span
+              className="pointer-events-none absolute inset-y-0 left-0 w-8"
+              style={{
+                background: "linear-gradient(to right, #16295e, transparent)",
+              }}
+            />
+            <span
+              className="pointer-events-none absolute inset-y-0 right-0 w-8"
+              style={{
+                background: "linear-gradient(to left, #16295e, transparent)",
+              }}
+            />
+          </div>
+
+          <p className="mt-3 text-[15.5px] font-black leading-tight">
             ¡Creá tu invitación digital con Bookea!
           </p>
           <p className="mt-1.5 text-[12px] leading-relaxed text-white/75">
