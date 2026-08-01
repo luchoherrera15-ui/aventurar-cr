@@ -70,14 +70,26 @@ export default async function ImprimirInvitacionPage({
 
   // El paquete vive en el pedido, no en la invitación. El admin no pasa
   // por acá: él la produce para el cliente.
+  //
+  // Se busca por CLIENTE y no por `pedidos_invitacion.invitacion_id`:
+  // esa columna existe desde la 0075 pero hoy no la escribe nadie — el
+  // admin cambia el estado del pedido y nunca lo ata a la invitación
+  // que produjo. Buscando por ahí, ningún cliente pasaría jamás y esto
+  // solo funcionaría para el admin.
+  //
+  // La contra de buscar por cliente: quien compró un Plus alguna vez
+  // puede imprimir también las invitaciones que pidió con otro paquete.
+  // Es a favor del cliente y no cuesta nada, así que se prefiere eso
+  // antes que dejar el beneficio inalcanzable. Cuando el admin empiece
+  // a atar el pedido con su invitación, este filtro se puede apretar.
   let habilitada = esAdmin;
   if (!habilitada) {
     const { data: pedido } = await supabase
       .from("pedidos_invitacion")
-      .select("paquete, estado")
-      .eq("invitacion_id", invitacion.id)
-      .in("estado", PEDIDO_VIGENTE)
+      .select("id")
+      .eq("cliente_id", user.id)
       .eq("paquete", "plus")
+      .in("estado", PEDIDO_VIGENTE)
       .limit(1)
       .maybeSingle();
     habilitada = Boolean(pedido);
