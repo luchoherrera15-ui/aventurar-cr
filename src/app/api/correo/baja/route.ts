@@ -19,7 +19,19 @@ export async function POST(request: Request) {
     t: url.searchParams.get("t") ?? undefined,
   });
   // Siempre 200: este endpoint no puede servir de oráculo de firmas.
-  if (!datos) return NextResponse.json({ ok: true });
+  // Pero sí queda registrado, porque acá se juntan tres causas que se
+  // ven iguales desde afuera: token falso, token manipulado y —la que
+  // importa— secreto rotado. Si se cambia la service key sin fijar
+  // BAJA_SECRET, todos los links que ya están en los buzones dejan de
+  // verificar: Gmail muestra "te diste de baja", nosotros contestamos
+  // 200, y no se escribe nada. Sin este log esa falla es invisible.
+  if (!datos) {
+    console.warn(
+      "[baja] Link de baja rechazado (firma inválida o secreto rotado). " +
+        "Si se repite, revisá BAJA_SECRET.",
+    );
+    return NextResponse.json({ ok: true });
+  }
 
   const { error } = await registrarConsentimiento({
     correo: datos.correo,

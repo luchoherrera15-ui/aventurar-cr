@@ -48,62 +48,41 @@ export async function filtrarDestinatariosMarketing(
   // en el Map de abajo y la revocación se ignoraría en silencio.
   const ambito = ranchoId?.toLowerCase() ?? null;
 
-  const [supresRes, consRes] = await Promise.all([
-    admin.from("supresiones_correo").select("correo").in("correo", unicos),
-    // Las filas de plataforma y las del negocio (si aplica), de las
-    // más nuevas a las más viejas: la primera por (correo, ámbito) es
-    // el estado vigente.
-    ambito
-      ? admin
-          .from("consentimientos")
-          .select("correo, rancho_id, estado, created_at")
-          .in("correo", unicos)
-          .or(`rancho_id.is.null,rancho_id.eq.${ambito}`)
-          .order("created_at", { ascending: false })
-          .order("id", { ascending: false })
-      : admin
-          .from("consentimientos")
-          .select("correo, rancho_id, estado, created_at")
-          .in("correo", unicos)
-          .is("rancho_id", null)
-          .order("created_at", { ascending: false })
-          .order("id", { ascending: false }),
-  ]);
+  // La precedencia la resuelve Postgres (0083) y devuelve SOLO los
+  // correos bloqueados. Antes se traían las filas del ledger para
+  // decidir acá, y eso fallaba ABIERTO: PostgREST recorta la respuesta
+  // en `db-max-rows` (mil por defecto), así que arriba de esa cantidad
+  // los que se dieron de baja quedaban fuera del recorte y volvían a la
+  // lista de permitidos. Fallar abierto en esta tabla significa
+  // mandarle la campaña justo a quien pidió que no le escribieran.
+  //
+  // El resultado nunca es más grande que la entrada, y el lote lo deja
+  // muy por debajo de cualquier recorte — además de acotar el largo de
+  // la petición.
+  const LOTE = 400;
+  const bloqueados = new Set<string>();
 
-  // FALLA CERRADO: si una de las dos consultas se cae, `data` viene
-  // null y sin este freno la lista saldría "limpia" — le mandaríamos
-  // la campaña justo a quien se dio de baja o rebotó.
-  if (supresRes.error || consRes.error) {
-    return {
-      permitidos: [],
-      excluidos: unicos.length,
-      error: `No se pudo verificar el consentimiento: ${(supresRes.error ?? consRes.error)?.message}`,
-    };
+  for (let i = 0; i < unicos.length; i += LOTE) {
+    const { data, error } = await admin.rpc("correos_bloqueados_marketing", {
+      p_correos: unicos.slice(i, i + LOTE),
+      p_rancho_id: ambito,
+    });
+    // FALLA CERRADO: sin poder verificar, no se manda nada. Incluye el
+    // caso de que la 0083 todavía no se haya corrido — mejor una
+    // campaña que no sale que una que sale sin filtrar.
+    if (error) {
+      return {
+        permitidos: [],
+        excluidos: unicos.length,
+        error: `No se pudo verificar el consentimiento: ${error.message}`,
+      };
+    }
+    for (const fila of (data ?? []) as { correo: string }[]) {
+      bloqueados.add(fila.correo);
+    }
   }
 
-  const suprimidos = new Set(
-    ((supresRes.data ?? []) as { correo: string }[]).map((s) => s.correo),
-  );
-
-  // El estado vigente por (correo, ámbito): la primera fila que
-  // aparece, porque vienen ordenadas de nuevo a viejo.
-  const vigente = new Map<string, string>();
-  for (const fila of (consRes.data ?? []) as {
-    correo: string;
-    rancho_id: string | null;
-    estado: string;
-  }[]) {
-    const llave = `${fila.correo}|${fila.rancho_id?.toLowerCase() ?? ""}`;
-    if (!vigente.has(llave)) vigente.set(llave, fila.estado);
-  }
-
-  const permitidos = unicos.filter((correo) => {
-    if (suprimidos.has(correo)) return false;
-    if (vigente.get(`${correo}|`) === "revocado") return false;
-    if (ambito && vigente.get(`${correo}|${ambito}`) === "revocado") return false;
-    return true;
-  });
-
+  const permitidos = unicos.filter((correo) => !bloqueados.has(correo));
   return { permitidos, excluidos: unicos.length - permitidos.length };
 }
 
@@ -135,13 +114,22 @@ export async function registrarConsentimiento({
     return { error: "Falta SUPABASE_SERVICE_ROLE_KEY en las variables de entorno." };
   }
   const limpio = correo.trim().toLowerCase();
+  // Mismo criterio que el CHECK de la 0083. Un correo con un espacio o
+  // un salto de línea en el medio se guardaría igual pero el filtro de
+  // envíos nunca lo encontraría: quedaría una baja registrada que jamás
+  // surte efecto, que es peor que no registrarla.
+  if (limpio.indexOf("@") < 1 || /\s/.test(limpio)) {
+    return { error: "El correo no es válido." };
+  }
 
   const consulta = admin
     .from("consentimientos")
     .select("estado")
     .eq("correo", limpio)
     .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
+    // `seq` y no `id`: el uuid es aleatorio, así que desempataba al
+    // azar entre dos filas del mismo instante (0083).
+    .order("seq", { ascending: false })
     .limit(1);
   const { data: vigente, error: errorLectura } = await (ranchoId
     ? consulta.eq("rancho_id", ranchoId)

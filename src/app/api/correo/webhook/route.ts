@@ -38,7 +38,21 @@ function verificarFirmaSvix(request: Request, cuerpo: string): boolean {
     return false;
   }
 
+  // El decodificador base64 de Node DESCARTA en silencio todo lo que no
+  // sea del alfabeto: un secreto mal pegado ("whsec_" a medias, con
+  // comillas, truncado) no lanza — deja la llave en cero bytes. Y con
+  // llave vacía la firma que esperamos la puede calcular cualquiera,
+  // así que el webhook quedaría abierto y se podría suprimir de por
+  // vida el correo que se quiera. Los secretos de Svix son de 24 bytes.
   const llave = Buffer.from(secreto.replace(/^whsec_/, ""), "base64");
+  if (llave.length < 16) {
+    console.error(
+      "[correo] RESEND_WEBHOOK_SECRET mal formado: la llave quedó en " +
+        `${llave.length} bytes. Se rechazan los avisos hasta corregirla.`,
+    );
+    return false;
+  }
+
   const esperada = createHmac("sha256", llave)
     .update(`${id}.${timestamp}.${cuerpo}`)
     .digest("base64");
@@ -55,7 +69,14 @@ function verificarFirmaSvix(request: Request, cuerpo: string): boolean {
 }
 
 export async function POST(request: Request) {
+  // Los dos rechazos de abajo se loguean a propósito: Resend reintenta
+  // un rato y después descarta el aviso para siempre. Sin dejar rastro,
+  // un secreto mal configurado se come TODOS los rebotes y quejas del
+  // período sin que nadie se entere — y seguiríamos escribiéndole a
+  // gente que marcó el correo como spam, que es justo lo que quema la
+  // reputación del dominio.
   if (!process.env.RESEND_WEBHOOK_SECRET) {
+    console.error("[correo] Aviso de Resend rechazado: falta RESEND_WEBHOOK_SECRET.");
     return NextResponse.json(
       { error: "Falta RESEND_WEBHOOK_SECRET en las variables de entorno." },
       { status: 503 },
@@ -64,6 +85,10 @@ export async function POST(request: Request) {
 
   const cuerpo = await request.text();
   if (!verificarFirmaSvix(request, cuerpo)) {
+    console.error(
+      "[correo] Aviso de Resend rechazado por firma inválida. Si se repite, " +
+        "revisá que RESEND_WEBHOOK_SECRET sea el mismo del endpoint en Resend.",
+    );
     return NextResponse.json({ error: "Firma inválida." }, { status: 401 });
   }
 
@@ -83,16 +108,25 @@ export async function POST(request: Request) {
   // Solo los rebotes PERMANENTES (buzón inexistente) suprimen. Un
   // 'Transient' es la casilla llena o el servidor caído, y un
   // 'Undetermined' es justamente eso — indeterminado: esa persona
-  // puede existir y recibir bien mañana. Suprimirla de por vida por
-  // un mal día sería perderla para siempre, así que solo se actúa
-  // cuando Resend lo dice explícitamente. (Los tipos vienen de SES:
-  // Permanent | Transient | Undetermined; un payload sin `type` se
-  // trata como permanente para no quedarnos ciegos ante un buzón
-  // muerto de verdad.)
+  // puede existir y recibir bien mañana. Suprimirla de por vida por un
+  // mal día sería perderla para siempre. (Los tipos vienen de SES:
+  // Permanent | Transient | Undetermined.)
+  //
+  // Un payload SIN `type` tampoco suprime. Antes sí lo hacía, "para no
+  // quedarnos ciegos ante un buzón muerto de verdad", y eso contradecía
+  // el propio criterio de arriba: la supresión no tiene vuelta atrás —
+  // el único escritor de la tabla es este webhook, no hay pantalla para
+  // deshacerla y la RLS solo da lectura. Ante la duda, no se quema a
+  // una persona real; un buzón muerto de verdad rebota otra vez y esa
+  // siguiente ya viene con su tipo.
   const tipoRebote = evento.data?.bounce?.type?.toLowerCase();
   const rebotePermanente =
-    evento.type === "email.bounced" &&
-    (tipoRebote === undefined || tipoRebote === "permanent");
+    evento.type === "email.bounced" && tipoRebote === "permanent";
+  if (evento.type === "email.bounced" && !rebotePermanente) {
+    console.warn(
+      `[correo] Rebote no permanente (${tipoRebote ?? "sin tipo"}): no se suprime.`,
+    );
+  }
 
   const motivo = rebotePermanente
     ? "rebote"
