@@ -31,6 +31,7 @@ const POR_DEFECTO: ConfigIA = {
     invitacion_chat: "claude-haiku-4-5",
     invitacion_brief: "claude-opus-5",
     invitacion_generar: "claude-opus-5",
+    invitacion_imprimir: "claude-opus-5",
     invitacion_refinar: "claude-haiku-4-5",
     agenda_leer: "claude-opus-5",
     asistente_negocio: "claude-haiku-4-5",
@@ -44,6 +45,7 @@ const COLUMNAS = [
   "ia_modelo_chat",
   "ia_modelo_brief",
   "ia_modelo_generar",
+  "ia_modelo_imprimir",
   "ia_modelo_refinar",
   "ia_modelo_agenda",
   "ia_modelo_asistente",
@@ -104,6 +106,10 @@ export async function leerConfigIA(): Promise<ConfigIA> {
       invitacion_generar: normalizarModelo(
         fila.ia_modelo_generar,
         porDefecto.modelos.invitacion_generar,
+      ),
+      invitacion_imprimir: normalizarModelo(
+        fila.ia_modelo_imprimir,
+        porDefecto.modelos.invitacion_imprimir,
       ),
       invitacion_refinar: normalizarModelo(
         fila.ia_modelo_refinar,

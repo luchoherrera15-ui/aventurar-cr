@@ -39,7 +39,7 @@ export default async function ImprimirInvitacionPage({
 
   const { data: invitacion } = await supabase
     .from("invitaciones")
-    .select("id, titulo, html_personalizado, cliente_id, es_ejemplo")
+    .select("id, titulo, html_personalizado, html_impresion, cliente_id, es_ejemplo")
     .eq("slug", slug)
     .eq("estado", "activa")
     .maybeSingle();
@@ -119,7 +119,8 @@ export default async function ImprimirInvitacionPage({
   return (
     <main className="min-h-svh bg-white">
       <VistaImpresion
-        html={invitacion.html_personalizado}
+        invitacionId={invitacion.id as string}
+        html={(invitacion.html_impresion as string | null) ?? null}
         titulo={invitacion.titulo ?? "Tu invitación"}
       />
     </main>

@@ -19,6 +19,7 @@ export type AgenteIA =
   | "invitacion_chat"
   | "invitacion_brief"
   | "invitacion_generar"
+  | "invitacion_imprimir"
   | "invitacion_refinar"
   | "agenda_leer"
   | "asistente_negocio";
@@ -128,6 +129,13 @@ export const AGENTES: { id: AgenteIA; nombre: string; queHace: string; columna: 
     nombre: "Generador de la invitación",
     queHace: "Escribe el HTML animado de la invitación a partir de esas instrucciones.",
     columna: "ia_modelo_generar",
+  },
+  {
+    id: "invitacion_imprimir",
+    nombre: "Invitación para imprimir",
+    queHace:
+      "Compone la versión de UNA hoja para papel, con la misma identidad del diseño digital. Se corre una vez por invitación del paquete Plus.",
+    columna: "ia_modelo_imprimir",
   },
   {
     id: "invitacion_refinar",

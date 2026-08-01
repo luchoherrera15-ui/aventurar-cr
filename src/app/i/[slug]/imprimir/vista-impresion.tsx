@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { generarVersionImpresa } from "./actions";
 
 export type TamanoPapel = "carta" | "a4";
 
@@ -23,13 +24,26 @@ const PAPEL: Record<TamanoPapel, { css: string; etiqueta: string; medidas: strin
  * impresión para elegir la hoja.
  */
 export default function VistaImpresion({
+  invitacionId,
   html,
   titulo,
 }: {
-  html: string;
+  invitacionId: string;
+  /** La pieza de UNA hoja. null = todavía no se compuso. */
+  html: string | null;
   titulo: string;
 }) {
   const [tamano, setTamano] = useState<TamanoPapel>("carta");
+  const [error, setError] = useState<string | null>(null);
+  const [generando, startTransition] = useTransition();
+
+  function componer() {
+    setError(null);
+    startTransition(async () => {
+      const res = await generarVersionImpresa(invitacionId);
+      if (res.error) setError(res.error);
+    });
+  }
 
   // Ojo con `print-color-adjust`: sin esto los navegadores descartan
   // fondos e imágenes al imprimir "para ahorrar tinta", y un diseño con
@@ -120,13 +134,24 @@ export default function VistaImpresion({
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="rounded-xl bg-aventurea-orange px-5 py-2 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
-            >
-              Descargar PDF
-            </button>
+            {html ? (
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-xl bg-aventurea-orange px-5 py-2 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              >
+                Descargar PDF
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={generando}
+                onClick={componer}
+                className="rounded-xl bg-aventurea-orange px-5 py-2 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60"
+              >
+                {generando ? "Componiendo…" : "Componer la hoja"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -138,9 +163,30 @@ export default function VistaImpresion({
         </p>
       </div>
 
-      {/* El diseño tal cual, sin el bloque de confirmar asistencia: en
-          papel no hay dónde confirmar. */}
-      <div className="hoja" dangerouslySetInnerHTML={{ __html: html }} />
+      {error && (
+        <p className="no-imprimir mx-auto mt-5 max-w-[560px] rounded-xl bg-red-50 px-4 py-3 text-center text-[13px] font-semibold text-red-700">
+          {error}
+        </p>
+      )}
+
+      {html ? (
+        <div className="hoja" dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        <div className="no-imprimir mx-auto max-w-[560px] px-6 py-20 text-center">
+          <h2 className="titulo text-[20px] text-aventurea-ink">
+            Todavía no armamos tu hoja
+          </h2>
+          <p className="mt-3 text-[14px] leading-relaxed text-aventurea-ink-soft">
+            La versión de papel no es la pantalla impresa: es una pieza aparte, de
+            una sola hoja, con el fondo, los colores y los motivos de tu invitación.
+            Se compone una vez y queda guardada.
+          </p>
+          <p className="mt-2 text-[12.5px] text-aventurea-ink-soft">
+            Tarda un momento. Si después cambiás el diseño digital, volvé acá y
+            componela de nuevo.
+          </p>
+        </div>
+      )}
     </>
   );
 }
