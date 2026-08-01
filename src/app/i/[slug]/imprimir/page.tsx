@@ -52,8 +52,19 @@ export default async function ImprimirInvitacionPage({
     .maybeSingle();
   const esAdmin = perfil?.rol === "admin";
 
-  // Las muestras del catálogo no se imprimen: son de nadie.
-  if (invitacion.es_ejemplo && !esAdmin) notFound();
+  // Las muestras del catálogo (slug "ejemplo-…") son copias de vitrina:
+  // no tienen dueño ni pedido, así que no se imprimen. Se explica en
+  // vez de tirar un 404 seco — a esta pantalla se llega escribiendo la
+  // URL o desde el catálogo, y ahí un 404 parece que algo se rompió.
+  if (invitacion.es_ejemplo && !esAdmin) {
+    return (
+      <Aviso
+        titulo="Esta es una muestra del catálogo"
+        cuerpo="Sirve para enseñar el diseño, así que no tiene dueño ni versión para imprimir. La invitación que se imprime es la tuya — la encontrás en Mis invitaciones, con el botón Imprimir al lado."
+        accion={{ href: "/invitaciones#paquetes", texto: "Ver los paquetes" }}
+      />
+    );
+  }
   if (invitacion.cliente_id !== user.id && !esAdmin) notFound();
 
   // Sin diseño propio no hay nada que llevar a papel: la plantilla
