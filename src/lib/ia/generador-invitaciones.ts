@@ -60,6 +60,35 @@ REGLAS CLAVE:
 9. Genera HTML completamente autónomo (sin dependencias externas).
 10. NO incluyas formulario ni botón de "Confirmar asistencia": la
     plataforma agrega su propio bloque de RSVP justo debajo del HTML.
+11. CUENTA REGRESIVA: no la dibujes con números. Como no hay <script>,
+    cualquier número que escribas queda congelado y al día siguiente
+    miente. Si el diseño lleva cuenta regresiva, dejá SOLO el hueco:
+      <div data-bookea="cuenta-regresiva"></div>
+    La plataforma monta ahí una cuenta viva que corre sola. Podés
+    envolver ese div en tu propia sección y darle el fondo, el margen y
+    el título que quieras — lo de adentro no lo toques.
+12. IMPRESIÓN: la invitación también se imprime en papel. Agregá al
+    final del <style> un bloque @media print que deje el diseño legible
+    en blanco sobre papel: sin animaciones (animation:none e
+    transition:none), sin fondos oscuros a sangre, texto en color
+    oscuro, y evitá cortar bloques por la mitad
+    (break-inside: avoid en las tarjetas y secciones).
+
+CALIDAD DEL DISEÑO — esto es lo que separa una invitación que emociona
+de una plantilla genérica:
+- Elegí una tipografía con carácter y usá DOS a lo sumo: una de
+  display para los nombres y los títulos, otra legible para el resto.
+  Nada de Arial ni de la fuente del sistema.
+- Trabajá la jerarquía: el nombre o la ocasión tiene que dominar la
+  pantalla; la fecha y el lugar se leen después, sin competir.
+- Aire. Márgenes generosos y un ritmo vertical claro valen más que
+  llenar la pantalla de adornos.
+- Una paleta de tres o cuatro colores que conversen entre sí, coherente
+  con la ocasión — no colores de muestrario.
+- Las animaciones acompañan, no distraen: entradas suaves, un detalle
+  que se mueve despacio. Nada que parpadee ni que rebote sin motivo.
+- Que se vea PENSADA para ese evento, no un molde con el nombre
+  cambiado.
 
 El HTML se inserta dentro de la página pública de la invitación, así
 que no incluyas <html>, <head> ni <body> — solo el contenido con su

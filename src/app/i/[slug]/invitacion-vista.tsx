@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { IconClock, IconPin, IconWaze } from "@/components/icons";
@@ -206,9 +207,10 @@ export default function InvitacionVista({
              ocupa todo el ancho del viewport — sin columna ni marco.
              Sin data-reveal: las plantillas traen sus propias entradas
              y así ningún transform atrapa sus elementos fijos. */
-          <div
-            className="w-full"
-            dangerouslySetInnerHTML={{ __html: invitacion.html_personalizado }}
+          <DisenoPropio
+            html={invitacion.html_personalizado}
+            fechaIso={invitacion.fecha_evento}
+            hora={invitacion.hora}
           />
         ) : (
           <PlantillaClasico
@@ -294,6 +296,61 @@ function Ornamento({ className = "" }: { className?: string }) {
       <span className="h-1.5 w-1.5 rotate-45 border border-current" />
       <span className="h-px w-16 bg-current opacity-60" />
     </span>
+  );
+}
+
+/** Donde el diseño pide que vaya la cuenta regresiva de verdad. */
+export const MARCA_CUENTA_REGRESIVA = "cuenta-regresiva";
+
+/**
+ * El diseño a la medida (el HTML que salió del generador), con la
+ * cuenta regresiva VIVA metida donde el diseño la haya pedido.
+ *
+ * El HTML se inyecta con innerHTML, y eso nunca ejecuta <script> — por
+ * eso el generador los tiene prohibidos. La consecuencia es que una
+ * cuenta regresiva dibujada por el modelo queda CONGELADA en los
+ * números que le tocaron el día que se generó: al día siguiente miente.
+ *
+ * La salida es que el diseño solo marque el lugar
+ * (<div data-bookea="cuenta-regresiva"></div>) y que acá se le monte
+ * encima el mismo componente que usa la plantilla clásica. Se hace con
+ * un portal y no partiendo el HTML en pedazos: la marca puede venir
+ * anidada dentro de una sección, y cortar el texto ahí rompería el
+ * árbol. Si el diseño no trae la marca, todo funciona como antes.
+ */
+function DisenoPropio({
+  html,
+  fechaIso,
+  hora,
+}: {
+  html: string;
+  fechaIso: string;
+  hora: string | null;
+}) {
+  const contenedor = useRef<HTMLDivElement>(null);
+  const [destino, setDestino] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const nodo = contenedor.current?.querySelector<HTMLElement>(
+      `[data-bookea="${MARCA_CUENTA_REGRESIVA}"]`,
+    );
+    // Lo que el modelo haya dejado adentro era un marcador de posición
+    // (números de ejemplo, casi siempre): se limpia antes de montar el
+    // real para que no queden dos cuentas una encima de la otra.
+    if (nodo) nodo.replaceChildren();
+    setDestino(nodo ?? null);
+  }, [html]);
+
+  return (
+    <>
+      <div
+        ref={contenedor}
+        className="w-full"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {destino &&
+        createPortal(<CuentaRegresiva fechaIso={fechaIso} hora={hora} />, destino)}
+    </>
   );
 }
 
