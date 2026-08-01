@@ -6,6 +6,7 @@ import { MAX_PREGUNTAS, type PreguntaInvitacion } from "@/lib/invitaciones-pregu
 import {
   archivarAlbum,
   archivarInvitacion,
+  quitarDelCatalogo,
   crearAlbum,
   guardarInvitacion,
   type DatosInvitacion,
@@ -223,6 +224,15 @@ export default function InvitacionesPanel({
   function archivar(i: InvitacionAdmin) {
     startTransition(async () => {
       const res = await archivarInvitacion(i.id, i.estado !== "archivada");
+      if (res.error) setError(res.error);
+      else router.refresh();
+    });
+  }
+
+  function quitarDelCatalogoA(i: InvitacionAdmin) {
+    setError(null);
+    startTransition(async () => {
+      const res = await quitarDelCatalogo(i.id);
       if (res.error) setError(res.error);
       else router.refresh();
     });
@@ -696,6 +706,17 @@ export default function InvitacionesPanel({
                             className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink disabled:opacity-50"
                           >
                             {i.estado === "archivada" ? "Reactivar" : "Archivar"}
+                          </button>
+                          {/* Saca la muestra del catálogo público. La
+                              invitación del cliente no se toca: sigue
+                              viva en su link de siempre. */}
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() => quitarDelCatalogoA(i)}
+                            className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink disabled:opacity-50"
+                          >
+                            Quitar de ejemplos
                           </button>
                         </div>
                       </td>

@@ -159,6 +159,51 @@ export async function archivarInvitacion(id: string, archivar: boolean) {
   return { error: null };
 }
 
+/**
+ * Retira una invitación del catálogo de ejemplos.
+ *
+ * Publicar al catálogo no mueve la invitación: crea una COPIA con slug
+ * "ejemplo-{slug}" marcada `es_ejemplo`. Retirarla es archivar esa
+ * copia — la del cliente no se toca, sigue viva en su link de siempre.
+ *
+ * Tolera que le pasen la propia muestra (en el panel se ven las dos):
+ * en ese caso se retira ella misma.
+ */
+export async function quitarDelCatalogo(id: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  const admin = createAdminClient();
+  if (!admin) return { error: FALTA_SERVICE_KEY };
+
+  const { data: inv, error: errorLectura } = await admin
+    .from("invitaciones")
+    .select("slug, es_ejemplo")
+    .eq("id", id)
+    .maybeSingle();
+  if (errorLectura) return { error: errorLectura.message };
+  if (!inv) return { error: "Esa invitación ya no existe." };
+
+  const slug = inv.slug as string;
+  const slugEjemplo = inv.es_ejemplo ? slug : `ejemplo-${slug}`.slice(0, 80);
+
+  const { error } = await admin
+    .from("invitaciones")
+    .update({ estado: "archivada", en_catalogo: false })
+    .eq("slug", slugEjemplo)
+    .eq("es_ejemplo", true);
+  if (error) return { error: error.message };
+
+  // La original deja de figurar como publicada, así el checkbox del
+  // generador no dice que sigue en el catálogo cuando ya no está.
+  if (!inv.es_ejemplo) {
+    await admin.from("invitaciones").update({ en_catalogo: false }).eq("id", id);
+  }
+
+  refrescar(slug);
+  return { error: null };
+}
+
 // ------------------------------------------------------------
 // Álbumes digitales (0068): el QR del evento donde los invitados
 // suben sus fotos. Solo el equipo los crea y archiva.
