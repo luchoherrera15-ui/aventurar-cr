@@ -37,26 +37,31 @@ const BANDAS: [number, number][] = [
   [0.64, 1.2],
 ];
 
+/**
+ * Cortos a propósito. Se leen en un celular, a 18px, en el rato que
+ * dura un tramo de scroll — un párrafo de cinco líneas ahí no se lee,
+ * se saltea. Y para que entren grandes tienen que ser breves: es lo
+ * mismo que hace que el título pueda ir a 34px en vez de a 17.
+ */
 const TEXTOS = [
   {
     titulo: "Se abre en cualquier teléfono.",
-    cuerpo:
-      "Un link, nada que descargar. Lo mandás por WhatsApp y se abre a pantalla completa, igual en un iPhone que en un Android de hace cinco años.",
+    cuerpo: "Un link, nada que descargar. Se abre a pantalla completa.",
   },
   {
     titulo: "Con toda la fiesta adentro.",
     cuerpo:
-      "La fecha, el lugar con su mapa, el código de vestimenta, la cuenta regresiva. Lo que antes eran seis mensajes sueltos, en un solo lugar.",
+      "Fecha, lugar con mapa, vestimenta y cuenta regresiva. Todo en un solo lugar.",
   },
   {
     titulo: "Confirman con un toque.",
     cuerpo:
-      "Sin cuentas, sin formularios largos. Tu invitado dice si va, con cuántos, y responde lo que vos preguntes: menú, alergias, lo que necesités.",
+      "Sin cuentas ni formularios. Dicen si van, con cuántos, y lo que vos preguntes.",
   },
   {
     titulo: "Y la lista se te arma sola.",
     cuerpo:
-      "Vos abrís tu panel y ves quién dijo que sí, quién no, y cuántas personas llegan en total. Ese es el número que le pasás al salón.",
+      "Ves quién dijo que sí y cuántas personas llegan. Ese número le pasás al salón.",
   },
 ];
 
@@ -226,7 +231,11 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
           teléfono fuera de la pantalla. Así no hay número que se pueda
           pasar — lo que quede es lo que hay. */}
       <div className="sticky top-0 h-svh overflow-hidden">
-        <div className="mx-auto flex h-full w-[min(1120px,92vw)] flex-col justify-center gap-4 py-6 md:grid md:h-auto md:items-center md:gap-8 md:py-0 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        {/* 29svh de texto + 53svh de escena + los 32px de gap y padding:
+            queda holgura contra el 100svh, que es lo que evita que algo
+            se salga por abajo en un celular con la barra del navegador
+            asomando. */}
+        <div className="mx-auto flex h-full w-[min(1120px,92vw)] flex-col justify-center gap-3 py-4 md:grid md:h-auto md:items-center md:gap-8 md:py-0 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
           {/* ---------- Columna de texto ----------
 
               Los cuatro bloques están SUPERPUESTOS, no apilados, también
@@ -234,7 +243,7 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
               normal, los tres invisibles seguirían ocupando su alto y
               entre todos empujaban la escena fuera de la pantalla — que
               es exactamente por lo que el teléfono salía cortado. */}
-          <div className="relative order-1 h-[31svh] shrink-0 md:h-auto md:min-h-[280px]">
+          <div className="relative order-1 h-[29svh] shrink-0 md:h-auto md:min-h-[280px]">
             {TEXTOS.map((t, i) => (
               <div
                 key={t.titulo}
@@ -244,14 +253,15 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
                 className="absolute inset-x-0 top-1/2 -translate-y-1/2"
                 style={{ opacity: 0 }}
               >
-                {/* Los pisos de los clamp son lo que manda en móvil: con
-                    4.4vw el título caía a 17px en un celular y el cuerpo
-                    a 14px — ilegibles justo donde se está explicando el
-                    producto. Ahora arrancan en 31px y 17px. */}
-                <h2 className="titulo text-[clamp(31px,6.4vw,52px)] leading-[1.06] text-white">
+                {/* En móvil manda el PISO del clamp, no el vw: con 6.4vw
+                    un celular de 390px daba 25px de título. Los pisos
+                    quedan en 34px y 18px, que es tamaño de titular de
+                    verdad — y por eso los textos de arriba son cortos:
+                    grandes y largos no caben juntos. */}
+                <h2 className="titulo text-[clamp(34px,7.4vw,52px)] leading-[1.05] text-white">
                   {t.titulo}
                 </h2>
-                <p className="mt-3.5 max-w-[46ch] text-[clamp(17px,4vw,19px)] leading-relaxed text-white/65 md:mt-4">
+                <p className="mt-3.5 max-w-[42ch] text-[clamp(18px,4.6vw,20px)] leading-relaxed text-white/65 md:mt-4">
                   {t.cuerpo}
                 </p>
               </div>
@@ -261,9 +271,9 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
           {/* ---------- Columna de la escena ---------- */}
           <div
             ref={escenaRef}
-            className="order-2 flex min-h-0 flex-1 items-center justify-center md:h-[72svh] md:flex-none"
+            className="order-2 flex h-[53svh] shrink-0 items-center justify-center md:h-[72svh]"
           >
-            <div className="relative flex h-full items-center justify-center md:h-auto">
+            <div className="relative flex items-center justify-center">
               {/* La tarjeta de papel, que es como empieza todo. */}
               <div
                 ref={papelRef}
@@ -297,7 +307,14 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
                 //
                 // En escritorio sí va el marco: ahí el teléfono es lo
                 // que explica que esto se abre en el celular.
-                className="relative aspect-[9/16] max-h-full w-auto rounded-2xl md:aspect-auto md:h-[min(560px,64svh)] md:w-[min(276px,30vw)] md:rounded-[40px] md:border-[7px] md:p-2"
+                // El alto va EXPLÍCITO en móvil (50svh) y el ancho sale
+                // del aspecto. Antes era `aspect-[9/16] w-auto` con el
+                // alto en auto, y así `aspect-ratio` no calcula nada:
+                // sin una de las dos medidas definida, la caja termina
+                // midiendo lo que mida su texto. De ahí que la
+                // invitación saliera de un tamaño arbitrario por más que
+                // se tocara el contenedor.
+                className="relative h-[50svh] w-auto rounded-2xl [aspect-ratio:3/4] md:h-[min(560px,64svh)] md:w-[min(276px,30vw)] md:rounded-[40px] md:border-[7px] md:p-2 md:[aspect-ratio:auto]"
                 style={{
                   opacity: 0,
                   // Más oscuro que el fondo de la página (#0a1226), no
