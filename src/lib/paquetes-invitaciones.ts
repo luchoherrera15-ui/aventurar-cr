@@ -164,6 +164,26 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
 ];
 
 /**
+ * El álbum digital como COMPLEMENTO de los tres paquetes principales.
+ *
+ * Es el mismo álbum que ya traen los paquetes con álbum (Destello,
+ * Celebración, Legado), ofrecido acá como extra marcable.
+ *
+ * Ojo: este precio es para MOSTRAR. El que se cobra sale de la fila
+ * `album_180` de `paquetes_invitacion` (0091) — desde el navegador solo
+ * viaja un sí/no, nunca un monto. Si los dos se separan, el servidor
+ * deja el aviso en el log al crear el pedido.
+ */
+export const ALBUM_ADICIONAL = {
+  id: "album_180",
+  nombre: "Álbum digital de 180 fotos",
+  precioUSD: 45,
+  fotos: 180,
+  detalle:
+    "Tus invitados suben sus fotos del evento escaneando un QR, y quedan todas en un álbum que podés descargar completo.",
+} as const;
+
+/**
  * El paquete Base (₡12 500): la invitación generada con IA, exclusiva
  * para quienes reservan su espacio en Bookea. No viaja por el chat de
  * pedidos: se ofrece en la card post-reserva y acá se explica.
@@ -241,4 +261,9 @@ export function tipoCambioUSD(): number {
 export function montoEnColones(p: PaqueteResuelto): number {
   if (p.precioCRC !== null) return p.precioCRC;
   return Math.round(((p.precioUSD ?? 0) * tipoCambioUSD()) / 100) * 100;
+}
+
+/** Lo que suma el álbum en colones, para mostrarlo junto al paquete. */
+export function albumEnColones(): number {
+  return Math.round((ALBUM_ADICIONAL.precioUSD * tipoCambioUSD()) / 100) * 100;
 }

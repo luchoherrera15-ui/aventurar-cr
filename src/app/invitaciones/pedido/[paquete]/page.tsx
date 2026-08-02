@@ -21,10 +21,15 @@ export const metadata = {
  */
 export default async function PedidoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ paquete: string }>;
+  /** `?album=1` cuando ya marcó el álbum en la página de paquetes. Es
+   *  solo para premarcar el checkbox: el precio no sale de acá. */
+  searchParams: Promise<{ album?: string }>;
 }) {
   const { paquete: paqueteId } = await params;
+  const { album } = await searchParams;
   const paquete = resolverPaquete(paqueteId);
   if (!paquete) notFound();
 
@@ -87,6 +92,7 @@ export default async function PedidoPage({
             paqueteId={paqueteId}
             nombreSugerido={(perfil?.nombre as string) || ""}
             correoSugerido={user.email ?? ""}
+            albumSugerido={album === "1"}
           />
         )}
       </section>

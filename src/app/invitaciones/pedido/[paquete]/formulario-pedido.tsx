@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { crearPedido, type EstadoPedido } from "@/app/invitaciones/pedido/actions";
-import { TIPOS_EVENTO } from "@/lib/paquetes-invitaciones";
+import { ALBUM_ADICIONAL, TIPOS_EVENTO } from "@/lib/paquetes-invitaciones";
 
 /**
  * Los datos que el diseñador necesita para armar la invitación. Solo
@@ -14,10 +14,13 @@ export default function FormularioPedido({
   paqueteId,
   nombreSugerido,
   correoSugerido,
+  albumSugerido = false,
 }: {
   paqueteId: string;
   nombreSugerido: string;
   correoSugerido: string;
+  /** Viene marcado si lo eligió en la página de paquetes. */
+  albumSugerido?: boolean;
 }) {
   const [estado, accion, pendiente] = useActionState<EstadoPedido, FormData>(
     crearPedido.bind(null, paqueteId),
@@ -185,6 +188,28 @@ export default function FormularioPedido({
           </Campo>
         </div>
       </Bloque>
+
+      {/* El álbum como extra. Lo que se manda es un checkbox y nada
+          más: el precio lo pone la base al crear el pedido (0091), así
+          que marcar esto no puede cambiar cuánto se cobra por su
+          cuenta. Viene premarcado si el cliente ya lo eligió en la
+          página de paquetes, pero se puede desmarcar acá. */}
+      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 transition-colors hover:border-aventurea-orange">
+        <input
+          type="checkbox"
+          name="con_album"
+          defaultChecked={albumSugerido}
+          className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-aventurea-orange"
+        />
+        <span>
+          <span className="block text-[14px] font-bold text-aventurea-ink">
+            Agregar {ALBUM_ADICIONAL.nombre} · +${ALBUM_ADICIONAL.precioUSD}
+          </span>
+          <span className="mt-1 block text-[13px] leading-relaxed text-aventurea-ink-soft">
+            {ALBUM_ADICIONAL.detalle}
+          </span>
+        </span>
+      </label>
 
       {estado.error && (
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">

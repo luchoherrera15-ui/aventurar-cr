@@ -3,6 +3,7 @@ import { avisarAAdministradores } from "@/lib/correo/administradores";
 import { enviarCorreo, escaparHtml, layoutBento } from "@/lib/email";
 import { SITIO_URL } from "@/lib/qr";
 import {
+  albumEnColones,
   montoEnColones,
   resolverPaquete,
   SLUG_NEGOCIO_INVITACIONES,
@@ -53,6 +54,9 @@ export type DatosPedido = {
   contacto_nombre?: unknown;
   contacto_whatsapp?: unknown;
   contacto_correo?: unknown;
+  /** El álbum de 180 fotos como extra. Viaja como sí/no y nada más: el
+   *  precio lo pone la base (0091), nunca el formulario. */
+  con_album?: unknown;
 };
 
 /**
@@ -129,6 +133,13 @@ export async function crearPedidoInvitacion({
 
   const invitados = Number(datos.cantidad_invitados);
   const limite = texto(datos, "fecha_limite_confirmacion", 10);
+  // Un checkbox llega como "on" desde un formulario del navegador y como
+  // true desde el app: se aceptan los dos, y todo lo demás es que no.
+  const conAlbum =
+    datos.con_album === true ||
+    datos.con_album === "true" ||
+    datos.con_album === "on" ||
+    datos.con_album === "1";
 
   // El pedido lo arma la base (0087). El paquete lo elige el cliente;
   // el precio lo busca `paquetes_invitacion`. Nada de lo que llegue en
@@ -154,6 +165,7 @@ export async function crearPedidoInvitacion({
     p_mensaje: texto(datos, "mensaje", 1200) || null,
     p_idioma: texto(datos, "idioma", 20) || "es",
     p_contacto_whatsapp: texto(datos, "contacto_whatsapp", 40) || null,
+    p_con_album: conAlbum,
   });
 
   if (error) {
@@ -175,6 +187,7 @@ export async function crearPedidoInvitacion({
           contactoCorreo,
           invitados,
           limite,
+          conAlbum,
         },
         datos,
       });
@@ -195,7 +208,7 @@ export async function crearPedidoInvitacion({
   // MUESTRA y la tabla en lo que se COBRA. Si alguien cambia un precio
   // en un solo lado, el cliente ve un número y se le cobra otro — y sin
   // esto nadie se enteraría hasta que reclame.
-  const esperado = montoEnColones(paquete);
+  const esperado = montoEnColones(paquete) + (conAlbum ? albumEnColones() : 0);
   if (pedido.monto_crc !== undefined && Number(pedido.monto_crc) !== esperado) {
     console.error(
       `[pedido] Precio desfasado en "${paquete.id}": la base cobró ₡${pedido.monto_crc} y el catálogo dice ₡${esperado}. Emparejar la tabla paquetes_invitacion con src/lib/paquetes-invitaciones.ts, y configuracion_plataforma.tipo_cambio_usd con TIPO_CAMBIO_USD — el que manda es el de la base.`,
@@ -250,6 +263,7 @@ async function crearPedidoDirecto({
     fechaEvento: string;
     contactoNombre: string;
     contactoCorreo: string;
+    conAlbum: boolean;
     invitados: number;
     limite: string;
   };
@@ -262,7 +276,9 @@ async function crearPedidoDirecto({
       paquete: paquete.id,
       precio_usd: paquete.precioUSD,
       precio_crc: paquete.precioCRC,
-      monto_crc: montoEnColones(paquete),
+      monto_crc:
+        montoEnColones(paquete) + (campos.conAlbum ? albumEnColones() : 0),
+      con_album: campos.conAlbum,
       tipo_evento: campos.tipoEvento,
       nombre_evento: campos.nombreEvento,
       anfitriones: texto(datos, "anfitriones", 200) || null,

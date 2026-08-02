@@ -4,10 +4,13 @@ import { Cormorant_Garamond } from "next/font/google";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 import {
+  albumEnColones,
+  ALBUM_ADICIONAL,
   montoEnColones,
   PAQUETES_PRINCIPALES,
   precioPaquete,
 } from "@/lib/paquetes-invitaciones";
+import CardPaquete from "./card-paquete";
 import Reel from "./reel";
 
 /**
@@ -307,73 +310,34 @@ export default function Invitaciones2Page() {
 
           <div className="mt-12 grid gap-4 lg:grid-cols-3">
             {PAQUETES_PRINCIPALES.map((p) => {
-              const colones = precioPaquete(
-                montoEnColones({
-                  id: p.id,
-                  nombre: p.nombre,
-                  precioUSD: p.precioUSD,
-                  precioCRC: null,
-                  etiqueta: p.precioEtiqueta,
-                  tienePanel: p.id !== "basico",
-                }),
-              );
+              const resuelto = {
+                id: p.id,
+                nombre: p.nombre,
+                precioUSD: p.precioUSD,
+                precioCRC: null,
+                etiqueta: p.precioEtiqueta,
+                tienePanel: p.id !== "basico",
+              };
+              const soloPaquete = montoEnColones(resuelto);
               return (
-                <div
-                  key={p.id}
-                  data-reveal
-                  className={`flex flex-col rounded-3xl border p-7 ${
-                    p.destacado ? "border-[#ee7420]" : "border-white/12"
-                  }`}
-                  style={{ background: p.destacado ? NAVY : "rgba(255,255,255,.04)" }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-[20px] font-bold">{p.nombre}</h3>
-                    <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-bold ${
-                        p.destacado
-                          ? "bg-[#ee7420] text-white"
-                          : "bg-white/10 text-white/70"
-                      }`}
-                    >
-                      {p.badge}
-                    </span>
-                  </div>
-
-                  <p className="mt-5 flex items-baseline gap-2">
-                    <span className="titulo text-[44px] leading-none">
-                      {p.precioEtiqueta}
-                    </span>
-                    <span className="text-[13px] text-white/45">≈ {colones}</span>
-                  </p>
-                  <p className="mt-3 text-[14px] leading-relaxed text-white/55">{p.lema}</p>
-
-                  <ul className="mt-6 flex-1 space-y-2.5">
-                    {p.incluye.map((linea) => (
-                      <li key={linea} className="flex gap-2.5 text-[14px] leading-snug">
-                        <svg
-                          viewBox="0 0 20 20"
-                          className="mt-[3px] h-4 w-4 shrink-0 text-[#ee7420]"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.2"
-                        >
-                          <path d="M4 10.5l4 4 8-9" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        <span className="text-white/80">{linea}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link
-                    href={`/invitaciones/pedido/${p.id}`}
-                    className={`mt-7 rounded-full px-6 py-3 text-center text-[14px] font-bold transition-transform hover:scale-[1.02] ${
-                      p.destacado
-                        ? "bg-[#ee7420] text-white"
-                        : "border border-white/25 text-white"
-                    }`}
-                  >
-                    Pedir la {p.nombre}
-                  </Link>
+                <div key={p.id} data-reveal className="flex">
+                  <CardPaquete
+                    id={p.id}
+                    nombre={p.nombre}
+                    badge={p.badge}
+                    destacado={p.destacado}
+                    lema={p.lema}
+                    incluye={p.incluye}
+                    precioUSD={p.precioUSD}
+                    precioEtiqueta={p.precioEtiqueta}
+                    colonesPaquete={precioPaquete(soloPaquete)}
+                    colonesConAlbum={precioPaquete(soloPaquete + albumEnColones())}
+                    album={{
+                      nombre: ALBUM_ADICIONAL.nombre,
+                      precioUSD: ALBUM_ADICIONAL.precioUSD,
+                      detalle: ALBUM_ADICIONAL.detalle,
+                    }}
+                  />
                 </div>
               );
             })}
