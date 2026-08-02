@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { conAlfa, type Paleta } from "@/lib/invitaciones/paleta";
+import { hashDelToken, recordarFotoPropia, tokenDelNavegador } from "./identidad";
 
 /** Tope de la tanda: nadie sube el carrete completo de un solo golpe. */
 const MAX_POR_TANDA = 10;
@@ -49,16 +51,23 @@ async function comprimir(archivo: File): Promise<Blob> {
  * grilla. Sin cuenta — la llave anónima puede subir al bucket público
  * y anotar la fila mientras el álbum esté activo (RLS de 0068). Al
  * terminar refresca la página y las fotos nuevas aparecen arriba.
+ *
+ * Junto a cada foto se guarda la LLAVE que permite quitarla después
+ * (0089): el hash de un token que se queda en este navegador. El token
+ * en claro no viaja nunca — se calcula el SHA-256 acá mismo.
  */
 export default function SubirFotos({
   albumId,
   fotosActuales,
   claseSerif,
+  paleta,
 }: {
   albumId: string;
   fotosActuales: number;
   /** La serif del álbum, para que el título del bloque haga juego. */
   claseSerif: string;
+  /** Los colores heredados de la invitación (0089). */
+  paleta: Paleta;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +108,11 @@ export default function SubirFotos({
     const supabase = createClient();
     const nombre = autor.trim().slice(0, 80) || null;
     const ts = Date.now();
+    // Una sola vez para toda la tanda: el token es del navegador, no de
+    // la foto. Si el navegador no deja guardarlo (incógnito con el
+    // almacenamiento bloqueado), se sube igual — solo que sin poder
+    // quitarla después.
+    const hash = await hashDelToken(tokenDelNavegador());
     let subidas = 0;
 
     for (let n = 0; n < elegidas.length; n++) {
@@ -109,10 +123,28 @@ export default function SubirFotos({
           .from("albumes")
           .upload(path, blob, { contentType: "image/jpeg" });
         if (errorSubida) throw new Error(errorSubida.message);
-        const { error: errorFila } = await supabase
+
+        const { data: fila, error: errorFila } = await supabase
           .from("album_fotos")
-          .insert({ album_id: albumId, path, autor: nombre });
-        if (errorFila) throw new Error(errorFila.message);
+          .insert({ album_id: albumId, path, autor: nombre })
+          .select("id")
+          .single();
+        if (errorFila || !fila) throw new Error(errorFila?.message ?? "sin fila");
+
+        // La llave va después de la foto porque necesita su id. Si algo
+        // falla acá, la foto queda subida y solo la puede quitar el
+        // dueño del álbum — se prefiere eso a perder la foto.
+        if (hash) {
+          const { error: errorLlave } = await supabase
+            .from("album_foto_llaves")
+            .insert({ foto_id: fila.id as string, token_hash: hash });
+          if (errorLlave) {
+            console.warn("[album] La foto quedó sin llave:", errorLlave.message);
+          } else {
+            recordarFotoPropia(albumId, String(fila.id));
+          }
+        }
+
         subidas += 1;
         setProgreso(subidas);
       } catch {
@@ -134,24 +166,44 @@ export default function SubirFotos({
   }
 
   return (
-    <section className="mx-auto mt-12 w-full max-w-[520px] rounded-2xl border border-[#16295e]/15 bg-white/70 p-6 text-center shadow-[0_18px_50px_-30px_rgba(22,41,94,0.35)] sm:p-8">
+    <section
+      className="mx-auto mt-12 w-full max-w-[520px] rounded-2xl border p-6 text-center sm:p-8"
+      style={{
+        borderColor: conAlfa(paleta.tinta, 0.15),
+        background: conAlfa(paleta.fondo, 0.7),
+        boxShadow: `0 18px 50px -30px ${conAlfa(paleta.tinta, 0.35)}`,
+      }}
+    >
       <h2 className={`${claseSerif} text-[clamp(24px,5vw,30px)] font-semibold italic`}>
         Subí tus fotos del evento
       </h2>
-      <p className="mt-2 text-[13px] leading-relaxed text-[#16295e]/65">
+      <p
+        className="mt-2 text-[13px] leading-relaxed"
+        style={{ color: conAlfa(paleta.tinta, 0.65) }}
+      >
         Sin cuentas ni apps: elegí hasta {MAX_POR_TANDA} fotos y quedan en el álbum para
         todos. Se ajustan solas para que suban rápido.
       </p>
 
       {albumLleno ? (
-        <p className="mt-5 rounded-xl bg-[#16295e]/5 px-4 py-3 text-[13px] font-semibold text-[#16295e]/70">
+        <p
+          className="mt-5 rounded-xl px-4 py-3 text-[13px] font-semibold"
+          style={{
+            background: conAlfa(paleta.tinta, 0.05),
+            color: conAlfa(paleta.tinta, 0.7),
+          }}
+        >
           El álbum llegó a su tope de {MAX_FOTOS_ALBUM} fotos. ¡Gracias por tanto recuerdo!
         </p>
       ) : (
         <div className="mt-5 grid gap-3 text-left">
           <label
             htmlFor="album-fotos"
-            className="cursor-pointer rounded-xl border-2 border-dashed border-[#16295e]/25 px-4 py-6 text-center text-[13.5px] font-bold text-[#16295e]/70 transition-colors hover:border-[#16295e]/60 hover:text-[#16295e]"
+            className="cursor-pointer rounded-xl border-2 border-dashed px-4 py-6 text-center text-[13.5px] font-bold transition-colors"
+            style={{
+              borderColor: conAlfa(paleta.tinta, 0.25),
+              color: conAlfa(paleta.tinta, 0.7),
+            }}
           >
             {elegidas.length > 0
               ? `${elegidas.length} foto${elegidas.length === 1 ? "" : "s"} elegida${elegidas.length === 1 ? "" : "s"} — tocá para cambiar`
@@ -170,7 +222,8 @@ export default function SubirFotos({
           <div>
             <label
               htmlFor="album-autor"
-              className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-[#16295e]/55"
+              className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em]"
+              style={{ color: conAlfa(paleta.tinta, 0.55) }}
             >
               Tu nombre (opcional)
             </label>
@@ -180,7 +233,12 @@ export default function SubirFotos({
               value={autor}
               onChange={(e) => setAutor(e.target.value)}
               placeholder="Para que sepan quién las tomó"
-              className="w-full rounded-xl border border-[#16295e]/20 bg-white px-4 py-3 text-[14px] text-[#16295e] placeholder:text-[#16295e]/35 focus:border-[#16295e] focus:outline-none"
+              className="w-full rounded-xl border px-4 py-3 text-[14px] focus:outline-none"
+              style={{
+                borderColor: conAlfa(paleta.tinta, 0.2),
+                background: paleta.fondo,
+                color: paleta.tinta,
+              }}
             />
           </div>
 
@@ -190,7 +248,10 @@ export default function SubirFotos({
             </p>
           )}
           {listo && (
-            <p className="rounded-xl bg-[#16295e]/5 px-4 py-2.5 text-[12.5px] font-semibold text-[#16295e]">
+            <p
+              className="rounded-xl px-4 py-2.5 text-[12.5px] font-semibold"
+              style={{ background: conAlfa(paleta.tinta, 0.05), color: paleta.tinta }}
+            >
               ¡Listo! Tus fotos ya son parte del álbum.
             </p>
           )}
@@ -199,7 +260,8 @@ export default function SubirFotos({
             type="button"
             disabled={subiendo}
             onClick={subir}
-            className="rounded-xl bg-[#16295e] px-6 py-3.5 text-[14.5px] font-bold text-white transition-colors hover:bg-[#22397c] disabled:opacity-60"
+            className="rounded-xl px-6 py-3.5 text-[14.5px] font-bold transition-opacity hover:opacity-90 disabled:opacity-60"
+            style={{ background: paleta.acento, color: paleta.fondo }}
           >
             {subiendo
               ? `Subiendo… ${progreso}/${elegidas.length}`

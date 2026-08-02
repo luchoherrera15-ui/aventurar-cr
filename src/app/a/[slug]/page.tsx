@@ -3,6 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cormorant_Garamond } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
+import {
+  conAlfa,
+  PALETA_ALBUM_DEFECTO,
+  paletaDelAlbum,
+  type Paleta,
+} from "@/lib/invitaciones/paleta";
+import Galeria, { type FotoAlbum } from "./galeria";
 import SubirFotos from "./subir-fotos";
 
 // La serif elegante del álbum ("Boda Mich & Dani") — solo esta página
@@ -14,9 +21,10 @@ const cormorant = Cormorant_Garamond({
   style: ["normal", "italic"],
 });
 
-// El lienzo es crema de punta a punta, también en la barra del navegador.
+// El color de la barra del navegador no puede salir de la base: se
+// resuelve antes de saber qué álbum es. Queda el crema de siempre.
 export const viewport: Viewport = {
-  themeColor: "#f7f2ea",
+  themeColor: PALETA_ALBUM_DEFECTO.fondo,
   colorScheme: "only light",
 };
 
@@ -25,9 +33,9 @@ type Album = {
   slug: string;
   titulo: string;
   subtitulo: string | null;
+  cliente_id: string | null;
+  invitacion_id: string | null;
 };
-
-type Foto = { id: string; path: string; autor: string | null };
 
 export async function generateMetadata({
   params,
@@ -52,10 +60,14 @@ export async function generateMetadata({
 /**
  * El álbum digital del evento (/a/{slug}): la página a la que llegan
  * los invitados escaneando el QR de las mesas. Ven las fotos en una
- * grilla masonry sobre fondo crema y suben las suyas sin cuenta — la
- * política de la base solo acepta fotos mientras el álbum esté activo.
- * Si la migración 0068 no ha corrido, la consulta falla y esto es un
- * 404 limpio.
+ * grilla masonry y suben las suyas sin cuenta — la política de la base
+ * solo acepta fotos mientras el álbum esté activo. Si la migración 0068
+ * no ha corrido, la consulta falla y esto es un 404 limpio.
+ *
+ * Los colores los hereda de su invitación (0089): la boda en verde
+ * botella ya no cae en un álbum beige. Si el álbum no cuelga de ninguna
+ * invitación, o esa invitación no tiene diseño propio, queda el crema
+ * de siempre.
  */
 export default async function AlbumPage({
   params,
@@ -66,7 +78,7 @@ export default async function AlbumPage({
   const supabase = await createClient();
   const { data } = await supabase
     .from("albumes")
-    .select("id, slug, titulo, subtitulo")
+    .select("id, slug, titulo, subtitulo, cliente_id, invitacion_id")
     .eq("slug", slug)
     .eq("estado", "activo")
     .maybeSingle();
@@ -74,23 +86,50 @@ export default async function AlbumPage({
   const album = (data ?? null) as Album | null;
   if (!album) notFound();
 
-  const { data: fotosData } = await supabase
-    .from("album_fotos")
-    .select("id, path, autor")
-    .eq("album_id", album.id)
-    .order("created_at", { ascending: false });
-  const fotos = (fotosData ?? []) as Foto[];
+  const [{ data: fotosData }, { data: sesion }] = await Promise.all([
+    supabase
+      .from("album_fotos")
+      .select("id, path, autor")
+      .eq("album_id", album.id)
+      .order("created_at", { ascending: false }),
+    supabase.auth.getUser(),
+  ]);
+  const fotos = (fotosData ?? []) as FotoAlbum[];
+
+  const paleta = await paletaDeLaInvitacion(supabase, album.invitacion_id);
+
+  // El dueño del álbum (o un admin) puede quitar cualquier foto; un
+  // invitado, solo las suyas, y eso lo resuelve el navegador.
+  const usuario = sesion?.user ?? null;
+  let esDueno = false;
+  if (usuario) {
+    esDueno = album.cliente_id === usuario.id;
+    if (!esDueno) {
+      const { data: perfil } = await supabase
+        .from("perfiles")
+        .select("rol")
+        .eq("id", usuario.id)
+        .maybeSingle();
+      esDueno = perfil?.rol === "admin";
+    }
+  }
 
   // Las fotos viven en el bucket público `albumes`: la URL se arma
   // directo, sin firmar nada.
   const baseFotos = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/albumes/`;
 
   return (
-    <main className="flex min-h-svh flex-col bg-[#f7f2ea] text-[#16295e]">
+    <main
+      className="flex min-h-svh flex-col"
+      style={{ background: paleta.fondo, color: paleta.tinta }}
+    >
       <div className="mx-auto w-full max-w-[1080px] flex-1 px-5 pb-16 pt-14 sm:px-8">
         {/* Cabecera: la serif itálica en grande, como un álbum impreso. */}
         <header className="text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.34em] text-[#16295e]/55">
+          <p
+            className="text-[11px] font-bold uppercase tracking-[0.34em]"
+            style={{ color: conAlfa(paleta.tinta, 0.55) }}
+          >
             El álbum del evento
           </p>
           <h1
@@ -98,71 +137,95 @@ export default async function AlbumPage({
           >
             {album.titulo}
           </h1>
-          <p className="mx-auto mt-4 max-w-[52ch] text-[14.5px] leading-relaxed text-[#16295e]/65">
+          <p
+            className="mx-auto mt-4 max-w-[52ch] text-[14.5px] leading-relaxed"
+            style={{ color: conAlfa(paleta.tinta, 0.65) }}
+          >
             {album.subtitulo ??
               "Los recuerdos del evento, contados por sus invitados. Miralos y sumá los tuyos."}
           </p>
-          <p className="mt-5 text-[12px] font-bold uppercase tracking-[0.18em] text-[#16295e]/45">
+          <p
+            className="mt-5 text-[12px] font-bold uppercase tracking-[0.18em]"
+            style={{ color: conAlfa(paleta.tinta, 0.45) }}
+          >
             {fotos.length} foto{fotos.length === 1 ? "" : "s"}
           </p>
         </header>
 
-        {/* La grilla masonry: columnas CSS, cada foto entera en su
-            columna, bordes redondeados y nada más — que manden ellas. */}
-        {fotos.length > 0 ? (
-          <div className="mt-10 columns-2 gap-3 sm:columns-3 sm:gap-4">
-            {fotos.map((f) => (
-              <figure key={f.id} className="mb-3 break-inside-avoid sm:mb-4">
-                {/* eslint-disable-next-line @next/next/no-img-element -- fotos de invitados en el bucket público */}
-                <img
-                  src={`${baseFotos}${f.path}`}
-                  alt={f.autor ? `Foto de ${f.autor}` : "Foto del evento"}
-                  loading="lazy"
-                  className="w-full rounded-xl object-cover shadow-[0_10px_30px_-18px_rgba(22,41,94,0.4)]"
-                />
-                {f.autor && (
-                  <figcaption
-                    className={`${cormorant.className} mt-1.5 text-center text-[13px] italic text-[#16295e]/55`}
-                  >
-                    {f.autor}
-                  </figcaption>
-                )}
-              </figure>
-            ))}
-          </div>
-        ) : (
-          <p className="mx-auto mt-10 max-w-[400px] rounded-2xl border border-dashed border-[#16295e]/25 p-8 text-center text-[14px] text-[#16295e]/60">
-            Todavía no hay fotos — sé la primera persona en subir una.
-          </p>
-        )}
+        <Galeria
+          albumId={album.id}
+          fotos={fotos}
+          baseFotos={baseFotos}
+          paleta={paleta}
+          esDueno={esDueno}
+          claseSerif={cormorant.className}
+        />
 
         {/* El bloque de subir, para los invitados. */}
         <SubirFotos
           albumId={album.id}
           fotosActuales={fotos.length}
           claseSerif={cormorant.className}
+          paleta={paleta}
         />
 
         {fotos.length > 0 && (
           <p
-            className={`${cormorant.className} mt-14 text-center text-[17px] italic text-[#16295e]/45`}
+            className={`${cormorant.className} mt-14 text-center text-[17px] italic`}
+            style={{ color: conAlfa(paleta.tinta, 0.45) }}
           >
             — Has llegado al final —
           </p>
         )}
       </div>
 
-      {/* Footer navy, como el pie de un álbum encuadernado. */}
-      <footer className="bg-[#16295e] px-6 py-8 text-center">
-        <p className={`${cormorant.className} text-[17px] italic text-white/90`}>
+      {/* Footer con el acento, como el pie de un álbum encuadernado. */}
+      <footer className="px-6 py-8 text-center" style={{ background: paleta.acento }}>
+        <p
+          className={`${cormorant.className} text-[17px] italic`}
+          style={{ color: conAlfa(paleta.fondo, 0.92) }}
+        >
           Gracias por confiar en nosotros
         </p>
-        <p className="mt-1.5 text-[12px] font-bold uppercase tracking-[0.22em] text-white/50">
-          <Link href="/" className="hover:text-white">
+        <p
+          className="mt-1.5 text-[12px] font-bold uppercase tracking-[0.22em]"
+          style={{ color: conAlfa(paleta.fondo, 0.55) }}
+        >
+          <Link href="/" style={{ color: "inherit" }}>
             Bookea
           </Link>
         </p>
       </footer>
     </main>
   );
+}
+
+/**
+ * Los colores del álbum: lo que se corrigió a mano en la invitación, o
+ * lo que se deduce de su diseño.
+ *
+ * Se lee con la sesión de quien mira, no con la llave de servicio: la
+ * política pública de `invitaciones` deja ver las activas, que son las
+ * que tienen álbum vivo. Una invitación en borrador o archivada no se
+ * lee y el álbum queda con el crema de siempre — preferible a poner una
+ * llave de servicio en una página pública por un color.
+ */
+async function paletaDeLaInvitacion(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  invitacionId: string | null,
+): Promise<Paleta> {
+  if (!invitacionId) return PALETA_ALBUM_DEFECTO;
+
+  const { data } = await supabase
+    .from("invitaciones")
+    .select("paleta, html_personalizado")
+    .eq("id", invitacionId)
+    .maybeSingle();
+  if (!data) return PALETA_ALBUM_DEFECTO;
+
+  return paletaDelAlbum({
+    paleta: (data as { paleta?: unknown }).paleta,
+    htmlPersonalizado: (data as { html_personalizado?: string | null })
+      .html_personalizado,
+  });
 }
