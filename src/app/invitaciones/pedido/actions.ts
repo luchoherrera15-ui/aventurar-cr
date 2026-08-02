@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   crearPedidoInvitacion,
+  notificarPedidoNuevo,
   notificarPedidoPagado,
   registrarPagoPedido,
   type DatosPedido,
@@ -72,6 +73,13 @@ export async function crearPedido(
   });
 
   if (!resultado.ok) return { error: resultado.error };
+
+  // El aviso a los administradores sale DESPUÉS de responder: el
+  // cliente pasa a su pantalla de pago sin esperar a Resend. Se
+  // registra antes del redirect a propósito — `redirect()` lanza, así
+  // que cualquier cosa escrita debajo no correría nunca.
+  const pedido = resultado.pedido;
+  after(() => notificarPedidoNuevo(pedido));
 
   redirect(`/invitaciones/pago/${resultado.pedidoId}`);
 }

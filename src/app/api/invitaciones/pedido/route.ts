@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { sesionDesdeBearer } from "@/lib/supabase/bearer";
 import {
   crearPedidoInvitacion,
+  notificarPedidoNuevo,
   notificarPedidoPagado,
   registrarPagoPedido,
   type DatosPedido,
@@ -114,6 +115,11 @@ export async function POST(req: Request) {
   if (!resultado.ok) {
     return Response.json({ ok: false, error: resultado.error }, { status: 400 });
   }
+
+  // Igual que en la web: el teléfono no espera a Resend para pasar a la
+  // pantalla de pago, pero el equipo se entera del pedido igual.
+  const pedido = resultado.pedido;
+  after(() => notificarPedidoNuevo(pedido));
 
   return Response.json({ ok: true, pedidoId: resultado.pedidoId });
 }

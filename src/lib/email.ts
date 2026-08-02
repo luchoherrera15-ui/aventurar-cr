@@ -80,7 +80,10 @@ export async function enviarCorreo({
 // Los datos que van adentro (nombre del cliente, del negocio) los
 // escribe el propio cliente en el formulario — se escapan antes de
 // meterlos en el HTML igual que cualquier otro dato de un formulario.
-function escaparHtml(texto: string) {
+// Se exporta porque los correos que se arman fuera de este archivo
+// (los avisos de pedidos, por ejemplo) meten los mismos datos de
+// formulario en su HTML y necesitan el mismo cuidado.
+export function escaparHtml(texto: string) {
   return texto
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
