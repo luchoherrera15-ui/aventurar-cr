@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { IconWarning } from "@/components/icons";
 import { gastoDelMesIA } from "@/lib/ia/config-ia";
 import { formatearCRC, formatearUSD } from "@/lib/ia/modelos";
+import TableroPendientes from "./pendientes";
 import { perteneceASeccion, SECCION_LABEL } from "./vertical";
 import { seccionActiva } from "./vertical-server";
 
@@ -48,16 +48,10 @@ export default async function AdminHubPage() {
         invitaciones y finanzas.
       </p>
 
-      {ranchosPendientes > 0 && (
-        <Link
-          href="/admin/ranchos"
-          className="mt-5 flex items-center gap-3 rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/10 p-4 text-[13.5px] font-bold text-aventurea-orange hover:bg-aventurea-orange/15"
-        >
-          <IconWarning className="h-4 w-4 shrink-0" />
-          Tenés {ranchosPendientes} publicación
-          {ranchosPendientes === 1 ? "" : "es"} esperando tu aprobación →
-        </Link>
-      )}
+      {/* El aviso suelto de "tenés N publicaciones por aprobar" lo
+          reemplaza el tablero: contaba una sola cosa de las seis que
+          pueden estar esperando. */}
+      <TableroPendientes seccion={seccion} />
 
       <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-2">
         <HubCard
