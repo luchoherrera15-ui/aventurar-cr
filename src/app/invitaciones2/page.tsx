@@ -164,56 +164,122 @@ export default function Invitaciones2Page() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {CATALOGO_INVITACIONES.map((demo) => (
-              <a
-                key={demo.slug}
-                href={`/i/${demo.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-reveal
-                className="group flex flex-col justify-between rounded-3xl border border-white/10 p-6 transition-all hover:-translate-y-1 hover:border-white/30"
-                style={{ background: NAVY }}
-              >
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#ee7420]">
-                    {demo.ocasion}
-                  </p>
-                  <h3 className={`${cormorant.className} mt-3 text-[27px] leading-tight`}>
-                    {demo.nombre}
-                  </h3>
-                  <p className="mt-3 text-[13.5px] leading-relaxed text-white/55">
-                    {demo.descripcion}
-                  </p>
-                </div>
-                <span className="mt-6 inline-flex items-center gap-1.5 text-[13px] font-bold text-white/80 transition-colors group-hover:text-white">
-                  Abrir la invitación
-                  <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1">
-                    <path d="M4 10h12m0 0-5-5m5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-              </a>
-            ))}
+          {/* Cada card ES una muestra del diseño, no una ficha que lo
+              describe: el lienzo usa los colores reales de esa
+              invitación (catalogo-invitaciones → muestra). Una fila de
+              tarjetas de texto todas del mismo azul no enseña ejemplos,
+              enseña una lista — y lo que hay que vender acá es que cada
+              una se ve distinta. */}
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {CATALOGO_INVITACIONES.map((demo) => {
+              const m = demo.muestra ?? {
+                fondo: "#efe7d8",
+                tinta: "#2a2318",
+                acento: "#c9a227",
+              };
+              return (
+                <a
+                  key={demo.slug}
+                  href={`/i/${demo.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-reveal
+                  className="group block overflow-hidden rounded-3xl transition-all duration-300 hover:-translate-y-1.5"
+                  style={{ background: "rgba(255,255,255,.05)" }}
+                >
+                  {/* El lienzo: la invitación en chiquito. */}
+                  <div
+                    className="relative flex aspect-[5/6] flex-col items-center justify-center px-6 text-center"
+                    style={{ background: m.fondo, color: m.tinta }}
+                  >
+                    {/* Marco interior, como el filete de una tarjeta impresa. */}
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-4 rounded-xl border transition-all duration-300 group-hover:inset-3"
+                      style={{ borderColor: m.acento, opacity: 0.45 }}
+                    />
+                    <p
+                      className="text-[9.5px] font-bold uppercase tracking-[0.3em]"
+                      style={{ color: m.acento }}
+                    >
+                      {demo.ocasion}
+                    </p>
+                    <p
+                      className={`${cormorant.className} mt-3 text-[clamp(26px,3.2vw,34px)] leading-[1.08]`}
+                    >
+                      {demo.nombre}
+                    </p>
+                    <span
+                      aria-hidden
+                      className="my-4 h-px w-10 transition-all duration-300 group-hover:w-16"
+                      style={{ background: m.acento }}
+                    />
+                    <p className="text-[10px] uppercase tracking-[0.2em] opacity-60">
+                      Bookea · Invitación digital
+                    </p>
+                  </div>
+
+                  {/* El pie, ya en la piel del sitio. */}
+                  <div className="p-5">
+                    <p className="text-[13.5px] leading-relaxed text-white/60">
+                      {demo.descripcion}
+                    </p>
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#ee7420]">
+                      Abrir la invitación
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1"
+                      >
+                        <path
+                          d="M4 10h12m0 0-5-5m5 5-5 5"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ================= QUÉ NO ES ================= */}
-      <section className="px-5 py-24 sm:px-8" style={{ background: NAVY }}>
-        <div className="mx-auto w-[min(1120px,92vw)]">
-          <div data-reveal className="max-w-[24ch]">
-            <h2 className="titulo text-[clamp(30px,5vw,58px)] leading-[1.06]">
-              Lo que no es.
+      <section className="relative overflow-hidden px-5 py-24 sm:px-8" style={{ background: NAVY }}>
+        {/* Sin esto la sección es un rectángulo azul de punta a punta:
+            el halo y los números en naranja le dan el respiro y el
+            acento de la marca, que es lo que la separa del resto. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-32 top-1/3 h-[420px] w-[420px] rounded-full opacity-[0.14] blur-[110px]"
+          style={{ background: "#ee7420" }}
+        />
+
+        <div className="relative mx-auto w-[min(1120px,92vw)]">
+          <div data-reveal className="max-w-[26ch]">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#ee7420]">
+              Antes de seguir
+            </p>
+            <h2 className="titulo mt-4 text-[clamp(30px,5vw,58px)] leading-[1.06]">
+              Lo que <span className="text-[#ee7420]">no</span> es.
             </h2>
             <p className="mt-4 text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
               La mayoría llega pensando en una imagen bonita para WhatsApp. Es otra cosa.
             </p>
           </div>
 
-          <div className="mt-12 grid gap-x-10 gap-y-10 sm:grid-cols-2">
-            {DIFERENCIAS.map((d) => (
-              <div key={d.titulo} data-reveal className="border-t border-white/15 pt-6">
-                <h3 className="text-[19px] font-bold leading-snug">{d.titulo}</h3>
+          <div className="mt-14 grid gap-x-10 gap-y-11 sm:grid-cols-2">
+            {DIFERENCIAS.map((d, i) => (
+              <div key={d.titulo} data-reveal>
+                <div className="h-[2px] w-12 rounded-full bg-[#ee7420]" />
+                <p className="mt-5 text-[12px] font-bold tabular-nums tracking-[0.2em] text-[#ee7420]">
+                  {String(i + 1).padStart(2, "0")}
+                </p>
+                <h3 className="mt-2 text-[19px] font-bold leading-snug">{d.titulo}</h3>
                 <p className="mt-2.5 max-w-[46ch] text-[14.5px] leading-relaxed text-white/55">
                   {d.cuerpo}
                 </p>

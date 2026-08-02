@@ -16,6 +16,24 @@ export type DemoInvitacion = {
   icono: "corazon" | "destellos" | "estrella" | "globos" | "globo";
   /** Color del ícono sobre el lienzo. */
   iconoClase: string;
+  /**
+   * Los colores REALES del diseño, para poder mostrar una muestra de
+   * cómo se ve sin abrirla. Los usa la landing nueva
+   * (/invitaciones2): una fila de cards de texto todas iguales no
+   * "muestra ejemplos" — muestra una lista. Con esto cada card se ve
+   * como la invitación que representa.
+   *
+   * Opcional a propósito: una demo nueva funciona sin declararlos y
+   * cae al color por defecto, en vez de romper la página.
+   */
+  muestra?: {
+    /** El lienzo de la invitación. */
+    fondo: string;
+    /** El texto sobre ese lienzo. */
+    tinta: string;
+    /** El detalle: filetes, ornamentos, la fecha. */
+    acento: string;
+  };
 };
 
 export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
@@ -28,6 +46,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     lienzo: "bg-aventurea-navy",
     icono: "corazon",
     iconoClase: "text-white/90",
+    muestra: { fondo: "#efe7d8", tinta: "#2a2318", acento: "#c9a227" },
   },
   {
     slug: "demo-formal",
@@ -38,6 +57,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     lienzo: "bg-aventurea-navy-2",
     icono: "destellos",
     iconoClase: "text-white/90",
+    muestra: { fondo: "#14141a", tinta: "#efe7d8", acento: "#c9a227" },
   },
   {
     slug: "demo-aracnida",
@@ -48,6 +68,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     lienzo: "bg-aventurea-navy-3",
     icono: "estrella",
     iconoClase: "text-white/90",
+    muestra: { fondo: "#1b2a6b", tinta: "#ffffff", acento: "#e23b34" },
   },
   {
     slug: "demo-zoologico",
@@ -58,6 +79,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     lienzo: "bg-aventurea-blue",
     icono: "globos",
     iconoClase: "text-white/95",
+    muestra: { fondo: "#f2e2c4", tinta: "#4a3b22", acento: "#e08a2c" },
   },
   {
     slug: "revelacion-maria-jesus-y-luis",
@@ -68,5 +90,6 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     lienzo: "bg-aventurea-blue-light",
     icono: "globo",
     iconoClase: "text-aventurea-navy",
+    muestra: { fondo: "#fdf2f6", tinta: "#4a3746", acento: "#7ec4e8" },
   },
 ];
