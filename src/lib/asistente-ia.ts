@@ -21,11 +21,24 @@ import { MODELOS, type ModeloIA } from "@/lib/ia/modelos";
  * max_tokens: los modelos que razonan gastan ese mismo tope pensando y
  * un tope chico deja al asistente mudo pero cobrando.
  *
- * Quién lo tiene activo: lo decide ranchos.asistente_activo, que tiene
- * tres estados — true lo enciende siempre, false lo apaga siempre y
- * null (lo que traen todos los negocios de antes) deja la regla
- * original: toda la categoría "lugares" más los slugs extra listados
- * en ASISTENTE_IA_SLUGS. Sin ANTHROPIC_API_KEY no hace nada.
+ * Quién lo tiene activo: DOS candados, y hay que pasar los dos.
+ *
+ *  1. El complemento pago `asistente_ia` del negocio (0090). Sin él no
+ *     contesta nadie, diga lo que diga el interruptor del dueño: el
+ *     asistente se cobra por negocio y `addons_negocio` es lo único que
+ *     el dueño no puede escribir desde el navegador.
+ *  2. `ranchos.asistente_activo`, el interruptor del dueño, con tres
+ *     estados — true lo enciende siempre, false lo apaga siempre y null
+ *     (lo que traen los negocios de antes) deja la regla original: toda
+ *     la categoría "lugares" más los slugs de ASISTENTE_IA_SLUGS.
+ *
+ * El orden importa: el complemento decide si el negocio PUEDE tener
+ * asistente, el interruptor decide si lo QUIERE prendido hoy. Antes de
+ * la 0090 existía solo el segundo, así que un negocio nuevo de la
+ * categoría "lugares" empezaba a gastar tokens sin que nadie lo
+ * decidiera.
+ *
+ * Sin ANTHROPIC_API_KEY no hace nada.
  */
 
 /** Si la configuración no responde, se contesta con el más barato. */
@@ -128,6 +141,36 @@ function bloquesHorario(valor: unknown): HorarioBloqueConfig[] {
     });
   }
   return bloques;
+}
+
+/**
+ * ¿Este negocio tiene contratado el asistente? (complemento
+ * `asistente_ia`, 0090).
+ *
+ * Falla CERRADO a propósito: si la consulta no se puede hacer — la
+ * migración sin correr, la función ausente, la base caída — se devuelve
+ * false y el asistente calla. Es plata de Bookea la que se gasta en
+ * cada respuesta.
+ */
+async function tieneAsistenteContratado(
+  db: ClienteAdmin,
+  ranchoId: string | null,
+): Promise<boolean> {
+  if (!ranchoId) return false;
+  try {
+    const { data, error } = await db.rpc("tiene_addon", {
+      p_rancho_id: ranchoId,
+      p_addon: "asistente_ia",
+    });
+    if (error) {
+      console.error("[asistente-ia] No se pudo verificar el complemento:", error.message);
+      return false;
+    }
+    return data === true;
+  } catch (e) {
+    console.error("[asistente-ia] No se pudo verificar el complemento:", e);
+    return false;
+  }
 }
 
 /** Decide si este negocio contesta solo. Tres estados, ver el comentario de arriba. */
@@ -275,6 +318,17 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
     // (o el propio asistente) no dispara nada.
     if (!asistenteEncendido(rancho)) return;
     if (mensaje.autor_id !== conversacion.cliente_id) return;
+
+    // El candado del complemento, y va ANTES de gastar un token — es el
+    // mismo punto donde lo comprueba /api/agenda/leer para la agenda.
+    //
+    // Ojo con el criterio ante un fallo: acá se falla CERRADO (si no se
+    // puede verificar, no contesta), justo al revés que la lectura de
+    // la configuración de IA de más abajo. La diferencia es qué está en
+    // juego: un interruptor ilegible deja al asistente mudo sin motivo,
+    // pero un complemento ilegible haría que Bookea le regale tokens a
+    // un negocio que quizá no pagó.
+    if (!(await tieneAsistenteContratado(db, conversacion.rancho_id))) return;
 
     // Acá no hay a quién mostrarle el error: si la IA está apagada o se
     // pasó el tope del mes, el asistente calla y el dueño contesta.

@@ -70,6 +70,16 @@ export default async function AsistenteConfigPage({
     .order("orden", { ascending: true })
     .order("created_at", { ascending: true });
 
+  // El complemento pago (0090). `tiene_addon` es security definer y está
+  // otorgada a `authenticated`, así que se puede preguntar con la sesión
+  // del dueño sin abrirle la tabla. Si falla, se asume que no lo tiene:
+  // el mismo criterio cerrado que aplica el asistente del chat.
+  const { data: contratadoRaw } = await supabase.rpc("tiene_addon", {
+    p_rancho_id: id,
+    p_addon: "asistente_ia",
+  });
+  const contratado = contratadoRaw === true;
+
   const conocimiento = (conocimientoData ?? []) as ConocimientoFila[];
   const faltaMigracion = !!errorConocimiento || !("asistente_activo" in datos);
 
@@ -120,6 +130,7 @@ export default async function AsistenteConfigPage({
           porDefectoActivo={porDefectoActivo}
           instruccionesInicial={instrucciones}
           conocimientoInicial={conocimiento}
+          contratado={contratado}
         />
       </div>
 

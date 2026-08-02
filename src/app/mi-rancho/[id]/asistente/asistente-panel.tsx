@@ -66,6 +66,7 @@ export default function AsistentePanel({
   porDefectoActivo,
   instruccionesInicial,
   conocimientoInicial,
+  contratado,
 }: {
   ranchoId: string;
   /** null = regla por defecto, true = siempre encendido, false = apagado. */
@@ -74,6 +75,8 @@ export default function AsistentePanel({
   porDefectoActivo: boolean;
   instruccionesInicial: string;
   conocimientoInicial: ConocimientoFila[];
+  /** ¿Tiene el complemento `asistente_ia` vigente? (0090) */
+  contratado: boolean;
 }) {
   const [estado, setEstado] = useState<Estado>(aEstado(activoInicial));
   const [estadoOk, setEstadoOk] = useState(false);
@@ -233,21 +236,48 @@ export default function AsistentePanel({
           </h2>
           <span
             className={`rounded-lg px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide ${
-              encendido
-                ? "bg-aventurea-green-light text-aventurea-green"
-                : "bg-zinc-100 text-zinc-500"
+              !contratado
+                ? "bg-aventurea-orange-light text-aventurea-orange-dark"
+                : encendido
+                  ? "bg-aventurea-green-light text-aventurea-green"
+                  : "bg-zinc-100 text-zinc-500"
             }`}
           >
-            {encendido ? "Contestando" : "Apagado"}
+            {!contratado ? "Sin contratar" : encendido ? "Contestando" : "Apagado"}
           </span>
         </div>
 
-        <div className="mt-4 flex flex-col gap-2">
+        {/* El complemento manda sobre el interruptor: sin contratarlo, el
+            asistente no contesta aunque acá diga "siempre encendido", así
+            que se dice de frente en vez de dejar botones que no hacen
+            nada. Lo de abajo (instrucciones y respuestas) sí se puede ir
+            preparando: el día que se contrate ya está listo. */}
+        {!contratado && (
+          <div className="mt-4 rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/5 p-4">
+            <p className="text-[13.5px] font-bold text-aventurea-ink">
+              El asistente es un complemento aparte
+            </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-aventurea-ink-soft">
+              Contestar el chat con IA se cobra por negocio, porque cada respuesta
+              tiene un costo real. Escribinos y lo activamos para {""}
+              <strong className="text-aventurea-ink">tu negocio</strong> — mientras
+              tanto, los mensajes de tus clientes te siguen llegando a Mensajes
+              igual que siempre.
+            </p>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+              Podés dejar todo listo desde ya: cargá abajo tus instrucciones y las
+              respuestas que querés que dé. El día que se active, arranca con eso
+              puesto.
+            </p>
+          </div>
+        )}
+
+        <div className={`mt-4 flex flex-col gap-2 ${!contratado ? "opacity-50" : ""}`}>
           {opciones.map((o) => (
             <button
               key={o.valor}
               type="button"
-              disabled={pendiente}
+              disabled={pendiente || !contratado}
               onClick={() => cambiarEstado(o.valor)}
               className={`rounded-xl border px-4 py-3 text-left transition-colors disabled:opacity-60 ${
                 estado === o.valor
