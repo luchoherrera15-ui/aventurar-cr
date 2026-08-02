@@ -47,10 +47,12 @@ async function comprimir(archivo: File): Promise<Blob> {
 }
 
 /**
- * "Subí tus fotos del evento": el bloque para invitados al pie de la
- * grilla. Sin cuenta — la llave anónima puede subir al bucket público
- * y anotar la fila mientras el álbum esté activo (RLS de 0068). Al
- * terminar refresca la página y las fotos nuevas aparecen arriba.
+ * "Subí tus fotos del evento": el bloque para invitados, arriba del
+ * álbum (junto a "Descargar", ver album-interactivo.tsx) — para que
+ * subir una foto no obligue a bajar toda la grilla primero. Sin
+ * cuenta — la llave anónima puede subir al bucket público y anotar la
+ * fila mientras el álbum esté activo (RLS de 0068). Al terminar
+ * refresca la página y las fotos nuevas aparecen arriba de la grilla.
  *
  * Junto a cada foto se guarda la LLAVE que permite quitarla después
  * (0089): el hash de un token que se queda en este navegador. El token
@@ -167,27 +169,25 @@ export default function SubirFotos({
 
   return (
     <section
-      className="mx-auto mt-12 w-full max-w-[520px] rounded-2xl border p-6 text-center sm:p-8"
+      className="w-full rounded-2xl border p-4 text-left sm:max-w-md sm:flex-1"
       style={{
         borderColor: conAlfa(paleta.tinta, 0.15),
         background: conAlfa(paleta.fondo, 0.7),
-        boxShadow: `0 18px 50px -30px ${conAlfa(paleta.tinta, 0.35)}`,
       }}
     >
-      <h2 className={`${claseSerif} text-[clamp(24px,5vw,30px)] font-semibold italic`}>
-        Subí tus fotos del evento
+      <h2 className={`${claseSerif} text-[19px] font-semibold italic`}>
+        Subí tus fotos
       </h2>
       <p
-        className="mt-2 text-[13px] leading-relaxed"
-        style={{ color: conAlfa(paleta.tinta, 0.65) }}
+        className="mt-1 text-[12.5px] leading-snug"
+        style={{ color: conAlfa(paleta.tinta, 0.6) }}
       >
-        Sin cuentas ni apps: elegí hasta {MAX_POR_TANDA} fotos y quedan en el álbum para
-        todos. Se ajustan solas para que suban rápido.
+        Sin cuentas: elegí hasta {MAX_POR_TANDA} y quedan en el álbum para todos.
       </p>
 
       {albumLleno ? (
         <p
-          className="mt-5 rounded-xl px-4 py-3 text-[13px] font-semibold"
+          className="mt-3 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold"
           style={{
             background: conAlfa(paleta.tinta, 0.05),
             color: conAlfa(paleta.tinta, 0.7),
@@ -196,10 +196,10 @@ export default function SubirFotos({
           El álbum llegó a su tope de {MAX_FOTOS_ALBUM} fotos. ¡Gracias por tanto recuerdo!
         </p>
       ) : (
-        <div className="mt-5 grid gap-3 text-left">
+        <div className="mt-3 grid gap-2.5">
           <label
             htmlFor="album-fotos"
-            className="cursor-pointer rounded-xl border-2 border-dashed px-4 py-6 text-center text-[13.5px] font-bold transition-colors"
+            className="cursor-pointer rounded-xl border-2 border-dashed px-3.5 py-4 text-center text-[13px] font-bold transition-colors"
             style={{
               borderColor: conAlfa(paleta.tinta, 0.25),
               color: conAlfa(paleta.tinta, 0.7),
@@ -219,54 +219,44 @@ export default function SubirFotos({
             />
           </label>
 
-          <div>
-            <label
-              htmlFor="album-autor"
-              className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em]"
-              style={{ color: conAlfa(paleta.tinta, 0.55) }}
-            >
-              Tu nombre (opcional)
-            </label>
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
             <input
               id="album-autor"
               type="text"
               value={autor}
               onChange={(e) => setAutor(e.target.value)}
-              placeholder="Para que sepan quién las tomó"
-              className="w-full rounded-xl border px-4 py-3 text-[14px] focus:outline-none"
+              placeholder="Tu nombre (opcional)"
+              className="min-w-0 flex-1 rounded-xl border px-3.5 py-2.5 text-[13.5px] focus:outline-none"
               style={{
                 borderColor: conAlfa(paleta.tinta, 0.2),
                 background: paleta.fondo,
                 color: paleta.tinta,
               }}
             />
+            <button
+              type="button"
+              disabled={subiendo}
+              onClick={subir}
+              className="shrink-0 rounded-xl px-4 py-2.5 text-[13.5px] font-bold transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ background: paleta.acento, color: paleta.fondo }}
+            >
+              {subiendo ? `Subiendo… ${progreso}/${elegidas.length}` : "Subir"}
+            </button>
           </div>
 
           {error && (
-            <p className="rounded-xl bg-red-600/10 px-4 py-2.5 text-[12.5px] font-semibold text-red-700">
+            <p className="rounded-xl bg-red-600/10 px-3.5 py-2 text-[12px] font-semibold text-red-700">
               {error}
             </p>
           )}
           {listo && (
             <p
-              className="rounded-xl px-4 py-2.5 text-[12.5px] font-semibold"
+              className="rounded-xl px-3.5 py-2 text-[12px] font-semibold"
               style={{ background: conAlfa(paleta.tinta, 0.05), color: paleta.tinta }}
             >
               ¡Listo! Tus fotos ya son parte del álbum.
             </p>
           )}
-
-          <button
-            type="button"
-            disabled={subiendo}
-            onClick={subir}
-            className="rounded-xl px-6 py-3.5 text-[14.5px] font-bold transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ background: paleta.acento, color: paleta.fondo }}
-          >
-            {subiendo
-              ? `Subiendo… ${progreso}/${elegidas.length}`
-              : "Subir al álbum"}
-          </button>
         </div>
       )}
     </section>

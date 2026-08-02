@@ -5,39 +5,38 @@ import { useRouter } from "next/navigation";
 import { conAlfa, type Paleta } from "@/lib/invitaciones/paleta";
 import { nombreDeFoto } from "@/lib/zip";
 import { borrarFotoAlbum } from "./actions";
-import {
-  EVENTO_FOTOS_MIAS,
-  misFotos,
-  olvidarFotoPropia,
-  tokenDelNavegador,
-} from "./identidad";
+import { EVENTO_FOTOS_MIAS, misFotos, olvidarFotoPropia, tokenDelNavegador } from "./identidad";
 
 export type FotoAlbum = { id: string; path: string; autor: string | null };
 
 /**
- * La grilla masonry del álbum.
+ * La grilla masonry del álbum — solo eso. Los controles de descarga y
+ * de subida viven arriba, en la barra que arma AlbumInteractivo; la
+ * grilla RECIBE la selección (`eligiendo`, `seleccion`) en vez de
+ * dueña, porque esos dos controles necesitan el mismo estado y el
+ * padre común es lo que los mantiene sincronizados.
  *
- * Es un componente de cliente por una sola razón: saber CUÁLES fotos
+ * Es un componente de cliente por una razón propia: saber CUÁLES fotos
  * puede quitar quien está mirando. El dueño del álbum lo sabe el
  * servidor, pero un invitado sin cuenta solo se reconoce por lo que
  * guardó su propio navegador (ver identidad.ts) — y eso el servidor no
- * lo puede leer. Así que el botón se decide acá.
+ * lo puede leer. Así que el botón "Quitar" se decide acá.
  *
  * El servidor igual vuelve a verificar antes de borrar nada: esconder
  * el botón es comodidad, no seguridad.
  */
 export default function Galeria({
   albumId,
-  slug,
   fotos,
   baseFotos,
   paleta,
   esDueno,
   claseSerif,
+  eligiendo,
+  seleccion,
+  onToggle,
 }: {
   albumId: string;
-  /** Para armar el link de "descargar todas" (/a/{slug}/zip). */
-  slug: string;
   fotos: FotoAlbum[];
   /** La URL pública del bucket, con la barra final. */
   baseFotos: string;
@@ -45,29 +44,16 @@ export default function Galeria({
   /** El dueño del álbum (o un admin) puede quitar cualquier foto. */
   esDueno: boolean;
   claseSerif: string;
+  /** Modo "elegir algunas" para descargar, controlado desde arriba. */
+  eligiendo: boolean;
+  seleccion: Set<string>;
+  onToggle: (fotoId: string) => void;
 }) {
   const router = useRouter();
   const [mias, setMias] = useState<string[]>([]);
   const [borrando, setBorrando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendiente, startTransition] = useTransition();
-  // Modo "elegir algunas": tocar una foto la marca en vez de nada.
-  const [eligiendo, setEligiendo] = useState(false);
-  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
-
-  function alternar(id: string) {
-    setSeleccion((prev) => {
-      const copia = new Set(prev);
-      if (copia.has(id)) copia.delete(id);
-      else copia.add(id);
-      return copia;
-    });
-  }
-
-  function salirDeSeleccion() {
-    setEligiendo(false);
-    setSeleccion(new Set());
-  }
 
   // localStorage no existe en el servidor, así que la lista propia se
   // lee después de montar. El evento la refresca cuando se sube algo
@@ -103,17 +89,6 @@ export default function Galeria({
     });
   }
 
-  if (fotos.length === 0) {
-    return (
-      <p
-        className="mx-auto mt-10 max-w-[400px] rounded-2xl border border-dashed p-8 text-center text-[14px]"
-        style={{ borderColor: conAlfa(paleta.tinta, 0.25), color: conAlfa(paleta.tinta, 0.6) }}
-      >
-        Todavía no hay fotos — sé la primera persona en subir una.
-      </p>
-    );
-  }
-
   return (
     <>
       {error && (
@@ -121,74 +96,6 @@ export default function Galeria({
           {error}
         </p>
       )}
-
-      {/* Las descargas. El álbum entero es un link normal y la selección
-          un envío de formulario: los dos son descargas del navegador, con
-          su propia barra de progreso, que es lo que la gente entiende
-          cuando algo tarda. Nada de JavaScript bajando archivos.
-
-          Los campos ocultos salen de la selección en vez de ser los
-          propios checkboxes, para que marcar una foto sea tocarla entera
-          y no acertarle a una casilla de doce píxeles en un teléfono. */}
-      <form method="POST" action={`/a/${slug}/zip`} className="mt-8">
-        {[...seleccion].map((id) => (
-          <input key={id} type="hidden" name="foto" value={id} />
-        ))}
-
-        {eligiendo ? (
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="submit"
-              disabled={seleccion.size === 0}
-              className="rounded-xl px-5 py-2.5 text-[13.5px] font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
-              style={{ background: paleta.acento, color: paleta.fondo }}
-            >
-              {seleccion.size === 0
-                ? "Tocá las fotos que querés"
-                : `Descargar ${seleccion.size} foto${seleccion.size === 1 ? "" : "s"}`}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSeleccion(new Set(fotos.map((f) => f.id)))}
-              className="text-[12.5px] font-bold underline"
-              style={{ color: conAlfa(paleta.tinta, 0.65) }}
-            >
-              Elegir todas
-            </button>
-            <button
-              type="button"
-              onClick={salirDeSeleccion}
-              className="text-[12.5px] font-bold underline"
-              style={{ color: conAlfa(paleta.tinta, 0.65) }}
-            >
-              Cancelar
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <a
-              href={`/a/${slug}/zip`}
-              className="rounded-xl px-5 py-2.5 text-[13.5px] font-bold transition-opacity hover:opacity-90"
-              style={{ background: paleta.acento, color: paleta.fondo }}
-            >
-              Descargar las {fotos.length} foto{fotos.length === 1 ? "" : "s"}
-            </a>
-            <button
-              type="button"
-              onClick={() => setEligiendo(true)}
-              className="rounded-xl border px-5 py-2.5 text-[13.5px] font-bold transition-colors"
-              style={{
-                borderColor: conAlfa(paleta.tinta, 0.3),
-                color: conAlfa(paleta.tinta, 0.8),
-              }}
-            >
-              Elegir algunas
-            </button>
-            <span className="text-[12px]" style={{ color: conAlfa(paleta.tinta, 0.55) }}>
-              Bajan en un .zip. El álbum entero puede pesar bastante.
-            </span>
-          </div>
-        )}
 
       {/* Columnas CSS: cada foto entera en su columna, nada de recortes. */}
       <div className="mt-8 columns-2 gap-3 sm:columns-3 sm:gap-4">
@@ -199,7 +106,7 @@ export default function Galeria({
             <figure key={f.id} className="mb-3 break-inside-avoid sm:mb-4">
               <div
                 className={eligiendo ? "relative cursor-pointer" : "relative"}
-                onClick={eligiendo ? () => alternar(f.id) : undefined}
+                onClick={eligiendo ? () => onToggle(f.id) : undefined}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- fotos de invitados en el bucket público */}
                 <img
@@ -234,7 +141,7 @@ export default function Galeria({
                   <input
                     type="checkbox"
                     checked={elegida}
-                    onChange={() => alternar(f.id)}
+                    onChange={() => onToggle(f.id)}
                     onClick={(e) => e.stopPropagation()}
                     aria-label={
                       f.autor ? `Elegir la foto de ${f.autor}` : "Elegir esta foto"
@@ -288,8 +195,7 @@ export default function Galeria({
             </figure>
           );
         })}
-        </div>
-      </form>
+      </div>
     </>
   );
 }

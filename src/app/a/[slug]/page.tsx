@@ -9,8 +9,8 @@ import {
   paletaDelAlbum,
   type Paleta,
 } from "@/lib/invitaciones/paleta";
-import Galeria, { type FotoAlbum } from "./galeria";
-import SubirFotos from "./subir-fotos";
+import AlbumInteractivo from "./album-interactivo";
+import type { FotoAlbum } from "./galeria";
 
 // La serif elegante del álbum ("Boda Mich & Dani") — solo esta página
 // la usa; next/font la sirve desde el propio sitio, sin pedirle nada a
@@ -152,7 +152,9 @@ export default async function AlbumPage({
           </p>
         </header>
 
-        <Galeria
+        {/* Subir y descargar van arriba, en la misma barra: nadie tiene
+            que bajar todo el álbum para poder aportar una foto. */}
+        <AlbumInteractivo
           albumId={album.id}
           slug={album.slug}
           fotos={fotos}
@@ -160,14 +162,6 @@ export default async function AlbumPage({
           paleta={paleta}
           esDueno={esDueno}
           claseSerif={cormorant.className}
-        />
-
-        {/* El bloque de subir, para los invitados. */}
-        <SubirFotos
-          albumId={album.id}
-          fotosActuales={fotos.length}
-          claseSerif={cormorant.className}
-          paleta={paleta}
         />
 
         {fotos.length > 0 && (
