@@ -1,24 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { IconChevronLeft, IconChevronRight } from "@/components/icons";
+import { IconPause, IconPlay } from "@/components/icons";
+import { useMovimientoReducido } from "@/app/i/[slug]/invitacion-animada";
 import type { DemoInvitacion } from "@/lib/catalogo-invitaciones";
 
-// En móvil se ve una tarjeta completa más un asomo de la siguiente —
-// eso es lo que invita a deslizar. Mismo criterio que el riel del
-// directorio (RielProveedores), solo que acá cada card es más alta.
-const ANCHO_TARJETA = "clamp(250px, 74vw, 320px)";
+/** Cuánto dura cada slide antes de pasar solo al siguiente. */
+const DURACION_MS = 5000;
+
+const PALETA_DEFECTO = { fondo: "#efe7d8", tinta: "#2a2318", acento: "#c9a227" };
 
 /**
- * Los ejemplos como un riel horizontal, no una grilla que se extiende
- * hacia abajo. Mismo patrón que RielProveedores en el directorio
- * (scroll-snap + flechas que se apagan en los extremos), reescrito acá
- * porque ese componente está atado a RanchoCard y a la piel clara del
- * sitio; esta landing es oscura y las cards son su propio diseño.
+ * Los ejemplos como UN slide grande a la vez, con la barra de progreso
+ * segmentada abajo — el patrón de la página de producto de Apple
+ * (iPhone 17 Pro): no una fila de tarjetas expuestas, sino una sola
+ * invitación ocupando toda la pantalla, que avanza sola y se puede
+ * empujar a mano deslizando o tocando un punto.
  *
- * Es cliente solo por las flechas — sin JavaScript el riel sigue
- * andando: es scroll horizontal nativo con snap, así que en el
- * teléfono se desliza con el dedo aunque algo falle.
+ * Es el mismo estilo en el teléfono que en escritorio a propósito: cada
+ * slide ocupa el 100% del ancho del riel, así que en el celular se
+ * desliza igual que en la pantalla grande — no hay una versión "mobile"
+ * aparte con tarjetas chiquitas asomando.
+ *
+ * CÓMO SE MANTIENEN SINCRONIZADOS EL RELOJ Y LA BARRA: el avance
+ * automático es un `setTimeout` de `DURACION_MS`, y la barra visual es
+ * un `<span>` con una animación CSS de la MISMA duración, reiniciada
+ * (por `key`) cada vez que cambia el slide activo o se reanuda de una
+ * pausa. Pausar congela las dos cosas (se cancela el timeout Y la
+ * animación queda en `paused`); reanudar arranca las dos de cero — no
+ * intenta seguir a mitad, porque ahí es donde el timer y la barra se
+ * desincronizan si uno retoma y el otro no.
+ *
+ * Con `prefers-reduced-motion` no hay avance automático ni animación:
+ * el punto activo se ve lleno y quieto, y la navegación queda en manos
+ * de quien mira, tocando los puntos.
  */
 export default function RielEjemplos({
   demos,
@@ -28,152 +43,187 @@ export default function RielEjemplos({
   claseSerif: string;
 }) {
   const rielRef = useRef<HTMLDivElement>(null);
-  const [puedeIzq, setPuedeIzq] = useState(false);
-  const [puedeDer, setPuedeDer] = useState(false);
+  const slidesRef = useRef<(HTMLDivElement | null)[]>([]);
+  const activoRef = useRef(0);
 
-  const medir = useCallback(() => {
-    const el = rielRef.current;
-    if (!el) return;
-    setPuedeIzq(el.scrollLeft > 4);
-    setPuedeDer(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-  }, []);
+  const [activo, setActivo] = useState(0);
+  // Cambia cada vez que hay que REINICIAR la barra sin cambiar de slide
+  // (al reanudar de una pausa) — es la llave de `key` del relleno.
+  const [ciclo, setCiclo] = useState(0);
+  const [pausado, setPausado] = useState(false);
+  // El mismo hook que ya usa la plantilla de /i/[slug] (invitacion-animada):
+  // useSyncExternalStore, no useState+useEffect, para no disparar un
+  // segundo render solo por leer una media query.
+  const animar = !useMovimientoReducido();
 
-  useEffect(() => {
-    medir();
-    window.addEventListener("resize", medir);
-    return () => window.removeEventListener("resize", medir);
-  }, [medir, demos.length]);
+  const irA = useCallback(
+    (indice: number) => {
+      const el = rielRef.current;
+      if (!el || demos.length === 0) return;
+      const destino = ((indice % demos.length) + demos.length) % demos.length;
+      activoRef.current = destino;
+      setActivo(destino);
+      setCiclo((c) => c + 1);
+      el.scrollTo({
+        left: destino * el.clientWidth,
+        behavior: animar ? "smooth" : "auto",
+      });
+    },
+    [demos.length, animar],
+  );
 
-  function desplazar(direccion: -1 | 1) {
-    const el = rielRef.current;
-    if (!el) return;
-    // Casi una pantalla por click: se conserva un asomo de la tarjeta
-    // anterior para no perder el hilo de dónde se venía.
-    el.scrollBy({ left: direccion * el.clientWidth * 0.85, behavior: "smooth" });
+  function alternarPausa() {
+    // Al reanudar, la barra arranca de cero en vez de seguir a mitad:
+    // es lo que mantiene sincronizado el timeout (que sí reinicia
+    // entero) con el relleno visual.
+    if (pausado) setCiclo((c) => c + 1);
+    setPausado((p) => !p);
   }
 
-  const flechaCls =
-    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-white backdrop-blur-sm transition-all hover:border-white/35 hover:bg-white/10 disabled:opacity-25 disabled:hover:border-white/15 disabled:hover:bg-white/[0.06] [&_svg]:h-4.5 [&_svg]:w-4.5";
+  // Cubre el deslizar a mano: cuando el que mira arrastra el riel sin
+  // tocar un punto, esto detecta cuál slide quedó realmente a la vista
+  // y sincroniza el estado (y reinicia la barra de ese slide).
+  useEffect(() => {
+    const el = rielRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entradas) => {
+        for (const entrada of entradas) {
+          if (!entrada.isIntersecting || entrada.intersectionRatio < 0.6) continue;
+          const i = Number((entrada.target as HTMLElement).dataset.index);
+          if (Number.isNaN(i) || i === activoRef.current) continue;
+          activoRef.current = i;
+          setActivo(i);
+          setCiclo((c) => c + 1);
+        }
+      },
+      { root: el, threshold: [0.6] },
+    );
+    slidesRef.current.forEach((s) => s && io.observe(s));
+    return () => io.disconnect();
+  }, [demos.length]);
+
+  // El avance automático. Un timeout por slide (no un intervalo): así
+  // se cancela limpio cada vez que cambia el slide, se reinicia el
+  // ciclo o se pausa — sin arrastrar un resto de tiempo de la vez
+  // anterior.
+  useEffect(() => {
+    if (pausado || !animar || demos.length <= 1) return;
+    const t = setTimeout(() => irA(activoRef.current + 1), DURACION_MS);
+    return () => clearTimeout(t);
+  }, [activo, ciclo, pausado, animar, demos.length, irA]);
+
+  if (demos.length === 0) return null;
 
   return (
-    <div className="relative">
-      {/* Las flechas quedan arriba a la derecha, junto al texto — igual
-          que en el directorio — en vez de flotar sobre las cards, que
-          en un fondo con imágenes reales tapa contenido. */}
-      <div className="mb-5 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => desplazar(-1)}
-          disabled={!puedeIzq}
-          aria-label="Ejemplos anteriores"
-          className={flechaCls}
-        >
-          <IconChevronLeft />
-        </button>
-        <button
-          type="button"
-          onClick={() => desplazar(1)}
-          disabled={!puedeDer}
-          aria-label="Más ejemplos"
-          className={flechaCls}
-        >
-          <IconChevronRight />
-        </button>
-      </div>
-
-      {/* Los bordes se desvanecen contra el fondo de la sección para
-          insinuar que sigue algo más allá, sin depender de que alguien
-          note las flechas. */}
-      <div className="relative">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-[#0a1226] to-transparent sm:w-16"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#0a1226] to-transparent sm:w-16"
-        />
-
-        <div
-          ref={rielRef}
-          onScroll={medir}
-          className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2"
-          style={{ scrollbarWidth: "none" }}
-        >
-          {demos.map((demo) => {
-            const m = demo.muestra ?? {
-              fondo: "#efe7d8",
-              tinta: "#2a2318",
-              acento: "#c9a227",
-            };
-            return (
+    <div>
+      <div
+        ref={rielRef}
+        className="flex snap-x snap-mandatory overflow-x-auto rounded-3xl"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {demos.map((demo, i) => {
+          const m = demo.muestra ?? PALETA_DEFECTO;
+          return (
+            <div
+              key={demo.slug}
+              ref={(el) => {
+                slidesRef.current[i] = el;
+              }}
+              data-index={i}
+              className="flex min-h-[420px] w-full shrink-0 snap-start flex-col items-center justify-center gap-5 px-6 py-14 text-center sm:min-h-[460px] sm:gap-6 sm:px-16 sm:py-20"
+              style={{ background: m.fondo, color: m.tinta }}
+            >
+              <p
+                className="text-[10.5px] font-bold uppercase tracking-[0.32em]"
+                style={{ color: m.acento }}
+              >
+                {demo.ocasion}
+              </p>
+              <p
+                className={`${claseSerif} max-w-[16ch] text-[clamp(34px,6vw,58px)] leading-[1.05]`}
+              >
+                {demo.nombre}
+              </p>
+              <span aria-hidden className="h-px w-14" style={{ background: m.acento }} />
+              <p className="max-w-[46ch] text-[14.5px] leading-relaxed opacity-70">
+                {demo.descripcion}
+              </p>
               <a
-                key={demo.slug}
                 href={`/i/${demo.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group block shrink-0 snap-start overflow-hidden rounded-3xl transition-transform duration-300 hover:-translate-y-1.5"
-                style={{ width: ANCHO_TARJETA, background: "rgba(255,255,255,.05)" }}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[13px] font-bold transition-transform hover:scale-[1.03]"
+                style={{ background: m.acento, color: m.fondo }}
               >
-                {/* El lienzo: la invitación en chiquito. */}
-                <div
-                  className="relative flex aspect-[5/6] flex-col items-center justify-center px-6 text-center"
-                  style={{ background: m.fondo, color: m.tinta }}
-                >
-                  {/* Marco interior, como el filete de una tarjeta impresa. */}
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-4 rounded-xl border transition-all duration-300 group-hover:inset-3"
-                    style={{ borderColor: m.acento, opacity: 0.45 }}
+                Abrir la invitación
+                <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+                  <path
+                    d="M4 10h12m0 0-5-5m5 5-5 5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                  <p
-                    className="text-[9.5px] font-bold uppercase tracking-[0.3em]"
-                    style={{ color: m.acento }}
-                  >
-                    {demo.ocasion}
-                  </p>
-                  <p
-                    className={`${claseSerif} mt-3 text-[clamp(26px,3.2vw,34px)] leading-[1.08]`}
-                  >
-                    {demo.nombre}
-                  </p>
-                  <span
-                    aria-hidden
-                    className="my-4 h-px w-10 transition-all duration-300 group-hover:w-16"
-                    style={{ background: m.acento }}
-                  />
-                  <p className="text-[10px] uppercase tracking-[0.2em] opacity-60">
-                    Bookea · Invitación digital
-                  </p>
-                </div>
-
-                {/* El pie, ya en la piel del sitio. */}
-                <div className="p-5">
-                  <p className="text-[13.5px] leading-relaxed text-white/60">
-                    {demo.descripcion}
-                  </p>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#ee7420]">
-                    Abrir la invitación
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1"
-                    >
-                      <path
-                        d="M4 10h12m0 0-5-5m5 5-5 5"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                </div>
+                </svg>
               </a>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* El indicador: puntos chicos, y el activo se estira en una
+          píldora que se rellena mientras dura el slide — igual que un
+          carrusel de historias. Tocar un punto salta directo ahí. */}
+      {demos.length > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-1.5">
+          {demos.map((demo, i) => {
+            const esActivo = i === activo;
+            return (
+              <button
+                key={demo.slug}
+                type="button"
+                onClick={() => irA(i)}
+                aria-label={`Ir al ejemplo ${i + 1} de ${demos.length}: ${demo.nombre}`}
+                aria-current={esActivo}
+                className="flex items-center justify-center p-1.5"
+              >
+                <span
+                  className={
+                    esActivo
+                      ? "relative h-1.5 w-9 overflow-hidden rounded-full bg-white/20 transition-[width]"
+                      : "h-1.5 w-1.5 rounded-full bg-white/30 transition-colors hover:bg-white/50"
+                  }
+                >
+                  {esActivo && (
+                    <span
+                      key={`${activo}-${ciclo}`}
+                      className="absolute inset-0 origin-left rounded-full bg-white"
+                      style={{
+                        animationName: animar ? "riel-progreso" : undefined,
+                        animationDuration: `${DURACION_MS}ms`,
+                        animationTimingFunction: "linear",
+                        animationFillMode: "forwards",
+                        animationPlayState: pausado ? "paused" : "running",
+                        transform: animar ? undefined : "scaleX(1)",
+                      }}
+                    />
+                  )}
+                </span>
+              </button>
             );
           })}
+
+          <button
+            type="button"
+            onClick={alternarPausa}
+            aria-label={pausado ? "Reanudar el avance automático" : "Pausar el avance automático"}
+            className="ml-2 flex h-7 w-7 items-center justify-center rounded-full border border-white/20 text-white/75 transition-colors hover:border-white/40 hover:text-white [&_svg]:h-3 [&_svg]:w-3"
+          >
+            {pausado ? <IconPlay /> : <IconPause />}
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -981,3 +981,14 @@ body {
   from { transform: scaleX(1); }
   to { transform: scaleX(0); }
 }
+
+/* El indicador del riel de ejemplos (/invitaciones2): la barra activa
+   se llena de izquierda a derecha mientras dura el slide, como el
+   avance de un carrusel de historias. transform-origin queda a la
+   izquierda en el propio elemento (riel-ejemplos.tsx) — acá solo vive
+   el keyframe, para poder pausarlo con animation-play-state sin JS
+   recalculando nada. */
+@keyframes riel-progreso {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}

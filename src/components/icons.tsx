@@ -303,6 +303,22 @@ export function IconChevronRight({ className = base }: IconProps) {
   );
 }
 
+export function IconPlay({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 5.5v13l11-6.5-11-6.5Z" />
+    </svg>
+  );
+}
+
+export function IconPause({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path strokeLinecap="round" d="M8 5.5v13M16 5.5v13" />
+    </svg>
+  );
+}
+
 export function IconChevronDown({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>

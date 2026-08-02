@@ -168,12 +168,12 @@ export default function Invitaciones2Page() {
             </p>
           </div>
 
-          {/* Riel horizontal, no una grilla que se extiende hacia abajo:
-              se pasan las cards deslizando o con las flechas, como el
-              directorio. Cada card ES una muestra del diseño, no una
-              ficha que lo describe — el lienzo usa los colores reales de
-              esa invitación (catalogo-invitaciones → muestra). Todas del
-              mismo azul no enseñaría ejemplos, enseñaría una lista. */}
+          {/* Un slide grande a la vez, con la barra de progreso abajo —
+              el patrón de una página de producto (iPhone 17 Pro): no
+              una grilla que se expone toda hacia abajo. Cada slide ES
+              una muestra del diseño, con los colores reales de esa
+              invitación (catalogo-invitaciones → muestra); todas del
+              mismo azul no enseñarían ejemplos, enseñarían una lista. */}
           <div className="mt-12" data-reveal>
             <RielEjemplos demos={CATALOGO_INVITACIONES} claseSerif={cormorant.className} />
           </div>
