@@ -22,7 +22,12 @@ import { generarZip, nombreDeFoto, type ArchivoZip } from "@/lib/zip";
 // Bajar 500 fotos y coserlas lleva minutos, no segundos.
 export const maxDuration = 300;
 
-type FotoFila = { path: string; autor: string | null; created_at: string };
+type FotoFila = {
+  id: string;
+  path: string;
+  autor: string | null;
+  created_at: string;
+};
 
 /** Trae una foto del bucket. null si falla: una foto rota no tumba el ZIP. */
 async function descargar(url: string): Promise<Uint8Array | null> {
@@ -67,11 +72,47 @@ async function* fotosComoArchivos(
   }
 }
 
+/**
+ * GET = el álbum entero.
+ *
+ * POST = solo las elegidas, que llegan como campos `foto` de un
+ * formulario. Va por POST y no por ?fotos=a,b,c porque una URL con
+ * doscientos UUID pasa los ocho mil caracteres y el servidor la corta;
+ * en el cuerpo de un POST no hay tope práctico. Y al ser un envío de
+ * formulario normal, el navegador lo trata como descarga igual que el
+ * link de "todas": misma barra de progreso, sin JavaScript de por medio.
+ */
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+  return armarDescarga(slug, null);
+}
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ slug: string }> },
+) {
+  const { slug } = await params;
+
+  let elegidas: string[];
+  try {
+    const form = await req.formData();
+    elegidas = form.getAll("foto").map(String).filter(Boolean);
+  } catch {
+    return new Response("No se entendió la selección.", { status: 400 });
+  }
+
+  if (elegidas.length === 0) {
+    return new Response("No elegiste ninguna foto.", { status: 400 });
+  }
+
+  return armarDescarga(slug, new Set(elegidas));
+}
+
+/** `elegidas` en null = el álbum entero. */
+async function armarDescarga(slug: string, elegidas: Set<string> | null) {
   const supabase = await createClient();
 
   const { data: album } = await supabase
@@ -88,16 +129,26 @@ export async function GET(
 
   const { data } = await supabase
     .from("album_fotos")
-    .select("path, autor, created_at")
+    .select("id, path, autor, created_at")
     .eq("album_id", album.id as string)
     // De la más vieja a la más nueva: en un ZIP lo natural es el orden
     // en que pasaron las cosas, no el de la grilla (que muestra lo
     // último primero).
     .order("created_at", { ascending: true });
 
-  const fotos = (data ?? []) as FotoFila[];
+  // El filtro se hace acá y no en la consulta a propósito: así lo que
+  // llega del navegador solo puede REDUCIR la lista de este álbum,
+  // nunca traer fotos de otro. Un id inventado simplemente no aparece.
+  const todas = (data ?? []) as FotoFila[];
+  const fotos = elegidas ? todas.filter((f) => elegidas.has(f.id)) : todas;
+
   if (fotos.length === 0) {
-    return new Response("Este álbum todavía no tiene fotos.", { status: 404 });
+    return new Response(
+      elegidas
+        ? "Las fotos que elegiste ya no están en el álbum."
+        : "Este álbum todavía no tiene fotos.",
+      { status: 404 },
+    );
   }
 
   const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/albumes/`;
@@ -133,12 +184,18 @@ export async function GET(
     .trim()
     .replace(/\s+/g, "-")
     .slice(0, 60) || "album";
-  const utf8 = encodeURIComponent(`${album.titulo} - fotos.zip`);
+  // Se distingue en el nombre: si el cliente baja una selección hoy y
+  // el álbum entero mañana, los dos archivos conviven en Descargas sin
+  // que uno pise al otro.
+  const sufijo = elegidas ? `${fotos.length}-fotos` : "fotos";
+  const utf8 = encodeURIComponent(
+    `${album.titulo} - ${elegidas ? `${fotos.length} fotos` : "fotos"}.zip`,
+  );
 
   return new Response(cuerpo, {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="${limpio}-fotos.zip"; filename*=UTF-8''${utf8}`,
+      "Content-Disposition": `attachment; filename="${limpio}-${sufijo}.zip"; filename*=UTF-8''${utf8}`,
       // El ZIP se arma al vuelo y cambia con cada foto que suben.
       "Cache-Control": "no-store",
     },
