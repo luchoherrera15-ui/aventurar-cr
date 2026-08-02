@@ -138,7 +138,12 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
       const corrida = suavizar(tramo(p, 0.66, 0.82));
       const dx = angosto ? 0 : entre(0, -170, corrida);
       const dy = angosto ? entre(0, -40, corrida) : 0;
-      const escala = entre(0.86, angosto ? 0.82 : 1, entra) * entre(1, 0.92, corrida);
+      // En móvil no se encoge: la invitación es la escena entera, no una
+      // maqueta dentro de un marco. En escritorio sí, porque ahí entra
+      // al teléfono y después se corre para dejar pasar el panel.
+      const escala = angosto
+        ? entre(0.92, 1, entra)
+        : entre(0.86, 1, entra) * entre(1, 0.92, corrida);
       telefono!.style.transform = `translate(${dx}px, ${entre(28, 0, entra) + dy}px) scale(${escala})`;
       // En pantalla angosta no hay lugar para el teléfono Y el panel al
       // mismo tiempo: el teléfono se apaga y el panel ocupa su lugar. En
@@ -215,8 +220,13 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
 
   return (
     <div ref={pistaRef} className="relative h-[460svh] md:h-[520svh]">
-      <div className="sticky top-0 flex h-svh items-center overflow-hidden">
-        <div className="mx-auto grid w-[min(1120px,92vw)] items-center gap-4 md:gap-8 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      {/* En móvil es una columna donde la escena se queda con lo que
+          sobra (flex-1 + min-h-0), no una altura calculada a mano: dos
+          medidas en svh que sumaban de más eran lo que empujaba el
+          teléfono fuera de la pantalla. Así no hay número que se pueda
+          pasar — lo que quede es lo que hay. */}
+      <div className="sticky top-0 h-svh overflow-hidden">
+        <div className="mx-auto flex h-full w-[min(1120px,92vw)] flex-col justify-center gap-4 py-6 md:grid md:h-auto md:items-center md:gap-8 md:py-0 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
           {/* ---------- Columna de texto ----------
 
               Los cuatro bloques están SUPERPUESTOS, no apilados, también
@@ -224,7 +234,7 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
               normal, los tres invisibles seguirían ocupando su alto y
               entre todos empujaban la escena fuera de la pantalla — que
               es exactamente por lo que el teléfono salía cortado. */}
-          <div className="relative order-1 h-[27svh] md:h-auto md:min-h-[280px]">
+          <div className="relative order-1 h-[26svh] shrink-0 md:h-auto md:min-h-[280px]">
             {TEXTOS.map((t, i) => (
               <div
                 key={t.titulo}
@@ -247,13 +257,13 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
           {/* ---------- Columna de la escena ---------- */}
           <div
             ref={escenaRef}
-            className="order-2 flex h-[56svh] items-center justify-center md:h-[72svh]"
+            className="order-2 flex min-h-0 flex-1 items-center justify-center md:h-[72svh] md:flex-none"
           >
-            <div className="relative flex items-center justify-center">
+            <div className="relative flex h-full items-center justify-center md:h-auto">
               {/* La tarjeta de papel, que es como empieza todo. */}
               <div
                 ref={papelRef}
-                className="absolute w-[min(230px,60vw)] rounded-2xl px-6 py-9 text-center shadow-[0_40px_90px_-40px_rgba(0,0,0,.7)] md:w-[min(300px,26vw)] md:px-8 md:py-12"
+                className="absolute w-[min(268px,70vw)] rounded-2xl px-7 py-10 text-center shadow-[0_40px_90px_-40px_rgba(0,0,0,.7)] md:w-[min(300px,26vw)] md:px-8 md:py-12"
                 style={{ background: "#efe7d8", color: "#2a2318" }}
               >
                 <p className="text-[10px] font-bold uppercase tracking-[0.36em] text-[#a08a4e]">
@@ -273,10 +283,17 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
               {/* El teléfono, con la misma invitación adentro. */}
               <div
                 ref={telefonoRef}
-                // Alto atado al de la escena (56svh en móvil, 72 en
-                // escritorio) para que nunca la desborde: el recorte del
-                // teléfono era eso, una caja más alta que su contenedor.
-                className="relative h-[min(392px,50svh)] w-[min(196px,53vw)] rounded-[30px] border-[6px] p-1.5 md:h-[min(560px,64svh)] md:w-[min(276px,30vw)] md:rounded-[40px] md:border-[7px] md:p-2"
+                // EN MÓVIL NO HAY MARCO DE TELÉFONO. Dibujar un teléfono
+                // dentro de un teléfono es redundante —el marco de
+                // verdad lo tiene el usuario en la mano— y encima obliga
+                // a encoger la invitación hasta que no se lee. Acá la
+                // invitación va a pantalla completa, con su alto atado
+                // al del contenedor (max-h-full): no existe medida que
+                // pueda desbordar, que es de donde salía el recorte.
+                //
+                // En escritorio sí va el marco: ahí el teléfono es lo
+                // que explica que esto se abre en el celular.
+                className="relative aspect-[9/16] max-h-full w-auto rounded-2xl md:aspect-auto md:h-[min(560px,64svh)] md:w-[min(276px,30vw)] md:rounded-[40px] md:border-[7px] md:p-2"
                 style={{
                   opacity: 0,
                   borderColor: "#0a1226",
@@ -285,27 +302,27 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
                 }}
               >
                 <div
-                  className="relative flex h-full w-full flex-col overflow-hidden rounded-[24px] px-3.5 py-5 text-center md:rounded-[32px] md:px-5 md:py-8"
+                  className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl px-5 py-7 text-center md:rounded-[32px] md:px-5 md:py-8"
                   style={{ background: "#efe7d8", color: "#2a2318" }}
                 >
-                  <p className="text-[7.5px] font-bold uppercase tracking-[0.3em] text-[#a08a4e] md:text-[9px] md:tracking-[0.34em]">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.32em] text-[#a08a4e] md:text-[9px] md:tracking-[0.34em]">
                     Nos casamos
                   </p>
-                  <p className={`${claseSerif} mt-2.5 text-[22px] leading-[1.1] md:mt-4 md:text-[30px]`}>
+                  <p className={`${claseSerif} mt-4 text-[30px] leading-[1.1] md:mt-4 md:text-[30px]`}>
                     Sofía
                     <span className="mx-1.5 text-[#c9a227]">&</span>
                     Andrés
                   </p>
-                  <div className="mx-auto my-2.5 h-px w-9 bg-[#c9a227] md:my-4 md:w-12" />
-                  <p className="text-[8px] uppercase tracking-[0.14em] text-[#6b5c3e] md:text-[10.5px] md:tracking-[0.18em]">
+                  <div className="mx-auto my-4 h-px w-12 bg-[#c9a227] md:my-4 md:w-12" />
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-[#6b5c3e] md:text-[10.5px] md:tracking-[0.18em]">
                     12 · Dic · 2026 · 4:00 p.m.
                   </p>
-                  <p className="mt-1 text-[8px] text-[#6b5c3e] md:mt-1.5 md:text-[10.5px]">
+                  <p className="mt-1.5 text-[10px] text-[#6b5c3e] md:mt-1.5 md:text-[10.5px]">
                     Hacienda La Chimba, Atenas
                   </p>
 
                   {/* La cuenta regresiva, que es lo que engancha. */}
-                  <div className="mt-3.5 flex justify-center gap-1.5 md:mt-6 md:gap-2">
+                  <div className="mt-5 flex justify-center gap-2 md:mt-6 md:gap-2">
                     {[
                       ["108", "días"],
                       ["06", "hrs"],
@@ -313,10 +330,10 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
                     ].map(([n, l]) => (
                       <div
                         key={l}
-                        className="min-w-[38px] rounded-lg bg-[#e3d8c2] px-1.5 py-1.5 md:min-w-[54px] md:rounded-xl md:px-2 md:py-2"
+                        className="min-w-[50px] rounded-xl bg-[#e3d8c2] px-2 py-2 md:min-w-[54px]"
                       >
-                        <p className="text-[12px] font-bold leading-none md:text-[17px]">{n}</p>
-                        <p className="mt-0.5 text-[6.5px] uppercase tracking-[0.12em] text-[#8a7752] md:mt-1 md:text-[8.5px] md:tracking-[0.14em]">
+                        <p className="text-[16px] font-bold leading-none md:text-[17px]">{n}</p>
+                        <p className="mt-1 text-[8px] uppercase tracking-[0.14em] text-[#8a7752] md:text-[8.5px]">
                           {l}
                         </p>
                       </div>
@@ -325,17 +342,17 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
 
                   {/* Confirmar asistencia. */}
                   <div ref={rsvpRef} className="mt-auto" style={{ opacity: 0 }}>
-                    <p className="mb-1.5 text-[7.5px] uppercase tracking-[0.14em] text-[#8a7752] md:mb-2.5 md:text-[10.5px] md:tracking-[0.16em]">
+                    <p className="mb-2.5 text-[10px] uppercase tracking-[0.16em] text-[#8a7752] md:text-[10.5px]">
                       ¿Nos acompañás?
                     </p>
-                    <div className="flex gap-1.5 md:gap-2">
+                    <div className="flex gap-2">
                       <span
-                        className="flex-1 rounded-lg py-1.5 text-[9px] font-bold text-white md:rounded-xl md:py-2.5 md:text-[12.5px]"
+                        className="flex-1 rounded-xl py-2.5 text-[12px] font-bold text-white md:text-[12.5px]"
                         style={{ background: "#1f7a4d" }}
                       >
                         Sí, ahí estaré
                       </span>
-                      <span className="rounded-lg border border-[#c9bda2] px-2 py-1.5 text-[9px] font-bold text-[#6b5c3e] md:rounded-xl md:px-3 md:py-2.5 md:text-[12.5px]">
+                      <span className="rounded-xl border border-[#c9bda2] px-3 py-2.5 text-[12px] font-bold text-[#6b5c3e] md:text-[12.5px]">
                         No podré
                       </span>
                     </div>
