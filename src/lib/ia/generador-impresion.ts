@@ -57,6 +57,11 @@ REGLAS TÉCNICAS:
 6. Si el diseño digital usa fotos del cliente (<img> con URL), podés
    usar UNA como elemento gráfico si aporta; nunca inventes imágenes.
 7. Envolvé todo en <div class="hoja-impresa"> … </div>.
+8. La esquina INFERIOR DERECHA de la hoja está reservada: la pantalla
+   pega ahí un código QR de 22 mm. Dejá libre un cuadrado de 30 × 30 mm
+   en esa esquina — sin texto, sin ornamentos y sin nada que importe.
+   No dibujes vos el QR ni dejes un recuadro marcándolo: solo dejá el
+   espacio, con el fondo que corresponda.
 
 El HTML se inserta dentro de una página, así que no incluyas <html>,
 <head> ni <body>.`;
@@ -121,7 +126,19 @@ export async function generarInvitacionImpresa({
   const inicio = Date.now();
   const client = new Anthropic({ apiKey });
 
-  const response = await client.messages.create({
+  // Streaming obligatorio, igual que en generador-invitaciones.ts y en
+  // leer-agenda.ts. El SDK estima cuánto puede tardar una llamada SIN
+  // stream a partir de max_tokens (3600 s × max_tokens ÷ 128.000) y si le
+  // da más de 10 minutos ni siquiera la manda: contesta al instante con
+  // "Streaming is required for operations that may take longer than 10
+  // minutes". El corte cae en ~21.300 tokens, así que los 24.000 de los
+  // modelos que razonan reventaban SIEMPRE — nunca salió una hoja con
+  // Opus. No es un problema de tiempo: la petición no llegaba a salir.
+  //
+  // Subirle el timeout al cliente no sirve: calla al SDK pero la ruta
+  // muere igual en el maxDuration de Vercel. Con stream la conexión no
+  // queda muda esperando, que es lo que de verdad rompía.
+  const stream = client.messages.stream({
     model: modelo,
     max_tokens: maxTokens,
     system: SYSTEM_IMPRESION,
@@ -138,6 +155,9 @@ ${htmlDigital}`,
       },
     ],
   });
+  // El mensaje ya armado: mismo objeto que devolvía create(), así que
+  // stop_reason, content y usage se leen igual que antes.
+  const response = await stream.finalMessage();
 
   const tiempoMs = Date.now() - inicio;
   const usage = aUsage(response.usage);
