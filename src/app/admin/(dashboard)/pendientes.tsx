@@ -5,14 +5,19 @@ import { ESTADOS_PEDIDO_ABIERTOS } from "./invitaciones/pestanas";
 import { perteneceASeccion, SECCION_LABEL, type SeccionAdmin } from "./vertical";
 
 /**
- * El tablero de pendientes: todo lo que está esperando que alguien del
- * equipo haga algo, contado y con su link, arriba del hub.
+ * El tablero de pendientes: lo que espera que alguien del EQUIPO DE
+ * BOOKEA haga algo, contado y con su link, arriba del hub.
  *
- * Antes esto vivía repartido: las publicaciones por aprobar tenían su
- * aviso en /admin, las reservas en aprobación había que ir a contarlas a
- * /admin/eventos, y los pedidos de invitación solo se veían abriendo su
- * pestaña. Nada estaba escondido, pero había que acordarse de mirar cada
- * pantalla — y lo que se olvida mirar es exactamente lo que se pierde.
+ * Ojo con qué entra acá, que es lo fácil de equivocar: las reservas y
+ * los depósitos NO son de Bookea. Cada proveedor aprueba las suyas y
+ * valida sus propios comprobantes desde /mi-rancho, y son de su negocio
+ * y de su cliente. Al principio estaban en este tablero y sumaban trece
+ * pendientes que nadie de acá podía resolver: puro ruido, del que enseña
+ * a ignorar el tablero entero.
+ *
+ * Lo que sí es de Bookea: aprobar los negocios que se registran y
+ * atender lo que Bookea vende como producto propio. La plata tampoco se
+ * duplica acá — vive en /admin/finanzas, que ya la muestra completa.
  *
  * Ojo con la frontera cliente/servidor: este archivo NO lleva
  * "use client" y no exporta helpers para el navegador. Es un componente
@@ -37,11 +42,11 @@ type Pendiente = {
  * Cuenta todo lo pendiente, respetando la sección elegida en el
  * conmutador del header.
  *
- * Las publicaciones y las reservas se filtran por vertical, igual que en
- * sus propias pantallas. Los pedidos de invitación NO: son un producto
- * propio de Bookea, no una vertical del marketplace, así que se muestran
- * siempre. Esconderlos al elegir "Agendas y citas" sería justo el error
- * que este tablero existe para evitar.
+ * Las publicaciones se filtran por vertical, igual que en su propia
+ * pantalla. Los pedidos de invitación NO: son un producto propio de
+ * Bookea, no una vertical del marketplace, así que se muestran siempre.
+ * Esconderlos al elegir "Agendas y citas" sería justo el error que este
+ * tablero existe para evitar.
  */
 async function contarPendientes(
   seccion: SeccionAdmin,
@@ -49,9 +54,9 @@ async function contarPendientes(
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const [ranchosRes, reservasRes, pedidosRes, invitacionesRes] = await Promise.all([
+  // No se consultan `reservas`: son del proveedor, no de Bookea.
+  const [ranchosRes, pedidosRes, invitacionesRes] = await Promise.all([
     supabase.from("ranchos").select("id, estado, vertical"),
-    supabase.from("reservas").select("rancho_id, estado, deposito_validado"),
     // Los pedidos van con la llave de servicio: la RLS de la 0075 solo
     // deja ver a cada cliente los suyos, así que con la sesión del admin
     // esta consulta vuelve VACÍA — parecería que no hay nada pendiente.
@@ -70,23 +75,10 @@ async function contarPendientes(
     estado: string | null;
     vertical: string | null;
   }[];
-  const verticalPorRancho = new Map(ranchos.map((r) => [r.id, r.vertical]));
 
   const ranchosDeLaSeccion = ranchos.filter((r) => perteneceASeccion(r.vertical, seccion));
   const publicacionesPorAprobar = ranchosDeLaSeccion.filter(
     (r) => r.estado === "pendiente",
-  ).length;
-
-  const reservas = ((reservasRes.data ?? []) as {
-    rancho_id: string | null;
-    estado: string | null;
-    deposito_validado: boolean | null;
-  }[]).filter((r) =>
-    perteneceASeccion(r.rancho_id ? verticalPorRancho.get(r.rancho_id) : null, seccion),
-  );
-  const reservasEnAprobacion = reservas.filter((r) => r.estado === "pendiente").length;
-  const depositosPorValidar = reservas.filter(
-    (r) => r.estado === "confirmada" && !r.deposito_validado,
   ).length;
 
   const pedidos = (pedidosRes.data ?? []) as { estado: string }[];
@@ -116,24 +108,6 @@ async function contarPendientes(
       href: "/admin/ranchos",
       urgente: true,
       seccion: "Publicaciones",
-    },
-    {
-      id: "reservas",
-      cuenta: reservasEnAprobacion,
-      singular: "reserva en aprobación",
-      plural: "reservas en aprobación",
-      href: "/admin/eventos",
-      urgente: true,
-      seccion: "Reservas",
-    },
-    {
-      id: "depositos",
-      cuenta: depositosPorValidar,
-      singular: "depósito por validar",
-      plural: "depósitos por validar",
-      href: "/admin/eventos",
-      urgente: true,
-      seccion: "Reservas",
     },
     {
       id: "pedidos",
@@ -293,8 +267,9 @@ export default async function TableroPendientes({
       </div>
 
       <p className="mt-2.5 text-[11.5px] text-aventurea-ink-soft">
-        Publicaciones y reservas se cuentan según la sección elegida arriba. Las
-        invitaciones son producto propio de Bookea y se cuentan siempre.
+        Las publicaciones se cuentan según la sección elegida arriba; las invitaciones
+        son producto propio de Bookea y se cuentan siempre. Las reservas y los depósitos
+        no aparecen acá: los aprueba cada proveedor desde su panel.
       </p>
       {aviso}
     </section>
