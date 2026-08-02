@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import BotonCopiar from "@/components/boton-copiar";
+import BotonBorrarRsvp from "./boton-borrar-rsvp";
 import { IconCamera, IconClock, IconMail, IconPin, IconUsers } from "@/components/icons";
 import { parsearPreguntas, type PreguntaInvitacion } from "@/lib/invitaciones-preguntas";
 import { fechaCortaMensaje, fechaLargaCR } from "@/lib/fechas";
@@ -273,6 +274,7 @@ export default async function EspacioEventoPage({
                 rsvps={asistiran}
                 correos={correosDe(asistiran)}
                 preguntas={preguntas}
+                invitacionId={id}
               />
               <ListaRsvp
                 titulo={`No podrán ir (${noVienen.length})`}
@@ -280,6 +282,7 @@ export default async function EspacioEventoPage({
                 rsvps={noVienen}
                 correos={correosDe(noVienen)}
                 preguntas={preguntas}
+                invitacionId={id}
               />
             </>
           )}
@@ -386,12 +389,14 @@ function ListaRsvp({
   rsvps,
   correos,
   preguntas,
+  invitacionId,
 }: {
   titulo: string;
   vacio: string;
   rsvps: Rsvp[];
   correos: string;
   preguntas: PreguntaInvitacion[];
+  invitacionId: string;
 }) {
   return (
     <div className="mt-5">
@@ -406,7 +411,12 @@ function ListaRsvp({
       ) : (
         <div className="mt-2 overflow-hidden rounded-xl border border-aventurea-line">
           {rsvps.map((r) => (
-            <FilaRsvp key={r.id} rsvp={r} preguntas={preguntas} />
+            <FilaRsvp
+              key={r.id}
+              rsvp={r}
+              preguntas={preguntas}
+              invitacionId={invitacionId}
+            />
           ))}
         </div>
       )}
@@ -418,9 +428,11 @@ function ListaRsvp({
 function FilaRsvp({
   rsvp,
   preguntas,
+  invitacionId,
 }: {
   rsvp: Rsvp;
   preguntas: PreguntaInvitacion[];
+  invitacionId: string;
 }) {
   const etiquetaDe = new Map(preguntas.map((p) => [p.id, p.etiqueta]));
   const respuestas = Object.entries(rsvp.respuestas ?? {});
@@ -442,6 +454,14 @@ function FilaRsvp({
         >
           {rsvp.asistira ? "Sí asistirá" : "No podrá ir"}
         </span>
+        {/* El link de la invitación es público: la misma persona
+            confirma dos veces sin querer, desde el teléfono y la compu.
+            Ese conteo es el que se le pasa al salón y al catering. */}
+        <BotonBorrarRsvp
+          rsvpId={rsvp.id}
+          invitacionId={invitacionId}
+          nombre={rsvp.nombre}
+        />
       </div>
       {(rsvp.correo || rsvp.created_at) && (
         <p className="mt-1 text-[12px] text-aventurea-ink-soft">
