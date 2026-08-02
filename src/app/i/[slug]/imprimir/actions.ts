@@ -3,19 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { modeloDe, motivoParaNoGastar } from "@/lib/ia/config-ia";
-import { registrarDesdeUsage, registrarFalloIA } from "@/lib/ia/registrar-uso";
 import {
-  ErrorImpresionIA,
-  generarInvitacionImpresa,
-} from "@/lib/ia/generador-impresion";
+  COLUMNAS_HOJA,
+  componerHoja,
+  type InvitacionParaHoja,
+} from "@/lib/ia/componer-hoja";
 
 /**
- * Compone (o rehace) la versión de una hoja de una invitación.
+ * Compone (o rehace) la versión de una hoja de una invitación, a pedido.
  *
- * Solo el dueño de la invitación o un admin. El gate del paquete lo
- * resuelve la pantalla; acá se vuelve a comprobar la propiedad, porque
- * una server action se puede invocar desde cualquier lado.
+ * Acá vive el permiso: solo el dueño de la invitación o un admin. Se
+ * comprueba aunque la pantalla ya haya resuelto el gate del paquete,
+ * porque una server action se puede invocar desde cualquier lado.
+ *
+ * El trabajo en sí (llamar al modelo, mirar el tope de gasto, registrar
+ * los tokens y guardar el HTML) está en src/lib/ia/componer-hoja: lo
+ * comparte con el cron que las va armando de noche.
  */
 export async function generarVersionImpresa(invitacionId: string) {
   const supabase = await createClient();
@@ -29,9 +32,7 @@ export async function generarVersionImpresa(invitacionId: string) {
 
   const { data: inv, error: errorLectura } = await admin
     .from("invitaciones")
-    .select(
-      "id, slug, titulo, cliente_id, html_personalizado, fecha_evento, hora, lugar_nombre, direccion",
-    )
+    .select(`${COLUMNAS_HOJA}, cliente_id`)
     .eq("id", invitacionId)
     .maybeSingle();
   if (errorLectura) return { error: errorLectura.message };
@@ -43,91 +44,18 @@ export async function generarVersionImpresa(invitacionId: string) {
     .eq("id", user.id)
     .maybeSingle();
   const esAdmin = perfil?.rol === "admin";
-  if (inv.cliente_id !== user.id && !esAdmin) {
+  if ((inv as { cliente_id: string | null }).cliente_id !== user.id && !esAdmin) {
     return { error: "Esta invitación no es tuya." };
   }
 
-  const htmlDigital = inv.html_personalizado as string | null;
-  if (!htmlDigital) {
-    return { error: "Esta invitación todavía no tiene diseño propio." };
-  }
+  const resultado = await componerHoja({
+    admin,
+    invitacion: inv as unknown as InvitacionParaHoja,
+    usuarioId: user.id,
+  });
 
-  let motivo: string | null = null;
-  try {
-    motivo = await motivoParaNoGastar();
-  } catch {
-    // Fail-closed: si no se puede verificar el interruptor ni el tope,
-    // no se gasta. Es el mismo criterio del chat y del generador.
-    motivo = "No pudimos verificar el estado del asistente; probá de nuevo en un momento.";
-  }
-  if (motivo) return { error: motivo };
+  if (!resultado.ok) return { error: resultado.error };
 
-  const modelo = await modeloDe("invitacion_imprimir").catch(
-    () => "claude-opus-5" as const,
-  );
-
-  const datos = [
-    inv.titulo,
-    inv.fecha_evento,
-    inv.hora,
-    inv.lugar_nombre,
-    inv.direccion,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  try {
-    const { html, usage, tiempoMs } = await generarInvitacionImpresa({
-      // Una invitación animada puede pesar decenas de miles de
-      // caracteres, y el modelo solo la necesita como referencia de
-      // identidad visual: con el arranque le alcanza para tomar fondo,
-      // paleta y tipografías. Mandarla entera alarga la llamada hasta
-      // rozar el tope de tiempo y encarece cada composición.
-      htmlDigital: htmlDigital.slice(0, 45000),
-      datosEvento: datos || "(los datos están dentro del HTML digital)",
-      modelo,
-    });
-
-    await registrarDesdeUsage(usage, {
-      agente: "invitacion_imprimir",
-      modelo,
-      tiempoMs,
-      usuarioId: user.id,
-      referenciaId: inv.id as string,
-    });
-
-    const { error } = await admin
-      .from("invitaciones")
-      .update({ html_impresion: html, impresion_generada_en: new Date().toISOString() })
-      .eq("id", inv.id);
-    if (error) return { error: "No se pudo guardar la versión impresa: " + error.message };
-
-    revalidatePath(`/i/${inv.slug}/imprimir`);
-    return { error: null };
-  } catch (e) {
-    // Los tokens ya se cobraron aunque la composición fallara.
-    if (e instanceof ErrorImpresionIA) {
-      await registrarFalloIA({
-        agente: "invitacion_imprimir",
-        modelo,
-        tokensInput: e.usage?.input_tokens ?? 0,
-        tokensOutput: e.usage?.output_tokens ?? 0,
-        tiempoMs: e.tiempoMs,
-        error: e.message,
-        usuarioId: user.id,
-        referenciaId: inv.id as string,
-      });
-      return { error: e.message };
-    }
-    // Acá caen los fallos que NO son del modelo: se quedó sin tiempo,
-    // se cortó la conexión, falta la llave. El mensaje viaja al cliente
-    // porque esta pantalla es del dueño de la invitación (o del admin):
-    // un "intentá de nuevo" a secas obliga a ir a buscar los logs, y en
-    // producción eso significa no enterarse nunca.
-    const mensaje = e instanceof Error ? e.message : "Error desconocido";
-    console.error("[imprimir] No se pudo componer la versión impresa:", mensaje);
-    return {
-      error: `No se pudo componer la versión impresa: ${mensaje.slice(0, 200)}`,
-    };
-  }
+  revalidatePath(`/i/${resultado.slug}/imprimir`);
+  return { error: null };
 }
