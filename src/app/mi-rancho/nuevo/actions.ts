@@ -149,11 +149,18 @@ export async function crearRancho(
   // Quien entró como cliente (registro opcional desde el móvil) y publica
   // su primer negocio pasa a dueño de rancho — nunca al revés, y nunca
   // toca una cuenta que ya sea admin.
-  await supabase
-    .from("perfiles")
-    .update({ rol: "dueno_rancho" })
-    .eq("id", user.id)
-    .eq("rol", "cliente");
+  //
+  // Va por una función de permisos elevados (0086) y no por un update
+  // directo: `perfiles` solo la puede editar un admin, así que el
+  // update de antes afectaba 0 filas y NO devolvía error. Todo el que
+  // publicó su negocio se quedó marcado como cliente sin que se notara.
+  const { error: errorRol } = await supabase.rpc("promoverse_a_dueno");
+  if (errorRol) {
+    // No bloquea la publicación: el negocio ya está creado y el acceso
+    // al panel depende de `ranchos.owner_id`, no del rol. Pero queda en
+    // el log, porque afecta la segmentación de campañas.
+    console.error("[mi-rancho] No se pudo ascender a dueño:", errorRol.message);
+  }
 
   redirect(`/mi-rancho/${data.id}`);
 }

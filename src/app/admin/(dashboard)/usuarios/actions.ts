@@ -44,6 +44,17 @@ export async function crearUsuario(
   return { ok: `Cuenta creada para ${email}.` };
 }
 
+/**
+ * Cambia el rango de una cuenta. Solo un admin, y con dos frenos que
+ * antes no existían:
+ *
+ *  · nadie se baja a sí mismo — es la forma más fácil de perder el
+ *    panel sin querer, y recuperarlo pide entrar a la base a mano;
+ *  · no se puede quitar el último admin, aunque sea otro quien lo
+ *    intente. Ese freno lo pone también un trigger de la base (0086),
+ *    porque una regla de negocio que solo vive en la interfaz se salta
+ *    llamando a la acción por su id.
+ */
 export async function cambiarRol(
   id: string,
   rol: "admin" | "dueno_rancho" | "cliente",
@@ -51,8 +62,22 @@ export async function cambiarRol(
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user?.id === id && rol !== "admin") {
+    return {
+      error:
+        "No podés quitarte a vos mismo el rol de administrador. Pedile a otro admin que lo haga.",
+    };
+  }
+
   const { error } = await supabase.from("perfiles").update({ rol }).eq("id", id);
-  if (error) return { error: error.message };
+  if (error) {
+    // El trigger de la 0086 avisa en español cuando se intenta dejar la
+    // plataforma sin ningún administrador.
+    return { error: error.message };
+  }
 
   revalidatePath("/admin/usuarios");
   return { error: null };
