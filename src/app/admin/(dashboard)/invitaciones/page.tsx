@@ -3,22 +3,29 @@ import { parsearPreguntas } from "@/lib/invitaciones-preguntas";
 import { precioPaquete, resolverPaquete } from "@/lib/paquetes-invitaciones";
 import InvitacionesPanel, { type AlbumAdmin, type InvitacionAdmin } from "./invitaciones-panel";
 import InvitacionesTabs from "./invitaciones-tabs";
-import PedidosPanel, { type PedidoAdmin } from "./pedidos-panel";
+import PedidosPanel, {
+  type OpcionInvitacion,
+  type PedidoAdmin,
+} from "./pedidos-panel";
 import { ESTADOS_PEDIDO_ABIERTOS, esTabInvitaciones } from "./pestanas";
 
 type FilaInvitacion = Omit<
   InvitacionAdmin,
   "clienteCorreo" | "confirmadosSi" | "confirmadosNo" | "totalPersonas" | "preguntas" | "album"
-> & { cliente_id: string | null };
+> & { cliente_id: string | null; es_ejemplo: boolean | null };
 
 type FilaRsvp = { invitacion_id: string; asistira: boolean; acompanantes: number };
 
 /** Las columnas del pedido: TODO lo que el cliente llenó, sin recortar. */
+// `cliente_id` va acá para poder ofrecer PRIMERO las invitaciones de
+// ese mismo cliente al momento de entregar. No se pide `entregado_en`
+// (0085) a propósito: si esa migración todavía no corrió, pedirla haría
+// fallar la consulta entera y el panel se quedaría sin pedidos.
 const COLUMNAS_PEDIDO =
   "id, estado, paquete, monto_crc, precio_crc, metodo_pago, referencia_pago, comprobante_url, " +
   "tipo_evento, nombre_evento, anfitriones, fecha_evento, hora, lugar_nombre, lugar_direccion, " +
   "maps_url, tematica, colores, cantidad_invitados, fecha_limite_confirmacion, mensaje, idioma, " +
-  "contacto_nombre, contacto_whatsapp, contacto_correo, invitacion_id, created_at";
+  "contacto_nombre, contacto_whatsapp, contacto_correo, cliente_id, invitacion_id, created_at";
 
 type FilaPedidoDb = Omit<PedidoAdmin, "paqueteNombre" | "montoEtiqueta"> & {
   monto_crc: number | null;
@@ -52,7 +59,7 @@ export default async function AdminInvitacionesPage({
     admin
       .from("invitaciones")
       .select(
-        "id, slug, titulo, anfitriones, mensaje, fecha_evento, hora, lugar_nombre, direccion, maps_url, portada_url, html_personalizado, tema, estado, cliente_id",
+        "id, slug, titulo, anfitriones, mensaje, fecha_evento, hora, lugar_nombre, direccion, maps_url, portada_url, html_personalizado, tema, estado, cliente_id, es_ejemplo",
       )
       .order("created_at", { ascending: false }),
     admin.from("invitacion_rsvp").select("invitacion_id, asistira, acompanantes"),
@@ -116,7 +123,9 @@ export default async function AdminInvitacionesPage({
     resumen.set(r.invitacion_id, acc);
   }
 
-  const invitaciones: InvitacionAdmin[] = ((invRes.data ?? []) as FilaInvitacion[]).map(
+  const filasInvitacion = (invRes.data ?? []) as unknown as FilaInvitacion[];
+
+  const invitaciones: InvitacionAdmin[] = filasInvitacion.map(
     (i) => {
       const conteo = resumen.get(i.id) ?? { si: 0, no: 0, personas: 0 };
       return {
@@ -152,6 +161,20 @@ export default async function AdminInvitacionesPage({
     ESTADOS_PEDIDO_ABIERTOS.includes(p.estado),
   ).length;
 
+  // Lo que necesita el selector de "entregar": las invitaciones que un
+  // cliente puede recibir. Fuera quedan las muestras del catálogo (son
+  // copias de vitrina, sin dueño a propósito) y las archivadas.
+  const opcionesInvitacion: OpcionInvitacion[] = filasInvitacion
+    .filter((i) => !i.es_ejemplo && i.estado !== "archivada")
+    .map((i) => ({
+      id: i.id,
+      slug: i.slug,
+      titulo: i.titulo,
+      fechaEvento: i.fecha_evento,
+      estado: i.estado,
+      clienteId: i.cliente_id,
+    }));
+
   return (
     <div>
       <Encabezado
@@ -175,7 +198,9 @@ export default async function AdminInvitacionesPage({
         inicial={esTabInvitaciones(tab) ? tab : "invitaciones"}
         pendientes={porAtender}
         invitaciones={<InvitacionesPanel invitaciones={invitaciones} />}
-        pedidos={<PedidosPanel pedidos={pedidos} />}
+        pedidos={
+          <PedidosPanel pedidos={pedidos} invitaciones={opcionesInvitacion} />
+        }
       />
     </div>
   );

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { briefDelPedido, type PedidoParaBrief } from "@/lib/invitaciones/brief";
-import { cambiarEstadoPedido, urlComprobantePedido } from "./actions";
+import { SITIO_URL } from "@/lib/qr";
+import { cambiarEstadoPedido, entregarPedido, urlComprobantePedido } from "./actions";
 import { ESTADOS_PEDIDO_ABIERTOS } from "./pestanas";
 
 /**
@@ -33,8 +34,20 @@ export type PedidoAdmin = PedidoParaBrief & {
   comprobante_url: string | null;
   contacto_correo: string;
   created_at: string;
+  /** La cuenta que hizo el pedido; con esto se ordena el selector. */
+  cliente_id: string | null;
   /** La invitación que ya salió de este pedido, si se entregó. */
   invitacion_id: string | null;
+};
+
+/** Una invitación candidata a entregarse, para el selector. */
+export type OpcionInvitacion = {
+  id: string;
+  slug: string;
+  titulo: string;
+  fechaEvento: string;
+  estado: string;
+  clienteId: string | null;
 };
 
 /** Los estados de la 0075, en el orden en que ocurren de verdad. */
@@ -75,12 +88,22 @@ const FILTROS: { id: string; label: string }[] = [
   ...ESTADOS.map((e) => ({ id: e.id, label: e.label })),
 ];
 
-export default function PedidosPanel({ pedidos }: { pedidos: PedidoAdmin[] }) {
+export default function PedidosPanel({
+  pedidos,
+  invitaciones,
+}: {
+  pedidos: PedidoAdmin[];
+  invitaciones: OpcionInvitacion[];
+}) {
   const [filtro, setFiltro] = useState("abiertos");
   const [abierto, setAbierto] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Qué invitación se eligió para entregar, por pedido.
+  const [elegida, setElegida] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
+
+  const invitacionPorId = new Map(invitaciones.map((i) => [i.id, i]));
 
   const visibles = pedidos.filter((p) => {
     if (filtro === "todos") return true;
@@ -105,6 +128,34 @@ export default function PedidosPanel({ pedidos }: { pedidos: PedidoAdmin[] }) {
       const res = await cambiarEstadoPedido(p.id, estado);
       if (res.error) setError(res.error);
     });
+  }
+
+  function entregar(p: PedidoAdmin) {
+    const invitacionId = elegida[p.id] ?? "";
+    if (!invitacionId) {
+      setError("Elegí cuál invitación se le entrega a este cliente.");
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await entregarPedido(p.id, invitacionId);
+      if (res.error) setError(res.error);
+    });
+  }
+
+  /**
+   * Las invitaciones que se le pueden entregar a este pedido, con las
+   * que YA son de ese mismo cliente primero: casi siempre la correcta
+   * es una de ellas, y así no hay que buscarla en una lista larga.
+   */
+  function opcionesPara(p: PedidoAdmin) {
+    const suyas: OpcionInvitacion[] = [];
+    const resto: OpcionInvitacion[] = [];
+    for (const i of invitaciones) {
+      if (p.cliente_id && i.clienteId === p.cliente_id) suyas.push(i);
+      else resto.push(i);
+    }
+    return { suyas, resto };
   }
 
   async function verComprobante(p: PedidoAdmin) {
@@ -159,6 +210,10 @@ export default function PedidosPanel({ pedidos }: { pedidos: PedidoAdmin[] }) {
           {visibles.map((p) => {
             const chip = ETIQUETA_ESTADO.get(p.estado);
             const desplegado = abierto === p.id;
+            const entregada = p.invitacion_id
+              ? (invitacionPorId.get(p.invitacion_id) ?? null)
+              : null;
+            const opciones = opcionesPara(p);
             return (
               <div
                 key={p.id}
@@ -187,6 +242,21 @@ export default function PedidosPanel({ pedidos }: { pedidos: PedidoAdmin[] }) {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    {/* Cuando el pedido ya está pagado o en diseño, lo
+                        siguiente que toca es entregarlo: el atajo abre
+                        la ficha justo donde está el selector, para no
+                        tener que saber que vive dentro de "Ver todos
+                        los datos". */}
+                    {!p.invitacion_id &&
+                      ["pagado", "en_diseno"].includes(p.estado) && (
+                        <button
+                          type="button"
+                          onClick={() => setAbierto(p.id)}
+                          className="rounded-[10px] bg-aventurea-green px-3.5 py-2 text-[12.5px] font-bold text-white hover:brightness-95"
+                        >
+                          Entregar
+                        </button>
+                      )}
                     <button
                       type="button"
                       onClick={() => copiarBrief(p)}
@@ -266,12 +336,101 @@ export default function PedidosPanel({ pedidos }: { pedidos: PedidoAdmin[] }) {
                       )}
                     </div>
 
+                    {/* ---------- Cerrar la orden ---------- */}
+                    <div className="mt-4 border-t border-aventurea-line pt-4">
+                      {entregada ? (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="text-[12.5px] font-bold text-aventurea-green">
+                            Orden cerrada
+                          </span>
+                          <span className="text-[12.5px] text-aventurea-ink-soft">
+                            Se le entregó{" "}
+                            <a
+                              href={`${SITIO_URL}/i/${entregada.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-aventurea-navy underline"
+                            >
+                              {entregada.titulo}
+                            </a>
+                            {" "}· se le mandó el correo con su link.
+                          </span>
+                        </div>
+                      ) : p.invitacion_id ? (
+                        // Atado a una invitación que ya no está en la
+                        // lista (archivada, o borrada): no se pierde el
+                        // dato, solo no se puede enlazar.
+                        <p className="text-[12.5px] text-aventurea-ink-soft">
+                          Este pedido quedó atado a una invitación que ya no aparece en
+                          la lista.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                            Entregar
+                          </p>
+                          <p className="mb-2.5 text-[12.5px] text-aventurea-ink-soft">
+                            Al entregar, la invitación pasa a la cuenta del cliente (con
+                            su álbum), se publica si estaba en borrador y le sale el
+                            correo con su link para compartir.
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <select
+                              value={elegida[p.id] ?? ""}
+                              onChange={(ev) =>
+                                setElegida((prev) => ({
+                                  ...prev,
+                                  [p.id]: ev.target.value,
+                                }))
+                              }
+                              className="min-w-[260px] max-w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2 text-[13px] text-aventurea-ink"
+                            >
+                              <option value="">Elegí la invitación…</option>
+                              {opciones.suyas.length > 0 && (
+                                <optgroup label="Ya son de este cliente">
+                                  {opciones.suyas.map((i) => (
+                                    <option key={i.id} value={i.id}>
+                                      {i.titulo} · {i.fechaEvento}
+                                      {i.estado === "borrador" ? " · borrador" : ""}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              <optgroup label="Todas las demás">
+                                {opciones.resto.map((i) => (
+                                  <option key={i.id} value={i.id}>
+                                    {i.titulo} · {i.fechaEvento}
+                                    {i.estado === "borrador" ? " · borrador" : ""}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            </select>
+                            <button
+                              type="button"
+                              disabled={pending || !elegida[p.id]}
+                              onClick={() => entregar(p)}
+                              className="rounded-[10px] bg-aventurea-green px-4 py-2 text-[12.5px] font-bold text-white hover:brightness-95 disabled:opacity-50"
+                            >
+                              {pending ? "Entregando…" : "Entregar y cerrar la orden"}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
                     {/* ---------- Mover de estado ---------- */}
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                         Mover a
                       </span>
-                      {ESTADOS.filter((e) => e.id !== p.estado).map((e) => (
+                      {ESTADOS.filter(
+                        (e) =>
+                          e.id !== p.estado &&
+                          // "Entregado" ya no es un estado que se pone a
+                          // mano: se llega por el botón de arriba, que es
+                          // lo único que ata el pedido con su invitación.
+                          (e.id !== "entregado" || Boolean(p.invitacion_id)),
+                      ).map((e) => (
                         <button
                           key={e.id}
                           type="button"

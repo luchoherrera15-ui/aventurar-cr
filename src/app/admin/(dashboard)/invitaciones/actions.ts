@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { parsearPreguntas, type PreguntaInvitacion } from "@/lib/invitaciones-preguntas";
+import { notificarPedidoEntregado } from "@/lib/invitaciones/pedido";
 
 export type DatosInvitacion = {
   slug: string;
@@ -206,18 +208,31 @@ export async function asignarCliente(id: string, correo: string) {
     .single();
   if (error) return { error: error.message };
 
-  // El álbum sigue a su invitación. Si la tabla todavía no existe
-  // (0068 sin correr), no es motivo para fallar la asignación.
-  const { error: errorAlbum } = await admin
-    .from("albumes")
-    .update({ cliente_id: clienteId })
-    .eq("invitacion_id", id);
-  if (errorAlbum && !faltaTablaAlbumes(errorAlbum)) {
-    console.error("[admin] No se pudo reasignar el álbum:", errorAlbum.message);
-  }
+  await moverAlbumConLaInvitacion(admin, id, clienteId);
 
   refrescar(data.slug as string);
   return { error: null };
+}
+
+/**
+ * El álbum sigue a su invitación: si no, quedaría colgando de la cuenta
+ * anterior y el cliente no vería las fotos de su evento.
+ *
+ * Si la tabla todavía no existe (0068 sin correr), no es motivo para
+ * fallar la operación que la llamó.
+ */
+async function moverAlbumConLaInvitacion(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  invitacionId: string,
+  clienteId: string | null,
+) {
+  const { error } = await admin
+    .from("albumes")
+    .update({ cliente_id: clienteId })
+    .eq("invitacion_id", invitacionId);
+  if (error && !faltaTablaAlbumes(error)) {
+    console.error("[admin] No se pudo reasignar el álbum:", error.message);
+  }
 }
 
 /**
@@ -361,16 +376,37 @@ export async function cambiarEstadoPedido(id: string, estado: string) {
 
   const { data: actual, error: errorLectura } = await admin
     .from("pedidos_invitacion")
-    .select("pagado_en")
+    .select("pagado_en, estado, invitacion_id")
     .eq("id", id)
     .maybeSingle();
   if (errorLectura) return { error: errorLectura.message };
   if (!actual) return { error: "Ese pedido ya no existe." };
 
-  const fila: { estado: string; pagado_en?: string } = { estado };
+  // "Entregado" dejó de ser una etiqueta suelta: un pedido entregado
+  // tiene que decir CUÁL invitación se entregó. Si no, se pierde el
+  // único momento en que se sabe, y es lo que dejó `invitacion_id`
+  // vacía en todos los pedidos hasta ahora (ver 0085).
+  if (estado === "entregado" && !actual.invitacion_id) {
+    return {
+      error:
+        'Para marcarlo como entregado usá "Entregar" y elegí la invitación — así el pedido queda atado a lo que se le dio al cliente.',
+    };
+  }
+
+  const fila: {
+    estado: string;
+    pagado_en?: string;
+    entregado_en?: string | null;
+  } = { estado };
   const yaCobrado = ["pagado", "en_diseno", "entregado"].includes(estado);
   if (yaCobrado && !actual.pagado_en) {
     fila.pagado_en = new Date().toISOString();
+  }
+  // Si lo sacan de "entregado" es que la entrega no quedó: la fecha de
+  // cierre deja de ser cierta. El vínculo con la invitación se queda,
+  // porque sigue siendo la que se está trabajando.
+  if (actual.estado === "entregado" && estado !== "entregado") {
+    fila.entregado_en = null;
   }
 
   const { error } = await admin
@@ -382,6 +418,157 @@ export async function cambiarEstadoPedido(id: string, estado: string) {
 
   revalidatePath("/admin/invitaciones");
   // El monto entra al reporte apenas el pedido queda cobrado.
+  revalidatePath("/admin/finanzas");
+  return { error: null };
+}
+
+/**
+ * Cierra la orden: le entrega al cliente la invitación que salió de su
+ * pedido.
+ *
+ * Es el paso que faltaba. Hasta ahora "entregar" era mover un estado a
+ * mano, y eso dejaba tres cabos sueltos: el pedido no sabía qué
+ * invitación produjo (`invitacion_id` quedaba en null para siempre), la
+ * invitación seguía a nombre del admin que la generó — así que el
+ * cliente no la veía en su cuenta ni podía administrar sus confirmados
+ * — y al cliente no le avisaba nadie. Esto hace las tres cosas en un
+ * solo movimiento:
+ *
+ *   1. la invitación pasa a la cuenta del cliente (con su álbum),
+ *   2. si estaba en borrador, se publica — entregar es publicar,
+ *   3. el pedido queda entregado, atado a su invitación y con fecha,
+ *   4. sale el correo con el link para compartir.
+ *
+ * El correo va en `after()`: el equipo ve la lista actualizada sin
+ * esperar a Resend.
+ */
+export async function entregarPedido(pedidoId: string, invitacionId: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  if (!invitacionId) return { error: "Elegí cuál invitación se le entrega." };
+
+  const admin = createAdminClient();
+  if (!admin) return { error: FALTA_SERVICE_KEY };
+
+  const [{ data: pedido, error: errorPedido }, { data: inv, error: errorInv }] =
+    await Promise.all([
+      admin
+        .from("pedidos_invitacion")
+        .select(
+          "id, cliente_id, estado, paquete, nombre_evento, contacto_correo, contacto_nombre, pagado_en",
+        )
+        .eq("id", pedidoId)
+        .maybeSingle(),
+      admin
+        .from("invitaciones")
+        .select("id, slug, cliente_id, estado, es_ejemplo")
+        .eq("id", invitacionId)
+        .maybeSingle(),
+    ]);
+
+  if (errorPedido) return { error: errorPedido.message };
+  if (errorInv) return { error: errorInv.message };
+  if (!pedido) return { error: "Ese pedido ya no existe." };
+  if (!inv) return { error: "Esa invitación ya no existe." };
+
+  if (pedido.estado === "cancelado") {
+    return { error: "Ese pedido está cancelado — reabrilo antes de entregarlo." };
+  }
+  // Las muestras del catálogo son copias de vitrina, sin dueño a
+  // propósito: entregar una le daría al cliente algo que se archiva
+  // cuando se retira del catálogo.
+  if (inv.es_ejemplo) {
+    return {
+      error:
+        "Esa es una muestra del catálogo, no la invitación de un cliente. Elegí la del cliente.",
+    };
+  }
+
+  const clienteId = (pedido.cliente_id as string | null) ?? null;
+  const slug = inv.slug as string;
+
+  // La invitación pasa a la cuenta de quien hizo el pedido, y se
+  // publica si venía en borrador.
+  const filaInvitacion: { cliente_id: string | null; estado?: string } = {
+    cliente_id: clienteId,
+  };
+  if (inv.estado !== "activa") filaInvitacion.estado = "activa";
+
+  const { error: errorAsignar } = await admin
+    .from("invitaciones")
+    .update(filaInvitacion)
+    .eq("id", invitacionId);
+  if (errorAsignar) {
+    return { error: "No se pudo asignar la invitación: " + errorAsignar.message };
+  }
+
+  await moverAlbumConLaInvitacion(admin, invitacionId, clienteId);
+
+  const ahora = new Date().toISOString();
+  const filaPedido: {
+    estado: string;
+    invitacion_id: string;
+    entregado_en: string;
+    pagado_en?: string;
+  } = {
+    estado: "entregado",
+    invitacion_id: invitacionId,
+    entregado_en: ahora,
+  };
+  // Un pedido que se entrega está cobrado; si nadie selló la fecha (por
+  // ejemplo un pago en efectivo cargado a mano), se sella acá para que
+  // el reporte de ingresos no se lo pierda.
+  if (!pedido.pagado_en) filaPedido.pagado_en = ahora;
+
+  let { error: errorPedidoUpdate } = await admin
+    .from("pedidos_invitacion")
+    .update(filaPedido)
+    .eq("id", pedidoId);
+
+  // `entregado_en` llegó con la 0085: si esa migración no ha corrido,
+  // PostgREST rechaza la columna desconocida (PGRST204). Se reintenta
+  // sin ella — la entrega vale igual, solo se pierde la fecha de cierre.
+  if (
+    errorPedidoUpdate &&
+    (errorPedidoUpdate.code === "PGRST204" ||
+      errorPedidoUpdate.message?.includes("entregado_en"))
+  ) {
+    console.warn(
+      "[admin] Falta la migración 0085: el pedido se entrega sin fecha de cierre.",
+    );
+    const { entregado_en: _sinColumna, ...sinFecha } = filaPedido;
+    void _sinColumna;
+    ({ error: errorPedidoUpdate } = await admin
+      .from("pedidos_invitacion")
+      .update(sinFecha)
+      .eq("id", pedidoId));
+  }
+
+  if (errorPedidoUpdate) {
+    // La invitación ya quedó asignada: se avisa qué pasó en vez de
+    // fingir que no se hizo nada.
+    return {
+      error:
+        "La invitación quedó asignada al cliente, pero el pedido no se pudo cerrar: " +
+        errorPedidoUpdate.message,
+    };
+  }
+
+  const correo = String(pedido.contacto_correo ?? "");
+  if (correo.includes("@")) {
+    after(() =>
+      notificarPedidoEntregado({
+        nombre_evento: pedido.nombre_evento as string | null,
+        contacto_correo: correo,
+        contacto_nombre: pedido.contacto_nombre as string | null,
+        paquete: String(pedido.paquete),
+        slug,
+      }),
+    );
+  }
+
+  refrescar(slug);
   revalidatePath("/admin/finanzas");
   return { error: null };
 }
