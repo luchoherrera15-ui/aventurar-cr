@@ -12,6 +12,7 @@ import {
 } from "@/lib/paquetes-invitaciones";
 import CardPaquete from "./card-paquete";
 import Reel from "./reel";
+import RielEjemplos from "./riel-ejemplos";
 
 /**
  * /invitaciones2 — la landing de invitaciones digitales, contada como
@@ -167,86 +168,14 @@ export default function Invitaciones2Page() {
             </p>
           </div>
 
-          {/* Cada card ES una muestra del diseño, no una ficha que lo
-              describe: el lienzo usa los colores reales de esa
-              invitación (catalogo-invitaciones → muestra). Una fila de
-              tarjetas de texto todas del mismo azul no enseña ejemplos,
-              enseña una lista — y lo que hay que vender acá es que cada
-              una se ve distinta. */}
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {CATALOGO_INVITACIONES.map((demo) => {
-              const m = demo.muestra ?? {
-                fondo: "#efe7d8",
-                tinta: "#2a2318",
-                acento: "#c9a227",
-              };
-              return (
-                <a
-                  key={demo.slug}
-                  href={`/i/${demo.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-reveal
-                  className="group block overflow-hidden rounded-3xl transition-all duration-300 hover:-translate-y-1.5"
-                  style={{ background: "rgba(255,255,255,.05)" }}
-                >
-                  {/* El lienzo: la invitación en chiquito. */}
-                  <div
-                    className="relative flex aspect-[5/6] flex-col items-center justify-center px-6 text-center"
-                    style={{ background: m.fondo, color: m.tinta }}
-                  >
-                    {/* Marco interior, como el filete de una tarjeta impresa. */}
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute inset-4 rounded-xl border transition-all duration-300 group-hover:inset-3"
-                      style={{ borderColor: m.acento, opacity: 0.45 }}
-                    />
-                    <p
-                      className="text-[9.5px] font-bold uppercase tracking-[0.3em]"
-                      style={{ color: m.acento }}
-                    >
-                      {demo.ocasion}
-                    </p>
-                    <p
-                      className={`${cormorant.className} mt-3 text-[clamp(26px,3.2vw,34px)] leading-[1.08]`}
-                    >
-                      {demo.nombre}
-                    </p>
-                    <span
-                      aria-hidden
-                      className="my-4 h-px w-10 transition-all duration-300 group-hover:w-16"
-                      style={{ background: m.acento }}
-                    />
-                    <p className="text-[10px] uppercase tracking-[0.2em] opacity-60">
-                      Bookea · Invitación digital
-                    </p>
-                  </div>
-
-                  {/* El pie, ya en la piel del sitio. */}
-                  <div className="p-5">
-                    <p className="text-[13.5px] leading-relaxed text-white/60">
-                      {demo.descripcion}
-                    </p>
-                    <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#ee7420]">
-                      Abrir la invitación
-                      <svg
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1"
-                      >
-                        <path
-                          d="M4 10h12m0 0-5-5m5 5-5 5"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </span>
-                  </div>
-                </a>
-              );
-            })}
+          {/* Riel horizontal, no una grilla que se extiende hacia abajo:
+              se pasan las cards deslizando o con las flechas, como el
+              directorio. Cada card ES una muestra del diseño, no una
+              ficha que lo describe — el lienzo usa los colores reales de
+              esa invitación (catalogo-invitaciones → muestra). Todas del
+              mismo azul no enseñaría ejemplos, enseñaría una lista. */}
+          <div className="mt-12" data-reveal>
+            <RielEjemplos demos={CATALOGO_INVITACIONES} claseSerif={cormorant.className} />
           </div>
         </div>
       </section>
