@@ -154,6 +154,7 @@ export default async function AlbumPage({
 
         <Galeria
           albumId={album.id}
+          slug={album.slug}
           fotos={fotos}
           baseFotos={baseFotos}
           paleta={paleta}

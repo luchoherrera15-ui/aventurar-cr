@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { conAlfa, type Paleta } from "@/lib/invitaciones/paleta";
+import { nombreDeFoto } from "@/lib/zip";
 import { borrarFotoAlbum } from "./actions";
 import {
   EVENTO_FOTOS_MIAS,
@@ -27,6 +28,7 @@ export type FotoAlbum = { id: string; path: string; autor: string | null };
  */
 export default function Galeria({
   albumId,
+  slug,
   fotos,
   baseFotos,
   paleta,
@@ -34,6 +36,8 @@ export default function Galeria({
   claseSerif,
 }: {
   albumId: string;
+  /** Para armar el link de "descargar todas" (/a/{slug}/zip). */
+  slug: string;
   fotos: FotoAlbum[];
   /** La URL pública del bucket, con la barra final. */
   baseFotos: string;
@@ -101,9 +105,26 @@ export default function Galeria({
         </p>
       )}
 
+      {/* Bajarse el álbum entero. El link va directo a la ruta que lo
+          arma: el navegador lo trata como una descarga normal y muestra
+          su propia barra de progreso, que es lo que la gente entiende
+          cuando algo tarda. */}
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <a
+          href={`/a/${slug}/zip`}
+          className="rounded-xl px-5 py-2.5 text-[13.5px] font-bold transition-opacity hover:opacity-90"
+          style={{ background: paleta.acento, color: paleta.fondo }}
+        >
+          Descargar las {fotos.length} foto{fotos.length === 1 ? "" : "s"}
+        </a>
+        <span className="text-[12px]" style={{ color: conAlfa(paleta.tinta, 0.55) }}>
+          En un solo archivo .zip. Si son muchas, tarda un poco en arrancar.
+        </span>
+      </div>
+
       {/* Columnas CSS: cada foto entera en su columna, nada de recortes. */}
-      <div className="mt-10 columns-2 gap-3 sm:columns-3 sm:gap-4">
-        {fotos.map((f) => {
+      <div className="mt-8 columns-2 gap-3 sm:columns-3 sm:gap-4">
+        {fotos.map((f, i) => {
           const puedeQuitar = esDueno || mias.includes(f.id);
           return (
             <figure key={f.id} className="mb-3 break-inside-avoid sm:mb-4">
@@ -120,6 +141,19 @@ export default function Galeria({
                 style={{ color: conAlfa(paleta.tinta, 0.55) }}
               >
                 {f.autor}
+                {/* `?download=` hace que Supabase la mande con
+                    Content-Disposition: attachment. Sin eso el atributo
+                    `download` de HTML se ignora, porque el bucket está
+                    en otro dominio, y la foto se abre en una pestaña en
+                    vez de guardarse. */}
+                <a
+                  href={`${baseFotos}${f.path}?download=${encodeURIComponent(nombreDeFoto(i, f.autor))}`}
+                  aria-label={f.autor ? `Descargar la foto de ${f.autor}` : "Descargar esta foto"}
+                  className="rounded-lg px-1.5 py-0.5 font-sans text-[11.5px] font-bold not-italic transition-colors hover:underline"
+                  style={{ color: conAlfa(paleta.tinta, 0.5) }}
+                >
+                  Bajar
+                </a>
                 {puedeQuitar && (
                   <button
                     type="button"
