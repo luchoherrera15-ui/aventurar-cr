@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MAX_PREGUNTAS, type PreguntaInvitacion } from "@/lib/invitaciones-preguntas";
+import { SITIO_URL, urlQr } from "@/lib/qr";
 import {
   archivarAlbum,
   archivarInvitacion,
@@ -99,15 +100,6 @@ const ESTADO_CHIP: Record<string, string> = {
   borrador: "bg-aventurea-cream-2 text-aventurea-ink-soft",
   archivada: "bg-zinc-200 text-zinc-500",
 };
-
-// Base absoluta para armar los links y el QR del álbum (misma
-// constante que usa el resto del sitio para links compartibles).
-const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://bookea.lat";
-
-/** El PNG del QR de una URL, listo para mostrar o imprimir. */
-function urlQr(url: string, lado = 300) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${lado}x${lado}&data=${encodeURIComponent(url)}`;
-}
 
 function deFila(i: InvitacionAdmin): Formulario {
   return {

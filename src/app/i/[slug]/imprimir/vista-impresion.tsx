@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { urlInvitacion, urlQr } from "@/lib/qr";
 import { generarVersionImpresa } from "./actions";
 
 export type TamanoPapel = "carta" | "a4";
+
+/** El lado del QR en la hoja. 22 mm es lo mínimo que un teléfono lee
+ *  de un vistazo, a un brazo de distancia, sin acercarse a la tarjeta. */
+const LADO_QR_MM = 22;
 
 const PAPEL: Record<TamanoPapel, { css: string; etiqueta: string; medidas: string }> = {
   carta: { css: "letter", etiqueta: "Carta", medidas: "21.6 × 27.9 cm" },
@@ -13,29 +18,41 @@ const PAPEL: Record<TamanoPapel, { css: string; etiqueta: string; medidas: strin
 /**
  * La invitación lista para papel.
  *
- * Es el MISMO HTML del diseño, no una versión aparte: se imprime con el
- * motor del navegador, así que lo que sale por la impresora es
- * exactamente lo que se ve en pantalla — tipografías, colores y
- * composición incluidos. Lo único que se apaga es lo que en papel no
- * existe: las animaciones, la cuenta regresiva (un contador impreso no
- * tiene sentido) y la barra de esta misma pantalla.
+ * Lo que se muestra acá es `html_impresion` (0084): una pieza propia de
+ * UNA hoja, hermana del diseño digital pero compuesta aparte — no el
+ * mismo HTML reformateado, que salía en cinco hojas mal cortadas.
+ *
+ * Encima de esa hoja va lo único que agrega esta pantalla: el QR con el
+ * link de la invitación. Es el puente de vuelta a lo digital — quien
+ * recibe la tarjeta puede confirmar asistencia, abrir el mapa y ver la
+ * cuenta regresiva, que en papel no existen. Se puede quitar, porque
+ * hay diseños donde el cliente no lo quiere.
  *
  * El tamaño se cambia con `@page size`, que es lo que lee el diálogo de
  * impresión para elegir la hoja.
  */
 export default function VistaImpresion({
   invitacionId,
+  slug,
   html,
   titulo,
 }: {
   invitacionId: string;
+  /** Para armar el link que lleva el QR: bookea.lat/i/{slug}. */
+  slug: string;
   /** La pieza de UNA hoja. null = todavía no se compuso. */
   html: string | null;
   titulo: string;
 }) {
   const [tamano, setTamano] = useState<TamanoPapel>("carta");
+  const [conQr, setConQr] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generando, startTransition] = useTransition();
+
+  const link = urlInvitacion(slug);
+  // Se pide bastante más grande que los 22 mm impresos: el PNG se
+  // reduce al imprimir y así los módulos quedan nítidos en papel.
+  const imagenQr = urlQr(link, 600);
 
   function componer() {
     setError(null);
@@ -50,6 +67,42 @@ export default function VistaImpresion({
   // fondo de color saldría en blanco. Con esto se respeta el diseño.
   const estilos = `
     @page { size: ${PAPEL[tamano].css}; margin: 10mm; }
+
+    /* El área segura de la hoja, la misma que compone el agente
+       (170 mm): en pantalla se ve el ancho real del papel, no la
+       ventana, así que lo que se previsualiza es lo que sale. Y es lo
+       que hace que la esquina de abajo a la derecha de este contenedor
+       sea de verdad la esquina de la hoja, donde se ancla el QR. */
+    .hoja { position: relative; max-width: 170mm; margin: 0 auto; }
+
+    .qr-hoja {
+      position: absolute;
+      right: 6mm;
+      bottom: 6mm;
+      width: ${LADO_QR_MM}mm;
+      text-align: center;
+      /* Fondo propio: el QR tiene que caer sobre blanco para que
+         cualquier lector lo tome, aunque el diseño tenga color ahí. */
+      background: #ffffff;
+      border-radius: 2mm;
+      padding: 1.5mm;
+      box-shadow: 0 0 0 0.3mm rgba(0, 0, 0, 0.08);
+    }
+    .qr-hoja img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .qr-hoja span {
+      display: block;
+      margin-top: 1mm;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 5pt;
+      line-height: 1.25;
+      letter-spacing: 0.02em;
+      color: #101a2c;
+    }
+
     @media print {
       .no-imprimir { display: none !important; }
       html, body { background: #fff !important; }
@@ -134,6 +187,18 @@ export default function VistaImpresion({
               ))}
             </div>
 
+            {html && (
+              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[13px] font-bold text-aventurea-ink-soft">
+                <input
+                  type="checkbox"
+                  checked={conQr}
+                  onChange={(e) => setConQr(e.target.checked)}
+                  className="h-4 w-4 accent-aventurea-navy"
+                />
+                Incluir el QR
+              </label>
+            )}
+
             {html ? (
               <button
                 type="button"
@@ -160,6 +225,13 @@ export default function VistaImpresion({
           el destino. Si tu diseño tiene fondo de color, activá{" "}
           <strong>Gráficos de fondo</strong> en las opciones para que salga igual
           que en pantalla.
+          {html && (
+            <>
+              {" "}
+              El QR de la esquina abre tu invitación en línea ({link}) para que
+              quien la reciba en papel pueda confirmar su asistencia.
+            </>
+          )}
         </p>
       </div>
 
@@ -170,7 +242,22 @@ export default function VistaImpresion({
       )}
 
       {html ? (
-        <div className="hoja" dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="hoja">
+          <div dangerouslySetInnerHTML={{ __html: html }} />
+          {/* El puente entre el papel y lo digital: quien recibe la
+              tarjeta impresa escanea y cae en la invitación en línea,
+              donde sí puede confirmar, ver el mapa y la cuenta
+              regresiva. Sin esto, la hoja es un callejón sin salida. */}
+          {conQr && (
+            <div className="qr-hoja">
+              {/* eslint-disable-next-line @next/next/no-img-element -- el
+                  QR lo arma un servicio externo como PNG; next/image no
+                  aporta nada y complicaría la impresión. */}
+              <img src={imagenQr} alt={`Código QR de la invitación (${link})`} />
+              <span>Escaneá para confirmar</span>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="no-imprimir mx-auto max-w-[560px] px-6 py-20 text-center">
           <h2 className="titulo text-[20px] text-aventurea-ink">

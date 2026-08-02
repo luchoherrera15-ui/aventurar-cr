@@ -7,10 +7,10 @@ import VistaImpresion from "./vista-impresion";
 /**
  * La invitación para imprimir — un extra del paquete Plus.
  *
- * No es un diseño aparte: es el MISMO HTML de la invitación en línea,
- * servido en una pantalla sin animaciones y con `@page` puesto, para
- * que el navegador lo guarde como PDF en Carta o A4. Así el papel sale
- * idéntico a lo que el cliente aprobó, sin mantener dos diseños.
+ * Es una pieza propia de UNA hoja (`html_impresion`, 0084), compuesta
+ * aparte del diseño digital: imprimir la pantalla salía en cinco hojas
+ * mal cortadas. Acá se sirve con `@page` puesto para que el navegador la
+ * guarde como PDF en Carta o A4, y con el QR que devuelve a lo digital.
  *
  * Quién entra: el dueño de la invitación o un admin (que la produce
  * para el cliente). Nunca los invitados — el link público es /i/[slug].
@@ -127,6 +127,7 @@ export default async function ImprimirInvitacionPage({
     <main className="min-h-svh bg-white">
       <VistaImpresion
         invitacionId={invitacion.id as string}
+        slug={slug}
         html={(invitacion.html_impresion as string | null) ?? null}
         titulo={invitacion.titulo ?? "Tu invitación"}
       />
