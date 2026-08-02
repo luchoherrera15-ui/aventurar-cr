@@ -234,7 +234,7 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
               normal, los tres invisibles seguirían ocupando su alto y
               entre todos empujaban la escena fuera de la pantalla — que
               es exactamente por lo que el teléfono salía cortado. */}
-          <div className="relative order-1 h-[26svh] shrink-0 md:h-auto md:min-h-[280px]">
+          <div className="relative order-1 h-[31svh] shrink-0 md:h-auto md:min-h-[280px]">
             {TEXTOS.map((t, i) => (
               <div
                 key={t.titulo}
@@ -244,10 +244,14 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
                 className="absolute inset-x-0 top-1/2 -translate-y-1/2"
                 style={{ opacity: 0 }}
               >
-                <h2 className="titulo text-[clamp(26px,4.4vw,52px)] leading-[1.06] text-white">
+                {/* Los pisos de los clamp son lo que manda en móvil: con
+                    4.4vw el título caía a 17px en un celular y el cuerpo
+                    a 14px — ilegibles justo donde se está explicando el
+                    producto. Ahora arrancan en 31px y 17px. */}
+                <h2 className="titulo text-[clamp(31px,6.4vw,52px)] leading-[1.06] text-white">
                   {t.titulo}
                 </h2>
-                <p className="mt-3 max-w-[46ch] text-[clamp(14px,1.7vw,19px)] leading-relaxed text-white/60 md:mt-4">
+                <p className="mt-3.5 max-w-[46ch] text-[clamp(17px,4vw,19px)] leading-relaxed text-white/65 md:mt-4">
                   {t.cuerpo}
                 </p>
               </div>
@@ -296,9 +300,15 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
                 className="relative aspect-[9/16] max-h-full w-auto rounded-2xl md:aspect-auto md:h-[min(560px,64svh)] md:w-[min(276px,30vw)] md:rounded-[40px] md:border-[7px] md:p-2"
                 style={{
                   opacity: 0,
-                  borderColor: "#0a1226",
-                  background: "#0a1226",
-                  boxShadow: "0 50px 110px -45px rgba(0,0,0,.85)",
+                  // Más oscuro que el fondo de la página (#0a1226), no
+                  // igual: con el mismo color el bisel desaparecía y el
+                  // teléfono se leía como una pantalla flotando, sin
+                  // marco. El anillo claro de afuera le da el filo que
+                  // hace que se entienda que es un aparato.
+                  borderColor: "#04060d",
+                  background: "#04060d",
+                  boxShadow:
+                    "0 0 0 1px rgba(255,255,255,.16), 0 50px 110px -45px rgba(0,0,0,.9)",
                 }}
               >
                 <div
