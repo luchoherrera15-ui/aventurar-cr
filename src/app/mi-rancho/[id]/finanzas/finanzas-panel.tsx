@@ -12,7 +12,6 @@ import {
   CATEGORIAS_GASTO,
   GASTO_LABEL,
   fmtColones,
-  fmtColonesCorto,
   saldoPendiente,
   totalEvento,
   type Gasto,
@@ -20,6 +19,7 @@ import {
   type ResumenFinanzas,
 } from "@/lib/finanzas";
 import SeccionPlegable from "@/components/seccion-plegable";
+import GraficoSemanal from "./grafico-semanal";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
@@ -117,7 +117,7 @@ export default function FinanzasPanel({
         pending={pending}
       />
 
-      <SemanasCard resumen={resumen} />
+      <GraficoSemanal semanas={resumen.semanas} maximoSemanal={resumen.maximoSemanal} />
 
       <GastosCard
         gastos={gastos}
@@ -222,143 +222,6 @@ function Tile({
         {detalle}
       </p>
     </div>
-  );
-}
-
-// ------------------------------------------------------------
-// Semanas
-// ------------------------------------------------------------
-
-function SemanasCard({ resumen }: { resumen: ResumenFinanzas }) {
-  const escala = Math.max(resumen.maximoSemanal, 1);
-
-  return (
-    <SeccionPlegable
-      titulo="Semana a semana"
-      descripcion="Lo cobrado se cuenta en la semana en que entró la plata. Lo por cobrar, en la semana del evento."
-    >
-      <div className="flex gap-4">
-        <Leyenda color="bg-aventurea-green" label="Entró" />
-        <Leyenda color="bg-aventurea-blue" label="Por cobrar" />
-      </div>
-
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[680px] border-collapse">
-          <thead>
-            <tr className="border-b border-aventurea-line text-left">
-              <th className="pb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Semana
-              </th>
-              <th className="pb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Movimiento
-              </th>
-              <th className="pb-2 text-right text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Entró
-              </th>
-              <th className="pb-2 text-right text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Por cobrar
-              </th>
-              <th className="pb-2 text-right text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Gastos
-              </th>
-              <th className="pb-2 text-right text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Eventos
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {resumen.semanas.map((s) => (
-              <tr
-                key={s.clave}
-                className={`border-b border-aventurea-line/70 last:border-none ${
-                  s.esActual ? "bg-aventurea-cream-2/60" : ""
-                }`}
-              >
-                <td className="py-2.5 pr-4 align-middle">
-                  <span
-                    className={`text-[13px] ${
-                      s.esActual
-                        ? "font-bold text-aventurea-ink"
-                        : s.esFutura
-                          ? "text-aventurea-ink-soft"
-                          : "text-aventurea-ink"
-                    }`}
-                  >
-                    {s.rango}
-                  </span>
-                  {s.esActual && (
-                    <span className="ml-2 rounded-lg bg-aventurea-ink px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
-                      Esta semana
-                    </span>
-                  )}
-                </td>
-                <td className="w-[38%] py-2.5 pr-4 align-middle">
-                  <div className="flex flex-col gap-[2px]">
-                    <Barra
-                      valor={s.entro}
-                      escala={escala}
-                      color="bg-aventurea-green"
-                      titulo={`Entró ${fmtColones(s.entro)}`}
-                    />
-                    <Barra
-                      valor={s.porCobrar}
-                      escala={escala}
-                      color="bg-aventurea-blue"
-                      titulo={`Por cobrar ${fmtColones(s.porCobrar)}`}
-                    />
-                  </div>
-                </td>
-                <td className="py-2.5 text-right align-middle text-[13px] font-bold text-aventurea-ink">
-                  {s.entro > 0 ? fmtColonesCorto(s.entro) : "—"}
-                </td>
-                <td className="py-2.5 text-right align-middle text-[13px] text-aventurea-ink-soft">
-                  {s.porCobrar > 0 ? fmtColonesCorto(s.porCobrar) : "—"}
-                </td>
-                <td className="py-2.5 text-right align-middle text-[13px] text-aventurea-ink-soft">
-                  {s.gastos > 0 ? `−${fmtColonesCorto(s.gastos)}` : "—"}
-                </td>
-                <td className="py-2.5 text-right align-middle text-[13px] text-aventurea-ink-soft">
-                  {s.eventos || "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </SeccionPlegable>
-  );
-}
-
-function Leyenda({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-      <span className={`h-2.5 w-2.5 rounded-[3px] ${color}`} />
-      {label}
-    </span>
-  );
-}
-
-/** Barra fina, anclada a la izquierda y con la punta redondeada. */
-function Barra({
-  valor,
-  escala,
-  color,
-  titulo,
-}: {
-  valor: number;
-  escala: number;
-  color: string;
-  titulo: string;
-}) {
-  if (valor <= 0) return <span className="block h-2" />;
-  const ancho = Math.max(2, (valor / escala) * 100);
-  return (
-    <span className="block h-2" title={titulo}>
-      <span
-        className={`block h-2 rounded-r-[4px] ${color}`}
-        style={{ width: `${ancho}%` }}
-      />
-    </span>
   );
 }
 
