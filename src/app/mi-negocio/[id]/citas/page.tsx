@@ -253,6 +253,7 @@ export default async function CitasConfigPage({
               fotoUrl: m.foto_url,
             }))}
             servicios={servicios}
+            horario={horario}
             initialFecha={hoy}
             initialCitas={citasHoy}
             initialBloqueos={bloqueos}

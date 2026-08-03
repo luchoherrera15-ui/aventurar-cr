@@ -142,6 +142,15 @@ const MARCABLES = ["confirmada", "cumplida", "no_asistio"];
 /** Estados que ocupan la franja de verdad (los cancelados no estorban). */
 const OCUPAN = new Set(["pendiente", "confirmada", "bloqueada", "cumplida", "no_asistio"]);
 
+/**
+ * Alto fijo del encabezado de cada columna en la vista por persona
+ * (foto + nombre). Es un número, no algo que se mida del layout, a
+ * propósito: el eje de horas (una columna hermana, sin encabezado
+ * propio) necesita el MISMO valor para desplazar sus horas hacia
+ * abajo y quedar alineado con la grilla real de cada columna.
+ */
+const ALTO_ENCABEZADO_COLUMNA = 50;
+
 /** Piel del bloque en la vista por persona — mismo criterio que ESTADO_TONO. */
 function estiloBloque(estado: string) {
   switch (estado) {
@@ -903,6 +912,14 @@ export default function AgendaNegocioScreen() {
     inicioMin = Math.min(inicioMin, ini);
     finMin = Math.max(finMin, ini + (c.duracion_minutos ?? 30));
   }
+  // Un bloqueo fuera del horario base (un mandado antes de abrir, algo
+  // después de cerrar) también tiene que entrar en el rango visible —
+  // si no, queda invisible en la grilla por persona aunque sí aparezca
+  // en la lista de "Bloqueos del día".
+  for (const { rango } of bloqueosDia) {
+    inicioMin = Math.min(inicioMin, rango.inicio);
+    finMin = Math.max(finMin, rango.fin);
+  }
 
   const horas: number[] = [];
   for (let h = Math.floor(inicioMin / 60); h < Math.ceil(finMin / 60); h++) horas.push(h);
@@ -1386,17 +1403,15 @@ export default function AgendaNegocioScreen() {
             <View style={styles.seccion}>
               <View style={styles.seccionCabecera}>
                 <Micro>{vista === "personas" ? "Agenda por persona" : "La línea del día"}</Micro>
-                {equipoActivo.length > 0 && (
-                  <Pressable
-                    onPress={() => setVista(vista === "personas" ? "lista" : "personas")}
-                    style={styles.botonVista}
-                    hitSlop={6}
-                  >
-                    <Text style={styles.botonVistaTexto}>
-                      {vista === "personas" ? "Ver como lista" : "Ver por persona"}
-                    </Text>
-                  </Pressable>
-                )}
+                <Pressable
+                  onPress={() => setVista(vista === "personas" ? "lista" : "personas")}
+                  style={styles.botonVista}
+                  hitSlop={6}
+                >
+                  <Text style={styles.botonVistaTexto}>
+                    {vista === "personas" ? "Ver como lista" : "Ver por persona"}
+                  </Text>
+                </Pressable>
               </View>
               {cerrado && (
                 <Aviso
@@ -1449,15 +1464,27 @@ export default function AgendaNegocioScreen() {
                   <>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={styles.grillaFila}>
-                        {/* Eje de horas */}
-                        <View style={[styles.grillaEje, { height: altoGrilla + 20 }]}>
+                        {/* Eje de horas. Su offset compensa el alto FIJO
+                            del encabezado de cada columna (foto +
+                            nombre) — si no, las horas quedan pintadas
+                            más arriba de la franja a la que en
+                            realidad corresponden. */}
+                        <View
+                          style={[
+                            styles.grillaEje,
+                            { height: altoGrilla + ALTO_ENCABEZADO_COLUMNA },
+                          ]}
+                        >
                           {Array.from(
                             { length: (finGrilla - inicioGrilla) / 60 + 1 },
                             (_, i) => inicioGrilla + i * 60,
                           ).map((min) => (
                             <Text
                               key={min}
-                              style={[styles.grillaEjeHora, { top: min - inicioGrilla + 14 }]}
+                              style={[
+                                styles.grillaEjeHora,
+                                { top: min - inicioGrilla + ALTO_ENCABEZADO_COLUMNA - 7 },
+                              ]}
                             >
                               {String(Math.floor(min / 60)).padStart(2, "0")}:00
                             </Text>
@@ -1466,7 +1493,7 @@ export default function AgendaNegocioScreen() {
                             <View
                               style={[
                                 styles.grillaAhoraChip,
-                                { top: lineaAhoraMin - inicioGrilla + 8 },
+                                { top: lineaAhoraMin - inicioGrilla + ALTO_ENCABEZADO_COLUMNA - 8 },
                               ]}
                             >
                               <Text style={styles.grillaAhoraChipTexto}>
@@ -1482,7 +1509,12 @@ export default function AgendaNegocioScreen() {
                           );
                           return (
                             <View key={col.id ?? "sin"} style={styles.grillaColumna}>
-                              <View style={styles.grillaColumnaCabecera}>
+                              <View
+                                style={[
+                                  styles.grillaColumnaCabecera,
+                                  { height: ALTO_ENCABEZADO_COLUMNA },
+                                ]}
+                              >
                                 {col.fotoUrl ? (
                                   <Image
                                     source={{ uri: col.fotoUrl }}
@@ -1532,6 +1564,16 @@ export default function AgendaNegocioScreen() {
                                 {citasCol.map((cita) => {
                                   const ini = horaAMinutos(cita.hora_inicio.slice(0, 5));
                                   const dur = cita.duracion_minutos ?? 30;
+                                  // El piso de 26pt (para que el texto
+                                  // entre) no puede empujar el bloque
+                                  // más allá del fondo de la grilla — si
+                                  // no, una cita cortita casi al cierre
+                                  // se recorta contra el overflow.
+                                  const inicioBloque = ini - inicioGrilla;
+                                  const altoBloque = Math.min(
+                                    Math.max(dur, 26),
+                                    Math.max(altoGrilla - inicioBloque, 6),
+                                  );
                                   return (
                                     <Pressable
                                       key={cita.id}
@@ -1542,7 +1584,7 @@ export default function AgendaNegocioScreen() {
                                         styles.grillaBloque,
                                         estiloBloque(cita.estado),
                                         citaGridId === cita.id && styles.grillaBloqueSeleccionado,
-                                        { top: ini - inicioGrilla, height: Math.max(dur, 26) },
+                                        { top: inicioBloque, height: altoBloque },
                                       ]}
                                     >
                                       <Text style={styles.grillaBloqueTexto} numberOfLines={1}>
@@ -1926,7 +1968,7 @@ const styles = StyleSheet.create({
   },
   grillaAhoraChipTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 9.5 },
   grillaColumna: { width: 132 },
-  grillaColumnaCabecera: { alignItems: "center", gap: 3, marginBottom: Spacing.two - 2 },
+  grillaColumnaCabecera: { alignItems: "center", gap: 3, justifyContent: "center" },
   grillaAvatar: {
     alignItems: "center",
     backgroundColor: Colors.blueLight,

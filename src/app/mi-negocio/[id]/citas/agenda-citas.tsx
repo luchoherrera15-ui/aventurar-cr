@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { etiquetaMinutos, horaBonita, minutosAHora } from "@/app/citas/tipos";
-import { instanteEnZona } from "@/lib/agenda/disponibilidad";
+import { etiquetaMinutos, horaBonita, minutosAHora, type HorarioSemana } from "@/app/citas/tipos";
+import { diaDeSemana, instanteEnZona } from "@/lib/agenda/disponibilidad";
 import { hoyISOCR } from "@/lib/fechas";
 import { fmtColones } from "@/lib/finanzas";
 import {
@@ -78,6 +78,17 @@ const ESTADO_BLOQUE: Record<CitaDia["estado"], string> = {
   cancelada: "border-red-200 bg-red-50 opacity-60",
 };
 
+/**
+ * Alto fijo del encabezado de cada columna en la vista por persona
+ * (foto + nombre). Es un número, no algo que se mida del DOM, a
+ * propósito: el eje de horas (una columna hermana, sin encabezado
+ * propio) necesita el MISMO valor para desplazar sus horas hacia
+ * abajo y quedar alineado con la grilla real de cada columna — si el
+ * encabezado se dejara crecer con el contenido, el eje se desalinearía
+ * cada vez que cambiara el texto o la fuente.
+ */
+const ALTO_ENCABEZADO_COLUMNA = 52;
+
 /** Estados que ocupan la franja de verdad (los cancelados no estorban). */
 const OCUPAN = new Set<CitaDia["estado"]>([
   "pendiente",
@@ -122,6 +133,7 @@ export default function AgendaCitas({
   zona,
   equipo,
   servicios,
+  horario,
   initialFecha,
   initialCitas,
   initialBloqueos,
@@ -130,6 +142,9 @@ export default function AgendaCitas({
   zona: string;
   equipo: Miembro[];
   servicios: Servicio[];
+  /** El horario semanal del negocio — sin esto la vista por persona
+   *  cae a un rango por defecto de 8:00 a 18:00. */
+  horario: HorarioSemana | null;
   initialFecha: string;
   initialCitas: CitaDia[];
   initialBloqueos: BloqueoAgenda[];
@@ -457,13 +472,29 @@ export default function AgendaCitas({
       : []),
   ];
 
+  // El horario propio del negocio para ESE día de semana manda el
+  // rango base — sin configurar (o el día está marcado como cerrado)
+  // cae al 8:00–18:00 de siempre. Las citas y los bloqueos del día
+  // igual pueden estirar la grilla más allá de ese rango base.
+  const horarioDia = horario ? (horario[String(diaDeSemana(fecha))] ?? null) : null;
+  const baseDesdeMin = horarioDia ? minutosDe(horarioDia.abre) : 8 * 60;
+  const baseHastaMin = horarioDia ? minutosDe(horarioDia.cierra) : 18 * 60;
+
   const minutosDia = conAgenda.flatMap((c) => {
     const ini = minutosDe(c.hora_inicio.slice(0, 5));
     return [ini, ini + (c.duracion_minutos ?? 30)];
   });
   const minutosBloqueos = bloqueosDia.flatMap((x) => [x.rango.inicio, x.rango.fin]);
-  const desdeMin = Math.min(8 * 60, ...minutosDia, ...minutosBloqueos.map((m) => Math.max(m, 0)));
-  const hastaMin = Math.max(18 * 60, ...minutosDia, ...minutosBloqueos.map((m) => Math.min(m, 1440)));
+  const desdeMin = Math.min(
+    baseDesdeMin,
+    ...minutosDia,
+    ...minutosBloqueos.map((m) => Math.max(m, 0)),
+  );
+  const hastaMin = Math.max(
+    baseHastaMin,
+    ...minutosDia,
+    ...minutosBloqueos.map((m) => Math.min(m, 1440)),
+  );
   const inicioGrilla = Math.floor(desdeMin / 60) * 60;
   const finGrilla = Math.ceil(hastaMin / 60) * 60;
   const altoGrilla = finGrilla - inicioGrilla; // 1 min = 1 px
@@ -690,15 +721,13 @@ export default function AgendaCitas({
             : `${citas.length} cita${citas.length === 1 ? "" : "s"}${esHoy ? " hoy" : ""}`}
         </span>
         <div className="ml-auto flex flex-wrap justify-end gap-1.5">
-          {equipo.filter((m) => m.activo).length > 0 && (
-            <button
-              type="button"
-              onClick={() => setVista(vista === "lista" ? "personas" : "lista")}
-              className={btnChico}
-            >
-              {vista === "lista" ? "Ver por persona" : "Ver como lista"}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setVista(vista === "lista" ? "personas" : "lista")}
+            className={btnChico}
+          >
+            {vista === "lista" ? "Ver por persona" : "Ver como lista"}
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -1070,8 +1099,14 @@ export default function AgendaCitas({
       {vista === "personas" && citas.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
           <div className="flex min-w-fit gap-3">
-            {/* Eje de horas */}
-            <div className="relative w-[46px] shrink-0" style={{ height: altoGrilla + 28 }}>
+            {/* Eje de horas. Su offset tiene que compensar el alto FIJO
+                del encabezado de cada columna (ALTO_ENCABEZADO_COLUMNA,
+                foto + nombre) — si no, las horas quedan pintadas más
+                arriba de la franja a la que en realidad corresponden. */}
+            <div
+              className="relative w-[46px] shrink-0"
+              style={{ height: altoGrilla + ALTO_ENCABEZADO_COLUMNA }}
+            >
               {Array.from(
                 { length: (finGrilla - inicioGrilla) / 60 + 1 },
                 (_, i) => inicioGrilla + i * 60,
@@ -1079,7 +1114,7 @@ export default function AgendaCitas({
                 <span
                   key={min}
                   className="absolute right-1 text-[10.5px] font-bold text-zinc-400"
-                  style={{ top: min - inicioGrilla + 22 }}
+                  style={{ top: min - inicioGrilla + ALTO_ENCABEZADO_COLUMNA - 7 }}
                 >
                   {String(Math.floor(min / 60)).padStart(2, "0")}:00
                 </span>
@@ -1087,7 +1122,7 @@ export default function AgendaCitas({
               {lineaAhoraMin !== null && (
                 <span
                   className="absolute right-1 z-10 rounded bg-aventurea-orange px-1 py-0.5 text-[9.5px] font-bold text-white"
-                  style={{ top: lineaAhoraMin - inicioGrilla + 16 }}
+                  style={{ top: lineaAhoraMin - inicioGrilla + ALTO_ENCABEZADO_COLUMNA - 8 }}
                 >
                   {horaBonita(minutosAHora(lineaAhoraMin))}
                 </span>
@@ -1100,7 +1135,10 @@ export default function AgendaCitas({
               );
               return (
                 <div key={col.id ?? "sin"} className="w-[160px] shrink-0 sm:w-[190px]">
-                  <div className="mb-1.5 flex flex-col items-center gap-1">
+                  <div
+                    className="flex flex-col items-center justify-center gap-1"
+                    style={{ height: ALTO_ENCABEZADO_COLUMNA }}
+                  >
                     {col.fotoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
                       <img
@@ -1113,7 +1151,7 @@ export default function AgendaCitas({
                         {col.nombre.slice(0, 1).toUpperCase()}
                       </span>
                     )}
-                    <p className="truncate text-center text-[12px] font-bold text-aventurea-navy">
+                    <p className="w-full truncate text-center text-[12px] font-bold text-aventurea-navy">
                       {col.nombre}
                     </p>
                   </div>
@@ -1122,8 +1160,13 @@ export default function AgendaCitas({
                     style={{ height: altoGrilla }}
                     title="Hacé clic en un hueco libre para agendar ahí"
                     onClick={(e) => {
+                      // getBoundingClientRect() da el borde EXTERIOR del
+                      // borde de 1px de esta caja, pero las citas/líneas
+                      // de adentro están posicionadas desde el borde
+                      // INTERIOR (la caja de relleno) — sin el -1 el
+                      // cálculo queda sistemáticamente un minuto tarde.
                       const rect = e.currentTarget.getBoundingClientRect();
-                      const minutosClic = inicioGrilla + Math.round(e.clientY - rect.top);
+                      const minutosClic = inicioGrilla + Math.round(e.clientY - rect.top - 1);
                       const redondeado = Math.min(
                         Math.max(Math.round(minutosClic / 15) * 15, 0),
                         1439,
