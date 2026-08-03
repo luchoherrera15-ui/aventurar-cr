@@ -419,6 +419,27 @@ export default function AgendaNegocioScreen() {
     );
   }
 
+  /**
+   * Aviso a la web de que una franja quedó libre, para que les escriba
+   * a los apuntados en la lista de espera de ese día (0095). El envío
+   * necesita secretos del servidor; la app solo avisa. Nunca lanza ni
+   * bloquea: la cancelación ya quedó en la base.
+   */
+  async function avisarFranjaLiberada(fechaLiberada: string) {
+    try {
+      await fetch(`${SITIO_URL}/api/citas/lista-espera`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({ ranchoId: id, fecha: fechaLiberada }),
+      });
+    } catch {
+      // Sin drama: el aviso también sale si se cancela desde la web.
+    }
+  }
+
   async function cancelarCita(cita: CitaAgenda) {
     setOcupado(cita.id);
     const { data, error } = await supabase
@@ -437,6 +458,11 @@ export default function AgendaNegocioScreen() {
     if (!data) {
       Alert.alert("No se pudo", "Esa cita ya no se puede cancelar.");
       return;
+    }
+    // Solo una cita CONFIRMADA ocupaba franja: su cancelación sí puede
+    // servirle a alguien de la lista de espera.
+    if (cita.estado === "confirmada") {
+      void avisarFranjaLiberada(cita.fecha);
     }
     await cargar();
   }
@@ -460,7 +486,7 @@ export default function AgendaNegocioScreen() {
       return false;
     }
     setOcupado(cita.id);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("reservas")
       .update({
         fecha: destino.fecha,
@@ -474,7 +500,9 @@ export default function AgendaNegocioScreen() {
       })
       .eq("id", cita.id)
       .eq("rancho_id", id)
-      .in("estado", ["pendiente", "confirmada"]);
+      .in("estado", ["pendiente", "confirmada"])
+      .select("id")
+      .maybeSingle();
     setOcupado(null);
     if (error) {
       if (error.code === "23505" || /ocupad|ya hay/i.test(error.message)) {
@@ -486,6 +514,16 @@ export default function AgendaNegocioScreen() {
         Alert.alert("No se pudo", "No se pudo mover la cita: " + error.message);
       }
       return false;
+    }
+    // Cero filas afectadas = la cita cambió de estado en otro lado
+    // (se marcó, se canceló): reportar éxito acá sería mentir.
+    if (!data) {
+      Alert.alert("No se pudo", "Esa cita ya no se puede mover.");
+      return false;
+    }
+    // El día viejo de una cita CONFIRMADA quedó con franja libre.
+    if (cita.estado === "confirmada" && cita.fecha !== destino.fecha) {
+      void avisarFranjaLiberada(cita.fecha);
     }
     await cargar();
     return true;
@@ -626,10 +664,16 @@ export default function AgendaNegocioScreen() {
         .eq("id", reservaId)
         .eq("rancho_id", id);
       setGuardandoCita(false);
-      Alert.alert(
-        "Franja ocupada",
-        "Esa persona ya tiene una cita confirmada que se monta con esta franja.",
-      );
+      // Solo el solape se traduce a "franja ocupada" — cualquier otro
+      // error (RLS, red) se muestra tal cual para no despistar.
+      if (errorConfirmar.code === "23505" || /ocupad|ya hay/i.test(errorConfirmar.message)) {
+        Alert.alert(
+          "Franja ocupada",
+          "Esa persona ya tiene una cita confirmada que se monta con esta franja.",
+        );
+      } else {
+        Alert.alert("No se pudo", "No se pudo confirmar la cita: " + errorConfirmar.message);
+      }
       return;
     }
 

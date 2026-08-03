@@ -45,6 +45,10 @@ export async function guardarHorarioMiembroCore(
       }
     }
     if (!Array.isArray(diasLibres)) return { error: "Días libres inválidos." };
+    // Deduplicado y con tope duro: hay 7 días — cualquier lista más
+    // grande es un body malicioso, no un horario.
+    diasLibres = [...new Set(diasLibres)];
+    if (diasLibres.length > 7) return { error: "Días libres inválidos." };
     for (const dow of diasLibres) {
       if (!Number.isInteger(dow) || dow < 0 || dow > 6) {
         return { error: "Día de la semana inválido." };
@@ -64,6 +68,15 @@ export async function guardarHorarioMiembroCore(
     .eq("rancho_id", ranchoId)
     .maybeSingle();
   if (!miembro) return { error: "Esa persona no está en tu equipo." };
+
+  // Delete + insert no son una transacción en PostgREST: se guarda una
+  // copia de lo que había para restaurarla si el insert nuevo falla —
+  // sin eso, un fallo a mitad dejaría a la persona "heredando" el
+  // horario del negocio (disponible cuando no debería).
+  const { data: filasViejas } = await supabase
+    .from("horarios_recurso")
+    .select("miembro_id, dow, abre, cierra")
+    .eq("miembro_id", miembroId);
 
   const { error: errorBorrado } = await supabase
     .from("horarios_recurso")
@@ -90,7 +103,13 @@ export async function guardarHorarioMiembroCore(
     ];
     if (filas.length > 0) {
       const { error } = await supabase.from("horarios_recurso").insert(filas);
-      if (error) return { error: "No se pudo guardar el horario: " + error.message };
+      if (error) {
+        // Mejor esfuerzo: devolver el horario anterior antes de avisar.
+        if (filasViejas && filasViejas.length > 0) {
+          await supabase.from("horarios_recurso").insert(filasViejas);
+        }
+        return { error: "No se pudo guardar el horario: " + error.message };
+      }
     }
   }
 

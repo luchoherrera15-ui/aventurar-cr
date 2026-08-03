@@ -10,6 +10,9 @@ import HorarioForm from "./horario-form";
 import AgendaCitas, { type CitaDia } from "./agenda-citas";
 import ClientesPanel from "./clientes-panel";
 import BloqueosPanel from "./bloqueos-panel";
+import ReportesCitas from "./reportes-citas";
+import ListaEsperaPanel from "./lista-espera-panel";
+import DepositoCitasForm from "./deposito-citas-form";
 import type { BloqueoAgenda, MiembroEquipo, RangoHorarioMiembro } from "./actions";
 
 type Giftcard = {
@@ -23,6 +26,14 @@ type Giftcard = {
   created_at: string;
   vence_en: string | null;
 };
+
+/**
+ * Las campañas de correo (enviarCampanaNegocio) se despachan como
+ * server action de ESTA ruta: 200 destinatarios en lotes con pausa
+ * necesitan más que el timeout por defecto de una función serverless
+ * (paridad con /api/citas/campanas, que declara lo mismo).
+ */
+export const maxDuration = 300;
 
 const GIFTCARD_ESTADO: Record<Giftcard["estado"], { label: string; cls: string }> = {
   activa: { label: "Activa", cls: "bg-aventurea-green-light text-aventurea-green" },
@@ -52,7 +63,7 @@ export default async function CitasConfigPage({
 
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("id, owner_id, nombre, detalles, vertical, zona_horaria")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (!rancho) notFound();
@@ -179,6 +190,14 @@ export default async function CitasConfigPage({
 
   const clientes = agruparClientes((crmRes.data ?? []) as ReservaCliente[], hoy);
 
+  // Depósito para citas (0095) — con la base sin migrar queda null.
+  const brutoDeposito = (rancho as Record<string, unknown>).deposito_citas;
+  const depositoCitas =
+    typeof brutoDeposito === "number" || typeof brutoDeposito === "string"
+      ? Number(brutoDeposito)
+      : null;
+  const tieneSinpe = !!(rancho as Record<string, unknown>).sinpe_numero;
+
   // Si la tabla aún no existe (migración 0059 sin correr) se muestra
   // el aviso dentro de su sección, sin tumbar el resto del panel.
   const giftcards = (giftcardsRes.data ?? []) as Giftcard[];
@@ -253,6 +272,20 @@ export default async function CitasConfigPage({
         </section>
 
         <section>
+          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+            Cómo va el negocio
+          </h2>
+          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+            Citas, asistencia, ingresos, quién atiende más y a qué horas —
+            derivado de tu agenda real.
+          </p>
+          <ReportesCitas
+            ranchoId={rancho.id}
+            equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre }))}
+          />
+        </section>
+
+        <section>
           <h2 className="mb-1 text-lg font-bold text-aventurea-ink">El equipo</h2>
           <p className="mb-4 text-[13px] text-aventurea-ink-soft">
             Las personas que atienden — y también espacios como cabinas o
@@ -293,6 +326,34 @@ export default async function CitasConfigPage({
             zona={zona}
             equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre, activo: m.activo }))}
             initialBloqueos={bloqueos}
+          />
+        </section>
+
+        <section>
+          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+            Lista de espera
+          </h2>
+          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+            Cuando un día tuyo está lleno, el cliente puede dejar su nombre.
+            Si cancelás o movés una cita de ese día, se le avisa solo — y
+            reserva quien confirme primero.
+          </p>
+          <ListaEsperaPanel ranchoId={rancho.id} />
+        </section>
+
+        <section>
+          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+            Depósito para asegurar la cita
+          </h2>
+          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+            Opcional: pedile al cliente un depósito por SINPE al reservar. La
+            cita igual queda confirmada al instante; el comprobante te llega
+            por el chat y lo validás en Finanzas.
+          </p>
+          <DepositoCitasForm
+            ranchoId={rancho.id}
+            initialDeposito={depositoCitas}
+            tieneSinpe={tieneSinpe}
           />
         </section>
 

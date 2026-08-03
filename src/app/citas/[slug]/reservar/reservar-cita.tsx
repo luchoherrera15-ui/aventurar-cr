@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fmtColones } from "@/lib/finanzas";
 import { IconCalendarLine, IconClock, IconPin, IconStar } from "@/components/icons";
 import { crearCita } from "../../actions";
+import { apuntarseListaEspera } from "../../lista-espera-actions";
 import { etiquetaMinutos, horaBonita, type HorarioSemana } from "../../tipos";
 import {
   calcularDisponibilidad,
@@ -49,6 +50,10 @@ export type DatosAgendaPro = {
   horariosRecurso: HorariosPorMiembro;
   bloqueos: BloqueoPublico[];
   serviciosRecurso: ServicioRecurso[];
+  /** Depósito para asegurar la cita (0095); null/ausente = sin depósito. */
+  deposito?: number | null;
+  /** Cuenta SINPE del negocio para las instrucciones del depósito. */
+  sinpe?: { numero: string | null; titular: string | null } | null;
 };
 
 /** Sin horario configurado, el negocio "abre" 8–18 todos los días —
@@ -111,6 +116,8 @@ export default function ReservarCita({
   servicioInicial,
   miembroInicial = null,
   resumen,
+  deposito = null,
+  sinpe = null,
   onVolverServicios,
 }: {
   ranchoId: string;
@@ -133,6 +140,11 @@ export default function ReservarCita({
   /** Abre la agenda con esta persona ya elegida ("Reservar con X"). */
   miembroInicial?: string | null;
   resumen?: ResumenNegocio;
+  /** Depósito para asegurar la cita (ranchos.deposito_citas, 0095).
+   * null o 0 = sin depósito, el flujo de siempre. */
+  deposito?: number | null;
+  /** La cuenta SINPE del negocio, para las instrucciones del depósito. */
+  sinpe?: { numero: string | null; titular: string | null } | null;
   /** En el modal: vuelve a la lista de servicios (lo cierra). Sin esto,
    * la miga "Servicios" navega a la página del negocio. */
   onVolverServicios?: () => void;
@@ -164,6 +176,9 @@ export default function ReservarCita({
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null); // reservaId
   const [pending, startTransition] = useTransition();
+  // Lista de espera (0095): "avisame si se libera un espacio ese día".
+  const [espera, setEspera] = useState<"nada" | "guardando" | "listo">("nada");
+  const [errorEspera, setErrorEspera] = useState<string | null>(null);
   const tiraRef = useRef<HTMLDivElement>(null);
 
   const servicio = items.find((i) => i.id === servicioId) ?? null;
@@ -320,6 +335,29 @@ export default function ReservarCita({
   // (cambió el día, la persona o el servicio), simplemente no cuenta.
   const horaElegida = horas.includes(hora) ? hora : "";
 
+  function apuntarse() {
+    if (!fechaElegida || espera !== "nada") return;
+    setErrorEspera(null);
+    setEspera("guardando");
+    startTransition(async () => {
+      const res = await apuntarseListaEspera({
+        ranchoId,
+        fecha: fechaElegida,
+        itemId: servicio?.id ?? null,
+        miembroId: miembroValido,
+        nombre: nombre.trim(),
+        telefono: telefono.trim(),
+        notas: "",
+      });
+      if (res.error) {
+        setErrorEspera(res.error);
+        setEspera("nada");
+        return;
+      }
+      setEspera("listo");
+    });
+  }
+
   function confirmar() {
     if (!servicio || !fechaElegida || !horaElegida) return;
     setError(null);
@@ -376,9 +414,29 @@ export default function ReservarCita({
           {diaElegido
             ? `${DIAS_CORTO[diaElegido.dow]} ${diaElegido.date.getDate()} de ${MESES_CORTO[diaElegido.date.getMonth()]}`
             : fechaElegida}
-          , {horaBonita(hora)}. Te mandamos el comprobante por correo; el pago
-          es en el local.
+          , {horaBonita(hora)}. Te mandamos el comprobante por correo
+          {deposito !== null && deposito > 0 ? "." : "; el pago es en el local."}
         </p>
+        {deposito !== null && deposito > 0 && (
+          <div className="mx-auto mt-5 max-w-[420px] rounded-2xl border border-aventurea-navy/25 bg-[#f4f7fd] p-5 text-left">
+            <p className="text-[13.5px] font-extrabold text-aventurea-ink">
+              Aseguralo con tu depósito de {fmtColones(deposito)}
+            </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-aventurea-ink-soft">
+              {sinpe?.numero ? (
+                <>
+                  Por SINPE Móvil al{" "}
+                  <strong className="text-aventurea-ink">{sinpe.numero}</strong>
+                  {sinpe.titular ? ` (a nombre de ${sinpe.titular})` : ""}.{" "}
+                </>
+              ) : (
+                "El negocio te pasa los datos de SINPE por el chat. "
+              )}
+              Cuando lo hagás, mandá el comprobante por el chat de tu cita — el
+              negocio lo valida y listo.
+            </p>
+          </div>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
             href={`/mensajes/${exito}`}
@@ -552,13 +610,48 @@ export default function ReservarCita({
             {/* Hora — filas anchas, como Fresha */}
             <p className="mt-6 text-[14px] font-extrabold text-aventurea-ink">Escogé una hora</p>
             {horas.length === 0 ? (
-              <p className="mt-2.5 rounded-2xl border border-aventurea-line bg-[#fafbfe] px-5 py-4 text-[13px] text-aventurea-ink-soft">
-                {sinNadieQueAtienda
-                  ? "Nadie está atendiendo este servicio por ahora — elegí otro o consultale al negocio."
-                  : !fechaElegida
-                    ? "Este negocio no tiene días de atención abiertos por ahora — consultale por el chat."
-                    : `No quedan espacios libres ese día — probá con otra fecha${equipoDelServicio.length > 0 ? " u otra persona" : ""}.`}
-              </p>
+              <div className="mt-2.5 flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-[#fafbfe] px-5 py-4">
+                <p className="text-[13px] text-aventurea-ink-soft">
+                  {sinNadieQueAtienda
+                    ? "Nadie está atendiendo este servicio por ahora — elegí otro o consultale al negocio."
+                    : !fechaElegida
+                      ? "Este negocio no tiene días de atención abiertos por ahora — consultale por el chat."
+                      : `No quedan espacios libres ese día — probá con otra fecha${equipoDelServicio.length > 0 ? " u otra persona" : ""}.`}
+                </p>
+                {/* Lista de espera: si el día está lleno, dejá el nombre
+                    y el negocio te avisa cuando se libere un espacio. */}
+                {fechaElegida && !sinNadieQueAtienda && (
+                  espera === "listo" ? (
+                    <p className="rounded-xl bg-aventurea-green/10 px-4 py-3 text-[13px] font-bold text-aventurea-green">
+                      ✓ Quedaste en la lista de espera: si se libera un espacio
+                      ese día te avisamos por correo al instante.
+                    </p>
+                  ) : sesionActiva ? (
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        disabled={espera === "guardando"}
+                        onClick={apuntarse}
+                        className="w-fit rounded-xl border border-aventurea-navy bg-white px-4 py-2.5 text-[13px] font-bold text-aventurea-navy transition-colors hover:bg-aventurea-navy hover:text-white disabled:opacity-50"
+                      >
+                        {espera === "guardando"
+                          ? "Guardando…"
+                          : "🔔 Avisame si se libera un espacio"}
+                      </button>
+                      {errorEspera && (
+                        <p className="text-[12.5px] font-semibold text-red-700">{errorEspera}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[12.5px] text-aventurea-ink-soft">
+                      <Link href="/cuenta" className="font-bold text-aventurea-navy hover:underline">
+                        Iniciá sesión
+                      </Link>{" "}
+                      para que te avisemos si se libera un espacio ese día.
+                    </p>
+                  )
+                )}
+              </div>
             ) : (
               /* La lista scrollea dentro de su propia caja: por larga
                  que sea la jornada, el botón de Continuar no se va de
@@ -721,6 +814,12 @@ export default function ReservarCita({
                 {servicio.precio !== null ? fmtColones(servicio.precio) : "Consultar"}
               </span>
             </div>
+            {deposito !== null && deposito > 0 && (
+              <div className="mt-2 flex items-center justify-between text-[12.5px]">
+                <span className="text-aventurea-ink-soft">Depósito para asegurar</span>
+                <span className="font-bold text-aventurea-navy">{fmtColones(deposito)}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -755,7 +854,9 @@ export default function ReservarCita({
             </Link>
           )}
           <p className="text-center text-[11.5px] text-aventurea-ink-soft">
-            Todavía no pagás nada — el pago es en el local.
+            {deposito !== null && deposito > 0
+              ? `Este negocio pide un depósito de ${fmtColones(deposito)} por SINPE — al confirmar te damos las instrucciones.`
+              : "Todavía no pagás nada — el pago es en el local."}
           </p>
           <p className="text-center text-[10.5px] text-zinc-400">
             💳 Pago con tarjeta en línea: muy pronto

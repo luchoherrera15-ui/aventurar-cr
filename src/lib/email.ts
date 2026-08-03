@@ -820,6 +820,8 @@ export function plantillaCitaConfirmada({
   nombreMiembro,
   reservaId,
   calendario,
+  deposito,
+  sinpe,
 }: {
   nombreCliente: string;
   nombreNegocio: string;
@@ -832,6 +834,10 @@ export function plantillaCitaConfirmada({
   reservaId: string;
   /** Enlaces de "guardar en mi calendario" (enlacesCalendario). */
   calendario?: { google: string; ics: string };
+  /** Depósito para asegurar la cita (0095); ausente/0 = sin depósito. */
+  deposito?: number | null;
+  /** Cuenta SINPE del negocio para las instrucciones del depósito. */
+  sinpe?: { numero: string | null; titular: string | null } | null;
 }) {
   return layout({
     kicker: "Cita confirmada",
@@ -850,8 +856,26 @@ export function plantillaCitaConfirmada({
         ${filaDato("Fecha", escaparHtml(fechaLarga))}
         ${filaDato("Hora", escaparHtml(hora) + " · " + duracionMinutos + " min")}
         ${nombreMiembro ? filaDato("Te atiende", escaparHtml(nombreMiembro)) : ""}
-        ${monto !== null ? filaDato("Precio", "₡" + Number(monto).toLocaleString("es-CR") + " — se paga en el local") : ""}
+        ${monto !== null ? filaDato("Precio", "₡" + Number(monto).toLocaleString("es-CR") + (deposito && deposito > 0 ? "" : " — se paga en el local")) : ""}
       </table>
+
+      ${
+        deposito && deposito > 0
+          ? `<div style="background:#fdeee1;border:1px solid #f3c9a4;border-radius:12px;padding:16px 18px;margin:0 0 18px;">
+        <div style="font-size:14px;font-weight:800;color:#101a2c;">
+          Asegurá tu cita con el depósito de ₡${Number(deposito).toLocaleString("es-CR")}
+        </div>
+        <p style="margin:6px 0 0;color:#5b6472;font-size:13.5px;line-height:1.6;">
+          ${
+            sinpe?.numero
+              ? `Por SINPE Móvil al <strong style="color:#101a2c;">${escaparHtml(sinpe.numero)}</strong>${sinpe.titular ? ` (a nombre de ${escaparHtml(sinpe.titular)})` : ""}.`
+              : "El negocio te pasa los datos de SINPE por el chat."
+          }
+          Cuando lo hagás, mandá el comprobante por el chat de tu cita.
+        </p>
+      </div>`
+          : ""
+      }
 
       ${calendario ? bloqueCalendario(calendario) : ""}
 

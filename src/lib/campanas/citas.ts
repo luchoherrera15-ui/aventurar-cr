@@ -72,6 +72,9 @@ export async function enviarCampanaNegocioCore(
   if (!["todos", "inactivos", "no_show", "manual"].includes(input.segmento)) {
     return { error: "Segmento inválido.", ...sinEnvios };
   }
+  if (!Array.isArray(input.correos ?? [])) {
+    return { error: "Destinatarios inválidos.", ...sinEnvios };
+  }
   if ((input.correos ?? []).length > 1000) {
     return { error: "Demasiados destinatarios.", ...sinEnvios };
   }
@@ -227,6 +230,25 @@ export async function enviarCampanaNegocioCore(
   if (errorCampana || !campana) {
     return {
       error: "No se pudo registrar la campaña: " + (errorCampana?.message ?? "error"),
+      ...sinEnvios,
+      excluidos,
+      omitidosRecientes,
+    };
+  }
+
+  // Cierre de la carrera del freno diario (check-then-act): ya con la
+  // fila puesta se recuenta — si dos envíos simultáneos pasaron el
+  // conteo de arriba, acá los dos ven el exceso y AMBOS abortan antes
+  // de mandar nada (mejor un envío de menos que veinte de más).
+  const { count: recuento } = await admin
+    .from("campanas_negocio")
+    .select("id", { count: "exact", head: true })
+    .eq("rancho_id", ranchoId)
+    .gte("created_at", inicioHoy);
+  if ((recuento ?? 0) > MAX_CAMPANAS_POR_DIA) {
+    await admin.from("campanas_negocio").delete().eq("id", campana.id);
+    return {
+      error: "Hubo dos envíos al mismo tiempo y se alcanzó el tope diario — probá de nuevo.",
       ...sinEnvios,
       excluidos,
       omitidosRecientes,

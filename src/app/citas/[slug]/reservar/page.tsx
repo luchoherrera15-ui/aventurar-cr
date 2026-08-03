@@ -27,7 +27,7 @@ export default async function ReservarCitaPage({
 
   let { data } = await supabase
     .from("ranchos")
-    .select("id, nombre, slug, detalles, foto_url, canton, provincia, zona_horaria")
+    .select("*")
     .eq("slug", slug)
     .eq("vertical", "citas")
     .eq("estado", "aprobado")
@@ -35,7 +35,7 @@ export default async function ReservarCitaPage({
   if (!data && /^[0-9a-f-]{36}$/.test(slug)) {
     ({ data } = await supabase
       .from("ranchos")
-      .select("id, nombre, slug, detalles, foto_url, canton, provincia, zona_horaria")
+      .select("*")
       .eq("id", slug)
       .eq("vertical", "citas")
       .eq("estado", "aprobado")
@@ -101,6 +101,15 @@ export default async function ReservarCitaPage({
             sesionActiva={!!user}
             nombreInicial={perfil?.nombre ?? ""}
             servicioInicial={servicio ?? null}
+            deposito={
+              typeof data.deposito_citas === "number" || typeof data.deposito_citas === "string"
+                ? Number(data.deposito_citas)
+                : null
+            }
+            sinpe={{
+              numero: (data.sinpe_numero as string | null) ?? null,
+              titular: (data.sinpe_titular as string | null) ?? null,
+            }}
             resumen={{
               fotoUrl: data.foto_url,
               promedio: calif?.promedio ?? null,

@@ -97,6 +97,15 @@ export async function POST(request: Request) {
   }
 
   if (body.accion === "horario") {
+    // `rangos` tiene que venir EXPLÍCITO (null = heredar del negocio):
+    // un body que simplemente lo omite no puede borrar el horario de
+    // alguien por accidente.
+    if (!("rangos" in body)) {
+      return NextResponse.json(
+        { ok: false, error: "Falta `rangos` (null = heredar del negocio)." },
+        { status: 400, headers: CORS },
+      );
+    }
     const res = await guardarHorarioMiembroCore(
       sesion.supabase,
       ranchoId,
@@ -111,11 +120,19 @@ export async function POST(request: Request) {
   }
 
   if (body.accion === "servicios") {
+    // Mismo principio: la lista tiene que venir explícita — omitida no
+    // significa "no da ninguno".
+    if (!Array.isArray(body.itemIds)) {
+      return NextResponse.json(
+        { ok: false, error: "Falta `itemIds` (la lista de servicios que da)." },
+        { status: 400, headers: CORS },
+      );
+    }
     const res = await guardarServiciosMiembroCore(
       sesion.supabase,
       ranchoId,
       miembroId,
-      body.itemIds ?? [],
+      body.itemIds,
     );
     return NextResponse.json(
       { ok: !res.error, error: res.error, advertencia: res.advertencia },

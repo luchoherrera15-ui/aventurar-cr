@@ -47,7 +47,7 @@ export async function notificarCitaConfirmada(
 
   const { data } = await consulta
     .select(
-      "id, nombre, correo, fecha, hora_inicio, duracion_minutos, tipo_evento, monto_total, miembro_id, cliente_id, ranchos(nombre, owner_id, direccion_exacta, canton, provincia)",
+      "id, nombre, correo, fecha, hora_inicio, duracion_minutos, tipo_evento, monto_total, deposito_monto, miembro_id, cliente_id, ranchos(nombre, owner_id, direccion_exacta, canton, provincia, sinpe_numero, sinpe_titular)",
     )
     .maybeSingle();
   if (!data) return;
@@ -61,6 +61,7 @@ export async function notificarCitaConfirmada(
     duracion_minutos: number | null;
     tipo_evento: string | null;
     monto_total: number | null;
+    deposito_monto: number | null;
     miembro_id: string | null;
     cliente_id: string | null;
     ranchos: {
@@ -69,8 +70,14 @@ export async function notificarCitaConfirmada(
       direccion_exacta: string | null;
       canton: string | null;
       provincia: string | null;
+      sinpe_numero: string | null;
+      sinpe_titular: string | null;
     } | null;
   };
+
+  // Depósito para asegurar la cita (0095): si el RPC lo fijó, el
+  // correo trae el monto y la cuenta SINPE del negocio.
+  const deposito = Number(r.deposito_monto ?? 0);
 
   const nombreNegocio = r.ranchos?.nombre ?? "el negocio";
   const hora = horaBonita(r.hora_inicio.slice(0, 5));
@@ -120,6 +127,11 @@ export async function notificarCitaConfirmada(
         nombreMiembro,
         reservaId: r.id,
         calendario,
+        deposito,
+        sinpe: {
+          numero: r.ranchos?.sinpe_numero ?? null,
+          titular: r.ranchos?.sinpe_titular ?? null,
+        },
       }),
     });
   }
@@ -160,7 +172,10 @@ export async function notificarCitaConfirmada(
   await enviarPush({
     usuarios: [r.cliente_id],
     titulo: "¡Tu cita quedó confirmada!",
-    cuerpo: `${nombreNegocio} — ${fechaLarga}, ${hora}. El pago es en el local.`,
+    cuerpo:
+      deposito > 0
+        ? `${nombreNegocio} — ${fechaLarga}, ${hora}. Asegurala con tu depósito por SINPE (revisá el correo).`
+        : `${nombreNegocio} — ${fechaLarga}, ${hora}. El pago es en el local.`,
     data: { url: "/?tab=reservas" },
   });
 }

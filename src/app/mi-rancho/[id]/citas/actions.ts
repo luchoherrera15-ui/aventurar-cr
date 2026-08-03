@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { avisarListaEspera } from "@/lib/lista-espera";
 import { verificarAccesoRancho } from "@/lib/auth";
 import { otorgarPuntosPorCita } from "@/lib/lealtad/citas";
 import { agruparClientes } from "@/lib/crm-citas";
@@ -718,7 +720,9 @@ export async function moverCita(
 
   const { data: cita } = await supabase
     .from("reservas")
-    .select("id, estado, duracion_minutos, correo, nombre, reserva_items(rancho_items(buffer_min))")
+    .select(
+      "id, estado, fecha, duracion_minutos, correo, nombre, reserva_items(rancho_items(buffer_min))",
+    )
     .eq("id", reservaId)
     .eq("rancho_id", ranchoId)
     .maybeSingle();
@@ -780,6 +784,14 @@ export async function moverCita(
     return { error: "No se pudo reprogramar: " + error.message };
   }
 
+  // Si una cita CONFIRMADA cambió de día, el día viejo quedó con una
+  // franja libre: se les avisa a los de la lista de espera (0095).
+  // Una pendiente no ocupaba espacio — mover una no libera nada.
+  const fechaVieja = cita.fecha as string;
+  if (cita.estado === "confirmada" && fechaVieja !== destino.fecha) {
+    after(() => avisarListaEspera(ranchoId, fechaVieja));
+  }
+
   refrescar(ranchoId);
   return {};
 }
@@ -797,17 +809,34 @@ export async function cancelarCita(
   const { supabase, ok } = await verificarDueno(ranchoId);
   if (!ok) return { error: "No encontramos tu publicación." };
 
+  // El estado ANTES de cancelar decide si hay franja liberada: una
+  // cita pendiente nunca ocupó espacio en la vista de disponibilidad,
+  // así que cancelarla no le libera nada a la lista de espera.
+  const { data: previa } = await supabase
+    .from("reservas")
+    .select("id, estado, fecha")
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("reservas")
     .update({ estado: "cancelada", cancelada_en: new Date().toISOString() })
     .eq("id", reservaId)
     .eq("rancho_id", ranchoId)
     .in("estado", ["pendiente", "confirmada"])
-    .select("id")
+    .select("id, fecha")
     .maybeSingle();
 
   if (error) return { error: "No se pudo cancelar: " + error.message };
   if (!data) return { error: "Esa cita ya no se puede cancelar." };
+
+  // La franja quedó libre: se les avisa a los de la lista de espera de
+  // ese día (0095) — después de responder, sin frenar la cancelación.
+  if (previa?.estado === "confirmada") {
+    const fechaLiberada = data.fecha as string;
+    after(() => avisarListaEspera(ranchoId, fechaLiberada));
+  }
 
   refrescar(ranchoId);
   return {};

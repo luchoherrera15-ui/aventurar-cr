@@ -166,6 +166,17 @@ export default async function NegocioCitasPage({
     agendaPro: {
       zonaHoraria: negocio.zona_horaria ?? "America/Costa_Rica",
       ...agendaPro,
+      // Depósito para asegurar la cita (0095) + la cuenta SINPE para
+      // las instrucciones. Con la base sin migrar quedan undefined →
+      // sin depósito, el flujo de siempre.
+      deposito: (() => {
+        const bruto = (negocio as Record<string, unknown>).deposito_citas;
+        return typeof bruto === "number" || typeof bruto === "string" ? Number(bruto) : null;
+      })(),
+      sinpe: {
+        numero: ((negocio as Record<string, unknown>).sinpe_numero as string | null) ?? null,
+        titular: ((negocio as Record<string, unknown>).sinpe_titular as string | null) ?? null,
+      },
     },
     sesionActiva: !!user,
     nombreInicial: perfil?.nombre ?? "",
