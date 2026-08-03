@@ -42,6 +42,8 @@ import {
   guardarCuentasPagoPropio,
 } from "./precios/actions";
 import DepositoForm from "./deposito-form";
+import AsistentePanel from "./asistente/asistente-panel";
+import type { ConocimientoFila } from "./asistente/actions";
 import AgendaEventos, { type EventoAgenda } from "@/components/agenda-eventos";
 import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-calendario";
 import SincronizarCalendario from "@/components/sincronizar-calendario";
@@ -64,6 +66,7 @@ import {
   cancelarReserva,
   confirmarReserva,
   crearReservaManual,
+  moverReservaFecha,
 } from "./agenda-actions";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
@@ -87,10 +90,17 @@ function fmtColones(n: number | null) {
 
 export default async function RanchoDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { id } = await params;
+  // Qué sección de la pestaña Configuración llega abierta (ej. desde el
+  // botón "Editar perfil y fotos" del encabezado, o desde un link viejo
+  // a /editar o /precios que ahora redirige acá).
+  const { seccion: seccionParam } = await searchParams;
+  const seccion = Array.isArray(seccionParam) ? seccionParam[0] : seccionParam;
   const supabase = await createClient();
   const {
     data: { user },
@@ -217,6 +227,45 @@ export default async function RanchoDetallePage({
   // comprobar antes de gastar un token (0077).
   const addonAgendaIA = await puedeUsarAgendaIA(rancho.id);
 
+  // Lo que antes leía la pantalla suelta de "Tu asistente" (ahora una
+  // sección más dentro de Configuración): las respuestas propias que le
+  // enseñó el dueño y si tiene contratado el complemento `asistente_ia`
+  // (0090, security definer — se puede preguntar con la sesión del
+  // dueño sin abrirle la tabla).
+  const [conocimientoRes, contratadoRes] = await Promise.all([
+    supabase
+      .from("conocimiento_negocio")
+      .select("id, pregunta, respuesta, activo, orden")
+      .eq("rancho_id", rancho.id)
+      .order("orden", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase.rpc("tiene_addon", { p_rancho_id: rancho.id, p_addon: "asistente_ia" }),
+  ]);
+  const conocimiento = (conocimientoRes.data ?? []) as ConocimientoFila[];
+  // `asistente_activo`/`asistente_instrucciones` no están en el tipo
+  // `Rancho` (llegan de la 0078, que puede no haber corrido todavía) —
+  // se leen del dato crudo, como ya hacía la pantalla suelta de antes.
+  const datosCrudos = data as Record<string, unknown>;
+  const faltaMigracionAsistente =
+    !!conocimientoRes.error || !("asistente_activo" in datosCrudos);
+  const contratadoAsistente = contratadoRes.data === true;
+
+  const activoInicialAsistente =
+    typeof datosCrudos.asistente_activo === "boolean" ? datosCrudos.asistente_activo : null;
+  const instruccionesAsistente =
+    typeof datosCrudos.asistente_instrucciones === "string"
+      ? datosCrudos.asistente_instrucciones
+      : "";
+  // Misma regla que aplica el asistente del chat (src/lib/asistente-ia.ts):
+  // toda la categoría Lugares más los slugs del piloto. Se calcula acá
+  // para poder decirle al dueño qué hace HOY su opción "por defecto".
+  const slugsPilotoAsistente = (process.env.ASISTENTE_IA_SLUGS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const porDefectoActivoAsistente =
+    esLugar || (!!rancho.slug && slugsPilotoAsistente.includes(rancho.slug));
+
   // La agenda: los eventos que vienen, ordenados, con HOY y MAÑANA
   // resaltados — el control operativo del día a día.
   const hoyCR = hoyISOCR();
@@ -268,6 +317,9 @@ export default async function RanchoDetallePage({
   const tabAgenda: Tab = {
     id: "agenda",
     label: "Agenda",
+    // El puntito de pendientes vivía en la pestaña "Reservas" — ahora
+    // que su tabla se plegó acá adentro, la agenda hereda el aviso.
+    badge: pendientes,
     content: (
       <div className="flex flex-col gap-6">
         <p className="text-[13.5px] text-aventurea-ink-soft">
@@ -275,14 +327,19 @@ export default async function RanchoDetallePage({
           {agenda.length === 1 ? "" : "s"}. Un día antes de cada evento te
           mandamos un recordatorio por correo.
         </p>
-        {/* El calendario no es solo para mirar: desde acá se confirma,
-            se corrige y se cancela lo del día, que es como se maneja la
+        {/* El calendario es el único lugar para tocar reservas: desde
+            acá se confirma, se corrige, se mueve de fecha y se cancela
+            lo del día — y también se carga una reserva nueva, con la
+            fecha ya puesta, sin salir de acá. Es como se maneja la
             agenda cuando alguien llama para mover su fiesta. */}
         <OcupacionCalendario
           dias={diasOcupados}
           onConfirmar={confirmarReserva.bind(null, rancho.id)}
           onCancelar={cancelarReserva.bind(null, rancho.id)}
           onEditar={actualizarReservaManual.bind(null, rancho.id)}
+          onMover={moverReservaFecha.bind(null, rancho.id)}
+          onCrear={crearReservaManual.bind(null, rancho.id)}
+          capacidadMax={esLugar ? rancho.capacidad_max : null}
         />
         <SeccionPlegable
           marco={false}
@@ -299,9 +356,39 @@ export default async function RanchoDetallePage({
         </SeccionPlegable>
         <AgendaEventos eventos={agenda} />
 
+        {/* La tabla completa (antes su propia pestaña "Reservas" /
+            "Solicitudes") — se pliega acá: el calendario de arriba ya
+            cubre el día a día, esto es para cuando hace falta ver o
+            buscar todo el historial junto, con los mensajes. */}
+        <SeccionPlegable
+          marco={false}
+          titulo={esLugar ? "Todas tus reservas" : "Todas tus solicitudes"}
+          descripcion={
+            esLugar
+              ? "El historial completo, con los mensajes de cada una."
+              : "El historial completo de solicitudes, con los mensajes de cada una."
+          }
+          resumen={
+            pendientes > 0 ? `${pendientes} por aprobar` : `${reservas.length} en total`
+          }
+        >
+          {reservas.length === 0 ? (
+            <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
+              {esLugar
+                ? "Todavía no tenés reservas."
+                : "Todavía no te llegó ninguna solicitud de cotización — aparecen acá apenas alguien te escriba desde tu página pública."}
+            </p>
+          ) : (
+            <ReservasTable initialReservas={reservas} mostrarMensajes />
+          )}
+        </SeccionPlegable>
+
         {/* Cargar reservas (a mano o trayendo la agenda de otro lado) no
             es algo que se haga todos los días — va al final, plegado,
-            para no competir por espacio con el calendario de arriba. */}
+            para no competir por espacio con el calendario de arriba.
+            Cargar UNA reserva puntual también se puede clickeando su
+            fecha en el calendario; esto sirve además para traer de una
+            vez la agenda que ya se llevaba en otro lado. */}
         <SeccionPlegable
           marco={false}
           titulo="Agregar reservas a tu agenda"
@@ -328,34 +415,6 @@ export default async function RanchoDetallePage({
             }}
           />
         </SeccionPlegable>
-      </div>
-    ),
-  };
-
-  // Antes solo Lugares tenía esta pestaña, porque solo ellos reservaban
-  // por calendario. Ahora el resto de categorías también recibe
-  // solicitudes de cotización reales (ver "Solicitar cotización" en su
-  // página pública), así que la pestaña aplica para todos — el
-  // contenido de la tabla es el mismo, solo cambia la palabra.
-  const tabReservas: Tab = {
-    id: "reservas",
-    label: esLugar ? "Reservas" : "Solicitudes",
-    // El "N por aprobar" que vivía en los accesos rápidos ahora es un
-    // puntito naranja en la propia pestaña.
-    badge: pendientes,
-    content: (
-      <div>
-        <p className="mb-5 text-[13.5px] text-aventurea-ink-soft">
-          {pendientes} en aprobación · {reservas.length} en total.
-        </p>
-        {reservas.length === 0 && (
-          <p className="mb-5 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
-            {esLugar
-              ? "Todavía no tenés reservas."
-              : "Todavía no te llegó ninguna solicitud de cotización — aparecen acá apenas alguien te escriba desde tu página pública."}
-          </p>
-        )}
-        <ReservasTable initialReservas={reservas} mostrarMensajes />
       </div>
     ),
   };
@@ -398,120 +457,6 @@ export default async function RanchoDetallePage({
     ),
   };
 
-  // Cada bloque de precios va plegado en su propia sección — antes se
-  // apilaban todos abiertos y la pestaña medía kilómetros. Las cuentas
-  // de cobro (antes su propia pestaña "Configuración general") viven
-  // acá también: es donde de verdad tiene sentido buscarlas, junto al
-  // depósito y los precios que las necesitan.
-  const tabPrecios: Tab = {
-    id: "precios",
-    label: "Precios y cobros",
-    content: (
-      <div className="flex flex-col gap-3.5">
-        {/* Con depósito + cuentas configuradas, el negocio de servicio
-            pasa de recibir "solicitudes" a reservas agendadas con pago
-            por adelantado — mismo mecanismo que los Lugares. */}
-        {!esLugar && (
-          <SeccionPlegable
-            marco={false}
-            abierta
-            titulo="Depósito para agendar"
-            descripcion="Con esto, más tus cuentas de cobro (más abajo en esta misma pestaña), el cliente agenda su fecha pagando por adelantado y subiendo el comprobante — igual que los lugares de eventos."
-          >
-            <DepositoForm
-              initialDeposito={rancho.deposito_reserva ?? 0}
-              onGuardar={guardarDepositoPropio.bind(null, rancho.id)}
-            />
-          </SeccionPlegable>
-        )}
-
-        {esLugar && (
-          <SeccionPlegable
-            marco={false}
-            abierta
-            titulo="Precios y servicios adicionales"
-            descripcion="Tarifas por invitado, temporada alta, depósito de reserva y los extras que ofrecés."
-          >
-            <PreciosForm
-              initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
-              initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
-              initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
-              initialDepositoReserva={rancho.deposito_reserva}
-              initialModalidadPrecio={rancho.modalidad_precio_lugar}
-              initialPrecioHora={rancho.precio_hora_lugar}
-              initialPrecioFijo={rancho.precio_fijo_lugar}
-              onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
-            />
-          </SeccionPlegable>
-        )}
-
-        {esLugar && (
-          <SeccionPlegable
-            marco={false}
-            titulo="Horarios de alquiler"
-            descripcion="Vos definís en qué bloques alquilás y a qué hora entra y sale el cliente. Es lo que va a poder elegir al reservar."
-            resumen={
-              (rancho.horarios_bloques ?? []).length > 0
-                ? `${(rancho.horarios_bloques ?? []).length} bloques`
-                : undefined
-            }
-          >
-            <HorariosForm
-              initialHorarios={rancho.horarios_bloques ?? []}
-              onGuardar={guardarHorariosPropio.bind(null, rancho.id)}
-            />
-          </SeccionPlegable>
-        )}
-
-        <SeccionPlegable
-          marco={false}
-          titulo="Descuentos y promociones"
-          descripcion="Atraé más clientes con cupones y descuentos automáticos por día."
-          resumen={totalDescuentos > 0 ? `${totalDescuentos} activos` : undefined}
-        >
-          <DescuentosForm
-            initialCodigos={codigos}
-            initialPromociones={promociones}
-            onGuardarCodigos={guardarCodigosPropio.bind(null, rancho.id)}
-            onGuardarPromociones={guardarPromocionesPropio.bind(null, rancho.id)}
-          />
-        </SeccionPlegable>
-
-        <SeccionPlegable
-          marco={false}
-          titulo="Términos y monto mínimo"
-          descripcion="Las condiciones que el cliente acepta antes de contratarte. Te dejamos unas por defecto y las podés cambiar por las tuyas."
-        >
-          <TerminosForm
-            initialTerminos={rancho.terminos ?? []}
-            initialMontoMinimo={rancho.monto_minimo}
-            depositoReserva={rancho.deposito_reserva}
-            esLugar={esLugar}
-            onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
-          />
-        </SeccionPlegable>
-
-        <SeccionPlegable
-          marco={false}
-          titulo="Cuentas para recibir el depósito"
-          descripcion="El cliente ve esto en el paso de pago de la reserva, según el método que elija. Sin cuentas configuradas, esa forma de pago no se le ofrece."
-        >
-          <CuentasPagoForm
-            initial={{
-              sinpeNumero: rancho.sinpe_numero ?? "",
-              sinpeTitular: rancho.sinpe_titular ?? "",
-              cuentaBanco: rancho.cuenta_banco ?? "",
-              cuentaNumero: rancho.cuenta_numero ?? "",
-              cuentaTitular: rancho.cuenta_titular ?? "",
-              cuentaTipo: rancho.cuenta_tipo ?? "",
-            }}
-            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
-          />
-        </SeccionPlegable>
-      </div>
-    ),
-  };
-
   const tabFinanzas: Tab = {
     id: "finanzas",
     label: "Finanzas",
@@ -540,10 +485,188 @@ export default async function RanchoDetallePage({
     ),
   };
 
-  const tabPerfil: Tab = {
-    id: "editar",
-    label: "Perfil y fotos",
-    content: <EditarRanchoForm rancho={rancho} />,
+  // Todo lo que se toca una vez y se olvida —perfil, precios,
+  // descuentos, condiciones y el asistente— vivía repartido en tres
+  // pestañas más (Perfil y fotos, Precios y cobros, Asistente). Ahora
+  // es UNA sola pestaña con todo plegado: nada abierto por defecto
+  // salvo la sección a la que se llega con `?seccion=`, así se puede
+  // seguir linkeando directo a una parte puntual (el botón "Editar
+  // perfil y fotos" del encabezado, por ejemplo).
+  const tabConfiguracion: Tab = {
+    id: "configuracion",
+    label: "Configuración",
+    content: (
+      <div className="flex flex-col gap-3.5">
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "perfil"}
+          titulo="Perfil del negocio"
+          descripcion="Tu nombre, fotos, ubicación y todo lo que ve un cliente al entrar a tu página."
+        >
+          <EditarRanchoForm rancho={rancho} />
+        </SeccionPlegable>
+
+        {/* Con depósito + cuentas configuradas, el negocio de servicio
+            pasa de recibir "solicitudes" a reservas agendadas con pago
+            por adelantado — mismo mecanismo que los Lugares. */}
+        {!esLugar && (
+          <SeccionPlegable
+            marco={false}
+            abierta={seccion === "precios"}
+            titulo="Depósito para agendar"
+            descripcion="Con esto, más tus cuentas de cobro (más abajo), el cliente agenda su fecha pagando por adelantado y subiendo el comprobante — igual que los lugares de eventos."
+          >
+            <DepositoForm
+              initialDeposito={rancho.deposito_reserva ?? 0}
+              onGuardar={guardarDepositoPropio.bind(null, rancho.id)}
+            />
+          </SeccionPlegable>
+        )}
+
+        {esLugar && (
+          <SeccionPlegable
+            marco={false}
+            abierta={seccion === "precios"}
+            titulo="Precios y servicios adicionales"
+            descripcion="Tarifas por invitado, temporada alta, depósito de reserva y los extras que ofrecés."
+          >
+            <PreciosForm
+              initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
+              initialServicios={(serviciosRes.data ?? []) as ServicioAdicional[]}
+              initialTarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
+              initialDepositoReserva={rancho.deposito_reserva}
+              initialModalidadPrecio={rancho.modalidad_precio_lugar}
+              initialPrecioHora={rancho.precio_hora_lugar}
+              initialPrecioFijo={rancho.precio_fijo_lugar}
+              onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
+            />
+          </SeccionPlegable>
+        )}
+
+        {esLugar && (
+          <SeccionPlegable
+            marco={false}
+            abierta={seccion === "horarios"}
+            titulo="Horarios de alquiler"
+            descripcion="Vos definís en qué bloques alquilás y a qué hora entra y sale el cliente. Es lo que va a poder elegir al reservar."
+            resumen={
+              (rancho.horarios_bloques ?? []).length > 0
+                ? `${(rancho.horarios_bloques ?? []).length} bloques`
+                : undefined
+            }
+          >
+            <HorariosForm
+              initialHorarios={rancho.horarios_bloques ?? []}
+              onGuardar={guardarHorariosPropio.bind(null, rancho.id)}
+            />
+          </SeccionPlegable>
+        )}
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "descuentos"}
+          titulo="Descuentos y promociones"
+          descripcion="Atraé más clientes con cupones y descuentos automáticos por día."
+          resumen={totalDescuentos > 0 ? `${totalDescuentos} activos` : undefined}
+        >
+          <DescuentosForm
+            initialCodigos={codigos}
+            initialPromociones={promociones}
+            onGuardarCodigos={guardarCodigosPropio.bind(null, rancho.id)}
+            onGuardarPromociones={guardarPromocionesPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "terminos"}
+          titulo="Términos y monto mínimo"
+          descripcion="Las condiciones que el cliente acepta antes de contratarte. Te dejamos unas por defecto y las podés cambiar por las tuyas."
+        >
+          <TerminosForm
+            initialTerminos={rancho.terminos ?? []}
+            initialMontoMinimo={rancho.monto_minimo}
+            depositoReserva={rancho.deposito_reserva}
+            esLugar={esLugar}
+            onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "cuentas"}
+          titulo="Cuentas para recibir el depósito"
+          descripcion="El cliente ve esto en el paso de pago de la reserva, según el método que elija. Sin cuentas configuradas, esa forma de pago no se le ofrece."
+        >
+          <CuentasPagoForm
+            initial={{
+              sinpeNumero: rancho.sinpe_numero ?? "",
+              sinpeTitular: rancho.sinpe_titular ?? "",
+              cuentaBanco: rancho.cuenta_banco ?? "",
+              cuentaNumero: rancho.cuenta_numero ?? "",
+              cuentaTitular: rancho.cuenta_titular ?? "",
+              cuentaTipo: rancho.cuenta_tipo ?? "",
+            }}
+            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "asistente"}
+          titulo="Asistente IA"
+          descripcion="Contesta el chat por vos con los datos de tu negocio, a cualquier hora."
+        >
+          {faltaMigracionAsistente && (
+            <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+              <strong>Falta la migración del asistente.</strong> Corré{" "}
+              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+                supabase/migrations/0078_panel_ia.sql
+              </code>{" "}
+              en el SQL Editor de Supabase y volvé a entrar. Mientras tanto no se
+              puede guardar nada de esta sección.
+            </div>
+          )}
+          <p className="mb-4 max-w-[70ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
+            Cuando un cliente te escribe por el chat de Bookea, el asistente le
+            contesta al instante con los datos de {rancho.nombre} — a cualquier
+            hora, sin que vos tengás que estar pendiente. Sus respuestas salen
+            con el prefijo <span className="font-bold text-aventurea-ink">🤖</span>{" "}
+            para que el cliente sepa que todavía no hablaste vos. Podés meterte
+            en la conversación cuando querás desde{" "}
+            <Link href="/mensajes" className="font-bold text-aventurea-navy underline">
+              Mensajes
+            </Link>
+            .
+          </p>
+          <AsistentePanel
+            ranchoId={rancho.id}
+            activoInicial={activoInicialAsistente}
+            porDefectoActivo={porDefectoActivoAsistente}
+            instruccionesInicial={instruccionesAsistente}
+            conocimientoInicial={conocimiento}
+            contratado={contratadoAsistente}
+          />
+          {/* El aviso más importante de esta sección: qué puede y qué
+              NO puede decir. Va al final porque se lee después de
+              configurar, pero con marco propio para que no pase por
+              decoración. */}
+          <section className="mt-6 rounded-2xl border border-aventurea-navy/25 bg-aventurea-navy/5 p-5">
+            <h3 className="text-[14px] font-bold text-aventurea-ink">
+              Qué puede decir el asistente (y qué no)
+            </h3>
+            <p className="mt-2 max-w-[70ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
+              Solo repite lo que vos cargaste: tu perfil, tus precios, tu{" "}
+              {etiquetaCatalogo.toLowerCase()}, tus condiciones y las respuestas
+              de arriba. <strong className="text-aventurea-ink">Nunca inventa</strong>{" "}
+              precios, descuentos ni disponibilidad de fechas: cuando le
+              preguntan algo que no está cargado, dice que no lo sabe y avisa
+              que vos respondés por el mismo chat.
+            </p>
+          </section>
+        </SeccionPlegable>
+      </div>
+    ),
   };
 
   // La vertical de Citas configura su equipo, su horario semanal y la
@@ -551,29 +674,20 @@ export default async function RanchoDetallePage({
   const esVerticalCitas = rancho.vertical === "citas";
   // Orden operativo primero (lo que se mira seguido), configuración
   // después (lo que se toca una vez y se olvida). Finanzas sube antes
-  // de Precios y cobros: con el recordatorio de cobro es donde más se
-  // entra. "Configuración general" ya no es una pestaña propia — su
-  // único contenido (cuentas de cobro) se fusionó dentro de Precios y
-  // cobros, arriba.
+  // de Configuración: con el recordatorio de cobro es donde más se
+  // entra. "Perfil y fotos", "Precios y cobros" y "Asistente" ya no son
+  // pestañas propias — las tres viven plegadas dentro de Configuración.
+  // "Reservas"/"Solicitudes" tampoco: su tabla se plegó dentro de
+  // Agenda, que ahora es el único lugar para tocar reservas de punta a
+  // punta.
   const tabs: Tab[] = [
     tabAgenda,
     ...(esVerticalCitas
       ? [{ id: "citas", label: "Citas", href: `/mi-rancho/${rancho.id}/citas` } satisfies Tab]
       : []),
-    tabReservas,
     ...(!esLugar ? [tabCatalogo] : []),
     tabFinanzas,
-    tabPrecios,
-    tabPerfil,
-    // El asistente del chat vive en su propia pantalla: se le enseñan
-    // respuestas y se prende o apaga desde ahí. Aparece para todos los
-    // negocios porque cualquiera puede encenderlo, no solo la categoría
-    // que lo trae activo por defecto.
-    {
-      id: "asistente",
-      label: "Asistente",
-      href: `/mi-rancho/${rancho.id}/asistente`,
-    } satisfies Tab,
+    tabConfiguracion,
   ];
 
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
@@ -633,7 +747,7 @@ export default async function RanchoDetallePage({
         </div>
 
         <Link
-          href="?tab=editar"
+          href="?tab=configuracion&seccion=perfil"
           className="shrink-0 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-orange-dark"
         >
           Editar perfil y fotos

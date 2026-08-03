@@ -29,7 +29,7 @@ export default function PendientesRancho({
       cuenta: reservasPorAprobar,
       singular: "reserva esperando tu aprobación",
       plural: "reservas esperando tu aprobación",
-      href: "?tab=reservas",
+      href: "?tab=agenda",
     },
     {
       id: "depositos",

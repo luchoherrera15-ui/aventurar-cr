@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
+import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 
 /**
  * Las piezas animadas de la plantilla clásica de /i/{slug}: el sobre
@@ -17,22 +18,11 @@ import {
  * globals.css. Nada de esto toca el camino de html_personalizado.
  */
 
-const QUERY_REDUCIDO = "(prefers-reduced-motion: reduce)";
-
-function suscribirReducido(alCambiar: () => void) {
-  const mq = window.matchMedia(QUERY_REDUCIDO);
-  mq.addEventListener("change", alCambiar);
-  return () => mq.removeEventListener("change", alCambiar);
-}
-
-/** true cuando el visitante pidió movimiento reducido. */
-export function useMovimientoReducido() {
-  return useSyncExternalStore(
-    suscribirReducido,
-    () => window.matchMedia(QUERY_REDUCIDO).matches,
-    () => false,
-  );
-}
+// Re-exportado desde acá para no romper a quien ya lo importaba de este
+// archivo — la definición vive en @/lib/use-movimiento-reducido, que es
+// lo que debe importar cualquier pantalla nueva que solo necesite el
+// hook (ver ese archivo para el porqué).
+export { useMovimientoReducido };
 
 /** "Sofía & Andrés" → "S&A" para el sello de cera. */
 export function inicialesDe(titulo: string): string {

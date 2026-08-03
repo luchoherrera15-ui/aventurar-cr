@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IconPause, IconPlay } from "@/components/icons";
-import { useMovimientoReducido } from "@/app/i/[slug]/invitacion-animada";
+import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 import type { DemoInvitacion } from "@/lib/catalogo-invitaciones";
 
 /** Cuánto dura cada slide antes de pasar solo al siguiente. */

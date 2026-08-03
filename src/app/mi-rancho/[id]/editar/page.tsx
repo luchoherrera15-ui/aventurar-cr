@@ -8,5 +8,5 @@ export default async function EditarRanchoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/mi-rancho/${id}?tab=editar`);
+  redirect(`/mi-rancho/${id}?tab=configuracion&seccion=perfil`);
 }

@@ -1,7 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import { Figtree } from "next/font/google";
-import ChatFlotante from "@/components/chat-flotante";
 import "./globals.css";
+// La burbuja arrastra el cliente de Supabase + Realtime solo para
+// mostrarse (o no) según haya sesión y conversaciones — peso que hoy
+// paga hasta la página estática que menos lo necesita, porque
+// RootLayout la importaba de forma estática y entraba en el mismo
+// bundle que cualquier ruta del sitio. chat-flotante-lazy.tsx la carga
+// con `dynamic(..., {ssr:false})` para que sea un chunk aparte que se
+// pide después de la hidratación — Next no permite `ssr:false` escrito
+// directo en un Server Component, por eso el envoltorio.
+import ChatFlotante from "@/components/chat-flotante-lazy";
 
 const figtree = Figtree({
   variable: "--font-figtree",

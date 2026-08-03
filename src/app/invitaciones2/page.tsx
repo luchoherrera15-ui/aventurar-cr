@@ -33,10 +33,13 @@ import RielEjemplos from "./riel-ejemplos";
  */
 
 // La serif del papel de la invitación. Es la misma que usa el álbum
-// (/a/{slug}), así que el producto se ve de una sola familia.
+// (/a/{slug}), así que el producto se ve de una sola familia. Solo
+// 400: ni reel.tsx ni riel-ejemplos.tsx le aplican font-bold/semibold
+// junto con esta clase, así que 500 y 600 se estaban descargando sin
+// que ningún texto de la página los usara.
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400"],
   style: ["normal", "italic"],
 });
 

@@ -283,3 +283,78 @@ export async function cancelarReserva(ranchoId: string, reservaId: string) {
   revalidatePath("/admin/eventos");
   return { error: null };
 }
+
+/**
+ * Mueve una reserva (o un bloqueo) a otra fecha — lo que antes el
+ * comentario de `actualizarReservaManual` dejaba pendiente a propósito:
+ * "es otra operación, no un campo más de este formulario".
+ *
+ * El cupo del día se revisa acá igual que en `crearReservaManual`
+ * (mismo cálculo, misma fuente: `eventos_por_dia` del negocio). El
+ * disparador `reservas_respeta_cupo_dia` de la base (migración 0049,
+ * `before update of ... fecha ...`) lo vuelve a comprobar por su cuenta
+ * cuando la reserva ya está confirmada — este chequeo de acá es la
+ * versión con mensaje amable, igual que en el resto del archivo; el
+ * de la base es la red de seguridad contra dos movimientos a la vez.
+ */
+export async function moverReservaFecha(
+  ranchoId: string,
+  reservaId: string,
+  nuevaFecha: string,
+) {
+  const { supabase, rancho } = await verificarDueno(ranchoId);
+  if (!rancho) return { error: "No encontramos tu publicación." };
+
+  if (!FECHA_REGEX.test(nuevaFecha)) {
+    return { error: "La fecha nueva no es válida." };
+  }
+
+  const { data: actual } = await supabase
+    .from("reservas")
+    .select("id, estado, fecha")
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+  if (!actual) return { error: "No encontramos esa reserva." };
+  if (actual.fecha === nuevaFecha) return { error: null };
+
+  if (actual.estado === "pendiente" || actual.estado === "confirmada") {
+    const cupo =
+      (rancho.eventos_por_dia as number | null) ??
+      (rancho.categoria === "lugares" ? 1 : null);
+    if (cupo !== null) {
+      const { count } = await supabase
+        .from("reservas")
+        .select("id", { count: "exact", head: true })
+        .eq("rancho_id", ranchoId)
+        .eq("fecha", nuevaFecha)
+        .in("estado", ["pendiente", "confirmada"])
+        .neq("id", reservaId);
+      if ((count ?? 0) >= cupo) {
+        return {
+          error:
+            cupo === 1
+              ? "La fecha nueva ya tiene una reserva pendiente o confirmada."
+              : `La fecha nueva ya tiene ${cupo} reservas — es tu cupo del día.`,
+        };
+      }
+    }
+  }
+
+  const { error } = await supabase
+    .from("reservas")
+    .update({ fecha: nuevaFecha })
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "La fecha nueva ya está tomada." };
+    }
+    return { error: "No se pudo mover: " + error.message };
+  }
+
+  revalidatePath(`/mi-rancho/${ranchoId}`);
+  revalidatePath("/admin/eventos");
+  return { error: null };
+}

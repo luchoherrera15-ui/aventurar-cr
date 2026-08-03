@@ -59,7 +59,8 @@ function mensajeDeError(mensaje: string) {
 }
 
 function refrescar(ranchoId: string) {
-  revalidatePath(`/mi-rancho/${ranchoId}/asistente`);
+  // El contenido vive en la página unificada (Configuración → Asistente
+  // IA), no en la ruta /asistente vieja (hoy solo un redirect stub).
   revalidatePath(`/mi-rancho/${ranchoId}`);
 }
 

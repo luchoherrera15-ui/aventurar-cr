@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { hoyISOCR } from "@/lib/fechas";
+import ReservaManualForm from "./reserva-manual-form";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -50,6 +51,19 @@ export type ReservaEditable = {
   horarioBloque: string | null;
 };
 
+/** Lo que acepta `crearReservaManual`. */
+export type ReservaNueva = {
+  fecha: string;
+  nombre: string;
+  tipo_evento: string;
+  invitados: number | null;
+  notas: string | null;
+  montoTotal: number;
+  depositoMonto: number;
+  depositoRecibido: boolean;
+  eventoPagado: boolean;
+};
+
 type Resultado = { error: string | null };
 
 const ETIQUETA: Record<string, { texto: string; cls: string }> = {
@@ -75,19 +89,29 @@ export default function OcupacionCalendario({
   onConfirmar,
   onCancelar,
   onEditar,
+  onMover,
+  onCrear,
+  capacidadMax = null,
 }: {
   dias: DiaOcupado[];
   onConfirmar?: (reservaId: string) => Promise<Resultado>;
   onCancelar?: (reservaId: string) => Promise<Resultado>;
   onEditar?: (reservaId: string, datos: ReservaEditable) => Promise<Resultado>;
+  /** Mover una reserva (o un bloqueo) a otra fecha. */
+  onMover?: (reservaId: string, nuevaFecha: string) => Promise<Resultado>;
+  /** Con esto, el panel del día deja cargar una reserva nueva sin salir
+   *  del calendario — la fecha ya viene puesta, es la que se clickeó. */
+  onCrear?: (datos: ReservaNueva) => Promise<Resultado>;
+  capacidadMax?: number | null;
 }) {
   const hoy = hoyISOCR();
   const [y0, m0] = hoy.split("-").map(Number);
   const [viewYear, setViewYear] = useState(y0);
   const [viewMonth, setViewMonth] = useState(m0 - 1);
   const [seleccion, setSeleccion] = useState<string | null>(null);
+  const [agregando, setAgregando] = useState(false);
 
-  const editable = Boolean(onConfirmar || onCancelar || onEditar);
+  const editable = Boolean(onConfirmar || onCancelar || onEditar || onMover);
 
   // Un mismo día puede tener varias reservas (un bloqueo y una fiesta,
   // o dos eventos si el negocio admite más de uno por día), así que se
@@ -191,7 +215,10 @@ export default function OcupacionCalendario({
             <button
               key={i}
               type="button"
-              onClick={() => setSeleccion(elegido ? null : fecha)}
+              onClick={() => {
+                setSeleccion(elegido ? null : fecha);
+                setAgregando(false);
+              }}
               aria-pressed={elegido}
               aria-label={`${fechaLarga(fecha)}${
                 lista ? ` — ${lista.length} reserva${lista.length === 1 ? "" : "s"}` : " — libre"
@@ -238,19 +265,24 @@ export default function OcupacionCalendario({
             </p>
             <button
               type="button"
-              onClick={() => setSeleccion(null)}
+              onClick={() => {
+                setSeleccion(null);
+                setAgregando(false);
+              }}
               className="shrink-0 text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
             >
               Cerrar
             </button>
           </div>
 
-          {delDia.length === 0 ? (
+          {delDia.length === 0 && !onCrear && (
             <p className="mt-2 text-[13px] text-aventurea-ink-soft">
               Este día está libre. Podés cargar una reserva con el formulario de
               más abajo.
             </p>
-          ) : (
+          )}
+
+          {delDia.length > 0 && (
             <div className="mt-3 flex flex-col gap-3">
               {delDia.map((r) => (
                 <FilaReserva
@@ -258,11 +290,34 @@ export default function OcupacionCalendario({
                   reserva={r}
                   onConfirmar={onConfirmar}
                   onCancelar={onCancelar}
+                  onMover={onMover}
                   onEditar={onEditar}
                 />
               ))}
             </div>
           )}
+
+          {/* Cargar una reserva sin salir del calendario: la fecha ya
+              es la que se clickeó, no hay que volver a elegirla. */}
+          {onCrear &&
+            (agregando ? (
+              <div className="mt-3">
+                <ReservaManualForm
+                  capacidadMax={capacidadMax}
+                  onCrear={onCrear}
+                  fechaFija={seleccion}
+                  onCancelar={() => setAgregando(false)}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAgregando(true)}
+                className="mt-3 rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy hover:text-aventurea-navy"
+              >
+                + Agregar {delDia.length > 0 ? "otra reserva" : "una reserva"} este día
+              </button>
+            ))}
         </div>
       )}
     </div>
@@ -275,13 +330,16 @@ function FilaReserva({
   onConfirmar,
   onCancelar,
   onEditar,
+  onMover,
 }: {
   reserva: DiaOcupado;
   onConfirmar?: (reservaId: string) => Promise<Resultado>;
   onCancelar?: (reservaId: string) => Promise<Resultado>;
   onEditar?: (reservaId: string, datos: ReservaEditable) => Promise<Resultado>;
+  onMover?: (reservaId: string, nuevaFecha: string) => Promise<Resultado>;
 }) {
   const [editando, setEditando] = useState(false);
+  const [moviendo, setMoviendo] = useState(false);
   // Cancelar pide un segundo clic en vez de un confirm() del navegador:
   // liberar un día por accidente se arregla volviendo a cargar la
   // reserva a mano, y eso nadie quiere hacerlo un sábado.
@@ -302,6 +360,7 @@ function FilaReserva({
       else {
         setEditando(false);
         setConfirmandoBaja(false);
+        setMoviendo(false);
       }
     });
   }
@@ -345,6 +404,13 @@ function FilaReserva({
           onCancelarEdicion={() => setEditando(false)}
           onGuardar={(datos) => correr(() => onEditar(reserva.id, datos))}
         />
+      ) : moviendo && onMover ? (
+        <FormularioMover
+          fechaActual={reserva.fecha}
+          pendiente={pendiente}
+          onCancelarMovida={() => setMoviendo(false)}
+          onMover={(nuevaFecha) => correr(() => onMover(reserva.id, nuevaFecha))}
+        />
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">
           {onConfirmar && reserva.estado === "pendiente" && (
@@ -365,6 +431,16 @@ function FilaReserva({
               className="rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy disabled:opacity-50"
             >
               Modificar
+            </button>
+          )}
+          {onMover && (
+            <button
+              type="button"
+              disabled={pendiente}
+              onClick={() => setMoviendo(true)}
+              className="rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy disabled:opacity-50"
+            >
+              Mover
             </button>
           )}
           {onCancelar &&
@@ -406,7 +482,8 @@ function FilaReserva({
 /**
  * El formulario de corrección. La FECHA no está: mover una reserva de
  * día cambia el cupo, puede chocar con otra confirmada y afecta al
- * cliente — es otra operación, no un campo más de este formulario.
+ * cliente — es otra operación, no un campo más de este formulario. Esa
+ * operación es `FormularioMover`, más abajo.
  */
 function FormularioReserva({
   reserva,
@@ -519,6 +596,63 @@ function FormularioReserva({
           type="button"
           disabled={pendiente}
           onClick={onCancelarEdicion}
+          className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-50"
+        >
+          Descartar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Elegir la fecha nueva y mover — el cupo del día se revisa en el
+ *  servidor, así que acá solo hace falta la fecha. */
+function FormularioMover({
+  fechaActual,
+  pendiente,
+  onMover,
+  onCancelarMovida,
+}: {
+  fechaActual: string;
+  pendiente: boolean;
+  onMover: (nuevaFecha: string) => void;
+  onCancelarMovida: () => void;
+}) {
+  const [nuevaFecha, setNuevaFecha] = useState(fechaActual);
+  const campo =
+    "w-full rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2 text-[13px] text-aventurea-ink";
+
+  return (
+    <form
+      className="mt-3 flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (nuevaFecha && nuevaFecha !== fechaActual) onMover(nuevaFecha);
+      }}
+    >
+      <label className="flex flex-col gap-1">
+        <span className="text-[11.5px] font-bold text-aventurea-ink-soft">
+          Mover al día
+        </span>
+        <input
+          type="date"
+          value={nuevaFecha}
+          onChange={(e) => setNuevaFecha(e.target.value)}
+          className={campo}
+        />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={pendiente || !nuevaFecha || nuevaFecha === fechaActual}
+          className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-50"
+        >
+          {pendiente ? "Moviendo…" : "Mover reserva"}
+        </button>
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={onCancelarMovida}
           className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-50"
         >
           Descartar

@@ -537,7 +537,7 @@ export function plantillaReservaNuevaProveedor({
       </p>
 
       <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}/mi-rancho/${ranchoId}?tab=reservas" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+        <a href="${SITIO_URL}/mi-rancho/${ranchoId}?tab=agenda" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
           Revisar la reserva
         </a>
       </div>

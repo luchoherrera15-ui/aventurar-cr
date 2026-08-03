@@ -21,8 +21,9 @@ import { esAddon } from "@/lib/addons";
 /** Refresca el panel y las pantallas cuyo contenido depende del gate. */
 function refrescar(ranchoId: string) {
   revalidatePath("/admin/complementos");
+  // El asistente vive plegado en la página unificada (Configuración),
+  // no en la ruta /asistente vieja (hoy solo un redirect stub).
   revalidatePath(`/mi-rancho/${ranchoId}`);
-  revalidatePath(`/mi-rancho/${ranchoId}/asistente`);
 }
 
 export async function activarAddon({

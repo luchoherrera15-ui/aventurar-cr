@@ -40,6 +40,8 @@ const VACIO: ReservaManualInput = {
 export default function ReservaManualForm({
   capacidadMax,
   onCrear,
+  fechaFija,
+  onCancelar,
 }: {
   capacidadMax: number | null;
   onCrear: (input: {
@@ -53,12 +55,19 @@ export default function ReservaManualForm({
     depositoRecibido: boolean;
     eventoPagado: boolean;
   }) => Promise<{ error: string | null }>;
+  /** Con esto el formulario nace abierto y con la fecha ya fija (no
+   *  editable) — así el panel de un día del calendario carga una
+   *  reserva sin volver a elegir la fecha que ya se clickeó. */
+  fechaFija?: string;
+  /** Solo aplica junto con `fechaFija`: acá no hay botón propio de
+   *  colapsar, así que "Cerrar" delega en quien lo incrusta. */
+  onCancelar?: () => void;
 }) {
-  const [datos, setDatos] = useState(VACIO);
+  const [datos, setDatos] = useState(fechaFija ? { ...VACIO, fecha: fechaFija } : VACIO);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(!!fechaFija);
 
   function set<K extends keyof ReservaManualInput>(campo: K, valor: ReservaManualInput[K]) {
     setDatos((prev) => ({ ...prev, [campo]: valor }));
@@ -117,7 +126,7 @@ export default function ReservaManualForm({
         setError(res.error);
         return;
       }
-      setDatos(VACIO);
+      setDatos(fechaFija ? { ...VACIO, fecha: fechaFija } : VACIO);
       setOk(true);
     });
   }
@@ -142,7 +151,7 @@ export default function ReservaManualForm({
         </h3>
         <button
           type="button"
-          onClick={() => setAbierto(false)}
+          onClick={() => (fechaFija ? onCancelar?.() : setAbierto(false))}
           className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
         >
           Cerrar
@@ -161,7 +170,8 @@ export default function ReservaManualForm({
             type="date"
             value={datos.fecha}
             onChange={(e) => set("fecha", e.target.value)}
-            className={inputCls}
+            disabled={!!fechaFija}
+            className={`${inputCls} ${fechaFija ? "opacity-70" : ""}`}
           />
         </div>
         <div>

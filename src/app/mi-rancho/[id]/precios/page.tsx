@@ -8,5 +8,5 @@ export default async function MiRanchoPreciosPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/mi-rancho/${id}?tab=precios`);
+  redirect(`/mi-rancho/${id}?tab=configuracion&seccion=precios`);
 }
