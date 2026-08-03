@@ -297,28 +297,37 @@ export default async function RanchoDetallePage({
           <AgendasExternas ranchoId={rancho.id} agendas={agendasExternas} />
           <SincronizarCalendario feedUrl={feedUrl} />
         </SeccionPlegable>
-        <ReservaManualForm
-          capacidadMax={esLugar ? rancho.capacidad_max : null}
-          onCrear={crearReservaManual.bind(null, rancho.id)}
-        />
-        {/* Para quien llega con la agenda ya vendida: la pasa completa
-            de una vez. A mano es gratis; leer las fotos con IA es el
-            complemento `agenda_ia` (0077), y el gate se resuelve en el
-            servidor — acá solo se pinta lo que corresponda. */}
-        <ImportarAgenda
-          ranchoId={rancho.id}
-          hoy={hoyCR}
-          addonActivo={addonAgendaIA}
-          negocio={{
-            id: rancho.id,
-            vertical: (rancho.vertical ?? "eventos") as VerticalAgenda,
-            categoria: rancho.categoria ?? null,
-            capacidadMin: rancho.capacidad_min ?? null,
-            capacidadMax: rancho.capacidad_max ?? null,
-            eventosPorDia: rancho.eventos_por_dia ?? null,
-          }}
-        />
         <AgendaEventos eventos={agenda} />
+
+        {/* Cargar reservas (a mano o trayendo la agenda de otro lado) no
+            es algo que se haga todos los días — va al final, plegado,
+            para no competir por espacio con el calendario de arriba. */}
+        <SeccionPlegable
+          marco={false}
+          titulo="Agregar reservas a tu agenda"
+          descripcion="Cargá una reserva suelta a mano, o traé de una vez la agenda que ya llevabas en otro lado."
+        >
+          <ReservaManualForm
+            capacidadMax={esLugar ? rancho.capacidad_max : null}
+            onCrear={crearReservaManual.bind(null, rancho.id)}
+          />
+          {/* A mano es gratis; leer las fotos con IA es el complemento
+              `agenda_ia` (0077), y el gate se resuelve en el servidor —
+              acá solo se pinta lo que corresponda. */}
+          <ImportarAgenda
+            ranchoId={rancho.id}
+            hoy={hoyCR}
+            addonActivo={addonAgendaIA}
+            negocio={{
+              id: rancho.id,
+              vertical: (rancho.vertical ?? "eventos") as VerticalAgenda,
+              categoria: rancho.categoria ?? null,
+              capacidadMin: rancho.capacidad_min ?? null,
+              capacidadMax: rancho.capacidad_max ?? null,
+              eventosPorDia: rancho.eventos_por_dia ?? null,
+            }}
+          />
+        </SeccionPlegable>
       </div>
     ),
   };
