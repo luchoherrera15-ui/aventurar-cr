@@ -17,10 +17,11 @@ import type {
   ServicioAdicional,
 } from "../types";
 import CatalogoPanel from "./catalogo-panel";
-import { resumenFinanciero, type Gasto, type ReservaFinanzas } from "@/lib/finanzas";
+import { resumenFinanciero, saldoPendiente, type Gasto, type ReservaFinanzas } from "@/lib/finanzas";
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
 import Tabs, { type Tab } from "./tabs";
 import DashboardMetricas from "./dashboard-metricas";
+import PendientesRancho from "./pendientes-rancho";
 import { calcularMetricas } from "./metricas";
 import EditarRanchoForm from "./editar/editar-form";
 import PreciosForm from "@/components/precios-form";
@@ -219,6 +220,14 @@ export default async function RanchoDetallePage({
   // La agenda: los eventos que vienen, ordenados, con HOY y MAÑANA
   // resaltados — el control operativo del día a día.
   const hoyCR = hoyISOCR();
+
+  // Mismo criterio que usará el recordatorio de cobro por correo/push:
+  // el bloque de Pendientes y el aviso automático tienen que decir lo
+  // mismo.
+  const cobranHoy = reservasFinanzas.filter(
+    (r) => r.estado === "confirmada" && r.fecha === hoyCR && saldoPendiente(r) > 0,
+  ).length;
+
   const agenda: EventoAgenda[] = reservas
     .filter((r) => r.fecha >= hoyCR && (r.estado === "pendiente" || r.estado === "confirmada"))
     .map((r) => ({
@@ -275,8 +284,19 @@ export default async function RanchoDetallePage({
           onCancelar={cancelarReserva.bind(null, rancho.id)}
           onEditar={actualizarReservaManual.bind(null, rancho.id)}
         />
-        <AgendasExternas ranchoId={rancho.id} agendas={agendasExternas} />
-        <SincronizarCalendario feedUrl={feedUrl} />
+        <SeccionPlegable
+          marco={false}
+          titulo="Sincronizar con Google Calendar o iPhone"
+          descripcion="Traé tu agenda existente, o llevá tus reservas de Bookea al calendario de tu teléfono."
+          resumen={
+            agendasExternas?.length
+              ? `${agendasExternas.length} conectada${agendasExternas.length === 1 ? "" : "s"}`
+              : undefined
+          }
+        >
+          <AgendasExternas ranchoId={rancho.id} agendas={agendasExternas} />
+          <SincronizarCalendario feedUrl={feedUrl} />
+        </SeccionPlegable>
         <ReservaManualForm
           capacidadMax={esLugar ? rancho.capacidad_max : null}
           onCrear={crearReservaManual.bind(null, rancho.id)}
@@ -370,10 +390,13 @@ export default async function RanchoDetallePage({
   };
 
   // Cada bloque de precios va plegado en su propia sección — antes se
-  // apilaban todos abiertos y la pestaña medía kilómetros.
+  // apilaban todos abiertos y la pestaña medía kilómetros. Las cuentas
+  // de cobro (antes su propia pestaña "Configuración general") viven
+  // acá también: es donde de verdad tiene sentido buscarlas, junto al
+  // depósito y los precios que las necesitan.
   const tabPrecios: Tab = {
     id: "precios",
-    label: esLugar ? "Precios y descuentos" : "Cobros y descuentos",
+    label: "Precios y cobros",
     content: (
       <div className="flex flex-col gap-3.5">
         {/* Con depósito + cuentas configuradas, el negocio de servicio
@@ -384,7 +407,7 @@ export default async function RanchoDetallePage({
             marco={false}
             abierta
             titulo="Depósito para agendar"
-            descripcion="Con esto, más tus cuentas de cobro (pestaña Configuración general), el cliente agenda su fecha pagando por adelantado y subiendo el comprobante — igual que los lugares de eventos."
+            descripcion="Con esto, más tus cuentas de cobro (más abajo en esta misma pestaña), el cliente agenda su fecha pagando por adelantado y subiendo el comprobante — igual que los lugares de eventos."
           >
             <DepositoForm
               initialDeposito={rancho.deposito_reserva ?? 0}
@@ -458,6 +481,24 @@ export default async function RanchoDetallePage({
             onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
           />
         </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          titulo="Cuentas para recibir el depósito"
+          descripcion="El cliente ve esto en el paso de pago de la reserva, según el método que elija. Sin cuentas configuradas, esa forma de pago no se le ofrece."
+        >
+          <CuentasPagoForm
+            initial={{
+              sinpeNumero: rancho.sinpe_numero ?? "",
+              sinpeTitular: rancho.sinpe_titular ?? "",
+              cuentaBanco: rancho.cuenta_banco ?? "",
+              cuentaNumero: rancho.cuenta_numero ?? "",
+              cuentaTitular: rancho.cuenta_titular ?? "",
+              cuentaTipo: rancho.cuenta_tipo ?? "",
+            }}
+            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
       </div>
     ),
   };
@@ -496,37 +537,15 @@ export default async function RanchoDetallePage({
     content: <EditarRanchoForm rancho={rancho} />,
   };
 
-  const tabConfiguracion: Tab = {
-    id: "configuracion",
-    label: "Configuración general",
-    content: (
-      <div>
-        <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-          Cuentas para recibir el depósito
-        </h2>
-        <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-          El cliente ve esto en el paso de pago de la reserva, según el
-          método que elija. Sin cuentas configuradas, esa forma de pago no
-          se le ofrece.
-        </p>
-        <CuentasPagoForm
-          initial={{
-            sinpeNumero: rancho.sinpe_numero ?? "",
-            sinpeTitular: rancho.sinpe_titular ?? "",
-            cuentaBanco: rancho.cuenta_banco ?? "",
-            cuentaNumero: rancho.cuenta_numero ?? "",
-            cuentaTitular: rancho.cuenta_titular ?? "",
-            cuentaTipo: rancho.cuenta_tipo ?? "",
-          }}
-          onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
-        />
-      </div>
-    ),
-  };
-
   // La vertical de Citas configura su equipo, su horario semanal y la
   // agenda del día en su propia pantalla — esta pestaña es la puerta.
   const esVerticalCitas = rancho.vertical === "citas";
+  // Orden operativo primero (lo que se mira seguido), configuración
+  // después (lo que se toca una vez y se olvida). Finanzas sube antes
+  // de Precios y cobros: con el recordatorio de cobro es donde más se
+  // entra. "Configuración general" ya no es una pestaña propia — su
+  // único contenido (cuentas de cobro) se fusionó dentro de Precios y
+  // cobros, arriba.
   const tabs: Tab[] = [
     tabAgenda,
     ...(esVerticalCitas
@@ -534,8 +553,8 @@ export default async function RanchoDetallePage({
       : []),
     tabReservas,
     ...(!esLugar ? [tabCatalogo] : []),
-    tabPrecios,
     tabFinanzas,
+    tabPrecios,
     tabPerfil,
     // El asistente del chat vive en su propia pantalla: se le enseñan
     // respuestas y se prende o apaga desde ahí. Aparece para todos los
@@ -546,7 +565,6 @@ export default async function RanchoDetallePage({
       label: "Asistente",
       href: `/mi-rancho/${rancho.id}/asistente`,
     } satisfies Tab,
-    tabConfiguracion,
   ];
 
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
@@ -651,6 +669,14 @@ export default async function RanchoDetallePage({
       {/* Los accesos rápidos se fueron: duplicaban una a una las
           pestañas de abajo, que ahora son píldoras y se bastan solas. */}
       <div className="mt-5">
+        <PendientesRancho
+          reservasPorAprobar={pendientes}
+          depositosSinValidar={resumen.depositosSinValidar.length}
+          cobranHoy={cobranHoy}
+        />
+      </div>
+
+      <div className="mt-6">
         <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
           Cómo te está yendo
         </h2>
