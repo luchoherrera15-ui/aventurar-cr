@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
@@ -52,7 +53,7 @@ import { agruparClientes } from "@/lib/crm";
  * las citas hora por hora según el horario semanal del negocio, con la
  * acción clave del mostrador — marcar si el cliente llegó o no — y el
  * botón para suscribir la agenda en Google/Apple Calendar. Espejo de
- * la agenda del panel web (/mi-rancho/[id]/citas); las políticas RLS
+ * la agenda del panel web (/mi-negocio/[id]/citas); las políticas RLS
  * limitan la lectura y la edición al dueño del negocio.
  *
  * Desde acá también se atiende el mostrador completo, igual que en la
@@ -93,7 +94,7 @@ type ReservaAgenda = {
 type CitaAgenda = ReservaAgenda & { hora_inicio: string };
 
 /** Una persona (o recurso) del equipo, lo mínimo para la agenda. */
-type Miembro = { id: string; nombre: string; activo: boolean };
+type Miembro = { id: string; nombre: string; activo: boolean; foto_url: string | null };
 
 /** Un servicio de cita del catálogo (rancho_items con duración). */
 type ServicioCita = {
@@ -140,6 +141,26 @@ const MARCABLES = ["confirmada", "cumplida", "no_asistio"];
 
 /** Estados que ocupan la franja de verdad (los cancelados no estorban). */
 const OCUPAN = new Set(["pendiente", "confirmada", "bloqueada", "cumplida", "no_asistio"]);
+
+/** Piel del bloque en la vista por persona — mismo criterio que ESTADO_TONO. */
+function estiloBloque(estado: string) {
+  switch (estado) {
+    case "confirmada":
+      return { backgroundColor: Colors.blueLight, borderColor: Colors.navy };
+    case "pendiente":
+      return { backgroundColor: Colors.accentLight, borderColor: Colors.accent };
+    case "cumplida":
+      return { backgroundColor: Colors.greenLight, borderColor: Colors.green };
+    case "no_asistio":
+    case "cancelada":
+    case "rechazada":
+      return { backgroundColor: Colors.dangerLight, borderColor: Colors.danger };
+    case "bloqueada":
+      return { backgroundColor: Colors.cream2, borderColor: Colors.line };
+    default:
+      return { backgroundColor: Colors.cream2, borderColor: Colors.line };
+  }
+}
 
 const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -201,6 +222,20 @@ export default function AgendaNegocioScreen() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
 
+  // La agenda "de verdad" (columnas por persona, estilo Fresha) es el
+  // punto de partida — espejo de la web (agenda-citas.tsx). La línea
+  // del día agrupada por hora queda como alternativa a un toque.
+  const [vista, setVista] = useState<"lista" | "personas">("personas");
+  const [citaGridId, setCitaGridId] = useState<string | null>(null);
+
+  // Solo para que la línea de "ahora" en la vista por persona avance
+  // sola — no guarda datos, fuerza el re-render cada minuto.
+  const [, marcarTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => marcarTick((n) => n + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   // El walk-in del mostrador ("+ Nueva cita") y el bloqueo de franja:
   // cada uno abre su tarjeta-formulario inline, nunca los dos a la vez.
   const [creando, setCreando] = useState(false);
@@ -253,7 +288,7 @@ export default function AgendaNegocioScreen() {
         .order("hora_inicio", { ascending: true, nullsFirst: true }),
       supabase
         .from("equipo_rancho")
-        .select("id, nombre, activo")
+        .select("id, nombre, activo, foto_url")
         .eq("rancho_id", id)
         .order("orden", { ascending: true }),
       // Los servicios de cita del catálogo, para precargar el walk-in.
@@ -878,6 +913,33 @@ export default function AgendaNegocioScreen() {
     porHora.set(h, [...(porHora.get(h) ?? []), c]);
   }
 
+  // ---------- Vista por persona (columnas estilo Fresha) ----------
+  const conAgenda = citas.filter((c) => OCUPAN.has(c.estado));
+  const haySinAsignar = conAgenda.some((c) => c.miembro_id === null);
+  // Una persona pausada con citas ese día igual necesita su columna —
+  // sus citas no pueden desaparecer de la vista.
+  const conCitasDelDia = new Set(conAgenda.map((c) => c.miembro_id));
+  const columnasPersona: { id: string | null; nombre: string; fotoUrl: string | null }[] = [
+    ...equipo
+      .filter((m) => m.activo || conCitasDelDia.has(m.id))
+      .map((m) => ({ id: m.id as string | null, nombre: m.nombre, fotoUrl: m.foto_url })),
+    ...(haySinAsignar || equipoActivo.length === 0
+      ? [{ id: null, nombre: equipo.length > 0 ? "Sin asignar" : "El negocio", fotoUrl: null }]
+      : []),
+  ];
+  const inicioGrilla = Math.floor(inicioMin / 60) * 60;
+  const finGrilla = Math.ceil(finMin / 60) * 60;
+  const altoGrilla = finGrilla - inicioGrilla; // 1 min = 1 punto
+
+  // La línea de "ahora": solo tiene sentido si el día visible es HOY y
+  // cae dentro del rango de la grilla.
+  const ahoraZona = instanteEnZona(new Date().toISOString(), zona);
+  const lineaAhoraMin =
+    ahoraZona.fecha === fecha && ahoraZona.minutos >= inicioGrilla && ahoraZona.minutos <= finGrilla
+      ? ahoraZona.minutos
+      : null;
+  const citaGrid = citaGridId ? (citas.find((c) => c.id === citaGridId) ?? null) : null;
+
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
@@ -1322,7 +1384,20 @@ export default function AgendaNegocioScreen() {
             />
           ) : (
             <View style={styles.seccion}>
-              <Micro>La línea del día</Micro>
+              <View style={styles.seccionCabecera}>
+                <Micro>{vista === "personas" ? "Agenda por persona" : "La línea del día"}</Micro>
+                {equipoActivo.length > 0 && (
+                  <Pressable
+                    onPress={() => setVista(vista === "personas" ? "lista" : "personas")}
+                    style={styles.botonVista}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.botonVistaTexto}>
+                      {vista === "personas" ? "Ver como lista" : "Ver por persona"}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
               {cerrado && (
                 <Aviso
                   tono="atencion"
@@ -1339,34 +1414,184 @@ export default function AgendaNegocioScreen() {
                   }
                 />
               )}
-              <Tarjeta style={styles.lineaTiempo}>
-                {horas.map((h) => {
-                  const deEstaHora = porHora.get(h) ?? [];
-                  return (
-                    <FilaHora key={h} hora={`${String(h).padStart(2, "0")}:00`}>
-                      {deEstaHora.length > 0
-                        ? deEstaHora.map((c) => (
-                            <TarjetaCita
-                              key={c.id}
-                              cita={c}
-                              ocupada={ocupado === c.id}
-                              conNombre={
-                                c.miembro_id
-                                  ? (nombreMiembro.get(c.miembro_id) ??
-                                    "alguien que ya no está en el equipo")
-                                  : null
-                              }
-                              equipo={equipoActivo}
-                              onMarcar={confirmarAsistencia}
-                              onCancelar={confirmarCancelarCita}
-                              onMover={moverCita}
-                            />
-                          ))
-                        : undefined}
-                    </FilaHora>
-                  );
-                })}
-              </Tarjeta>
+
+              {vista === "lista" ? (
+                <Tarjeta style={styles.lineaTiempo}>
+                  {horas.map((h) => {
+                    const deEstaHora = porHora.get(h) ?? [];
+                    return (
+                      <FilaHora key={h} hora={`${String(h).padStart(2, "0")}:00`}>
+                        {deEstaHora.length > 0
+                          ? deEstaHora.map((c) => (
+                              <TarjetaCita
+                                key={c.id}
+                                cita={c}
+                                ocupada={ocupado === c.id}
+                                conNombre={
+                                  c.miembro_id
+                                    ? (nombreMiembro.get(c.miembro_id) ??
+                                      "alguien que ya no está en el equipo")
+                                    : null
+                                }
+                                equipo={equipoActivo}
+                                onMarcar={confirmarAsistencia}
+                                onCancelar={confirmarCancelarCita}
+                                onMover={moverCita}
+                              />
+                            ))
+                          : undefined}
+                      </FilaHora>
+                    );
+                  })}
+                </Tarjeta>
+              ) : (
+                citas.length > 0 && (
+                  <>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.grillaFila}>
+                        {/* Eje de horas */}
+                        <View style={[styles.grillaEje, { height: altoGrilla + 20 }]}>
+                          {Array.from(
+                            { length: (finGrilla - inicioGrilla) / 60 + 1 },
+                            (_, i) => inicioGrilla + i * 60,
+                          ).map((min) => (
+                            <Text
+                              key={min}
+                              style={[styles.grillaEjeHora, { top: min - inicioGrilla + 14 }]}
+                            >
+                              {String(Math.floor(min / 60)).padStart(2, "0")}:00
+                            </Text>
+                          ))}
+                          {lineaAhoraMin !== null && (
+                            <View
+                              style={[
+                                styles.grillaAhoraChip,
+                                { top: lineaAhoraMin - inicioGrilla + 8 },
+                              ]}
+                            >
+                              <Text style={styles.grillaAhoraChipTexto}>
+                                {minutosAHora(lineaAhoraMin)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        {columnasPersona.map((col) => {
+                          const citasCol = conAgenda.filter((c) => c.miembro_id === col.id);
+                          const bloqueosCol = bloqueosDia.filter(
+                            (x) => x.bloqueo.miembro_id === col.id || x.bloqueo.miembro_id === null,
+                          );
+                          return (
+                            <View key={col.id ?? "sin"} style={styles.grillaColumna}>
+                              <View style={styles.grillaColumnaCabecera}>
+                                {col.fotoUrl ? (
+                                  <Image
+                                    source={{ uri: col.fotoUrl }}
+                                    alt={col.nombre}
+                                    style={styles.grillaAvatarFoto}
+                                    contentFit="cover"
+                                  />
+                                ) : (
+                                  <View style={styles.grillaAvatar}>
+                                    <Text style={styles.grillaAvatarInicial}>
+                                      {col.nombre.slice(0, 1).toUpperCase()}
+                                    </Text>
+                                  </View>
+                                )}
+                                <Text style={styles.grillaColumnaNombre} numberOfLines={1}>
+                                  {col.nombre}
+                                </Text>
+                              </View>
+                              <View style={[styles.grillaCuerpo, { height: altoGrilla }]}>
+                                {Array.from(
+                                  { length: (finGrilla - inicioGrilla) / 30 },
+                                  (_, i) => inicioGrilla + i * 30,
+                                ).map((min) => (
+                                  <View
+                                    key={min}
+                                    style={[
+                                      styles.grillaLinea,
+                                      min % 60 === 0 && styles.grillaLineaHora,
+                                      { top: min - inicioGrilla },
+                                    ]}
+                                  />
+                                ))}
+                                {bloqueosCol.map(({ bloqueo, rango }) => (
+                                  <View
+                                    key={bloqueo.id}
+                                    style={[
+                                      styles.grillaBloqueo,
+                                      {
+                                        top: Math.max(rango.inicio, inicioGrilla) - inicioGrilla,
+                                        height:
+                                          Math.min(rango.fin, finGrilla) -
+                                          Math.max(rango.inicio, inicioGrilla),
+                                      },
+                                    ]}
+                                  />
+                                ))}
+                                {citasCol.map((cita) => {
+                                  const ini = horaAMinutos(cita.hora_inicio.slice(0, 5));
+                                  const dur = cita.duracion_minutos ?? 30;
+                                  return (
+                                    <Pressable
+                                      key={cita.id}
+                                      onPress={() =>
+                                        setCitaGridId(citaGridId === cita.id ? null : cita.id)
+                                      }
+                                      style={[
+                                        styles.grillaBloque,
+                                        estiloBloque(cita.estado),
+                                        citaGridId === cita.id && styles.grillaBloqueSeleccionado,
+                                        { top: ini - inicioGrilla, height: Math.max(dur, 26) },
+                                      ]}
+                                    >
+                                      <Text style={styles.grillaBloqueTexto} numberOfLines={1}>
+                                        {cita.hora_inicio.slice(0, 5)} {cita.nombre ?? ""}
+                                      </Text>
+                                      {dur >= 40 && (
+                                        <Text style={styles.grillaBloqueSub} numberOfLines={1}>
+                                          {cita.tipo_evento ?? ""}
+                                        </Text>
+                                      )}
+                                    </Pressable>
+                                  );
+                                })}
+                                {lineaAhoraMin !== null && (
+                                  <View
+                                    style={[
+                                      styles.grillaAhoraLinea,
+                                      { top: lineaAhoraMin - inicioGrilla },
+                                    ]}
+                                  />
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+
+                    {citaGrid ? (
+                      <TarjetaCita
+                        cita={citaGrid}
+                        ocupada={ocupado === citaGrid.id}
+                        conNombre={
+                          citaGrid.miembro_id
+                            ? (nombreMiembro.get(citaGrid.miembro_id) ??
+                              "alguien que ya no está en el equipo")
+                            : null
+                        }
+                        equipo={equipoActivo}
+                        onMarcar={confirmarAsistencia}
+                        onCancelar={confirmarCancelarCita}
+                        onMover={moverCita}
+                      />
+                    ) : (
+                      <Micro>Tocá una cita para ver el detalle y marcar asistencia.</Micro>
+                    )}
+                  </>
+                )
+              )}
             </View>
           )}
 
@@ -1666,6 +1891,106 @@ const styles = StyleSheet.create({
   botonHoyTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12 },
 
   seccion: { gap: Spacing.two + 2 },
+  seccionCabecera: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  botonVista: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  botonVistaTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 11.5 },
+
+  // La grilla por persona (columnas estilo Fresha) — espejo de la web.
+  grillaFila: { flexDirection: "row", gap: Spacing.two, paddingBottom: Spacing.two },
+  grillaEje: { width: 38 },
+  grillaEjeHora: {
+    color: Colors.inkMuted,
+    fontFamily: Fonts.bold,
+    fontSize: 10,
+    position: "absolute",
+    right: 2,
+  },
+  grillaAhoraChip: {
+    backgroundColor: Colors.accent,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    position: "absolute",
+    right: 2,
+  },
+  grillaAhoraChipTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 9.5 },
+  grillaColumna: { width: 132 },
+  grillaColumnaCabecera: { alignItems: "center", gap: 3, marginBottom: Spacing.two - 2 },
+  grillaAvatar: {
+    alignItems: "center",
+    backgroundColor: Colors.blueLight,
+    borderRadius: Radios.full,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  grillaAvatarFoto: { borderRadius: Radios.full, height: 28, width: 28 },
+  grillaAvatarInicial: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 11.5 },
+  grillaColumnaNombre: {
+    color: Colors.navy,
+    fontFamily: Fonts.bold,
+    fontSize: 11.5,
+    textAlign: "center",
+  },
+  grillaCuerpo: {
+    backgroundColor: Colors.cream2,
+    borderColor: Colors.line,
+    borderRadius: Radios.md,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  grillaLinea: {
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
+    left: 0,
+    position: "absolute",
+    right: 0,
+  },
+  grillaLineaHora: { borderTopColor: Colors.lineFuerte },
+  grillaBloqueo: {
+    backgroundColor: "rgba(139,143,156,0.22)",
+    borderRadius: Radios.sm,
+    left: 3,
+    position: "absolute",
+    right: 3,
+  },
+  grillaBloque: {
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    left: 3,
+    overflow: "hidden",
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+    position: "absolute",
+    right: 3,
+  },
+  grillaBloqueSeleccionado: { borderWidth: 2 },
+  grillaBloqueTexto: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 10.5 },
+  grillaBloqueSub: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 9.5,
+    marginTop: 1,
+  },
+  grillaAhoraLinea: {
+    backgroundColor: Colors.accent,
+    height: 2,
+    left: 0,
+    position: "absolute",
+    right: 0,
+  },
+
   filaDiaCompleto: {
     alignItems: "center",
     flexDirection: "row",
