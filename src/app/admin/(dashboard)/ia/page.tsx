@@ -77,6 +77,7 @@ type FilaRanchoDb = {
   vertical?: string | null;
   asistente_activo?: boolean | null;
   asistente_instrucciones?: string | null;
+  asistente_max_respuestas?: number | null;
 };
 
 type FilaConocimientoDb = {
@@ -336,11 +337,14 @@ export default async function AdminIaPage({
     admin.rpc("gasto_ia_por_dia", { p_desde: rangoDesdeISO, p_hasta: rangoHastaISO }),
     leerFilas(admin, rangoDesdeISO, rangoHastaISO, MAX_DETALLE),
     admin.rpc("gasto_ia_resumen", { p_desde: consumoDesdeISO, p_hasta: consumoHastaISO }),
-    // Las dos columnas del asistente llegan con la 0078: si todavía no
-    // corrió, más abajo se reintenta sin ellas y el panel lo dice.
+    // Las columnas del asistente llegan con la 0078 y la 0093: si
+    // todavía no corrieron, más abajo se reintenta sin ellas y el
+    // panel lo dice.
     admin
       .from("ranchos")
-      .select("id, nombre, vertical, asistente_activo, asistente_instrucciones")
+      .select(
+        "id, nombre, vertical, asistente_activo, asistente_instrucciones, asistente_max_respuestas",
+      )
       .order("nombre"),
     admin
       .from("conocimiento_negocio")
@@ -455,6 +459,8 @@ export default async function AdminIaPage({
     vertical: r.vertical ?? null,
     asistenteActivo: r.asistente_activo ?? null,
     instrucciones: r.asistente_instrucciones ?? "",
+    limiteRespuestas:
+      typeof r.asistente_max_respuestas === "number" ? r.asistente_max_respuestas : null,
   }));
 
   const conocimiento: FilaConocimiento[] = (

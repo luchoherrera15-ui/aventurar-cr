@@ -17,6 +17,8 @@ export type NegocioIA = {
   /** null = regla por defecto; true = siempre encendido; false = apagado. */
   asistenteActivo: boolean | null;
   instrucciones: string;
+  /** null = usa el límite por defecto de la plataforma (hoy 15). */
+  limiteRespuestas: number | null;
 };
 
 export type FilaConocimiento = {
@@ -28,7 +30,11 @@ export type FilaConocimiento = {
   orden: number;
 };
 
-type EstadoAsistente = { activo: boolean | null; instrucciones: string };
+type EstadoAsistente = {
+  activo: boolean | null;
+  instrucciones: string;
+  limiteRespuestas: number | null;
+};
 
 const MODOS: { valor: "defecto" | "si" | "no"; label: string; detalle: string }[] = [
   {
@@ -85,9 +91,13 @@ export default function ConocimientoPanel({
   // guardarse, así que cada negocio lleva su propia copia local. Se
   // guarda aparte lo que ya está en la base para saber si hay cambios
   // pendientes sin tener que recargar la página.
+  const ESTADO_VACIO: EstadoAsistente = { activo: null, instrucciones: "", limiteRespuestas: null };
   const inicial = (): Record<string, EstadoAsistente> =>
     Object.fromEntries(
-      negocios.map((n) => [n.id, { activo: n.asistenteActivo, instrucciones: n.instrucciones }]),
+      negocios.map((n) => [
+        n.id,
+        { activo: n.asistenteActivo, instrucciones: n.instrucciones, limiteRespuestas: n.limiteRespuestas },
+      ]),
     );
   const [estados, setEstados] = useState<Record<string, EstadoAsistente>>(inicial);
   const [guardados, setGuardados] = useState<Record<string, EstadoAsistente>>(inicial);
@@ -110,15 +120,17 @@ export default function ConocimientoPanel({
   );
 
   const negocio = negocios.find((n) => n.id === ranchoId) ?? null;
-  const estado = estados[ranchoId] ?? { activo: null, instrucciones: "" };
-  const guardado = guardados[ranchoId] ?? { activo: null, instrucciones: "" };
+  const estado = estados[ranchoId] ?? ESTADO_VACIO;
+  const guardado = guardados[ranchoId] ?? ESTADO_VACIO;
   const asistenteCambiado =
-    guardado.activo !== estado.activo || guardado.instrucciones !== estado.instrucciones;
+    guardado.activo !== estado.activo ||
+    guardado.instrucciones !== estado.instrucciones ||
+    guardado.limiteRespuestas !== estado.limiteRespuestas;
 
   function cambiarEstado(parcial: Partial<EstadoAsistente>) {
     setEstados((prev) => ({
       ...prev,
-      [ranchoId]: { ...(prev[ranchoId] ?? { activo: null, instrucciones: "" }), ...parcial },
+      [ranchoId]: { ...(prev[ranchoId] ?? ESTADO_VACIO), ...parcial },
     }));
   }
 
@@ -126,7 +138,12 @@ export default function ConocimientoPanel({
     setError(null);
     setMensaje(null);
     startTransition(async () => {
-      const res = await guardarAsistenteNegocio(ranchoId, estado.activo, estado.instrucciones);
+      const res = await guardarAsistenteNegocio(
+        ranchoId,
+        estado.activo,
+        estado.instrucciones,
+        estado.limiteRespuestas,
+      );
       if (res.error) {
         setError(res.error);
         return;
@@ -326,6 +343,30 @@ export default function ConocimientoPanel({
             placeholder="Ej. Tuteá poco, hablá de usted. Nunca prometas descuentos. Si preguntan por fechas ocupadas, decí que revisen el calendario."
             className={inputCls}
           />
+        </div>
+
+        <div className="mt-4">
+          <label className={labelCls} htmlFor="limite-respuestas-asistente">
+            Límite de respuestas automáticas por conversación
+          </label>
+          <input
+            id="limite-respuestas-asistente"
+            type="number"
+            min={1}
+            max={200}
+            value={estado.limiteRespuestas ?? ""}
+            onChange={(e) => {
+              const t = e.target.value;
+              cambiarEstado({ limiteRespuestas: t === "" ? null : Math.max(1, Math.min(200, Number(t))) });
+            }}
+            placeholder="15 (el límite por defecto de la plataforma)"
+            className={`max-w-[220px] ${inputCls}`}
+          />
+          <p className="mt-1.5 max-w-[76ch] text-[12px] text-aventurea-ink-soft">
+            Pasado este número de respuestas en una misma conversación, el
+            asistente avisa una sola vez que sigue el equipo del negocio a
+            mano y queda callado. Vacío = usa el límite por defecto (15).
+          </p>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-3">

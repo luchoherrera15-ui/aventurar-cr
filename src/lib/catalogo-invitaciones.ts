@@ -18,8 +18,8 @@ export type DemoInvitacion = {
   iconoClase: string;
   /**
    * Los colores REALES del diseño, para poder mostrar una muestra de
-   * cómo se ve sin abrirla. Los usa la landing nueva
-   * (/invitaciones2): una fila de cards de texto todas iguales no
+   * cómo se ve sin abrirla. Los usa la landing de /invitaciones: una
+   * fila de cards de texto todas iguales no
    * "muestra ejemplos" — muestra una lista. Con esto cada card se ve
    * como la invitación que representa.
    *

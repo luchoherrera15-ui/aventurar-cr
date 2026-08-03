@@ -156,18 +156,28 @@ export async function borrarConocimiento(id: string) {
 }
 
 /**
- * El interruptor del asistente de un negocio y las indicaciones de su
- * dueño. `activo` en null quiere decir "seguí la regla por defecto" —
- * no es lo mismo que apagarlo.
+ * El interruptor del asistente de un negocio, las indicaciones de su
+ * dueño y su límite propio de respuestas por conversación. `activo` en
+ * null quiere decir "seguí la regla por defecto" — no es lo mismo que
+ * apagarlo. `limiteRespuestas` en null quiere decir lo mismo: usar el
+ * default de la plataforma (MAX_RESPUESTAS_ASISTENTE, hoy 15) en vez
+ * de un número propio de este negocio.
  */
 export async function guardarAsistenteNegocio(
   ranchoId: string,
   activo: boolean | null,
   instrucciones: string,
+  limiteRespuestas: number | null,
 ) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: SIN_PERMISO };
   if (!ranchoId) return { error: "Elegí primero un negocio." };
+
+  if (limiteRespuestas !== null) {
+    if (!Number.isFinite(limiteRespuestas) || limiteRespuestas < 1 || limiteRespuestas > 200) {
+      return { error: "El límite de respuestas tiene que ser un número entre 1 y 200." };
+    }
+  }
 
   const texto = instrucciones.trim();
   const { error } = await supabase
@@ -175,10 +185,20 @@ export async function guardarAsistenteNegocio(
     .update({
       asistente_activo: activo,
       asistente_instrucciones: texto || null,
+      asistente_max_respuestas: limiteRespuestas,
     })
     .eq("id", ranchoId);
 
-  if (error) return { error: error.message };
+  if (error) {
+    // Si la 0093 todavía no corrió, esta columna no existe y el mensaje
+    // crudo de Postgres confunde más que ayuda.
+    if (/asistente_max_respuestas/.test(error.message)) {
+      return {
+        error: "Falta correr la migración 0093_limite_respuestas_asistente.sql en Supabase.",
+      };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/admin/ia");
   return { error: null };

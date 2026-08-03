@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
  * Separado de invitacion-animada.tsx a propósito: ese archivo carga las
  * piezas animadas completas de la plantilla de /i/{slug} (670 líneas).
  * Cualquier otra pantalla que solo necesite saber si el visitante pidió
- * movimiento reducido —como el riel de ejemplos de /invitaciones2— no
+ * movimiento reducido —como el riel de ejemplos de /invitaciones— no
  * tiene por qué arrastrar ese chunk entero para usar un solo hook.
  */
 

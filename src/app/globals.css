@@ -1011,7 +1011,7 @@ body {
   to { transform: scaleX(0); }
 }
 
-/* El indicador del riel de ejemplos (/invitaciones2): la barra activa
+/* El indicador del riel de ejemplos (/invitaciones): la barra activa
    se llena de izquierda a derecha mientras dura el slide, como el
    avance de un carrusel de historias. transform-origin queda a la
    izquierda en el propio elemento (riel-ejemplos.tsx) — acá solo vive

@@ -74,6 +74,10 @@ const MAX_FECHAS_OCUPADAS = 60;
  * mensajes con el prefijo del asistente que ya mandó ESTE dueño en
  * ESTA conversación — el aviso de tope de abajo también lleva el
  * prefijo, así que ya cuenta como el mensaje número 16 y no se repite.
+ *
+ * Este es el DEFAULT de la plataforma: un negocio puntual puede tener
+ * su propio número en `ranchos.asistente_max_respuestas` (editable
+ * desde /admin/ia), que manda por encima de este cuando existe.
  */
 const MAX_RESPUESTAS_ASISTENTE = 15;
 const PREFIJO_ASISTENTE = "🤖 ";
@@ -106,6 +110,9 @@ type RanchoDeConversacion = {
   /** Opcionales: no existen hasta que corre la migración 0078. */
   asistente_activo?: boolean | null;
   asistente_instrucciones?: string | null;
+  /** Opcional: no existe hasta que corre la migración 0093. null =
+   *  usa MAX_RESPUESTAS_ASISTENTE, el default de la plataforma. */
+  asistente_max_respuestas?: number | null;
 };
 
 type ConversacionConRancho = {
@@ -118,6 +125,11 @@ type ConversacionConRancho = {
 type ClienteAdmin = NonNullable<ReturnType<typeof createAdminClient>>;
 
 const COLUMNAS_CONVERSACION =
+  "id, cliente_id, rancho_id, ranchos(nombre, slug, owner_id, categoria, asistente_activo, asistente_instrucciones, asistente_max_respuestas)";
+/** Sin `asistente_max_respuestas`: para cuando corrió la 0078 pero
+ *  todavía no la 0093 — el interruptor y las instrucciones del dueño
+ *  siguen andando, solo se pierde el límite propio hasta que se corra. */
+const COLUMNAS_CONVERSACION_SIN_LIMITE =
   "id, cliente_id, rancho_id, ranchos(nombre, slug, owner_id, categoria, asistente_activo, asistente_instrucciones)";
 const COLUMNAS_CONVERSACION_LEGADO =
   "id, cliente_id, rancho_id, ranchos(nombre, slug, owner_id, categoria)";
@@ -215,21 +227,31 @@ function asistenteEncendido(rancho: RanchoDeConversacion): boolean {
 
 /**
  * Lee la conversación con su negocio. Se piden las columnas del
- * interruptor, pero si la migración 0078 todavía no corrió PostgREST
- * rechaza la consulta entera: en ese caso se relee sin ellas para que
- * el chat siga contestando como antes.
+ * interruptor y del límite propio, pero si alguna migración todavía no
+ * corrió PostgREST rechaza la consulta ENTERA (no solo la columna que
+ * falta): se relee en un escalón más simple, hasta llegar al legado,
+ * para que el chat siga contestando como antes en vez de quedar mudo.
  */
 async function leerConversacion(
   db: ClienteAdmin,
   conversacionId: string,
 ): Promise<ConversacionConRancho | null> {
-  const conInterruptor = await db
+  const completo = await db
     .from("conversaciones")
     .select(COLUMNAS_CONVERSACION)
     .eq("id", conversacionId)
     .maybeSingle();
-  if (!conInterruptor.error) {
-    return (conInterruptor.data as ConversacionConRancho | null) ?? null;
+  if (!completo.error) {
+    return (completo.data as ConversacionConRancho | null) ?? null;
+  }
+
+  const sinLimite = await db
+    .from("conversaciones")
+    .select(COLUMNAS_CONVERSACION_SIN_LIMITE)
+    .eq("id", conversacionId)
+    .maybeSingle();
+  if (!sinLimite.error) {
+    return (sinLimite.data as ConversacionConRancho | null) ?? null;
   }
 
   const legado = await db
@@ -379,6 +401,12 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
 
     // El tope de respuestas: se cuenta ANTES de armar el prompt para no
     // gastar la consulta pesada (ni un token) si ya no toca contestar.
+    // Si el negocio tiene su propio número (0093), manda ese; si no,
+    // el default de la plataforma.
+    const limiteRespuestas =
+      typeof rancho.asistente_max_respuestas === "number"
+        ? rancho.asistente_max_respuestas
+        : MAX_RESPUESTAS_ASISTENTE;
     const { count: respuestasPrevias } = await db
       .from("mensajes")
       .select("id", { count: "exact", head: true })
@@ -386,8 +414,8 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
       .eq("autor_id", rancho.owner_id)
       .like("texto", `${PREFIJO_ASISTENTE}%`);
 
-    if ((respuestasPrevias ?? 0) > MAX_RESPUESTAS_ASISTENTE) return;
-    if ((respuestasPrevias ?? 0) === MAX_RESPUESTAS_ASISTENTE) {
+    if ((respuestasPrevias ?? 0) > limiteRespuestas) return;
+    if ((respuestasPrevias ?? 0) === limiteRespuestas) {
       await db.from("mensajes").insert({
         conversacion_id: conversacion.id,
         autor_id: rancho.owner_id,
