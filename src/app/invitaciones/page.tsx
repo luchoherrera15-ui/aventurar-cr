@@ -297,56 +297,55 @@ export default async function InvitacionesLanding() {
         </div>
       </section>
 
-      {/* ---------- La escena animada — el corazón de la página ------- */}
+      {/* ---------- La escena animada — el corazón de la página -------
+           Dos columnas: a la izquierda el relato en texto de verdad
+           (los pasos), a la derecha los mockups en movimiento. Los tres
+           aparatos (teléfono, aviso, panel) comparten una sola línea de
+           tiempo (--inv-dur) así el toque del invitado, la notificación
+           y la fila que le entra al anfitrión caen en el mismo compás. */}
       <section
         id="como-funciona"
         className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-3xl bg-aventurea-blue-light py-14 lg:mx-auto"
       >
         <div className="mx-auto max-w-[1140px] px-6 lg:px-10">
-          <div data-reveal className="text-center">
-            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-navy">
-              En vivo, ahora mismo
-            </p>
-            <h2 className="titulo mt-2 text-[28px] text-aventurea-ink sm:text-[34px]">
-              Del link de tu invitado a tu lista de confirmados
-            </h2>
-            <p className="mx-auto mt-2.5 max-w-[54ch] text-[14.5px] text-aventurea-ink-soft">
-              Esto no es un dibujo: es exactamente lo que ve tu invitado en su
-              teléfono y lo que ves vos en tu cuenta, al mismo tiempo.
-            </p>
-          </div>
-
-          {/* Una sola línea de tiempo (--inv-dur) sincroniza teléfono,
-              conector y panel: el toque del invitado y la fila que le
-              entra al anfitrión caen en el mismo compás. */}
           <div
-            className="mt-11 flex flex-col items-center justify-center gap-10 lg:flex-row lg:items-start lg:gap-7"
+            className="grid items-center gap-12 lg:grid-cols-[1fr_1.05fr] lg:gap-16"
             style={{ "--inv-dur": "9s" } as React.CSSProperties}
           >
-            <PasoEscena
-              n="1"
-              titulo="Abre tu invitación"
-              texto="Pantalla completa y animada, con la cuenta regresiva y la ubicación en Maps y Waze."
-            >
-              <TelefonoInvitado />
-            </PasoEscena>
+            <div data-reveal>
+              <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-navy">
+                En vivo, ahora mismo
+              </p>
+              <h2 className="titulo mt-2 max-w-[16ch] text-[28px] text-aventurea-ink sm:text-[34px]">
+                Del link de tu invitado a tu lista de confirmados
+              </h2>
+              <p className="mt-2.5 max-w-[46ch] text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+                Esto no es un dibujo: es exactamente lo que ve tu invitado en
+                su teléfono y lo que ves vos en tu cuenta, al mismo tiempo.
+              </p>
 
-            <PasoEscena
-              n="2"
-              titulo="Confirma con un toque"
-              texto="Sin apps ni formularios eternos: toca «Sí asistiré» y dice cuántos van."
-              angosta
-            >
-              <ConectorViaje />
-            </PasoEscena>
+              <div className="mt-8 flex flex-col gap-6">
+                <FilaPaso
+                  n="1"
+                  titulo="Abre tu invitación"
+                  texto="Pantalla completa y animada, con la cuenta regresiva y la ubicación en Maps y Waze."
+                />
+                <FilaPaso
+                  n="2"
+                  titulo="Confirma con un toque"
+                  texto="Sin apps ni formularios eternos: toca «Sí asistiré» y dice cuántos van."
+                />
+                <FilaPaso
+                  n="3"
+                  titulo="A vos te entra al instante"
+                  texto="Te llega la notificación, la fila aparece sola en tu panel y el conteo de personas sube solo."
+                />
+              </div>
+            </div>
 
-            <PasoEscena
-              n="3"
-              titulo="A vos te entra al instante"
-              texto="La fila aparece sola en tu panel y el conteo de personas sube solo."
-            >
-              <PanelAnfitrion />
-            </PasoEscena>
+            <div data-reveal style={{ "--reveal-delay": "120ms" } as React.CSSProperties}>
+              <EscenaMockups />
+            </div>
           </div>
         </div>
       </section>
@@ -589,47 +588,67 @@ export default async function InvitacionesLanding() {
    invitacion-* de globals.css, sincronizados por la misma --inv-dur y
    desfasados con --inv-delay. */
 
-/** Un paso de la escena: el rótulo explicativo arriba y el aparato
- *  (o el conector) debajo. `angosta` es para la columna del medio, que
- *  no lleva pantalla y no tiene por qué ocupar lo mismo. */
-function PasoEscena({
-  n,
-  titulo,
-  texto,
-  angosta,
-  children,
-}: {
-  n: string;
-  titulo: string;
-  texto: string;
-  angosta?: boolean;
-  children: React.ReactNode;
-}) {
+/** Una fila de la columna de texto: número, título y una línea que lo
+ *  explica — sin mockup, ese vive aparte en la columna de la derecha. */
+function FilaPaso({ n, titulo, texto }: { n: string; titulo: string; texto: string }) {
   return (
-    <div
-      data-reveal
-      style={{ "--reveal-delay": `${(Number(n) - 1) * 110}ms` } as React.CSSProperties}
-      className={`flex shrink-0 flex-col items-center ${
-        angosta ? "lg:w-[200px]" : ""
-      }`}
-    >
-      {/* Los tres rótulos arrancan a la misma altura: así se leen como
-          1-2-3 de un vistazo, aunque debajo cuelguen piezas de alturas
-          muy distintas. */}
-      <div className={`text-center ${angosta ? "max-w-[26ch]" : "max-w-[34ch]"}`}>
-        <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-aventurea-navy text-[15px] font-extrabold text-white">
-          {n}
-        </span>
-        <h3 className="mt-3 text-[16px] font-extrabold text-aventurea-ink">
-          {titulo}
-        </h3>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-aventurea-ink-soft">
+    <div className="flex gap-4">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-[15px] font-extrabold text-white">
+        {n}
+      </span>
+      <div>
+        <h3 className="text-[16px] font-extrabold text-aventurea-ink">{titulo}</h3>
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
           {texto}
         </p>
       </div>
-      {/* La flecha del medio baja hasta el centro de los aparatos; las
-          pantallas cuelgan directo del rótulo. */}
-      <div className={angosta ? "mt-6 lg:mt-32" : "mt-6"}>{children}</div>
+    </div>
+  );
+}
+
+/** La columna de la derecha: los tres aparatos apilados, en el mismo
+ *  orden que cuentan los pasos de la izquierda — el teléfono que
+ *  confirma, el aviso que le llega al anfitrión y el panel donde se
+ *  acumulan las confirmaciones. */
+function EscenaMockups() {
+  return (
+    <div aria-hidden className="flex flex-col items-center gap-6">
+      <TelefonoInvitado />
+      <ConectorViaje />
+      {/* Mismo ancho que PanelAnfitrion (w-[300px] sm:w-[340px]): así el
+          aviso, centrado con inset-x-0 + mx-auto, queda exactamente
+          sobre el panel en cualquier tamaño de pantalla. */}
+      <div className="relative w-[300px] sm:w-[340px]">
+        <NotificacionConfirmacion />
+        <PanelAnfitrion />
+      </div>
+    </div>
+  );
+}
+
+/** El aviso flotante sobre el panel: lo que el anfitrión recibiría al
+ *  confirmar un invitado. Entra en el mismo compás que la fila y el
+ *  contador (invitacion-entrar / invitacion-num-entra), así los tres
+ *  se leen como una sola cosa pasando. Se centra con inset-x-0 +
+ *  mx-auto en vez de -translate-x-1/2: el transform lo maneja entero
+ *  la animación, así no compiten dos transforms por la misma
+ *  propiedad. */
+function NotificacionConfirmacion() {
+  return (
+    <div className="anim-invitacion-notificacion absolute -top-5 inset-x-0 z-10 mx-auto w-[230px] rounded-2xl bg-white px-3.5 py-2.5 shadow-[0_16px_32px_-12px_rgba(16,26,44,0.4)] ring-1 ring-black/5">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-aventurea-green text-white [&_svg]:h-3 [&_svg]:w-3">
+          <IconCheck />
+        </span>
+        <div className="min-w-0 text-left">
+          <p className="truncate text-[10.5px] font-extrabold text-aventurea-ink">
+            Nueva confirmación
+          </p>
+          <p className="truncate text-[10px] text-aventurea-ink-soft">
+            María José · 2 acompañantes
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -733,16 +752,16 @@ function TelefonoInvitado() {
 }
 
 /** El conector entre aparatos: un puntito (con su caravana) que viaja
- *  del teléfono al panel justo después del tap. En pantalla angosta la
- *  fila se apila, así que la flecha baja en vez de cruzar. */
+ *  del teléfono al panel justo después del tap. Siempre apilado (la
+ *  columna de la derecha nunca los pone lado a lado), así que la
+ *  flecha va girada y apunta hacia abajo. */
 function ConectorViaje() {
   return (
     <div aria-hidden className="flex flex-col items-center gap-2">
-      {/* En móvil la fila se apila, así que la flecha gira y apunta
-          hacia abajo. La caja de 88px le da el alto que el rotate
-          necesita (transform no reserva espacio por sí solo). */}
-      <div className="flex h-[88px] w-[88px] items-center justify-center lg:h-auto lg:w-auto">
-        <div className="flex rotate-90 items-center gap-1 text-aventurea-orange lg:rotate-0">
+      {/* La caja de 88px le da el alto que el rotate necesita
+          (transform no reserva espacio por sí solo). */}
+      <div className="flex h-[88px] w-[88px] items-center justify-center">
+        <div className="flex rotate-90 items-center gap-1 text-aventurea-orange">
           <div className="relative h-2 w-16">
             <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-current opacity-25" />
             {[0, 1, 2].map((i) => (

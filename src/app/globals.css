@@ -663,6 +663,30 @@ body {
   }
 }
 
+/* La notificación flotante que le avisa al anfitrión: entra justo
+   cuando el viaje llega y el panel se actualiza, se queda mientras el
+   contador y la fila están arriba, y se retira con ellos. Sin
+   translateX: se centra con inset-x-0 + mx-auto en vez de -50%, así
+   el transform de la animación no le pisa el centrado (el gotcha ya
+   conocido de mezclar utilidades de transform con keyframes). */
+@keyframes invitacion-notificacion {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  46%,
+  84% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
 /* El puntito "en vivo" del panel: late solo, fuera del compás largo. */
 @keyframes invitacion-latir {
   0%,
@@ -711,6 +735,10 @@ body {
 .anim-invitacion-latir {
   animation: invitacion-latir 1.8s ease-in-out var(--inv-delay, 0s) infinite;
 }
+.anim-invitacion-notificacion {
+  animation: invitacion-notificacion var(--inv-dur, 9s) ease-out
+    var(--inv-delay, 0s) infinite both;
+}
 
 /* Con movimiento reducido la escena queda quieta en el estado final:
    botón confirmado, fila de María José puesta y contador en 15. */
@@ -723,7 +751,8 @@ body {
   .anim-invitacion-entrar,
   .anim-invitacion-num-sale,
   .anim-invitacion-num-entra,
-  .anim-invitacion-latir {
+  .anim-invitacion-latir,
+  .anim-invitacion-notificacion {
     animation: none;
   }
 }
