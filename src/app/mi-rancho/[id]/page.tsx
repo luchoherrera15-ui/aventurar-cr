@@ -394,10 +394,29 @@ export default async function RanchoDetallePage({
           titulo="Agregar reservas a tu agenda"
           descripcion="Cargá una reserva suelta a mano, o traé de una vez la agenda que ya llevabas en otro lado."
         >
-          <ReservaManualForm
-            capacidadMax={esLugar ? rancho.capacidad_max : null}
-            onCrear={crearReservaManual.bind(null, rancho.id)}
-          />
+          {/* En citas, una reserva manual SIN hora queda invisible para
+              la agenda del día y no descuenta disponibilidad (la vista
+              exige hora_inicio) — una cita fantasma. El walk-in con
+              hora vive en la pantalla de Citas. */}
+          {rancho.vertical === "citas" ? (
+            <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
+              Las citas se cargan con su hora desde{" "}
+              <Link
+                href={`/mi-rancho/${rancho.id}/citas`}
+                className="font-bold text-aventurea-navy underline"
+              >
+                tu agenda de citas
+              </Link>{" "}
+              (botón &quot;+ Nueva cita&quot;) — así descuentan disponibilidad
+              y aparecen en el día. Para traer tu agenda vieja de una vez, usá
+              el importador de abajo.
+            </p>
+          ) : (
+            <ReservaManualForm
+              capacidadMax={esLugar ? rancho.capacidad_max : null}
+              onCrear={crearReservaManual.bind(null, rancho.id)}
+            />
+          )}
           {/* A mano es gratis; leer las fotos con IA es el complemento
               `agenda_ia` (0077), y el gate se resuelve en el servidor —
               acá solo se pinta lo que corresponda. */}

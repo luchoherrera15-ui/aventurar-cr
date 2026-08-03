@@ -3,12 +3,14 @@ import { autorizarCron } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   enviarCorreo,
+  plantillaAvisoAgenda,
   plantillaFindeLibre,
   plantillaPedirResena,
   plantillaRecordatorioCita,
   plantillaRecordatorioCobro,
   plantillaRecordatorioEvento,
 } from "@/lib/email";
+import { agruparClientes, esReincidente } from "@/lib/crm-citas";
 import { enviarPush } from "@/lib/push";
 import { sincronizarAgendaExterna } from "@/lib/agenda/importar-ics";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
@@ -32,7 +34,12 @@ import { fmtColones, saldoPendiente, type ReservaFinanzas } from "@/lib/finanzas
  *     cobrar → aviso al proveedor por correo y push, antes de que el
  *     auto-cobro de la noche (/api/auto-cobro) lo dé por cobrado solo
  *     (recordatorio_cobro_enviado).
- *  5. Refresco de agendas externas conectadas.
+ *  5. Aviso de agenda (solo negocios de citas): citas de AYER que
+ *     quedaron sin marcar (¿vino o no vino?) y clientes que ya
+ *     acumulan dos no-shows seguidos → correo y push al dueño con el
+ *     CTA a su panel (avisos_agenda, un aviso por día como máximo).
+ *     Avisar, no auto-marcar: no_asistio tiene consecuencias (lealtad).
+ *  6. Refresco de agendas externas conectadas.
  *
  * Corre con la service key (el cron no tiene sesión de usuario). Si
  * falta la key o la de Resend, responde explicando qué falta en vez
@@ -335,7 +342,135 @@ export async function GET(request: Request) {
     cobrosAvisados++;
   }
 
-  // 5. Refresco diario de las agendas externas conectadas (0072): lo
+  // ---------- 5. Aviso de agenda de citas (0094) ----------
+  // Las citas de ayer que nadie marcó siguen 'confirmada' para
+  // siempre y ensucian el CRM. El sistema AVISA y el dueño decide —
+  // auto-marcar no_asistio castigaría al cliente sin derecho a réplica.
+  let avisosAgendaEnviados = 0;
+  {
+    type FilaSinMarcar = {
+      rancho_id: string;
+      hora_inicio: string;
+      nombre: string | null;
+      tipo_evento: string | null;
+      ranchos: { id: string; nombre: string; owner_id: string; vertical: string } | null;
+    };
+    const { data: sinMarcarData } = await admin
+      .from("reservas")
+      .select(
+        "rancho_id, hora_inicio, nombre, tipo_evento, ranchos!inner(id, nombre, owner_id, vertical)",
+      )
+      .eq("estado", "confirmada")
+      .eq("fecha", ayer)
+      .not("hora_inicio", "is", null)
+      .eq("ranchos.vertical", "citas")
+      .order("hora_inicio", { ascending: true });
+
+    const porRancho = new Map<
+      string,
+      { nombre: string; ownerId: string; sinMarcar: FilaSinMarcar[] }
+    >();
+    for (const r of (sinMarcarData ?? []) as unknown as FilaSinMarcar[]) {
+      if (!r.ranchos) continue;
+      const entrada = porRancho.get(r.rancho_id) ?? {
+        nombre: r.ranchos.nombre,
+        ownerId: r.ranchos.owner_id,
+        sinMarcar: [],
+      };
+      entrada.sinMarcar.push(r);
+      porRancho.set(r.rancho_id, entrada);
+    }
+
+    // Negocios donde AYER se marcó algún no-show: ahí puede haber un
+    // cliente que acaba de acumular su segunda falta seguida.
+    const { data: noShowsAyer } = await admin
+      .from("reservas")
+      .select("rancho_id, ranchos!inner(id, nombre, owner_id, vertical)")
+      .eq("estado", "no_asistio")
+      .gte("no_asistio_en", `${ayer}T00:00:00-06:00`)
+      .not("hora_inicio", "is", null)
+      .eq("ranchos.vertical", "citas");
+    for (const r of (noShowsAyer ?? []) as unknown as FilaSinMarcar[]) {
+      if (!r.ranchos || porRancho.has(r.rancho_id)) continue;
+      porRancho.set(r.rancho_id, {
+        nombre: r.ranchos.nombre,
+        ownerId: r.ranchos.owner_id,
+        sinMarcar: [],
+      });
+    }
+
+    for (const [ranchoId, info] of porRancho) {
+      // Reincidentes: la ficha se deriva de las reservas del negocio
+      // con la misma lib del panel (una sola definición de "faltó a
+      // sus últimas dos").
+      const { data: historial } = await admin
+        .from("reservas")
+        .select(
+          "id, fecha, hora_inicio, estado, nombre, correo, whatsapp, cliente_id, monto_total",
+        )
+        .eq("rancho_id", ranchoId)
+        .gte("fecha", sumarDiasISO(hoy, -180))
+        .not("hora_inicio", "is", null)
+        // Lo más reciente primero: si el negocio tiene más de mil
+        // citas en seis meses, la racha se calcula sobre las últimas.
+        .order("fecha", { ascending: false })
+        .limit(1000);
+      const reincidentes = agruparClientes(historial ?? [], hoy)
+        .filter(esReincidente)
+        .map((c) => ({ nombre: c.nombre, fallosSeguidos: c.fallosSeguidos }));
+
+      if (info.sinMarcar.length === 0 && reincidentes.length === 0) continue;
+
+      // El insert es el reclamo: una fila por (negocio, día) — si ya
+      // existe, hoy ya se avisó y no se repite.
+      const { error: yaAvisado } = await admin
+        .from("avisos_agenda")
+        .insert({ rancho_id: ranchoId, fecha: hoy });
+      if (yaAvisado) continue;
+
+      const { data: perfil } = await admin
+        .from("perfiles")
+        .select("nombre, email")
+        .eq("id", info.ownerId)
+        .maybeSingle();
+
+      if (perfil?.email) {
+        await enviarCorreo({
+          to: perfil.email,
+          subject:
+            info.sinMarcar.length > 0
+              ? `${info.nombre}: tenés ${info.sinMarcar.length} cita${info.sinMarcar.length === 1 ? "" : "s"} de ayer sin marcar`
+              : `${info.nombre}: tenés clientes por recuperar`,
+          html: plantillaAvisoAgenda({
+            nombreProveedor: perfil.nombre || perfil.email,
+            nombreNegocio: info.nombre,
+            ranchoId,
+            sinMarcar: info.sinMarcar.map((c) => ({
+              hora: horaBonita(String(c.hora_inicio).slice(0, 5)),
+              nombre: c.nombre,
+              servicio: c.tipo_evento,
+            })),
+            reincidentes,
+          }),
+        });
+      }
+      await enviarPush({
+        usuarios: [info.ownerId],
+        titulo:
+          info.sinMarcar.length > 0
+            ? `${info.sinMarcar.length} cita${info.sinMarcar.length === 1 ? "" : "s"} de ayer sin marcar`
+            : "Tenés clientes por recuperar",
+        cuerpo:
+          info.sinMarcar.length > 0
+            ? "Marcá si vinieron o no — así tu asistencia y tus clientes quedan al día."
+            : "Hay clientes que te fallaron dos veces seguidas. Mandales una promo desde tu panel.",
+        data: { url: "/?tab=reservas" },
+      });
+      avisosAgendaEnviados++;
+    }
+  }
+
+  // 6. Refresco diario de las agendas externas conectadas (0072): lo
   // que el proveedor agregó en su Google/Apple Calendar entra solo,
   // sin que tenga que tocar "Sincronizar ahora". Tolerante: si la
   // tabla no existe o una agenda falla, el resto de avisos ya salió.
@@ -362,6 +497,7 @@ export async function GET(request: Request) {
     resenasPedidas,
     findesAvisados,
     cobrosAvisados,
+    avisosAgendaEnviados,
     agendasSincronizadas,
   });
 }

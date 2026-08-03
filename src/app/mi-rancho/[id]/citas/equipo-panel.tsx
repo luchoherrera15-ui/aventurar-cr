@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { IconCamera } from "@/components/icons";
+import MiembroConfig, { type Asignacion, type ServicioCita } from "./miembro-config";
 import {
   actualizarMiembroEquipo,
   crearMiembroEquipo,
@@ -10,6 +11,7 @@ import {
   reordenarEquipo,
   type MiembroEquipo,
   type MiembroInput,
+  type RangoHorarioMiembro,
 } from "./actions";
 
 const inputCls =
@@ -23,16 +25,42 @@ function nombreSeguro(nombre: string) {
   return nombre.replace(/[^a-zA-Z0-9.\-_]/g, "_").slice(-80);
 }
 
-type Borrador = { nombre: string; rol: string; fotoUrl: string | null };
+type Borrador = {
+  nombre: string;
+  rol: string;
+  fotoUrl: string | null;
+  tipo: "profesional" | "espacio" | "equipo";
+  capacidad: string;
+};
 
-const VACIO: Borrador = { nombre: "", rol: "", fotoUrl: null };
+const VACIO: Borrador = { nombre: "", rol: "", fotoUrl: null, tipo: "profesional", capacidad: "" };
+
+const TIPO_LABEL: Record<Borrador["tipo"], string> = {
+  profesional: "Persona",
+  espacio: "Espacio (cabina, camilla, mesa...)",
+  equipo: "Equipo (máquina, sillón...)",
+};
 
 function aInput(b: Borrador, activo: boolean): MiembroInput {
-  return { nombre: b.nombre, rol: b.rol, fotoUrl: b.fotoUrl, activo };
+  const capacidad = b.capacidad.trim() ? Number(b.capacidad) : null;
+  return {
+    nombre: b.nombre,
+    rol: b.rol,
+    fotoUrl: b.fotoUrl,
+    activo,
+    tipo: b.tipo,
+    capacidad: Number.isFinite(capacidad) ? capacidad : null,
+  };
 }
 
 function deMiembro(m: MiembroEquipo): Borrador {
-  return { nombre: m.nombre, rol: m.rol ?? "", fotoUrl: m.foto_url };
+  return {
+    nombre: m.nombre,
+    rol: m.rol ?? "",
+    fotoUrl: m.foto_url,
+    tipo: m.tipo ?? "profesional",
+    capacidad: m.capacidad ? String(m.capacidad) : "",
+  };
 }
 
 /** El avatar de una persona del equipo: su foto o su inicial. */
@@ -63,15 +91,25 @@ function Avatar({ miembro }: { miembro: { nombre: string; foto_url: string | nul
 export default function EquipoPanel({
   ranchoId,
   initialEquipo,
+  serviciosCita = [],
+  asignaciones = [],
+  horarios = {},
 }: {
   ranchoId: string;
   initialEquipo: MiembroEquipo[];
+  /** Los servicios de cita del catálogo, para asignar quién da qué. */
+  serviciosCita?: ServicioCita[];
+  /** Filas de servicios_recurso del negocio completo. */
+  asignaciones?: Asignacion[];
+  /** Filas de horarios_recurso por miembro. */
+  horarios?: Record<string, RangoHorarioMiembro[]>;
 }) {
   const [equipo, setEquipo] = useState(
     [...initialEquipo].sort((a, b) => a.orden - b.orden),
   );
   const [borrador, setBorrador] = useState<Borrador>(VACIO);
   const [editando, setEditando] = useState<string | null>(null);
+  const [configurando, setConfigurando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -151,6 +189,7 @@ export default function EquipoPanel({
     const destino = idx + direccion;
     if (idx < 0 || destino < 0 || destino >= equipo.length) return;
 
+    const anterior = equipo;
     const nuevo = [...equipo];
     [nuevo[idx], nuevo[destino]] = [nuevo[destino], nuevo[idx]];
     setEquipo(nuevo);
@@ -160,7 +199,12 @@ export default function EquipoPanel({
         ranchoId,
         nuevo.map((m) => m.id),
       );
-      if (res.error) setError(res.error);
+      if (res.error) {
+        // El orden optimista no se quedó en la base: se revierte para
+        // que la pantalla no cuente una historia que no existe.
+        setEquipo(anterior);
+        setError(res.error);
+      }
     });
   }
 
@@ -204,9 +248,31 @@ export default function EquipoPanel({
         />
       </div>
 
+      <div>
+        <label className={labelCls}>Qué es</label>
+        {/* Un recurso físico (0061) también se agenda: la camilla del
+            spa o el sillón de tatuar son "alguien" con quien reservar. */}
+        <select
+          value={borrador.tipo}
+          onChange={(e) =>
+            setBorrador({ ...borrador, tipo: e.target.value as Borrador["tipo"] })
+          }
+          className={inputCls}
+        >
+          {(Object.keys(TIPO_LABEL) as Borrador["tipo"][]).map((t) => (
+            <option key={t} value={t}>
+              {TIPO_LABEL[t]}
+            </option>
+          ))}
+        </select>
+      </div>
+      {/* La columna `capacidad` (0076) es de las mesas de restaurantes:
+          el motor de citas agenda 1 cita a la vez por recurso, así que
+          acá no se ofrece — prometer "4 a la vez" sería mentira. */}
+
       <div className="sm:col-span-2">
         <label className={labelCls}>Foto (opcional)</label>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {borrador.fotoUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
             <img
@@ -312,19 +378,39 @@ export default function EquipoPanel({
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-bold text-aventurea-ink">
                     {miembro.nombre}
+                    {miembro.tipo && miembro.tipo !== "profesional" && (
+                      <span className="ml-2 rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy">
+                        {miembro.tipo === "espacio" ? "Espacio" : "Equipo"}
+                      </span>
+                    )}
                     {!miembro.activo && (
                       <span className="ml-2 rounded-lg bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-zinc-500">
                         Pausado
                       </span>
                     )}
                   </p>
-                  {miembro.rol && (
-                    <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                      {miembro.rol}
-                    </p>
-                  )}
+                  <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
+                    {miembro.rol && <span>{miembro.rol}</span>}
+                    {(horarios[miembro.id]?.length ?? 0) > 0 && (
+                      <span className={miembro.rol ? "ml-2" : ""}>· horario propio</span>
+                    )}
+                  </p>
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-1.5">
+                <div className="flex min-w-0 flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      setConfigurando(configurando === miembro.id ? null : miembro.id)
+                    }
+                    className={`h-[30px] rounded-lg px-2.5 text-xs font-bold disabled:opacity-40 ${
+                      configurando === miembro.id
+                        ? "bg-aventurea-navy text-white"
+                        : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                    }`}
+                  >
+                    Horario y servicios
+                  </button>
                   <button
                     type="button"
                     disabled={pending || idx === 0}
@@ -371,6 +457,17 @@ export default function EquipoPanel({
                     Quitar
                   </button>
                 </div>
+                {configurando === miembro.id && (
+                  <div className="w-full">
+                    <MiembroConfig
+                      ranchoId={ranchoId}
+                      miembroId={miembro.id}
+                      horarioInicial={horarios[miembro.id] ?? []}
+                      serviciosCita={serviciosCita}
+                      asignaciones={asignaciones}
+                    />
+                  </div>
+                )}
               </div>
             ),
           )}

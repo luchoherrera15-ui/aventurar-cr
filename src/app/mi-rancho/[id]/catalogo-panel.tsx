@@ -40,6 +40,7 @@ type Borrador = {
   grupo: string;
   duracionHoras: string;
   duracionMinutos: string;
+  bufferMin: string;
   fotoUrl: string | null;
   minPorReserva: string;
   maxPorReserva: string;
@@ -56,6 +57,7 @@ const VACIO: Borrador = {
   grupo: "",
   duracionHoras: "",
   duracionMinutos: "",
+  bufferMin: "",
   fotoUrl: null,
   minPorReserva: "1",
   maxPorReserva: "",
@@ -80,6 +82,7 @@ function aInput(b: Borrador, activo: boolean): ItemInput {
     grupo: b.grupo,
     duracionHoras: num(b.duracionHoras),
     duracionMinutos: num(b.duracionMinutos),
+    bufferMin: num(b.bufferMin),
     fotoUrl: b.fotoUrl,
     minPorReserva: num(b.minPorReserva) ?? 1,
     maxPorReserva: num(b.maxPorReserva),
@@ -100,6 +103,7 @@ function deItem(item: RanchoItem): Borrador {
     duracionHoras: item.duracion_horas === null ? "" : String(item.duracion_horas),
     duracionMinutos:
       item.duracion_minutos === null ? "" : String(item.duracion_minutos),
+    bufferMin: item.buffer_min ? String(item.buffer_min) : "",
     fotoUrl: item.foto_url,
     minPorReserva: String(item.min_por_reserva),
     maxPorReserva: item.max_por_reserva === null ? "" : String(item.max_por_reserva),
@@ -404,20 +408,37 @@ export default function CatalogoPanel({
       </div>
 
       {esCitas ? (
-        <div>
-          <label className={labelCls}>Duración (minutos)</label>
-          <input
-            type="number"
-            min={5}
-            max={480}
-            step={5}
-            value={borrador.duracionMinutos}
-            onChange={(e) =>
-              setBorrador({ ...borrador, duracionMinutos: e.target.value })
-            }
-            placeholder="30"
-            className={inputCls}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Duración (minutos)</label>
+            <input
+              type="number"
+              min={5}
+              max={480}
+              step={5}
+              value={borrador.duracionMinutos}
+              onChange={(e) =>
+                setBorrador({ ...borrador, duracionMinutos: e.target.value })
+              }
+              placeholder="30"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            {/* El buffer del motor pro (0061): limpiar la silla,
+                acomodar la cabina. La franja ocupa duración + esto. */}
+            <label className={labelCls}>Limpieza después (min)</label>
+            <input
+              type="number"
+              min={0}
+              max={240}
+              step={5}
+              value={borrador.bufferMin}
+              onChange={(e) => setBorrador({ ...borrador, bufferMin: e.target.value })}
+              placeholder="0"
+              className={inputCls}
+            />
+          </div>
         </div>
       ) : (
         <div>

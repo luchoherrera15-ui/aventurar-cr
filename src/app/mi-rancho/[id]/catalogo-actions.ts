@@ -25,6 +25,10 @@ export type ItemInput = {
   duracionHoras: number | null;
   /** Duración en minutos — la vertical de Citas mide así sus servicios. */
   duracionMinutos: number | null;
+  /** Minutos de limpieza/preparación después de la cita (0061). El
+   *  motor de disponibilidad los respeta: la franja ocupa duración +
+   *  buffer. null = 0. */
+  bufferMin: number | null;
   fotoUrl: string | null;
   minPorReserva: number;
   maxPorReserva: number | null;
@@ -63,6 +67,13 @@ function validar(datos: ItemInput) {
   ) {
     return "La duración debe ser una cantidad de minutos entre 5 y 480.";
   }
+  // Mismo rango que el check de la base (buffer_min 0..240, 0061).
+  if (
+    datos.bufferMin !== null &&
+    (!Number.isInteger(datos.bufferMin) || datos.bufferMin < 0 || datos.bufferMin > 240)
+  ) {
+    return "El tiempo de limpieza debe estar entre 0 y 240 minutos.";
+  }
   if (!Number.isInteger(datos.minPorReserva) || datos.minPorReserva < 1) {
     return "El mínimo por reserva debe ser al menos 1.";
   }
@@ -91,6 +102,7 @@ function aFila(datos: ItemInput) {
     grupo: datos.grupo.trim() || null,
     duracion_horas: datos.duracionHoras,
     duracion_minutos: datos.duracionMinutos,
+    buffer_min: datos.bufferMin ?? 0,
     foto_url: datos.fotoUrl,
     min_por_reserva: datos.minPorReserva,
     max_por_reserva: datos.maxPorReserva,
@@ -101,19 +113,20 @@ function aFila(datos: ItemInput) {
 }
 
 /**
- * Si la migración 0067 todavía no se corrió, la columna
- * es_paquete_base no existe y el insert/update entero fallaría. Se
- * detecta ese caso puntual y se reintenta sin la columna, para que el
- * catálogo siga siendo editable con la base vieja.
+ * Si las migraciones 0061/0067 todavía no se corrieron, las columnas
+ * buffer_min / es_paquete_base no existen y el insert/update entero
+ * fallaría. Se detecta ese caso puntual y se reintenta sin ellas, para
+ * que el catálogo siga siendo editable con la base vieja.
  */
 function sinPaqueteBase(fila: ReturnType<typeof aFila>) {
   const copia = { ...fila } as Record<string, unknown>;
   delete copia.es_paquete_base;
+  delete copia.buffer_min;
   return copia;
 }
 
 function faltaColumnaPaqueteBase(mensaje: string) {
-  return mensaje.includes("es_paquete_base");
+  return mensaje.includes("es_paquete_base") || mensaje.includes("buffer_min");
 }
 
 export async function crearItemCatalogo(

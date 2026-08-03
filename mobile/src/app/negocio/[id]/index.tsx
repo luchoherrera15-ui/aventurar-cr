@@ -286,11 +286,19 @@ export default function AdminNegocioScreen() {
               />
               {/* Equipo, horario y giftcards — solo la vertical de citas. */}
               {vertical === "citas" && (
-                <AtajoPanel
-                  icono="people-outline"
-                  texto="Equipo y horario"
-                  onPress={() => router.push(`/negocio/${id}/citas` as never)}
-                />
+                <>
+                  <AtajoPanel
+                    icono="people-outline"
+                    texto="Equipo y horario"
+                    onPress={() => router.push(`/negocio/${id}/citas` as never)}
+                  />
+                  {/* El CRM: quién viene, quién falta y las promos. */}
+                  <AtajoPanel
+                    icono="people-outline"
+                    texto="Clientes"
+                    onPress={() => router.push(`/negocio/${id}/clientes` as never)}
+                  />
+                </>
               )}
             </View>
           </View>

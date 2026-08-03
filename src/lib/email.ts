@@ -929,11 +929,89 @@ export function plantillaCitaNuevaProveedor({
  * El que llama es responsable de escapar el texto libre (titulo y
  * mensajeHtml llegan ya listos para meter en el HTML).
  */
+/**
+ * El aviso diario de la agenda de un negocio de citas (cron): citas de
+ * ayer que quedaron sin marcar (¿vino o no vino?) y clientes que ya
+ * fallaron dos veces seguidas — con el CTA al panel para resolverlo.
+ * Es transaccional (estado de SU agenda), no lleva link de baja.
+ */
+export function plantillaAvisoAgenda({
+  nombreProveedor,
+  nombreNegocio,
+  ranchoId,
+  sinMarcar,
+  reincidentes,
+}: {
+  nombreProveedor: string;
+  nombreNegocio: string;
+  ranchoId: string;
+  sinMarcar: { hora: string; nombre: string | null; servicio: string | null }[];
+  reincidentes: { nombre: string | null; fallosSeguidos: number }[];
+}) {
+  const filasSinMarcar = sinMarcar
+    .slice(0, 8)
+    .map(
+      (c) =>
+        `<div style="padding:6px 0;border-bottom:1px solid #efefef;">
+          <strong style="color:#101a2c;">${escaparHtml(c.hora)}</strong>
+          · ${escaparHtml(c.nombre ?? "Cliente")}
+          ${c.servicio ? `· ${escaparHtml(c.servicio)}` : ""}
+        </div>`,
+    )
+    .join("");
+  const masSinMarcar =
+    sinMarcar.length > 8
+      ? `<div style="padding:6px 0;color:#585858;">y ${sinMarcar.length - 8} más…</div>`
+      : "";
+
+  const bloqueReincidentes =
+    reincidentes.length > 0
+      ? `<div style="margin-top:14px;">
+          <strong style="color:#101a2c;">Clientes que te están fallando:</strong>
+          ${reincidentes
+            .slice(0, 5)
+            .map(
+              (r) =>
+                `<div style="padding:6px 0;border-bottom:1px solid #efefef;">
+                  ${escaparHtml(r.nombre ?? "Un cliente")} — faltó a sus últimas
+                  ${r.fallosSeguidos} citas seguidas.
+                </div>`,
+            )
+            .join("")}
+          <div style="margin-top:8px;color:#585858;">
+            Desde la sección <strong>Clientes</strong> de tu panel podés
+            mandarles una promoción para recuperarlos.
+          </div>
+        </div>`
+      : "";
+
+  return layoutBento({
+    kicker: escaparHtml(nombreNegocio),
+    titulo:
+      sinMarcar.length > 0
+        ? `Tenés ${sinMarcar.length} cita${sinMarcar.length === 1 ? "" : "s"} de ayer sin marcar`
+        : "Tenés clientes por recuperar",
+    introHtml: `Hola ${escaparHtml(nombreProveedor)}. ${
+      sinMarcar.length > 0
+        ? "Marcá si el cliente vino o no: así tus números de asistencia (y los puntos de lealtad) quedan al día."
+        : "El sistema detectó clientes que dejaron de venir."
+    }`,
+    cuerpoHtml: `${filasSinMarcar}${masSinMarcar}${bloqueReincidentes}` || undefined,
+    cta: {
+      href: `${SITIO_URL}/mi-rancho/${ranchoId}/citas`,
+      label: "Abrir mi agenda",
+    },
+    pie: "Recibiste este correo porque tenés un negocio publicado en Bookea.",
+  });
+}
+
 export function plantillaCampana({
   titulo,
   mensajeHtml,
   cta,
   bajaUrl,
+  kicker,
+  pie,
 }: {
   titulo: string;
   mensajeHtml: string;
@@ -941,13 +1019,18 @@ export function plantillaCampana({
   /** El link de baja del DESTINATARIO (urlBaja) — obligatorio para
    * campañas reales; el HTML varía por persona a propósito. */
   bajaUrl?: string;
+  /** Campañas POR NEGOCIO: el nombre del negocio como kicker y un pie
+   * que explica que escribe el negocio a través de Bookea. Sin estos,
+   * es la campaña de plataforma de siempre. */
+  kicker?: string;
+  pie?: string;
 }) {
   return layoutBento({
-    kicker: "Novedades",
+    kicker: kicker ?? "Novedades",
     titulo,
     cuerpoHtml: mensajeHtml,
     cta,
-    pie: "Recibiste este correo porque tenés una cuenta en Bookea.",
+    pie: pie ?? "Recibiste este correo porque tenés una cuenta en Bookea.",
     bajaUrl,
   });
 }

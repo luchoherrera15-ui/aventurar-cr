@@ -79,6 +79,26 @@ export function horaBonita(hora: string): string {
 // recurso, buffers y bloqueos. El espaciosLibres v1 que vivía acá se
 // retiró cuando la reserva pública pasó al motor pro (0081).
 
+/**
+ * El rango centinela que representa "ese día NO trabaja" en el
+ * horario propio de un miembro. El esquema de horarios_recurso no
+ * puede decir "libre" directamente (un día sin filas HEREDA el
+ * horario del negocio, 0061), así que un día libre se guarda como un
+ * rango de un minuto a medianoche: ninguna cita de 5+ minutos cabe
+ * ahí, y los tres motores (RPC 0081, web y móvil) lo tratan igual sin
+ * tocarlos.
+ */
+export const RANGO_LIBRE = { abre: "00:00", cierra: "00:01" } as const;
+
+/** ¿Estas filas de un día significan "no trabaja"? */
+export function esDiaLibre(rangos: { abre: string; cierra: string }[]): boolean {
+  return (
+    rangos.length === 1 &&
+    rangos[0].abre.slice(0, 5) === RANGO_LIBRE.abre &&
+    rangos[0].cierra.slice(0, 5) === RANGO_LIBRE.cierra
+  );
+}
+
 /** "45" → "45 min" · "90" → "1 h 30 min" — como lo muestra Fresha. */
 export function etiquetaMinutos(min: number): string {
   if (min < 60) return `${min} min`;

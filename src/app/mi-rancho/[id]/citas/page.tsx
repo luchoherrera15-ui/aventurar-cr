@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { hoyISOCR, fmtFechaCorta } from "@/lib/fechas";
+import { hoyISOCR, fmtFechaCorta, sumarDiasISO } from "@/lib/fechas";
 import { fmtColones } from "@/lib/finanzas";
 import { horarioDeDetalles } from "@/app/citas/tipos";
+import { agruparClientes, type ReservaCliente } from "@/lib/crm-citas";
 import EquipoPanel from "./equipo-panel";
 import HorarioForm from "./horario-form";
 import AgendaCitas, { type CitaDia } from "./agenda-citas";
-import type { MiembroEquipo } from "./actions";
+import ClientesPanel from "./clientes-panel";
+import BloqueosPanel from "./bloqueos-panel";
+import type { BloqueoAgenda, MiembroEquipo, RangoHorarioMiembro } from "./actions";
 
 type Giftcard = {
   id: string;
@@ -28,10 +31,12 @@ const GIFTCARD_ESTADO: Record<Giftcard["estado"], { label: string; cls: string }
 };
 
 /**
- * La configuración de Citas del panel del proveedor: el equipo que
- * atiende, el horario semanal y la agenda del día. Solo existe para
- * los negocios con vertical 'citas'; el resto del panel (publicación,
- * servicios, cobros) sigue viviendo en /mi-rancho/[id].
+ * El centro de operación del negocio de citas: la agenda del día (con
+ * asistencia, walk-ins y bloqueos), los clientes con sus alertas de
+ * no-show y re-enganche, el equipo con horarios y servicios por
+ * persona, el horario semanal y las giftcards. Solo existe para los
+ * negocios con vertical 'citas'; el resto del panel (publicación,
+ * catálogo, cobros) sigue viviendo en /mi-rancho/[id].
  */
 export default async function CitasConfigPage({
   params,
@@ -47,7 +52,7 @@ export default async function CitasConfigPage({
 
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("id, owner_id, nombre, detalles, vertical")
+    .select("id, owner_id, nombre, detalles, vertical, zona_horaria")
     .eq("id", id)
     .maybeSingle();
   if (!rancho) notFound();
@@ -65,7 +70,17 @@ export default async function CitasConfigPage({
   if (rancho.vertical !== "citas") redirect(`/mi-rancho/${id}`);
 
   const hoy = hoyISOCR();
-  const [equipoRes, citasRes, giftcardsRes] = await Promise.all([
+  const zona = rancho.zona_horaria || "America/Costa_Rica";
+  const [
+    equipoRes,
+    citasRes,
+    bloqueosRes,
+    serviciosRes,
+    horariosRes,
+    asignacionesRes,
+    crmRes,
+    giftcardsRes,
+  ] = await Promise.all([
     supabase
       .from("equipo_rancho")
       .select("*")
@@ -76,12 +91,49 @@ export default async function CitasConfigPage({
     // de fecha se consulta desde el navegador (RLS limita al dueño).
     supabase
       .from("reservas")
-      .select("id, hora_inicio, duracion_minutos, miembro_id, nombre, tipo_evento, estado")
+      .select(
+        "id, hora_inicio, duracion_minutos, miembro_id, nombre, tipo_evento, estado, correo, whatsapp, notas, monto_total, origen",
+      )
       .eq("rancho_id", id)
       .eq("fecha", hoy)
       .not("hora_inicio", "is", null)
       .neq("estado", "temporal")
       .order("hora_inicio", { ascending: true }),
+    // Bloqueos vigentes y futuros (los vencidos hace más de un día ya
+    // no le sirven a nadie).
+    supabase
+      .from("bloqueos_agenda")
+      .select("id, rancho_id, miembro_id, inicio, fin, motivo")
+      .eq("rancho_id", id)
+      .gte("fin", `${sumarDiasISO(hoy, -1)}T00:00:00-06:00`)
+      .order("inicio", { ascending: true }),
+    // Los servicios de cita del catálogo (para walk-ins y asignación).
+    supabase
+      .from("rancho_items")
+      .select("id, nombre, duracion_minutos, precio, activo")
+      .eq("rancho_id", id)
+      .not("duracion_minutos", "is", null)
+      .eq("activo", true)
+      .order("orden", { ascending: true }),
+    // Horario propio por miembro (0061), del negocio completo.
+    supabase
+      .from("horarios_recurso")
+      .select("miembro_id, dow, abre, cierra, equipo_rancho!inner(rancho_id)")
+      .eq("equipo_rancho.rancho_id", id),
+    // Quién da qué servicio (0061), del negocio completo.
+    supabase
+      .from("servicios_recurso")
+      .select("item_id, miembro_id, rancho_items!inner(rancho_id)")
+      .eq("rancho_items.rancho_id", id),
+    // La materia prima del CRM: las citas del negocio (con hora). La
+    // ficha se deriva acá y no se guarda en ninguna tabla (D-3).
+    supabase
+      .from("reservas")
+      .select("id, fecha, hora_inicio, estado, nombre, correo, whatsapp, cliente_id, monto_total")
+      .eq("rancho_id", id)
+      .not("hora_inicio", "is", null)
+      .order("fecha", { ascending: false })
+      .limit(3000),
     // Las ventas de giftcards (RLS: solo el dueño o un admin las ven).
     supabase
       .from("giftcards")
@@ -95,8 +147,38 @@ export default async function CitasConfigPage({
 
   const equipo = (equipoRes.data ?? []) as MiembroEquipo[];
   const citasHoy = (citasRes.data ?? []) as CitaDia[];
+  const bloqueos = (bloqueosRes.data ?? []) as BloqueoAgenda[];
   const horario = horarioDeDetalles(rancho.detalles);
   const errorCarga = equipoRes.error ?? citasRes.error;
+
+  const servicios = (serviciosRes.data ?? []).map((s) => ({
+    id: s.id as string,
+    nombre: s.nombre as string,
+    duracionMinutos: (s.duracion_minutos as number | null) ?? null,
+    precio: s.precio === null ? null : Number(s.precio),
+  }));
+
+  const horariosPorMiembro: Record<string, RangoHorarioMiembro[]> = {};
+  for (const h of (horariosRes.data ?? []) as unknown as {
+    miembro_id: string;
+    dow: number;
+    abre: string;
+    cierra: string;
+  }[]) {
+    (horariosPorMiembro[h.miembro_id] ??= []).push({
+      dow: h.dow,
+      abre: String(h.abre).slice(0, 5),
+      cierra: String(h.cierra).slice(0, 5),
+    });
+  }
+
+  const asignaciones = ((asignacionesRes.data ?? []) as unknown as {
+    item_id: string;
+    miembro_id: string;
+  }[]).map((a) => ({ item_id: a.item_id, miembro_id: a.miembro_id }));
+
+  const clientes = agruparClientes((crmRes.data ?? []) as ReservaCliente[], hoy);
+
   // Si la tabla aún no existe (migración 0059 sin correr) se muestra
   // el aviso dentro de su sección, sin tumbar el resto del panel.
   const giftcards = (giftcardsRes.data ?? []) as Giftcard[];
@@ -107,7 +189,7 @@ export default async function CitasConfigPage({
     .reduce((s, g) => s + Number(g.saldo), 0);
 
   return (
-    <main className="mx-auto max-w-[1000px] px-5 py-12">
+    <main className="mx-auto max-w-[1100px] px-5 py-12">
       <Link
         href={`/mi-rancho/${rancho.id}`}
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -117,9 +199,8 @@ export default async function CitasConfigPage({
 
       <h1 className="mt-4 text-[22px] font-bold text-aventurea-ink">Citas</h1>
       <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
-        Tu equipo, tu horario semanal y la agenda del día. Con esto
-        configurado, el cliente reserva su cita en línea y queda
-        confirmada al instante.
+        Tu agenda del día, tus clientes y tu equipo. Con esto configurado, el
+        cliente reserva su cita en línea y queda confirmada al instante.
       </p>
 
       {errorCarga && (
@@ -135,13 +216,56 @@ export default async function CitasConfigPage({
 
       <div className="mt-8 flex flex-col gap-10">
         <section>
+          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
+            Agenda del día
+          </h2>
+          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+            Marcá quién vino y quién no, agendá walk-ins con hora y bloqueá
+            franjas — como en el mostrador.
+          </p>
+          <AgendaCitas
+            ranchoId={rancho.id}
+            zona={zona}
+            equipo={equipo.map((m) => ({
+              id: m.id,
+              nombre: m.nombre,
+              tipo: m.tipo ?? "profesional",
+              activo: m.activo,
+            }))}
+            servicios={servicios}
+            initialFecha={hoy}
+            initialCitas={citasHoy}
+            initialBloqueos={bloqueos}
+          />
+        </section>
+
+        <section id="clientes">
+          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Clientes</h2>
+          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+            Quién viene, quién dejó de venir y quién te está fallando — con la
+            promoción de re-enganche a un clic. Se arma solo desde tus citas.
+          </p>
+          <ClientesPanel
+            ranchoId={rancho.id}
+            nombreNegocio={rancho.nombre}
+            clientes={clientes}
+          />
+        </section>
+
+        <section>
           <h2 className="mb-1 text-lg font-bold text-aventurea-ink">El equipo</h2>
           <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Las personas que atienden. El cliente elige con quién quiere su
-            cita — o &quot;cualquiera&quot; y se le asigna la primera persona
-            libre. Se muestran con foto en tu página pública.
+            Las personas que atienden — y también espacios como cabinas o
+            camillas. El cliente elige con quién quiere su cita, y cada quien
+            puede tener su propio horario y sus propios servicios.
           </p>
-          <EquipoPanel ranchoId={rancho.id} initialEquipo={equipo} />
+          <EquipoPanel
+            ranchoId={rancho.id}
+            initialEquipo={equipo}
+            serviciosCita={servicios.map((s) => ({ id: s.id, nombre: s.nombre }))}
+            asignaciones={asignaciones}
+            horarios={horariosPorMiembro}
+          />
         </section>
 
         <section>
@@ -150,23 +274,25 @@ export default async function CitasConfigPage({
           </h2>
           <p className="mb-4 text-[13px] text-aventurea-ink-soft">
             Qué días abrís y de qué hora a qué hora. Las citas solo se pueden
-            reservar dentro de este horario.
+            reservar dentro de este horario (salvo que alguien del equipo tenga
+            horario propio).
           </p>
           <HorarioForm ranchoId={rancho.id} initialHorario={horario} />
         </section>
 
         <section>
           <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-            Agenda del día
+            Bloqueos y ausencias
           </h2>
           <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Las citas de la fecha que elijás, en orden de hora.
+            Vacaciones, feriados propios o días que no se trabaja — del negocio
+            entero o de una sola persona.
           </p>
-          <AgendaCitas
+          <BloqueosPanel
             ranchoId={rancho.id}
-            equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre }))}
-            initialFecha={hoy}
-            initialCitas={citasHoy}
+            zona={zona}
+            equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre, activo: m.activo }))}
+            initialBloqueos={bloqueos}
           />
         </section>
 
@@ -192,7 +318,7 @@ export default async function CitasConfigPage({
           ) : (
             <>
               <div className="mb-4 flex flex-wrap gap-3">
-                <div className="rounded-2xl border border-aventurea-line bg-white px-5 py-3.5">
+                <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                     Vendido
                   </p>
@@ -200,7 +326,7 @@ export default async function CitasConfigPage({
                     {fmtColones(giftVendido)}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-aventurea-line bg-white px-5 py-3.5">
+                <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                     Por canjear
                   </p>
@@ -208,7 +334,7 @@ export default async function CitasConfigPage({
                     {fmtColones(giftPorCanjear)}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-aventurea-line bg-white px-5 py-3.5">
+                <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                     Activas
                   </p>
@@ -224,7 +350,7 @@ export default async function CitasConfigPage({
                     key={g.id}
                     className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3.5 ${i > 0 ? "border-t border-aventurea-line/60" : ""}`}
                   >
-                    <code className="rounded-lg bg-aventurea-cream-2 px-2.5 py-1 font-mono text-[12.5px] font-bold text-aventurea-ink">
+                    <code className="shrink-0 rounded-lg bg-aventurea-cream-2 px-2.5 py-1 font-mono text-[12.5px] font-bold text-aventurea-ink">
                       {g.codigo}
                     </code>
                     <div className="min-w-0 flex-1">

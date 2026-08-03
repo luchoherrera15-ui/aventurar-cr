@@ -5,6 +5,8 @@
  * porque el app no puede importar código del proyecto Next.
  */
 
+import { instanteEnZona } from "./disponibilidad";
+
 export const CATEGORIAS_CITAS = [
   "belleza",
   "barberia",
@@ -94,6 +96,25 @@ export function etiquetaMinutos(min: number): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
+/**
+ * El rango centinela que representa "ese día NO trabaja" en el horario
+ * propio de un miembro (espejo de src/app/citas/tipos.ts de /web). El
+ * esquema de horarios_recurso no puede decir "libre" directamente (un
+ * día sin filas HEREDA el horario del negocio, 0061), así que un día
+ * libre se guarda como un rango de un minuto a medianoche: ninguna
+ * cita de 5+ minutos cabe ahí, y los tres motores lo tratan igual.
+ */
+export const RANGO_LIBRE = { abre: "00:00", cierra: "00:01" } as const;
+
+/** ¿Estas filas de un día significan "no trabaja"? */
+export function esDiaLibre(rangos: { abre: string; cierra: string }[]): boolean {
+  return (
+    rangos.length === 1 &&
+    rangos[0].abre.slice(0, 5) === RANGO_LIBRE.abre &&
+    rangos[0].cierra.slice(0, 5) === RANGO_LIBRE.cierra
+  );
+}
+
 export function fechaISOLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -102,4 +123,28 @@ export function sumarMinutosHora(hhmm: string, minutos: number): string {
   const [h, m] = hhmm.split(":").map(Number);
   const total = h * 60 + m + minutos;
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/**
+ * La inversa de `instanteEnZona` (espejo de src/lib/agenda/zona.ts de
+ * /web): de "esta fecha y hora DE PARED en la zona del negocio" al
+ * instante UTC real. La necesitan los bloqueos de agenda
+ * (bloqueos_agenda.inicio/fin son timestamptz). Sin librerías: se
+ * propone el instante como si la pared fuera UTC y se corrige con lo
+ * que `instanteEnZona` devuelva; dos pasadas alcanzan.
+ */
+export function utcDesdeZona(fecha: string, hora: string, zona: string): Date {
+  const [y, m, d] = fecha.split("-").map(Number);
+  const [hh, mm] = hora.split(":").map(Number);
+  const deseado = Date.UTC(y, m - 1, d, hh, mm);
+
+  let instante = deseado;
+  for (let i = 0; i < 2; i++) {
+    const pared = instanteEnZona(new Date(instante).toISOString(), zona);
+    const [py, pm, pd] = pared.fecha.split("-").map(Number);
+    const obtenido = Date.UTC(py, pm - 1, pd, 0, pared.minutos);
+    if (obtenido === deseado) break;
+    instante += deseado - obtenido;
+  }
+  return new Date(instante);
 }
