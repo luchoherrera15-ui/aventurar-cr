@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
@@ -22,7 +22,7 @@ import {
   IconUtensils,
   IconWand,
 } from "@/components/icons";
-import { CATEGORIA_ICONO } from "../mi-rancho/types";
+import { CATEGORIA_ICONO } from "../mi-negocio/types";
 
 export const metadata = {
   title: "Bookea para negocios — La plataforma de reservas para tu negocio",
@@ -42,7 +42,7 @@ export const metadata = {
  * Los mockups de teléfono son CSS puro (keyframes publicar-* en
  * globals.css). Corren una sola vez y se quedan en su estado final: el
  * mockup se ve completo siempre, no se vacía en cada loop.
- * Todos los CTAs de alta van a /mi-rancho/nuevo.
+ * Todos los CTAs de alta van a /mi-negocio/nuevo.
  */
 
 /** Escena Citas: el azul de la vertical, escena de 8 segundos. */
@@ -157,7 +157,7 @@ export default function PublicarPage() {
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
-                href="/mi-rancho/nuevo"
+                href="/mi-negocio/nuevo"
                 className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
               >
                 Publicar mi negocio gratis
@@ -283,7 +283,7 @@ export default function PublicarPage() {
               ]}
             />
             <Link
-              href="/mi-rancho/nuevo"
+              href="/mi-negocio/nuevo"
               className="mt-6 inline-flex rounded-xl bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
             >
               Crear mi página de citas
@@ -607,7 +607,7 @@ export default function PublicarPage() {
               ]}
             />
             <Link
-              href="/mi-rancho/nuevo"
+              href="/mi-negocio/nuevo"
               className="mt-6 inline-flex rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
             >
               Publicar mi salón o servicio
@@ -660,7 +660,7 @@ export default function PublicarPage() {
             </div>
 
             <Link
-              href="/mi-rancho/nuevo"
+              href="/mi-negocio/nuevo"
               className="mt-6 inline-flex rounded-xl bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
             >
               Anotar mi propiedad
@@ -804,7 +804,7 @@ export default function PublicarPage() {
             chat quedan listos para el primer cliente.
           </p>
           <Link
-            href="/mi-rancho/nuevo"
+            href="/mi-negocio/nuevo"
             className="mt-7 inline-flex rounded-xl bg-aventurea-orange px-9 py-4 text-[15.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
           >
             Publicar mi negocio gratis

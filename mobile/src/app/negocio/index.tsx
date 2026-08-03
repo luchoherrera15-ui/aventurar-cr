@@ -19,7 +19,7 @@ import { CATEGORIA_LABEL, type Categoria, type EstadoRancho } from "@/lib/types"
 /**
  * "Mi negocio": los servicios y lugares que esta cuenta publicó, cada
  * uno con su estado y la entrada a administrar sus reservas. Espejo
- * del hub /mi-rancho de la web, en versión de bolsillo.
+ * del hub /mi-negocio de la web, en versión de bolsillo.
  */
 
 const ESTADO_LABEL: Record<EstadoRancho, string> = {

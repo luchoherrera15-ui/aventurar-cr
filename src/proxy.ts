@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // NOTA: en esta versión de Next.js el archivo "middleware.ts" pasó a
@@ -59,9 +59,9 @@ export default async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";
   const isMiRanchoRoute =
-    path.startsWith("/mi-rancho") &&
-    path !== "/mi-rancho/login" &&
-    path !== "/mi-rancho/registro";
+    path.startsWith("/mi-negocio") &&
+    path !== "/mi-negocio/login" &&
+    path !== "/mi-negocio/registro";
 
   if (isAdminRoute) {
     if (!user) return redirigir("/admin/login");
@@ -75,12 +75,12 @@ export default async function proxy(request: NextRequest) {
   }
 
   if (isMiRanchoRoute && !user) {
-    return redirigir("/mi-rancho/login");
+    return redirigir("/mi-negocio/login");
   }
 
   // Con la sesión abierta no tiene sentido volver a las pantallas de login.
-  if (user && (path === "/mi-rancho/login" || path === "/mi-rancho/registro")) {
-    return redirigir("/mi-rancho");
+  if (user && (path === "/mi-negocio/login" || path === "/mi-negocio/registro")) {
+    return redirigir("/mi-negocio");
   }
 
   return response;

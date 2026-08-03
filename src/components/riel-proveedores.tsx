@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import RanchoCard, { type Calificacion } from "./rancho-card";
 import { IconChevronLeft, IconChevronRight } from "./icons";
-import type { Rancho } from "@/app/mi-rancho/types";
+import type { Rancho } from "@/app/mi-negocio/types";
 
 // En móvil se ven ~2 tarjetas completas más un asomo de la tercera,
 // que es justo lo que invita a deslizar (45vw ronda eso en 360-430px).

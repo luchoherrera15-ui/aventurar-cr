@@ -5,7 +5,7 @@ import SiteHeader from "@/components/site-header";
 import OfertaInvitacionCard from "@/components/oferta-invitacion-card";
 import HiloChat from "./hilo-chat";
 import BotonResuelto from "../boton-resuelto";
-import type { Mensaje } from "@/app/mi-rancho/types";
+import type { Mensaje } from "@/app/mi-negocio/types";
 
 type ReservaConRancho = {
   id: string;

@@ -1,6 +1,6 @@
-import { revalidatePath } from "next/cache";
+﻿import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { ModalidadPrecioLugar } from "@/app/mi-rancho/types";
+import type { ModalidadPrecioLugar } from "@/app/mi-negocio/types";
 
 type TierInput = { min_invitados: number; max_invitados: number; precio: number };
 type ServicioInput = {
@@ -67,7 +67,7 @@ export async function guardarPreciosRancho(
   if (errorRancho) return { error: errorRancho.message };
 
   revalidatePath("/admin/eventos/precios");
-  revalidatePath("/mi-rancho", "layout");
+  revalidatePath("/mi-negocio", "layout");
   revalidatePath("/eventos");
   return { error: null };
 }

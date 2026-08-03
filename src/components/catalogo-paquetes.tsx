@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import type { RanchoItem } from "@/app/mi-rancho/types";
+import type { RanchoItem } from "@/app/mi-negocio/types";
 import { IconChevronDown } from "@/components/icons";
 import { agruparPorSeccion, cupoRestante, etiquetaDuracion } from "@/lib/catalogo";
 

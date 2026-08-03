@@ -1,9 +1,9 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { tieneNegocioPropio } from "@/lib/negocio-propio";
 import MenuCuenta from "./menu-cuenta";
 
-// Se queda en el directorio en vez de mandar a /mi-rancho/login: acá
+// Se queda en el directorio en vez de mandar a /mi-negocio/login: acá
 // arriba cualquiera puede estar de visita, no solo un dueño.
 async function cerrarSesionPublica() {
   "use server";

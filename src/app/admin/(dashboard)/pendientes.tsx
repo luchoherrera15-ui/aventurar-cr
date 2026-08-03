@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ESTADOS_PEDIDO_ABIERTOS } from "./invitaciones/pestanas";
@@ -10,7 +10,7 @@ import { perteneceASeccion, SECCION_LABEL, type SeccionAdmin } from "./vertical"
  *
  * Ojo con qué entra acá, que es lo fácil de equivocar: las reservas y
  * los depósitos NO son de Bookea. Cada proveedor aprueba las suyas y
- * valida sus propios comprobantes desde /mi-rancho, y son de su negocio
+ * valida sus propios comprobantes desde /mi-negocio, y son de su negocio
  * y de su cliente. Al principio estaban en este tablero y sumaban trece
  * pendientes que nadie de acá podía resolver: puro ruido, del que enseña
  * a ignorar el tablero entero.

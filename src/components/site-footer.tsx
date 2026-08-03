@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 /**
  * El pie del sitio. Existe sobre todo por dos razones:
@@ -25,7 +25,7 @@ const VERTICALES: { href: string; label: string }[] = [
 const NEGOCIOS: { href: string; label: string }[] = [
   { href: "/publicar", label: "Publicá tu negocio" },
   { href: "/lealtad", label: "Programa de lealtad" },
-  { href: "/mi-rancho", label: "Panel de anfitriones" },
+  { href: "/mi-negocio", label: "Panel de anfitriones" },
 ];
 
 const LEGAL: { href: string; label: string }[] = [

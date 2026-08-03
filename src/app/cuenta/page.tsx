@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
@@ -236,7 +236,7 @@ export default async function CuentaPage() {
             />
           ) : (
             <TarjetaAcceso
-              href="/mi-rancho/nuevo"
+              href="/mi-negocio/nuevo"
               icono={<IconPlus className="h-5 w-5" />}
               titulo="Publicar mi negocio"
               detalle="Gratis en Bookea"

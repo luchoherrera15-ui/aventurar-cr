@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useActionState, useState, useTransition } from "react";
 import {
@@ -8,7 +8,7 @@ import {
   crearUsuario,
   type NuevoUsuarioState,
 } from "./actions";
-import { CATEGORIA_LABEL, type Categoria } from "@/app/mi-rancho/types";
+import { CATEGORIA_LABEL, type Categoria } from "@/app/mi-negocio/types";
 
 export type PerfilRow = {
   id: string;

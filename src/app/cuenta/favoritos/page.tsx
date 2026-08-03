@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
-import { normalizarCategoria, type Rancho } from "../../mi-rancho/types";
+import { normalizarCategoria, type Rancho } from "../../mi-negocio/types";
 
 export const metadata: Metadata = {
   title: "Tus favoritos",

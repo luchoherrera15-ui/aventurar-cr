@@ -1,8 +1,8 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { DetallePedido } from "@/app/mi-rancho/types";
+import type { DetallePedido } from "@/app/mi-negocio/types";
 import { hoyISOCR } from "@/lib/fechas";
 import { enviarCorreo, plantillaConfirmacionReserva } from "@/lib/email";
 import {

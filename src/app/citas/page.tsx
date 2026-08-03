@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
@@ -13,7 +13,7 @@ import {
   normalizarCategoriaCita,
   type CategoriaCita,
 } from "./tipos";
-import type { Rancho } from "../mi-rancho/types";
+import type { Rancho } from "../mi-negocio/types";
 
 export const metadata: Metadata = {
   title: "Citas y Reservas",
@@ -188,7 +188,7 @@ export default async function CitasPage({
               propia página.
             </p>
             <Link
-              href="/mi-rancho/nuevo"
+              href="/mi-negocio/nuevo"
               className="btn-naranja mt-6"
             >
               Publicar mi negocio

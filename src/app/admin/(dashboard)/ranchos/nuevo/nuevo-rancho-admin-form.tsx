@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useActionState, useState } from "react";
 import {
@@ -13,7 +13,7 @@ import {
   SUBCATEGORIAS,
   type Categoria,
   type Provincia,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 
 export type DuenoOption = { id: string; email: string | null };
 

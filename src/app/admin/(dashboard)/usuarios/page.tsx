@@ -1,6 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+﻿import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizarCategoria } from "@/app/mi-rancho/types";
+import { normalizarCategoria } from "@/app/mi-negocio/types";
 import UsuariosPanel, { type PerfilRow } from "./usuarios-panel";
 
 export default async function AdminUsuariosPage() {

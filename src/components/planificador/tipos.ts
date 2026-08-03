@@ -1,4 +1,4 @@
-import type { Categoria, Provincia, Rancho } from "@/app/mi-rancho/types";
+﻿import type { Categoria, Provincia, Rancho } from "@/app/mi-negocio/types";
 import type { Calificacion } from "@/components/rancho-card";
 
 /**
@@ -40,7 +40,7 @@ export type EstiloId = (typeof ESTILOS)[number]["id"];
 
 /**
  * Un servicio que se puede pedir en el wizard, mapeado a la taxonomía
- * REAL del sitio (categorías y subcategorías de `mi-rancho/types`).
+ * REAL del sitio (categorías y subcategorías de `mi-negocio/types`).
  * `subcategorias` vacío = toda la categoría califica (caso del salón:
  * cualquier "lugares" sirve).
  */

@@ -33,7 +33,7 @@ import {
 
 /**
  * Finanzas del negocio en el teléfono — la pestaña que en la web vive
- * en /mi-rancho/[id]?tab=finanzas.
+ * en /mi-negocio/[id]?tab=finanzas.
  *
  * Los números salen del MISMO resumenFinanciero() que el sitio (ver
  * src/lib/finanzas.ts): acá no se recalcula nada a mano. Lo único

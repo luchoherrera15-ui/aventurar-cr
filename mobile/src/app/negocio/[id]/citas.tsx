@@ -31,7 +31,7 @@ import { instanteEnZona } from "@/lib/disponibilidad";
 
 /**
  * La vertical de Citas desde el teléfono — la pantalla que en la web
- * vive en /mi-rancho/[id]/citas: quién atiende (con su horario propio
+ * vive en /mi-negocio/[id]/citas: quién atiende (con su horario propio
  * y sus servicios), a qué horas abre el negocio, las giftcards
  * vendidas y los bloqueos de agenda (vacaciones, ausencias).
  *

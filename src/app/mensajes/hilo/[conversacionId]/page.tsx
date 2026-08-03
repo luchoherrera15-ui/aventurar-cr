@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import HiloChat from "../../[reservaId]/hilo-chat";
 import BotonResuelto from "../../boton-resuelto";
-import type { Mensaje } from "@/app/mi-rancho/types";
+import type { Mensaje } from "@/app/mi-negocio/types";
 
 type ConversacionRow = {
   id: string;

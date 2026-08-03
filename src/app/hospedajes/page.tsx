@@ -1,10 +1,10 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
-import type { Rancho } from "@/app/mi-rancho/types";
+import type { Rancho } from "@/app/mi-negocio/types";
 
 export const metadata = {
   title: "Booking Hospedajes — Bookea",
@@ -75,7 +75,7 @@ export default async function HospedajesPage() {
                 cabaña u hotel? Publicalo gratis y recibí reservas con tu
                 propia página.
               </p>
-              <Link href="/mi-rancho/nuevo/hospedajes" className="btn-naranja mt-6">
+              <Link href="/mi-negocio/nuevo/hospedajes" className="btn-naranja mt-6">
                 Publicar mi hospedaje
               </Link>
             </div>

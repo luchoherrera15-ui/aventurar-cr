@@ -11,14 +11,14 @@ import {
 import {
   CAMPOS_POR_CATEGORIA,
   formatearValor,
-} from "@/app/mi-rancho/campos-servicio";
+} from "@/app/mi-negocio/campos-servicio";
 import {
   AMENIDADES,
   AMENIDADES_GRUPOS,
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
   type Categoria,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 import GaleriaHeroFotos from "@/components/galeria-hero";
 import AmenidadesLista from "./amenidades-tabs";
 

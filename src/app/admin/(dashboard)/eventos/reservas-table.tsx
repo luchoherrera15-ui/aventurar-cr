@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Fragment, useMemo, useState, useTransition } from "react";
@@ -8,7 +8,7 @@ import {
   setEstadoReserva,
 } from "./actions";
 import type { DetallePedido, Reserva } from "./types";
-import { formatearHora, mostrarHorarioReserva } from "@/app/mi-rancho/types";
+import { formatearHora, mostrarHorarioReserva } from "@/app/mi-negocio/types";
 
 const ESTADO_LABEL: Record<Reserva["estado"], string> = {
   pendiente: "En aprobación",

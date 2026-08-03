@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
@@ -15,7 +15,7 @@ import {
   opcionesDeDetalles,
   type CategoriaRestaurante,
 } from "./tipos";
-import type { Rancho } from "../mi-rancho/types";
+import type { Rancho } from "../mi-negocio/types";
 
 export const metadata: Metadata = {
   title: "Restaurantes",
@@ -171,7 +171,7 @@ export default async function RestaurantesPage({
               cafetería? Publicalo gratis: mostrás tu menú, recibís reservas de
               mesa y pedidos para recoger, sin comisión por pedido.
             </p>
-            <Link href="/mi-rancho/nuevo/restaurantes" className="btn-naranja mt-6">
+            <Link href="/mi-negocio/nuevo/restaurantes" className="btn-naranja mt-6">
               Publicar mi restaurante
             </Link>
           </div>

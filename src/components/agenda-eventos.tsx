@@ -1,4 +1,5 @@
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
+import { horaBonita } from "@/app/citas/tipos";
 
 /**
  * La agenda de eventos próximos: la misma pieza sirve al panel del
@@ -16,6 +17,9 @@ export type EventoAgenda = {
   estado: string;
   monto_total: number | null;
   horario_bloque?: string | null;
+  /** Solo en las citas: horario_bloque es un campo de eventos, así que
+   *  sin esto una cita próxima se veía con día pero sin hora. */
+  hora_inicio?: string | null;
   /** Solo en la vista del admin, que mezcla todos los negocios. */
   ranchoNombre?: string | null;
 };
@@ -91,6 +95,7 @@ export default function AgendaEventos({ eventos }: { eventos: EventoAgenda[] }) 
               </p>
               <p className="truncate text-[12.5px] text-aventurea-ink-soft">
                 {[
+                  e.hora_inicio ? horaBonita(e.hora_inicio.slice(0, 5)) : null,
                   e.tipo_evento,
                   e.invitados ? `${e.invitados} invitados` : null,
                   e.horario_bloque,

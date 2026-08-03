@@ -27,7 +27,7 @@ import {
 
 /**
  * El CRM del negocio de citas desde el teléfono — la pantalla que en
- * la web vive en /mi-rancho/[id]/citas (ClientesPanel): quién viene,
+ * la web vive en /mi-negocio/[id]/citas (ClientesPanel): quién viene,
  * quién dejó de venir y quién está fallando, con el botón para
  * escribirle una promoción de re-enganche ahí mismo. La ficha se
  * deriva de las reservas (lib crm, gemelo de crm-citas de /web); el

@@ -18,7 +18,7 @@
  *    sin cliente ni monto, así no cuentan como evento en los totales.
  *    Bloquean la fecha igual que una confirmada. Son dos filas.
  *  · horario_bloque guarda el rango tal cual lo anotó el dueño, con el
- *    mismo formato que usa la web (ver formatearHora en mi-rancho/types).
+ *    mismo formato que usa la web (ver formatearHora en mi-negocio/types).
  *  · tipo_evento, contacto, correo y whatsapp van en null: la agenda de
  *    papel no los traía y no se inventan.
  *

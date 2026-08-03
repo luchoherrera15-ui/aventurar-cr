@@ -17,7 +17,7 @@ import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 
 /**
  * Precios y descuentos del negocio — la pestaña "Precios" del panel de
- * la web (/mi-rancho/[id]?tab=precios).
+ * la web (/mi-negocio/[id]?tab=precios).
  *
  * Lo que NO está acá porque ya vive en "Cobros y tarifas": las cuentas
  * de pago, el depósito, el cupo de eventos por día y las tarifas de

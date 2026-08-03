@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { normalizarCategoria, type Rancho } from "@/app/mi-rancho/types";
+import { normalizarCategoria, type Rancho } from "@/app/mi-negocio/types";
 import RanchoPortal from "../rancho-portal";
 
 /**

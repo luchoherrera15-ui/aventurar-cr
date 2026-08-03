@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
@@ -13,7 +13,7 @@ import {
   UNIDAD_PRECIO_LABEL,
   type Provincia,
   type Rancho,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { IconHeart, IconStar } from "@/components/icons";
 import { hoyISOCR } from "@/lib/fechas";

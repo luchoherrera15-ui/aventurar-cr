@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+﻿import { Resend } from "resend";
 
 /**
  * Envío de correos transaccionales (confirmaciones de reserva, y lo
@@ -537,7 +537,7 @@ export function plantillaReservaNuevaProveedor({
       </p>
 
       <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}/mi-rancho/${ranchoId}?tab=agenda" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+        <a href="${SITIO_URL}/mi-negocio/${ranchoId}?tab=agenda" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
           Revisar la reserva
         </a>
       </div>
@@ -622,7 +622,7 @@ export function plantillaFindeLibre({
         quien está comparando opciones eso le decide la reserva.
       </p>
       <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}/mi-rancho" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+        <a href="${SITIO_URL}/mi-negocio" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
           Poner un descuento
         </a>
       </div>
@@ -689,7 +689,7 @@ export function plantillaRecordatorioEvento({
       </p>
 
       <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}${esProveedor ? "/mi-rancho" : "/mensajes"}" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+        <a href="${SITIO_URL}${esProveedor ? "/mi-negocio" : "/mensajes"}" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
           ${esProveedor ? "Abrir mi panel" : "Abrir mis mensajes"}
         </a>
       </div>
@@ -735,7 +735,7 @@ export function plantillaRecordatorioCobro({
       tus finanzas queden al día.</p>
     `,
     cta: {
-      href: `${SITIO_URL}/mi-rancho/${ranchoId}?tab=finanzas`,
+      href: `${SITIO_URL}/mi-negocio/${ranchoId}?tab=finanzas`,
       label: "Registrar el cobro",
     },
     pie: "Recibís este correo porque administrás un negocio publicado en Bookea.",
@@ -797,7 +797,7 @@ export function plantillaRecordatorioCita({
       </p>
 
       <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}${esProveedor ? "/mi-rancho" : "/mensajes"}" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+        <a href="${SITIO_URL}${esProveedor ? "/mi-negocio" : "/mensajes"}" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
           ${esProveedor ? "Abrir mi panel" : "Abrir mis mensajes"}
         </a>
       </div>
@@ -938,7 +938,7 @@ export function plantillaCitaNuevaProveedor({
       ${calendario ? bloqueCalendario(calendario) : ""}
 
       <div style="padding:6px 0 4px;">
-        <a href="${SITIO_URL}/mi-rancho" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+        <a href="${SITIO_URL}/mi-negocio" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
           Ver mi agenda
         </a>
       </div>
@@ -1022,7 +1022,7 @@ export function plantillaAvisoAgenda({
     }`,
     cuerpoHtml: `${filasSinMarcar}${masSinMarcar}${bloqueReincidentes}` || undefined,
     cta: {
-      href: `${SITIO_URL}/mi-rancho/${ranchoId}/citas`,
+      href: `${SITIO_URL}/mi-negocio/${ranchoId}/citas`,
       label: "Abrir mi agenda",
     },
     pie: "Recibiste este correo porque tenés un negocio publicado en Bookea.",

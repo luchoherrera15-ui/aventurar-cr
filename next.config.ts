@@ -22,6 +22,11 @@ const nextConfig: NextConfig = {
   // El directorio vivía en /ranchos-eventos; ahora es /eventos (la
   // primera de tres secciones: eventos, citas, booking). Los links ya
   // mandados por correo y lo que tenga indexado Google siguen sirviendo.
+  //
+  // El panel del proveedor vivía en /mi-rancho — nombre que solo tenía
+  // sentido para Eventos y confundía a un negocio de Citas. Ahora es
+  // /mi-negocio para todos los rubros; los links viejos (correos ya
+  // mandados, favoritos guardados) siguen sirviendo.
   async redirects() {
     return [
       {
@@ -32,6 +37,16 @@ const nextConfig: NextConfig = {
       {
         source: "/ranchos-eventos/:path*",
         destination: "/eventos/:path*",
+        permanent: true,
+      },
+      {
+        source: "/mi-rancho",
+        destination: "/mi-negocio",
+        permanent: true,
+      },
+      {
+        source: "/mi-rancho/:path*",
+        destination: "/mi-negocio/:path*",
         permanent: true,
       },
     ];

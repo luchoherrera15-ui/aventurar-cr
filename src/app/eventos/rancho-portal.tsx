@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import BookingCalendar from "./booking-calendar";
 import ReservaModal from "./reserva-modal";
@@ -18,7 +18,7 @@ import {
   type PromocionDia,
   type Rancho,
   type RanchoItem,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 import type {
   DiaDisponibilidad,
   PrecioTier,
@@ -273,7 +273,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         extra={
           puedeModificar ? (
             <Link
-              href={`/mi-rancho/${rancho.id}`}
+              href={`/mi-negocio/${rancho.id}`}
               className="rounded-lg bg-aventurea-navy px-3.5 py-1.5 text-[13px] font-bold text-white hover:bg-aventurea-navy-2"
             >
               Modificar tu página

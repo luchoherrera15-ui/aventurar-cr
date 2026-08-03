@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { enviarMensaje } from "../actions";
-import type { Mensaje } from "@/app/mi-rancho/types";
+import type { Mensaje } from "@/app/mi-negocio/types";
 
 export default function HiloChat({
   conversacionId,

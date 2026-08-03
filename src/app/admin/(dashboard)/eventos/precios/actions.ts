@@ -1,11 +1,11 @@
-"use server";
+﻿"use server";
 
 import { requireAdmin } from "@/lib/auth";
 import { guardarPreciosRancho } from "@/lib/precios";
 import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import type { PrecioTier, ServicioAdicional } from "./types";
-import type { ModalidadPrecioLugar } from "@/app/mi-rancho/types";
+import type { ModalidadPrecioLugar } from "@/app/mi-negocio/types";
 
 export async function guardarConfiguracion(
   tiers: Omit<PrecioTier, "id">[],

@@ -33,7 +33,7 @@ import { CATEGORIAS_HOSPEDAJES, CATEGORIA_HOSPEDAJE_LABEL } from "@/lib/hospedaj
 
 type Vertical = "eventos" | "citas" | "hospedajes";
 
-/** Las tres cards del selector — espejo de /mi-rancho/nuevo en la web. */
+/** Las tres cards del selector — espejo de /mi-negocio/nuevo en la web. */
 const VERTICALES: {
   id: Vertical;
   titulo: string;
@@ -62,7 +62,7 @@ const VERTICALES: {
 
 /**
  * Alta de un servicio o lugar desde la app — el mismo flujo que
- * /mi-rancho/nuevo en la web: queda "pendiente" hasta que el equipo lo
+ * /mi-negocio/nuevo en la web: queda "pendiente" hasta que el equipo lo
  * apruebe. El slug se genera igual que en la web (nombre limpio, y si
  * ya existe se numera) para que el portal tenga URL corta desde el
  * primer día.

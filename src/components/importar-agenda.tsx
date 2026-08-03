@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -7,7 +7,7 @@ import {
   deshacerImportacion,
   guardarLoteAgenda,
   partirTextoPegado,
-} from "@/app/mi-rancho/[id]/importar-agenda-actions";
+} from "@/app/mi-negocio/[id]/importar-agenda-actions";
 import {
   detectarChoques,
   filaVacia,

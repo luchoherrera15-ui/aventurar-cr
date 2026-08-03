@@ -1,12 +1,12 @@
-"use client";
+﻿"use client";
 
 import { useState, type ReactNode } from "react";
 import {
   CAMPOS_POR_CATEGORIA,
   type Campo,
   type DetallesServicio,
-} from "@/app/mi-rancho/campos-servicio";
-import type { Categoria } from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/campos-servicio";
+import type { Categoria } from "@/app/mi-negocio/types";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";

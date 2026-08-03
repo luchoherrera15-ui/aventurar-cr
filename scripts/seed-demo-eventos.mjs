@@ -107,7 +107,7 @@ const unsplash = (id) =>
 // ---------- Los 10 negocios ----------
 //
 // Nota de taxonomía: en el código real photo_booth pertenece a
-// "organizacion" (src/app/mi-rancho/types.tsx), no a "animacion".
+// "organizacion" (src/app/mi-negocio/types.tsx), no a "animacion".
 // Por eso animación lleva DJ + animación infantil, y organización
 // lleva wedding/event planner + photo booth. El planner cubre también
 // eventos corporativos con su grupo de paquetes corporativos.

@@ -1,4 +1,4 @@
-import type { RanchoItem } from "@/app/mi-rancho/types";
+﻿import type { RanchoItem } from "@/app/mi-negocio/types";
 
 /**
  * Lógica pura del catálogo reservable — sin React ni Supabase, para

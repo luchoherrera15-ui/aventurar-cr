@@ -1,12 +1,12 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
-import type { PrecioTier, ServicioAdicional } from "@/app/mi-rancho/types";
+import type { PrecioTier, ServicioAdicional } from "@/app/mi-negocio/types";
 import {
   MODALIDADES_PRECIO_LUGAR,
   MODALIDAD_PRECIO_LUGAR_LABEL,
   type ModalidadPrecioLugar,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 import { IconTrash } from "@/components/icons";
 
 type TierDraft = {

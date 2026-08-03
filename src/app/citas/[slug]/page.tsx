@@ -15,7 +15,7 @@ import {
   normalizarCategoriaCita,
 } from "../tipos";
 import { cargarAgendaPro } from "../agenda-pro";
-import { linkGoogleMaps, type Rancho, type RanchoItem } from "@/app/mi-rancho/types";
+import { linkGoogleMaps, type Rancho, type RanchoItem } from "@/app/mi-negocio/types";
 import ProveedorActual from "@/components/proveedor-actual";
 
 type Miembro = {

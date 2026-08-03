@@ -1,4 +1,4 @@
-import { cache } from "react";
+﻿import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -28,7 +28,7 @@ export const tieneNegocioPropio = cache(async (): Promise<boolean> => {
     .eq("owner_id", user.id);
 
   // Ante un error se responde que no: seguir mostrando "Publicá tu
-  // espacio" es inofensivo, mientras que mandar a /mi-rancho a alguien
+  // espacio" es inofensivo, mientras que mandar a /mi-negocio a alguien
   // que no tiene nada lo deja en una pantalla vacía.
   if (error) return false;
   return (count ?? 0) > 0;

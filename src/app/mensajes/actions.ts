@@ -1,10 +1,10 @@
-"use server";
+﻿"use server";
 
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { notificarMensajeNuevo } from "@/lib/notificaciones-mensaje";
 import { responderConAsistente } from "@/lib/asistente-ia";
-import type { Mensaje } from "@/app/mi-rancho/types";
+import type { Mensaje } from "@/app/mi-negocio/types";
 
 // Devuelve la fila insertada para que el chat la pinte de una, sin
 // depender de que Realtime la haga rebotar de vuelta.

@@ -1,5 +1,5 @@
 /**
- * Mismo esquema que /web (src/app/mi-rancho/types.tsx y
+ * Mismo esquema que /web (src/app/mi-negocio/types.tsx y
  * src/app/eventos/tipos-lugar.ts) — se repiten acá los tipos y
  * constantes que la app necesita en vez de importarlos cruzando de
  * /web a /mobile porque son dos proyectos npm independientes (Next.js
@@ -186,7 +186,7 @@ export const UNIDAD_PRECIO_LABEL: Record<UnidadPrecio, string> = {
  * para el "desde ₡X" de las demás categorías): "rango_personas" son
  * los tramos de precio_tiers de siempre; "hora" y "fijo" son un solo
  * número que el dueño fija, sin depender de invitados. Espejo de
- * src/app/mi-rancho/types.tsx en /web.
+ * src/app/mi-negocio/types.tsx en /web.
  */
 export const MODALIDADES_PRECIO_LUGAR = ["rango_personas", "hora", "fijo"] as const;
 export type ModalidadPrecioLugar = (typeof MODALIDADES_PRECIO_LUGAR)[number];
@@ -336,7 +336,7 @@ export function fmtColones(n: number | null) {
 
 /**
  * Amenidades agrupadas como en el panel del dueño y el portal web
- * (espejo de AMENIDADES_GRUPOS en src/app/mi-rancho/types.tsx) — así
+ * (espejo de AMENIDADES_GRUPOS en src/app/mi-negocio/types.tsx) — así
  * la sección "Amenidades del lugar" se ve igual en la app y el sitio.
  */
 export const AMENIDADES_GRUPOS: {
@@ -414,7 +414,7 @@ export const AMENIDAD_LABEL: Record<string, string> = Object.fromEntries(
   AMENIDADES_GRUPOS.flatMap((g) => g.items.map((i) => [i.id, i.label])),
 );
 
-/** Mismos términos por defecto que /web (mi-rancho/types.tsx). */
+/** Mismos términos por defecto que /web (mi-negocio/types.tsx). */
 export function terminosPorDefecto(
   depositoReserva: number,
   montoMinimo: number | null,
@@ -465,7 +465,7 @@ export function linkWaze(
 }
 
 // Tope de fotos por negocio — el mismo que usa el sitio web (FOTOS_MAX
-// en src/app/mi-rancho/types.tsx). Si se cambia, cambiarlo en ambos.
+// en src/app/mi-negocio/types.tsx). Si se cambia, cambiarlo en ambos.
 export const FOTOS_MAX = 8;
 
 /** Un ítem del catálogo reservable (rancho_items) — espejo del tipo de

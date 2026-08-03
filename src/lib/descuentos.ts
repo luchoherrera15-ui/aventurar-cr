@@ -1,4 +1,4 @@
-import { revalidatePath } from "next/cache";
+﻿import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 type CodigoInput = {
@@ -19,7 +19,7 @@ type PromocionInput = {
 
 function revalidarTodo() {
   revalidatePath("/admin/eventos/precios");
-  revalidatePath("/mi-rancho", "layout");
+  revalidatePath("/mi-negocio", "layout");
   revalidatePath("/eventos");
 }
 

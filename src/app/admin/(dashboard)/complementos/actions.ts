@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
@@ -23,7 +23,7 @@ function refrescar(ranchoId: string) {
   revalidatePath("/admin/complementos");
   // El asistente vive plegado en la página unificada (Configuración),
   // no en la ruta /asistente vieja (hoy solo un redirect stub).
-  revalidatePath(`/mi-rancho/${ranchoId}`);
+  revalidatePath(`/mi-negocio/${ranchoId}`);
 }
 
 export async function activarAddon({

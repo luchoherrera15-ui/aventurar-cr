@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -6,7 +6,7 @@ import {
   conectarAgendaExterna,
   desconectarAgendaExterna,
   resincronizarAgendaExterna,
-} from "@/app/mi-rancho/[id]/agendas-externas-actions";
+} from "@/app/mi-negocio/[id]/agendas-externas-actions";
 import { IconCalendarLine } from "./icons";
 
 export type AgendaExternaFila = {

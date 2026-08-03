@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { IconTrash, IconWarning } from "@/components/icons";
-import { TERMINOS_MAX, terminosPorDefecto } from "@/app/mi-rancho/types";
+import { TERMINOS_MAX, terminosPorDefecto } from "@/app/mi-negocio/types";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";

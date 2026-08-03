@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
@@ -50,7 +50,7 @@ export async function setEstadoReserva(id: string, estado: string) {
   }
 
   revalidatePath("/admin/eventos");
-  revalidatePath("/mi-rancho", "layout");
+  revalidatePath("/mi-negocio", "layout");
   return { error: null };
 }
 
@@ -66,7 +66,7 @@ export async function marcarDepositoValidado(id: string, validado: boolean) {
 
   if (error) return { error: error.message };
   revalidatePath("/admin/eventos");
-  revalidatePath("/mi-rancho", "layout");
+  revalidatePath("/mi-negocio", "layout");
   return { error: null };
 }
 

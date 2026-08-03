@@ -1,10 +1,10 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
-import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "@/app/mi-rancho/types";
+import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "@/app/mi-negocio/types";
 import { generarSlugUnico } from "@/lib/slug";
 
 export type NuevoRanchoAdminState = { error?: string } | undefined;

@@ -1,9 +1,9 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+﻿import { createAdminClient } from "@/lib/supabase/admin";
 import {
   etiquetaHorario,
   normalizarCategoria,
   type HorarioBloqueConfig,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 import { modeloDe, motivoParaNoGastar } from "@/lib/ia/config-ia";
 import { registrarDesdeUsage, registrarFalloIA } from "@/lib/ia/registrar-uso";
 import { MODELOS, type ModeloIA } from "@/lib/ia/modelos";

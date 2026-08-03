@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+﻿import { createClient } from "@/lib/supabase/server";
 import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
 import {
@@ -12,7 +12,7 @@ import type {
   PrecioTier,
   PromocionDia,
   ServicioAdicional,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 
 export default async function PreciosPage() {
   const supabase = await createClient();

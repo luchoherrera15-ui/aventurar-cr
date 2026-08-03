@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -93,7 +93,7 @@ export default function MenuCuenta({
                   Ver el directorio
                 </Link>
                 <Link
-                  href={yaPublica ? "/mi-rancho" : "/publicar"}
+                  href={yaPublica ? "/mi-negocio" : "/publicar"}
                   className={`${itemCls} sm:hidden`}
                   onClick={() => setAbierto(false)}
                 >

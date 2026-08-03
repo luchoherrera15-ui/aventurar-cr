@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -26,8 +26,8 @@ import {
   SUBCATEGORIA_LABEL,
   type Categoria,
   type Provincia,
-} from "../mi-rancho/types";
-import type { Rancho } from "../mi-rancho/types";
+} from "../mi-negocio/types";
+import type { Rancho } from "../mi-negocio/types";
 
 const POR_PAGINA = 14;
 // Como pidió el dueño: máximo 12 tarjetas por categoría en la portada
@@ -773,7 +773,7 @@ export default function Directorio({
           </p>
         </div>
         <Link
-          href="/mi-rancho/nuevo"
+          href="/mi-negocio/nuevo"
           className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
         >
           Publicar mi espacio

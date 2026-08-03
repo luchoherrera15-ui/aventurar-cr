@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
@@ -109,7 +109,7 @@ export default function LealtadPage() {
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
-                href="/mi-rancho/nuevo"
+                href="/mi-negocio/nuevo"
                 className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
               >
                 Quiero el programa en mi negocio
@@ -319,7 +319,7 @@ export default function LealtadPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/mi-rancho/nuevo"
+                  href="/mi-negocio/nuevo"
                   className={`mt-7 flex h-11 items-center justify-center rounded-xl text-[14px] font-bold transition-colors ${
                     plan.destacado
                       ? "bg-aventurea-orange text-white hover:bg-aventurea-orange-dark"
@@ -358,7 +358,7 @@ export default function LealtadPage() {
           </h2>
           <div className="mt-8">
             <Link
-              href="/mi-rancho/nuevo"
+              href="/mi-negocio/nuevo"
               className="inline-flex rounded-xl bg-aventurea-orange px-8 py-4 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
             >
               Quiero mi programa de lealtad

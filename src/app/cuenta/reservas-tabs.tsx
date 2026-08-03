@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState } from "react";
 import TarjetaExpandible from "@/components/tarjeta-expandible";
 import ResenaForm from "./resena-form";
-import { CATEGORIA_LABEL, normalizarCategoria } from "../mi-rancho/types";
+import { CATEGORIA_LABEL, normalizarCategoria } from "../mi-negocio/types";
 
 /**
  * Las reservas de la cuenta dentro de una TarjetaExpandible: el

@@ -1,8 +1,8 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import type { EstadoRancho } from "@/app/mi-rancho/types";
+import type { EstadoRancho } from "@/app/mi-negocio/types";
 
 /**
  * La verificación de un negocio (link de redes + cédula) para que el

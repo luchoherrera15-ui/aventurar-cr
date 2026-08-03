@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
  */
 const DESTINOS: Record<string, string> = {
   mensajes: "/mensajes",
-  proveedor: "/mi-rancho",
+  proveedor: "/mi-negocio",
   invitaciones: "/cuenta/invitaciones",
 };
 

@@ -1,4 +1,4 @@
-import type { Rancho } from "@/app/mi-rancho/types";
+﻿import type { Rancho } from "@/app/mi-negocio/types";
 import type { Calificacion } from "@/components/rancho-card";
 import { fmtFechaCorta } from "@/lib/fechas";
 import { normalizarTexto } from "@/lib/busqueda";

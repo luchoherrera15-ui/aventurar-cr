@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import {
   DIAS_SEMANA,
   type CodigoDescuento,
   type PromocionDia,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 import { IconTrash } from "@/components/icons";
 
 type CodigoDraft = {

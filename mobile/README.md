@@ -39,7 +39,7 @@ nativo de cada plataforma) con dos destinos: Explorar y Cuenta.
   reservar — solo sirve para tener un panel propio. Un registro desde
   la app siempre entra con el rol nuevo `cliente` (no "dueño de
   rancho"); si esa persona más adelante publica un negocio desde
-  `/mi-rancho`, su cuenta pasa sola a "dueño de rancho" recién en ese
+  `/mi-negocio`, su cuenta pasa sola a "dueño de rancho" recién en ese
   momento. El dashboard del cliente muestra sus reservas activas y su
   historial (con datos reales, ligados a su cuenta vía
   `reservas.cliente_id`), y tiene un botón "Publicar tu negocio" que

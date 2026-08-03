@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -282,7 +282,7 @@ export async function completarReservaTemporal(
   }
 
   revalidatePath("/admin/eventos");
-  revalidatePath("/mi-rancho", "layout");
+  revalidatePath("/mi-negocio", "layout");
 
   // Los dos correos (confirmación al cliente + aviso al dueño) salen
   // del mismo helper que usa la app móvil, para no tener la lógica de

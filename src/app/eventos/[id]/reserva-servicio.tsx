@@ -3,7 +3,7 @@
 import { useMemo, useState, useActionState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { solicitarCotizacion, type CotizacionState } from "../cotizacion-actions";
-import type { RanchoItem } from "@/app/mi-rancho/types";
+import type { RanchoItem } from "@/app/mi-negocio/types";
 import CatalogoPaquetes from "@/components/catalogo-paquetes";
 import {
   leerEleccionesIncluidas,

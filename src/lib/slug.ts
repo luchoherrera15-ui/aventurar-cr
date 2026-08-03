@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+﻿import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Nombres que no pueden salir como slug de un rancho porque ya son
@@ -20,7 +20,7 @@ export const RESERVED_SLUGS = new Set([
   "cuenta",
   "mensajes",
   "lealtad",
-  "mi-rancho",
+  "mi-negocio",
   "publicar",
   "puntaleona-web",
   "ranchos-eventos",

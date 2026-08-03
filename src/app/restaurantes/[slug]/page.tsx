@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { IconCloche, IconPin, IconStar, IconWhatsapp } from "@/components/icons";
-import { linkGoogleMaps, linkWaze } from "@/app/mi-rancho/types";
+import { linkGoogleMaps, linkWaze } from "@/app/mi-negocio/types";
 import {
   CATEGORIA_RESTAURANTE_LABEL,
   RANGO_PRECIO_LABEL,

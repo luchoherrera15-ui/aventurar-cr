@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
@@ -6,8 +6,8 @@ import SiteFooter from "@/components/site-footer";
 import AvisoInvitacionesFlotante from "@/components/aviso-invitaciones-flotante";
 import SelectorVertical from "@/components/selector-vertical";
 import Planificador from "@/components/planificador/planificador";
-import { normalizarCategoria } from "../mi-rancho/types";
-import type { Rancho } from "../mi-rancho/types";
+import { normalizarCategoria } from "../mi-negocio/types";
+import type { Rancho } from "../mi-negocio/types";
 
 export default async function EventosPage() {
   const supabase = await createClient();

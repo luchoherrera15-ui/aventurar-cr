@@ -31,7 +31,7 @@ import { fmtColones } from "@/lib/types";
  * Administración de un negocio propio: todas sus reservas con las
  * acciones del panel web — confirmar (una sola por fecha; la base lo
  * garantiza), rechazar, marcar el depósito como validado y abrir el
- * comprobante. Mismas políticas RLS que /mi-rancho: el dueño solo ve
+ * comprobante. Mismas políticas RLS que /mi-negocio: el dueño solo ve
  * y edita lo suyo.
  */
 

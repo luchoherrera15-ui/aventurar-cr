@@ -1,4 +1,4 @@
-/**
+﻿/**
  * "Traé tu agenda" — el núcleo del importador.
  *
  * 100% PURO: no toca Supabase, ni el reloj, ni la red. Recibe filas
@@ -78,7 +78,7 @@ const money = (n: number) => "₡" + n.toLocaleString("es-CR");
 // Normalización
 // ------------------------------------------------------------------
 
-/** "19:30" → "7:30 p.m." — mismo criterio que mi-rancho/types. */
+/** "19:30" → "7:30 p.m." — mismo criterio que mi-negocio/types. */
 export function formatearHora(hhmm: string): string {
   const [h, m] = hhmm.split(":").map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;

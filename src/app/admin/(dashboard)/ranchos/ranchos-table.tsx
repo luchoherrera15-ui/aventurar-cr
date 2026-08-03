@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
 import {
@@ -8,7 +8,7 @@ import {
   setDestacado,
   setEstadoRancho,
 } from "./actions";
-import { CATEGORIA_LABEL, type EstadoRancho, type Rancho } from "@/app/mi-rancho/types";
+import { CATEGORIA_LABEL, type EstadoRancho, type Rancho } from "@/app/mi-negocio/types";
 import {
   SECCION_BADGE,
   SECCION_CORTA,

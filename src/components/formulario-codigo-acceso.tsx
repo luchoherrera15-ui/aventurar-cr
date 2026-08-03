@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -21,7 +21,7 @@ const labelCls =
  * — el código llega igual, pero la puerta no se abre.
  *
  * `pedirNombre` fuerza el campo siempre (para pantallas que ya son
- * solo-registro, como /mi-rancho/registro). Cuando login y registro
+ * solo-registro, como /mi-negocio/registro). Cuando login y registro
  * comparten un mismo formulario (/cuenta), en cambio, no se sabe de
  * antemano si hay que pedirlo — por eso existe `pedirNombreSiNuevo`:
  * al enviar, primero consulta si ese correo ya tiene cuenta

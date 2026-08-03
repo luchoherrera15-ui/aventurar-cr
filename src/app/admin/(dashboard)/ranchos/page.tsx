@@ -1,7 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import RanchosTable, { type RanchoConDueno } from "./ranchos-table";
-import type { Rancho } from "@/app/mi-rancho/types";
+import type { Rancho } from "@/app/mi-negocio/types";
 import { perteneceASeccion, type SeccionAdmin } from "../vertical";
 import { seccionActiva } from "../vertical-server";
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -15,7 +15,7 @@ import {
   etiquetaHorario,
   type HorarioBloqueConfig,
   type ModalidadPrecioLugar,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 import {
   cancelarReservaTemporal,
   completarReservaTemporal,
@@ -23,8 +23,8 @@ import {
 } from "./reserva-actions";
 import OfertaInvitacionCard from "@/components/oferta-invitacion-card";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./tipos-lugar";
-import { terminosPorDefecto } from "@/app/mi-rancho/types";
-import type { PromocionDia } from "@/app/mi-rancho/types";
+import { terminosPorDefecto } from "@/app/mi-negocio/types";
+import type { PromocionDia } from "@/app/mi-negocio/types";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",

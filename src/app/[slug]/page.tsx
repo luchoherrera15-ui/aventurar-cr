@@ -1,12 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { normalizarCategoria, type Rancho } from "@/app/mi-rancho/types";
+import { normalizarCategoria, type Rancho } from "@/app/mi-negocio/types";
 import RanchoPortal from "@/app/eventos/rancho-portal";
 
 /**
  * La URL corta de cada rancho/servicio, ej. bookea.lat/rancholastorres.
  * Vive en la raíz del sitio; Next.js siempre prueba primero las rutas
- * literales (/admin, /mi-rancho, /publicar, etc.), así que esta ruta
+ * literales (/admin, /mi-negocio, /publicar, etc.), así que esta ruta
  * dinámica solo entra a jugar cuando ningún nombre de carpeta real
  * calza — por eso el slug nunca puede pisar una ruta existente (ver
  * RESERVED_SLUGS en src/lib/slug.ts).

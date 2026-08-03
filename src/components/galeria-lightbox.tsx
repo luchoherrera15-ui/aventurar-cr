@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { IconChevronLeft, IconChevronRight } from "@/components/icons";
-import { FOTOS_DESTACADAS } from "@/app/mi-rancho/types";
+import { FOTOS_DESTACADAS } from "@/app/mi-negocio/types";
 
 /**
  * La grilla de fotos del portal (rancho, DJ, catering...), pero cada

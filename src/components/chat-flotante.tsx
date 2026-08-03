@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import {
   suscribirProveedorActual,
 } from "@/lib/proveedor-actual";
 import HiloChat from "@/app/mensajes/[reservaId]/hilo-chat";
-import type { Mensaje } from "@/app/mi-rancho/types";
+import type { Mensaje } from "@/app/mi-negocio/types";
 import { IconChatBubble } from "./icons";
 
 /**

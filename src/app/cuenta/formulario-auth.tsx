@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -109,7 +109,7 @@ export default function FormularioAuth({
 
       <p className="mt-3 text-center text-[12px] text-zinc-400">
         ¿Tenés un negocio para eventos?{" "}
-        <Link href="/mi-rancho/login" className="font-bold text-aventurea-ink-soft underline">
+        <Link href="/mi-negocio/login" className="font-bold text-aventurea-ink-soft underline">
           Entrá como proveedor
         </Link>
       </p>

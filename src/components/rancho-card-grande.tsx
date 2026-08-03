@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
@@ -11,7 +11,7 @@ import {
   SUBCATEGORIA_LABEL,
   UNIDAD_PRECIO_LABEL,
   type Rancho,
-} from "@/app/mi-rancho/types";
+} from "@/app/mi-negocio/types";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
 import type { Calificacion } from "@/components/rancho-card";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { ReactNode } from "react";
 import { tieneNegocioPropio } from "@/lib/negocio-propio";
 import AccionesSesion from "./acciones-sesion";
@@ -56,7 +56,7 @@ export default async function SiteHeader({
           {extra}
           {conPublicar && (
             <Link
-              href={yaPublica ? "/mi-rancho" : "/publicar"}
+              href={yaPublica ? "/mi-negocio" : "/publicar"}
               className="hidden whitespace-nowrap text-[13.5px] font-bold text-aventurea-ink hover:text-aventurea-navy sm:block"
             >
               {yaPublica ? "Manejá tu espacio" : "Publicá tu espacio"}
