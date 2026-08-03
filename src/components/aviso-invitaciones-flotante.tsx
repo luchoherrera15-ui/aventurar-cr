@@ -30,7 +30,10 @@ import {
  *    (z-50) y de los modales (z-90/z-100);
  *  - el link abre en otra pestaña, así nadie pierde lo que ya llevaba
  *    armado de su reserva;
- *  - quien lo cierra no lo vuelve a ver por una semana.
+ *  - quien lo cierra con la X no lo vuelve a ver por una semana; quien
+ *    toca "No mostrar más" no lo vuelve a ver nunca — son dos gestos
+ *    distintos a propósito, para no obligar a nadie a silenciarlo para
+ *    siempre solo por cerrarlo una vez.
  */
 
 const ICONO_DEMO: Record<DemoInvitacion["icono"], React.ReactNode> = {
@@ -88,12 +91,15 @@ function MiniInvitacion({ demo }: { demo: DemoInvitacion }) {
 }
 
 const CLAVE = "bookea_aviso_invitaciones";
+/** Lo que se guarda en `CLAVE` cuando alguien pide no verlo nunca más
+ *  (distinto de un timestamp: ninguna resta de fechas lo va a vencer). */
+const PARA_SIEMPRE = "nunca";
 const DIAS_SILENCIO = 7;
 const DEMORA_MS = 3500;
 /** Si ya bajó a mirar el lugar, está enganchado: sale sin esperar más. */
 const SCROLL_GATILLO = 600;
 /** Cuánto se queda en pantalla si nadie lo toca. */
-const VIDA_MS = 10_000;
+const VIDA_MS = 5_000;
 
 export default function AvisoInvitacionesFlotante({
   conBarraMovil = false,
@@ -106,12 +112,14 @@ export default function AvisoInvitacionesFlotante({
   const [pausado, setPausado] = useState(false);
 
   useEffect(() => {
-    let cerradoEn = 0;
+    let guardado = "";
     try {
-      cerradoEn = Number(window.localStorage.getItem(CLAVE)) || 0;
+      guardado = window.localStorage.getItem(CLAVE) ?? "";
     } catch {
       // Navegación privada sin storage: el aviso simplemente sale.
     }
+    if (guardado === PARA_SIEMPRE) return;
+    const cerradoEn = Number(guardado) || 0;
     if (Date.now() - cerradoEn < DIAS_SILENCIO * 86_400_000) return;
 
     // Lo que pase primero: el ratito de cortesía o que empiece a bajar.
@@ -141,7 +149,7 @@ export default function AvisoInvitacionesFlotante({
   }, []);
 
   /**
-   * Se retira solo a los 10 segundos. Dos cuidados:
+   * Se retira solo a los 5 segundos. Dos cuidados:
    *
    *  - el reloj corre únicamente mientras el aviso está DE VERDAD en
    *    pantalla: si el calendario de reserva lo tapó, no cuenta, o se
@@ -164,6 +172,17 @@ export default function AvisoInvitacionesFlotante({
       window.localStorage.setItem(CLAVE, String(Date.now()));
     } catch {
       // Sin storage volverá a salir en la próxima página: no es grave.
+    }
+  }, []);
+
+  /** A diferencia de la X (silencia 7 días), esto es un "nunca más"
+   *  explícito — para quien ya sabe que no le interesa el producto. */
+  const noMostrarMas = useCallback(() => {
+    setVisible(false);
+    try {
+      window.localStorage.setItem(CLAVE, PARA_SIEMPRE);
+    } catch {
+      // Sin storage no hay dónde guardarlo: volverá a salir después.
     }
   }, []);
 
@@ -261,9 +280,18 @@ export default function AvisoInvitacionesFlotante({
           >
             Ver cómo funciona →
           </Link>
-          <p className="mt-2 text-[10px] leading-relaxed text-white/45">
-            Se abre en otra pestaña — no perdés tu reserva.
-          </p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="text-[10px] leading-relaxed text-white/45">
+              Se abre en otra pestaña — no perdés tu reserva.
+            </p>
+            <button
+              type="button"
+              onClick={noMostrarMas}
+              className="shrink-0 text-[10px] font-bold text-white/50 underline-offset-2 hover:text-white/80 hover:underline"
+            >
+              No mostrar más
+            </button>
+          </div>
         </div>
       </div>
     </div>
