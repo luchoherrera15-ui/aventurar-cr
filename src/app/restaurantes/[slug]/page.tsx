@@ -12,9 +12,11 @@ import {
   normalizarCategoriaRestaurante,
   opcionesDeDetalles,
 } from "../tipos";
+import ProveedorActual from "@/components/proveedor-actual";
 
 type Local = {
   id: string;
+  owner_id: string;
   slug: string | null;
   nombre: string;
   categoria: string | null;
@@ -75,11 +77,14 @@ export default async function RestaurantePage({
 }) {
   const { slug } = await params;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data } = await supabase
     .from("ranchos")
     .select(
-      "id, slug, nombre, categoria, descripcion, provincia, canton, direccion_exacta, foto_url, precio_desde, contacto_whatsapp, latitud, longitud, detalles",
+      "id, owner_id, slug, nombre, categoria, descripcion, provincia, canton, direccion_exacta, foto_url, precio_desde, contacto_whatsapp, latitud, longitud, detalles",
     )
     .eq("slug", slug)
     .eq("vertical", "restaurantes")
@@ -123,6 +128,11 @@ export default async function RestaurantePage({
 
   return (
     <div className="min-h-screen bg-aventurea-cream-2">
+      {/* La burbuja de chat flotante solo tiene sentido acá si quien
+          mira no es el dueño — nadie se manda una consulta a sí mismo. */}
+      {local.owner_id !== user?.id && (
+        <ProveedorActual ranchoId={local.id} nombre={local.nombre} />
+      )}
       <SiteHeader breadcrumb="Restaurantes" />
 
       <section className="mx-auto max-w-[900px] px-4 pb-12 pt-4 sm:px-6">

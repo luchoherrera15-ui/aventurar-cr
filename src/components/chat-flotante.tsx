@@ -20,9 +20,14 @@ import { IconChatBubble } from "./icons";
  * vistas: la lista de conversaciones y el hilo abierto (que reutiliza
  * el mismo HiloChat de /mensajes, con su Realtime y su respaldo).
  *
- * En la página de un proveedor la burbuja aparece siempre y abre (o
- * crea) directo el hilo de consulta con ESE negocio. La bandeja
- * completa sigue existiendo en /mensajes para quien la prefiera.
+ * Solo vive en la página de un proveedor (rancho, servicio de citas,
+ * restaurante — donde `<ProveedorActual>` registra "este es el negocio
+ * actual"): ahí abre (o crea) directo el hilo de consulta con ESE
+ * negocio. En cualquier otra página (álbumes de invitación, cuenta,
+ * el resto del sitio) no aparece — antes se colaba en todas partes con
+ * solo tener una conversación activa, lo cual no tenía que ver con
+ * estar viendo un negocio. La bandeja completa sigue existiendo en
+ * /mensajes para quien la prefiera.
  *
  * El contador se refresca por Realtime (los INSERT llegan filtrados
  * por RLS: solo tus conversaciones), al volver a la pestaña y con un
@@ -48,7 +53,6 @@ type HiloAbierto = {
 
 export default function ChatFlotante() {
   const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
   const [sinLeer, setSinLeer] = useState(0);
   const [abierto, setAbierto] = useState(false);
   const [cargandoPanel, setCargandoPanel] = useState(false);
@@ -66,23 +70,15 @@ export default function ChatFlotante() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) {
-      setVisible(false);
-      return;
-    }
+    if (!user) return;
 
     const { data: convData } = await supabase.from("conversaciones").select("id, resuelta");
     const conversaciones = (convData ?? []) as { id: string; resuelta: boolean }[];
-    if (conversaciones.length === 0) {
-      setVisible(false);
-      return;
-    }
-    // La burbuja sigue estando (hay historial que ver), pero el contador
-    // cuenta SOLO los hilos activos: los archivados no aparecen en el
-    // panel, así que un pendiente ahí sería un número imposible de
-    // bajar. Si llega un mensaje nuevo, el hilo se reabre solo (trigger
-    // de 0054) y vuelve a contar.
-    setVisible(true);
+    if (conversaciones.length === 0) return;
+    // El contador cuenta SOLO los hilos activos: los archivados no
+    // aparecen en el panel, así que un pendiente ahí sería un número
+    // imposible de bajar. Si llega un mensaje nuevo, el hilo se reabre
+    // solo (trigger de 0054) y vuelve a contar.
     const ids = conversaciones.filter((c) => !c.resuelta).map((c) => c.id);
     if (ids.length === 0) {
       setSinLeer(0);
@@ -426,7 +422,9 @@ export default function ChatFlotante() {
 
   // Dentro de la mensajería completa la burbuja sobra (ya estás ahí).
   if (pathname.startsWith("/mensajes")) return null;
-  if (!visible && !proveedor) return null;
+  // Solo en la página de un negocio: sin `proveedor` no hay con quién
+  // hablar desde acá, y en cualquier otra pantalla del sitio no pinta.
+  if (!proveedor) return null;
 
   return (
     <>

@@ -16,6 +16,7 @@ import {
 } from "../tipos";
 import { cargarAgendaPro } from "../agenda-pro";
 import { linkGoogleMaps, type Rancho, type RanchoItem } from "@/app/mi-rancho/types";
+import ProveedorActual from "@/components/proveedor-actual";
 
 type Miembro = {
   id: string;
@@ -180,6 +181,11 @@ export default async function NegocioCitasPage({
 
   return (
     <div className="min-h-screen bg-[linear-gradient(175deg,#ffffff_0%,#f5f8fd_38%,#e9f0fb_100%)]">
+      {/* La burbuja de chat flotante solo tiene sentido acá si quien
+          mira no es el dueño — nadie se manda una consulta a sí mismo. */}
+      {negocio.owner_id !== user?.id && (
+        <ProveedorActual ranchoId={negocio.id} nombre={negocio.nombre} />
+      )}
       <SiteHeader breadcrumb="Citas y Reservas" />
 
       <section className="mx-auto max-w-[1000px] px-6 py-8">
