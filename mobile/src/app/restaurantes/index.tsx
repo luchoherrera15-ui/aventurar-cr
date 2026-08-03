@@ -193,7 +193,7 @@ export default function RestaurantesDirectorioScreen() {
       />
 
       <View style={styles.verticalesZona}>
-        <ChipsVerticales activo="restaurantes" />
+        <ChipsVerticales />
       </View>
 
       {errorCarga && locales === null ? (

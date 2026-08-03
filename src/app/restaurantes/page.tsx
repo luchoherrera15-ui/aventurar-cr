@@ -129,7 +129,7 @@ export default async function RestaurantesPage({
       <section className="relative mx-auto max-w-[1100px] px-4 pb-10 pt-4 sm:px-6">
         <h1 className="sr-only">Restaurantes — reservá mesa y pedí para recoger</h1>
         <div className="mb-4">
-          <SelectorVertical activo="restaurantes" />
+          <SelectorVertical />
         </div>
 
         {/* Buscador + la fila de categorías — la misma pieza que /citas.

@@ -1,25 +1,27 @@
 import Link from "next/link";
-import { IconClock, IconCloche, IconHome, IconSparkles } from "./icons";
+import { IconClock, IconSparkles } from "./icons";
 
 /**
  * El conmutador de las verticales, arriba de cada directorio: cards
- * chiquitas (ícono + nombre) para saltar entre Citas, Eventos,
- * Hospedajes y Restaurantes sin robarle espacio a las cards de abajo.
+ * chiquitas (ícono + nombre) para saltar entre Citas y Eventos sin
+ * robarle espacio a las cards de abajo.
+ *
+ * Hospedajes y Restaurantes ya no aparecen acá — se resumió a las dos
+ * verticales principales. Sus páginas siguen vivas y enlazadas desde
+ * el pie de página; solo se sacaron de este switcher rápido.
  */
 const VERTICALES = [
-  { id: "citas", href: "/citas", label: "Citas y Agendas", Icono: IconClock },
+  { id: "citas", href: "/citas", label: "Citas", Icono: IconClock },
   { id: "eventos", href: "/eventos", label: "Eventos", Icono: IconSparkles },
-  { id: "hospedajes", href: "/hospedajes", label: "Hospedajes", Icono: IconHome },
-  { id: "restaurantes", href: "/restaurantes", label: "Restaurantes", Icono: IconCloche },
 ] as const;
 
 export type VerticalActiva = (typeof VERTICALES)[number]["id"];
 
-export default function SelectorVertical({ activo }: { activo: VerticalActiva }) {
+export default function SelectorVertical({ activo }: { activo?: VerticalActiva }) {
   return (
     <nav
       aria-label="Tipo de reserva"
-      className="mx-auto grid w-full max-w-[720px] grid-cols-2 gap-2 sm:grid-cols-4"
+      className="mx-auto grid w-full max-w-[380px] grid-cols-2 gap-2"
     >
       {VERTICALES.map(({ id, href, label, Icono }) => {
         const esActivo = id === activo;

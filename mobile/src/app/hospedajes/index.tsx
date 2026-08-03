@@ -141,7 +141,7 @@ export default function HospedajesDirectorioScreen() {
       {/* El mismo menú de verticales que Explorar: saltar a Eventos o
           Servicios con un toque, sin depender de la flecha de volver. */}
       <View style={styles.verticalesZona}>
-        <ChipsVerticales activo="hospedajes" />
+        <ChipsVerticales />
       </View>
 
       {errorCarga && hospedajes === null ? (

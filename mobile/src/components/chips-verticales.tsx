@@ -1,33 +1,29 @@
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Fonts, Radios, Spacing, type Vertical } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
-const VERTICALES: { id: Vertical; icono: IconoNombre; label: string; ruta: string }[] = [
+const VERTICALES = [
   { id: "eventos", icono: "sparkles-outline", label: "Eventos", ruta: "/" },
   { id: "citas", icono: "time-outline", label: "Servicios", ruta: "/citas" },
-  { id: "hospedajes", icono: "home-outline", label: "Hospedajes", ruta: "/hospedajes" },
-  {
-    id: "restaurantes",
-    icono: "restaurant-outline",
-    label: "Restaurantes",
-    ruta: "/restaurantes",
-  },
-];
+] as const satisfies { id: string; icono: IconoNombre; label: string; ruta: string }[];
+
+export type VerticalActiva = (typeof VERTICALES)[number]["id"];
 
 /**
- * La fila de chips para saltar de vertical (Eventos / Citas /
- * Hospedajes / Restaurantes) — el mismo menú superior en las cuatro
- * pantallas. El activo va en navy y no navega; `router.navigate`
- * reutiliza la pantalla si ya está en la pila (volver de Citas a
- * Eventos no apila un Explorar nuevo).
+ * La fila de chips para saltar de vertical (Eventos / Citas) — el
+ * mismo menú superior en ambas pantallas. El activo va en navy y no
+ * navega; `router.navigate` reutiliza la pantalla si ya está en la
+ * pila (volver de Citas a Eventos no apila un Explorar nuevo).
  *
- * Va en un ScrollView horizontal para que en pantallas angostas
- * (320-360dp) el cuarto chip no se corte: se desliza.
+ * Hospedajes y Restaurantes ya no aparecen acá — se resumió a las dos
+ * verticales principales. Sus pantallas siguen vivas; solo se sacaron
+ * de este switcher rápido. Por eso `activo` es opcional: esas dos
+ * pantallas montan la fila sin ningún chip resaltado.
  */
-export default function ChipsVerticales({ activo }: { activo: Vertical }) {
+export default function ChipsVerticales({ activo }: { activo?: VerticalActiva }) {
   const router = useRouter();
   return (
     <ScrollView
