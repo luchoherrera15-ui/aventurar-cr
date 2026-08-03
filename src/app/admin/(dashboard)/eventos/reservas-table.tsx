@@ -72,7 +72,7 @@ function PedidoDetalle({
   detalle: DetallePedido | null;
   compacto?: boolean;
 }) {
-  if (!detalle || detalle.items.length === 0) return null;
+  if (!detalle || !Array.isArray(detalle.items) || detalle.items.length === 0) return null;
   return (
     <div className={compacto ? "" : "mt-3 border-t border-aventurea-line pt-3"}>
       <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
@@ -476,7 +476,7 @@ export default function ReservasTable({
                   </div>
                 </td>
               </tr>
-              {r.detalle_pedido && r.detalle_pedido.items.length > 0 && (
+              {r.detalle_pedido && Array.isArray(r.detalle_pedido.items) && r.detalle_pedido.items.length > 0 && (
                 <tr className="border-b border-aventurea-line last:border-none">
                   <td colSpan={nombrePorRancho ? 9 : 8} className="bg-aventurea-cream-2/30 px-4 py-2.5">
                     <PedidoDetalle detalle={r.detalle_pedido} compacto />

@@ -11,10 +11,6 @@
     {
       "path": "/api/hojas-impresas",
       "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/recordatorios-hora",
-      "schedule": "0 * * * *"
     }
   ]
 }
