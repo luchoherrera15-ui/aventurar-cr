@@ -8,8 +8,10 @@ import { useEffect, useRef } from "react";
  * Es un tramo alto de scroll con la escena pegada al centro de la
  * pantalla. Mientras se baja, UNA sola invitación va contando toda la
  * historia del producto sin cortes: la tarjeta se encoge y entra al
- * teléfono, aparecen los botones de confirmar, y al final el teléfono
- * se corre para dejar entrar la lista de invitados que se llena sola.
+ * teléfono, la pantalla del teléfono avanza de cuadro en cuadro (fecha
+ * → cuenta regresiva → confirmar), el botón se aprieta de verdad, y al
+ * final el teléfono se corre para dejar entrar el panel del anfitrión,
+ * cuyas filas van entrando una por una mientras el contador sube.
  *
  * Por qué así y no cuatro capturas de pantalla en fila: el argumento de
  * venta es que es UNA cosa, no cuatro. Verlo transformarse lo dice sin
@@ -31,10 +33,10 @@ import { useEffect, useRef } from "react";
 
 /** Ventanas [entra, sale] de cada bloque de texto, en progreso 0..1. */
 const BANDAS: [number, number][] = [
-  [0.0, 0.16],
-  [0.2, 0.38],
-  [0.42, 0.6],
-  [0.64, 1.2],
+  [0.0, 0.14],
+  [0.18, 0.36],
+  [0.4, 0.58],
+  [0.62, 1.2],
 ];
 
 /**
@@ -65,6 +67,14 @@ const TEXTOS = [
   },
 ];
 
+/** Las filas del panel, con sus iniciales para el avatar. */
+const INVITADOS = [
+  { nombre: "Familia Jiménez", iniciales: "FJ", cantidad: "+4", va: true },
+  { nombre: "Tía Rosa", iniciales: "TR", cantidad: "+2", va: true },
+  { nombre: "Carlos M.", iniciales: "CM", cantidad: "—", va: false },
+  { nombre: "Ana & Beto", iniciales: "AB", cantidad: "+2", va: true },
+];
+
 function limitar(v: number, a: number, b: number) {
   return v < a ? a : v > b ? b : v;
 }
@@ -83,11 +93,16 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
   const pistaRef = useRef<HTMLDivElement>(null);
   const papelRef = useRef<HTMLDivElement>(null);
   const telefonoRef = useRef<HTMLDivElement>(null);
+  const pantallaRef = useRef<HTMLDivElement>(null);
   const rsvpRef = useRef<HTMLDivElement>(null);
+  const rsvpConfirmadoRef = useRef<HTMLDivElement>(null);
+  const dedoRef = useRef<HTMLSpanElement>(null);
+  const acompanantesRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const contadorRef = useRef<HTMLSpanElement>(null);
   const escenaRef = useRef<HTMLDivElement>(null);
   const textosRef = useRef<(HTMLDivElement | null)[]>([]);
+  const filasRef = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     const sinMovimiento = window.matchMedia(
@@ -97,11 +112,26 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
     const pista = pistaRef.current;
     const papel = papelRef.current;
     const telefono = telefonoRef.current;
+    const pantalla = pantallaRef.current;
     const rsvp = rsvpRef.current;
+    const rsvpConfirmado = rsvpConfirmadoRef.current;
+    const dedo = dedoRef.current;
+    const acompanantes = acompanantesRef.current;
     const panel = panelRef.current;
     const contador = contadorRef.current;
     const escena = escenaRef.current;
-    if (!pista || !papel || !telefono || !rsvp || !panel || !escena) return;
+    if (
+      !pista ||
+      !papel ||
+      !telefono ||
+      !pantalla ||
+      !rsvp ||
+      !rsvpConfirmado ||
+      !acompanantes ||
+      !panel ||
+      !escena
+    )
+      return;
 
     // Sin movimiento: se arma la escena final y se muestran todos los
     // textos. Nadie se pierde nada, simplemente no se mueve.
@@ -109,8 +139,10 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
       papel.style.opacity = "0";
       telefono.style.opacity = "1";
       telefono.style.transform = "none";
-      rsvp.style.opacity = "1";
-      rsvp.style.transform = "none";
+      pantalla.style.transform = "translateY(-200%)";
+      rsvpConfirmado.style.opacity = "1";
+      acompanantes.style.opacity = "1";
+      acompanantes.style.transform = "none";
       panel.style.opacity = "1";
       // Mismo centrado que en la animación, o el panel sale corrido.
       panel.style.transform =
@@ -124,6 +156,12 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
           t.style.marginBottom = "28px";
         }
       });
+      filasRef.current.forEach((f) => {
+        if (f) {
+          f.style.opacity = "1";
+          f.style.transform = "none";
+        }
+      });
       return;
     }
 
@@ -133,13 +171,13 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
 
     function dibujar(p: number) {
       // 1. La tarjeta se encoge, se endereza y se apaga.
-      const morfo = suavizar(tramo(p, 0.04, 0.2));
+      const morfo = suavizar(tramo(p, 0.03, 0.18));
       papel!.style.transform = `translateY(${-morfo * 14}px) scale(${entre(1, 0.58, morfo)}) rotate(${entre(-3.2, 0, morfo)}deg)`;
-      papel!.style.opacity = String(1 - tramo(p, 0.1, 0.19));
+      papel!.style.opacity = String(1 - tramo(p, 0.09, 0.17));
 
       // 2. El teléfono entra por debajo de donde estaba la tarjeta.
-      const entra = suavizar(tramo(p, 0.11, 0.26));
-      // 4. Y más adelante se corre a la izquierda para dejar lugar al panel.
+      const entra = suavizar(tramo(p, 0.1, 0.24));
+      // 6. Y más adelante se corre a la izquierda para dejar lugar al panel.
       const corrida = suavizar(tramo(p, 0.66, 0.82));
       const dx = angosto ? 0 : entre(0, -170, corrida);
       const dy = angosto ? entre(0, -40, corrida) : 0;
@@ -154,14 +192,29 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
       // mismo tiempo: el teléfono se apaga y el panel ocupa su lugar. En
       // escritorio conviven, que es lo que mejor cuenta la historia.
       const salidaTelefono = angosto ? tramo(p, 0.72, 0.84) : 0;
-      telefono!.style.opacity = String(tramo(p, 0.12, 0.22) * (1 - salidaTelefono));
+      telefono!.style.opacity = String(tramo(p, 0.11, 0.2) * (1 - salidaTelefono));
 
-      // 3. Los botones de confirmar suben dentro del teléfono.
-      const conf = suavizar(tramo(p, 0.44, 0.58));
-      rsvp!.style.transform = `translateY(${entre(26, 0, conf)}px)`;
-      rsvp!.style.opacity = String(conf);
+      // 3. La pantalla avanza de cuadro en cuadro: fecha → cuenta
+      // regresiva → confirmar. Dos saltos de un tercio de vuelta cada
+      // uno, como una tira de fotogramas que se corre hacia arriba.
+      const f1 = suavizar(tramo(p, 0.26, 0.4));
+      const f2 = suavizar(tramo(p, 0.44, 0.58));
+      pantalla!.style.transform = `translateY(${-(f1 + f2) * (100 / 3)}%)`;
 
-      // 4. El panel de invitados entra desde la derecha, contando.
+      // 4. El toque de confirmar: se aprieta y cambia de estado.
+      const presionar = p > 0.6 && p < 0.635;
+      const confirmado = p >= 0.635;
+      rsvp!.style.transform = presionar ? "scale(0.955)" : "scale(1)";
+      rsvpConfirmado!.style.opacity = String(confirmado ? 1 : 0);
+      if (dedo) {
+        const dedoVisible = p > 0.585 && p < 0.63;
+        dedo.style.opacity = dedoVisible ? "1" : "0";
+      }
+      const acomp = tramo(p, 0.645, 0.68);
+      acompanantes!.style.opacity = String(acomp);
+      acompanantes!.style.transform = `translateY(${entre(8, 0, acomp)}px)`;
+
+      // 5. El panel de invitados entra desde la derecha, contando.
       const listado = suavizar(tramo(p, 0.7, 0.88));
       const escalaPanel = entre(0.94, 1, listado);
       // El -50% del centrado viaja en el mismo transform: si se dejara
@@ -173,6 +226,12 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
       if (contador) {
         contador.textContent = String(Math.round(entre(0, 128, listado)));
       }
+      filasRef.current.forEach((fila, i) => {
+        if (!fila) return;
+        const entrada = tramo(p, 0.78 + i * 0.035, 0.82 + i * 0.035);
+        fila.style.opacity = String(entrada);
+        fila.style.transform = `translateY(${entre(10, 0, entrada)}px)`;
+      });
 
       // Los textos entran y salen en su propia ventana.
       textosRef.current.forEach((nodo, i) => {
@@ -224,18 +283,26 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
   }, []);
 
   return (
-    <div ref={pistaRef} className="relative h-[460svh] md:h-[520svh]">
+    <div ref={pistaRef} className="relative h-[520svh] md:h-[600svh]">
       {/* En móvil es una columna donde la escena se queda con lo que
           sobra (flex-1 + min-h-0), no una altura calculada a mano: dos
           medidas en svh que sumaban de más eran lo que empujaba el
           teléfono fuera de la pantalla. Así no hay número que se pueda
           pasar — lo que quede es lo que hay. */}
       <div className="sticky top-0 h-svh overflow-hidden">
+        {/* Un halo suave detrás de la escena, como el fondo radial de
+            una vitrina — sin esto el teléfono flota sobre el navy plano
+            y se pierde el efecto de "producto en foco". */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[70vh] w-[70vh] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.14] blur-[130px]"
+          style={{ background: "#ee7420" }}
+        />
         {/* 29svh de texto + 53svh de escena + los 32px de gap y padding:
             queda holgura contra el 100svh, que es lo que evita que algo
             se salga por abajo en un celular con la barra del navegador
             asomando. */}
-        <div className="mx-auto flex h-full w-[min(1120px,92vw)] flex-col justify-center gap-3 py-4 md:grid md:h-auto md:items-center md:gap-8 md:py-0 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="relative mx-auto flex h-full w-[min(1120px,92vw)] flex-col justify-center gap-3 py-4 md:grid md:h-auto md:items-center md:gap-8 md:py-0 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
           {/* ---------- Columna de texto ----------
 
               Los cuatro bloques están SUPERPUESTOS, no apilados, también
@@ -305,127 +372,208 @@ export default function Reel({ claseSerif }: { claseSerif: string }) {
                 // al del contenedor (max-h-full): no existe medida que
                 // pueda desbordar, que es de donde salía el recorte.
                 //
-                // En escritorio sí va el marco: ahí el teléfono es lo
-                // que explica que esto se abre en el celular.
-                // El alto va EXPLÍCITO en móvil (50svh) y el ancho sale
-                // del aspecto. Antes era `aspect-[9/16] w-auto` con el
-                // alto en auto, y así `aspect-ratio` no calcula nada:
-                // sin una de las dos medidas definida, la caja termina
-                // midiendo lo que mida su texto. De ahí que la
-                // invitación saliera de un tamaño arbitrario por más que
-                // se tocara el contenedor.
-                className="relative h-[50svh] w-auto rounded-2xl [aspect-ratio:3/4] md:h-[min(560px,64svh)] md:w-[min(276px,30vw)] md:rounded-[40px] md:border-[7px] md:p-2 md:[aspect-ratio:auto]"
+                // En escritorio sí va el marco, con la isla dinámica del
+                // teléfono real: ahí el teléfono es lo que explica que
+                // esto se abre en el celular.
+                className="relative h-[52svh] w-auto rounded-2xl [aspect-ratio:3/4] md:h-[min(580px,66svh)] md:w-[min(284px,31vw)] md:rounded-[44px] md:p-2 md:[aspect-ratio:auto]"
                 style={{
                   opacity: 0,
-                  // Más oscuro que el fondo de la página (#0a1226), no
-                  // igual: con el mismo color el bisel desaparecía y el
-                  // teléfono se leía como una pantalla flotando, sin
-                  // marco. El anillo claro de afuera le da el filo que
-                  // hace que se entienda que es un aparato.
-                  borderColor: "#04060d",
-                  background: "#04060d",
+                  background: "#050810",
                   boxShadow:
-                    "0 0 0 1px rgba(255,255,255,.16), 0 50px 110px -45px rgba(0,0,0,.9)",
+                    "0 0 0 2px #1c2436, 0 0 0 3.5px #2e3a52, 0 60px 120px -40px rgba(0,0,0,.9)",
                 }}
               >
+                {/* La isla dinámica — solo en escritorio, donde el
+                    marco de teléfono es real y no la pantalla entera. */}
                 <div
-                  className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl px-5 py-7 text-center md:rounded-[32px] md:px-5 md:py-8"
-                  style={{ background: "#efe7d8", color: "#2a2318" }}
-                >
-                  <p className="text-[9px] font-bold uppercase tracking-[0.32em] text-[#a08a4e] md:text-[9px] md:tracking-[0.34em]">
-                    Nos casamos
-                  </p>
-                  <p className={`${claseSerif} mt-4 text-[30px] leading-[1.1] md:mt-4 md:text-[30px]`}>
-                    Sofía
-                    <span className="mx-1.5 text-[#c9a227]">&</span>
-                    Andrés
-                  </p>
-                  <div className="mx-auto my-4 h-px w-12 bg-[#c9a227] md:my-4 md:w-12" />
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[#6b5c3e] md:text-[10.5px] md:tracking-[0.18em]">
-                    12 · Dic · 2026 · 4:00 p.m.
-                  </p>
-                  <p className="mt-1.5 text-[10px] text-[#6b5c3e] md:mt-1.5 md:text-[10.5px]">
-                    Hacienda La Chimba, Atenas
-                  </p>
+                  aria-hidden
+                  className="absolute left-1/2 top-[14px] z-10 hidden h-[16px] w-[30%] -translate-x-1/2 rounded-full bg-[#050810] md:block"
+                />
+                <div className="relative h-full w-full overflow-hidden rounded-2xl md:rounded-[36px]">
+                  {/* La tira de tres cuadros: fecha → cuenta regresiva →
+                      confirmar. `pantallaRef` se corre hacia arriba con
+                      el scroll, un tercio de su alto por cuadro. */}
+                  <div
+                    ref={pantallaRef}
+                    className="absolute inset-0"
+                    style={{ height: "300%" }}
+                  >
+                    {/* Cuadro 1 — la invitación. */}
+                    <div
+                      className="flex h-1/3 w-full flex-col items-center justify-center px-6 py-8 text-center"
+                      style={{
+                        background:
+                          "linear-gradient(165deg,#132049,#0a1226)",
+                        color: "#efe7d8",
+                      }}
+                    >
+                      <p className="text-[9px] font-bold uppercase tracking-[0.32em] text-[#f0c987]">
+                        Nos casamos
+                      </p>
+                      <p className={`${claseSerif} mt-4 text-[30px] leading-[1.1]`}>
+                        Sofía
+                        <span className="mx-1.5 text-[#f0c987]">&</span>
+                        Andrés
+                      </p>
+                      <div className="mx-auto my-4 h-px w-12 bg-[#f0c987]/70" />
+                      <p className="text-[10.5px] uppercase leading-relaxed tracking-[0.16em] text-white/60">
+                        12 · Dic · 2026 · 4:00 p.m.
+                        <br />
+                        Hacienda La Chimba, Atenas
+                      </p>
+                    </div>
 
-                  {/* La cuenta regresiva, que es lo que engancha. */}
-                  <div className="mt-5 flex justify-center gap-2 md:mt-6 md:gap-2">
-                    {[
-                      ["108", "días"],
-                      ["06", "hrs"],
-                      ["42", "min"],
-                    ].map(([n, l]) => (
-                      <div
-                        key={l}
-                        className="min-w-[50px] rounded-xl bg-[#e3d8c2] px-2 py-2 md:min-w-[54px]"
-                      >
-                        <p className="text-[16px] font-bold leading-none md:text-[17px]">{n}</p>
-                        <p className="mt-1 text-[8px] uppercase tracking-[0.14em] text-[#8a7752] md:text-[8.5px]">
-                          {l}
-                        </p>
+                    {/* Cuadro 2 — la cuenta regresiva y el mapa. */}
+                    <div
+                      className="flex h-1/3 w-full flex-col items-center justify-center px-6 py-8 text-center"
+                      style={{
+                        background:
+                          "linear-gradient(165deg,#132049,#0a1226)",
+                        color: "#efe7d8",
+                      }}
+                    >
+                      <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#f0c987]">
+                        Faltan
+                      </p>
+                      <div className="mt-4 flex justify-center gap-2">
+                        {[
+                          ["108", "días"],
+                          ["06", "hrs"],
+                          ["42", "min"],
+                        ].map(([n, l]) => (
+                          <div
+                            key={l}
+                            className="min-w-[52px] rounded-xl bg-white/[0.07] px-2 py-2.5"
+                            style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,.1)" }}
+                          >
+                            <p className="text-[17px] font-bold leading-none tabular-nums">{n}</p>
+                            <p className="mt-1 text-[8px] uppercase tracking-[0.14em] text-white/50">
+                              {l}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                      <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-[10px] text-white/70" style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,.1)" }}>
+                        <span className="h-[5px] w-[5px] rounded-full bg-[#ee7420]" />
+                        Hacienda La Chimba · Maps y Waze
+                      </span>
+                    </div>
 
-                  {/* Confirmar asistencia. */}
-                  <div ref={rsvpRef} className="mt-auto" style={{ opacity: 0 }}>
-                    <p className="mb-2.5 text-[10px] uppercase tracking-[0.16em] text-[#8a7752] md:text-[10.5px]">
-                      ¿Nos acompañás?
-                    </p>
-                    <div className="flex gap-2">
-                      <span
-                        className="flex-1 rounded-xl py-2.5 text-[12px] font-bold text-white md:text-[12.5px]"
-                        style={{ background: "#1f7a4d" }}
-                      >
-                        Sí, ahí estaré
-                      </span>
-                      <span className="rounded-xl border border-[#c9bda2] px-3 py-2.5 text-[12px] font-bold text-[#6b5c3e] md:text-[12.5px]">
+                    {/* Cuadro 3 — confirmar asistencia, con el estado
+                        de apretado y confirmado superpuestos. */}
+                    <div
+                      className="flex h-1/3 w-full flex-col items-center justify-center px-6 py-8 text-center"
+                      style={{
+                        background:
+                          "linear-gradient(165deg,#132049,#0a1226)",
+                        color: "#efe7d8",
+                      }}
+                    >
+                      <p className={`${claseSerif} text-[24px] italic leading-tight`}>
+                        ¿Nos acompañás?
+                      </p>
+                      <p className="mt-1.5 text-[10px] uppercase tracking-[0.16em] text-white/45">
+                        Confirmá antes del 30 de octubre
+                      </p>
+
+                      <div className="relative mt-5 w-full max-w-[190px]">
+                        <div
+                          ref={rsvpRef}
+                          className="w-full rounded-xl py-3 text-[12.5px] font-bold text-[#14151a] transition-transform"
+                          style={{ background: "#efe7d8" }}
+                        >
+                          Sí, ahí estaré
+                        </div>
+                        {/* El estado confirmado que cubre al botón tras
+                            el tap. */}
+                        <div
+                          ref={rsvpConfirmadoRef}
+                          className="absolute inset-0 flex items-center justify-center gap-1.5 rounded-xl text-[12.5px] font-bold text-white"
+                          style={{ background: "#1f7a4d", opacity: 0 }}
+                        >
+                          ✓ ¡Confirmado!
+                        </div>
+                        {/* El dedo que toca el botón. */}
+                        <span
+                          ref={dedoRef}
+                          aria-hidden
+                          className="absolute -bottom-3 right-6 h-9 w-9 rounded-full border-2 border-white/80 bg-white/25 shadow-lg"
+                          style={{ opacity: 0 }}
+                        />
+                      </div>
+
+                      <div className="mt-2.5 w-full max-w-[190px] rounded-xl border border-white/20 py-2.5 text-[11.5px] font-semibold text-white/60">
                         No podré
-                      </span>
+                      </div>
+
+                      <div
+                        ref={acompanantesRef}
+                        className="mt-4 flex w-full max-w-[190px] items-center justify-between rounded-xl bg-white/[0.06] px-3.5 py-2.5 text-[11px] text-white/70"
+                        style={{ opacity: 0, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.1)" }}
+                      >
+                        <span>Vamos</span>
+                        <span className="text-[13px] font-bold text-white">2 personas</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* El panel del anfitrión, que entra al final. */}
+              {/* El panel del anfitrión, que entra al final — vidrio
+                  esmerilado como el de la referencia, no la placa lisa
+                  navy que tenía antes: es lo que hace que se lea como
+                  "producto real" y no como una tarjeta de color plano. */}
               <div
                 ref={panelRef}
                 // El centrado va en el `transform` que escribe el JS, no
                 // en clases: una utilidad de Tailwind acá la pisaría el
                 // estilo en línea y el panel saldría corrido.
-                className="absolute left-1/2 top-1/2 w-[min(248px,72vw)] rounded-2xl border border-white/12 p-5 md:left-auto md:right-[-14%]"
+                className="absolute left-1/2 top-1/2 w-[min(260px,72vw)] rounded-2xl border border-white/12 p-5 backdrop-blur-xl md:left-auto md:right-[-16%]"
                 style={{
                   opacity: 0,
-                  background: "#16295e",
-                  boxShadow: "0 40px 90px -40px rgba(0,0,0,.8)",
+                  background: "rgba(22,41,94,.72)",
+                  boxShadow: "0 40px 90px -40px rgba(0,0,0,.85)",
                 }}
               >
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
-                  Tu panel
-                </p>
-                <p className="mt-2 flex items-baseline gap-1.5 text-white">
-                  <span ref={contadorRef} className="titulo text-[40px] leading-none">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
+                    Tu panel
+                  </p>
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#5fd39a]">
+                    <span className="anim-invitacion-latir h-[5px] w-[5px] rounded-full bg-[#5fd39a]" />
+                    En vivo
+                  </span>
+                </div>
+                <p className="mt-3 flex items-baseline gap-1.5 text-white">
+                  <span ref={contadorRef} className="titulo text-[42px] leading-none tabular-nums">
                     0
                   </span>
                   <span className="text-[12.5px] text-white/55">personas</span>
                 </p>
                 <div className="mt-4 space-y-2">
-                  {[
-                    ["Familia Jiménez", "4", true],
-                    ["Tía Rosa", "2", true],
-                    ["Carlos M.", "—", false],
-                    ["Ana & Beto", "2", true],
-                  ].map(([n, c, va]) => (
+                  {INVITADOS.map((inv, i) => (
                     <div
-                      key={n as string}
-                      className="flex items-center justify-between rounded-xl bg-white/6 px-3 py-2"
+                      key={inv.nombre}
+                      ref={(n) => {
+                        filasRef.current[i] = n;
+                      }}
+                      className="flex items-center gap-2.5 rounded-xl bg-white/[0.06] px-3 py-2"
+                      style={{ opacity: 0, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.07)" }}
                     >
-                      <span className="text-[12px] text-white/80">{n}</span>
                       <span
-                        className="text-[11px] font-bold"
-                        style={{ color: va ? "#5fd39a" : "rgba(255,255,255,.35)" }}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9.5px] font-bold text-white/80"
+                        style={{ background: "linear-gradient(140deg,#3a4a7a,#1c2748)" }}
                       >
-                        {va ? `+${c}` : "No va"}
+                        {inv.iniciales}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[12px] text-white/80">
+                        {inv.nombre}
+                      </span>
+                      <span
+                        className="shrink-0 text-[11px] font-bold"
+                        style={{ color: inv.va ? "#5fd39a" : "rgba(255,255,255,.35)" }}
+                      >
+                        {inv.va ? `${inv.cantidad} ✓` : "No va"}
                       </span>
                     </div>
                   ))}
