@@ -700,6 +700,48 @@ export function plantillaRecordatorioEvento({
   });
 }
 
+/**
+ * Al proveedor, la mañana del evento: recordale cobrar el saldo antes
+ * de que el auto-cobro de la noche (~11pm hora CR) lo dé por cobrado
+ * solo. Únicamente al proveedor — el cliente no recibe este aviso, es
+ * un recordatorio de cobranza para quien cobra, no un cobro en sí.
+ */
+export function plantillaRecordatorioCobro({
+  nombreProveedor,
+  nombreRancho,
+  ranchoId,
+  nombreEvento,
+  saldoPendiente,
+}: {
+  nombreProveedor: string;
+  nombreRancho: string;
+  ranchoId: string;
+  nombreEvento: string | null;
+  saldoPendiente: number;
+}) {
+  const proveedor = escaparHtml(nombreProveedor);
+  const rancho = escaparHtml(nombreRancho);
+  const monto = "₡" + Math.round(saldoPendiente).toLocaleString("es-CR");
+
+  return layoutBento({
+    kicker: "Hoy cobrás",
+    titulo: `Hola ${proveedor}, hoy es el evento en ${rancho}`,
+    introHtml: `Antes de que termine el día, Bookea va a marcar el saldo como
+      cobrado automáticamente, como red de seguridad — si todavía no lo
+      recibiste, cobralo hoy mismo.`,
+    naranjaHtml: `Saldo pendiente: ${monto}${nombreEvento ? ` — ${escaparHtml(nombreEvento)}` : ""}.`,
+    cuerpoHtml: `
+      <p style="margin:0;">Cuando el cliente te pague, marcalo en tu panel para que
+      tus finanzas queden al día.</p>
+    `,
+    cta: {
+      href: `${SITIO_URL}/mi-rancho/${ranchoId}?tab=finanzas`,
+      label: "Registrar el cobro",
+    },
+    pie: "Recibís este correo porque administrás un negocio publicado en Bookea.",
+  });
+}
+
 /** Recordatorio de cita — sale 1 día antes, al cliente y al negocio. */
 export function plantillaRecordatorioCita({
   nombreDestinatario,

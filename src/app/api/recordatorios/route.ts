@@ -6,16 +6,18 @@ import {
   plantillaFindeLibre,
   plantillaPedirResena,
   plantillaRecordatorioCita,
+  plantillaRecordatorioCobro,
   plantillaRecordatorioEvento,
 } from "@/lib/email";
 import { enviarPush } from "@/lib/push";
 import { sincronizarAgendaExterna } from "@/lib/agenda/importar-ics";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { horaBonita } from "@/app/citas/tipos";
+import { fmtColones, saldoPendiente, type ReservaFinanzas } from "@/lib/finanzas";
 
 /**
  * Los avisos diarios — lo dispara el cron de Vercel una vez al día
- * (ver vercel.json). Tres trabajos, cada uno con su bandera de
+ * (ver vercel.json). Cinco trabajos, cada uno con su bandera de
  * una-sola-vez:
  *
  *  1. Recordatorio T-1: reservas confirmadas para MAÑANA (hora de
@@ -26,6 +28,11 @@ import { horaBonita } from "@/app/citas/tipos";
  *  3. Finde libre: si un Lugar tiene libre un viernes/sábado/domingo
  *     que está a 2-3 días, se le avisa al dueño para que pueda poner
  *     un descuento y pelear esa fecha (avisos_finde_libre).
+ *  4. Recordatorio de cobro: eventos confirmados de HOY con saldo sin
+ *     cobrar → aviso al proveedor por correo y push, antes de que el
+ *     auto-cobro de la noche (/api/auto-cobro) lo dé por cobrado solo
+ *     (recordatorio_cobro_enviado).
+ *  5. Refresco de agendas externas conectadas.
  *
  * Corre con la service key (el cron no tiene sesión de usuario). Si
  * falta la key o la de Resend, responde explicando qué falta en vez
@@ -265,7 +272,70 @@ export async function GET(request: Request) {
     }
   }
 
-  // 4. Refresco diario de las agendas externas conectadas (0072): lo
+  // ---------- 4. Recordatorio de cobro: eventos de HOY ----------
+  // Mismo criterio que el bloque "Pendientes" del panel de cada negocio
+  // (saldoPendiente() de src/lib/finanzas.ts) — el aviso y lo que ve el
+  // dueño en su panel tienen que decir lo mismo. El reclamo va DENTRO
+  // del update, como el de "pedir reseña": si el cron corre dos veces,
+  // no se manda el aviso dos veces.
+  const { data: paraCobro } = await admin
+    .from("reservas")
+    .update({ recordatorio_cobro_enviado: true })
+    .eq("estado", "confirmada")
+    .eq("fecha", hoy)
+    .eq("evento_pagado", false)
+    .eq("recordatorio_cobro_enviado", false)
+    .select(
+      "id, fecha, nombre, tipo_evento, invitados, monto_total, monto_cobrado_final, deposito_monto, deposito_validado, deposito_pagado_en, evento_pagado, saldo_pagado_en, rancho_id, ranchos(nombre, owner_id)",
+    );
+
+  type FilaCobro = ReservaFinanzas & {
+    rancho_id: string;
+    ranchos: { nombre: string; owner_id: string } | null;
+  };
+
+  let cobrosAvisados = 0;
+  for (const r of (paraCobro ?? []) as unknown as FilaCobro[]) {
+    // El saldo puede ya estar en 0 (el dueño lo marcó a mano temprano
+    // en el día, antes de que corriera el cron) — ahí no hay nada que
+    // avisar.
+    const saldo = saldoPendiente(r);
+    if (saldo <= 0 || !r.ranchos?.owner_id) continue;
+
+    const nombreRancho = r.ranchos.nombre;
+    const { data: perfil } = await admin
+      .from("perfiles")
+      .select("nombre, email")
+      .eq("id", r.ranchos.owner_id)
+      .maybeSingle();
+
+    if (perfil?.email) {
+      await enviarCorreo({
+        to: perfil.email,
+        subject: `Hoy cobrás en ${nombreRancho}`,
+        html: plantillaRecordatorioCobro({
+          nombreProveedor: perfil.nombre || perfil.email,
+          nombreRancho,
+          ranchoId: r.rancho_id,
+          nombreEvento: r.nombre,
+          saldoPendiente: saldo,
+        }),
+      });
+    }
+
+    // El teléfono no tiene una pestaña "finanzas" propia (ver
+    // mobile/src/app/index.tsx) — el mismo destino que ya usan los
+    // demás push al dueño sobre una reserva.
+    await enviarPush({
+      usuarios: [r.ranchos.owner_id],
+      titulo: `Hoy cobrás — ${nombreRancho}`,
+      cuerpo: `Faltan ${fmtColones(saldo)} por cobrar${r.nombre ? ` de ${r.nombre}` : ""}.`,
+      data: { url: "/?tab=reservas" },
+    });
+    cobrosAvisados++;
+  }
+
+  // 5. Refresco diario de las agendas externas conectadas (0072): lo
   // que el proveedor agregó en su Google/Apple Calendar entra solo,
   // sin que tenga que tocar "Sincronizar ahora". Tolerante: si la
   // tabla no existe o una agenda falla, el resto de avisos ya salió.
@@ -291,6 +361,7 @@ export async function GET(request: Request) {
     avisadas: enviados,
     resenasPedidas,
     findesAvisados,
+    cobrosAvisados,
     agendasSincronizadas,
   });
 }
