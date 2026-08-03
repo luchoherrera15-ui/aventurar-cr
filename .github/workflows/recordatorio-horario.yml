@@ -1,0 +1,18 @@
+name: Recordatorio horario de citas
+
+# Vercel Hobby solo permite crons diarios; este necesita correr cada
+# hora, así que el disparador vive acá en vez de en vercel.json (ver
+# el comentario en src/app/api/recordatorios-hora/route.ts).
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  llamar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a /api/recordatorios-hora
+        run: |
+          curl -sf -X GET "https://www.bookea.lat/api/recordatorios-hora" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

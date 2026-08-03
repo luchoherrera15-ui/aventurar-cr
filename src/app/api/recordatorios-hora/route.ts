@@ -15,13 +15,13 @@ import { horaBonita, minutosAHora } from "@/app/citas/tipos";
  * 3 horas antes de la cita, cuando el aviso todavía sirve para
  * reacomodar el día.
  *
- * SIN DISPARADOR por ahora: un cron de "0 * * * *" en vercel.json
- * rompía TODOS los deploys — Vercel Hobby solo permite crons diarios,
- * y rechaza el deploy entero (sin ni siquiera dejar rastro en la
- * lista de deployments) si vercel.json trae uno más frecuente. Hasta
- * que se conecte un disparador externo (ej. GitHub Actions cada hora,
- * con el mismo CRON_SECRET) o se suba a Vercel Pro, esta ruta existe
- * pero nadie la llama.
+ * El disparador NO es un cron de vercel.json: uno de "0 * * * *" ahí
+ * rompía TODOS los deploys (Vercel Hobby solo permite crons diarios, y
+ * rechaza el deploy entero sin dejar rastro en la lista de
+ * deployments si vercel.json trae uno más frecuente). En cambio corre
+ * desde .github/workflows/recordatorio-horario.yml — un cron de
+ * GitHub Actions, gratis, que le pega a esta URL cada hora con el
+ * mismo CRON_SECRET.
  *
  * Idempotencia: la bandera reservas.recordatorio_hora_enviado (0095)
  * se reclama DENTRO del mismo update que selecciona (patrón 0047) —
