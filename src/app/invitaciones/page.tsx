@@ -102,9 +102,9 @@ export default function InvitacionesLanding() {
             Invitaciones digitales
           </p>
           <h1 className="titulo mx-auto mt-5 max-w-[16ch] text-[clamp(42px,8vw,92px)] leading-[1.02]">
-            Tu invitación,
+            Tu invitación
             <br />
-            hecha a mano.
+            personalizada.
           </h1>
           <p className="mx-auto mt-6 max-w-[52ch] text-[clamp(16px,2vw,21px)] leading-relaxed text-white/60">
             Un link que se abre en cualquier teléfono. Tus invitados confirman con un
