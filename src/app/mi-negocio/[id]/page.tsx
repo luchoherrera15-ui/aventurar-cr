@@ -30,6 +30,8 @@ import TerminosForm from "@/components/terminos-form";
 import HorariosForm from "@/components/horarios-form";
 import CuentasPagoForm from "@/components/cuentas-pago-form";
 import SeccionPlegable from "@/components/seccion-plegable";
+import DuracionesLugarForm from "./duraciones-lugar-form";
+import type { DuracionPorDia } from "./duraciones-lugar-actions";
 import ReservasTable from "@/app/admin/(dashboard)/eventos/reservas-table";
 import FinanzasPanel from "./finanzas/finanzas-panel";
 import {
@@ -144,7 +146,7 @@ export default async function RanchoDetallePage({
     .filter(Boolean)
     .join(", ");
 
-  const [reservasRes, gastosRes, tiersRes, serviciosRes, codigosRes, promocionesRes, itemsRes] =
+  const [reservasRes, gastosRes, tiersRes, serviciosRes, codigosRes, promocionesRes, itemsRes, duracionesRes] =
     await Promise.all([
       supabase
         .from("reservas")
@@ -179,6 +181,11 @@ export default async function RanchoDetallePage({
         .eq("rancho_id", rancho.id)
         .order("orden", { ascending: true })
         .order("created_at", { ascending: true }),
+      supabase
+        .from("duraciones_lugar_por_dia")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .order("dow_grupo", { ascending: true }),
     ]);
 
   const errorFinanzas = reservasRes.error ?? gastosRes.error;
@@ -192,6 +199,10 @@ export default async function RanchoDetallePage({
   const codigos = (codigosRes.data ?? []) as CodigoDescuento[];
   const promociones = (promocionesRes.data ?? []) as PromocionDia[];
   const totalDescuentos = codigos.length + promociones.length;
+  const duraciones: DuracionPorDia[] = (duracionesRes.data ?? []).map((d: { dow_grupo: 1 | 2 | 3 | 4 | 5; duracion_maxima_horas: number | string }) => ({
+    dowGrupo: d.dow_grupo,
+    duracionMaximaHoras: Number(d.duracion_maxima_horas),
+  }));
 
   // El feed .ics para suscribir la agenda en Google/Apple Calendar.
   // Si la 0071 no ha corrido (o un admin abre un panel ajeno y la RLS
@@ -610,6 +621,25 @@ export default async function RanchoDetallePage({
             <HorariosForm
               initialHorarios={rancho.horarios_bloques ?? []}
               onGuardar={guardarHorariosPropio.bind(null, rancho.id)}
+            />
+          </SeccionPlegable>
+        )}
+
+        {esLugar && (
+          <SeccionPlegable
+            marco={false}
+            abierta={seccion === "duraciones"}
+            titulo="Duración máxima por día"
+            descripcion="Configura cuántas horas máximo puede durar un alquiler cada día de la semana."
+            resumen={
+              duraciones.length > 0
+                ? `${duraciones.length} grupo${duraciones.length === 1 ? "" : "s"} configurado${duraciones.length === 1 ? "" : "s"}`
+                : undefined
+            }
+          >
+            <DuracionesLugarForm
+              ranchoId={rancho.id}
+              initialDuraciones={duraciones}
             />
           </SeccionPlegable>
         )}
