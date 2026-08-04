@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -495,6 +496,13 @@ function PerfilVista({
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nombreBorrador, setNombreBorrador] = useState(perfil?.nombre ?? "");
   const [guardandoNombre, setGuardandoNombre] = useState(false);
+  const [modoNegocio, setModoNegocio] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("perfil_modo_negocio")
+      .then((valor) => setModoNegocio(valor === "true"))
+      .catch(() => {});
+  }, []);
 
   // El acceso por código nunca pide el nombre, así que se pone acá.
   // Va por RPC porque la tabla `perfiles` solo deja editar al admin:
@@ -676,42 +684,72 @@ function PerfilVista({
           </Pressable>
         )}
 
-        {/* Accesos en tarjetas. Reservas, favoritos y mensajes NO van
-            acá: ya son pestañas de la barra inferior y repetirlos solo
-            duplica caminos para llegar a lo mismo. */}
-        <View style={styles.grid}>
-          <TarjetaAccion
-            icono={esProveedor ? "storefront-outline" : "add-circle-outline"}
-            titulo={esProveedor ? "Mis publicaciones" : "Publicar"}
-            detalle={esProveedor ? "Editá y administrá" : "Ofrecé tu servicio"}
-            acento
-            onPress={() => router.push("/negocio" as never)}
-          />
-          <TarjetaAccion
-            icono="globe-outline"
-            titulo="Sitio web"
-            detalle="bookea.lat"
-            onPress={() => WebBrowser.openBrowserAsync(SITIO_URL)}
-          />
-        </View>
+        {!modoNegocio ? (
+          <>
+            {/* MODO NORMAL: Invitaciones, Lealtad y Sitio web */}
+            <View style={styles.grid}>
+              <TarjetaAccion
+                icono="mail-outline"
+                titulo="Invitaciones y álbumes"
+                detalle="Tus eventos y fotos"
+                onPress={() => router.push("/invitaciones" as never)}
+              />
+              <TarjetaAccion
+                icono="ribbon-outline"
+                titulo="Lealtad"
+                detalle="Clientes que vuelven"
+                onPress={() => router.push("/lealtad" as never)}
+              />
+            </View>
+            <View style={styles.grid}>
+              <TarjetaAccion
+                icono="globe-outline"
+                titulo="Sitio web"
+                detalle="bookea.lat"
+                onPress={() => WebBrowser.openBrowserAsync(SITIO_URL)}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            {/* MODO NEGOCIO: Mis publicaciones, Finanzas y Chat */}
+            <View style={styles.grid}>
+              <TarjetaAccion
+                icono="storefront-outline"
+                titulo="Mis publicaciones"
+                detalle="Editá y administrá"
+                acento
+                onPress={() => router.push("/negocio" as never)}
+              />
+              <TarjetaAccion
+                icono="cash-outline"
+                titulo="Finanzas"
+                detalle="Ingresos y pagos"
+                onPress={() => router.push("/negocio" as never)}
+              />
+            </View>
+          </>
+        )}
 
-        {/* Invitaciones digitales y álbumes: los eventos propios y los
-            paquetes a la venta viven en su propia pantalla. Al lado,
-            Lealtad — el add-on para negocios con clientela que vuelve. */}
-        <View style={styles.grid}>
-          <TarjetaAccion
-            icono="mail-outline"
-            titulo="Invitaciones y álbumes"
-            detalle="Tus eventos y fotos"
-            onPress={() => router.push("/invitaciones" as never)}
-          />
-          <TarjetaAccion
-            icono="ribbon-outline"
-            titulo="Lealtad"
-            detalle="Clientes que vuelven"
-            onPress={() => router.push("/lealtad" as never)}
-          />
-        </View>
+        {esProveedor && (
+          <Pressable
+            style={styles.botonModo}
+            onPress={async () => {
+              const nuevoModo = !modoNegocio;
+              setModoNegocio(nuevoModo);
+              await AsyncStorage.setItem("perfil_modo_negocio", String(nuevoModo));
+            }}
+          >
+            <Ionicons
+              name={modoNegocio ? "person-outline" : "storefront-outline"}
+              size={16}
+              color={Colors.accent}
+            />
+            <Text style={styles.botonModoTexto}>
+              {modoNegocio ? "Volver a Mi Perfil" : "Cambiar a Modo Negocio"}
+            </Text>
+          </Pressable>
+        )}
 
         <Pressable
           style={styles.botonSalir}
@@ -1020,6 +1058,16 @@ const styles = StyleSheet.create({
   iconoBurbujaAcento: { backgroundColor: Colors.accentLight },
   accionTitulo: { fontSize: 14, fontFamily: Fonts.extraBold, color: Colors.ink },
   accionDetalle: { fontSize: 11.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
+  botonModo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.three,
+    borderTopWidth: 1,
+    borderTopColor: Colors.line,
+  },
+  botonModoTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13.5 },
   botonSalir: {
     flexDirection: "row",
     alignItems: "center",

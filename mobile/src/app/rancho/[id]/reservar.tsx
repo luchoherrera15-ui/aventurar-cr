@@ -205,7 +205,7 @@ export default function ReservarScreen() {
     setRancho(ranchoRes.data as Rancho);
     setTiers((tiersRes.data ?? []) as PrecioTier[]);
     setServicios((svcRes.data ?? []) as ServicioAdicional[]);
-    setPromociones((promoRes.data ?? []) as PromocionDia[]);
+    setPromociones(((promoRes.data ?? []) as PromocionDia[]).map((p) => ({ ...p, dias_semana: Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]") })));
 
     const deviceId = await obtenerIdDispositivo();
     deviceIdRef.current = deviceId;
@@ -314,7 +314,11 @@ export default function ReservarScreen() {
 
   const promoAplicable = useMemo(() => {
     const dow = fechaObj.getDay();
-    const activas = promociones.filter((p) => p.activo && p.dias_semana.includes(dow));
+    const activas = promociones.filter((p) => {
+      if (!p.activo) return false;
+      const dias = Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]");
+      return dias.includes(dow);
+    });
     if (activas.length === 0) return null;
     return activas.reduce((mejor, p) =>
       p.porcentaje_descuento > mejor.porcentaje_descuento ? p : mejor,
@@ -754,15 +758,30 @@ export default function ReservarScreen() {
             <View style={styles.bloque}>
               <Micro>Cotización estimada</Micro>
               <Tarjeta style={styles.tarjetaTotal}>
-                {promoAplicable && total !== null && (
-                  <Estado
-                    tono="verde"
-                    texto={`${promoAplicable.etiqueta || "Promoción"} −${promoAplicable.porcentaje_descuento}%`}
-                  />
+                {(descuentoMonto > 0 || descuentoCodigoMonto > 0) && subtotal !== null && (
+                  <View>
+                    <Text style={[styles.totalTexto, { textDecorationLine: "line-through", opacity: 0.5 }]}>
+                      {fmtColones(subtotal)}
+                    </Text>
+                    {promoAplicable && descuentoMonto > 0 && (
+                      <Estado
+                        tono="verde"
+                        texto={`${promoAplicable.etiqueta || "Promoción"} −${promoAplicable.porcentaje_descuento}%`}
+                      />
+                    )}
+                    {descuentoCodigoMonto > 0 && !promoAplicable && (
+                      <Estado
+                        tono="verde"
+                        texto="Código de descuento aplicado"
+                      />
+                    )}
+                    <Text style={styles.totalTexto}>{fmtColones(total ?? 0)}</Text>
+                  </View>
                 )}
-                {total !== null ? (
+                {(descuentoMonto === 0 && descuentoCodigoMonto === 0) && total !== null && (
                   <Text style={styles.totalTexto}>{fmtColones(total)}</Text>
-                ) : (
+                )}
+                {total === null && (
                   <Text style={styles.hint}>
                     {modalidadPrecio === "hora"
                       ? horasNum

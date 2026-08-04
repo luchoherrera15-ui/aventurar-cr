@@ -1070,14 +1070,36 @@ export default function BookingCalendar({
                     )}
                     </div>
 
-                    <div className="flex items-center justify-between rounded-xl border border-aventurea-line px-3.5 py-2.5">
-                      <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                    <div className="rounded-xl border border-aventurea-line px-3.5 py-2.5">
+                      <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                         Cotización estimada del evento
-                      </span>
-                      <span className="text-[15px] font-bold text-aventurea-ink">
-                        {tierBase !== null
-                          ? fmtColones(tierBase)
-                          : modalidadPrecio === "hora"
+                      </p>
+                      {tierBase !== null ? (
+                        <div className="mt-2 space-y-1">
+                          {(descuentoPromoMonto > 0 || descuentoCodigoMonto > 0) && cotizacionTotal !== null && (
+                            <>
+                              <p className="text-[15px] font-bold text-aventurea-ink line-through opacity-50">
+                                {fmtColones(cotizacionTotal)}
+                              </p>
+                              {promoAplicable && descuentoPromoMonto > 0 && (
+                                <p className="text-[12px] font-bold text-aventurea-green">
+                                  {promoAplicable.etiqueta || "Promoción"} −{promoAplicable.porcentaje_descuento}%
+                                </p>
+                              )}
+                              {descuentoCodigoMonto > 0 && !promoAplicable && (
+                                <p className="text-[12px] font-bold text-aventurea-green">
+                                  Código de descuento aplicado
+                                </p>
+                              )}
+                            </>
+                          )}
+                          <p className="text-[18px] font-bold text-aventurea-ink">
+                            {fmtColones(totalConPromo !== null && descuentoCodigoMonto > 0 ? totalConPromo - descuentoCodigoMonto : totalConPromo ?? cotizacionTotal ?? 0)}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-[14px] text-aventurea-ink-soft">
+                          {modalidadPrecio === "hora"
                             ? horasNum
                               ? "Consultar precio por hora"
                               : "— indicá las horas —"
@@ -1086,7 +1108,8 @@ export default function BookingCalendar({
                               : invitadosNum
                                 ? "Cotización personalizada"
                                 : "— indicá tus invitados —"}
-                      </span>
+                        </p>
+                      )}
                     </div>
                     {modalidadPrecio === "rango_personas" && esDiciembre && invitadosNum > 0 && (
                       <p className="-mt-2 text-[11px] text-zinc-500">

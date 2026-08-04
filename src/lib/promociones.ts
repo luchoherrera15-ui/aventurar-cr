@@ -1,5 +1,27 @@
 import type { PromocionDia } from "@/app/mi-negocio/types";
 
+/**
+ * `dias_semana` es un integer[] de Postgres, pero según de dónde venga
+ * la fila (distintas versiones de PostgREST/cliente) a veces llega ya
+ * parseado y a veces como el string JSON crudo — normalizarlo acá,
+ * en el único lugar que lo lee, en vez de en cada sitio que arma el
+ * fetch (evita el bug real que hizo que un descuento se viera en el
+ * calendario pero no se aplicara al precio).
+ */
+function diasDe(p: PromocionDia): number[] {
+  const dias = p.dias_semana as unknown;
+  if (Array.isArray(dias)) return dias;
+  if (typeof dias === "string") {
+    try {
+      const parsed = JSON.parse(dias);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function elegirMejor(candidatas: PromocionDia[]): PromocionDia | null {
   const preciosFijos = candidatas.filter(
     (p) => p.tipo === "precio_fijo" && p.precio_fijo !== null,
@@ -33,7 +55,7 @@ export function mejorPromoPorDiaSemana(
   promociones
     .filter((p) => p.activo)
     .forEach((p) => {
-      p.dias_semana.forEach((dow) => {
+      diasDe(p).forEach((dow) => {
         (candidatasPorDia[dow] ??= []).push(p);
       });
     });
@@ -57,7 +79,7 @@ export function promoAplicableDelDia(
   dow: number,
   invitadosNum: number,
 ): PromocionDia | null {
-  const activas = promociones.filter((p) => p.activo && p.dias_semana.includes(dow));
+  const activas = promociones.filter((p) => p.activo && diasDe(p).includes(dow));
   if (activas.length === 0) return null;
 
   const preciosFijos = activas.filter(
