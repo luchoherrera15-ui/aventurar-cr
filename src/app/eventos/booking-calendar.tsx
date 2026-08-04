@@ -11,8 +11,10 @@ import {
   IconWarning,
 } from "@/components/icons";
 import {
+  bloqueDisponibleEnDia,
   duracionHoras,
   etiquetaHorario,
+  resumenDias,
   type HorarioBloqueConfig,
   type ModalidadPrecioLugar,
 } from "@/app/mi-negocio/types";
@@ -270,6 +272,14 @@ export default function BookingCalendar({
     return promoAplicableDelDia(promociones, selectedDateObj.getDay(), invitadosNum);
   }, [promociones, selectedDateObj, invitadosNum]);
 
+  // Los horarios de alquiler pueden estar restringidos a ciertos días
+  // (ej. "Turno finde" solo Vie-Dom) — hasta que se elige una fecha se
+  // muestran todos, sin filtrar.
+  const horariosDelDia = useMemo(() => {
+    if (!selectedDateObj) return horarios;
+    return horarios.filter((h) => bloqueDisponibleEnDia(h, selectedDateObj.getDay()));
+  }, [horarios, selectedDateObj]);
+
   // La cotización se calcula distinto según cómo el dueño configuró su
   // cobro (panel → pestaña Precios): por rangos de invitados (de
   // siempre), por hora, o un precio fijo del evento sin importar
@@ -396,7 +406,7 @@ export default function BookingCalendar({
     !holdVencido &&
     cotizacionCompleta &&
     !excedeCapacidad &&
-    (horarios.length === 0 || !!horarioBloque) &&
+    (horarios.length === 0 || (horariosDelDia.length > 0 && !!horarioBloque)) &&
     !!nombre &&
     correoValido &&
     whatsappValido &&
@@ -544,7 +554,7 @@ export default function BookingCalendar({
   async function enviarSolicitud(e: React.FormEvent) {
     e.preventDefault();
     if (!holdId || !selectedDate || !comprobante) return;
-    if (horarios.length > 0 && !horarioBloque) return;
+    if (horarios.length > 0 && (horariosDelDia.length === 0 || !horarioBloque)) return;
     setSubmitting(true);
     setSubmitError(null);
 
@@ -666,10 +676,12 @@ export default function BookingCalendar({
               <ul className="flex flex-col gap-1">
                 {horarios.map((h) => {
                   const horas = duracionHoras(h.desde, h.hasta);
+                  const dias = resumenDias(h.dias_semana);
                   return (
                     <li key={h.id}>
                       <strong className="text-aventurea-ink">{etiquetaHorario(h)}</strong>
                       {horas !== null && ` · ${horas} h`}
+                      {dias && ` · ${dias}`}
                     </li>
                   );
                 })}
@@ -1034,19 +1046,26 @@ export default function BookingCalendar({
                     {horarios.length > 0 && (
                       <div>
                         <label className={labelCls}>Horario</label>
-                        <select
-                          required
-                          value={horarioBloque}
-                          onChange={(e) => setHorarioBloque(e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">Selecciona una opción</option>
-                          {horarios.map((h) => (
-                            <option key={h.id} value={etiquetaHorario(h)}>
-                              {etiquetaHorario(h)}
-                            </option>
-                          ))}
-                        </select>
+                        {horariosDelDia.length > 0 ? (
+                          <select
+                            required
+                            value={horarioBloque}
+                            onChange={(e) => setHorarioBloque(e.target.value)}
+                            className={inputCls}
+                          >
+                            <option value="">Selecciona una opción</option>
+                            {horariosDelDia.map((h) => (
+                              <option key={h.id} value={etiquetaHorario(h)}>
+                                {etiquetaHorario(h)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[12.5px] font-bold text-red-700">
+                            {nombreRancho} no tiene un horario definido para este día —
+                            escribile directo para coordinar, o elegí otra fecha.
+                          </p>
+                        )}
                       </div>
                     )}
                     </div>

@@ -46,6 +46,9 @@ export async function guardarHorariosPropio(
     return { error: `Podés tener hasta ${HORARIOS_MAX} horarios.` };
   }
 
+  const diaValido = (n: unknown): n is number =>
+    typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 6;
+
   const limpios: HorarioBloqueConfig[] = [];
   for (const h of horarios) {
     const desde = (h.desde ?? "").trim();
@@ -61,6 +64,9 @@ export async function guardarHorariosPropio(
       etiqueta: (h.etiqueta ?? "").trim().slice(0, 40),
       desde,
       hasta,
+      dias_semana: Array.isArray(h.dias_semana)
+        ? [...new Set(h.dias_semana.filter(diaValido))].sort((a, b) => a - b)
+        : [],
     });
   }
 

@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { IconTrash, IconWarning } from "@/components/icons";
 import {
+  DIAS_SEMANA_CORTO,
   HORARIOS_MAX,
   duracionHoras,
   etiquetaHorario,
+  resumenDias,
   type HorarioBloqueConfig,
 } from "@/app/mi-negocio/types";
 
@@ -47,6 +49,21 @@ export default function HorariosForm({
 
   function quitar(id: string) {
     setHorarios((prev) => prev.filter((h) => h.id !== id));
+    setOk(false);
+  }
+
+  function toggleDia(id: string, dia: number) {
+    setHorarios((prev) =>
+      prev.map((h) => {
+        if (h.id !== id) return h;
+        const dias = h.dias_semana ?? [];
+        const tiene = dias.includes(dia);
+        return {
+          ...h,
+          dias_semana: tiene ? dias.filter((d) => d !== dia) : [...dias, dia].sort(),
+        };
+      }),
+    );
     setOk(false);
   }
 
@@ -152,10 +169,32 @@ export default function HorariosForm({
                   </div>
                 </div>
 
-                <p className="mt-2.5 text-[12px] text-aventurea-ink-soft">
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {DIAS_SEMANA_CORTO.map((d, i) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => toggleDia(h.id, i)}
+                      aria-pressed={(h.dias_semana ?? []).includes(i)}
+                      className={`rounded-md px-2 py-1 text-[10.5px] font-bold transition-colors ${
+                        (h.dias_semana ?? []).includes(i)
+                          ? "bg-aventurea-navy text-white"
+                          : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-navy"
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2.5 text-[10.5px] text-aventurea-ink-soft">
+                  Sin ningún día marcado, aplica todos los días.
+                </p>
+
+                <p className="mt-2 text-[12px] text-aventurea-ink-soft">
                   El cliente lo va a ver así:{" "}
                   <strong className="text-aventurea-ink">{etiquetaHorario(h)}</strong>
                   {horas !== null && ` · ${horas} h`}
+                  {resumenDias(h.dias_semana) && ` · ${resumenDias(h.dias_semana)}`}
                 </p>
               </div>
             );

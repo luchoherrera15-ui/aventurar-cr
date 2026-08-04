@@ -2,6 +2,7 @@
 import {
   etiquetaHorario,
   normalizarCategoria,
+  resumenDias,
   type HorarioBloqueConfig,
 } from "@/app/mi-negocio/types";
 import { modeloDe, motivoParaNoGastar } from "@/lib/ia/config-ia";
@@ -172,16 +173,19 @@ function textos(valor: unknown): string[] {
  */
 function bloquesHorario(valor: unknown): HorarioBloqueConfig[] {
   if (!Array.isArray(valor)) return [];
+  const diaValido = (n: unknown): n is number =>
+    typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 6;
   const bloques: HorarioBloqueConfig[] = [];
   for (const crudo of valor) {
     if (!crudo || typeof crudo !== "object") continue;
-    const { id, etiqueta, desde, hasta } = crudo as Record<string, unknown>;
+    const { id, etiqueta, desde, hasta, dias_semana } = crudo as Record<string, unknown>;
     if (typeof desde !== "string" || typeof hasta !== "string") continue;
     bloques.push({
       id: typeof id === "string" ? id : "",
       etiqueta: typeof etiqueta === "string" ? etiqueta : "",
       desde,
       hasta,
+      dias_semana: Array.isArray(dias_semana) ? dias_semana.filter(diaValido) : undefined,
     });
   }
   return bloques;
@@ -298,7 +302,14 @@ function fichaDelNegocio(
   }
   const horarios = bloquesHorario(rancho.horarios_bloques);
   if (horarios.length > 0) {
-    partes.push(`Horarios de alquiler: ${horarios.map(etiquetaHorario).join(" · ")}`);
+    partes.push(
+      `Horarios de alquiler: ${horarios
+        .map((h) => {
+          const dias = resumenDias(h.dias_semana);
+          return dias ? `${etiquetaHorario(h)} (solo ${dias})` : etiquetaHorario(h);
+        })
+        .join(" · ")}`,
+    );
   }
   const terminos = rancho.terminos;
   if (Array.isArray(terminos) && terminos.length > 0) {

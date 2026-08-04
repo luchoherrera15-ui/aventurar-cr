@@ -14,6 +14,7 @@ import {
   etiquetaHorario,
   linkGoogleMaps,
   linkWaze,
+  resumenDias,
   terminosPorDefecto,
   type Categoria,
   type PromocionDia,
@@ -374,6 +375,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(rancho.horarios_bloques ?? []).map((h) => {
                       const horas = duracionHoras(h.desde, h.hasta);
+                      const dias = resumenDias(h.dias_semana);
                       return (
                         <span
                           key={h.id}
@@ -384,6 +386,12 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
                             <span className="font-normal text-aventurea-ink-soft">
                               {" "}
                               · {horas} h
+                            </span>
+                          )}
+                          {dias && (
+                            <span className="font-normal text-aventurea-ink-soft">
+                              {" "}
+                              · {dias}
                             </span>
                           )}
                         </span>

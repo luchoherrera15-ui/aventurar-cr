@@ -462,6 +462,13 @@ export type HorarioBloqueConfig = {
   /** Formato 24h "HH:MM". */
   desde: string;
   hasta: string;
+  /**
+   * Días de la semana en que se puede elegir este bloque (0=domingo,
+   * igual que Date#getDay). Ausente o lista vacía = todos los días —
+   * así queda cualquier bloque guardado antes de este campo, sin
+   * migrar nada.
+   */
+  dias_semana?: number[];
 };
 
 export const HORARIOS_MAX = 6;
@@ -493,6 +500,41 @@ export function duracionHoras(desde: string, hasta: string) {
 export function etiquetaHorario(bloque: HorarioBloqueConfig) {
   const rango = `${formatearHora(bloque.desde)} – ${formatearHora(bloque.hasta)}`;
   return bloque.etiqueta ? `${bloque.etiqueta} (${rango})` : rango;
+}
+
+/**
+ * ¿Este bloque se puede elegir el día `dow` (0=domingo..6=sábado, el
+ * mismo que devuelve Date#getDay)? Sin días marcados — incluida la
+ * lista vacía, y el caso de un bloque guardado antes de este campo,
+ * que directamente no trae la key — significa "todos los días".
+ */
+export function bloqueDisponibleEnDia(bloque: HorarioBloqueConfig, dow: number) {
+  const dias = bloque.dias_semana ?? [];
+  return dias.length === 0 || dias.includes(dow);
+}
+
+/**
+ * Texto corto para un bloque con días restringidos, o null si aplica
+ * todos los días (sin restricción, o los 7 marcados a mano). Detecta
+ * un tramo contiguo empezando lunes, así "viernes-sábado-domingo" sale
+ * "Vie–Dom" en vez de partido en dos por cruzar el domingo.
+ */
+export function resumenDias(dias_semana: number[] | undefined) {
+  const dias = dias_semana ?? [];
+  if (dias.length === 0 || dias.length === 7) return null;
+  const aLunesPrimero = (dow: number) => (dow + 6) % 7;
+  const ordenado = [...new Set(dias)].sort(
+    (a, b) => aLunesPrimero(a) - aLunesPrimero(b),
+  );
+  const esContiguo = ordenado.every((d, i) =>
+    i === 0 ? true : aLunesPrimero(d) === aLunesPrimero(ordenado[i - 1]) + 1,
+  );
+  if (esContiguo) {
+    const primero = DIAS_SEMANA_CORTO[ordenado[0]];
+    const ultimo = DIAS_SEMANA_CORTO[ordenado[ordenado.length - 1]];
+    return ordenado.length === 1 ? primero : `${primero}–${ultimo}`;
+  }
+  return ordenado.map((d) => DIAS_SEMANA_CORTO[d]).join(", ");
 }
 
 /** Reservas viejas guardaron un código fijo en vez del texto del bloque. */
