@@ -229,7 +229,11 @@ export default function ReservarScreen() {
 
   const promoAplicable = useMemo(() => {
     const dow = fechaObj.getDay();
-    const activas = promociones.filter((p) => p.activo && p.dias_semana.includes(dow));
+    const activas = promociones.filter((p) => {
+      if (!p.activo) return false;
+      const dias = Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]");
+      return dias.includes(dow);
+    });
     if (activas.length === 0) return null;
     return activas.reduce((mejor, p) =>
       p.porcentaje_descuento > mejor.porcentaje_descuento ? p : mejor,
