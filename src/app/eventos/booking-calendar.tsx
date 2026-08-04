@@ -295,7 +295,7 @@ export default function BookingCalendar({
       .filter((p) => p.activo && p.porcentaje_descuento > 0)
       .forEach((p) => {
         const dias = Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]");
-        dias.forEach((dow) => {
+        (dias as number[]).forEach((dow) => {
           const actual = mapa[dow];
           if (!actual || p.porcentaje_descuento > actual.porcentaje_descuento) {
             mapa[dow] = p;

@@ -8,6 +8,7 @@ import ResumenesCitas from "./resumenes-citas";
 import HorariosNegocioForm from "./horarios-negocio-form";
 import AgendaCitas, { type CitaDia } from "./agenda-citas";
 import type { MiembroEquipo, HorarioNegocioDia } from "./actions";
+import type { DiaHorario } from "@/app/citas/tipos";
 
 type Tab = "agenda" | "resumenes" | "clientes" | "finanzas" | "configuracion";
 
@@ -27,7 +28,7 @@ interface CitasTabsProps {
     duracionMinutos: number | null;
     precio: number | null;
   }>;
-  horario: Record<string, { abre: string; cierra: string }>;
+  horario: Partial<Record<string, DiaHorario>> | null;
   initialFecha: string;
   initialCitas: CitaDia[];
   initialBloqueos: Array<{
@@ -73,9 +74,9 @@ export default function CitasTabs({
   const dow = hoy.getDay();
   const diasSemana = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
   const diaStr = diasSemana[dow === 0 ? 6 : dow - 1];
-  const horarioHoy = horario[diaStr];
+  const horarioHoy = horario?.[diaStr];
   const horaCierreParts = horarioHoy?.cierra?.split(":") || ["20", "00"];
-  const minutosCierre = parseInt(horaCierreParts[0]) * 60 + parseInt(horaCierraParts[1] || "0");
+  const minutosCierre = parseInt(horaCierreParts[0]) * 60 + parseInt(horaCierreParts[1] || "0");
 
   return (
     <div>
