@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verificarAccesoRancho } from "@/lib/auth";
 import { guardarPreciosRancho } from "@/lib/precios";
-import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
+import {
+  guardarCodigosRancho,
+  guardarPromocionesRancho,
+  type PromocionInput,
+} from "@/lib/descuentos";
 import { HORARIOS_MAX, TERMINOS_MAX } from "../../types";
 import type { HorarioBloqueConfig, ModalidadPrecioLugar } from "../../types";
 import type { CuentasPago } from "@/components/cuentas-pago-form";
@@ -159,12 +163,7 @@ export async function guardarCodigosPropio(
 
 export async function guardarPromocionesPropio(
   ranchoId: string,
-  promociones: {
-    dias_semana: number[];
-    porcentaje_descuento: number;
-    etiqueta: string;
-    activo: boolean;
-  }[],
+  promociones: PromocionInput[],
 ) {
   const { ok } = await verificarDueno(ranchoId);
   if (!ok) return { error: "No encontramos tu publicación." };

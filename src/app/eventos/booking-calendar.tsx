@@ -25,6 +25,7 @@ import OfertaInvitacionCard from "@/components/oferta-invitacion-card";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./tipos-lugar";
 import { terminosPorDefecto } from "@/app/mi-negocio/types";
 import type { PromocionDia } from "@/app/mi-negocio/types";
+import { mejorPromoPorDiaSemana, promoAplicableDelDia } from "@/lib/promociones";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -259,12 +260,23 @@ export default function BookingCalendar({
   const invitadosNum = parseInt(invitados) || 0;
   const horasNum = parseInt(horasEvento) || 0;
 
+  // La promo vigente para el día elegido, ya con invitados en mano —
+  // una de tipo precio_fijo aplicable (dentro de su tope de personas,
+  // si tiene) manda sobre cualquiera de las tres modalidades de cobro
+  // del negocio de abajo, porque es un precio de REEMPLAZO, no un
+  // descuento sobre el normal.
+  const promoAplicable = useMemo(() => {
+    if (!selectedDateObj) return null;
+    return promoAplicableDelDia(promociones, selectedDateObj.getDay(), invitadosNum);
+  }, [promociones, selectedDateObj, invitadosNum]);
+
   // La cotización se calcula distinto según cómo el dueño configuró su
   // cobro (panel → pestaña Precios): por rangos de invitados (de
   // siempre), por hora, o un precio fijo del evento sin importar
   // invitados. El resto del flujo (fecha, depósito, comprobante) es
   // exactamente el mismo para las tres.
   const tierBase = useMemo(() => {
+    if (promoAplicable?.tipo === "precio_fijo") return promoAplicable.precio_fijo;
     if (modalidadPrecio === "fijo") return precioFijo ?? null;
     if (modalidadPrecio === "hora") {
       if (!horasNum || precioHora === null) return null;
@@ -276,7 +288,7 @@ export default function BookingCalendar({
       (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
     );
     return tier ? tier.precio : null;
-  }, [modalidadPrecio, precioFijo, horasNum, precioHora, invitadosNum, esDiciembre, tiers, tarifaDiciembre]);
+  }, [promoAplicable, modalidadPrecio, precioFijo, horasNum, precioHora, invitadosNum, esDiciembre, tiers, tarifaDiciembre]);
 
   const addonsTotal = useMemo(() => {
     return servicios.reduce((acc, s) => {
@@ -287,36 +299,19 @@ export default function BookingCalendar({
 
   const cotizacionTotal = tierBase === null ? null : tierBase + addonsTotal;
 
-  // La mejor promoción de cada día de la semana, para poder marcar el
-  // descuento en las celdas del calendario sin recalcular por celda.
-  const promoPorDiaSemana = useMemo(() => {
-    const mapa: Record<number, PromocionDia> = {};
-    promociones
-      .filter((p) => p.activo && p.porcentaje_descuento > 0)
-      .forEach((p) => {
-        p.dias_semana.forEach((dow) => {
-          const actual = mapa[dow];
-          if (!actual || p.porcentaje_descuento > actual.porcentaje_descuento) {
-            mapa[dow] = p;
-          }
-        });
-      });
-    return mapa;
-  }, [promociones]);
+  // La mejor promoción de cada día de la semana, para el badge del
+  // calendario — se pinta antes de saber cuántos invitados, así que
+  // ignora personas_max a propósito (ver src/lib/promociones.ts).
+  const promoPorDiaSemana = useMemo(() => mejorPromoPorDiaSemana(promociones), [promociones]);
 
-  const promoAplicable = useMemo(() => {
-    if (!selectedDateObj) return null;
-    const dow = selectedDateObj.getDay();
-    const activas = promociones.filter((p) => p.activo && p.dias_semana.includes(dow));
-    if (activas.length === 0) return null;
-    return activas.reduce((mejor, p) =>
-      p.porcentaje_descuento > mejor.porcentaje_descuento ? p : mejor,
-    );
-  }, [selectedDateObj, promociones]);
-
+  // Cuando la promo es precio_fijo, el ahorro ya quedó adentro de
+  // tierBase/cotizacionTotal — acá se deja en 0 a propósito para no
+  // restarlo dos veces ni mostrar un "-₡0" en la UI.
   const descuentoPromoMonto = useMemo(() => {
-    if (cotizacionTotal === null || !promoAplicable) return 0;
-    return Math.round(cotizacionTotal * (promoAplicable.porcentaje_descuento / 100));
+    if (cotizacionTotal === null || !promoAplicable || promoAplicable.tipo === "precio_fijo") {
+      return 0;
+    }
+    return Math.round(cotizacionTotal * ((promoAplicable.porcentaje_descuento ?? 0) / 100));
   }, [cotizacionTotal, promoAplicable]);
 
   const totalConPromo =
@@ -770,12 +765,20 @@ export default function BookingCalendar({
                   key={i}
                   onClick={() => !isBlocked && !holdCreando && handleDateClick(fecha)}
                   className={cls}
-                  title={promoDia ? promoDia.etiqueta : undefined}
+                  title={
+                    promoDia
+                      ? promoDia.tipo === "precio_fijo" && promoDia.personas_max
+                        ? `${promoDia.etiqueta} (hasta ${promoDia.personas_max} personas)`
+                        : promoDia.etiqueta
+                      : undefined
+                  }
                 >
                   <span className="font-bold leading-none">{d}</span>
                   {promoDia ? (
                     <span className="mt-1 self-start rounded-lg bg-aventurea-green px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-white sm:px-2 sm:py-1 sm:text-[10.5px]">
-                      {promoDia.porcentaje_descuento}% off
+                      {promoDia.tipo === "precio_fijo"
+                        ? `${fmtColones(promoDia.precio_fijo ?? 0)} fijo`
+                        : `${promoDia.porcentaje_descuento}% off`}
                     </span>
                   ) : (
                     etiqueta && (
@@ -814,7 +817,7 @@ export default function BookingCalendar({
             {Object.keys(promoPorDiaSemana).length > 0 && (
               <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
                 <span className="h-2.5 w-2.5 rounded-[3px] bg-aventurea-green" />
-                Día con descuento
+                Promoción del día
               </span>
             )}
           </div>
@@ -1301,7 +1304,10 @@ export default function BookingCalendar({
 
                     {promoAplicable && cotizacionTotal !== null && (
                       <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-green">
-                        <IconTagLine className="h-3.5 w-3.5" /> {promoAplicable.etiqueta} aplicado (-{fmtColones(descuentoPromoMonto)})
+                        <IconTagLine className="h-3.5 w-3.5" />{" "}
+                        {promoAplicable.tipo === "precio_fijo"
+                          ? `${promoAplicable.etiqueta || "Precio promocional"} — ${fmtColones(promoAplicable.precio_fijo ?? 0)} fijo`
+                          : `${promoAplicable.etiqueta} aplicado (-${fmtColones(descuentoPromoMonto)})`}
                       </p>
                     )}
 

@@ -612,11 +612,17 @@ export type CodigoDescuento = {
   created_at: string;
 };
 
+export const TIPOS_PROMOCION = ["porcentaje", "precio_fijo"] as const;
+export type TipoPromocion = (typeof TIPOS_PROMOCION)[number];
+
 export type PromocionDia = {
   id: string;
   rancho_id: string;
   dias_semana: number[];
-  porcentaje_descuento: number;
+  tipo: TipoPromocion;
+  porcentaje_descuento: number | null;
+  precio_fijo: number | null;
+  personas_max: number | null;
   etiqueta: string;
   activo: boolean;
   created_at: string;

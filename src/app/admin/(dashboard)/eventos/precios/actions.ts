@@ -2,7 +2,11 @@
 
 import { requireAdmin } from "@/lib/auth";
 import { guardarPreciosRancho } from "@/lib/precios";
-import { guardarCodigosRancho, guardarPromocionesRancho } from "@/lib/descuentos";
+import {
+  guardarCodigosRancho,
+  guardarPromocionesRancho,
+  type PromocionInput,
+} from "@/lib/descuentos";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
 import type { PrecioTier, ServicioAdicional } from "./types";
 import type { ModalidadPrecioLugar } from "@/app/mi-negocio/types";
@@ -66,12 +70,7 @@ export async function guardarCodigosBookear(
 }
 
 export async function guardarPromocionesBookear(
-  promociones: {
-    dias_semana: number[];
-    porcentaje_descuento: number;
-    etiqueta: string;
-    activo: boolean;
-  }[],
+  promociones: PromocionInput[],
 ) {
   const ranchoId = await ranchoBookearId();
   if (!ranchoId) return { error: "No se encontró el rancho de Bookea." };

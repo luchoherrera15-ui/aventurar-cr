@@ -1,5 +1,6 @@
 ﻿import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { TipoPromocion } from "@/app/mi-negocio/types";
 
 type CodigoInput = {
   codigo: string;
@@ -10,9 +11,12 @@ type CodigoInput = {
   valido_hasta: string | null;
 };
 
-type PromocionInput = {
+export type PromocionInput = {
   dias_semana: number[];
-  porcentaje_descuento: number;
+  tipo: TipoPromocion;
+  porcentaje_descuento: number | null;
+  precio_fijo: number | null;
+  personas_max: number | null;
   etiqueta: string;
   activo: boolean;
 };

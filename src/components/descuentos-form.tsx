@@ -3,8 +3,10 @@
 import { useState, useTransition } from "react";
 import {
   DIAS_SEMANA,
+  TIPOS_PROMOCION,
   type CodigoDescuento,
   type PromocionDia,
+  type TipoPromocion,
 } from "@/app/mi-negocio/types";
 import { IconTrash } from "@/components/icons";
 
@@ -21,7 +23,10 @@ type CodigoDraft = {
 type PromocionDraft = {
   key: string;
   dias_semana: number[];
-  porcentaje_descuento: number;
+  tipo: TipoPromocion;
+  porcentaje_descuento: number | null;
+  precio_fijo: number | null;
+  personas_max: number | null;
   etiqueta: string;
   activo: boolean;
 };
@@ -116,10 +121,28 @@ export default function DescuentosForm({
         setMsgPromos({ ok: false, text: "Elegí al menos un día para cada promoción." });
         return;
       }
+      const invalida = promociones.find((p) =>
+        p.tipo === "porcentaje"
+          ? !(p.porcentaje_descuento && p.porcentaje_descuento > 0 && p.porcentaje_descuento <= 100)
+          : !(p.precio_fijo && p.precio_fijo > 0),
+      );
+      if (invalida) {
+        setMsgPromos({
+          ok: false,
+          text:
+            invalida.tipo === "porcentaje"
+              ? "El % de descuento debe estar entre 1 y 100."
+              : "El precio fijo debe ser mayor a ₡0.",
+        });
+        return;
+      }
       const res = await onGuardarPromociones(
         promociones.map((p) => ({
           dias_semana: p.dias_semana,
-          porcentaje_descuento: p.porcentaje_descuento,
+          tipo: p.tipo,
+          porcentaje_descuento: p.tipo === "porcentaje" ? p.porcentaje_descuento : null,
+          precio_fijo: p.tipo === "precio_fijo" ? p.precio_fijo : null,
+          personas_max: p.tipo === "precio_fijo" ? p.personas_max : null,
           etiqueta: p.etiqueta,
           activo: p.activo,
         })),
@@ -316,23 +339,89 @@ export default function DescuentosForm({
                   </button>
                 ))}
               </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {TIPOS_PROMOCION.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => updatePromo(p.key, "tipo", t)}
+                    aria-pressed={p.tipo === t}
+                    className={`rounded-lg border-[1.5px] px-3.5 py-2 text-[11.5px] font-bold transition-colors ${
+                      p.tipo === t
+                        ? "border-aventurea-navy bg-aventurea-navy text-white"
+                        : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-navy"
+                    }`}
+                  >
+                    {t === "porcentaje" ? "% de descuento" : "Precio fijo (₡)"}
+                  </button>
+                ))}
+              </div>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    % de descuento
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={p.porcentaje_descuento}
-                    onChange={(e) =>
-                      updatePromo(p.key, "porcentaje_descuento", Number(e.target.value))
-                    }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[13px] text-aventurea-ink"
-                  />
-                </div>
-                <div className="sm:col-span-2">
+                {p.tipo === "porcentaje" ? (
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      % de descuento
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={p.porcentaje_descuento ?? ""}
+                      onChange={(e) =>
+                        updatePromo(
+                          p.key,
+                          "porcentaje_descuento",
+                          e.target.value === "" ? null : Number(e.target.value),
+                        )
+                      }
+                      className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[13px] text-aventurea-ink"
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                        Precio fijo (₡)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={p.precio_fijo ?? ""}
+                        onChange={(e) =>
+                          updatePromo(
+                            p.key,
+                            "precio_fijo",
+                            e.target.value === "" ? null : Number(e.target.value),
+                          )
+                        }
+                        className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[13px] text-aventurea-ink"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                        Máximo de personas (opcional)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        placeholder="Sin límite"
+                        value={p.personas_max ?? ""}
+                        onChange={(e) =>
+                          updatePromo(
+                            p.key,
+                            "personas_max",
+                            e.target.value === "" ? null : Number(e.target.value),
+                          )
+                        }
+                        className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[13px] text-aventurea-ink"
+                      />
+                      <p className="mt-1 text-[10.5px] leading-snug text-aventurea-ink-soft">
+                        Se compara contra los invitados que la persona indique al reservar.
+                      </p>
+                    </div>
+                  </>
+                )}
+                <div className={p.tipo === "porcentaje" ? "sm:col-span-2" : ""}>
                   <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                     Texto que se muestra
                   </label>
@@ -377,7 +466,10 @@ export default function DescuentosForm({
               {
                 key: newKey(),
                 dias_semana: [1, 2, 3, 4],
+                tipo: "porcentaje",
                 porcentaje_descuento: 20,
+                precio_fijo: null,
+                personas_max: null,
                 etiqueta: "",
                 activo: true,
               },
