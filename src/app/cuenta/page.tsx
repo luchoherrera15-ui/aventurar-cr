@@ -1,18 +1,10 @@
-﻿import Link from "next/link";
-import { cookies } from "next/headers";
+﻿import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
-import {
-  IconCalendarLine,
-  IconChatBubble,
-  IconHeart,
-  IconMail,
-  IconPlus,
-  IconStore,
-} from "@/components/icons";
 import FormularioAuth from "./formulario-auth";
 import { cerrarSesionCuenta } from "./actions";
 import { hoyISOCR } from "@/lib/fechas";
+import TableroModos from "./tablero-modos";
 
 /** Lo mínimo de cada publicación para el resumen del tablero. */
 type NegocioResumen = { id: string; estado: string };
@@ -212,63 +204,20 @@ export default async function CuentaPage() {
           </div>
         </div>
 
-        {/* El tablero: una card por sección, cada una con su "+N" de
-            movimientos nuevos. Nada de listas largas acá — cada card
-            lleva a su propia página. */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <TarjetaAcceso
-            href="/cuenta/ir/mensajes"
-            icono={<IconChatBubble className="h-5 w-5" />}
-            titulo="Mensajes"
-            detalle="Tus conversaciones"
-            badge={nuevosMensajes}
-          />
-          {tieneNegocio ? (
-            <TarjetaAcceso
-              href="/cuenta/ir/proveedor"
-              icono={<IconStore className="h-5 w-5" />}
-              titulo="Panel de proveedor"
-              detalle={`${negocios.length} ${negocios.length === 1 ? "negocio" : "negocios"} · ${vecesContratado} ${
-                vecesContratado === 1 ? "contratación" : "contrataciones"
-              }`}
-              badge={reservasNuevasNegocio}
-              acento
-            />
-          ) : (
-            <TarjetaAcceso
-              href="/mi-negocio/nuevo"
-              icono={<IconPlus className="h-5 w-5" />}
-              titulo="Publicar mi negocio"
-              detalle="Gratis en Bookea"
-              acento
-            />
-          )}
-          <TarjetaAcceso
-            href="/cuenta/ir/invitaciones"
-            icono={<IconMail className="h-5 w-5" />}
-            titulo="Invitaciones y álbumes"
-            detalle={
-              invitacionIds.length > 0
-                ? `${invitacionIds.length} ${invitacionIds.length === 1 ? "evento" : "eventos"} · ${personasConfirmadas} ${
-                    personasConfirmadas === 1 ? "persona confirmada" : "personas confirmadas"
-                  }`
-                : "Tus eventos, confirmados y fotos"
-            }
-            badge={confirmacionesNuevas}
-          />
-          <TarjetaAcceso
-            href="/cuenta/reservas"
-            icono={<IconCalendarLine className="h-5 w-5" />}
-            titulo="Tus reservas"
-            detalle={`${activas} ${activas === 1 ? "activa" : "activas"} · ${historial} en historial`}
-          />
-          <TarjetaAcceso
-            href="/cuenta/favoritos"
-            icono={<IconHeart className="h-5 w-5" />}
-            titulo="Tus favoritos"
-            detalle={`${favoritosCount ?? 0} ${(favoritosCount ?? 0) === 1 ? "guardado" : "guardados"}`}
-          />
-        </div>
+        {/* El tablero con toggle de modo */}
+        <TableroModos
+          tieneNegocio={tieneNegocio}
+          nuevosMensajes={nuevosMensajes}
+          reservasNuevasNegocio={reservasNuevasNegocio}
+          vecesContratado={vecesContratado}
+          negociosLength={negocios.length}
+          confirmacionesNuevas={confirmacionesNuevas}
+          invitacionIds={invitacionIds}
+          personasConfirmadas={personasConfirmadas}
+          activas={activas}
+          historial={historial}
+          favoritosCount={favoritosCount ?? 0}
+        />
 
         <form action={cerrarSesionCuenta} className="mt-8 text-center">
           <button type="submit" className="text-[13.5px] font-bold text-red-600 hover:underline">
@@ -290,43 +239,3 @@ function Stat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
   );
 }
 
-/** Un acceso del perfil como tarjeta con ícono en burbuja y su "+N". */
-function TarjetaAcceso({
-  href,
-  icono,
-  titulo,
-  detalle,
-  badge,
-  acento,
-}: {
-  href: string;
-  icono: React.ReactNode;
-  titulo: string;
-  detalle: string;
-  /** Movimientos nuevos desde la última visita; 0 = sin pastilla. */
-  badge?: number;
-  /** true = la burbuja va en naranja (la acción principal). */
-  acento?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className="relative rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy"
-    >
-      {badge != null && badge > 0 && (
-        <span className="absolute right-3 top-3 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-white">
-          +{badge > 99 ? "99" : badge}
-        </span>
-      )}
-      <span
-        className={`flex h-10 w-10 items-center justify-center rounded-full ${
-          acento ? "bg-aventurea-orange/10 text-aventurea-orange" : "bg-aventurea-navy/10 text-aventurea-navy"
-        }`}
-      >
-        {icono}
-      </span>
-      <p className="mt-2 text-[14px] font-extrabold text-aventurea-ink">{titulo}</p>
-      <p className="truncate text-[11.5px] font-medium text-aventurea-ink-soft">{detalle}</p>
-    </Link>
-  );
-}
