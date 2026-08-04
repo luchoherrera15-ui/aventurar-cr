@@ -684,7 +684,7 @@ export default async function RanchoDetallePage({
             Cuando un cliente te escribe por el chat de Bookea, el asistente le
             contesta al instante con los datos de {rancho.nombre} — a cualquier
             hora, sin que vos tengás que estar pendiente. Sus respuestas salen
-            con el prefijo <span className="font-bold text-aventurea-ink">🤖</span>{" "}
+            con el prefijo <span className="font-bold text-aventurea-ink">💎</span>{" "}
             para que el cliente sepa que todavía no hablaste vos. Podés meterte
             en la conversación cuando querás desde{" "}
             <Link href="/mensajes" className="font-bold text-aventurea-navy underline">

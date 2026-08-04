@@ -81,7 +81,7 @@ const MAX_FECHAS_OCUPADAS = 60;
  * desde /admin/ia), que manda por encima de este cuando existe.
  */
 const MAX_RESPUESTAS_ASISTENTE = 15;
-const PREFIJO_ASISTENTE = "🤖 ";
+const PREFIJO_ASISTENTE = "💎 ";
 const AVISO_TOPE_ASISTENTE =
   `${PREFIJO_ASISTENTE}Ya usé mis respuestas automáticas para esta conversación — ` +
   "a partir de acá te sigue contestando el equipo del negocio por este mismo chat.";
