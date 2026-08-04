@@ -1,25 +1,32 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
-import SiteHeader from "@/components/site-header";
-import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import { IconCheck, IconHeart, IconSparkles, IconStar } from "@/components/icons";
-
-export const metadata: Metadata = {
-  title: "Lealtad — el programa de clientes frecuentes de Bookea",
-  description:
-    "Sellos y puntos digitales para tu restaurante, café o salón: tarjeta en Apple Wallet y Google Wallet, canjes con QR y todo conectado a tus reservas.",
-};
+import EscenaSellos from "./escena-sellos";
+import EscenaDescuentos from "./escena-descuentos";
 
 /**
- * La landing del producto de lealtad (bookea.lat/lealtad): Bookea
- * como proveedor del programa de clientes frecuentes para
- * restaurantes, cafés, salones y todo negocio con clientela que
- * vuelve. Misma línea bento de /publicar — bloques de color con
- * esquinas redondas sobre lienzo crema — y la tarjeta de sellos como
- * protagonista. Los precios son de lanzamiento; el motor real vive en
- * la migración 0060 (programa_lealtad, ledger de puntos, pases).
+ * /lealtad — rediseño completo con la misma línea que /invitaciones:
+ * fondo navy de punta a punta, tipografía grande tipo Apple, sin el
+ * header/footer del sitio (misma landing inmersiva, sin chrome), y
+ * DOS escenas animadas en loop (100% CSS, cero JavaScript) en vez de
+ * la tarjeta de sellos estática que había antes — ver
+ * escena-sellos.tsx y escena-descuentos.tsx, que calcan el mecanismo
+ * de Reel.tsx pero con su propio prefijo de clases/variables para no
+ * chocar entre sí ni con `invitacion-*`.
+ *
+ * Los precios son de lanzamiento; el motor real vive en la migración
+ * 0060 (programa_lealtad, ledger de puntos, pases).
  */
+
+const NAVY_PROFUNDO = "#0a1226";
+const NAVY = "#16295e";
+const NARANJA = "#ee7420";
+
+export const metadata: Metadata = {
+  title: "Lealtad",
+  description:
+    "Sellos y puntos digitales para tu negocio: tarjeta en el teléfono, descuentos al instante y todo conectado a tus reservas y citas de Bookea.",
+};
 
 const PLANES: {
   nombre: string;
@@ -77,180 +84,254 @@ const NEGOCIOS = [
   "Lavacars",
 ];
 
+const VERTICALES = [
+  {
+    titulo: "Restaurantes y cafés",
+    texto:
+      "Un sello por visita, o puntos por lo que gastan. La tarjeta vive en su teléfono, no en una libretita de cartón que se pierde.",
+  },
+  {
+    titulo: "Citas y Servicios",
+    texto:
+      "Barberías, salones, spas: cada turno que atendés por la agenda de Citas puede sumar solo, sin afiliar a nadie aparte — el cliente ya está en Bookea.",
+  },
+  {
+    titulo: "Lugares para eventos",
+    texto:
+      "Quien ya reservó tu rancho o salón una vez, vuelve con puntos acumulados para el próximo — sin que tengas que acordarte vos de ofrecérselo.",
+  },
+];
+
+/** Un cheque simple, en la línea de invitaciones/card-paquete.tsx. */
+function Check({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+    >
+      <path d="M4 10.5l4 4 8-9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function LealtadPage() {
   return (
-    // El mismo lienzo crema de /publicar: los bloques bento encima.
-    <div className="min-h-screen bg-aventurea-cream-2">
+    <main className="min-h-svh" style={{ background: NAVY_PROFUNDO, color: "#ffffff" }}>
       <RevealOnScroll />
-      <SiteHeader ancho="max-w-[1200px]" />
 
-      {/* ---------- Hero bento ---------- */}
-      <section className="px-4 pb-2 pt-6 lg:px-10">
-        <div className="mx-auto grid max-w-[1200px] gap-4 lg:grid-cols-[1.35fr_1fr]">
-          <div
-            data-reveal
-            className="relative isolate overflow-hidden rounded-3xl bg-aventurea-navy p-8 sm:p-12"
-          >
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-28 -top-28 h-80 w-80 rounded-full bg-aventurea-navy-3/60 blur-2xl"
-            />
-            <span className="inline-flex items-center gap-2 text-[11.5px] font-extrabold uppercase tracking-[0.2em] text-aventurea-orange">
-              <IconSparkles className="h-3.5 w-3.5" />
-              Bookea Lealtad
-            </span>
-            <h1 className="titulo mt-5 max-w-[15ch] text-balance text-[38px] text-white sm:text-[52px]">
-              Que tus clientes vuelvan — y lo sientan
-            </h1>
-            <p className="mt-5 max-w-[46ch] text-balance text-[15.5px] leading-relaxed text-white/80 sm:text-[17px]">
-              El programa de clientes frecuentes para tu restaurante, café o
-              salón: sellos y puntos digitales, la tarjeta vive en el
-              teléfono, y el canje es un escaneo de QR en el local.
-            </p>
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link
-                href="/mi-negocio/nuevo"
-                className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
-              >
-                Quiero el programa en mi negocio
-              </Link>
-              <a
-                href="#precios"
-                className="rounded-xl bg-white px-7 py-3.5 text-[14.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
-              >
-                Ver precios
-              </a>
-            </div>
+      {/* ================= HERO ================= */}
+      <section className="relative flex min-h-svh items-center overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-[42%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[120px]"
+          style={{ background: NARANJA }}
+        />
+
+        <div className="relative mx-auto w-[min(1120px,92vw)] text-center">
+          <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+            Bookea Lealtad
+          </p>
+          <h1 className="titulo mx-auto mt-5 max-w-[16ch] text-[clamp(42px,8vw,92px)] leading-[1.02]">
+            Que tus clientes
+            <br />
+            vuelvan — y lo sientan.
+          </h1>
+          <p className="mx-auto mt-6 max-w-[52ch] text-[clamp(16px,2vw,21px)] leading-relaxed text-white/60">
+            Sellos y puntos digitales para tu negocio: la tarjeta vive en el
+            teléfono de tu cliente, y el canje es un escaneo de QR en el
+            local. Sin apps que instalar, sin tarjetas de cartón.
+          </p>
+
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="#precios"
+              className="rounded-full px-7 py-3.5 text-[14.5px] font-bold text-white transition-transform hover:scale-[1.03]"
+              style={{ background: NARANJA }}
+            >
+              Ver precios
+            </Link>
+            <Link
+              href="/mi-negocio/nuevo"
+              className="rounded-full border border-white/25 px-7 py-3.5 text-[14.5px] font-bold text-white/90 transition-colors hover:border-white/60"
+            >
+              Quiero el programa en mi negocio
+            </Link>
           </div>
 
-          {/* La tarjeta de sellos, protagonista del collage. */}
-          <div className="grid gap-4">
-            <div
-              data-reveal
-              style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-              className="relative overflow-hidden rounded-3xl bg-aventurea-orange p-7"
-            >
-              {/* Mock de la tarjeta en el Wallet, flotando suave. */}
-              <div className="anim-publicar-flotar mx-auto w-[260px] rounded-2xl bg-white p-4 shadow-[0_24px_50px_-18px_rgba(6,12,32,0.5)]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-extrabold text-aventurea-navy">
-                    Café La Esquina
-                  </span>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- logo estático */}
-                  <img src="/icono-bookea.png" alt="" aria-hidden className="h-5 w-5" />
-                </div>
-                <p className="mt-1 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Cliente frecuente
-                </p>
-                <div className="mt-3 grid grid-cols-5 gap-1.5">
-                  {Array.from({ length: 10 }, (_, i) => (
+          <div aria-hidden className="mt-14 flex flex-col items-center gap-2 text-white/30">
+            <span className="text-[11px] uppercase tracking-[0.2em]">Mirá cómo funciona</span>
+            <svg viewBox="0 0 24 24" className="h-5 w-5 animate-bounce" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <path d="M12 5v14m0 0-6-6m6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= ESCENA 1: SELLOS ================= */}
+      <section className="px-5 py-20 sm:px-8 sm:py-24">
+        <div className="mx-auto w-[min(1120px,92vw)]">
+          <div className="grid items-center gap-14 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
+            <div data-reveal>
+              <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+                En vivo, ahora mismo
+              </p>
+              <h2 className="titulo mt-4 max-w-[17ch] text-[clamp(30px,4.6vw,50px)] leading-[1.08]">
+                Una tarjeta de sellos que se completa sola
+              </h2>
+              <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-white/55">
+                Esto no es un dibujo: es lo que ve tu cliente en su teléfono y
+                lo que ves vos en tu panel, al mismo tiempo.
+              </p>
+
+              <div className="mt-9 flex flex-col gap-6">
+                {[
+                  {
+                    titulo: "Se afilia con un QR",
+                    texto: "Lo escanea una sola vez y su tarjeta queda en el teléfono — sin descargar nada.",
+                  },
+                  {
+                    titulo: "Suma un sello en cada visita",
+                    texto: "Vos decidís las reglas (por visita o por monto) y el sistema lleva la cuenta solo.",
+                  },
+                  {
+                    titulo: "Se desbloquea y canjea",
+                    texto: "Al completar la tarjeta, canjea su premio con el mismo QR — y arranca de nuevo.",
+                  },
+                ].map((p, i) => (
+                  <div key={p.titulo} className="flex gap-4">
                     <span
-                      key={i}
-                      className={`flex aspect-square items-center justify-center rounded-full text-[11px] ${
-                        i < 7
-                          ? "bg-aventurea-orange text-white"
-                          : "border-2 border-dashed border-aventurea-line text-transparent"
-                      }`}
+                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold text-white"
+                      style={{ background: NARANJA }}
                     >
-                      ✓
+                      {i + 1}
                     </span>
-                  ))}
-                </div>
-                <p className="mt-3 text-[11px] font-bold text-aventurea-ink">
-                  7 de 10 sellos —{" "}
-                  <span className="text-aventurea-orange">
-                    ¡te faltan 3 para tu café gratis!
-                  </span>
-                </p>
+                    <div>
+                      <h3 className="text-[16px] font-extrabold text-white">{p.titulo}</h3>
+                      <p className="mt-1.5 text-[13.5px] leading-relaxed text-white/55">{p.texto}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <p className="mt-5 text-center text-[13px] font-extrabold text-white">
-                La tarjeta vive en Apple Wallet y Google Wallet
-              </p>
             </div>
-            <div
-              data-reveal
-              style={{ "--reveal-delay": "160ms" } as React.CSSProperties}
-              className="flex items-center gap-4 rounded-3xl border border-aventurea-line bg-white p-6"
-            >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-aventurea-blue-light text-aventurea-navy">
-                <IconHeart className="h-6 w-6" />
-              </span>
-              <p className="text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                <strong className="text-aventurea-ink">
-                  Se actualiza solo:
-                </strong>{" "}
-                el cliente suma puntos y su tarjeta cambia en el teléfono al
-                instante — sin apps que instalar.
-              </p>
+
+            <div data-reveal style={{ "--reveal-delay": "120ms" } as React.CSSProperties}>
+              <EscenaSellos />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ---------- Cómo funciona — bloque azul ---------- */}
-      <section className="mx-4 my-4 max-w-[1200px] overflow-hidden rounded-3xl bg-aventurea-blue-light py-14 lg:mx-auto">
-        <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
-          <div data-reveal className="text-center">
-            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-navy">
-              Así de simple
-            </p>
-            <h2 className="titulo mt-2 text-[28px] text-aventurea-ink sm:text-[34px]">
-              Tres pasos y la clientela vuelve
-            </h2>
+      {/* ================= ESCENA 2: DESCUENTOS Y PUNTOS ================= */}
+      <section className="relative overflow-hidden px-5 py-20 sm:px-8 sm:py-24" style={{ background: NAVY }}>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-32 top-1/4 h-[420px] w-[420px] rounded-full opacity-[0.14] blur-[110px]"
+          style={{ background: NARANJA }}
+        />
+        <div className="relative mx-auto w-[min(1120px,92vw)]">
+          <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+            <div data-reveal className="order-2 lg:order-1">
+              <EscenaDescuentos />
+            </div>
+
+            <div data-reveal className="order-1 lg:order-2">
+              <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+                Sin canjear en caja
+              </p>
+              <h2 className="titulo mt-4 max-w-[17ch] text-[clamp(30px,4.6vw,50px)] leading-[1.08]">
+                El descuento se aplica al toque, no se pide
+              </h2>
+              <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-white/55">
+                Nada de anotar puntos a mano ni de que el cliente tenga que
+                acordarse de pedirlo: aparece solo cuando le conviene.
+              </p>
+
+              <div className="mt-9 flex flex-col gap-6">
+                {[
+                  {
+                    titulo: "Puntos que se ven de una",
+                    texto: "El cliente ve cuánto tiene disponible apenas abre su tarjeta, sin preguntar.",
+                  },
+                  {
+                    titulo: "Un toque y baja el total",
+                    texto: "Usa sus puntos y el precio se actualiza en el momento — vos solo cobrás lo que queda.",
+                  },
+                  {
+                    titulo: "Vos ves todo en tu panel",
+                    texto: "Cuántos clientes canjearon hoy, cuánto representó en descuentos, quién fue.",
+                  },
+                ].map((p, i) => (
+                  <div key={p.titulo} className="flex gap-4">
+                    <span
+                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold text-white"
+                      style={{ background: NARANJA }}
+                    >
+                      {i + 1}
+                    </span>
+                    <div>
+                      <h3 className="text-[16px] font-extrabold text-white">{p.titulo}</h3>
+                      <p className="mt-1.5 text-[13.5px] leading-relaxed text-white/55">{p.texto}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            {[
-              {
-                paso: "1",
-                titulo: "El cliente se afilia",
-                texto:
-                  "Escanea tu QR una sola vez y su tarjeta queda en el Wallet del teléfono — sin descargar nada.",
-              },
-              {
-                paso: "2",
-                titulo: "Suma en cada visita",
-                texto:
-                  "Un sello por visita o puntos por monto — vos decidís las reglas y el sistema lleva la cuenta.",
-              },
-              {
-                paso: "3",
-                titulo: "Canjea y vuelve",
-                texto:
-                  "Al completar, canjea su premio con el QR en el local. Y la tarjeta arranca de nuevo.",
-              },
-            ].map((p, i) => (
+        </div>
+      </section>
+
+      {/* ================= TAMBIÉN PARA CITAS Y SERVICIOS ================= */}
+      <section className="px-5 py-24 sm:px-8">
+        <div className="mx-auto w-[min(1120px,92vw)]">
+          <div data-reveal className="mx-auto max-w-[56ch] text-center">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+              No es solo para restaurantes
+            </p>
+            <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
+              Un solo programa para todo lo que hacés en Bookea
+            </h2>
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
+              Lealtad no vive aparte del resto de la plataforma: se conecta
+              con las Citas, las reservas y los pedidos que ya pasan por tu
+              cuenta.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-4 sm:grid-cols-3">
+            {VERTICALES.map((v, i) => (
               <div
-                key={p.paso}
+                key={v.titulo}
                 data-reveal
-                style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
-                className="rounded-3xl bg-white p-6"
+                className="rounded-3xl border border-white/12 p-6"
+                style={
+                  {
+                    background: "rgba(255,255,255,.04)",
+                    "--reveal-delay": `${i * 90}ms`,
+                  } as React.CSSProperties
+                }
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-aventurea-navy text-[16px] font-extrabold text-white">
-                  {p.paso}
-                </span>
-                <h3 className="mt-4 text-[16.5px] font-extrabold text-aventurea-ink">
-                  {p.titulo}
-                </h3>
-                <p className="mt-1.5 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                  {p.texto}
-                </p>
+                <h3 className="text-[16.5px] font-extrabold text-white">{v.titulo}</h3>
+                <p className="mt-2.5 text-[13.5px] leading-relaxed text-white/55">{v.texto}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ---------- Para quién ---------- */}
-      <section className="py-12">
-        <div className="mx-auto max-w-[1100px] px-6 text-center lg:px-10">
-          <p data-reveal className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+      {/* ================= PARA QUIÉN ================= */}
+      <section className="px-5 py-16 sm:px-8">
+        <div className="mx-auto w-[min(1120px,92vw)] text-center">
+          <p data-reveal className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
             Hecho para negocios con clientela que vuelve
           </p>
-          <div data-reveal className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+          <div data-reveal className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
             {NEGOCIOS.map((n) => (
               <span
                 key={n}
-                className="rounded-xl border border-aventurea-line bg-white px-4 py-2 text-[13px] font-bold text-aventurea-ink"
+                className="rounded-xl border border-white/15 px-4 py-2 text-[13px] font-bold text-white/80"
               >
                 {n}
               </span>
@@ -259,72 +340,64 @@ export default function LealtadPage() {
         </div>
       </section>
 
-      {/* ---------- Precios — bloques bento ---------- */}
-      <section id="precios" className="mx-4 my-4 max-w-[1200px] scroll-mt-24 overflow-hidden rounded-3xl border border-aventurea-line bg-white py-14 lg:mx-auto">
-        <div className="mx-auto max-w-[1100px] px-6 lg:px-10">
+      {/* ================= PRECIOS ================= */}
+      <section id="precios" className="scroll-mt-8 px-5 py-24 sm:px-8" style={{ background: NAVY }}>
+        <div className="mx-auto w-[min(1120px,92vw)]">
           <div data-reveal className="text-center">
-            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
               Precios de lanzamiento
             </p>
-            <h2 className="titulo mt-2 text-[28px] text-aventurea-ink sm:text-[34px]">
-              Menos que un combo al mes
+            <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
+              Menos que un combo al mes.
             </h2>
-            <p className="mx-auto mt-2.5 max-w-[52ch] text-[14.5px] text-aventurea-ink-soft">
+            <p className="mx-auto mt-4 max-w-[52ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
               Sin contratos ni permanencia mínima. Y si además tomás reservas
-              con Bookea, todo vive en el mismo panel.
+              o citas con Bookea, todo vive en el mismo panel.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            {PLANES.map((plan, i) => (
+          <div className="mt-14 grid gap-4 lg:grid-cols-3">
+            {PLANES.map((plan) => (
               <div
                 key={plan.nombre}
                 data-reveal
-                style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
-                className={`flex flex-col rounded-3xl p-7 ${
-                  plan.destacado
-                    ? "bg-aventurea-navy text-white shadow-[0_24px_60px_-24px_rgba(22,41,94,0.6)]"
-                    : "border border-aventurea-line bg-white"
-                }`}
+                className={`flex flex-col rounded-3xl border p-7 ${plan.destacado ? "" : "border-white/12"}`}
+                style={{
+                  background: plan.destacado ? NAVY_PROFUNDO : "rgba(255,255,255,.04)",
+                  borderColor: plan.destacado ? NARANJA : undefined,
+                }}
               >
                 <p
-                  className={`text-[12px] font-extrabold uppercase tracking-wide ${
-                    plan.destacado ? "text-aventurea-orange" : "text-aventurea-ink-soft"
-                  }`}
+                  className="text-[12px] font-extrabold uppercase tracking-wide"
+                  style={{ color: plan.destacado ? NARANJA : "rgba(255,255,255,.55)" }}
                 >
                   {plan.nombre}
                 </p>
-                <p className={`mt-2 text-[34px] font-black tracking-tight ${plan.destacado ? "text-white" : "text-aventurea-ink"}`}>
+                <p className="titulo mt-2 text-[36px] leading-none tracking-tight text-white">
                   {plan.precio}
                 </p>
-                <p className={`text-[12.5px] ${plan.destacado ? "text-white/70" : "text-aventurea-ink-soft"}`}>
-                  {plan.detalle}
-                </p>
-                <ul className="mt-5 flex flex-col gap-2.5">
+                <p className="mt-1.5 text-[12.5px] text-white/50">{plan.detalle}</p>
+
+                <ul className="mt-6 flex flex-col gap-2.5">
                   {plan.incluye.map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-[13.5px] leading-relaxed">
                       <span
-                        className={`mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full ${
-                          plan.destacado
-                            ? "bg-white/15 text-aventurea-orange"
-                            : "bg-aventurea-green/15 text-aventurea-green"
-                        }`}
+                        className="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full"
+                        style={{ background: "rgba(238,116,32,.18)", color: NARANJA }}
                       >
-                        <IconCheck className="h-2.5 w-2.5" />
+                        <Check className="h-2.5 w-2.5" />
                       </span>
-                      <span className={plan.destacado ? "text-white/90" : "text-aventurea-ink"}>
-                        {item}
-                      </span>
+                      <span className="text-white/80">{item}</span>
                     </li>
                   ))}
                 </ul>
+
                 <Link
                   href="/mi-negocio/nuevo"
-                  className={`mt-7 flex h-11 items-center justify-center rounded-xl text-[14px] font-bold transition-colors ${
-                    plan.destacado
-                      ? "bg-aventurea-orange text-white hover:bg-aventurea-orange-dark"
-                      : "border border-aventurea-navy text-aventurea-navy hover:bg-aventurea-navy hover:text-white"
+                  className={`mt-7 flex h-11 items-center justify-center rounded-full text-[14px] font-bold transition-transform hover:scale-[1.02] ${
+                    plan.destacado ? "text-white" : "border border-white/25 text-white"
                   }`}
+                  style={plan.destacado ? { background: NARANJA } : undefined}
                 >
                   Empezar con {plan.nombre === "Para empezar" ? "el plan gratis" : plan.nombre}
                 </Link>
@@ -332,42 +405,34 @@ export default function LealtadPage() {
             ))}
           </div>
 
-          <p className="mt-6 text-center text-[12px] text-zinc-500">
+          <p className="mt-8 text-center text-[12px] text-white/40">
             Los pases de Apple Wallet y Google Wallet están en fase de
             habilitación — los primeros negocios en afiliarse los estrenan.
           </p>
         </div>
       </section>
 
-      {/* ---------- CTA final — bloque navy ---------- */}
-      <section className="px-4 pb-16 pt-4 lg:px-10">
-        <div
-          data-reveal
-          className="relative isolate mx-auto max-w-[1200px] overflow-hidden rounded-3xl bg-aventurea-navy px-6 py-14 text-center sm:py-16"
-        >
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-aventurea-navy-3/60 blur-2xl"
-          />
-          <p className="flex items-center justify-center gap-2 text-[11.5px] font-extrabold uppercase tracking-[0.2em] text-aventurea-orange">
-            <IconStar className="h-3.5 w-3.5" /> Bookea Lealtad
-          </p>
-          <h2 className="titulo mx-auto mt-4 max-w-[22ch] text-balance text-[28px] text-white sm:text-[36px]">
-            Tu competencia reparte tarjetas de cartón. Vos, sellos en el
-            teléfono.
+      {/* ================= CIERRE ================= */}
+      <section className="px-5 py-28 text-center sm:px-8">
+        <div data-reveal className="mx-auto w-[min(760px,92vw)]">
+          <h2 className="titulo text-[clamp(32px,5.6vw,64px)] leading-[1.04]">
+            Tu competencia reparte tarjetas de cartón.
+            <br />
+            Vos, sellos en el teléfono.
           </h2>
-          <div className="mt-8">
-            <Link
-              href="/mi-negocio/nuevo"
-              className="inline-flex rounded-xl bg-aventurea-orange px-8 py-4 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
-            >
-              Quiero mi programa de lealtad
-            </Link>
-          </div>
+          <p className="mx-auto mt-5 max-w-[48ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/60">
+            Contanos de tu negocio y armamos tu programa — sin contratos, sin
+            permanencia mínima.
+          </p>
+          <Link
+            href="/mi-negocio/nuevo"
+            className="mt-9 inline-block rounded-full px-9 py-4 text-[15px] font-bold text-white transition-transform hover:scale-[1.03]"
+            style={{ background: NARANJA }}
+          >
+            Quiero mi programa de lealtad
+          </Link>
         </div>
       </section>
-
-      <SiteFooter />
-    </div>
+    </main>
   );
 }

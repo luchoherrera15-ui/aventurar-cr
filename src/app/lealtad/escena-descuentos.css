@@ -1,0 +1,280 @@
+/* --- Animaciones de la escena "Descuentos y puntos" de /lealtad --------
+   Un cliente canjea puntos al pagar: toca "Usar mis puntos", el total
+   viejo queda tachado, aparece el nuevo total con el badge del ahorro,
+   y el panel del negocio se actualiza solo (contador + fila nueva).
+   Mismo mecanismo que invitacion-* en globals.css: UNA duración
+   compartida (--desc-dur) sincroniza todo por porcentajes de la línea
+   de tiempo, --desc-delay desfasa piezas sueltas, y con movimiento
+   reducido la escena queda quieta en su estado final (descuento
+   aplicado, fila puesta, contador arriba). Prefijo "desc" para no
+   chocar con invitacion-* ni con ninguna otra escena hermana. */
+
+/* El dedo (círculo) que aparece sobre el botón, aprieta y se retira. */
+@keyframes desc-dedo {
+  0%,
+  24% {
+    opacity: 0;
+    transform: translate(10px, 14px) scale(0.6);
+  }
+  28%,
+  30% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  32% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.78);
+  }
+  34%,
+  36% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  40%,
+  100% {
+    opacity: 0;
+    transform: translate(10px, 14px) scale(0.6);
+  }
+}
+
+/* El apretón del botón bajo el dedo, clavado al 32% de la línea. */
+@keyframes desc-pulsar {
+  0%,
+  30%,
+  34%,
+  100% {
+    transform: scale(1);
+  }
+  32% {
+    transform: scale(0.94);
+  }
+}
+
+/* El estado "¡Descuento aplicado!" (verde) que cubre al botón tras el tap. */
+@keyframes desc-confirmar {
+  0%,
+  33% {
+    opacity: 0;
+  }
+  37%,
+  86% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* El total: el precio viejo tachado + el nuevo total, cubriendo al
+   total original en el mismo compás que el botón confirmado. */
+@keyframes desc-descuento {
+  0%,
+  33% {
+    opacity: 0;
+  }
+  37%,
+  86% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* El badge "-₡1 500 en puntos": entra con un pequeño pop, se queda y se retira. */
+@keyframes desc-pop {
+  0%,
+  33% {
+    opacity: 0;
+    transform: scale(0.7) translateY(4px);
+  }
+  37% {
+    opacity: 1;
+    transform: scale(1.08) translateY(0);
+  }
+  40%,
+  86% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(0.7) translateY(4px);
+  }
+}
+
+/* El puntito que viaja del teléfono al panel del negocio tras el tap. */
+@keyframes desc-viaje {
+  0%,
+  34% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  38% {
+    opacity: 1;
+  }
+  47% {
+    opacity: 1;
+    transform: translateX(var(--desc-viaje, 48px));
+  }
+  52%,
+  100% {
+    opacity: 0;
+    transform: translateX(var(--desc-viaje, 48px));
+  }
+}
+
+/* La fila nueva que le entra al panel cuando llega el viaje. */
+@keyframes desc-entrar {
+  0%,
+  44% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  50%,
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* El contador "clientes con descuento hoy": el número viejo sube y sale... */
+@keyframes desc-num-sale {
+  0%,
+  45% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  51%,
+  88% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  95%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ...y el nuevo entra desde abajo, en el mismo compás. */
+@keyframes desc-num-entra {
+  0%,
+  45% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  51%,
+  88% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  95%,
+  100% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+/* La notificación flotante sobre el panel: "Descuento aplicado". */
+@keyframes desc-notificacion {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  46%,
+  84% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
+/* El puntito "en vivo" del panel: late solo, fuera del compás largo. */
+@keyframes desc-latir {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+.anim-desc-dedo {
+  animation: desc-dedo var(--desc-dur, 8s) ease-in-out var(--desc-delay, 0s)
+    infinite both;
+}
+.anim-desc-pulsar {
+  animation: desc-pulsar var(--desc-dur, 8s) ease-in-out var(--desc-delay, 0s)
+    infinite both;
+}
+.anim-desc-confirmar {
+  animation: desc-confirmar var(--desc-dur, 8s) ease-out var(--desc-delay, 0s)
+    infinite both;
+}
+.anim-desc-descuento {
+  animation: desc-descuento var(--desc-dur, 8s) ease-out var(--desc-delay, 0s)
+    infinite both;
+}
+.anim-desc-pop {
+  animation: desc-pop var(--desc-dur, 8s) ease-out var(--desc-delay, 0s)
+    infinite both;
+}
+.anim-desc-viaje {
+  animation: desc-viaje var(--desc-dur, 8s) ease-in-out var(--desc-delay, 0s)
+    infinite both;
+}
+.anim-desc-entrar {
+  animation: desc-entrar var(--desc-dur, 8s) ease-out var(--desc-delay, 0s)
+    infinite both;
+}
+.anim-desc-num-sale {
+  animation: desc-num-sale var(--desc-dur, 8s) ease-in-out var(--desc-delay, 0s)
+    infinite both;
+}
+.anim-desc-num-entra {
+  animation: desc-num-entra var(--desc-dur, 8s) ease-in-out
+    var(--desc-delay, 0s) infinite both;
+}
+.anim-desc-notificacion {
+  animation: desc-notificacion var(--desc-dur, 8s) ease-out
+    var(--desc-delay, 0s) infinite both;
+}
+.anim-desc-latir {
+  animation: desc-latir 1.8s ease-in-out var(--desc-delay, 0s) infinite;
+}
+
+/* Con movimiento reducido la escena queda quieta en el estado final:
+   botón con "¡Descuento aplicado!", total con el precio nuevo, fila de
+   Sofía N. puesta y contador en 19. */
+@media (prefers-reduced-motion: reduce) {
+  .anim-desc-dedo,
+  .anim-desc-pulsar,
+  .anim-desc-confirmar,
+  .anim-desc-descuento,
+  .anim-desc-pop,
+  .anim-desc-viaje,
+  .anim-desc-entrar,
+  .anim-desc-num-sale,
+  .anim-desc-num-entra,
+  .anim-desc-notificacion,
+  .anim-desc-latir {
+    animation: none;
+  }
+}
