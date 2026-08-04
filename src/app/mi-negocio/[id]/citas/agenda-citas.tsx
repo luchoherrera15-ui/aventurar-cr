@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { etiquetaMinutos, horaBonita, minutosAHora, type HorarioSemana } from "@/app/citas/tipos";
 import { diaDeSemana, instanteEnZona } from "@/lib/agenda/disponibilidad";
-import { hoyISOCR } from "@/lib/fechas";
+import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { fmtColones } from "@/lib/finanzas";
 import {
   cancelarCita,
@@ -16,6 +16,7 @@ import {
   type BloqueoAgenda,
   type ClienteReincidente,
 } from "./actions";
+import { registrarPagoFinal, revertirPagoFinal } from "../finanzas/actions";
 
 const inputCls =
   "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink";
@@ -42,9 +43,17 @@ export type CitaDia = {
     | "cancelada";
   correo: string | null;
   whatsapp: string | null;
+  /** El teléfono de la cita manual (walk-in) — distinto de `whatsapp`,
+   *  que es el de una reserva hecha por el cliente desde la página. */
+  contacto: string | null;
   notas: string | null;
   monto_total: number | null;
   origen: string | null;
+  /** Igual que en Eventos (lib/finanzas.ts): "ya se cobró", sin
+   *  importar el medio — el dueño lo marca a mano, Bookea no procesa
+   *  nada. */
+  evento_pagado: boolean;
+  monto_cobrado_final: number | null;
 };
 
 const ESTADO_LABEL: Record<CitaDia["estado"], string> = {
@@ -103,6 +112,16 @@ function minutosDe(hora: string): number {
   return h * 60 + (m || 0);
 }
 
+const DIAS_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+/** El lunes de la semana ISO que contiene esa fecha. */
+function lunesDeSemana(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay(); // 0 = domingo … 6 = sábado
+  const offset = dow === 0 ? -6 : 1 - dow;
+  return sumarDiasISO(iso, offset);
+}
+
 type Miembro = {
   id: string;
   nombre: string;
@@ -118,7 +137,12 @@ type Servicio = {
 };
 
 const CAMPOS_CITA =
-  "id, hora_inicio, duracion_minutos, miembro_id, nombre, tipo_evento, estado, correo, whatsapp, notas, monto_total, origen";
+  "id, hora_inicio, duracion_minutos, miembro_id, nombre, tipo_evento, estado, correo, whatsapp, contacto, notas, monto_total, origen, evento_pagado, monto_cobrado_final";
+
+/** La secuencia "normal" de una cita, para las pills del detalle — los
+ *  desenlaces (no_asistio/cancelada/rechazada/bloqueada) se muestran
+ *  aparte, no como un paso más de esta fila. */
+const PASOS_ESTADO: CitaDia["estado"][] = ["pendiente", "confirmada", "cumplida"];
 
 /**
  * La agenda del día del negocio de citas — el mostrador. Se ve como
@@ -157,7 +181,10 @@ export default function AgendaCitas({
   // Por persona es la agenda "de verdad" (estilo Fresha): quién atiende
   // qué y a qué hora, de un vistazo. Arranca ahí por defecto — la lista
   // plana queda como alternativa a un clic, no como punto de partida.
-  const [vista, setVista] = useState<"lista" | "personas">("personas");
+  const [vista, setVista] = useState<"lista" | "personas" | "persona">("personas");
+  // Índice de quién se ve en la vista "una persona a la vez" — con
+  // wraparound, así las flechas dan la vuelta sin trabarse en la punta.
+  const [personaIndice, setPersonaIndice] = useState(0);
   const [seleccionada, setSeleccionada] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // Si el dueño cambia la fecha rápido, solo interesa la última consulta.
@@ -313,6 +340,31 @@ export default function AgendaCitas({
         return;
       }
       if (res.reincidente) setReincidente(res.reincidente);
+      await cargar(fecha);
+    });
+  }
+
+  function marcarCobrado(cita: CitaDia, monto: string) {
+    setError(null);
+    const montoNum = monto.trim() ? Number(monto) : null;
+    startTransition(async () => {
+      const res = await registrarPagoFinal(ranchoId, cita.id, montoNum);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      await cargar(fecha);
+    });
+  }
+
+  function deshacerCobro(cita: CitaDia) {
+    setError(null);
+    startTransition(async () => {
+      const res = await revertirPagoFinal(ranchoId, cita.id);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
       await cargar(fecha);
     });
   }
@@ -507,20 +559,182 @@ export default function AgendaCitas({
       ? ahora.minutos
       : null;
 
-  const detalle = (cita: CitaDia) => (
-    <div className="mt-2 flex flex-col gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-aventurea-ink-soft">
-        {cita.whatsapp && <span>📞 {cita.whatsapp}</span>}
-        {cita.correo && <span>{cita.correo}</span>}
-        {cita.monto_total !== null && (
-          <span className="font-bold text-aventurea-ink">
-            {fmtColones(Number(cita.monto_total))}
-          </span>
-        )}
-        {cita.origen === "sync" && <span>Viene de tu calendario externo.</span>}
+  /** Fila de pills del "viaje" normal de una cita, con la actual
+   *  destacada — los desenlaces alternos (canceló, no vino) se
+   *  muestran como una sola pill terminal, no como parte de la fila. */
+  const pillsEstado = (cita: CitaDia) => {
+    const esTerminalAlterno = ["rechazada", "cancelada", "no_asistio"].includes(cita.estado);
+    if (esTerminalAlterno) {
+      return (
+        <span className={`rounded-full px-3 py-1 text-[12px] font-bold ${ESTADO_BADGE[cita.estado]}`}>
+          {ESTADO_LABEL[cita.estado]}
+        </span>
+      );
+    }
+    const indiceActual = PASOS_ESTADO.indexOf(cita.estado);
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {PASOS_ESTADO.map((paso, i) => {
+          const esActual = i === indiceActual;
+          const yaPaso = i < indiceActual;
+          return (
+            <span
+              key={paso}
+              className={`rounded-full px-3 py-1 text-[12px] font-bold ${
+                esActual
+                  ? ESTADO_BADGE[paso]
+                  : yaPaso
+                    ? "bg-aventurea-green/10 text-aventurea-green"
+                    : "bg-aventurea-cream-2 text-zinc-400"
+              }`}
+            >
+              {yaPaso && "✓ "}
+              {ESTADO_LABEL[paso]}
+            </span>
+          );
+        })}
       </div>
+    );
+  };
+
+  const seccionCobro = (cita: CitaDia) => {
+    if (cita.estado === "bloqueada") return null;
+    if (cita.evento_pagado) {
+      return (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-aventurea-green/30 bg-aventurea-green/10 px-3.5 py-2.5">
+          <span className="text-[13px] font-bold text-aventurea-green">
+            ✓ Cobrado ·{" "}
+            {fmtColones(Number(cita.monto_cobrado_final ?? cita.monto_total ?? 0))}
+          </span>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => deshacerCobro(cita)}
+            className="text-[12px] font-bold text-aventurea-ink-soft underline hover:text-aventurea-ink disabled:opacity-40"
+          >
+            Deshacer
+          </button>
+        </div>
+      );
+    }
+    return (
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const monto = new FormData(e.currentTarget).get("monto");
+          marcarCobrado(cita, String(monto ?? ""));
+        }}
+      >
+        <div className="min-w-[140px] flex-1">
+          <label className={labelCls}>Monto cobrado (₡)</label>
+          <input
+            type="number"
+            name="monto"
+            min={0}
+            defaultValue={cita.monto_total ?? ""}
+            className={`${inputCls} w-full`}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-[42px] rounded-xl bg-aventurea-green px-4 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-60"
+        >
+          Marcar como cobrado
+        </button>
+      </form>
+    );
+  };
+
+  const detalle = (cita: CitaDia) => (
+    <div className="flex flex-col gap-3.5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[17px] font-bold leading-tight text-aventurea-ink">
+            {cita.tipo_evento ?? (cita.estado === "bloqueada" ? "Franja bloqueada" : "Servicio")}
+          </p>
+          {cita.monto_total !== null && (
+            <p className="mt-0.5 text-[15px] font-extrabold text-aventurea-green">
+              {fmtColones(Number(cita.monto_total))}
+            </p>
+          )}
+        </div>
+        <p className="shrink-0 text-right text-[12.5px] text-aventurea-ink-soft">
+          {horaBonita(cita.hora_inicio.slice(0, 5))}
+          {cita.duracion_minutos && ` · ${etiquetaMinutos(cita.duracion_minutos)}`}
+        </p>
+      </div>
+
+      {cita.miembro_id && (
+        <p className="text-[13px] text-aventurea-ink-soft">
+          Se atenderá con{" "}
+          <span className="font-bold text-aventurea-navy">
+            {nombreMiembro.get(cita.miembro_id) ?? "alguien que ya no está en el equipo"}
+          </span>
+        </p>
+      )}
+
+      {cita.estado !== "bloqueada" && (
+        <div className="rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3">
+          <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+            Cliente
+          </p>
+          <p className="mt-0.5 text-[14px] font-bold text-aventurea-ink">
+            {cita.nombre ?? "Cliente"}
+          </p>
+          {(cita.contacto || cita.whatsapp || cita.correo) && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {cita.contacto && (
+                <a
+                  href={`tel:${cita.contacto}`}
+                  className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-navy"
+                >
+                  📞 Teléfono
+                </a>
+              )}
+              {cita.correo && (
+                <a
+                  href={`mailto:${cita.correo}`}
+                  className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-navy"
+                >
+                  ✉ Email
+                </a>
+              )}
+              {cita.whatsapp && (
+                <a
+                  href={`https://wa.me/${cita.whatsapp.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12px] font-bold text-aventurea-green hover:border-aventurea-green"
+                >
+                  WhatsApp
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          Estado
+        </p>
+        {pillsEstado(cita)}
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          Cobro
+        </p>
+        {seccionCobro(cita)}
+      </div>
+
       {cita.notas && (
         <p className="text-[12.5px] text-aventurea-ink-soft">📝 {cita.notas}</p>
+      )}
+      {cita.origen === "sync" && (
+        <p className="text-[12px] text-aventurea-ink-soft">Viene de tu calendario externo.</p>
       )}
 
       {cita.estado !== "bloqueada" && (
@@ -692,20 +906,58 @@ export default function AgendaCitas({
           {ESTADO_LABEL[cita.estado] ?? cita.estado}
         </span>
       </button>
-      {seleccionada === cita.id && detalle(cita)}
     </div>
   );
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="date"
-          value={fecha}
-          onChange={(e) => cargar(e.target.value)}
-          aria-label="Fecha de la agenda"
-          className={`${inputCls} min-w-[150px]`}
-        />
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => cargar(sumarDiasISO(fecha, -7))}
+            aria-label="Semana anterior"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+          >
+            ‹
+          </button>
+          {Array.from({ length: 7 }, (_, i) => sumarDiasISO(lunesDeSemana(fecha), i)).map((diaIso) => {
+            const dow = new Date(
+              Number(diaIso.slice(0, 4)),
+              Number(diaIso.slice(5, 7)) - 1,
+              Number(diaIso.slice(8, 10)),
+            ).getDay();
+            const esSel = diaIso === fecha;
+            const esHoyChip = diaIso === hoy;
+            return (
+              <button
+                key={diaIso}
+                type="button"
+                onClick={() => cargar(diaIso)}
+                className={`flex w-10 shrink-0 flex-col items-center gap-0.5 rounded-xl px-1.5 py-1.5 ${
+                  esSel
+                    ? "bg-aventurea-orange text-white"
+                    : esHoyChip
+                      ? "bg-aventurea-orange/10 text-aventurea-orange"
+                      : "text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+                }`}
+              >
+                <span className="text-[9.5px] font-bold uppercase tracking-wide opacity-80">
+                  {DIAS_CORTO[dow]}
+                </span>
+                <span className="text-[13px] font-extrabold">{Number(diaIso.slice(8, 10))}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => cargar(sumarDiasISO(fecha, 7))}
+            aria-label="Semana siguiente"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+          >
+            ›
+          </button>
+        </div>
         {!esHoy && (
           <button
             type="button"
@@ -721,28 +973,28 @@ export default function AgendaCitas({
             : `${citas.length} cita${citas.length === 1 ? "" : "s"}${esHoy ? " hoy" : ""}`}
         </span>
         <div className="ml-auto flex flex-wrap justify-end gap-1.5">
-          <button
-            type="button"
-            onClick={() => setVista(vista === "lista" ? "personas" : "lista")}
-            className={btnChico}
-          >
-            {vista === "lista" ? "Ver por persona" : "Ver como lista"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setCreando(!creando);
-              setBloqueando(false);
-              setAvisosCrear([]);
-            }}
-            className={`h-[30px] rounded-lg px-3 text-xs font-bold ${
-              creando
-                ? "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink"
-                : "bg-aventurea-orange text-white hover:bg-aventurea-orange-dark"
-            }`}
-          >
-            {creando ? "Cerrar" : "+ Nueva cita"}
-          </button>
+          <div className="flex rounded-lg border border-aventurea-line p-0.5">
+            {(
+              [
+                ["personas", "Equipo"],
+                ["persona", "Una persona"],
+                ["lista", "Lista"],
+              ] as const
+            ).map(([valor, etiqueta]) => (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => setVista(valor)}
+                className={`h-[26px] rounded-md px-2.5 text-[11.5px] font-bold transition-colors ${
+                  vista === valor
+                    ? "bg-aventurea-orange text-white"
+                    : "text-aventurea-ink-soft hover:text-aventurea-ink"
+                }`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -755,6 +1007,22 @@ export default function AgendaCitas({
           </button>
         </div>
       </div>
+
+      {/* El "+" flotante de siempre: agendar un walk-in es lo que más
+          se toca desde acá, así que queda a mano sin ocupar la barra
+          de arriba (mismo patrón que la burbuja de chat). */}
+      <button
+        type="button"
+        onClick={() => {
+          setCreando(!creando);
+          setBloqueando(false);
+          setAvisosCrear([]);
+        }}
+        aria-label={creando ? "Cerrar nueva cita" : "Nueva cita"}
+        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-aventurea-orange text-white shadow-[0_10px_28px_-8px_rgba(238,116,32,0.6)] transition-transform hover:scale-105 lg:bottom-8 lg:right-8"
+      >
+        <span className="text-[26px] leading-none">{creando ? "×" : "+"}</span>
+      </button>
 
       {error && (
         <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>
@@ -1096,8 +1364,48 @@ export default function AgendaCitas({
         </div>
       )}
 
-      {vista === "personas" && citas.length > 0 && (
+      {(vista === "personas" || vista === "persona") && citas.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
+          {vista === "persona" && columnas.length > 0 && (
+            <div className="mb-3 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setPersonaIndice((i) => (i - 1 + columnas.length) % columnas.length)
+                }
+                aria-label="Persona anterior"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                ‹
+              </button>
+              {(() => {
+                const col = columnas[((personaIndice % columnas.length) + columnas.length) % columnas.length];
+                return (
+                  <div className="flex min-w-0 items-center gap-2">
+                    {col.fotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
+                      <img src={col.fotoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                    ) : (
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-[12px] font-bold text-aventurea-navy">
+                        {col.nombre.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                    <p className="max-w-[220px] truncate text-[14px] font-bold text-aventurea-navy">
+                      {col.nombre}
+                    </p>
+                  </div>
+                );
+              })()}
+              <button
+                type="button"
+                onClick={() => setPersonaIndice((i) => (i + 1) % columnas.length)}
+                aria-label="Persona siguiente"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+              >
+                ›
+              </button>
+            </div>
+          )}
           <div className="flex min-w-fit gap-3">
             {/* Eje de horas. Su offset tiene que compensar el alto FIJO
                 del encabezado de cada columna (ALTO_ENCABEZADO_COLUMNA,
@@ -1128,32 +1436,50 @@ export default function AgendaCitas({
                 </span>
               )}
             </div>
-            {columnas.map((col) => {
+            {(vista === "persona" && columnas.length > 0
+              ? [columnas[((personaIndice % columnas.length) + columnas.length) % columnas.length]]
+              : columnas
+            ).map((col) => {
               const citasCol = conAgenda.filter((c) => c.miembro_id === col.id);
               const bloqueosCol = bloqueosDia.filter(
                 (x) => x.bloqueo.miembro_id === col.id || x.bloqueo.miembro_id === null,
               );
               return (
-                <div key={col.id ?? "sin"} className="w-[160px] shrink-0 sm:w-[190px]">
+                <div
+                  key={col.id ?? "sin"}
+                  className={
+                    vista === "persona"
+                      ? "w-full max-w-[420px] shrink-0"
+                      : "w-[160px] shrink-0 sm:w-[190px]"
+                  }
+                >
+                  {/* En "persona" el nombre ya se ve arriba, en la
+                      navegación con flechas — este encabezado se deja
+                      vacío pero con la MISMA altura reservada, para no
+                      desalinear el eje de horas (que asume siempre
+                      ALTO_ENCABEZADO_COLUMNA de offset). */}
                   <div
                     className="flex flex-col items-center justify-center gap-1"
                     style={{ height: ALTO_ENCABEZADO_COLUMNA }}
                   >
-                    {col.fotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-                      <img
-                        src={col.fotoUrl}
-                        alt=""
-                        className="h-7 w-7 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-aventurea-navy/10 text-[11px] font-bold text-aventurea-navy">
-                        {col.nombre.slice(0, 1).toUpperCase()}
-                      </span>
+                    {vista !== "persona" &&
+                      (col.fotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
+                        <img
+                          src={col.fotoUrl}
+                          alt=""
+                          className="h-7 w-7 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-aventurea-navy/10 text-[11px] font-bold text-aventurea-navy">
+                          {col.nombre.slice(0, 1).toUpperCase()}
+                        </span>
+                      ))}
+                    {vista !== "persona" && (
+                      <p className="w-full truncate text-center text-[12px] font-bold text-aventurea-navy">
+                        {col.nombre}
+                      </p>
                     )}
-                    <p className="w-full truncate text-center text-[12px] font-bold text-aventurea-navy">
-                      {col.nombre}
-                    </p>
                   </div>
                   <div
                     className="relative cursor-pointer rounded-xl border border-aventurea-line bg-aventurea-cream-2/60"
@@ -1253,60 +1579,51 @@ export default function AgendaCitas({
             })}
           </div>
 
-          {seleccionada && citas.find((c) => c.id === seleccionada) ? (
-            (() => {
-              const cita = citas.find((c) => c.id === seleccionada)!;
-              return (
-                <div className="mt-3 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[13.5px] font-bold text-aventurea-ink">
-                        {horaBonita(cita.hora_inicio.slice(0, 5))} ·{" "}
-                        {cita.tipo_evento ??
-                          (cita.estado === "bloqueada" ? "Franja bloqueada" : "Servicio")}
-                      </p>
-                      <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                        {cita.nombre ?? (cita.estado === "bloqueada" ? "—" : "Cliente")}
-                        {cita.miembro_id && (
-                          <>
-                            {" "}
-                            · con{" "}
-                            <span className="font-bold text-aventurea-navy">
-                              {nombreMiembro.get(cita.miembro_id) ??
-                                "alguien que ya no está en el equipo"}
-                            </span>
-                          </>
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span
-                        className={`rounded-lg px-3 py-1 text-[11.5px] font-bold ${ESTADO_BADGE[cita.estado] ?? "bg-aventurea-cream-2 text-zinc-500"}`}
-                      >
-                        {ESTADO_LABEL[cita.estado] ?? cita.estado}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSeleccionada(null)}
-                        aria-label="Cerrar"
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-aventurea-ink-soft hover:bg-aventurea-surface"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                  {detalle(cita)}
-                </div>
-              );
-            })()
-          ) : (
-            <p className="mt-2 text-[11.5px] text-zinc-500">
-              Tocá una cita para ver el detalle y marcar asistencia, o un hueco libre para
-              agendar ahí mismo.
-            </p>
-          )}
+          <p className="mt-3 text-[11.5px] text-zinc-500">
+            Tocá una cita para ver el detalle y marcar asistencia, o un hueco libre para
+            agendar ahí mismo.
+          </p>
         </div>
       )}
+
+      {/* El modal de detalle: un solo lugar para las dos vistas (lista
+          y personas) en vez de un panel inline por cada una — así el
+          detalle siempre se ve completo, sin competir por espacio con
+          la grilla. */}
+      {seleccionada &&
+        citas.find((c) => c.id === seleccionada) &&
+        (() => {
+          const cita = citas.find((c) => c.id === seleccionada)!;
+          return (
+            <div
+              onClick={() => setSeleccionada(null)}
+              className="fixed inset-0 z-[90] flex items-end justify-center bg-aventurea-ink/35 backdrop-blur-sm sm:items-center sm:p-6"
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Detalle de la cita"
+                onClick={(e) => e.stopPropagation()}
+                className="flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[460px] sm:rounded-2xl sm:border sm:border-aventurea-line"
+              >
+                <div className="flex items-center justify-between border-b border-aventurea-line px-5 py-3.5">
+                  <p className="text-[13px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                    Detalle de la cita
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSeleccionada(null)}
+                    aria-label="Cerrar"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-5 py-5">{detalle(cita)}</div>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }
