@@ -726,7 +726,8 @@ export default function BookingCalendar({
               const info = dias[fecha];
               const isSelected = fecha === selectedDate;
               const isHeldByOther = !!(info && info.temporales > 0 && !isSelected);
-              const isBlocked = isPast || !!info?.confirmada || isHeldByOther;
+              const isPending = !!(info && info.pendientes > 0);
+              const isBlocked = isPast || !!info?.confirmada || isHeldByOther || isPending;
 
               // Celdas compactas: el mes completo tiene que caber en el
               // modal sin scroll — 88px de alto por día era un edificio.
@@ -748,14 +749,18 @@ export default function BookingCalendar({
               } else if (isHeldByOther) {
                 cls += " cursor-not-allowed border border-sky-200 bg-sky-50 text-sky-700";
                 etiqueta = "Bloqueada";
+              } else if (isPending) {
+                // Ya hay una solicitud sin confirmar para este día: se
+                // bloquea para nuevas reservas hasta que el dueño la
+                // apruebe o la rechace — antes se dejaba elegir igual y
+                // el propio dueño terminaba con varias reservas
+                // peleando por la misma fecha.
+                cls += " cursor-not-allowed border border-amber-300 bg-amber-50 font-bold text-amber-800";
+                etiqueta = "En aprobación";
+                badge = info!.pendientes;
               } else {
                 cls += " cursor-pointer border border-aventurea-line bg-aventurea-cream-2/50 text-aventurea-ink hover:border-aventurea-navy hover:bg-aventurea-navy/5";
                 etiqueta = "Disponible";
-                if (info && info.pendientes > 0) {
-                  cls += " border-amber-300 bg-amber-50 font-bold text-amber-800";
-                  etiqueta = "En aprobación";
-                  badge = info.pendientes;
-                }
               }
               if (isToday) cls += " ring-2 ring-inset ring-aventurea-navy/35";
               if (isSelected) cls += " ring-2 ring-inset ring-aventurea-navy";
@@ -936,9 +941,9 @@ export default function BookingCalendar({
                 </h3>
                 <p className="mt-2 text-[13px] text-aventurea-ink-soft">
                   Tu reserva y tu comprobante quedaron guardados para esa
-                  fecha. {nombreRancho} va a validar el depósito y confirmar
-                  — si hay más reservas para el mismo día, se confirma una
-                  sola. Te avisamos por el contacto que dejaste.
+                  fecha, que ya no queda disponible para nadie más mientras
+                  se revisa. {nombreRancho} va a validar el depósito y
+                  confirmar — te avisamos por el contacto que dejaste.
                 </p>
                 <button
                   onClick={limpiarSeleccion}
@@ -983,15 +988,6 @@ export default function BookingCalendar({
 
                 {paso === 1 && (
                   <>
-                    {dias[selectedDate] && dias[selectedDate].pendientes > 0 && (
-                      <div className="rounded-[10px] bg-aventurea-orange/10 p-3 text-xs leading-relaxed text-aventurea-orange">
-                        Ya hay {dias[selectedDate].pendientes} reserva
-                        {dias[selectedDate].pendientes > 1 ? "s" : ""} en
-                        aprobación para esta fecha. Igual podés reservar la tuya
-                        — {nombreRancho} confirma una sola.
-                      </div>
-                    )}
-
                     {/* Dos columnas: menos alto, cero scroll. */}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {modalidadPrecio === "hora" ? (

@@ -15,9 +15,11 @@ const ESTADO_LABEL: Record<string, string> = {
   confirmada: "Confirmada",
 };
 
+// Pills sólidos, no los tenues de fondo claro: sobre el azul navy de
+// la tarjeta, un bg-orange/10 casi no se ve.
 const ESTADO_CLS: Record<string, string> = {
-  pendiente: "bg-aventurea-orange/10 text-aventurea-orange-dark",
-  confirmada: "bg-aventurea-green/10 text-aventurea-green",
+  pendiente: "bg-aventurea-orange text-white",
+  confirmada: "bg-aventurea-green text-white",
 };
 
 function fmtColones(n: number | null) {
@@ -49,19 +51,16 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
         const esHoy = e.fecha === hoy;
         const esManana = e.fecha === manana;
         return (
-          <div
-            key={e.id}
-            className="min-w-0 rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2.5"
-          >
-            <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          <div key={e.id} className="min-w-0 rounded-xl bg-aventurea-navy px-3 py-2.5">
+            <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-orange">
               {esHoy ? "Hoy" : esManana ? "Mañana" : fechaCorta(e.fecha)}
             </p>
-            <p className="mt-0.5 truncate text-[12.5px] font-bold text-aventurea-ink">
+            <p className="mt-0.5 truncate text-[12.5px] font-bold text-white">
               {e.nombre ?? "Sin nombre"}
             </p>
             <div className="mt-1.5 flex items-center justify-between gap-1.5">
               {e.monto_total !== null ? (
-                <span className="truncate text-[11.5px] font-bold text-aventurea-ink">
+                <span className="truncate text-[11.5px] font-bold text-white">
                   {fmtColones(e.monto_total)}
                 </span>
               ) : (

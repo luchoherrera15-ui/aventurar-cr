@@ -148,8 +148,13 @@ export default function ReservasTable({
     return reservas
       .filter((r) => (!q ? true : (r.nombre ?? "").toLowerCase().includes(q)))
       .filter((r) => filtro === "todas" || r.estado === filtro)
+      // En "cards" (panel del propio negocio), "Todos los estados" no
+      // mete las rechazadas de una vez — quien las quiera ver las busca
+      // filtrando por "Rechazada" a propósito. El admin ("tabla") sigue
+      // viendo todo junto, sin este filtro extra.
+      .filter((r) => variante !== "cards" || filtro === "rechazada" || r.estado !== "rechazada")
       .sort((a, b) => a.fecha.localeCompare(b.fecha));
-  }, [reservas, query, filtro]);
+  }, [reservas, query, filtro, variante]);
 
   const visibles =
     variante === "cards" && !verTodas ? list.slice(0, MOSTRAR_INICIAL) : list;
