@@ -758,15 +758,22 @@ export default function ReservarScreen() {
             <View style={styles.bloque}>
               <Micro>Cotización estimada</Micro>
               <Tarjeta style={styles.tarjetaTotal}>
-                {promoAplicable && total !== null && (
-                  <Estado
-                    tono="verde"
-                    texto={`${promoAplicable.etiqueta || "Promoción"} −${promoAplicable.porcentaje_descuento}%`}
-                  />
+                {promoAplicable && subtotal !== null && descuentoMonto > 0 && (
+                  <View>
+                    <Text style={[styles.totalTexto, { textDecorationLine: "line-through", opacity: 0.5 }]}>
+                      {fmtColones(subtotal)}
+                    </Text>
+                    <Estado
+                      tono="verde"
+                      texto={`${promoAplicable.etiqueta || "Promoción"} −${promoAplicable.porcentaje_descuento}%`}
+                    />
+                    <Text style={styles.totalTexto}>{fmtColones(total ?? 0)}</Text>
+                  </View>
                 )}
-                {total !== null ? (
+                {(!promoAplicable || descuentoMonto === 0) && total !== null && (
                   <Text style={styles.totalTexto}>{fmtColones(total)}</Text>
-                ) : (
+                )}
+                {total === null && (
                   <Text style={styles.hint}>
                     {modalidadPrecio === "hora"
                       ? horasNum
