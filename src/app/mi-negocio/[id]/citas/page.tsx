@@ -254,7 +254,7 @@ export default async function CitasConfigPage({
               fotoUrl: m.foto_url,
             }))}
             servicios={servicios}
-            horario={horario}
+            horario={(horario ?? {}) as Record<string, { abre: string; cierra: string } | undefined>}
             initialFecha={hoy}
             initialCitas={citasHoy}
             initialBloqueos={bloqueos}

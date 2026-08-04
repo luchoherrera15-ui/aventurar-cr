@@ -26,7 +26,7 @@ interface CitasTabsProps {
     duracionMinutos: number | null;
     precio: number | null;
   }>;
-  horario: Record<string, { abre: string; cierra: string }>;
+  horario: Record<string, { abre: string; cierra: string } | undefined>;
   initialFecha: string;
   initialCitas: CitaDia[];
   initialBloqueos: Array<{
@@ -70,9 +70,9 @@ export default function CitasTabs({
   const dow = hoy.getDay();
   const diasSemana = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
   const diaStr = diasSemana[dow === 0 ? 6 : dow - 1];
-  const horarioHoy = horario[diaStr];
+  const horarioHoy = horario?.[diaStr];
   const horaCierreParts = horarioHoy?.cierra?.split(":") || ["20", "00"];
-  const minutosCierre = parseInt(horaCierreParts[0]) * 60 + parseInt(horaCierraParts[1] || "0");
+  const minutosCierre = parseInt(horaCierreParts[0]) * 60 + parseInt(horaCierreParts[1] || "0");
 
   return (
     <div>
