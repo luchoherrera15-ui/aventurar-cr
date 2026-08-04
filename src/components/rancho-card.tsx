@@ -4,14 +4,13 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconHeart, IconPin, IconStar } from "@/components/icons";
+import { SUBCATEGORIA_LABEL, UNIDAD_PRECIO_LABEL, type Rancho } from "@/app/mi-negocio/types";
 import {
-  CATEGORIA_GRADIENTE,
-  CATEGORIA_ICONO,
-  CATEGORIA_LABEL,
-  SUBCATEGORIA_LABEL,
-  UNIDAD_PRECIO_LABEL,
-  type Rancho,
-} from "@/app/mi-negocio/types";
+  categoriaGradiente,
+  categoriaIcono,
+  categoriaLabel,
+  esCategoriaValida,
+} from "@/lib/categorias-vertical";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
 
@@ -56,9 +55,15 @@ export default function RanchoCard({
   const esNuevo = Date.now() - new Date(rancho.created_at).getTime() < 1000 * 60 * 60 * 24 * 30;
 
   const esDemo = !!rancho.slug?.startsWith("demo-");
+  // Esta card se usa en Eventos, Hospedajes y favoritos de cualquier
+  // vertical: rubro, ícono y gradiente salen del helper por vertical
+  // (categorias-vertical.ts), que ya sabe caer a "otros" si la
+  // categoría no matchea.
   const rubro = rancho.subcategoria
     ? SUBCATEGORIA_LABEL[rancho.subcategoria]
-    : CATEGORIA_LABEL[rancho.categoria];
+    : esCategoriaValida(rancho.vertical ?? "eventos", rancho.categoria)
+      ? categoriaLabel(rancho.vertical ?? "eventos", rancho.categoria)
+      : rancho.categoria;
 
   return (
     <article
@@ -85,7 +90,9 @@ export default function RanchoCard({
         <div
           className="relative aspect-[4/3] overflow-hidden bg-aventurea-blue-light"
           style={
-            !rancho.foto_url ? { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] } : undefined
+            !rancho.foto_url
+              ? { backgroundImage: categoriaGradiente(rancho.vertical ?? "eventos", rancho.categoria) }
+              : undefined
           }
         >
           {rancho.foto_url ? (
@@ -98,7 +105,7 @@ export default function RanchoCard({
             />
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-white/25 [&_svg]:h-12 [&_svg]:w-12">
-              {CATEGORIA_ICONO[rancho.categoria]}
+              {categoriaIcono(rancho.vertical ?? "eventos", rancho.categoria)}
             </span>
           )}
 

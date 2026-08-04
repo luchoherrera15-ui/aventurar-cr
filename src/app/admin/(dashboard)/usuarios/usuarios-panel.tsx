@@ -8,7 +8,7 @@ import {
   crearUsuario,
   type NuevoUsuarioState,
 } from "./actions";
-import { CATEGORIA_LABEL, type Categoria } from "@/app/mi-negocio/types";
+import { categoriaLabel } from "@/lib/categorias-vertical";
 
 export type PerfilRow = {
   id: string;
@@ -16,7 +16,7 @@ export type PerfilRow = {
   nombre: string | null;
   rol: "admin" | "dueno_rancho" | "cliente";
   created_at: string;
-  negocios: { nombre: string; categoria: string }[];
+  negocios: { nombre: string; categoria: string; vertical: string | null }[];
 };
 
 const inputCls =
@@ -231,8 +231,7 @@ export default function UsuariosPanel({
                     ? "—"
                     : p.negocios.map((n, i) => (
                         <span key={i} className="block whitespace-nowrap">
-                          {n.nombre} ·{" "}
-                          {CATEGORIA_LABEL[n.categoria as Categoria] ?? n.categoria}
+                          {n.nombre} · {categoriaLabel(n.vertical ?? "eventos", n.categoria)}
                         </span>
                       ))}
                 </td>

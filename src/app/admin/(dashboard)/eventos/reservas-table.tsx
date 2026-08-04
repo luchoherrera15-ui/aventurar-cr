@@ -105,20 +105,39 @@ function PedidoDetalle({
   );
 }
 
+const MOSTRAR_INICIAL = 5;
+
+/** Acento por estado — el mismo lenguaje azul/naranja del resto del
+ *  panel: confirmada es la de fiar (azul), pendiente es la que pide
+ *  acción (naranja). */
+const ACENTO_ESTADO: Record<Reserva["estado"], string> = {
+  confirmada: "border-aventurea-blue",
+  pendiente: "border-aventurea-orange",
+  rechazada: "border-aventurea-line",
+  bloqueada: "border-aventurea-line",
+};
+
 export default function ReservasTable({
   initialReservas,
   nombrePorRancho,
   mostrarMensajes,
+  variante = "tabla",
 }: {
   initialReservas: Reserva[];
   nombrePorRancho?: Map<string, string>;
   /** Solo tiene sentido desde el panel del propio proveedor: el admin
    *  no es parte de la conversación con el cliente. */
   mostrarMensajes?: boolean;
+  /** "cards": grilla de tarjetas en todos los tamaños, con las
+   *  primeras 5 y un botón para ver el resto — el panel del propio
+   *  negocio. "tabla" (default): tabla ancha en desktop + tarjetas
+   *  solo en celular, sin paginar — el panel de admin, sin tocar. */
+  variante?: "tabla" | "cards";
 }) {
   const [reservas, setReservas] = useState(initialReservas);
   const [query, setQuery] = useState("");
   const [filtro, setFiltro] = useState("todas");
+  const [verTodas, setVerTodas] = useState(false);
   const [pending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
   const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null);
@@ -131,6 +150,9 @@ export default function ReservasTable({
       .filter((r) => filtro === "todas" || r.estado === filtro)
       .sort((a, b) => a.fecha.localeCompare(b.fecha));
   }, [reservas, query, filtro]);
+
+  const visibles =
+    variante === "cards" && !verTodas ? list.slice(0, MOSTRAR_INICIAL) : list;
 
   function cambiarEstado(id: string, estado: Reserva["estado"]) {
     setActionError(null);
@@ -206,19 +228,33 @@ export default function ReservasTable({
         </p>
       )}
 
-      {/* Cards apiladas en pantallas chicas — la tabla ancha obligaba a
-          hacer scroll horizontal (y ni eso, quedaba cortada) justo donde
-          la mayoría aprueba o rechaza reservas desde el celular. */}
-      <div className="flex flex-col gap-3 sm:hidden">
+      {/* En "tabla" (admin), cards apiladas SOLO en pantallas chicas — la
+          tabla ancha obligaba a hacer scroll horizontal justo donde la
+          mayoría aprueba o rechaza reservas desde el celular. En "cards"
+          (panel del propio negocio) es la única vista, en todos los
+          tamaños, paginada de a 5. */}
+      <div
+        className={
+          variante === "cards"
+            ? "grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            : "flex flex-col gap-3 sm:hidden"
+        }
+      >
         {list.length === 0 && (
-          <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-8 text-center text-[13.5px] text-zinc-500">
+          <div className="col-span-full rounded-2xl border border-aventurea-line bg-aventurea-surface p-8 text-center text-[13.5px] text-zinc-500">
             No hay reservas que coincidan con la búsqueda.
           </div>
         )}
-        {list.map((r) => (
+        {visibles.map((r) => {
+          // Con correo + WhatsApp + cédula + comprobante, la tarjeta
+          // angosta se volvía carrilera de larga. Esas mismas ocupan 2
+          // columnas para que el contenido de más fluya al costado en
+          // vez de apilarse hacia abajo.
+          const esDetallada = Boolean(r.correo || r.whatsapp || r.cedula || r.deposito_comprobante_url);
+          return (
           <div
             key={r.id}
-            className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm"
+            className={`rounded-2xl border border-aventurea-line border-l-4 bg-aventurea-surface p-4 shadow-sm ${ACENTO_ESTADO[r.estado]} ${esDetallada ? "sm:col-span-2" : ""}`}
           >
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -240,20 +276,24 @@ export default function ReservasTable({
 
             <div className="mt-3 border-t border-aventurea-line pt-3">
               <div className="font-bold text-aventurea-ink">{r.nombre}</div>
-              {r.correo || r.whatsapp ? (
-                <>
-                  {r.correo && <div className="text-xs text-zinc-500">{r.correo}</div>}
-                  {r.whatsapp && <div className="text-xs text-zinc-500">{r.whatsapp}</div>}
-                </>
-              ) : (
-                <div className="text-xs text-zinc-500">{r.contacto}</div>
-              )}
-              {r.cedula && (
-                <div className="text-xs text-zinc-500">Cédula: {r.cedula}</div>
-              )}
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                {r.correo || r.whatsapp ? (
+                  <>
+                    {r.correo && <div className="text-xs text-zinc-500">{r.correo}</div>}
+                    {r.whatsapp && <div className="text-xs text-zinc-500">{r.whatsapp}</div>}
+                  </>
+                ) : (
+                  <div className="text-xs text-zinc-500">{r.contacto}</div>
+                )}
+                {r.cedula && (
+                  <div className="text-xs text-zinc-500">Cédula: {r.cedula}</div>
+                )}
+              </div>
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-aventurea-line pt-3 text-[13px]">
+            <div
+              className={`mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-aventurea-line pt-3 text-[13px] ${esDetallada ? "sm:grid-cols-4" : ""}`}
+            >
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                   Evento
@@ -333,10 +373,31 @@ export default function ReservasTable({
                 </button>
               </div>
             )}
+
+            {mostrarMensajes && r.cliente_id && (
+              <Link
+                href={`/mensajes/${r.id}`}
+                className="mt-3.5 flex h-10 items-center justify-center rounded-xl border border-aventurea-line bg-aventurea-cream-2 text-[12.5px] font-bold text-aventurea-navy hover:border-aventurea-navy"
+              >
+                Mensajes
+              </Link>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
+      {variante === "cards" && list.length > MOSTRAR_INICIAL && (
+        <button
+          type="button"
+          onClick={() => setVerTodas((v) => !v)}
+          className="mt-4 flex w-full items-center justify-center rounded-xl border border-aventurea-line bg-aventurea-surface py-2.5 text-[13px] font-bold text-aventurea-navy hover:border-aventurea-navy sm:w-auto sm:px-6"
+        >
+          {verTodas ? "Ver menos" : `Ver las ${list.length - MOSTRAR_INICIAL} restantes`}
+        </button>
+      )}
+
+      {variante !== "cards" && (
       <div className="hidden overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm sm:block">
         <table className="w-full border-collapse">
           <thead>
@@ -488,6 +549,7 @@ export default function ReservasTable({
           </tbody>
         </table>
       </div>
+      )}
 
       {comprobanteUrl && (
         <div

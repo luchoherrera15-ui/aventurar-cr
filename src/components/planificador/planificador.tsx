@@ -11,6 +11,7 @@ import {
   PROVINCIAS,
   SUBCATEGORIA_LABEL,
   UNIDAD_PRECIO_LABEL,
+  type Categoria,
   type Provincia,
   type Rancho,
 } from "@/app/mi-negocio/types";
@@ -800,9 +801,12 @@ function CardResultado({
   const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
   const esDemo = !!rancho.slug?.startsWith("demo-");
   const precio = fmtColones(rancho.precio_desde);
+  // El planificador solo trabaja con ranchos aprobados de la vertical
+  // Eventos (ver motor.ts) — el cast es seguro.
+  const categoriaEventos = rancho.categoria as Categoria;
   const rubro = rancho.subcategoria
     ? SUBCATEGORIA_LABEL[rancho.subcategoria]
-    : CATEGORIA_LABEL[rancho.categoria];
+    : CATEGORIA_LABEL[categoriaEventos];
   const ubicacion = [rancho.canton, rancho.provincia].filter(Boolean).join(", ");
 
   return (
@@ -812,7 +816,7 @@ function CardResultado({
           className="relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-xl bg-aventurea-blue-light"
           style={
             !rancho.foto_url
-              ? { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
+              ? { backgroundImage: CATEGORIA_GRADIENTE[categoriaEventos] }
               : undefined
           }
         >
@@ -826,7 +830,7 @@ function CardResultado({
             />
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-white/30 [&_svg]:h-7 [&_svg]:w-7">
-              {CATEGORIA_ICONO[rancho.categoria]}
+              {CATEGORIA_ICONO[categoriaEventos]}
             </span>
           )}
         </div>

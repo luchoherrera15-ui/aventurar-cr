@@ -7,6 +7,7 @@ import { IconChatBubble, IconClock, IconPin, IconStar } from "@/components/icons
 import AgendaNegocio from "./agenda-negocio";
 import EquipoNegocio from "./equipo-negocio";
 import TarjetaReservaSticky from "./tarjeta-reserva-sticky";
+import { DetallesServicioSeccion, ComodidadesSeccion } from "./detalles-seccion";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR } from "@/lib/fechas";
 import {
@@ -296,6 +297,12 @@ export default async function NegocioCitasPage({
                 agenda={agendaProps}
               />
             )}
+
+            <DetallesServicioSeccion
+              categoria={categoria}
+              detalles={negocio.detalles ?? {}}
+            />
+            <ComodidadesSeccion amenidades={negocio.amenidades ?? []} />
 
             {/* ---------- Reseñas ---------- */}
             <div className="mt-9">

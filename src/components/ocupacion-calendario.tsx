@@ -150,9 +150,9 @@ export default function OcupacionCalendario({
   const delDia = seleccion ? (porFecha.get(seleccion) ?? []) : [];
 
   return (
-    <div className="rounded-2xl border border-aventurea-navy-3/50 bg-aventurea-navy p-4 shadow-sm sm:p-6">
+    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-6">
       <div className="flex items-center justify-between">
-        <span className="text-[15px] font-bold capitalize text-white">
+        <span className="text-[15px] font-bold capitalize text-aventurea-ink">
           {MESES[viewMonth]} {viewYear}
         </span>
         <div className="flex gap-2">
@@ -160,7 +160,7 @@ export default function OcupacionCalendario({
             type="button"
             onClick={() => cambiarMes(-1)}
             aria-label="Mes anterior"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-[15px] text-white hover:border-white/40 hover:bg-white/10"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-[15px] text-aventurea-ink hover:border-aventurea-navy"
           >
             ‹
           </button>
@@ -168,7 +168,7 @@ export default function OcupacionCalendario({
             type="button"
             onClick={() => cambiarMes(1)}
             aria-label="Mes siguiente"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-[15px] text-white hover:border-white/40 hover:bg-white/10"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-[15px] text-aventurea-ink hover:border-aventurea-navy"
           >
             ›
           </button>
@@ -179,7 +179,7 @@ export default function OcupacionCalendario({
         {DOW.map((d, i) => (
           <div
             key={i}
-            className="pb-1 text-center text-[10px] font-bold uppercase tracking-wide text-white/45"
+            className="pb-1 text-center text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
           >
             {d}
           </div>
@@ -194,14 +194,14 @@ export default function OcupacionCalendario({
 
           let cls =
             "relative flex min-h-[40px] flex-col items-center justify-center rounded-lg text-[12.5px] transition-colors sm:min-h-[52px] sm:text-[13.5px]";
-          if (estado === "confirmada") cls += " bg-red-400/25 font-bold text-red-200";
-          else if (estado === "pendiente") cls += " bg-amber-400/25 font-bold text-amber-200";
-          else if (estado === "bloqueada") cls += " bg-white/10 font-bold text-white/60";
-          else cls += " bg-white/[0.04] text-white/55";
+          if (estado === "confirmada") cls += " bg-red-100 font-bold text-red-700";
+          else if (estado === "pendiente") cls += " bg-amber-100 font-bold text-amber-800";
+          else if (estado === "bloqueada") cls += " bg-aventurea-cream-2 font-bold text-aventurea-ink-soft";
+          else cls += " border border-aventurea-line text-aventurea-ink-soft";
           if (esHoy) cls += " ring-1 ring-aventurea-orange";
           // El día abierto se marca con un anillo grueso, que se lee
           // igual sobre cualquiera de los cuatro fondos.
-          if (elegido) cls += " ring-2 ring-white ring-offset-1 ring-offset-aventurea-navy";
+          if (elegido) cls += " ring-2 ring-aventurea-navy ring-offset-1 ring-offset-aventurea-surface";
 
           if (!editable) {
             return (
@@ -236,7 +236,7 @@ export default function OcupacionCalendario({
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-4 text-[11.5px] text-white/55">
+      <div className="mt-4 flex flex-wrap gap-4 text-[11.5px] text-aventurea-ink-soft">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-red-400" /> Confirmada
         </span>
@@ -244,21 +244,21 @@ export default function OcupacionCalendario({
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> En aprobación
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-white/40" /> Bloqueado / agenda externa
+          <span className="h-2.5 w-2.5 rounded-full bg-aventurea-cream-2 ring-1 ring-inset ring-aventurea-line" /> Bloqueado / agenda externa
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full border border-white/30" /> Libre
+          <span className="h-2.5 w-2.5 rounded-full border border-aventurea-line" /> Libre
         </span>
       </div>
 
       {editable && (
-        <p className="mt-3 text-[12px] text-white/45">
+        <p className="mt-3 text-[12px] text-aventurea-ink-soft">
           Tocá un día para ver lo que hay y confirmarlo, corregirlo o cancelarlo.
         </p>
       )}
 
       {seleccion && (
-        <div className="mt-4 rounded-2xl bg-white p-4 shadow-lg">
+        <div className="mt-4 rounded-2xl bg-aventurea-cream-2 p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <p className="text-[14px] font-bold capitalize text-aventurea-ink">
               {fechaLarga(seleccion)}

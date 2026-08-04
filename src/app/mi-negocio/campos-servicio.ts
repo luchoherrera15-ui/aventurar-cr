@@ -83,7 +83,9 @@ const TARIFA_DIA: Campo = {
 
 // Todo servicio que se mueve al evento necesita decir hasta dónde llega,
 // cuánto cobra por ir y con cuánta anticipación hay que reservarlo.
-const COBERTURA: GrupoCampos = {
+// Exportado: también lo usa Citas para "belleza" cuando el dueño marca
+// servicio a domicilio (ver src/app/citas/campos-servicio.ts).
+export const COBERTURA: GrupoCampos = {
   titulo: "Cobertura y logística",
   campos: [
     {

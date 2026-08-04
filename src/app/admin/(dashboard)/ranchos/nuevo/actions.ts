@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
-import { CATEGORIAS, PROVINCIAS, SUBCATEGORIAS } from "@/app/mi-negocio/types";
+import { PROVINCIAS, SUBCATEGORIAS } from "@/app/mi-negocio/types";
+import {
+  esCategoriaValida,
+  usaSubcategoria,
+  type VerticalNegocio,
+} from "@/lib/categorias-vertical";
 import { generarSlugUnico } from "@/lib/slug";
 
 export type NuevoRanchoAdminState = { error?: string } | undefined;
@@ -51,24 +56,37 @@ export async function crearRanchoComoAdmin(
   }
 
   if (!ownerId) {
-    return { error: "Elegí un dueño para el salón o creá una cuenta nueva." };
+    return { error: "Elegí un dueño para el negocio o creá una cuenta nueva." };
   }
+
+  // La vertical elegida en el Paso 2: cualquier valor raro cae a
+  // eventos, igual que en mi-negocio/nuevo/actions.ts.
+  const verticalRaw = String(formData.get("vertical") || "");
+  const vertical = (
+    ["citas", "hospedajes", "restaurantes"].includes(verticalRaw)
+      ? verticalRaw
+      : "eventos"
+  ) as VerticalNegocio;
 
   const categoria = String(formData.get("categoria") || "");
   const nombre = String(formData.get("nombre") || "").trim();
   const provincia = String(formData.get("provincia") || "");
   if (
     !nombre ||
-    !(CATEGORIAS as readonly string[]).includes(categoria) ||
+    !esCategoriaValida(vertical, categoria) ||
     !(PROVINCIAS as readonly string[]).includes(provincia)
   ) {
     return { error: "Completá al menos la categoría, el nombre y la provincia." };
   }
 
+  // Las subcategorías son solo de Eventos; el resto de verticales no
+  // las usa (mismo criterio que mi-negocio/nuevo/actions.ts).
   const subcategoria = String(formData.get("subcategoria") || "");
-  const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
-  if (!validas.some((s) => s.id === subcategoria)) {
-    return { error: "Elegí qué ofrece exactamente dentro de esa categoría." };
+  if (usaSubcategoria(vertical)) {
+    const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
+    if (!validas.some((s) => s.id === subcategoria)) {
+      return { error: "Elegí qué ofrece exactamente dentro de esa categoría." };
+    }
   }
 
   const num = (campo: string) => {
@@ -80,8 +98,9 @@ export async function crearRanchoComoAdmin(
 
   const { error } = await supabase.from("ranchos").insert({
     owner_id: ownerId,
+    vertical,
     categoria,
-    subcategoria,
+    subcategoria: usaSubcategoria(vertical) ? subcategoria : null,
     nombre,
     descripcion: String(formData.get("descripcion") || "").trim() || null,
     provincia,
@@ -96,7 +115,7 @@ export async function crearRanchoComoAdmin(
     slug,
   });
 
-  if (error) return { error: "No se pudo guardar el salón: " + error.message };
+  if (error) return { error: "No se pudo guardar el negocio: " + error.message };
 
   revalidatePath("/admin/ranchos");
   revalidatePath("/eventos");

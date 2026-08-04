@@ -3,12 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   CATALOGO_LABEL,
+  CATEGORIAS,
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
-  CATEGORIA_LABEL,
-  normalizarCategoria,
 } from "../types";
 import type {
+  Categoria,
   CodigoDescuento,
   PrecioTier,
   PromocionDia,
@@ -16,12 +16,12 @@ import type {
   RanchoItem,
   ServicioAdicional,
 } from "../types";
+import { categoriaLabel, esCategoriaValida } from "@/lib/categorias-vertical";
 import CatalogoPanel from "./catalogo-panel";
-import { resumenFinanciero, saldoPendiente, type Gasto, type ReservaFinanzas } from "@/lib/finanzas";
+import { resumenFinanciero, type Gasto, type ReservaFinanzas } from "@/lib/finanzas";
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
 import Tabs, { type Tab } from "./tabs";
 import DashboardMetricas from "./dashboard-metricas";
-import PendientesRancho from "./pendientes-rancho";
 import { calcularMetricas } from "./metricas";
 import EditarRanchoForm from "./editar/editar-form";
 import PreciosForm from "@/components/precios-form";
@@ -44,7 +44,8 @@ import {
 import DepositoForm from "./deposito-form";
 import AsistentePanel from "./asistente/asistente-panel";
 import type { ConocimientoFila } from "./asistente/actions";
-import AgendaEventos, { type EventoAgenda } from "@/components/agenda-eventos";
+import { type EventoAgenda } from "@/components/agenda-eventos";
+import ProximasReservasCards from "./proximas-reservas-cards";
 import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-calendario";
 import SincronizarCalendario from "@/components/sincronizar-calendario";
 import AgendasExternas, { type AgendaExternaFila } from "@/components/agendas-externas";
@@ -123,11 +124,22 @@ export default async function RanchoDetallePage({
   const esAdminSesion = perfil?.rol === "admin";
   if (data.owner_id !== user.id && !esAdminSesion) notFound();
 
-  const rancho = {
-    ...(data as Rancho),
-    categoria: normalizarCategoria((data as Rancho).categoria),
-  };
+  const rancho = data as Rancho;
+  // "lugares" solo existe en la vertical Eventos — para Citas/Hospedajes/
+  // Restaurantes esto siempre da false, que es lo correcto (ninguno de
+  // esos vive con el calendario de Lugares).
   const esLugar = rancho.categoria === "lugares";
+  // Para mostrar (breadcrumbs, headers, ícono/gradiente de portada) sin
+  // asumir que `rancho.categoria` es una de las 6 de Eventos: si no
+  // matchea ninguna categoría conocida de su vertical, cae a "otros"
+  // como fallback visual neutro en vez de romper con Citas.
+  const categoriaEventosValida = (CATEGORIAS as readonly string[]).includes(
+    rancho.categoria,
+  );
+  const categoriaParaIcono = (categoriaEventosValida ? rancho.categoria : "otros") as Categoria;
+  const categoriaLabelMostrado = esCategoriaValida(rancho.vertical ?? "eventos", rancho.categoria)
+    ? categoriaLabel(rancho.vertical ?? "eventos", rancho.categoria)
+    : rancho.categoria;
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
@@ -270,13 +282,6 @@ export default async function RanchoDetallePage({
   // resaltados — el control operativo del día a día.
   const hoyCR = hoyISOCR();
 
-  // Mismo criterio que usará el recordatorio de cobro por correo/push:
-  // el bloque de Pendientes y el aviso automático tienen que decir lo
-  // mismo.
-  const cobranHoy = reservasFinanzas.filter(
-    (r) => r.estado === "confirmada" && r.fecha === hoyCR && saldoPendiente(r) > 0,
-  ).length;
-
   const agenda: EventoAgenda[] = reservas
     .filter((r) => r.fecha >= hoyCR && (r.estado === "pendiente" || r.estado === "confirmada"))
     .map((r) => ({
@@ -330,27 +335,17 @@ export default async function RanchoDetallePage({
     badge: pendientes,
     content: (
       <div className="flex flex-col gap-6">
-        <p className="text-[13.5px] text-aventurea-ink-soft">
-          {agenda.length} evento{agenda.length === 1 ? "" : "s"} próximo
-          {agenda.length === 1 ? "" : "s"}. Un día antes de cada evento te
-          mandamos un recordatorio por correo.
-        </p>
         {/* El calendario es el único lugar para tocar reservas de
             EVENTOS: desde acá se confirma, se corrige, se mueve de
             fecha y se cancela lo del día — y también se carga una
-            reserva nueva, con la fecha ya puesta, sin salir de acá. Es
-            como se maneja la agenda cuando alguien llama para mover su
-            fiesta.
-
-            Para CITAS estas acciones no sirven: son las de un evento
-            (tipo_evento, invitados, "horario" en texto libre, sin
+            reserva nueva, con la fecha ya puesta, sin salir de acá.
+            Para CITAS estas acciones no sirven (son las de un evento:
+            tipo_evento, invitados, "horario" en texto libre, sin
             hora_inicio ni miembro_id) — crear o editar una cita desde
             acá dejaría una "cita fantasma" que no descuenta
-            disponibilidad, exactamente lo que ya se evita en la
-            sección de abajo. Por eso el calendario queda de SOLO
-            LECTURA para citas (igual sirve como vistazo del mes) y el
-            manejo de verdad — con hora y profesional — vive en
-            /mi-negocio/[id]/citas. */}
+            disponibilidad. Por eso queda de SOLO LECTURA para citas
+            (igual sirve como vistazo del mes) y el manejo de verdad
+            vive en /mi-negocio/[id]/citas. */}
         <OcupacionCalendario
           dias={diasOcupados}
           onConfirmar={esVerticalCitas ? undefined : confirmarReserva.bind(null, rancho.id)}
@@ -387,7 +382,12 @@ export default async function RanchoDetallePage({
           <AgendasExternas ranchoId={rancho.id} agendas={agendasExternas} />
           <SincronizarCalendario feedUrl={feedUrl} />
         </SeccionPlegable>
-        <AgendaEventos eventos={agenda} />
+        <div>
+          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+            Próximas reservas
+          </h2>
+          <ProximasReservasCards eventos={agenda} />
+        </div>
 
         {/* La tabla completa (antes su propia pestaña "Reservas" /
             "Solicitudes") — se pliega acá: el calendario de arriba ya
@@ -412,7 +412,7 @@ export default async function RanchoDetallePage({
                 : "Todavía no te llegó ninguna solicitud de cotización — aparecen acá apenas alguien te escriba desde tu página pública."}
             </p>
           ) : (
-            <ReservasTable initialReservas={reservas} mostrarMensajes />
+            <ReservasTable initialReservas={reservas} mostrarMensajes variante="cards" />
           )}
         </SeccionPlegable>
 
@@ -475,7 +475,7 @@ export default async function RanchoDetallePage({
   // lo que el proveedor carga acá es lo que el cliente elige al armar
   // su pedido en la página pública. Lugares no lo necesita — ya tiene
   // su propio sistema de precios y servicios adicionales.
-  const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
+  const etiquetaCatalogo = CATALOGO_LABEL[categoriaParaIcono];
   const tabCatalogo: Tab = {
     id: "catalogo",
     label: etiquetaCatalogo,
@@ -561,7 +561,7 @@ export default async function RanchoDetallePage({
         {/* Con depósito + cuentas configuradas, el negocio de servicio
             pasa de recibir "solicitudes" a reservas agendadas con pago
             por adelantado — mismo mecanismo que los Lugares. */}
-        {!esLugar && (
+        {!esLugar && !esVerticalCitas && (
           <SeccionPlegable
             marco={false}
             abierta={seccion === "precios"}
@@ -640,6 +640,7 @@ export default async function RanchoDetallePage({
             initialMontoMinimo={rancho.monto_minimo}
             depositoReserva={rancho.deposito_reserva}
             esLugar={esLugar}
+            vertical={rancho.vertical ?? "eventos"}
             onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
           />
         </SeccionPlegable>
@@ -744,7 +745,7 @@ export default async function RanchoDetallePage({
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
   return (
-    <main className="mx-auto max-w-[1000px] px-5 py-10">
+    <main className="mx-auto max-w-[1100px] px-5 py-10">
       <Link
         href="/mi-negocio"
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -752,109 +753,99 @@ export default async function RanchoDetallePage({
         ← Todas tus publicaciones
       </Link>
 
-      {/* Encabezado compacto: identidad del negocio + la acción que más
-          piden los dueños (editar el perfil y las fotos), sin banner
-          gigante ni tarjetas de datos que empujen todo hacia abajo. */}
-      <header className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div
-          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-aventurea-line bg-cover bg-center"
-          style={
-            rancho.foto_url
-              ? { backgroundImage: `url(${rancho.foto_url})` }
-              : { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
-          }
-        >
-          {!rancho.foto_url && (
-            <span className="opacity-40 [&_svg]:h-7 [&_svg]:w-7">
-              {CATEGORIA_ICONO[rancho.categoria]}
+      {/* El tablero: identidad del negocio, lo que hay que atender, cómo
+          va el mes y la agenda, todo en un mismo panel. */}
+      <div className="mt-4 overflow-hidden rounded-3xl border border-aventurea-line bg-aventurea-surface p-5 shadow-sm sm:p-7">
+        <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <div
+            className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-aventurea-line bg-cover bg-center"
+            style={
+              rancho.foto_url
+                ? { backgroundImage: `url(${rancho.foto_url})` }
+                : { backgroundImage: CATEGORIA_GRADIENTE[categoriaParaIcono] }
+            }
+          >
+            {!rancho.foto_url && (
+              <span className="text-white opacity-90 [&_svg]:h-7 [&_svg]:w-7">
+                {CATEGORIA_ICONO[categoriaParaIcono]}
+              </span>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+              <h1 className="text-[19px] font-bold leading-tight text-aventurea-ink">
+                {rancho.nombre}
+              </h1>
+              <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink-soft">
+                <span className={`h-2 w-2 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
+                {ESTADO_LABEL[rancho.estado]}
+              </span>
+            </div>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-aventurea-ink-soft">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
+                {categoriaLabelMostrado}
+              </span>
+              {ubicacion && <span className="truncate">{ubicacion}</span>}
+              {rancho.estado === "aprobado" && (
+                <Link
+                  href={urlPublica}
+                  className="font-bold text-aventurea-navy underline-offset-2 hover:underline"
+                >
+                  Ver mi página{rancho.slug ? ` · /${rancho.slug}` : ""} →
+                </Link>
+              )}
+            </p>
+          </div>
+
+          <Link
+            href="?tab=configuracion&seccion=perfil"
+            className="shrink-0 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-orange-dark"
+          >
+            Editar perfil y fotos
+          </Link>
+        </header>
+
+        {rancho.estado === "pendiente" && (
+          <p className="mt-4 rounded-[10px] bg-aventurea-orange/15 p-3 text-[13px] leading-relaxed text-aventurea-orange">
+            Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
+            directorio.
+          </p>
+        )}
+        {rancho.estado === "rechazado" && (
+          <p className="mt-4 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
+            Tu publicación no fue aprobada todavía. Escribinos si querés más información.
+          </p>
+        )}
+
+        <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-zinc-500">
+          {esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null) && (
+            <span>
+              Capacidad{" "}
+              <strong className="text-aventurea-ink">
+                {rancho.capacidad_min ?? "—"}–{rancho.capacidad_max ?? "—"}
+              </strong>
             </span>
           )}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-            <h1 className="text-[19px] font-bold leading-tight text-aventurea-ink">
-              {rancho.nombre}
-            </h1>
-            <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink-soft">
-              <span className={`h-2 w-2 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
-              {ESTADO_LABEL[rancho.estado]}
+          {rancho.precio_desde !== null && (
+            <span>
+              Precio desde{" "}
+              <strong className="text-aventurea-ink">{fmtColones(rancho.precio_desde)}</strong>
             </span>
-          </div>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-aventurea-ink-soft">
-            <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-navy">
-              {CATEGORIA_LABEL[rancho.categoria]}
+          )}
+          {rancho.contacto_whatsapp && (
+            <span>
+              WhatsApp <strong className="text-aventurea-ink">{rancho.contacto_whatsapp}</strong>
             </span>
-            {ubicacion && <span className="truncate">{ubicacion}</span>}
-            {rancho.estado === "aprobado" && (
-              <Link
-                href={urlPublica}
-                className="font-bold text-aventurea-navy underline-offset-2 hover:underline"
-              >
-                Ver mi página{rancho.slug ? ` · /${rancho.slug}` : ""} →
-              </Link>
-            )}
-          </p>
+          )}
+        </p>
+
+        {/* Cómo va el mes, minimalista — lo pendiente por atender ya se
+            ve en la campana del menú de arriba, así que acá no se
+            repite: solo los números. */}
+        <div className="mt-5 border-t border-aventurea-line pt-4">
+          <DashboardMetricas metricas={metricas} esLugar={esLugar} />
         </div>
-
-        <Link
-          href="?tab=configuracion&seccion=perfil"
-          className="shrink-0 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-orange-dark"
-        >
-          Editar perfil y fotos
-        </Link>
-      </header>
-
-      {rancho.estado === "pendiente" && (
-        <p className="mt-4 rounded-[10px] bg-aventurea-orange/10 p-3 text-[13px] leading-relaxed text-aventurea-orange">
-          Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
-          directorio.
-        </p>
-      )}
-      {rancho.estado === "rechazado" && (
-        <p className="mt-4 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
-          Tu publicación no fue aprobada todavía. Escribinos si querés más información.
-        </p>
-      )}
-
-      {/* Los datos que antes ocupaban cuatro tarjetas, ahora en una línea. */}
-      <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-aventurea-ink-soft">
-        {esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null) && (
-          <span>
-            Capacidad{" "}
-            <strong className="text-aventurea-ink">
-              {rancho.capacidad_min ?? "—"}–{rancho.capacidad_max ?? "—"}
-            </strong>
-          </span>
-        )}
-        {rancho.precio_desde !== null && (
-          <span>
-            Precio desde{" "}
-            <strong className="text-aventurea-ink">{fmtColones(rancho.precio_desde)}</strong>
-          </span>
-        )}
-        {rancho.contacto_whatsapp && (
-          <span>
-            WhatsApp <strong className="text-aventurea-ink">{rancho.contacto_whatsapp}</strong>
-          </span>
-        )}
-      </p>
-
-      {/* Los accesos rápidos se fueron: duplicaban una a una las
-          pestañas de abajo, que ahora son píldoras y se bastan solas. */}
-      <div className="mt-5">
-        <PendientesRancho
-          reservasPorAprobar={pendientes}
-          depositosSinValidar={resumen.depositosSinValidar.length}
-          cobranHoy={cobranHoy}
-        />
-      </div>
-
-      <div className="mt-6">
-        <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Cómo te está yendo
-        </h2>
-        <DashboardMetricas metricas={metricas} esLugar={esLugar} />
       </div>
 
       <div className="mt-7">

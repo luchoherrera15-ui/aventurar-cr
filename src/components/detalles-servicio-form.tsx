@@ -1,12 +1,7 @@
 ﻿"use client";
 
 import { useState, type ReactNode } from "react";
-import {
-  CAMPOS_POR_CATEGORIA,
-  type Campo,
-  type DetallesServicio,
-} from "@/app/mi-negocio/campos-servicio";
-import type { Categoria } from "@/app/mi-negocio/types";
+import type { Campo, DetallesServicio, GrupoCampos } from "@/app/mi-negocio/campos-servicio";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
@@ -14,20 +9,22 @@ const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
 /**
- * Pinta los campos que le tocan a la categoría elegida. Todo se guarda
- * en un solo campo oculto como JSON, así el formulario padre no tiene
- * que saber nada de qué campos existen.
+ * Pinta los grupos de campos que le pasa el formulario padre (los de
+ * Eventos vienen de mi-negocio/campos-servicio.ts, los de Citas de
+ * citas/campos-servicio.ts — este componente no sabe de verticales,
+ * solo pinta GrupoCampos[]). Todo se guarda en un solo campo oculto
+ * como JSON, así el formulario padre no tiene que saber nada de qué
+ * campos existen.
  */
 export default function DetallesServicioForm({
-  categoria,
+  grupos,
   valores,
   onCambiar,
 }: {
-  categoria: Categoria;
+  grupos: GrupoCampos[];
   valores: DetallesServicio;
   onCambiar: (valores: DetallesServicio) => void;
 }) {
-  const grupos = CAMPOS_POR_CATEGORIA[categoria];
   if (!grupos || grupos.length === 0) return null;
 
   function set(id: string, valor: string | number | boolean | string[]) {

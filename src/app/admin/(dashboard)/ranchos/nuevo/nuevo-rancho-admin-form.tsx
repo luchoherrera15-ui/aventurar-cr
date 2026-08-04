@@ -8,14 +8,27 @@ import {
 import {
   CANTONES,
   CATEGORIAS,
-  CATEGORIA_LABEL,
   PROVINCIAS,
   SUBCATEGORIAS,
   type Categoria,
   type Provincia,
 } from "@/app/mi-negocio/types";
+import {
+  categoriaOptions,
+  usaSubcategoria,
+  type VerticalNegocio,
+} from "@/lib/categorias-vertical";
 
 export type DuenoOption = { id: string; email: string | null };
+
+export type Vertical = VerticalNegocio;
+
+const VERTICALES: { value: Vertical; label: string }[] = [
+  { value: "eventos", label: "Eventos" },
+  { value: "citas", label: "Citas y reservas" },
+  { value: "hospedajes", label: "Hospedajes" },
+  { value: "restaurantes", label: "Restaurantes" },
+];
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
@@ -36,11 +49,19 @@ export default function NuevoRanchoAdminForm({
   const [modoDueno, setModoDueno] = useState<"existente" | "nuevo">(
     puedeCrearCuentas ? "nuevo" : "existente",
   );
-  const [categoria, setCategoria] = useState<Categoria>("lugares");
+  const [vertical, setVertical] = useState<Vertical>("eventos");
+  const [categoria, setCategoria] = useState<string>("lugares");
   const [subcategoria, setSubcategoria] = useState("");
   const [provincia, setProvincia] = useState<Provincia | "">("");
   const [canton, setCanton] = useState("");
-  const esLugar = categoria === "lugares";
+  // Las subcategorías y la capacidad solo existen en Eventos > Lugares;
+  // el resto de verticales no las usa (mismo criterio que
+  // mi-negocio/nuevo/nuevo-rancho-form.tsx y editar-form.tsx).
+  const categoriaEvento =
+    usaSubcategoria(vertical) && (CATEGORIAS as readonly string[]).includes(categoria)
+      ? (categoria as Categoria)
+      : null;
+  const esLugar = categoriaEvento === "lugares";
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -49,7 +70,7 @@ export default function NuevoRanchoAdminForm({
           Paso 1
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          ¿De quién es este salón?
+          ¿De quién es este negocio?
         </h3>
 
         <input type="hidden" name="modo_dueno" value={modoDueno} />
@@ -84,7 +105,7 @@ export default function NuevoRanchoAdminForm({
           <p className="mt-3 rounded-[10px] bg-aventurea-orange/10 p-3 text-[12px] leading-relaxed text-aventurea-orange">
             Para poder crear cuentas desde acá hay que agregar la variable{" "}
             <strong>SUPABASE_SERVICE_ROLE_KEY</strong> en Vercel. Mientras
-            tanto podés asignar el salón a una cuenta que ya exista.
+            tanto podés asignar el negocio a una cuenta que ya exista.
           </p>
         )}
 
@@ -139,10 +160,33 @@ export default function NuevoRanchoAdminForm({
           Paso 2
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          Datos del salón
+          Datos del negocio
         </h3>
 
         <div className="mt-4 flex flex-col gap-3.5">
+          <div>
+            <label className={labelCls}>Vertical</label>
+            <select
+              name="vertical"
+              required
+              value={vertical}
+              onChange={(e) => {
+                const v = e.target.value as Vertical;
+                setVertical(v);
+                const opciones = categoriaOptions(v);
+                setCategoria(opciones[0]?.id ?? "");
+                setSubcategoria("");
+              }}
+              className={inputCls}
+            >
+              {VERTICALES.map((v) => (
+                <option key={v.value} value={v.value}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className={labelCls}>Tipo de servicio</label>
             <select
@@ -150,46 +194,48 @@ export default function NuevoRanchoAdminForm({
               required
               value={categoria}
               onChange={(e) => {
-                setCategoria(e.target.value as Categoria);
+                setCategoria(e.target.value);
                 setSubcategoria("");
               }}
               className={inputCls}
             >
-              {CATEGORIAS.map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORIA_LABEL[c]}
+              {categoriaOptions(vertical).map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
                 </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className={labelCls}>
-              {esLugar ? "Tipo de lugar" : "¿Qué ofrece exactamente?"}
-            </label>
-            <select
-              name="subcategoria"
-              required
-              value={subcategoria}
-              onChange={(e) => setSubcategoria(e.target.value)}
-              className={inputCls}
-            >
-              <option value="">Selecciona una opción</option>
-              {SUBCATEGORIAS[categoria].map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {categoriaEvento && (
+            <div>
+              <label className={labelCls}>
+                {esLugar ? "Tipo de lugar" : "¿Qué ofrece exactamente?"}
+              </label>
+              <select
+                name="subcategoria"
+                required
+                value={subcategoria}
+                onChange={(e) => setSubcategoria(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Selecciona una opción</option>
+                {SUBCATEGORIAS[categoriaEvento].map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
-            <label className={labelCls}>Nombre del salón o negocio</label>
+            <label className={labelCls}>Nombre del negocio</label>
             <input
               type="text"
               name="nombre"
               required
-              placeholder="Ej. Rancho Los Almendros"
+              placeholder="Ej. Salón Bella Vista"
               className={inputCls}
             />
           </div>
@@ -250,14 +296,18 @@ export default function NuevoRanchoAdminForm({
                 className={inputCls}
               />
             </div>
-            <div>
-              <label className={labelCls}>Capacidad mínima</label>
-              <input type="number" min={1} name="capacidad_min" placeholder="20" className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Capacidad máxima</label>
-              <input type="number" min={1} name="capacidad_max" placeholder="150" className={inputCls} />
-            </div>
+            {esLugar && (
+              <>
+                <div>
+                  <label className={labelCls}>Capacidad mínima</label>
+                  <input type="number" min={1} name="capacidad_min" placeholder="20" className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Capacidad máxima</label>
+                  <input type="number" min={1} name="capacidad_max" placeholder="150" className={inputCls} />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -292,7 +342,7 @@ export default function NuevoRanchoAdminForm({
           disabled={pending}
           className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Crear salón"}
+          {pending ? "Guardando..." : "Crear negocio"}
         </button>
       </div>
     </form>

@@ -1,6 +1,5 @@
 ﻿import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizarCategoria } from "@/app/mi-negocio/types";
 import UsuariosPanel, { type PerfilRow } from "./usuarios-panel";
 
 export default async function AdminUsuariosPage() {
@@ -9,17 +8,27 @@ export default async function AdminUsuariosPage() {
   const [{ data: userData }, perfilesRes, ranchosRes] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("perfiles").select("*").order("created_at", { ascending: false }),
-    supabase.from("ranchos").select("owner_id, nombre, categoria"),
+    supabase.from("ranchos").select("owner_id, nombre, categoria, vertical"),
   ]);
 
   // Una cuenta puede tener más de un negocio, y no necesariamente todos
   // de la misma categoría (podría tener un rancho y además un catering) —
   // por eso el rol de la cuenta ("dueno_rancho") no dice de qué rubro es;
-  // eso solo se sabe mirando sus negocios.
-  const negociosPorDueno = new Map<string, { nombre: string; categoria: string }[]>();
+  // eso solo se sabe mirando sus negocios. Los negocios mezclan
+  // vertical (Eventos/Citas/...): categoria queda tal cual llega de la
+  // base (ya tiene CHECK constraint) y se muestra según su propio
+  // vertical, no normalizada a la taxonomía de Eventos.
+  const negociosPorDueno = new Map<
+    string,
+    { nombre: string; categoria: string; vertical: string | null }[]
+  >();
   (ranchosRes.data ?? []).forEach((r) => {
     const lista = negociosPorDueno.get(r.owner_id as string) ?? [];
-    lista.push({ nombre: r.nombre as string, categoria: normalizarCategoria(r.categoria as string) });
+    lista.push({
+      nombre: r.nombre as string,
+      categoria: r.categoria as string,
+      vertical: (r.vertical as string | null) ?? null,
+    });
     negociosPorDueno.set(r.owner_id as string, lista);
   });
 

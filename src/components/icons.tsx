@@ -794,3 +794,13 @@ export function IconGorroChef({ className = base }: IconProps) {
     </svg>
   );
 }
+
+/** Notificaciones: la campana. */
+export function IconBell({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 10a6 6 0 1 1 12 0c0 3.4 1 5.2 1.8 6.2.3.4 0 1-.5 1H4.7c-.5 0-.8-.6-.5-1C5 15.2 6 13.4 6 10Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 19.5a2.5 2.5 0 0 0 5 0" />
+    </svg>
+  );
+}

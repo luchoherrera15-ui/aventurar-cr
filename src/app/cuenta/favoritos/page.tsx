@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
-import { normalizarCategoria, type Rancho } from "../../mi-negocio/types";
+import type { Rancho } from "../../mi-negocio/types";
 
 export const metadata: Metadata = {
   title: "Tus favoritos",
@@ -28,10 +28,13 @@ export default async function CuentaFavoritosPage() {
     .select("ranchos(*)")
     .eq("cliente_id", user.id);
 
+  // Los favoritos mezclan negocios de cualquier vertical (Eventos,
+  // Citas...) — normalizarCategoria es Eventos-only y le pisaba la
+  // categoría real a un negocio de Citas (ver src/lib/categorias-vertical.ts).
+  // RanchoCard ya sabe leer categoria+vertical con ese helper.
   const favoritos = ((favoritosData ?? []) as unknown as { ranchos: Rancho | null }[])
     .map((f) => f.ranchos)
-    .filter((r): r is Rancho => r !== null)
-    .map((r) => ({ ...r, categoria: normalizarCategoria(r.categoria) }));
+    .filter((r): r is Rancho => r !== null);
 
   const favoritoIds = favoritos.map((r) => r.id);
   const { data: calificacionesData } =

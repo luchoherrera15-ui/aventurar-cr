@@ -28,7 +28,7 @@ export default async function CuentaReservasPage() {
     supabase
       .from("reservas")
       .select(
-        "id, fecha, estado, monto_total, horario_bloque, rancho_id, ranchos(nombre, foto_url, categoria, slug)",
+        "id, fecha, estado, monto_total, horario_bloque, rancho_id, ranchos(nombre, foto_url, categoria, slug, vertical)",
       )
       .eq("cliente_id", user.id)
       // Incluye los estados de citas (0061): una cita cumplida sigue

@@ -7,12 +7,10 @@ import { Lightbox } from "@/components/galeria-lightbox";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
 import DetallesServicioForm from "@/components/detalles-servicio-form";
 import SeccionPlegable from "@/components/seccion-plegable";
-import type { DetallesServicio } from "../../campos-servicio";
+import { CAMPOS_POR_CATEGORIA, COBERTURA, type DetallesServicio } from "../../campos-servicio";
 import {
   AMENIDADES,
   AMENIDADES_GRUPOS,
-  CATEGORIAS,
-  CATEGORIA_LABEL,
   FOTOS_DESTACADAS,
   FOTOS_MAX,
   FOTO_ALTO_MIN,
@@ -24,6 +22,14 @@ import {
   type Provincia,
   type Rancho,
 } from "../../types";
+import {
+  categoriaOptions,
+  esUbicacionFija,
+  usaSubcategoria,
+} from "@/lib/categorias-vertical";
+import { CAMPOS_POR_CATEGORIA_CITA } from "@/app/citas/campos-servicio";
+import { COMODIDADES_CITA } from "@/app/citas/comodidades";
+import type { CategoriaCita } from "@/app/citas/tipos";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
@@ -44,7 +50,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     FormData
   >(actualizarRancho, undefined);
 
-  const [categoria, setCategoria] = useState<Categoria>(rancho.categoria);
+  const [categoria, setCategoria] = useState<string>(rancho.categoria);
   const [subcategoria, setSubcategoria] = useState(rancho.subcategoria ?? "");
   const [fotoPreview, setFotoPreview] = useState<string | null>(rancho.foto_url);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
@@ -77,9 +83,34 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   );
   const [canton, setCanton] = useState(rancho.canton ?? "");
 
-  const esLugar = categoria === "lugares";
+  // Dirección exacta y ubicación en el mapa: cualquier negocio con
+  // ubicación física fija los pide — Lugares de Eventos, y CUALQUIER
+  // negocio que no sea Eventos (Citas/Hospedajes/Restaurantes son
+  // siempre un local fijo, no un proveedor móvil).
+  const esLugar = esUbicacionFija(rancho.vertical ?? "eventos", categoria);
+  // Exclusivo de Lugares de Eventos: capacidad y amenidades no aplican
+  // a Citas/Hospedajes/Restaurantes aunque también tengan ubicación fija.
+  const esLugarEventos = rancho.vertical === "eventos" && categoria === "lugares";
+  // El proveedor MÓVIL de Eventos (alimentación, animación, organización,
+  // decoración, otros): el único caso que pide cobertura/traslado en vez
+  // de dirección exacta. Citas/Hospedajes/Restaurantes son locales fijos,
+  // no proveedores móviles, así que nunca entran acá.
+  const esProveedorMovilEventos = rancho.vertical === "eventos" && !esLugarEventos;
+  const esVerticalCitas = rancho.vertical === "citas";
   const totalFotos = galeria.length + fotosNuevas.length;
   const espacioLibre = FOTOS_MAX - totalFotos;
+
+  // Grupos de "Detalles del servicio" para Citas: los propios de la
+  // categoría, más COBERTURA (zonas, costo de traslado) si el negocio de
+  // "belleza" marcó que atiende a domicilio.
+  const gruposDetallesCita = esVerticalCitas
+    ? [
+        ...(CAMPOS_POR_CATEGORIA_CITA[categoria as CategoriaCita] ?? []),
+        ...(categoria === "belleza" && detalles.servicio_domicilio === true
+          ? [COBERTURA]
+          : []),
+      ]
+    : [];
 
   function onFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -342,38 +373,42 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               required
               value={categoria}
               onChange={(e) => {
-                setCategoria(e.target.value as Categoria);
+                setCategoria(e.target.value);
                 setSubcategoria("");
               }}
               className={inputCls}
             >
-              {CATEGORIAS.map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORIA_LABEL[c]}
+              {categoriaOptions(rancho.vertical ?? "eventos").map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
                 </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className={labelCls}>
-              {esLugar ? "Tipo de lugar" : "¿Qué ofrecés exactamente?"}
-            </label>
-            <select
-              name="subcategoria"
-              required
-              value={subcategoria}
-              onChange={(e) => setSubcategoria(e.target.value)}
-              className={inputCls}
-            >
-              <option value="">Selecciona una opción</option>
-              {SUBCATEGORIAS[categoria].map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Solo Eventos tiene este segundo nivel — las demás verticales
+              son de una sola categoría. */}
+          {usaSubcategoria(rancho.vertical ?? "eventos") && (
+            <div>
+              <label className={labelCls}>
+                {esLugarEventos ? "Tipo de lugar" : "¿Qué ofrecés exactamente?"}
+              </label>
+              <select
+                name="subcategoria"
+                required
+                value={subcategoria}
+                onChange={(e) => setSubcategoria(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Selecciona una opción</option>
+                {SUBCATEGORIAS[categoria as Categoria].map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className={labelCls}>Nombre</label>
@@ -455,7 +490,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 ))}
               </select>
             </div>
-            {!esLugar && (
+            {esProveedorMovilEventos && (
               <p className="text-[11.5px] leading-relaxed text-zinc-500 sm:col-span-2">
                 Tu zona de cobertura — vos te trasladás al evento del cliente,
                 no hace falta una dirección exacta ni ubicación en el mapa.
@@ -504,7 +539,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             </div>
           )}
 
-          {esLugar && (
+          {esLugarEventos && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelCls}>Capacidad mínima</label>
@@ -602,15 +637,27 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
         </div>
       </SeccionPlegable>
 
-      {!esLugar && (
+      {/* El proveedor MÓVIL de Eventos usa los campos de mi-negocio/campos-servicio.ts. */}
+      {esProveedorMovilEventos && (
         <DetallesServicioForm
-          categoria={categoria}
+          grupos={CAMPOS_POR_CATEGORIA[categoria as Categoria] ?? []}
           valores={detalles}
           onCambiar={setDetalles}
         />
       )}
 
-      {esLugar && (
+      {/* Citas tiene su propio set de campos por categoría (belleza,
+          barbería, uñas, spa, consultorio, otros) — nunca precio ni
+          duración, eso vive en el Catálogo. */}
+      {esVerticalCitas && (
+        <DetallesServicioForm
+          grupos={gruposDetallesCita}
+          valores={detalles}
+          onCambiar={setDetalles}
+        />
+      )}
+
+      {esLugarEventos && (
         <SeccionPlegable
           etiqueta="Amenidades"
           titulo="¿Qué tiene tu lugar?"
@@ -690,6 +737,94 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                     }
                   }}
                   placeholder="Ej. Cochera techada"
+                  className={`${inputCls} flex-1`}
+                />
+                <button
+                  type="button"
+                  onClick={agregarAmenidad}
+                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                >
+                  Agregar
+                </button>
+              </div>
+            </div>
+          </div>
+        </SeccionPlegable>
+      )}
+
+      {esVerticalCitas && (
+        <SeccionPlegable
+          etiqueta="Comodidades"
+          titulo="¿Qué tiene tu local?"
+          descripcion="Marcá todo lo que ofrecés. Se muestra como una lista de íconos en tu página — entre más completo, más confianza le da al cliente."
+          resumen={amenidades.length > 0 ? `${amenidades.length} marcadas` : undefined}
+        >
+          {amenidades.map((a) => (
+            <input key={a} type="hidden" name="amenidades" value={a} />
+          ))}
+
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap gap-2">
+              {COMODIDADES_CITA.map((item) => {
+                const activo = amenidades.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => toggleAmenidad(item.id)}
+                    aria-pressed={activo}
+                    className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
+                      activo
+                        ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
+                        : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+                    }`}
+                  >
+                    {activo && <span aria-hidden>✓ </span>}
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {amenidades.some((a) => !COMODIDADES_CITA.some((c) => c.id === a)) && (
+              <div>
+                <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Otras
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {amenidades
+                    .filter((a) => !COMODIDADES_CITA.some((c) => c.id === a))
+                    .map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => toggleAmenidad(a)}
+                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-orange bg-aventurea-orange/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
+                      >
+                        {a}
+                        <span aria-hidden>×</span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                ¿No está lo tuyo?
+              </h4>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={nuevaAmenidad}
+                  onChange={(e) => setNuevaAmenidad(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      agregarAmenidad();
+                    }
+                  }}
+                  placeholder="Ej. Cabinas privadas"
                   className={`${inputCls} flex-1`}
                 />
                 <button

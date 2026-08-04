@@ -391,7 +391,16 @@ export default function ChatFlotante() {
     [abrirHilo],
   );
 
-  /** El clic en la burbuja: abre el panel con lo que corresponda. */
+  /** El clic en la burbuja: abre el panel con lo que corresponda.
+   *
+   * Preguntarle algo a un negocio no debería pedir cuenta: si no hay
+   * sesión, se abre una anónima al toque (misma fila real en
+   * auth.users, mismas políticas RLS de siempre — no es un chat sin
+   * dueño, es una cuenta que todavía no puso su nombre). Esto requiere
+   * tener "Anonymous sign-ins" prendido en Supabase → Authentication →
+   * Providers; si está apagado, `signInAnonymously` falla y se cae al
+   * cartel de "iniciá sesión" de siempre. La bandeja completa (sin
+   * negocio puntual) sí sigue pidiendo cuenta real. */
   const alternarPanel = useCallback(async () => {
     if (abierto) {
       setAbierto(false);
@@ -403,9 +412,13 @@ export default function ChatFlotante() {
     setCargandoPanel(true);
     try {
       const supabase = createClient();
-      const {
+      let {
         data: { user },
       } = await supabase.auth.getUser();
+      if (!user && proveedor) {
+        const { data } = await supabase.auth.signInAnonymously();
+        user = data.user;
+      }
       if (!user) {
         setSinSesion(true);
         return;
@@ -569,14 +582,21 @@ export default function ChatFlotante() {
             ¿Dudas? Escribile a {proveedor.nombre}
           </span>
         )}
-        <span className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full bg-aventurea-navy text-white shadow-[0_6px_20px_rgba(16,26,44,0.35)] transition-transform group-hover:scale-105">
+        <span
+          className={`relative flex h-[52px] items-center justify-center rounded-full border border-white/20 bg-black/35 text-white shadow-[0_6px_20px_rgba(16,26,44,0.35)] backdrop-blur-md transition-transform group-hover:scale-105 ${
+            abierto ? "w-[52px]" : "gap-2 pl-4 pr-5"
+          }`}
+        >
           {abierto ? (
             <span className="text-[22px] leading-none">×</span>
           ) : (
-            <IconChatBubble className="h-6 w-6" />
+            <>
+              <IconChatBubble className="h-5 w-5 shrink-0" />
+              <span className="text-[13.5px] font-bold">Mensajes</span>
+            </>
           )}
           {sinLeer > 0 && !abierto && (
-            <span className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-aventurea-orange px-1 text-[11px] font-bold text-white">
+            <span className="absolute -right-1.5 -top-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-aventurea-orange px-1 text-[11px] font-bold text-white">
               {sinLeer > 99 ? "99+" : sinLeer}
             </span>
           )}

@@ -14,12 +14,16 @@ export default function TerminosForm({
   initialMontoMinimo,
   depositoReserva,
   esLugar,
+  vertical = "eventos",
   onGuardar,
 }: {
   initialTerminos: string[];
   initialMontoMinimo: number | null;
   depositoReserva: number;
   esLugar: boolean;
+  /** Vertical real del negocio (0055): decide el lenguaje de los términos
+   *  por defecto — "eventos" si no se pasa, para no romper otros usos. */
+  vertical?: string;
   onGuardar: (
     terminos: string[],
     montoMinimo: number | null,
@@ -34,7 +38,7 @@ export default function TerminosForm({
   const usabaLosDeLaPlataforma = initialTerminos.length === 0;
   const [terminos, setTerminos] = useState<string[]>(
     usabaLosDeLaPlataforma
-      ? terminosPorDefecto(depositoReserva, initialMontoMinimo)
+      ? terminosPorDefecto(depositoReserva, initialMontoMinimo, vertical)
       : initialTerminos,
   );
   const [porDefecto, setPorDefecto] = useState(usabaLosDeLaPlataforma);
@@ -64,7 +68,7 @@ export default function TerminosForm({
 
   function restaurar() {
     setTerminos(
-      terminosPorDefecto(depositoReserva, parseInt(montoMinimo) || null),
+      terminosPorDefecto(depositoReserva, parseInt(montoMinimo) || null, vertical),
     );
     setPorDefecto(true);
     setOk(false);

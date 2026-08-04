@@ -260,6 +260,14 @@ const CATEGORIAS_LEGADAS: Record<string, Categoria> = {
   otro: "otros",
 };
 
+// Exclusiva de la vertical EVENTOS: solo conoce las 6 categorías de
+// CATEGORIAS de acá arriba. No usar para normalizar `categoria` de
+// cualquier fila de `ranchos` en general — una categoría de Citas
+// (unas, belleza, barbería...) cae acá en "otros" y pisa el dato real
+// si el resultado se vuelve a guardar (ya pasó en producción, ver
+// supabase/migrations/0058_categorias_citas.sql). Para código que no
+// sabe de antemano que el rancho es de Eventos, usar
+// src/lib/categorias-vertical.ts en su lugar.
 export function normalizarCategoria(valor: string | null | undefined): Categoria {
   if (valor && (CATEGORIAS as readonly string[]).includes(valor)) {
     return valor as Categoria;
@@ -298,13 +306,40 @@ export const FOTO_ALTO_MIN = 900;
  * editar, borrar o reemplazar desde su panel: estos son solo el punto de
  * partida para que nadie publique sin condiciones.
  *
- * Los dos primeros hablan del depósito y del monto mínimo, así que se
- * arman con los números de cada negocio.
+ * El texto cambia según `vertical`: Citas se agenda por horario (no-show,
+ * anticipación de cancelación, tardanza) en vez de por evento con
+ * instalaciones e invitados. Hospedajes y Restaurantes todavía no tienen
+ * su propio set — caen al de Eventos (mismo comportamiento de siempre)
+ * hasta que se les escriba el suyo.
+ *
+ * El primero (y el del monto mínimo, cuando aplica) hablan del depósito,
+ * así que se arman con los números de cada negocio.
  */
 export function terminosPorDefecto(
   depositoReserva: number,
   montoMinimo: number | null,
+  vertical: string = "eventos",
 ): string[] {
+  if (vertical === "citas") {
+    const base = [
+      `El depósito para agendar la cita es de ₡${Number(depositoReserva || 0).toLocaleString("es-CR")}. Si el comprobante muestra un monto menor, la cita no queda confirmada y el depósito no se reembolsa.`,
+      "El depósito no se reembolsa si el cliente no llega a la hora acordada.",
+      "Las cancelaciones con menos de 24 horas de anticipación pierden el depósito, igual que un no presentarse. Avisar con más tiempo evita esta condición.",
+      "Llegar tarde a la cita puede acortar el tiempo del servicio o requerir reagendarla, según la disponibilidad del negocio.",
+      "El número de cédula se pide únicamente para identificar a quien reserva en caso de algún inconveniente durante la cita (Ley 8968 de protección de datos). Solo lo ve el negocio y el equipo de Bookea — nunca se hace público.",
+    ];
+
+    if (montoMinimo && montoMinimo > 0) {
+      base.splice(
+        1,
+        0,
+        `El monto mínimo de contratación es de ₡${Number(montoMinimo).toLocaleString("es-CR")}. Por debajo de ese monto no se toman reservas.`,
+      );
+    }
+
+    return base;
+  }
+
   const base = [
     `El depósito de reserva es de ₡${Number(depositoReserva || 0).toLocaleString("es-CR")}. Si el comprobante muestra un monto menor, la reserva no será válida y el dinero no se reembolsa.`,
     "El depósito de reserva no es reembolsable en caso de cancelación por parte del cliente.",
@@ -477,7 +512,13 @@ export type Rancho = {
   nombre: string;
   descripcion: string | null;
   descripcion_larga: string | null;
-  categoria: Categoria;
+  // La columna real de `ranchos` admite las ~30 categorías repartidas
+  // entre las 4 verticales (eventos/citas/hospedajes/restaurantes), no
+  // solo las 6 de Eventos que describe `Categoria` — ver
+  // src/lib/categorias-vertical.ts para leer/validar esto según
+  // `vertical`. Donde el código ya está garantizado a vertical Eventos,
+  // usar `as Categoria` puntual en vez de ensanchar los mapas de acá.
+  categoria: string;
   subcategoria: string | null;
   terminos: string[];
   monto_minimo: number | null;

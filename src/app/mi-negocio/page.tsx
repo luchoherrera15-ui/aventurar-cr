@@ -5,12 +5,13 @@ import { logoutDueno } from "./actions";
 import { IconPlus } from "@/components/icons";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import {
+  CATEGORIAS,
   CATEGORIA_GRADIENTE,
   CATEGORIA_ICONO,
-  CATEGORIA_LABEL,
-  normalizarCategoria,
+  type Categoria,
   type Rancho,
 } from "./types";
+import { categoriaLabel, esCategoriaValida } from "@/lib/categorias-vertical";
 
 // El texto siempre es blanco sobre vidrio esmerilado (se lee igual
 // sobre cualquier foto); el color solo vive en el puntito de estado.
@@ -27,8 +28,10 @@ const ESTADO_LABEL: Record<Rancho["estado"], string> = {
 };
 
 // Una franja de color por categoría, arriba de cada card: identidad
-// visual sin meter fondos ni fotos de relleno.
-const CATEGORIA_ACENTO: Record<Rancho["categoria"], string> = {
+// visual sin meter fondos ni fotos de relleno. Solo cubre las 6 de
+// Eventos — Citas/Hospedajes/Restaurantes caen en el acento neutro de
+// abajo hasta que tengan el suyo propio.
+const CATEGORIA_ACENTO: Record<Categoria, string> = {
   lugares: "bg-aventurea-orange",
   alimentacion: "bg-amber-500",
   animacion: "bg-violet-500",
@@ -36,6 +39,12 @@ const CATEGORIA_ACENTO: Record<Rancho["categoria"], string> = {
   decoracion: "bg-rose-500",
   otros: "bg-zinc-500",
 };
+
+/** ¿`categoria` es una de las 6 de Eventos? Solo esas indexan los mapas
+ *  de arriba (acento, gradiente, ícono) sin caer al valor neutro. */
+function esCategoriaEventos(categoria: string): categoria is Categoria {
+  return (CATEGORIAS as readonly string[]).includes(categoria);
+}
 
 export default async function MiRanchoHubPage() {
   const supabase = await createClient();
@@ -50,10 +59,7 @@ export default async function MiRanchoHubPage() {
     .eq("owner_id", user.id)
     .order("created_at", { ascending: true });
 
-  const ranchos = ((data ?? []) as Rancho[]).map((r) => ({
-    ...r,
-    categoria: normalizarCategoria(r.categoria),
-  }));
+  const ranchos = (data ?? []) as Rancho[];
 
   // Nadie llega acá sin publicar nada todavía: el primer servicio se
   // arma con el formulario completo de onboarding, no con una card vacía.
@@ -87,7 +93,17 @@ export default async function MiRanchoHubPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {ranchos.map((rancho, i) => (
+        {ranchos.map((rancho, i) => {
+          // Solo las 6 categorías de Eventos tienen acento/gradiente/ícono
+          // propios; el resto (Citas, Hospedajes, Restaurantes) usa el
+          // vecino neutro "otros" en vez de romper o mostrar undefined.
+          const categoriaEventos = esCategoriaEventos(rancho.categoria)
+            ? rancho.categoria
+            : "otros";
+          const etiquetaCategoria = esCategoriaValida(rancho.vertical ?? "eventos", rancho.categoria)
+            ? categoriaLabel(rancho.vertical ?? "eventos", rancho.categoria)
+            : rancho.categoria;
+          return (
           <Link
             key={rancho.id}
             href={`/mi-negocio/${rancho.id}`}
@@ -95,19 +111,19 @@ export default async function MiRanchoHubPage() {
             style={{ "--reveal-delay": `${i * 70}ms` } as React.CSSProperties}
             className="group overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-[0_16px_32px_-12px_rgba(16,26,44,0.18)]"
           >
-            <span className={`block h-[3px] w-full ${CATEGORIA_ACENTO[rancho.categoria]}`} />
+            <span className={`block h-[3px] w-full ${CATEGORIA_ACENTO[categoriaEventos]}`} />
             <div className="relative flex h-[120px] items-center justify-center overflow-hidden">
               <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
                 style={
                   rancho.foto_url
                     ? { backgroundImage: `url(${rancho.foto_url})` }
-                    : { backgroundImage: CATEGORIA_GRADIENTE[rancho.categoria] }
+                    : { backgroundImage: CATEGORIA_GRADIENTE[categoriaEventos] }
                 }
               />
               {!rancho.foto_url && (
                 <span className="relative opacity-30 [&_svg]:h-10 [&_svg]:w-10">
-                  {CATEGORIA_ICONO[rancho.categoria]}
+                  {CATEGORIA_ICONO[categoriaEventos]}
                 </span>
               )}
               <span className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/35 px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-wide text-white shadow-sm backdrop-blur-md">
@@ -120,14 +136,15 @@ export default async function MiRanchoHubPage() {
                 {rancho.nombre}
               </h2>
               <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
-                {CATEGORIA_LABEL[rancho.categoria]}
+                {etiquetaCategoria}
               </span>
               {rancho.provincia && (
                 <p className="mt-1 text-[12px] text-zinc-500">{rancho.provincia}</p>
               )}
             </div>
           </Link>
-        ))}
+          );
+        })}
 
         <Link
           href="/mi-negocio/nuevo"

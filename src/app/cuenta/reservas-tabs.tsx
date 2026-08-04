@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import TarjetaExpandible from "@/components/tarjeta-expandible";
 import ResenaForm from "./resena-form";
-import { CATEGORIA_LABEL, normalizarCategoria } from "../mi-negocio/types";
+import { categoriaLabel } from "@/lib/categorias-vertical";
 
 /**
  * Las reservas de la cuenta dentro de una TarjetaExpandible: el
@@ -21,7 +21,13 @@ export type ReservaCliente = {
   monto_total: number | null;
   horario_bloque: string | null;
   rancho_id: string | null;
-  ranchos: { nombre: string; foto_url: string | null; categoria: string; slug: string | null } | null;
+  ranchos: {
+    nombre: string;
+    foto_url: string | null;
+    categoria: string;
+    slug: string | null;
+    vertical: string | null;
+  } | null;
 };
 
 export type ResenaPropia = {
@@ -181,7 +187,9 @@ function TarjetaReserva({
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[10.5px] font-bold uppercase tracking-wide text-aventurea-navy">
-            {reserva.ranchos ? CATEGORIA_LABEL[normalizarCategoria(reserva.ranchos.categoria)] : ""}
+            {reserva.ranchos
+              ? categoriaLabel(reserva.ranchos.vertical ?? "eventos", reserva.ranchos.categoria)
+              : ""}
           </p>
           <p className="truncate text-[14px] font-bold text-aventurea-ink">
             {reserva.ranchos?.nombre ?? "Proveedor"}

@@ -15,6 +15,7 @@ import {
   linkGoogleMaps,
   linkWaze,
   terminosPorDefecto,
+  type Categoria,
   type PromocionDia,
   type Rancho,
   type RanchoItem,
@@ -74,7 +75,11 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     }
   }
 
-  const esLugar = rancho.categoria === "lugares";
+  // Esta página solo se renderiza para negocios de la vertical Eventos
+  // (/eventos/[id] y /[slug] la resuelven así antes de llamar acá) — el
+  // cast es seguro.
+  const categoriaEventos = rancho.categoria as Categoria;
+  const esLugar = categoriaEventos === "lugares";
   // Un negocio editado antes desde el móvil puede tener la portada
   // repetida dentro de fotos — de acá para adelante ya no debería pasar,
   // pero esto cubre lo que ya quedó guardado así.
@@ -133,7 +138,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     : [
         {
           icono: <IconCheck />,
-          titulo: CATEGORIA_LABEL[rancho.categoria],
+          titulo: CATEGORIA_LABEL[categoriaEventos],
           detalle: "Servicio para tu evento",
         },
         {
@@ -175,7 +180,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     disponibilidadServicioPorDia = dispServicio;
   }
   const anticipacionDias = Number(rancho.detalles?.anticipacion_dias) || 0;
-  const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
+  const etiquetaCatalogo = CATALOGO_LABEL[categoriaEventos];
 
   // Calificación y reseñas reales (solo de reservas confirmadas).
   const [{ data: califData }, { data: resenasData }] = await Promise.all([
@@ -284,7 +289,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
       {/* Galería arriba de todo — nada de foto oscurecida con texto
           encima; el nombre y la ubicación van debajo, en texto plano. */}
-      <GaleriaHero fotos={fotosHero} categoria={rancho.categoria} nombre={rancho.nombre} />
+      <GaleriaHero fotos={fotosHero} categoria={categoriaEventos} nombre={rancho.nombre} />
 
       <div className="mx-auto max-w-[1080px] px-7 pt-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -292,7 +297,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
             <p className="text-[11.5px] font-bold uppercase tracking-wide text-aventurea-navy">
               {rancho.subcategoria
                 ? SUBCATEGORIA_LABEL[rancho.subcategoria]
-                : CATEGORIA_LABEL[rancho.categoria]}
+                : CATEGORIA_LABEL[categoriaEventos]}
             </p>
             <h1 className="titulo mt-1 text-[26px] text-aventurea-ink sm:text-[32px]">
               {rancho.nombre}
@@ -616,7 +621,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
       {!esLugar && (
         <DetallesSeccion
-          categoria={rancho.categoria}
+          categoria={categoriaEventos}
           detalles={rancho.detalles ?? {}}
         />
       )}
@@ -628,7 +633,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           eyebrow={
             rancho.subcategoria
               ? SUBCATEGORIA_LABEL[rancho.subcategoria]
-              : CATEGORIA_LABEL[rancho.categoria]
+              : CATEGORIA_LABEL[categoriaEventos]
           }
           titulo={rancho.nombre}
           texto={rancho.descripcion_larga || rancho.descripcion}

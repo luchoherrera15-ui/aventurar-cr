@@ -8,7 +8,8 @@ import {
   setDestacado,
   setEstadoRancho,
 } from "./actions";
-import { CATEGORIA_LABEL, type EstadoRancho, type Rancho } from "@/app/mi-negocio/types";
+import type { EstadoRancho, Rancho } from "@/app/mi-negocio/types";
+import { categoriaLabel } from "@/lib/categorias-vertical";
 import {
   SECCION_BADGE,
   SECCION_CORTA,
@@ -301,7 +302,7 @@ export default function RanchosTable({
                   </td>
                 )}
                 <td className="whitespace-nowrap px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
-                  {CATEGORIA_LABEL[r.categoria] ?? r.categoria}
+                  {categoriaLabel(verticalDeRancho(r.vertical), r.categoria)}
                 </td>
                 <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
                   {r.duenoEmail ?? "—"}
