@@ -307,7 +307,11 @@ export default function BookingCalendar({
   const promoAplicable = useMemo(() => {
     if (!selectedDateObj) return null;
     const dow = selectedDateObj.getDay();
-    const activas = promociones.filter((p) => p.activo && p.dias_semana.includes(dow));
+    const activas = promociones.filter((p) => {
+      if (!p.activo) return false;
+      const dias = Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]");
+      return dias.includes(dow);
+    });
     if (activas.length === 0) return null;
     return activas.reduce((mejor, p) =>
       p.porcentaje_descuento > mejor.porcentaje_descuento ? p : mejor,
