@@ -3,6 +3,7 @@ import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import EscenaSellos from "./escena-sellos";
 import EscenaDescuentos from "./escena-descuentos";
+import HeroTelefono from "./hero-telefono";
 
 /**
  * /lealtad — rediseño completo con la misma línea que /invitaciones:
@@ -123,10 +124,10 @@ export default function LealtadPage() {
       <RevealOnScroll />
 
       {/* ================= HERO ================= */}
-      <section className="relative flex min-h-svh items-center overflow-hidden">
+      <section className="relative overflow-hidden pb-14 pt-16 sm:pb-20 sm:pt-20">
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-[42%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[120px]"
+          className="pointer-events-none absolute left-1/2 top-[30%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.18] blur-[130px]"
           style={{ background: NARANJA }}
         />
 
@@ -134,15 +135,26 @@ export default function LealtadPage() {
           <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
             Bookea Lealtad
           </p>
-          <h1 className="titulo mx-auto mt-5 max-w-[16ch] text-[clamp(42px,8vw,92px)] leading-[1.02]">
-            Que tus clientes
-            <br />
-            vuelvan — y lo sientan.
+          <h1 className="titulo mx-auto mt-5 max-w-[18ch] text-balance text-[clamp(32px,5.6vw,58px)] leading-[1.05]">
+            Que tus clientes vuelvan — y lo sientan.
           </h1>
-          <p className="mx-auto mt-6 max-w-[52ch] text-[clamp(16px,2vw,21px)] leading-relaxed text-white/60">
-            Sellos y puntos digitales para tu negocio: la tarjeta vive en el
-            teléfono de tu cliente, y el canje es un escaneo de QR en el
-            local. Sin apps que instalar, sin tarjetas de cartón.
+          <p className="mx-auto mt-4 max-w-[48ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60">
+            El pase vive de verdad en el teléfono de tu cliente. Mirá:
+          </p>
+
+          <div className="relative mt-10 sm:mt-12" data-reveal>
+            <HeroTelefono />
+          </div>
+
+          <p className="mt-8 flex items-center justify-center gap-2 text-[12.5px] font-bold text-white/45">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+              <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+            </svg>
+            y
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+              <path d="M21.35 11.1h-9.17v2.73h5.24c-.23 1.42-1.63 4.17-5.24 4.17-3.16 0-5.73-2.61-5.73-5.83s2.57-5.83 5.73-5.83c1.8 0 3 .77 3.69 1.43l2.52-2.43C16.83 3.6 14.68 2.7 12.18 2.7c-5.13 0-9.29 4.16-9.29 9.29s4.16 9.29 9.29 9.29c5.36 0 8.92-3.77 8.92-9.08 0-.61-.07-1.08-.15-1.55z" />
+            </svg>
+            Apple Wallet y Google Wallet — el mismo pase, sin apps que instalar
           </p>
 
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -159,13 +171,6 @@ export default function LealtadPage() {
             >
               Quiero el programa en mi negocio
             </Link>
-          </div>
-
-          <div aria-hidden className="mt-14 flex flex-col items-center gap-2 text-white/30">
-            <span className="text-[11px] uppercase tracking-[0.2em]">Mirá cómo funciona</span>
-            <svg viewBox="0 0 24 24" className="h-5 w-5 animate-bounce" fill="none" stroke="currentColor" strokeWidth={1.5}>
-              <path d="M12 5v14m0 0-6-6m6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
           </div>
         </div>
       </section>

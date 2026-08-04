@@ -1,4 +1,5 @@
 import "./escena-sellos.css";
+import { PaseWallet } from "./pase-wallet";
 
 /**
  * La escena animada de /lealtad: la misma técnica que Reel.tsx en
@@ -93,87 +94,72 @@ function TelefonoSellos() {
           style={{ background: "#050810" }}
         />
 
-        <div className="flex h-full flex-col px-5 pb-6 pt-11 text-white">
-          <p className="text-center text-[9px] font-bold uppercase tracking-[0.28em] text-white/40">
-            Bookea Lealtad
-          </p>
-
-          {/* La tarjeta */}
-          <div
-            className="relative mt-4 flex-1 rounded-2xl p-4"
-            style={{
-              background: "rgba(255,255,255,.06)",
-              boxShadow: "inset 0 0 0 1px rgba(255,255,255,.12)",
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-extrabold">Café La Esquina</span>
-              <span
-                className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-extrabold"
-                style={{ background: "#ee7420" }}
-              >
-                B
-              </span>
-            </div>
-            <p className="mt-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-white/45">
-              Cliente frecuente
-            </p>
-
-            {/* La grilla de 10 sellos: 9 marcados, el décimo hace pop */}
-            <div className="mt-4 grid grid-cols-5 gap-2">
-              {Array.from({ length: 9 }, (_, i) => (
+        <div className="flex h-full flex-col px-4 pb-5 pt-11 text-white">
+          {/* Banner de sistema, tipo el aviso que tira Wallet al usar
+              un pase: ocupa el mismo lugar fijo el "escaneando" y el
+              "desbloqueado", así no saltan el layout. */}
+          <div className="relative h-[30px] shrink-0">
+            <div
+              className="anim-sello-tap absolute inset-x-0 top-0 flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 opacity-0"
+              style={{ background: "rgba(255,255,255,.08)" }}
+            >
+              <span className="relative flex h-4 w-4 items-center justify-center">
                 <span
-                  key={i}
-                  className="flex aspect-square items-center justify-center rounded-full text-white"
-                  style={{ background: "#ee7420" }}
-                >
-                  <Check className="h-3 w-3" />
-                </span>
-              ))}
-              <span className="relative aspect-square">
-                <span
-                  className="absolute inset-0 rounded-full border-2 border-dashed"
-                  style={{ borderColor: "rgba(255,255,255,.32)" }}
+                  className="anim-sello-ping absolute h-3 w-3 rounded-full"
+                  style={{ background: "rgba(238,116,32,.55)" }}
                 />
-                <span
-                  className="anim-sello-pop absolute inset-0 flex items-center justify-center rounded-full text-white"
-                  style={{ background: "#ee7420" }}
-                >
-                  <Check className="h-3 w-3" />
-                </span>
+                <IconQR className="relative h-3.5 w-3.5 text-[#ee7420]" />
               </span>
+              <span className="text-[10px] font-bold text-white/80">Escaneando el QR…</span>
             </div>
-
-            {/* Zona fija: el indicador de escaneo y el badge de
-                recompensa se turnan en el mismo lugar, sin mover el
-                layout. */}
-            <div className="relative mt-4 h-[52px]">
-              <div
-                className="anim-sello-tap absolute inset-0 flex items-center justify-center gap-2 rounded-xl opacity-0"
-                style={{ background: "rgba(255,255,255,.07)" }}
-              >
-                <span className="relative flex h-5 w-5 items-center justify-center">
-                  <span
-                    className="anim-sello-ping absolute h-3.5 w-3.5 rounded-full"
-                    style={{ background: "rgba(238,116,32,.55)" }}
-                  />
-                  <IconQR className="relative h-4 w-4 text-[#ee7420]" />
-                </span>
-                <span className="text-[11px] font-bold text-white/80">
-                  Escaneando el QR…
-                </span>
-              </div>
-
-              <div
-                className="anim-sello-badge absolute inset-0 flex items-center justify-center gap-1.5 rounded-xl text-center text-[11.5px] font-extrabold text-white"
-                style={{ background: "#1f7a4d" }}
-              >
-                ☕ Café gratis desbloqueado
-              </div>
+            <div
+              className="anim-sello-badge absolute inset-x-0 top-0 flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-center text-[10.5px] font-extrabold text-white"
+              style={{ background: "#1f7a4d" }}
+            >
+              ☕ Café gratis desbloqueado
             </div>
           </div>
 
-          <p className="mt-4 text-center text-[9px] font-semibold text-white/45">
+          {/* El pase de verdad — Apple Wallet como referencia, con la
+              grilla de sellos en la franja central. */}
+          <div className="mt-2">
+            <PaseWallet
+              marca="apple"
+              negocio="Café La Esquina"
+              etiquetaCampo="Sellos"
+              valorCampo={
+                <>
+                  9<span className="opacity-40">/10</span>
+                </>
+              }
+            >
+              <div className="grid grid-cols-5 gap-2 pb-1">
+                {Array.from({ length: 9 }, (_, i) => (
+                  <span
+                    key={i}
+                    className="flex aspect-square items-center justify-center rounded-full text-white"
+                    style={{ background: "#ee7420" }}
+                  >
+                    <Check className="h-3 w-3" />
+                  </span>
+                ))}
+                <span className="relative aspect-square">
+                  <span
+                    className="absolute inset-0 rounded-full border-2 border-dashed"
+                    style={{ borderColor: "rgba(255,255,255,.32)" }}
+                  />
+                  <span
+                    className="anim-sello-pop absolute inset-0 flex items-center justify-center rounded-full text-white"
+                    style={{ background: "#ee7420" }}
+                  >
+                    <Check className="h-3 w-3" />
+                  </span>
+                </span>
+              </div>
+            </PaseWallet>
+          </div>
+
+          <p className="mt-3 text-center text-[9px] font-semibold text-white/45">
             Se completa sola en cada visita
           </p>
         </div>
