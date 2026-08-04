@@ -7,8 +7,6 @@ import {
   type ResultadoCampanaNegocio,
 } from "@/lib/campanas/citas";
 
-export type { CampanaNegocioInput, ResultadoCampanaNegocio };
-
 /**
  * Campañas de correo POR NEGOCIO desde el panel web — la pieza que
  * cierra el ciclo del CRM: el sistema detecta al cliente que faltó dos

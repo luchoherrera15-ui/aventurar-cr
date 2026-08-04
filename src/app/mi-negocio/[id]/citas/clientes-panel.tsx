@@ -10,7 +10,8 @@ import {
   type ClienteCRM,
   type SegmentoCampana,
 } from "@/lib/crm-citas";
-import { enviarCampanaNegocio, type ResultadoCampanaNegocio } from "./campanas-actions";
+import { enviarCampanaNegocio } from "./campanas-actions";
+import type { ResultadoCampanaNegocio } from "@/lib/campanas/citas";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
