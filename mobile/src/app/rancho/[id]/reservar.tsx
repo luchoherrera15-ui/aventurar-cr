@@ -205,7 +205,7 @@ export default function ReservarScreen() {
     setRancho(ranchoRes.data as Rancho);
     setTiers((tiersRes.data ?? []) as PrecioTier[]);
     setServicios((svcRes.data ?? []) as ServicioAdicional[]);
-    setPromociones((promoRes.data ?? []) as PromocionDia[]);
+    setPromociones(((promoRes.data ?? []) as PromocionDia[]).map((p) => ({ ...p, dias_semana: Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]") })));
 
     const deviceId = await obtenerIdDispositivo();
     deviceIdRef.current = deviceId;

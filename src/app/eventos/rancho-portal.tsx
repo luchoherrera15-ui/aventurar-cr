@@ -244,7 +244,10 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     disponibilidad = acc;
     tiers = (tiersRes.data ?? []) as PrecioTier[];
     servicios = (svcRes.data ?? []) as ServicioAdicional[];
-    promociones = (promoRes.data ?? []) as PromocionDia[];
+    promociones = ((promoRes.data ?? []) as PromocionDia[]).map((p) => ({
+      ...p,
+      dias_semana: Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]"),
+    }));
   }
 
   return (
