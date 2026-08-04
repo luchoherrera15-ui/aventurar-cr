@@ -89,6 +89,7 @@ export default async function CitasConfigPage({
     bloqueosRes,
     serviciosRes,
     horariosRes,
+    horariosNegocioRes,
     asignacionesRes,
     crmRes,
     giftcardsRes,
@@ -132,6 +133,12 @@ export default async function CitasConfigPage({
       .from("horarios_recurso")
       .select("miembro_id, dow, abre, cierra, equipo_rancho!inner(rancho_id)")
       .eq("equipo_rancho.rancho_id", id),
+    // Horarios del negocio con precios por día (0096).
+    supabase
+      .from("horarios_negocio")
+      .select("*")
+      .eq("rancho_id", id)
+      .order("dow", { ascending: true }),
     // Quién da qué servicio (0061), del negocio completo.
     supabase
       .from("servicios_recurso")
@@ -161,6 +168,7 @@ export default async function CitasConfigPage({
   const citasHoy = (citasRes.data ?? []) as CitaDia[];
   const bloqueos = (bloqueosRes.data ?? []) as BloqueoAgenda[];
   const horario = horarioDeDetalles(rancho.detalles);
+  const horariosNegocio = (horariosNegocioRes.data ?? []) as any[];
   const errorCarga = equipoRes.error ?? citasRes.error;
 
   const servicios = (serviciosRes.data ?? []).map((s) => ({
@@ -258,6 +266,15 @@ export default async function CitasConfigPage({
             initialFecha={hoy}
             initialCitas={citasHoy}
             initialBloqueos={bloqueos}
+            initialHorariosNegocio={horariosNegocio.map((h) => ({
+              dow: h.dow,
+              abre: h.abre,
+              cierra: h.cierra,
+              precioEspecial: h.precio_especial ? Number(h.precio_especial) : null,
+              modalidad: h.modalidad,
+              precioHora: h.precio_hora ? Number(h.precio_hora) : null,
+              precioFijo: h.precio_fijo ? Number(h.precio_fijo) : null,
+            }))}
           />
         </section>
 

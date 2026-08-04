@@ -5,8 +5,9 @@ import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import DaySlider from "./day-slider";
 import AgendaPorProfesional from "./agenda-por-profesional";
 import ResumenesCitas from "./resumenes-citas";
+import HorariosNegocioForm from "./horarios-negocio-form";
 import AgendaCitas, { type CitaDia } from "./agenda-citas";
-import type { MiembroEquipo } from "./actions";
+import type { MiembroEquipo, HorarioNegocioDia } from "./actions";
 
 type Tab = "agenda" | "resumenes" | "clientes" | "finanzas" | "configuracion";
 
@@ -37,6 +38,7 @@ interface CitasTabsProps {
     fin: string;
     motivo: string | null;
   }>;
+  initialHorariosNegocio?: HorarioNegocioDia[];
 }
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -56,6 +58,7 @@ export default function CitasTabs({
   initialFecha,
   initialCitas,
   initialBloqueos,
+  initialHorariosNegocio = [],
 }: CitasTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>("agenda");
   const [fechaSeleccionada, setFechaSeleccionada] = useState(initialFecha);
@@ -147,8 +150,19 @@ export default function CitasTabs({
       )}
 
       {activeTab === "configuracion" && (
-        <div className="rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-5 text-center text-aventurea-ink-soft">
-          <p>Configuración - próximamente</p>
+        <div className="space-y-5">
+          <div>
+            <h3 className="mb-3 text-[14px] font-bold text-aventurea-ink">
+              Horarios y precios por día
+            </h3>
+            <p className="mb-4 text-[13px] text-aventurea-ink-soft">
+              Configura horarios y precios diferentes para cada día de la semana.
+            </p>
+            <HorariosNegocioForm
+              ranchoId={ranchoId}
+              initialHorarios={initialHorariosNegocio}
+            />
+          </div>
         </div>
       )}
     </div>

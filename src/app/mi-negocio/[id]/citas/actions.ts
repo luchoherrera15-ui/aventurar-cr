@@ -992,3 +992,120 @@ export async function guardarHorarioCitas(
   refrescar(ranchoId);
   return {};
 }
+
+// ============================================================
+// Horarios del negocio con precios por día
+// ============================================================
+
+export type HorarioNegocioDia = {
+  dow: number;
+  abre?: string;
+  cierra?: string;
+  precioEspecial?: number | null;
+  modalidad?: string | null;
+  precioHora?: number | null;
+  precioFijo?: number | null;
+};
+
+/**
+ * Guarda o actualiza los horarios del negocio con precios por día.
+ * Permite configurar horarios y precios distintos para cada día de la semana.
+ */
+export async function guardarHorariosNegocio(
+  ranchoId: string,
+  horarios: HorarioNegocioDia[],
+): Promise<{ error?: string }> {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
+
+  try {
+    for (const dia of horarios) {
+      if (!Number.isInteger(dia.dow) || dia.dow < 0 || dia.dow > 6) {
+        return { error: "Día de semana inválido." };
+      }
+
+      if (dia.abre && !HORA_REGEX.test(dia.abre)) {
+        return { error: "Hora de apertura inválida." };
+      }
+      if (dia.cierra && !HORA_REGEX.test(dia.cierra)) {
+        return { error: "Hora de cierre inválida." };
+      }
+      if (dia.abre && dia.cierra && dia.abre >= dia.cierra) {
+        return { error: "La hora de cierre debe ser después de la de apertura." };
+      }
+
+      if (
+        dia.precioEspecial !== undefined &&
+        dia.precioEspecial !== null &&
+        (!Number.isFinite(dia.precioEspecial) || dia.precioEspecial < 0)
+      ) {
+        return { error: "Precio especial inválido." };
+      }
+
+      if (dia.precioHora !== undefined && dia.precioHora !== null) {
+        if (!Number.isFinite(dia.precioHora) || dia.precioHora < 0) {
+          return { error: "Precio por hora inválido." };
+        }
+      }
+
+      if (dia.precioFijo !== undefined && dia.precioFijo !== null) {
+        if (!Number.isFinite(dia.precioFijo) || dia.precioFijo < 0) {
+          return { error: "Precio fijo inválido." };
+        }
+      }
+    }
+
+    // Eliminar configuración antigua y crear la nueva
+    await supabase.from("horarios_negocio").delete().eq("rancho_id", ranchoId);
+
+    const datosInsert = horarios.map((dia) => ({
+      rancho_id: ranchoId,
+      dow: dia.dow,
+      abre: dia.abre || null,
+      cierra: dia.cierra || null,
+      precio_especial: dia.precioEspecial || null,
+      modalidad: dia.modalidad || null,
+      precio_hora: dia.precioHora || null,
+      precio_fijo: dia.precioFijo || null,
+    }));
+
+    const { error } = await supabase.from("horarios_negocio").insert(datosInsert);
+
+    if (error) return { error: "No se pudo guardar: " + error.message };
+
+    refrescar(ranchoId);
+    return {};
+  } catch (e) {
+    return { error: `Error inesperado: ${String(e)}` };
+  }
+}
+
+/**
+ * Carga los horarios del negocio con precios por día.
+ */
+export async function cargarHorariosNegocio(
+  ranchoId: string,
+): Promise<{ horarios: HorarioNegocioDia[]; error?: string }> {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { horarios: [], error: "No encontramos tu publicación." };
+
+  const { data, error } = await supabase
+    .from("horarios_negocio")
+    .select("*")
+    .eq("rancho_id", ranchoId)
+    .order("dow", { ascending: true });
+
+  if (error) return { horarios: [], error: "No se pudo cargar: " + error.message };
+
+  const horarios: HorarioNegocioDia[] = (data ?? []).map((h: any) => ({
+    dow: h.dow,
+    abre: h.abre,
+    cierra: h.cierra,
+    precioEspecial: h.precio_especial ? Number(h.precio_especial) : null,
+    modalidad: h.modalidad,
+    precioHora: h.precio_hora ? Number(h.precio_hora) : null,
+    precioFijo: h.precio_fijo ? Number(h.precio_fijo) : null,
+  }));
+
+  return { horarios };
+}
