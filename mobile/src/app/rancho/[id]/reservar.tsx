@@ -758,19 +758,27 @@ export default function ReservarScreen() {
             <View style={styles.bloque}>
               <Micro>Cotización estimada</Micro>
               <Tarjeta style={styles.tarjetaTotal}>
-                {promoAplicable && subtotal !== null && descuentoMonto > 0 && (
+                {(descuentoMonto > 0 || descuentoCodigoMonto > 0) && subtotal !== null && (
                   <View>
                     <Text style={[styles.totalTexto, { textDecorationLine: "line-through", opacity: 0.5 }]}>
                       {fmtColones(subtotal)}
                     </Text>
-                    <Estado
-                      tono="verde"
-                      texto={`${promoAplicable.etiqueta || "Promoción"} −${promoAplicable.porcentaje_descuento}%`}
-                    />
+                    {promoAplicable && descuentoMonto > 0 && (
+                      <Estado
+                        tono="verde"
+                        texto={`${promoAplicable.etiqueta || "Promoción"} −${promoAplicable.porcentaje_descuento}%`}
+                      />
+                    )}
+                    {descuentoCodigoMonto > 0 && !promoAplicable && (
+                      <Estado
+                        tono="verde"
+                        texto="Código de descuento aplicado"
+                      />
+                    )}
                     <Text style={styles.totalTexto}>{fmtColones(total ?? 0)}</Text>
                   </View>
                 )}
-                {(!promoAplicable || descuentoMonto === 0) && total !== null && (
+                {(descuentoMonto === 0 && descuentoCodigoMonto === 0) && total !== null && (
                   <Text style={styles.totalTexto}>{fmtColones(total)}</Text>
                 )}
                 {total === null && (

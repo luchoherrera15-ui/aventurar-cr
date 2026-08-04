@@ -7,7 +7,8 @@ import { horarioDeDetalles } from "@/app/citas/tipos";
 import { agruparClientes, type ReservaCliente } from "@/lib/crm-citas";
 import EquipoPanel from "./equipo-panel";
 import HorarioForm from "./horario-form";
-import AgendaCitas, { type CitaDia } from "./agenda-citas";
+import CitasTabs from "./citas-tabs";
+import { type CitaDia } from "./agenda-citas";
 import ClientesPanel from "./clientes-panel";
 import BloqueosPanel from "./bloqueos-panel";
 import ReportesCitas from "./reportes-citas";
@@ -242,7 +243,7 @@ export default async function CitasConfigPage({
             Marcá quién vino y quién no, agendá walk-ins con hora y bloqueá
             franjas — como en el mostrador.
           </p>
-          <AgendaCitas
+          <CitasTabs
             ranchoId={rancho.id}
             zona={zona}
             equipo={equipo.map((m) => ({
