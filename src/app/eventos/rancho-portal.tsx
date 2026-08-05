@@ -257,9 +257,13 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     >
       <RevealOnScroll />
       {/* La burbuja de chat flotante pasa a abrir el chat con ESTE
-          proveedor mientras se está en su página. El dueño no: no se
-          puede abrir una consulta con uno mismo. */}
-      {!puedeModificar && (
+          proveedor mientras se está en su página. Solo se le oculta al
+          DUEÑO de esta publicación — nadie se manda una consulta a sí
+          mismo. Colgarlo de `puedeModificar` (como estaba antes) la
+          dejaba invisible para un admin en CUALQUIER negocio ajeno, el
+          mismo bug que ya se había corregido acá abajo para el avisito
+          de invitaciones. */}
+      {user?.id !== rancho.owner_id && (
         <ProveedorActual ranchoId={rancho.id} nombre={rancho.nombre} />
       )}
       {/* Quien está eligiendo dónde hacer su evento es quien va a
