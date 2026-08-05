@@ -22,6 +22,7 @@ import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import TituloPantalla from "@/components/titulo-pantalla";
 import { ChipCategoria } from "@/components/ui";
+import { PREFIJO_ASISTENTE } from "@/lib/asistente-prefijo";
 import {
   ORDEN_CATEGORIAS_CHAT,
   CATEGORIA_CHAT_LABEL,
@@ -531,7 +532,23 @@ function FilaChat({
             style={[styles.preview, nuevo && styles.previewNoLeido]}
             numberOfLines={1}
           >
-            {fila.ultimoTexto}
+            {(() => {
+              // Los mensajes del asistente vienen marcados con el
+              // prefijo en la base: en la vista previa se muestra como
+              // ícono, igual que dentro del hilo — nunca el emoji crudo.
+              for (const antes of ["", "Vos: "]) {
+                const marca = antes + PREFIJO_ASISTENTE;
+                if (!fila.ultimoTexto.startsWith(marca)) continue;
+                return (
+                  <>
+                    {antes}
+                    <Ionicons name="sparkles" size={12} color={Colors.accent} />{" "}
+                    {fila.ultimoTexto.slice(marca.length)}
+                  </>
+                );
+              }
+              return fila.ultimoTexto;
+            })()}
           </Text>
           <View style={styles.tagsFila}>
             <View style={[styles.tag, { backgroundColor: fila.tag.fondo }]}>

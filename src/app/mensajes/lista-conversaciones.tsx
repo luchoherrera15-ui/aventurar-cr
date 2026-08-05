@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { fechaCortaMensaje } from "@/lib/fechas";
 import { IconTrash } from "@/components/icons";
 import BotonResuelto from "./boton-resuelto";
+import PreviewMensaje from "@/components/preview-mensaje";
 import { eliminarConversacion, vaciarResueltas } from "./actions";
 
 /**
@@ -159,13 +160,12 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
                       {f.subtitulo}
                     </p>
                   )}
-                  <p
-                    className={`mt-0.5 truncate text-[12.5px] ${
+                  <PreviewMensaje
+                    texto={f.ultimoTexto}
+                    className={`mt-0.5 block truncate text-[12.5px] ${
                       nuevo ? "font-bold text-aventurea-ink" : "text-aventurea-ink-soft"
                     }`}
-                  >
-                    {f.ultimoTexto}
-                  </p>
+                  />
                   <span className={`mt-1.5 inline-flex rounded-lg px-2 py-0.5 text-[10px] font-bold ${f.tag.clase}`}>
                     {f.tag.texto}
                   </span>

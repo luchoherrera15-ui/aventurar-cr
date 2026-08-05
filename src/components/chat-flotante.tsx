@@ -26,6 +26,7 @@ import {
 import HiloChat from "@/app/mensajes/[reservaId]/hilo-chat";
 import type { Mensaje } from "@/app/mi-negocio/types";
 import { IconChatBubble, IconChevronDown } from "./icons";
+import PreviewMensaje from "./preview-mensaje";
 
 /**
  * El chat del sitio como ventana flotante (tipo soporte en vivo): la
@@ -658,9 +659,10 @@ export default function ChatFlotante() {
                               {f.subtitulo}
                             </span>
                           </p>
-                          <p className="truncate text-[12.5px] text-aventurea-ink-soft">
-                            {f.ultimoTexto}
-                          </p>
+                          <PreviewMensaje
+                            texto={f.ultimoTexto}
+                            className="block truncate text-[12.5px] text-aventurea-ink-soft"
+                          />
                         </div>
                         {f.pendientes > 0 && (
                           <span className="flex h-[20px] min-w-[20px] shrink-0 items-center justify-center rounded-full bg-aventurea-orange px-1 text-[10.5px] font-bold text-white">
