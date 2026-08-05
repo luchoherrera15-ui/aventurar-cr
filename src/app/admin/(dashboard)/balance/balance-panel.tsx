@@ -7,6 +7,8 @@ import {
   guardarComision,
 } from "./actions";
 import PasarelaPreview from "./pasarela-preview";
+import DetalleNegocio from "./detalle-negocio";
+import CobroNegocioForm from "./cobro-negocio-form";
 import {
   CATEGORIAS,
   CATEGORIA_LABEL,
@@ -17,6 +19,12 @@ import {
   type ReservaBalance,
 } from "./types";
 import { SECCION_CORTA, type SeccionAdmin } from "../vertical";
+import {
+  etiquetaCobro,
+  ingresoPorRancho,
+  type CobroNegocio,
+} from "@/lib/cobro-plataforma";
+import { aFecha } from "@/lib/finanzas";
 
 function fmt(n: number) {
   return "₡" + Math.round(n).toLocaleString("es-CR");
@@ -59,12 +67,15 @@ export default function BalancePanel({
   gastosIniciales,
   comisionInicial,
   seccion = "todas",
+  cobros = [],
 }: {
   reservas: ReservaBalance[];
   ranchos: RanchoBalance[];
   gastosIniciales: Gasto[];
   comisionInicial: number;
   seccion?: SeccionAdmin;
+  /** Tarifas propias por negocio (0098); vacío si la tabla no existe. */
+  cobros?: CobroNegocio[];
 }) {
   const hoy = new Date();
   const hoyIso = hoy.toISOString().slice(0, 10);
@@ -120,44 +131,49 @@ export default function BalancePanel({
     [ranchoFiltro],
   );
 
-  // Ingresos por rancho, según el rango de fechas elegido. Para la
-  // proyección cada reserva cuenta al menos 1 persona: así las citas
-  // (que no llevan invitados) también entran en el cálculo.
+  // Las tarifas propias por negocio (0098), como mapa para el motor.
+  const cobrosPorRancho = useMemo(
+    () => new Map(cobros.map((c) => [c.rancho_id, c])),
+    [cobros],
+  );
+
+  // Ingresos por rancho según el rango elegido — cada negocio con SU
+  // tarifa (propia o la global ₡/persona). El cálculo vive en
+  // src/lib/cobro-plataforma.ts, probado aparte; acá solo se decora
+  // con nombre y métricas de la fila.
   const porRancho = useMemo(() => {
-    const acc = new Map<
-      string,
-      { nombre: string; reservas: number; personas: number; personasProy: number }
-    >();
-    reservas
-      .filter((r) => enRango(r.fecha))
-      .filter(coincideRancho)
-      .forEach((r) => {
-        const key = r.rancho_id ?? "sin-rancho";
-        const nombre =
-          (r.rancho_id && nombrePorRancho.get(r.rancho_id)) ?? "Sin asignar";
-        const prev =
-          acc.get(key) ?? { nombre, reservas: 0, personas: 0, personasProy: 0 };
-        prev.reservas += 1;
-        prev.personas += r.invitados ?? 0;
-        prev.personasProy += Math.max(1, r.invitados ?? 1);
-        acc.set(key, prev);
-      });
-    return [...acc.entries()]
-      .map(([id, v]) => ({
-        id,
-        ...v,
-        comision: v.personas * comision,
-        comisionSimulada: v.personasProy * comisionSimulada,
-        reservasPorSemana: v.reservas / rangoSemanas,
-        promedioPorReserva: v.reservas > 0 ? (v.personas * comision) / v.reservas : 0,
-      }))
+    const filtradas = reservas.filter(coincideRancho);
+    const mapa = ingresoPorRancho(
+      filtradas,
+      cobrosPorRancho,
+      comision,
+      aFecha(desde),
+      aFecha(hasta),
+    );
+    return [...mapa.entries()]
+      .map(([id, v]) => {
+        const personasProy = v.personas;
+        return {
+          id,
+          nombre: nombrePorRancho.get(id) ?? "Sin asignar",
+          reservas: v.reservas,
+          personas: v.personas,
+          personasProy,
+          sinMonto: v.sinMonto,
+          cobro: v.cobro,
+          comision: v.ingreso,
+          comisionSimulada: personasProy * comisionSimulada,
+          reservasPorSemana: v.reservas / rangoSemanas,
+          promedioPorReserva: v.reservas > 0 ? v.ingreso / v.reservas : 0,
+        };
+      })
       .sort((a, b) => b.comision - a.comision || b.personas - a.personas);
-  }, [reservas, coincideRancho, enRango, comision, comisionSimulada, rangoSemanas, nombrePorRancho]);
+  }, [reservas, coincideRancho, cobrosPorRancho, comision, comisionSimulada, desde, hasta, rangoSemanas, nombrePorRancho]);
 
   const totalPersonas = porRancho.reduce((a, r) => a + r.personas, 0);
   const totalPersonasProy = porRancho.reduce((a, r) => a + r.personasProy, 0);
   const totalReservas = porRancho.reduce((a, r) => a + r.reservas, 0);
-  const totalIngresos = totalPersonas * comision;
+  const totalIngresos = porRancho.reduce((a, r) => a + r.comision, 0);
   const totalIngresosSimulados = totalPersonasProy * comisionSimulada;
   const promedioPorReserva = totalReservas > 0 ? totalIngresos / totalReservas : 0;
 
@@ -189,23 +205,37 @@ export default function BalancePanel({
   const neto = totalIngresos - totalGastos;
   const netoProyectado = totalIngresosSimulados - totalGastos;
 
-  // Periodo anterior (misma duración, inmediatamente antes) para comparar.
+  // Periodo anterior (misma duración, inmediatamente antes) para
+  // comparar — mismo motor que el periodo actual, para que el delta
+  // compare manzanas con manzanas.
   const previo = useMemo(() => {
-    const filtradas = reservas.filter((r) => enRangoPrevio(r.fecha) && coincideRancho(r));
-    const personas = filtradas.reduce((a, r) => a + (r.invitados ?? 0), 0);
+    const mapa = ingresoPorRancho(
+      reservas.filter(coincideRancho),
+      cobrosPorRancho,
+      comision,
+      aFecha(previoDesde),
+      aFecha(previoHasta),
+    );
+    let cuentaReservas = 0;
+    let personas = 0;
+    let ingresos = 0;
+    for (const v of mapa.values()) {
+      cuentaReservas += v.reservas;
+      personas += v.personas;
+      ingresos += v.ingreso;
+    }
     const gastosPrevios = gastos
       .filter((g) => enRangoPrevio(g.fecha) && esDeSeccion(g))
       .reduce((a, g) => a + Number(g.monto), 0);
-    const ingresos = personas * comision;
     return {
-      reservas: filtradas.length,
+      reservas: cuentaReservas,
       personas,
       ingresos,
       gastos: gastosPrevios,
       neto: ingresos - gastosPrevios,
-      promedioPorReserva: filtradas.length > 0 ? ingresos / filtradas.length : 0,
+      promedioPorReserva: cuentaReservas > 0 ? ingresos / cuentaReservas : 0,
     };
-  }, [reservas, gastos, enRangoPrevio, coincideRancho, comision, esDeSeccion]);
+  }, [reservas, gastos, enRangoPrevio, coincideRancho, cobrosPorRancho, comision, previoDesde, previoHasta, esDeSeccion]);
 
   function onGuardarComision() {
     setComisionMsg(null);
@@ -369,7 +399,14 @@ export default function BalancePanel({
             negativo={neto < 0}
           />
         </div>
-        {comision === 0 && (
+        {(comision > 0 || cobros.length > 0) && (
+          <p className="mt-3 text-[12px] text-aventurea-ink-soft">
+            Los ingresos son <strong>proyección</strong> según la tarifa
+            configurada (global o propia de cada negocio) — todavía no se
+            cobra automáticamente.
+          </p>
+        )}
+        {comision === 0 && cobros.length === 0 && (
           <div className="mt-4 rounded-2xl bg-aventurea-navy p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -464,6 +501,15 @@ export default function BalancePanel({
                       <span className="truncate text-[13.5px] font-bold text-aventurea-ink">
                         {r.nombre}
                       </span>
+                      <span
+                        className={`hidden shrink-0 rounded-lg px-2 py-0.5 text-[10.5px] font-bold sm:inline-flex ${
+                          r.cobro.esGlobal
+                            ? "bg-aventurea-cream-2 text-aventurea-ink-soft"
+                            : "bg-aventurea-navy/10 text-aventurea-navy"
+                        }`}
+                      >
+                        {etiquetaCobro(r.cobro)}
+                      </span>
                     </div>
                     <div className="flex shrink-0 items-baseline gap-2">
                       <span className="text-[14.5px] font-bold tabular-nums text-aventurea-ink">
@@ -474,6 +520,12 @@ export default function BalancePanel({
                       </span>
                     </div>
                   </div>
+                  {r.cobro.modelo === "comision_porcentaje" && r.sinMonto > 0 && (
+                    <p className="mt-1.5 text-[11px] font-bold text-aventurea-orange">
+                      {r.sinMonto} reserva{r.sinMonto === 1 ? "" : "s"} sin monto: con
+                      tarifa de % aportan ₡0 — el número real es mayor.
+                    </p>
+                  )}
                   <div className="mt-2.5 h-2 w-full overflow-hidden rounded-xl bg-aventurea-cream-2">
                     <div
                       className="h-full rounded-full bg-aventurea-navy transition-[width] duration-300"
@@ -495,18 +547,49 @@ export default function BalancePanel({
         )}
       </section>
 
-      {/* Comisión */}
+      {/* Detalle del negocio elegido en el select: su desglose por
+          día/semana/mes y su tarifa editable, uno debajo del otro. */}
+      {ranchoFiltro !== "todos" && (
+        <>
+          <DetalleNegocio
+            nombre={nombrePorRancho.get(ranchoFiltro) ?? "este negocio"}
+            reservas={reservas.filter((r) => r.rancho_id === ranchoFiltro)}
+            cobro={
+              porRancho.find((r) => r.id === ranchoFiltro)?.cobro ?? {
+                rancho_id: ranchoFiltro,
+                modelo: "comision_por_persona",
+                valor: comision,
+                esGlobal: true,
+              }
+            }
+            desde={desde}
+            hasta={hasta}
+            rangoDias={rangoDias}
+          />
+          <CobroNegocioForm
+            key={ranchoFiltro}
+            ranchoId={ranchoFiltro}
+            nombre={nombrePorRancho.get(ranchoFiltro) ?? "este negocio"}
+            cobroActual={cobrosPorRancho.get(ranchoFiltro) ?? null}
+            comisionGlobal={comision}
+          />
+        </>
+      )}
+
+      {/* Tarifa global */}
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
           Modelo de cobro
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          Comisión por persona reservada
+          Tarifa global (default) — comisión por persona reservada
         </h3>
         <p className="mt-1 max-w-[70ch] text-[12.5px] text-aventurea-ink-soft">
-          Se cobra por cada persona de las reservas ya confirmadas. Dejalo en
-          ₡0 mientras la plataforma sea gratis; cuando decidas empezar a
-          cobrar, poné el monto y los balances se recalculan solos.
+          Aplica a todo negocio SIN tarifa propia
+          {cobros.length > 0 &&
+            ` (${cobros.length} negocio${cobros.length === 1 ? " tiene" : "s tienen"} tarifa propia — elegí uno en el filtro de arriba para verla o cambiarla)`}
+          . Dejala en ₡0 mientras la plataforma sea gratis; cuando decidas
+          empezar a cobrar, poné el monto y los balances se recalculan solos.
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-2.5">
           <span className="text-[13px] font-bold text-aventurea-ink-soft">₡</span>

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import BalancePanel from "../balance/balance-panel";
 import type { Gasto, RanchoBalance, ReservaBalance } from "../balance/types";
 import IngresosPanel, { type Cobro } from "../ingresos/ingresos-panel";
@@ -6,6 +7,7 @@ import FinanzasTabs from "./finanzas-tabs";
 import { esTabFinanzas } from "./pestanas";
 import { perteneceASeccion, SECCION_LABEL } from "../vertical";
 import { seccionActiva } from "../vertical-server";
+import type { CobroNegocio } from "@/lib/cobro-plataforma";
 
 /**
  * Finanzas: toda la plata de la plataforma en una sola pantalla.
@@ -29,10 +31,14 @@ export default async function AdminFinanzasPage({
 
   const [reservasRes, ranchosRes, gastosRes, configRes, pedidosRes] =
     await Promise.all([
+      // Los montos hacen falta para la tarifa por % del evento (0098);
+      // 'cumplida' entra porque en Citas la reserva atendida pasa a ese
+      // estado y antes se caía del cálculo — un negocio de citas activo
+      // se veía en ₡0.
       supabase
         .from("reservas")
-        .select("id, fecha, invitados, rancho_id")
-        .eq("estado", "confirmada"),
+        .select("id, fecha, invitados, rancho_id, estado, monto_total, monto_cobrado_final")
+        .in("estado", ["confirmada", "cumplida"]),
       supabase.from("ranchos").select("id, nombre, vertical").order("nombre"),
       supabase.from("gastos").select("*").order("fecha", { ascending: false }),
       supabase
@@ -62,6 +68,24 @@ export default async function AdminFinanzasPage({
   const reservas = ((reservasRes.data ?? []) as ReservaBalance[]).filter((r) =>
     perteneceASeccion(r.rancho_id ? verticalPorRancho.get(r.rancho_id) : null, seccion),
   );
+
+  // Tarifas propias por negocio (0098). La tabla tiene RLS sin
+  // policies (solo la ve el admin de la plataforma), así que se lee
+  // con la service key — y si la migración no corrió, queda vacío y
+  // todo sigue con la tarifa global, sin romperse.
+  let cobrosNegocio: CobroNegocio[] = [];
+  const adminDb = createAdminClient();
+  if (adminDb) {
+    const { data: cobrosData, error: cobrosError } = await adminDb
+      .from("cobro_negocio")
+      .select("rancho_id, modelo, valor, notas")
+      .in("rancho_id", ranchos.map((r) => r.id));
+    if (cobrosError) {
+      console.error("[admin-finanzas] No se pudo leer cobro_negocio:", cobrosError.message);
+    } else {
+      cobrosNegocio = (cobrosData ?? []) as CobroNegocio[];
+    }
+  }
 
   const errores = [reservasRes.error, ranchosRes.error, gastosRes.error]
     .filter(Boolean)
@@ -112,6 +136,7 @@ export default async function AdminFinanzasPage({
               gastosIniciales={(gastosRes.data ?? []) as Gasto[]}
               comisionInicial={Number(configRes.data?.comision_por_persona ?? 0)}
               seccion={seccion}
+              cobros={cobrosNegocio}
             />
           </div>
         }

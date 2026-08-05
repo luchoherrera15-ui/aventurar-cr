@@ -3,6 +3,11 @@ export type ReservaBalance = {
   fecha: string;
   invitados: number | null;
   rancho_id: string | null;
+  /** Opcionales: el select viejo no los traía; hacen falta para la
+   *  tarifa por % del evento (0098). */
+  estado?: string;
+  monto_total?: number | null;
+  monto_cobrado_final?: number | null;
 };
 
 export type RanchoBalance = {
