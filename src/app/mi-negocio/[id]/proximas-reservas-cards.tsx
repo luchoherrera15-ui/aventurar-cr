@@ -1,5 +1,6 @@
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import type { EventoAgenda } from "@/components/agenda-eventos";
+import { IconCalendarLine } from "@/components/icons";
 
 /**
  * Vistazo rápido de lo próximo — solo las 5 reservas más cercanas, en
@@ -51,26 +52,37 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
         const esHoy = e.fecha === hoy;
         const esManana = e.fecha === manana;
         return (
-          <div key={e.id} className="min-w-0 rounded-xl bg-aventurea-navy px-3 py-2.5">
-            <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-orange">
-              {esHoy ? "Hoy" : esManana ? "Mañana" : fechaCorta(e.fecha)}
-            </p>
-            <p className="mt-0.5 truncate text-[12.5px] font-bold text-white">
-              {e.nombre ?? "Sin nombre"}
-            </p>
-            <div className="mt-1.5 flex items-center justify-between gap-1.5">
-              {e.monto_total !== null ? (
-                <span className="truncate text-[11.5px] font-bold text-white">
-                  {fmtColones(e.monto_total)}
+          <div
+            key={e.id}
+            className="relative min-w-0 overflow-hidden rounded-xl bg-aventurea-navy px-3 py-2.5"
+          >
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -right-2.5 -top-3 rotate-[14deg] text-white/[0.1]"
+            >
+              <IconCalendarLine className="h-16 w-16" />
+            </span>
+            <div className="relative z-10">
+              <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-orange">
+                {esHoy ? "Hoy" : esManana ? "Mañana" : fechaCorta(e.fecha)}
+              </p>
+              <p className="mt-0.5 truncate text-[12.5px] font-bold text-white">
+                {e.nombre ?? "Sin nombre"}
+              </p>
+              <div className="mt-1.5 flex items-center justify-between gap-1.5">
+                {e.monto_total !== null ? (
+                  <span className="truncate text-[11.5px] font-bold text-white">
+                    {fmtColones(e.monto_total)}
+                  </span>
+                ) : (
+                  <span />
+                )}
+                <span
+                  className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9.5px] font-bold ${ESTADO_CLS[e.estado] ?? "bg-aventurea-cream-2 text-aventurea-ink-soft"}`}
+                >
+                  {ESTADO_LABEL[e.estado] ?? e.estado}
                 </span>
-              ) : (
-                <span />
-              )}
-              <span
-                className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9.5px] font-bold ${ESTADO_CLS[e.estado] ?? "bg-aventurea-cream-2 text-aventurea-ink-soft"}`}
-              >
-                {ESTADO_LABEL[e.estado] ?? e.estado}
-              </span>
+              </div>
             </div>
           </div>
         );

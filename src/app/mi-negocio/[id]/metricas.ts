@@ -6,6 +6,7 @@ import {
   mismoMes,
   type ReservaFinanzas,
 } from "@/lib/finanzas";
+import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
 
 export type Metricas = {
   reservasEsteMes: number;
@@ -98,6 +99,40 @@ export function calcularMetricas({
     porCobrarProximos30,
     totalReservasHistorico: confirmadas.length,
   };
+}
+
+export type ActividadItem = {
+  id: string;
+  nombre: string | null;
+  monto: number | null;
+  // "bloqueada" queda afuera a propósito: el filtro de abajo nunca deja
+  // pasar una, así el componente que lo pinta no tiene que contemplarla.
+  estado: Exclude<Reserva["estado"], "bloqueada">;
+  creadoEn: string;
+};
+
+/**
+ * Últimas reservas/solicitudes creadas, para el feed de "actividad
+ * reciente" de Inicio. No es una query nueva: `reservas` ya viene de
+ * page.tsx con select("*") — esto solo reordena lo que ya está en
+ * memoria por fecha de CREACIÓN (no de evento).
+ */
+export function actividadReciente(reservas: Reserva[], limite = 6): ActividadItem[] {
+  return [...reservas]
+    // Un bloqueo no es actividad de un cliente. El type guard deja el
+    // "bloqueada" afuera también para TypeScript, no solo en runtime.
+    .filter(
+      (r): r is Reserva & { estado: ActividadItem["estado"] } => r.estado !== "bloqueada",
+    )
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, limite)
+    .map((r) => ({
+      id: r.id,
+      nombre: r.nombre,
+      monto: r.monto_total,
+      estado: r.estado,
+      creadoEn: r.created_at,
+    }));
 }
 
 /** "3× más que el mes pasado" / "+40% vs. el mes pasado" / etc. */

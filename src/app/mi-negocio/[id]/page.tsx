@@ -2,6 +2,16 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  IconCalendarLine,
+  IconChartBars,
+  IconClipboard,
+  IconClock,
+  IconEdit,
+  IconHome,
+  IconSparkles,
+  IconTagLine,
+} from "@/components/icons";
+import {
   CATALOGO_LABEL,
   CATEGORIAS,
   CATEGORIA_GRADIENTE,
@@ -20,9 +30,10 @@ import { categoriaLabel, esCategoriaValida } from "@/lib/categorias-vertical";
 import CatalogoPanel from "./catalogo-panel";
 import { resumenFinanciero, type Gasto, type ReservaFinanzas } from "@/lib/finanzas";
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
-import Tabs, { type Tab } from "./tabs";
+import PanelSidebar, { type Tab } from "./panel-sidebar";
 import DashboardMetricas from "./dashboard-metricas";
-import { calcularMetricas } from "./metricas";
+import { calcularMetricas, actividadReciente } from "./metricas";
+import ActividadReciente from "./actividad-reciente";
 import EditarRanchoForm from "./editar/editar-form";
 import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
@@ -192,6 +203,7 @@ export default async function RanchoDetallePage({
   const codigos = (codigosRes.data ?? []) as CodigoDescuento[];
   const promociones = (promocionesRes.data ?? []) as PromocionDia[];
   const totalDescuentos = codigos.length + promociones.length;
+  const actividad = actividadReciente(reservas);
 
   // El feed .ics para suscribir la agenda en Google/Apple Calendar.
   // Si la 0071 no ha corrido (o un admin abre un panel ajeno y la RLS
@@ -327,9 +339,33 @@ export default async function RanchoDetallePage({
       horarioBloque: r.horario_bloque ?? null,
     }));
 
+  const tabInicio: Tab = {
+    id: "inicio",
+    label: "Inicio",
+    icon: <IconHome />,
+    content: (
+      <div className="flex flex-col gap-6">
+        <DashboardMetricas metricas={metricas} esLugar={esLugar} />
+        <div>
+          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+            Tus próximas reservas
+          </h2>
+          <ProximasReservasCards eventos={agenda} />
+        </div>
+        <div>
+          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+            Actividad reciente
+          </h2>
+          <ActividadReciente items={actividad} />
+        </div>
+      </div>
+    ),
+  };
+
   const tabAgenda: Tab = {
     id: "agenda",
     label: "Agenda",
+    icon: <IconCalendarLine />,
     // El puntito de pendientes vivía en la pestaña "Reservas" — ahora
     // que su tabla se plegó acá adentro, la agenda hereda el aviso.
     badge: pendientes,
@@ -479,6 +515,7 @@ export default async function RanchoDetallePage({
   const tabCatalogo: Tab = {
     id: "catalogo",
     label: etiquetaCatalogo,
+    icon: <IconClipboard />,
     content: (
       <div>
         {itemsRes.error ? (
@@ -512,6 +549,7 @@ export default async function RanchoDetallePage({
   const tabFinanzas: Tab = {
     id: "finanzas",
     label: "Finanzas",
+    icon: <IconChartBars />,
     content: (
       <div>
         {errorFinanzas && (
@@ -537,16 +575,16 @@ export default async function RanchoDetallePage({
     ),
   };
 
-  // Todo lo que se toca una vez y se olvida —perfil, precios,
-  // descuentos, condiciones y el asistente— vivía repartido en tres
-  // pestañas más (Perfil y fotos, Precios y cobros, Asistente). Ahora
-  // es UNA sola pestaña con todo plegado: nada abierto por defecto
-  // salvo la sección a la que se llega con `?seccion=`, así se puede
-  // seguir linkeando directo a una parte puntual (el botón "Editar
-  // perfil y fotos" del encabezado, por ejemplo).
-  const tabConfiguracion: Tab = {
-    id: "configuracion",
-    label: "Configuración",
+  // Lo que antes era UNA pestaña "Configuración" con 8 secciones
+  // plegadas ahora son 3 ítems propios del sidebar — cada uno ya vive
+  // en su propia pantalla, así que no compite por espacio con los
+  // demás. "Mi negocio" y "Precios" siguen usando SeccionPlegable
+  // puertas adentro (2-4 sub-bloques cada uno); "Asistente IA" no,
+  // porque ahora es el único contenido de su pantalla.
+  const tabNegocio: Tab = {
+    id: "negocio",
+    label: "Mi negocio",
+    icon: <IconEdit />,
     content: (
       <div className="flex flex-col gap-3.5">
         <SeccionPlegable
@@ -575,6 +613,50 @@ export default async function RanchoDetallePage({
           </SeccionPlegable>
         )}
 
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "terminos"}
+          titulo="Términos y monto mínimo"
+          descripcion="Las condiciones que el cliente acepta antes de contratarte. Te dejamos unas por defecto y las podés cambiar por las tuyas."
+        >
+          <TerminosForm
+            initialTerminos={rancho.terminos ?? []}
+            initialMontoMinimo={rancho.monto_minimo}
+            depositoReserva={rancho.deposito_reserva}
+            esLugar={esLugar}
+            vertical={rancho.vertical ?? "eventos"}
+            onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "cuentas"}
+          titulo="Cuentas para recibir el depósito"
+          descripcion="El cliente ve esto en el paso de pago de la reserva, según el método que elija. Sin cuentas configuradas, esa forma de pago no se le ofrece."
+        >
+          <CuentasPagoForm
+            initial={{
+              sinpeNumero: rancho.sinpe_numero ?? "",
+              sinpeTitular: rancho.sinpe_titular ?? "",
+              cuentaBanco: rancho.cuenta_banco ?? "",
+              cuentaNumero: rancho.cuenta_numero ?? "",
+              cuentaTitular: rancho.cuenta_titular ?? "",
+              cuentaTipo: rancho.cuenta_tipo ?? "",
+            }}
+            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+      </div>
+    ),
+  };
+
+  const tabPrecios: Tab = {
+    id: "precios",
+    label: "Precios",
+    icon: <IconTagLine />,
+    content: (
+      <div className="flex flex-col gap-3.5">
         {esLugar && (
           <SeccionPlegable
             marco={false}
@@ -628,124 +710,102 @@ export default async function RanchoDetallePage({
             onGuardarPromociones={guardarPromocionesPropio.bind(null, rancho.id)}
           />
         </SeccionPlegable>
+      </div>
+    ),
+  };
 
-        <SeccionPlegable
-          marco={false}
-          abierta={seccion === "terminos"}
-          titulo="Términos y monto mínimo"
-          descripcion="Las condiciones que el cliente acepta antes de contratarte. Te dejamos unas por defecto y las podés cambiar por las tuyas."
-        >
-          <TerminosForm
-            initialTerminos={rancho.terminos ?? []}
-            initialMontoMinimo={rancho.monto_minimo}
-            depositoReserva={rancho.deposito_reserva}
-            esLugar={esLugar}
-            vertical={rancho.vertical ?? "eventos"}
-            onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
-          />
-        </SeccionPlegable>
-
-        <SeccionPlegable
-          marco={false}
-          abierta={seccion === "cuentas"}
-          titulo="Cuentas para recibir el depósito"
-          descripcion="El cliente ve esto en el paso de pago de la reserva, según el método que elija. Sin cuentas configuradas, esa forma de pago no se le ofrece."
-        >
-          <CuentasPagoForm
-            initial={{
-              sinpeNumero: rancho.sinpe_numero ?? "",
-              sinpeTitular: rancho.sinpe_titular ?? "",
-              cuentaBanco: rancho.cuenta_banco ?? "",
-              cuentaNumero: rancho.cuenta_numero ?? "",
-              cuentaTitular: rancho.cuenta_titular ?? "",
-              cuentaTipo: rancho.cuenta_tipo ?? "",
-            }}
-            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
-          />
-        </SeccionPlegable>
-
-        <SeccionPlegable
-          marco={false}
-          abierta={seccion === "asistente"}
-          titulo="Asistente IA"
-          descripcion="Contesta el chat por vos con los datos de tu negocio, a cualquier hora."
-        >
-          {faltaMigracionAsistente && (
-            <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
-              <strong>Falta la migración del asistente.</strong> Corré{" "}
-              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
-                supabase/migrations/0078_panel_ia.sql
-              </code>{" "}
-              en el SQL Editor de Supabase y volvé a entrar. Mientras tanto no se
-              puede guardar nada de esta sección.
-            </div>
-          )}
-          <p className="mb-4 max-w-[70ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
-            Cuando un cliente te escribe por el chat de Bookea, el asistente le
-            contesta al instante con los datos de {rancho.nombre} — a cualquier
-            hora, sin que vos tengás que estar pendiente. Sus respuestas salen
-            con el prefijo <span className="font-bold text-aventurea-ink">💎</span>{" "}
-            para que el cliente sepa que todavía no hablaste vos. Podés meterte
-            en la conversación cuando querás desde{" "}
-            <Link href="/mensajes" className="font-bold text-aventurea-navy underline">
-              Mensajes
-            </Link>
-            .
+  const tabAsistente: Tab = {
+    id: "asistente",
+    label: "Asistente IA",
+    icon: <IconSparkles />,
+    content: (
+      <div>
+        {faltaMigracionAsistente && (
+          <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+            <strong>Falta la migración del asistente.</strong> Corré{" "}
+            <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+              supabase/migrations/0078_panel_ia.sql
+            </code>{" "}
+            en el SQL Editor de Supabase y volvé a entrar. Mientras tanto no se
+            puede guardar nada de esta sección.
+          </div>
+        )}
+        <p className="mb-4 max-w-[70ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
+          Cuando un cliente te escribe por el chat de Bookea, el asistente le
+          contesta al instante con los datos de {rancho.nombre} — a cualquier
+          hora, sin que vos tengás que estar pendiente. Sus respuestas salen
+          con el ícono{" "}
+          <IconSparkles className="inline h-3.5 w-3.5 align-[-2px] text-aventurea-orange" />{" "}
+          para que el cliente sepa que todavía no hablaste vos. Podés meterte
+          en la conversación cuando querás desde{" "}
+          <Link href="/mensajes" className="font-bold text-aventurea-navy underline">
+            Mensajes
+          </Link>
+          .
+        </p>
+        <AsistentePanel
+          ranchoId={rancho.id}
+          activoInicial={activoInicialAsistente}
+          porDefectoActivo={porDefectoActivoAsistente}
+          instruccionesInicial={instruccionesAsistente}
+          conocimientoInicial={conocimiento}
+          contratado={contratadoAsistente}
+        />
+        {/* El aviso más importante de esta sección: qué puede y qué NO
+            puede decir. Va al final porque se lee después de
+            configurar, pero con marco propio para que no pase por
+            decoración. */}
+        <section className="mt-6 rounded-2xl border border-aventurea-navy/25 bg-aventurea-navy/5 p-5">
+          <h3 className="text-[14px] font-bold text-aventurea-ink">
+            Qué puede decir el asistente (y qué no)
+          </h3>
+          <p className="mt-2 max-w-[70ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
+            Solo repite lo que vos cargaste: tu perfil, tus precios, tu{" "}
+            {etiquetaCatalogo.toLowerCase()}, tus condiciones y las respuestas
+            de arriba. <strong className="text-aventurea-ink">Nunca inventa</strong>{" "}
+            precios, descuentos ni disponibilidad de fechas: cuando le
+            preguntan algo que no está cargado, dice que no lo sabe y avisa
+            que vos respondés por el mismo chat.
           </p>
-          <AsistentePanel
-            ranchoId={rancho.id}
-            activoInicial={activoInicialAsistente}
-            porDefectoActivo={porDefectoActivoAsistente}
-            instruccionesInicial={instruccionesAsistente}
-            conocimientoInicial={conocimiento}
-            contratado={contratadoAsistente}
-          />
-          {/* El aviso más importante de esta sección: qué puede y qué
-              NO puede decir. Va al final porque se lee después de
-              configurar, pero con marco propio para que no pase por
-              decoración. */}
-          <section className="mt-6 rounded-2xl border border-aventurea-navy/25 bg-aventurea-navy/5 p-5">
-            <h3 className="text-[14px] font-bold text-aventurea-ink">
-              Qué puede decir el asistente (y qué no)
-            </h3>
-            <p className="mt-2 max-w-[70ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
-              Solo repite lo que vos cargaste: tu perfil, tus precios, tu{" "}
-              {etiquetaCatalogo.toLowerCase()}, tus condiciones y las respuestas
-              de arriba. <strong className="text-aventurea-ink">Nunca inventa</strong>{" "}
-              precios, descuentos ni disponibilidad de fechas: cuando le
-              preguntan algo que no está cargado, dice que no lo sabe y avisa
-              que vos respondés por el mismo chat.
-            </p>
-          </section>
-        </SeccionPlegable>
+        </section>
       </div>
     ),
   };
 
   // esVerticalCitas ya quedó declarado más arriba (lo necesita también
-  // el calendario de la Agenda) — acá solo arma la pestaña "Citas".
-  // Orden operativo primero (lo que se mira seguido), configuración
-  // después (lo que se toca una vez y se olvida). Finanzas sube antes
-  // de Configuración: con el recordatorio de cobro es donde más se
-  // entra. "Perfil y fotos", "Precios y cobros" y "Asistente" ya no son
-  // pestañas propias — las tres viven plegadas dentro de Configuración.
-  // "Reservas"/"Solicitudes" tampoco: su tabla se plegó dentro de
-  // Agenda, que ahora es el único lugar para tocar reservas de punta a
-  // punta.
+  // el calendario de la Agenda) — acá solo arma el ítem "Citas" del
+  // sidebar. Orden: Inicio primero (el vistazo), después lo operativo
+  // (Agenda/Citas/Catálogo/Finanzas, lo que se mira seguido), al final
+  // lo que se toca una vez y se olvida (Mi negocio/Precios/Asistente
+  // IA — antes era una sola pestaña "Configuración" con 8 formularios
+  // plegados; ahora cada uno vive en su propio ítem del sidebar, sin
+  // competir por espacio con los demás). "Reservas"/"Solicitudes" no
+  // tiene ítem propio: su tabla se plegó dentro de Agenda, que sigue
+  // siendo el único lugar para tocar reservas de punta a punta.
   const tabs: Tab[] = [
+    tabInicio,
     tabAgenda,
     ...(esVerticalCitas
-      ? [{ id: "citas", label: "Citas", href: `/mi-negocio/${rancho.id}/citas` } satisfies Tab]
+      ? [
+          {
+            id: "citas",
+            label: "Citas",
+            href: `/mi-negocio/${rancho.id}/citas`,
+            icon: <IconClock />,
+          } satisfies Tab,
+        ]
       : []),
     ...(!esLugar ? [tabCatalogo] : []),
     tabFinanzas,
-    tabConfiguracion,
+    tabNegocio,
+    tabPrecios,
+    tabAsistente,
   ];
 
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
   return (
-    <main className="mx-auto max-w-[1100px] px-5 py-10">
+    <main className="mx-auto max-w-[1280px] px-5 py-10">
       <Link
         href="/mi-negocio"
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -799,7 +859,7 @@ export default async function RanchoDetallePage({
           </div>
 
           <Link
-            href="?tab=configuracion&seccion=perfil"
+            href="?tab=negocio&seccion=perfil"
             className="shrink-0 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-orange-dark"
           >
             Editar perfil y fotos
@@ -840,16 +900,10 @@ export default async function RanchoDetallePage({
           )}
         </p>
 
-        {/* Cómo va el mes, minimalista — lo pendiente por atender ya se
-            ve en la campana del menú de arriba, así que acá no se
-            repite: solo los números. */}
-        <div className="mt-5 border-t border-aventurea-line pt-4">
-          <DashboardMetricas metricas={metricas} esLugar={esLugar} />
-        </div>
       </div>
 
       <div className="mt-7">
-        <Tabs tabs={tabs} defaultTab="agenda" />
+        <PanelSidebar tabs={tabs} defaultTab="inicio" />
       </div>
     </main>
   );

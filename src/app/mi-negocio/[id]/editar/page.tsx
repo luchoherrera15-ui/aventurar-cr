@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// El contenido vive en la página unificada de arriba (con pestañas) —
+// El contenido vive en la página unificada de arriba (con sidebar) —
 // esto solo existe para no romper links guardados a la ruta vieja.
 export default async function EditarRanchoPage({
   params,
@@ -8,5 +8,5 @@ export default async function EditarRanchoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/mi-negocio/${id}?tab=configuracion&seccion=perfil`);
+  redirect(`/mi-negocio/${id}?tab=negocio&seccion=perfil`);
 }
