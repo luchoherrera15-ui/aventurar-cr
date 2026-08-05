@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   IconCalendarLine,
-  IconClock,
   IconHourglass,
   IconStopwatch,
   IconTagLine,
@@ -13,9 +12,7 @@ import {
 } from "@/components/icons";
 import {
   bloqueDisponibleEnDia,
-  duracionHoras,
   etiquetaHorario,
-  resumenDias,
   type HorarioBloqueConfig,
   type ModalidadPrecioLugar,
 } from "@/app/mi-negocio/types";
@@ -686,30 +683,9 @@ export default function BookingCalendar({
           </div>
         )}
 
-        {horarios.length > 0 && !vistaFormulario && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-aventurea-line bg-aventurea-surface p-4">
-            <span className="text-aventurea-navy"><IconClock className="h-5 w-5" /></span>
-            <div className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-              <p className="mb-1.5">
-                {nombreRancho} alquila por estos horarios — elegís uno al
-                reservar:
-              </p>
-              <ul className="flex flex-col gap-1">
-                {horarios.map((h) => {
-                  const horas = duracionHoras(h.desde, h.hasta);
-                  const dias = resumenDias(h.dias_semana);
-                  return (
-                    <li key={h.id}>
-                      <strong className="text-aventurea-ink">{etiquetaHorario(h)}</strong>
-                      {horas !== null && ` · ${horas} h`}
-                      {dias && ` · ${dias}`}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        )}
+        {/* El listado de horarios que iba acá salió: era información
+            repetida — el horario se elige igual dentro del formulario
+            de reserva, ya filtrado por el día elegido. */}
 
         <div
           className={`rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-5 ${vistaFormulario ? "hidden" : ""}`}
@@ -1038,6 +1014,14 @@ export default function BookingCalendar({
 
                 {paso === 1 && (
                   <>
+                    {/* Orden del formulario: primero lo que define el
+                        precio (evento + servicios), la cotización como
+                        resultado inmediato debajo, y recién después los
+                        datos personales — causa antes que efecto, y lo
+                        obligatorio antes que lo opcional. */}
+                    <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      Tu evento
+                    </p>
                     {/* Varias columnas en pantallas grandes: menos alto, cero scroll. */}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {modalidadPrecio === "hora" ? (
@@ -1121,65 +1105,6 @@ export default function BookingCalendar({
                     </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.1fr_1fr]">
-                    <div className="rounded-xl border border-aventurea-line px-3.5 py-2.5">
-                      <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                        Cotización estimada del evento
-                      </p>
-                      {tierBase !== null ? (
-                        <div className="mt-2 space-y-1">
-                          {(descuentoPromoMonto > 0 || descuentoCodigoMonto > 0) && cotizacionTotal !== null && (
-                            <>
-                              <p className="text-[15px] font-bold text-aventurea-ink line-through opacity-50">
-                                {fmtColones(cotizacionTotal)}
-                              </p>
-                              {promoAplicable && descuentoPromoMonto > 0 && (
-                                <p className="text-[12px] font-bold text-aventurea-green">
-                                  {promoAplicable.etiqueta || "Promoción"} −{promoAplicable.porcentaje_descuento}%
-                                </p>
-                              )}
-                              {descuentoCodigoMonto > 0 && !promoAplicable && (
-                                <p className="text-[12px] font-bold text-aventurea-green">
-                                  Código de descuento aplicado
-                                </p>
-                              )}
-                            </>
-                          )}
-                          <p className="text-[18px] font-bold text-aventurea-ink">
-                            {fmtColones(totalConPromo !== null && descuentoCodigoMonto > 0 ? totalConPromo - descuentoCodigoMonto : totalConPromo ?? cotizacionTotal ?? 0)}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-[14px] text-aventurea-ink-soft">
-                          {modalidadPrecio === "hora"
-                            ? horasNum
-                              ? "Consultar precio por hora"
-                              : "— indicá las horas —"
-                            : modalidadPrecio === "fijo"
-                              ? "Consultar precio del evento"
-                              : invitadosNum
-                                ? "Cotización personalizada"
-                                : "— indicá tus invitados —"}
-                        </p>
-                      )}
-                      {modalidadPrecio === "rango_personas" && esDiciembre && invitadosNum > 0 && (
-                        <p className="mt-1.5 text-[11px] text-zinc-500">
-                          Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className={labelCls}>Mensaje (opcional)</label>
-                      <textarea
-                        value={mensaje}
-                        onChange={(e) => setMensaje(e.target.value)}
-                        placeholder="Contanos más sobre tu evento"
-                        className={`min-h-[76px] ${inputCls}`}
-                      />
-                    </div>
-                    </div>
-
                     {servicios.length > 0 && cotizacionCompleta && (
                       <div>
                         <label className={labelCls}>Servicios adicionales</label>
@@ -1223,6 +1148,60 @@ export default function BookingCalendar({
                       </div>
                     )}
 
+                    {/* La cotización va DESPUÉS de todo lo que la mueve
+                        (invitados, horario, servicios): franja de ancho
+                        completo, resultado a la derecha. */}
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-aventurea-line bg-aventurea-cream-2/50 px-3.5 py-2.5">
+                      <div>
+                        <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                          Cotización estimada del evento
+                        </p>
+                        {promoAplicable && descuentoPromoMonto > 0 && (
+                          <p className="text-[11.5px] font-bold text-aventurea-green">
+                            {promoAplicable.etiqueta || "Promoción"} −{promoAplicable.porcentaje_descuento}%
+                          </p>
+                        )}
+                        {descuentoCodigoMonto > 0 && !promoAplicable && (
+                          <p className="text-[11.5px] font-bold text-aventurea-green">
+                            Código de descuento aplicado
+                          </p>
+                        )}
+                        {modalidadPrecio === "rango_personas" && esDiciembre && invitadosNum > 0 && (
+                          <p className="text-[11px] text-zinc-500">
+                            Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
+                          </p>
+                        )}
+                      </div>
+                      {tierBase !== null ? (
+                        <p className="flex items-baseline gap-2">
+                          {(descuentoPromoMonto > 0 || descuentoCodigoMonto > 0) &&
+                            cotizacionTotal !== null && (
+                              <span className="text-[13px] font-bold text-aventurea-ink line-through opacity-50">
+                                {fmtColones(cotizacionTotal)}
+                              </span>
+                            )}
+                          <span className="text-[19px] font-bold text-aventurea-ink">
+                            {fmtColones(totalConPromo !== null && descuentoCodigoMonto > 0 ? totalConPromo - descuentoCodigoMonto : totalConPromo ?? cotizacionTotal ?? 0)}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="text-[13.5px] text-aventurea-ink-soft">
+                          {modalidadPrecio === "hora"
+                            ? horasNum
+                              ? "Consultar precio por hora"
+                              : "— indicá las horas —"
+                            : modalidadPrecio === "fijo"
+                              ? "Consultar precio del evento"
+                              : invitadosNum
+                                ? "Cotización personalizada"
+                                : "— indicá tus invitados —"}
+                        </p>
+                      )}
+                    </div>
+
+                    <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      Tus datos
+                    </p>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <label className={labelCls}>Nombre completo *</label>
@@ -1292,6 +1271,19 @@ export default function BookingCalendar({
                           </p>
                         )}
                       </div>
+                    </div>
+
+                    {/* Opcional al final, compacto — no compite en
+                        jerarquía con los campos obligatorios. */}
+                    <div>
+                      <label className={labelCls}>Mensaje (opcional)</label>
+                      <textarea
+                        value={mensaje}
+                        onChange={(e) => setMensaje(e.target.value)}
+                        placeholder="Contanos más sobre tu evento"
+                        rows={1}
+                        className={`min-h-[44px] ${inputCls}`}
+                      />
                     </div>
 
                     {/* Aviso importante: aparte de los términos generales, esta
