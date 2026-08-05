@@ -734,6 +734,25 @@ export type RanchoItem = {
 };
 
 /** Cómo se llama el catálogo según el rubro — "Menú" para comida, etc. */
+/**
+ * ¿La publicación está EN CONFIGURACIÓN? Se muestra en el directorio
+ * pero no se puede abrir ni reservar: el dueño todavía la está
+ * terminando de armar (fotos, precios, horarios) y no quiere que le
+ * entren reservas a medias.
+ *
+ * Vive en `detalles` (jsonb libre por negocio) en vez de una columna
+ * nueva: es una bandera de configuración del propio negocio, igual que
+ * el resto de lo que guarda ahí, y así no hace falta migrar la base
+ * para poder frenar una publicación hoy mismo.
+ *
+ * Distinto de `estado`: una publicación 'pendiente' todavía no la
+ * aprobó el equipo y NO aparece en el directorio; esta ya está
+ * aprobada y visible, solo que en pausa por decisión del dueño.
+ */
+export function enConfiguracion(detalles: Record<string, unknown> | null | undefined) {
+  return detalles?.en_configuracion === true;
+}
+
 export const CATALOGO_LABEL: Record<Categoria, string> = {
   lugares: "Servicios adicionales",
   alimentacion: "Menú",

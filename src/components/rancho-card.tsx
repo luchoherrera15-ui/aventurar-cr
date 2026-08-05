@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconHeart, IconPin, IconStar } from "@/components/icons";
-import { SUBCATEGORIA_LABEL, UNIDAD_PRECIO_LABEL, type Rancho } from "@/app/mi-negocio/types";
+import {
+  SUBCATEGORIA_LABEL,
+  UNIDAD_PRECIO_LABEL,
+  enConfiguracion,
+  type Rancho,
+} from "@/app/mi-negocio/types";
 import {
   categoriaGradiente,
   categoriaIcono,
@@ -65,6 +70,10 @@ export default function RanchoCard({
       ? categoriaLabel(rancho.vertical ?? "eventos", rancho.categoria)
       : rancho.categoria;
 
+  // En configuración: se ve en el directorio pero no se puede abrir —
+  // el dueño todavía la está armando.
+  const enPausa = enConfiguracion(rancho.detalles);
+
   return (
     <article
       data-reveal
@@ -82,8 +91,14 @@ export default function RanchoCard({
           rubro encima, cuerpo blanco con nombre + nota, ubicación y el
           pie "Desde ₡ · Reservar →". Una sola card en todo el sitio. */}
       <Link
-        href={href}
-        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
+        href={enPausa ? "#" : href}
+        aria-disabled={enPausa || undefined}
+        tabIndex={enPausa ? -1 : undefined}
+        className={`group flex h-full flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all ${
+          enPausa
+            ? "pointer-events-none"
+            : "hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)]"
+        }`}
       >
         {/* 4:3 en vez de 16:10 — la foto es la protagonista y el
             bloque blanco de abajo queda lo más chico posible. */}
@@ -106,6 +121,20 @@ export default function RanchoCard({
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-white/25 [&_svg]:h-12 [&_svg]:w-12">
               {categoriaIcono(rancho.vertical ?? "eventos", rancho.categoria)}
+            </span>
+          )}
+
+          {/* El velo de "en configuración": tapa la foto entera para
+              que se lea de una que esa publicación todavía no se puede
+              abrir, sin sacarla del directorio. */}
+          {enPausa && (
+            <span className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-aventurea-navy/70 px-4 text-center backdrop-blur-[2px]">
+              <span className="rounded-lg bg-white/95 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-aventurea-navy">
+                En configuración
+              </span>
+              <span className="text-[11.5px] font-bold leading-snug text-white/85">
+                Muy pronto disponible para reservar
+              </span>
             </span>
           )}
 
@@ -189,8 +218,12 @@ export default function RanchoCard({
                 "Consultar"
               )}
             </span>
-            <span className="shrink-0 text-[13px] font-extrabold text-aventurea-orange">
-              Reservar →
+            <span
+              className={`shrink-0 text-[13px] font-extrabold ${
+                enPausa ? "text-aventurea-ink-soft" : "text-aventurea-orange"
+              }`}
+            >
+              {enPausa ? "No disponible aún" : "Reservar →"}
             </span>
           </div>
         </div>

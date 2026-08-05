@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconHeart, IconPin, IconStar } from "@/components/icons";
-import { SUBCATEGORIA_LABEL, UNIDAD_PRECIO_LABEL, type Rancho } from "@/app/mi-negocio/types";
+import {
+  SUBCATEGORIA_LABEL,
+  UNIDAD_PRECIO_LABEL,
+  enConfiguracion,
+  type Rancho,
+} from "@/app/mi-negocio/types";
 import {
   categoriaGradiente,
   categoriaIcono,
@@ -50,6 +55,8 @@ export default function RanchoCardGrande({
   sesionActiva: boolean;
 }) {
   const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
+  // En configuración: visible en el directorio pero sin poder abrirse.
+  const enPausa = enConfiguracion(rancho.detalles);
   const precio = fmtColones(rancho.precio_desde);
   const ubicacion = [rancho.canton, rancho.provincia].filter(Boolean).join(", ");
   // eslint-disable-next-line react-hooks/purity -- "nuevo" es una etiqueta de vitrina; no pasa nada si queda desactualizada un instante entre renders
@@ -83,8 +90,14 @@ export default function RanchoCardGrande({
       className="h-full"
     >
       <Link
-        href={href}
-        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-[0_10px_36px_-20px_rgba(16,26,44,0.3)] transition-all hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(16,26,44,0.4)]"
+        href={enPausa ? "#" : href}
+        aria-disabled={enPausa || undefined}
+        tabIndex={enPausa ? -1 : undefined}
+        className={`group flex h-full flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-[0_10px_36px_-20px_rgba(16,26,44,0.3)] transition-all ${
+          enPausa
+            ? "pointer-events-none"
+            : "hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(16,26,44,0.4)]"
+        }`}
       >
         {/* ---------- El collage con sus insignias ---------- */}
         <div
@@ -95,6 +108,19 @@ export default function RanchoCardGrande({
               : undefined
           }
         >
+          {/* El velo de "en configuración": la publicación se ve pero
+              todavía no se puede abrir. */}
+          {enPausa && (
+            <span className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-aventurea-navy/70 px-4 text-center backdrop-blur-[2px]">
+              <span className="rounded-lg bg-white/95 px-3.5 py-1.5 text-[12px] font-extrabold uppercase tracking-wide text-aventurea-navy">
+                En configuración
+              </span>
+              <span className="text-[12.5px] font-bold leading-snug text-white/85">
+                Muy pronto disponible para reservar
+              </span>
+            </span>
+          )}
+
           {portada ? (
             <div className="absolute inset-0 flex gap-[3px]">
               <div className="relative flex-1 overflow-hidden">
@@ -226,8 +252,16 @@ export default function RanchoCardGrande({
                 "Precio a consultar"
               )}
             </span>
-            <span className="text-[13px] font-extrabold text-aventurea-orange">
-              {rancho.categoria === "lugares" ? "Reservar fecha →" : "Reservar →"}
+            <span
+              className={`text-[13px] font-extrabold ${
+                enPausa ? "text-aventurea-ink-soft" : "text-aventurea-orange"
+              }`}
+            >
+              {enPausa
+                ? "No disponible aún"
+                : rancho.categoria === "lugares"
+                  ? "Reservar fecha →"
+                  : "Reservar →"}
             </span>
           </div>
         </div>

@@ -11,6 +11,7 @@ import {
   SUBCATEGORIA_LABEL,
   UNIDAD_PRECIO_LABEL,
   duracionHoras,
+  enConfiguracion,
   etiquetaHorario,
   linkGoogleMaps,
   linkWaze,
@@ -74,6 +75,37 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         .maybeSingle();
       puedeModificar = perfil?.rol === "admin";
     }
+  }
+
+  // En configuración: el dueño todavía la está armando y no quiere que
+  // le entren reservas a medias. La página no se abre para nadie más —
+  // él sí la ve, para poder revisar cómo va quedando.
+  if (enConfiguracion(rancho.detalles) && !puedeModificar) {
+    return (
+      <div className="min-h-screen bg-aventurea-cream-2">
+        <SiteHeader breadcrumb={rancho.nombre} ancho="max-w-[1080px]" />
+        <div className="mx-auto flex min-h-[62vh] max-w-[560px] flex-col items-center justify-center px-7 text-center">
+          <span className="rounded-lg bg-aventurea-navy px-3.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wide text-white">
+            En configuración
+          </span>
+          <h1 className="titulo mt-5 text-[28px] text-aventurea-ink sm:text-[34px]">
+            {rancho.nombre} está terminando de armar su página
+          </h1>
+          <p className="mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+            Todavía no está disponible para reservar. Apenas su equipo
+            termine de configurarla, vas a poder ver sus fotos, sus precios
+            y agendar tu fecha desde acá.
+          </p>
+          <Link
+            href="/eventos"
+            className="mt-7 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-navy-2"
+          >
+            Ver otros espacios
+          </Link>
+        </div>
+        <SiteFooter />
+      </div>
+    );
   }
 
   // Esta página solo se renderiza para negocios de la vertical Eventos
