@@ -127,12 +127,18 @@ export default async function RanchoDetallePage({
   const { data } = await supabase.from("ranchos").select("*").eq("id", id).maybeSingle();
   if (!data) notFound();
 
-  // Al panel de un negocio entra SOLO su dueño — ni siquiera el equipo
-  // de Bookea. El negocio es del proveedor: sus precios, su agenda y su
-  // catálogo no se tocan desde acá en su nombre. Lo que el equipo sí
-  // necesita (aprobar publicaciones, complementos, finanzas de la
-  // plataforma) vive en /admin, donde es explícito.
-  if (data.owner_id !== user.id) notFound();
+  // El dueño entra siempre; un admin también puede entrar a modificar la
+  // publicación en nombre del proveedor (por ejemplo cuando pide ayuda
+  // desde el botón "Modificar tu página" del portal público). Las
+  // políticas de la base ya permiten ambos casos — esto es la segunda
+  // barrera para que nadie más abra una publicación ajena pegando el id.
+  const { data: perfil } = await supabase
+    .from("perfiles")
+    .select("rol")
+    .eq("id", user.id)
+    .maybeSingle();
+  const esAdminSesion = perfil?.rol === "admin";
+  if (data.owner_id !== user.id && !esAdminSesion) notFound();
 
   const rancho = data as Rancho;
   // "lugares" solo existe en la vertical Eventos — para Citas/Hospedajes/

@@ -59,18 +59,11 @@ export async function requireAdmin() {
 }
 
 /**
- * Confirma acceso al panel de un negocio: SOLO su dueño.
- *
- * Antes también dejaba pasar a cualquier admin del equipo, para poder
- * entrar a modificar en nombre del proveedor cuando pedía ayuda. Se
- * cerró a propósito: el negocio es del proveedor, y nadie —ni el
- * equipo— debería editar sus precios, su agenda o su catálogo desde su
- * propio panel sin que él lo sepa. Lo que el equipo necesita hacer
- * (aprobar publicaciones, complementos, finanzas de la plataforma)
- * vive en /admin, donde es explícito.
- *
- * `esAdmin` se sigue devolviendo para quien necesite distinguir el rol,
- * pero NO abre la puerta: `ok` es dueño y punto.
+ * Confirma acceso al panel de un rancho: el dueño de la publicación o
+ * cualquier admin del equipo (que puede entrar a modificarla en su
+ * nombre, por ejemplo cuando el proveedor pide ayuda). Las políticas de
+ * la base ya permiten ambos casos — esto evita que cada acción repita
+ * la misma consulta de "id" o "owner_id".
  */
 export async function verificarAccesoRancho(ranchoId: string) {
   const supabase = await createClient();
@@ -85,6 +78,6 @@ export async function verificarAccesoRancho(ranchoId: string) {
   ]);
 
   const esAdmin = perfil?.rol === "admin";
-  const ok = !!rancho && rancho.owner_id === user.id;
+  const ok = !!rancho && (rancho.owner_id === user.id || esAdmin);
   return { supabase, user, ok, esAdmin };
 }
