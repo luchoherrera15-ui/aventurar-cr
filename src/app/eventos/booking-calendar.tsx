@@ -863,7 +863,7 @@ export default function BookingCalendar({
             onClick={(e) => e.stopPropagation()}
             className={
               compacto
-                ? "panel-solido mx-auto flex w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface"
+                ? "panel-solido mx-auto flex w-full max-w-[1000px] flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface"
                 : "flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[560px] sm:rounded-2xl sm:border sm:border-aventurea-line"
             }
           >
@@ -1003,8 +1003,8 @@ export default function BookingCalendar({
 
                 {paso === 1 && (
                   <>
-                    {/* Dos columnas: menos alto, cero scroll. */}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {/* Varias columnas en pantallas grandes: menos alto, cero scroll. */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {modalidadPrecio === "hora" ? (
                       <div>
                         <label className={labelCls}>Cantidad de horas</label>
@@ -1068,8 +1068,25 @@ export default function BookingCalendar({
                         )}
                       </div>
                     )}
+
+                    <div>
+                      <label className={labelCls}>Tipo de evento</label>
+                      <select
+                        required
+                        value={tipoEvento}
+                        onChange={(e) => setTipoEvento(e.target.value)}
+                        className={inputCls}
+                      >
+                        <option value="">Selecciona una opción</option>
+                        <option>Boda</option>
+                        <option>Cumpleaños</option>
+                        <option>Evento corporativo</option>
+                        <option>Otro</option>
+                      </select>
+                    </div>
                     </div>
 
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.1fr_1fr]">
                     <div className="rounded-xl border border-aventurea-line px-3.5 py-2.5">
                       <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                         Cotización estimada del evento
@@ -1110,12 +1127,23 @@ export default function BookingCalendar({
                                 : "— indicá tus invitados —"}
                         </p>
                       )}
+                      {modalidadPrecio === "rango_personas" && esDiciembre && invitadosNum > 0 && (
+                        <p className="mt-1.5 text-[11px] text-zinc-500">
+                          Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
+                        </p>
+                      )}
                     </div>
-                    {modalidadPrecio === "rango_personas" && esDiciembre && invitadosNum > 0 && (
-                      <p className="-mt-2 text-[11px] text-zinc-500">
-                        Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
-                      </p>
-                    )}
+
+                    <div>
+                      <label className={labelCls}>Mensaje (opcional)</label>
+                      <textarea
+                        value={mensaje}
+                        onChange={(e) => setMensaje(e.target.value)}
+                        placeholder="Contanos más sobre tu evento"
+                        className={`min-h-[76px] ${inputCls}`}
+                      />
+                    </div>
+                    </div>
 
                     {servicios.length > 0 && cotizacionCompleta && (
                       <div>
@@ -1160,7 +1188,7 @@ export default function BookingCalendar({
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <label className={labelCls}>Nombre completo *</label>
                         <input
@@ -1229,34 +1257,6 @@ export default function BookingCalendar({
                           </p>
                         )}
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className={labelCls}>Tipo de evento</label>
-                      <select
-                        required
-                        value={tipoEvento}
-                        onChange={(e) => setTipoEvento(e.target.value)}
-                        className={inputCls}
-                      >
-                        <option value="">Selecciona una opción</option>
-                        <option>Boda</option>
-                        <option>Cumpleaños</option>
-                        <option>Evento corporativo</option>
-                        <option>Otro</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className={labelCls}>Mensaje (opcional)</label>
-                      <textarea
-                        value={mensaje}
-                        onChange={(e) => setMensaje(e.target.value)}
-                        placeholder="Contanos más sobre tu evento"
-                        className={`min-h-[44px] ${inputCls}`}
-                      />
-                    </div>
                     </div>
 
                     {/* Aviso importante: aparte de los términos generales, esta

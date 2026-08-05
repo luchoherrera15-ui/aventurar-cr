@@ -72,7 +72,7 @@ export default function ReservaModal({
       {/* Panel más pequeño (se ve la página alrededor y cabe completo
           sin tanto scroll) y bien translúcido: la clase modal-vidrio
           vuelve vidrio también las tarjetas de ADENTRO (globals.css). */}
-      <div className="anim-panel-entrar relative flex max-h-[92vh] w-full max-w-[860px] flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/45 shadow-[0_48px_120px_-40px_rgba(6,12,32,0.5)] backdrop-blur-xl">
+      <div className="anim-panel-entrar relative flex max-h-[92vh] w-full max-w-[1040px] flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/45 shadow-[0_48px_120px_-40px_rgba(6,12,32,0.5)] backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-6 py-2.5">
           <div className="min-w-0">
             <p className="text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-aventurea-orange">
