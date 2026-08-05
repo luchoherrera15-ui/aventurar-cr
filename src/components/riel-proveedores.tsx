@@ -70,7 +70,9 @@ export default function RielProveedores({
     el.scrollBy({ left: direccion * el.clientWidth * 0.85, behavior: "smooth" });
   }
 
-  if (items.length === 0) return null;
+  // Un riel sin negocios igual se muestra si trae una tarjeta sembrada
+  // (Invitaciones Digitales en "Otros servicios").
+  if (items.length === 0 && !cardExtra) return null;
 
   const flechaCls =
     "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line bg-aventurea-surface text-aventurea-ink shadow-[0_1px_3px_rgba(16,26,44,0.08)] transition-all hover:shadow-[0_2px_8px_rgba(16,26,44,0.14)] disabled:opacity-35 disabled:shadow-none [&_svg]:h-4 [&_svg]:w-4";

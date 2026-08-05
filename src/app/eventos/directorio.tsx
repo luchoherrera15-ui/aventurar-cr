@@ -224,10 +224,15 @@ export default function Directorio({
   // Apenas se filtra algo, vuelve la grilla plana con paginación.
   const rieles = useMemo(() => {
     if (hayAlgo) return [];
-    return CATEGORIAS.map((cat) => ({
-      cat,
-      items: ranchos.filter((r) => r.categoria === cat).slice(0, POR_RIEL),
-    })).filter((g) => g.items.length > 0);
+    return (
+      CATEGORIAS.map((cat) => ({
+        cat,
+        items: ranchos.filter((r) => r.categoria === cat).slice(0, POR_RIEL),
+      }))
+        // "Otros servicios" se muestra aunque no haya negocios: ahí vive
+        // la tarjeta de Invitaciones Digitales, que es producto propio.
+        .filter((g) => g.items.length > 0 || g.cat === "otros")
+    );
   }, [ranchos, hayAlgo]);
 
   const proximasLibres = useMemo(() => {
