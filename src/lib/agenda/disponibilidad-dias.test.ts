@@ -1,11 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
   cupoDelNegocio,
+  expandirRangos,
   fechasBloqueadas,
   fechasLlenas,
   fechasSinDisponibilidad,
   type ReservaParaCupo,
 } from "./disponibilidad-dias";
+
+describe("expandirRangos", () => {
+  it("una reserva de un solo día queda igual", () => {
+    expect(expandirRangos([{ fecha: "2026-08-09", estado: "confirmada" }])).toEqual([
+      { fecha: "2026-08-09", estado: "confirmada" },
+    ]);
+  });
+
+  it("un alquiler multi-día bloquea también los días intermedios y el último", () => {
+    const filas = expandirRangos([
+      { fecha: "2026-08-20", estado: "confirmada", fecha_fin: "2026-08-22" },
+    ]);
+    expect(filas.map((f) => f.fecha)).toEqual(["2026-08-20", "2026-08-21", "2026-08-22"]);
+  });
+
+  it("cruza fin de mes sin desfase de zona horaria", () => {
+    const filas = expandirRangos([
+      { fecha: "2026-08-31", estado: "confirmada", fecha_fin: "2026-09-02" },
+    ]);
+    expect(filas.map((f) => f.fecha)).toEqual(["2026-08-31", "2026-09-01", "2026-09-02"]);
+  });
+
+  it("fecha_fin anterior o igual a la fecha no expande nada", () => {
+    const filas = expandirRangos([
+      { fecha: "2026-08-09", estado: "confirmada", fecha_fin: "2026-08-09" },
+    ]);
+    expect(filas).toHaveLength(1);
+  });
+
+  it("un fecha_fin corrupto no explota: corta en el tope", () => {
+    const filas = expandirRangos(
+      [{ fecha: "2026-08-09", estado: "confirmada", fecha_fin: "3000-01-01" }],
+      5,
+    );
+    expect(filas).toHaveLength(6);
+  });
+});
 
 describe("fechasLlenas", () => {
   it("sin tope (cupo null) nunca llena una fecha, sin importar cuántas reservas tenga", () => {

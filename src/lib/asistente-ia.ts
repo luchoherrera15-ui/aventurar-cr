@@ -8,7 +8,12 @@ import {
 import { modeloDe, motivoParaNoGastar } from "@/lib/ia/config-ia";
 import { registrarDesdeUsage, registrarFalloIA } from "@/lib/ia/registrar-uso";
 import { MODELOS, type ModeloIA } from "@/lib/ia/modelos";
-import { cupoDelNegocio, fechasSinDisponibilidad } from "@/lib/agenda/disponibilidad-dias";
+import {
+  cupoDelNegocio,
+  expandirRangos,
+  fechasSinDisponibilidad,
+  type ReservaConRango,
+} from "@/lib/agenda/disponibilidad-dias";
 import { fmtFechaCorta, fmtHoraCR, hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { contextoFechaActual, filtrarFechasPasadas } from "@/lib/asistente-fechas";
 import { PREFIJO_ASISTENTE } from "@/lib/asistente-prefijo";
@@ -103,6 +108,120 @@ const MARCA_FIN = "<<<FIN_DATOS_DEL_NEGOCIO";
 
 type FilaMensaje = { autor_id: string; texto: string; created_at: string };
 type FilaConocimiento = { pregunta: string; respuesta: string };
+
+type FilaTier = { min_invitados: number; max_invitados: number; precio: number };
+type FilaServicioAdicional = {
+  nombre: string;
+  precio: number;
+  requisito_max_invitados: number | null;
+};
+type FilaPromocion = {
+  dias_semana: unknown;
+  tipo: string | null;
+  porcentaje_descuento: number | null;
+  precio_fijo: number | null;
+  personas_max: number | null;
+  etiqueta: string | null;
+  activo: boolean;
+};
+
+const MAX_TIERS_PROMPT = 12;
+const MAX_SERVICIOS_PROMPT = 12;
+const MAX_PROMOS_PROMPT = 8;
+
+function colones(n: number) {
+  return `₡${Number(n).toLocaleString("es-CR")}`;
+}
+
+/** dias_semana llega como jsonb libre: se filtra a días válidos. */
+function diasDePromo(valor: unknown): number[] {
+  if (!Array.isArray(valor)) return [];
+  return valor.filter(
+    (n): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 6,
+  );
+}
+
+/**
+ * Cómo cobra el negocio, con números reales — sin esto el asistente
+ * solo veía "Precio desde" y cotizaba mal (o inventaba): los rangos
+ * por invitados, la modalidad por hora o precio fijo, la tarifa de
+ * diciembre, las promociones por día y los servicios adicionales
+ * nunca le llegaban.
+ */
+function seccionPrecios(
+  rancho: Record<string, unknown>,
+  tiers: FilaTier[],
+  serviciosAdicionales: FilaServicioAdicional[],
+  promociones: FilaPromocion[],
+): string[] {
+  const partes: string[] = [];
+  const modalidad =
+    typeof rancho.modalidad_precio_lugar === "string"
+      ? rancho.modalidad_precio_lugar
+      : "rango_personas";
+
+  if (modalidad === "fijo" && typeof rancho.precio_fijo_lugar === "number") {
+    partes.push(
+      `Precio del evento: ${colones(rancho.precio_fijo_lugar)} fijo, sin importar la cantidad de invitados.`,
+    );
+  } else if (modalidad === "hora" && typeof rancho.precio_hora_lugar === "number") {
+    partes.push(
+      `Precio del evento: ${colones(rancho.precio_hora_lugar)} por hora contratada.`,
+    );
+  } else if (tiers.length > 0) {
+    partes.push(
+      "Precios por cantidad de invitados (el precio del evento es el del rango donde cae la cantidad): " +
+        tiers
+          .slice(0, MAX_TIERS_PROMPT)
+          .map((t) => `${t.min_invitados}–${t.max_invitados} personas: ${colones(t.precio)}`)
+          .join(" · "),
+    );
+    if (typeof rancho.tarifa_diciembre_por_persona === "number" && rancho.tarifa_diciembre_por_persona > 0) {
+      partes.push(
+        `En DICIEMBRE los rangos no aplican: se cobra ${colones(rancho.tarifa_diciembre_por_persona)} por persona.`,
+      );
+    }
+  }
+
+  const activas = promociones.filter((p) => p.activo);
+  if (activas.length > 0) {
+    partes.push(
+      "Promociones automáticas por día (se aplican solas al reservar, no hace falta código): " +
+        activas
+          .slice(0, MAX_PROMOS_PROMPT)
+          .map((p) => {
+            const dias = resumenDias(diasDePromo(p.dias_semana)) ?? "todos los días";
+            if (p.tipo === "precio_fijo" && typeof p.precio_fijo === "number") {
+              const tope = p.personas_max ? ` hasta ${p.personas_max} personas` : "";
+              return `${dias}: ${colones(p.precio_fijo)} fijo por el evento${tope} (si se pasa del tope, aplica el precio normal)`;
+            }
+            if (typeof p.porcentaje_descuento === "number") {
+              return `${dias}: ${p.porcentaje_descuento}% de descuento`;
+            }
+            return null;
+          })
+          .filter(Boolean)
+          .join(" · "),
+    );
+  }
+
+  if (serviciosAdicionales.length > 0) {
+    partes.push(
+      "Servicios adicionales (opcionales, se suman al precio del evento): " +
+        serviciosAdicionales
+          .slice(0, MAX_SERVICIOS_PROMPT)
+          .map((s) => {
+            const tope = s.requisito_max_invitados
+              ? ` (solo hasta ${s.requisito_max_invitados} personas)`
+              : "";
+            return `${s.nombre}: ${colones(s.precio)}${tope}`;
+          })
+          .join(" · "),
+    );
+  }
+
+  return partes;
+}
 
 type RanchoDeConversacion = {
   nombre: string;
@@ -272,6 +391,9 @@ function fichaDelNegocio(
   rancho: Record<string, unknown>,
   items: { nombre: string; precio: number | null; duracion_minutos: number | null }[],
   conocimiento: FilaConocimiento[],
+  tiers: FilaTier[],
+  serviciosAdicionales: FilaServicioAdicional[],
+  promociones: FilaPromocion[],
 ): string {
   const partes: string[] = [];
   partes.push(`Nombre: ${rancho.nombre}`);
@@ -288,12 +410,16 @@ function fichaDelNegocio(
   if (rancho.capacidad_min || rancho.capacidad_max) {
     partes.push(`Capacidad: ${rancho.capacidad_min ?? "?"} a ${rancho.capacidad_max ?? "?"} personas`);
   }
-  if (typeof rancho.precio_desde === "number") {
-    partes.push(`Precio desde: ₡${Number(rancho.precio_desde).toLocaleString("es-CR")}`);
+  const precios = seccionPrecios(rancho, tiers, serviciosAdicionales, promociones);
+  if (precios.length > 0) {
+    partes.push(...precios);
+  } else if (typeof rancho.precio_desde === "number") {
+    // Sin precios detallados configurados, al menos el "desde".
+    partes.push(`Precio desde: ${colones(rancho.precio_desde)}`);
   }
   if (typeof rancho.deposito_reserva === "number") {
     partes.push(
-      `Depósito para reservar: ₡${Number(rancho.deposito_reserva).toLocaleString("es-CR")}`,
+      `Depósito para reservar (adelanto que aparta la fecha; el resto se paga el día del evento): ${colones(rancho.deposito_reserva)}`,
     );
   }
   const amenidades = textos(rancho.amenidades);
@@ -443,6 +569,9 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
       { data: historialData },
       { data: conocimientoData },
       { data: reservasVentanaData, error: errorReservasVentana },
+      { data: tiersData },
+      { data: serviciosAdicionalesData },
+      { data: promocionesData },
     ] = await Promise.all([
       db.from("ranchos").select("*").eq("id", conversacion.rancho_id).maybeSingle(),
       db
@@ -471,14 +600,34 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
       // contestar disponibilidad de fechas con datos reales en vez de
       // mandar siempre al botón Reservar. Rango corto e indexado
       // (rancho_id, fecha): barato aunque el negocio tenga años de
-      // historial, porque no se pide nada de fechas pasadas.
+      // historial, porque no se pide nada de fechas pasadas. fecha_fin
+      // viene para expandir alquileres multi-día: sin eso, solo el
+      // primer día contaba como ocupado.
       db
         .from("reservas")
-        .select("fecha, estado")
+        .select("fecha, fecha_fin, estado")
         .eq("rancho_id", conversacion.rancho_id)
         .gte("fecha", hoy)
         .lte("fecha", sumarDiasISO(hoy, DIAS_DISPONIBILIDAD_ASISTENTE))
         .in("estado", ["pendiente", "confirmada", "bloqueada"]),
+      // Los precios REALES del negocio — sin esto el asistente solo
+      // veía "Precio desde" y no podía cotizar por invitados, ni sabía
+      // de promociones o servicios adicionales.
+      db
+        .from("precio_tiers")
+        .select("min_invitados, max_invitados, precio")
+        .eq("rancho_id", conversacion.rancho_id)
+        .order("min_invitados", { ascending: true }),
+      db
+        .from("servicios_adicionales")
+        .select("nombre, precio, requisito_max_invitados")
+        .eq("rancho_id", conversacion.rancho_id)
+        .eq("activo", true),
+      db
+        .from("promociones_dia")
+        .select("dias_semana, tipo, porcentaje_descuento, precio_fijo, personas_max, etiqueta, activo")
+        .eq("rancho_id", conversacion.rancho_id)
+        .eq("activo", true),
     ]);
     if (!ranchoFull) return;
 
@@ -510,7 +659,14 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
             ]
           : []),
         "FICHA DEL NEGOCIO:",
-        fichaDelNegocio(ranchoFull as Record<string, unknown>, itemsData ?? [], conocimiento),
+        fichaDelNegocio(
+          ranchoFull as Record<string, unknown>,
+          itemsData ?? [],
+          conocimiento,
+          (tiersData ?? []) as FilaTier[],
+          (serviciosAdicionalesData ?? []) as FilaServicioAdicional[],
+          (promocionesData ?? []) as FilaPromocion[],
+        ),
       ].join("\n"),
     );
 
@@ -545,7 +701,11 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
           typeof ranchoRaw.eventos_por_dia === "number" ? ranchoRaw.eventos_por_dia : null,
           rancho.categoria,
         );
-        const reservasVentana = (reservasVentanaData ?? []) as { fecha: string; estado: string }[];
+        // expandirRangos: un alquiler multi-día (fecha_fin) ocupa TODOS
+        // sus días, no solo el primero.
+        const reservasVentana = expandirRangos(
+          (reservasVentanaData ?? []) as ReservaConRango[],
+        );
         const ocupadasCrudo = fechasSinDisponibilidad(reservasVentana, cupo);
 
         // Red de seguridad además del filtro `.gte("fecha", hoy)` de la

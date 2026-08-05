@@ -15,6 +15,42 @@
 
 export type ReservaParaCupo = { fecha: string; estado: string };
 
+export type ReservaConRango = ReservaParaCupo & {
+  /** Último día de un alquiler multi-día (0067). null/ausente = un solo día. */
+  fecha_fin?: string | null;
+};
+
+/** Suma un día a una fecha ISO sin pasar por Date (evita zonas horarias). */
+function siguienteDia(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const fecha = new Date(Date.UTC(y, m - 1, d + 1));
+  return fecha.toISOString().slice(0, 10);
+}
+
+/**
+ * Expande las reservas multi-día en una fila por fecha ocupada: un
+ * alquiler del 20 al 22 bloquea el 20, el 21 Y el 22 — sin esto, solo
+ * su primer día contaba para el cupo y los días intermedios se
+ * ofrecían como libres. `topeDias` es la red de seguridad contra un
+ * fecha_fin corrupto (año 3000): nunca se expande más que eso.
+ */
+export function expandirRangos(
+  reservas: ReservaConRango[],
+  topeDias = 60,
+): ReservaParaCupo[] {
+  const filas: ReservaParaCupo[] = [];
+  for (const r of reservas) {
+    filas.push({ fecha: r.fecha, estado: r.estado });
+    if (!r.fecha_fin || r.fecha_fin <= r.fecha) continue;
+    let dia = r.fecha;
+    for (let i = 0; i < topeDias && dia < r.fecha_fin; i++) {
+      dia = siguienteDia(dia);
+      filas.push({ fecha: dia, estado: r.estado });
+    }
+  }
+  return filas;
+}
+
 /**
  * Las fechas del rango que YA NO tienen cupo: alcanzaron o pasaron el
  * límite de eventos por día, contando pendientes y confirmadas (igual
