@@ -11,6 +11,7 @@ import { MODELOS, type ModeloIA } from "@/lib/ia/modelos";
 import { cupoDelNegocio, fechasSinDisponibilidad } from "@/lib/agenda/disponibilidad-dias";
 import { fmtFechaCorta, fmtHoraCR, hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { contextoFechaActual, filtrarFechasPasadas } from "@/lib/asistente-fechas";
+import { PREFIJO_ASISTENTE } from "@/lib/asistente-prefijo";
 
 /**
  * El asistente de IA del chat: cuando un cliente le escribe a un
@@ -82,7 +83,6 @@ const MAX_FECHAS_OCUPADAS = 60;
  * desde /admin/ia), que manda por encima de este cuando existe.
  */
 const MAX_RESPUESTAS_ASISTENTE = 15;
-const PREFIJO_ASISTENTE = "💎 ";
 const AVISO_TOPE_ASISTENTE =
   `${PREFIJO_ASISTENTE}Ya usé mis respuestas automáticas para esta conversación — ` +
   "a partir de acá te sigue contestando el equipo del negocio por este mismo chat.";
@@ -579,7 +579,8 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
         bloqueDisponibilidad = [
           "DISPONIBILIDAD DE FECHAS (dato real, calculado por el sistema — no lo escribió el dueño):",
           listado,
-          `Link directo para reservar esa fecha ahí mismo: ${urlReserva}`,
+          `Link para reservar: ${urlReserva}`,
+          `Si el cliente ya te dio una fecha concreta (dentro del rango de arriba y disponible) Y una cantidad de invitados, no mandes el link pelado: armá ${urlReserva}?fecha=AAAA-MM-DD&invitados=N#reservar (fecha en ese formato exacto, N = la cantidad que dijo) para que le abra el calendario con esos datos ya listos y solo tenga que confirmar. Si falta la cantidad de invitados, o la fecha no quedó clara o no está disponible, mandá el link simple de la línea de arriba, sin parámetros.`,
         ].join("\n");
       }
     }

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { enviarMensaje } from "../actions";
 import type { Mensaje } from "@/app/mi-negocio/types";
+import { PREFIJO_ASISTENTE } from "@/lib/asistente-prefijo";
+import { IconSparkles } from "@/components/icons";
 
 export default function HiloChat({
   conversacionId,
@@ -103,6 +105,7 @@ export default function HiloChat({
         )}
         {mensajes.map((m) => {
           const esMio = m.autor_id === miId;
+          const esAsistente = m.texto.startsWith(PREFIJO_ASISTENTE);
           return (
             <div key={m.id} className={`flex ${esMio ? "justify-end" : "justify-start"}`}>
               <div
@@ -112,7 +115,14 @@ export default function HiloChat({
                     : "bg-aventurea-cream-2 text-aventurea-ink"
                 }`}
               >
-                {m.texto}
+                {esAsistente ? (
+                  <span className="flex items-start gap-1.5">
+                    <IconSparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{m.texto.slice(PREFIJO_ASISTENTE.length)}</span>
+                  </span>
+                ) : (
+                  m.texto
+                )}
               </div>
             </div>
           );

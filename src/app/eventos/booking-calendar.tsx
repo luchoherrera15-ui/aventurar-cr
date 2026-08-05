@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   IconCalendarLine,
@@ -130,9 +131,27 @@ export default function BookingCalendar({
     return d;
   }, []);
 
+  // El asistente de IA puede mandar un link con la fecha y la cantidad
+  // de invitados ya conversadas (ej. "...?fecha=2026-08-05&invitados=25")
+  // para que el cliente los encuentre ya listos — sin crear el hold de
+  // 10 minutos solo, eso sigue pasando cuando el cliente toca la fecha.
+  const searchParams = useSearchParams();
+  const fechaSugerida = useMemo(() => {
+    const v = searchParams.get("fecha");
+    return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+  }, [searchParams]);
+  const invitadosSugeridos = useMemo(() => {
+    const n = Number(searchParams.get("invitados"));
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+  }, [searchParams]);
+
   const [dias, setDias] = useState(disponibilidad);
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [viewYear, setViewYear] = useState(() =>
+    fechaSugerida ? Number(fechaSugerida.slice(0, 4)) : today.getFullYear(),
+  );
+  const [viewMonth, setViewMonth] = useState(() =>
+    fechaSugerida ? Number(fechaSugerida.slice(5, 7)) - 1 : today.getMonth(),
+  );
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const [holdId, setHoldId] = useState<string | null>(null);
@@ -145,7 +164,9 @@ export default function BookingCalendar({
   const [holdVencido, setHoldVencido] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
 
-  const [invitados, setInvitados] = useState("");
+  const [invitados, setInvitados] = useState(() =>
+    invitadosSugeridos ? String(invitadosSugeridos) : "",
+  );
   const [horasEvento, setHorasEvento] = useState("");
   const [horarioBloque, setHorarioBloque] = useState("");
   const [addons, setAddons] = useState<Record<string, boolean>>({});
@@ -770,6 +791,12 @@ export default function BookingCalendar({
                 etiqueta = "Disponible";
               }
               if (isToday) cls += " ring-2 ring-inset ring-aventurea-navy/35";
+              // La fecha que ya venía conversada con el asistente: se
+              // resalta para que sea obvio cuál tocar, pero no se
+              // selecciona sola — el hold de 10 minutos solo se crea
+              // cuando el cliente la toca de verdad.
+              const isSugerida = !isBlocked && fecha === fechaSugerida;
+              if (isSugerida) cls += " ring-2 ring-inset ring-aventurea-orange";
               if (isSelected) cls += " ring-2 ring-inset ring-aventurea-navy";
 
               return (
@@ -778,11 +805,13 @@ export default function BookingCalendar({
                   onClick={() => !isBlocked && !holdCreando && handleDateClick(fecha)}
                   className={cls}
                   title={
-                    promoDia
-                      ? promoDia.tipo === "precio_fijo" && promoDia.personas_max
-                        ? `${promoDia.etiqueta} (hasta ${promoDia.personas_max} personas)`
-                        : promoDia.etiqueta
-                      : undefined
+                    isSugerida
+                      ? "La fecha que ya conversaste — tocala para reservarla"
+                      : promoDia
+                        ? promoDia.tipo === "precio_fijo" && promoDia.personas_max
+                          ? `${promoDia.etiqueta} (hasta ${promoDia.personas_max} personas)`
+                          : promoDia.etiqueta
+                        : undefined
                   }
                 >
                   <span className="font-bold leading-none">{d}</span>
@@ -830,6 +859,12 @@ export default function BookingCalendar({
               <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
                 <span className="h-2.5 w-2.5 rounded-[3px] bg-aventurea-green" />
                 Promoción del día
+              </span>
+            )}
+            {fechaSugerida && (
+              <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
+                <span className="h-2.5 w-2.5 rounded-[3px] border-2 border-aventurea-orange bg-aventurea-cream-2" />
+                Tu fecha
               </span>
             )}
           </div>
