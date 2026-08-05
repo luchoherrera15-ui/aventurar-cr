@@ -48,6 +48,7 @@ import AsistentePanel from "./asistente/asistente-panel";
 import type { ConocimientoFila } from "./asistente/actions";
 import { type EventoAgenda } from "@/components/agenda-eventos";
 import ProximasReservasCards from "./proximas-reservas-cards";
+import AuditoriaActividad from "./auditoria-actividad";
 import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-calendario";
 import SincronizarCalendario from "@/components/sincronizar-calendario";
 import AgendasExternas, { type AgendaExternaFila } from "@/components/agendas-externas";
@@ -394,10 +395,10 @@ export default async function RanchoDetallePage({
           <SincronizarCalendario feedUrl={feedUrl} />
         </SeccionPlegable>
         <div>
-          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Próximas reservas
+          <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+            Actividad reciente
           </h2>
-          <ProximasReservasCards eventos={agenda} />
+          <AuditoriaActividad reservas={reservas} />
         </div>
 
         {/* La tabla completa (antes su propia pestaña "Reservas" /
