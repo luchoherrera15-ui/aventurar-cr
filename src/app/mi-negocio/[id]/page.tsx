@@ -786,54 +786,68 @@ export default async function RanchoDetallePage({
       {/* El tablero: identidad del negocio, lo que hay que atender, cómo
           va el mes y la agenda, todo en un mismo panel. */}
       <div className="mt-4 overflow-hidden rounded-3xl border border-aventurea-line bg-aventurea-surface p-5 shadow-sm sm:p-7">
-        <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <div
-            className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-aventurea-line bg-cover bg-center"
-            style={
-              rancho.foto_url
-                ? { backgroundImage: `url(${rancho.foto_url})` }
-                : { backgroundImage: CATEGORIA_GRADIENTE[categoriaParaIcono] }
-            }
-          >
-            {!rancho.foto_url && (
-              <span className="text-white opacity-90 [&_svg]:h-7 [&_svg]:w-7">
-                {CATEGORIA_ICONO[categoriaParaIcono]}
-              </span>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-              <h1 className="text-[19px] font-bold leading-tight text-aventurea-ink">
-                {rancho.nombre}
-              </h1>
-              <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink-soft">
-                <span className={`h-2 w-2 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
-                {ESTADO_LABEL[rancho.estado]}
-              </span>
-            </div>
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-aventurea-ink-soft">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
-                {categoriaLabelMostrado}
-              </span>
-              {ubicacion && <span className="truncate">{ubicacion}</span>}
-              {rancho.estado === "aprobado" && (
-                <Link
-                  href={urlPublica}
-                  className="font-bold text-aventurea-navy underline-offset-2 hover:underline"
-                >
-                  Ver mi página{rancho.slug ? ` · /${rancho.slug}` : ""} →
-                </Link>
+        <header className="flex flex-col gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-4">
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-aventurea-line bg-cover bg-center"
+              style={
+                rancho.foto_url
+                  ? { backgroundImage: `url(${rancho.foto_url})` }
+                  : { backgroundImage: CATEGORIA_GRADIENTE[categoriaParaIcono] }
+              }
+            >
+              {!rancho.foto_url && (
+                <span className="text-white opacity-90 [&_svg]:h-7 [&_svg]:w-7">
+                  {CATEGORIA_ICONO[categoriaParaIcono]}
+                </span>
               )}
-            </p>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <h1 className="text-[18px] font-bold text-aventurea-ink">
+                  {rancho.nombre}
+                </h1>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-aventurea-ink-soft">
+                  <span className={`h-1.5 w-1.5 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
+                  {ESTADO_LABEL[rancho.estado]}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-aventurea-ink-soft">
+                <span className="font-bold uppercase tracking-wide text-aventurea-orange">
+                  {categoriaLabelMostrado}
+                </span>
+                {ubicacion && <span>{ubicacion}</span>}
+                {esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null) && (
+                  <span>
+                    Cap. <strong className="text-aventurea-ink">{rancho.capacidad_min ?? "—"}–{rancho.capacidad_max ?? "—"}</strong>
+                  </span>
+                )}
+                {rancho.precio_desde !== null && (
+                  <span>
+                    Desde <strong className="text-aventurea-ink">{fmtColones(rancho.precio_desde)}</strong>
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
-          <Link
-            href="?tab=configuracion&seccion=perfil"
-            className="shrink-0 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-orange-dark"
-          >
-            Editar perfil y fotos
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {rancho.estado === "aprobado" && (
+              <Link
+                href={urlPublica}
+                className="rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-navy transition-colors hover:border-aventurea-navy hover:bg-aventurea-navy hover:text-white"
+              >
+                Ver mi publicación
+              </Link>
+            )}
+            <Link
+              href="?tab=configuracion&seccion=perfil"
+              className="shrink-0 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13px] font-bold text-white shadow-sm hover:bg-aventurea-orange-dark"
+            >
+              Editar perfil y fotos
+            </Link>
+          </div>
         </header>
 
         {rancho.estado === "pendiente" && (
@@ -847,28 +861,6 @@ export default async function RanchoDetallePage({
             Tu publicación no fue aprobada todavía. Escribinos si querés más información.
           </p>
         )}
-
-        <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-zinc-500">
-          {esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null) && (
-            <span>
-              Capacidad{" "}
-              <strong className="text-aventurea-ink">
-                {rancho.capacidad_min ?? "—"}–{rancho.capacidad_max ?? "—"}
-              </strong>
-            </span>
-          )}
-          {rancho.precio_desde !== null && (
-            <span>
-              Precio desde{" "}
-              <strong className="text-aventurea-ink">{fmtColones(rancho.precio_desde)}</strong>
-            </span>
-          )}
-          {rancho.contacto_whatsapp && (
-            <span>
-              WhatsApp <strong className="text-aventurea-ink">{rancho.contacto_whatsapp}</strong>
-            </span>
-          )}
-        </p>
 
         {/* Cómo va el mes, minimalista — lo pendiente por atender ya se
             ve en la campana del menú de arriba, así que acá no se
