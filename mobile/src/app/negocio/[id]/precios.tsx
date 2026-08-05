@@ -56,7 +56,10 @@ type Codigo = {
 type Promo = {
   id?: string;
   dias_semana: number[];
+  tipo: "porcentaje" | "precio_fijo";
   porcentaje_descuento: string;
+  precio_fijo: string;
+  personas_max: string;
   etiqueta: string;
   activo: boolean;
 };
@@ -108,7 +111,7 @@ export default function PreciosNegocioScreen() {
         .order("codigo"),
       supabase
         .from("promociones_dia")
-        .select("id, dias_semana, porcentaje_descuento, etiqueta, activo")
+        .select("id, dias_semana, tipo, porcentaje_descuento, precio_fijo, personas_max, etiqueta, activo")
         .eq("rancho_id", id),
     ]);
 
@@ -148,7 +151,10 @@ export default function PreciosNegocioScreen() {
       (promosRes.data ?? []).map((p) => ({
         id: p.id as string,
         dias_semana: (p.dias_semana as number[]) ?? [],
-        porcentaje_descuento: String(p.porcentaje_descuento),
+        tipo: (p.tipo as "porcentaje" | "precio_fijo") ?? "porcentaje",
+        porcentaje_descuento: p.porcentaje_descuento !== null ? String(p.porcentaje_descuento) : "",
+        precio_fijo: p.precio_fijo !== null ? String(p.precio_fijo) : "",
+        personas_max: p.personas_max !== null ? String(p.personas_max) : "",
         etiqueta: String(p.etiqueta ?? ""),
         activo: p.activo !== false,
       })),
@@ -260,13 +266,30 @@ export default function PreciosNegocioScreen() {
 
       // ---- Las promos por día ----
       const promosLimpias = promos.filter((p) => p.dias_semana.length > 0);
+      for (const p of promosLimpias) {
+        const invalida =
+          p.tipo === "porcentaje"
+            ? !(num(p.porcentaje_descuento) && num(p.porcentaje_descuento)! > 0)
+            : !(num(p.precio_fijo) && num(p.precio_fijo)! > 0);
+        if (invalida) {
+          setError(
+            p.tipo === "porcentaje"
+              ? "Cada promoción por día necesita un % de descuento mayor a 0."
+              : "Cada promoción de precio fijo necesita un monto mayor a 0.",
+          );
+          return;
+        }
+      }
       await supabase.from("promociones_dia").delete().eq("rancho_id", id);
       if (promosLimpias.length > 0) {
         const { error: err } = await supabase.from("promociones_dia").insert(
           promosLimpias.map((p) => ({
             rancho_id: id,
             dias_semana: p.dias_semana,
-            porcentaje_descuento: num(p.porcentaje_descuento) ?? 0,
+            tipo: p.tipo,
+            porcentaje_descuento: p.tipo === "porcentaje" ? (num(p.porcentaje_descuento) ?? 0) : null,
+            precio_fijo: p.tipo === "precio_fijo" ? num(p.precio_fijo) : null,
+            personas_max: p.tipo === "precio_fijo" ? num(p.personas_max) : null,
             etiqueta: p.etiqueta.trim().slice(0, 80) || "Promoción",
             activo: p.activo,
           })),
@@ -564,7 +587,10 @@ export default function PreciosNegocioScreen() {
                       ...promos,
                       {
                         dias_semana: [],
+                        tipo: "porcentaje",
                         porcentaje_descuento: "",
+                        precio_fijo: "",
+                        personas_max: "",
                         etiqueta: "",
                         activo: true,
                       },
@@ -623,17 +649,62 @@ export default function PreciosNegocioScreen() {
                       })}
                     </View>
 
+                    <View style={styles.filaTipoPromo}>
+                      {(["porcentaje", "precio_fijo"] as const).map((t) => {
+                        const activo = p.tipo === t;
+                        return (
+                          <Pressable
+                            key={t}
+                            onPress={() => {
+                              const copia = [...promos];
+                              copia[i] = { ...copia[i], tipo: t };
+                              setPromos(copia);
+                            }}
+                            style={[styles.tipoPromo, activo && styles.tipoPromoActivo]}
+                          >
+                            <Text style={[styles.tipoPromoTexto, activo && styles.tipoPromoTextoActivo]}>
+                              {t === "porcentaje" ? "% de descuento" : "Precio fijo (₡)"}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
                     <View style={styles.filaCampos}>
-                      <CampoChico
-                        etiqueta="Descuento %"
-                        ancho
-                        value={p.porcentaje_descuento}
-                        onChangeText={(v) => {
-                          const copia = [...promos];
-                          copia[i] = { ...copia[i], porcentaje_descuento: v };
-                          setPromos(copia);
-                        }}
-                      />
+                      {p.tipo === "porcentaje" ? (
+                        <CampoChico
+                          etiqueta="Descuento %"
+                          ancho
+                          value={p.porcentaje_descuento}
+                          onChangeText={(v) => {
+                            const copia = [...promos];
+                            copia[i] = { ...copia[i], porcentaje_descuento: v };
+                            setPromos(copia);
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <CampoChico
+                            etiqueta="Precio fijo ₡"
+                            ancho
+                            value={p.precio_fijo}
+                            onChangeText={(v) => {
+                              const copia = [...promos];
+                              copia[i] = { ...copia[i], precio_fijo: v };
+                              setPromos(copia);
+                            }}
+                          />
+                          <CampoChico
+                            etiqueta="Máx. personas"
+                            value={p.personas_max}
+                            onChangeText={(v) => {
+                              const copia = [...promos];
+                              copia[i] = { ...copia[i], personas_max: v };
+                              setPromos(copia);
+                            }}
+                          />
+                        </>
+                      )}
                       <View style={styles.switchFila}>
                         <Text style={styles.switchTexto}>Activa</Text>
                         <Switch
@@ -647,6 +718,11 @@ export default function PreciosNegocioScreen() {
                         />
                       </View>
                     </View>
+                    {p.tipo === "precio_fijo" && (
+                      <Text style={styles.bloqueAyuda}>
+                        Sin máximo de personas, aplica para cualquier cantidad de invitados.
+                      </Text>
+                    )}
                   </View>
                 ))
               )}
@@ -821,6 +897,18 @@ const styles = StyleSheet.create({
   diaActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
   diaTexto: { color: Colors.ink, fontFamily: Fonts.semiBold, fontSize: 11.5 },
   diaTextoActivo: { color: "#ffffff" },
+
+  filaTipoPromo: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: Spacing.two },
+  tipoPromo: {
+    borderColor: Colors.lineFuerte,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  tipoPromoActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  tipoPromoTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 11.5 },
+  tipoPromoTextoActivo: { color: "#ffffff" },
 
   botonAgregar: {
     alignItems: "center",

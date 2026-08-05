@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Fonts, Radios, Spacing, Tipo } from "@/constants/theme";
 import type { DiaDisponibilidad, PromocionDia } from "@/lib/types";
+import { fmtColones } from "@/lib/types";
+import { mejorPromoPorDiaSemana } from "@/lib/promociones";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -64,21 +66,10 @@ export default function CalendarioMensual({
   }
 
   // La mejor promoción activa de cada día de la semana, para marcar el
-  // descuento en las celdas sin recalcular por celda.
-  const promoPorDiaSemana = useMemo(() => {
-    const mapa: Record<number, PromocionDia> = {};
-    promociones
-      .filter((p) => p.activo && p.porcentaje_descuento > 0)
-      .forEach((p) => {
-        p.dias_semana.forEach((dow) => {
-          const actual = mapa[dow];
-          if (!actual || p.porcentaje_descuento > actual.porcentaje_descuento) {
-            mapa[dow] = p;
-          }
-        });
-      });
-    return mapa;
-  }, [promociones]);
+  // descuento en las celdas sin recalcular por celda (ignora
+  // personas_max a propósito: acá es publicidad del día, todavía no
+  // se sabe cuántos invitados va a traer quien reserva).
+  const promoPorDiaSemana = useMemo(() => mejorPromoPorDiaSemana(promociones), [promociones]);
 
   const primerDow = new Date(anio, mes, 1).getDay();
   const diasDelMes = new Date(anio, mes + 1, 0).getDate();
@@ -156,7 +147,16 @@ export default function CalendarioMensual({
                 </Text>
                 {promoDia ? (
                   <View style={styles.promoBadge}>
-                    <Text style={styles.promoBadgeTexto}>-{promoDia.porcentaje_descuento}%</Text>
+                    <Text
+                      style={styles.promoBadgeTexto}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
+                      {promoDia.tipo === "precio_fijo"
+                        ? `${fmtColones(promoDia.precio_fijo ?? 0)} fijo`
+                        : `-${promoDia.porcentaje_descuento}%`}
+                    </Text>
                   </View>
                 ) : !deshabilitada && pendientes > 0 ? (
                   <View style={styles.badgePendientes}>
@@ -253,6 +253,7 @@ const styles = StyleSheet.create({
   promoBadge: {
     backgroundColor: Colors.green,
     borderRadius: 8,
+    maxWidth: "92%",
     paddingHorizontal: 5,
     paddingVertical: 1,
   },

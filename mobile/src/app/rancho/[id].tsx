@@ -179,6 +179,12 @@ export default function RanchoDetalleScreen() {
       ? rancho.terminos
       : terminosPorDefecto(rancho.deposito_reserva ?? 25000, rancho.monto_minimo);
 
+  // No tiene sentido chatear con tu propio negocio — mismo check que
+  // el fix de `rancho-portal.tsx` en la web (comparar owner_id, nunca
+  // un rol de admin: eso ocultaría el chat a un admin en un negocio
+  // ajeno, que sí debe poder chatear).
+  const esPropioDueno = !!session && session.user.id === rancho.owner_id;
+
   // Abre (o retoma) el hilo de consulta con este negocio — el mismo
   // mecanismo que /mensajes/consulta/[ranchoId] en la web.
   async function preguntarPorChat() {
@@ -386,15 +392,17 @@ export default function RanchoDetalleScreen() {
         )}
 
         {/* ---------- Dudas antes de reservar: chat de consulta ---------- */}
-        <View style={styles.seccion}>
-          <Boton
-            tono="contorno"
-            icono="chatbubble-ellipses-outline"
-            texto={abriendoChat ? "Abriendo chat…" : "¿Tenés dudas? Preguntá por el chat"}
-            cargando={abriendoChat}
-            onPress={preguntarPorChat}
-          />
-        </View>
+        {!esPropioDueno && (
+          <View style={styles.seccion}>
+            <Boton
+              tono="contorno"
+              icono="chatbubble-ellipses-outline"
+              texto={abriendoChat ? "Abriendo chat…" : "¿Tenés dudas? Preguntá por el chat"}
+              cargando={abriendoChat}
+              onPress={preguntarPorChat}
+            />
+          </View>
+        )}
 
         {/* ---------- Amenidades: agrupadas como en el portal web ---------- */}
         {rancho.amenidades.length > 0 && (
@@ -526,17 +534,20 @@ export default function RanchoDetalleScreen() {
           </View>
           {/* El chat siempre a mano, igual que la burbuja de la web —
               acá vive en la barra fija, que es donde el pulgar lo
-              espera en una app. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Chateá con ${rancho.nombre}`}
-            style={[styles.barraChat, abriendoChat && { opacity: 0.5 }]}
-            disabled={abriendoChat}
-            onPress={preguntarPorChat}
-            hitSlop={6}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={21} color={Colors.navy} />
-          </Pressable>
+              espera en una app. Salvo que sea tu propio negocio: no
+              tiene sentido chatear con vos mismo. */}
+          {!esPropioDueno && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Chateá con ${rancho.nombre}`}
+              style={[styles.barraChat, abriendoChat && { opacity: 0.5 }]}
+              disabled={abriendoChat}
+              onPress={preguntarPorChat}
+              hitSlop={6}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={21} color={Colors.navy} />
+            </Pressable>
+          )}
           <Boton compacto texto="Ver fechas" onPress={() => setModalFechas(true)} />
         </View>
       )}

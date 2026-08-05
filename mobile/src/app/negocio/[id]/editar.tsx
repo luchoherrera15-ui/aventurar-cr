@@ -25,9 +25,9 @@ import { CANTONES, FOTOS_MAX, PROVINCIAS, type Provincia } from "@/lib/types";
  * Editar un negocio ya publicado desde el teléfono: los datos que se
  * cambian seguido (nombre, descripción, precio, capacidad, ubicación)
  * y la galería completa de fotos — agregar, eliminar y elegir cuál es
- * la portada, igual que en el sitio web. Lo más fino —rangos de
- * precio, descuentos, horarios— sigue en la web, que tiene espacio
- * para esos formularios largos.
+ * la portada, igual que en el sitio web. Rangos de precio y descuentos
+ * ya se editan acá mismo (pantalla "Precios"); los horarios de
+ * alquiler siguen solo en la web.
  */
 export default function EditarNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -347,8 +347,9 @@ export default function EditarNegocioScreen() {
           )}
         </Pressable>
         <Text style={styles.hint}>
-          Los rangos de precio, los descuentos y los horarios se
-          configuran desde el sitio web.
+          Los rangos de precio y los descuentos se editan en la
+          pantalla &quot;Precios&quot; — los horarios de alquiler, por ahora,
+          solo desde el sitio web.
         </Text>
       </ScrollView>
     </View>

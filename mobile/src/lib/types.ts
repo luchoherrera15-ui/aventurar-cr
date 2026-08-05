@@ -191,11 +191,19 @@ export const UNIDAD_PRECIO_LABEL: Record<UnidadPrecio, string> = {
 export const MODALIDADES_PRECIO_LUGAR = ["rango_personas", "hora", "fijo"] as const;
 export type ModalidadPrecioLugar = (typeof MODALIDADES_PRECIO_LUGAR)[number];
 
+export const DIAS_SEMANA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
 export type HorarioBloqueConfig = {
   id: string;
   etiqueta: string;
   desde: string;
   hasta: string;
+  /**
+   * Días de la semana en que se puede elegir este bloque (0=domingo,
+   * igual que Date#getDay). Ausente o lista vacía = todos los días —
+   * así queda cualquier bloque guardado antes de este campo.
+   */
+  dias_semana?: number[];
 };
 
 /** Pasa "19:30" a "7:30 p.m." para mostrarlo en la app. */
@@ -212,8 +220,43 @@ export function etiquetaHorario(bloque: HorarioBloqueConfig) {
   return bloque.etiqueta ? `${bloque.etiqueta} (${rango})` : rango;
 }
 
+/**
+ * ¿Este bloque se puede elegir el día `dow` (0=domingo..6=sábado, el
+ * mismo que devuelve Date#getDay)? Sin días marcados significa "todos
+ * los días".
+ */
+export function bloqueDisponibleEnDia(bloque: HorarioBloqueConfig, dow: number) {
+  const dias = bloque.dias_semana ?? [];
+  return dias.length === 0 || dias.includes(dow);
+}
+
+/**
+ * Texto corto para un bloque con días restringidos, o null si aplica
+ * todos los días. Detecta un tramo contiguo empezando lunes, así
+ * "viernes-sábado-domingo" sale "Vie–Dom" en vez de partido en dos por
+ * cruzar el domingo.
+ */
+export function resumenDias(dias_semana: number[] | undefined) {
+  const dias = dias_semana ?? [];
+  if (dias.length === 0 || dias.length === 7) return null;
+  const aLunesPrimero = (dow: number) => (dow + 6) % 7;
+  const ordenado = [...new Set(dias)].sort(
+    (a, b) => aLunesPrimero(a) - aLunesPrimero(b),
+  );
+  const esContiguo = ordenado.every((d, i) =>
+    i === 0 ? true : aLunesPrimero(d) === aLunesPrimero(ordenado[i - 1]) + 1,
+  );
+  if (esContiguo) {
+    const primero = DIAS_SEMANA_CORTO[ordenado[0]];
+    const ultimo = DIAS_SEMANA_CORTO[ordenado[ordenado.length - 1]];
+    return ordenado.length === 1 ? primero : `${primero}–${ultimo}`;
+  }
+  return ordenado.map((d) => DIAS_SEMANA_CORTO[d]).join(", ");
+}
+
 export type Rancho = {
   id: string;
+  owner_id: string;
   nombre: string;
   descripcion: string | null;
   descripcion_larga: string | null;
@@ -282,11 +325,20 @@ export type DiaDisponibilidad = {
   temporales: number;
 };
 
+export const TIPOS_PROMOCION = ["porcentaje", "precio_fijo"] as const;
+export type TipoPromocion = (typeof TIPOS_PROMOCION)[number];
+
 export type PromocionDia = {
+  id: string;
+  rancho_id: string;
   dias_semana: number[];
-  porcentaje_descuento: number;
+  tipo: TipoPromocion;
+  porcentaje_descuento: number | null;
+  precio_fijo: number | null;
+  personas_max: number | null;
   etiqueta: string;
   activo: boolean;
+  created_at: string;
 };
 
 export type Favorito = {

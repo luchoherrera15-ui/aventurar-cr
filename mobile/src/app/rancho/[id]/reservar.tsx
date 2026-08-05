@@ -34,8 +34,10 @@ import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
 import { obtenerIdDispositivo } from "@/lib/device";
 import { pedirCorreosDeReserva } from "@/lib/notificaciones";
+import { promoAplicableDelDia } from "@/lib/promociones";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import {
+  bloqueDisponibleEnDia,
   etiquetaHorario,
   fmtColones,
   type HorarioBloqueConfig,
@@ -61,7 +63,11 @@ type MetodoPago = "sinpe" | "transferencia";
  * todo — es lo único con reloj en la pantalla.
  */
 export default function ReservarScreen() {
-  const { id, fecha } = useLocalSearchParams<{ id: string; fecha: string }>();
+  const { id, fecha, invitados: invitadosParam } = useLocalSearchParams<{
+    id: string;
+    fecha: string;
+    invitados?: string;
+  }>();
   const router = useRouter();
   const { session, cargando: cargandoAuth } = useAuth();
 
@@ -101,7 +107,11 @@ export default function ReservarScreen() {
   const [correo, setCorreo] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [tipoEvento, setTipoEvento] = useState("");
-  const [invitados, setInvitados] = useState("");
+  // Si se llega acá con ?invitados= (ej. un link armado por el
+  // asistente de IA), se precarga — el cliente igual puede corregirlo.
+  const [invitados, setInvitados] = useState(() =>
+    invitadosParam && /^[1-9][0-9]*$/.test(invitadosParam) ? invitadosParam : "",
+  );
   const [horasEvento, setHorasEvento] = useState("");
   const [horario, setHorario] = useState<HorarioBloqueConfig | null>(null);
   const [addons, setAddons] = useState<Record<string, boolean>>({});
@@ -205,7 +215,7 @@ export default function ReservarScreen() {
     setRancho(ranchoRes.data as Rancho);
     setTiers((tiersRes.data ?? []) as PrecioTier[]);
     setServicios((svcRes.data ?? []) as ServicioAdicional[]);
-    setPromociones(((promoRes.data ?? []) as PromocionDia[]).map((p) => ({ ...p, dias_semana: Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]") })));
+    setPromociones((promoRes.data ?? []) as PromocionDia[]);
 
     const deviceId = await obtenerIdDispositivo();
     deviceIdRef.current = deviceId;
@@ -292,7 +302,18 @@ export default function ReservarScreen() {
   // del evento. Mismo cálculo que el BookingCalendar de /web.
   const modalidadPrecio = rancho?.modalidad_precio_lugar ?? "rango_personas";
 
+  // La promo vigente para el día elegido, ya con invitados en mano —
+  // una de tipo precio_fijo aplicable (dentro de su tope de personas,
+  // si tiene) manda sobre cualquiera de las tres modalidades de cobro
+  // de abajo, porque es un precio de REEMPLAZO, no un descuento sobre
+  // el normal (mismo orden que el BookingCalendar de /web).
+  const promoAplicable = useMemo(
+    () => promoAplicableDelDia(promociones, fechaObj.getDay(), invitadosNum),
+    [fechaObj, promociones, invitadosNum],
+  );
+
   const tierBase = useMemo(() => {
+    if (promoAplicable?.tipo === "precio_fijo") return promoAplicable.precio_fijo;
     if (!rancho) return null;
     if (modalidadPrecio === "fijo") return rancho.precio_fijo_lugar ?? null;
     if (modalidadPrecio === "hora") {
@@ -305,29 +326,28 @@ export default function ReservarScreen() {
       (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
     );
     return tier ? tier.precio : null;
-  }, [modalidadPrecio, horasNum, invitadosNum, esDiciembre, tiers, rancho]);
+  }, [promoAplicable, modalidadPrecio, horasNum, invitadosNum, esDiciembre, tiers, rancho]);
+
+  // Los horarios de alquiler pueden estar restringidos a ciertos días
+  // (ej. "Turno finde" solo Vie-Dom) — la fecha ya está elegida acá,
+  // así que se filtra directo (mismo helper que el BookingCalendar de
+  // /web).
+  const horariosDelDia = useMemo(
+    () => (rancho ? rancho.horarios_bloques.filter((h) => bloqueDisponibleEnDia(h, fechaObj.getDay())) : []),
+    [rancho, fechaObj],
+  );
 
   const addonsTotal = servicios.reduce((acc, s) => {
     const eligible = !s.requisito_max_invitados || invitadosNum <= s.requisito_max_invitados;
     return acc + (eligible && addons[s.id] ? s.precio : 0);
   }, 0);
 
-  const promoAplicable = useMemo(() => {
-    const dow = fechaObj.getDay();
-    const activas = promociones.filter((p) => {
-      if (!p.activo) return false;
-      const dias = Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]");
-      return dias.includes(dow);
-    });
-    if (activas.length === 0) return null;
-    return activas.reduce((mejor, p) =>
-      p.porcentaje_descuento > mejor.porcentaje_descuento ? p : mejor,
-    );
-  }, [fechaObj, promociones]);
-
   const subtotal = tierBase === null ? null : tierBase + addonsTotal;
+  // Cuando la promo es precio_fijo, el ahorro ya quedó adentro de
+  // tierBase — acá se deja en 0 a propósito para no restarlo dos
+  // veces ni mostrar un "-₡0" en la UI.
   const descuentoMonto =
-    subtotal !== null && promoAplicable
+    subtotal !== null && promoAplicable?.tipo === "porcentaje" && promoAplicable.porcentaje_descuento !== null
       ? Math.round(subtotal * (promoAplicable.porcentaje_descuento / 100))
       : 0;
   const totalConPromo = subtotal === null ? null : subtotal - descuentoMonto;
@@ -390,7 +410,7 @@ export default function ReservarScreen() {
     !!tipoEvento.trim() &&
     cotizacionCompleta &&
     !excedeCapacidad &&
-    (rancho?.horarios_bloques.length ? !!horario : true) &&
+    (rancho?.horarios_bloques.length ? horariosDelDia.length > 0 && !!horario : true) &&
     avisoAceptado;
 
   const puedeEnviar =
@@ -712,16 +732,23 @@ export default function ReservarScreen() {
             {rancho && rancho.horarios_bloques.length > 0 && (
               <View style={styles.bloque}>
                 <Micro>Elegí el horario</Micro>
-                <View style={styles.opciones}>
-                  {rancho.horarios_bloques.map((h) => (
-                    <Opcion
-                      key={h.id}
-                      titulo={etiquetaHorario(h)}
-                      seleccionada={horario?.id === h.id}
-                      onPress={() => setHorario(h)}
-                    />
-                  ))}
-                </View>
+                {horariosDelDia.length > 0 ? (
+                  <View style={styles.opciones}>
+                    {horariosDelDia.map((h) => (
+                      <Opcion
+                        key={h.id}
+                        titulo={etiquetaHorario(h)}
+                        seleccionada={horario?.id === h.id}
+                        onPress={() => setHorario(h)}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Aviso
+                    tono="error"
+                    texto={`${rancho.nombre} no tiene un horario definido para este día — escribile directo para coordinar, o volvé y elegí otra fecha.`}
+                  />
+                )}
               </View>
             )}
 
@@ -848,6 +875,17 @@ export default function ReservarScreen() {
               )}
               {codigoError && <Aviso tono="error" texto={codigoError} />}
             </View>
+
+            {promoAplicable && total !== null && (
+              <View style={styles.filaPromoTag}>
+                <Ionicons name="pricetag-outline" size={14} color={Colors.green} />
+                <Text style={styles.promoTagTexto}>
+                  {promoAplicable.tipo === "precio_fijo"
+                    ? `${promoAplicable.etiqueta || "Precio promocional"} — ${fmtColones(promoAplicable.precio_fijo ?? 0)} fijo`
+                    : `${promoAplicable.etiqueta} aplicado (−${fmtColones(descuentoMonto)})`}
+                </Text>
+              </View>
+            )}
 
             {/* Total y depósito lado a lado, como en el panel de la web. */}
             <View style={styles.filaTotales}>
@@ -1142,6 +1180,9 @@ const styles = StyleSheet.create({
   },
   codigoOk: { color: Colors.green, flex: 1, fontFamily: Fonts.bold, fontSize: 13 },
   codigoQuitar: { color: Colors.danger, fontFamily: Fonts.bold, fontSize: 12.5 },
+
+  filaPromoTag: { alignItems: "center", flexDirection: "row", gap: 6 },
+  promoTagTexto: { color: Colors.green, flex: 1, fontFamily: Fonts.bold, fontSize: 11.5 },
 
   filaTotales: { flexDirection: "row", gap: Spacing.two },
   cajaTotal: { flex: 1, gap: 4, padding: Spacing.three },
