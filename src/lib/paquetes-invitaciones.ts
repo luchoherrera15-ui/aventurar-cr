@@ -114,7 +114,6 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
       "Invitación virtual personalizada",
       "Confirmación vía WhatsApp (la llevás vos, sin sistema)",
       "Cuenta regresiva al gran día",
-      "Derecho a 1 cambio de diseño",
     ],
     detalle: [
       "Personalización de diseño básica",
@@ -133,7 +132,6 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
       "Todo lo del paquete Básico",
       "Confirmación en el website: tus invitados confirman en el link",
       "Panel en bookea.lat para administrar la lista de invitados",
-      "Derecho a 2 cambios de diseño",
     ],
     detalle: [
       "Vé en tiempo real quién confirma y quién no puede asistir",
@@ -152,7 +150,6 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
     incluye: [
       "Todo lo del paquete Intermedio",
       "Diseño Plus: animaciones y acabado premium",
-      "Derecho a 3 cambios de diseño",
       "Versión para imprimir en Carta o A4",
     ],
     detalle: [
