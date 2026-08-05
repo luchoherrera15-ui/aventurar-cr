@@ -95,24 +95,11 @@ export default async function CuentaPage() {
   const cookieStore = await cookies();
   const visto = (seccion: string) => desdeISO(cookieStore.get(`visto_${seccion}`)?.value);
 
-  // Los "+N" de cada card, en paralelo: mensajes de otros en mis hilos,
-  // reservas que entraron a mis negocios y confirmaciones de invitados.
+  // Los "+N" de cada card, en paralelo: reservas que entraron a mis
+  // negocios y confirmaciones de invitados.
   const negocioIds = negocios.map((n) => n.id);
-  const { data: convsData } = await supabase
-    .from("conversaciones")
-    .select("id")
-    .or(`cliente_id.eq.${user.id},proveedor_id.eq.${user.id}`);
-  const convIds = ((convsData ?? []) as { id: string }[]).map((c) => c.id);
 
-  const [mensajesRes, reservasNegocioRes, rsvpRes, contratadoRes] = await Promise.all([
-    convIds.length > 0
-      ? supabase
-          .from("mensajes")
-          .select("id", { count: "exact", head: true })
-          .in("conversacion_id", convIds)
-          .neq("autor_id", user.id)
-          .gt("created_at", visto("mensajes"))
-      : Promise.resolve({ count: 0 }),
+  const [reservasNegocioRes, rsvpRes, contratadoRes] = await Promise.all([
     negocioIds.length > 0
       ? supabase
           .from("reservas")
@@ -138,7 +125,6 @@ export default async function CuentaPage() {
       : Promise.resolve({ count: 0 }),
   ]);
 
-  const nuevosMensajes = mensajesRes.count ?? 0;
   const reservasNuevasNegocio = reservasNegocioRes.count ?? 0;
   const vecesContratado = contratadoRes.count ?? 0;
 
@@ -207,7 +193,6 @@ export default async function CuentaPage() {
         {/* El tablero con toggle de modo */}
         <TableroModos
           tieneNegocio={tieneNegocio}
-          nuevosMensajes={nuevosMensajes}
           reservasNuevasNegocio={reservasNuevasNegocio}
           vecesContratado={vecesContratado}
           negociosLength={negocios.length}

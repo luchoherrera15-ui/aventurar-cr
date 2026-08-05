@@ -4,16 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   IconCalendarLine,
-  IconChatBubble,
+  IconChartBars,
+  IconFrame,
   IconHeart,
-  IconMail,
-  IconPlus,
   IconStore,
 } from "@/components/icons";
 
-interface TablloModosProps {
+interface TableroModosProps {
   tieneNegocio: boolean;
-  nuevosMensajes: number;
   reservasNuevasNegocio: number;
   vecesContratado: number;
   negociosLength: number;
@@ -25,6 +23,12 @@ interface TablloModosProps {
   favoritosCount: number;
 }
 
+/**
+ * Card ancha tipo "banner de panel": el ícono grande se asoma fuera
+ * del borde superior derecho como una marca de agua, pero el
+ * overflow-hidden de acá mismo lo recorta ahí — nunca se ve por
+ * fuera del card, solo da esa sensación de que "se sale".
+ */
 function TarjetaAcceso({
   href,
   icono,
@@ -43,29 +47,39 @@ function TarjetaAcceso({
   return (
     <Link
       href={href}
-      className="relative rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy"
+      className={`group relative flex min-h-[96px] items-center overflow-hidden rounded-2xl border p-5 transition-colors ${
+        acento
+          ? "border-aventurea-orange/30 bg-aventurea-orange/5 hover:border-aventurea-orange"
+          : "border-aventurea-line bg-aventurea-surface hover:border-aventurea-navy"
+      }`}
     >
-      {badge != null && badge > 0 && (
-        <span className="absolute right-3 top-3 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-white">
-          +{badge > 99 ? "99" : badge}
-        </span>
-      )}
       <span
-        className={`flex h-10 w-10 items-center justify-center rounded-full ${
-          acento ? "bg-aventurea-orange/10 text-aventurea-orange" : "bg-aventurea-navy/10 text-aventurea-navy"
+        aria-hidden
+        className={`pointer-events-none absolute -right-4 -top-6 rotate-[14deg] transition-transform duration-300 group-hover:rotate-[8deg] ${
+          acento ? "text-aventurea-orange/[0.1]" : "text-aventurea-navy/[0.08]"
         }`}
       >
         {icono}
       </span>
-      <p className="mt-2 text-[14px] font-extrabold text-aventurea-ink">{titulo}</p>
-      <p className="truncate text-[11.5px] font-medium text-aventurea-ink-soft">{detalle}</p>
+
+      {badge != null && badge > 0 && (
+        <span className="absolute right-4 top-4 z-10 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-white">
+          +{badge > 99 ? "99" : badge}
+        </span>
+      )}
+
+      <div className="relative z-10 min-w-0">
+        <p className="text-[15.5px] font-extrabold text-aventurea-ink">{titulo}</p>
+        <p className="mt-0.5 truncate text-[12.5px] font-medium text-aventurea-ink-soft">
+          {detalle}
+        </p>
+      </div>
     </Link>
   );
 }
 
 export default function TableroModos({
   tieneNegocio,
-  nuevosMensajes,
   reservasNuevasNegocio,
   vecesContratado,
   negociosLength,
@@ -75,15 +89,16 @@ export default function TableroModos({
   activas,
   historial,
   favoritosCount,
-}: TablloModosProps) {
+}: TableroModosProps) {
   const [modoNegocio, setModoNegocio] = useState(false);
   const [montado, setMontado] = useState(false);
 
   useEffect(() => {
-    const guardado = localStorage.getItem("cuenta_modo_negocio");
-    if (guardado === "true" && tieneNegocio) {
-      setModoNegocio(true);
-    }
+    // Lectura única de una preferencia guardada en el navegador — no hay
+    // forma de saberla antes de montar en el cliente (SSR no tiene
+    // localStorage), así que el efecto es necesario, no evitable.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setModoNegocio(localStorage.getItem("cuenta_modo_negocio") === "true" && tieneNegocio);
     setMontado(true);
   }, [tieneNegocio]);
 
@@ -96,73 +111,58 @@ export default function TableroModos({
   if (!montado) return null;
 
   return (
-    <div className="mt-4 space-y-4">
+    <div className="mt-4 space-y-3">
       {!modoNegocio ? (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            <TarjetaAcceso
-              href="/cuenta/ir/mensajes"
-              icono={<IconMail className="h-5 w-5" />}
-              titulo="Mensajes"
-              detalle={nuevosMensajes > 0 ? `${nuevosMensajes} nuevos` : "Sin mensajes nuevos"}
-              badge={nuevosMensajes}
-            />
-            <TarjetaAcceso
-              href="/cuenta/ir/invitaciones"
-              icono={<IconPlus className="h-5 w-5" />}
-              titulo="Invitaciones y álbumes"
-              detalle={
-                invitacionIds.length > 0
-                  ? `${confirmacionesNuevas} confirmaciones nuevas`
-                  : "Sin invitaciones"
-              }
-              badge={confirmacionesNuevas}
-            />
-            <TarjetaAcceso
-              href="/cuenta/ir/reservas"
-              icono={<IconCalendarLine className="h-5 w-5" />}
-              titulo="Tus reservas"
-              detalle={`${activas} activas, ${historial} historial`}
-            />
-            <TarjetaAcceso
-              href="/cuenta/ir/favoritos"
-              icono={<IconHeart className="h-5 w-5" />}
-              titulo="Tus favoritos"
-              detalle={favoritosCount === 1 ? "1 favorito" : `${favoritosCount} favoritos`}
-            />
-            <TarjetaAcceso
-              href="/ranchos"
-              icono={<IconStore className="h-5 w-5" />}
-              titulo="Sitio web"
-              detalle="Explora más espacios"
-            />
-          </div>
+          <TarjetaAcceso
+            href="/cuenta/ir/invitaciones"
+            icono={<IconFrame className="h-28 w-28" />}
+            titulo="Invitaciones y álbumes"
+            detalle={
+              invitacionIds.length === 0
+                ? "Sin invitaciones"
+                : personasConfirmadas > 0
+                  ? `${confirmacionesNuevas} confirmaciones nuevas · ${personasConfirmadas} personas confirmadas`
+                  : `${confirmacionesNuevas} confirmaciones nuevas`
+            }
+            badge={confirmacionesNuevas}
+          />
+          <TarjetaAcceso
+            href="/cuenta/ir/reservas"
+            icono={<IconCalendarLine className="h-28 w-28" />}
+            titulo="Tus reservas"
+            detalle={`${activas} activas, ${historial} historial`}
+          />
+          <TarjetaAcceso
+            href="/cuenta/ir/favoritos"
+            icono={<IconHeart className="h-28 w-28" />}
+            titulo="Tus favoritos"
+            detalle={favoritosCount === 1 ? "1 favorito" : `${favoritosCount} favoritos`}
+          />
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            <TarjetaAcceso
-              href="/cuenta/ir/proveedor"
-              icono={<IconStore className="h-5 w-5" />}
-              titulo="Panel de proveedor"
-              detalle={`${negociosLength} publicación${negociosLength !== 1 ? "es" : ""}`}
-              badge={reservasNuevasNegocio}
-              acento
-            />
-            <TarjetaAcceso
-              href="/cuenta/ir/finanzas"
-              icono={<IconChatBubble className="h-5 w-5" />}
-              titulo="Finanzas"
-              detalle={`${vecesContratado} reservas confirmadas`}
-            />
-          </div>
+          <TarjetaAcceso
+            href="/cuenta/ir/proveedor"
+            icono={<IconStore className="h-28 w-28" />}
+            titulo="Panel de proveedor"
+            detalle={`${negociosLength} publicación${negociosLength !== 1 ? "es" : ""}`}
+            badge={reservasNuevasNegocio}
+            acento
+          />
+          <TarjetaAcceso
+            href="/cuenta/ir/finanzas"
+            icono={<IconChartBars className="h-28 w-28" />}
+            titulo="Finanzas"
+            detalle={`${vecesContratado} reservas confirmadas`}
+          />
         </>
       )}
 
       {tieneNegocio && (
         <button
           onClick={toggleModo}
-          className="mt-6 w-full rounded-lg border border-aventurea-line bg-aventurea-surface px-4 py-3 text-center text-[13.5px] font-bold text-aventurea-navy transition-colors hover:bg-aventurea-navy/5"
+          className="mt-3 w-full rounded-lg border border-aventurea-line bg-aventurea-surface px-4 py-3 text-center text-[13.5px] font-bold text-aventurea-navy transition-colors hover:bg-aventurea-navy/5"
         >
           {modoNegocio ? "Modo Normal" : "Modo Negocio"}
         </button>

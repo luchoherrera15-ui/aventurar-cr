@@ -1,8 +1,14 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { IconMenu, IconUserCircle } from "./icons";
+import {
+  alternarChatPanel,
+  leerChatPanel,
+  leerChatPanelServidor,
+  suscribirChatPanel,
+} from "@/lib/chat-panel";
+import { IconChatBubble, IconMenu, IconUserCircle } from "./icons";
 
 /**
  * Primer nombre + primer apellido: "Luis Herrera Ovares" → "LH" (no
@@ -37,12 +43,34 @@ export default function MenuCuenta({
   cerrarSesion: () => Promise<void>;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const { abierto: chatAbierto, sinLeer } = useSyncExternalStore(
+    suscribirChatPanel,
+    leerChatPanel,
+    leerChatPanelServidor,
+  );
 
   const itemCls =
     "block whitespace-nowrap rounded-lg px-3.5 py-2.5 text-left text-[13.5px] font-bold text-aventurea-ink hover:bg-aventurea-cream-2";
 
   return (
-    <div className="relative">
+    <div className="flex items-center gap-2">
+      {sesionActiva && (
+        <button
+          type="button"
+          onClick={alternarChatPanel}
+          aria-label={sinLeer > 0 ? `Mensajes: ${sinLeer} sin leer` : "Tus mensajes"}
+          aria-expanded={chatAbierto}
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-aventurea-line bg-aventurea-surface text-aventurea-ink shadow-sm transition-shadow hover:shadow-md"
+        >
+          <IconChatBubble className="h-[17px] w-[17px]" />
+          {sinLeer > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full border-2 border-aventurea-surface bg-aventurea-orange px-0.5 text-[9px] font-bold text-white">
+              {sinLeer > 99 ? "99+" : sinLeer}
+            </span>
+          )}
+        </button>
+      )}
+      <div className="relative">
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
@@ -86,9 +114,6 @@ export default function MenuCuenta({
                 <Link href="/cuenta" className={itemCls} onClick={() => setAbierto(false)}>
                   Mi cuenta
                 </Link>
-                <Link href="/mensajes" className={itemCls} onClick={() => setAbierto(false)}>
-                  Mensajes
-                </Link>
                 <Link href="/eventos" className={itemCls} onClick={() => setAbierto(false)}>
                   Ver el directorio
                 </Link>
@@ -123,6 +148,7 @@ export default function MenuCuenta({
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }
