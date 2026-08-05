@@ -4,7 +4,7 @@ export default function PuntaleonaWebPage() {
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-aventurea-cream px-6 text-center">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(240,120,42,0.10),transparent)]" />
-      <div className="pointer-events-none absolute -inset-10 -z-10 rounded-[3rem] bg-aventurea-orange opacity-[0.08] blur-[100px]" />
+      <div className="pointer-events-none absolute -inset-10 -z-10 rounded-[3rem] bg-aventurea-sky opacity-[0.08] blur-[100px]" />
 
       <Link href="/eventos" className="relative mb-6 flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element -- el
@@ -20,7 +20,7 @@ export default function PuntaleonaWebPage() {
       </p>
       <Link
         href="/eventos"
-        className="relative mt-6 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+        className="relative mt-6 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark"
       >
         ← Volver al inicio
       </Link>

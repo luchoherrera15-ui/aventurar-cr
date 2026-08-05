@@ -95,7 +95,7 @@ export default async function AdminReservasPage() {
 }
 
 const COLOR_BG: Record<string, string> = {
-  orange: "bg-aventurea-orange",
+  orange: "bg-aventurea-sky",
   navy: "bg-aventurea-navy",
   green: "bg-aventurea-green",
   ink: "bg-aventurea-ink",

@@ -18,7 +18,7 @@ const ESTADO_LABEL: Record<Reserva["estado"], string> = {
 };
 
 const ESTADO_BADGE: Record<Reserva["estado"], string> = {
-  pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
+  pendiente: "bg-aventurea-sky/15 text-aventurea-orange",
   confirmada: "bg-aventurea-navy text-white",
   rechazada: "bg-aventurea-cream-2 text-aventurea-ink-soft",
   bloqueada: "bg-aventurea-cream-2 text-aventurea-ink",
@@ -114,7 +114,7 @@ const MOSTRAR_INICIAL = 5;
  *  acción (naranja). */
 const ACENTO_ESTADO: Record<Reserva["estado"], string> = {
   confirmada: "border-aventurea-blue",
-  pendiente: "border-aventurea-orange",
+  pendiente: "border-aventurea-sky",
   rechazada: "border-aventurea-line",
   bloqueada: "border-aventurea-line",
 };
@@ -338,7 +338,7 @@ export default function ReservasTable({
                     ✓ {fmtMoney(r.deposito_monto)}
                   </span>
                 ) : r.deposito_comprobante_url ? (
-                  <span className="inline-flex items-center rounded-lg bg-aventurea-orange/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-orange">
+                  <span className="inline-flex items-center rounded-lg bg-aventurea-sky/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-orange">
                     Por validar
                   </span>
                 ) : (
@@ -493,7 +493,7 @@ export default function ReservasTable({
                         ✓ Validado · {fmtMoney(r.deposito_monto)}
                       </span>
                     ) : r.deposito_comprobante_url ? (
-                      <span className="inline-flex items-center rounded-lg bg-aventurea-orange/15 px-2.5 py-1 text-[11px] font-bold text-aventurea-orange">
+                      <span className="inline-flex items-center rounded-lg bg-aventurea-sky/15 px-2.5 py-1 text-[11px] font-bold text-aventurea-orange">
                         Por validar · {fmtMoney(r.deposito_monto)}
                       </span>
                     ) : (

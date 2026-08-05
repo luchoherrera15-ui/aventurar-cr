@@ -17,7 +17,7 @@ const ESTADO_LABEL: Record<string, string> = {
 };
 
 const ESTADO_CLS: Record<string, string> = {
-  pendiente: "bg-aventurea-orange text-white",
+  pendiente: "bg-aventurea-sky text-white",
   confirmada: "bg-aventurea-green text-white",
 };
 

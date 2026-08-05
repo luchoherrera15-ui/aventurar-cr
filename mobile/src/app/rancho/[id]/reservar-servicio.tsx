@@ -1330,7 +1330,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     paddingHorizontal: 6,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1342,7 +1342,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     overflow: "hidden",
   },
-  itemCardActiva: { borderColor: Colors.accent, backgroundColor: "#fff8f2" },
+  itemCardActiva: { borderColor: Colors.sky, backgroundColor: "#fff8f2" },
   itemFoto: { width: "100%", height: 130 },
   itemCuerpo: {
     flexDirection: "row",

@@ -316,7 +316,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
                 type="button"
                 onClick={generar}
                 disabled={pendiente}
-                className="flex-1 rounded-xl bg-aventurea-orange px-6 py-3 font-bold text-white hover:bg-aventurea-orange-2 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-aventurea-sky px-6 py-3 font-bold text-white hover:bg-aventurea-sky-2 disabled:opacity-50"
               >
                 {pendiente ? "Generando tu invitación..." : "Generar invitación"}
               </button>
@@ -345,7 +345,7 @@ export default function InvitacionesBot({ onGenerar, pendiente = false }: BotPro
             type="button"
             onClick={() => enviar(true)}
             disabled={enviando || pendiente}
-            className="mb-3 w-full rounded-xl border-2 border-aventurea-orange bg-aventurea-orange/10 py-2.5 text-[13.5px] font-bold text-aventurea-orange transition-colors hover:bg-aventurea-orange/20 disabled:opacity-50"
+            className="mb-3 w-full rounded-xl border-2 border-aventurea-sky bg-aventurea-sky/10 py-2.5 text-[13.5px] font-bold text-aventurea-orange transition-colors hover:bg-aventurea-sky/20 disabled:opacity-50"
           >
             Ya llegamos a un acuerdo — preparar mi invitación
           </button>

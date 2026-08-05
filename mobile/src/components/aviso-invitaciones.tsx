@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   boton: {
     alignSelf: "flex-start",
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: Radios.md,
     marginTop: Spacing.two + 4,
     paddingHorizontal: Spacing.three,

@@ -71,7 +71,7 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
           const activa = esActivo(t);
           const cls = `flex items-center gap-2.5 rounded-xl border-l-[3px] px-3.5 py-2.5 text-[13.5px] font-bold transition-colors ${
             activa
-              ? "border-aventurea-orange bg-white/10 text-white"
+              ? "border-aventurea-sky bg-white/10 text-white"
               : "border-transparent text-white/60 hover:bg-white/5 hover:text-white"
           }`;
           const contenidoItem = (
@@ -79,7 +79,7 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
               {t.icon && <span className="shrink-0 [&_svg]:h-[17px] [&_svg]:w-[17px]">{t.icon}</span>}
               <span className="flex-1 truncate">{t.label}</span>
               {!!t.badge && t.badge > 0 && (
-                <span className="shrink-0 rounded-lg bg-aventurea-orange px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-white">
+                <span className="shrink-0 rounded-lg bg-aventurea-sky px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-white">
                   {t.badge}
                 </span>
               )}

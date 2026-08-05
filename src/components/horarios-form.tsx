@@ -102,7 +102,7 @@ export default function HorariosForm({
             <button
               type="button"
               onClick={() => agregar()}
-              className="rounded-lg bg-aventurea-orange px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+              className="rounded-lg bg-aventurea-sky px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-sky-dark"
             >
               + Agregar un horario
             </button>
@@ -112,7 +112,7 @@ export default function HorariosForm({
                 setHorarios(SUGERENCIAS.map((s) => ({ id: nuevoId(), ...s })));
                 setOk(false);
               }}
-              className="rounded-lg border border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+              className="rounded-lg border border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
             >
               Usar dos bloques de 6 horas
             </button>
@@ -204,7 +204,7 @@ export default function HorariosForm({
             <button
               type="button"
               onClick={() => agregar()}
-              className="rounded-lg border border-dashed border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+              className="rounded-lg border border-dashed border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
             >
               + Agregar otro horario
             </button>
@@ -233,7 +233,7 @@ export default function HorariosForm({
         type="button"
         onClick={guardar}
         disabled={pending}
-        className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+        className="mt-4 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
       >
         {pending ? "Guardando..." : "Guardar horarios"}
       </button>

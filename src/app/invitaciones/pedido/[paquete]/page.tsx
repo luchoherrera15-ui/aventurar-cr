@@ -77,7 +77,7 @@ export default async function PedidoPage({
 
         {!user ? (
           <div className="mt-5">
-            <p className="mb-4 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 px-4 py-3 text-[13px] leading-relaxed text-aventurea-ink">
+            <p className="mb-4 rounded-2xl border border-aventurea-sky/25 bg-aventurea-sky/5 px-4 py-3 text-[13px] leading-relaxed text-aventurea-ink">
               Entrá primero con tu cuenta: así tu pedido queda guardado a tu
               nombre y después ves tu invitación (y tu panel) sin buscar nada.
             </p>

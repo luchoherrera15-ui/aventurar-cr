@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   botonAccent: {
     alignItems: "center",
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 12,
     marginTop: Spacing.four,
     paddingVertical: 15,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
 
   // ---- La tarjeta de sellos ----
   bloqueNaranja: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: Radios.xl,
     gap: Spacing.three,
     padding: Spacing.four,
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     flexBasis: "17%",
     justifyContent: "center",
   },
-  selloLleno: { backgroundColor: Colors.accent },
+  selloLleno: { backgroundColor: Colors.sky },
   selloVacio: {
     borderColor: Colors.line,
     borderStyle: "dashed",
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.three,
     paddingVertical: 12,
   },
-  planBotonDestacado: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  planBotonDestacado: { backgroundColor: Colors.sky, borderColor: Colors.sky },
   planBotonTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 13.5 },
   planBotonTextoDestacado: { color: "#ffffff" },
   notaPie: {

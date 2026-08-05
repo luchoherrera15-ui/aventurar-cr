@@ -92,7 +92,7 @@ export default function ReportesCitas({
             className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
               rango === r
                 ? "border-aventurea-navy bg-aventurea-navy text-white"
-                : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-orange"
+                : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-sky"
             }`}
           >
             {RANGO_LABEL[r]}
@@ -124,7 +124,7 @@ export default function ReportesCitas({
           </div>
 
           {reporte.sinMarcar > 0 && (
-            <p className="rounded-xl bg-aventurea-orange-light p-3 text-[12.5px] text-aventurea-ink">
+            <p className="rounded-xl bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
               {reporte.sinMarcar} cita{reporte.sinMarcar === 1 ? "" : "s"} de días
               pasados sin marcar (¿vino o no vino?) — los números de asistencia
               quedan incompletos hasta marcarlas en la Agenda del día.

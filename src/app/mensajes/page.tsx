@@ -42,7 +42,7 @@ function tagDeChat(c: ConversacionRow): TagChat {
   if (c.reservas?.estado === "rechazada") {
     return { texto: "Reserva rechazada", clase: "bg-red-100 text-red-700" };
   }
-  return { texto: "Nueva reserva", clase: "bg-aventurea-orange/10 text-aventurea-orange" };
+  return { texto: "Nueva reserva", clase: "bg-aventurea-sky/10 text-aventurea-orange" };
 }
 
 export default async function BandejaMensajesPage() {

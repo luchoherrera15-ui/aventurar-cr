@@ -151,7 +151,7 @@ function Aviso({
       {accion && (
         <Link
           href={accion.href}
-          className="mt-6 rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+          className="mt-6 rounded-xl bg-aventurea-sky px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
         >
           {accion.texto}
         </Link>

@@ -114,7 +114,7 @@ export default function CostPreview({
     return (
       <div className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4">
         <div className="flex items-center gap-2">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-aventurea-orange border-t-transparent" />
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-aventurea-sky border-t-transparent" />
           <span className="text-[13px] text-aventurea-ink-soft">Calculando costo...</span>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function CostPreview({
   const costoMaximo = calcularCosto(idModelo, tokensEntrada, SALIDA_RECARGADA);
 
   return (
-    <div className="rounded-2xl border border-aventurea-orange/30 bg-aventurea-orange/5 p-4">
+    <div className="rounded-2xl border border-aventurea-sky/30 bg-aventurea-sky/5 p-4">
       <div className="grid gap-3 sm:grid-cols-3">
         {/* Tokens de entrada: contados por la API, no estimados */}
         <div>

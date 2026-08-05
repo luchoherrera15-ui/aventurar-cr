@@ -23,7 +23,7 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 const btnChico =
-  "h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40";
+  "h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40";
 
 /** Una cita del día tal como se lee de reservas (solo lo que se muestra). */
 export type CitaDia = {
@@ -68,7 +68,7 @@ const ESTADO_LABEL: Record<CitaDia["estado"], string> = {
 
 const ESTADO_BADGE: Record<CitaDia["estado"], string> = {
   confirmada: "bg-aventurea-green/15 text-aventurea-green",
-  pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
+  pendiente: "bg-aventurea-sky/15 text-aventurea-orange",
   rechazada: "bg-red-50 text-red-700",
   bloqueada: "bg-aventurea-cream-2 text-zinc-500",
   cumplida: "bg-aventurea-navy/10 text-aventurea-navy",
@@ -79,7 +79,7 @@ const ESTADO_BADGE: Record<CitaDia["estado"], string> = {
 /** Piel del bloque en la vista por persona. */
 const ESTADO_BLOQUE: Record<CitaDia["estado"], string> = {
   confirmada: "border-aventurea-green/40 bg-aventurea-green/10",
-  pendiente: "border-aventurea-orange/50 bg-aventurea-orange/10",
+  pendiente: "border-aventurea-sky/50 bg-aventurea-sky/10",
   rechazada: "border-red-200 bg-red-50 opacity-60",
   bloqueada: "border-aventurea-line bg-aventurea-cream-2",
   cumplida: "border-aventurea-navy/30 bg-aventurea-navy/10",
@@ -840,13 +840,13 @@ export default function AgendaCitas({
               type="button"
               disabled={pending || !destino.hora}
               onClick={() => reprogramar(cita.id, false)}
-              className="h-[42px] rounded-xl bg-aventurea-orange px-4 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+              className="h-[42px] rounded-xl bg-aventurea-sky px-4 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
             >
               Mover
             </button>
           </div>
           {avisosMover.length > 0 && (
-            <div className="rounded-xl border border-aventurea-orange/40 bg-aventurea-orange-light p-3 text-[12.5px] text-aventurea-ink">
+            <div className="rounded-xl border border-aventurea-sky/40 bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
               <p className="font-bold">Ojo antes de mover:</p>
               <ul className="mt-1 list-disc pl-4">
                 {avisosMover.map((a) => (
@@ -936,9 +936,9 @@ export default function AgendaCitas({
                 onClick={() => cargar(diaIso)}
                 className={`flex w-10 shrink-0 flex-col items-center gap-0.5 rounded-xl px-1.5 py-1.5 ${
                   esSel
-                    ? "bg-aventurea-orange text-white"
+                    ? "bg-aventurea-sky text-white"
                     : esHoyChip
-                      ? "bg-aventurea-orange/10 text-aventurea-orange"
+                      ? "bg-aventurea-sky/10 text-aventurea-orange"
                       : "text-aventurea-ink-soft hover:bg-aventurea-cream-2"
                 }`}
               >
@@ -962,7 +962,7 @@ export default function AgendaCitas({
           <button
             type="button"
             onClick={() => cargar(hoyISOCR())}
-            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
           >
             Volver a hoy
           </button>
@@ -987,7 +987,7 @@ export default function AgendaCitas({
                 onClick={() => setVista(valor)}
                 className={`h-[26px] rounded-md px-2.5 text-[11.5px] font-bold transition-colors ${
                   vista === valor
-                    ? "bg-aventurea-orange text-white"
+                    ? "bg-aventurea-sky text-white"
                     : "text-aventurea-ink-soft hover:text-aventurea-ink"
                 }`}
               >
@@ -1019,7 +1019,7 @@ export default function AgendaCitas({
           setAvisosCrear([]);
         }}
         aria-label={creando ? "Cerrar nueva cita" : "Nueva cita"}
-        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-aventurea-orange text-white shadow-[0_10px_28px_-8px_rgba(238,116,32,0.6)] transition-transform hover:scale-105 lg:bottom-8 lg:right-8"
+        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-aventurea-sky text-white shadow-[0_10px_28px_-8px_rgba(238,116,32,0.6)] transition-transform hover:scale-105 lg:bottom-8 lg:right-8"
       >
         <span className="text-[26px] leading-none">{creando ? "×" : "+"}</span>
       </button>
@@ -1029,7 +1029,7 @@ export default function AgendaCitas({
       )}
 
       {reincidente && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-aventurea-orange/50 bg-aventurea-orange-light p-3.5 text-[13px] text-aventurea-ink">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-aventurea-sky/50 bg-aventurea-sky-light p-3.5 text-[13px] text-aventurea-ink">
           <span>
             ⚠ <strong>{reincidente.nombre ?? "Este cliente"}</strong> faltó a sus últimas{" "}
             {reincidente.fallosSeguidos} citas seguidas.
@@ -1193,7 +1193,7 @@ export default function AgendaCitas({
           </div>
 
           {avisosCrear.length > 0 && (
-            <div className="rounded-xl border border-aventurea-orange/40 bg-aventurea-orange-light p-3 text-[12.5px] text-aventurea-ink">
+            <div className="rounded-xl border border-aventurea-sky/40 bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
               <p className="font-bold">Ojo antes de agendar:</p>
               <ul className="mt-1 list-disc pl-4">
                 {avisosCrear.map((a) => (
@@ -1208,7 +1208,7 @@ export default function AgendaCitas({
               type="button"
               disabled={pending || !borradorCita.hora || !borradorCita.nombre.trim()}
               onClick={() => crearWalkIn(avisosCrear.length > 0)}
-              className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+              className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
             >
               {pending
                 ? "Guardando..."
@@ -1374,7 +1374,7 @@ export default function AgendaCitas({
                   setPersonaIndice((i) => (i - 1 + columnas.length) % columnas.length)
                 }
                 aria-label="Persona anterior"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
               >
                 ‹
               </button>
@@ -1400,7 +1400,7 @@ export default function AgendaCitas({
                 type="button"
                 onClick={() => setPersonaIndice((i) => (i + 1) % columnas.length)}
                 aria-label="Persona siguiente"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
               >
                 ›
               </button>
@@ -1429,7 +1429,7 @@ export default function AgendaCitas({
               ))}
               {lineaAhoraMin !== null && (
                 <span
-                  className="absolute right-1 z-10 rounded bg-aventurea-orange px-1 py-0.5 text-[9.5px] font-bold text-white"
+                  className="absolute right-1 z-10 rounded bg-aventurea-sky px-1 py-0.5 text-[9.5px] font-bold text-white"
                   style={{ top: lineaAhoraMin - inicioGrilla + ALTO_ENCABEZADO_COLUMNA - 8 }}
                 >
                   {horaBonita(minutosAHora(lineaAhoraMin))}
@@ -1549,7 +1549,7 @@ export default function AgendaCitas({
                             setSeleccionada(seleccionada === cita.id ? null : cita.id);
                           }}
                           className={`absolute left-1 right-1 overflow-hidden rounded-lg border px-1.5 py-0.5 text-left ${ESTADO_BLOQUE[cita.estado]} ${
-                            seleccionada === cita.id ? "ring-2 ring-aventurea-orange" : ""
+                            seleccionada === cita.id ? "ring-2 ring-aventurea-sky" : ""
                           }`}
                           style={{ top: ini - inicioGrilla, height: Math.max(dur, 22) }}
                         >
@@ -1567,10 +1567,10 @@ export default function AgendaCitas({
                     {lineaAhoraMin !== null && (
                       <div
                         aria-hidden
-                        className="pointer-events-none absolute left-0 right-0 z-10 border-t-2 border-aventurea-orange"
+                        className="pointer-events-none absolute left-0 right-0 z-10 border-t-2 border-aventurea-sky"
                         style={{ top: lineaAhoraMin - inicioGrilla }}
                       >
-                        <span className="absolute -left-1 -top-[5px] h-2.5 w-2.5 rounded-full bg-aventurea-orange" />
+                        <span className="absolute -left-1 -top-[5px] h-2.5 w-2.5 rounded-full bg-aventurea-sky" />
                       </div>
                     )}
                   </div>

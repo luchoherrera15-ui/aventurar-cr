@@ -43,7 +43,7 @@ export default function DetallesServicioForm({
 
   return (
     <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-      <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+      <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
         Detalles del servicio
       </p>
       <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -77,8 +77,8 @@ export default function DetallesServicioForm({
                       aria-pressed={activo}
                       className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
                         activo
-                          ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
-                          : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+                          ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
+                          : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky"
                       }`}
                     >
                       {activo && <span aria-hidden>✓ </span>}
@@ -232,8 +232,8 @@ function CampoMulti({
               aria-pressed={activo}
               className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
                 activo
-                  ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
-                  : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+                  ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
+                  : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky"
               }`}
             >
               {activo && <span aria-hidden>✓ </span>}
@@ -246,7 +246,7 @@ function CampoMulti({
             key={tag}
             type="button"
             onClick={() => onToggleMulti(tag)}
-            className="flex items-center gap-1.5 rounded-lg border border-aventurea-orange bg-aventurea-orange/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
+            className="flex items-center gap-1.5 rounded-lg border border-aventurea-sky bg-aventurea-sky/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
           >
             {tag}
             <span aria-hidden>×</span>
@@ -270,7 +270,7 @@ function CampoMulti({
         <button
           type="button"
           onClick={agregar}
-          className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+          className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
         >
           Agregar
         </button>

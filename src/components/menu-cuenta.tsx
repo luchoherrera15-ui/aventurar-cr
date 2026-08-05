@@ -64,7 +64,7 @@ export default function MenuCuenta({
         >
           <IconChatBubble className="h-[17px] w-[17px]" />
           {sinLeer > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full border-2 border-aventurea-surface bg-aventurea-orange px-0.5 text-[9px] font-bold text-white">
+            <span className="absolute -right-1 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full border-2 border-aventurea-surface bg-aventurea-sky px-0.5 text-[9px] font-bold text-white">
               {sinLeer > 99 ? "99+" : sinLeer}
             </span>
           )}

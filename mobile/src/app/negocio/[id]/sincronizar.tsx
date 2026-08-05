@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 12,
     paddingVertical: 13,
   },

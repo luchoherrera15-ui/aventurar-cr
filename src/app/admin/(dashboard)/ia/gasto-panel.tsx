@@ -214,7 +214,7 @@ export default function GastoPanel({
       {/* Lo gastado en el mes contra el tope */}
       <section
         className={`rounded-2xl p-5.5 shadow-sm ${
-          pasoElTope ? "bg-aventurea-orange-dark" : "bg-aventurea-navy"
+          pasoElTope ? "bg-aventurea-sky-dark" : "bg-aventurea-navy"
         }`}
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -248,7 +248,7 @@ export default function GastoPanel({
             <div className="h-2.5 w-full overflow-hidden rounded-xl bg-white/15">
               <div
                 className={`h-full rounded-full transition-[width] duration-300 ${
-                  pasoElTope ? "bg-white" : cercaDelTope ? "bg-aventurea-orange" : "bg-white/85"
+                  pasoElTope ? "bg-white" : cercaDelTope ? "bg-aventurea-sky" : "bg-white/85"
                 }`}
                 style={{ width: `${Math.min(100, Math.max(1.5, pctTope))}%` }}
               />
@@ -442,7 +442,7 @@ export default function GastoPanel({
                   ))}
                 </div>
                 {a.fallidas > 0 && (
-                  <p className="mt-2.5 rounded-md bg-aventurea-orange-light px-2.5 py-1.5 text-[11.5px] font-bold text-aventurea-orange-dark">
+                  <p className="mt-2.5 rounded-md bg-aventurea-sky-light px-2.5 py-1.5 text-[11.5px] font-bold text-aventurea-orange-dark">
                     {miles(a.fallidas)} llamada{a.fallidas === 1 ? "" : "s"} sin respuesta
                   </p>
                 )}
@@ -589,7 +589,7 @@ export default function GastoPanel({
                     ) : (
                       <span
                         title={f.error ?? undefined}
-                        className="inline-block max-w-[26ch] truncate rounded-md bg-aventurea-orange-light px-2 py-1 text-[11.5px] font-bold text-aventurea-orange-dark"
+                        className="inline-block max-w-[26ch] truncate rounded-md bg-aventurea-sky-light px-2 py-1 text-[11.5px] font-bold text-aventurea-orange-dark"
                       >
                         Falló{f.error ? `: ${f.error}` : ""}
                       </span>

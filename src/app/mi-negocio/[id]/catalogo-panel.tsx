@@ -307,7 +307,7 @@ export default function CatalogoPanel({
               onClick={() => setBorrador({ ...borrador, tipo: valor })}
               className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-[12.5px] font-bold ${
                 borrador.tipo === valor
-                  ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
+                  ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
                   : "border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft"
               }`}
             >
@@ -350,7 +350,7 @@ export default function CatalogoPanel({
               className="h-16 w-16 rounded-xl border border-aventurea-line object-cover"
             />
           )}
-          <label className="cursor-pointer rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange">
+          <label className="cursor-pointer rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky">
             {subiendoFoto
               ? "Subiendo..."
               : borrador.fotoUrl
@@ -517,7 +517,7 @@ export default function CatalogoPanel({
             onChange={(e) =>
               setBorrador({ ...borrador, esPaqueteBase: e.target.checked })
             }
-            className="mt-0.5 h-4 w-4 accent-aventurea-orange"
+            className="mt-0.5 h-4 w-4 accent-aventurea-sky"
           />
           <span className="text-[12.5px] leading-relaxed text-aventurea-ink">
             <strong>Este paquete sustituye la tarifa base.</strong> Al
@@ -533,7 +533,7 @@ export default function CatalogoPanel({
           type="button"
           onClick={onGuardar}
           disabled={pending || subiendoFoto || !borrador.nombre.trim()}
-          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : textoBoton}
         </button>
@@ -542,7 +542,7 @@ export default function CatalogoPanel({
             type="button"
             onClick={onCancelar}
             disabled={pending}
-            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
           >
             Cancelar
           </button>
@@ -650,7 +650,7 @@ export default function CatalogoPanel({
                     disabled={pending || idx === 0}
                     onClick={() => mover(item, -1)}
                     aria-label="Subir"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-30"
+                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
                   >
                     ↑
                   </button>
@@ -659,7 +659,7 @@ export default function CatalogoPanel({
                     disabled={pending || idx === items.length - 1}
                     onClick={() => mover(item, 1)}
                     aria-label="Bajar"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-30"
+                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
                   >
                     ↓
                   </button>
@@ -670,7 +670,7 @@ export default function CatalogoPanel({
                       setEditando(item.id);
                       setBorrador(deItem(item));
                     }}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
                   >
                     Editar
                   </button>
@@ -678,7 +678,7 @@ export default function CatalogoPanel({
                     type="button"
                     disabled={pending}
                     onClick={() => duplicar(item)}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
                   >
                     Duplicar
                   </button>
@@ -686,7 +686,7 @@ export default function CatalogoPanel({
                     type="button"
                     disabled={pending}
                     onClick={() => alternarActivo(item)}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
                   >
                     {item.activo ? "Pausar" : "Activar"}
                   </button>
@@ -751,7 +751,7 @@ export default function CatalogoPanel({
               type="button"
               onClick={guardarElecciones}
               disabled={pending}
-              className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+              className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
             >
               {pending ? "Guardando..." : "Guardar elecciones incluidas"}
             </button>

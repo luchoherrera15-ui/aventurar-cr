@@ -108,7 +108,7 @@ function TarjetaInvitacion({ inv }: { inv: FilaInvitacion }) {
 function TarjetaAlbum({ alb }: { alb: FilaAlbum }) {
   return (
     <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-aventurea-line bg-white p-4 transition-shadow hover:shadow-[0_14px_34px_-22px_rgba(22,41,94,0.35)]">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-aventurea-orange/10 text-aventurea-orange">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-aventurea-sky/10 text-aventurea-orange">
         <IconCamera className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
@@ -250,7 +250,7 @@ export default async function CuentaInvitacionesPage() {
                 <div className="mt-8 flex flex-wrap items-center gap-3">
                   <Link
                     href="#paquetes"
-                    className="rounded-xl bg-aventurea-orange px-7 py-3.5 text-[14px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
+                    className="rounded-xl bg-aventurea-sky px-7 py-3.5 text-[14px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-sky-dark"
                   >
                     Ver los paquetes
                   </Link>

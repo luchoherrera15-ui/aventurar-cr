@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.accent,
+    borderColor: Colors.sky,
     padding: Spacing.four,
     gap: Spacing.three,
   },
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.line,
     padding: Spacing.three,
   },
-  checkFilaActiva: { borderColor: Colors.accent },
+  checkFilaActiva: { borderColor: Colors.sky },
   checkMarca: {
     width: 20,
     height: 20,
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
   chipTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
   chipTextoActivo: { color: "#ffffff" },
   botonPrimario: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 12,
     paddingVertical: 13,
     alignItems: "center",

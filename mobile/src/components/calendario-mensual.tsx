@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   diaPasado: { backgroundColor: "transparent", borderColor: "transparent" },
   // Hoy va con el contorno naranja del mockup: se nota sin taparle el
   // estado (reservada, en aprobación) al día.
-  diaHoy: { borderColor: Colors.accent, borderWidth: 1.5 },
+  diaHoy: { borderColor: Colors.sky, borderWidth: 1.5 },
   diaNumero: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
   diaNumeroHoy: { color: Colors.accent, fontFamily: Fonts.extraBold },
   diaNumeroPasado: { color: "#c9cdd6" },

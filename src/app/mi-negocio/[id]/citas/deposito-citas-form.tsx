@@ -87,7 +87,7 @@ export default function DepositoCitasForm({
           type="button"
           onClick={guardar}
           disabled={pending}
-          className="rounded-xl bg-aventurea-orange px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-sky px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : "Guardar"}
         </button>
@@ -102,7 +102,7 @@ export default function DepositoCitasForm({
           : "La cita se paga completa en el local (el flujo de siempre). Activá el depósito si los no-shows te están costando plata."}
       </p>
       {activo && !tieneSinpe && (
-        <p className="rounded-xl bg-aventurea-orange-light p-3 text-[12.5px] text-aventurea-ink">
+        <p className="rounded-xl bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
           Ojo: todavía no configuraste tu cuenta SINPE en Configuración → Cuentas
           de cobro — sin ella el cliente no sabe a dónde depositar.
         </p>

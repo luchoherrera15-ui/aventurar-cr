@@ -260,7 +260,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             )}
           </div>
           <div className="flex-1">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange">
               <IconCamera className="h-4 w-4" /> {fotoPreview ? "Cambiar foto" : "Subir foto"}
               <input
                 type="file"
@@ -340,7 +340,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             />
           ))}
           {espacioLibre > 0 && (
-            <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange">
+            <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange">
               <IconCamera className="h-5 w-5" />
               <span className="text-[11.5px] font-bold">Agregar</span>
               <span className="text-[10.5px]">quedan {espacioLibre}</span>
@@ -685,8 +685,8 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                         aria-pressed={activo}
                         className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
                           activo
-                            ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
-                            : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+                            ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
+                            : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky"
                         }`}
                       >
                         {activo && <span aria-hidden>✓ </span>}
@@ -711,7 +711,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                         key={a}
                         type="button"
                         onClick={() => toggleAmenidad(a)}
-                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-orange bg-aventurea-orange/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
+                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-sky bg-aventurea-sky/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
                       >
                         {a}
                         <span aria-hidden>×</span>
@@ -742,7 +742,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 <button
                   type="button"
                   onClick={agregarAmenidad}
-                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
                 >
                   Agregar
                 </button>
@@ -775,8 +775,8 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                     aria-pressed={activo}
                     className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
                       activo
-                        ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
-                        : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+                        ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
+                        : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky"
                     }`}
                   >
                     {activo && <span aria-hidden>✓ </span>}
@@ -799,7 +799,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                         key={a}
                         type="button"
                         onClick={() => toggleAmenidad(a)}
-                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-orange bg-aventurea-orange/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
+                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-sky bg-aventurea-sky/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
                       >
                         {a}
                         <span aria-hidden>×</span>
@@ -830,7 +830,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 <button
                   type="button"
                   onClick={agregarAmenidad}
-                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
                 >
                   Agregar
                 </button>
@@ -855,7 +855,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
         <button
           type="submit"
           disabled={pending || subiendo}
-          className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-sky px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
         >
           {subiendo ? "Subiendo fotos..." : pending ? "Guardando..." : "Guardar cambios"}
         </button>
@@ -892,7 +892,7 @@ function FotoMiniatura({
   return (
     <div
       className={`group relative aspect-[4/3] overflow-hidden rounded-xl bg-aventurea-cream-2 ${
-        presentacion ? "ring-2 ring-aventurea-orange ring-offset-2" : ""
+        presentacion ? "ring-2 ring-aventurea-sky ring-offset-2" : ""
       }`}
     >
       <button
@@ -905,7 +905,7 @@ function FotoMiniatura({
         <img src={src} alt="" className="h-full w-full object-cover" />
       </button>
       {presentacion ? (
-        <span className="absolute left-1.5 top-1.5 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+        <span className="absolute left-1.5 top-1.5 rounded-lg bg-aventurea-sky px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
           Presentación
         </span>
       ) : (

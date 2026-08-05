@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   // La que espera aprobación se contornea en naranja, sin barra: es la
   // única que le pide algo al dueño.
   tarjetaPendiente: {
-    borderColor: Colors.accent,
+    borderColor: Colors.sky,
     borderWidth: 1.5,
     paddingLeft: Spacing.three,
   },

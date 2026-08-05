@@ -26,7 +26,7 @@ const ESTADO_LABEL: Record<EstadoRancho, string> = {
 };
 
 const ESTADO_BADGE: Record<EstadoRancho, string> = {
-  pendiente: "bg-aventurea-orange/15 text-aventurea-orange",
+  pendiente: "bg-aventurea-sky/15 text-aventurea-orange",
   aprobado: "bg-aventurea-green/15 text-aventurea-green",
   rechazado: "bg-red-50 text-red-700",
 };
@@ -241,7 +241,7 @@ export default function RanchosTable({
                 <td className="whitespace-nowrap px-4 py-3.5">
                   {r.destacado_orden != null ? (
                     <div className="flex items-center gap-1">
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-aventurea-orange/15 px-2 py-1 text-[11.5px] font-bold text-aventurea-orange">
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-aventurea-sky/15 px-2 py-1 text-[11.5px] font-bold text-aventurea-orange">
                         ★ {puestoDestacado.get(r.id)}
                       </span>
                       <button
@@ -278,7 +278,7 @@ export default function RanchosTable({
                           ? "Solo se pueden destacar negocios publicados"
                           : "Poner de primero en la portada"
                       }
-                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
                     >
                       ☆ Destacar
                     </button>

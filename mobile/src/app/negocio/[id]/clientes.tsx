@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two + 4,
   },
   cifraRoja: { backgroundColor: Colors.dangerLight, borderColor: Colors.danger },
-  cifraNaranja: { backgroundColor: Colors.accentLight, borderColor: Colors.accent },
+  cifraNaranja: { backgroundColor: Colors.skyLight, borderColor: Colors.sky },
   cifraLabel: {
     color: Colors.inkSoft,
     fontFamily: Fonts.bold,
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
   inputMultilinea: { minHeight: 120 },
   botonEnviar: {
     alignItems: "center",
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 12,
     justifyContent: "center",
     minWidth: 110,
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
   clienteNombre: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
   badgeRojo: { backgroundColor: Colors.dangerLight },
-  badgeNaranja: { backgroundColor: Colors.accentLight },
+  badgeNaranja: { backgroundColor: Colors.skyLight },
   badgeTexto: { fontFamily: Fonts.bold, fontSize: 10.5 },
   clienteDetalle: {
     color: Colors.inkSoft,

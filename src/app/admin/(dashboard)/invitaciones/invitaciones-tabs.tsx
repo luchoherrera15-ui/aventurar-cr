@@ -73,7 +73,7 @@ export default function InvitacionesTabs({
                     className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
                       seleccionada
                         ? "bg-white/20 text-white"
-                        : "bg-aventurea-orange text-white"
+                        : "bg-aventurea-sky text-white"
                     }`}
                   >
                     {pendientes}

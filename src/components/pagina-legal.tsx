@@ -71,7 +71,7 @@ export const Punto = ({ children }: { children: React.ReactNode }) => (
   <li className="flex gap-2.5 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
     <span
       aria-hidden
-      className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-aventurea-orange"
+      className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-aventurea-sky"
     />
     <span>{children}</span>
   </li>
@@ -80,7 +80,7 @@ export const Punto = ({ children }: { children: React.ReactNode }) => (
 /** El destacado de los apartados que más protegen a Bookea: se ve
  *  distinto para que nadie pueda decir que estaba escondido. */
 export const Destacado = ({ children }: { children: React.ReactNode }) => (
-  <p className="mt-4 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 px-5 py-4 text-[14px] font-semibold leading-relaxed text-aventurea-ink">
+  <p className="mt-4 rounded-2xl border border-aventurea-sky/25 bg-aventurea-sky/5 px-5 py-4 text-[14px] font-semibold leading-relaxed text-aventurea-ink">
     {children}
   </p>
 );

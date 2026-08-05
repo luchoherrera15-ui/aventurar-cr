@@ -665,7 +665,7 @@ export default function ChatFlotante() {
                           />
                         </div>
                         {f.pendientes > 0 && (
-                          <span className="flex h-[20px] min-w-[20px] shrink-0 items-center justify-center rounded-full bg-aventurea-orange px-1 text-[10.5px] font-bold text-white">
+                          <span className="flex h-[20px] min-w-[20px] shrink-0 items-center justify-center rounded-full bg-aventurea-sky px-1 text-[10.5px] font-bold text-white">
                             {f.pendientes > 99 ? "99+" : f.pendientes}
                           </span>
                         )}
@@ -718,7 +718,7 @@ export default function ChatFlotante() {
               </>
             )}
             {sinLeer > 0 && !abierto && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-aventurea-orange px-1 text-[11px] font-bold text-white">
+              <span className="absolute -right-1.5 -top-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-white bg-aventurea-sky px-1 text-[11px] font-bold text-white">
                 {sinLeer > 99 ? "99+" : sinLeer}
               </span>
             )}

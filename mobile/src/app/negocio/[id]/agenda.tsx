@@ -157,7 +157,7 @@ function estiloBloque(estado: string) {
     case "confirmada":
       return { backgroundColor: Colors.blueLight, borderColor: Colors.navy };
     case "pendiente":
-      return { backgroundColor: Colors.accentLight, borderColor: Colors.accent };
+      return { backgroundColor: Colors.skyLight, borderColor: Colors.sky };
     case "cumplida":
       return { backgroundColor: Colors.greenLight, borderColor: Colors.green };
     case "no_asistio":
@@ -1908,7 +1908,7 @@ const styles = StyleSheet.create({
   diaNumero: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 16 },
   diaTextoActivo: { color: "#ffffff" },
   diaPunto: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 2,
     height: 4,
     marginTop: 1,
@@ -1959,7 +1959,7 @@ const styles = StyleSheet.create({
     right: 2,
   },
   grillaAhoraChip: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 1,
@@ -2026,7 +2026,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   grillaAhoraLinea: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     height: 2,
     left: 0,
     position: "absolute",

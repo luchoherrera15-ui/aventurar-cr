@@ -110,7 +110,7 @@ function tagDeChat(c: ConversacionRow): TagChat {
   if (c.reservas?.estado === "rechazada") {
     return { texto: "Reserva rechazada", fondo: Colors.dangerLight, color: Colors.danger };
   }
-  return { texto: "Nueva reserva", fondo: Colors.accentLight, color: Colors.accent };
+  return { texto: "Nueva reserva", fondo: Colors.skyLight, color: Colors.accent };
 }
 
 export default function BandejaMensajesScreen({ activa = true }: { activa?: boolean }) {

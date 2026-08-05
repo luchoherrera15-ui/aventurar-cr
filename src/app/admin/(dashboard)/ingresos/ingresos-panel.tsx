@@ -20,7 +20,7 @@ export type Cobro = {
 const METODOS: { id: Cobro["metodo"]; label: string; color: string }[] = [
   { id: "sinpe", label: "SINPE Móvil", color: "bg-aventurea-navy" },
   { id: "transferencia", label: "Transferencia", color: "bg-[#3b7fc4]" },
-  { id: "stripe", label: "Stripe (tarjeta)", color: "bg-aventurea-orange" },
+  { id: "stripe", label: "Stripe (tarjeta)", color: "bg-aventurea-sky" },
 ];
 
 const PERIODOS = [

@@ -16,7 +16,7 @@ import { categoriaLabel, esCategoriaValida } from "@/lib/categorias-vertical";
 // El texto siempre es blanco sobre vidrio esmerilado (se lee igual
 // sobre cualquier foto); el color solo vive en el puntito de estado.
 const ESTADO_PUNTO: Record<Rancho["estado"], string> = {
-  pendiente: "bg-aventurea-orange",
+  pendiente: "bg-aventurea-sky",
   aprobado: "bg-aventurea-green",
   rechazado: "bg-red-500",
 };
@@ -32,7 +32,7 @@ const ESTADO_LABEL: Record<Rancho["estado"], string> = {
 // Eventos — Citas/Hospedajes/Restaurantes caen en el acento neutro de
 // abajo hasta que tengan el suyo propio.
 const CATEGORIA_ACENTO: Record<Categoria, string> = {
-  lugares: "bg-aventurea-orange",
+  lugares: "bg-aventurea-sky",
   alimentacion: "bg-amber-500",
   animacion: "bg-violet-500",
   organizacion: "bg-sky-600",
@@ -70,7 +70,7 @@ export default async function MiRanchoHubPage() {
       <RevealOnScroll />
       <div className="mb-8 flex items-start justify-between gap-4 border-b border-aventurea-line pb-7">
         <div>
-          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
             Marketplace de ranchos
           </p>
           <h1 className="titulo mt-2.5 text-[28px] text-aventurea-ink">
@@ -85,7 +85,7 @@ export default async function MiRanchoHubPage() {
         <form action={logoutDueno}>
           <button
             type="submit"
-            className="whitespace-nowrap rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+            className="whitespace-nowrap rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
           >
             Cerrar sesión
           </button>
@@ -150,9 +150,9 @@ export default async function MiRanchoHubPage() {
           href="/mi-negocio/nuevo"
           data-reveal
           style={{ "--reveal-delay": `${ranchos.length * 70}ms` } as React.CSSProperties}
-          className="group flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-aventurea-line p-6 text-center text-aventurea-ink-soft transition-all duration-300 hover:border-aventurea-orange hover:bg-aventurea-orange/5 hover:text-aventurea-orange"
+          className="group flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-aventurea-line p-6 text-center text-aventurea-ink-soft transition-all duration-300 hover:border-aventurea-sky hover:bg-aventurea-sky/5 hover:text-aventurea-orange"
         >
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-aventurea-cream-2 transition-transform duration-300 group-hover:scale-110 group-hover:bg-aventurea-orange/10">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-aventurea-cream-2 transition-transform duration-300 group-hover:scale-110 group-hover:bg-aventurea-sky/10">
             <IconPlus className="h-5 w-5" />
           </span>
           <span className="text-[13.5px] font-bold">Agregar otro servicio</span>

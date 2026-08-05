@@ -159,7 +159,7 @@ export default function DescuentosForm({
     <div className="flex flex-col gap-6">
       {/* Códigos de descuento */}
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Códigos de descuento
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -245,7 +245,7 @@ export default function DescuentosForm({
                     type="checkbox"
                     checked={c.activo}
                     onChange={(e) => updateCodigo(c.key, "activo", e.target.checked)}
-                    className="h-[18px] w-[18px] accent-aventurea-orange"
+                    className="h-[18px] w-[18px] accent-aventurea-sky"
                   />
                 </td>
                 <td className="py-1.5">
@@ -279,7 +279,7 @@ export default function DescuentosForm({
               },
             ])
           }
-          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
         >
           ＋ Agregar código
         </button>
@@ -289,7 +289,7 @@ export default function DescuentosForm({
             type="button"
             disabled={pendingCodigos}
             onClick={guardarCodigos}
-            className="rounded-xl bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            className="rounded-xl bg-aventurea-sky px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
           >
             {pendingCodigos ? "Guardando..." : "Guardar códigos"}
           </button>
@@ -306,7 +306,7 @@ export default function DescuentosForm({
 
       {/* Promociones automáticas */}
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Promociones automáticas
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -331,7 +331,7 @@ export default function DescuentosForm({
                     onClick={() => toggleDia(p.key, i)}
                     className={`rounded-lg px-3 py-1.5 text-[11.5px] font-bold transition-colors ${
                       p.dias_semana.includes(i)
-                        ? "bg-aventurea-orange text-white"
+                        ? "bg-aventurea-sky text-white"
                         : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft"
                     }`}
                   >
@@ -440,7 +440,7 @@ export default function DescuentosForm({
                     type="checkbox"
                     checked={p.activo}
                     onChange={(e) => updatePromo(p.key, "activo", e.target.checked)}
-                    className="h-[16px] w-[16px] accent-aventurea-orange"
+                    className="h-[16px] w-[16px] accent-aventurea-sky"
                   />
                   Activa
                 </label>
@@ -475,7 +475,7 @@ export default function DescuentosForm({
               },
             ])
           }
-          className="mt-4 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+          className="mt-4 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
         >
           ＋ Agregar promoción
         </button>
@@ -485,7 +485,7 @@ export default function DescuentosForm({
             type="button"
             disabled={pendingPromos}
             onClick={guardarPromociones}
-            className="rounded-xl bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            className="rounded-xl bg-aventurea-sky px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
           >
             {pendingPromos ? "Guardando..." : "Guardar promociones"}
           </button>

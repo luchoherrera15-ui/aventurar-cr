@@ -29,7 +29,7 @@ export default function PaginaMantenimiento({
           {icono}
         </span>
 
-        <span className="mt-5 rounded-lg bg-aventurea-orange/10 px-3.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wide text-aventurea-orange">
+        <span className="mt-5 rounded-lg bg-aventurea-sky/10 px-3.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wide text-aventurea-orange">
           En mantenimiento
         </span>
 

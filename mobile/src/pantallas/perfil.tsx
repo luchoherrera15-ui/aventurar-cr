@@ -975,7 +975,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     // Aro naranja: el guiño al punto del logo.
     borderWidth: 3,
-    borderColor: Colors.accent,
+    borderColor: Colors.sky,
   },
   avatarGrandeTexto: { color: "#ffffff", fontSize: 34, fontFamily: Fonts.extraBold },
   filaNombre: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 5,
   },
-  chipRolProveedor: { backgroundColor: Colors.accentLight },
+  chipRolProveedor: { backgroundColor: Colors.skyLight },
   chipRolTexto: { fontSize: 11.5, fontFamily: Fonts.bold, color: Colors.navy },
   chipRolTextoProveedor: { color: Colors.accent },
   filaStats: {
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 6,
   },
-  iconoBurbujaAcento: { backgroundColor: Colors.accentLight },
+  iconoBurbujaAcento: { backgroundColor: Colors.skyLight },
   accionTitulo: { fontSize: 14, fontFamily: Fonts.extraBold, color: Colors.ink },
   accionDetalle: { fontSize: 11.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
   botonModo: {

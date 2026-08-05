@@ -152,7 +152,7 @@ export default function CuentasPagoForm({
         type="button"
         onClick={guardar}
         disabled={pending}
-        className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+        className="mt-4 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
       >
         {pending ? "Guardando..." : "Guardar cuentas"}
       </button>

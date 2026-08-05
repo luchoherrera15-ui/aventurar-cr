@@ -66,7 +66,7 @@ export default function NuevoRanchoAdminForm({
   return (
     <form action={formAction} className="flex flex-col gap-6">
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Paso 1
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -82,8 +82,8 @@ export default function NuevoRanchoAdminForm({
             disabled={!puedeCrearCuentas}
             className={`rounded-lg px-4 py-2 text-[12.5px] font-bold transition-colors disabled:opacity-40 ${
               modoDueno === "nuevo"
-                ? "bg-aventurea-orange text-white"
-                : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+                ? "bg-aventurea-sky text-white"
+                : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky"
             }`}
           >
             Crear una cuenta nueva
@@ -93,8 +93,8 @@ export default function NuevoRanchoAdminForm({
             onClick={() => setModoDueno("existente")}
             className={`rounded-lg px-4 py-2 text-[12.5px] font-bold transition-colors ${
               modoDueno === "existente"
-                ? "bg-aventurea-orange text-white"
-                : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange"
+                ? "bg-aventurea-sky text-white"
+                : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky"
             }`}
           >
             Usar una cuenta existente
@@ -102,7 +102,7 @@ export default function NuevoRanchoAdminForm({
         </div>
 
         {!puedeCrearCuentas && (
-          <p className="mt-3 rounded-[10px] bg-aventurea-orange/10 p-3 text-[12px] leading-relaxed text-aventurea-orange">
+          <p className="mt-3 rounded-[10px] bg-aventurea-sky/10 p-3 text-[12px] leading-relaxed text-aventurea-orange">
             Para poder crear cuentas desde acá hay que agregar la variable{" "}
             <strong>SUPABASE_SERVICE_ROLE_KEY</strong> en Vercel. Mientras
             tanto podés asignar el negocio a una cuenta que ya exista.
@@ -156,7 +156,7 @@ export default function NuevoRanchoAdminForm({
       </section>
 
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Paso 2
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -340,7 +340,7 @@ export default function NuevoRanchoAdminForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-sky px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : "Crear negocio"}
         </button>

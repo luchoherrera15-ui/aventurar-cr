@@ -232,7 +232,7 @@ export default async function TableroPendientes({
                       <span
                         className={`flex h-9 min-w-9 shrink-0 items-center justify-center rounded-lg px-2 text-[15px] font-bold tabular-nums ${
                           p.urgente
-                            ? "bg-aventurea-orange text-white"
+                            ? "bg-aventurea-sky text-white"
                             : "bg-aventurea-navy/10 text-aventurea-navy"
                         }`}
                       >

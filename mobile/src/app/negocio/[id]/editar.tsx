@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 6,
     top: 6,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 2.5,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   chipTextoActivo: { color: "#ffffff" },
   error: { color: Colors.danger, fontSize: 13, textAlign: "center" },
   botonPrimario: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",

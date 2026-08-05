@@ -146,7 +146,7 @@ function ChipCategoria({
         className={`flex h-8 w-8 items-center justify-center rounded-full [&_svg]:h-[18px] [&_svg]:w-[18px] ${
           activo
             ? "bg-white/15 text-white"
-            : "bg-aventurea-orange/10 text-aventurea-orange"
+            : "bg-aventurea-sky/10 text-aventurea-orange"
         }`}
       >
         {icono}

@@ -201,7 +201,7 @@ export default function ModelosPanel({
           </label>
         </div>
         {!activa && (
-          <p className="mt-3.5 rounded-[10px] bg-aventurea-orange-light p-3 text-[12.5px] font-bold text-aventurea-orange-dark">
+          <p className="mt-3.5 rounded-[10px] bg-aventurea-sky-light p-3 text-[12.5px] font-bold text-aventurea-orange-dark">
             Mientras esté apagada, ninguna invitación se puede generar con IA.
           </p>
         )}
@@ -339,7 +339,7 @@ export default function ModelosPanel({
                 </div>
 
                 {necesitaRazonar && !info.soportaEsfuerzo && (
-                  <p className="mt-3 rounded-[10px] bg-aventurea-orange-light p-3 text-[12.5px] leading-relaxed text-aventurea-orange-dark">
+                  <p className="mt-3 rounded-[10px] bg-aventurea-sky-light p-3 text-[12.5px] leading-relaxed text-aventurea-orange-dark">
                     <strong>{info.nombre}</strong> no acepta el parámetro de
                     esfuerzo y no razona por su cuenta. Para este agente
                     conviene un modelo que sí (Sonnet 5, Opus 5 o Fable 5): con
@@ -462,7 +462,7 @@ export default function ModelosPanel({
           <span className="text-[12.5px] font-bold text-aventurea-green">{mensaje}</span>
         )}
         {error && (
-          <span className="rounded-[10px] bg-aventurea-orange-light px-3 py-2 text-[12.5px] font-bold text-aventurea-orange-dark">
+          <span className="rounded-[10px] bg-aventurea-sky-light px-3 py-2 text-[12.5px] font-bold text-aventurea-orange-dark">
             {error}
           </span>
         )}
@@ -512,7 +512,7 @@ export default function ModelosPanel({
                     <td className="px-4 py-3.5">
                       <span className="text-[13.5px] font-bold text-aventurea-ink">{m.nombre}</span>
                       {precios.enPromo && precios.promoHasta && (
-                        <span className="mt-1 block rounded-md bg-aventurea-orange-light px-2 py-1 text-[11px] font-bold text-aventurea-orange-dark">
+                        <span className="mt-1 block rounded-md bg-aventurea-sky-light px-2 py-1 text-[11px] font-bold text-aventurea-orange-dark">
                           Precio de lanzamiento hasta el {fechaCorta(precios.promoHasta)}; después
                           sube a {formatearAmbas(m.entradaUSD, tipoCambioNum)} entrada /{" "}
                           {formatearAmbas(m.salidaUSD, tipoCambioNum)} salida

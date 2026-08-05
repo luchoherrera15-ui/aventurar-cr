@@ -163,7 +163,7 @@ export default function ClientesPanel({
         <div
           className={`min-w-[140px] flex-1 rounded-2xl border px-5 py-3.5 sm:flex-none ${
             inactivos.length > 0
-              ? "border-aventurea-orange/50 bg-aventurea-orange-light"
+              ? "border-aventurea-sky/50 bg-aventurea-sky-light"
               : "border-aventurea-line bg-white"
           }`}
         >
@@ -195,7 +195,7 @@ export default function ClientesPanel({
           type="button"
           onClick={() => abrirCampanaSegmento("todos", correosDe(clientes))}
           disabled={correosDe(clientes).length === 0}
-          className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-40"
+          className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-40"
         >
           A todos ({correosDe(clientes).length})
         </button>
@@ -203,7 +203,7 @@ export default function ClientesPanel({
           type="button"
           onClick={() => abrirCampanaSegmento("inactivos", correosDe(inactivos))}
           disabled={correosDe(inactivos).length === 0}
-          className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-40"
+          className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-40"
         >
           A los inactivos ({correosDe(inactivos).length})
         </button>
@@ -211,7 +211,7 @@ export default function ClientesPanel({
           type="button"
           onClick={() => abrirCampanaSegmento("no_show", correosDe(reincidentes))}
           disabled={correosDe(reincidentes).length === 0}
-          className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-40"
+          className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-40"
         >
           A los que faltan ({correosDe(reincidentes).length})
         </button>
@@ -255,7 +255,7 @@ export default function ClientesPanel({
               type="button"
               disabled={pending || !asunto.trim() || !mensaje.trim()}
               onClick={enviar}
-              className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+              className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
             >
               {pending ? "Enviando..." : "Enviar"}
             </button>
@@ -263,7 +263,7 @@ export default function ClientesPanel({
               type="button"
               disabled={pending}
               onClick={() => setDestino(null)}
-              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
             >
               Cancelar
             </button>
@@ -303,7 +303,7 @@ export default function ClientesPanel({
             className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
               filtro === f
                 ? "border-aventurea-navy bg-aventurea-navy text-white"
-                : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-orange"
+                : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-sky"
             }`}
           >
             {FILTRO_LABEL[f]}
@@ -344,7 +344,7 @@ export default function ClientesPanel({
                     </span>
                   )}
                   {esInactivo(c) && (
-                    <span className="ml-2 whitespace-nowrap rounded-lg bg-aventurea-orange/15 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-orange">
+                    <span className="ml-2 whitespace-nowrap rounded-lg bg-aventurea-sky/15 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-orange">
                       {c.diasSinVenir} días sin venir
                     </span>
                   )}
@@ -371,7 +371,7 @@ export default function ClientesPanel({
                 <button
                   type="button"
                   onClick={() => abrirPromoCliente(c)}
-                  className="h-[30px] shrink-0 rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-3 text-xs font-bold text-aventurea-navy hover:border-aventurea-orange hover:text-aventurea-orange"
+                  className="h-[30px] shrink-0 rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-3 text-xs font-bold text-aventurea-navy hover:border-aventurea-sky hover:text-aventurea-orange"
                 >
                   Mandar promo
                 </button>

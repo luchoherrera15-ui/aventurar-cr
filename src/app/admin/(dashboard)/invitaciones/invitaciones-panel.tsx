@@ -551,7 +551,7 @@ export default function InvitacionesPanel({
             <button
               type="button"
               onClick={() => router.push("/cuenta/invitaciones-crear")}
-              className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-2"
+              className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-2"
             >
               ✨ Generar con IA
             </button>

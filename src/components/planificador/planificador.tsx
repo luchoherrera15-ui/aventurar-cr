@@ -348,7 +348,7 @@ export default function Planificador({
                             actual
                               ? "bg-aventurea-navy text-white"
                               : alcanzable
-                                ? "bg-aventurea-orange/10 text-aventurea-orange hover:bg-aventurea-orange/20"
+                                ? "bg-aventurea-sky/10 text-aventurea-orange hover:bg-aventurea-sky/20"
                                 : "text-zinc-400"
                           }`}
                         >
@@ -359,7 +359,7 @@ export default function Planificador({
                   </div>
                   <div className="h-[3px] w-full overflow-hidden rounded-xl bg-aventurea-line/60">
                     <div
-                      className="h-full rounded-full bg-aventurea-orange transition-all duration-300"
+                      className="h-full rounded-full bg-aventurea-sky transition-all duration-300"
                       style={{ width: `${(etapaIdx / (ETAPAS.length - 1)) * 100}%` }}
                     />
                   </div>
@@ -724,7 +724,7 @@ function PieBotones({
         onClick={onSiguiente}
         className={`rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-colors ${
           destacado
-            ? "bg-aventurea-orange hover:bg-aventurea-orange-dark"
+            ? "bg-aventurea-sky hover:bg-aventurea-sky-dark"
             : "bg-aventurea-navy hover:bg-aventurea-navy/85"
         }`}
       >
@@ -885,7 +885,7 @@ function CardResultado({
         </Link>
         <Link
           href={`/mensajes/consulta/${rancho.id}`}
-          className="flex h-8 flex-1 items-center justify-center rounded-xl bg-aventurea-orange px-3 text-[12px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+          className="flex h-8 flex-1 items-center justify-center rounded-xl bg-aventurea-sky px-3 text-[12px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
         >
           Pedir cotización
         </Link>
@@ -1007,7 +1007,7 @@ function PantallaGuardar({
           type="checkbox"
           checked={consentimiento}
           onChange={(e) => setConsentimiento(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-aventurea-orange"
+          className="mt-0.5 h-4 w-4 shrink-0 accent-aventurea-sky"
         />
         <span>
           Acepto que Bookea guarde estos datos para contactarme sobre mi evento (Ley 8968).
@@ -1027,7 +1027,7 @@ function PantallaGuardar({
           type="button"
           onClick={guardar}
           disabled={!puedeGuardar || pending}
-          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-40"
+          className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark disabled:opacity-40"
         >
           {pending ? "Guardando…" : "Guardar mi plan"}
         </button>

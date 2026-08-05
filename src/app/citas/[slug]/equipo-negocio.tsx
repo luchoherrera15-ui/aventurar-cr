@@ -143,7 +143,7 @@ export default function EquipoNegocio({
             <button
               type="button"
               onClick={() => reservarCon(perfil)}
-              className="mt-5 flex h-11 w-full items-center justify-center rounded-xl bg-aventurea-orange text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              className="mt-5 flex h-11 w-full items-center justify-center rounded-xl bg-aventurea-sky text-[14px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
             >
               Reservar con {perfil.nombre.split(" ")[0]}
             </button>

@@ -947,7 +947,7 @@ const styles = StyleSheet.create({
   },
   botonGuardar: {
     alignItems: "center",
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 12,
     paddingVertical: 15,
   },

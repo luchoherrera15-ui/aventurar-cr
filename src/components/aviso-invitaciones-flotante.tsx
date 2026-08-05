@@ -229,7 +229,7 @@ export default function AvisoInvitacionesFlotante({
             className="relative mt-3 h-[92px] overflow-hidden rounded-xl"
           >
             {/* Papelitos flotando detrás del riel. */}
-            <span className="anim-mini-inv-flotar pointer-events-none absolute left-[12%] top-1 h-1.5 w-1.5 rounded-[2px] bg-aventurea-orange" />
+            <span className="anim-mini-inv-flotar pointer-events-none absolute left-[12%] top-1 h-1.5 w-1.5 rounded-[2px] bg-aventurea-sky" />
             <span
               className="anim-mini-inv-flotar pointer-events-none absolute right-[18%] top-2 h-1 w-2 rounded-[2px] bg-white"
               style={{ animationDelay: "1.4s" }}
@@ -276,7 +276,7 @@ export default function AvisoInvitacionesFlotante({
             href="/invitaciones"
             target="_blank"
             rel="noopener"
-            className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-orange px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+            className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-sky px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
           >
             Ver cómo funciona →
           </Link>

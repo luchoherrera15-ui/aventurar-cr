@@ -133,7 +133,7 @@ export default function PreciosForm({
   return (
     <div className="flex flex-col gap-6">
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Reserva de la fecha
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -157,7 +157,7 @@ export default function PreciosForm({
       </section>
 
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Cotización automática
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -227,7 +227,7 @@ export default function PreciosForm({
 
       {modalidadPrecio === "rango_personas" && (
         <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Rangos de invitados
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -323,7 +323,7 @@ export default function PreciosForm({
               ];
             })
           }
-          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
         >
           ＋ Agregar rango
         </button>
@@ -353,7 +353,7 @@ export default function PreciosForm({
       )}
 
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Servicios adicionales
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -427,7 +427,7 @@ export default function PreciosForm({
                     onChange={(e) =>
                       updateServicio(s.key, "activo", e.target.checked)
                     }
-                    className="h-[18px] w-[18px] accent-aventurea-orange"
+                    className="h-[18px] w-[18px] accent-aventurea-sky"
                   />
                 </td>
                 <td className="py-1.5">
@@ -463,7 +463,7 @@ export default function PreciosForm({
               },
             ])
           }
-          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
         >
           ＋ Agregar servicio
         </button>
@@ -474,7 +474,7 @@ export default function PreciosForm({
           type="button"
           disabled={pending}
           onClick={guardar}
-          className="rounded-xl bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-sky px-6 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : "Guardar cambios"}
         </button>

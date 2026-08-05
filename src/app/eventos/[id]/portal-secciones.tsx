@@ -41,7 +41,7 @@ export function PresentacionSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[720px] px-7 text-center">
-        <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange after:block after:h-[1.5px] after:w-5 after:bg-aventurea-orange">
+        <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky after:block after:h-[1.5px] after:w-5 after:bg-aventurea-sky">
           {eyebrow}
         </p>
         <h2 className="titulo mt-3 text-[26px] text-aventurea-ink">{titulo}</h2>
@@ -106,7 +106,7 @@ export function ResumenSeccion({
             style={{ "--reveal-delay": `${i * 80}ms` } as React.CSSProperties}
             className="flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(16,26,44,0.15)]"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-orange/10 text-aventurea-orange [&_svg]:h-5 [&_svg]:w-5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-sky/10 text-aventurea-orange [&_svg]:h-5 [&_svg]:w-5">
               {d.icono}
             </span>
             <div className="min-w-0">
@@ -153,7 +153,7 @@ export function AmenidadesSeccion({
 
   const contenido = (
     <>
-      <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+      <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
         Lo que incluye
       </p>
       <h2 className={`titulo mt-2 text-aventurea-ink ${enColumna ? "text-[20px]" : "text-[28px]"}`}>
@@ -207,7 +207,7 @@ export function DetallesSeccion({
   return (
     <section className="py-14">
       <div className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           El servicio
         </p>
         <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
@@ -280,7 +280,7 @@ export function ResenasSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Reseñas
         </p>
         <h2 className="titulo mt-2 flex items-center gap-2.5 text-[28px] text-aventurea-ink">
@@ -573,7 +573,7 @@ export function MapaSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Ubicación
         </p>
         <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">A dónde vas</h2>
@@ -659,7 +659,7 @@ export function ContactoSeccion({
       className="border-t border-aventurea-line bg-aventurea-surface py-14"
     >
       <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Contacto
         </p>
         <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
@@ -680,7 +680,7 @@ export function ContactoSeccion({
                 href={googleMaps}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
               >
                 <IconPin className="h-4 w-4" />
                 Cómo llegar (Google Maps)
@@ -691,7 +691,7 @@ export function ContactoSeccion({
                 href={waze}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
               >
                 <IconWaze className="h-4 w-4" />
                 Abrir en Waze
@@ -709,7 +709,7 @@ export function ContactoSeccion({
               href={r.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange [&_svg]:h-4 [&_svg]:w-4"
+              className="inline-flex items-center gap-2 rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange [&_svg]:h-4 [&_svg]:w-4"
             >
               {r.icono}
               {r.label}

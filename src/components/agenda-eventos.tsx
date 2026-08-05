@@ -39,7 +39,7 @@ function fechaLarga(iso: string) {
 }
 
 const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {
-  pendiente: { label: "En aprobación", cls: "bg-aventurea-orange/10 text-aventurea-orange-dark" },
+  pendiente: { label: "En aprobación", cls: "bg-aventurea-sky/10 text-aventurea-orange-dark" },
   confirmada: { label: "Confirmada", cls: "bg-aventurea-green/10 text-aventurea-green" },
 };
 
@@ -65,7 +65,7 @@ export default function AgendaEventos({ eventos }: { eventos: EventoAgenda[] }) 
           <div
             key={e.id}
             className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-aventurea-line px-5 py-4 last:border-none ${
-              esHoy ? "bg-aventurea-orange/5" : esManana ? "bg-aventurea-navy/5" : ""
+              esHoy ? "bg-aventurea-sky/5" : esManana ? "bg-aventurea-navy/5" : ""
             }`}
           >
             <div className="min-w-[150px]">
@@ -75,7 +75,7 @@ export default function AgendaEventos({ eventos }: { eventos: EventoAgenda[] }) 
               {(esHoy || esManana) && (
                 <span
                   className={`mt-1 inline-flex rounded-lg px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-white ${
-                    esHoy ? "bg-aventurea-orange" : "bg-aventurea-navy"
+                    esHoy ? "bg-aventurea-sky" : "bg-aventurea-navy"
                   }`}
                 >
                   {esHoy ? "¡Hoy!" : "Mañana"}

@@ -337,8 +337,8 @@ function CajaSubida({
         htmlFor={id}
         className={`relative block rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
           activa
-            ? "border-aventurea-orange bg-aventurea-orange/10"
-            : "border-aventurea-line bg-aventurea-cream-2 hover:border-aventurea-orange/50"
+            ? "border-aventurea-sky bg-aventurea-sky/10"
+            : "border-aventurea-line bg-aventurea-cream-2 hover:border-aventurea-sky/50"
         } ${ocupado ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
         onDragEnter={(e) => onDrag(e, tipo)}
         onDragLeave={(e) => onDrag(e, tipo)}

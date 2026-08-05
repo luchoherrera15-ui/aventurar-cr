@@ -60,7 +60,7 @@ const ESTADOS: { id: string; label: string; chip: string }[] = [
   {
     id: "en_revision",
     label: "Comprobante por revisar",
-    chip: "bg-aventurea-orange-light text-aventurea-orange-dark",
+    chip: "bg-aventurea-sky-light text-aventurea-orange-dark",
   },
   { id: "pagado", label: "Pagado", chip: "bg-aventurea-blue-light text-aventurea-blue" },
   { id: "en_diseno", label: "En diseño", chip: "bg-aventurea-blue-light text-aventurea-blue" },

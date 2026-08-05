@@ -198,7 +198,7 @@ export default function OcupacionCalendario({
           else if (estado === "pendiente") cls += " bg-amber-100 font-bold text-amber-800";
           else if (estado === "bloqueada") cls += " bg-aventurea-cream-2 font-bold text-aventurea-ink-soft";
           else cls += " border border-aventurea-line text-aventurea-ink-soft";
-          if (esHoy) cls += " ring-1 ring-aventurea-orange";
+          if (esHoy) cls += " ring-1 ring-aventurea-sky";
           // El día abierto se marca con un anillo grueso, que se lee
           // igual sobre cualquiera de los cuatro fondos.
           if (elegido) cls += " ring-2 ring-aventurea-navy ring-offset-1 ring-offset-aventurea-surface";

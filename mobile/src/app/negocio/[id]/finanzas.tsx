@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
   barras: { flex: 1, flexDirection: "row", gap: 2, height: 16 },
   barra: { borderRadius: 3 },
   barraEntro: { backgroundColor: Colors.green },
-  barraPorCobrar: { backgroundColor: Colors.accent },
+  barraPorCobrar: { backgroundColor: Colors.sky },
   semanaMonto: {
     color: Colors.ink,
     fontFamily: Fonts.bold,
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
   },
   botonGuardar: {
     alignItems: "center",
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 12,
     paddingVertical: 14,
   },

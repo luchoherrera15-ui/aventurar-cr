@@ -286,7 +286,7 @@ export default function ConocimientoPanel({
         <p
           className={`rounded-xl p-3 text-[13px] ${
             error
-              ? "bg-aventurea-orange-light font-bold text-aventurea-orange-dark"
+              ? "bg-aventurea-sky-light font-bold text-aventurea-orange-dark"
               : "bg-aventurea-cream-2 text-aventurea-ink-soft"
           }`}
         >

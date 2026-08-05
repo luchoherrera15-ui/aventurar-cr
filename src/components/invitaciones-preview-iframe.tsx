@@ -24,7 +24,7 @@ export default function PreviewIframe({
       {cargando && (
         <div className="flex h-96 items-center justify-center bg-aventurea-cream-2">
           <div className="text-center">
-            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-aventurea-orange border-t-transparent" />
+            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-aventurea-sky border-t-transparent" />
             <p className="text-[13px] text-aventurea-ink-soft">Generando invitación...</p>
           </div>
         </div>

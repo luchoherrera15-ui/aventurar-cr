@@ -71,7 +71,7 @@ export default async function DashboardLayout({
             <form action={logout}>
               <button
                 type="submit"
-                className="rounded-xl border border-aventurea-line bg-white px-4 py-1.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="rounded-xl border border-aventurea-line bg-white px-4 py-1.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
               >
                 Cerrar sesión
               </button>

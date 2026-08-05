@@ -96,7 +96,7 @@ export default function NotificacionesBell({ items }: { items: NotificacionItem[
       >
         <IconBell className="h-5 w-5" />
         {sinLeer > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-aventurea-cream bg-aventurea-orange px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-aventurea-cream bg-aventurea-sky px-1 text-[10px] font-bold text-white">
             {sinLeer > 9 ? "9+" : sinLeer}
           </span>
         )}

@@ -17,9 +17,9 @@ const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 const tarjetaCls = "rounded-2xl border border-aventurea-line bg-aventurea-surface p-5";
 const botonPrimario =
-  "rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60";
+  "rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60";
 const botonChico =
-  "h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40";
+  "h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40";
 
 const PREGUNTA_MAX = 160;
 const RESPUESTA_MAX = 700;
@@ -237,7 +237,7 @@ export default function AsistentePanel({
           <span
             className={`rounded-lg px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide ${
               !contratado
-                ? "bg-aventurea-orange-light text-aventurea-orange-dark"
+                ? "bg-aventurea-sky-light text-aventurea-orange-dark"
                 : encendido
                   ? "bg-aventurea-green-light text-aventurea-green"
                   : "bg-zinc-100 text-zinc-500"
@@ -253,7 +253,7 @@ export default function AsistentePanel({
             nada. Lo de abajo (instrucciones y respuestas) sí se puede ir
             preparando: el día que se contrate ya está listo. */}
         {!contratado && (
-          <div className="mt-4 rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/5 p-4">
+          <div className="mt-4 rounded-xl border border-aventurea-sky/30 bg-aventurea-sky/5 p-4">
             <p className="text-[13.5px] font-bold text-aventurea-ink">
               El asistente es un complemento aparte
             </p>
@@ -391,7 +391,7 @@ export default function AsistentePanel({
                     disabled={pendiente || idx === 0}
                     onClick={() => mover(fila, -1)}
                     aria-label="Subir"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-30"
+                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
                   >
                     ↑
                   </button>
@@ -400,7 +400,7 @@ export default function AsistentePanel({
                     disabled={pendiente || idx === filas.length - 1}
                     onClick={() => mover(fila, 1)}
                     aria-label="Bajar"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-30"
+                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
                   >
                     ↓
                   </button>
@@ -460,7 +460,7 @@ export default function AsistentePanel({
                     key={s}
                     type="button"
                     onClick={() => setPregunta(s)}
-                    className="rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-1.5 text-[12px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                    className="rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-1.5 text-[12px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
                   >
                     {s}
                   </button>
@@ -523,7 +523,7 @@ export default function AsistentePanel({
                 type="button"
                 onClick={limpiarFormulario}
                 disabled={pendiente}
-                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
               >
                 Cancelar
               </button>

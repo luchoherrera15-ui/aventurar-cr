@@ -91,7 +91,7 @@ export default function ResumenesCitas({ citas, miembros }: ResumenesCitasProps)
           <p className="mt-2 text-[24px] font-extrabold text-red-700">{stats.noAsistio}</p>
         </div>
 
-        <div className="rounded-xl bg-aventurea-orange/10 border border-aventurea-orange/30 p-4">
+        <div className="rounded-xl bg-aventurea-sky/10 border border-aventurea-sky/30 p-4">
           <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
             Tasa no-show
           </p>
@@ -123,7 +123,7 @@ export default function ResumenesCitas({ citas, miembros }: ResumenesCitasProps)
             {stats.topClientes.map(([nombre, cantidad]) => (
               <div key={nombre} className="flex items-center justify-between px-5 py-3">
                 <p className="font-bold text-aventurea-ink">{nombre}</p>
-                <span className="rounded-lg bg-aventurea-orange/10 px-2.5 py-1 text-[12px] font-bold text-aventurea-orange">
+                <span className="rounded-lg bg-aventurea-sky/10 px-2.5 py-1 text-[12px] font-bold text-aventurea-orange">
                   {cantidad} cita{cantidad !== 1 ? "s" : ""}
                 </span>
               </div>

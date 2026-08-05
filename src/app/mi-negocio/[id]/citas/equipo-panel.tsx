@@ -281,7 +281,7 @@ export default function EquipoPanel({
               className="h-16 w-16 rounded-full border border-aventurea-line object-cover"
             />
           )}
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange">
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky">
             <IconCamera className="h-4 w-4" />
             {subiendoFoto
               ? "Subiendo..."
@@ -317,7 +317,7 @@ export default function EquipoPanel({
           type="button"
           onClick={onGuardar}
           disabled={pending || subiendoFoto || !borrador.nombre.trim()}
-          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : textoBoton}
         </button>
@@ -326,7 +326,7 @@ export default function EquipoPanel({
             type="button"
             onClick={onCancelar}
             disabled={pending}
-            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
           >
             Cancelar
           </button>
@@ -406,7 +406,7 @@ export default function EquipoPanel({
                     className={`h-[30px] rounded-lg px-2.5 text-xs font-bold disabled:opacity-40 ${
                       configurando === miembro.id
                         ? "bg-aventurea-navy text-white"
-                        : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                        : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
                     }`}
                   >
                     Horario y servicios
@@ -416,7 +416,7 @@ export default function EquipoPanel({
                     disabled={pending || idx === 0}
                     onClick={() => mover(miembro, -1)}
                     aria-label="Subir"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-30"
+                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
                   >
                     ↑
                   </button>
@@ -425,7 +425,7 @@ export default function EquipoPanel({
                     disabled={pending || idx === equipo.length - 1}
                     onClick={() => mover(miembro, 1)}
                     aria-label="Bajar"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange disabled:opacity-30"
+                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
                   >
                     ↓
                   </button>
@@ -436,7 +436,7 @@ export default function EquipoPanel({
                       setEditando(miembro.id);
                       setBorrador(deMiembro(miembro));
                     }}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
                   >
                     Editar
                   </button>
@@ -444,7 +444,7 @@ export default function EquipoPanel({
                     type="button"
                     disabled={pending}
                     onClick={() => alternarActivo(miembro)}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
                   >
                     {miembro.activo ? "Pausar" : "Activar"}
                   </button>

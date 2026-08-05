@@ -335,7 +335,7 @@ function CobrosVencidos({
                 type="button"
                 disabled={pending}
                 onClick={() => onCobrar(r)}
-                className="rounded-lg bg-aventurea-orange px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+                className="rounded-lg bg-aventurea-sky px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
               >
                 Registrar cobro
               </button>
@@ -598,7 +598,7 @@ function ModalCobro({
           <button
             type="button"
             onClick={onCerrar}
-            className="flex-1 rounded-xl border border-aventurea-line py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-orange/40"
+            className="flex-1 rounded-xl border border-aventurea-line py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky/40"
           >
             Cancelar
           </button>
@@ -732,7 +732,7 @@ function GastosCard({
             type="button"
             disabled={pending || !concepto.trim() || !monto}
             onClick={enviar}
-            className="w-full rounded-xl bg-aventurea-orange px-4 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            className="w-full rounded-xl bg-aventurea-sky px-4 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
           >
             Agregar
           </button>

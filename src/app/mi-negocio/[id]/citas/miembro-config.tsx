@@ -249,7 +249,7 @@ export default function MiembroConfig({
           type="button"
           onClick={guardarHorario}
           disabled={pending}
-          className="mt-3 rounded-xl bg-aventurea-orange px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="mt-3 rounded-xl bg-aventurea-sky px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : "Guardar horario"}
         </button>
@@ -292,7 +292,7 @@ export default function MiembroConfig({
             type="button"
             onClick={guardarServicios}
             disabled={pending}
-            className="mt-3 rounded-xl bg-aventurea-orange px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+            className="mt-3 rounded-xl bg-aventurea-sky px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
           >
             {pending ? "Guardando..." : "Guardar servicios"}
           </button>
@@ -304,7 +304,7 @@ export default function MiembroConfig({
 
       {error && <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
       {aviso && (
-        <p className="rounded-xl bg-aventurea-orange-light p-3 text-[13px] text-aventurea-ink">
+        <p className="rounded-xl bg-aventurea-sky-light p-3 text-[13px] text-aventurea-ink">
           {aviso}
         </p>
       )}

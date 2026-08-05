@@ -764,8 +764,8 @@ export default function Directorio({
                 }}
                 className={`rounded-lg border px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
                   provincia === p
-                    ? "border-aventurea-orange bg-aventurea-orange/10 text-aventurea-orange"
-                    : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+                    ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
+                    : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
                 }`}
               >
                 {p}
@@ -777,7 +777,7 @@ export default function Directorio({
       </div>
 
       {/* Invitación a publicar */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-aventurea-orange/25 bg-aventurea-orange/5 px-6 py-5">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-aventurea-sky/25 bg-aventurea-sky/5 px-6 py-5">
         <div>
           <h2 className="text-[15px] font-bold text-aventurea-ink">
             ¿Tenés un negocio para eventos?
@@ -789,7 +789,7 @@ export default function Directorio({
         </div>
         <Link
           href="/mi-negocio/nuevo"
-          className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+          className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark"
         >
           Publicar mi espacio
         </Link>
@@ -857,7 +857,7 @@ function CategoriaTab({
     >
       <span
         className={`flex h-8 w-8 items-center justify-center rounded-full [&_svg]:h-[18px] [&_svg]:w-[18px] ${
-          activo ? "bg-white/15 text-white" : "bg-aventurea-orange/10 text-aventurea-orange"
+          activo ? "bg-white/15 text-white" : "bg-aventurea-sky/10 text-aventurea-orange"
         }`}
       >
         {icono}
@@ -931,13 +931,13 @@ function SelectorFecha({
 
 function Chip({ label, onQuitar }: { label: string; onQuitar: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-lg bg-aventurea-orange/10 py-1 pl-3 pr-1.5 text-[12px] font-bold text-aventurea-orange">
+    <span className="inline-flex items-center gap-1.5 rounded-lg bg-aventurea-sky/10 py-1 pl-3 pr-1.5 text-[12px] font-bold text-aventurea-orange">
       {label}
       <button
         type="button"
         onClick={onQuitar}
         aria-label={`Quitar filtro ${label}`}
-        className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-aventurea-orange hover:text-white"
+        className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-aventurea-sky hover:text-white"
       >
         ×
       </button>
@@ -962,7 +962,7 @@ function FilterRow({
       onClick={onClick}
       className={`flex w-full items-center justify-between rounded-[10px] px-2.5 py-1.5 text-left text-[13px] transition-colors ${
         active
-          ? "bg-aventurea-orange/10 font-bold text-aventurea-orange"
+          ? "bg-aventurea-sky/10 font-bold text-aventurea-orange"
           : "text-aventurea-ink hover:bg-aventurea-cream-2"
       }`}
     >
@@ -990,7 +990,7 @@ function Paginacion({
         type="button"
         disabled={pagina === 1}
         onClick={() => onCambiar(pagina - 1)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-30"
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-30"
         aria-label="Página anterior"
       >
         ‹
@@ -1002,8 +1002,8 @@ function Paginacion({
           onClick={() => onCambiar(p)}
           className={`flex h-9 w-9 items-center justify-center rounded-lg text-[13px] font-bold transition-colors ${
             p === pagina
-              ? "bg-aventurea-orange text-white"
-              : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+              ? "bg-aventurea-sky text-white"
+              : "border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
           }`}
         >
           {p}
@@ -1013,7 +1013,7 @@ function Paginacion({
         type="button"
         disabled={pagina === total}
         onClick={() => onCambiar(pagina + 1)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-30"
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-30"
         aria-label="Página siguiente"
       >
         ›

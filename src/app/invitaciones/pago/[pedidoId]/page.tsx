@@ -120,7 +120,7 @@ export default async function PagoPage({
 
             <Link
               href="/cuenta"
-              className="mt-5 inline-block rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              className="mt-5 inline-block rounded-xl bg-aventurea-sky px-6 py-3 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
             >
               Ir a mi cuenta
             </Link>

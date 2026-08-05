@@ -152,7 +152,7 @@ export default async function CuentaPage() {
             a la derecha (abajo en móvil). Compacta a propósito. */}
         <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface px-5 py-4 shadow-[0_10px_30px_-18px_rgba(16,26,44,0.35)] sm:flex-row sm:items-center sm:gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-3.5">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[3px] border-aventurea-orange bg-aventurea-navy text-[22px] font-extrabold text-white">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[3px] border-aventurea-sky bg-aventurea-navy text-[22px] font-extrabold text-white">
               {inicial}
             </span>
             <div className="min-w-0">
@@ -163,7 +163,7 @@ export default async function CuentaPage() {
                 <span
                   className={`shrink-0 rounded-lg px-2 py-0.5 text-[10.5px] font-bold ${
                     tieneNegocio
-                      ? "bg-aventurea-orange/10 text-aventurea-orange"
+                      ? "bg-aventurea-sky/10 text-aventurea-orange"
                       : "bg-aventurea-navy/10 text-aventurea-navy"
                   }`}
                 >

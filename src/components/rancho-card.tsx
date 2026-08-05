@@ -121,7 +121,7 @@ export default function RanchoCard({
             )}
             {/* Destacado le gana el puesto a "Nuevo". */}
             {rancho.destacado_orden != null ? (
-              <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
+              <span className="rounded-lg bg-aventurea-sky px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
                 ★ Destacado
               </span>
             ) : (

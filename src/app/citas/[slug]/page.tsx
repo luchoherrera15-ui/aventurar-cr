@@ -267,7 +267,7 @@ export default async function NegocioCitasPage({
               <div className="mt-auto flex flex-wrap gap-2.5 pt-5">
                 <a
                   href="#servicios"
-                  className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="rounded-xl bg-aventurea-sky px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-sky-dark"
                 >
                   Reservar una cita
                 </a>

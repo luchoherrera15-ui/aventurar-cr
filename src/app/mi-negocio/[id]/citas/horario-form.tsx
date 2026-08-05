@@ -137,7 +137,7 @@ export default function HorarioForm({
           type="button"
           onClick={guardar}
           disabled={pending}
-          className="rounded-xl bg-aventurea-orange px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+          className="rounded-xl bg-aventurea-sky px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
         >
           {pending ? "Guardando..." : "Guardar horario"}
         </button>

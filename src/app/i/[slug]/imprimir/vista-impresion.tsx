@@ -203,7 +203,7 @@ export default function VistaImpresion({
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="rounded-xl bg-aventurea-orange px-5 py-2 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+                className="rounded-xl bg-aventurea-sky px-5 py-2 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
               >
                 Descargar PDF
               </button>
@@ -212,7 +212,7 @@ export default function VistaImpresion({
                 type="button"
                 disabled={generando}
                 onClick={componer}
-                className="rounded-xl bg-aventurea-orange px-5 py-2 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60"
+                className="rounded-xl bg-aventurea-sky px-5 py-2 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark disabled:opacity-60"
               >
                 {generando ? "Componiendo…" : "Componer la hoja"}
               </button>

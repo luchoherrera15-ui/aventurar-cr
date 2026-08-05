@@ -42,7 +42,7 @@ export const SECCION_CORTA: Record<string, string> = {
 
 export const SECCION_BADGE: Record<string, string> = {
   citas: "bg-aventurea-navy/10 text-aventurea-navy",
-  eventos: "bg-aventurea-orange/15 text-aventurea-orange",
+  eventos: "bg-aventurea-sky/15 text-aventurea-orange",
   hospedajes: "bg-aventurea-green/15 text-aventurea-green",
   restaurantes: "bg-aventurea-blue/15 text-aventurea-blue",
 };

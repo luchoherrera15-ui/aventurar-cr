@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   kickerBarra: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 2,
     height: 2,
     width: 22,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 28,
   },
-  tarjetaFlechaActiva: { backgroundColor: Colors.accent },
+  tarjetaFlechaActiva: { backgroundColor: Colors.sky },
   pie: { gap: 7 },
   pieFila: {
     alignItems: "center",
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   piePunto: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 99,
     height: 5,
     width: 5,

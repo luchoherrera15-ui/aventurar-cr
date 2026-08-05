@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.two,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.sky,
     borderRadius: 14,
     paddingVertical: 14,
     marginBottom: Spacing.two,

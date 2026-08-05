@@ -131,7 +131,7 @@ export default function ClientePage() {
             onClick={() => setVerHistorial(false)}
             className={`px-4 py-3 font-bold text-[13px] transition-colors ${
               !verHistorial
-                ? "border-b-2 border-aventurea-orange text-aventurea-orange"
+                ? "border-b-2 border-aventurea-sky text-aventurea-orange"
                 : "text-aventurea-ink-soft hover:text-aventurea-ink"
             }`}
           >
@@ -145,7 +145,7 @@ export default function ClientePage() {
             }}
             className={`px-4 py-3 font-bold text-[13px] transition-colors ${
               verHistorial
-                ? "border-b-2 border-aventurea-orange text-aventurea-orange"
+                ? "border-b-2 border-aventurea-sky text-aventurea-orange"
                 : "text-aventurea-ink-soft hover:text-aventurea-ink"
             }`}
           >
@@ -169,7 +169,7 @@ export default function ClientePage() {
           {pendiente && (
             <div className="rounded-2xl border border-aventurea-line bg-white p-5">
               <div className="flex items-center gap-3">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-aventurea-orange border-t-transparent" />
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-aventurea-sky border-t-transparent" />
                 <p className="text-[13.5px] font-semibold text-aventurea-ink">
                   Generando tu invitación... esto puede tardar unos minutos ☕
                 </p>

@@ -23,6 +23,14 @@ export const Colors = {
   blueLight: "#e8f0f9",
   accent: "#ee7420",
   accentLight: "#fdeee1",
+  /** El acento de RELLENO: botones, chips y tarjetas (espejo de
+   *  `--color-aventurea-sky` en la web). El naranja quedó solo para
+   *  TEXTO — como fondo competía con el navy de marca. */
+  sky: "#2f7cbe",
+  skyDark: "#24638f",
+  skyLight: "#e8f2fb",
+  /** Tinta legible sobre `skyLight` (reemplaza al "#a2490c" naranja). */
+  skyInk: "#1d5b8f",
   green: "#1f7a4d",
   greenLight: "#e1f0e6",
   /** El lienzo de todas las pantallas: gris muy claro, nunca blanco. */

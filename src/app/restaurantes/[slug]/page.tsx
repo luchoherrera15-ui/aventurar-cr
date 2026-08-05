@@ -208,7 +208,7 @@ export default async function RestaurantePage({
               {aceptaPickup && (
                 <Link
                   href={`/mensajes/consulta/${local.id}`}
-                  className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+                  className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
                 >
                   Pedir para recoger
                 </Link>

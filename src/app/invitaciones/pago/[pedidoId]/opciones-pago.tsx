@@ -179,7 +179,7 @@ export default function OpcionesPago({
         <button
           type="submit"
           disabled={pendiente || subiendo || !comprobanteUrl}
-          className="mt-4 w-full rounded-xl bg-aventurea-orange px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-50"
+          className="mt-4 w-full rounded-xl bg-aventurea-sky px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark disabled:opacity-50"
         >
           {pendiente ? "Enviando..." : "Ya pagué — enviar comprobante"}
         </button>

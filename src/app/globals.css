@@ -116,6 +116,16 @@
   --color-aventurea-orange: var(--orange);
   --color-aventurea-orange-dark: #cf5d0e;
   --color-aventurea-orange-light: #fdeee1;
+  /* El acento de RELLENO: botones, chips y tarjetas. Un celeste que
+     baja del navy de marca — misma familia, más aire. El naranja pasó
+     a ser solo de TEXTO (precios, kickers, enlaces destacados), donde
+     su contraste sí funciona; como fondo competía con el navy y
+     ensuciaba cada pantalla.
+     El tono está elegido para que el texto blanco en negrita encima
+     siga siendo legible (~4,4:1 contra blanco). */
+  --color-aventurea-sky: #2f7cbe;
+  --color-aventurea-sky-dark: #24638f;
+  --color-aventurea-sky-light: #e8f2fb;
   --color-aventurea-green: #1f7a4d;
   /* Serie "por cobrar" de los gráficos. El navy de marca no sirve como
      relleno de barra: queda fuera de la banda de luminosidad y sin croma,
@@ -427,7 +437,7 @@ body {
   color: #fff;
 }
 .bento-naranja {
-  background-color: var(--color-aventurea-orange);
+  background-color: var(--color-aventurea-sky);
   color: #fff;
 }
 .bento-azul {
@@ -454,7 +464,7 @@ body {
   justify-content: center;
   gap: 0.5rem;
   border-radius: 12px;
-  background-color: var(--color-aventurea-orange);
+  background-color: var(--color-aventurea-sky);
   color: #fff;
   font-weight: 700;
   font-size: 14px;
@@ -462,7 +472,7 @@ body {
   transition: background-color 0.15s ease;
 }
 .btn-naranja:hover {
-  background-color: var(--color-aventurea-orange-dark);
+  background-color: var(--color-aventurea-sky-dark);
 }
 .btn-blanco {
   display: inline-flex;

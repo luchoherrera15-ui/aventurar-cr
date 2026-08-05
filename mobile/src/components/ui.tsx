@@ -375,7 +375,9 @@ const TONOS: Record<TonoEstado, { fondo: string; texto: string }> = {
   // Verde tinte (no sólido): es el "APROBADA" del diseño — informa sin
   // gritar, porque en una lista de reservas casi todas están bien.
   verde: { fondo: Colors.greenLight, texto: Colors.green },
-  naranja: { fondo: Colors.accentLight, texto: "#a2490c" },
+  // El tono "naranja" conserva su nombre (lo usan muchas pantallas)
+  // pero se pinta en celeste: los rellenos naranjas salieron de la UI.
+  naranja: { fondo: Colors.skyLight, texto: Colors.skyInk },
   // Navy sólido: el único estado que se rellena, para la cita del
   // momento ("CITA CONFIRMADA" en la agenda del día).
   navy: { fondo: Colors.navy, texto: "#ffffff" },
@@ -429,8 +431,10 @@ export function Boton({
   style?: StyleProp<ViewStyle>;
 }) {
   const esContorno = tono === "contorno";
+  // "reservar" es el botón principal: pasó de naranja a celeste (el
+  // naranja quedó solo para texto).
   const fondo =
-    tono === "reservar" ? Colors.accent : tono === "navy" ? Colors.navy : tono === "verde" ? Colors.green : "transparent";
+    tono === "reservar" ? Colors.sky : tono === "navy" ? Colors.navy : tono === "verde" ? Colors.green : "transparent";
   const color = esContorno ? Colors.navy : "#ffffff";
 
   return (
@@ -618,7 +622,7 @@ export function Aviso({
     tono === "error"
       ? { fondo: Colors.dangerLight, texto: Colors.danger, icono: "alert-circle-outline" as IconoNombre }
       : tono === "atencion"
-        ? { fondo: Colors.accentLight, texto: "#a2490c", icono: "information-circle-outline" as IconoNombre }
+        ? { fondo: Colors.skyLight, texto: Colors.skyInk, icono: "information-circle-outline" as IconoNombre }
         : { fondo: Colors.blueLight, texto: Colors.navy, icono: "information-circle-outline" as IconoNombre };
   return (
     <View style={[styles.aviso, { backgroundColor: paleta.fondo }]}>

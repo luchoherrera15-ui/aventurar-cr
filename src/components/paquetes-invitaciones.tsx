@@ -69,7 +69,7 @@ export default function PaquetesInvitaciones({
       <InvitacionesComparador />
 
       {/* La nota del Base: compacta, sin robar protagonismo */}
-      <p className="mx-auto mt-4 max-w-[64ch] rounded-xl border border-aventurea-orange/25 bg-aventurea-orange/5 px-4 py-2.5 text-center text-[12.5px] leading-relaxed text-aventurea-ink">
+      <p className="mx-auto mt-4 max-w-[64ch] rounded-xl border border-aventurea-sky/25 bg-aventurea-sky/5 px-4 py-2.5 text-center text-[12.5px] leading-relaxed text-aventurea-ink">
         ¿Reservaste tu salón o servicio en Bookea? Tenés la invitación{" "}
         <strong className="font-extrabold">{PAQUETE_BASE.nombre}</strong>{" "}
         generada con IA por{" "}
@@ -113,8 +113,8 @@ function CardPrincipal({ paquete }: { paquete: PaquetePrincipal }) {
       <span
         className={
           destacado
-            ? "inline-flex w-fit items-center rounded-lg bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
-            : "inline-flex w-fit items-center rounded-lg bg-aventurea-orange/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
+            ? "inline-flex w-fit items-center rounded-lg bg-aventurea-sky px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
+            : "inline-flex w-fit items-center rounded-lg bg-aventurea-sky/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
         }
       >
         {paquete.badge}
@@ -209,7 +209,7 @@ function CardPrincipal({ paquete }: { paquete: PaquetePrincipal }) {
           href={`/invitaciones/pedido/${paquete.id}`}
           className={
             destacado
-              ? "w-full rounded-xl bg-aventurea-orange px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              ? "w-full rounded-xl bg-aventurea-sky px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
               : "w-full rounded-xl bg-aventurea-navy px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
           }
         >
@@ -234,8 +234,8 @@ function CardPaquete({ paquete }: { paquete: PaqueteInvitacion }) {
       <span
         className={
           destacado
-            ? "inline-flex w-fit items-center rounded-lg bg-aventurea-orange px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
-            : "inline-flex w-fit items-center rounded-lg bg-aventurea-orange/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
+            ? "inline-flex w-fit items-center rounded-lg bg-aventurea-sky px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white"
+            : "inline-flex w-fit items-center rounded-lg bg-aventurea-sky/10 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange"
         }
       >
         {paquete.badge}
@@ -293,7 +293,7 @@ function CardPaquete({ paquete }: { paquete: PaqueteInvitacion }) {
           href={`/invitaciones/pedido/${paquete.id}`}
           className={
             destacado
-              ? "w-full rounded-xl bg-aventurea-orange px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+              ? "w-full rounded-xl bg-aventurea-sky px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
               : "w-full rounded-xl bg-aventurea-navy px-6 py-2.5 text-center text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
           }
         >

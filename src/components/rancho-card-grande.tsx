@@ -141,7 +141,7 @@ export default function RanchoCardGrande({
               </span>
             )}
             {rancho.destacado_orden != null ? (
-              <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
+              <span className="rounded-lg bg-aventurea-sky px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
                 ★ Destacado
               </span>
             ) : (
@@ -189,7 +189,7 @@ export default function RanchoCardGrande({
           )}
 
           {resena && (
-            <p className="mt-2.5 line-clamp-2 border-l-2 border-aventurea-orange/40 pl-2.5 text-[12.5px] italic leading-relaxed text-aventurea-ink-soft">
+            <p className="mt-2.5 line-clamp-2 border-l-2 border-aventurea-sky/40 pl-2.5 text-[12.5px] italic leading-relaxed text-aventurea-ink-soft">
               “{resena}” — Cliente verificado
             </p>
           )}
@@ -274,7 +274,7 @@ function CorazonFavorito({
       aria-pressed={activo}
       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all hover:scale-105 disabled:opacity-70 ${
         activo
-          ? "border-aventurea-orange bg-aventurea-orange/10"
+          ? "border-aventurea-sky bg-aventurea-sky/10"
           : "border-aventurea-line bg-aventurea-cream-2"
       }`}
     >

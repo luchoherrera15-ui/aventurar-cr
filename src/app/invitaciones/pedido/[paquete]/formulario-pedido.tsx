@@ -194,12 +194,12 @@ export default function FormularioPedido({
           que marcar esto no puede cambiar cuánto se cobra por su
           cuenta. Viene premarcado si el cliente ya lo eligió en la
           página de paquetes, pero se puede desmarcar acá. */}
-      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 transition-colors hover:border-aventurea-orange">
+      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 transition-colors hover:border-aventurea-sky">
         <input
           type="checkbox"
           name="con_album"
           defaultChecked={albumSugerido}
-          className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-aventurea-orange"
+          className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-aventurea-sky"
         />
         <span>
           <span className="block text-[14px] font-bold text-aventurea-ink">
@@ -220,7 +220,7 @@ export default function FormularioPedido({
       <button
         type="submit"
         disabled={pendiente}
-        className="rounded-xl bg-aventurea-orange px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:opacity-60"
+        className="rounded-xl bg-aventurea-sky px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark disabled:opacity-60"
       >
         {pendiente ? "Guardando tu pedido..." : "Continuar al pago →"}
       </button>

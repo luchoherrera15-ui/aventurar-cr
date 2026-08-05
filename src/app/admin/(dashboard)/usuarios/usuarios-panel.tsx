@@ -113,7 +113,7 @@ export default function UsuariosPanel({
   return (
     <div className="flex flex-col gap-6">
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
           Alta manual
         </p>
         <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
@@ -126,7 +126,7 @@ export default function UsuariosPanel({
         </p>
 
         {!puedeCrearCuentas ? (
-          <p className="mt-4 rounded-[10px] bg-aventurea-orange/10 p-3 text-[12.5px] leading-relaxed text-aventurea-orange">
+          <p className="mt-4 rounded-[10px] bg-aventurea-sky/10 p-3 text-[12.5px] leading-relaxed text-aventurea-orange">
             Para crear cuentas desde acá falta agregar la variable{" "}
             <strong>SUPABASE_SERVICE_ROLE_KEY</strong> en Vercel (Settings →
             Environment Variables). La encontrás en Supabase, en Project
@@ -152,7 +152,7 @@ export default function UsuariosPanel({
             <button
               type="submit"
               disabled={pending}
-              className="h-[42px] rounded-xl bg-aventurea-orange px-5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+              className="h-[42px] rounded-xl bg-aventurea-sky px-5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
             >
               {pending ? "Creando..." : "Crear cuenta"}
             </button>
@@ -182,7 +182,7 @@ export default function UsuariosPanel({
         </p>
       )}
       {!puedeCrearCuentas && (
-        <p className="rounded-xl bg-aventurea-orange/10 p-3 text-[12.5px] leading-relaxed text-aventurea-orange">
+        <p className="rounded-xl bg-aventurea-sky/10 p-3 text-[12.5px] leading-relaxed text-aventurea-orange">
           Para cambiar correos y contraseñas también hace falta la variable{" "}
           <strong>SUPABASE_SERVICE_ROLE_KEY</strong>.
         </p>
@@ -255,14 +255,14 @@ export default function UsuariosPanel({
                     <button
                       disabled={!puedeCrearCuentas}
                       onClick={() => abrirEdicion(p, "email")}
-                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
                     >
                       Cambiar correo
                     </button>
                     <button
                       disabled={!puedeCrearCuentas}
                       onClick={() => abrirEdicion(p, "password")}
-                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-40"
+                      className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
                     >
                       Cambiar contraseña
                     </button>
@@ -274,7 +274,7 @@ export default function UsuariosPanel({
                       <button
                         disabled={rolPending}
                         onClick={() => toggleRol(p.id, p.rol)}
-                        className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-50"
+                        className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-50"
                       >
                         {p.rol === "admin" ? "Quitar admin" : "Hacer admin"}
                       </button>
@@ -344,7 +344,7 @@ export default function UsuariosPanel({
                 type="button"
                 onClick={cerrarEdicion}
                 disabled={guardando}
-                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange disabled:opacity-50"
+                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -352,7 +352,7 @@ export default function UsuariosPanel({
                 type="button"
                 onClick={guardarEdicion}
                 disabled={guardando || !valor.trim()}
-                className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+                className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
               >
                 {guardando ? "Guardando..." : "Guardar"}
               </button>

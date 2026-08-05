@@ -570,7 +570,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
             </p>
             <a
               href="#reservar"
-              className="mt-6 inline-flex items-center justify-center rounded-xl bg-aventurea-orange px-8 py-3.5 text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
+              className="mt-6 inline-flex items-center justify-center rounded-xl bg-aventurea-sky px-8 py-3.5 text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-sky-dark"
             >
               ¡Reservar tu espacio!
             </a>
@@ -684,7 +684,7 @@ function TituloSeccion({
 }) {
   return (
     <>
-      <p className="flex items-center gap-2 text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-aventurea-orange before:block before:h-px before:w-5 before:bg-aventurea-orange">
+      <p className="flex items-center gap-2 text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-aventurea-orange before:block before:h-px before:w-5 before:bg-aventurea-sky">
         {kicker}
       </p>
       <h2 className="titulo mt-1.5 text-[20px] text-aventurea-ink">{children}</h2>

@@ -95,7 +95,7 @@ const ESTADO_LABEL: Record<Rancho["estado"], string> = {
 // El estado se marca con un punto de color al lado del nombre — más
 // discreto que el badge grande de antes, misma información.
 const ESTADO_PUNTO: Record<Rancho["estado"], string> = {
-  pendiente: "bg-aventurea-orange",
+  pendiente: "bg-aventurea-sky",
   aprobado: "bg-aventurea-green",
   rechazado: "bg-red-600",
 };
@@ -892,14 +892,14 @@ export default async function RanchoDetallePage({
 
           <Link
             href="?tab=negocio&seccion=perfil"
-            className="shrink-0 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-orange-dark"
+            className="shrink-0 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-sky-dark"
           >
             Editar perfil y fotos
           </Link>
         </header>
 
         {rancho.estado === "pendiente" && (
-          <p className="mt-4 rounded-[10px] bg-aventurea-orange/15 p-3 text-[13px] leading-relaxed text-aventurea-orange">
+          <p className="mt-4 rounded-[10px] bg-aventurea-sky/15 p-3 text-[13px] leading-relaxed text-aventurea-orange">
             Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
             directorio.
           </p>

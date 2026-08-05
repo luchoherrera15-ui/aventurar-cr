@@ -26,7 +26,7 @@ export default function InvitacionesCard({ ancho }: { ancho?: string }) {
         </span>
 
         <div className="relative z-10">
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-aventurea-orange px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-white">
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-aventurea-sky px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-white">
             De Bookea
           </span>
           <h3 className="mt-3 text-[19px] font-bold leading-tight text-white">

@@ -178,7 +178,7 @@ export default function CatalogoPaquetes({
                       agotado
                         ? "border-aventurea-line opacity-50"
                         : elegido
-                          ? "border-aventurea-orange bg-aventurea-orange/5"
+                          ? "border-aventurea-sky bg-aventurea-sky/5"
                           : "border-aventurea-line bg-aventurea-surface"
                     }`}
                   >
@@ -237,8 +237,8 @@ export default function CatalogoPaquetes({
                             onClick={() => onCambiar(item.id, elegido ? 0 : 1)}
                             className={`rounded-xl px-4 py-2.5 text-[13px] font-bold transition-colors ${
                               elegido
-                                ? "bg-aventurea-orange text-white"
-                                : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-orange"
+                                ? "bg-aventurea-sky text-white"
+                                : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-sky"
                             }`}
                           >
                             {elegido ? "Elegido ✓" : "Elegir"}
@@ -328,7 +328,7 @@ export default function CatalogoPaquetes({
         // montado, así que las cantidades elegidas no se pierden.
         return (
           <details key={grupo} className="group">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-aventurea-line bg-white px-4 py-3.5 transition-colors hover:border-aventurea-orange [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-aventurea-line bg-white px-4 py-3.5 transition-colors hover:border-aventurea-sky [&::-webkit-details-marker]:hidden">
               <span className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="truncate text-[13.5px] font-bold text-aventurea-ink">
                   {grupo}
@@ -337,7 +337,7 @@ export default function CatalogoPaquetes({
                   · {delGrupo.length}
                 </span>
                 {seleccionadosSeccion > 0 && (
-                  <span className="shrink-0 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[11px] font-bold text-white">
+                  <span className="shrink-0 rounded-lg bg-aventurea-sky px-2 py-0.5 text-[11px] font-bold text-white">
                     {seleccionadosSeccion} elegido
                     {seleccionadosSeccion === 1 ? "" : "s"}
                   </span>

@@ -19,8 +19,8 @@ const VERTICALES = [
       "Salones y fincas, catering, música, decoración — todo lo que se contrata para un evento.",
     pide: "Te pedimos el rubro, tu zona y (si es un lugar) la capacidad.",
     icono: <IconRancho />,
-    color: "bg-aventurea-orange-light text-aventurea-orange",
-    borde: "hover:border-aventurea-orange",
+    color: "bg-aventurea-sky-light text-aventurea-orange",
+    borde: "hover:border-aventurea-sky",
   },
   {
     id: "citas",
@@ -68,7 +68,7 @@ export default async function NuevoRanchoPage() {
           ← Todas tus publicaciones
         </Link>
       )}
-      <p className="mt-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+      <p className="mt-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
         Publicá tu negocio
       </p>
       <h1 className="titulo mt-2.5 text-[28px] text-aventurea-ink sm:text-[34px]">

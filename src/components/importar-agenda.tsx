@@ -573,7 +573,7 @@ export default function ImportarAgenda({
               type="button"
               onClick={guardar}
               disabled={pendiente || listas === 0}
-              className="rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13px] font-extrabold text-white disabled:opacity-50"
+              className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13px] font-extrabold text-white disabled:opacity-50"
             >
               {pendiente ? "Guardando…" : `Guardar ${listas} reserva${listas === 1 ? "" : "s"}`}
             </button>

@@ -105,9 +105,9 @@ export default function SolicitudesPendientes({
   const sinResolver = lista.filter((r) => !resueltas[r.id]).length;
 
   return (
-    <section className="rounded-2xl border border-aventurea-orange/40 bg-aventurea-orange/5 p-4 sm:p-5">
+    <section className="rounded-2xl border border-aventurea-sky/40 bg-aventurea-sky/5 p-4 sm:p-5">
       <h2 className="flex items-center gap-2 text-[15px] font-bold text-aventurea-ink">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-orange text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-sky text-white">
           <IconBell className="h-4 w-4" />
         </span>
         {sinResolver === 0
@@ -188,7 +188,7 @@ export default function SolicitudesPendientes({
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   {r.deposito_comprobante_url && !r.deposito_validado && (
-                    <span className="rounded-lg bg-aventurea-orange/15 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-orange">
+                    <span className="rounded-lg bg-aventurea-sky/15 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-orange">
                       Comprobante por revisar
                     </span>
                   )}
@@ -239,7 +239,7 @@ export default function SolicitudesPendientes({
                           ✓ {fmtMoney(r.deposito_monto)}
                         </span>
                       ) : r.deposito_comprobante_url ? (
-                        <span className="inline-flex items-center rounded-lg bg-aventurea-orange/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-orange">
+                        <span className="inline-flex items-center rounded-lg bg-aventurea-sky/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-orange">
                           Por validar · {fmtMoney(r.deposito_monto)}
                         </span>
                       ) : (

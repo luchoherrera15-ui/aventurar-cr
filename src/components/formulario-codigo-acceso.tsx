@@ -66,7 +66,7 @@ export default function FormularioCodigoAcceso({
   const pideNombreAhora = pedirNombre || (pedirNombreSiNuevo && correoEsNuevo === true);
   const botonCls = `mt-1 flex h-11 items-center justify-center rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-60 ${
     acento === "orange"
-      ? "bg-aventurea-orange hover:bg-aventurea-orange-dark"
+      ? "bg-aventurea-sky hover:bg-aventurea-sky-dark"
       : "bg-aventurea-navy hover:bg-aventurea-navy-2"
   }`;
   const enlaceCls = `font-bold underline ${

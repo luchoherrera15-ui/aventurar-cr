@@ -128,7 +128,7 @@ export default function TerminosForm({
             <button
               type="button"
               onClick={restaurar}
-              className="rounded-lg border border-aventurea-line px-3 py-1.5 text-[12px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+              className="rounded-lg border border-aventurea-line px-3 py-1.5 text-[12px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
             >
               Volver a los de Bookea
             </button>
@@ -162,7 +162,7 @@ export default function TerminosForm({
         </div>
 
         {terminos.length === 0 && (
-          <p className="flex items-start gap-1.5 rounded-lg bg-aventurea-orange/10 p-3 text-[12.5px] leading-relaxed text-aventurea-orange">
+          <p className="flex items-start gap-1.5 rounded-lg bg-aventurea-sky/10 p-3 text-[12.5px] leading-relaxed text-aventurea-orange">
             <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             Sin términos propios se van a mostrar los de Bookea. Publicar
             sin condiciones te deja sin respaldo ante un daño o una cancelación.
@@ -173,7 +173,7 @@ export default function TerminosForm({
           <button
             type="button"
             onClick={agregar}
-            className="mt-3 rounded-lg border border-dashed border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-orange hover:text-aventurea-orange"
+            className="mt-3 rounded-lg border border-dashed border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
           >
             + Agregar una condición
           </button>
@@ -195,7 +195,7 @@ export default function TerminosForm({
         type="button"
         onClick={guardar}
         disabled={pending}
-        className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+        className="mt-4 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
       >
         {pending ? "Guardando..." : "Guardar términos"}
       </button>

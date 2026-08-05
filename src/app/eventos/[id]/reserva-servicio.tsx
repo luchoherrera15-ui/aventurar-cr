@@ -264,7 +264,10 @@ export default function ReservaServicio({
       {/* ---------- Paso 1: la fecha ---------- */}
       <div>
         <p className={labelCls}>1 · Elegí la fecha de tu evento</p>
-        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
+        {/* Ancho acotado: sin el tope, en el modal ancho las 7 columnas
+            estiraban cada celda (aspect-square) a más de 100 px de alto
+            y el calendario solo obligaba a scrollear. */}
+        <div className="max-w-[360px] rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <button
               type="button"
@@ -308,7 +311,7 @@ export default function ReservaServicio({
                   onClick={() => setFecha(valor)}
                   aria-pressed={activo}
                   title={lleno ? "Este día ya está lleno" : undefined}
-                  className={`aspect-square rounded-lg text-[13px] font-bold transition-colors ${
+                  className={`h-9 rounded-lg text-[13px] font-bold transition-colors ${
                     activo
                       ? "bg-aventurea-navy text-white"
                       : lleno

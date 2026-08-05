@@ -39,7 +39,7 @@ export default function OfertaInvitacionCard({ className = "" }: { className?: s
         </p>
         <Link
           href="/invitaciones"
-          className="mt-4 inline-block rounded-xl bg-aventurea-orange px-6 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+          className="mt-4 inline-block rounded-xl bg-aventurea-sky px-6 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
         >
           Crear mi invitación →
         </Link>

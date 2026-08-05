@@ -30,7 +30,7 @@ export type NegocioConAddons = {
 
 const CHIP: Record<EstadoAddon, string> = {
   activo: "bg-aventurea-green-light text-aventurea-green",
-  vencido: "bg-aventurea-orange-light text-aventurea-orange-dark",
+  vencido: "bg-aventurea-sky-light text-aventurea-orange-dark",
   apagado: "bg-aventurea-cream-2 text-aventurea-ink-soft",
 };
 

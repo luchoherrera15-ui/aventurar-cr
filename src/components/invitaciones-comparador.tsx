@@ -91,7 +91,7 @@ export default function InvitacionesComparador() {
               ))}
             </div>
             {conPanel ? (
-              <div className="mt-3 rounded-lg bg-aventurea-orange py-1.5 text-[9px] font-extrabold">
+              <div className="mt-3 rounded-lg bg-aventurea-sky py-1.5 text-[9px] font-extrabold">
                 Confirmar asistencia
               </div>
             ) : (

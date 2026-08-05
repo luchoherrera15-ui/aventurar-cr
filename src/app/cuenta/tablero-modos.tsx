@@ -49,7 +49,7 @@ function TarjetaAcceso({
       href={href}
       className={`group relative flex min-h-[96px] items-center overflow-hidden rounded-2xl border p-5 transition-colors ${
         acento
-          ? "border-aventurea-orange/30 bg-aventurea-orange/5 hover:border-aventurea-orange"
+          ? "border-aventurea-sky/30 bg-aventurea-sky/5 hover:border-aventurea-sky"
           : "border-aventurea-line bg-aventurea-surface hover:border-aventurea-navy"
       }`}
     >
@@ -63,7 +63,7 @@ function TarjetaAcceso({
       </span>
 
       {badge != null && badge > 0 && (
-        <span className="absolute right-4 top-4 z-10 rounded-lg bg-aventurea-orange px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-white">
+        <span className="absolute right-4 top-4 z-10 rounded-lg bg-aventurea-sky px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-white">
           +{badge > 99 ? "99" : badge}
         </span>
       )}

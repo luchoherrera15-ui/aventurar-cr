@@ -841,7 +841,7 @@ export default function ReservarCita({
               type="button"
               disabled={pending || !puedeContinuar || !nombre.trim()}
               onClick={confirmar}
-              className="rounded-xl bg-aventurea-orange px-6 py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-aventurea-sky px-6 py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               {pending ? "Confirmando…" : "Confirmar cita"}
             </button>

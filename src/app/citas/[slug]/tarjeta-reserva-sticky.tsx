@@ -132,7 +132,7 @@ export default function TarjetaReservaSticky({
         <button
           type="button"
           onClick={() => setAbierta(true)}
-          className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-aventurea-orange text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-orange-dark"
+          className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-aventurea-sky text-[14.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
         >
           Reservar ahora
         </button>

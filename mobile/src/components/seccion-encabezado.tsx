@@ -28,7 +28,7 @@ export default function SeccionEncabezado({
 const styles = StyleSheet.create({
   contenedor: { gap: 6 },
   kickerFila: { alignItems: "center", flexDirection: "row", gap: 8 },
-  kickerGuion: { backgroundColor: Colors.accent, height: 1.5, width: 18 },
+  kickerGuion: { backgroundColor: Colors.sky, height: 1.5, width: 18 },
   kickerTexto: { ...Tipo.micro, color: Colors.accent },
   titulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 20, letterSpacing: -0.5 },
 });

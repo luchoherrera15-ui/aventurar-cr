@@ -126,7 +126,7 @@ function HubCard({
           {icon}
         </span>
         {alerta && (
-          <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[11px] font-bold text-white">
+          <span className="rounded-lg bg-aventurea-sky px-2.5 py-1 text-[11px] font-bold text-white">
             {alerta}
           </span>
         )}

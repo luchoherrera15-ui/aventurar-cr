@@ -1119,7 +1119,7 @@ const styles = StyleSheet.create({
 
   reloj: {
     alignItems: "center",
-    backgroundColor: Colors.accentLight,
+    backgroundColor: Colors.skyLight,
     borderRadius: Radios.md,
     flexDirection: "row",
     gap: Spacing.two,
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  pasoPillActivo: { backgroundColor: Colors.accent },
+  pasoPillActivo: { backgroundColor: Colors.sky },
   pasoPillHecho: { backgroundColor: Colors.greenLight },
   pasoPillTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 11.5 },
   pasoPillTextoActivo: { color: "#ffffff" },
@@ -1186,7 +1186,7 @@ const styles = StyleSheet.create({
 
   filaTotales: { flexDirection: "row", gap: Spacing.two },
   cajaTotal: { flex: 1, gap: 4, padding: Spacing.three },
-  cajaDeposito: { backgroundColor: Colors.accentLight, borderColor: "#f7d8bd" },
+  cajaDeposito: { backgroundColor: Colors.skyLight, borderColor: "#f7d8bd" },
   cajaTotalValor: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 19, letterSpacing: -0.4 },
   precioTachado: {
     color: Colors.inkSoft,

@@ -32,8 +32,8 @@ export default function DaySlider({ fechaSeleccionada, onFechaChange }: DaySlide
           onClick={() => onFechaChange(fecha)}
           className={`shrink-0 rounded-xl px-3 py-2 text-center font-bold transition-all ${
             fechaSeleccionada === fecha
-              ? "bg-aventurea-orange text-white"
-              : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-orange"
+              ? "bg-aventurea-sky text-white"
+              : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-sky"
           }`}
         >
           <div className="text-[11px]">{obtenerDia(fecha)}</div>

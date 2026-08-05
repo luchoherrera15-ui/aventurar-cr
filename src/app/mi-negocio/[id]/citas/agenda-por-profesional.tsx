@@ -6,7 +6,7 @@ import type { CitaDia } from "./agenda-citas";
 
 const ESTADO_BLOQUE: Record<CitaDia["estado"], string> = {
   confirmada: "border-aventurea-green/40 bg-aventurea-green/10",
-  pendiente: "border-aventurea-orange/50 bg-aventurea-orange/10",
+  pendiente: "border-aventurea-sky/50 bg-aventurea-sky/10",
   rechazada: "border-red-200 bg-red-50 opacity-60",
   bloqueada: "border-aventurea-line bg-aventurea-cream-2",
   cumplida: "border-aventurea-navy/30 bg-aventurea-navy/10",
@@ -124,7 +124,7 @@ export default function AgendaPorProfesional({
                       <button
                         key={cita.id}
                         onClick={() => onSelectCita(cita)}
-                        className={`absolute left-1 right-1 p-2 rounded border text-left text-[11px] hover:ring-2 hover:ring-aventurea-orange ${
+                        className={`absolute left-1 right-1 p-2 rounded border text-left text-[11px] hover:ring-2 hover:ring-aventurea-sky ${
                           ESTADO_BLOQUE[cita.estado]
                         }`}
                         style={{

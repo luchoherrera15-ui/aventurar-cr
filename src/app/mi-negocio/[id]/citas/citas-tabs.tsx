@@ -84,7 +84,7 @@ export default function CitasTabs({
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-3 font-bold transition-colors ${
               activeTab === tab
-                ? "border-b-2 border-aventurea-orange text-aventurea-orange"
+                ? "border-b-2 border-aventurea-sky text-aventurea-orange"
                 : "text-aventurea-ink-soft hover:text-aventurea-ink"
             }`}
           >

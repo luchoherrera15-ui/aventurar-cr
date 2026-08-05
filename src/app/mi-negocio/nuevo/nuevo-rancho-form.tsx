@@ -434,7 +434,7 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
       <button
         type="submit"
         disabled={pending || subiendoFrente || subiendoDorso || !verificacionCompleta}
-        className="mt-1.5 rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+        className="mt-1.5 rounded-xl bg-aventurea-sky py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
       >
         {pending
           ? "Enviando..."

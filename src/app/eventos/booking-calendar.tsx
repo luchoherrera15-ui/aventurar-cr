@@ -772,7 +772,7 @@ export default function BookingCalendar({
               // selecciona sola — el hold de 10 minutos solo se crea
               // cuando el cliente la toca de verdad.
               const isSugerida = !isBlocked && fecha === fechaSugerida;
-              if (isSugerida) cls += " ring-2 ring-inset ring-aventurea-orange";
+              if (isSugerida) cls += " ring-2 ring-inset ring-aventurea-sky";
               if (isSelected) cls += " ring-2 ring-inset ring-aventurea-navy";
 
               return (
@@ -839,7 +839,7 @@ export default function BookingCalendar({
             )}
             {fechaSugerida && (
               <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-[3px] border-2 border-aventurea-orange bg-aventurea-cream-2" />
+                <span className="h-2.5 w-2.5 rounded-[3px] border-2 border-aventurea-sky bg-aventurea-cream-2" />
                 Tu fecha
               </span>
             )}
@@ -899,7 +899,7 @@ export default function BookingCalendar({
               <button
                 onClick={cerrarPanel}
                 aria-label="Cerrar"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-aventurea-line text-[18px] text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-aventurea-line text-[18px] text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
               >
                 ×
               </button>
@@ -928,7 +928,7 @@ export default function BookingCalendar({
                 </p>
                 <button
                   onClick={limpiarSeleccion}
-                  className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="mt-4 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark"
                 >
                   Intentar de nuevo
                 </button>
@@ -950,7 +950,7 @@ export default function BookingCalendar({
                 </p>
                 <button
                   onClick={limpiarSeleccion}
-                  className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="mt-4 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark"
                 >
                   Elegir una fecha
                 </button>
@@ -959,7 +959,7 @@ export default function BookingCalendar({
 
             {selectedDate && confirmado && (
               <div className="py-3.5 text-center">
-                <div className="mx-auto flex h-13 w-13 items-center justify-center rounded-full bg-aventurea-orange/15 text-2xl">
+                <div className="mx-auto flex h-13 w-13 items-center justify-center rounded-full bg-aventurea-sky/15 text-2xl">
                   ✓
                 </div>
                 <h3 className="mt-3.5 text-lg font-bold text-aventurea-ink">
@@ -973,7 +973,7 @@ export default function BookingCalendar({
                 </p>
                 <button
                   onClick={limpiarSeleccion}
-                  className="mt-4 rounded-xl bg-aventurea-orange px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+                  className="mt-4 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark"
                 >
                   Hacer otra reserva
                 </button>
@@ -1126,7 +1126,7 @@ export default function BookingCalendar({
                                   onChange={(e) =>
                                     setAddons((prev) => ({ ...prev, [s.id]: e.target.checked }))
                                   }
-                                  className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
+                                  className="mt-0.5 h-[17px] w-[17px] accent-aventurea-sky"
                                 />
                                 <div>
                                   <span className="text-[13px] text-zinc-200">{s.nombre}</span>
@@ -1288,7 +1288,7 @@ export default function BookingCalendar({
 
                     {/* Aviso importante: aparte de los términos generales, esta
                         es la aceptación específica sobre qué NO se alquila. */}
-                    <div className="rounded-xl border border-aventurea-orange/30 bg-aventurea-orange/10 p-3">
+                    <div className="rounded-xl border border-aventurea-sky/30 bg-aventurea-sky/10 p-3">
                       <p className="text-[11.5px] leading-snug text-aventurea-ink">
                         <IconWarning className="mr-1 inline h-3.5 w-3.5 text-aventurea-orange" />
                         <strong>Aviso importante:</strong> este lugar no se
@@ -1303,7 +1303,7 @@ export default function BookingCalendar({
                           checked={avisoAceptado}
                           onChange={(e) => setAvisoAceptado(e.target.checked)}
                           required
-                          className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
+                          className="mt-0.5 h-[17px] w-[17px] accent-aventurea-sky"
                         />
                         Entiendo y confirmo que mi evento no es ninguno de estos.
                       </label>
@@ -1404,7 +1404,7 @@ export default function BookingCalendar({
                           </span>
                         </div>
                       )}
-                      <div className={`rounded-xl bg-aventurea-orange/10 px-3.5 py-2.5 ${cotizacionTotal === null ? "sm:col-span-2" : ""}`}>
+                      <div className={`rounded-xl bg-aventurea-sky/10 px-3.5 py-2.5 ${cotizacionTotal === null ? "sm:col-span-2" : ""}`}>
                         <span className="block text-[10px] font-bold uppercase tracking-wide text-aventurea-orange">
                           Depósito para reservar (se paga ahora)
                         </span>
@@ -1489,7 +1489,7 @@ export default function BookingCalendar({
 
                         <div>
                           <label className={labelCls}>Comprobante de pago</label>
-                          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-aventurea-line p-4 text-center hover:border-aventurea-orange">
+                          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-aventurea-line p-4 text-center hover:border-aventurea-sky">
                             <input
                               type="file"
                               accept="image/*"
@@ -1518,7 +1518,7 @@ export default function BookingCalendar({
                             checked={terminosAceptados}
                             onChange={(e) => setTerminosAceptados(e.target.checked)}
                             required
-                            className="mt-0.5 h-[17px] w-[17px] accent-aventurea-orange"
+                            className="mt-0.5 h-[17px] w-[17px] accent-aventurea-sky"
                           />
                           <span>
                             Acepto los{" "}
@@ -1547,7 +1547,7 @@ export default function BookingCalendar({
                   <button
                     type="submit"
                     disabled={!puedeAvanzar}
-                    className="rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+                    className="rounded-xl bg-aventurea-sky py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
                   >
                     Siguiente: pagar el depósito →
                   </button>
@@ -1563,7 +1563,7 @@ export default function BookingCalendar({
                   <button
                     type="submit"
                     disabled={submitting || !puedeEnviar}
-                    className="rounded-xl bg-aventurea-orange py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-orange-dark disabled:opacity-60"
+                    className="rounded-xl bg-aventurea-sky py-3 text-center text-[14px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
                   >
                     {submitting ? "Enviando..." : "Confirmar mi reserva"}
                   </button>
@@ -1598,7 +1598,7 @@ export default function BookingCalendar({
               <button
                 onClick={() => setMostrarTerminos(false)}
                 aria-label="Cerrar"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink hover:border-aventurea-orange"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink hover:border-aventurea-sky"
               >
                 ×
               </button>
@@ -1613,7 +1613,7 @@ export default function BookingCalendar({
             </ol>
             <button
               onClick={() => setMostrarTerminos(false)}
-              className="mt-5 w-full rounded-xl bg-aventurea-orange py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-orange-dark"
+              className="mt-5 w-full rounded-xl bg-aventurea-sky py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark"
             >
               Entendido
             </button>
@@ -1639,7 +1639,7 @@ function PasoPill({
     <span
       className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold ${
         activo
-          ? "bg-aventurea-orange text-white"
+          ? "bg-aventurea-sky text-white"
           : hecho
             ? "bg-aventurea-green/15 text-aventurea-green"
             : "bg-aventurea-cream-2 text-aventurea-ink-soft"
@@ -1684,7 +1684,7 @@ function CampoCopiable({ etiqueta, valor }: { etiqueta: string; valor: string })
       <button
         type="button"
         onClick={copiar}
-        className="shrink-0 rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-1.5 text-[11px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+        className="shrink-0 rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-1.5 text-[11px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
       >
         {copiado ? "✓ Copiado" : "Copiar"}
       </button>
