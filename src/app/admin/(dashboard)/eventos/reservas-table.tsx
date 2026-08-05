@@ -64,8 +64,10 @@ function horarioDeReserva(r: Reserva) {
  * El pedido que el cliente armó desde el catálogo (solo servicios).
  * Hasta ahora este dato se guardaba pero no se mostraba en ningún
  * lado: el proveedor lo veía únicamente como texto dentro del chat.
+ * Exportado: las tarjetas de solicitudes pendientes del panel del
+ * dueño muestran el mismo bloque.
  */
-function PedidoDetalle({
+export function PedidoDetalle({
   detalle,
   compacto,
 }: {
@@ -122,6 +124,9 @@ export default function ReservasTable({
   nombrePorRancho,
   mostrarMensajes,
   variante = "tabla",
+  onSetEstado,
+  onMarcarValidado,
+  onVerComprobante,
 }: {
   initialReservas: Reserva[];
   nombrePorRancho?: Map<string, string>;
@@ -133,6 +138,13 @@ export default function ReservasTable({
    *  negocio. "tabla" (default): tabla ancha en desktop + tarjetas
    *  solo en celular, sin paginar — el panel de admin, sin tocar. */
   variante?: "tabla" | "cards";
+  /** Acciones inyectables. Sin pasarlas se usan las del admin (que
+   *  exigen rol admin) — el panel del propio negocio pasa sus
+   *  versiones gateadas por dueño (agenda-actions.ts), porque a un
+   *  dueño sin rol admin las de acá le contestan "sin permiso". */
+  onSetEstado?: (id: string, estado: string) => Promise<{ error: string | null }>;
+  onMarcarValidado?: (id: string, validado: boolean) => Promise<{ error: string | null }>;
+  onVerComprobante?: (path: string) => Promise<{ url: string | null; error: string | null }>;
 }) {
   const [reservas, setReservas] = useState(initialReservas);
   const [query, setQuery] = useState("");
@@ -162,7 +174,7 @@ export default function ReservasTable({
   function cambiarEstado(id: string, estado: Reserva["estado"]) {
     setActionError(null);
     startTransition(async () => {
-      const res = await setEstadoReserva(id, estado);
+      const res = await (onSetEstado ?? setEstadoReserva)(id, estado);
       if (res?.error) {
         // El servidor ya distingue "la fecha está llena" (mensaje del
         // disparador del cupo, en español) de cualquier otro fallo —
@@ -179,7 +191,7 @@ export default function ReservasTable({
   async function verComprobante(path: string) {
     setComprobanteLoading(true);
     setActionError(null);
-    const res = await obtenerUrlComprobante(path);
+    const res = await (onVerComprobante ?? obtenerUrlComprobante)(path);
     setComprobanteLoading(false);
     if (res.url) {
       setComprobanteUrl(res.url);
@@ -191,7 +203,7 @@ export default function ReservasTable({
   function marcarValidado(id: string) {
     setActionError(null);
     startTransition(async () => {
-      const res = await marcarDepositoValidado(id, true);
+      const res = await (onMarcarValidado ?? marcarDepositoValidado)(id, true);
       if (res?.error) {
         setActionError(res.error);
         return;

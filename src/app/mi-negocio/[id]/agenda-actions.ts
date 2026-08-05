@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { verificarAccesoRancho } from "@/lib/auth";
+import { notificarReservaAprobada } from "@/lib/notificaciones-reserva";
 
 async function verificarDueno(ranchoId: string) {
   const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
@@ -244,7 +245,16 @@ export async function confirmarReserva(ranchoId: string, reservaId: string) {
     .eq("rancho_id", ranchoId)
     .eq("estado", "pendiente");
 
-  if (error) return { error: "No se pudo confirmar: " + error.message };
+  if (error) {
+    if (error.code === "23505") return { error: error.message };
+    return { error: "No se pudo confirmar: " + error.message };
+  }
+
+  // El mismo aviso que manda el admin al aprobar (correo + push al
+  // cliente). El helper es idempotente (bandera aprobacion_enviada) y
+  // nunca lanza — si el update de arriba no tocó ninguna fila (la
+  // reserva no estaba pendiente), adentro tampoco pasa nada.
+  await notificarReservaAprobada(reservaId);
 
   revalidatePath(`/mi-negocio/${ranchoId}`);
   revalidatePath("/admin/eventos");
@@ -254,11 +264,17 @@ export async function confirmarReserva(ranchoId: string, reservaId: string) {
 /**
  * Cancela una reserva y libera el día.
  *
- * El esquema no tiene un estado 'cancelada' para eventos: el estado
- * final es 'rechazada' (0001), que es el mismo que usa el admin desde
- * su panel y el que la pantalla del cliente ya trata como final. Se
- * reusa ese en vez de inventar uno nuevo, que obligaría a tocar el
- * check de la tabla y todas las pantallas que ya filtran por estado.
+ * Para eventos el estado final sigue siendo 'rechazada' (0001): es el
+ * mismo que usa el admin y el que la pantalla del cliente ya trata
+ * como final. ('cancelada' existe desde la 0061, pero solo lo escribe
+ * la vertical de Citas — cambiarlo acá obligaría a tocar todas las
+ * pantallas que filtran por estado, sin ganar nada.)
+ *
+ * La PLATA no se toca: si el adelanto ya estaba validado, queda
+ * retenido (la política de los términos es no devolver) y sigue
+ * contando como ingreso en Finanzas — el motor mira los flags de
+ * pago, no el estado. Si el negocio lo devuelve, lo marca después en
+ * Finanzas → "Adelantos retenidos".
  *
  * Un bloqueo (manual o importado de una agenda externa) también se
  * cancela por acá: es la forma de liberar una fecha que se tapó por
@@ -270,7 +286,7 @@ export async function cancelarReserva(ranchoId: string, reservaId: string) {
 
   const { error } = await supabase
     .from("reservas")
-    .update({ estado: "rechazada" })
+    .update({ estado: "rechazada", cancelada_en: new Date().toISOString() })
     .eq("id", reservaId)
     .eq("rancho_id", ranchoId)
     // Solo lo que todavía ocupa el día. Sin esto, un doble clic sobre
@@ -354,6 +370,63 @@ export async function moverReservaFecha(
     return { error: "No se pudo mover: " + error.message };
   }
 
+  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath("/admin/eventos");
+  return { error: null };
+}
+
+/**
+ * Aprueba o rechaza — el contrato que espera ReservasTable. Espejo de
+ * `setEstadoReserva` del admin, pero gateado por dueño: las versiones
+ * de `admin/eventos/actions.ts` exigen rol admin y a un dueño normal
+ * le devolvían "No tenés permiso" desde su propio panel.
+ */
+export async function setEstadoReservaRancho(
+  ranchoId: string,
+  reservaId: string,
+  estado: string,
+) {
+  if (estado === "confirmada") return confirmarReserva(ranchoId, reservaId);
+  if (estado === "rechazada") return cancelarReserva(ranchoId, reservaId);
+  return { error: "Estado no permitido." };
+}
+
+/**
+ * URL firmada del comprobante de depósito, con la sesión del dueño.
+ * La política del bucket `comprobantes` (puede_ver_comprobante, 0011)
+ * ya permite al dueño del negocio de esa reserva — el mismo camino que
+ * usa la app móvil en producción. 60 segundos, igual que el admin: se
+ * pide al abrir el modal, no se precarga.
+ */
+export async function obtenerUrlComprobanteRancho(ranchoId: string, path: string) {
+  const { supabase, rancho } = await verificarDueno(ranchoId);
+  if (!rancho) return { url: null, error: "No encontramos tu publicación." };
+
+  const { data, error } = await supabase.storage
+    .from("comprobantes")
+    .createSignedUrl(path, 60);
+
+  if (error) return { url: null, error: error.message };
+  return { url: data.signedUrl, error: null };
+}
+
+/** Marca el depósito como recibido/no recibido — espejo de
+ *  `marcarDepositoValidado` del admin, gateado por dueño. */
+export async function marcarDepositoValidadoRancho(
+  ranchoId: string,
+  reservaId: string,
+  validado: boolean,
+) {
+  const { supabase, rancho } = await verificarDueno(ranchoId);
+  if (!rancho) return { error: "No encontramos tu publicación." };
+
+  const { error } = await supabase
+    .from("reservas")
+    .update({ deposito_validado: validado })
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId);
+
+  if (error) return { error: error.message };
   revalidatePath(`/mi-negocio/${ranchoId}`);
   revalidatePath("/admin/eventos");
   return { error: null };

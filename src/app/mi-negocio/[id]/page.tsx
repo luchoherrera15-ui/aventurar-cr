@@ -69,6 +69,7 @@ import { leerEleccionesIncluidas } from "@/lib/catalogo";
 import {
   agregarGasto,
   borrarGasto,
+  marcarAdelantoDevuelto,
   marcarDepositoRecibido,
   registrarPagoFinal,
   revertirPagoFinal,
@@ -78,8 +79,12 @@ import {
   cancelarReserva,
   confirmarReserva,
   crearReservaManual,
+  marcarDepositoValidadoRancho,
   moverReservaFecha,
+  obtenerUrlComprobanteRancho,
+  setEstadoReservaRancho,
 } from "./agenda-actions";
+import SolicitudesPendientes from "./solicitudes-pendientes";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -199,7 +204,8 @@ export default async function RanchoDetallePage({
 
   const metricas = calcularMetricas({ reservas: reservasFinanzas, esLugar });
   const resumen = resumenFinanciero({ reservas: reservasFinanzas, gastos });
-  const pendientes = reservas.filter((r) => r.estado === "pendiente").length;
+  const reservasPendientes = reservas.filter((r) => r.estado === "pendiente");
+  const pendientes = reservasPendientes.length;
   const codigos = (codigosRes.data ?? []) as CodigoDescuento[];
   const promociones = (promocionesRes.data ?? []) as PromocionDia[];
   const totalDescuentos = codigos.length + promociones.length;
@@ -371,6 +377,20 @@ export default async function RanchoDetallePage({
     badge: pendientes,
     content: (
       <div className="flex flex-col gap-6">
+        {/* Lo que espera respuesta, primero y sin plegar: la solicitud
+            nueva es EL aviso de esta pantalla. Desde la propia tarjeta
+            se revisa el comprobante y se confirma (dispara el correo)
+            o se rechaza — sin ir a buscarla al historial de abajo. */}
+        {reservasPendientes.length > 0 && (
+          <SolicitudesPendientes
+            reservas={reservasPendientes}
+            onConfirmar={confirmarReserva.bind(null, rancho.id)}
+            onRechazar={cancelarReserva.bind(null, rancho.id)}
+            onVerComprobante={obtenerUrlComprobanteRancho.bind(null, rancho.id)}
+            onMarcarValidado={marcarDepositoValidadoRancho.bind(null, rancho.id)}
+          />
+        )}
+
         {/* El calendario es el único lugar para tocar reservas de
             EVENTOS: desde acá se confirma, se corrige, se mueve de
             fecha y se cancela lo del día — y también se carga una
@@ -448,7 +468,18 @@ export default async function RanchoDetallePage({
                 : "Todavía no te llegó ninguna solicitud de cotización — aparecen acá apenas alguien te escriba desde tu página pública."}
             </p>
           ) : (
-            <ReservasTable initialReservas={reservas} mostrarMensajes variante="cards" />
+            // Las acciones van gateadas por dueño (agenda-actions), no
+            // por las del admin: sin esto, un dueño sin rol admin veía
+            // "No tenés permiso" al aprobar o abrir un comprobante
+            // desde su propio panel.
+            <ReservasTable
+              initialReservas={reservas}
+              mostrarMensajes
+              variante="cards"
+              onSetEstado={setEstadoReservaRancho.bind(null, rancho.id)}
+              onMarcarValidado={marcarDepositoValidadoRancho.bind(null, rancho.id)}
+              onVerComprobante={obtenerUrlComprobanteRancho.bind(null, rancho.id)}
+            />
           )}
         </SeccionPlegable>
 
@@ -570,6 +601,7 @@ export default async function RanchoDetallePage({
           onRevertirPago={revertirPagoFinal.bind(null, rancho.id)}
           onAgregarGasto={agregarGasto.bind(null, rancho.id)}
           onBorrarGasto={borrarGasto.bind(null, rancho.id)}
+          onMarcarAdelantoDevuelto={marcarAdelantoDevuelto.bind(null, rancho.id)}
         />
       </div>
     ),

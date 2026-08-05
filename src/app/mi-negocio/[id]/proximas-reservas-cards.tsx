@@ -16,8 +16,6 @@ const ESTADO_LABEL: Record<string, string> = {
   confirmada: "Confirmada",
 };
 
-// Pills sólidos, no los tenues de fondo claro: sobre el azul navy de
-// la tarjeta, un bg-orange/10 casi no se ve.
 const ESTADO_CLS: Record<string, string> = {
   pendiente: "bg-aventurea-orange text-white",
   confirmada: "bg-aventurea-green text-white",
@@ -54,11 +52,11 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
         return (
           <div
             key={e.id}
-            className="relative min-w-0 overflow-hidden rounded-xl bg-aventurea-navy px-3 py-2.5"
+            className="relative min-w-0 overflow-hidden rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2.5 shadow-sm"
           >
             <span
               aria-hidden
-              className="pointer-events-none absolute -right-2.5 -top-3 rotate-[14deg] text-white/[0.1]"
+              className="pointer-events-none absolute -right-2.5 -top-3 rotate-[14deg] text-aventurea-navy/[0.07]"
             >
               <IconCalendarLine className="h-16 w-16" />
             </span>
@@ -66,12 +64,12 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
               <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-orange">
                 {esHoy ? "Hoy" : esManana ? "Mañana" : fechaCorta(e.fecha)}
               </p>
-              <p className="mt-0.5 truncate text-[12.5px] font-bold text-white">
+              <p className="mt-0.5 truncate text-[12.5px] font-bold text-aventurea-ink">
                 {e.nombre ?? "Sin nombre"}
               </p>
               <div className="mt-1.5 flex items-center justify-between gap-1.5">
                 {e.monto_total !== null ? (
-                  <span className="truncate text-[11.5px] font-bold text-white">
+                  <span className="truncate text-[11.5px] font-bold text-aventurea-ink">
                     {fmtColones(e.monto_total)}
                   </span>
                 ) : (

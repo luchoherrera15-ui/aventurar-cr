@@ -170,7 +170,9 @@ export async function notificarReservaCompletada(
       usuarios: [reserva.ranchos?.owner_id],
       titulo: `Nueva reserva en ${nombreRancho}`,
       cuerpo: `${reserva.nombre || "Un cliente"} reservó el ${fmtFechaCorta(reserva.fecha)} — revisá el comprobante.`,
-      data: { url: "/?tab=reservas" },
+      // Directo al panel del negocio en la app — "/?tab=reservas" es la
+      // pestaña de reservas COMO CLIENTE, no donde se aprueba.
+      data: { url: `/negocio/${reserva.rancho_id}` },
     });
     await enviarPush({
       usuarios: [reserva.cliente_id],
