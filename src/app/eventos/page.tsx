@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
-import AvisoInvitacionesFlotante from "@/components/aviso-invitaciones-flotante";
 import SelectorVertical from "@/components/selector-vertical";
 import Planificador from "@/components/planificador/planificador";
 import { normalizarCategoria } from "../mi-negocio/types";
@@ -126,9 +125,10 @@ export default async function EventosPage() {
         sesionActiva={!!user}
       />
 
-      {/* La venta cruzada suave también acá: el directorio de salones es
-          donde arranca la búsqueda, no solo la ficha de cada rancho. */}
-      <AvisoInvitacionesFlotante />
+      {/* El avisito flotante de invitaciones digitales queda APAGADO
+          hasta nuevo aviso (decisión de producto). El componente sigue
+          en src/components/aviso-invitaciones-flotante.tsx: para
+          reactivarlo alcanza con volver a montarlo acá. */}
 
       {/* El pie chiquito de antes solo decía "BOOKEA — Costa Rica": los
           legales quedaban publicados pero sin que los enlazara nadie.

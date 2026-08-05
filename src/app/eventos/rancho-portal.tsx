@@ -39,7 +39,6 @@ import {
 } from "./[id]/portal-secciones";
 import ReservaServicio from "./[id]/reserva-servicio";
 import ProveedorActual from "@/components/proveedor-actual";
-import AvisoInvitacionesFlotante from "@/components/aviso-invitaciones-flotante";
 import SiteFooter from "@/components/site-footer";
 
 function fmtColones(n: number | null) {
@@ -266,16 +265,11 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       {user?.id !== rancho.owner_id && (
         <ProveedorActual ranchoId={rancho.id} nombre={rancho.nombre} />
       )}
-      {/* Quien está eligiendo dónde hacer su evento es quien va a
-          necesitar mandar invitaciones: el avisito va abajo a la
-          izquierda y se aparta solo cuando se abre el calendario.
-          Solo se le oculta al DUEÑO de esta publicación — él no viene a
-          reservarse a sí mismo. Al admin sí se le muestra: colgarlo de
-          `puedeModificar` lo dejaba invisible para todo el equipo en
-          todas las páginas. */}
-      {user?.id !== rancho.owner_id && (
-        <AvisoInvitacionesFlotante conBarraMovil={esLugar} />
-      )}
+      {/* El avisito flotante de invitaciones digitales queda APAGADO
+          hasta nuevo aviso (decisión de producto). El componente sigue
+          existiendo; para reactivarlo, volver a montarlo acá con la
+          condición de siempre (no mostrárselo al dueño de la
+          publicación: él no viene a reservarse a sí mismo). */}
       {/* Header liviano a propósito: logo + nombre, el botón de dueño
           si aplica, y el menú. "Publicá tu espacio" y "Ver todos los
           espacios" viven en el menú — acá solo estorbaban. */}
