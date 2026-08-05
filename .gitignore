@@ -47,3 +47,6 @@ tmp-*.mjs
 client_secret*.json
 *.apps.googleusercontent.com.json
 credentials*.json
+
+# Fotos de negocios que se suben con script (no van al repo)
+/puramatcha/
