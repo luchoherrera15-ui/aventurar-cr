@@ -17,6 +17,7 @@ import { pedirAvisoDeMensaje } from "@/lib/notificaciones";
 import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { PREFIJO_ASISTENTE } from "@/lib/asistente-prefijo";
 
 type Mensaje = {
   id: string;
@@ -286,10 +287,25 @@ export default function MensajesScreen() {
         }
         renderItem={({ item }) => {
           const esMio = item.autor_id === session?.user.id;
+          const esAsistente = item.texto.startsWith(PREFIJO_ASISTENTE);
           return (
             <View style={[styles.fila, esMio ? styles.filaMia : styles.filaOtro]}>
               <View style={[styles.burbuja, esMio ? styles.burbujaMia : styles.burbujaOtro]}>
-                <Text style={esMio ? styles.textoMio : styles.textoOtro}>{item.texto}</Text>
+                {esAsistente ? (
+                  <View style={styles.filaAsistente}>
+                    <Ionicons
+                      name="sparkles"
+                      size={13}
+                      color={esMio ? "#ffffff" : Colors.accent}
+                      style={styles.iconoAsistente}
+                    />
+                    <Text style={esMio ? styles.textoMio : styles.textoOtro}>
+                      {item.texto.slice(PREFIJO_ASISTENTE.length)}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={esMio ? styles.textoMio : styles.textoOtro}>{item.texto}</Text>
+                )}
               </View>
             </View>
           );
@@ -330,6 +346,8 @@ const styles = StyleSheet.create({
   fila: { flexDirection: "row" },
   filaMia: { justifyContent: "flex-end" },
   filaOtro: { justifyContent: "flex-start" },
+  filaAsistente: { flexDirection: "row", alignItems: "flex-start", gap: 5 },
+  iconoAsistente: { marginTop: 2 },
   burbuja: { maxWidth: "78%", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 9 },
   burbujaMia: { backgroundColor: Colors.navy },
   burbujaOtro: { backgroundColor: Colors.cream2 },
