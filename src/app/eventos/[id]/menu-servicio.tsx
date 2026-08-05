@@ -1,4 +1,4 @@
-import { IconCloche } from "@/components/icons";
+import { IconCafe, IconCloche } from "@/components/icons";
 import type { RanchoItem } from "@/app/mi-negocio/types";
 
 /**
@@ -93,8 +93,22 @@ export default function MenuServicio({
   const conEncabezados = grupos.length > 1 || !!grupos[0]?.nombre;
 
   return (
-    <section id="menu" className="border-t border-aventurea-line bg-aventurea-surface py-14">
-      <div className="mx-auto max-w-[1080px] px-7">
+    <section
+      id="menu"
+      className="relative overflow-hidden border-t border-aventurea-line bg-aventurea-surface py-14"
+    >
+      {/* La taza en marca de agua: sale por el borde derecho de la
+          página y se recorta ahí (overflow-hidden), el mismo gesto que
+          usan las tarjetas del panel. Decorativa: aria-hidden y sin
+          capturar clics. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-16 top-8 hidden rotate-[10deg] text-aventurea-navy/[0.05] lg:block [&_svg]:h-[340px] [&_svg]:w-[340px]"
+      >
+        <IconCafe />
+      </span>
+
+      <div className="relative z-10 mx-auto max-w-[1080px] px-7">
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           {etiqueta} de {nombreRancho}
         </p>

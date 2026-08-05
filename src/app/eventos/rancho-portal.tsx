@@ -60,21 +60,11 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // El dueño (o un admin ayudándolo) ve un acceso directo a modificar
-  // esta misma publicación, sin tener que buscarla en "Mis publicaciones".
-  let puedeModificar = false;
-  if (user) {
-    if (user.id === rancho.owner_id) {
-      puedeModificar = true;
-    } else {
-      const { data: perfil } = await supabase
-        .from("perfiles")
-        .select("rol")
-        .eq("id", user.id)
-        .maybeSingle();
-      puedeModificar = perfil?.rol === "admin";
-    }
-  }
+  // Solo el DUEÑO ve el acceso directo a modificar su publicación, sin
+  // tener que buscarla en "Mis publicaciones". El equipo de Bookea no:
+  // su panel es /admin, y este botón llevaba a editar el negocio de
+  // otro desde su propio panel.
+  const puedeModificar = !!user && user.id === rancho.owner_id;
 
   // Esta página solo se renderiza para negocios de la vertical Eventos
   // (/eventos/[id] y /[slug] la resuelven así antes de llamar acá) — el
