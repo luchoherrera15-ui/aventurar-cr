@@ -38,6 +38,7 @@ import {
   type Resena,
 } from "./[id]/portal-secciones";
 import ReservaServicio from "./[id]/reserva-servicio";
+import MenuServicio from "./[id]/menu-servicio";
 import ProveedorActual from "@/components/proveedor-actual";
 import SiteFooter from "@/components/site-footer";
 
@@ -541,91 +542,83 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           bloques oscuros seguidos se leían como una sola imagen. */}
       {!esLugar && <ResumenSeccion datos={datosPresentacion} />}
 
+      {/* El menú manda: la página de un servicio se lee como su carta,
+          con fotos y precios. La agenda ya no vive acá — se abre en su
+          propia hoja con el botón de abajo (o el de arriba, o la barra
+          del celular: los tres apuntan a #reservar). */}
       {!esLugar && (
-        <section id="reservar" className="border-t border-aventurea-line bg-aventurea-cream-2/40 py-14">
-          <div className="mx-auto max-w-[680px] px-7">
-            <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-orange">
+        <MenuServicio
+          items={itemsCatalogo}
+          etiqueta={etiquetaCatalogo}
+          nombreRancho={rancho.nombre}
+        />
+      )}
+
+      {!esLugar && (
+        <section className="border-t border-aventurea-line bg-aventurea-cream-2/40 py-14">
+          <div className="mx-auto max-w-[680px] px-7 text-center">
+            <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
               Reservá con {rancho.nombre}
             </p>
-            <h2 className="titulo mt-2 text-[24px] text-aventurea-ink">
-              Elegí tu fecha y armá tu reserva
+            <h2 className="titulo mt-2 text-[26px] text-aventurea-ink sm:text-[30px]">
+              ¿Listo para tu evento?
             </h2>
-            <p className="mt-1.5 text-[13.5px] text-aventurea-ink-soft">
+            <p className="mx-auto mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
               {itemsCatalogo.length > 0
-                ? `Elegí la fecha, armá tu reserva con el ${etiquetaCatalogo.toLowerCase()} y pagá el depósito — queda en aprobación del proveedor, sin tener que chatear.`
+                ? `Elegí la fecha, armá tu pedido con el ${etiquetaCatalogo.toLowerCase()} y pagá el depósito — queda en aprobación del proveedor, sin tener que chatear.`
                 : "Elegí la fecha y contanos qué necesitás — tu reserva queda en aprobación del proveedor."}
             </p>
-
-            <div className="mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 sm:p-6">
-              {user ? (
-                <ReservaServicio
-                  ranchoId={rancho.id}
-                  items={itemsCatalogo}
-                  anticipacionDias={anticipacionDias}
-                  etiquetaCatalogo={etiquetaCatalogo}
-                  detalles={rancho.detalles ?? null}
-                  depositoReserva={rancho.deposito_reserva ?? 0}
-                  sinpeNumero={rancho.sinpe_numero}
-                  sinpeTitular={rancho.sinpe_titular}
-                  cuentaBanco={rancho.cuenta_banco}
-                  cuentaNumero={rancho.cuenta_numero}
-                  cuentaTitular={rancho.cuenta_titular}
-                  cuentaTipo={rancho.cuenta_tipo}
-                  disponibilidad={disponibilidadServicioPorDia}
-                  eventosPorDia={rancho.eventos_por_dia ?? null}
-                  montoMinimo={rancho.monto_minimo ?? null}
-                  categoria={rancho.categoria}
-                />
-              ) : (
-                <div>
-                  {/* El menú se ve sin sesión — solo reservar la pide. */}
-                  {itemsCatalogo.length > 0 && (
-                    <div className="mb-6">
-                      <p className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                        {etiquetaCatalogo} de {rancho.nombre}
-                      </p>
-                      <div className="overflow-hidden rounded-xl border border-aventurea-line">
-                        {itemsCatalogo.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-baseline justify-between gap-3 border-b border-aventurea-line px-4 py-2.5 last:border-none"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-[13.5px] font-bold text-aventurea-ink">
-                                {item.nombre}
-                              </p>
-                              {item.descripcion && (
-                                <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">
-                                  {item.descripcion}
-                                </p>
-                              )}
-                            </div>
-                            <p className="shrink-0 text-[13px] font-bold text-aventurea-navy">
-                              {item.precio !== null
-                                ? `₡${Number(item.precio).toLocaleString("es-CR")}${item.unidad ? ` ${item.unidad}` : ""}`
-                                : "A cotizar"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-center">
-                    <p className="text-[13.5px] text-aventurea-ink-soft">
-                      Iniciá sesión para reservar tu fecha y chatear con el proveedor.
-                    </p>
-                    <Link
-                      href="/cuenta"
-                      className="mt-3 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
-                    >
-                      Iniciar sesión
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
+            <a
+              href="#reservar"
+              className="mt-6 inline-flex items-center justify-center rounded-xl bg-aventurea-orange px-8 py-3.5 text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-orange-dark"
+            >
+              ¡Reservar tu espacio!
+            </a>
           </div>
         </section>
+      )}
+
+      {/* La agenda, en su hoja aparte — se abre con cualquier enlace a
+          #reservar y se cierra sin perder la página. */}
+      {!esLugar && (
+        <ReservaModal nombreRancho={rancho.nombre}>
+          {user ? (
+            <ReservaServicio
+              ranchoId={rancho.id}
+              items={itemsCatalogo}
+              anticipacionDias={anticipacionDias}
+              etiquetaCatalogo={etiquetaCatalogo}
+              detalles={rancho.detalles ?? null}
+              depositoReserva={rancho.deposito_reserva ?? 0}
+              sinpeNumero={rancho.sinpe_numero}
+              sinpeTitular={rancho.sinpe_titular}
+              cuentaBanco={rancho.cuenta_banco}
+              cuentaNumero={rancho.cuenta_numero}
+              cuentaTitular={rancho.cuenta_titular}
+              cuentaTipo={rancho.cuenta_tipo}
+              disponibilidad={disponibilidadServicioPorDia}
+              eventosPorDia={rancho.eventos_por_dia ?? null}
+              montoMinimo={rancho.monto_minimo ?? null}
+              categoria={rancho.categoria}
+            />
+          ) : (
+            <div className="p-2 text-center">
+              <h3 className="titulo text-[20px] text-aventurea-ink">
+                Iniciá sesión para reservar
+              </h3>
+              <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                Tu reserva queda ligada a tu cuenta: ahí ves el estado, el chat
+                con {rancho.nombre} y tu historial.
+              </p>
+              <Link
+                href="/cuenta"
+                className="mt-4 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
+              >
+                Iniciar sesión
+              </Link>
+            </div>
+          )}
+        </ReservaModal>
       )}
 
       {!esLugar && (
