@@ -14,6 +14,7 @@ import {
 import { type Calificacion } from "@/components/rancho-card";
 import RanchoCardGrande from "@/components/rancho-card-grande";
 import RielProveedores from "@/components/riel-proveedores";
+import InvitacionesCard from "@/components/invitaciones-card";
 import { fechaISO, fmtFechaCorta, hoyISOCR, proximaFechaLibre } from "@/lib/fechas";
 import { interpretarBusqueda, normalizarTexto } from "@/lib/busqueda";
 import {
@@ -692,6 +693,12 @@ export default function Directorio({
               proximasLibres={proximasLibres}
               favoritosIds={favoritosIds}
               sesionActiva={sesionActiva}
+              // Invitaciones Digitales abre el riel de "Otros
+              // servicios": es el producto propio de Bookea, sembrado a
+              // mano — no un negocio del directorio.
+              cardExtra={
+                g.cat === "otros" ? (ancho) => <InvitacionesCard ancho={ancho} /> : undefined
+              }
             />
           ))}
         </div>
@@ -702,6 +709,9 @@ export default function Directorio({
               compacta del home no da. Tres columnas máximo para que se
               aprecien. */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {/* La misma tarjeta sembrada del riel, primera de la grilla
+                cuando se está viendo la categoría "Otros servicios". */}
+            {tab === "otros" && paginaSegura === 1 && !texto && <InvitacionesCard />}
             {visibles.map((r, i) => (
               <RanchoCardGrande
                 key={r.id}

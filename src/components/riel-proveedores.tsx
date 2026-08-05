@@ -27,6 +27,7 @@ export default function RielProveedores({
   proximasLibres,
   favoritosIds,
   sesionActiva,
+  cardExtra,
 }: {
   titulo: string;
   subtitulo?: string;
@@ -39,6 +40,10 @@ export default function RielProveedores({
   proximasLibres: Map<string, string | null>;
   favoritosIds: Set<string>;
   sesionActiva: boolean;
+  /** Tarjeta sembrada a mano al inicio del riel (ej. Invitaciones
+   *  Digitales en "Otros servicios"). Recibe el mismo ancho que las
+   *  demás vía render-prop. */
+  cardExtra?: (ancho: string) => React.ReactNode;
 }) {
   const rielRef = useRef<HTMLDivElement>(null);
   const [puedeIzq, setPuedeIzq] = useState(false);
@@ -125,6 +130,7 @@ export default function RielProveedores({
         className="mt-3.5 flex snap-x snap-mandatory gap-3.5 overflow-x-auto pb-1 pt-0.5"
         style={{ scrollbarWidth: "none" }}
       >
+        {cardExtra && <div className="snap-start">{cardExtra(ANCHO_TARJETA)}</div>}
         {items.map((r, i) => (
           <div key={r.id} className="snap-start">
             <RanchoCard
