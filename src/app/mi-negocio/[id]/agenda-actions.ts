@@ -58,6 +58,17 @@ export async function crearReservaManual(ranchoId: string, input: ReservaManualI
   const nombre = input.nombre.trim().slice(0, 120);
   if (!nombre) return { error: "Escribí el nombre de quien reserva." };
 
+  // Los invitados son obligatorios también acá, no solo en el
+  // formulario: sin ellos la reserva no cuenta para la ocupación del
+  // negocio ni para lo que la plataforma cobra por persona.
+  if (
+    input.invitados === null ||
+    !Number.isFinite(input.invitados) ||
+    input.invitados <= 0
+  ) {
+    return { error: "Indicá para cuántos invitados es la reserva." };
+  }
+
   if (!Number.isFinite(input.montoTotal) || input.montoTotal <= 0) {
     return { error: "Ingresá cuánto vale el evento." };
   }

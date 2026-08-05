@@ -68,4 +68,38 @@ describe("actividadReciente", () => {
     ]);
     expect(item).toMatchObject({ id: "x", nombre: "Ana Pérez", monto: 55000, estado: "pendiente" });
   });
+
+  it("la auditoría trae cuándo se reservó, el adelanto y lo pendiente", () => {
+    const [item] = actividadReciente([
+      reserva({
+        fecha: "2026-09-12",
+        created_at: "2026-08-02T15:00:00Z",
+        monto_total: 100000,
+        deposito_monto: 25000,
+        deposito_validado: true,
+      }),
+    ]);
+    expect(item).toMatchObject({
+      creadoEn: "2026-08-02T15:00:00Z",
+      fechaEvento: "2026-09-12",
+      adelanto: 25000,
+      pendiente: 75000,
+    });
+  });
+
+  it("un adelanto sin validar todavía no cuenta como recibido", () => {
+    const [item] = actividadReciente([
+      reserva({ monto_total: 100000, deposito_monto: 25000, deposito_validado: false }),
+    ]);
+    expect(item.adelanto).toBe(0);
+    // La deuda igual lo descuenta: el cliente ya lo transfirió.
+    expect(item.pendiente).toBe(75000);
+  });
+
+  it("la nota viaja limpia, y vacía queda en null", () => {
+    const [conNota] = actividadReciente([reserva({ notas: "  Llega a las 3  " })]);
+    expect(conNota.nota).toBe("Llega a las 3");
+    const [sinNota] = actividadReciente([reserva({ notas: "   " })]);
+    expect(sinNota.nota).toBeNull();
+  });
 });

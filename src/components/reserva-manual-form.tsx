@@ -86,8 +86,14 @@ export default function ReservaManualForm({
       setError("Escribí el nombre de quien reserva.");
       return;
     }
+    // Los invitados son obligatorios: sin ellos la reserva no cuenta
+    // para la ocupación ni para lo que cobra la plataforma por persona.
     const invitadosNum = datos.invitados.trim() ? Number(datos.invitados) : null;
-    if (invitadosNum !== null && (!Number.isFinite(invitadosNum) || invitadosNum <= 0)) {
+    if (invitadosNum === null) {
+      setError("Indicá para cuántos invitados es la reserva.");
+      return;
+    }
+    if (!Number.isFinite(invitadosNum) || invitadosNum <= 0) {
       setError("La cantidad de invitados no es válida.");
       return;
     }
@@ -196,15 +202,16 @@ export default function ReservaManualForm({
         </div>
         <div>
           <label className={labelCls}>
-            Invitados {capacidadMax ? `(máximo ${capacidadMax})` : ""}
+            Invitados * {capacidadMax ? `(máximo ${capacidadMax})` : ""}
           </label>
           <input
             type="number"
             min={1}
             max={capacidadMax ?? undefined}
+            required
             value={datos.invitados}
             onChange={(e) => set("invitados", e.target.value)}
-            placeholder="Opcional"
+            placeholder="Ej. 40"
             className={inputCls}
           />
         </div>

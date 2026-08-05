@@ -109,15 +109,26 @@ export type ActividadItem = {
   // pasar una, así el componente que lo pinta no tiene que contemplarla.
   estado: Exclude<Reserva["estado"], "bloqueada">;
   creadoEn: string;
+  /** Fecha del evento (distinta de cuándo se hizo la reserva). */
+  fechaEvento: string;
+  /** Adelanto ya recibido — 0 si el dueño todavía no lo dio por válido. */
+  adelanto: number;
+  /** Lo que falta cobrar el día del evento. */
+  pendiente: number;
+  /** La nota que dejó el cliente (o el dueño al cargarla a mano). */
+  nota: string | null;
 };
 
 /**
- * Últimas reservas/solicitudes creadas, para el feed de "actividad
- * reciente" de Inicio. No es una query nueva: `reservas` ya viene de
- * page.tsx con select("*") — esto solo reordena lo que ya está en
- * memoria por fecha de CREACIÓN (no de evento).
+ * Últimas reservas/solicitudes creadas, para la AUDITORÍA de Inicio:
+ * cuándo se hizo cada una, cuánto se depositó y cuánto queda pendiente.
+ * No es una query nueva: `reservas` ya viene de page.tsx con
+ * select("*") — esto solo reordena lo que ya está en memoria por fecha
+ * de CREACIÓN (no de evento) y calcula la plata con las mismas reglas
+ * que Finanzas (adelantoCobrado/saldoPendiente), para que los números
+ * no se contradigan entre pantallas.
  */
-export function actividadReciente(reservas: Reserva[], limite = 6): ActividadItem[] {
+export function actividadReciente(reservas: Reserva[], limite = 30): ActividadItem[] {
   return [...reservas]
     // Un bloqueo no es actividad de un cliente. El type guard deja el
     // "bloqueada" afuera también para TypeScript, no solo en runtime.
@@ -126,13 +137,20 @@ export function actividadReciente(reservas: Reserva[], limite = 6): ActividadIte
     )
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, limite)
-    .map((r) => ({
-      id: r.id,
-      nombre: r.nombre,
-      monto: r.monto_total,
-      estado: r.estado,
-      creadoEn: r.created_at,
-    }));
+    .map((r) => {
+      const paraPlata = r as unknown as ReservaFinanzas;
+      return {
+        id: r.id,
+        nombre: r.nombre,
+        monto: r.monto_total,
+        estado: r.estado,
+        creadoEn: r.created_at,
+        fechaEvento: r.fecha,
+        adelanto: adelantoCobrado(paraPlata),
+        pendiente: saldoPendiente(paraPlata),
+        nota: r.notas?.trim() ? r.notas.trim() : null,
+      };
+    });
 }
 
 /** "3× más que el mes pasado" / "+40% vs. el mes pasado" / etc. */
