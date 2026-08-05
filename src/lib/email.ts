@@ -481,18 +481,24 @@ export function plantillaReservaNuevaProveedor({
   ranchoId,
   nombreCliente,
   fecha,
+  horario,
   tipoEvento,
   invitados,
   montoDeposito,
+  montoPendiente,
 }: {
   nombreProveedor: string;
   nombreRancho: string;
   ranchoId: string;
   nombreCliente: string;
   fecha: string;
+  /** El bloque de horario que eligió el cliente, si el negocio maneja. */
+  horario?: string | null;
   tipoEvento: string | null;
   invitados: number | null;
   montoDeposito: number | null;
+  /** Lo que queda por cobrar el día del evento (total − adelanto). */
+  montoPendiente?: number | null;
 }) {
   const proveedor = escaparHtml(nombreProveedor);
   const rancho = escaparHtml(nombreRancho);
@@ -503,9 +509,11 @@ export function plantillaReservaNuevaProveedor({
     month: "long",
     year: "numeric",
   });
-  const monto =
-    montoDeposito && montoDeposito > 0
-      ? "₡" + Math.round(montoDeposito).toLocaleString("es-CR")
+  const colones = (n: number) => "₡" + Math.round(n).toLocaleString("es-CR");
+  const monto = montoDeposito && montoDeposito > 0 ? colones(montoDeposito) : null;
+  const pendiente =
+    montoPendiente !== null && montoPendiente !== undefined && montoPendiente > 0
+      ? colones(montoPendiente)
       : null;
 
   return layout({
@@ -515,21 +523,34 @@ export function plantillaReservaNuevaProveedor({
         Hola ${proveedor},
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
-        Entró una reserva nueva para <strong style="color:#101a2c;">${rancho}</strong>.
-        Queda en aprobación hasta que revisés el comprobante del depósito.
+        Tu agenda de <strong style="color:#101a2c;">${rancho}</strong> quedó tomada
+        para el <strong style="color:#101a2c;">${fechaLarga}</strong>. La reserva
+        queda en aprobación hasta que revisés el comprobante del depósito.
       </p>
 
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e4ea;border-radius:12px;padding:4px 18px;margin:22px 0;">
         ${filaDato("Cliente", cliente)}
         ${filaDato("Fecha", fechaLarga)}
+        ${horario ? filaDato("Horario", escaparHtml(horario)) : ""}
         ${tipoEvento ? filaDato("Tipo de evento", escaparHtml(tipoEvento)) : ""}
-        ${invitados ? filaDato("Invitados", String(invitados)) : ""}
-        ${monto ? filaDato("Depósito", monto) : ""}
+        ${invitados ? filaDato("Cantidad de personas", String(invitados)) : ""}
+        ${monto ? filaDato("Adelanto", monto) : ""}
+        ${pendiente ? filaDato("Pendiente de cobro", pendiente) : ""}
         ${filaDato(
           "Estado",
           `<span style="display:inline-block;background:#fdeadb;color:#b45309;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:8px;">Por aprobar</span>`,
         )}
       </table>
+
+      ${
+        pendiente
+          ? `<p style="margin:0 0 16px;color:#5b6472;font-size:13.5px;line-height:1.6;">
+               El adelanto es lo que el cliente ya transfirió; el
+               <strong style="color:#101a2c;">pendiente de cobro</strong> es lo que
+               le cobrás el día del evento.
+             </p>`
+          : ""
+      }
 
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
         Revisá el comprobante y confirmala desde tu panel — el cliente ya recibió

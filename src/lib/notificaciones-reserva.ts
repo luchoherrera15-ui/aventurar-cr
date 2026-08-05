@@ -155,9 +155,15 @@ export async function notificarReservaCompletada(
             ranchoId: reserva.rancho_id,
             nombreCliente: reserva.nombre || reserva.correo || "Un cliente",
             fecha: reserva.fecha,
+            horario: reserva.horario_bloque ?? null,
             tipoEvento: reserva.tipo_evento,
             invitados: reserva.invitados,
             montoDeposito: reserva.deposito_monto,
+            // Lo mismo que ya se le dice al cliente: total − adelanto.
+            montoPendiente: Math.max(
+              0,
+              Number(reserva.monto_total ?? 0) - deposito,
+            ),
           }),
         });
       }
