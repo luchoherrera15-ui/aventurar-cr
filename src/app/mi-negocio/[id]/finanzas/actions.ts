@@ -87,7 +87,35 @@ export async function revertirPagoFinal(ranchoId: string, reservaId: string) {
 
   const { error } = await supabase
     .from("reservas")
-    .update({ evento_pagado: false, saldo_pagado_en: null })
+    // También se limpia el monto corregido: era parte del cobro que se
+    // está deshaciendo — dejarlo pegado seguiría pisando la cotización
+    // en totalEvento() aunque el cobro ya no exista.
+    .update({ evento_pagado: false, saldo_pagado_en: null, monto_cobrado_final: null })
+    .eq("id", reservaId)
+    .eq("rancho_id", ranchoId);
+
+  if (error) return { error: "No se pudo guardar: " + error.message };
+
+  revalidatePath("/mi-negocio", "layout");
+  return { error: null };
+}
+
+/**
+ * Marca que el adelanto de una reserva cancelada se DEVOLVIÓ (0097) —
+ * con eso deja de contar como ingreso en todos los números. El caso
+ * normal es no tocar nada: la política de los términos es retener.
+ */
+export async function marcarAdelantoDevuelto(
+  ranchoId: string,
+  reservaId: string,
+  devuelto: boolean,
+) {
+  const { supabase, ok } = await verificarDueno(ranchoId);
+  if (!ok) return { error: "No encontramos tu publicación." };
+
+  const { error } = await supabase
+    .from("reservas")
+    .update({ adelanto_devuelto: devuelto })
     .eq("id", reservaId)
     .eq("rancho_id", ranchoId);
 

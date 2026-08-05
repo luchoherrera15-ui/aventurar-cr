@@ -262,8 +262,24 @@ export default function FinanzasNegocioScreen() {
                   </Text>
                 </View>
               </View>
+              <Text style={styles.netoDesglose}>
+                Adelantos {fmtColones(resumen.entroEsteMesAdelantos)} · Saldos{" "}
+                {fmtColones(resumen.entroEsteMesSaldos)}
+              </Text>
             </View>
 
+            {/* La misma separación sencilla que la web: ya cobrado /
+                por cobrar / total. */}
+            <View style={styles.tarjetasFila}>
+              <Metrica
+                rotulo="Ya cobrado (histórico)"
+                valor={fmtColones(resumen.cobradoTotal)}
+              />
+              <Metrica
+                rotulo="Por cobrar (total)"
+                valor={fmtColones(resumen.porCobrarTotal)}
+              />
+            </View>
             <View style={styles.tarjetasFila}>
               <Metrica
                 rotulo="Por cobrar (30 días)"
@@ -277,8 +293,8 @@ export default function FinanzasNegocioScreen() {
             </View>
             <View style={styles.tarjetasFila}>
               <Metrica
-                rotulo="Agendado (30 días)"
-                valor={fmtColones(resumen.agendadoProximos30)}
+                rotulo="Facturación total"
+                valor={fmtColones(resumen.totalComprometido)}
               />
               <Metrica rotulo="Eventos por venir" valor={String(resumen.eventosProximos30)} />
             </View>
@@ -720,6 +736,13 @@ const styles = StyleSheet.create({
   },
   netoColumnaValor: { color: "#ffffff", fontFamily: Fonts.extraBold, fontSize: 16 },
   netoDivisor: { backgroundColor: "rgba(255,255,255,0.15)", width: 1 },
+  netoDesglose: {
+    color: "rgba(255,255,255,0.65)",
+    fontFamily: Fonts.medium,
+    fontSize: 11.5,
+    marginTop: 8,
+    textAlign: "center",
+  },
 
   tarjetasFila: { flexDirection: "row", gap: Spacing.three },
   metrica: {

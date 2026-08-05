@@ -9,9 +9,6 @@
  * ₡480.000 en la compu y ₡475.000 en el celular deja de creerle a los
  * dos.
  *
- * Vive aparte de la pantalla a propósito: son las reglas de plata del
- * negocio y tienen que poder probarse sin montar React.
- *
  * La regla que ordena todo: el negocio cobra en DOS tiempos.
  *   1. Un adelanto al reservar (el depósito).
  *   2. El saldo el día del evento.
@@ -26,7 +23,17 @@ export type ReservaFinanzas = {
   nombre: string | null;
   tipo_evento: string | null;
   invitados: number | null;
-  estado: "pendiente" | "confirmada" | "rechazada" | "bloqueada";
+  /** Los tres últimos son de la vertical Citas (0061), pero llegan
+   *  igual por el select("*") — el tipo los admite para no mentir. */
+  estado:
+    | "pendiente"
+    | "confirmada"
+    | "rechazada"
+    | "bloqueada"
+    | "temporal"
+    | "cancelada"
+    | "cumplida"
+    | "no_asistio";
   monto_total: number | null;
   monto_cobrado_final: number | null;
   deposito_monto: number | null;
@@ -34,6 +41,10 @@ export type ReservaFinanzas = {
   deposito_pagado_en: string | null;
   evento_pagado: boolean;
   saldo_pagado_en: string | null;
+  /** true = el negocio devolvió el adelanto al cancelar (0097) y esa
+   *  plata deja de contar como ingreso. Opcional: tolera una base sin
+   *  la migración corrida (undefined = no devuelto). */
+  adelanto_devuelto?: boolean;
 };
 
 export type Gasto = {
@@ -61,11 +72,28 @@ export const GASTO_LABEL: Record<CategoriaGasto, string> = Object.fromEntries(
 ) as Record<CategoriaGasto, string>;
 
 /**
- * Una reserva rechazada o bloqueada no es plata: la primera no va a
- * pasar y la segunda es un día que el dueño cerró a mano.
+ * ¿Esta reserva sigue viva (puede deber plata a futuro)? Gobierna todo
+ * lo PROSPECTIVO: por cobrar, vencidos, depósitos por validar. Una
+ * rechazada/cancelada no debe nada, y una bloqueada es un día cerrado
+ * a mano, no un cliente.
  */
-export function cuentaParaPlata(r: ReservaFinanzas) {
+export function esReservaViva(r: ReservaFinanzas) {
   return r.estado === "confirmada" || r.estado === "pendiente";
+}
+
+/** Nombre viejo de esReservaViva — lo retrospectivo ya no pasa por acá. */
+export const cuentaParaPlata = esReservaViva;
+
+/**
+ * ¿Los cobros de esta reserva cuentan como ingreso REAL? Gobierna todo
+ * lo RETROSPECTIVO (lo que ya entró): se decide por los flags de pago,
+ * no por el estado — cancelar una reserva no des-cobra su adelanto. La
+ * política de los términos es no devolver: si el negocio igual lo
+ * devuelve, lo marca (`adelanto_devuelto`) y ahí sí sale de los
+ * números. Bloqueos y holds temporales nunca son plata.
+ */
+export function esIngresoReal(r: ReservaFinanzas) {
+  return r.estado !== "bloqueada" && r.estado !== "temporal";
 }
 
 /** Lo que vale el evento: manda lo cobrado de verdad sobre la cotización. */
@@ -73,9 +101,13 @@ export function totalEvento(r: ReservaFinanzas) {
   return Number(r.monto_cobrado_final ?? r.monto_total ?? 0);
 }
 
-/** El adelanto solo cuenta como plata cuando el dueño lo dio por recibido. */
+/**
+ * El adelanto cuenta como plata cuando el dueño lo dio por recibido —
+ * y deja de contar solo si lo devolvió (cancelaciones, 0097).
+ */
 export function adelantoCobrado(r: ReservaFinanzas) {
-  return r.deposito_validado ? Number(r.deposito_monto ?? 0) : 0;
+  if (!r.deposito_validado || r.adelanto_devuelto) return 0;
+  return Number(r.deposito_monto ?? 0);
 }
 
 /**
@@ -166,9 +198,21 @@ export type ResumenFinanzas = {
   semanas: SemanaFinanzas[];
   maximoSemanal: number;
   entroEsteMes: number;
+  /** Desglose del mes: cuánto de lo que entró fue adelantos y cuánto saldos. */
+  entroEsteMesAdelantos: number;
+  entroEsteMesSaldos: number;
   gastosEsteMes: number;
   netoEsteMes: number;
+  /** Histórico completo de lo que entró de verdad, desglosado. */
+  cobradoAdelantos: number;
+  cobradoSaldos: number;
+  cobradoTotal: number;
   porCobrarProximos30: number;
+  /** TODO el saldo pendiente de reservas vivas (vencido + futuro), sin
+   *  recorte de 30 días. */
+  porCobrarTotal: number;
+  /** Cobrado real + por cobrar: la facturación total comprometida. */
+  totalComprometido: number;
   vencido: number;
   /** Eventos ya pasados con saldo sin cobrar: la lista de "te deben". */
   cobrosVencidos: ReservaFinanzas[];
@@ -178,6 +222,10 @@ export type ResumenFinanzas = {
   agendadoProximos30: number;
   eventosProximos30: number;
   depositosSinValidar: ReservaFinanzas[];
+  /** Canceladas/rechazadas cuyo adelanto validado quedó retenido (la
+   *  política de no-devolución): explican por qué "cobrado" puede
+   *  incluir reservas que ya no están en el calendario. */
+  adelantosRetenidos: ReservaFinanzas[];
 };
 
 export function resumenFinanciero({
@@ -194,7 +242,11 @@ export function resumenFinanciero({
   semanasAdelante?: number;
 }): ResumenFinanzas {
   const hoyLimpio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const activas = reservas.filter(cuentaParaPlata);
+  // Dos ejes, dos filtros: lo por cobrar mira solo reservas vivas; lo
+  // ya cobrado mira los flags de pago aunque la reserva se haya
+  // cancelado después — cancelar no des-cobra un adelanto retenido.
+  const activas = reservas.filter(esReservaViva);
+  const conPlata = reservas.filter(esIngresoReal);
 
   const semanaActual = inicioDeSemana(hoyLimpio);
   const semanas: SemanaFinanzas[] = [];
@@ -224,7 +276,9 @@ export function resumenFinanciero({
   const ubicar = (d: Date) => indicePorClave.get(claveFecha(inicioDeSemana(d)));
 
   // Lo que ENTRÓ se ubica por la fecha en que se cobró; lo que está por
-  // cobrar, por la fecha del evento. Son ejes distintos a propósito.
+  // cobrar, por la fecha del evento. Son ejes distintos a propósito —
+  // y recorren listas distintas: la deuda solo existe en reservas
+  // vivas, pero un cobro ya hecho no se borra al cancelar.
   for (const r of activas) {
     const fechaEvento = aFecha(r.fecha);
     const iEvento = ubicar(fechaEvento);
@@ -232,7 +286,10 @@ export function resumenFinanciero({
       semanas[iEvento].eventos += 1;
       semanas[iEvento].porCobrar += saldoPendiente(r);
     }
+  }
 
+  for (const r of conPlata) {
+    const fechaEvento = aFecha(r.fecha);
     const adelanto = adelantoCobrado(r);
     if (adelanto > 0) {
       const cuando = r.deposito_pagado_en
@@ -266,24 +323,30 @@ export function resumenFinanciero({
     0,
   );
 
-  // --- Mes en curso ---
-  let entroEsteMes = 0;
-  for (const r of activas) {
+  // --- Mes en curso + histórico de lo cobrado ---
+  let entroEsteMesAdelantos = 0;
+  let entroEsteMesSaldos = 0;
+  let cobradoAdelantos = 0;
+  let cobradoSaldos = 0;
+  for (const r of conPlata) {
     const adelanto = adelantoCobrado(r);
     if (adelanto > 0) {
+      cobradoAdelantos += adelanto;
       const cuando = r.deposito_pagado_en
         ? new Date(r.deposito_pagado_en)
         : aFecha(r.fecha);
-      if (mismoMes(cuando, hoyLimpio)) entroEsteMes += adelanto;
+      if (mismoMes(cuando, hoyLimpio)) entroEsteMesAdelantos += adelanto;
     }
     const saldo = saldoCobrado(r);
     if (saldo > 0) {
+      cobradoSaldos += saldo;
       const cuando = r.saldo_pagado_en
         ? new Date(r.saldo_pagado_en)
         : aFecha(r.fecha);
-      if (mismoMes(cuando, hoyLimpio)) entroEsteMes += saldo;
+      if (mismoMes(cuando, hoyLimpio)) entroEsteMesSaldos += saldo;
     }
   }
+  const entroEsteMes = entroEsteMesAdelantos + entroEsteMesSaldos;
 
   const gastosEsteMes = gastos
     .filter((g) => mismoMes(aFecha(g.fecha), hoyLimpio))
@@ -294,6 +357,7 @@ export function resumenFinanciero({
   const cobrosVencidos: ReservaFinanzas[] = [];
   const cobrosProximos: ReservaFinanzas[] = [];
   let porCobrarProximos30 = 0;
+  let porCobrarTotal = 0;
   let agendadoProximos30 = 0;
   let eventosProximos30 = 0;
   let vencido = 0;
@@ -303,6 +367,7 @@ export function resumenFinanciero({
     const saldo = saldoPendiente(r);
     const yaPaso = fechaEvento < hoyLimpio;
 
+    porCobrarTotal += saldo;
     if (saldo > 0 && yaPaso) {
       vencido += saldo;
       cobrosVencidos.push(r);
@@ -326,19 +391,43 @@ export function resumenFinanciero({
     .filter((r) => !r.deposito_validado && Number(r.deposito_monto ?? 0) > 0)
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
+  // Adelantos que quedaron retenidos al cancelar/rechazar (política de
+  // no-devolución): siguen contando en "cobrado" y esta lista es la
+  // que lo hace auditable — y donde se marca una devolución si pasa.
+  const adelantosRetenidos = reservas
+    .filter(
+      (r) =>
+        !esReservaViva(r) &&
+        esIngresoReal(r) &&
+        r.deposito_validado &&
+        !r.adelanto_devuelto &&
+        Number(r.deposito_monto ?? 0) > 0,
+    )
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+  const cobradoTotal = cobradoAdelantos + cobradoSaldos;
+
   return {
     semanas,
     maximoSemanal,
     entroEsteMes,
+    entroEsteMesAdelantos,
+    entroEsteMesSaldos,
     gastosEsteMes,
     netoEsteMes: entroEsteMes - gastosEsteMes,
+    cobradoAdelantos,
+    cobradoSaldos,
+    cobradoTotal,
     porCobrarProximos30,
+    porCobrarTotal,
+    totalComprometido: cobradoTotal + porCobrarTotal,
     vencido,
     cobrosVencidos,
     cobrosProximos,
     agendadoProximos30,
     eventosProximos30,
     depositosSinValidar,
+    adelantosRetenidos,
   };
 }
 

@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import type { ReactNode } from "react";
 import {
   IconCalendarLine,
+  IconChartBars,
   IconCheck,
   IconClock,
   IconTrash,
@@ -50,6 +52,7 @@ export default function FinanzasPanel({
   onRevertirPago,
   onAgregarGasto,
   onBorrarGasto,
+  onMarcarAdelantoDevuelto,
 }: {
   resumen: ResumenFinanzas;
   gastos: Gasto[];
@@ -70,6 +73,10 @@ export default function FinanzasPanel({
     nota: string | null;
   }) => Promise<{ error: string | null }>;
   onBorrarGasto: (id: string) => Promise<{ error: string | null }>;
+  onMarcarAdelantoDevuelto?: (
+    id: string,
+    devuelto: boolean,
+  ) => Promise<{ error: string | null }>;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +124,18 @@ export default function FinanzasPanel({
         pending={pending}
       />
 
+      {resumen.adelantosRetenidos.length > 0 && (
+        <AdelantosRetenidos
+          reservas={resumen.adelantosRetenidos}
+          pending={pending}
+          onDevuelto={
+            onMarcarAdelantoDevuelto
+              ? (id) => correr(() => onMarcarAdelantoDevuelto(id, true))
+              : undefined
+          }
+        />
+      )}
+
       <GraficoSemanal semanas={resumen.semanas} maximoSemanal={resumen.maximoSemanal} />
 
       <GastosCard
@@ -146,46 +165,64 @@ export default function FinanzasPanel({
 }
 
 // ------------------------------------------------------------
-// Indicadores
+// Indicadores — tres cajas, tres preguntas: ¿qué entró de verdad?,
+// ¿qué falta que entre?, ¿cuánto es todo junto?
 // ------------------------------------------------------------
 
 function Indicadores({ resumen }: { resumen: ResumenFinanzas }) {
   const mes = new Date().toLocaleDateString("es-CR", { month: "long" });
 
   return (
-    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-      <Tile
-        titulo={`Entró en ${mes}`}
+    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+      <TileGrande
+        titulo="Ya cobrado"
+        subtitulo={`Entró en ${mes} — plata real en tu cuenta`}
         valor={fmtColones(resumen.entroEsteMes)}
-        detalle="Adelantos + saldos ya cobrados"
         acento="verde"
+        icono={<IconCheck />}
+        lineas={[
+          {
+            label: "Adelantos",
+            valor: fmtColones(resumen.entroEsteMesAdelantos),
+          },
+          { label: "Saldos de eventos", valor: fmtColones(resumen.entroEsteMesSaldos) },
+          { label: "Histórico total", valor: fmtColones(resumen.cobradoTotal) },
+        ]}
       />
-      <Tile
-        titulo="Por cobrar (30 días)"
-        valor={fmtColones(resumen.porCobrarProximos30)}
-        detalle={`${resumen.eventosProximos30} evento${
-          resumen.eventosProximos30 === 1 ? "" : "s"
-        } · ${fmtColones(resumen.agendadoProximos30)} agendados`}
+      <TileGrande
+        titulo="Por cobrar"
+        subtitulo="Lo que falta que te paguen"
+        valor={fmtColones(resumen.porCobrarTotal)}
         acento="azul"
+        icono={<IconClock />}
+        lineas={[
+          {
+            label: "Vencido",
+            valor: fmtColones(resumen.vencido),
+            critico: resumen.vencido > 0,
+          },
+          { label: "Próximos 30 días", valor: fmtColones(resumen.porCobrarProximos30) },
+          {
+            label: "Eventos agendados (30 días)",
+            valor: String(resumen.eventosProximos30),
+          },
+        ]}
       />
-      <Tile
-        titulo="Saldos vencidos"
-        valor={fmtColones(resumen.vencido)}
-        detalle={
-          resumen.cobrosVencidos.length > 0
-            ? `${resumen.cobrosVencidos.length} evento${
-                resumen.cobrosVencidos.length === 1 ? "" : "s"
-              } ya pasaron sin cobrarse`
-            : "Todo al día"
-        }
-        acento={resumen.vencido > 0 ? "critico" : "neutro"}
-        icono={resumen.vencido > 0 ? <IconWarning className="h-3.5 w-3.5" /> : null}
-      />
-      <Tile
-        titulo={`Neto de ${mes}`}
-        valor={fmtColones(resumen.netoEsteMes)}
-        detalle={`Menos ${fmtColones(resumen.gastosEsteMes)} de gastos`}
+      <TileGrande
+        titulo="Total"
+        subtitulo="Cobrado + por cobrar"
+        valor={fmtColones(resumen.totalComprometido)}
         acento={resumen.netoEsteMes < 0 ? "critico" : "neutro"}
+        icono={<IconChartBars />}
+        lineas={[
+          {
+            label: `Neto de ${mes}`,
+            valor: fmtColones(resumen.netoEsteMes),
+            critico: resumen.netoEsteMes < 0,
+          },
+          { label: `Gastos de ${mes}`, valor: `−${fmtColones(resumen.gastosEsteMes)}` },
+          { label: "Agendado 30 días", valor: fmtColones(resumen.agendadoProximos30) },
+        ]}
       />
     </div>
   );
@@ -198,29 +235,50 @@ const ACENTOS = {
   neutro: "text-aventurea-ink",
 } as const;
 
-function Tile({
+function TileGrande({
   titulo,
+  subtitulo,
   valor,
-  detalle,
   acento,
-  icono = null,
+  icono,
+  lineas,
 }: {
   titulo: string;
+  subtitulo: string;
   valor: string;
-  detalle: string;
   acento: keyof typeof ACENTOS;
-  icono?: React.ReactNode;
+  icono: ReactNode;
+  lineas: { label: string; valor: string; critico?: boolean }[];
 }) {
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4.5 shadow-sm">
-      <p className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+    <div className="relative overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-4.5 shadow-sm">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-4 -top-5 rotate-[14deg] text-aventurea-navy/[0.06] [&_svg]:h-24 [&_svg]:w-24"
+      >
         {icono}
-        {titulo}
-      </p>
-      <p className={`titulo mt-2 text-[26px] ${ACENTOS[acento]}`}>{valor}</p>
-      <p className="mt-1 text-[11.5px] leading-relaxed text-aventurea-ink-soft">
-        {detalle}
-      </p>
+      </span>
+      <div className="relative z-10">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink">
+          {titulo}
+        </p>
+        <p className={`titulo mt-1.5 text-[27px] ${ACENTOS[acento]}`}>{valor}</p>
+        <p className="mt-0.5 text-[11.5px] leading-snug text-aventurea-ink-soft">
+          {subtitulo}
+        </p>
+        <dl className="mt-3 flex flex-col gap-1 border-t border-aventurea-line pt-2.5">
+          {lineas.map((l) => (
+            <div key={l.label} className="flex items-baseline justify-between gap-3">
+              <dt className="text-[11.5px] text-aventurea-ink-soft">{l.label}</dt>
+              <dd
+                className={`text-[12.5px] font-bold ${l.critico ? "text-red-700" : "text-aventurea-ink"}`}
+              >
+                {l.valor}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
     </div>
   );
 }
@@ -403,6 +461,56 @@ function ProximosCobros({
         </ul>
       )}
     </section>
+  );
+}
+
+function AdelantosRetenidos({
+  reservas,
+  onDevuelto,
+  pending,
+}: {
+  reservas: ReservaFinanzas[];
+  onDevuelto?: (id: string) => void;
+  pending: boolean;
+}) {
+  const total = reservas.reduce((acc, r) => acc + Number(r.deposito_monto ?? 0), 0);
+  return (
+    <SeccionPlegable
+      titulo="Adelantos retenidos de cancelaciones"
+      descripcion="Reservas canceladas cuyo adelanto ya había entrado — según tus términos no se devuelve, así que sigue contando en lo cobrado."
+      resumen={fmtColones(total)}
+    >
+      <ul className="flex flex-col gap-2">
+        {reservas.map((r) => (
+          <li
+            key={r.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-aventurea-line p-3.5"
+          >
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-bold text-aventurea-ink">
+                {r.nombre ?? "Sin nombre"}
+                <span className="ml-2 font-normal text-aventurea-ink-soft">
+                  {fmtFecha(r.fecha)} · cancelada
+                </span>
+              </p>
+              <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
+                Adelanto retenido de {fmtColones(Number(r.deposito_monto ?? 0))}
+              </p>
+            </div>
+            {onDevuelto && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => onDevuelto(r.id)}
+                className="rounded-lg border border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-red-300 hover:text-red-700 disabled:opacity-60"
+              >
+                Lo devolví — sacarlo de mis números
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </SeccionPlegable>
   );
 }
 
