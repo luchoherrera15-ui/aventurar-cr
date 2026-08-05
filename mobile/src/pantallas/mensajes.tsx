@@ -5,6 +5,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -20,6 +21,13 @@ import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import TituloPantalla from "@/components/titulo-pantalla";
+import { ChipCategoria } from "@/components/ui";
+import {
+  ORDEN_CATEGORIAS_CHAT,
+  CATEGORIA_CHAT_LABEL,
+  categorizarConversacion,
+  type CategoriaChat,
+} from "@/lib/chat-categorias";
 
 /**
  * Bandeja de entrada tipo Airbnb: todas las conversaciones de la
@@ -41,7 +49,13 @@ type ConversacionRow = {
   proveedor_id: string;
   created_at: string;
   resuelta: boolean;
-  ranchos: { nombre: string; foto_url: string | null } | null;
+  ranchos: {
+    nombre: string;
+    foto_url: string | null;
+    vertical: string | null;
+    categoria: string | null;
+    slug: string | null;
+  } | null;
   reservas: { fecha: string; nombre: string | null; estado: string } | null;
 };
 
@@ -71,6 +85,7 @@ type Fila = {
   pendientes: number;
   resuelta: boolean;
   tag: TagChat;
+  categoria: CategoriaChat;
 };
 
 function fechaCorta(iso: string) {
@@ -102,6 +117,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   const { session } = useAuth();
   const [filas, setFilas] = useState<Fila[] | null>(null);
   const [tab, setTab] = useState<"activas" | "resueltas">("activas");
+  const [categoria, setCategoria] = useState<CategoriaChat | "todas">("todas");
 
   const cargar = useCallback(async () => {
     if (!session) return;
@@ -110,7 +126,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     const { data: convData } = await supabase
       .from("conversaciones")
       .select(
-        "id, reserva_id, cliente_id, proveedor_id, created_at, resuelta, ranchos(nombre, foto_url), reservas(fecha, nombre, estado)",
+        "id, reserva_id, cliente_id, proveedor_id, created_at, resuelta, ranchos(nombre, foto_url, vertical, categoria, slug), reservas(fecha, nombre, estado)",
       );
 
     const conversaciones = (convData ?? []) as unknown as ConversacionRow[];
@@ -198,6 +214,13 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
             pendientes: sinLeer.get(c.id) ?? 0,
             resuelta: c.resuelta,
             tag: tagDeChat(c),
+            categoria: categorizarConversacion({
+              proveedorId: c.proveedor_id,
+              miId,
+              ranchoSlug: c.ranchos?.slug ?? "",
+              vertical: c.ranchos?.vertical ?? "eventos",
+              categoria: c.ranchos?.categoria ?? "otros",
+            }),
           };
         })
         // Un chat eliminado se queda oculto mientras no pase nada
@@ -346,9 +369,18 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     );
   }
 
-  const activas = filas.filter((f) => !f.resuelta);
-  const resueltas = filas.filter((f) => f.resuelta);
+  const porCategoria =
+    categoria === "todas" ? filas : filas.filter((f) => f.categoria === categoria);
+  const activas = porCategoria.filter((f) => !f.resuelta);
+  const resueltas = porCategoria.filter((f) => f.resuelta);
   const visibles = tab === "activas" ? activas : resueltas;
+
+  // Solo se muestran chips de las categorías que de verdad tienen
+  // chats — no tiene sentido ofrecer "Citas" si esta persona nunca
+  // tuvo un chat de esa vertical.
+  const categoriasConDatos = ORDEN_CATEGORIAS_CHAT.filter((cat) =>
+    filas.some((f) => f.categoria === cat),
+  );
 
   return (
     <View style={styles.contenedor}>
@@ -357,6 +389,23 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
         titulo="Mensajes"
         subtitulo="Deslizá un chat: derecha lo marca leído, izquierda lo elimina."
       />
+      {categoriasConDatos.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsFila}
+        >
+          <ChipCategoria texto="Todas" activo={categoria === "todas"} onPress={() => setCategoria("todas")} />
+          {categoriasConDatos.map((cat) => (
+            <ChipCategoria
+              key={cat}
+              texto={CATEGORIA_CHAT_LABEL[cat]}
+              activo={categoria === cat}
+              onPress={() => setCategoria(cat)}
+            />
+          ))}
+        </ScrollView>
+      )}
       {filas.length > 0 && (
         <View style={styles.tabsFila}>
           <Pressable
@@ -555,6 +604,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   botonTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 13.5 },
+  chipsFila: {
+    flexDirection: "row",
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
   tabsFila: {
     flexDirection: "row",
     gap: Spacing.two,
