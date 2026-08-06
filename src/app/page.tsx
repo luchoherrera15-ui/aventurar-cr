@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
+import RielProveedores from "@/components/riel-proveedores";
+import type { Calificacion } from "@/components/rancho-card";
+import type { Rancho } from "@/app/mi-negocio/types";
 import {
-  IconBalloons,
-  IconCalendarLine,
   IconChatBubble,
   IconPalmera,
   IconStar,
@@ -15,39 +17,26 @@ import {
 
 /**
  * El home de Bookea — el techo común de las verticales. Antes / era un
- * redirect directo a /eventos; ahora que son varios mundos (Eventos,
- * Citas y pronto Hospedajes), la portada los presenta como tres
- * puertas y deja que cada quien entre a la suya.
+ * redirect directo a /eventos; ahora la portada muestra tres rieles con
+ * negocios REALES (pedido del dueño): uno de Eventos, uno de Citas y el
+ * de Hospedajes como "muy pronto".
  *
- * Las puertas son rectángulos claros con marca de agua (globos, agenda,
- * palmera), en las mismas pieles azul/celeste alternadas del tablero
- * del panel — sin fotos, sin bloques navy (iterado con el dueño). Cero
- * JavaScript más allá del RevealOnScroll de siempre: la puerta de
- * entrada tiene que ser la página más liviana del sitio.
+ * Cada riel muestra hasta 5 tarjetas, con el ancho achicado para que
+ * las 5 quepan SIN scroll horizontal en desktop (en el teléfono se
+ * desliza, como todo riel). El "Ver todo" de cada riel lleva a su
+ * directorio.
+ *
+ * Quién sale acá: los destacados del admin primero y después los más
+ * nuevos. A futuro este espacio será de pago (suscripción de
+ * visibilidad por negocio) — POR AHORA es gratis para todos, así que no
+ * hay ningún gate: solo el orden destacados → recientes.
  */
 
-const PUERTAS = [
-  {
-    href: "/eventos",
-    nombre: "Eventos",
-    Marca: IconBalloons,
-    linea: "Lugares para fiestas, catering, música y decoración — todo tu evento en un solo lugar.",
-    chips: ["Lugares", "Alimentación", "Animación", "Decoración"],
-  },
-  {
-    href: "/citas",
-    nombre: "Citas",
-    Marca: IconCalendarLine,
-    linea: "Belleza, barbería, uñas y spa: elegí el servicio, la hora y con quién.",
-    chips: ["Belleza", "Barbería", "Uñas", "Spa"],
-  },
-] as const;
+const TOPE_POR_RIEL = 5;
 
-/** Las mismas dos pieles suaves del tablero del panel, alternadas. */
-const PIELES_PUERTA = [
-  { card: "border-aventurea-navy/10 bg-aventurea-blue-light", marca: "text-aventurea-navy/10" },
-  { card: "border-aventurea-sky/30 bg-aventurea-sky/20", marca: "text-aventurea-sky-dark/20" },
-] as const;
+/** 5 tarjetas + 4 gaps de 14px caben en el contenedor de 1280 sin
+ *  scroll (5×232 + 56 = 1216). */
+const ANCHO_TARJETA_HOME = "clamp(200px, 42vw, 232px)";
 
 const PROMESAS = [
   { Icono: IconStopwatch, texto: "Confirmación al instante" },
@@ -77,116 +66,147 @@ const PASOS = [
   },
 ] as const;
 
-export default function Home() {
+/** Destacados del admin primero (en su orden), después los más nuevos. */
+function topDelVertical(negocios: Rancho[], vertical: string): Rancho[] {
+  return negocios
+    .filter((r) => (r.vertical ?? "eventos") === vertical)
+    .sort(
+      (a, b) =>
+        (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity) ||
+        (a.created_at < b.created_at ? 1 : -1),
+    )
+    .slice(0, TOPE_POR_RIEL);
+}
+
+export default async function Home() {
+  const supabase = await createClient();
+
+  const [negociosRes, califRes, userRes] = await Promise.all([
+    supabase
+      .from("ranchos")
+      .select("*")
+      .eq("estado", "aprobado")
+      .in("vertical", ["eventos", "citas"])
+      .order("created_at", { ascending: false })
+      .limit(120),
+    supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
+    supabase.auth.getUser(),
+  ]);
+
+  const negocios = (negociosRes.data ?? []) as Rancho[];
+  const rielEventos = topDelVertical(negocios, "eventos");
+  const rielCitas = topDelVertical(negocios, "citas");
+
+  const calificaciones = new Map<string, Calificacion>(
+    ((califRes.data ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
+  );
+
+  const user = userRes.data.user;
+  let favoritosIds = new Set<string>();
+  if (user) {
+    const { data: favData } = await supabase
+      .from("favoritos")
+      .select("rancho_id")
+      .eq("cliente_id", user.id);
+    favoritosIds = new Set((favData ?? []).map((f) => f.rancho_id as string));
+  }
+
+  // Sin cálculo de disponibilidad en el home (eso es del directorio):
+  // el chip "Libre ahora" simplemente no se muestra acá.
+  const proximasLibres = new Map<string, string | null>();
+
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <RevealOnScroll />
       <SiteHeader />
 
       <main className="flex-1">
-        {/* ---------- Hero: la pregunta y las tres puertas, sobre
-            fondo claro — el navy queda para los velos de las fotos,
-            no para el lienzo (pedido del dueño). ---------- */}
-        <section className="mx-auto max-w-[1280px] px-4 pb-4 pt-12 sm:px-5 sm:pt-16">
-          <div>
-            <p className="flex items-center justify-center gap-2 text-[11px] font-light uppercase tracking-[0.18em] text-aventurea-orange">
-              <span aria-hidden className="block h-[1.5px] w-[18px] bg-aventurea-sky" />
-              Reservas en Costa Rica
-              <span aria-hidden className="block h-[1.5px] w-[18px] bg-aventurea-sky" />
-            </p>
-            <h1 className="titulo mx-auto mt-4 max-w-[16ch] text-center text-[38px] text-aventurea-ink sm:text-[54px]">
-              ¿Qué vas a reservar hoy?
-            </h1>
-            <p className="mx-auto mt-4 max-w-[52ch] text-center text-[14.5px] leading-relaxed text-aventurea-ink-soft sm:text-[15.5px]">
-              El salón del evento, la cita de la semana o la próxima escapada:
-              acá se compara con precios reales y se reserva al instante — sin
-              cadenas de WhatsApp.
-            </p>
-
-            {/* Las puertas */}
-            <div className="mt-9 grid gap-3 sm:grid-cols-3">
-              {PUERTAS.map(({ href, nombre, Marca, linea, chips }, i) => (
-                <Link
-                  key={href}
-                  href={href}
-                  data-reveal
-                  style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
-                  className={`group relative flex flex-col overflow-hidden rounded-2xl border p-6 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(22,41,94,0.4)] sm:p-7 ${PIELES_PUERTA[i % PIELES_PUERTA.length].card}`}
-                >
-                  {/* La marca de agua, sangrando por la esquina como en
-                      las cards del tablero del panel. */}
-                  <span
-                    aria-hidden
-                    className={`pointer-events-none absolute -right-5 -top-6 rotate-[14deg] ${PIELES_PUERTA[i % PIELES_PUERTA.length].marca} [&_svg]:h-36 [&_svg]:w-36`}
-                  >
-                    <Marca />
-                  </span>
-                  <span className="relative z-10 flex flex-col gap-2">
-                    <span className="text-[21px] font-extrabold text-aventurea-ink">
-                      {nombre}
-                    </span>
-                    <span className="text-[13px] leading-snug text-aventurea-ink-soft">
-                      {linea}
-                    </span>
-                    <span className="mt-1 flex flex-wrap gap-1.5">
-                      {chips.map((chip) => (
-                        <span
-                          key={chip}
-                          className="rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy"
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </span>
-                    <span className="mt-2 text-[13px] font-extrabold text-aventurea-navy underline-offset-4 group-hover:underline">
-                      Explorar →
-                    </span>
-                  </span>
-                </Link>
-              ))}
-
-              {/* Hospedajes: la puerta que ya se ve pero todavía no se
-                  abre — misma lógica que "En configuración". */}
-              <div
-                data-reveal
-                style={{ "--reveal-delay": "180ms" } as React.CSSProperties}
-                className={`relative flex flex-col overflow-hidden rounded-2xl border p-6 sm:p-7 ${PIELES_PUERTA[0].card}`}
-              >
-                <span
-                  aria-hidden
-                  className={`pointer-events-none absolute -right-5 -top-6 rotate-[14deg] ${PIELES_PUERTA[0].marca} [&_svg]:h-36 [&_svg]:w-36`}
-                >
-                  <IconPalmera />
-                </span>
-                <span className="relative z-10 flex flex-col gap-2">
-                  <span className="flex items-center gap-2.5 text-[21px] font-extrabold text-aventurea-ink">
-                    Hospedajes
-                    <span className="rounded-lg bg-aventurea-navy px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wide text-white">
-                      Muy pronto
-                    </span>
-                  </span>
-                  <span className="text-[13px] leading-snug text-aventurea-ink-soft">
-                    Escapadas y estadías frente al mar y la montaña — ya casi
-                    están acá.
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            {/* La promesa de la casa */}
-            <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-aventurea-line pt-6 sm:grid-cols-4">
-              {PROMESAS.map(({ Icono, texto }) => (
-                <p
-                  key={texto}
-                  className="flex items-center justify-center gap-2 text-center text-[12px] font-bold text-aventurea-ink-soft"
-                >
-                  <Icono className="h-4 w-4 shrink-0 text-aventurea-orange" />
-                  {texto}
-                </p>
-              ))}
-            </div>
-          </div>
+        {/* ---------- Hero ---------- */}
+        <section className="mx-auto max-w-[1280px] px-4 pt-12 sm:px-5 sm:pt-14">
+          <p className="flex items-center justify-center gap-2 text-[11px] font-light uppercase tracking-[0.18em] text-aventurea-orange">
+            <span aria-hidden className="block h-[1.5px] w-[18px] bg-aventurea-sky" />
+            Reservas en Costa Rica
+            <span aria-hidden className="block h-[1.5px] w-[18px] bg-aventurea-sky" />
+          </p>
+          <h1 className="titulo mx-auto mt-4 max-w-[16ch] text-center text-[38px] text-aventurea-ink sm:text-[54px]">
+            ¿Qué vas a reservar hoy?
+          </h1>
+          <p className="mx-auto mt-4 max-w-[52ch] text-center text-[14.5px] leading-relaxed text-aventurea-ink-soft sm:text-[15.5px]">
+            El salón del evento, la cita de la semana o la próxima escapada:
+            acá se compara con precios reales y se reserva al instante — sin
+            cadenas de WhatsApp.
+          </p>
         </section>
+
+        {/* ---------- Los tres rieles ---------- */}
+        <div className="mx-auto flex max-w-[1280px] flex-col gap-6 px-4 pt-8 sm:px-5">
+          <div data-reveal>
+            <RielProveedores
+              titulo="Todo para tu evento"
+              subtitulo="Lugares, catering, música y decoración — reservá cada pieza de tu fiesta."
+              items={rielEventos}
+              verTodoHref="/eventos"
+              calificaciones={calificaciones}
+              proximasLibres={proximasLibres}
+              favoritosIds={favoritosIds}
+              sesionActiva={!!user}
+              anchoTarjeta={ANCHO_TARJETA_HOME}
+            />
+          </div>
+
+          <div data-reveal>
+            <RielProveedores
+              titulo="Cualquier servicio que necesités agendar"
+              subtitulo="Belleza, barbería, uñas y spa — elegí la hora y con quién, y quedá confirmado al instante."
+              items={rielCitas}
+              verTodoHref="/citas"
+              calificaciones={calificaciones}
+              proximasLibres={proximasLibres}
+              favoritosIds={favoritosIds}
+              sesionActiva={!!user}
+              anchoTarjeta={ANCHO_TARJETA_HOME}
+            />
+          </div>
+
+          {/* Hospedajes: el riel que ya se anuncia pero todavía no
+              tiene negocios — placeholder con la palmera de marca. */}
+          <section data-reveal className="py-3">
+            <h2 className="px-1 text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink">
+              Tu próxima escapada
+            </h2>
+            <div className="relative mt-3.5 flex flex-col gap-2 overflow-hidden rounded-2xl border border-aventurea-navy/10 bg-aventurea-blue-light p-6 sm:p-7">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -right-5 -top-6 rotate-[14deg] text-aventurea-navy/10 [&_svg]:h-36 [&_svg]:w-36"
+              >
+                <IconPalmera />
+              </span>
+              <span className="relative z-10 flex items-center gap-2.5 text-[21px] font-extrabold text-aventurea-ink">
+                Hospedajes
+                <span className="rounded-lg bg-aventurea-navy px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wide text-white">
+                  Muy pronto
+                </span>
+              </span>
+              <span className="relative z-10 max-w-[52ch] text-[13px] leading-snug text-aventurea-ink-soft">
+                Escapadas y estadías frente al mar y la montaña — ya casi están
+                acá.
+              </span>
+            </div>
+          </section>
+
+          {/* La promesa de la casa */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-aventurea-line pt-6 sm:grid-cols-4">
+            {PROMESAS.map(({ Icono, texto }) => (
+              <p
+                key={texto}
+                className="flex items-center justify-center gap-2 text-center text-[12px] font-bold text-aventurea-ink-soft"
+              >
+                <Icono className="h-4 w-4 shrink-0 text-aventurea-orange" />
+                {texto}
+              </p>
+            ))}
+          </div>
+        </div>
 
         {/* ---------- Así de simple ---------- */}
         <section className="mx-auto max-w-[1280px] px-5 py-14 sm:py-16">
