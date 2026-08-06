@@ -511,3 +511,61 @@ body {
   color: #fff;
 }
 
+/* --- Imprimir / guardar como PDF -------------------------------------
+   Hoy lo usa la lista de confirmaciones de un evento (el anfitrión
+   imprime la lista y la lleva al salón), pero las clases son genéricas
+   a propósito: `sin-imprimir` saca del papel lo que solo sirve en
+   pantalla (buscador, botones, acciones) y `solo-imprimir` muestra lo
+   que solo tiene sentido impreso (el título del evento, que en la
+   pantalla ya está más arriba). */
+.solo-imprimir {
+  display: none;
+}
+
+@media print {
+  .sin-imprimir {
+    display: none !important;
+  }
+  .solo-imprimir {
+    display: block !important;
+  }
+
+  /* La hoja arranca en la tabla: nada de header, menús ni pie. */
+  body * {
+    visibility: hidden;
+  }
+  .tabla-rsvps,
+  .tabla-rsvps * {
+    visibility: visible;
+  }
+  .tabla-rsvps {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Tinta: fondos fuera, bordes finos, y que las filas no se corten
+     entre páginas. */
+  .tabla-rsvps table {
+    width: 100%;
+    font-size: 11pt;
+  }
+  .tabla-rsvps th,
+  .tabla-rsvps td {
+    border-bottom: 1px solid #ddd;
+  }
+  .tabla-rsvps tr {
+    break-inside: avoid;
+  }
+
+  /* Los chips de arriba son navy sólido en pantalla: el navegador no
+     imprime fondos, así que el activo saldría en blanco sobre blanco.
+     En papel van sin relleno — el número igual se lee. */
+  .chips-resumen > * {
+    background: none !important;
+    border-color: #ddd !important;
+    color: #111 !important;
+  }
+}
+

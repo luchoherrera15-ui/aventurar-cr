@@ -4,10 +4,10 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import BotonCopiar from "@/components/boton-copiar";
-import BotonBorrarRsvp from "./boton-borrar-rsvp";
+import TablaRsvps from "./tabla-rsvps";
 import { IconCamera, IconClock, IconMail, IconPin, IconUsers } from "@/components/icons";
-import { parsearPreguntas, type PreguntaInvitacion } from "@/lib/invitaciones-preguntas";
-import { fechaCortaMensaje, fechaLargaCR } from "@/lib/fechas";
+import { parsearPreguntas } from "@/lib/invitaciones-preguntas";
+import { fechaLargaCR } from "@/lib/fechas";
 
 export const metadata: Metadata = {
   title: "Tu evento",
@@ -113,16 +113,10 @@ export default async function EspacioEventoPage({
 
   const album = (albumRes.data ?? null) as AlbumResumen | null;
 
-  // El tablero: cada "sí" cuenta a la persona más sus acompañantes.
+  // Los conteos y el total viven dentro de la tabla (tabla-rsvps.tsx),
+  // que es la que sabe qué filas se están viendo. Acá solo se necesita
+  // "quiénes vienen" para los conteos por pregunta del catering.
   const asistiran = rsvps.filter((r) => r.asistira);
-  const noVienen = rsvps.filter((r) => !r.asistira);
-  const totalPersonas = asistiran.reduce((acc, r) => acc + 1 + (r.acompanantes ?? 0), 0);
-  const acompanantesTotal = totalPersonas - asistiran.length;
-
-  // Los correos que dejaron los invitados, listos para copiarlos en un
-  // solo clic (avisos de última hora, agradecimientos…).
-  const correosDe = (lista: Rsvp[]) =>
-    [...new Set(lista.map((r) => r.correo).filter((c): c is string => !!c))].join(", ");
 
   // Conteos por pregunta de opciones, solo entre quienes sí vienen:
   // "Vegetarianos: 5" listo para dictárselo al catering.
@@ -213,20 +207,21 @@ export default async function EspacioEventoPage({
             <IconUsers className="h-4.5 w-4.5 text-aventurea-orange" /> Confirmaciones
           </h2>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Cifra valor={totalPersonas} etiqueta="personas en total" destacada />
-            <Cifra valor={asistiran.length} etiqueta={asistiran.length === 1 ? "sí asistirá" : "sí asistirán"} />
-            <Cifra valor={acompanantesTotal} etiqueta={acompanantesTotal === 1 ? "acompañante" : "acompañantes"} />
-            <Cifra valor={noVienen.length} etiqueta={noVienen.length === 1 ? "no podrá ir" : "no podrán ir"} />
-          </div>
-          <p className="mt-2 text-[12px] text-aventurea-ink-soft">
-            El total cuenta a cada confirmado con sus acompañantes — es el número que le
-            podés dar al catering y al lugar.
-          </p>
+          {/* Una sola tabla de control, numerada y con el total al pie
+              — reemplaza las dos listas separadas ("Sí asistirán" /
+              "No podrán ir"): con 40 invitados había que sumar a ojo
+              entre dos bloques para saber cuánta gente llegaba. */}
+          <TablaRsvps
+            rsvps={rsvps}
+            preguntas={preguntas.map((p) => ({ id: p.id, etiqueta: p.etiqueta }))}
+            invitacionId={id}
+            nombreEvento={inv.titulo as string}
+          />
 
-          {/* Los conteos por pregunta: la razón de ser del tablero. */}
+          {/* Los conteos por pregunta, debajo de la tabla: el desglose
+              que se le dicta al catering ("vegetarianos: 5"). */}
           {conteosPorPregunta.length > 0 && (
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="sin-imprimir mt-5 grid gap-3 sm:grid-cols-2">
               {conteosPorPregunta.map(({ pregunta, porOpcion, sinResponder }) => (
                 <div
                   key={pregunta.id}
@@ -257,34 +252,6 @@ export default async function EspacioEventoPage({
                 </div>
               ))}
             </div>
-          )}
-
-          {/* Las listas, separadas: quiénes vienen y quiénes avisaron
-              que no, cada quien con su correo y su fecha de respuesta. */}
-          {rsvps.length === 0 ? (
-            <p className="mt-5 rounded-xl border border-dashed border-aventurea-line p-5 text-center text-[13px] text-aventurea-ink-soft">
-              Todavía nadie ha confirmado. Compartí el link de arriba y acá van a ir
-              apareciendo.
-            </p>
-          ) : (
-            <>
-              <ListaRsvp
-                titulo={`Sí asistirán (${asistiran.length})`}
-                vacio="Todavía nadie ha confirmado que viene."
-                rsvps={asistiran}
-                correos={correosDe(asistiran)}
-                preguntas={preguntas}
-                invitacionId={id}
-              />
-              <ListaRsvp
-                titulo={`No podrán ir (${noVienen.length})`}
-                vacio="Nadie ha avisado que no puede ir."
-                rsvps={noVienen}
-                correos={correosDe(noVienen)}
-                preguntas={preguntas}
-                invitacionId={id}
-              />
-            </>
           )}
         </div>
 
@@ -344,157 +311,6 @@ export default async function EspacioEventoPage({
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-/** Un número del tablero con su etiqueta. */
-function Cifra({
-  valor,
-  etiqueta,
-  destacada,
-}: {
-  valor: number;
-  etiqueta: string;
-  destacada?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border p-4 text-center ${
-        destacada
-          ? "border-aventurea-navy bg-aventurea-navy text-white"
-          : "border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink"
-      }`}
-    >
-      <p className="text-[26px] font-extrabold leading-tight tabular-nums">{valor}</p>
-      <p
-        className={`mt-0.5 text-[11.5px] font-semibold ${
-          destacada ? "text-white/75" : "text-aventurea-ink-soft"
-        }`}
-      >
-        {etiqueta}
-      </p>
-    </div>
-  );
-}
-
-/**
- * Una de las dos listas del tablero ("Sí asistirán" / "No podrán ir"):
- * encabezado con el conteo, botón para copiar todos los correos de esa
- * lista y las filas una por una.
- */
-function ListaRsvp({
-  titulo,
-  vacio,
-  rsvps,
-  correos,
-  preguntas,
-  invitacionId,
-}: {
-  titulo: string;
-  vacio: string;
-  rsvps: Rsvp[];
-  correos: string;
-  preguntas: PreguntaInvitacion[];
-  invitacionId: string;
-}) {
-  return (
-    <div className="mt-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[13px] font-extrabold text-aventurea-ink">{titulo}</h3>
-        {correos && <BotonCopiar texto={correos} etiqueta="Copiar correos" />}
-      </div>
-      {rsvps.length === 0 ? (
-        <p className="mt-2 rounded-xl border border-dashed border-aventurea-line px-4 py-3 text-[12.5px] text-aventurea-ink-soft">
-          {vacio}
-        </p>
-      ) : (
-        <div className="mt-2 overflow-hidden rounded-xl border border-aventurea-line">
-          {rsvps.map((r) => (
-            <FilaRsvp
-              key={r.id}
-              rsvp={r}
-              preguntas={preguntas}
-              invitacionId={invitacionId}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Una confirmación: nombre, acompañantes, correo, mensaje y respuestas. */
-function FilaRsvp({
-  rsvp,
-  preguntas,
-  invitacionId,
-}: {
-  rsvp: Rsvp;
-  preguntas: PreguntaInvitacion[];
-  invitacionId: string;
-}) {
-  const etiquetaDe = new Map(preguntas.map((p) => [p.id, p.etiqueta]));
-  const respuestas = Object.entries(rsvp.respuestas ?? {});
-  return (
-    <div className="border-b border-aventurea-line bg-white px-4 py-3 last:border-none">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="text-[13.5px] font-bold text-aventurea-ink">{rsvp.nombre}</p>
-        {rsvp.asistira && rsvp.acompanantes > 0 && (
-          <span className="text-[12px] font-semibold text-aventurea-ink-soft">
-            +{rsvp.acompanantes} acompañante{rsvp.acompanantes === 1 ? "" : "s"}
-          </span>
-        )}
-        <span
-          className={`ml-auto rounded-lg px-2.5 py-0.5 text-[10.5px] font-bold uppercase ${
-            rsvp.asistira
-              ? "bg-aventurea-green-light text-aventurea-green"
-              : "bg-aventurea-cream-2 text-aventurea-ink-soft"
-          }`}
-        >
-          {rsvp.asistira ? "Sí asistirá" : "No podrá ir"}
-        </span>
-        {/* El link de la invitación es público: la misma persona
-            confirma dos veces sin querer, desde el teléfono y la compu.
-            Ese conteo es el que se le pasa al salón y al catering. */}
-        <BotonBorrarRsvp
-          rsvpId={rsvp.id}
-          invitacionId={invitacionId}
-          nombre={rsvp.nombre}
-        />
-      </div>
-      {(rsvp.correo || rsvp.created_at) && (
-        <p className="mt-1 text-[12px] text-aventurea-ink-soft">
-          {rsvp.correo && (
-            <a
-              href={`mailto:${rsvp.correo}`}
-              className="font-semibold text-aventurea-navy hover:underline"
-            >
-              {rsvp.correo}
-            </a>
-          )}
-          {rsvp.correo && rsvp.created_at && " · "}
-          {rsvp.created_at && fechaCortaMensaje(rsvp.created_at)}
-        </p>
-      )}
-      {respuestas.length > 0 && (
-        <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">
-          {respuestas.map(([pid, valor], idx) => (
-            <span key={pid}>
-              {idx > 0 && " · "}
-              <span className="font-semibold text-aventurea-ink">
-                {etiquetaDe.get(pid) ?? pid}:
-              </span>{" "}
-              {valor}
-            </span>
-          ))}
-        </p>
-      )}
-      {rsvp.mensaje && (
-        <p className="mt-1.5 text-[12.5px] italic leading-relaxed text-aventurea-ink-soft">
-          “{rsvp.mensaje}”
-        </p>
-      )}
     </div>
   );
 }
