@@ -101,7 +101,7 @@ export type ProductoIndividual = {
   precioUSD: number;
   /** Para agrupar en columnas en la landing. */
   familia: "album" | "invitacion" | "save_the_date";
-  /** El Esencial se maneja por WhatsApp: sin panel de confirmaciones. */
+  /** La Estándar se maneja por WhatsApp: sin panel de confirmaciones. */
   tienePanel?: boolean;
   /** Detalle corto que acompaña al nombre donde haya espacio. */
   detalle?: string;
@@ -117,8 +117,11 @@ export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
 
   // --- Invitaciones ---
   {
+    // El id se queda en `inv_esencial` aunque el nombre cambió a
+    // "Estándar": los pedidos ya hechos y la fila de la base lo
+    // referencian, y el id nunca se muestra en pantalla.
     id: "inv_esencial",
-    nombre: "Invitación Esencial",
+    nombre: "Invitación Estándar",
     precioUSD: 59,
     familia: "invitacion",
     tienePanel: false,

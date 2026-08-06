@@ -89,9 +89,9 @@ const DIFERENCIAS = [
  */
 const PIEZAS_EJEMPLO = [
   {
-    titulo: "Invitación Esencial",
-    texto: "Sencilla y elegante, con cuenta regresiva, ubicación y confirmación por WhatsApp.",
-    href: "/i/demo-formal",
+    titulo: "Invitación Estándar",
+    texto: "Una sola pantalla, elegante: cuenta regresiva, cómo llegar y confirmación por WhatsApp.",
+    href: "/i/demo-boda-estandar",
     Icono: IconMail,
     tono: "bg-[#ee7420]/15 text-[#ee7420]",
   },

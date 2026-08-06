@@ -1,0 +1,631 @@
+<!--
+  Plantilla "Boda Estándar" (Seda & Marfil) — boda elegante de UNA SOLA
+  PANTALLA, SIN SCROLL (pedido explícito del dueño: este diseño PISA el
+  estándar de storytelling por secciones). Todo el contenido cabe en
+  100svh en móvil y desktop; el <style> apaga el scroll de html/body a
+  propósito, así que nada de lo que la página agregue debajo se alcanza:
+  la confirmación viaja por el botón de WhatsApp.
+
+  Fondo blanco con "efecto tela": ondas crema (#f3ead9 / #efe7d8) que se
+  mecen perpetuamente como seda al viento — solo transform/opacity, 12 a
+  21 s por ciclo, quietas con prefers-reduced-motion.
+
+  JERARQUÍA (columna centrada, tarjeta de boda clásica):
+    1. "¡NOS CASAMOS!" en tracking amplio + "Queremos celebrarlo con vos"
+    2. Los nombres en serif grande, el "&" dorado con brillo que barre
+    3. La fecha en versalitas espaciadas
+    4. El lugar · Ceremonia a las {{HORA}}
+    5. Cuenta regresiva viva (días · hrs · min · seg, cada segundo)
+    6. Botones CÓMO LLEGAR (Google Maps) y CONFIRMAR (WhatsApp)
+
+  GENEROSIDAD SIN ROMPER EL SINGLE-SCREEN:
+    - Entrada escalonada al cargar (fade + translateY en cascada, los
+      nombres con un overshoot suave)
+    - Destellos dorados flotando en loop (14 en móvil, 24 en ≥768px)
+    - Tocar los nombres o el "&" suelta una ráfaga breve de chispas
+      doradas y un pop del lockup
+
+  PLACEHOLDERS:
+    {{NOMBRE_1}}        primer nombre              p. ej. Valeria
+    {{NOMBRE_2}}        segundo nombre             p. ej. Andrés
+    {{FECHA}}           fecha lockup               p. ej. 14 · Febrero · 2027
+    {{FECHA_ISO}}       fecha-hora ISO con zona    p. ej. 2027-02-14T16:00:00-06:00
+    {{HORA}}            hora de la ceremonia       p. ej. 4:00 p. m.
+    {{LUGAR}}           nombre del lugar           p. ej. Hacienda Monteflor
+    {{LINK_MAPS}}       URL de Google Maps
+    {{LINK_CONFIRMAR}}  URL de wa.me con el mensaje precargado
+
+  NOTAS TÉCNICAS:
+  - Autocontenido: CSS en el <style> y JS en el <script> de este mismo
+    fragmento; cero librerías, cero recursos remotos (solo SVG inline).
+    Estilos namespaced con .bde-/#bde-.
+  - La regla html/body { overflow: hidden } es la ÚNICA global y es
+    deliberada: la invitación es un lienzo fijo de 100svh.
+  - La cuenta regresiva es propia (lee data-fecha); no se usa la marca
+    data-bookea="cuenta-regresiva" para conservar esta tipografía.
+  - Sin JS la invitación queda completa y legible (la cascada de entrada
+    es CSS puro; la cuenta muestra guiones elegantes).
+-->
+<div class="bde">
+  <style>
+    /* ============ Pantalla única: el lienzo no scrollea ============ */
+    html, body {
+      overflow: hidden !important;
+      height: 100%;
+      overscroll-behavior: none;
+    }
+
+    /* ============ Tokens del tema ============ */
+    .bde {
+      --bde-vino: #6b2233;
+      --bde-vino-claro: #7d2a3e;
+      --bde-oro: #c9a227;
+      --bde-oro-oscuro: #8a6a1f;
+      --bde-tinta: #55483a;
+      --bde-crema: #f3ead9;
+      --bde-crema-2: #efe7d8;
+      --bde-serif: var(--inv3-serif, "Cormorant Garamond"), "Palatino Linotype", Georgia, "Times New Roman", serif;
+      --bde-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      position: relative;
+      display: block;
+      width: 100%;
+      height: 100vh;
+      height: 100svh;
+      overflow: hidden;
+      background: #ffffff;
+      color: var(--bde-tinta);
+      font-family: var(--bde-sans);
+    }
+
+    /* Veladura dorada fija, apenas perceptible, para dar calidez. */
+    .bde::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(58rem 36rem at 82% -12%, rgba(201, 162, 39, 0.07), transparent 62%),
+        radial-gradient(46rem 30rem at -10% 110%, rgba(201, 162, 39, 0.06), transparent 60%);
+    }
+
+    /* ============ La seda: ondas crema que se mecen ============ */
+    .bde-seda {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bde-ola {
+      position: absolute;
+      display: block;
+      will-change: transform;
+    }
+    .bde-ola-1 { top: -7%; left: -20%; width: 140%; height: 46%; animation: bde-mecer-a 16s ease-in-out infinite alternate; }
+    .bde-ola-2 { top: 33%; left: -23%; width: 146%; height: 48%; animation: bde-mecer-b 21s ease-in-out infinite alternate; }
+    .bde-ola-3 { bottom: -8%; left: -20%; width: 140%; height: 48%; animation: bde-mecer-c 13s ease-in-out infinite alternate; }
+    .bde-ola-4 { display: none; }
+    @media (min-width: 768px) {
+      .bde-ola-4 {
+        display: block;
+        top: 8%;
+        right: -24%;
+        width: 120%;
+        height: 56%;
+        animation: bde-mecer-b 18s ease-in-out infinite alternate-reverse;
+      }
+    }
+    @keyframes bde-mecer-a {
+      from { transform: translate3d(-2.2%, -1%, 0) rotate(-0.5deg); }
+      to   { transform: translate3d(2.4%, 1.2%, 0) rotate(0.6deg); }
+    }
+    @keyframes bde-mecer-b {
+      from { transform: translate3d(2.6%, 1.4%, 0) rotate(0.7deg); }
+      to   { transform: translate3d(-2.4%, -1.2%, 0) rotate(-0.6deg); }
+    }
+    @keyframes bde-mecer-c {
+      from { transform: translate3d(-1.8%, 1%, 0) rotate(0.4deg); }
+      to   { transform: translate3d(2%, -1.2%, 0) rotate(-0.5deg); }
+    }
+
+    /* ============ Destellos ambiente (los crea el script) ============ */
+    .bde-motas {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bde-mota {
+      position: absolute;
+      bottom: -14px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(212, 176, 74, 0.85), rgba(212, 176, 74, 0) 70%);
+      opacity: 0;
+      animation: bde-flotar var(--t, 18s) linear infinite;
+      animation-delay: var(--r, 0s);
+    }
+    @keyframes bde-flotar {
+      0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+      8%   { opacity: 0.85; }
+      50%  { transform: translate3d(var(--dx, 14px), -54vh, 0); }
+      90%  { opacity: 0.45; }
+      100% { opacity: 0; transform: translate3d(calc(var(--dx, 14px) * -0.6), -106vh, 0); }
+    }
+
+    /* ============ Chispas del toque (WAAPI las mueve) ============ */
+    .bde-chispa {
+      position: fixed;
+      z-index: 60;
+      pointer-events: none;
+      background: var(--bde-oro);
+    }
+    .bde-chispa-rombo { transform: rotate(45deg); }
+    .bde-chispa-punto { border-radius: 50%; }
+
+    /* ============ La columna de contenido ============ */
+    .bde-columna {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: calc(env(safe-area-inset-top, 0px) + 16px) 22px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    }
+
+    /* Cascada de entrada: cada bloque llega con su propio retraso. */
+    .bde-entra {
+      opacity: 0;
+      animation: bde-entrada 0.9s cubic-bezier(0.22, 0.65, 0.25, 1) forwards;
+      animation-delay: var(--d, 0s);
+    }
+    @keyframes bde-entrada {
+      from { opacity: 0; transform: translateY(22px) scale(0.985); }
+      70%  { opacity: 1; }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* 1 · El anuncio */
+    .bde-anuncio {
+      margin: 0;
+      font: 700 12px/1.4 var(--bde-sans);
+      letter-spacing: 0.42em;
+      padding-left: 0.42em; /* compensa el tracking para centrar */
+      text-transform: uppercase;
+      color: var(--bde-vino);
+    }
+    .bde-lema {
+      margin: 10px 0 0;
+      font: italic 500 17px/1.4 var(--bde-serif);
+      color: #8c8272;
+    }
+
+    /* 2 · Los nombres */
+    .bde-nombres {
+      margin: 22px 0 0;
+      font: 500 clamp(46px, 13vw, 58px)/1.05 var(--bde-serif);
+      color: var(--bde-vino);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      opacity: 0;
+      animation: bde-entrada-nombres 1.05s cubic-bezier(0.2, 0.7, 0.25, 1) forwards;
+      animation-delay: var(--d, 0s);
+    }
+    @keyframes bde-entrada-nombres {
+      0%   { opacity: 0; transform: translateY(26px) scale(0.94); }
+      65%  { opacity: 1; transform: translateY(-3px) scale(1.015); }
+      100% { opacity: 1; transform: none; }
+    }
+    .bde-nombre { display: block; }
+    .bde-amp {
+      position: relative;
+      display: block;
+      margin: 2px 0;
+      font-size: 0.52em;
+      line-height: 1.15;
+      color: var(--bde-oro);
+    }
+    /* El brillo: el mismo glifo en oro claro que respira encima —
+       tiene la forma exacta del "&", nunca un rectángulo de luz. */
+    .bde-amp::after {
+      content: "&";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      color: #ecd88b;
+      text-shadow: 0 0 16px rgba(233, 210, 122, 0.8);
+      opacity: 0;
+      animation: bde-brillar 5.5s ease-in-out infinite;
+      animation-delay: 1.4s;
+      pointer-events: none;
+    }
+    @keyframes bde-brillar {
+      0%, 100% { opacity: 0; transform: scale(1); }
+      50%      { opacity: 0.95; transform: scale(1.05); }
+    }
+    @media (min-width: 768px) {
+      .bde-nombres { font-size: clamp(64px, 7vw, 104px); margin-top: 26px; }
+      .bde-nombre { display: inline; }
+      .bde-amp { display: inline-block; margin: 0 0.12em; vertical-align: baseline; }
+    }
+
+    /* 3 · Ornamento línea — rombo — línea */
+    .bde-orn {
+      margin: 20px 0 0;
+      width: min(240px, 60vw);
+      display: block;
+      color: var(--bde-oro);
+    }
+
+    /* 4 · La fecha en versalitas espaciadas */
+    .bde-fecha {
+      margin: 18px 0 0;
+      font: 600 clamp(17px, 4.6vw, 21px)/1.3 var(--bde-serif);
+      letter-spacing: 0.3em;
+      padding-left: 0.3em;
+      text-transform: uppercase;
+      color: var(--bde-vino);
+    }
+    @media (min-width: 768px) {
+      .bde-fecha { font-size: 24px; }
+    }
+
+    /* 5 · El lugar */
+    .bde-lugar {
+      margin: 10px 0 0;
+      font: 400 14.5px/1.5 var(--bde-sans);
+      letter-spacing: 0.04em;
+      color: var(--bde-tinta);
+    }
+    .bde-punto { color: var(--bde-oro); font-weight: 700; padding: 0 2px; }
+    @media (min-width: 768px) {
+      .bde-lugar { font-size: 16px; }
+    }
+
+    /* 6 · Cuenta regresiva viva */
+    .bde-cd { margin: 26px 0 0; }
+    .bde-cd-titulo {
+      margin: 0 0 8px;
+      font: 700 11px/1.4 var(--bde-sans);
+      letter-spacing: 0.38em;
+      padding-left: 0.38em;
+      text-transform: uppercase;
+      color: var(--bde-oro-oscuro);
+    }
+    .bde-cd-fila {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 6px;
+    }
+    .bde-cd-celda { min-width: 58px; }
+    .bde-cd-num {
+      display: block;
+      font: 600 clamp(30px, 9vw, 42px)/1.1 var(--bde-serif);
+      font-variant-numeric: tabular-nums;
+      color: var(--bde-vino);
+    }
+    .bde-cd-eti {
+      display: block;
+      margin-top: 2px;
+      font: 600 10px/1.3 var(--bde-sans);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #96897a;
+    }
+    .bde-cd-sep {
+      color: var(--bde-oro);
+      font: 600 22px/1 var(--bde-serif);
+      transform: translateY(-8px);
+    }
+    .bde-cd-hoy {
+      margin: 4px 0 0;
+      font: italic 600 22px/1.3 var(--bde-serif);
+      color: var(--bde-vino);
+    }
+    @media (min-width: 768px) {
+      .bde-cd { margin-top: 34px; }
+      .bde-cd-celda { min-width: 84px; }
+      .bde-cd-num { font-size: 52px; }
+      .bde-cd-eti { font-size: 11px; }
+    }
+
+    /* 7 · Los botones */
+    /* Lado a lado también en 390px: pills compactas (48px de alto
+       táctil intactos); en pantallas muy angostas pueden apilarse. */
+    .bde-botones {
+      margin: 26px 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .bde-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 48px;
+      padding: 12px 17px;
+      border-radius: 999px;
+      font: 700 11.5px/1 var(--bde-sans);
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .bde-btn svg { flex: none; }
+    .bde-btn:active { transform: scale(0.96); }
+    .bde-btn-mapa {
+      background: linear-gradient(180deg, #f9f3e3, #f0e5cb);
+      color: #7c5f16;
+      border: 1px solid rgba(201, 162, 39, 0.55);
+      box-shadow: 0 8px 20px rgba(201, 162, 39, 0.16);
+    }
+    .bde-btn-confirmar {
+      background: linear-gradient(180deg, var(--bde-vino-claro), var(--bde-vino));
+      color: #ffffff;
+      border: 1px solid rgba(107, 34, 51, 0.4);
+      box-shadow: 0 10px 24px rgba(107, 34, 51, 0.26);
+    }
+    @media (hover: hover) {
+      .bde-btn-mapa:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(201, 162, 39, 0.24); }
+      .bde-btn-confirmar:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(107, 34, 51, 0.34); }
+    }
+    @media (min-width: 768px) {
+      .bde-botones { margin-top: 32px; gap: 16px; }
+      .bde-btn { padding: 14px 30px; font-size: 13px; }
+    }
+
+    /* ============ Movimiento reducido: todo quieto y visible ============ */
+    @media (prefers-reduced-motion: reduce) {
+      .bde *, .bde *::before, .bde *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+      .bde-entra, .bde-nombres { opacity: 1 !important; transform: none !important; }
+      .bde-mota { display: none; }
+    }
+  </style>
+
+  <!-- La seda: capas de ondas crema de borde a borde. -->
+  <div class="bde-seda" aria-hidden="true">
+    <svg class="bde-ola bde-ola-1" viewBox="0 0 1440 420" preserveAspectRatio="none" fill="none">
+      <defs>
+        <linearGradient id="bdeG1" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="#f3ead9" stop-opacity="0" />
+          <stop offset="1" stop-color="#f3ead9" stop-opacity="0.95" />
+        </linearGradient>
+        <linearGradient id="bdeG1b" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="#efe7d8" stop-opacity="0" />
+          <stop offset="1" stop-color="#efe7d8" stop-opacity="0.8" />
+        </linearGradient>
+      </defs>
+      <path fill="url(#bdeG1)" d="M0,0 L1440,0 L1440,225 C1290,290 1120,205 940,252 C760,300 600,215 420,258 C250,299 110,235 0,282 Z" />
+      <path fill="url(#bdeG1b)" d="M0,0 L1440,0 L1440,180 C1300,240 1140,165 960,205 C780,246 610,170 430,210 C255,250 115,190 0,232 Z" />
+    </svg>
+    <svg class="bde-ola bde-ola-2" viewBox="0 0 1440 420" preserveAspectRatio="none" fill="none">
+      <defs>
+        <linearGradient id="bdeG2" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#efe7d8" stop-opacity="0" />
+          <stop offset="0.18" stop-color="#efe7d8" stop-opacity="0.6" />
+          <stop offset="0.82" stop-color="#efe7d8" stop-opacity="0.6" />
+          <stop offset="1" stop-color="#efe7d8" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="bdeG2b" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#f3ead9" stop-opacity="0" />
+          <stop offset="0.25" stop-color="#f3ead9" stop-opacity="0.5" />
+          <stop offset="0.75" stop-color="#f3ead9" stop-opacity="0.5" />
+          <stop offset="1" stop-color="#f3ead9" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <path fill="url(#bdeG2)" d="M0,150 C200,90 380,220 600,170 C820,120 980,230 1180,180 C1300,150 1390,180 1440,160 L1440,260 C1330,300 1180,240 990,285 C800,330 640,240 450,285 C260,330 110,260 0,300 Z" />
+      <path fill="url(#bdeG2b)" d="M0,210 C210,155 400,275 620,228 C840,182 1000,285 1195,240 C1310,214 1395,240 1440,222 L1440,300 C1335,335 1190,280 1000,320 C815,358 650,278 460,318 C270,356 115,295 0,332 Z" />
+    </svg>
+    <svg class="bde-ola bde-ola-3" viewBox="0 0 1440 420" preserveAspectRatio="none" fill="none">
+      <defs>
+        <linearGradient id="bdeG3" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#f3ead9" stop-opacity="0" />
+          <stop offset="1" stop-color="#f3ead9" stop-opacity="0.95" />
+        </linearGradient>
+        <linearGradient id="bdeG3b" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#efe7d8" stop-opacity="0" />
+          <stop offset="1" stop-color="#efe7d8" stop-opacity="0.8" />
+        </linearGradient>
+      </defs>
+      <path fill="url(#bdeG3)" d="M0,420 L1440,420 L1440,195 C1290,130 1120,215 940,168 C760,120 600,205 420,162 C250,121 110,185 0,138 Z" />
+      <path fill="url(#bdeG3b)" d="M0,420 L1440,420 L1440,240 C1300,180 1140,255 960,215 C780,174 610,250 430,210 C255,170 115,230 0,188 Z" />
+    </svg>
+    <svg class="bde-ola bde-ola-4" viewBox="0 0 1440 420" preserveAspectRatio="none" fill="none">
+      <defs>
+        <linearGradient id="bdeG4" x1="0" y1="0" x2="1" y2="0.4">
+          <stop offset="0" stop-color="#f3ead9" stop-opacity="0" />
+          <stop offset="0.4" stop-color="#f3ead9" stop-opacity="0.45" />
+          <stop offset="1" stop-color="#f3ead9" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <path fill="url(#bdeG4)" d="M0,120 C240,60 460,190 700,140 C940,90 1120,200 1320,150 C1380,135 1420,150 1440,140 L1440,250 C1360,285 1230,230 1050,270 C860,312 700,225 510,268 C320,310 140,250 0,290 Z" />
+    </svg>
+  </div>
+
+  <!-- Destellos dorados flotando (los siembra el script). -->
+  <div class="bde-motas" id="bde-motas" aria-hidden="true"></div>
+
+  <div class="bde-columna">
+    <p class="bde-anuncio bde-entra" style="--d: 0.08s">¡Nos casamos!</p>
+    <p class="bde-lema bde-entra" style="--d: 0.2s">Queremos celebrarlo con vos</p>
+
+    <h1 class="bde-nombres" id="bde-nombres" style="--d: 0.34s" title="Un toque de cariño">
+      <span class="bde-nombre">{{NOMBRE_1}}</span>
+      <span class="bde-amp" aria-hidden="true">&amp;</span>
+      <span class="bde-nombre">{{NOMBRE_2}}</span>
+    </h1>
+
+    <svg class="bde-orn bde-entra" style="--d: 0.5s" viewBox="0 0 240 14" fill="none" aria-hidden="true">
+      <line x1="0" y1="7" x2="102" y2="7" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" />
+      <rect x="115" y="2" width="10" height="10" transform="rotate(45 120 7)" stroke="currentColor" stroke-width="1" />
+      <line x1="138" y1="7" x2="240" y2="7" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" />
+    </svg>
+
+    <p class="bde-fecha bde-entra" style="--d: 0.62s">{{FECHA}}</p>
+    <p class="bde-lugar bde-entra" style="--d: 0.72s">
+      {{LUGAR}} <span class="bde-punto">·</span> Ceremonia a las {{HORA}}
+    </p>
+
+    <div class="bde-cd bde-entra" style="--d: 0.84s" id="bde-cd" data-fecha="{{FECHA_ISO}}">
+      <p class="bde-cd-titulo">Faltan</p>
+      <div class="bde-cd-fila">
+        <div class="bde-cd-celda">
+          <span class="bde-cd-num" id="bde-cd-d">—</span>
+          <span class="bde-cd-eti">días</span>
+        </div>
+        <span class="bde-cd-sep" aria-hidden="true">·</span>
+        <div class="bde-cd-celda">
+          <span class="bde-cd-num" id="bde-cd-h">—</span>
+          <span class="bde-cd-eti">hrs</span>
+        </div>
+        <span class="bde-cd-sep" aria-hidden="true">·</span>
+        <div class="bde-cd-celda">
+          <span class="bde-cd-num" id="bde-cd-m">—</span>
+          <span class="bde-cd-eti">min</span>
+        </div>
+        <span class="bde-cd-sep" aria-hidden="true">·</span>
+        <div class="bde-cd-celda">
+          <span class="bde-cd-num" id="bde-cd-s">—</span>
+          <span class="bde-cd-eti">seg</span>
+        </div>
+      </div>
+      <p class="bde-cd-hoy" id="bde-cd-hoy" hidden>¡Llegó el gran día!</p>
+    </div>
+
+    <div class="bde-botones bde-entra" style="--d: 0.98s">
+      <a class="bde-btn bde-btn-mapa" href="{{LINK_MAPS}}" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
+        </svg>
+        Cómo llegar
+      </a>
+      <a class="bde-btn bde-btn-confirmar" href="{{LINK_CONFIRMAR}}" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
+        </svg>
+        Confirmar
+      </a>
+    </div>
+  </div>
+
+  <script>
+    /* ============ Cuenta regresiva viva ============ */
+    (function () {
+      var caja = document.getElementById("bde-cd");
+      if (!caja) return;
+      var objetivo = new Date(caja.getAttribute("data-fecha") || "").getTime();
+      if (isNaN(objetivo)) return;
+      var d = document.getElementById("bde-cd-d");
+      var h = document.getElementById("bde-cd-h");
+      var m = document.getElementById("bde-cd-m");
+      var s = document.getElementById("bde-cd-s");
+      var hoy = document.getElementById("bde-cd-hoy");
+      var fila = caja.querySelector(".bde-cd-fila");
+      var titulo = caja.querySelector(".bde-cd-titulo");
+      var timer = null;
+      function dos(n) { return n < 10 ? "0" + n : "" + n; }
+      function tic() {
+        var resto = objetivo - Date.now();
+        if (resto <= 0) {
+          if (fila) fila.hidden = true;
+          if (titulo) titulo.hidden = true;
+          if (hoy) hoy.hidden = false;
+          if (timer) window.clearInterval(timer);
+          return;
+        }
+        var seg = Math.floor(resto / 1000);
+        if (d) d.textContent = "" + Math.floor(seg / 86400);
+        if (h) h.textContent = dos(Math.floor((seg % 86400) / 3600));
+        if (m) m.textContent = dos(Math.floor((seg % 3600) / 60));
+        if (s) s.textContent = dos(seg % 60);
+      }
+      tic();
+      timer = window.setInterval(tic, 1000);
+    })();
+
+    /* ============ Destellos ambiente: 14 en móvil, 24 en desktop ====== */
+    (function () {
+      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reducido) return;
+      var caja = document.getElementById("bde-motas");
+      if (!caja) return;
+      var n = window.matchMedia && window.matchMedia("(min-width: 768px)").matches ? 24 : 14;
+      for (var i = 0; i < n; i++) {
+        var mota = document.createElement("span");
+        mota.className = "bde-mota";
+        var tam = 3 + Math.random() * 3.5;
+        mota.style.width = tam + "px";
+        mota.style.height = tam + "px";
+        mota.style.left = (2 + Math.random() * 94) + "%";
+        mota.style.setProperty("--t", (16 + Math.random() * 12).toFixed(1) + "s");
+        mota.style.setProperty("--r", (-Math.random() * 24).toFixed(1) + "s");
+        mota.style.setProperty("--dx", ((Math.random() * 60 - 30) | 0) + "px");
+        caja.appendChild(mota);
+      }
+    })();
+
+    /* ============ Micro-interacción: chispas al tocar los nombres ===== */
+    (function () {
+      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var nombres = document.getElementById("bde-nombres");
+      if (!nombres || reducido || !nombres.animate) return;
+      var ocupado = false;
+      nombres.addEventListener("click", function (ev) {
+        // Pop suave del lockup (no se encima si tocan rápido).
+        if (!ocupado) {
+          ocupado = true;
+          var pop = nombres.animate(
+            [
+              { transform: "scale(1)" },
+              { transform: "scale(1.035)" },
+              { transform: "scale(1)" },
+            ],
+            { duration: 360, easing: "cubic-bezier(0.34, 1.4, 0.5, 1)" }
+          );
+          pop.onfinish = function () { ocupado = false; };
+        }
+        // La ráfaga: chispas doradas desde el punto del toque.
+        var x = ev.clientX || (window.innerWidth / 2);
+        var y = ev.clientY || (window.innerHeight / 2.6);
+        var n = window.matchMedia && window.matchMedia("(min-width: 768px)").matches ? 18 : 12;
+        for (var i = 0; i < n; i++) {
+          var chispa = document.createElement("span");
+          var rombo = Math.random() < 0.5;
+          chispa.className = "bde-chispa " + (rombo ? "bde-chispa-rombo" : "bde-chispa-punto");
+          var tam = rombo ? 5 + Math.random() * 4 : 3 + Math.random() * 3;
+          chispa.style.width = tam + "px";
+          chispa.style.height = tam + "px";
+          chispa.style.left = (x - tam / 2) + "px";
+          chispa.style.top = (y - tam / 2) + "px";
+          document.body.appendChild(chispa);
+          var ang = Math.random() * Math.PI * 2;
+          var dist = 40 + Math.random() * 75;
+          var dx = Math.cos(ang) * dist;
+          var dy = Math.sin(ang) * dist - 18;
+          var giro = rombo ? " rotate(" + ((Math.random() * 260 - 130) | 0) + "deg)" : "";
+          var anim = chispa.animate(
+            [
+              { transform: "translate(0, 0) scale(1)" + (rombo ? " rotate(45deg)" : ""), opacity: 1 },
+              { transform: "translate(" + dx + "px, " + dy + "px) scale(0.15)" + giro, opacity: 0 },
+            ],
+            { duration: 520 + Math.random() * 360, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" }
+          );
+          anim.onfinish = (function (nodo) { return function () { nodo.remove(); }; })(chispa);
+        }
+      });
+    })();
+  </script>
+</div>

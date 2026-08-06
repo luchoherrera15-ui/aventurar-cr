@@ -38,6 +38,17 @@ export type DemoInvitacion = {
 
 export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   {
+    slug: "demo-boda-estandar",
+    nombre: "Seda & Marfil",
+    ocasion: "Bodas",
+    descripcion:
+      "Una sola pantalla en blanco y seda: nombres en serif, cuenta regresiva viva y confirmación por WhatsApp.",
+    lienzo: "bg-aventurea-navy",
+    icono: "corazon",
+    iconoClase: "text-white/90",
+    muestra: { fondo: "#ffffff", tinta: "#6b2233", acento: "#c9a227" },
+  },
+  {
     slug: "demo-invitacion",
     nombre: "Marfil & Champán",
     ocasion: "Bodas",
