@@ -263,52 +263,51 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* ---------- Así de simple: el bloque navy con los tres
-            pasos y su pequeña coreografía al entrar en pantalla
-            (home.css) — elegante y sin una línea de JavaScript. ---------- */}
-        <section className="mx-auto max-w-[1280px] px-4 py-14 sm:px-5 sm:py-16">
-          <div
-            data-reveal
-            className="bento bento-navy relative px-6 py-12 sm:px-12 sm:py-16"
-          >
-            <span aria-hidden className="bento-orbe -right-20 -top-24" />
-            <span aria-hidden className="bento-orbe -bottom-28 -left-16" />
+        {/* ---------- Así de simple: la banda oscura INMERSIVA, de
+            borde a borde. En Chrome/Edge desktop el scroll dirige la
+            escena (sticky + scroll-driven animations en home.css):
+            el título, cada paso y la línea aparecen al ritmo del
+            scroll. En el resto de navegadores/móvil, la misma banda
+            se ve completa y estática. ---------- */}
+        <section className="pasos-lienzo mt-14 w-full sm:mt-16">
+          <div className="pasos-pin flex flex-col items-center justify-center px-5 py-20 sm:py-24">
+            <div className="w-full max-w-[1100px]">
+              <div className="pasos-encabezado text-center">
+                <p className="text-[11px] font-light uppercase tracking-[0.2em] text-aventurea-orange">
+                  Así funciona
+                </p>
+                <h2 className="titulo mt-3 text-[32px] text-white sm:text-[52px]">
+                  Reservar toma tres pasos
+                </h2>
+              </div>
 
-            <div className="relative">
-              <p className="text-center text-[11px] font-light uppercase tracking-[0.18em] text-aventurea-orange">
-                Así funciona
-              </p>
-              <h2 className="titulo mt-2 text-center text-[27px] text-white sm:text-[34px]">
-                Reservar toma tres pasos
-              </h2>
-
-              <div className="relative mt-12 grid gap-10 sm:grid-cols-3 sm:gap-6">
+              <div className="relative mt-14 grid gap-12 sm:mt-20 sm:grid-cols-3 sm:gap-8">
                 {/* La línea que une los tres números: se dibuja de
-                    izquierda a derecha mientras van apareciendo. */}
+                    izquierda a derecha al ritmo del scroll. */}
                 <span
                   aria-hidden
-                  className="paso-linea absolute left-[16.6%] right-[16.6%] top-6 hidden h-px bg-gradient-to-r from-aventurea-sky/60 via-white/30 to-aventurea-sky/60 sm:block"
+                  className="pasos-linea absolute left-[16.6%] right-[16.6%] top-7 hidden h-px bg-gradient-to-r from-aventurea-sky/70 via-white/30 to-aventurea-sky/70 sm:block"
                 />
 
                 {PASOS.map(({ numero, titulo, texto }, i) => (
                   <div
                     key={numero}
-                    data-reveal
-                    style={{ "--reveal-delay": `${i * 220}ms` } as React.CSSProperties}
-                    className="relative flex flex-col items-center text-center"
+                    className={`pasos-item-${i + 1} relative flex flex-col items-center text-center`}
                   >
-                    <span className="paso-num relative flex h-12 w-12 items-center justify-center rounded-full border border-aventurea-sky/60 bg-aventurea-navy text-[15px] font-extrabold text-aventurea-orange shadow-[0_0_0_6px_rgba(47,124,190,0.15)]">
+                    <span className="relative flex h-14 w-14 items-center justify-center rounded-full border border-aventurea-sky/70 bg-[#0e1a38] text-[16px] font-extrabold text-aventurea-orange shadow-[0_0_0_8px_rgba(47,124,190,0.12)]">
                       {numero}
                     </span>
-                    <h3 className="titulo mt-4 text-[20px] text-white">{titulo}</h3>
-                    <p className="mt-2 max-w-[30ch] text-[13.5px] leading-relaxed text-white/70">
+                    <h3 className="titulo mt-5 text-[24px] text-white sm:text-[27px]">
+                      {titulo}
+                    </h3>
+                    <p className="mt-2.5 max-w-[30ch] text-[14px] leading-relaxed text-white/65 sm:text-[15px]">
                       {texto}
                     </p>
                   </div>
                 ))}
               </div>
 
-              <p className="mt-11 text-center text-[14px] font-bold text-white/85">
+              <p className="pasos-cierre mt-14 text-center text-[15px] font-bold text-white/85 sm:mt-20 sm:text-[17px]">
                 Y listo — sin llamadas, sin &quot;¿tiene disponible?&quot;, sin
                 esperar respuesta.
               </p>
@@ -317,7 +316,7 @@ export default async function Home() {
         </section>
 
         {/* ---------- Los dos extras: invitaciones y publicar ---------- */}
-        <section className="mx-auto grid max-w-[1280px] gap-3 px-5 pb-16 sm:grid-cols-2">
+        <section className="mx-auto grid max-w-[1280px] gap-3 px-5 py-14 sm:grid-cols-2 sm:py-16">
           <div data-reveal className="bento bento-azul flex flex-col items-start p-7 sm:p-9">
             <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
               <IconWand className="h-4 w-4" /> El complemento del evento
