@@ -18,44 +18,104 @@
    lee igual), solo que entra con esta coreografía.
    ================================================================== */
 
-/* El punto/loader del centro: late dos veces y se retira. */
-@keyframes home-loader {
-  0% {
+/* ---------- El mapa de América Latina de la portada ----------
+   La silueta entra suave y, sobre ella, los pines se van encendiendo
+   uno por uno soltando una onda que se abre alrededor (radar). El
+   ciclo completo dura 5s y se repite. Costa Rica (el pin "casa") va
+   primero y en naranja de marca. */
+
+/* La silueta se desvanece hacia el centro para que el texto se lea
+   limpio. Va como MÁSCARA sobre los puntos y no como un velo blanco
+   encima de todo el mapa: así los pines —sobre todo el de Costa Rica,
+   que cae justo detrás del título— siguen a la vista. */
+.mapa-tierra {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: center;
+  animation: mapa-tierra-entra 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+  -webkit-mask-image: radial-gradient(
+    ellipse 42% 26% at 50% 52%,
+    transparent 35%,
+    black 85%
+  );
+  mask-image: radial-gradient(ellipse 42% 26% at 50% 52%, transparent 35%, black 85%);
+}
+
+@keyframes mapa-tierra-entra {
+  from {
     opacity: 0;
-    transform: scale(0.5);
+    transform: scale(0.94);
   }
-  18% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(0.82);
-  }
-  72% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.5);
+  to {
+    opacity: 0.13;
+    transform: none;
   }
 }
 
-/* El anillo que se expande al desvanecerse el punto — el "clic" que
-   abre la pantalla. */
-@keyframes home-onda {
-  0%,
-  55% {
+/* El pin aparece con un pop cortito y se queda encendido el resto
+   del ciclo. */
+.mapa-pin {
+  fill: var(--color-aventurea-sky);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mapa-pin-late 5s ease-in-out var(--pin-delay, 0s) infinite both;
+}
+.mapa-pin-casa {
+  fill: var(--color-aventurea-orange);
+}
+
+@keyframes mapa-pin-late {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  5% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  84% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+/* La onda: nace en el pin y se abre hasta desaparecer. */
+.mapa-onda {
+  fill: none;
+  stroke: var(--color-aventurea-sky);
+  stroke-width: 1.6;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mapa-onda-abre 5s ease-out var(--pin-delay, 0s) infinite both;
+}
+.mapa-onda-casa {
+  stroke: var(--color-aventurea-orange);
+}
+
+@keyframes mapa-onda-abre {
+  0% {
     opacity: 0;
     transform: scale(0.3);
   }
-  75% {
-    opacity: 0.5;
+  6% {
+    opacity: 0.85;
+  }
+  26% {
+    opacity: 0;
+    transform: scale(3.4);
   }
   100% {
     opacity: 0;
-    transform: scale(2.6);
+    transform: scale(3.4);
   }
 }
 
@@ -78,21 +138,26 @@
   animation: home-onda 1s cubic-bezier(0.2, 0, 0.2, 1) both;
 }
 
-/* La escalera: kicker → título → puertas, ya con el loader afuera. */
+/* La escalera: kicker → título → puertas. Entra enseguida (el mapa de
+   atrás es el que sigue vivo en ciclo): nadie espera de verdad. */
 .home-entra {
   animation: home-entra 0.62s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: calc(0.78s + var(--paso, 0) * 0.11s);
+  animation-delay: calc(0.28s + var(--paso, 0) * 0.1s);
 }
 
-/* El punto queda apagado y el contenido se ve de una: nadie espera
-   por una animación que pidió no ver. */
+/* Con movimiento reducido: el mapa se ve quieto (silueta y pines
+   fijos, sin ondas) y el contenido aparece de una. */
 @media (prefers-reduced-motion: reduce) {
-  .home-loader,
-  .home-onda {
-    display: none;
-  }
-  .home-entra {
+  .home-entra,
+  .mapa-tierra,
+  .mapa-pin {
     animation: none;
+  }
+  .mapa-tierra {
+    opacity: 0.13;
+  }
+  .mapa-onda {
+    display: none;
   }
 }
 

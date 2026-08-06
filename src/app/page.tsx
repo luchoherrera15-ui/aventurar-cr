@@ -5,6 +5,7 @@ import "./home.css";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
+import MapaLatam from "@/components/mapa-latam";
 import { IconBalloons, IconCalendarLine, IconWand } from "@/components/icons";
 
 /**
@@ -73,25 +74,25 @@ export default function Home() {
         {/* ---------- La portada: el punto que se abre en dos puertas.
             Ocupa la pantalla menos el header (64px) y centra todo. ---------- */}
         <section className="relative flex min-h-[calc(100svh-64px)] flex-col items-center justify-center px-5 py-16">
-          {/* El loader: vive sobre el contenido y se retira solo. Es
-              decorativo puro — el lector de pantalla ve las puertas de
-              una, no una pantalla "cargando" que nunca lo estuvo. */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-          >
-            <span className="home-onda absolute h-16 w-16 rounded-full border border-aventurea-sky/50" />
-            <span className="home-loader block h-3 w-3 rounded-full bg-aventurea-sky" />
-          </span>
+          {/* El mapa de fondo: Latinoamérica con los pines
+              encendiéndose en ciclo (Costa Rica primero, en naranja).
+              Decorativo puro — detrás del contenido y sin tocar el
+              flujo del texto. */}
+          <MapaLatam
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 text-aventurea-navy sm:h-[680px] sm:w-[680px]"
+          />
 
+          {/* z-10: el mapa es `absolute` y, sin esto, se pintaría
+              encima del texto (los posicionados ganan a los que no lo
+              están dentro del mismo contexto). */}
           <p
-            className="home-entra text-[10.5px] font-light uppercase tracking-[0.22em] text-aventurea-orange"
+            className="home-entra relative z-10 text-[10.5px] font-light uppercase tracking-[0.22em] text-aventurea-orange"
             style={{ "--paso": 0 } as React.CSSProperties}
           >
             Bookea · Costa Rica
           </p>
           <h1
-            className="home-entra titulo mt-4 max-w-[14ch] text-center text-[34px] leading-[1.05] text-aventurea-ink sm:text-[46px]"
+            className="home-entra titulo relative z-10 mt-4 max-w-[14ch] text-center text-[34px] leading-[1.05] text-aventurea-ink sm:text-[46px]"
             style={{ "--paso": 1 } as React.CSSProperties}
           >
             ¿Qué vas a reservar?
@@ -99,7 +100,7 @@ export default function Home() {
 
           {/* Las dos puertas: compactas y centradas — la pantalla
               entera es la decisión, nada más compite. */}
-          <div className="mt-10 grid w-full max-w-[620px] gap-3 sm:grid-cols-2">
+          <div className="relative z-10 mt-10 grid w-full max-w-[620px] gap-3 sm:grid-cols-2">
             {PUERTAS.map(({ href, nombre, linea, Marca, piel, marca }, i) => (
               <Link
                 key={href}
