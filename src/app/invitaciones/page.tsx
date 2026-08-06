@@ -8,13 +8,16 @@ import "./reel.css";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 import {
-  albumEnColones,
-  ALBUM_ADICIONAL,
-  montoEnColones,
-  PAQUETES_PRINCIPALES,
-  precioPaquete,
+  PRODUCTOS_INDIVIDUALES,
+  tipoCambioUSD,
 } from "@/lib/paquetes-invitaciones";
-import CardPaquete from "./card-paquete";
+import {
+  IconCamera,
+  IconMail,
+  IconSparkles,
+  IconUsers,
+} from "@/components/icons";
+import PreciosCatalogo from "./precios-catalogo";
 import Reel from "./reel";
 import RielEjemplos from "./riel-ejemplos";
 
@@ -78,11 +81,50 @@ const DIFERENCIAS = [
   },
 ];
 
+/**
+ * Las cuatro piezas del producto, cada una apuntando a un ejemplo que
+ * se abre de verdad. Los slugs están verificados: si se borra una demo
+ * de la base, el botón lleva a un 404 — al armar esto, `demo-zoologico`
+ * ya estaba en el catálogo pero no en la base.
+ */
+const PIEZAS_EJEMPLO = [
+  {
+    titulo: "Invitación Esencial",
+    texto: "Sencilla y elegante, con cuenta regresiva, ubicación y confirmación por WhatsApp.",
+    href: "/i/demo-formal",
+    Icono: IconMail,
+    tono: "bg-[#ee7420]/15 text-[#ee7420]",
+  },
+  {
+    titulo: "Invitación Premium",
+    texto: "Diseño desde cero, con GPS, cuenta regresiva y confirmación de asistencia.",
+    href: "/i/demo-invitacion",
+    Icono: IconSparkles,
+    tono: "bg-white/15 text-white",
+  },
+  {
+    titulo: "Confirmaciones",
+    texto: "Mirá en tiempo real quién confirmó y cuántos van a tu evento.",
+    href: "/invitaciones/ejemplo/confirmaciones",
+    Icono: IconUsers,
+    tono: "bg-aventurea-sky/25 text-aventurea-sky",
+  },
+  {
+    titulo: "Álbum digital",
+    texto: "Las fotos de tus invitados, todas en un solo lugar y con código QR.",
+    href: "/a/fotos-ejemplo-cumpleanos-star-wars-de-luis-herrera",
+    Icono: IconCamera,
+    tono: "bg-aventurea-green/25 text-aventurea-green",
+  },
+] as const;
+
 export default function InvitacionesLanding() {
-  const desde = PAQUETES_PRINCIPALES.reduce(
-    (min, p) => (p.precioUSD < min.precioUSD ? p : min),
-    PAQUETES_PRINCIPALES[0],
-  );
+  // El "desde ₡X" del hero sale del producto más barato del catálogo —
+  // hoy el Save the Date. Se calcula y no se escribe a mano para que
+  // no quede desactualizado cuando cambien los precios.
+  const desdeUSD = Math.min(...PRODUCTOS_INDIVIDUALES.map((p) => p.precioUSD));
+  const desdeColones =
+    "₡" + (Math.round((desdeUSD * tipoCambioUSD()) / 100) * 100).toLocaleString("es-CR");
 
   return (
     <main
@@ -130,14 +172,7 @@ export default function InvitacionesLanding() {
             </Link>
           </div>
           <p className="mt-5 text-[13px] text-white/40">
-            Desde ${desde.precioUSD} · {precioPaquete(montoEnColones({
-              id: desde.id,
-              nombre: desde.nombre,
-              precioUSD: desde.precioUSD,
-              precioCRC: null,
-              etiqueta: desde.precioEtiqueta,
-              tienePanel: false,
-            }))} aproximadamente
+            Desde ${desdeUSD} · {desdeColones} aproximadamente
           </p>
 
           {/* La flecha que invita a bajar: sin esto, media pantalla de
@@ -181,6 +216,41 @@ export default function InvitacionesLanding() {
               mismo azul no enseñarían ejemplos, enseñarían una lista. */}
           <div className="mt-12" data-reveal>
             <RielEjemplos demos={CATALOGO_INVITACIONES} claseSerif={cormorant.className} />
+          </div>
+
+          {/* Las cuatro piezas del producto, cada una con su ejemplo
+              abierto de verdad: el riel de arriba enseña DISEÑOS, esto
+              enseña QUÉ SE LLEVA. Sin esto, el panel de confirmaciones
+              y el álbum —lo que más se vende— no se ven en ningún lado
+              hasta después de comprar. */}
+          <div data-reveal className="mt-20">
+            <h3 className="titulo text-center text-[clamp(22px,3vw,32px)]">
+              Y esto es lo que se lleva.
+            </h3>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {PIEZAS_EJEMPLO.map(({ titulo, texto, href, Icono, tono }) => (
+                <div
+                  key={titulo}
+                  className="flex flex-col rounded-2xl bg-white/[0.06] p-6 text-center ring-1 ring-white/10"
+                >
+                  <span
+                    className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${tono}`}
+                  >
+                    <Icono className="h-5 w-5" />
+                  </span>
+                  <p className="mt-4 text-[17px] font-bold text-white">{titulo}</p>
+                  <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-white/50">
+                    {texto}
+                  </p>
+                  <Link
+                    href={href}
+                    className="mt-5 rounded-full bg-[#ee7420] py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-white transition-transform hover:scale-[1.03]"
+                  >
+                    Ver ejemplo →
+                  </Link>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -234,47 +304,16 @@ export default function InvitacionesLanding() {
               Precios
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
-              Elegí tu invitación.
+              Elegí lo que necesitás.
             </h2>
             <p className="mx-auto mt-4 max-w-[50ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
-              Todas se diseñan desde cero para tu evento. Lo que cambia es cuánto la
-              afinamos y qué tanto trabaja por vos.
+              Todo se diseña desde cero para tu evento. Llevá una pieza suelta, o el
+              pack completo si querés la invitación y el álbum juntos.
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 lg:grid-cols-3">
-            {PAQUETES_PRINCIPALES.map((p) => {
-              const resuelto = {
-                id: p.id,
-                nombre: p.nombre,
-                precioUSD: p.precioUSD,
-                precioCRC: null,
-                etiqueta: p.precioEtiqueta,
-                tienePanel: p.id !== "basico",
-              };
-              const soloPaquete = montoEnColones(resuelto);
-              return (
-                <div key={p.id} data-reveal className="flex">
-                  <CardPaquete
-                    id={p.id}
-                    nombre={p.nombre}
-                    badge={p.badge}
-                    destacado={p.destacado}
-                    lema={p.lema}
-                    incluye={p.incluye}
-                    precioUSD={p.precioUSD}
-                    precioEtiqueta={p.precioEtiqueta}
-                    colonesPaquete={precioPaquete(soloPaquete)}
-                    colonesConAlbum={precioPaquete(soloPaquete + albumEnColones())}
-                    album={{
-                      nombre: ALBUM_ADICIONAL.nombre,
-                      precioUSD: ALBUM_ADICIONAL.precioUSD,
-                      detalle: ALBUM_ADICIONAL.detalle,
-                    }}
-                  />
-                </div>
-              );
-            })}
+          <div data-reveal>
+            <PreciosCatalogo colonesPorUSD={tipoCambioUSD()} />
           </div>
         </div>
       </section>

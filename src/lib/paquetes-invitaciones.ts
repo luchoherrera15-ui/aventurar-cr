@@ -80,11 +80,148 @@ export const PAQUETES_INVITACIONES: PaqueteInvitacion[] = [
   },
 ];
 
+/* ==================================================================
+   EL CATÁLOGO 2026 — productos individuales y packs
+   ==================================================================
+   Precios fijados contra la competencia directa: los individuales van
+   $10 abajo de su equivalente y los packs $12 abajo.
+
+   OJO — el precio que se COBRA no sale de acá: sale de la tabla
+   `paquetes_invitacion` (migración 0087, "el precio lo pone la base").
+   Este archivo manda en lo que se MUESTRA. Cambiar un precio son
+   SIEMPRE dos lugares: acá y una migración. El servidor compara los
+   dos y deja un aviso en el log si no coinciden.
+   ================================================================== */
+
+/** Un producto que se vende suelto (álbum, invitación, save the date). */
+export type ProductoIndividual = {
+  /** Id estable: viaja al pedido y es la PK en `paquetes_invitacion`. */
+  id: string;
+  nombre: string;
+  precioUSD: number;
+  /** Para agrupar en columnas en la landing. */
+  familia: "album" | "invitacion" | "save_the_date";
+  /** El Esencial se maneja por WhatsApp: sin panel de confirmaciones. */
+  tienePanel?: boolean;
+  /** Detalle corto que acompaña al nombre donde haya espacio. */
+  detalle?: string;
+};
+
+export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
+  // --- Álbumes digitales (se venden por cantidad de fotos) ---
+  { id: "album_50", nombre: "50 fotos", precioUSD: 39, familia: "album" },
+  { id: "album_150", nombre: "150 fotos", precioUSD: 69, familia: "album" },
+  { id: "album_250", nombre: "250 fotos", precioUSD: 99, familia: "album" },
+  { id: "album_400", nombre: "400 fotos", precioUSD: 139, familia: "album" },
+  { id: "album_600", nombre: "600 fotos", precioUSD: 189, familia: "album" },
+
+  // --- Invitaciones ---
+  {
+    id: "inv_esencial",
+    nombre: "Invitación Esencial",
+    precioUSD: 59,
+    familia: "invitacion",
+    tienePanel: false,
+    detalle: "Diseño a tu medida y confirmación por WhatsApp.",
+  },
+  {
+    id: "inv_premium",
+    nombre: "Invitación Premium",
+    precioUSD: 115,
+    familia: "invitacion",
+    detalle: "Con panel de confirmaciones, GPS y cuenta regresiva.",
+  },
+
+  // --- Save the date ---
+  {
+    id: "save_the_date",
+    nombre: "Diseño Save the Date",
+    precioUSD: 29,
+    familia: "save_the_date",
+    tienePanel: false,
+    detalle: "El anuncio previo, con la fecha y el enlace a tu invitación.",
+  },
+];
+
+export const FAMILIA_LABEL: Record<ProductoIndividual["familia"], string> = {
+  album: "Álbumes digitales",
+  invitacion: "Invitaciones",
+  save_the_date: "Save the date",
+};
+
+/** Los packs: invitación Premium + álbum, más baratos que por separado. */
+export type PackInvitacion = {
+  id: "perla" | "zafiro" | "diamante";
+  nombre: string;
+  precioUSD: number;
+  badge: string;
+  destacado?: boolean;
+  lema: string;
+  incluye: string[];
+  /** Lo que costaría comprando cada pieza suelta — para mostrar el ahorro. */
+  sueltoUSD: number;
+};
+
+export const PACKS_INVITACIONES: PackInvitacion[] = [
+  {
+    id: "perla",
+    nombre: "Perla",
+    precioUSD: 113,
+    sueltoUSD: 115 + 39,
+    badge: "Álbum de regalo",
+    lema: "La invitación completa, con el álbum de la fiesta incluido.",
+    incluye: [
+      "Invitación Premium diseñada desde cero",
+      "Confirmación de asistencia, GPS y cuenta regresiva",
+      "Álbum digital de 50 fotos con código QR",
+      "Respaldo garantizado por 10 años en la nube",
+    ],
+  },
+  {
+    id: "zafiro",
+    nombre: "Zafiro",
+    precioUSD: 138,
+    sueltoUSD: 115 + 69,
+    badge: "El favorito",
+    destacado: true,
+    lema: "El punto justo: más fotos para que no se pierda ningún momento.",
+    incluye: [
+      "Invitación Premium diseñada desde cero",
+      "Confirmación de asistencia, GPS y cuenta regresiva",
+      "Álbum digital de 150 fotos con código QR",
+      "Respaldo garantizado por 10 años en la nube",
+    ],
+  },
+  {
+    id: "diamante",
+    nombre: "Diamante",
+    precioUSD: 163,
+    sueltoUSD: 115 + 99,
+    badge: "Exclusivo",
+    lema: "Para el evento que se cuenta una sola vez en la vida.",
+    incluye: [
+      "Invitación Premium diseñada desde cero",
+      "Confirmación de asistencia, GPS y cuenta regresiva",
+      "Álbum digital de 250 fotos con código QR",
+      "Respaldo garantizado por 10 años en la nube",
+    ],
+  },
+];
+
+/** Lo que se ahorra comprando el pack en vez de las piezas sueltas. */
+export function ahorroPack(p: PackInvitacion): number {
+  return p.sueltoUSD - p.precioUSD;
+}
+
 /**
  * Los tres paquetes PRINCIPALES de venta directa: Básico, Intermedio y
- * Plus. Son los que se ven de una vez en /invitaciones; los de arriba
- * (con álbumes digitales) quedan plegados tras un "Ver packs con
- * álbumes digitales".
+ * Plus.
+ *
+ * CATÁLOGO ANTERIOR (2025): ya no se ofrecen en la landing — los
+ * reemplazan PRODUCTOS_INDIVIDUALES y PACKS_INVITACIONES. Se conservan
+ * acá (y activos en la base) porque hay pedidos hechos que los
+ * referencian por id: borrarlos dejaría esos pedidos sin nombre ni
+ * precio en el panel y en los correos ya mandados.
  */
 export type PaquetePrincipal = {
   id: "basico" | "intermedio" | "plus";
@@ -172,13 +309,32 @@ export const PAQUETES_PRINCIPALES: PaquetePrincipal[] = [
  * deja el aviso en el log al crear el pedido.
  */
 export const ALBUM_ADICIONAL = {
+  // El id se queda en `album_180` aunque el álbum ahora sea de 150
+  // fotos: es la PK que ya referencian los pedidos hechos y la que
+  // busca el RPC `crear_pedido_invitacion` (0091). Renombrarlo dejaría
+  // esos pedidos sin precio. El nombre y el monto sí se alinearon al
+  // catálogo 2026 — antes eran 180 fotos por $45, o sea MÁS BARATO que
+  // el álbum de 150 que se vende suelto a $69.
   id: "album_180",
-  nombre: "Álbum digital de 180 fotos",
-  precioUSD: 45,
-  fotos: 180,
+  nombre: "Álbum digital de 150 fotos",
+  precioUSD: 69,
+  fotos: 150,
   detalle:
     "Tus invitados suben sus fotos del evento escaneando un QR, y quedan todas en un álbum que podés descargar completo.",
 } as const;
+
+/**
+ * ¿Tiene sentido ofrecerle el álbum como extra a quien pidió esto?
+ * No, si el producto YA es un álbum o ya lo trae incluido (los packs):
+ * ahí el checkbox vendía un segundo álbum.
+ */
+export function admiteAlbumAdicional(paqueteId: string): boolean {
+  if (PACKS_INVITACIONES.some((p) => p.id === paqueteId)) return false;
+  const individual = PRODUCTOS_INDIVIDUALES.find((p) => p.id === paqueteId);
+  if (individual) return individual.familia !== "album";
+  // Catálogo viejo (Destello/Celebración/Legado ya traían álbum).
+  return !PAQUETES_INVITACIONES.some((p) => p.id === paqueteId);
+}
 
 /**
  * El paquete Base (₡12 500): la invitación generada con IA, exclusiva
@@ -219,6 +375,36 @@ export type PaqueteResuelto = {
 };
 
 export function resolverPaquete(id: string): PaqueteResuelto | null {
+  // Catálogo 2026 primero: packs y productos sueltos.
+  const pack = PACKS_INVITACIONES.find((p) => p.id === id);
+  if (pack) {
+    return {
+      id: pack.id,
+      nombre: `Pack ${pack.nombre}`,
+      precioUSD: pack.precioUSD,
+      precioCRC: null,
+      etiqueta: `$${pack.precioUSD}`,
+      tienePanel: true,
+    };
+  }
+  const individual = PRODUCTOS_INDIVIDUALES.find((p) => p.id === id);
+  if (individual) {
+    return {
+      id: individual.id,
+      nombre:
+        individual.familia === "album"
+          ? `Álbum digital de ${individual.nombre}`
+          : individual.nombre,
+      precioUSD: individual.precioUSD,
+      precioCRC: null,
+      etiqueta: `$${individual.precioUSD}`,
+      // Un álbum suelto o un save the date no llevan panel de
+      // confirmaciones: no hay invitados que confirmar.
+      tienePanel: individual.tienePanel ?? individual.familia === "invitacion",
+    };
+  }
+
+  // Catálogo anterior: sigue resolviendo para los pedidos ya hechos.
   const principal = PAQUETES_PRINCIPALES.find((p) => p.id === id);
   if (principal) {
     return {
