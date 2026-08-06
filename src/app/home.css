@@ -10,6 +10,92 @@
    móvil, prefers-reduced-motion) la misma banda se ve completa y
    estática: elegante igual, sin secuestrar el scroll. */
 
+/* ==================================================================
+   La entrada del home: un punto que late en el centro y, en menos de
+   un segundo, se abre en las dos puertas (Eventos / Citas). 100% CSS
+   con animation-delay — nada de JavaScript ni de estado "cargando":
+   el contenido REAL ya está en el HTML desde el primer byte (Google lo
+   lee igual), solo que entra con esta coreografía.
+   ================================================================== */
+
+/* El punto/loader del centro: late dos veces y se retira. */
+@keyframes home-loader {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(0.82);
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+/* El anillo que se expande al desvanecerse el punto — el "clic" que
+   abre la pantalla. */
+@keyframes home-onda {
+  0%,
+  55% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  75% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* Lo que entra después: sube y aparece. */
+@keyframes home-entra {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.home-loader {
+  animation: home-loader 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.home-onda {
+  animation: home-onda 1s cubic-bezier(0.2, 0, 0.2, 1) both;
+}
+
+/* La escalera: kicker → título → puertas, ya con el loader afuera. */
+.home-entra {
+  animation: home-entra 0.62s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(0.78s + var(--paso, 0) * 0.11s);
+}
+
+/* El punto queda apagado y el contenido se ve de una: nadie espera
+   por una animación que pidió no ver. */
+@media (prefers-reduced-motion: reduce) {
+  .home-loader,
+  .home-onda {
+    display: none;
+  }
+  .home-entra {
+    animation: none;
+  }
+}
+
 /* ---------- Base (todos los navegadores): banda oscura estática ---------- */
 
 .pasos-lienzo {

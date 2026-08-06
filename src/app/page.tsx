@@ -5,23 +5,18 @@ import "./home.css";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import {
-  IconBalloons,
-  IconCalendarLine,
-  IconChatBubble,
-  IconStar,
-  IconStopwatch,
-  IconTagLine,
-  IconWand,
-} from "@/components/icons";
+import { IconBalloons, IconCalendarLine, IconWand } from "@/components/icons";
 
 /**
  * El home de Bookea — el techo común de las verticales. Antes / era un
- * redirect directo a /eventos; la portada presenta las verticales como
- * DOS bandas rectangulares apiladas (Eventos y Citas). Se probó
- * mostrar rieles con negocios reales acá y el dueño lo descartó: hacía
- * enredo — los negocios viven en sus directorios, el home solo abre
- * las puertas. Hospedajes tampoco se anuncia acá hasta que exista.
+ * redirect directo a /eventos; hoy es una portada MINIMALISTA a
+ * pantalla completa: un punto late en el centro y, en menos de un
+ * segundo, se abre en las dos puertas (Eventos · Citas y servicios).
+ *
+ * La coreografía es 100% CSS con animation-delay (home.css) — no hay
+ * estado "cargando" ni JavaScript: el contenido real está en el HTML
+ * desde el primer byte, así que Google lo lee igual y nadie espera de
+ * verdad. Con prefers-reduced-motion todo aparece de una.
  *
  * Sin consultas a la base: la puerta de entrada es la página más
  * liviana del sitio.
@@ -30,34 +25,25 @@ import {
 const PUERTAS = [
   {
     href: "/eventos",
-    nombre: "Todo para tus eventos",
+    nombre: "Eventos",
+    linea: "Lugares, catering, música y decoración.",
     Marca: IconBalloons,
-    linea:
-      "Lugares para fiestas, catering, música y decoración — reservá cada pieza en un solo lugar.",
-    chips: ["Lugares", "Alimentación", "Animación", "Decoración"],
+    piel: "border-aventurea-navy/10 bg-aventurea-blue-light hover:border-aventurea-navy/30",
+    marca: "text-aventurea-navy/10",
   },
   {
     href: "/citas",
-    nombre: "¿Qué deseás agendar?",
+    nombre: "Citas y servicios",
+    linea: "Belleza, barbería, uñas y spa.",
     Marca: IconCalendarLine,
-    linea:
-      "Belleza, barbería, uñas y spa: elegí el servicio, la hora y con quién.",
-    chips: ["Belleza", "Barbería", "Uñas", "Spa"],
+    piel: "border-aventurea-sky/30 bg-aventurea-sky/15 hover:border-aventurea-sky/60",
+    marca: "text-aventurea-sky-dark/20",
   },
 ] as const;
 
-/** Las mismas dos pieles suaves del tablero del panel, alternadas. */
-const PIELES_PUERTA = [
-  { card: "border-aventurea-navy/10 bg-aventurea-blue-light", marca: "text-aventurea-navy/10" },
-  { card: "border-aventurea-sky/30 bg-aventurea-sky/20", marca: "text-aventurea-sky-dark/20" },
-] as const;
-
-const PROMESAS = [
-  { Icono: IconStopwatch, texto: "Confirmación al instante" },
-  { Icono: IconTagLine, texto: "Precios claros, en colones" },
-  { Icono: IconChatBubble, texto: "Chat directo con el negocio" },
-  { Icono: IconStar, texto: "Reseñas de clientes reales" },
-] as const;
+// La franja de "promesas" (confirmación al instante, precios claros...)
+// salió del home: lo mismo lo dicen los tres pasos de abajo, y la
+// portada minimalista no quiere nada compitiendo con la decisión.
 
 const PASOS = [
   {
@@ -84,63 +70,57 @@ export default function Home() {
       <SiteHeader />
 
       <main className="flex-1">
-        {/* ---------- Hero ---------- */}
-        <section className="mx-auto max-w-[1280px] px-4 pt-12 sm:px-5 sm:pt-14">
-          <p className="flex items-center justify-center gap-2 text-[11px] font-light uppercase tracking-[0.18em] text-aventurea-orange">
-            <span aria-hidden className="block h-[1.5px] w-[18px] bg-aventurea-sky" />
-            Reservas en Costa Rica
-            <span aria-hidden className="block h-[1.5px] w-[18px] bg-aventurea-sky" />
-          </p>
-          <h1 className="titulo mx-auto mt-4 max-w-[16ch] text-center text-[38px] text-aventurea-ink sm:text-[54px]">
-            ¿Qué vas a reservar hoy?
-          </h1>
-          <p className="mx-auto mt-4 max-w-[52ch] text-center text-[14.5px] leading-relaxed text-aventurea-ink-soft sm:text-[15.5px]">
-            El salón del evento, la cita de la semana o la próxima escapada:
-            acá se compara con precios reales y se reserva al instante — sin
-            cadenas de WhatsApp.
-          </p>
-        </section>
+        {/* ---------- La portada: el punto que se abre en dos puertas.
+            Ocupa la pantalla menos el header (64px) y centra todo. ---------- */}
+        <section className="relative flex min-h-[calc(100svh-64px)] flex-col items-center justify-center px-5 py-16">
+          {/* El loader: vive sobre el contenido y se retira solo. Es
+              decorativo puro — el lector de pantalla ve las puertas de
+              una, no una pantalla "cargando" que nunca lo estuvo. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+          >
+            <span className="home-onda absolute h-16 w-16 rounded-full border border-aventurea-sky/50" />
+            <span className="home-loader block h-3 w-3 rounded-full bg-aventurea-sky" />
+          </span>
 
-        {/* ---------- Las dos puertas ---------- */}
-        <div className="mx-auto flex max-w-[1280px] flex-col gap-8 px-4 pt-9 sm:px-5">
-          {/* Una sobre otra, a todo el ancho — cada puerta es una
-              banda propia (pedido del dueño), no dos columnas. */}
-          <div className="flex flex-col gap-3">
-            {PUERTAS.map(({ href, nombre, Marca, linea, chips }, i) => (
+          <p
+            className="home-entra text-[10.5px] font-light uppercase tracking-[0.22em] text-aventurea-orange"
+            style={{ "--paso": 0 } as React.CSSProperties}
+          >
+            Bookea · Costa Rica
+          </p>
+          <h1
+            className="home-entra titulo mt-4 max-w-[14ch] text-center text-[34px] leading-[1.05] text-aventurea-ink sm:text-[46px]"
+            style={{ "--paso": 1 } as React.CSSProperties}
+          >
+            ¿Qué vas a reservar?
+          </h1>
+
+          {/* Las dos puertas: compactas y centradas — la pantalla
+              entera es la decisión, nada más compite. */}
+          <div className="mt-10 grid w-full max-w-[620px] gap-3 sm:grid-cols-2">
+            {PUERTAS.map(({ href, nombre, linea, Marca, piel, marca }, i) => (
               <Link
                 key={href}
                 href={href}
-                data-reveal
-                style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
-                className={`group relative flex flex-col overflow-hidden rounded-2xl border p-7 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(22,41,94,0.4)] sm:p-9 ${PIELES_PUERTA[i % PIELES_PUERTA.length].card}`}
+                className={`home-entra group relative flex flex-col overflow-hidden rounded-2xl border p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(22,41,94,0.45)] ${piel}`}
+                style={{ "--paso": 2 + i } as React.CSSProperties}
               >
-                {/* La marca de agua, sangrando por la esquina como en
-                    las cards del tablero del panel. Más grande acá: la
-                    banda es ancha y la aguanta sin estorbar al texto. */}
                 <span
                   aria-hidden
-                  className={`pointer-events-none absolute -right-6 -top-10 rotate-[14deg] ${PIELES_PUERTA[i % PIELES_PUERTA.length].marca} [&_svg]:h-48 [&_svg]:w-48`}
+                  className={`pointer-events-none absolute -right-4 -top-5 rotate-[14deg] ${marca} [&_svg]:h-28 [&_svg]:w-28`}
                 >
                   <Marca />
                 </span>
-                <span className="relative z-10 flex flex-col gap-2">
-                  <span className="titulo text-[25px] text-aventurea-ink sm:text-[30px]">
+                <span className="relative z-10">
+                  <span className="titulo block text-[21px] text-aventurea-ink">
                     {nombre}
                   </span>
-                  <span className="max-w-[52ch] text-[14px] leading-snug text-aventurea-ink-soft">
+                  <span className="mt-1.5 block text-[12.5px] leading-snug text-aventurea-ink-soft">
                     {linea}
                   </span>
-                  <span className="mt-1.5 flex flex-wrap gap-1.5">
-                    {chips.map((chip) => (
-                      <span
-                        key={chip}
-                        className="rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy"
-                      >
-                        {chip}
-                      </span>
-                    ))}
-                  </span>
-                  <span className="mt-2.5 text-[13.5px] font-extrabold text-aventurea-navy underline-offset-4 group-hover:underline">
+                  <span className="mt-4 block text-[12.5px] font-extrabold text-aventurea-navy">
                     Explorar →
                   </span>
                 </span>
@@ -148,19 +128,15 @@ export default function Home() {
             ))}
           </div>
 
-          {/* La promesa de la casa */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-aventurea-line pt-6 sm:grid-cols-4">
-            {PROMESAS.map(({ Icono, texto }) => (
-              <p
-                key={texto}
-                className="flex items-center justify-center gap-2 text-center text-[12px] font-bold text-aventurea-ink-soft"
-              >
-                <Icono className="h-4 w-4 shrink-0 text-aventurea-orange" />
-                {texto}
-              </p>
-            ))}
-          </div>
-        </div>
+          {/* La invitación a seguir bajando, discreta. */}
+          <span
+            aria-hidden
+            className="home-entra mt-14 text-[18px] leading-none text-aventurea-ink-soft/40"
+            style={{ "--paso": 4 } as React.CSSProperties}
+          >
+            ↓
+          </span>
+        </section>
 
         {/* ---------- Así de simple: la banda oscura INMERSIVA, de
             borde a borde. En Chrome/Edge desktop el scroll dirige la
