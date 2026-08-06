@@ -29,8 +29,128 @@ function newKey() {
   return `new-${keySeq}`;
 }
 
+/**
+ * La tabla editable de rangos (desde/hasta invitados → precio) con su
+ * botón de agregar. Se usa dos veces: los rangos de todo el año y los
+ * de diciembre — misma pieza, lista distinta.
+ */
+function EditorRangos({
+  filas,
+  setFilas,
+}: {
+  filas: TierDraft[];
+  setFilas: React.Dispatch<React.SetStateAction<TierDraft[]>>;
+}) {
+  function actualizar(key: string, field: keyof TierDraft, value: number) {
+    setFilas((prev) =>
+      prev.map((t) => (t.key === key ? { ...t, [field]: value } : t)),
+    );
+  }
+
+  return (
+    <>
+      {filas.length > 0 && (
+        <table className="mt-4 w-full border-collapse">
+          <thead>
+            <tr>
+              {["Desde (invitados)", "Hasta (invitados)", "Precio (₡)", ""].map(
+                (h) => (
+                  <th
+                    key={h}
+                    className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                  >
+                    {h}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((t) => (
+              <tr key={t.key}>
+                <td className="py-1.5 pr-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.min_invitados}
+                    onChange={(e) =>
+                      actualizar(t.key, "min_invitados", Number(e.target.value))
+                    }
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
+                  />
+                </td>
+                <td className="py-1.5 pr-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.max_invitados}
+                    onChange={(e) =>
+                      actualizar(t.key, "max_invitados", Number(e.target.value))
+                    }
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
+                  />
+                </td>
+                <td className="py-1.5 pr-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.precio}
+                    onChange={(e) =>
+                      actualizar(t.key, "precio", Number(e.target.value))
+                    }
+                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
+                  />
+                </td>
+                <td className="py-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFilas((prev) => prev.filter((x) => x.key !== t.key))
+                    }
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
+                    title="Eliminar"
+                  >
+                    <IconTrash className="h-4 w-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <button
+        type="button"
+        onClick={() =>
+          setFilas((prev) => {
+            const anterior = prev[prev.length - 1];
+            const desde = anterior ? anterior.max_invitados + 1 : 1;
+            return [
+              ...prev,
+              {
+                key: newKey(),
+                min_invitados: desde,
+                max_invitados: desde + 9,
+                precio: anterior?.precio ?? 0,
+              },
+            ];
+          })
+        }
+        className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
+      >
+        ＋ Agregar rango
+      </button>
+    </>
+  );
+}
+
 export type GuardarPreciosFn = (
-  tiers: { min_invitados: number; max_invitados: number; precio: number }[],
+  tiers: {
+    min_invitados: number;
+    max_invitados: number;
+    precio: number;
+    temporada?: "normal" | "diciembre";
+  }[],
   servicios: {
     nombre: string;
     precio: number;
@@ -63,8 +183,17 @@ export default function PreciosForm({
   initialPrecioFijo: number | null;
   onGuardar: GuardarPreciosFn;
 }) {
+  // Los rangos vienen mezclados de la base; acá se editan como dos
+  // listas: los de todo el año y los que solo rigen en diciembre.
   const [tiers, setTiers] = useState<TierDraft[]>(
-    initialTiers.map((t) => ({ ...t, key: t.id })),
+    initialTiers
+      .filter((t) => (t.temporada ?? "normal") === "normal")
+      .map((t) => ({ ...t, key: t.id })),
+  );
+  const [tiersDiciembre, setTiersDiciembre] = useState<TierDraft[]>(
+    initialTiers
+      .filter((t) => t.temporada === "diciembre")
+      .map((t) => ({ ...t, key: t.id })),
   );
   const [servicios, setServicios] = useState<ServicioDraft[]>(
     initialServicios.map((s) => ({ ...s, key: s.id })),
@@ -86,11 +215,6 @@ export default function PreciosForm({
     text: string;
   } | null>(null);
 
-  function updateTier(key: string, field: keyof TierDraft, value: number) {
-    setTiers((prev) =>
-      prev.map((t) => (t.key === key ? { ...t, [field]: value } : t)),
-    );
-  }
   function updateServicio(
     key: string,
     field: keyof ServicioDraft,
@@ -105,11 +229,20 @@ export default function PreciosForm({
     setMessage(null);
     startTransition(async () => {
       const res = await onGuardar(
-        tiers.map((t) => ({
-          min_invitados: t.min_invitados,
-          max_invitados: t.max_invitados,
-          precio: t.precio,
-        })),
+        [
+          ...tiers.map((t) => ({
+            min_invitados: t.min_invitados,
+            max_invitados: t.max_invitados,
+            precio: t.precio,
+            temporada: "normal" as const,
+          })),
+          ...tiersDiciembre.map((t) => ({
+            min_invitados: t.min_invitados,
+            max_invitados: t.max_invitados,
+            precio: t.precio,
+            temporada: "diciembre" as const,
+          })),
+        ],
         servicios.map((s) => ({
           nombre: s.nombre,
           precio: s.precio,
@@ -238,116 +371,47 @@ export default function PreciosForm({
           &quot;cotización personalizada&quot;.
         </p>
 
-        <table className="mt-4 w-full border-collapse">
-          <thead>
-            <tr>
-              {["Desde (invitados)", "Hasta (invitados)", "Precio (₡)", ""].map(
-                (h) => (
-                  <th
-                    key={h}
-                    className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
-                  >
-                    {h}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {tiers.map((t) => (
-              <tr key={t.key}>
-                <td className="py-1.5 pr-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={t.min_invitados}
-                    onChange={(e) =>
-                      updateTier(t.key, "min_invitados", Number(e.target.value))
-                    }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
-                  />
-                </td>
-                <td className="py-1.5 pr-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={t.max_invitados}
-                    onChange={(e) =>
-                      updateTier(t.key, "max_invitados", Number(e.target.value))
-                    }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
-                  />
-                </td>
-                <td className="py-1.5 pr-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={t.precio}
-                    onChange={(e) =>
-                      updateTier(t.key, "precio", Number(e.target.value))
-                    }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
-                  />
-                </td>
-                <td className="py-1.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setTiers((prev) => prev.filter((x) => x.key !== t.key))
-                    }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
-                    title="Eliminar"
-                  >
-                    <IconTrash className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <button
-          type="button"
-          onClick={() =>
-            setTiers((prev) => {
-              const anterior = prev[prev.length - 1];
-              const desde = anterior ? anterior.max_invitados + 1 : 1;
-              return [
-                ...prev,
-                {
-                  key: newKey(),
-                  min_invitados: desde,
-                  max_invitados: desde + 9,
-                  precio: anterior?.precio ?? 0,
-                },
-              ];
-            })
-          }
-          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-orange hover:text-aventurea-orange"
-        >
-          ＋ Agregar rango
-        </button>
+        <EditorRangos filas={tiers} setFilas={setTiers} />
         <p className="mt-2 text-[11px] text-aventurea-ink-soft">
           Cada rango nuevo continúa automáticamente donde terminó el
           anterior — solo ajustá el precio.
         </p>
 
         <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
-          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
-            Tarifa especial de diciembre
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              value={tarifaDiciembre}
-              onChange={(e) => setTarifaDiciembre(Number(e.target.value))}
-              className="w-32 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
-            />
-            <span className="text-[12.5px] text-aventurea-ink-soft">
-              colones por persona (reemplaza los rangos en diciembre)
-            </span>
-          </div>
+          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-orange">
+            Diciembre
+          </p>
+          <h4 className="mt-1 text-[14px] font-bold text-aventurea-ink">
+            Rangos de precio para diciembre
+          </h4>
+          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+            Los mismos márgenes de invitados, pero con los montos de
+            temporada alta. En cualquier fecha de diciembre el sitio cobra
+            estos rangos en vez de los de arriba. Ejemplo: hasta 20
+            personas ₡150.000; de 21 a 80, ₡250.000.
+          </p>
+          <EditorRangos filas={tiersDiciembre} setFilas={setTiersDiciembre} />
+
+          {tiersDiciembre.length === 0 && (
+            <div className="mt-4 rounded-xl border border-dashed border-aventurea-line bg-aventurea-cream-2 p-3.5">
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                Sin rangos de diciembre: tarifa por persona (opcional)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={tarifaDiciembre}
+                  onChange={(e) => setTarifaDiciembre(Number(e.target.value))}
+                  className="w-32 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface text-aventurea-ink px-2.5 py-2 text-[13px]"
+                />
+                <span className="text-[12.5px] text-aventurea-ink-soft">
+                  colones por persona. Si también está en 0, diciembre se
+                  cobra con los rangos normales.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
         </section>
       )}

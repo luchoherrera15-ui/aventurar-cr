@@ -2,7 +2,13 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ModalidadPrecioLugar } from "@/app/mi-negocio/types";
 
-type TierInput = { min_invitados: number; max_invitados: number; precio: number };
+type TierInput = {
+  min_invitados: number;
+  max_invitados: number;
+  precio: number;
+  /** 'diciembre' = el rango solo aplica en ese mes (0099). */
+  temporada?: "normal" | "diciembre" | null;
+};
 type ServicioInput = {
   nombre: string;
   precio: number;
@@ -35,9 +41,17 @@ export async function guardarPreciosRancho(
   if (errorTiers1) return { error: errorTiers1.message };
 
   if (tiers.length > 0) {
-    const { error } = await supabase
-      .from("precio_tiers")
-      .insert(tiers.map((t) => ({ ...t, rancho_id: ranchoId })));
+    const { error } = await supabase.from("precio_tiers").insert(
+      tiers.map((t) => ({
+        min_invitados: t.min_invitados,
+        max_invitados: t.max_invitados,
+        precio: t.precio,
+        // Sin temporada no se manda la columna: el default 'normal' de
+        // la base la pone, y en bases sin la 0099 el insert no truena.
+        ...(t.temporada ? { temporada: t.temporada } : {}),
+        rancho_id: ranchoId,
+      })),
+    );
     if (error) return { error: error.message };
   }
 

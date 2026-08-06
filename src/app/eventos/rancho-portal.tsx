@@ -214,7 +214,9 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         .eq("rancho_id", rancho.id),
       supabase
         .from("precio_tiers")
-        .select("min_invitados, max_invitados, precio")
+        // "*" y no columnas puntuales: así `temporada` (0099) viaja si
+        // existe y la consulta no truena en bases sin esa migración.
+        .select("*")
         .eq("rancho_id", rancho.id)
         .order("min_invitados", { ascending: true }),
       supabase

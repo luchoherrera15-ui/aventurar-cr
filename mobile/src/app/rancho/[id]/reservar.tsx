@@ -186,7 +186,9 @@ export default function ReservarScreen() {
       supabase.from("ranchos").select("*").eq("id", id).maybeSingle(),
       supabase
         .from("precio_tiers")
-        .select("min_invitados, max_invitados, precio")
+        // "*" y no columnas puntuales: así `temporada` (0099) viaja si
+        // existe y la consulta no truena en bases sin esa migración.
+        .select("*")
         .eq("rancho_id", id)
         .order("min_invitados", { ascending: true }),
       supabase
@@ -300,11 +302,20 @@ export default function ReservarScreen() {
       return horasNum * rancho.precio_hora_lugar;
     }
     if (!invitadosNum) return null;
-    if (esDiciembre) return invitadosNum * (rancho.tarifa_diciembre_por_persona ?? 0);
-    const tier = tiers.find(
-      (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
-    );
-    return tier ? tier.precio : null;
+    // En diciembre mandan sus rangos propios (0099); sin ellos, la
+    // tarifa por persona; sin ninguna de las dos, los rangos normales.
+    // Mismo cálculo que el BookingCalendar de /web.
+    const enRango = (lista: typeof tiers) =>
+      lista.find(
+        (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
+      )?.precio ?? null;
+    if (esDiciembre) {
+      const tiersDiciembre = tiers.filter((t) => t.temporada === "diciembre");
+      if (tiersDiciembre.length > 0) return enRango(tiersDiciembre);
+      const tarifa = rancho.tarifa_diciembre_por_persona ?? 0;
+      if (tarifa > 0) return invitadosNum * tarifa;
+    }
+    return enRango(tiers.filter((t) => (t.temporada ?? "normal") === "normal"));
   }, [modalidadPrecio, horasNum, invitadosNum, esDiciembre, tiers, rancho]);
 
   const addonsTotal = servicios.reduce((acc, s) => {

@@ -93,7 +93,9 @@ export default function PreciosNegocioScreen() {
         .maybeSingle(),
       supabase
         .from("precio_tiers")
-        .select("id, min_invitados, max_invitados, precio")
+        // "*" y no columnas puntuales: así `temporada` (0099) viaja si
+        // existe y la consulta no truena en bases sin esa migración.
+        .select("*")
         .eq("rancho_id", id)
         .order("min_invitados"),
       supabase
@@ -120,12 +122,17 @@ export default function PreciosNegocioScreen() {
     );
 
     setTiers(
-      (tiersRes.data ?? []).map((t) => ({
-        id: t.id as string,
-        min_invitados: String(t.min_invitados),
-        max_invitados: String(t.max_invitados),
-        precio: String(t.precio),
-      })),
+      (tiersRes.data ?? [])
+        // Esta pantalla edita solo los rangos de todo el año; los de
+        // diciembre (0099) se administran desde el panel web y acá ni
+        // se muestran ni se tocan.
+        .filter((t) => ((t.temporada as string | null) ?? "normal") === "normal")
+        .map((t) => ({
+          id: t.id as string,
+          min_invitados: String(t.min_invitados),
+          max_invitados: String(t.max_invitados),
+          precio: String(t.precio),
+        })),
     );
     setServicios(
       (serviciosRes.data ?? []).map((s) => ({
@@ -191,7 +198,20 @@ export default function PreciosNegocioScreen() {
           }
         }
 
-        await supabase.from("precio_tiers").delete().eq("rancho_id", id);
+        // Solo se reemplazan los rangos de todo el año: los de
+        // diciembre (0099) viven en el panel web y no deben borrarse
+        // desde acá. Si la base aún no tiene la columna `temporada`,
+        // el borrado con filtro falla y se cae al borrado completo de
+        // antes (que en esa base es lo mismo: no hay rangos de
+        // diciembre que proteger).
+        const { error: errBorrado } = await supabase
+          .from("precio_tiers")
+          .delete()
+          .eq("rancho_id", id)
+          .eq("temporada", "normal");
+        if (errBorrado) {
+          await supabase.from("precio_tiers").delete().eq("rancho_id", id);
+        }
         if (tiers.length > 0) {
           const { error: err } = await supabase.from("precio_tiers").insert(
             tiers.map((t) => ({

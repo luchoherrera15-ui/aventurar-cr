@@ -264,6 +264,19 @@ export default function BookingCalendar({
   // siempre), por hora, o un precio fijo del evento sin importar
   // invitados. El resto del flujo (fecha, depósito, comprobante) es
   // exactamente el mismo para las tres.
+  // Los rangos llegan mezclados: los de todo el año y los propios de
+  // diciembre (0099). En diciembre mandan los suyos; sin ellos, la
+  // tarifa por persona; y sin ninguna de las dos, los rangos normales
+  // (antes, sin tarifa configurada, diciembre cotizaba ₡0).
+  const tiersNormales = useMemo(
+    () => tiers.filter((t) => (t.temporada ?? "normal") === "normal"),
+    [tiers],
+  );
+  const tiersDiciembre = useMemo(
+    () => tiers.filter((t) => t.temporada === "diciembre"),
+    [tiers],
+  );
+
   const tierBase = useMemo(() => {
     if (modalidadPrecio === "fijo") return precioFijo ?? null;
     if (modalidadPrecio === "hora") {
@@ -271,12 +284,16 @@ export default function BookingCalendar({
       return horasNum * precioHora;
     }
     if (!invitadosNum) return null;
-    if (esDiciembre) return invitadosNum * tarifaDiciembre;
-    const tier = tiers.find(
-      (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
-    );
-    return tier ? tier.precio : null;
-  }, [modalidadPrecio, precioFijo, horasNum, precioHora, invitadosNum, esDiciembre, tiers, tarifaDiciembre]);
+    const enRango = (lista: PrecioTier[]) =>
+      lista.find(
+        (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
+      )?.precio ?? null;
+    if (esDiciembre) {
+      if (tiersDiciembre.length > 0) return enRango(tiersDiciembre);
+      if (tarifaDiciembre > 0) return invitadosNum * tarifaDiciembre;
+    }
+    return enRango(tiersNormales);
+  }, [modalidadPrecio, precioFijo, horasNum, precioHora, invitadosNum, esDiciembre, tiersNormales, tiersDiciembre, tarifaDiciembre]);
 
   const addonsTotal = useMemo(() => {
     return servicios.reduce((acc, s) => {
@@ -1096,7 +1113,11 @@ export default function BookingCalendar({
                     </div>
                     {modalidadPrecio === "rango_personas" && esDiciembre && invitadosNum > 0 && (
                       <p className="-mt-2 text-[11px] text-zinc-500">
-                        Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
+                        {tiersDiciembre.length > 0
+                          ? "Precio de temporada de diciembre"
+                          : tarifaDiciembre > 0
+                            ? `Tarifa de diciembre: ${fmtColones(tarifaDiciembre)} por persona`
+                            : null}
                       </p>
                     )}
 
