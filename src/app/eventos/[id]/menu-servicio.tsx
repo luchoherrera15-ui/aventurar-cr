@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { IconCafe, IconCloche } from "@/components/icons";
 import type { RanchoItem } from "@/app/mi-negocio/types";
 
@@ -36,15 +37,12 @@ function TarjetaItem({ item }: { item: RanchoItem }) {
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm transition-shadow hover:shadow-[0_10px_30px_rgba(16,26,44,0.10)]">
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-aventurea-cream-2">
         {item.foto_url ? (
-          // Las fotos del catálogo son URLs públicas de Supabase Storage,
-          // de tamaño ya acotado por el panel del dueño: next/image no
-          // aporta acá.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={item.foto_url}
             alt={item.nombre}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            fill
+            sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 320px"
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
           />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-aventurea-line [&_svg]:h-10 [&_svg]:w-10">

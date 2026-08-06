@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import type { RanchoItem } from "../types";
 import { etiquetaDuracion } from "@/lib/catalogo";
 import { etiquetaMinutos } from "@/app/citas/tipos";
@@ -181,10 +183,11 @@ export default function CatalogoPanel({
     // Mismo bucket público que las fotos del negocio; el catálogo va en
     // su propia carpeta para no mezclarse con la galería.
     const supabase = createClient();
-    const path = `${ranchoId}/catalogo/${Date.now()}-${nombreSeguro(file.name)}`;
+    const liviana = await comprimirImagen(file);
+    const path = `${ranchoId}/catalogo/${Date.now()}-${nombreSeguro(liviana.name)}`;
     const { error: errorSubida } = await supabase.storage
       .from("ranchos-fotos")
-      .upload(path, file, { upsert: true });
+      .upload(path, liviana, { upsert: true });
     setSubiendoFoto(false);
     if (errorSubida) {
       setError("No se pudo subir la foto: " + errorSubida.message);
@@ -343,10 +346,11 @@ export default function CatalogoPanel({
         <label className={labelCls}>Foto (opcional, recomendado para paquetes)</label>
         <div className="flex items-center gap-3">
           {borrador.fotoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={borrador.fotoUrl}
               alt=""
+              width={64}
+              height={64}
               className="h-16 w-16 rounded-xl border border-aventurea-line object-cover"
             />
           )}
@@ -588,10 +592,11 @@ export default function CatalogoPanel({
                 }`}
               >
                 {item.foto_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={item.foto_url}
                     alt=""
+                    width={56}
+                    height={56}
                     className="h-14 w-14 shrink-0 rounded-xl border border-aventurea-line object-cover"
                   />
                 )}

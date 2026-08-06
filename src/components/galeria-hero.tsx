@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { Lightbox } from "@/components/galeria-lightbox";
 
 /**
@@ -53,14 +54,15 @@ export default function GaleriaHeroFotos({
                 type="button"
                 onClick={() => setAbierta(i)}
                 aria-label={`Ver la foto ${i + 1} de ${nombre} en grande`}
-                className="relative w-full shrink-0 snap-center"
+                className="relative aspect-[16/11] w-full shrink-0 snap-center"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor */}
-                <img
+                <Image
                   src={foto}
                   alt={`${nombre} — foto ${i + 1}`}
-                  loading={i === 0 ? "eager" : "lazy"}
-                  className="aspect-[16/11] w-full object-cover"
+                  fill
+                  priority={i === 0}
+                  sizes="100vw"
+                  className="object-cover"
                 />
                 {esUltima && (
                   <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[15px] font-extrabold text-white">
@@ -109,13 +111,15 @@ export default function GaleriaHeroFotos({
           type="button"
           onClick={() => setAbierta(0)}
           aria-label={`Ver la foto principal de ${nombre} en grande`}
-          className="group col-span-2 row-span-2 overflow-hidden"
+          className="group relative col-span-2 row-span-2 overflow-hidden"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- ídem */}
-          <img
+          <Image
             src={grande}
             alt={nombre}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            fill
+            priority
+            sizes="(max-width: 1080px) 50vw, 540px"
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         </button>
         {chicas.map((foto, i) => {
@@ -128,12 +132,12 @@ export default function GaleriaHeroFotos({
               aria-label={`Ver la foto ${i + 2} de ${nombre} en grande`}
               className="group relative aspect-square overflow-hidden"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- ídem */}
-              <img
+              <Image
                 src={foto}
                 alt={`${nombre} — foto ${i + 2}`}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                fill
+                sizes="(max-width: 1080px) 25vw, 135px"
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
               {esUltima && (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[14px] font-extrabold text-white">

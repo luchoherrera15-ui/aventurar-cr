@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
@@ -454,11 +455,19 @@ function PlantillaClasico({
               data-reveal
               className="w-full max-w-[560px] rounded-2xl border border-[#e6dcc6] bg-white p-2 shadow-[0_24px_60px_-32px_rgba(122,101,62,0.45)]"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- foto remota cargada por el equipo */}
-              <img
+              {/* Sin aspect ratio fijo — la portada la sube cada cliente
+                  con su propia proporción. width/height acá son solo la
+                  pista para el srcset; width:100%/height:auto en el
+                  style manda el tamaño real (mismo patrón que el álbum
+                  digital, src/app/a/[slug]/galeria.tsx). */}
+              <Image
                 src={invitacion.portada_url}
                 alt={invitacion.titulo}
-                className="w-full rounded-xl object-cover"
+                width={1200}
+                height={800}
+                sizes="(max-width: 560px) 100vw, 560px"
+                className="rounded-xl object-cover"
+                style={{ width: "100%", height: "auto" }}
               />
             </div>
           )}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -147,11 +148,13 @@ export default async function RestaurantePage({
         <div className="mt-3 overflow-hidden rounded-2xl border border-aventurea-line bg-white">
           <div className="relative aspect-[16/7] bg-aventurea-blue-light">
             {local.foto_url ? (
-              // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-              <img
+              <Image
                 src={local.foto_url}
                 alt={local.nombre}
-                className="h-full w-full object-cover"
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, 900px"
+                className="object-cover"
               />
             ) : (
               <span className="flex h-full items-center justify-center text-aventurea-navy/40">
@@ -287,10 +290,11 @@ export default async function RestaurantePage({
                         className="flex items-start gap-3.5 rounded-2xl border border-aventurea-line bg-white p-3.5"
                       >
                         {p.foto_url && (
-                          // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-                          <img
+                          <Image
                             src={p.foto_url}
                             alt={p.nombre}
+                            width={64}
+                            height={64}
                             className="h-16 w-16 shrink-0 rounded-xl object-cover"
                           />
                         )}

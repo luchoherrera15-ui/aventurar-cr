@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   IconCheck,
   IconFacebook,
@@ -387,12 +388,13 @@ export function CierreSeccion({
       {/* La foto de fondo con un velo navy: las tarjetas de vidrio
           necesitan contraste constante, venga la foto que venga. */}
       {fotoFondo && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={fotoFondo}
           alt=""
           aria-hidden
-          className="absolute inset-0 h-full w-full object-cover"
+          fill
+          sizes="100vw"
+          className="object-cover"
         />
       )}
       <div

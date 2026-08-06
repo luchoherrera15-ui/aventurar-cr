@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -210,8 +211,14 @@ export default async function NegocioCitasPage({
           <div className="grid md:grid-cols-[1.1fr_1fr]">
             <div className="relative aspect-[16/10] bg-aventurea-blue-light md:aspect-auto md:min-h-[300px]">
               {negocio.foto_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-                <img src={negocio.foto_url} alt={negocio.nombre} className="absolute inset-0 h-full w-full object-cover" />
+                <Image
+                  src={negocio.foto_url}
+                  alt={negocio.nombre}
+                  fill
+                  priority
+                  sizes="(max-width: 768px) 100vw, 55vw"
+                  className="object-cover"
+                />
               ) : (
                 <span className="absolute inset-0 flex items-center justify-center text-aventurea-navy">
                   <IconClock className="h-14 w-14" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { HorarioSemana } from "../tipos";
 import {
   ReservarCitaModal,
@@ -71,10 +72,11 @@ export default function EquipoNegocio({
           >
             <span className="h-20 w-20 overflow-hidden rounded-full border-2 border-white shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl">
               {m.foto_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-                <img
+                <Image
                   src={m.foto_url}
                   alt={m.nombre}
+                  width={80}
+                  height={80}
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
               ) : (
@@ -119,8 +121,13 @@ export default function EquipoNegocio({
 
             <span className="mx-auto block h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-lg">
               {perfil.foto_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-                <img src={perfil.foto_url} alt={perfil.nombre} className="h-full w-full object-cover" />
+                <Image
+                  src={perfil.foto_url}
+                  alt={perfil.nombre}
+                  width={112}
+                  height={112}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span className="flex h-full w-full items-center justify-center bg-aventurea-navy text-[38px] font-extrabold text-white">
                   {perfil.nombre.trim().charAt(0).toUpperCase()}

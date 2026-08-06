@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -748,10 +749,11 @@ export default function ReservarCita({
       <aside className="flex flex-col gap-4 border-t border-[#e6edf8] bg-[#fafbfe] p-6 lg:sticky lg:top-0 lg:self-start lg:border-l lg:border-t-0">
         <div className="flex items-center gap-3">
           {resumen?.fotoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-            <img
+            <Image
               src={resumen.fotoUrl}
               alt={nombreNegocio}
+              width={48}
+              height={48}
               className="h-12 w-12 shrink-0 rounded-xl object-cover"
             />
           ) : (
@@ -978,8 +980,7 @@ function BotonMiembro({
       }`}
     >
       {fotoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-        <img src={fotoUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
+        <Image src={fotoUrl} alt="" width={24} height={24} className="h-6 w-6 rounded-full object-cover" />
       ) : (
         <span
           className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-extrabold ${

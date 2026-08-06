@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconHeart, IconPin, IconStar } from "@/components/icons";
@@ -124,12 +125,12 @@ export default function RanchoCardGrande({
           {portada ? (
             <div className="absolute inset-0 flex gap-[3px]">
               <div className="relative flex-1 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor, sin dominio fijo para next/image */}
-                <img
+                <Image
                   src={portada}
                   alt={rancho.nombre}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  fill
+                  sizes="(max-width: 640px) 60vw, 340px"
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
 
@@ -137,12 +138,12 @@ export default function RanchoCardGrande({
                 <div className="flex w-[32%] shrink-0 flex-col gap-[3px]">
                   {miniaturas.map((foto, i) => (
                     <div key={foto} className="relative flex-1 overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- ídem */}
-                      <img
+                      <Image
                         src={foto}
                         alt={`${rancho.nombre} — foto ${i + 2}`}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        fill
+                        sizes="120px"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     </div>
                   ))}

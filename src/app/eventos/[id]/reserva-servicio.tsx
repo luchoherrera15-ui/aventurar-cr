@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useActionState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { solicitarCotizacion, type CotizacionState } from "../cotizacion-actions";
 import type { RanchoItem } from "@/app/mi-negocio/types";
 import CatalogoPaquetes from "@/components/catalogo-paquetes";
@@ -178,15 +179,16 @@ export default function ReservaServicio({
     if (!archivo) return;
     setSubiendo(true);
     const supabase = createClient();
-    const path = `servicios/${ranchoId}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const { error } = await supabase.storage.from("comprobantes").upload(path, archivo);
+    const liviano = await comprimirImagen(archivo);
+    const path = `servicios/${ranchoId}/${Date.now()}-${liviano.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await supabase.storage.from("comprobantes").upload(path, liviano);
     setSubiendo(false);
     if (error) {
       setSubidaError("No se pudo subir el comprobante: " + error.message);
       return;
     }
     setComprobantePath(path);
-    setComprobanteNombre(archivo.name);
+    setComprobanteNombre(liviano.name);
   }
 
   // Primer día habilitado: hoy + anticipación del proveedor.

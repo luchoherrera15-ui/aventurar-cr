@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 
 /**
  * El fondo de la portada: una de tres fotos (evento, spa, playa)
@@ -32,13 +33,15 @@ export default function FondoPortada() {
   if (!fondo) return null;
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- foto decorativa local; el sorteo en cliente necesita un <img> simple
-    <img
+    <Image
       src={fondo}
       alt=""
       aria-hidden
+      fill
+      priority
+      sizes="100vw"
       onLoad={() => setCargado(true)}
-      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out ${
+      className={`object-cover transition-opacity duration-700 ease-out ${
         cargado ? "opacity-100" : "opacity-0"
       }`}
     />

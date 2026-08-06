@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import {
   IconCalendarLine,
   IconHourglass,
@@ -577,10 +578,11 @@ export default function BookingCalendar({
     setSubmitError(null);
 
     const supabase = createClient();
-    const path = `${selectedDate}/${Date.now()}-${comprobante.name}`;
+    const liviano = await comprimirImagen(comprobante);
+    const path = `${selectedDate}/${Date.now()}-${liviano.name}`;
     const { error: uploadError } = await supabase.storage
       .from("comprobantes")
-      .upload(path, comprobante);
+      .upload(path, liviano);
 
     if (uploadError) {
       setSubmitError("No se pudo subir el comprobante: " + uploadError.message);

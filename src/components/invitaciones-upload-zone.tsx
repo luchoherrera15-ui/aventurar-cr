@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { IconImagePlus, IconVideoPlus, IconX } from "./icons";
 
 /**
@@ -147,10 +149,11 @@ export default function UploadZone({
     const fallados: string[] = [];
 
     for (const file of chicos) {
-      const ruta = `invitaciones/subidas/${user.id}/${crypto.randomUUID()}.${extensionDe(file)}`;
+      const archivo = tipo === "imagenes" ? await comprimirImagen(file) : file;
+      const ruta = `invitaciones/subidas/${user.id}/${crypto.randomUUID()}.${extensionDe(archivo)}`;
       const { error } = await supabase.storage
         .from(BUCKET)
-        .upload(ruta, file, { contentType: file.type || undefined });
+        .upload(ruta, archivo, { contentType: archivo.type || undefined });
 
       if (error) {
         fallados.push(file.name);
@@ -224,11 +227,8 @@ export default function UploadZone({
         {imagenes.length > 0 && (
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             {imagenes.map((img, idx) => (
-              <div key={img} className="group relative overflow-hidden rounded-xl">
-                {/* eslint-disable-next-line @next/next/no-img-element -- son
-                    URLs del bucket que el cliente acaba de subir; next/image
-                    no aporta nada en una miniatura efímera. */}
-                <img src={img} alt={`Imagen ${idx + 1}`} className="h-24 w-full object-cover" />
+              <div key={img} className="group relative h-24 overflow-hidden rounded-xl">
+                <Image src={img} alt={`Imagen ${idx + 1}`} fill sizes="200px" className="object-cover" />
                 <button
                   type="button"
                   onClick={() => quitar("imagenes", idx)}

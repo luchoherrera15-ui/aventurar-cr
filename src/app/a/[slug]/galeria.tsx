@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { conAlfa, type Paleta } from "@/lib/invitaciones/paleta";
 import { nombreDeFoto } from "@/lib/zip";
@@ -108,13 +109,21 @@ export default function Galeria({
                 className={eligiendo ? "relative cursor-pointer" : "relative"}
                 onClick={eligiendo ? () => onToggle(f.id) : undefined}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- fotos de invitados en el bucket público */}
-                <img
+                {/* Masonry: cada foto conserva su proporción real (no
+                    hay w/h guardado por foto), así que va sin `fill` —
+                    width/height acá son solo la pista para el srcset;
+                    width:100%/height:auto en el style manda el tamaño
+                    real, como recomienda Next para grillas masonry. */}
+                <Image
                   src={`${baseFotos}${f.path}`}
                   alt={f.autor ? `Foto de ${f.autor}` : "Foto del evento"}
-                  loading="lazy"
-                  className="w-full rounded-xl object-cover transition-opacity"
+                  width={1200}
+                  height={900}
+                  sizes="(max-width: 640px) 50vw, 33vw"
+                  className="rounded-xl object-cover transition-opacity"
                   style={{
+                    width: "100%",
+                    height: "auto",
                     boxShadow: `0 10px 30px -18px ${conAlfa(paleta.tinta, 0.4)}`,
                     opacity: eligiendo && !elegida ? 0.55 : 1,
                     outline: elegida ? `3px solid ${paleta.acento}` : undefined,

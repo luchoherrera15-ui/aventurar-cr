@@ -8,6 +8,26 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "12mb",
     },
   },
+  // Casi todas las fotos remotas del sitio cuelgan de estos dos hosts
+  // (buckets públicos de este mismo proyecto de Supabase, y las fotos
+  // placeholder de los seeds de demo) — con esto next/image las puede
+  // optimizar (tamaño correcto por pantalla, WebP/AVIF, lazy real) en
+  // vez de servirlas tal cual con <img>. Casos legítimos que siguen
+  // como <img> crudo (avatar de Google, QR externo, URLs firmadas) NO
+  // se tocan — están documentados en su propio eslint-disable.
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "bjhprmtobmualefvcmau.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+    ],
+  },
   // La ruta bonita de las invitaciones: /invitacion/{slug} sirve la
   // misma página que /i/{slug} — el cliente comparte una dirección
   // con su nombre, no un código.

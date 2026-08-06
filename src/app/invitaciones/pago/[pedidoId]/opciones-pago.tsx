@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { registrarPago, type EstadoPedido } from "@/app/invitaciones/pedido/actions";
 
 /**
@@ -40,9 +41,10 @@ export default function OpcionesPago({
     }
     setSubiendo(true);
     const supabase = createClient();
-    const ext = archivo.name.split(".").pop()?.toLowerCase() || "jpg";
+    const liviano = await comprimirImagen(archivo);
+    const ext = liviano.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `pedidos-invitacion/${pedidoId}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("comprobantes").upload(path, archivo);
+    const { error } = await supabase.storage.from("comprobantes").upload(path, liviano);
     if (error) {
       setErrorSubida("No pudimos subir el comprobante. Intentá de nuevo.");
       setSubiendo(false);

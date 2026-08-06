@@ -1,4 +1,5 @@
 ﻿import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
@@ -240,11 +241,12 @@ function CardLocal({
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light">
         {n.foto_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- fotos remotas de Supabase
-          <img
+          <Image
             src={n.foto_url}
             alt={n.nombre}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 300px"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <span className="flex h-full items-center justify-center text-aventurea-navy/40">

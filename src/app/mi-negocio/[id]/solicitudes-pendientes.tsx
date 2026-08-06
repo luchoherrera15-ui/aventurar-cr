@@ -327,7 +327,10 @@ export default function SolicitudesPendientes({
           >
             ×
           </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- visor a
+              pantalla completa de un comprobante: aspect ratio propio y
+              desconocido, se ve tal cual (mismo caso que el lightbox de
+              galeria-lightbox.tsx) */}
           <img
             src={comprobanteUrl}
             alt="Comprobante de depósito"

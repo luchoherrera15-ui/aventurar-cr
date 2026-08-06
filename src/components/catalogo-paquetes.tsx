@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Image from "next/image";
 import type { RanchoItem } from "@/app/mi-negocio/types";
 import { IconChevronDown } from "@/components/icons";
 import { agruparPorSeccion, cupoRestante, etiquetaDuracion } from "@/lib/catalogo";
@@ -184,10 +185,11 @@ export default function CatalogoPaquetes({
                   >
                     <div className="flex gap-3 p-3">
                       {item.foto_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={item.foto_url}
                           alt={item.nombre}
+                          width={112}
+                          height={112}
                           className="h-24 w-24 shrink-0 rounded-xl object-cover sm:h-28 sm:w-28"
                         />
                       )}
@@ -266,10 +268,11 @@ export default function CatalogoPaquetes({
                   }`}
                 >
                   {item.foto_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={item.foto_url}
                       alt={item.nombre}
+                      width={56}
+                      height={56}
                       className="h-14 w-14 shrink-0 rounded-xl object-cover"
                     />
                   )}

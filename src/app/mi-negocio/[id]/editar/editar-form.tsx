@@ -1,7 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icons";
 import { Lightbox } from "@/components/galeria-lightbox";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
@@ -178,10 +180,11 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     setSubidaError(null);
 
     if (fotoFile) {
-      const path = `${rancho.id}/${Date.now()}-${nombreSeguro(fotoFile.name)}`;
+      const liviana = await comprimirImagen(fotoFile);
+      const path = `${rancho.id}/${Date.now()}-${nombreSeguro(liviana.name)}`;
       const { error } = await supabase.storage
         .from("ranchos-fotos")
-        .upload(path, fotoFile, { upsert: true });
+        .upload(path, liviana, { upsert: true });
       if (error) {
         setSubiendo(false);
         setSubidaError("No se pudo subir la foto principal: " + error.message);
@@ -196,10 +199,11 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
       ? presentacionClave
       : null;
     for (const { file, preview } of fotosNuevas) {
-      const path = `${rancho.id}/galeria/${Date.now()}-${nombreSeguro(file.name)}`;
+      const liviana = await comprimirImagen(file);
+      const path = `${rancho.id}/galeria/${Date.now()}-${nombreSeguro(liviana.name)}`;
       const { error } = await supabase.storage
         .from("ranchos-fotos")
-        .upload(path, file, { upsert: true });
+        .upload(path, liviana, { upsert: true });
       if (error) {
         setSubiendo(false);
         setSubidaError("No se pudo subir una foto de la galería: " + error.message);
@@ -246,11 +250,16 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 aria-label="Ver la foto principal en grande"
                 className="block h-full w-full"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                {/* Puede ser la foto real (Supabase) o una vista previa
+                    local (blob:) del archivo recién elegido — por eso
+                    unoptimized cuando no es http. */}
+                <Image
                   src={fotoPreview}
                   alt="Vista previa"
-                  className="h-full w-full object-cover"
+                  fill
+                  unoptimized={!fotoPreview.startsWith("http")}
+                  sizes="220px"
+                  className="object-cover"
                 />
               </button>
             ) : (
@@ -901,8 +910,10 @@ function FotoMiniatura({
         aria-label="Ver la foto en grande"
         className="block h-full w-full"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="h-full w-full object-cover" />
+        {/* "nueva" es una vista previa local (blob:, del archivo recién
+            elegido, todavía sin subir) — next/image no puede optimizar
+            eso, así que va sin pasar por su pipeline. */}
+        <Image src={src} alt="" fill unoptimized={nueva} sizes="200px" className="object-cover" />
       </button>
       {presentacion ? (
         <span className="absolute left-1.5 top-1.5 rounded-lg bg-aventurea-sky px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">

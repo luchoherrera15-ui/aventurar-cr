@@ -4,47 +4,13 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { conAlfa, type Paleta } from "@/lib/invitaciones/paleta";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { hashDelToken, recordarFotoPropia, tokenDelNavegador } from "./identidad";
 
 /** Tope de la tanda: nadie sube el carrete completo de un solo golpe. */
 const MAX_POR_TANDA = 10;
 /** Tope del álbum — el mismo que impone la política de la base (0068). */
 const MAX_FOTOS_ALBUM = 500;
-/** Lado máximo tras comprimir: suficiente para pantalla, liviano de subir. */
-const LADO_MAX = 1920;
-
-/**
- * Redimensiona una imagen en el navegador (canvas) a máximo 1920px de
- * lado y la reencoda como JPEG: una foto de celular de 8 MB queda en
- * unos cientos de KB antes de tocar la red.
- */
-async function comprimir(archivo: File): Promise<Blob> {
-  const url = URL.createObjectURL(archivo);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error("No se pudo leer la imagen."));
-      el.src = url;
-    });
-    const escala = Math.min(1, LADO_MAX / Math.max(img.naturalWidth, img.naturalHeight));
-    const ancho = Math.max(1, Math.round(img.naturalWidth * escala));
-    const alto = Math.max(1, Math.round(img.naturalHeight * escala));
-    const canvas = document.createElement("canvas");
-    canvas.width = ancho;
-    canvas.height = alto;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Este navegador no puede procesar la imagen.");
-    ctx.drawImage(img, 0, 0, ancho, alto);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.82),
-    );
-    if (!blob) throw new Error("No se pudo convertir la imagen.");
-    return blob;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 /**
  * "Subí tus fotos del evento": el bloque para invitados, arriba del
@@ -119,11 +85,15 @@ export default function SubirFotos({
 
     for (let n = 0; n < elegidas.length; n++) {
       try {
-        const blob = await comprimir(elegidas[n]);
+        const comprimida = await comprimirImagen(elegidas[n]);
+        // comprimirImagen devuelve el MISMO archivo si no pudo procesarlo
+        // (canvas bloqueado, formato raro) — acá se prefiere saltar la
+        // foto antes que subir algo pesado con extensión .jpg mentirosa.
+        if (comprimida === elegidas[n]) throw new Error("No se pudo comprimir la imagen.");
         const path = `${albumId}/${ts}-${n + 1}.jpg`;
         const { error: errorSubida } = await supabase.storage
           .from("albumes")
-          .upload(path, blob, { contentType: "image/jpeg" });
+          .upload(path, comprimida, { contentType: "image/jpeg" });
         if (errorSubida) throw new Error(errorSubida.message);
 
         const { data: fila, error: errorFila } = await supabase

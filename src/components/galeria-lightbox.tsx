@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { IconChevronLeft, IconChevronRight } from "@/components/icons";
 import { FOTOS_DESTACADAS } from "@/app/mi-negocio/types";
 
@@ -88,7 +89,11 @@ export function Lightbox({
         </button>
       )}
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- visor a
+          pantalla completa: cada foto tiene un aspect ratio distinto y
+          desconocido de antemano, así que necesita su tamaño intrínseco
+          real (object-contain + max-h/max-w) — no es la miniatura que
+          se repite en la grilla (esas sí van por next/image, abajo). */}
       <img
         src={fotos[abierta]}
         alt={`${nombre} — foto ${abierta + 1}`}
@@ -140,16 +145,16 @@ export default function GaleriaLightbox({
             type="button"
             onClick={() => setAbierta(i)}
             aria-label={`Ver la foto ${i + 1} de ${nombre} en grande`}
-            className={`group overflow-hidden rounded-2xl bg-aventurea-cream-2 ${
+            className={`group relative overflow-hidden rounded-2xl bg-aventurea-cream-2 ${
               destacadas.length === 1 ? "aspect-[16/9]" : "aspect-[4/3]"
             }`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={url}
               alt={`${nombre} — foto ${i + 1}`}
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              fill
+              sizes={destacadas.length === 1 ? "100vw" : "(max-width: 640px) 100vw, 50vw"}
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           </button>
         ))}
@@ -163,14 +168,14 @@ export default function GaleriaLightbox({
               type="button"
               onClick={() => setAbierta(FOTOS_DESTACADAS + i)}
               aria-label={`Ver la foto ${FOTOS_DESTACADAS + i + 1} de ${nombre} en grande`}
-              className="group aspect-[4/3] overflow-hidden rounded-xl bg-aventurea-cream-2"
+              className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-aventurea-cream-2"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={url}
                 alt={`${nombre} — foto ${FOTOS_DESTACADAS + i + 1}`}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                fill
+                sizes="(max-width: 640px) 50vw, 25vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
               />
             </button>
           ))}

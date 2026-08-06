@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -821,13 +822,7 @@ function CardResultado({
           }
         >
           {rancho.foto_url ? (
-            // eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor, sin dominio fijo para next/image
-            <img
-              src={rancho.foto_url}
-              alt={rancho.nombre}
-              loading="lazy"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            <Image src={rancho.foto_url} alt={rancho.nombre} fill sizes="76px" className="object-cover" />
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-white/30 [&_svg]:h-7 [&_svg]:w-7">
               {CATEGORIA_ICONO[categoriaEventos]}

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { IconCamera } from "@/components/icons";
 import MiembroConfig, { type Asignacion, type ServicioCita } from "./miembro-config";
 import {
@@ -67,10 +69,11 @@ function deMiembro(m: MiembroEquipo): Borrador {
 function Avatar({ miembro }: { miembro: { nombre: string; foto_url: string | null } }) {
   if (miembro.foto_url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-      <img
+      <Image
         src={miembro.foto_url}
         alt={miembro.nombre}
+        width={48}
+        height={48}
         className="h-12 w-12 shrink-0 rounded-full border border-aventurea-line object-cover"
       />
     );
@@ -120,10 +123,11 @@ export default function EquipoPanel({
     // Mismo bucket público que las fotos del negocio; el equipo va en
     // su propia carpeta para no mezclarse con la galería.
     const supabase = createClient();
-    const path = `${ranchoId}/equipo/${Date.now()}-${nombreSeguro(file.name)}`;
+    const liviana = await comprimirImagen(file);
+    const path = `${ranchoId}/equipo/${Date.now()}-${nombreSeguro(liviana.name)}`;
     const { error: errorSubida } = await supabase.storage
       .from("ranchos-fotos")
-      .upload(path, file, { upsert: true });
+      .upload(path, liviana, { upsert: true });
     setSubiendoFoto(false);
     if (errorSubida) {
       setError("No se pudo subir la foto: " + errorSubida.message);
@@ -274,10 +278,11 @@ export default function EquipoPanel({
         <label className={labelCls}>Foto (opcional)</label>
         <div className="flex flex-wrap items-center gap-3">
           {borrador.fotoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-            <img
+            <Image
               src={borrador.fotoUrl}
               alt=""
+              width={64}
+              height={64}
               className="h-16 w-16 rounded-full border border-aventurea-line object-cover"
             />
           )}
