@@ -33,7 +33,9 @@ export default async function SiteHeader({
       <div
         className={`mx-auto flex ${ancho} flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 py-3 sm:px-6 lg:px-10`}
       >
-        <Link href="/eventos" className="flex shrink-0 items-center gap-2">
+        {/* El logo lleva al home (la portada de las tres verticales) —
+            antes iba directo a /eventos porque / era solo un redirect. */}
+        <Link href="/" className="flex shrink-0 items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- el
               logo oficial es un PNG estático: next/image no aporta
               nada acá. */}
