@@ -20,17 +20,23 @@ export const metadata = {
  */
 export default async function HospedajesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  const { data: ranchosData } = await supabase
-    .from("ranchos")
-    .select("*")
-    .eq("vertical", "hospedajes")
-    .eq("estado", "aprobado")
-    .order("destacado_orden", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  // Sesión y listado no dependen entre sí: en paralelo.
+  const [
+    {
+      data: { user },
+    },
+    { data: ranchosData },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("ranchos")
+      .select("*")
+      .eq("vertical", "hospedajes")
+      .eq("estado", "aprobado")
+      .order("destacado_orden", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false }),
+  ]);
   const hospedajes = (ranchosData ?? []) as Rancho[];
 
   const [{ data: califData }, favoritosRes] = await Promise.all([

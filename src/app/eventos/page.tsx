@@ -9,19 +9,63 @@ import Planificador from "@/components/planificador/planificador";
 import { normalizarCategoria } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
 
+// Lo único que el directorio y sus cards usan de cada rancho. Antes iba
+// select("*"): las ~45 columnas (términos, horarios, cuentas de cobro…)
+// viajaban a la base Y al navegador dentro del HTML por cada negocio.
+const COLUMNAS_DIRECTORIO =
+  "id, nombre, descripcion, categoria, subcategoria, provincia, canton, " +
+  "capacidad_max, precio_desde, unidad_precio, foto_url, destacado_orden, " +
+  "fotos, vertical, created_at, slug";
+
 export default async function EventosPage() {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("ranchos")
-    .select("*")
-    .eq("estado", "aprobado")
-    // Los más nuevos primero: mezcla todas las categorías en el frente
-    // en vez de amontonar ahí a los lugares (los primeros que existieron
-    // en la plataforma), y los sitios viejos se corren solos hacia las
-    // páginas siguientes conforme se publican otros.
-    .order("created_at", { ascending: false });
 
-  const ranchos = ((data ?? []) as (Rancho & { vertical?: string })[])
+  // Las cuatro consultas y la sesión no dependen entre sí: lanzarlas en
+  // paralelo hace que la página espere solo por la más lenta, en vez de
+  // sumar las cinco en fila.
+  const [
+    { data },
+    { data: confirmadas },
+    { data: calificacionesData },
+    { data: resenasData },
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
+    supabase
+      .from("ranchos")
+      .select(COLUMNAS_DIRECTORIO)
+      .eq("estado", "aprobado")
+      // Los más nuevos primero: mezcla todas las categorías en el frente
+      // en vez de amontonar ahí a los lugares (los primeros que existieron
+      // en la plataforma), y los sitios viejos se corren solos hacia las
+      // páginas siguientes conforme se publican otros.
+      .order("created_at", { ascending: false }),
+    // Solo "lugares" reserva por fecha en línea — el resto se contrata por
+    // WhatsApp, sin calendario. Traemos de una sola vez qué fechas ya están
+    // confirmadas para poder filtrar por "Cuándo" sin una consulta por card.
+    supabase
+      .from("disponibilidad_rancho")
+      .select("rancho_id, fecha")
+      .eq("estado", "confirmada"),
+    // Calificación real (Fase 1): si un proveedor todavía no tiene
+    // reseñas, la tarjeta simplemente no muestra estrellas — nunca un
+    // número inventado.
+    supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
+    // Una reseña con comentario por proveedor, la más reciente: la
+    // tarjeta grande del directorio la muestra como cita, igual que los
+    // marketplaces de referencia. Se trae un lote y se queda la primera
+    // de cada rancho (PostgREST no hace "primera por grupo").
+    supabase
+      .from("resenas")
+      .select("rancho_id, comentario")
+      .not("comentario", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(300),
+    supabase.auth.getUser(),
+  ]);
+
+  const ranchos = ((data ?? []) as unknown as (Rancho & { vertical?: string })[])
     // Solo la vertical de eventos: citas y hospedajes tienen su propio
     // directorio. Se filtra acá (no en SQL) para que la página siga
     // viva aunque la migración 0055 no se haya corrido todavía.
@@ -38,22 +82,7 @@ export default async function EventosPage() {
       (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
     );
 
-  // Solo "lugares" reserva por fecha en línea — el resto se contrata por
-  // WhatsApp, sin calendario. Traemos de una sola vez qué fechas ya están
-  // confirmadas para poder filtrar por "Cuándo" sin una consulta por card.
-  const { data: confirmadas } = await supabase
-    .from("disponibilidad_rancho")
-    .select("rancho_id, fecha")
-    .eq("estado", "confirmada");
-
   const fechasOcupadas = (confirmadas ?? []) as { rancho_id: string; fecha: string }[];
-
-  // Calificación real (Fase 1): si un proveedor todavía no tiene
-  // reseñas, la tarjeta simplemente no muestra estrellas — nunca un
-  // número inventado.
-  const { data: calificacionesData } = await supabase
-    .from("calificaciones_rancho")
-    .select("rancho_id, promedio, total");
 
   const calificaciones = (calificacionesData ?? []) as {
     rancho_id: string;
@@ -61,25 +90,13 @@ export default async function EventosPage() {
     total: number;
   }[];
 
-  // Una reseña con comentario por proveedor, la más reciente: la
-  // tarjeta grande del directorio la muestra como cita, igual que los
-  // marketplaces de referencia. Se trae un lote y se queda la primera
-  // de cada rancho (PostgREST no hace "primera por grupo").
-  const { data: resenasData } = await supabase
-    .from("resenas")
-    .select("rancho_id, comentario")
-    .not("comentario", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(300);
   const resenaPorRancho: Record<string, string> = {};
   for (const r of (resenasData ?? []) as { rancho_id: string; comentario: string }[]) {
     if (!(r.rancho_id in resenaPorRancho)) resenaPorRancho[r.rancho_id] = r.comentario;
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  // Los favoritos sí dependen de saber quién es — solo este viaje extra
+  // queda en serie, y únicamente para visitantes con sesión.
   let favoritosIniciales: string[] = [];
   if (user) {
     const { data: favData } = await supabase

@@ -13,6 +13,7 @@ import {
 } from "@/lib/categorias-vertical";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
+import { caerAlOriginal, miniatura } from "@/lib/imagenes";
 
 export type Calificacion = { rancho_id: string; promedio: number; total: number };
 
@@ -98,7 +99,8 @@ export default function RanchoCard({
           {rancho.foto_url ? (
             // eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor, sin dominio fijo para next/image
             <img
-              src={rancho.foto_url}
+              src={miniatura(rancho.foto_url, 640)}
+              onError={caerAlOriginal(rancho.foto_url)}
               alt={rancho.nombre}
               loading="lazy"
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"

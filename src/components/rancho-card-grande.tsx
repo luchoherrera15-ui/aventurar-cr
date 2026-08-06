@@ -13,6 +13,7 @@ import {
 } from "@/lib/categorias-vertical";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
+import { caerAlOriginal, miniatura } from "@/lib/imagenes";
 import type { Calificacion } from "@/components/rancho-card";
 
 function fmtColones(n: number | null) {
@@ -100,7 +101,8 @@ export default function RanchoCardGrande({
               <div className="relative flex-1 overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element -- fotos externas subidas por cada proveedor, sin dominio fijo para next/image */}
                 <img
-                  src={portada}
+                  src={miniatura(portada, 960)}
+                  onError={caerAlOriginal(portada)}
                   alt={rancho.nombre}
                   loading="lazy"
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -113,7 +115,8 @@ export default function RanchoCardGrande({
                     <div key={foto} className="relative flex-1 overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element -- ídem */}
                       <img
-                        src={foto}
+                        src={miniatura(foto, 480)}
+                        onError={caerAlOriginal(foto)}
                         alt={`${rancho.nombre} — foto ${i + 2}`}
                         loading="lazy"
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"

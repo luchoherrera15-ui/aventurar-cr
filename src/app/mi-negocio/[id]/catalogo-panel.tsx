@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirFoto } from "@/lib/imagenes";
 import type { RanchoItem } from "../types";
 import { etiquetaDuracion } from "@/lib/catalogo";
 import { etiquetaMinutos } from "@/app/citas/tipos";
@@ -181,10 +182,11 @@ export default function CatalogoPanel({
     // Mismo bucket público que las fotos del negocio; el catálogo va en
     // su propia carpeta para no mezclarse con la galería.
     const supabase = createClient();
-    const path = `${ranchoId}/catalogo/${Date.now()}-${nombreSeguro(file.name)}`;
+    const comprimida = await comprimirFoto(file);
+    const path = `${ranchoId}/catalogo/${Date.now()}-${nombreSeguro(comprimida.name)}`;
     const { error: errorSubida } = await supabase.storage
       .from("ranchos-fotos")
-      .upload(path, file, { upsert: true });
+      .upload(path, comprimida, { upsert: true });
     setSubiendoFoto(false);
     if (errorSubida) {
       setError("No se pudo subir la foto: " + errorSubida.message);

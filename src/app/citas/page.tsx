@@ -1,6 +1,7 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import FotoMiniatura from "@/components/foto-miniatura";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
@@ -262,9 +263,9 @@ function CardNegocio({
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light">
         {n.foto_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- fotos remotas de Supabase
-          <img
+          <FotoMiniatura
             src={n.foto_url}
+            ancho={640}
             alt={n.nombre}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />

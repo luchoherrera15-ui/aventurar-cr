@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { comprimirFoto } from "@/lib/imagenes";
 import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icons";
 import { Lightbox } from "@/components/galeria-lightbox";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
@@ -178,10 +179,11 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     setSubidaError(null);
 
     if (fotoFile) {
-      const path = `${rancho.id}/${Date.now()}-${nombreSeguro(fotoFile.name)}`;
+      const comprimida = await comprimirFoto(fotoFile);
+      const path = `${rancho.id}/${Date.now()}-${nombreSeguro(comprimida.name)}`;
       const { error } = await supabase.storage
         .from("ranchos-fotos")
-        .upload(path, fotoFile, { upsert: true });
+        .upload(path, comprimida, { upsert: true });
       if (error) {
         setSubiendo(false);
         setSubidaError("No se pudo subir la foto principal: " + error.message);
@@ -196,10 +198,11 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
       ? presentacionClave
       : null;
     for (const { file, preview } of fotosNuevas) {
-      const path = `${rancho.id}/galeria/${Date.now()}-${nombreSeguro(file.name)}`;
+      const comprimida = await comprimirFoto(file);
+      const path = `${rancho.id}/galeria/${Date.now()}-${nombreSeguro(comprimida.name)}`;
       const { error } = await supabase.storage
         .from("ranchos-fotos")
-        .upload(path, file, { upsert: true });
+        .upload(path, comprimida, { upsert: true });
       if (error) {
         setSubiendo(false);
         setSubidaError("No se pudo subir una foto de la galería: " + error.message);

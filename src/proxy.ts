@@ -87,5 +87,15 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp)$).*)"],
+  // Solo las rutas privadas: antes esto corría en TODAS las páginas, y
+  // el supabase.auth.getUser() de arriba es un viaje de red a Supabase —
+  // cada visita anónima al directorio pagaba esa latencia sin necesidad.
+  // En las páginas públicas la sesión la mantiene fresca el cliente de
+  // Supabase del navegador; acá solo se protege lo que exige login.
+  matcher: [
+    "/admin/:path*",
+    "/mi-negocio/:path*",
+    "/cuenta/:path*",
+    "/mensajes/:path*",
+  ],
 };
