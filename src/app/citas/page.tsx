@@ -1,6 +1,6 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClientePublico } from "@/lib/supabase/publico";
 import FotoMiniatura from "@/components/foto-miniatura";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
@@ -81,7 +81,8 @@ export default async function CitasPage({
     : undefined;
   const q = unSolo(params.q);
   const busqueda = (q ?? "").trim();
-  const supabase = await createClient();
+  // Directorio público: consulta como anónimo, sin leer cookies.
+  const supabase = createClientePublico();
 
   const [{ data: negociosData }, { data: califData }] = await Promise.all([
     supabase

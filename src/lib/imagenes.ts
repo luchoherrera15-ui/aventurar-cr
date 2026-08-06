@@ -10,16 +10,23 @@
 const MARCA_OBJECT = "/storage/v1/object/public/";
 const MARCA_RENDER = "/storage/v1/render/image/public/";
 
+// La transformación de imágenes es un add-on de pago de Supabase. Sin
+// el add-on, cada miniatura sería un request fallido ANTES de caer a la
+// foto original — peor que nada. Por eso viene apagada por defecto:
+// cuando el proyecto tenga el add-on, poner NEXT_PUBLIC_IMG_TRANSFORM=1
+// en Vercel y las miniaturas se activan solas en el próximo deploy.
+const TRANSFORMACION_ACTIVA = process.env.NEXT_PUBLIC_IMG_TRANSFORM === "1";
+
 /**
  * Devuelve la URL redimensionada (CDN de transformación de Supabase)
  * para una foto del Storage. URLs de otros orígenes salen intactas.
  *
- * La transformación es un add-on de Supabase: si no está activo, el
- * endpoint /render devuelve error — por eso todo <img> que use esta URL
- * debe llevar `onError={caerAlOriginal(urlOriginal)}` para no quedar roto.
+ * Todo <img> que use esta URL debe llevar
+ * `onError={caerAlOriginal(urlOriginal)}` para no quedar roto si el
+ * add-on se apaga con la variable ya en 1.
  */
 export function miniatura(url: string, ancho: number, calidad = 75): string {
-  if (!url.includes(MARCA_OBJECT)) return url;
+  if (!TRANSFORMACION_ACTIVA || !url.includes(MARCA_OBJECT)) return url;
   const separador = url.includes("?") ? "&" : "?";
   return `${url.replace(MARCA_OBJECT, MARCA_RENDER)}${separador}width=${ancho}&quality=${calidad}`;
 }

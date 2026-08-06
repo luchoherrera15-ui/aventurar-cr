@@ -16,6 +16,7 @@ import RanchoCardGrande from "@/components/rancho-card-grande";
 import RielProveedores from "@/components/riel-proveedores";
 import { fechaISO, fmtFechaCorta, hoyISOCR, proximaFechaLibre } from "@/lib/fechas";
 import { interpretarBusqueda, normalizarTexto } from "@/lib/busqueda";
+import { useSesionPublica } from "@/lib/sesion-publica";
 import {
   CATEGORIAS,
   CATEGORIA_ICONO,
@@ -44,16 +45,12 @@ export default function Directorio({
   fechasOcupadas,
   calificaciones,
   resenaPorRancho,
-  favoritosIniciales,
-  sesionActiva,
 }: {
   ranchos: Rancho[];
   fechasOcupadas: FechaOcupada[];
   calificaciones: Calificacion[];
   /** rancho_id → el comentario de reseña más reciente, para citarlo. */
   resenaPorRancho: Record<string, string>;
-  favoritosIniciales: string[];
-  sesionActiva: boolean;
 }) {
   const calificacionPorRancho = useMemo(() => {
     const acc = new Map<string, Calificacion>();
@@ -61,7 +58,9 @@ export default function Directorio({
     return acc;
   }, [calificaciones]);
 
-  const favoritosIds = useMemo(() => new Set(favoritosIniciales), [favoritosIniciales]);
+  // Sesión y favoritos se resuelven en el navegador: así /eventos puede
+  // servirse pre-generada (ISR) sin saber quién la está viendo.
+  const { sesionActiva, favoritosIds } = useSesionPublica();
   const searchParams = useSearchParams();
   // Así los rieles del home pueden linkear "ver todo" a una categoría o
   // zona ya filtrada (?categoria=lugares&provincia=Alajuela) en vez de

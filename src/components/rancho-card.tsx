@@ -14,6 +14,7 @@ import {
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
 import { caerAlOriginal, miniatura } from "@/lib/imagenes";
+import { registrarCambioFavorito, useSesionPublica } from "@/lib/sesion-publica";
 
 export type Calificacion = { rancho_id: string; promedio: number; total: number };
 
@@ -42,11 +43,16 @@ export default function RanchoCard({
   calificacion: Calificacion | null;
   /** undefined = no aplica (no es "lugares"); null = agotado; string = fecha ISO libre. */
   proximaLibre?: string | null;
-  favoritoInicial: boolean;
-  sesionActiva: boolean;
+  /** Sin estas dos props, la card las resuelve sola en el navegador
+   * (útil en páginas pre-generadas, donde el servidor no sabe quién ve). */
+  favoritoInicial?: boolean;
+  sesionActiva?: boolean;
   /** Ancho CSS (ej. "220px" o un clamp()) para uso en riel horizontal; sin esto, ocupa el 100% de su celda de grilla. */
   ancho?: string;
 }) {
+  const sesion = useSesionPublica();
+  const favorito = favoritoInicial ?? sesion.favoritosIds.has(rancho.id);
+  const conSesion = sesionActiva ?? sesion.sesionActiva;
   const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
   const precio = fmtColones(rancho.precio_desde);
   // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
@@ -135,7 +141,7 @@ export default function RanchoCard({
             )}
           </span>
 
-          <BotonFavorito ranchoId={rancho.id} inicial={favoritoInicial} sesionActiva={sesionActiva} />
+          <BotonFavorito ranchoId={rancho.id} inicial={favorito} sesionActiva={conSesion} />
         </div>
 
         <div className="flex flex-1 flex-col px-4 pb-3 pt-2.5">
@@ -211,7 +217,10 @@ function BotonFavorito({
   sesionActiva: boolean;
 }) {
   const router = useRouter();
-  const [activo, setActivo] = useState(inicial);
+  // null = el usuario no lo tocó: manda `inicial`, que en páginas
+  // pre-generadas llega del navegador DESPUÉS del primer render.
+  const [tocado, setTocado] = useState<boolean | null>(null);
+  const activo = tocado ?? inicial;
   const [pending, startTransition] = useTransition();
 
   function alternar(e: React.MouseEvent) {
@@ -222,10 +231,14 @@ function BotonFavorito({
       return;
     }
     const nuevo = !activo;
-    setActivo(nuevo);
+    setTocado(nuevo);
+    registrarCambioFavorito(ranchoId, nuevo);
     startTransition(async () => {
       const res = await alternarFavorito(ranchoId, nuevo);
-      if (res?.error) setActivo(!nuevo);
+      if (res?.error) {
+        setTocado(!nuevo);
+        registrarCambioFavorito(ranchoId, !nuevo);
+      }
     });
   }
 

@@ -16,6 +16,7 @@ import {
   type Rancho,
 } from "@/app/mi-negocio/types";
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
+import { registrarCambioFavorito, useSesionPublica } from "@/lib/sesion-publica";
 import { IconHeart, IconStar } from "@/components/icons";
 import { hoyISOCR } from "@/lib/fechas";
 import { generarPlan } from "./motor";
@@ -138,15 +139,14 @@ export default function Planificador({
   ranchos,
   fechasOcupadas,
   calificaciones,
-  favoritosIniciales,
-  sesionActiva,
 }: {
   ranchos: Rancho[];
   fechasOcupadas: { rancho_id: string; fecha: string }[];
   calificaciones: Calificacion[];
-  favoritosIniciales: string[];
-  sesionActiva: boolean;
 }) {
+  // Sesión y favoritos se resuelven en el navegador: así la página que
+  // monta el planificador puede ser pre-generada (ISR).
+  const { sesionActiva, favoritosIds } = useSesionPublica();
   const [abierto, setAbierto] = useState(false);
   const [respuestas, setRespuestas] = useState<RespuestasPlanificador>(RESPUESTAS_VACIAS);
   const [etapaIdx, setEtapaIdx] = useState(0);
@@ -157,7 +157,6 @@ export default function Planificador({
 
   const etapa = ETAPAS[etapaIdx].id;
   const hoy = useMemo(() => hoyISOCR(), []);
-  const favoritosIds = useMemo(() => new Set(favoritosIniciales), [favoritosIniciales]);
 
   // Retomar donde quedó: lo respondido vive en localStorage y se
   // rescata al abrir (solo la primera vez de la visita, para no
@@ -906,7 +905,10 @@ function CorazonFavorito({
   sesionActiva: boolean;
 }) {
   const router = useRouter();
-  const [activo, setActivo] = useState(inicial);
+  // null = el usuario no lo tocó: manda `inicial`, que en páginas
+  // pre-generadas llega del navegador DESPUÉS del primer render.
+  const [tocado, setTocado] = useState<boolean | null>(null);
+  const activo = tocado ?? inicial;
   const [pending, startTransition] = useTransition();
 
   function alternar() {
@@ -915,10 +917,14 @@ function CorazonFavorito({
       return;
     }
     const nuevo = !activo;
-    setActivo(nuevo);
+    setTocado(nuevo);
+    registrarCambioFavorito(ranchoId, nuevo);
     startTransition(async () => {
       const res = await alternarFavorito(ranchoId, nuevo);
-      if (res?.error) setActivo(!nuevo);
+      if (res?.error) {
+        setTocado(!nuevo);
+        registrarCambioFavorito(ranchoId, !nuevo);
+      }
     });
   }
 

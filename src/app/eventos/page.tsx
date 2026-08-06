@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { Suspense } from "react";
+import { createClientePublico } from "@/lib/supabase/publico";
 import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
@@ -17,20 +18,24 @@ const COLUMNAS_DIRECTORIO =
   "capacidad_max, precio_desde, unidad_precio, foto_url, destacado_orden, " +
   "fotos, vertical, created_at, slug";
 
-export default async function EventosPage() {
-  const supabase = await createClient();
+// La página se genera de antemano y se sirve ya cocinada desde el
+// hosting (ISR): el visitante no espera ninguna consulta. Se regenera
+// sola en segundo plano a más tardar cada 60 segundos, así que un
+// negocio recién aprobado aparece en menos de un minuto. Todo lo
+// personal (favoritos, avatar del menú) lo pinta el navegador encima
+// — ver src/lib/sesion-publica.ts.
+export const revalidate = 60;
 
-  // Las cuatro consultas y la sesión no dependen entre sí: lanzarlas en
-  // paralelo hace que la página espere solo por la más lenta, en vez de
-  // sumar las cinco en fila.
+export default async function EventosPage() {
+  const supabase = createClientePublico();
+
+  // Las cuatro consultas no dependen entre sí: en paralelo, la página
+  // espera solo por la más lenta.
   const [
     { data },
     { data: confirmadas },
     { data: calificacionesData },
     { data: resenasData },
-    {
-      data: { user },
-    },
   ] = await Promise.all([
     supabase
       .from("ranchos")
@@ -62,7 +67,6 @@ export default async function EventosPage() {
       .not("comentario", "is", null)
       .order("created_at", { ascending: false })
       .limit(300),
-    supabase.auth.getUser(),
   ]);
 
   const ranchos = ((data ?? []) as unknown as (Rancho & { vertical?: string })[])
@@ -95,17 +99,6 @@ export default async function EventosPage() {
     if (!(r.rancho_id in resenaPorRancho)) resenaPorRancho[r.rancho_id] = r.comentario;
   }
 
-  // Los favoritos sí dependen de saber quién es — solo este viaje extra
-  // queda en serie, y únicamente para visitantes con sesión.
-  let favoritosIniciales: string[] = [];
-  if (user) {
-    const { data: favData } = await supabase
-      .from("favoritos")
-      .select("rancho_id")
-      .eq("cliente_id", user.id);
-    favoritosIniciales = (favData ?? []).map((f) => f.rancho_id as string);
-  }
-
   return (
     // El lienzo crema de la línea bento (/lealtad): los bloques de
     // color se recortan encima.
@@ -122,14 +115,16 @@ export default async function EventosPage() {
             <SelectorVertical activo="eventos" />
           </div>
 
-          <Directorio
-            ranchos={ranchos}
-            fechasOcupadas={fechasOcupadas}
-            calificaciones={calificaciones}
-            resenaPorRancho={resenaPorRancho}
-            favoritosIniciales={favoritosIniciales}
-            sesionActiva={!!user}
-          />
+          {/* useSearchParams (los filtros por URL) exige Suspense en
+              páginas pre-generadas. */}
+          <Suspense>
+            <Directorio
+              ranchos={ranchos}
+              fechasOcupadas={fechasOcupadas}
+              calificaciones={calificaciones}
+              resenaPorRancho={resenaPorRancho}
+            />
+          </Suspense>
         </div>
       </section>
 
@@ -139,8 +134,6 @@ export default async function EventosPage() {
         ranchos={ranchos}
         fechasOcupadas={fechasOcupadas}
         calificaciones={calificaciones}
-        favoritosIniciales={favoritosIniciales}
-        sesionActiva={!!user}
       />
 
       {/* La venta cruzada suave también acá: el directorio de salones es

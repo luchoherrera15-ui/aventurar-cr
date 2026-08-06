@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClientePublico } from "@/lib/supabase/publico";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
@@ -18,46 +18,34 @@ export const metadata = {
  * no haya negocios aprobados muestra el estado vacío con el CTA de
  * publicar (el alta de hospedajes ya funciona).
  */
-export default async function HospedajesPage() {
-  const supabase = await createClient();
+// Pre-generada en el hosting (ISR): se sirve al instante y se regenera
+// sola a más tardar cada 60 segundos. Los favoritos y la sesión los
+// resuelve cada card en el navegador (sesion-publica.ts).
+export const revalidate = 60;
 
-  // Sesión y listado no dependen entre sí: en paralelo.
-  const [
-    {
-      data: { user },
-    },
-    { data: ranchosData },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase
-      .from("ranchos")
-      .select("*")
-      .eq("vertical", "hospedajes")
-      .eq("estado", "aprobado")
-      .order("destacado_orden", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false }),
-  ]);
+export default async function HospedajesPage() {
+  const supabase = createClientePublico();
+
+  const { data: ranchosData } = await supabase
+    .from("ranchos")
+    .select("*")
+    .eq("vertical", "hospedajes")
+    .eq("estado", "aprobado")
+    .order("destacado_orden", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
   const hospedajes = (ranchosData ?? []) as Rancho[];
 
-  const [{ data: califData }, favoritosRes] = await Promise.all([
-    hospedajes.length
-      ? supabase
-          .from("calificaciones_rancho")
-          .select("rancho_id, promedio, total")
-          .in(
-            "rancho_id",
-            hospedajes.map((h) => h.id),
-          )
-      : Promise.resolve({ data: [] }),
-    user
-      ? supabase.from("favoritos").select("rancho_id").eq("cliente_id", user.id)
-      : Promise.resolve({ data: [] }),
-  ]);
+  const { data: califData } = hospedajes.length
+    ? await supabase
+        .from("calificaciones_rancho")
+        .select("rancho_id, promedio, total")
+        .in(
+          "rancho_id",
+          hospedajes.map((h) => h.id),
+        )
+    : { data: [] };
   const califPorRancho = new Map(
     ((califData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
-  );
-  const favoritos = new Set(
-    ((favoritosRes.data ?? []) as { rancho_id: string }[]).map((f) => f.rancho_id),
   );
 
   return (
@@ -93,8 +81,6 @@ export default async function HospedajesPage() {
                   rancho={h}
                   index={i}
                   calificacion={califPorRancho.get(h.id) ?? null}
-                  favoritoInicial={favoritos.has(h.id)}
-                  sesionActiva={!!user}
                 />
               ))}
             </div>
