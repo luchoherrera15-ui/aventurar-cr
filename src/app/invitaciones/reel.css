@@ -1,0 +1,286 @@
+/* Estilos SOLO de /invitaciones (la landing del producto) — separados
+   de globals.css para que el resto del sitio (home, eventos, citas, el
+   panel de negocio...) no tenga que descargar ni una línea de esto.
+   Se importa una sola vez desde page.tsx de esta ruta. */
+
+/* --- Animaciones de la landing /invitaciones --------------------------
+   La escena de mockups de /invitaciones cuenta un solo cuento en loop:
+   el invitado hace scroll en la invitación, toca "Sí asistiré" y al
+   anfitrión le entra la confirmación con el conteo subiendo. Igual que
+   las publicar-*: UNA duración compartida (--inv-dur) sincroniza todo
+   por porcentajes, --inv-delay desfasa piezas sueltas y las clases base
+   dejan visible el estado final para prefers-reduced-motion. */
+
+/* El contenido de la invitación "scrollea" hasta el bloque de
+   confirmación, se queda ahí durante el tap y vuelve arriba al final. */
+@keyframes invitacion-scroll {
+  0%,
+  10% {
+    transform: translateY(0);
+  }
+  22%,
+  86% {
+    transform: translateY(var(--inv-scroll, -150px));
+  }
+  94%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* El dedo (círculo) que aparece sobre el botón, aprieta y se retira. */
+@keyframes invitacion-dedo {
+  0%,
+  24% {
+    opacity: 0;
+    transform: translate(10px, 14px) scale(0.6);
+  }
+  28%,
+  30% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  32% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.78);
+  }
+  34%,
+  36% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  40%,
+  100% {
+    opacity: 0;
+    transform: translate(10px, 14px) scale(0.6);
+  }
+}
+
+/* El apretón del botón bajo el dedo (mismo tap que publicar-pulsar,
+   pero clavado al 32% de ESTA línea de tiempo). */
+@keyframes invitacion-pulsar {
+  0%,
+  30%,
+  34%,
+  100% {
+    transform: scale(1);
+  }
+  32% {
+    transform: scale(0.94);
+  }
+}
+
+/* El estado confirmado (verde) que cubre al botón después del tap. */
+@keyframes invitacion-confirmar {
+  0%,
+  33% {
+    opacity: 0;
+  }
+  37%,
+  86% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* El puntito que viaja del teléfono del invitado al panel del
+   anfitrión justo después del tap. */
+@keyframes invitacion-viaje {
+  0%,
+  34% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  38% {
+    opacity: 1;
+  }
+  47% {
+    opacity: 1;
+    transform: translateX(var(--inv-viaje, 56px));
+  }
+  52%,
+  100% {
+    opacity: 0;
+    transform: translateX(var(--inv-viaje, 56px));
+  }
+}
+
+/* La fila nueva que le entra al anfitrión cuando llega el viaje. */
+@keyframes invitacion-entrar {
+  0%,
+  44% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  50%,
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* El contador de personas: el número viejo sube y sale... */
+@keyframes invitacion-num-sale {
+  0%,
+  45% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  51%,
+  88% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  95%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ...y el nuevo entra desde abajo, en el mismo compás. */
+@keyframes invitacion-num-entra {
+  0%,
+  45% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  51%,
+  88% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  95%,
+  100% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+/* La notificación flotante que le avisa al anfitrión: entra justo
+   cuando el viaje llega y el panel se actualiza, se queda mientras el
+   contador y la fila están arriba, y se retira con ellos. Sin
+   translateX: se centra con inset-x-0 + mx-auto en vez de -50%, así
+   el transform de la animación no le pisa el centrado (el gotcha ya
+   conocido de mezclar utilidades de transform con keyframes). */
+@keyframes invitacion-notificacion {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  46%,
+  84% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
+/* El puntito "en vivo" del panel: late solo, fuera del compás largo. */
+@keyframes invitacion-latir {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+.anim-invitacion-scroll {
+  animation: invitacion-scroll var(--inv-dur, 9s) cubic-bezier(0.45, 0, 0.2, 1)
+    var(--inv-delay, 0s) infinite both;
+}
+.anim-invitacion-dedo {
+  animation: invitacion-dedo var(--inv-dur, 9s) ease-in-out
+    var(--inv-delay, 0s) infinite both;
+}
+.anim-invitacion-pulsar {
+  animation: invitacion-pulsar var(--inv-dur, 9s) ease-in-out
+    var(--inv-delay, 0s) infinite both;
+}
+.anim-invitacion-confirmar {
+  animation: invitacion-confirmar var(--inv-dur, 9s) ease-out
+    var(--inv-delay, 0s) infinite both;
+}
+.anim-invitacion-viaje {
+  animation: invitacion-viaje var(--inv-dur, 9s) ease-in-out
+    var(--inv-delay, 0s) infinite both;
+}
+.anim-invitacion-entrar {
+  animation: invitacion-entrar var(--inv-dur, 9s) ease-out var(--inv-delay, 0s)
+    infinite both;
+}
+.anim-invitacion-num-sale {
+  animation: invitacion-num-sale var(--inv-dur, 9s) ease-in-out
+    var(--inv-delay, 0s) infinite both;
+}
+.anim-invitacion-num-entra {
+  animation: invitacion-num-entra var(--inv-dur, 9s) ease-in-out
+    var(--inv-delay, 0s) infinite both;
+}
+.anim-invitacion-latir {
+  animation: invitacion-latir 1.8s ease-in-out var(--inv-delay, 0s) infinite;
+}
+.anim-invitacion-notificacion {
+  animation: invitacion-notificacion var(--inv-dur, 9s) ease-out
+    var(--inv-delay, 0s) infinite both;
+}
+
+/* Con movimiento reducido la escena queda quieta en el estado final:
+   botón confirmado, fila de María José puesta y contador en 15. */
+@media (prefers-reduced-motion: reduce) {
+  .anim-invitacion-scroll,
+  .anim-invitacion-dedo,
+  .anim-invitacion-pulsar,
+  .anim-invitacion-confirmar,
+  .anim-invitacion-viaje,
+  .anim-invitacion-entrar,
+  .anim-invitacion-num-sale,
+  .anim-invitacion-num-entra,
+  .anim-invitacion-latir,
+  .anim-invitacion-notificacion {
+    animation: none;
+  }
+}
+
+/* --- Compartido con /i/[slug] (duplicado a propósito en plantillas.css:
+   son ~15 líneas, no vale la pena un tercer archivo/import solo por
+   esto) --- */
+.inv3-serif {
+  font-family: var(--inv3-serif, "Cormorant Garamond", Georgia), serif;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+  line-height: 1.1;
+}
+
+@keyframes popup-barra {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* El indicador del riel de ejemplos (/invitaciones): la barra activa
+   se llena de izquierda a derecha mientras dura el slide, como el
+   avance de un carrusel de historias. transform-origin queda a la
+   izquierda en el propio elemento (riel-ejemplos.tsx) — acá solo vive
+   el keyframe, para poder pausarlo con animation-play-state sin JS
+   recalculando nada. */
+@keyframes riel-progreso {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}

@@ -1,0 +1,266 @@
+/* Estilos SOLO de /i/[slug] (ver una invitación digital) — separados
+   de globals.css para que el resto del sitio (home, eventos, citas, el
+   panel de negocio...) no tenga que descargar ni una línea de esto.
+   Se importa una sola vez desde page.tsx de esta ruta. */
+
+/* ==================================================================
+   Invitación pública v2 (inv2-*): las animaciones de la plantilla
+   clásica de /i/{slug} — sobre de apertura, carrito de recién
+   casados, cuenta regresiva, pétalos y confetti. Solo transform y
+   opacity; con movimiento reducido todo queda estático (al final).
+   ================================================================== */
+
+/* — La apertura tipo sobre — */
+@keyframes inv2-solapa {
+  0% {
+    transform: rotateX(0deg);
+  }
+  100% {
+    transform: rotateX(-178deg);
+  }
+}
+@keyframes inv2-carta-sale {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(0, -34%, 0) scale(1.03);
+  }
+}
+@keyframes inv2-sobre-fade {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+@keyframes inv2-sello {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.07);
+  }
+}
+@keyframes inv2-pulso {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes inv2-contenido-entra {
+  0% {
+    opacity: 0;
+    transform: translateY(26px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.inv2-anim-solapa {
+  animation: inv2-solapa 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: transform;
+}
+.inv2-anim-carta-sale {
+  animation: inv2-carta-sale 1.05s cubic-bezier(0.22, 1, 0.36, 1) 0.4s forwards;
+  will-change: transform;
+}
+.inv2-anim-sobre-fade {
+  animation: inv2-sobre-fade 0.6s ease-in 1.15s forwards;
+}
+.inv2-anim-sello {
+  animation: inv2-sello 2s ease-in-out infinite;
+}
+.inv2-anim-pulso {
+  animation: inv2-pulso 1.7s ease-in-out infinite;
+}
+.inv2-anim-contenido {
+  animation: inv2-contenido-entra 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.85s both;
+}
+
+/* — El carrito de recién casados — */
+@keyframes inv2-lata {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-5px);
+  }
+}
+@keyframes inv2-salto {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-16px) rotate(-3deg);
+  }
+  62% {
+    transform: translateY(0) rotate(0deg);
+  }
+  80% {
+    transform: translateY(-5px) rotate(-1deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+@keyframes inv2-corazon {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.4);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--inv2-dx, -12px), -64px, 0) scale(1.1);
+  }
+}
+@keyframes inv2-beep {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.6);
+  }
+  14% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.08);
+  }
+  24%,
+  78% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.9);
+  }
+}
+
+.inv2-anim-lata {
+  animation: inv2-lata var(--inv2-dur, 0.5s) ease-in-out var(--inv2-delay, 0s)
+    infinite alternate;
+}
+.inv2-anim-salto {
+  animation: inv2-salto 0.65s ease-out;
+}
+.inv2-anim-corazon {
+  animation: inv2-corazon 1.15s ease-out both;
+}
+.inv2-anim-beep {
+  animation: inv2-beep 1s ease-out both;
+}
+
+/* — El ambiente (pétalos y destellos), el tick y el confetti — */
+@keyframes inv2-caer {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+  }
+  10%,
+  88% {
+    opacity: var(--inv2-op, 0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--inv2-drift, 0px), 104vh, 0)
+      rotate(var(--inv2-giro, 320deg));
+  }
+}
+@keyframes inv2-tick {
+  0% {
+    opacity: 0.15;
+    transform: translateY(-8px) scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes inv2-confetti {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--inv2-dx, 0px), 340px, 0)
+      rotate(var(--inv2-giro, 540deg));
+  }
+}
+
+.inv2-anim-caer {
+  animation: inv2-caer var(--inv2-dur, 14s) linear var(--inv2-delay, 0s) infinite;
+  will-change: transform, opacity;
+}
+.inv2-anim-tick {
+  animation: inv2-tick 0.4s ease-out;
+}
+.inv2-anim-confetti {
+  animation: inv2-confetti var(--inv2-dur, 1.3s) ease-in var(--inv2-delay, 0s) both;
+  will-change: transform, opacity;
+}
+
+/* Con movimiento reducido: sin sobre (la invitación abre directa),
+   carro y latas quietos, números sin tick y nada de partículas. */
+@media (prefers-reduced-motion: reduce) {
+  .inv2-sobre-overlay {
+    display: none;
+  }
+  .inv2-anim-solapa,
+  .inv2-anim-carta-sale,
+  .inv2-anim-sobre-fade,
+  .inv2-anim-sello,
+  .inv2-anim-pulso,
+  .inv2-anim-contenido,
+  .inv2-anim-lata,
+  .inv2-anim-salto,
+  .inv2-anim-beep,
+  .inv2-anim-tick {
+    animation: none;
+  }
+  .inv2-anim-caer,
+  .inv2-anim-corazon,
+  .inv2-anim-confetti {
+    display: none;
+  }
+}
+
+/* ==================================================================
+   Invitación pública v3 (inv3-*): la plantilla clásica de /i/{slug}
+   vestida en marfil, crema y dorado champán. Los keyframes siguen
+   siendo los inv2-* (solo transform/opacity, sirven igual en la nueva
+   paleta); acá solo vive la serif fina de los títulos, que llega por
+   la variable --inv3-serif definida con next/font en /i/[slug].
+   ================================================================== */
+.inv3-serif {
+  font-family: var(--inv3-serif, "Cormorant Garamond", Georgia), serif;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+  line-height: 1.1;
+}
+
+/* --- Compartido con /invitaciones (duplicado a propósito en reel.css:
+   son ~15 líneas, no vale la pena un tercer archivo/import solo por
+   esto) --- */
+@keyframes popup-barra {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@keyframes riel-progreso {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}

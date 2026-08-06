@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Cormorant_Garamond } from "next/font/google";
+// Las animaciones de esta landing (reel + riel de ejemplos) viven en su
+// propia hoja — así el resto del sitio (home, eventos, citas, el panel
+// de negocio...) no las descarga nunca.
+import "./reel.css";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 import {

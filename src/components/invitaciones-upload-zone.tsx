@@ -149,7 +149,10 @@ export default function UploadZone({
     const fallados: string[] = [];
 
     for (const file of chicos) {
-      const archivo = tipo === "imagenes" ? await comprimirImagen(file) : file;
+      // La portada y las fotos de la invitación se ven en grande y se
+      // imprimen — acá la nitidez pesa más que en una card de listado.
+      const archivo =
+        tipo === "imagenes" ? await comprimirImagen(file, { ladoMax: 2400, calidad: 0.92 }) : file;
       const ruta = `invitaciones/subidas/${user.id}/${crypto.randomUUID()}.${extensionDe(archivo)}`;
       const { error } = await supabase.storage
         .from(BUCKET)

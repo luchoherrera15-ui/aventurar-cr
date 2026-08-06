@@ -5,10 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { parsearPreguntas } from "@/lib/invitaciones-preguntas";
 import { fechaLargaCR } from "@/lib/fechas";
 import InvitacionVista, { type Invitacion } from "./invitacion-vista";
+// Las animaciones de las plantillas (inv2-*/inv3-*) viven en su propia
+// hoja — así el resto del sitio (home, eventos, citas, el panel de
+// negocio...) no las descarga nunca.
+import "./plantillas.css";
 
 // La serif fina de la plantilla clásica — la misma vía que el álbum
 // (/a/{slug}): next/font la sirve desde el propio sitio y acá solo
-// deja la variable CSS que usa .inv3-serif en globals.css.
+// deja la variable CSS que usa .inv3-serif en plantillas.css.
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["500", "600"],

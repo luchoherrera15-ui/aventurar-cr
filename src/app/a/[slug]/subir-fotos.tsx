@@ -85,7 +85,9 @@ export default function SubirFotos({
 
     for (let n = 0; n < elegidas.length; n++) {
       try {
-        const comprimida = await comprimirImagen(elegidas[n]);
+        // Un álbum de recuerdos se mira en grande y se descarga para
+        // imprimir — acá la nitidez pesa más que en una card de listado.
+        const comprimida = await comprimirImagen(elegidas[n], { ladoMax: 2400, calidad: 0.92 });
         // comprimirImagen devuelve el MISMO archivo si no pudo procesarlo
         // (canvas bloqueado, formato raro) — acá se prefiere saltar la
         // foto antes que subir algo pesado con extensión .jpg mentirosa.
