@@ -46,17 +46,25 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-      {proximas.map((e) => {
+      {proximas.map((e, i) => {
         const esHoy = e.fecha === hoy;
         const esManana = e.fecha === manana;
+        // Pieles suaves alternadas (mismas del tablero de métricas):
+        // azul suave y celeste, con la marca de agua en su propio tono.
+        const pielCard =
+          i % 2 === 0
+            ? "border-aventurea-navy/10 bg-aventurea-blue-light"
+            : "border-aventurea-sky/30 bg-aventurea-sky/20";
+        const pielMarca =
+          i % 2 === 0 ? "text-aventurea-navy/10" : "text-aventurea-sky-dark/20";
         return (
           <div
             key={e.id}
-            className="relative min-w-0 overflow-hidden rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2.5 shadow-sm"
+            className={`relative min-w-0 overflow-hidden rounded-xl border px-3 py-2.5 ${pielCard}`}
           >
             <span
               aria-hidden
-              className="pointer-events-none absolute -right-2.5 -top-3 rotate-[14deg] text-aventurea-navy/[0.07]"
+              className={`pointer-events-none absolute -right-2.5 -top-3 rotate-[14deg] ${pielMarca}`}
             >
               <IconCalendarLine className="h-16 w-16" />
             </span>
