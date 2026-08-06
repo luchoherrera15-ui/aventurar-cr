@@ -1,6 +1,7 @@
 ﻿import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import UsuariosPanel, { type PerfilRow } from "./usuarios-panel";
+import AccesoDemo from "./acceso-demo";
 
 export default async function AdminUsuariosPage() {
   const supabase = await createClient();
@@ -59,6 +60,8 @@ export default async function AdminUsuariosPage() {
           No se pudieron cargar las cuentas: {perfilesRes.error.message}
         </p>
       )}
+
+      <AccesoDemo />
 
       <UsuariosPanel
         initialPerfiles={perfiles}

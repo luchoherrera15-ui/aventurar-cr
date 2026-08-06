@@ -128,6 +128,40 @@ export async function cambiarEmail(id: string, email: string) {
   return { error: null };
 }
 
+/**
+ * Genera un código de acceso de 6 dígitos para una CUENTA DEMO — el
+ * mismo que Supabase mandaría por correo, solo que los buzones
+ * *.demo@bookea.lat no existen y el código no llega nunca. Solo un
+ * admin puede pedirlo, y SOLO para correos demo: sin ese freno, esta
+ * acción serviría para entrar a la cuenta de cualquier usuario.
+ *
+ * Ojo con el orden: el formulario de login manda su propio código al
+ * tocar "Enviarme el código", y cada código nuevo invalida el anterior
+ * — por eso hay que generar ESTE después de ese paso, no antes.
+ */
+export async function generarCodigoDemo(email: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  const limpio = email.trim().toLowerCase();
+  if (!/^[a-z0-9._+-]+\.demo@bookea\.lat$/.test(limpio)) {
+    return { error: "Esto solo funciona con cuentas demo (*.demo@bookea.lat)." };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) return { error: FALTA_SERVICE_KEY };
+
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: limpio,
+  });
+  if (error || !data?.properties?.email_otp) {
+    return { error: "No se pudo generar el código: " + (error?.message ?? "sin respuesta") };
+  }
+
+  return { codigo: data.properties.email_otp };
+}
+
 export async function cambiarPassword(id: string, password: string) {
   const { ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
