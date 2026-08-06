@@ -877,8 +877,14 @@ export default function BookingCalendar({
                   }
                 >
                   <span className="font-bold leading-none">{d}</span>
+                  {/* La promo va en NARANJA, no en verde: desde que el
+                      día libre es verde, un badge verde encima se leía
+                      como "más de lo mismo" en vez de como una oferta.
+                      Es el naranja oscuro de la paleta y no el de
+                      marca — el otro, con texto blanco de 10px, queda
+                      en 2,9:1 y se ve lavado. */}
                   {promoDia ? (
-                    <span className="mt-1 self-start rounded-lg bg-aventurea-green px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-white sm:px-2 sm:py-1 sm:text-[10.5px]">
+                    <span className="mt-1 self-start rounded-lg bg-aventurea-orange-dark px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-white sm:px-2 sm:py-1 sm:text-[10.5px]">
                       {promoDia.tipo === "precio_fijo"
                         ? `${fmtColones(promoDia.precio_fijo ?? 0)} fijo`
                         : `${promoDia.porcentaje_descuento}% off`}
@@ -921,7 +927,7 @@ export default function BookingCalendar({
             </span>
             {Object.keys(promoPorDiaSemana).length > 0 && (
               <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-[3px] bg-aventurea-green" />
+                <span className="h-2.5 w-2.5 rounded-[3px] bg-aventurea-orange-dark" />
                 Promoción del día
               </span>
             )}
