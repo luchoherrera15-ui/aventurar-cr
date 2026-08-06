@@ -3,8 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import RielProveedores from "@/components/riel-proveedores";
-import type { Calificacion } from "@/components/rancho-card";
+import RanchoCard, { type Calificacion } from "@/components/rancho-card";
 import type { Rancho } from "@/app/mi-negocio/types";
 import {
   IconChatBubble,
@@ -21,10 +20,11 @@ import {
  * negocios REALES (pedido del dueño): uno de Eventos, uno de Citas y el
  * de Hospedajes como "muy pronto".
  *
- * Cada riel muestra hasta 5 tarjetas, con el ancho achicado para que
- * las 5 quepan SIN scroll horizontal en desktop (en el teléfono se
- * desliza, como todo riel). El "Ver todo" de cada riel lleva a su
- * directorio.
+ * Cada riel muestra hasta 5 tarjetas en una GRILLA que se estira para
+ * llenar todo el ancho (auto-fit): con 3 negocios salen 3 tarjetas
+ * grandes, con 5 se compactan solas — nunca queda un hueco muerto a la
+ * derecha ni hay que scrollear. Al final de cada riel va la card azul
+ * "VER TODO", que lleva a su directorio.
  *
  * Quién sale acá: los destacados del admin primero y después los más
  * nuevos. A futuro este espacio será de pago (suscripción de
@@ -34,9 +34,10 @@ import {
 
 const TOPE_POR_RIEL = 5;
 
-/** 5 tarjetas + 4 gaps de 14px caben en el contenedor de 1280 sin
- *  scroll (5×232 + 56 = 1216). */
-const ANCHO_TARJETA_HOME = "clamp(200px, 42vw, 232px)";
+/** 5 tarjetas + la card VER TODO (6 celdas de ≥190px + gaps) caben en
+ *  el contenedor de 1280 en una sola fila. */
+const GRILLA_RIEL =
+  "grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:[grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]";
 
 const PROMESAS = [
   { Icono: IconStopwatch, texto: "Confirmación al instante" },
@@ -65,6 +66,46 @@ const PASOS = [
       "La confirmación te cae al correo con todos los detalles — y el chat queda abierto por si querés preguntar algo.",
   },
 ] as const;
+
+/**
+ * La card azul llamativa al final de cada riel (pedido del dueño): el
+ * mismo alto que las tarjetas de negocio (la grilla estira las celdas)
+ * y el CTA más visible de la fila.
+ */
+function CardVerTodo({
+  href,
+  linea1,
+  linea2,
+}: {
+  href: string;
+  linea1: string;
+  linea2: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group relative flex min-h-[240px] flex-col items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-aventurea-sky p-5 text-center shadow-[0_14px_36px_-18px_rgba(47,124,190,0.8)] transition-all hover:-translate-y-1 hover:bg-aventurea-sky-dark"
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/15 blur-2xl"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -bottom-14 -left-10 h-32 w-32 rounded-full bg-aventurea-navy/25 blur-2xl"
+      />
+      <span className="relative text-[12px] font-extrabold uppercase tracking-[0.16em] text-white/85">
+        {linea1}
+      </span>
+      <span className="titulo relative -mt-1 text-[27px] uppercase text-white">
+        {linea2}
+      </span>
+      <span className="relative mt-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[19px] font-extrabold text-aventurea-sky transition-transform group-hover:translate-x-1.5">
+        →
+      </span>
+    </Link>
+  );
+}
 
 /** Destacados del admin primero (en su orden), después los más nuevos. */
 function topDelVertical(negocios: Rancho[], vertical: string): Rancho[] {
@@ -111,10 +152,6 @@ export default async function Home() {
     favoritosIds = new Set((favData ?? []).map((f) => f.rancho_id as string));
   }
 
-  // Sin cálculo de disponibilidad en el home (eso es del directorio):
-  // el chip "Libre ahora" simplemente no se muestra acá.
-  const proximasLibres = new Map<string, string | null>();
-
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <RevealOnScroll />
@@ -139,34 +176,52 @@ export default async function Home() {
         </section>
 
         {/* ---------- Los tres rieles ---------- */}
-        <div className="mx-auto flex max-w-[1280px] flex-col gap-6 px-4 pt-8 sm:px-5">
-          <div data-reveal>
-            <RielProveedores
-              titulo="Todo para tu evento"
-              subtitulo="Lugares, catering, música y decoración — reservá cada pieza de tu fiesta."
-              items={rielEventos}
-              verTodoHref="/eventos"
-              calificaciones={calificaciones}
-              proximasLibres={proximasLibres}
-              favoritosIds={favoritosIds}
-              sesionActiva={!!user}
-              anchoTarjeta={ANCHO_TARJETA_HOME}
-            />
-          </div>
+        <div className="mx-auto flex max-w-[1280px] flex-col gap-8 px-4 pt-8 sm:px-5">
+          <section data-reveal>
+            <h2 className="px-1 text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink">
+              Todo para tu evento
+            </h2>
+            <p className="mt-1 px-1 text-[14px] text-aventurea-ink-soft">
+              Lugares, catering, música y decoración — reservá cada pieza de tu
+              fiesta.
+            </p>
+            <div className={`mt-3.5 ${GRILLA_RIEL}`}>
+              {rielEventos.map((r, i) => (
+                <RanchoCard
+                  key={r.id}
+                  rancho={r}
+                  index={i}
+                  calificacion={calificaciones.get(r.id) ?? null}
+                  favoritoInicial={favoritosIds.has(r.id)}
+                  sesionActiva={!!user}
+                />
+              ))}
+              <CardVerTodo href="/eventos" linea1="Ver todo de" linea2="Eventos" />
+            </div>
+          </section>
 
-          <div data-reveal>
-            <RielProveedores
-              titulo="Cualquier servicio que necesités agendar"
-              subtitulo="Belleza, barbería, uñas y spa — elegí la hora y con quién, y quedá confirmado al instante."
-              items={rielCitas}
-              verTodoHref="/citas"
-              calificaciones={calificaciones}
-              proximasLibres={proximasLibres}
-              favoritosIds={favoritosIds}
-              sesionActiva={!!user}
-              anchoTarjeta={ANCHO_TARJETA_HOME}
-            />
-          </div>
+          <section data-reveal>
+            <h2 className="px-1 text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink">
+              Cualquier servicio que necesités agendar
+            </h2>
+            <p className="mt-1 px-1 text-[14px] text-aventurea-ink-soft">
+              Belleza, barbería, uñas y spa — elegí la hora y con quién, y quedá
+              confirmado al instante.
+            </p>
+            <div className={`mt-3.5 ${GRILLA_RIEL}`}>
+              {rielCitas.map((r, i) => (
+                <RanchoCard
+                  key={r.id}
+                  rancho={r}
+                  index={i}
+                  calificacion={calificaciones.get(r.id) ?? null}
+                  favoritoInicial={favoritosIds.has(r.id)}
+                  sesionActiva={!!user}
+                />
+              ))}
+              <CardVerTodo href="/citas" linea1="Ver todo de" linea2="Citas" />
+            </div>
+          </section>
 
           {/* Hospedajes: el riel que ya se anuncia pero todavía no
               tiene negocios — placeholder con la palmera de marca. */}
