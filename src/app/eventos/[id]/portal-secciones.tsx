@@ -1,4 +1,5 @@
 import Image from "next/image";
+import BotonConsultar from "@/components/boton-consultar";
 import {
   IconCheck,
   IconFacebook,
@@ -347,7 +348,7 @@ export function CierreSeccion({
   ubicacion,
   googleMaps,
   waze,
-  chatHref,
+  ranchoId,
   instagram,
   facebook,
   tiktok,
@@ -362,7 +363,7 @@ export function CierreSeccion({
   ubicacion: string;
   googleMaps: string | null;
   waze: string | null;
-  chatHref: string;
+  ranchoId: string;
   instagram: string | null;
   facebook: string | null;
   tiktok: string | null;
@@ -522,12 +523,13 @@ export function CierreSeccion({
               acuerdos a la vista.
             </p>
             <div className="mt-auto flex flex-col gap-3 pt-4">
-              <a
-                href={chatHref}
+              <BotonConsultar
+                ranchoId={ranchoId}
+                nombre={nombre}
                 className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-[13.5px] font-bold text-aventurea-navy transition-colors hover:bg-white/90"
               >
                 Preguntar por el chat
-              </a>
+              </BotonConsultar>
               {redes.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {redes.map((r) => (

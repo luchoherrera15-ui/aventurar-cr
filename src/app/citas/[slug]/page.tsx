@@ -19,6 +19,7 @@ import {
 import { cargarAgendaPro } from "../agenda-pro";
 import { linkGoogleMaps, type Rancho, type RanchoItem } from "@/app/mi-negocio/types";
 import ProveedorActual from "@/components/proveedor-actual";
+import BotonConsultar from "@/components/boton-consultar";
 
 type Miembro = {
   id: string;
@@ -278,12 +279,13 @@ export default async function NegocioCitasPage({
                 >
                   Reservar una cita
                 </a>
-                <Link
-                  href={`/mensajes/consulta/${negocio.id}`}
+                <BotonConsultar
+                  ranchoId={negocio.id}
+                  nombre={negocio.nombre}
                   className="flex items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-3 text-[14px] font-bold text-aventurea-ink hover:border-aventurea-navy"
                 >
                   <IconChatBubble className="h-4 w-4 text-aventurea-navy" /> Consultar
-                </Link>
+                </BotonConsultar>
               </div>
             </div>
           </div>

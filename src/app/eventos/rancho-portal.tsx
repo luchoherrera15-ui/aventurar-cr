@@ -119,8 +119,6 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   const fotos = Array.from(new Set(rancho.fotos ?? []));
   const amenidades = rancho.amenidades ?? [];
   const precio = fmtColones(rancho.precio_desde);
-  // La consulta previa vive en el chat de la plataforma — cero WhatsApp.
-  const chatHref = `/mensajes/consulta/${rancho.id}`;
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
@@ -685,7 +683,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         ubicacion={ubicacion}
         googleMaps={googleMaps}
         waze={waze}
-        chatHref={chatHref}
+        ranchoId={rancho.id}
         instagram={rancho.instagram}
         facebook={rancho.facebook}
         tiktok={rancho.tiktok}

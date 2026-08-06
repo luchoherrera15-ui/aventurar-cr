@@ -14,6 +14,7 @@ import {
   opcionesDeDetalles,
 } from "../tipos";
 import ProveedorActual from "@/components/proveedor-actual";
+import BotonConsultar from "@/components/boton-consultar";
 
 type Local = {
   id: string;
@@ -201,27 +202,30 @@ export default async function RestaurantePage({
             {/* Qué se puede hacer acá */}
             <div className="mt-5 flex flex-wrap gap-2.5">
               {aceptaReservaMesa && (
-                <Link
-                  href={`/mensajes/consulta/${local.id}`}
+                <BotonConsultar
+                  ranchoId={local.id}
+                  nombre={local.nombre}
                   className="rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
                 >
                   Reservar mesa
-                </Link>
+                </BotonConsultar>
               )}
               {aceptaPickup && (
-                <Link
-                  href={`/mensajes/consulta/${local.id}`}
+                <BotonConsultar
+                  ranchoId={local.id}
+                  nombre={local.nombre}
                   className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
                 >
                   Pedir para recoger
-                </Link>
+                </BotonConsultar>
               )}
-              <Link
-                href={`/mensajes/consulta/${local.id}`}
+              <BotonConsultar
+                ranchoId={local.id}
+                nombre={local.nombre}
                 className="rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
               >
                 Escribirle al restaurante
-              </Link>
+              </BotonConsultar>
               {local.contacto_whatsapp && (
                 <a
                   href={`https://wa.me/${local.contacto_whatsapp.replace(/\D/g, "")}`}

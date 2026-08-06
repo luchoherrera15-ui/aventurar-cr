@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmtColones } from "@/lib/finanzas";
 import { IconCalendarLine, IconClock, IconPin, IconStar } from "@/components/icons";
+import BotonConsultar from "@/components/boton-consultar";
 import { crearCita } from "../../actions";
 import { apuntarseListaEspera } from "../../lista-espera-actions";
 import { etiquetaMinutos, horaBonita, type HorarioSemana } from "../../tipos";
@@ -676,12 +677,13 @@ export default function ReservarCita({
             )}
             <p className="mt-4 text-[12.5px] text-aventurea-ink-soft">
               ¿Ninguna hora te sirve?{" "}
-              <Link
-                href={`/mensajes/consulta/${ranchoId}`}
+              <BotonConsultar
+                ranchoId={ranchoId}
+                nombre={nombreNegocio}
                 className="font-bold text-aventurea-navy hover:underline"
               >
                 Consultale al negocio por el chat
-              </Link>
+              </BotonConsultar>
             </p>
           </>
         ) : (

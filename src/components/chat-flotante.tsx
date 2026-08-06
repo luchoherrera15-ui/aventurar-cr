@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -24,7 +25,16 @@ import {
   type CategoriaChat,
 } from "@/lib/chat-categorias";
 import HiloChat from "@/app/mensajes/[reservaId]/hilo-chat";
-import type { Mensaje } from "@/app/mi-negocio/types";
+import {
+  CATEGORIAS,
+  CATEGORIA_LABEL,
+  SUBCATEGORIAS,
+  SUBCATEGORIA_LABEL,
+  enConfiguracion,
+  type Mensaje,
+} from "@/app/mi-negocio/types";
+import { CATEGORIAS_CITAS, CATEGORIA_CITA_LABEL } from "@/app/citas/tipos";
+import { categoriaGradiente, categoriaLabel } from "@/lib/categorias-vertical";
 import { IconChatBubble, IconChevronDown } from "./icons";
 import PreviewMensaje from "./preview-mensaje";
 
@@ -68,9 +78,20 @@ type HiloAbierto = {
   mensajes: Mensaje[];
 };
 
+/** Fila del buscador de la pestaña Explorar. */
+type NegocioExplorar = {
+  id: string;
+  nombre: string;
+  foto_url: string | null;
+  categoria: string | null;
+  subcategoria: string | null;
+  vertical: string | null;
+  canton: string | null;
+};
+
 export default function ChatFlotante() {
   const pathname = usePathname();
-  const { abierto, sinLeer } = useSyncExternalStore(
+  const { abierto, sinLeer, negocio: negocioPedido, pedido } = useSyncExternalStore(
     suscribirChatPanel,
     leerChatPanel,
     leerChatPanelServidor,
@@ -81,6 +102,12 @@ export default function ChatFlotante() {
   const [hilo, setHilo] = useState<HiloAbierto | null>(null);
   const [tabActiva, setTabActiva] = useState<CategoriaChat | null>(null);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
+  // Las dos pestañas del panel: "Chats" (la bandeja de siempre) y
+  // "Explorar" (buscar un negocio y escribirle desde acá mismo). El
+  // término vive acá arriba para que abrir un hilo y volver no borre
+  // la búsqueda.
+  const [vistaPanel, setVistaPanel] = useState<"chats" | "explorar">("chats");
+  const [terminoExplorar, setTerminoExplorar] = useState("");
   const proveedor = useSyncExternalStore(
     suscribirProveedorActual,
     leerProveedorActual,
@@ -442,13 +469,17 @@ export default function ChatFlotante() {
   const abrirContenido = useCallback(async () => {
     setSinSesion(false);
     setHilo(null);
+    setVistaPanel("chats");
     setCargandoPanel(true);
     try {
       const supabase = createClient();
       let {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user && proveedor) {
+      // Un botón "Consultar" pide un negocio explícito; si no, rige el
+      // de la página en la que se está parado.
+      const destino = negocioPedido ?? proveedor;
+      if (!user && destino) {
         const { data } = await supabase.auth.signInAnonymously();
         user = data.user;
       }
@@ -456,26 +487,30 @@ export default function ChatFlotante() {
         setSinSesion(true);
         return;
       }
-      if (proveedor) {
-        await abrirConsultaProveedor(proveedor.ranchoId, proveedor.nombre);
+      if (destino) {
+        await abrirConsultaProveedor(destino.ranchoId, destino.nombre);
       } else {
         await cargarLista();
       }
     } finally {
       setCargandoPanel(false);
     }
-  }, [proveedor, abrirConsultaProveedor, cargarLista]);
+  }, [negocioPedido, proveedor, abrirConsultaProveedor, cargarLista]);
 
   // El panel lo puede abrir el ícono del header (otro árbol de
-  // componentes) o la burbuja propia de esta página — cualquiera que
-  // sea, cuando `abierto` pasa de false a true toca cargar contenido.
+  // componentes), la burbuja propia de esta página, o un botón
+  // "Consultar" pidiendo un negocio puntual. `pedido` sube en cada
+  // pedido nuevo para poder reabrir en OTRO negocio con el panel ya
+  // abierto — sin eso, `abierto` no cambiaría y este efecto no correría.
   const yaAbiertoRef = useRef(false);
+  const pedidoRef = useRef(pedido);
   useEffect(() => {
-    if (abierto && !yaAbiertoRef.current) {
+    if (abierto && (!yaAbiertoRef.current || pedido !== pedidoRef.current)) {
       void abrirContenido();
     }
     yaAbiertoRef.current = abierto;
-  }, [abierto, abrirContenido]);
+    pedidoRef.current = pedido;
+  }, [abierto, pedido, abrirContenido]);
 
   const categoriasConDatos = useMemo(() => {
     const presentes = new Set(filas.map((f) => f.categoria));
@@ -507,38 +542,79 @@ export default function ChatFlotante() {
           className="anim-panel-entrar fixed bottom-20 right-4 z-50 flex h-[480px] max-h-[calc(100dvh-100px)] w-[360px] max-w-[calc(100vw-28px)] flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_18px_50px_rgba(16,26,44,0.28)] lg:bottom-6 lg:right-6"
         >
           {/* Cabecera navy, como los chats de soporte en vivo. */}
-          <div className="flex items-center gap-2.5 bg-aventurea-navy px-4 py-3 text-white">
-            {hilo && !proveedor && (
+          <div className="shrink-0 bg-aventurea-navy text-white">
+            <div className="flex items-center gap-2.5 px-4 py-3">
+              {hilo && !proveedor && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHilo(null);
+                    // Volver te deja donde estabas: la bandeja se
+                    // refresca; la búsqueda de Explorar se recarga sola
+                    // al montarse con el término que ya tenía.
+                    if (vistaPanel === "chats") cargarLista();
+                  }}
+                  aria-label={
+                    vistaPanel === "explorar"
+                      ? "Volver a la búsqueda"
+                      : "Volver a tus conversaciones"
+                  }
+                  className="-ml-1 rounded-full p-1 hover:bg-white/10"
+                >
+                  ←
+                </button>
+              )}
+              <p className="min-w-0 flex-1 truncate text-[14px] font-bold">
+                {hilo ? hilo.titulo : "Mensajes"}
+              </p>
+              <Link
+                href="/mensajes"
+                onClick={() => cerrarChatPanel()}
+                className="shrink-0 text-[11.5px] font-bold text-white/70 hover:text-white"
+              >
+                Ver todo
+              </Link>
               <button
                 type="button"
-                onClick={() => {
-                  setHilo(null);
-                  cargarLista();
-                }}
-                aria-label="Volver a tus conversaciones"
-                className="-ml-1 rounded-full p-1 hover:bg-white/10"
+                onClick={() => cerrarChatPanel()}
+                aria-label="Cerrar el chat"
+                className="shrink-0 rounded-full p-1 text-[16px] leading-none hover:bg-white/10"
               >
-                ←
+                ×
               </button>
+            </div>
+
+            {/* Las pestañas del panel (chips rectangulares, nada de
+                píldoras): se esconden con un hilo abierto para no
+                robarle alto a la conversación. */}
+            {!cargandoPanel && !sinSesion && !hilo && (
+              <div className="flex gap-1.5 px-3 pb-2.5" role="tablist" aria-label="Secciones del chat">
+                {(
+                  [
+                    ["chats", "Chats"],
+                    ["explorar", "Explorar"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={vistaPanel === id}
+                    onClick={() => {
+                      setVistaPanel(id);
+                      if (id === "chats") void cargarLista();
+                    }}
+                    className={`rounded-lg px-3.5 py-1.5 text-[12px] font-bold transition-colors ${
+                      vistaPanel === id
+                        ? "bg-white/15 text-white"
+                        : "text-white/60 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             )}
-            <p className="min-w-0 flex-1 truncate text-[14px] font-bold">
-              {hilo ? hilo.titulo : "Mensajes"}
-            </p>
-            <Link
-              href="/mensajes"
-              onClick={() => cerrarChatPanel()}
-              className="shrink-0 text-[11.5px] font-bold text-white/70 hover:text-white"
-            >
-              Ver todo
-            </Link>
-            <button
-              type="button"
-              onClick={() => cerrarChatPanel()}
-              aria-label="Cerrar el chat"
-              className="shrink-0 rounded-full p-1 text-[16px] leading-none hover:bg-white/10"
-            >
-              ×
-            </button>
           </div>
 
           {cargandoPanel ? (
@@ -566,12 +642,25 @@ export default function ChatFlotante() {
                 mensajesIniciales={hilo.mensajes}
               />
             </div>
+          ) : vistaPanel === "explorar" ? (
+            <VistaExplorar
+              termino={terminoExplorar}
+              onCambiarTermino={setTerminoExplorar}
+              onAbrirNegocio={abrirConsultaProveedor}
+            />
           ) : filas.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center">
-              <p className="px-6 text-center text-[13px] text-aventurea-ink-soft">
-                Todavía no tenés conversaciones. Entrá a la página de un
-                negocio y escribile desde esta misma burbuja.
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-[13px] text-aventurea-ink-soft">
+                Todavía no tenés conversaciones. Buscá un negocio en la
+                pestaña Explorar y escribile desde acá mismo.
               </p>
+              <button
+                type="button"
+                onClick={() => setVistaPanel("explorar")}
+                className="rounded-xl bg-aventurea-sky px-4 py-2 text-[12.5px] font-bold text-white hover:opacity-90"
+              >
+                Explorar negocios
+              </button>
             </div>
           ) : (
             <div className="flex flex-1 flex-col overflow-hidden">
@@ -726,5 +815,219 @@ export default function ChatFlotante() {
         </button>
       )}
     </>
+  );
+}
+
+/** "Discomóvil" → "discomovil": para comparar sin pelearse con tildes. */
+function normalizarTexto(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Qué categorías y subcategorías "significan" lo que escribió el
+ * usuario: "dj" no es el nombre de ningún negocio, pero sí está en el
+ * label "DJ y discomóvil" (subcategoría de Eventos); "uñas" está en
+ * "Uñas" (categoría de Citas). Se comparan los labels normalizados y
+ * se devuelven los ids, que es lo que guarda la tabla ranchos.
+ */
+function idsPorLabel(termino: string): { categorias: string[]; subcategorias: string[] } {
+  const t = normalizarTexto(termino);
+  const categorias = new Set<string>();
+  const subcategorias = new Set<string>();
+  for (const c of CATEGORIAS) {
+    if (normalizarTexto(CATEGORIA_LABEL[c]).includes(t)) categorias.add(c);
+  }
+  for (const lista of Object.values(SUBCATEGORIAS)) {
+    for (const s of lista) {
+      if (normalizarTexto(s.label).includes(t)) subcategorias.add(s.id);
+    }
+  }
+  for (const c of CATEGORIAS_CITAS) {
+    if (normalizarTexto(CATEGORIA_CITA_LABEL[c]).includes(t)) categorias.add(c);
+  }
+  return { categorias: [...categorias], subcategorias: [...subcategorias] };
+}
+
+/**
+ * La consulta de la pestaña Explorar. Con término (2+ letras) busca
+ * por nombre y por rubro; sin término trae las sugerencias (destacados
+ * primero, después los más nuevos). Siempre se filtran los negocios
+ * en configuración (pausados por su dueño) y los propios del usuario.
+ */
+async function buscarNegocios(termino: string): Promise<NegocioExplorar[]> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // La coma y los paréntesis rompen la gramática del .or() de
+  // PostgREST — se cambian por espacio antes de armar el filtro.
+  const limpio = termino.replace(/[,()]/g, " ").replace(/\s+/g, " ").trim();
+  const esBusqueda = limpio.length >= 2;
+
+  let query = supabase
+    .from("ranchos")
+    .select("id, nombre, foto_url, categoria, subcategoria, vertical, canton, owner_id, detalles")
+    .eq("estado", "aprobado");
+
+  if (esBusqueda) {
+    const norm = normalizarTexto(limpio);
+    const { categorias, subcategorias } = idsPorLabel(limpio);
+    // El nombre se busca tal cual Y sin tildes: "Café" aparece si
+    // escribís "Café", y "decoración" encuentra rubros aunque el
+    // usuario escriba "decoracion".
+    const partes = [`nombre.ilike.%${limpio}%`];
+    if (norm !== limpio.toLowerCase()) partes.push(`nombre.ilike.%${norm}%`);
+    if (categorias.length > 0) partes.push(`categoria.in.(${categorias.join(",")})`);
+    if (subcategorias.length > 0) partes.push(`subcategoria.in.(${subcategorias.join(",")})`);
+    query = query.or(partes.join(",")).limit(12);
+  } else {
+    query = query
+      .order("destacado_orden", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(12);
+  }
+
+  const { data } = await query;
+  const filas = (data ?? []) as (NegocioExplorar & {
+    owner_id: string | null;
+    detalles: Record<string, unknown> | null;
+  })[];
+
+  return filas
+    .filter((r) => !enConfiguracion(r.detalles) && (!user || r.owner_id !== user.id))
+    .slice(0, esBusqueda ? 12 : 8);
+}
+
+/**
+ * La pestaña "Explorar": buscar un negocio por nombre o por rubro y
+ * escribirle sin salir de la burbuja. El término vive en el padre para
+ * sobrevivir el ida y vuelta al hilo; los resultados se recargan solos
+ * al montar (por eso la consulta recién se dispara al abrir esta
+ * pestaña, no al montar la burbuja).
+ */
+function VistaExplorar({
+  termino,
+  onCambiarTermino,
+  onAbrirNegocio,
+}: {
+  termino: string;
+  onCambiarTermino: (t: string) => void;
+  onAbrirNegocio: (ranchoId: string, nombre: string) => Promise<void>;
+}) {
+  const [resultados, setResultados] = useState<NegocioExplorar[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [abriendo, setAbriendo] = useState<string | null>(null);
+  // Descarta respuestas viejas si el usuario siguió escribiendo.
+  const secuenciaRef = useRef(0);
+
+  const esBusqueda = termino.trim().length >= 2;
+
+  useEffect(() => {
+    const seq = ++secuenciaRef.current;
+    // Debounce de ~300ms: mientras se teclea, la lista anterior queda
+    // en pantalla en vez de parpadear a "buscando".
+    const timer = setTimeout(async () => {
+      setCargando(true);
+      const datos = await buscarNegocios(termino);
+      if (secuenciaRef.current !== seq) return;
+      setResultados(datos);
+      setCargando(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [termino]);
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-aventurea-line px-3 py-2.5">
+        <input
+          type="search"
+          value={termino}
+          onChange={(e) => onCambiarTermino(e.target.value)}
+          placeholder="Buscá un negocio o servicio — ej. DJ, uñas, catering"
+          aria-label="Buscar un negocio o servicio"
+          className="w-full rounded-xl border border-aventurea-line bg-aventurea-cream-2/60 px-3.5 py-2.5 text-[13px] text-aventurea-ink outline-none placeholder:text-aventurea-ink-soft/70 focus:border-aventurea-sky"
+        />
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {cargando ? (
+          <p className="mt-10 px-6 text-center text-[13px] text-aventurea-ink-soft">
+            Buscando negocios...
+          </p>
+        ) : resultados.length === 0 ? (
+          <p className="mt-10 px-6 text-center text-[13px] text-aventurea-ink-soft">
+            {esBusqueda
+              ? `No encontramos negocios para "${termino.trim()}". Probá con otra palabra — ej. DJ, uñas o catering.`
+              : "Todavía no hay negocios para sugerirte."}
+          </p>
+        ) : (
+          <>
+            {!esBusqueda && (
+              <p className="px-4 pb-1 pt-3 text-[11px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
+                Negocios en Bookea
+              </p>
+            )}
+            {resultados.map((r) => {
+              const rubro =
+                (r.subcategoria && SUBCATEGORIA_LABEL[r.subcategoria]) ||
+                categoriaLabel(r.vertical ?? "eventos", r.categoria ?? "");
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={async () => {
+                    setAbriendo(r.id);
+                    await onAbrirNegocio(r.id, r.nombre);
+                    setAbriendo(null);
+                  }}
+                  disabled={abriendo !== null}
+                  className="flex w-full items-center gap-3 border-b border-aventurea-line/60 px-4 py-3 text-left hover:bg-aventurea-cream-2/60 disabled:opacity-60"
+                >
+                  {r.foto_url ? (
+                    <Image
+                      src={r.foto_url}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[15px] font-extrabold text-white/90"
+                      style={{
+                        backgroundImage: categoriaGradiente(
+                          r.vertical ?? "eventos",
+                          r.categoria ?? "otros",
+                        ),
+                      }}
+                    >
+                      {r.nombre.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] font-bold text-aventurea-ink">
+                      {r.nombre}
+                    </span>
+                    <span className="block truncate text-[12px] text-aventurea-ink-soft">
+                      {rubro}
+                      {r.canton ? ` · ${r.canton}` : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[12px] font-extrabold text-aventurea-orange">
+                    {abriendo === r.id ? "Abriendo..." : "Escribir →"}
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        )}
+      </div>
+    </div>
   );
 }

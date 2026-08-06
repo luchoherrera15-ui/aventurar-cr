@@ -9,9 +9,22 @@
  * mismo motivo y misma forma que `src/lib/proveedor-actual.ts`.
  */
 
-export type EstadoChatPanel = { abierto: boolean; sinLeer: number };
+/** El negocio con el que abrir el hilo directo (lo pide un botón
+ *  "Consultar"). */
+export type NegocioPedido = { ranchoId: string; nombre: string };
 
-let estado: EstadoChatPanel = { abierto: false, sinLeer: 0 };
+export type EstadoChatPanel = {
+  abierto: boolean;
+  sinLeer: number;
+  /** Negocio pedido por el último `abrirChatConNegocio`, si lo hubo. */
+  negocio: NegocioPedido | null;
+  /** Sube en cada pedido: deja reabrir el hilo aunque el panel YA
+   *  estuviera abierto (si no, el efecto que carga el contenido no se
+   *  entera porque `abierto` no cambió de valor). */
+  pedido: number;
+};
+
+let estado: EstadoChatPanel = { abierto: false, sinLeer: 0, negocio: null, pedido: 0 };
 const suscriptores = new Set<() => void>();
 
 function avisar() {
@@ -19,17 +32,27 @@ function avisar() {
 }
 
 export function abrirChatPanel() {
-  estado = { ...estado, abierto: true };
+  estado = { ...estado, abierto: true, negocio: null };
+  avisar();
+}
+
+/**
+ * Abre el panel derecho en el hilo con ESE negocio — lo que usan los
+ * botones "Consultar" / "Escribinos" de las páginas públicas, para no
+ * mandar a nadie a una pantalla de chat aparte.
+ */
+export function abrirChatConNegocio(negocio: NegocioPedido) {
+  estado = { ...estado, abierto: true, negocio, pedido: estado.pedido + 1 };
   avisar();
 }
 
 export function cerrarChatPanel() {
-  estado = { ...estado, abierto: false };
+  estado = { ...estado, abierto: false, negocio: null };
   avisar();
 }
 
 export function alternarChatPanel() {
-  estado = { ...estado, abierto: !estado.abierto };
+  estado = { ...estado, abierto: !estado.abierto, negocio: null };
   avisar();
 }
 
@@ -42,9 +65,18 @@ export function leerChatPanel() {
   return estado;
 }
 
-/** En el servidor no hay panel abierto ni contador. */
+/** En el servidor no hay panel abierto ni contador. Referencia estable:
+ *  useSyncExternalStore compara por identidad y un objeto nuevo en cada
+ *  llamada lo haría loopear. */
+const ESTADO_SERVIDOR: EstadoChatPanel = {
+  abierto: false,
+  sinLeer: 0,
+  negocio: null,
+  pedido: 0,
+};
+
 export function leerChatPanelServidor(): EstadoChatPanel {
-  return { abierto: false, sinLeer: 0 };
+  return ESTADO_SERVIDOR;
 }
 
 export function suscribirChatPanel(avisar: () => void) {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
+import BotonConsultar from "@/components/boton-consultar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -878,12 +879,13 @@ function CardResultado({
         >
           Ver perfil
         </Link>
-        <Link
-          href={`/mensajes/consulta/${rancho.id}`}
+        <BotonConsultar
+          ranchoId={rancho.id}
+          nombre={rancho.nombre}
           className="flex h-8 flex-1 items-center justify-center rounded-xl bg-aventurea-sky px-3 text-[12px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
         >
           Pedir cotización
-        </Link>
+        </BotonConsultar>
         <CorazonFavorito ranchoId={rancho.id} inicial={favoritoInicial} sesionActiva={sesionActiva} />
       </div>
     </article>
