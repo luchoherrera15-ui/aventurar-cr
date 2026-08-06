@@ -2,9 +2,14 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { entrarComoDemo } from "./acciones-demo";
 
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TELEFONO_REGEX = /^[0-9+\s-]{8,16}$/;
+// Las cuentas de prueba (*.demo@bookea.lat) no tienen buzón real:
+// entran con un código fijo validado en el servidor (acciones-demo.ts)
+// en vez del OTP por correo.
+const DEMO_REGEX = /\.demo@bookea\.lat$/;
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-sm text-aventurea-ink placeholder:text-zinc-500";
@@ -63,6 +68,7 @@ export default function FormularioCodigoAcceso({
   const [comprobando, setComprobando] = useState(false);
 
   const correoLimpio = email.trim().toLowerCase();
+  const esCuentaDemo = DEMO_REGEX.test(correoLimpio);
   const pideNombreAhora = pedirNombre || (pedirNombreSiNuevo && correoEsNuevo === true);
   const botonCls = `mt-1 flex h-11 items-center justify-center rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-60 ${
     acento === "orange"
@@ -77,6 +83,14 @@ export default function FormularioCodigoAcceso({
     setError(null);
     if (!CORREO_REGEX.test(correoLimpio)) {
       setError("Ese correo no parece válido.");
+      return;
+    }
+
+    // Cuenta demo: no hay buzón que reciba nada — se salta el envío y
+    // se va directo a la pantalla del código (el fijo de prueba).
+    if (esCuentaDemo) {
+      setCodigo("");
+      setPaso("codigo");
       return;
     }
 
@@ -146,6 +160,21 @@ export default function FormularioCodigoAcceso({
       setError("El código tiene 6 dígitos.");
       return;
     }
+
+    // Cuenta demo: el código fijo se valida en el servidor, que entra
+    // con la contraseña interna (nunca llega al navegador).
+    if (esCuentaDemo) {
+      setPendiente(true);
+      const res = await entrarComoDemo(correoLimpio, codigoLimpio);
+      if (res.error) {
+        setPendiente(false);
+        setError(res.error);
+        return;
+      }
+      window.location.href = destino;
+      return;
+    }
+
     setPendiente(true);
     const supabase = createClient();
     const { data, error } = await supabase.auth.verifyOtp({
@@ -280,11 +309,18 @@ export default function FormularioCodigoAcceso({
   if (paso === "codigo") {
     return (
       <form onSubmit={verificarCodigo} className="mt-5.5 flex flex-col gap-3.5">
-        <p className="text-[13px] leading-relaxed text-aventurea-ink-soft">
-          Te mandamos un código de 6 dígitos a{" "}
-          <strong className="text-aventurea-ink">{correoLimpio}</strong>. Puede
-          tardar un momento — revisá spam si no aparece.
-        </p>
+        {esCuentaDemo ? (
+          <p className="rounded-lg bg-aventurea-sky/10 px-3 py-2.5 text-[13px] leading-relaxed text-aventurea-ink">
+            <strong>{correoLimpio}</strong> es una cuenta de prueba: entrá con
+            el código de test <strong>123456</strong>.
+          </p>
+        ) : (
+          <p className="text-[13px] leading-relaxed text-aventurea-ink-soft">
+            Te mandamos un código de 6 dígitos a{" "}
+            <strong className="text-aventurea-ink">{correoLimpio}</strong>. Puede
+            tardar un momento — revisá spam si no aparece.
+          </p>
+        )}
         <div>
           <label className={labelCls}>Código de 6 dígitos</label>
           <input
