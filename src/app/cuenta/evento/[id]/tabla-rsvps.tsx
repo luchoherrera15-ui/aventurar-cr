@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import BotonCopiar from "@/components/boton-copiar";
+import { BotonImprimir, EncabezadoImpresion, PieImpresion } from "@/components/imprimir";
 import BotonBorrarRsvp from "./boton-borrar-rsvp";
 
 export type RsvpFila = {
@@ -95,13 +96,18 @@ export default function TablaRsvps({
 
   return (
     <div className="tabla-rsvps mt-5">
-      {/* El título solo sale en el papel: en pantalla ya está arriba. */}
-      <p className="solo-imprimir mb-2 text-[15px] font-bold text-aventurea-ink">
-        {nombreEvento} — lista de confirmaciones
-      </p>
+      {/* El membrete Bookea solo sale en el papel: en pantalla el
+          título ya está arriba y los chips hacen de resumen. */}
+      <EncabezadoImpresion
+        titulo={nombreEvento}
+        invitaciones={rsvps.length}
+        asistiran={asistiran.length}
+        noAsistiran={noVienen.length}
+        personas={totalPersonas}
+      />
 
       {/* Los chips: son resumen Y filtro a la vez. */}
-      <div className="chips-resumen flex flex-wrap gap-2">
+      <div className="sin-imprimir flex flex-wrap gap-2">
         <button type="button" onClick={() => setFiltro("todas")} className={chip(filtro === "todas")}>
           <span className="text-[15px] font-extrabold tabular-nums">{rsvps.length}</span>
           Invitaciones
@@ -140,13 +146,7 @@ export default function TablaRsvps({
           className="min-w-[200px] flex-1 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500"
         />
         {correosVisibles && <BotonCopiar texto={correosVisibles} etiqueta="Copiar correos" />}
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="rounded-xl border border-aventurea-navy px-4 py-2.5 text-[13px] font-bold text-aventurea-navy transition-colors hover:bg-aventurea-navy hover:text-white"
-        >
-          Imprimir / PDF
-        </button>
+        <BotonImprimir />
       </div>
 
       {visibles.length === 0 ? (
@@ -278,10 +278,12 @@ export default function TablaRsvps({
         </div>
       )}
 
-      <p className="mt-2 text-[12px] leading-relaxed text-aventurea-ink-soft">
+      <p className="sin-imprimir mt-2 text-[12px] leading-relaxed text-aventurea-ink-soft">
         El total cuenta a cada confirmado con sus acompañantes — es el número que le podés
         dar al catering y al lugar.
       </p>
+
+      <PieImpresion />
     </div>
   );
 }

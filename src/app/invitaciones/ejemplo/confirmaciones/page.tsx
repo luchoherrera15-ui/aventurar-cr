@@ -3,6 +3,7 @@ import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { IconCamera, IconUsers } from "@/components/icons";
+import { BotonImprimir, EncabezadoImpresion, PieImpresion } from "@/components/imprimir";
 
 export const metadata: Metadata = {
   title: "Ejemplo: el panel de confirmaciones",
@@ -82,14 +83,27 @@ export default function EjemploConfirmacionesPage() {
           </p>
         </section>
 
-        {/* Confirmaciones */}
-        <section className="mt-4 rounded-2xl border border-aventurea-line bg-white p-6">
-          <h2 className="flex items-center gap-2 text-[15px] font-bold text-aventurea-ink">
-            <IconUsers className="h-4.5 w-4.5 text-aventurea-orange" /> Confirmaciones
-          </h2>
+        {/* Confirmaciones — el div .tabla-rsvps es lo único que va al
+            papel con "Imprimir / PDF", con el mismo membrete Bookea del
+            panel real. */}
+        <section className="tabla-rsvps mt-4 rounded-2xl border border-aventurea-line bg-white p-6">
+          <EncabezadoImpresion
+            titulo="Boda de María Jesús & Luis"
+            invitaciones={FILAS.length}
+            asistiran={ASISTIRAN.length}
+            noAsistiran={NO_VAN.length}
+            personas={TOTAL}
+          />
+
+          <div className="sin-imprimir flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-[15px] font-bold text-aventurea-ink">
+              <IconUsers className="h-4.5 w-4.5 text-aventurea-orange" /> Confirmaciones
+            </h2>
+            <BotonImprimir />
+          </div>
 
           {/* Los mismos chips de resumen del panel real */}
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="sin-imprimir mt-4 flex flex-wrap gap-2">
             <span className="flex items-center gap-2 rounded-xl border border-aventurea-navy bg-aventurea-navy px-3.5 py-2 text-[12.5px] font-bold text-white">
               <span className="text-[15px] font-extrabold tabular-nums">{FILAS.length}</span>
               Invitaciones
@@ -184,11 +198,13 @@ export default function EjemploConfirmacionesPage() {
             </table>
           </div>
 
-          <p className="mt-2 text-[12px] leading-relaxed text-aventurea-ink-soft">
+          <p className="sin-imprimir mt-2 text-[12px] leading-relaxed text-aventurea-ink-soft">
             El total cuenta a cada confirmado con sus acompañantes — es el número que le
             podés dar al catering y al lugar. En tu panel podés buscar por nombre,
-            filtrar y sacarlo en PDF con un botón.
+            filtrar y sacarlo en PDF con un botón — probalo acá mismo.
           </p>
+
+          <PieImpresion />
         </section>
 
         {/* El álbum */}

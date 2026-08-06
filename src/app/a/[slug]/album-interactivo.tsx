@@ -2,24 +2,26 @@
 
 import { useState } from "react";
 import { conAlfa, type Paleta } from "@/lib/invitaciones/paleta";
+import { IconCamera } from "@/components/icons";
 import Descargas from "./descargas";
 import Galeria, { type FotoAlbum } from "./galeria";
 import SubirFotos from "./subir-fotos";
 
 /**
- * Todo lo interactivo del álbum: la barra de arriba (subir + descargar)
- * y la grilla debajo.
+ * Todo lo interactivo del álbum, ahora en piezas flotantes (pedido del
+ * dueño, a la manera de las galerías de eventos):
  *
- * Existe por una sola razón — que la barra y la grilla necesitan
- * COMPARTIR la selección de fotos: tocar una foto en la grilla la
- * marca, y eso tiene que verse reflejado en el botón "Descargar N
- * fotos" de la barra. Antes ese estado vivía adentro de la grilla, con
- * los controles de descarga pegados al lado; para poder subirlos
- * arriba sin que dejen de hablarse, el estado tuvo que subir un nivel,
- * a este componente, que es el padre común de los dos.
+ * - La BURBUJA "Subí tus fotos" abajo a la derecha, siempre a mano por
+ *   largo que sea el álbum. Abre el modal de pasos (subir-fotos.tsx).
+ * - El menú de tres puntitos arriba a la derecha con las descargas
+ *   (descargas.tsx), también fijo.
+ * - La grilla en el medio, limpia — ya no hay cajones de controles
+ *   empujando las fotos hacia abajo.
  *
- * "Subir fotos" va en esta misma barra por el pedido de siempre: que no
- * haga falta bajar todo el álbum para poder aportar una foto.
+ * Este componente existe porque la barra y la grilla COMPARTEN la
+ * selección de fotos: tocar una foto la marca y el botón "Descargar N"
+ * de la barra tiene que enterarse. El estado vive acá, en el padre
+ * común.
  */
 export default function AlbumInteractivo({
   albumId,
@@ -40,6 +42,7 @@ export default function AlbumInteractivo({
 }) {
   const [eligiendo, setEligiendo] = useState(false);
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  const [subiendo, setSubiendo] = useState(false);
 
   function alternar(id: string) {
     setSeleccion((prev) => {
@@ -57,30 +60,18 @@ export default function AlbumInteractivo({
 
   return (
     <>
-      {/* La barra: "Subí tus fotos" a la izquierda, "Descargar" a la
-          derecha. En pantalla angosta se apilan en ese mismo orden —
-          subir primero, que es la acción que trae gente nueva al
-          álbum — en vez de ponerlas lado a lado apretadas. */}
-      <div className="mt-8 flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-        <SubirFotos
-          albumId={albumId}
-          fotosActuales={fotos.length}
-          claseSerif={claseSerif}
+      {fotos.length > 0 && (
+        <Descargas
+          slug={slug}
+          totalFotos={fotos.length}
           paleta={paleta}
+          eligiendo={eligiendo}
+          seleccion={seleccion}
+          onIniciar={() => setEligiendo(true)}
+          onCancelar={cancelarSeleccion}
+          onElegirTodas={() => setSeleccion(new Set(fotos.map((f) => f.id)))}
         />
-        {fotos.length > 0 && (
-          <Descargas
-            slug={slug}
-            totalFotos={fotos.length}
-            paleta={paleta}
-            eligiendo={eligiendo}
-            seleccion={seleccion}
-            onIniciar={() => setEligiendo(true)}
-            onCancelar={cancelarSeleccion}
-            onElegirTodas={() => setSeleccion(new Set(fotos.map((f) => f.id)))}
-          />
-        )}
-      </div>
+      )}
 
       {fotos.length === 0 ? (
         <p
@@ -101,6 +92,58 @@ export default function AlbumInteractivo({
           seleccion={seleccion}
           onToggle={alternar}
         />
+      )}
+
+      {/* La burbuja para subir — se esconde mientras se están
+          eligiendo fotos, porque abajo está la barra de descarga. */}
+      {!eligiendo && (
+        <button
+          type="button"
+          onClick={() => setSubiendo(true)}
+          className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 rounded-full py-3.5 pl-4 pr-5 text-[14px] font-bold shadow-xl transition-transform hover:scale-[1.04] sm:bottom-6 sm:right-6"
+          style={{ background: paleta.acento, color: paleta.fondo }}
+        >
+          <IconCamera className="h-4.5 w-4.5" /> Subí tus fotos
+        </button>
+      )}
+
+      {/* El modal de pasos, sobre un velo que atenúa el álbum. */}
+      {subiendo && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Añadí al álbum"
+        >
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => setSubiendo(false)}
+            className="anim-velo-entrar absolute inset-0 cursor-default"
+            style={{ background: conAlfa(paleta.tinta, 0.45) }}
+          />
+          <div
+            className="anim-panel-entrar relative max-h-[88svh] w-full max-w-[420px] overflow-y-auto rounded-3xl p-6 shadow-2xl sm:p-7"
+            style={{ background: paleta.fondo, color: paleta.tinta }}
+          >
+            <button
+              type="button"
+              onClick={() => setSubiendo(false)}
+              aria-label="Cerrar"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-[17px] font-bold transition-colors"
+              style={{ background: conAlfa(paleta.tinta, 0.07), color: conAlfa(paleta.tinta, 0.7) }}
+            >
+              ✕
+            </button>
+            <SubirFotos
+              albumId={albumId}
+              fotosActuales={fotos.length}
+              claseSerif={claseSerif}
+              paleta={paleta}
+              onCerrar={() => setSubiendo(false)}
+            />
+          </div>
+        </div>
       )}
     </>
   );

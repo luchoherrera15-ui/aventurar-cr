@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cormorant_Garamond } from "next/font/google";
@@ -10,6 +11,7 @@ import {
   type Paleta,
 } from "@/lib/invitaciones/paleta";
 import AlbumInteractivo from "./album-interactivo";
+import VeloCarga from "./velo-carga";
 import type { FotoAlbum } from "./galeria";
 
 // La serif elegante del álbum ("Boda Mich & Dani") — solo esta página
@@ -118,12 +120,48 @@ export default async function AlbumPage({
   // directo, sin firmar nada.
   const baseFotos = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/albumes/`;
 
+  // La portada: la PRIMERA foto que se subió (las fotos vienen de la
+  // más nueva a la más vieja) — suele ser la del anfitrión, no la
+  // última ocurrencia de un invitado a las 2 a. m.
+  const portada = fotos.length > 0 ? fotos[fotos.length - 1] : null;
+
   return (
     <main
       className="flex min-h-svh flex-col"
       style={{ background: paleta.fondo, color: paleta.tinta }}
     >
-      <div className="mx-auto w-full max-w-[1080px] flex-1 px-5 pb-16 pt-14 sm:px-8">
+      {/* El velo de carga: primero "Cargando… %", y el álbum aparece
+          entero de una sola vez (las primeras fotos ya en caché). */}
+      <VeloCarga
+        urls={fotos.slice(0, 12).map((f) => `${baseFotos}${f.path}`)}
+        titulo={album.titulo}
+        paleta={paleta}
+        claseSerif={cormorant.className}
+      />
+
+      {/* La portada, de borde a borde, fundiéndose con el fondo. */}
+      {portada && (
+        <div className="relative h-[42svh] min-h-[280px] w-full sm:h-[52svh]">
+          <Image
+            src={`${baseFotos}${portada.path}`}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(to bottom, ${conAlfa(paleta.tinta, 0.22)}, transparent 38%, ${conAlfa(paleta.fondo, 0)} 62%, ${paleta.fondo} 97%)`,
+            }}
+          />
+        </div>
+      )}
+
+      <div
+        className={`mx-auto w-full max-w-[1080px] flex-1 px-5 pb-16 sm:px-8 ${portada ? "pt-6" : "pt-14"}`}
+      >
         {/* Cabecera: la serif itálica en grande, como un álbum impreso. */}
         <header className="text-center">
           <p

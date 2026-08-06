@@ -13,12 +13,12 @@ const MAX_POR_TANDA = 10;
 const MAX_FOTOS_ALBUM = 500;
 
 /**
- * "Subí tus fotos del evento": el bloque para invitados, arriba del
- * álbum (junto a "Descargar", ver album-interactivo.tsx) — para que
- * subir una foto no obligue a bajar toda la grilla primero. Sin
- * cuenta — la llave anónima puede subir al bucket público y anotar la
- * fila mientras el álbum esté activo (RLS de 0068). Al terminar
- * refresca la página y las fotos nuevas aparecen arriba de la grilla.
+ * "Añadí al álbum", el contenido del modal que abre la burbuja
+ * flotante (ver album-interactivo.tsx): tres pasos numerados — nombre,
+ * fotos, subir — para que hasta la tía menos tecnológica sepa qué
+ * sigue. Sin cuenta — la llave anónima puede subir al bucket público y
+ * anotar la fila mientras el álbum esté activo (RLS de 0068). Al
+ * terminar refresca la página y las fotos nuevas entran a la grilla.
  *
  * Junto a cada foto se guarda la LLAVE que permite quitarla después
  * (0089): el hash de un token que se queda en este navegador. El token
@@ -29,6 +29,7 @@ export default function SubirFotos({
   fotosActuales,
   claseSerif,
   paleta,
+  onCerrar,
 }: {
   albumId: string;
   fotosActuales: number;
@@ -36,6 +37,8 @@ export default function SubirFotos({
   claseSerif: string;
   /** Los colores heredados de la invitación (0089). */
   paleta: Paleta;
+  /** Cierra el modal que envuelve este formulario. */
+  onCerrar: () => void;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -139,27 +142,31 @@ export default function SubirFotos({
     router.refresh();
   }
 
-  return (
-    <section
-      className="w-full rounded-2xl border p-4 text-left sm:max-w-md sm:flex-1"
-      style={{
-        borderColor: conAlfa(paleta.tinta, 0.15),
-        background: conAlfa(paleta.fondo, 0.7),
-      }}
+  /** El circulito numerado de cada paso. */
+  const numero = (n: number) => (
+    <span
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold"
+      style={{ background: paleta.acento, color: paleta.fondo }}
     >
-      <h2 className={`${claseSerif} text-[19px] font-semibold italic`}>
-        Subí tus fotos
+      {n}
+    </span>
+  );
+
+  return (
+    <div className="text-left">
+      <h2 className={`${claseSerif} text-center text-[26px] font-semibold italic`}>
+        Añadí al álbum
       </h2>
       <p
-        className="mt-1 text-[12.5px] leading-snug"
+        className="mt-1 text-center text-[13px] leading-snug"
         style={{ color: conAlfa(paleta.tinta, 0.6) }}
       >
-        Sin cuentas: elegí hasta {MAX_POR_TANDA} y quedan en el álbum para todos.
+        Compartí tus recuerdos — quedan en el álbum para todos.
       </p>
 
       {albumLleno ? (
         <p
-          className="mt-3 rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold"
+          className="mt-5 rounded-xl px-4 py-3 text-center text-[13px] font-semibold"
           style={{
             background: conAlfa(paleta.tinta, 0.05),
             color: conAlfa(paleta.tinta, 0.7),
@@ -167,52 +174,90 @@ export default function SubirFotos({
         >
           El álbum llegó a su tope de {MAX_FOTOS_ALBUM} fotos. ¡Gracias por tanto recuerdo!
         </p>
-      ) : (
-        <div className="mt-3 grid gap-2.5">
-          <label
-            htmlFor="album-fotos"
-            className="cursor-pointer rounded-xl border-2 border-dashed px-3.5 py-4 text-center text-[13px] font-bold transition-colors"
-            style={{
-              borderColor: conAlfa(paleta.tinta, 0.25),
-              color: conAlfa(paleta.tinta, 0.7),
-            }}
+      ) : listo ? (
+        <div className="mt-6 text-center">
+          <p
+            className="rounded-xl px-4 py-3 text-[13.5px] font-semibold"
+            style={{ background: conAlfa(paleta.tinta, 0.05), color: paleta.tinta }}
           >
-            {elegidas.length > 0
-              ? `${elegidas.length} foto${elegidas.length === 1 ? "" : "s"} elegida${elegidas.length === 1 ? "" : "s"} — tocá para cambiar`
-              : "Tocá acá para elegir tus fotos"}
-            <input
-              ref={inputRef}
-              id="album-fotos"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={elegir}
-              className="sr-only"
-            />
-          </label>
-
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+            ¡Listo! Tus fotos ya son parte del álbum.
+          </p>
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="mt-4 rounded-xl px-6 py-2.5 text-[13.5px] font-bold transition-opacity hover:opacity-90"
+            style={{ background: paleta.acento, color: paleta.fondo }}
+          >
+            Ver el álbum
+          </button>
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-5">
+          {/* Paso 1: quién sube */}
+          <div>
+            <p className="flex items-center gap-2.5 text-[13.5px] font-bold">
+              {numero(1)} Tu nombre <span className="font-normal opacity-60">(opcional)</span>
+            </p>
             <input
               id="album-autor"
               type="text"
               value={autor}
               onChange={(e) => setAutor(e.target.value)}
-              placeholder="Tu nombre (opcional)"
-              className="min-w-0 flex-1 rounded-xl border px-3.5 py-2.5 text-[13.5px] focus:outline-none"
+              placeholder="Para saber quién compartió cada foto"
+              className="mt-2 w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] focus:outline-none"
               style={{
                 borderColor: conAlfa(paleta.tinta, 0.2),
-                background: paleta.fondo,
+                background: conAlfa(paleta.tinta, 0.04),
                 color: paleta.tinta,
               }}
             />
+          </div>
+
+          {/* Paso 2: las fotos */}
+          <div>
+            <p className="flex items-center gap-2.5 text-[13.5px] font-bold">
+              {numero(2)} Tus fotos
+            </p>
+            <label
+              htmlFor="album-fotos"
+              className="mt-2 block cursor-pointer rounded-xl border-2 border-dashed px-4 py-5 text-center text-[13px] font-bold transition-colors"
+              style={{
+                borderColor: conAlfa(paleta.tinta, 0.25),
+                color: conAlfa(paleta.tinta, 0.7),
+              }}
+            >
+              {elegidas.length > 0
+                ? `${elegidas.length} foto${elegidas.length === 1 ? "" : "s"} elegida${elegidas.length === 1 ? "" : "s"} — tocá para cambiar`
+                : `Tocá acá para elegir hasta ${MAX_POR_TANDA}`}
+              <input
+                ref={inputRef}
+                id="album-fotos"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={elegir}
+                className="sr-only"
+              />
+            </label>
+          </div>
+
+          {/* Paso 3: subir */}
+          <div>
+            <p className="flex items-center gap-2.5 text-[13.5px] font-bold">
+              {numero(3)} Finalizar
+            </p>
             <button
               type="button"
-              disabled={subiendo}
+              disabled={subiendo || elegidas.length === 0}
               onClick={subir}
-              className="shrink-0 rounded-xl px-4 py-2.5 text-[13.5px] font-bold transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="mt-2 w-full rounded-xl px-4 py-3 text-[14px] font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
               style={{ background: paleta.acento, color: paleta.fondo }}
             >
-              {subiendo ? `Subiendo… ${progreso}/${elegidas.length}` : "Subir"}
+              {subiendo
+                ? `Subiendo… ${progreso}/${elegidas.length}`
+                : elegidas.length === 0
+                  ? "Subir ahora"
+                  : `Subir ${elegidas.length} foto${elegidas.length === 1 ? "" : "s"}`}
             </button>
           </div>
 
@@ -221,16 +266,8 @@ export default function SubirFotos({
               {error}
             </p>
           )}
-          {listo && (
-            <p
-              className="rounded-xl px-3.5 py-2 text-[12px] font-semibold"
-              style={{ background: conAlfa(paleta.tinta, 0.05), color: paleta.tinta }}
-            >
-              ¡Listo! Tus fotos ya son parte del álbum.
-            </p>
-          )}
         </div>
       )}
-    </section>
+    </div>
   );
 }

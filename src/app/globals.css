@@ -523,6 +523,9 @@ body {
 }
 
 @media print {
+  @page {
+    margin: 13mm;
+  }
   .sin-imprimir {
     display: none !important;
   }
@@ -543,29 +546,99 @@ body {
     left: 0;
     top: 0;
     width: 100%;
+    /* Sin esto el navegador quita todos los fondos y la hoja pierde la
+       línea de la marca (la banda navy del encabezado, el cebreado). */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: #1c2430;
+  }
+  /* Los cajones de pantalla (bordes redondeados, sombras) no van al
+     papel: la hoja tiene su propia retícula. */
+  .tabla-rsvps div {
+    border: none !important;
+    box-shadow: none !important;
   }
 
-  /* Tinta: fondos fuera, bordes finos, y que las filas no se corten
-     entre páginas. */
+  /* El membrete de Bookea: la marca arriba, el título del evento en
+     navy y la regla naranja — la misma línea del sitio. */
+  .tabla-rsvps .hoja-marca {
+    display: flex !important;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 13pt;
+    font-weight: 800;
+    color: #16295e;
+  }
+  .tabla-rsvps .hoja-marca small {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #8a8f99;
+  }
+  .tabla-rsvps .hoja-titulo {
+    margin-top: 12pt;
+    font-size: 21pt;
+    font-weight: 800;
+    line-height: 1.12;
+    color: #16295e;
+  }
+  .tabla-rsvps .hoja-sub {
+    margin-top: 3pt;
+    font-size: 10pt;
+    color: #5b6472;
+  }
+  .tabla-rsvps .hoja-regla {
+    margin: 9pt 0 11pt;
+    height: 2.5pt;
+    width: 70pt;
+    border: none !important;
+    background: #ee7420 !important;
+  }
+  .tabla-rsvps .hoja-resumen {
+    margin-bottom: 8pt;
+    font-size: 10.5pt;
+    color: #1c2430;
+  }
+  .tabla-rsvps .hoja-resumen b {
+    color: #16295e;
+  }
+
+  /* La tabla: banda navy de encabezado, cebreado crema suave, y el
+     total como cierre con la regla navy. Filas enteras por página. */
   .tabla-rsvps table {
     width: 100%;
-    font-size: 11pt;
+    font-size: 10.5pt;
+    border-collapse: collapse;
   }
-  .tabla-rsvps th,
+  .tabla-rsvps thead th {
+    background: #16295e !important;
+    color: #ffffff !important;
+    padding: 6pt 8pt;
+    font-size: 8pt;
+    letter-spacing: 0.1em;
+  }
   .tabla-rsvps td {
-    border-bottom: 1px solid #ddd;
+    padding: 6pt 8pt;
+    border-bottom: 0.75pt solid #dfe2e8;
+  }
+  .tabla-rsvps tbody tr:nth-child(even) td {
+    background: #f7f4ee !important;
   }
   .tabla-rsvps tr {
     break-inside: avoid;
   }
-
-  /* Los chips de arriba son navy sólido en pantalla: el navegador no
-     imprime fondos, así que el activo saldría en blanco sobre blanco.
-     En papel van sin relleno — el número igual se lee. */
-  .chips-resumen > * {
-    background: none !important;
-    border-color: #ddd !important;
-    color: #111 !important;
+  .tabla-rsvps tfoot td {
+    background: #f7f4ee !important;
+    border-top: 2pt solid #16295e;
+    border-bottom: none;
+  }
+  .tabla-rsvps .hoja-pie {
+    margin-top: 12pt;
+    text-align: center;
+    font-size: 8pt;
+    letter-spacing: 0.08em;
+    color: #8a8f99;
   }
 }
 
