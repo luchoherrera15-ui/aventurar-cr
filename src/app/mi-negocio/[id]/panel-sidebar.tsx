@@ -77,7 +77,10 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
           const contenidoItem = (
             <>
               {t.icon && <span className="shrink-0 [&_svg]:h-[17px] [&_svg]:w-[17px]">{t.icon}</span>}
-              <span className="flex-1 truncate">{t.label}</span>
+              {/* text-center explícito: los <button> centran su texto
+                  por defecto pero los <Link> no — sin esto, el único
+                  ítem con href (Citas) quedaba corrido a la izquierda. */}
+              <span className="flex-1 truncate text-center">{t.label}</span>
               {!!t.badge && t.badge > 0 && (
                 <span className="shrink-0 rounded-lg bg-aventurea-sky px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-white">
                   {t.badge}
