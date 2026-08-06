@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+// La animación de "Reservar toma tres pasos" — hoja propia de esta
+// ruta, como reel.css en /invitaciones: nadie más la descarga.
+import "./home.css";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
@@ -50,20 +53,17 @@ const PASOS = [
   {
     numero: "01",
     titulo: "Elegí",
-    texto:
-      "Compará opciones reales: fotos, precios en colones y reseñas de gente que ya reservó ahí.",
+    texto: "Fotos, precios en colones y reseñas reales para comparar.",
   },
   {
     numero: "02",
     titulo: "Reservá",
-    texto:
-      "Escogé la fecha o la hora y confirmá al instante. El depósito va por SINPE, sin vueltas.",
+    texto: "La fecha o la hora, confirmada al instante — con SINPE.",
   },
   {
     numero: "03",
     titulo: "Llegá",
-    texto:
-      "La confirmación te cae al correo con todos los detalles — y el chat queda abierto por si querés preguntar algo.",
+    texto: "Todo queda por escrito en tu correo. Solo falta disfrutar.",
   },
 ] as const;
 
@@ -263,35 +263,56 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* ---------- Así de simple ---------- */}
-        <section className="mx-auto max-w-[1280px] px-5 py-14 sm:py-16">
-          <div data-reveal className="text-center">
-            <p className="text-[11px] font-light uppercase tracking-[0.18em] text-aventurea-orange">
-              Así funciona
-            </p>
-            <h2 className="titulo mt-2 text-[27px] text-aventurea-ink sm:text-[34px]">
-              Reservar toma tres pasos
-            </h2>
-          </div>
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            {PASOS.map(({ numero, titulo, texto }, i) => (
-              <div
-                key={numero}
-                data-reveal
-                style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
-                className="bento bento-blanco p-6"
-              >
-                <p className="text-[13px] font-extrabold text-aventurea-orange">
-                  {numero}
-                </p>
-                <h3 className="titulo mt-1.5 text-[19px] text-aventurea-ink">
-                  {titulo}
-                </h3>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                  {texto}
-                </p>
+        {/* ---------- Así de simple: el bloque navy con los tres
+            pasos y su pequeña coreografía al entrar en pantalla
+            (home.css) — elegante y sin una línea de JavaScript. ---------- */}
+        <section className="mx-auto max-w-[1280px] px-4 py-14 sm:px-5 sm:py-16">
+          <div
+            data-reveal
+            className="bento bento-navy relative px-6 py-12 sm:px-12 sm:py-16"
+          >
+            <span aria-hidden className="bento-orbe -right-20 -top-24" />
+            <span aria-hidden className="bento-orbe -bottom-28 -left-16" />
+
+            <div className="relative">
+              <p className="text-center text-[11px] font-light uppercase tracking-[0.18em] text-aventurea-orange">
+                Así funciona
+              </p>
+              <h2 className="titulo mt-2 text-center text-[27px] text-white sm:text-[34px]">
+                Reservar toma tres pasos
+              </h2>
+
+              <div className="relative mt-12 grid gap-10 sm:grid-cols-3 sm:gap-6">
+                {/* La línea que une los tres números: se dibuja de
+                    izquierda a derecha mientras van apareciendo. */}
+                <span
+                  aria-hidden
+                  className="paso-linea absolute left-[16.6%] right-[16.6%] top-6 hidden h-px bg-gradient-to-r from-aventurea-sky/60 via-white/30 to-aventurea-sky/60 sm:block"
+                />
+
+                {PASOS.map(({ numero, titulo, texto }, i) => (
+                  <div
+                    key={numero}
+                    data-reveal
+                    style={{ "--reveal-delay": `${i * 220}ms` } as React.CSSProperties}
+                    className="relative flex flex-col items-center text-center"
+                  >
+                    <span className="paso-num relative flex h-12 w-12 items-center justify-center rounded-full border border-aventurea-sky/60 bg-aventurea-navy text-[15px] font-extrabold text-aventurea-orange shadow-[0_0_0_6px_rgba(47,124,190,0.15)]">
+                      {numero}
+                    </span>
+                    <h3 className="titulo mt-4 text-[20px] text-white">{titulo}</h3>
+                    <p className="mt-2 max-w-[30ch] text-[13.5px] leading-relaxed text-white/70">
+                      {texto}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
+
+              <p className="mt-11 text-center text-[14px] font-bold text-white/85">
+                Y listo — sin llamadas, sin &quot;¿tiene disponible?&quot;, sin
+                esperar respuesta.
+              </p>
+            </div>
           </div>
         </section>
 

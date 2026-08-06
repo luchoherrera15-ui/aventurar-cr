@@ -1,0 +1,55 @@
+/* Estilos SOLO del home (/) — separados de globals.css como reel.css y
+   plantillas.css: el resto del sitio no descarga nada de esto.
+
+   La escena de "Reservar toma tres pasos": encima del reveal estándar
+   (fade + subida de data-reveal), cada número hace un pop en secuencia
+   y la línea que conecta los tres pasos se dibuja de izquierda a
+   derecha. Todo CSS, disparado por la clase .is-revealed que pone el
+   RevealOnScroll de siempre. */
+
+@keyframes paso-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.paso-num {
+  opacity: 0;
+}
+[data-reveal].is-revealed .paso-num {
+  /* El pop arranca cuando el paso ya subió: el delay del reveal del
+     propio paso + un respiro. */
+  animation: paso-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)
+    calc(var(--reveal-delay, 0ms) + 200ms) both;
+}
+
+/* La línea conectora (solo desktop): se dibuja mientras van
+   apareciendo los pasos. */
+.paso-linea {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1.1s cubic-bezier(0.4, 0, 0.2, 1) 0.45s;
+}
+[data-reveal].is-revealed .paso-linea {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paso-num {
+    opacity: 1;
+    animation: none !important;
+  }
+  .paso-linea {
+    transform: scaleX(1);
+    transition: none;
+  }
+}
