@@ -27,6 +27,10 @@ import logoBookea from "../../assets/images/logo-bookea.png";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Las cuentas de prueba (*.demo@bookea.lat) no tienen buzón real:
+// entran con el código fijo 123456, igual que en la web.
+const DEMO_REGEX = /\.demo@bookea\.lat$/i;
+const CODIGO_DEMO = "123456";
 
 /**
  * Pestaña Perfil, al estilo Airbnb: la tarjeta de la persona arriba y
@@ -80,12 +84,22 @@ function FormulariosAuth() {
   const [correoEsNuevo, setCorreoEsNuevo] = useState<boolean | null>(null);
 
   const correoLimpio = email.trim().toLowerCase();
+  const esCuentaDemo = DEMO_REGEX.test(correoLimpio);
   const pideNombre = correoEsNuevo === true;
 
   async function enviarCodigo(esReenvio = false) {
     setError(null);
     if (!CORREO_REGEX.test(correoLimpio)) {
       setError("Ese correo no parece válido.");
+      return;
+    }
+
+    // Cuenta demo: no hay buzón que reciba nada y pedir el OTP igual
+    // castiga el rate-limit — se salta el envío y se va directo a la
+    // pantalla del código (el fijo de prueba).
+    if (esCuentaDemo) {
+      setCodigo("");
+      setPaso("codigo");
       return;
     }
 
@@ -161,6 +175,28 @@ function FormulariosAuth() {
       setError("El código tiene 6 dígitos.");
       return;
     }
+    // Cuenta demo: con el código de test entra por contraseña en vez
+    // del OTP. Esa contraseña es SOLO de las cuentas *.demo@bookea.lat
+    // (datos de mentira sembrados por scripts/seed-demo-*.mjs, donde
+    // ya es pública dentro del repo) — no abre ninguna cuenta real.
+    if (esCuentaDemo) {
+      if (codigoLimpio !== CODIGO_DEMO) {
+        setError("Ese código no sirve. Para las cuentas demo es 123456.");
+        return;
+      }
+      setEnviando(true);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: correoLimpio,
+        password: "BookeaDemo2026!",
+      });
+      setEnviando(false);
+      if (error) {
+        setError("No se pudo entrar a la cuenta demo: " + error.message);
+      }
+      // Con la sesión creada, el AuthProvider redibuja solo.
+      return;
+    }
+
     setEnviando(true);
     const { error } = await supabase.auth.verifyOtp({
       email: correoLimpio,
@@ -261,10 +297,13 @@ function FormulariosAuth() {
           </>
         ) : (
           <>
-            <Text style={styles.titulo}>Revisá tu correo</Text>
+            <Text style={styles.titulo}>
+              {esCuentaDemo ? "Cuenta de prueba" : "Revisá tu correo"}
+            </Text>
             <Text style={styles.subtitulo}>
-              Te mandamos un código de 6 dígitos a {correoLimpio}. Escribilo acá
-              — puede tardar un momento en llegar (revisá spam si no aparece).
+              {esCuentaDemo
+                ? `${correoLimpio} es una cuenta de prueba: no le llega correo — usá el código de test 123456.`
+                : `Te mandamos un código de 6 dígitos a ${correoLimpio}. Escribilo acá — puede tardar un momento en llegar (revisá spam si no aparece).`}
             </Text>
 
             <View style={styles.bloque}>
@@ -305,9 +344,12 @@ function FormulariosAuth() {
                 )}
               </Pressable>
 
-              <Pressable disabled={enviando} onPress={() => enviarCodigo(true)}>
-                <Text style={styles.enlace}>Reenviarme el código</Text>
-              </Pressable>
+              {/* A una cuenta demo no hay nada que reenviarle. */}
+              {!esCuentaDemo && (
+                <Pressable disabled={enviando} onPress={() => enviarCodigo(true)}>
+                  <Text style={styles.enlace}>Reenviarme el código</Text>
+                </Pressable>
+              )}
               <Pressable
                 onPress={() => {
                   setError(null);

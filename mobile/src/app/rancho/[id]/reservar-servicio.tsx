@@ -16,6 +16,7 @@ import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import BarraSuperior from "@/components/barra-superior";
 import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
@@ -316,10 +317,12 @@ export default function ReservarServicioScreen() {
       let comprobantePath: string | null = null;
       if (pagoActivo && comprobanteUri) {
         setSubiendo(true);
-        const base64 = await FileSystem.readAsStringAsync(comprobanteUri, {
+        // Mismo criterio que la web: 1920px / JPEG 0.82 antes de tocar la red.
+        const comprimida = await comprimirImagen(comprobanteUri);
+        const base64 = await FileSystem.readAsStringAsync(comprimida, {
           encoding: "base64",
         });
-        const extension = comprobanteUri.split(".").pop()?.toLowerCase() || "jpg";
+        const extension = comprimida.split(".").pop()?.toLowerCase() || "jpg";
         // eslint-disable-next-line react-hooks/purity -- corre dentro del handler de envío, no en el render; el timestamp evita colisiones de nombre en el bucket
         comprobantePath = `servicios/${rancho.id}/${Date.now()}-comprobante.${extension}`;
         const { error: uploadError } = await supabase.storage

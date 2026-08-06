@@ -237,71 +237,117 @@ export default function AdminNegocioScreen() {
       refreshing={false}
       ListHeaderComponent={
         <View style={styles.cabecera}>
-          {/* Administración del negocio, todo desde la app: la agenda,
-              la página, el catálogo reservable y los cobros. */}
+          {/* Administración del negocio, todo desde la app. Para CITAS
+              rige el mismo esquema de 4 del panel web: Inicio (esta
+              pantalla), Citas (la agenda del día), Finanzas y
+              Configuración (equipo, horario, giftcards y bloqueos) —
+              la agenda mensual de eventos y los atajos sueltos de esa
+              vertical (Precios) no aplican. Para las demás verticales,
+              los atajos de siempre. */}
           <View style={{ gap: Spacing.two }}>
             <Micro>Tu negocio</Micro>
-            <View style={styles.adminFila}>
-              {/* La agenda por horas: el día a día del negocio de citas
-                  y el feed para sincronizar Google/Apple Calendar. */}
-              <AtajoPanel
-                icono="calendar-outline"
-                texto="Agenda"
-                onPress={() => router.push(`/negocio/${id}/agenda` as never)}
-              />
-              {/* Importar el calendario viejo (Google/Apple) como bloqueos. */}
-              <AtajoPanel
-                icono="sync-outline"
-                texto="Sincronizar"
-                onPress={() => router.push(`/negocio/${id}/sincronizar` as never)}
-              />
-              <AtajoPanel
-                icono="create-outline"
-                texto="Editar página"
-                onPress={() => router.push(`/negocio/${id}/editar` as never)}
-              />
-              {categoria && categoria !== "lugares" && (
+            {vertical === "citas" ? (
+              <View style={styles.adminFila}>
+                {/* La agenda del día por persona: donde entran solas
+                    las reservas de la web y se atiende el mostrador. */}
+                <AtajoPanel
+                  icono="time-outline"
+                  texto="Citas"
+                  onPress={() => router.push(`/negocio/${id}/agenda` as never)}
+                />
+                {/* Lo que entró, lo que falta cobrar y los gastos. */}
+                <AtajoPanel
+                  icono="trending-up-outline"
+                  texto="Finanzas"
+                  onPress={() => router.push(`/negocio/${id}/finanzas` as never)}
+                />
+                <AtajoPanel
+                  icono="settings-outline"
+                  texto="Configuración"
+                  onPress={() => router.push(`/negocio/${id}/citas` as never)}
+                />
+              </View>
+            ) : (
+              <View style={styles.adminFila}>
+                {/* La agenda por horas y el feed para sincronizar
+                    Google/Apple Calendar. */}
+                <AtajoPanel
+                  icono="calendar-outline"
+                  texto="Agenda"
+                  onPress={() => router.push(`/negocio/${id}/agenda` as never)}
+                />
+                {/* Importar el calendario viejo (Google/Apple) como bloqueos. */}
+                <AtajoPanel
+                  icono="sync-outline"
+                  texto="Sincronizar"
+                  onPress={() => router.push(`/negocio/${id}/sincronizar` as never)}
+                />
+                <AtajoPanel
+                  icono="create-outline"
+                  texto="Editar página"
+                  onPress={() => router.push(`/negocio/${id}/editar` as never)}
+                />
+                {categoria && categoria !== "lugares" && (
+                  <AtajoPanel
+                    icono="list-outline"
+                    texto="Catálogo"
+                    onPress={() => router.push(`/negocio/${id}/catalogo` as never)}
+                  />
+                )}
+                <AtajoPanel
+                  icono="wallet-outline"
+                  texto="Cobros y tarifas"
+                  onPress={() => router.push(`/negocio/${id}/cobros` as never)}
+                />
+                {/* Rangos por invitados, extras y descuentos. */}
+                <AtajoPanel
+                  icono="pricetags-outline"
+                  texto="Precios"
+                  onPress={() => router.push(`/negocio/${id}/precios` as never)}
+                />
+                <AtajoPanel
+                  icono="trending-up-outline"
+                  texto="Finanzas"
+                  onPress={() => router.push(`/negocio/${id}/finanzas` as never)}
+                />
+              </View>
+            )}
+          </View>
+
+          {/* Lo que en la web vive DENTRO de la página de Citas o de la
+              Configuración pero acá son pantallas propias — un escalón
+              abajo del esquema de 4, para no perder el acceso. "Editar
+              página" no se repite: ya vive en la barra superior. */}
+          {vertical === "citas" && (
+            <View style={{ gap: Spacing.two }}>
+              <Micro>Más herramientas</Micro>
+              <View style={styles.adminFila}>
+                {/* El CRM: quién viene, quién falta y las promos. */}
+                <AtajoPanel
+                  icono="people-outline"
+                  texto="Clientes"
+                  onPress={() => router.push(`/negocio/${id}/clientes` as never)}
+                />
+                {/* Los servicios con su duración y precio. */}
                 <AtajoPanel
                   icono="list-outline"
                   texto="Catálogo"
                   onPress={() => router.push(`/negocio/${id}/catalogo` as never)}
                 />
-              )}
-              <AtajoPanel
-                icono="wallet-outline"
-                texto="Cobros y tarifas"
-                onPress={() => router.push(`/negocio/${id}/cobros` as never)}
-              />
-              {/* Rangos por invitados, extras y descuentos. */}
-              <AtajoPanel
-                icono="pricetags-outline"
-                texto="Precios"
-                onPress={() => router.push(`/negocio/${id}/precios` as never)}
-              />
-              {/* Lo que entró, lo que falta cobrar y los gastos. */}
-              <AtajoPanel
-                icono="trending-up-outline"
-                texto="Finanzas"
-                onPress={() => router.push(`/negocio/${id}/finanzas` as never)}
-              />
-              {/* Equipo, horario y giftcards — solo la vertical de citas. */}
-              {vertical === "citas" && (
-                <>
-                  <AtajoPanel
-                    icono="people-outline"
-                    texto="Equipo y horario"
-                    onPress={() => router.push(`/negocio/${id}/citas` as never)}
-                  />
-                  {/* El CRM: quién viene, quién falta y las promos. */}
-                  <AtajoPanel
-                    icono="people-outline"
-                    texto="Clientes"
-                    onPress={() => router.push(`/negocio/${id}/clientes` as never)}
-                  />
-                </>
-              )}
+                <AtajoPanel
+                  icono="wallet-outline"
+                  texto="Cobros y tarifas"
+                  onPress={() => router.push(`/negocio/${id}/cobros` as never)}
+                />
+                {/* Importar el calendario viejo (Google/Apple) como bloqueos. */}
+                <AtajoPanel
+                  icono="sync-outline"
+                  texto="Sincronizar"
+                  onPress={() => router.push(`/negocio/${id}/sincronizar` as never)}
+                />
+              </View>
             </View>
-          </View>
+          )}
 
           <View style={{ gap: Spacing.two }}>
             <Micro>

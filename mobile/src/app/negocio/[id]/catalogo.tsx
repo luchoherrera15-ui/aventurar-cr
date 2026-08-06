@@ -15,6 +15,7 @@ import * as FileSystem from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { etiquetaDuracion } from "@/lib/catalogo";
@@ -170,7 +171,9 @@ export default function CatalogoNegocioScreen() {
     setSubiendoFoto(true);
     setError(null);
     try {
-      const uri = res.assets[0].uri;
+      // Mismo criterio que la web: 1920px / JPEG 0.82 antes de tocar
+      // la red. El picker ya trae las dimensiones del asset.
+      const uri = await comprimirImagen(res.assets[0].uri, res.assets[0]);
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" });
       const extension = uri.split(".").pop()?.toLowerCase() || "jpg";
       const path = `${id}/catalogo/${Date.now()}-foto.${extension}`;

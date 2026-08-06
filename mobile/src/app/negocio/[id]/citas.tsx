@@ -633,7 +633,7 @@ export default function CitasNegocioScreen() {
   if (!cargado) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo="Citas" />
+        <BarraSuperior titulo="Configuración" />
         <View style={styles.centro}>
           <ActivityIndicator color={Colors.accent} />
         </View>
@@ -645,7 +645,10 @@ export default function CitasNegocioScreen() {
 
   return (
     <View style={styles.contenedor}>
-      <BarraSuperior titulo="Citas" subtitulo={nombre ?? undefined} />
+      {/* Bajo el esquema de 4 del panel (Inicio, Citas, Finanzas y
+          Configuración), esta pantalla es la Configuración del negocio
+          de citas — "Citas" a secas es la agenda del día. */}
+      <BarraSuperior titulo="Configuración" subtitulo={nombre ?? undefined} />
 
       <View style={styles.pestanas}>
         {(

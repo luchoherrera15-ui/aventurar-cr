@@ -16,6 +16,7 @@ import { decode as decodeBase64 } from "base64-arraybuffer";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -147,8 +148,10 @@ export default function NuevoNegocioScreen() {
 
   /** Sube una foto local al bucket privado de verificación y devuelve su ruta. */
   async function subirCedula(uri: string, lado: "frente" | "dorso"): Promise<string> {
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" });
-    const extension = uri.split(".").pop()?.toLowerCase() || "jpg";
+    // 1920px alcanza de sobra para leer una cédula, y pesa mucho menos.
+    const comprimida = await comprimirImagen(uri);
+    const base64 = await FileSystem.readAsStringAsync(comprimida, { encoding: "base64" });
+    const extension = comprimida.split(".").pop()?.toLowerCase() || "jpg";
     const path = `solicitudes/${Date.now()}-${lado}.${extension}`;
     const { error: subidaError } = await supabase.storage
       .from("verificacion-proveedores")

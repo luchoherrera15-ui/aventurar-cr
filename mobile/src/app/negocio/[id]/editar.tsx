@@ -16,6 +16,7 @@ import { decode as decodeBase64 } from "base64-arraybuffer";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -144,8 +145,10 @@ export default function EditarNegocioScreen() {
 
   /** Sube una foto local del teléfono al bucket y devuelve su URL pública. */
   async function subirFoto(uri: string): Promise<string> {
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" });
-    const extension = uri.split(".").pop()?.toLowerCase() || "jpg";
+    // Mismo criterio que la web: 1920px / JPEG 0.82 antes de tocar la red.
+    const comprimida = await comprimirImagen(uri);
+    const base64 = await FileSystem.readAsStringAsync(comprimida, { encoding: "base64" });
+    const extension = comprimida.split(".").pop()?.toLowerCase() || "jpg";
     const path = `${id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
     const { error: subidaError } = await supabase.storage
       .from("ranchos-fotos")

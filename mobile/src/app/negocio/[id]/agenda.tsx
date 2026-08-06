@@ -27,7 +27,6 @@ import {
   FilaHora,
   Micro,
   Tarjeta,
-  Vacio,
   type TonoEstado,
 } from "@/components/ui";
 import { useAuth } from "@/lib/auth-context";
@@ -37,6 +36,7 @@ import {
   DIAS_CORTO,
   DIAS_SEMANA_LABEL,
   MESES_CORTO,
+  RANGO_LIBRE,
   fechaISOLocal,
   horaAMinutos,
   horarioDeDetalles,
@@ -45,7 +45,13 @@ import {
   utcDesdeZona,
   type HorarioSemana,
 } from "@/lib/citas";
-import { instanteEnZona } from "@/lib/disponibilidad";
+import {
+  diaDeSemana,
+  instanteEnZona,
+  rangosDelDia,
+  type Rango,
+  type RecursoDisponibilidad,
+} from "@/lib/disponibilidad";
 import { agruparClientes } from "@/lib/crm";
 
 /**
@@ -224,6 +230,12 @@ export default function AgendaNegocioScreen() {
   const [zona, setZona] = useState("America/Costa_Rica");
   const [filas, setFilas] = useState<ReservaAgenda[] | null>(null);
   const [equipo, setEquipo] = useState<Miembro[]>([]);
+  /** Horario propio por miembro (horarios_recurso, 0061), agrupado
+   *  como lo espera el motor: claves SOLO para los días con filas —
+   *  un día sin filas hereda el horario del negocio. */
+  const [horariosRecurso, setHorariosRecurso] = useState<
+    Record<string, RecursoDisponibilidad["horario"]>
+  >({});
   const [servicios, setServicios] = useState<ServicioCita[]>([]);
   const [bloqueos, setBloqueos] = useState<BloqueoAgenda[]>([]);
   const [cargandoDia, setCargandoDia] = useState(false);
@@ -318,6 +330,30 @@ export default function AgendaNegocioScreen() {
         .gte("fin", `${consultada}T00:00:00-12:00`)
         .order("inicio", { ascending: true }),
     ]);
+    // El horario propio de cada miembro: la grilla por persona lo
+    // necesita para rayar las horas en que cada quien NO trabaja ese
+    // día, con la misma herencia del motor de disponibilidad (un
+    // miembro sin filas trabaja el horario del negocio).
+    const listaEquipo = (equipoRes.data ?? []) as Miembro[];
+    const porMiembro: Record<string, RecursoDisponibilidad["horario"]> = {};
+    if (listaEquipo.length > 0) {
+      const horariosRes = await supabase
+        .from("horarios_recurso")
+        .select("miembro_id, dow, abre, cierra")
+        .in("miembro_id", listaEquipo.map((m) => m.id));
+      for (const fila of (horariosRes.data ?? []) as {
+        miembro_id: string;
+        dow: number;
+        abre: string;
+        cierra: string;
+      }[]) {
+        const horarioMiembro = (porMiembro[fila.miembro_id] ??= {});
+        (horarioMiembro![String(fila.dow)] ??= []).push({
+          abre: fila.abre.slice(0, 5),
+          cierra: fila.cierra.slice(0, 5),
+        });
+      }
+    }
     if (ultimaFecha.current !== consultada) return;
     const rancho = ranchoRes.data as {
       nombre: string;
@@ -328,7 +364,8 @@ export default function AgendaNegocioScreen() {
     setHorario(horarioDeDetalles(rancho?.detalles ?? null));
     setZona(rancho?.zona_horaria || "America/Costa_Rica");
     setFilas((reservasRes.data ?? []) as ReservaAgenda[]);
-    setEquipo((equipoRes.data ?? []) as Miembro[]);
+    setEquipo(listaEquipo);
+    setHorariosRecurso(porMiembro);
     setServicios((serviciosRes.data ?? []) as ServicioCita[]);
     setBloqueos((bloqueosRes.data ?? []) as BloqueoAgenda[]);
     setCargandoDia(false);
@@ -944,9 +981,84 @@ export default function AgendaNegocioScreen() {
       ? [{ id: null, nombre: equipo.length > 0 ? "Sin asignar" : "El negocio", fotoUrl: null }]
       : []),
   ];
-  const inicioGrilla = Math.floor(inicioMin / 60) * 60;
-  const finGrilla = Math.ceil(finMin / 60) * 60;
+
+  // El horario de CADA colaborador ese día de semana: hereda el del
+  // negocio si no tiene horario propio, o manda el suyo — día libre
+  // incluido, vía el rango centinela de horarios_recurso. El centinela
+  // (RANGO_LIBRE, 00:00–00:01) NO es un turno real: se descarta como
+  // rango de trabajo — sin rangos, la columna queda rayada el día
+  // entero — para que no jale la grilla hacia medianoche. La columna
+  // "Sin asignar"/"El negocio" (id null) usa directo el del negocio.
+  const dowDia = diaDeSemana(fecha);
+  const LIBRE_MIN = {
+    inicio: horaAMinutos(RANGO_LIBRE.abre),
+    fin: horaAMinutos(RANGO_LIBRE.cierra),
+  };
+  const horarioPorColumna = new Map<string | null, Rango[]>(
+    columnasPersona.map((col) => {
+      const rangos =
+        col.id === null
+          ? rangosDelDia(null, dowDia, horario)
+          : rangosDelDia(
+              { id: col.id, horario: horariosRecurso[col.id] ?? null },
+              dowDia,
+              horario,
+            );
+      return [
+        col.id,
+        rangos.filter((r) => !(r.inicio === LIBRE_MIN.inicio && r.fin === LIBRE_MIN.fin)),
+      ];
+    }),
+  );
+
+  // El piso de la grilla es SIEMPRE las 6am (espejo de la web): se
+  // quiere ver la agenda abierta desde esa hora aunque nadie entre tan
+  // temprano; cada columna igual pinta rayadas sus horas realmente
+  // cerradas (abajo, segmentosCerrados). Un dato real de antes de las
+  // 6am (una cita movida a mano) igual estira la grilla — nunca se
+  // esconde. El cierre = el mayor fin de los rangos de los
+  // colaboradores del día, con citas y bloqueos estirando si se salen.
+  const PISO_GRILLA = 6 * 60;
+  const CIERRE_POR_DEFECTO = 20 * 60; // nadie trabaja este día: grilla razonable igual
+  const iniciosColaboradores = [...horarioPorColumna.values()].flatMap((r) =>
+    r.map((x) => x.inicio),
+  );
+  const finesColaboradores = [...horarioPorColumna.values()].flatMap((r) => r.map((x) => x.fin));
+  const baseDesdeMin =
+    iniciosColaboradores.length > 0 ? Math.min(PISO_GRILLA, ...iniciosColaboradores) : PISO_GRILLA;
+  const baseHastaMin =
+    finesColaboradores.length > 0 ? Math.max(...finesColaboradores) : CIERRE_POR_DEFECTO;
+  const minutosCitasGrilla = conAgenda.flatMap((c) => {
+    const ini = horaAMinutos(c.hora_inicio.slice(0, 5));
+    return [ini, ini + (c.duracion_minutos ?? 30)];
+  });
+  const minutosBloqueosGrilla = bloqueosDia.flatMap((x) => [
+    Math.max(x.rango.inicio, 0),
+    Math.min(x.rango.fin, 1440),
+  ]);
+  const desdeMin = Math.min(baseDesdeMin, ...minutosCitasGrilla, ...minutosBloqueosGrilla);
+  const hastaMin = Math.max(baseHastaMin, ...minutosCitasGrilla, ...minutosBloqueosGrilla);
+  const inicioGrilla = Math.floor(desdeMin / 60) * 60;
+  const finGrilla = Math.ceil(hastaMin / 60) * 60;
   const altoGrilla = finGrilla - inicioGrilla; // 1 min = 1 punto
+
+  /** Los huecos de una columna FUERA de su horario real ese día, para
+   *  rayarlos — sin rangos = cerrado el día entero. Recortado a lo que
+   *  se ve en la grilla. */
+  function segmentosCerrados(rangosTrabajo: Rango[]): Rango[] {
+    if (rangosTrabajo.length === 0) return [{ inicio: inicioGrilla, fin: finGrilla }];
+    const ordenados = [...rangosTrabajo].sort((a, b) => a.inicio - b.inicio);
+    const cerrados: Rango[] = [];
+    let cursor = inicioGrilla;
+    for (const r of ordenados) {
+      const ini = Math.max(r.inicio, inicioGrilla);
+      const fin = Math.min(r.fin, finGrilla);
+      if (ini > cursor) cerrados.push({ inicio: cursor, fin: ini });
+      cursor = Math.max(cursor, fin);
+    }
+    if (cursor < finGrilla) cerrados.push({ inicio: cursor, fin: finGrilla });
+    return cerrados;
+  }
 
   // La línea de "ahora": solo tiene sentido si el día visible es HOY y
   // cae dentro del rango de la grilla.
@@ -1393,14 +1505,10 @@ export default function AgendaNegocioScreen() {
             )}
           </View>
 
-          {cerrado && citas.length === 0 ? (
-            <Vacio
-              icono="moon-outline"
-              titulo="Cerrado este día"
-              texto="Si querés atender, ajustá tu horario en el panel de citas."
-            />
-          ) : (
-            <View style={styles.seccion}>
+          {/* La grilla se muestra SIEMPRE — aunque el día esté cerrado
+              o no tenga citas (espejo de la web): las horas en que
+              nadie trabaja quedan rayadas en cada columna. */}
+          <View style={styles.seccion}>
               <View style={styles.seccionCabecera}>
                 <Micro>{vista === "personas" ? "Agenda por persona" : "La línea del día"}</Micro>
                 <Pressable
@@ -1416,7 +1524,11 @@ export default function AgendaNegocioScreen() {
               {cerrado && (
                 <Aviso
                   tono="atencion"
-                  texto="Según tu horario este día está cerrado, pero tenés citas agendadas."
+                  texto={
+                    citas.length > 0
+                      ? "Según tu horario este día está cerrado, pero tenés citas agendadas."
+                      : "Según tu horario este día está cerrado — por eso se ve rayado."
+                  }
                 />
               )}
               {citas.length === 0 && (
@@ -1460,7 +1572,6 @@ export default function AgendaNegocioScreen() {
                   })}
                 </Tarjeta>
               ) : (
-                citas.length > 0 && (
                   <>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={styles.grillaFila}>
@@ -1507,6 +1618,9 @@ export default function AgendaNegocioScreen() {
                           const bloqueosCol = bloqueosDia.filter(
                             (x) => x.bloqueo.miembro_id === col.id || x.bloqueo.miembro_id === null,
                           );
+                          const cerradosCol = segmentosCerrados(
+                            horarioPorColumna.get(col.id) ?? [],
+                          );
                           return (
                             <View key={col.id ?? "sin"} style={styles.grillaColumna}>
                               <View
@@ -1534,6 +1648,25 @@ export default function AgendaNegocioScreen() {
                                 </Text>
                               </View>
                               <View style={[styles.grillaCuerpo, { height: altoGrilla }]}>
+                                {/* Fuera del horario real de esta
+                                    persona ese día (antes de entrar,
+                                    después de salir, día libre):
+                                    atenuado, para que la grilla se vea
+                                    SIEMPRE desde las 6am pero quede
+                                    claro cuándo no se atiende. */}
+                                {cerradosCol.map((seg, i) => (
+                                  <View
+                                    key={`cerrado-${i}`}
+                                    pointerEvents="none"
+                                    style={[
+                                      styles.grillaCerrado,
+                                      {
+                                        top: seg.inicio - inicioGrilla,
+                                        height: seg.fin - seg.inicio,
+                                      },
+                                    ]}
+                                  />
+                                ))}
                                 {Array.from(
                                   { length: (finGrilla - inicioGrilla) / 30 },
                                   (_, i) => inicioGrilla + i * 30,
@@ -1628,14 +1761,12 @@ export default function AgendaNegocioScreen() {
                         onCancelar={confirmarCancelarCita}
                         onMover={moverCita}
                       />
-                    ) : (
+                    ) : conAgenda.length > 0 ? (
                       <Micro>Tocá una cita para ver el detalle y marcar asistencia.</Micro>
-                    )}
+                    ) : null}
                   </>
-                )
               )}
-            </View>
-          )}
+          </View>
 
           {/* Suscribir la agenda en el calendario personal del dueño. */}
           <Tarjeta style={styles.tarjetaSync}>
@@ -1991,6 +2122,15 @@ const styles = StyleSheet.create({
     borderRadius: Radios.md,
     borderWidth: 1,
     overflow: "hidden",
+  },
+  /** Las horas en que esa persona NO trabaja ese día: un velo navy muy
+   *  tenue sobre el cuerpo de la columna (el equivalente RN del rayado
+   *  de la web, sin gradientes). */
+  grillaCerrado: {
+    backgroundColor: "rgba(22,41,94,0.05)",
+    left: 0,
+    position: "absolute",
+    right: 0,
   },
   grillaLinea: {
     borderTopColor: Colors.line,

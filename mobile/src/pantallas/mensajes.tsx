@@ -21,6 +21,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import TituloPantalla from "@/components/titulo-pantalla";
+import ExplorarChat from "@/components/explorar-chat";
 import { ChipCategoria } from "@/components/ui";
 import { PREFIJO_ASISTENTE } from "@/lib/asistente-prefijo";
 import {
@@ -117,6 +118,9 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   const router = useRouter();
   const { session } = useAuth();
   const [filas, setFilas] = useState<Fila[] | null>(null);
+  // La sección de arriba del todo: la bandeja de chats o el buscador
+  // de negocios para empezar una conversación (paridad con la web).
+  const [seccion, setSeccion] = useState<"chats" | "explorar">("chats");
   const [tab, setTab] = useState<"activas" | "resueltas">("activas");
   const [categoria, setCategoria] = useState<CategoriaChat | "todas">("todas");
 
@@ -388,9 +392,42 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
       <TituloPantalla
         kicker="Tu actividad"
         titulo="Mensajes"
-        subtitulo="Deslizá un chat: derecha lo marca leído, izquierda lo elimina."
+        subtitulo={
+          seccion === "explorar"
+            ? "Buscá un negocio y empezá la conversación."
+            : "Deslizá un chat: derecha lo marca leído, izquierda lo elimina."
+        }
       />
-      {categoriasConDatos.length > 1 && (
+      <View style={styles.seccionesFila}>
+        <Pressable
+          style={[styles.seccionBoton, seccion === "chats" && styles.seccionBotonActivo]}
+          onPress={() => setSeccion("chats")}
+        >
+          <Ionicons
+            name="chatbubbles-outline"
+            size={15}
+            color={seccion === "chats" ? "#ffffff" : Colors.inkSoft}
+          />
+          <Text style={[styles.seccionTexto, seccion === "chats" && styles.seccionTextoActivo]}>
+            Chats
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.seccionBoton, seccion === "explorar" && styles.seccionBotonActivo]}
+          onPress={() => setSeccion("explorar")}
+        >
+          <Ionicons
+            name="search-outline"
+            size={15}
+            color={seccion === "explorar" ? "#ffffff" : Colors.inkSoft}
+          />
+          <Text style={[styles.seccionTexto, seccion === "explorar" && styles.seccionTextoActivo]}>
+            Explorar
+          </Text>
+        </Pressable>
+      </View>
+      {seccion === "explorar" && <ExplorarChat miId={session.user.id} />}
+      {seccion === "chats" && categoriasConDatos.length > 1 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -407,7 +444,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
           ))}
         </ScrollView>
       )}
-      {filas.length > 0 && (
+      {seccion === "chats" && filas.length > 0 && (
         <View style={styles.tabsFila}>
           <Pressable
             style={[styles.tabBoton, tab === "activas" && styles.tabBotonActivo]}
@@ -433,6 +470,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
           )}
         </View>
       )}
+      {seccion === "chats" && (
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: Spacing.three, paddingBottom: TAB_BAR_ESPACIO }}
@@ -463,6 +501,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
           />
         )}
       />
+      )}
     </View>
   );
 }
@@ -627,6 +666,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
   },
+  // Chats | Explorar — el conmutador de arriba del todo. Lo activo va
+  // en sky (el acento de relleno del sistema), no en navy, para que no
+  // compita con los tabs Activas/Resueltas de la bandeja.
+  seccionesFila: {
+    flexDirection: "row",
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  seccionBoton: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    backgroundColor: Colors.surface,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  seccionBotonActivo: { backgroundColor: Colors.sky, borderColor: Colors.sky },
+  seccionTexto: { fontFamily: Fonts.bold, fontSize: 13, color: Colors.inkSoft },
+  seccionTextoActivo: { color: "#ffffff" },
   tabsFila: {
     flexDirection: "row",
     gap: Spacing.two,
