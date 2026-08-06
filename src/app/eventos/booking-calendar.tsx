@@ -806,6 +806,13 @@ export default function BookingCalendar({
               let cls =
                 "relative flex min-h-[40px] flex-col justify-between rounded-lg p-1 text-[12.5px] transition sm:min-h-[44px] sm:p-1.5 sm:text-[13px]";
               let etiqueta: string | null = null;
+              // La etiqueta del día libre va en verde y a full: es LA
+              // que el cliente busca. Las de los días ocupados quedan
+              // atenuadas — antes era al revés (el rojo de "Reservada"
+              // gritaba y el "Disponible" gris casi no se veía), así
+              // que la grilla llamaba la atención sobre lo que NO se
+              // podía hacer.
+              let etiquetaCls = "opacity-70";
               let badge: number | null = null;
               // Solo tiene sentido anunciar el descuento en días que se
               // pueden reservar: en uno ocupado es publicidad muerta.
@@ -816,23 +823,34 @@ export default function BookingCalendar({
               if (isPast) {
                 cls += " cursor-default text-zinc-300";
               } else if (info?.confirmada) {
-                cls += " cursor-not-allowed border border-red-200 bg-red-50 font-bold text-red-700";
+                // Ocupado: se lee, pero sin gritar. El rojo saturado y
+                // la negrita competían con los días libres.
+                cls += " cursor-not-allowed border border-red-100 bg-red-50/60 text-red-700/80";
                 etiqueta = "Reservada";
+                etiquetaCls = "opacity-60";
               } else if (isHeldByOther) {
                 cls += " cursor-not-allowed border border-sky-200 bg-sky-50 text-sky-700";
                 etiqueta = "Bloqueada";
+                etiquetaCls = "opacity-60";
               } else if (isPending) {
                 // Ya hay una solicitud sin confirmar para este día: se
                 // bloquea para nuevas reservas hasta que el dueño la
                 // apruebe o la rechace — antes se dejaba elegir igual y
                 // el propio dueño terminaba con varias reservas
                 // peleando por la misma fecha.
-                cls += " cursor-not-allowed border border-amber-300 bg-amber-50 font-bold text-amber-800";
+                cls += " cursor-not-allowed border border-amber-200 bg-amber-50/70 text-amber-800/85";
                 etiqueta = "En aprobación";
+                etiquetaCls = "opacity-70";
                 badge = info!.pendientes;
               } else {
-                cls += " cursor-pointer border border-aventurea-line bg-aventurea-cream-2/50 text-aventurea-ink hover:border-aventurea-navy hover:bg-aventurea-navy/5";
+                // Libre: verde suave de punta a punta. En el teléfono la
+                // etiqueta ni se muestra (no cabe), así que el color de
+                // la celda es TODA la señal — por eso el fondo y el
+                // borde también cambian, no solo el texto.
+                cls +=
+                  " cursor-pointer border border-aventurea-green/40 bg-aventurea-green-light/70 text-aventurea-ink hover:border-aventurea-green hover:bg-aventurea-green-light";
                 etiqueta = "Disponible";
+                etiquetaCls = "text-aventurea-green";
               }
               if (isToday) cls += " ring-2 ring-inset ring-aventurea-navy/35";
               // La fecha que ya venía conversada con el asistente: se
@@ -867,7 +885,9 @@ export default function BookingCalendar({
                     </span>
                   ) : (
                     etiqueta && (
-                      <span className="hidden text-[10px] font-bold uppercase leading-none tracking-wide opacity-70 sm:block">
+                      <span
+                        className={`hidden text-[10px] font-bold uppercase leading-none tracking-wide sm:block ${etiquetaCls}`}
+                      >
                         {etiqueta}
                       </span>
                     )
@@ -883,8 +903,8 @@ export default function BookingCalendar({
           </div>
 
           <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-aventurea-line pt-4">
-            <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-line bg-aventurea-cream-2" />
+            <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-green">
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-green/40 bg-aventurea-green-light" />
               Disponible
             </span>
             <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
@@ -896,7 +916,7 @@ export default function BookingCalendar({
               En aprobación
             </span>
             <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-200 bg-red-50" />
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-100 bg-red-50" />
               Reservada
             </span>
             {Object.keys(promoPorDiaSemana).length > 0 && (
