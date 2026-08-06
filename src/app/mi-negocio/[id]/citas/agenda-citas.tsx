@@ -560,12 +560,21 @@ export default function AgendaCitas({
   // movida a mano) igual estira la grilla — nunca se esconde.
   const PISO_GRILLA = 6 * 60;
   const CIERRE_POR_DEFECTO = 20 * 60; // nadie trabaja este día: grilla razonable igual
-  const iniciosColaboradores = [...horarioPorColumna.values()].flatMap((r) => r.map((x) => x.inicio));
-  const finesColaboradores = [...horarioPorColumna.values()].flatMap((r) => r.map((x) => x.fin));
+  // El rango centinela de "día libre" (00:00–00:01, ver RANGO_LIBRE en
+  // src/app/citas/tipos.ts) NO es horario de trabajo: si se cuela acá,
+  // un colaborador con día libre hunde el piso de la grilla a
+  // medianoche. Para `segmentosCerrados` sí se conserva — ahí es
+  // justamente lo que raya la columna entera.
+  const esRangoLibre = (r: Rango) => r.inicio === 0 && r.fin <= 1;
+  const rangosTrabajo = [...horarioPorColumna.values()].flat().filter((r) => !esRangoLibre(r));
   const baseDesdeMin =
-    iniciosColaboradores.length > 0 ? Math.min(PISO_GRILLA, ...iniciosColaboradores) : PISO_GRILLA;
+    rangosTrabajo.length > 0
+      ? Math.min(PISO_GRILLA, ...rangosTrabajo.map((r) => r.inicio))
+      : PISO_GRILLA;
   const baseHastaMin =
-    finesColaboradores.length > 0 ? Math.max(...finesColaboradores) : CIERRE_POR_DEFECTO;
+    rangosTrabajo.length > 0
+      ? Math.max(...rangosTrabajo.map((r) => r.fin))
+      : CIERRE_POR_DEFECTO;
 
   const minutosDia = conAgenda.flatMap((c) => {
     const ini = minutosDe(c.hora_inicio.slice(0, 5));
