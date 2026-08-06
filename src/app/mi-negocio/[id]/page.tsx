@@ -85,6 +85,20 @@ import {
   setEstadoReservaRancho,
 } from "./agenda-actions";
 import SolicitudesPendientes from "./solicitudes-pendientes";
+// Los formularios de configuración de la vertical Citas (equipo,
+// horario semanal, bloqueos, depósito) — antes vivían regados en la
+// pantalla /citas; ahora son secciones plegables de "Configuración".
+import EquipoPanel from "./citas/equipo-panel";
+import HorarioForm from "./citas/horario-form";
+import BloqueosPanel from "./citas/bloqueos-panel";
+import DepositoCitasForm from "./citas/deposito-citas-form";
+import type {
+  BloqueoAgenda,
+  MiembroEquipo,
+  RangoHorarioMiembro,
+} from "./citas/actions";
+import { horarioDeDetalles } from "@/app/citas/tipos";
+import { sumarDiasISO } from "@/lib/fechas";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -316,10 +330,60 @@ export default async function RanchoDetallePage({
       hora_inicio: r.hora_inicio ?? null,
     }));
 
-  // La vertical de Citas configura su equipo, su horario semanal y la
-  // agenda del día en su propia pantalla (declarado acá arriba porque
-  // el calendario de la Agenda, justo abajo, también lo necesita).
+  // La vertical de Citas opera su agenda del día en su propia pantalla
+  // (/mi-negocio/[id]/citas) y configura todo lo demás acá, en la
+  // pestaña Configuración.
   const esVerticalCitas = rancho.vertical === "citas";
+
+  // Lo que la pestaña Configuración de CITAS necesita: el equipo (con
+  // horario propio y servicios por persona), los bloqueos vigentes y el
+  // horario semanal. Solo se consulta para esta vertical.
+  let equipoCitas: MiembroEquipo[] = [];
+  const horariosPorMiembroCitas: Record<string, RangoHorarioMiembro[]> = {};
+  let asignacionesCitas: { item_id: string; miembro_id: string }[] = [];
+  let bloqueosCitas: BloqueoAgenda[] = [];
+  if (esVerticalCitas) {
+    const [equipoRes, horariosRes, asignacionesRes, bloqueosRes] = await Promise.all([
+      supabase
+        .from("equipo_rancho")
+        .select("*")
+        .eq("rancho_id", rancho.id)
+        .order("orden", { ascending: true })
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("horarios_recurso")
+        .select("miembro_id, dow, abre, cierra, equipo_rancho!inner(rancho_id)")
+        .eq("equipo_rancho.rancho_id", rancho.id),
+      supabase
+        .from("servicios_recurso")
+        .select("item_id, miembro_id, rancho_items!inner(rancho_id)")
+        .eq("rancho_items.rancho_id", rancho.id),
+      supabase
+        .from("bloqueos_agenda")
+        .select("id, rancho_id, miembro_id, inicio, fin, motivo")
+        .eq("rancho_id", rancho.id)
+        .gte("fin", `${sumarDiasISO(hoyISOCR(), -1)}T00:00:00-06:00`)
+        .order("inicio", { ascending: true }),
+    ]);
+    equipoCitas = (equipoRes.data ?? []) as MiembroEquipo[];
+    for (const h of (horariosRes.data ?? []) as unknown as {
+      miembro_id: string;
+      dow: number;
+      abre: string;
+      cierra: string;
+    }[]) {
+      (horariosPorMiembroCitas[h.miembro_id] ??= []).push({
+        dow: h.dow,
+        abre: String(h.abre).slice(0, 5),
+        cierra: String(h.cierra).slice(0, 5),
+      });
+    }
+    asignacionesCitas = ((asignacionesRes.data ?? []) as unknown as {
+      item_id: string;
+      miembro_id: string;
+    }[]).map((a) => ({ item_id: a.item_id, miembro_id: a.miembro_id }));
+    bloqueosCitas = (bloqueosRes.data ?? []) as BloqueoAgenda[];
+  }
 
   // El calendario de ocupados muestra todo lo activo (no solo lo
   // próximo): así también se ve de un vistazo lo que ya pasó este mes.
@@ -543,11 +607,10 @@ export default async function RanchoDetallePage({
   // su pedido en la página pública. Lugares no lo necesita — ya tiene
   // su propio sistema de precios y servicios adicionales.
   const etiquetaCatalogo = CATALOGO_LABEL[categoriaParaIcono];
-  const tabCatalogo: Tab = {
-    id: "catalogo",
-    label: etiquetaCatalogo,
-    icon: <IconClipboard />,
-    content: (
+  // El contenido se declara aparte porque lo usan DOS lugares: la
+  // pestaña "Catálogo" (eventos/servicios) y la sección "Mis productos"
+  // de Configuración (citas).
+  const contenidoCatalogo = (
       <div>
         {itemsRes.error ? (
           <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
@@ -574,7 +637,12 @@ export default async function RanchoDetallePage({
           </>
         )}
       </div>
-    ),
+  );
+  const tabCatalogo: Tab = {
+    id: "catalogo",
+    label: etiquetaCatalogo,
+    icon: <IconClipboard />,
+    content: contenidoCatalogo,
   };
 
   const tabFinanzas: Tab = {
@@ -746,11 +814,9 @@ export default async function RanchoDetallePage({
     ),
   };
 
-  const tabAsistente: Tab = {
-    id: "asistente",
-    label: "Asistente IA",
-    icon: <IconSparkles />,
-    content: (
+  // Igual que el catálogo: lo usan la pestaña "Asistente IA" (eventos)
+  // y la sección homónima de Configuración (citas).
+  const contenidoAsistente = (
       <div>
         {faltaMigracionAsistente && (
           <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
@@ -801,38 +867,201 @@ export default async function RanchoDetallePage({
           </p>
         </section>
       </div>
+  );
+  const tabAsistente: Tab = {
+    id: "asistente",
+    label: "Asistente IA",
+    icon: <IconSparkles />,
+    content: contenidoAsistente,
+  };
+
+  // La pestaña Configuración de CITAS: todo lo del negocio en secciones
+  // plegables CERRADAS (pedido del dueño: resumir, que nada se haga
+  // enorme). El sidebar de citas queda en 4 ítems: Inicio, Citas (la
+  // agenda del día), Finanzas y esto.
+  const zonaCitas = (datosCrudos.zona_horaria as string) || "America/Costa_Rica";
+  const brutoDepositoCitas = datosCrudos.deposito_citas;
+  const depositoCitas =
+    typeof brutoDepositoCitas === "number" || typeof brutoDepositoCitas === "string"
+      ? Number(brutoDepositoCitas)
+      : null;
+  const serviciosCita = ((itemsRes.data ?? []) as RanchoItem[])
+    .filter((s) => s.duracion_minutos !== null && s.activo)
+    .map((s) => ({ id: s.id, nombre: s.nombre }));
+
+  const tabConfig: Tab = {
+    id: "config",
+    label: "Configuración",
+    icon: <IconEdit />,
+    content: (
+      <div className="flex flex-col gap-3.5">
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "perfil"}
+          titulo="Mi perfil"
+          descripcion="Tu nombre, fotos, ubicación y todo lo que ve un cliente al entrar a tu página."
+        >
+          <EditarRanchoForm rancho={rancho} />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "productos"}
+          titulo="Mis productos"
+          descripcion="Los servicios que ofrecés, con su duración y su precio — es lo que el cliente elige al reservar su cita."
+          resumen={
+            serviciosCita.length > 0 ? `${serviciosCita.length} activos` : undefined
+          }
+        >
+          {contenidoCatalogo}
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "colaboradores"}
+          titulo="Mis colaboradores"
+          descripcion="Las personas que atienden (y también espacios como cabinas o camillas). Cada quien puede tener su propio horario y sus propios servicios."
+          resumen={equipoCitas.length > 0 ? `${equipoCitas.length} en el equipo` : undefined}
+        >
+          <EquipoPanel
+            ranchoId={rancho.id}
+            initialEquipo={equipoCitas}
+            serviciosCita={serviciosCita}
+            asignaciones={asignacionesCitas}
+            horarios={horariosPorMiembroCitas}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "horario"}
+          titulo="Horario semanal"
+          descripcion="Qué días abrís y de qué hora a qué hora. Las citas solo se pueden reservar dentro de este horario (salvo que alguien tenga horario propio)."
+        >
+          <HorarioForm ranchoId={rancho.id} initialHorario={horarioDeDetalles(rancho.detalles)} />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "bloqueos"}
+          titulo="Bloqueos y ausencias"
+          descripcion="Vacaciones, feriados propios o días que no se trabaja — del negocio entero o de una sola persona."
+          resumen={bloqueosCitas.length > 0 ? `${bloqueosCitas.length} vigentes` : undefined}
+        >
+          <BloqueosPanel
+            ranchoId={rancho.id}
+            zona={zonaCitas}
+            equipo={equipoCitas.map((m) => ({ id: m.id, nombre: m.nombre, activo: m.activo }))}
+            initialBloqueos={bloqueosCitas}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "deposito"}
+          titulo="Depósito para asegurar la cita"
+          descripcion="Opcional: pedile al cliente un depósito por SINPE al reservar. La cita queda confirmada al instante; el comprobante lo validás en Finanzas."
+        >
+          <DepositoCitasForm
+            ranchoId={rancho.id}
+            initialDeposito={depositoCitas}
+            tieneSinpe={!!rancho.sinpe_numero}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "descuentos"}
+          titulo="Descuentos y promociones"
+          descripcion="Atraé más clientes con cupones y descuentos automáticos por día."
+          resumen={totalDescuentos > 0 ? `${totalDescuentos} activos` : undefined}
+        >
+          <DescuentosForm
+            initialCodigos={codigos}
+            initialPromociones={promociones}
+            onGuardarCodigos={guardarCodigosPropio.bind(null, rancho.id)}
+            onGuardarPromociones={guardarPromocionesPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "terminos"}
+          titulo="Términos y monto mínimo"
+          descripcion="Las condiciones que el cliente acepta antes de reservar con vos."
+        >
+          <TerminosForm
+            initialTerminos={rancho.terminos ?? []}
+            initialMontoMinimo={rancho.monto_minimo}
+            depositoReserva={rancho.deposito_reserva}
+            esLugar={esLugar}
+            vertical={rancho.vertical ?? "eventos"}
+            onGuardar={guardarTerminosPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "cuentas"}
+          titulo="Cuentas para recibir pagos"
+          descripcion="El cliente ve esto en el paso de pago, según el método que elija. Sin cuentas configuradas, esa forma de pago no se le ofrece."
+        >
+          <CuentasPagoForm
+            initial={{
+              sinpeNumero: rancho.sinpe_numero ?? "",
+              sinpeTitular: rancho.sinpe_titular ?? "",
+              cuentaBanco: rancho.cuenta_banco ?? "",
+              cuentaNumero: rancho.cuenta_numero ?? "",
+              cuentaTitular: rancho.cuenta_titular ?? "",
+              cuentaTipo: rancho.cuenta_tipo ?? "",
+            }}
+            onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
+          />
+        </SeccionPlegable>
+
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "asistente"}
+          titulo="Asistente IA"
+          descripcion="El que le contesta al cliente por el chat de Bookea, con tus datos, a cualquier hora."
+        >
+          {contenidoAsistente}
+        </SeccionPlegable>
+      </div>
     ),
   };
 
-  // esVerticalCitas ya quedó declarado más arriba (lo necesita también
-  // el calendario de la Agenda) — acá solo arma el ítem "Citas" del
-  // sidebar. Orden: Inicio primero (el vistazo), después lo operativo
-  // (Agenda/Citas/Catálogo/Finanzas, lo que se mira seguido), al final
-  // lo que se toca una vez y se olvida (Mi negocio/Precios/Asistente
-  // IA — antes era una sola pestaña "Configuración" con 8 formularios
-  // plegados; ahora cada uno vive en su propio ítem del sidebar, sin
-  // competir por espacio con los demás). "Reservas"/"Solicitudes" no
-  // tiene ítem propio: su tabla se plegó dentro de Agenda, que sigue
-  // siendo el único lugar para tocar reservas de punta a punta.
-  const tabs: Tab[] = [
-    tabInicio,
-    tabAgenda,
-    ...(esVerticalCitas
-      ? [
-          {
-            id: "citas",
-            label: "Citas",
-            href: `/mi-negocio/${rancho.id}/citas`,
-            icon: <IconClock />,
-          } satisfies Tab,
-        ]
-      : []),
-    ...(!esLugar ? [tabCatalogo] : []),
-    tabFinanzas,
-    tabNegocio,
-    tabPrecios,
-    tabAsistente,
-  ];
+  // Dos sidebars según la vertical (reorganización pedida por el dueño):
+  //
+  // CITAS — 4 ítems: Inicio, Citas (la agenda del día, donde entran
+  // solas las reservas de la web y se agenda/mueve/cancela todo),
+  // Finanzas y Configuración (todo lo demás, plegado). La pestaña
+  // "Agenda" (calendario mensual de eventos) se ELIMINÓ para citas:
+  // era solo-lectura y confundía con dos agendas.
+  //
+  // EVENTOS y demás — igual que siempre: Inicio, Agenda, Catálogo,
+  // Finanzas, Mi negocio, Precios, Asistente IA.
+  const tabs: Tab[] = esVerticalCitas
+    ? [
+        tabInicio,
+        {
+          id: "citas",
+          label: "Citas",
+          href: `/mi-negocio/${rancho.id}/citas`,
+          icon: <IconClock />,
+        } satisfies Tab,
+        tabFinanzas,
+        tabConfig,
+      ]
+    : [
+        tabInicio,
+        tabAgenda,
+        ...(!esLugar ? [tabCatalogo] : []),
+        tabFinanzas,
+        tabNegocio,
+        tabPrecios,
+        tabAsistente,
+      ];
 
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
@@ -891,7 +1120,7 @@ export default async function RanchoDetallePage({
           </div>
 
           <Link
-            href="?tab=negocio&seccion=perfil"
+            href={esVerticalCitas ? "?tab=config&seccion=perfil" : "?tab=negocio&seccion=perfil"}
             className="shrink-0 rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-sky-dark"
           >
             Editar perfil y fotos

@@ -1,13 +1,12 @@
-import Image from "next/image";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import {
+  IconBalloons,
+  IconCalendarLine,
   IconChatBubble,
-  IconClock,
-  IconHouse,
-  IconSparkles,
+  IconPalmera,
   IconStar,
   IconStopwatch,
   IconTagLine,
@@ -18,12 +17,12 @@ import {
  * El home de Bookea — el techo común de las verticales. Antes / era un
  * redirect directo a /eventos; ahora que son varios mundos (Eventos,
  * Citas y pronto Hospedajes), la portada los presenta como tres
- * puertas grandes y deja que cada quien entre al suyo.
+ * puertas y deja que cada quien entre a la suya.
  *
- * Diseño 100% en la línea bento de la marca (nacida en /lealtad y
- * /publicar): hero navy con orbes, fotos locales de /fondos (las
- * mismas de la portada vieja) servidas por next/image, y cero
- * JavaScript más allá del RevealOnScroll de siempre — la puerta de
+ * Las puertas son rectángulos claros con marca de agua (globos, agenda,
+ * palmera), en las mismas pieles azul/celeste alternadas del tablero
+ * del panel — sin fotos, sin bloques navy (iterado con el dueño). Cero
+ * JavaScript más allá del RevealOnScroll de siempre: la puerta de
  * entrada tiene que ser la página más liviana del sitio.
  */
 
@@ -31,21 +30,23 @@ const PUERTAS = [
   {
     href: "/eventos",
     nombre: "Eventos",
-    Icono: IconSparkles,
-    foto: "/fondos/portada-eventos.jpg",
-    alt: "Mesa decorada para un evento",
+    Marca: IconBalloons,
     linea: "Lugares para fiestas, catering, música y decoración — todo tu evento en un solo lugar.",
     chips: ["Lugares", "Alimentación", "Animación", "Decoración"],
   },
   {
     href: "/citas",
     nombre: "Citas",
-    Icono: IconClock,
-    foto: "/fondos/portada-citas.jpg",
-    alt: "Sala de un spa lista para una cita",
+    Marca: IconCalendarLine,
     linea: "Belleza, barbería, uñas y spa: elegí el servicio, la hora y con quién.",
     chips: ["Belleza", "Barbería", "Uñas", "Spa"],
   },
+] as const;
+
+/** Las mismas dos pieles suaves del tablero del panel, alternadas. */
+const PIELES_PUERTA = [
+  { card: "border-aventurea-navy/10 bg-aventurea-blue-light", marca: "text-aventurea-navy/10" },
+  { card: "border-aventurea-sky/30 bg-aventurea-sky/20", marca: "text-aventurea-sky-dark/20" },
 ] as const;
 
 const PROMESAS = [
@@ -104,45 +105,40 @@ export default function Home() {
 
             {/* Las puertas */}
             <div className="mt-9 grid gap-3 sm:grid-cols-3">
-              {PUERTAS.map(({ href, nombre, Icono, foto, alt, linea, chips }, i) => (
+              {PUERTAS.map(({ href, nombre, Marca, linea, chips }, i) => (
                 <Link
                   key={href}
                   href={href}
                   data-reveal
                   style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
-                  className="group relative block aspect-[16/10] overflow-hidden rounded-2xl sm:aspect-[3/4]"
+                  className={`group relative flex flex-col overflow-hidden rounded-2xl border p-6 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(22,41,94,0.4)] sm:p-7 ${PIELES_PUERTA[i % PIELES_PUERTA.length].card}`}
                 >
-                  <Image
-                    src={foto}
-                    alt={alt}
-                    fill
-                    priority={i === 0}
-                    sizes="(max-width: 640px) 92vw, 400px"
-                    className="object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
+                  {/* La marca de agua, sangrando por la esquina como en
+                      las cards del tablero del panel. */}
                   <span
                     aria-hidden
-                    className="absolute inset-0 bg-gradient-to-t from-aventurea-navy/95 via-aventurea-navy/35 to-aventurea-navy/10 transition-colors group-hover:via-aventurea-navy/45"
-                  />
-                  <span className="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-5">
-                    <span className="flex items-center gap-2 text-[21px] font-extrabold text-white">
-                      <Icono className="h-5 w-5 text-aventurea-orange" />
+                    className={`pointer-events-none absolute -right-5 -top-6 rotate-[14deg] ${PIELES_PUERTA[i % PIELES_PUERTA.length].marca} [&_svg]:h-36 [&_svg]:w-36`}
+                  >
+                    <Marca />
+                  </span>
+                  <span className="relative z-10 flex flex-col gap-2">
+                    <span className="text-[21px] font-extrabold text-aventurea-ink">
                       {nombre}
                     </span>
-                    <span className="text-[12.5px] leading-snug text-white/80">
+                    <span className="text-[13px] leading-snug text-aventurea-ink-soft">
                       {linea}
                     </span>
-                    <span className="flex flex-wrap gap-1.5">
+                    <span className="mt-1 flex flex-wrap gap-1.5">
                       {chips.map((chip) => (
                         <span
                           key={chip}
-                          className="rounded-lg bg-white/15 px-2 py-0.5 text-[10.5px] font-bold text-white/90 backdrop-blur-sm"
+                          className="rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy"
                         >
                           {chip}
                         </span>
                       ))}
                     </span>
-                    <span className="mt-1 text-[13px] font-extrabold text-white underline-offset-4 group-hover:underline">
+                    <span className="mt-2 text-[13px] font-extrabold text-aventurea-navy underline-offset-4 group-hover:underline">
                       Explorar →
                     </span>
                   </span>
@@ -154,28 +150,22 @@ export default function Home() {
               <div
                 data-reveal
                 style={{ "--reveal-delay": "180ms" } as React.CSSProperties}
-                className="relative block aspect-[16/10] overflow-hidden rounded-2xl sm:aspect-[3/4]"
+                className={`relative flex flex-col overflow-hidden rounded-2xl border p-6 sm:p-7 ${PIELES_PUERTA[0].card}`}
               >
-                <Image
-                  src="/fondos/portada-hospedajes.jpg"
-                  alt="Hospedaje frente al mar en Costa Rica"
-                  fill
-                  sizes="(max-width: 640px) 92vw, 400px"
-                  className="object-cover"
-                />
                 <span
                   aria-hidden
-                  className="absolute inset-0 bg-gradient-to-t from-aventurea-navy/95 via-aventurea-navy/55 to-aventurea-navy/25"
-                />
-                <span className="absolute right-3.5 top-3.5 rounded-lg bg-white/95 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy">
-                  Muy pronto
+                  className={`pointer-events-none absolute -right-5 -top-6 rotate-[14deg] ${PIELES_PUERTA[0].marca} [&_svg]:h-36 [&_svg]:w-36`}
+                >
+                  <IconPalmera />
                 </span>
-                <span className="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-5">
-                  <span className="flex items-center gap-2 text-[21px] font-extrabold text-white">
-                    <IconHouse className="h-5 w-5 text-aventurea-orange" />
+                <span className="relative z-10 flex flex-col gap-2">
+                  <span className="flex items-center gap-2.5 text-[21px] font-extrabold text-aventurea-ink">
                     Hospedajes
+                    <span className="rounded-lg bg-aventurea-navy px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wide text-white">
+                      Muy pronto
+                    </span>
                   </span>
-                  <span className="text-[12.5px] leading-snug text-white/80">
+                  <span className="text-[13px] leading-snug text-aventurea-ink-soft">
                     Escapadas y estadías frente al mar y la montaña — ya casi
                     están acá.
                   </span>

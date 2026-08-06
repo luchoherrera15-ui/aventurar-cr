@@ -5,15 +5,11 @@ import { hoyISOCR, fmtFechaCorta, sumarDiasISO } from "@/lib/fechas";
 import { fmtColones } from "@/lib/finanzas";
 import { horarioDeDetalles } from "@/app/citas/tipos";
 import { agruparClientes, type ReservaCliente } from "@/lib/crm-citas";
-import EquipoPanel from "./equipo-panel";
-import HorarioForm from "./horario-form";
-import CitasTabs from "./citas-tabs";
-import { type CitaDia } from "./agenda-citas";
+import SeccionPlegable from "@/components/seccion-plegable";
+import AgendaCitas, { type CitaDia } from "./agenda-citas";
 import ClientesPanel from "./clientes-panel";
-import BloqueosPanel from "./bloqueos-panel";
 import ReportesCitas from "./reportes-citas";
 import ListaEsperaPanel from "./lista-espera-panel";
-import DepositoCitasForm from "./deposito-citas-form";
 import type { BloqueoAgenda, MiembroEquipo, RangoHorarioMiembro } from "./actions";
 
 type Giftcard = {
@@ -43,12 +39,14 @@ const GIFTCARD_ESTADO: Record<Giftcard["estado"], { label: string; cls: string }
 };
 
 /**
- * El centro de operación del negocio de citas: la agenda del día (con
- * asistencia, walk-ins y bloqueos), los clientes con sus alertas de
- * no-show y re-enganche, el equipo con horarios y servicios por
- * persona, el horario semanal y las giftcards. Solo existe para los
- * negocios con vertical 'citas'; el resto del panel (publicación,
- * catálogo, cobros) sigue viviendo en /mi-negocio/[id].
+ * La pantalla de CITAS — solo la operación del día (pedido del dueño:
+ * una sola pantalla donde las citas de la web entran solas y se
+ * agenda, mueve o cancela todo). La agenda por colaborador va directa,
+ * sin pestañas internas; lo que acompaña la operación (clientes,
+ * reportes, lista de espera, giftcards) queda debajo en secciones
+ * plegables CERRADAS. La configuración del negocio (equipo, horario
+ * semanal, bloqueos, depósito, productos) vive en la pestaña
+ * Configuración de /mi-negocio/[id].
  */
 export default async function CitasConfigPage({
   params,
@@ -89,7 +87,6 @@ export default async function CitasConfigPage({
     bloqueosRes,
     serviciosRes,
     horariosRes,
-    asignacionesRes,
     crmRes,
     giftcardsRes,
   ] = await Promise.all([
@@ -130,16 +127,12 @@ export default async function CitasConfigPage({
       .not("duracion_minutos", "is", null)
       .eq("activo", true)
       .order("orden", { ascending: true }),
-    // Horario propio por miembro (0061), del negocio completo.
+    // Horario propio por miembro (0061): la agenda lo necesita para
+    // pintar la franja real de cada colaborador (herencia + día libre).
     supabase
       .from("horarios_recurso")
       .select("miembro_id, dow, abre, cierra, equipo_rancho!inner(rancho_id)")
       .eq("equipo_rancho.rancho_id", id),
-    // Quién da qué servicio (0061), del negocio completo.
-    supabase
-      .from("servicios_recurso")
-      .select("item_id, miembro_id, rancho_items!inner(rancho_id)")
-      .eq("rancho_items.rancho_id", id),
     // La materia prima del CRM: las citas del negocio (con hora). La
     // ficha se deriva acá y no se guarda en ninguna tabla (D-3).
     supabase
@@ -187,20 +180,7 @@ export default async function CitasConfigPage({
     });
   }
 
-  const asignaciones = ((asignacionesRes.data ?? []) as unknown as {
-    item_id: string;
-    miembro_id: string;
-  }[]).map((a) => ({ item_id: a.item_id, miembro_id: a.miembro_id }));
-
   const clientes = agruparClientes((crmRes.data ?? []) as ReservaCliente[], hoy);
-
-  // Depósito para citas (0095) — con la base sin migrar queda null.
-  const brutoDeposito = (rancho as Record<string, unknown>).deposito_citas;
-  const depositoCitas =
-    typeof brutoDeposito === "number" || typeof brutoDeposito === "string"
-      ? Number(brutoDeposito)
-      : null;
-  const tieneSinpe = !!(rancho as Record<string, unknown>).sinpe_numero;
 
   // Si la tabla aún no existe (migración 0059 sin correr) se muestra
   // el aviso dentro de su sección, sin tumbar el resto del panel.
@@ -222,8 +202,16 @@ export default async function CitasConfigPage({
 
       <h1 className="mt-4 text-[22px] font-bold text-aventurea-ink">Citas</h1>
       <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
-        Tu agenda del día, tus clientes y tu equipo. Con esto configurado, el
-        cliente reserva su cita en línea y queda confirmada al instante.
+        Las citas de tu página entran solas acá. Agendá walk-ins, movélas,
+        cancelálas y marcá quién vino — todo desde esta pantalla. El equipo,
+        horarios y demás se configuran en{" "}
+        <Link
+          href={`/mi-negocio/${rancho.id}?tab=config`}
+          className="font-bold text-aventurea-navy underline"
+        >
+          Configuración
+        </Link>
+        .
       </p>
 
       {errorCarga && (
@@ -237,140 +225,68 @@ export default async function CitasConfigPage({
         </div>
       )}
 
-      <div className="mt-8 flex flex-col gap-10">
-        <section>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-            Agenda del día
-          </h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Marcá quién vino y quién no, agendá walk-ins con hora y bloqueá
-            franjas — como en el mostrador.
-          </p>
-          <CitasTabs
-            ranchoId={rancho.id}
-            zona={zona}
-            equipo={equipo.map((m) => ({
-              id: m.id,
-              nombre: m.nombre,
-              tipo: m.tipo ?? "profesional",
-              activo: m.activo,
-              fotoUrl: m.foto_url,
-            }))}
-            servicios={servicios}
-            horario={horario}
-            horariosPorMiembro={horariosPorMiembro}
-            initialFecha={hoy}
-            initialCitas={citasHoy}
-            initialBloqueos={bloqueos}
-          />
-        </section>
+      <div className="mt-6 flex flex-col gap-6">
+        {/* La agenda va DIRECTA — sin pestañas internas ni títulos de
+            sección (pedido del dueño): esta pantalla ES la agenda. */}
+        <AgendaCitas
+          ranchoId={rancho.id}
+          zona={zona}
+          equipo={equipo.map((m) => ({
+            id: m.id,
+            nombre: m.nombre,
+            tipo: m.tipo ?? "profesional",
+            activo: m.activo,
+            fotoUrl: m.foto_url,
+          }))}
+          servicios={servicios}
+          horario={horario}
+          horariosPorMiembro={horariosPorMiembro}
+          initialFecha={hoy}
+          initialCitas={citasHoy}
+          initialBloqueos={bloqueos}
+        />
 
-        <section id="clientes">
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Clientes</h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Quién viene, quién dejó de venir y quién te está fallando — con la
-            promoción de re-enganche a un clic. Se arma solo desde tus citas.
-          </p>
+        {/* Lo que acompaña la operación, plegado y cerrado: se abre
+            cuando hace falta, sin agrandar la pantalla. */}
+        <SeccionPlegable
+          marco={false}
+          id="clientes"
+          titulo="Clientes"
+          descripcion="Quién viene, quién dejó de venir y quién te está fallando — con la promoción de re-enganche a un clic."
+          resumen={clientes.length > 0 ? `${clientes.length}` : undefined}
+        >
           <ClientesPanel
             ranchoId={rancho.id}
             nombreNegocio={rancho.nombre}
             clientes={clientes}
           />
-        </section>
+        </SeccionPlegable>
 
-        <section>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-            Cómo va el negocio
-          </h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Citas, asistencia, ingresos, quién atiende más y a qué horas —
-            derivado de tu agenda real.
-          </p>
+        <SeccionPlegable
+          marco={false}
+          titulo="Cómo va el negocio"
+          descripcion="Citas, asistencia, ingresos, quién atiende más y a qué horas — derivado de tu agenda real."
+        >
           <ReportesCitas
             ranchoId={rancho.id}
             equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre }))}
           />
-        </section>
+        </SeccionPlegable>
 
-        <section>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">El equipo</h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Las personas que atienden — y también espacios como cabinas o
-            camillas. El cliente elige con quién quiere su cita, y cada quien
-            puede tener su propio horario y sus propios servicios.
-          </p>
-          <EquipoPanel
-            ranchoId={rancho.id}
-            initialEquipo={equipo}
-            serviciosCita={servicios.map((s) => ({ id: s.id, nombre: s.nombre }))}
-            asignaciones={asignaciones}
-            horarios={horariosPorMiembro}
-          />
-        </section>
-
-        <section>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-            Horario semanal
-          </h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Qué días abrís y de qué hora a qué hora. Las citas solo se pueden
-            reservar dentro de este horario (salvo que alguien del equipo tenga
-            horario propio).
-          </p>
-          <HorarioForm ranchoId={rancho.id} initialHorario={horario} />
-        </section>
-
-        <section>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-            Bloqueos y ausencias
-          </h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Vacaciones, feriados propios o días que no se trabaja — del negocio
-            entero o de una sola persona.
-          </p>
-          <BloqueosPanel
-            ranchoId={rancho.id}
-            zona={zona}
-            equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre, activo: m.activo }))}
-            initialBloqueos={bloqueos}
-          />
-        </section>
-
-        <section>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-            Lista de espera
-          </h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Cuando un día tuyo está lleno, el cliente puede dejar su nombre.
-            Si cancelás o movés una cita de ese día, se le avisa solo — y
-            reserva quien confirme primero.
-          </p>
+        <SeccionPlegable
+          marco={false}
+          titulo="Lista de espera"
+          descripcion="Cuando un día está lleno, el cliente deja su nombre; si se libera un espacio, se le avisa solo."
+        >
           <ListaEsperaPanel ranchoId={rancho.id} />
-        </section>
+        </SeccionPlegable>
 
-        <section>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">
-            Depósito para asegurar la cita
-          </h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Opcional: pedile al cliente un depósito por SINPE al reservar. La
-            cita igual queda confirmada al instante; el comprobante te llega
-            por el chat y lo validás en Finanzas.
-          </p>
-          <DepositoCitasForm
-            ranchoId={rancho.id}
-            initialDeposito={depositoCitas}
-            tieneSinpe={tieneSinpe}
-          />
-        </section>
-
-        <section>
-          <h2 className="mb-1 text-lg font-bold text-aventurea-ink">Giftcards</h2>
-          <p className="mb-4 text-[13px] text-aventurea-ink-soft">
-            Las giftcards vendidas de tu negocio: quién la compró, para
-            quién es y cuánto saldo queda por canjear en el local.
-          </p>
-
+        <SeccionPlegable
+          marco={false}
+          titulo="Giftcards"
+          descripcion="Las giftcards vendidas de tu negocio: quién la compró, para quién es y cuánto saldo queda."
+          resumen={giftcards.length > 0 ? `${giftcards.length} vendidas` : undefined}
+        >
           {giftcardsSinTabla ? (
             <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
               <strong>Falta la migración de giftcards.</strong> Corré{" "}
@@ -451,7 +367,7 @@ export default async function CitasConfigPage({
               </div>
             </>
           )}
-        </section>
+        </SeccionPlegable>
       </div>
     </main>
   );

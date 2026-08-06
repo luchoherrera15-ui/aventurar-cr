@@ -16,8 +16,17 @@ export default async function MiRanchoPreciosPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data } = await supabase.from("ranchos").select("categoria").eq("id", id).maybeSingle();
+  const { data } = await supabase
+    .from("ranchos")
+    .select("categoria, vertical")
+    .eq("id", id)
+    .maybeSingle();
   if (!data) notFound();
+
+  // Para CITAS todo lo de precios (descuentos) vive en Configuración.
+  if (data.vertical === "citas") {
+    redirect(`/mi-negocio/${id}?tab=config&seccion=descuentos`);
+  }
 
   const esLugar = data.categoria === "lugares";
   redirect(

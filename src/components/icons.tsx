@@ -740,6 +740,30 @@ export function IconOliva({ className = base }: IconProps) {
 }
 
 /** Vegetariana y saludable: la hoja. */
+export function IconPalmera({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" d="M11.3 21c.3-4.8 1-8.7 2.7-12.3" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14 8.7C12.5 6.2 10 5 7.1 5.7c1.6 1.9 3.9 2.9 6.9 3Z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14 8.7c-.4-2.9 1-5.1 3.7-6.2-.1 2.5-1.3 4.6-3.7 6.2Z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14 8.7c2.7-1.4 5.4-1.2 7.6.8-2.4 1-5 .8-7.6-.8Z"
+      />
+      <path strokeLinecap="round" d="M4.5 21h13" />
+    </svg>
+  );
+}
+
 export function IconHoja({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
