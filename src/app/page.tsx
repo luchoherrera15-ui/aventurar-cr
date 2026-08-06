@@ -1,14 +1,13 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 // La animación de "Reservar toma tres pasos" — hoja propia de esta
 // ruta, como reel.css en /invitaciones: nadie más la descarga.
 import "./home.css";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import RanchoCard, { type Calificacion } from "@/components/rancho-card";
-import type { Rancho } from "@/app/mi-negocio/types";
 import {
+  IconBalloons,
+  IconCalendarLine,
   IconChatBubble,
   IconPalmera,
   IconStar,
@@ -19,28 +18,40 @@ import {
 
 /**
  * El home de Bookea — el techo común de las verticales. Antes / era un
- * redirect directo a /eventos; ahora la portada muestra tres rieles con
- * negocios REALES (pedido del dueño): uno de Eventos, uno de Citas y el
- * de Hospedajes como "muy pronto".
+ * redirect directo a /eventos; la portada presenta las verticales como
+ * DOS tarjetas rectangulares simples (Eventos y Citas) más la banda de
+ * Hospedajes "muy pronto". Se probó mostrar rieles con negocios reales
+ * acá y el dueño lo descartó: hacía enredo — los negocios viven en sus
+ * directorios, el home solo abre las puertas.
  *
- * Cada riel muestra hasta 5 tarjetas en una GRILLA que se estira para
- * llenar todo el ancho (auto-fit): con 3 negocios salen 3 tarjetas
- * grandes, con 5 se compactan solas — nunca queda un hueco muerto a la
- * derecha ni hay que scrollear. Al final de cada riel va la card azul
- * "VER TODO", que lleva a su directorio.
- *
- * Quién sale acá: los destacados del admin primero y después los más
- * nuevos. A futuro este espacio será de pago (suscripción de
- * visibilidad por negocio) — POR AHORA es gratis para todos, así que no
- * hay ningún gate: solo el orden destacados → recientes.
+ * Sin consultas a la base: la puerta de entrada es la página más
+ * liviana del sitio.
  */
 
-const TOPE_POR_RIEL = 5;
+const PUERTAS = [
+  {
+    href: "/eventos",
+    nombre: "Todo para tus eventos",
+    Marca: IconBalloons,
+    linea:
+      "Lugares para fiestas, catering, música y decoración — reservá cada pieza en un solo lugar.",
+    chips: ["Lugares", "Alimentación", "Animación", "Decoración"],
+  },
+  {
+    href: "/citas",
+    nombre: "¿Qué deseás agendar?",
+    Marca: IconCalendarLine,
+    linea:
+      "Belleza, barbería, uñas y spa: elegí el servicio, la hora y con quién.",
+    chips: ["Belleza", "Barbería", "Uñas", "Spa"],
+  },
+] as const;
 
-/** 5 tarjetas + la card VER TODO (6 celdas de ≥190px + gaps) caben en
- *  el contenedor de 1280 en una sola fila. */
-const GRILLA_RIEL =
-  "grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:[grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]";
+/** Las mismas dos pieles suaves del tablero del panel, alternadas. */
+const PIELES_PUERTA = [
+  { card: "border-aventurea-navy/10 bg-aventurea-blue-light", marca: "text-aventurea-navy/10" },
+  { card: "border-aventurea-sky/30 bg-aventurea-sky/20", marca: "text-aventurea-sky-dark/20" },
+] as const;
 
 const PROMESAS = [
   { Icono: IconStopwatch, texto: "Confirmación al instante" },
@@ -67,91 +78,7 @@ const PASOS = [
   },
 ] as const;
 
-/**
- * La card azul llamativa al final de cada riel (pedido del dueño): el
- * mismo alto que las tarjetas de negocio (la grilla estira las celdas)
- * y el CTA más visible de la fila.
- */
-function CardVerTodo({
-  href,
-  linea1,
-  linea2,
-}: {
-  href: string;
-  linea1: string;
-  linea2: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group relative flex min-h-[240px] flex-col items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-aventurea-sky p-5 text-center shadow-[0_14px_36px_-18px_rgba(47,124,190,0.8)] transition-all hover:-translate-y-1 hover:bg-aventurea-sky-dark"
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/15 blur-2xl"
-      />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -bottom-14 -left-10 h-32 w-32 rounded-full bg-aventurea-navy/25 blur-2xl"
-      />
-      <span className="relative text-[12px] font-extrabold uppercase tracking-[0.16em] text-white/85">
-        {linea1}
-      </span>
-      <span className="titulo relative -mt-1 text-[27px] uppercase text-white">
-        {linea2}
-      </span>
-      <span className="relative mt-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[19px] font-extrabold text-aventurea-sky transition-transform group-hover:translate-x-1.5">
-        →
-      </span>
-    </Link>
-  );
-}
-
-/** Destacados del admin primero (en su orden), después los más nuevos. */
-function topDelVertical(negocios: Rancho[], vertical: string): Rancho[] {
-  return negocios
-    .filter((r) => (r.vertical ?? "eventos") === vertical)
-    .sort(
-      (a, b) =>
-        (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity) ||
-        (a.created_at < b.created_at ? 1 : -1),
-    )
-    .slice(0, TOPE_POR_RIEL);
-}
-
-export default async function Home() {
-  const supabase = await createClient();
-
-  const [negociosRes, califRes, userRes] = await Promise.all([
-    supabase
-      .from("ranchos")
-      .select("*")
-      .eq("estado", "aprobado")
-      .in("vertical", ["eventos", "citas"])
-      .order("created_at", { ascending: false })
-      .limit(120),
-    supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
-    supabase.auth.getUser(),
-  ]);
-
-  const negocios = (negociosRes.data ?? []) as Rancho[];
-  const rielEventos = topDelVertical(negocios, "eventos");
-  const rielCitas = topDelVertical(negocios, "citas");
-
-  const calificaciones = new Map<string, Calificacion>(
-    ((califRes.data ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
-  );
-
-  const user = userRes.data.user;
-  let favoritosIds = new Set<string>();
-  if (user) {
-    const { data: favData } = await supabase
-      .from("favoritos")
-      .select("rancho_id")
-      .eq("cliente_id", user.id);
-    favoritosIds = new Set((favData ?? []).map((f) => f.rancho_id as string));
-  }
-
+export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <RevealOnScroll />
@@ -175,57 +102,53 @@ export default async function Home() {
           </p>
         </section>
 
-        {/* ---------- Los tres rieles ---------- */}
-        <div className="mx-auto flex max-w-[1280px] flex-col gap-8 px-4 pt-8 sm:px-5">
-          <section data-reveal>
-            <h2 className="px-1 text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink">
-              Todo para tu evento
-            </h2>
-            <p className="mt-1 px-1 text-[14px] text-aventurea-ink-soft">
-              Lugares, catering, música y decoración — reservá cada pieza de tu
-              fiesta.
-            </p>
-            <div className={`mt-3.5 ${GRILLA_RIEL}`}>
-              {rielEventos.map((r, i) => (
-                <RanchoCard
-                  key={r.id}
-                  rancho={r}
-                  index={i}
-                  calificacion={calificaciones.get(r.id) ?? null}
-                  favoritoInicial={favoritosIds.has(r.id)}
-                  sesionActiva={!!user}
-                />
-              ))}
-              <CardVerTodo href="/eventos" linea1="Ver todo de" linea2="Eventos" />
-            </div>
-          </section>
+        {/* ---------- Las dos puertas ---------- */}
+        <div className="mx-auto flex max-w-[1280px] flex-col gap-8 px-4 pt-9 sm:px-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {PUERTAS.map(({ href, nombre, Marca, linea, chips }, i) => (
+              <Link
+                key={href}
+                href={href}
+                data-reveal
+                style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
+                className={`group relative flex flex-col overflow-hidden rounded-2xl border p-6 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(22,41,94,0.4)] sm:p-8 ${PIELES_PUERTA[i % PIELES_PUERTA.length].card}`}
+              >
+                {/* La marca de agua, sangrando por la esquina como en
+                    las cards del tablero del panel. */}
+                <span
+                  aria-hidden
+                  className={`pointer-events-none absolute -right-5 -top-6 rotate-[14deg] ${PIELES_PUERTA[i % PIELES_PUERTA.length].marca} [&_svg]:h-36 [&_svg]:w-36`}
+                >
+                  <Marca />
+                </span>
+                <span className="relative z-10 flex flex-col gap-2">
+                  <span className="titulo text-[23px] text-aventurea-ink sm:text-[26px]">
+                    {nombre}
+                  </span>
+                  <span className="max-w-[46ch] text-[13.5px] leading-snug text-aventurea-ink-soft">
+                    {linea}
+                  </span>
+                  <span className="mt-1.5 flex flex-wrap gap-1.5">
+                    {chips.map((chip) => (
+                      <span
+                        key={chip}
+                        className="rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy"
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </span>
+                  <span className="mt-2.5 text-[13.5px] font-extrabold text-aventurea-navy underline-offset-4 group-hover:underline">
+                    Explorar →
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
 
-          <section data-reveal>
-            <h2 className="px-1 text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink">
-              Cualquier servicio que necesités agendar
-            </h2>
-            <p className="mt-1 px-1 text-[14px] text-aventurea-ink-soft">
-              Belleza, barbería, uñas y spa — elegí la hora y con quién, y quedá
-              confirmado al instante.
-            </p>
-            <div className={`mt-3.5 ${GRILLA_RIEL}`}>
-              {rielCitas.map((r, i) => (
-                <RanchoCard
-                  key={r.id}
-                  rancho={r}
-                  index={i}
-                  calificacion={calificaciones.get(r.id) ?? null}
-                  favoritoInicial={favoritosIds.has(r.id)}
-                  sesionActiva={!!user}
-                />
-              ))}
-              <CardVerTodo href="/citas" linea1="Ver todo de" linea2="Citas" />
-            </div>
-          </section>
-
-          {/* Hospedajes: el riel que ya se anuncia pero todavía no
-              tiene negocios — placeholder con la palmera de marca. */}
-          <section data-reveal className="py-3">
+          {/* Hospedajes: la banda que ya se anuncia pero todavía no
+              tiene negocios — con la palmera de marca. */}
+          <section data-reveal className="py-1">
             <h2 className="px-1 text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink">
               Tu próxima escapada
             </h2>
