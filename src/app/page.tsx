@@ -9,7 +9,6 @@ import {
   IconBalloons,
   IconCalendarLine,
   IconChatBubble,
-  IconPalmera,
   IconStar,
   IconStopwatch,
   IconTagLine,
@@ -19,10 +18,10 @@ import {
 /**
  * El home de Bookea — el techo común de las verticales. Antes / era un
  * redirect directo a /eventos; la portada presenta las verticales como
- * DOS tarjetas rectangulares simples (Eventos y Citas) más la banda de
- * Hospedajes "muy pronto". Se probó mostrar rieles con negocios reales
- * acá y el dueño lo descartó: hacía enredo — los negocios viven en sus
- * directorios, el home solo abre las puertas.
+ * DOS bandas rectangulares apiladas (Eventos y Citas). Se probó
+ * mostrar rieles con negocios reales acá y el dueño lo descartó: hacía
+ * enredo — los negocios viven en sus directorios, el home solo abre
+ * las puertas. Hospedajes tampoco se anuncia acá hasta que exista.
  *
  * Sin consultas a la base: la puerta de entrada es la página más
  * liviana del sitio.
@@ -104,28 +103,31 @@ export default function Home() {
 
         {/* ---------- Las dos puertas ---------- */}
         <div className="mx-auto flex max-w-[1280px] flex-col gap-8 px-4 pt-9 sm:px-5">
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* Una sobre otra, a todo el ancho — cada puerta es una
+              banda propia (pedido del dueño), no dos columnas. */}
+          <div className="flex flex-col gap-3">
             {PUERTAS.map(({ href, nombre, Marca, linea, chips }, i) => (
               <Link
                 key={href}
                 href={href}
                 data-reveal
                 style={{ "--reveal-delay": `${i * 90}ms` } as React.CSSProperties}
-                className={`group relative flex flex-col overflow-hidden rounded-2xl border p-6 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(22,41,94,0.4)] sm:p-8 ${PIELES_PUERTA[i % PIELES_PUERTA.length].card}`}
+                className={`group relative flex flex-col overflow-hidden rounded-2xl border p-7 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(22,41,94,0.4)] sm:p-9 ${PIELES_PUERTA[i % PIELES_PUERTA.length].card}`}
               >
                 {/* La marca de agua, sangrando por la esquina como en
-                    las cards del tablero del panel. */}
+                    las cards del tablero del panel. Más grande acá: la
+                    banda es ancha y la aguanta sin estorbar al texto. */}
                 <span
                   aria-hidden
-                  className={`pointer-events-none absolute -right-5 -top-6 rotate-[14deg] ${PIELES_PUERTA[i % PIELES_PUERTA.length].marca} [&_svg]:h-36 [&_svg]:w-36`}
+                  className={`pointer-events-none absolute -right-6 -top-10 rotate-[14deg] ${PIELES_PUERTA[i % PIELES_PUERTA.length].marca} [&_svg]:h-48 [&_svg]:w-48`}
                 >
                   <Marca />
                 </span>
                 <span className="relative z-10 flex flex-col gap-2">
-                  <span className="titulo text-[23px] text-aventurea-ink sm:text-[26px]">
+                  <span className="titulo text-[25px] text-aventurea-ink sm:text-[30px]">
                     {nombre}
                   </span>
-                  <span className="max-w-[46ch] text-[13.5px] leading-snug text-aventurea-ink-soft">
+                  <span className="max-w-[52ch] text-[14px] leading-snug text-aventurea-ink-soft">
                     {linea}
                   </span>
                   <span className="mt-1.5 flex flex-wrap gap-1.5">
@@ -145,32 +147,6 @@ export default function Home() {
               </Link>
             ))}
           </div>
-
-          {/* Hospedajes: la banda que ya se anuncia pero todavía no
-              tiene negocios — con la palmera de marca. */}
-          <section data-reveal className="py-1">
-            <h2 className="px-1 text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink">
-              Tu próxima escapada
-            </h2>
-            <div className="relative mt-3.5 flex flex-col gap-2 overflow-hidden rounded-2xl border border-aventurea-navy/10 bg-aventurea-blue-light p-6 sm:p-7">
-              <span
-                aria-hidden
-                className="pointer-events-none absolute -right-5 -top-6 rotate-[14deg] text-aventurea-navy/10 [&_svg]:h-36 [&_svg]:w-36"
-              >
-                <IconPalmera />
-              </span>
-              <span className="relative z-10 flex items-center gap-2.5 text-[21px] font-extrabold text-aventurea-ink">
-                Hospedajes
-                <span className="rounded-lg bg-aventurea-navy px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wide text-white">
-                  Muy pronto
-                </span>
-              </span>
-              <span className="relative z-10 max-w-[52ch] text-[13px] leading-snug text-aventurea-ink-soft">
-                Escapadas y estadías frente al mar y la montaña — ya casi están
-                acá.
-              </span>
-            </div>
-          </section>
 
           {/* La promesa de la casa */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-aventurea-line pt-6 sm:grid-cols-4">
