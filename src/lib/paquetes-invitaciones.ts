@@ -122,7 +122,7 @@ export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
     // referencian, y el id nunca se muestra en pantalla.
     id: "inv_esencial",
     nombre: "Invitación Estándar",
-    precioUSD: 59,
+    precioUSD: 25,
     familia: "invitacion",
     tienePanel: false,
     detalle: "Diseño a tu medida y confirmación por WhatsApp.",
@@ -130,7 +130,7 @@ export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
   {
     id: "inv_premium",
     nombre: "Invitación Premium",
-    precioUSD: 115,
+    precioUSD: 85,
     familia: "invitacion",
     detalle: "Con panel de confirmaciones, GPS y cuenta regresiva.",
   },
@@ -152,7 +152,14 @@ export const FAMILIA_LABEL: Record<ProductoIndividual["familia"], string> = {
   save_the_date: "Save the date",
 };
 
-/** Los packs: invitación Premium + álbum, más baratos que por separado. */
+/**
+ * Los packs: invitación Premium + álbum, más baratos que por separado.
+ *
+ * Los ids conservan las piedras del catálogo original (perla/zafiro/
+ * diamante) porque los pedidos hechos y la base los referencian; los
+ * NOMBRES que se muestran son propios de la casa: El Brindis, El Gran
+ * Día y Para Siempre — la historia del evento, no una joyería.
+ */
 export type PackInvitacion = {
   id: "perla" | "zafiro" | "diamante";
   nombre: string;
@@ -168,9 +175,9 @@ export type PackInvitacion = {
 export const PACKS_INVITACIONES: PackInvitacion[] = [
   {
     id: "perla",
-    nombre: "Perla",
+    nombre: "El Brindis",
     precioUSD: 113,
-    sueltoUSD: 115 + 39,
+    sueltoUSD: 85 + 39,
     badge: "Álbum de regalo",
     lema: "La invitación completa, con el álbum de la fiesta incluido.",
     incluye: [
@@ -182,9 +189,9 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
   },
   {
     id: "zafiro",
-    nombre: "Zafiro",
+    nombre: "El Gran Día",
     precioUSD: 138,
-    sueltoUSD: 115 + 69,
+    sueltoUSD: 85 + 69,
     badge: "El favorito",
     destacado: true,
     lema: "El punto justo: más fotos para que no se pierda ningún momento.",
@@ -197,9 +204,9 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
   },
   {
     id: "diamante",
-    nombre: "Diamante",
+    nombre: "Para Siempre",
     precioUSD: 163,
-    sueltoUSD: 115 + 99,
+    sueltoUSD: 85 + 99,
     badge: "Exclusivo",
     lema: "Para el evento que se cuenta una sola vez en la vida.",
     incluye: [

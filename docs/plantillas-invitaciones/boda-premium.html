@@ -1,0 +1,2157 @@
+<!--
+  Plantilla "Boda Premium" (Carta de Amor) — la experiencia completa del
+  estándar visual: full-bleed, storytelling por capítulos al scrollear y
+  generosidad de animaciones. Paleta: marfil #f7f2ea, vino #6b2233 y
+  dorado #c9a227, serif Cormorant (var --inv3-serif de la página).
+
+  LA APERTURA (pedido explícito del dueño):
+  - Al entrar, un SOBRE de carta cerrado cubre la pantalla (<dialog> en
+    el top layer): crema con sello de lacre en vino y las iniciales.
+    Mientras está cerrado no se scrollea: el dialog modal corta el
+    encadenado (overscroll-behavior: contain + touch-action: none) y un
+    listener devuelve a 0 lo que se escape. NUNCA se toca la clase de
+    html/body — React los hidrata y una clase ajena da mismatch.
+  - Un toque lo abre: el sello se rompe, la solapa gira con perspective,
+    la carta emerge y el velo se disuelve. Un segundo toque salta la
+    animación. Ese clic es el gesto que arranca la MÚSICA (saxofón, en
+    loop, volumen 0.5). El botón flotante ♪ (siempre visible, ≥44px)
+    pausa/reanuda; el botón "♪ Nuestra canción" del hero es el mismo
+    toggle.
+
+  CAPÍTULOS (cada uno entra DISTINTO, IntersectionObserver):
+    1. Hero de seda: cascada escalonada tras abrir el sobre; nombres con
+       overshoot, "&" dorado que respira; tocar los nombres suelta
+       chispas doradas.
+    2. La fecha: INMERSIÓN (translateY grande + scale 0.92→1 + blur→
+       nítido); cuenta regresiva viva con celdas que brincan; botón
+       "Agregar al calendario" (Google Calendar real).
+    3. Capítulo uno — La celebración: la foto se revela con una CORTINA
+       vino que se corre; el texto entra desde la izquierda escalonado.
+       Parallax interno de la foto ligado al scroll.
+    4. Código de vestimenta: banda VINO con bordes de festón; el título
+       BRINCA con rebote elástico; las cartas giran al entrar y los
+       puntitos de colores estallan en cascada.
+    5. Capítulo dos — Nuestra historia: las fotos se destapan con velos
+       que corren en direcciones opuestas y se asientan en su
+       inclinación; parallax sutil; tocarlas suelta corazones.
+    6. ¿Nos acompañás?: entrada en abanico; DOS ARGOLLAS DORADAS ruedan
+       desde los bordes y se encuentran en el centro según el progreso
+       del scroll (rAF) — al juntarse brota un corazón; tocarlas hace
+       "¡clink!". El botón scrollea suave al bloque RSVP REAL que la
+       página agrega debajo (no hay formulario propio).
+    7. Pie en vino profundo: la línea dorada se dibuja, la firma y el
+       crédito de la música.
+
+  AMBIENTE PERMANENTE: pétalos rosados cayendo + destellos dorados
+  subiendo (20 partículas en móvil, 32 en ≥768px), en contenedor fijo.
+
+  PLACEHOLDERS:
+    {{NOMBRE_1}}         primer nombre               p. ej. Isabella
+    {{NOMBRE_2}}         segundo nombre              p. ej. Mateo
+    {{INICIALES}}        iniciales del sello         p. ej. I · M
+    {{DIA_PALABRA}}      día en palabra              p. ej. Veintiocho
+    {{MES}}              mes                         p. ej. Noviembre
+    {{ANIO}}             año                         p. ej. 2026
+    {{HORARIO}}          rango horario               p. ej. 4:00 p. m. a 10:00 p. m.
+    {{HORA}}             hora de inicio              p. ej. 4:00 p. m.
+    {{FECHA_ISO}}        fecha-hora ISO con zona     p. ej. 2026-11-28T16:00:00-06:00
+    {{FECHA_CORTA}}      fecha corta del pie         p. ej. 28 · 11 · 2026
+    {{LUGAR}}            nombre del lugar            p. ej. Jardines del Valle Escondido
+    {{DIRECCION}}        dirección corta             p. ej. San Rafael de Escazú, San José
+    {{LINK_MAPS}}        URL de Google Maps
+    {{LINK_WAZE}}        URL de Waze
+    {{LINK_CALENDARIO}}  URL de Google Calendar (render?action=TEMPLATE…)
+    {{FOTO_1}}           foto de la celebración (horizontal, atardecer)
+    {{FOTO_2}}           foto capítulo dos — París
+    {{FOTO_3}}           foto capítulo dos — Kioto
+    {{CANCION}}          URL del mp3 (saxofón)
+
+  NOTAS TÉCNICAS:
+  - Autocontenido: CSS en el <style>, JS en dos <script> inline (uno
+    temprano para el sobre/música, uno final para el resto). Estilos
+    namespaced con .bpr-/#bpr-. Los únicos recursos remotos son las 3
+    fotos y el mp3 que hospedó el dueño.
+  - 60 fps: solo transform/opacity en todo lo que se anima en loop; el
+    blur de la sección 2 es una transición única de entrada.
+  - prefers-reduced-motion: el sobre no aparece (display:none y el
+    script tampoco lo abre), cero loops, todo visible y estático.
+  - Sin JS: el <dialog> queda cerrado (oculto), no hay lock de scroll y
+    la invitación completa es visible y legible.
+  - El scroll a la confirmación busca el hermano siguiente del
+    contenedor que la página le da al html_personalizado — ahí vive el
+    bloque RSVP real de /i/[slug].
+-->
+<div class="bpr" id="bpr">
+  <style>
+    /* ============ Tokens del tema ============ */
+    .bpr {
+      --bpr-vino: #6b2233;
+      --bpr-vino-claro: #7d2a3e;
+      --bpr-vino-prof: #3a121d;
+      --bpr-vino-noche: #2b0d14;
+      --bpr-oro: #c9a227;
+      --bpr-oro-claro: #e6cd7a;
+      --bpr-oro-oscuro: #8a6a1f;
+      --bpr-marfil: #f7f2ea;
+      --bpr-crema: #f3ead9;
+      --bpr-crema-2: #efe7d8;
+      --bpr-papel: #fffdf8;
+      --bpr-tinta: #55483a;
+      --bpr-tinta-suave: #8c8272;
+      --bpr-serif: var(--inv3-serif, "Cormorant Garamond"), "Palatino Linotype", Georgia, "Times New Roman", serif;
+      --bpr-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      position: relative;
+      display: block;
+      width: 100%;
+      overflow-x: clip;
+      background: #ffffff;
+      color: var(--bpr-tinta);
+      font-family: var(--bpr-sans);
+    }
+
+    /* ================================================================ */
+    /* EL SOBRE — <dialog> en el top layer                               */
+    /* ================================================================ */
+    #bpr-sobre {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      padding: 24px;
+      border: 0;
+      background:
+        radial-gradient(42rem 30rem at 50% 12%, rgba(201, 162, 39, 0.14), transparent 60%),
+        radial-gradient(52rem 40rem at 50% 115%, rgba(125, 42, 62, 0.5), transparent 62%),
+        linear-gradient(180deg, #4a1622, var(--bpr-vino-noche));
+      overflow: hidden;
+      z-index: 2147483000;
+      cursor: pointer;
+      color: var(--bpr-marfil);
+      opacity: 1;
+      transition: opacity 0.5s ease;
+      -webkit-tap-highlight-color: transparent;
+      /* El lock de scroll NO toca html/body (React los hidrata y una
+         clase ajena da mismatch): el dialog modal cubre el viewport,
+         esto corta el encadenado de scroll y el touch, y el script
+         devuelve a 0 cualquier scroll que se escape (teclado). */
+      overscroll-behavior: contain;
+      touch-action: none;
+    }
+    #bpr-sobre:focus { outline: none; }
+    #bpr-sobre::backdrop { background: transparent; }
+    #bpr-sobre[open] {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #bpr-sobre.bpr-yendo { opacity: 0; }
+
+    /* Motas doradas suspendidas en el aire del sobre. */
+    .bpr-sobre-mota {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(230, 205, 122, 0.9), rgba(230, 205, 122, 0) 70%);
+      opacity: 0;
+      animation: bpr-mota-sobre var(--t, 9s) ease-in-out infinite;
+      animation-delay: var(--r, 0s);
+      pointer-events: none;
+    }
+    @keyframes bpr-mota-sobre {
+      0%, 100% { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.8); }
+      50%      { opacity: 0.85; transform: translate3d(var(--dx, 10px), -14px, 0) scale(1); }
+    }
+
+    /* La caja del sobre: entrada con brinco y flote perpetuo. */
+    .bpr-sobre-esc {
+      animation: bpr-sobre-entra 0.9s cubic-bezier(0.26, 1.25, 0.42, 1) both;
+    }
+    @keyframes bpr-sobre-entra {
+      0%   { opacity: 0; transform: translateY(34px) scale(0.82); }
+      62%  { opacity: 1; transform: translateY(-6px) scale(1.04); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .bpr-sobre-caja {
+      position: relative;
+      width: min(360px, 86vw);
+      aspect-ratio: 10 / 7;
+      perspective: 1000px;
+      animation: bpr-bob 4.6s ease-in-out infinite alternate;
+    }
+    @keyframes bpr-bob {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-8px); }
+    }
+    .bpr-abriendo .bpr-sobre-caja { animation: none; }
+
+    /* Cuerpo trasero del sobre. */
+    .bpr-sobre-atras {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #f6efe2, #ecdfc8);
+      box-shadow:
+        0 34px 90px rgba(10, 3, 5, 0.55),
+        0 6px 18px rgba(10, 3, 5, 0.35);
+    }
+
+    /* La carta que vive adentro (asoma al abrir). */
+    .bpr-carta {
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 6%;
+      bottom: 9%;
+      z-index: 2;
+      border-radius: 8px;
+      background: var(--bpr-papel);
+      box-shadow: 0 4px 16px rgba(60, 30, 12, 0.18);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px;
+      text-align: center;
+      transform: translateY(0);
+      transition: transform 0.85s cubic-bezier(0.22, 0.61, 0.25, 1);
+      will-change: transform;
+    }
+    .bpr-carta-arriba .bpr-carta { transform: translateY(-74%) scale(1.02); }
+    .bpr-carta-nombres {
+      font: 600 21px/1.2 var(--bpr-serif);
+      color: var(--bpr-vino);
+      letter-spacing: 0.02em;
+    }
+    .bpr-carta-linea {
+      width: 74px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--bpr-oro), transparent);
+    }
+    .bpr-carta-lema {
+      font: italic 500 13px/1.4 var(--bpr-serif);
+      color: var(--bpr-tinta-suave);
+    }
+
+    /* Frente del sobre (el bolsillo con muesca en V). */
+    .bpr-sobre-frente {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #f2e8d5, #e9dcc2);
+      clip-path: polygon(0 10%, 50% 56%, 100% 10%, 100% 100%, 0 100%);
+      box-shadow: inset 0 10px 24px rgba(120, 84, 40, 0.1);
+    }
+    .bpr-sobre-para {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 13%;
+      text-align: center;
+      font: italic 500 13.5px/1.4 var(--bpr-serif);
+      color: #8a6a1f;
+      letter-spacing: 0.04em;
+    }
+
+    /* La solapa que gira. Sus aristas laterales (de 0/100% 18% al pico
+       en 50% 100%) calzan EXACTAS con la V del bolsillo de enfrente
+       (0 10% → 50% 56% del sobre completo): así la carta no se asoma
+       por ninguna cuña. */
+    .bpr-solapa {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56%;
+      z-index: 4;
+      border-radius: 12px 12px 0 0;
+      background: linear-gradient(195deg, #f7f0e0, #e7d9bc);
+      clip-path: polygon(0 0, 100% 0, 100% 18%, 50% 100%, 0 18%);
+      box-shadow: inset 0 -8px 18px rgba(120, 84, 40, 0.12);
+      transform-origin: 50% 0;
+      transform: rotateX(0deg);
+      transition: transform 0.62s cubic-bezier(0.45, 0.05, 0.35, 1);
+      will-change: transform;
+    }
+    .bpr-abriendo .bpr-solapa { transform: rotateX(-180deg); }
+    .bpr-solapa-atras .bpr-solapa { z-index: 1; }
+
+    /* El sello de lacre en vino con las iniciales. */
+    .bpr-sello {
+      position: absolute;
+      z-index: 5;
+      left: 50%;
+      top: 56%;
+      width: 72px;
+      height: 72px;
+      transform: translate(-50%, -50%) rotate(-6deg);
+      border-radius: 47% 53% 50% 50% / 52% 49% 51% 48%;
+      background:
+        radial-gradient(circle at 34% 28%, rgba(255, 235, 210, 0.28), transparent 42%),
+        radial-gradient(circle at 60% 70%, #521826, transparent 70%),
+        linear-gradient(160deg, #8a2e44, var(--bpr-vino));
+      box-shadow:
+        0 6px 16px rgba(20, 4, 8, 0.5),
+        inset 0 2px 5px rgba(255, 230, 200, 0.22),
+        inset 0 -4px 9px rgba(20, 4, 8, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .bpr-sello::before {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border-radius: inherit;
+      border: 1px solid rgba(240, 217, 164, 0.5);
+    }
+    .bpr-sello-letras {
+      font: 600 19px/1 var(--bpr-serif);
+      color: #f0d9a4;
+      letter-spacing: 0.04em;
+      text-shadow: 0 1px 2px rgba(20, 4, 8, 0.5);
+      transform: rotate(6deg);
+    }
+    .bpr-abriendo .bpr-sello { animation: bpr-sello-rompe 0.4s ease-out forwards; }
+    @keyframes bpr-sello-rompe {
+      0%   { opacity: 1; transform: translate(-50%, -50%) rotate(-6deg) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -50%) rotate(4deg) scale(1.3); }
+    }
+
+    /* La pista para tocar. */
+    .bpr-sobre-pista {
+      margin: 30px 0 0;
+      font: 600 12px/1.4 var(--bpr-sans);
+      letter-spacing: 0.34em;
+      padding-left: 0.34em;
+      text-transform: uppercase;
+      color: rgba(247, 242, 234, 0.85);
+      animation: bpr-pista-late 2.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .bpr-sobre-pista small {
+      display: block;
+      margin-top: 8px;
+      font: italic 500 12.5px/1.4 var(--bpr-serif);
+      letter-spacing: 0.05em;
+      text-transform: none;
+      color: rgba(247, 242, 234, 0.6);
+    }
+    @keyframes bpr-pista-late {
+      0%, 100% { opacity: 0.6; transform: translateY(0); }
+      50%      { opacity: 1; transform: translateY(-4px); }
+    }
+    .bpr-abriendo .bpr-sobre-pista { opacity: 0; transition: opacity 0.3s ease; animation: none; }
+
+    /* ================================================================ */
+    /* EL BOTÓN FLOTANTE DE MÚSICA                                       */
+    /* ================================================================ */
+    #bpr-musica {
+      position: fixed;
+      right: 14px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+      z-index: 80;
+      width: 48px;
+      height: 48px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--bpr-vino-claro), var(--bpr-vino));
+      color: var(--bpr-marfil);
+      border: 1px solid rgba(247, 242, 234, 0.3);
+      box-shadow: 0 10px 26px rgba(43, 13, 20, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.18s ease;
+    }
+    .bpr-js #bpr-musica { display: flex; }
+    #bpr-musica:active { transform: scale(0.92); }
+    #bpr-musica svg { display: block; }
+    #bpr-musica.bpr-sonando svg { animation: bpr-nota-baila 1.6s ease-in-out infinite alternate; }
+    @keyframes bpr-nota-baila {
+      from { transform: rotate(-9deg); }
+      to   { transform: rotate(9deg); }
+    }
+    .bpr-nota-off {
+      position: absolute;
+      width: 2px;
+      height: 27px;
+      border-radius: 2px;
+      background: var(--bpr-marfil);
+      transform: rotate(45deg);
+      display: none;
+      pointer-events: none;
+    }
+    #bpr-musica.bpr-pausada .bpr-nota-off { display: block; }
+
+    /* ================================================================ */
+    /* AMBIENTE PERMANENTE — pétalos y destellos (contenedor fijo)       */
+    /* ================================================================ */
+    .bpr-ambiente {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bpr-petalo {
+      position: absolute;
+      top: -4vh;
+      border-radius: 62% 8% 62% 62%;
+      background: linear-gradient(140deg, rgba(226, 164, 177, 0.7), rgba(197, 118, 136, 0.5));
+      opacity: 0;
+      animation: bpr-caer var(--t, 19s) linear infinite;
+      animation-delay: var(--r, 0s);
+      will-change: transform;
+    }
+    @keyframes bpr-caer {
+      0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(10deg); }
+      8%   { opacity: 0.85; }
+      50%  { transform: translate3d(var(--dx1, 34px), 52vh, 0) rotate(200deg); }
+      88%  { opacity: 0.5; }
+      100% { opacity: 0; transform: translate3d(var(--dx2, -18px), 106vh, 0) rotate(390deg); }
+    }
+    .bpr-destello {
+      position: absolute;
+      bottom: -12px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(212, 176, 74, 0.85), rgba(212, 176, 74, 0) 70%);
+      opacity: 0;
+      animation: bpr-subir var(--t, 17s) linear infinite;
+      animation-delay: var(--r, 0s);
+      will-change: transform;
+    }
+    @keyframes bpr-subir {
+      0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+      8%   { opacity: 0.8; }
+      50%  { transform: translate3d(var(--dx1, 14px), -54vh, 0); }
+      90%  { opacity: 0.4; }
+      100% { opacity: 0; transform: translate3d(var(--dx2, -8px), -108vh, 0); }
+    }
+
+    /* Chispas y corazones de las micro-interacciones (WAAPI los mueve). */
+    .bpr-chispa {
+      position: fixed;
+      z-index: 95;
+      pointer-events: none;
+      background: var(--bpr-oro);
+    }
+    .bpr-chispa-rombo { transform: rotate(45deg); }
+    .bpr-chispa-punto { border-radius: 50%; }
+    .bpr-corazon-vuelo {
+      position: fixed;
+      z-index: 95;
+      pointer-events: none;
+      color: rgba(138, 39, 64, 0.9);
+      font: 700 16px/1 var(--bpr-sans);
+    }
+    .bpr-burbuja {
+      position: fixed;
+      z-index: 96;
+      pointer-events: none;
+      transform: translate(-50%, 0);
+      background: var(--bpr-papel);
+      border: 1px solid rgba(201, 162, 39, 0.55);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font: 700 12px/1 var(--bpr-sans);
+      color: var(--bpr-vino);
+      box-shadow: 0 6px 16px rgba(60, 30, 12, 0.2);
+    }
+
+    /* ================================================================ */
+    /* SISTEMA DE ESCENAS                                                */
+    /* Los estados "oculto antes de entrar" viven SOLO bajo .bpr-anima   */
+    /* (la agrega el JS): sin JS o con reduced-motion todo es visible.   */
+    /* ================================================================ */
+    .bpr section { position: relative; }
+
+    /* ============ 1 · HERO DE SEDA ============ */
+    .bpr-hero {
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #ffffff;
+    }
+    .bpr-hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(58rem 36rem at 82% -12%, rgba(201, 162, 39, 0.07), transparent 62%),
+        radial-gradient(46rem 30rem at -10% 110%, rgba(201, 162, 39, 0.06), transparent 60%);
+    }
+    .bpr-seda {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bpr-par {
+      position: absolute;
+      inset: 0;
+      will-change: transform;
+    }
+    .bpr-ola {
+      position: absolute;
+      display: block;
+      will-change: transform;
+    }
+    .bpr-ola-1 { top: -7%; left: -20%; width: 140%; height: 44%; animation: bpr-mecer-a 16s ease-in-out infinite alternate; }
+    .bpr-ola-2 { top: 6%; right: -24%; width: 120%; height: 50%; display: none; animation: bpr-mecer-b 19s ease-in-out infinite alternate-reverse; }
+    .bpr-ola-3 { bottom: -6%; left: -20%; width: 140%; height: 46%; animation: bpr-mecer-c 13s ease-in-out infinite alternate; }
+    @media (min-width: 768px) {
+      .bpr-ola-2 { display: block; }
+    }
+    @keyframes bpr-mecer-a {
+      from { transform: translate3d(-2.2%, -1%, 0) rotate(-0.5deg); }
+      to   { transform: translate3d(2.4%, 1.2%, 0) rotate(0.6deg); }
+    }
+    @keyframes bpr-mecer-b {
+      from { transform: translate3d(2.6%, 1.4%, 0) rotate(0.7deg); }
+      to   { transform: translate3d(-2.4%, -1.2%, 0) rotate(-0.6deg); }
+    }
+    @keyframes bpr-mecer-c {
+      from { transform: translate3d(-1.8%, 1%, 0) rotate(0.4deg); }
+      to   { transform: translate3d(2%, -1.2%, 0) rotate(-0.5deg); }
+    }
+
+    .bpr-hero-cont {
+      position: relative;
+      z-index: 1;
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: calc(env(safe-area-inset-top, 0px) + 68px) 22px 96px;
+    }
+    /* La cascada del hero arranca cuando el sobre ya se abrió. */
+    .bpr-anima:not(.bpr-abierta) .bpr-hero-e { opacity: 0; }
+    .bpr-anima.bpr-abierta .bpr-hero-e {
+      opacity: 0;
+      animation: bpr-cascada 0.9s cubic-bezier(0.22, 0.65, 0.25, 1) forwards;
+      animation-delay: var(--d, 0s);
+    }
+    @keyframes bpr-cascada {
+      from { opacity: 0; transform: translateY(24px) scale(0.985); }
+      70%  { opacity: 1; }
+      to   { opacity: 1; transform: none; }
+    }
+    .bpr-anima.bpr-abierta .bpr-nombres {
+      animation: bpr-cascada-nombres 1.05s cubic-bezier(0.2, 0.7, 0.25, 1) forwards;
+      animation-delay: var(--d, 0s);
+    }
+    @keyframes bpr-cascada-nombres {
+      0%   { opacity: 0; transform: translateY(28px) scale(0.93); }
+      65%  { opacity: 1; transform: translateY(-4px) scale(1.02); }
+      100% { opacity: 1; transform: none; }
+    }
+
+    .bpr-anuncio {
+      margin: 0;
+      font: 700 12px/1.4 var(--bpr-sans);
+      letter-spacing: 0.42em;
+      padding-left: 0.42em;
+      text-transform: uppercase;
+      color: var(--bpr-vino);
+    }
+    .bpr-nombres {
+      margin: 22px 0 0;
+      font: 500 clamp(48px, 13vw, 60px)/1.05 var(--bpr-serif);
+      color: var(--bpr-vino);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .bpr-nombre { display: block; }
+    .bpr-amp {
+      position: relative;
+      display: block;
+      margin: 2px 0;
+      font-size: 0.52em;
+      line-height: 1.15;
+      color: var(--bpr-oro);
+    }
+    .bpr-amp::after {
+      content: "&";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      color: #ecd88b;
+      text-shadow: 0 0 16px rgba(233, 210, 122, 0.8);
+      opacity: 0;
+      animation: bpr-brillar 5.5s ease-in-out infinite;
+      animation-delay: 1.6s;
+      pointer-events: none;
+    }
+    @keyframes bpr-brillar {
+      0%, 100% { opacity: 0; transform: scale(1); }
+      50%      { opacity: 0.95; transform: scale(1.05); }
+    }
+    @media (min-width: 768px) {
+      .bpr-nombres { font-size: clamp(66px, 7vw, 108px); margin-top: 26px; }
+      .bpr-nombre { display: inline; }
+      .bpr-amp { display: inline-block; margin: 0 0.12em; vertical-align: baseline; }
+    }
+    .bpr-orn {
+      margin: 20px 0 0;
+      width: min(240px, 60vw);
+      display: block;
+      color: var(--bpr-oro);
+    }
+    .bpr-lema {
+      margin: 16px 0 0;
+      max-width: 34ch;
+      font: italic 500 17px/1.5 var(--bpr-serif);
+      color: var(--bpr-tinta-suave);
+    }
+    @media (min-width: 768px) {
+      .bpr-lema { font-size: 20px; }
+    }
+    .bpr-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 48px;
+      padding: 12px 20px;
+      border-radius: 999px;
+      font: 700 11.5px/1 var(--bpr-sans);
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 0;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .bpr-btn:active { transform: scale(0.96); }
+    .bpr-btn svg { flex: none; }
+    .bpr-btn-vino {
+      background: linear-gradient(180deg, var(--bpr-vino-claro), var(--bpr-vino));
+      color: #ffffff;
+      border: 1px solid rgba(107, 34, 51, 0.4);
+      box-shadow: 0 10px 24px rgba(107, 34, 51, 0.26);
+    }
+    .bpr-btn-oro {
+      background: linear-gradient(180deg, #f9f3e3, #f0e5cb);
+      color: #7c5f16;
+      border: 1px solid rgba(201, 162, 39, 0.55);
+      box-shadow: 0 8px 20px rgba(201, 162, 39, 0.16);
+    }
+    .bpr-btn-linea {
+      background: transparent;
+      color: var(--bpr-vino);
+      border: 1px solid rgba(107, 34, 51, 0.45);
+    }
+    @media (hover: hover) {
+      .bpr-btn-vino:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(107, 34, 51, 0.34); }
+      .bpr-btn-oro:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(201, 162, 39, 0.24); }
+      .bpr-btn-linea:hover { background: rgba(107, 34, 51, 0.06); }
+    }
+    .bpr-btn-cancion { margin-top: 26px; }
+    .bpr-desliza {
+      position: absolute;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+      left: 50%;
+      margin: 0;
+      transform: translateX(-50%);
+      font: 700 11px/1.4 var(--bpr-sans);
+      letter-spacing: 0.3em;
+      padding-left: 0.3em;
+      text-transform: uppercase;
+      color: var(--bpr-tinta-suave);
+      white-space: nowrap;
+    }
+    .bpr-abierta .bpr-desliza span,
+    .bpr:not(.bpr-anima) .bpr-desliza span {
+      display: inline-block;
+      animation: bpr-desliza-late 1.8s ease-in-out infinite;
+    }
+    @keyframes bpr-desliza-late {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(5px); }
+    }
+
+    /* ============ 2 · LA FECHA (inmersión) ============ */
+    .bpr-fecha {
+      background: var(--bpr-crema);
+      display: flex;
+      justify-content: center;
+      padding: 84px 22px 92px;
+      overflow: hidden;
+    }
+    .bpr-sumerge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 720px;
+      opacity: 1;
+      transform: none;
+      filter: none;
+      transition:
+        opacity 1s cubic-bezier(0.22, 0.65, 0.25, 1),
+        transform 1s cubic-bezier(0.22, 0.65, 0.25, 1),
+        filter 1s ease;
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-sumerge {
+      opacity: 0;
+      transform: translateY(74px) scale(0.92);
+      filter: blur(10px);
+    }
+    .bpr-cejilla {
+      margin: 0;
+      font: 700 11px/1.4 var(--bpr-sans);
+      letter-spacing: 0.38em;
+      padding-left: 0.38em;
+      text-transform: uppercase;
+      color: var(--bpr-oro-oscuro);
+    }
+    .bpr-fecha-marco {
+      position: relative;
+      margin-top: 18px;
+      padding: 30px 34px;
+    }
+    .bpr-fecha-marco::before,
+    .bpr-fecha-marco::after {
+      content: "";
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      pointer-events: none;
+    }
+    .bpr-fecha-marco::before {
+      top: 0;
+      left: 0;
+      border-top: 1px solid rgba(201, 162, 39, 0.75);
+      border-left: 1px solid rgba(201, 162, 39, 0.75);
+    }
+    .bpr-fecha-marco::after {
+      bottom: 0;
+      right: 0;
+      border-bottom: 1px solid rgba(201, 162, 39, 0.75);
+      border-right: 1px solid rgba(201, 162, 39, 0.75);
+    }
+    .bpr-fecha-dia {
+      margin: 0;
+      font: 600 clamp(46px, 12vw, 96px)/1 var(--bpr-serif);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--bpr-vino);
+    }
+    .bpr-fecha-mes {
+      margin: 12px 0 0;
+      font: 600 clamp(17px, 4.6vw, 26px)/1.3 var(--bpr-serif);
+      letter-spacing: 0.34em;
+      padding-left: 0.34em;
+      text-transform: uppercase;
+      color: var(--bpr-tinta);
+    }
+    .bpr-fecha-anio {
+      margin: 6px 0 0;
+      font: 600 clamp(22px, 6vw, 34px)/1.2 var(--bpr-serif);
+      letter-spacing: 0.28em;
+      padding-left: 0.28em;
+      color: var(--bpr-oro-oscuro);
+    }
+    .bpr-horario {
+      margin: 20px 0 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font: 600 15px/1.4 var(--bpr-sans);
+      letter-spacing: 0.06em;
+      color: var(--bpr-tinta);
+    }
+    .bpr-horario svg { color: var(--bpr-oro-oscuro); flex: none; }
+    .bpr-fecha-lema {
+      margin: 14px 0 0;
+      max-width: 40ch;
+      font: italic 500 16px/1.5 var(--bpr-serif);
+      color: var(--bpr-tinta-suave);
+    }
+    .bpr-btn-cal { margin-top: 22px; }
+
+    /* La cuenta regresiva: celdas que brincan en cascada. */
+    .bpr-cd { margin-top: 40px; }
+    .bpr-cd-titulo {
+      margin: 0 0 12px;
+      font: 700 11px/1.4 var(--bpr-sans);
+      letter-spacing: 0.38em;
+      padding-left: 0.38em;
+      text-transform: uppercase;
+      color: var(--bpr-oro-oscuro);
+    }
+    .bpr-cd-fila {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+    .bpr-cd-celda {
+      min-width: 66px;
+      padding: 12px 6px 10px;
+      border-radius: 12px;
+      background: var(--bpr-papel);
+      border: 1px solid rgba(201, 162, 39, 0.4);
+      box-shadow: 0 10px 26px -14px rgba(122, 84, 40, 0.5);
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-cd-celda { opacity: 0; }
+    .bpr-anima .bpr-vista .bpr-cd-celda {
+      opacity: 0;
+      animation: bpr-brinco 0.75s cubic-bezier(0.26, 1.25, 0.42, 1) forwards;
+      animation-delay: calc(0.55s + var(--d, 0s));
+    }
+    .bpr-cd-num {
+      display: block;
+      font: 600 clamp(30px, 8.4vw, 40px)/1.1 var(--bpr-serif);
+      font-variant-numeric: tabular-nums;
+      color: var(--bpr-vino);
+    }
+    .bpr-cd-eti {
+      display: block;
+      margin-top: 2px;
+      font: 600 10px/1.3 var(--bpr-sans);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #96897a;
+    }
+    .bpr-cd-hoy {
+      margin: 6px 0 0;
+      font: italic 600 24px/1.3 var(--bpr-serif);
+      color: var(--bpr-vino);
+    }
+    @media (min-width: 768px) {
+      .bpr-cd-celda { min-width: 88px; padding: 16px 8px 12px; }
+      .bpr-cd-num { font-size: 48px; }
+      .bpr-cd-eti { font-size: 11px; }
+    }
+
+    /* ============ 3 · CAPÍTULO UNO — LA CELEBRACIÓN ============ */
+    .bpr-cap1 {
+      background: var(--bpr-marfil);
+      overflow: hidden;
+    }
+    .bpr-onda-div {
+      display: block;
+      width: 100%;
+      height: 42px;
+    }
+    .bpr-cap1-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 900px) {
+      .bpr-cap1-grid {
+        grid-template-columns: 1.05fr 1fr;
+        align-items: stretch;
+        min-height: 78svh;
+      }
+    }
+    .bpr-cap1-texto {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      text-align: left;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 56px 26px 40px;
+      width: 100%;
+    }
+    @media (min-width: 900px) {
+      .bpr-cap1-texto { padding: 72px 48px 72px calc(env(safe-area-inset-left, 0px) + 8vw); }
+    }
+    .bpr-izq {
+      opacity: 1;
+      transform: none;
+      transition:
+        opacity 0.7s cubic-bezier(0.22, 0.65, 0.25, 1),
+        transform 0.7s cubic-bezier(0.22, 0.65, 0.25, 1);
+      transition-delay: var(--d, 0s);
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-izq {
+      opacity: 0;
+      transform: translateX(-38px);
+    }
+    .bpr-titulo {
+      margin: 12px 0 0;
+      font: 500 clamp(34px, 8.4vw, 56px)/1.1 var(--bpr-serif);
+      color: var(--bpr-vino);
+    }
+    .bpr-parrafo {
+      margin: 16px 0 0;
+      max-width: 52ch;
+      font: 400 15px/1.7 var(--bpr-sans);
+      color: var(--bpr-tinta);
+    }
+    @media (min-width: 768px) {
+      .bpr-parrafo { font-size: 16px; }
+    }
+    .bpr-lugar-lockup {
+      margin: 22px 0 0;
+      padding-left: 14px;
+      border-left: 2px solid rgba(201, 162, 39, 0.65);
+    }
+    .bpr-lugar-nombre {
+      margin: 0;
+      font: 600 clamp(21px, 5vw, 27px)/1.25 var(--bpr-serif);
+      color: var(--bpr-tinta);
+    }
+    .bpr-lugar-dir {
+      margin: 4px 0 0;
+      font: 400 14px/1.5 var(--bpr-sans);
+      color: var(--bpr-tinta-suave);
+    }
+    .bpr-cap1-botones {
+      margin-top: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .bpr-cap1-foto {
+      position: relative;
+      overflow: hidden;
+      min-height: min(74vw, 430px);
+    }
+    @media (min-width: 900px) {
+      .bpr-cap1-foto { min-height: 100%; }
+    }
+    .bpr-foto-lienzo {
+      position: absolute;
+      inset: -7% 0;
+      will-change: transform;
+    }
+    .bpr-foto-lienzo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .bpr-cortina {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background: linear-gradient(100deg, var(--bpr-vino) 55%, var(--bpr-vino-prof));
+      transform: translateX(0);
+      transition: transform 0.95s cubic-bezier(0.65, 0, 0.25, 1) 0.15s;
+      will-change: transform;
+    }
+    [data-bpr-escena].bpr-vista .bpr-cortina { transform: translateX(101%); }
+    .bpr:not(.bpr-anima) .bpr-cortina { transform: translateX(101%); transition: none; }
+    .bpr-foto-pie {
+      position: absolute;
+      z-index: 3;
+      left: 14px;
+      bottom: 12px;
+      margin: 0;
+      background: rgba(255, 253, 248, 0.92);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font: italic 600 12.5px/1 var(--bpr-serif);
+      color: var(--bpr-vino);
+    }
+
+    /* ============ 4 · CÓDIGO DE VESTIMENTA (banda vino) ============ */
+    .bpr-dc {
+      background:
+        radial-gradient(46rem 30rem at 85% 0%, rgba(201, 162, 39, 0.12), transparent 55%),
+        linear-gradient(180deg, var(--bpr-vino-claro), var(--bpr-vino) 40%, #5a1c2b);
+      color: var(--bpr-marfil);
+      padding: 74px 22px 84px;
+      overflow: hidden;
+      text-align: center;
+    }
+    .bpr-dc-borde {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 34px;
+      display: block;
+      pointer-events: none;
+    }
+    .bpr-dc-borde-arriba { top: -1px; }
+    .bpr-dc-borde-abajo { bottom: -1px; }
+    .bpr-dc-cejilla { color: var(--bpr-oro-claro); }
+    .bpr-dc-titulo {
+      margin: 14px 0 0;
+      font: 500 clamp(38px, 9.6vw, 64px)/1.08 var(--bpr-serif);
+      color: var(--bpr-marfil);
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-brinca { opacity: 0; }
+    .bpr-anima .bpr-vista .bpr-brinca {
+      opacity: 0;
+      animation: bpr-brinco 0.85s cubic-bezier(0.26, 1.25, 0.42, 1) forwards;
+      animation-delay: var(--d, 0s);
+    }
+    @keyframes bpr-brinco {
+      0%   { opacity: 0; transform: translateY(26px) scale(0.7); }
+      60%  { opacity: 1; transform: translateY(-6px) scale(1.08); }
+      80%  { transform: translateY(2px) scale(0.97); }
+      100% { opacity: 1; transform: none; }
+    }
+    .bpr-dc-orn { color: var(--bpr-oro-claro); margin: 18px auto 0; }
+    .bpr-dc-cartas {
+      margin: 34px auto 0;
+      max-width: 780px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 640px) {
+      .bpr-dc-cartas { grid-template-columns: 1fr 1fr; gap: 20px; }
+    }
+    .bpr-dc-carta {
+      border: 1px solid rgba(247, 242, 234, 0.28);
+      border-radius: 18px;
+      background: rgba(58, 18, 29, 0.35);
+      padding: 26px 20px 24px;
+      opacity: 1;
+      transform: none;
+      transition:
+        opacity 0.75s cubic-bezier(0.22, 0.65, 0.25, 1) 0.25s,
+        transform 0.75s cubic-bezier(0.22, 0.65, 0.25, 1) 0.25s;
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-dc-carta-l {
+      opacity: 0;
+      transform: translateX(-44px) rotate(-3deg);
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-dc-carta-r {
+      opacity: 0;
+      transform: translateX(44px) rotate(3deg);
+    }
+    .bpr-dc-carta-r { transition-delay: 0.38s; }
+    .bpr-dc-icono {
+      display: block;
+      margin: 0 auto;
+      color: var(--bpr-oro-claro);
+    }
+    .bpr-dc-quien {
+      margin: 12px 0 0;
+      font: 600 20px/1.3 var(--bpr-serif);
+      letter-spacing: 0.14em;
+      padding-left: 0.14em;
+      text-transform: uppercase;
+      color: var(--bpr-marfil);
+    }
+    .bpr-dc-detalle {
+      margin: 8px 0 0;
+      font: 400 14.5px/1.6 var(--bpr-sans);
+      color: rgba(247, 242, 234, 0.85);
+    }
+    .bpr-puntos {
+      margin: 16px 0 0;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .bpr-punto {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(247, 242, 234, 0.5);
+      box-shadow: 0 3px 8px rgba(20, 4, 8, 0.35);
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-punto { opacity: 0; }
+    .bpr-anima .bpr-vista .bpr-punto {
+      opacity: 0;
+      animation: bpr-punto-pop 0.6s cubic-bezier(0.26, 1.4, 0.42, 1) forwards;
+      animation-delay: var(--d, 0.6s);
+    }
+    @keyframes bpr-punto-pop {
+      0%   { opacity: 0; transform: scale(0); }
+      70%  { opacity: 1; transform: scale(1.22); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .bpr-dc-aviso {
+      margin: 30px auto 0;
+      max-width: 460px;
+      border: 1px solid rgba(247, 242, 234, 0.4);
+      border-radius: 999px;
+      padding: 12px 22px;
+      font: 600 13px/1.5 var(--bpr-sans);
+      color: var(--bpr-marfil);
+      background: rgba(58, 18, 29, 0.3);
+    }
+    .bpr-dc-clima {
+      margin: 16px auto 0;
+      max-width: 46ch;
+      font: italic 500 13px/1.5 var(--bpr-serif);
+      color: rgba(247, 242, 234, 0.65);
+    }
+
+    /* ============ 5 · CAPÍTULO DOS — NUESTRA HISTORIA ============ */
+    .bpr-historia {
+      background: var(--bpr-crema);
+      padding: 70px 22px 84px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .bpr-historia-parrafo {
+      margin: 16px auto 0;
+      max-width: 56ch;
+      font: 400 15px/1.7 var(--bpr-sans);
+      color: var(--bpr-tinta);
+    }
+    @media (min-width: 768px) {
+      .bpr-historia-parrafo { font-size: 16px; }
+    }
+    .bpr-polas {
+      margin: 40px auto 0;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+    }
+    @media (min-width: 820px) {
+      .bpr-polas {
+        flex-direction: row;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 0;
+      }
+    }
+    .bpr-pola {
+      position: relative;
+      width: min(360px, 84vw);
+      background: var(--bpr-papel);
+      padding: 12px 12px 16px;
+      box-shadow: 0 24px 60px -28px rgba(90, 55, 25, 0.55);
+      transform: rotate(var(--rot, 0deg));
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition:
+        opacity 0.8s cubic-bezier(0.22, 0.65, 0.25, 1) var(--d, 0s),
+        transform 0.8s cubic-bezier(0.26, 1.15, 0.4, 1) var(--d, 0s);
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-pola {
+      opacity: 0;
+      transform: rotate(0deg) translateY(36px) scale(0.94);
+    }
+    @media (min-width: 820px) {
+      .bpr-pola-a { margin-right: -26px; z-index: 2; }
+      .bpr-pola-b { margin-top: 42px; }
+    }
+    .bpr-pola-marco {
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+    }
+    .bpr-pola-marco img {
+      position: absolute;
+      inset: -8% 0;
+      width: 100%;
+      height: 116%;
+      object-fit: cover;
+      display: block;
+      will-change: transform;
+    }
+    .bpr-pola-velo {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background: var(--bpr-crema);
+      transform: translateY(0);
+      transition: transform 0.9s cubic-bezier(0.65, 0, 0.25, 1) calc(var(--d, 0s) + 0.25s);
+      will-change: transform;
+    }
+    .bpr-pola-a .bpr-pola-velo { transform: translateY(0); }
+    [data-bpr-escena].bpr-vista .bpr-pola-a .bpr-pola-velo { transform: translateY(-102%); }
+    [data-bpr-escena].bpr-vista .bpr-pola-b .bpr-pola-velo { transform: translateY(102%); }
+    .bpr:not(.bpr-anima) .bpr-pola-velo { display: none; }
+    .bpr-pola-pie {
+      margin: 12px 0 0;
+      font: italic 600 15px/1.4 var(--bpr-serif);
+      color: var(--bpr-vino);
+    }
+
+    /* ============ 6 · ¿NOS ACOMPAÑÁS? ============ */
+    .bpr-rsvp {
+      background: var(--bpr-marfil);
+      padding: 66px 22px 30px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .bpr-aba {
+      opacity: 1;
+      transform: none;
+      transform-origin: left center;
+      transition:
+        opacity 0.65s cubic-bezier(0.22, 0.65, 0.25, 1) var(--d, 0s),
+        transform 0.65s cubic-bezier(0.22, 0.65, 0.25, 1) var(--d, 0s);
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-aba {
+      opacity: 0;
+      transform: translateY(30px) rotate(-3deg);
+    }
+    .bpr-rsvp-nota {
+      margin: 18px auto 0;
+      max-width: 44ch;
+      font: italic 500 14.5px/1.6 var(--bpr-serif);
+      color: var(--bpr-tinta-suave);
+    }
+    .bpr-btn-confirmar {
+      margin-top: 26px;
+      padding: 14px 26px;
+      font-size: 12.5px;
+    }
+    .bpr-abierta .bpr-vista .bpr-btn-confirmar {
+      animation: bpr-latido 3.2s ease-in-out 1.4s infinite;
+    }
+    @keyframes bpr-latido {
+      0%, 100% { transform: scale(1); }
+      6%       { transform: scale(1.045); }
+      12%      { transform: scale(1); }
+    }
+
+    /* Las argollas que ruedan con el scroll y se encuentran. */
+    .bpr-anillos {
+      position: relative;
+      height: 104px;
+      margin-top: 44px;
+    }
+    .bpr-anillos::before {
+      content: "";
+      position: absolute;
+      left: 6%;
+      right: 6%;
+      top: 74px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.7), transparent);
+    }
+    .bpr-anillo {
+      position: absolute;
+      top: 22px;
+      width: 52px;
+      height: 52px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      will-change: transform;
+    }
+    #bpr-anillo-l { left: -6px; }
+    #bpr-anillo-r { right: -6px; }
+    .bpr-anillo svg { display: block; width: 100%; height: 100%; }
+    .bpr-anillo.bpr-clink svg { animation: bpr-clink-tiembla 0.5s ease; }
+    @keyframes bpr-clink-tiembla {
+      0%, 100% { transform: rotate(0); }
+      25%      { transform: rotate(-9deg); }
+      55%      { transform: rotate(7deg); }
+      80%      { transform: rotate(-3deg); }
+    }
+    .bpr-anillo-corazon {
+      position: absolute;
+      left: 50%;
+      top: 30px;
+      margin-left: -11px;
+      width: 22px;
+      height: 22px;
+      color: #8a2740;
+      opacity: 0;
+      transform: scale(0);
+      pointer-events: none;
+    }
+    .bpr-junto .bpr-anillo-corazon {
+      animation: bpr-corazon-pop 0.65s cubic-bezier(0.26, 1.4, 0.42, 1) forwards;
+    }
+    @keyframes bpr-corazon-pop {
+      0%   { opacity: 0; transform: scale(0); }
+      65%  { opacity: 1; transform: scale(1.35); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .bpr:not(.bpr-anima) #bpr-anillo-l { left: calc(50% - 54px); }
+    .bpr:not(.bpr-anima) #bpr-anillo-r { right: calc(50% - 54px); }
+    .bpr:not(.bpr-anima) .bpr-anillo-corazon { opacity: 1; transform: scale(1); }
+
+    /* ============ 7 · EL PIE ============ */
+    .bpr-pie {
+      background:
+        radial-gradient(40rem 26rem at 50% 0%, rgba(201, 162, 39, 0.1), transparent 60%),
+        linear-gradient(180deg, var(--bpr-vino-prof), var(--bpr-vino-noche));
+      color: var(--bpr-marfil);
+      padding: 64px 22px 54px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .bpr-pie-linea {
+      width: min(300px, 66vw);
+      height: 1px;
+      margin: 0 auto;
+      background: linear-gradient(90deg, transparent, var(--bpr-oro-claro), transparent);
+      transform: scaleX(1);
+      transition: transform 1.1s cubic-bezier(0.22, 0.65, 0.25, 1) 0.1s;
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-pie-linea { transform: scaleX(0); }
+    .bpr-pie-e {
+      opacity: 1;
+      transform: none;
+      transition:
+        opacity 0.9s ease var(--d, 0s),
+        transform 0.9s cubic-bezier(0.22, 0.65, 0.25, 1) var(--d, 0s);
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-pie-e {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    .bpr-pie-con {
+      margin: 26px 0 0;
+      font: italic 500 17px/1.4 var(--bpr-serif);
+      color: rgba(247, 242, 234, 0.8);
+    }
+    .bpr-pie-nombres {
+      margin: 6px 0 0;
+      font: 500 clamp(34px, 9vw, 52px)/1.15 var(--bpr-serif);
+      color: var(--bpr-marfil);
+    }
+    .bpr-pie-nombres span { color: var(--bpr-oro-claro); }
+    .bpr-pie-datos {
+      margin: 14px 0 0;
+      font: 600 12px/1.6 var(--bpr-sans);
+      letter-spacing: 0.22em;
+      padding-left: 0.22em;
+      text-transform: uppercase;
+      color: rgba(247, 242, 234, 0.6);
+    }
+    .bpr-pie-credito {
+      margin: 30px 0 0;
+      font: 400 11.5px/1.6 var(--bpr-sans);
+      color: rgba(247, 242, 234, 0.45);
+    }
+
+    /* ============ Movimiento reducido: todo quieto y visible ========= */
+    @media (prefers-reduced-motion: reduce) {
+      .bpr *, .bpr *::before, .bpr *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+      #bpr-sobre { display: none !important; }
+      .bpr-hero-e, .bpr-nombres, .bpr-sumerge, .bpr-izq, .bpr-dc-carta,
+      .bpr-punto, .bpr-cd-celda, .bpr-pola, .bpr-aba, .bpr-pie-e,
+      .bpr-brinca {
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+      }
+      .bpr-pola { transform: rotate(var(--rot, 0deg)) !important; }
+      .bpr-cortina, .bpr-pola-velo { display: none !important; }
+      .bpr-petalo, .bpr-destello, .bpr-sobre-mota { display: none !important; }
+      #bpr-anillo-l { left: calc(50% - 54px) !important; }
+      #bpr-anillo-r { right: calc(50% - 54px) !important; }
+      .bpr-anillo-corazon { opacity: 1 !important; transform: scale(1) !important; }
+    }
+  </style>
+
+  <!-- La música: el saxofón que arranca al abrir el sobre. -->
+  <audio id="bpr-audio" src="{{CANCION}}" loop preload="auto"></audio>
+
+  <!-- ============ EL SOBRE (top layer, un toque lo abre) ============ -->
+  <dialog id="bpr-sobre" aria-label="Invitación de {{NOMBRE_1}} y {{NOMBRE_2}} — tocá para abrir el sobre">
+    <span class="bpr-sobre-mota" style="left: 16%; top: 24%; width: 5px; height: 5px; --t: 8s; --r: -1s; --dx: 12px;"></span>
+    <span class="bpr-sobre-mota" style="left: 78%; top: 18%; width: 4px; height: 4px; --t: 10s; --r: -4s; --dx: -10px;"></span>
+    <span class="bpr-sobre-mota" style="left: 30%; top: 72%; width: 6px; height: 6px; --t: 9s; --r: -2.5s; --dx: 14px;"></span>
+    <span class="bpr-sobre-mota" style="left: 66%; top: 78%; width: 4px; height: 4px; --t: 11s; --r: -6s; --dx: -12px;"></span>
+    <span class="bpr-sobre-mota" style="left: 8%; top: 55%; width: 4px; height: 4px; --t: 9.5s; --r: -3s; --dx: 9px;"></span>
+    <span class="bpr-sobre-mota" style="left: 90%; top: 48%; width: 5px; height: 5px; --t: 8.5s; --r: -5s; --dx: -9px;"></span>
+
+    <div class="bpr-sobre-esc">
+      <div class="bpr-sobre-caja">
+        <div class="bpr-sobre-atras"></div>
+        <div class="bpr-carta" aria-hidden="true">
+          <span class="bpr-carta-nombres">{{NOMBRE_1}} &amp; {{NOMBRE_2}}</span>
+          <span class="bpr-carta-linea"></span>
+          <span class="bpr-carta-lema">Tenemos algo que contarte…</span>
+        </div>
+        <div class="bpr-sobre-frente">
+          <span class="bpr-sobre-para">Para: nuestra gente más querida</span>
+        </div>
+        <div class="bpr-solapa"></div>
+        <div class="bpr-sello">
+          <span class="bpr-sello-letras">{{INICIALES}}</span>
+        </div>
+      </div>
+    </div>
+    <p class="bpr-sobre-pista">
+      Tocá para abrir
+      <small>Suena mejor con volumen ♪</small>
+    </p>
+  </dialog>
+
+  <!-- El botón flotante de música (el JS lo muestra). -->
+  <button type="button" id="bpr-musica" class="bpr-pausada" aria-label="Reproducir la música">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M9 3v10.55A3.97 3.97 0 0 0 7 13a4 4 0 1 0 4 4V7h6V3H9z" />
+    </svg>
+    <span class="bpr-nota-off" aria-hidden="true"></span>
+  </button>
+
+  <script>
+    /* ============ EL SOBRE: lock, apertura y música ============ */
+    /* Corre temprano (este script vive antes de las secciones) para que
+       el sobre cubra la pantalla desde el primer pintado. */
+    (function () {
+      var raiz = document.getElementById("bpr");
+      var dlg = document.getElementById("bpr-sobre");
+      var audio = document.getElementById("bpr-audio");
+      var pill = document.getElementById("bpr-musica");
+      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!raiz || !dlg) return;
+
+      raiz.classList.add("bpr-js");
+
+      function reproducir() {
+        if (!audio) return;
+        audio.volume = 0.5;
+        var p = audio.play();
+        if (p && p.catch) p.catch(function () {});
+      }
+
+      /* El toggle del ♪ flotante; el del hero se ata en el script final. */
+      if (audio && pill) {
+        pill.addEventListener("click", function () {
+          if (audio.paused) reproducir();
+          else audio.pause();
+        });
+        audio.addEventListener("play", function () {
+          pill.classList.add("bpr-sonando");
+          pill.classList.remove("bpr-pausada");
+          pill.setAttribute("aria-label", "Pausar la música");
+          var h = document.getElementById("bpr-cancion");
+          if (h) h.setAttribute("aria-pressed", "true");
+        });
+        audio.addEventListener("pause", function () {
+          pill.classList.remove("bpr-sonando");
+          pill.classList.add("bpr-pausada");
+          pill.setAttribute("aria-label", "Reproducir la música");
+          var h = document.getElementById("bpr-cancion");
+          if (h) h.setAttribute("aria-pressed", "false");
+        });
+      }
+
+      var abierto = false;
+      var abriendo = false;
+      var timers = [];
+
+      /* Mientras el sobre esté cerrado, cualquier scroll que se escape
+         del dialog (teclado, restauración del navegador) vuelve a 0. */
+      function reancla() {
+        if (!abierto) window.scrollTo(0, 0);
+      }
+
+      function finalizar() {
+        if (abierto) return;
+        abierto = true;
+        for (var i = 0; i < timers.length; i++) window.clearTimeout(timers[i]);
+        window.removeEventListener("scroll", reancla);
+        raiz.classList.add("bpr-abierta");
+        try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); }
+        window.scrollTo(0, 0);
+      }
+
+      function abrir() {
+        if (abierto) return;
+        if (abriendo) { finalizar(); return; } /* segundo toque = saltar */
+        abriendo = true;
+        reproducir(); /* el clic del sobre es el gesto que permite el audio */
+        dlg.classList.add("bpr-abriendo");
+        timers.push(window.setTimeout(function () { dlg.classList.add("bpr-solapa-atras"); }, 300));
+        timers.push(window.setTimeout(function () { dlg.classList.add("bpr-carta-arriba"); }, 480));
+        timers.push(window.setTimeout(function () { dlg.classList.add("bpr-yendo"); }, 1300));
+        timers.push(window.setTimeout(finalizar, 1800));
+      }
+
+      if (reducido || typeof dlg.showModal !== "function") {
+        /* Sin sobre: la invitación queda abierta de una vez. */
+        abierto = true;
+        raiz.classList.add("bpr-abierta");
+        return;
+      }
+      try {
+        dlg.showModal();
+      } catch (e) {
+        abierto = true;
+        raiz.classList.add("bpr-abierta");
+        return;
+      }
+      window.scrollTo(0, 0);
+      window.addEventListener("scroll", reancla, { passive: true });
+      dlg.addEventListener("click", abrir);
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); abrir(); });
+    })();
+  </script>
+
+  <!-- Pétalos y destellos por toda la página (los siembra el script). -->
+  <div class="bpr-ambiente" id="bpr-ambiente" aria-hidden="true"></div>
+
+  <!-- ================= 1 · HERO DE SEDA ================= -->
+  <section class="bpr-hero" id="bpr-hero">
+    <div class="bpr-seda" aria-hidden="true">
+      <div class="bpr-par" data-bpr-par="0.16">
+        <svg class="bpr-ola bpr-ola-1" viewBox="0 0 1440 420" preserveAspectRatio="none" fill="none">
+          <defs>
+            <linearGradient id="bprG1" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stop-color="#f3ead9" stop-opacity="0" />
+              <stop offset="1" stop-color="#f3ead9" stop-opacity="0.95" />
+            </linearGradient>
+            <linearGradient id="bprG1b" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stop-color="#efe7d8" stop-opacity="0" />
+              <stop offset="1" stop-color="#efe7d8" stop-opacity="0.8" />
+            </linearGradient>
+          </defs>
+          <path fill="url(#bprG1)" d="M0,0 L1440,0 L1440,225 C1290,290 1120,205 940,252 C760,300 600,215 420,258 C250,299 110,235 0,282 Z" />
+          <path fill="url(#bprG1b)" d="M0,0 L1440,0 L1440,180 C1300,240 1140,165 960,205 C780,246 610,170 430,210 C255,250 115,190 0,232 Z" />
+        </svg>
+        <svg class="bpr-ola bpr-ola-2" viewBox="0 0 1440 420" preserveAspectRatio="none" fill="none">
+          <defs>
+            <linearGradient id="bprG2" x1="0" y1="0" x2="1" y2="0.4">
+              <stop offset="0" stop-color="#f3ead9" stop-opacity="0" />
+              <stop offset="0.4" stop-color="#f3ead9" stop-opacity="0.45" />
+              <stop offset="1" stop-color="#f3ead9" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <path fill="url(#bprG2)" d="M0,120 C240,60 460,190 700,140 C940,90 1120,200 1320,150 C1380,135 1420,150 1440,140 L1440,250 C1360,285 1230,230 1050,270 C860,312 700,225 510,268 C320,310 140,250 0,290 Z" />
+        </svg>
+      </div>
+      <div class="bpr-par" data-bpr-par="0.07">
+        <svg class="bpr-ola bpr-ola-3" viewBox="0 0 1440 420" preserveAspectRatio="none" fill="none">
+          <defs>
+            <linearGradient id="bprG3" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f3ead9" stop-opacity="0" />
+              <stop offset="1" stop-color="#f3ead9" stop-opacity="0.97" />
+            </linearGradient>
+            <linearGradient id="bprG3b" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#efe7d8" stop-opacity="0" />
+              <stop offset="1" stop-color="#efe7d8" stop-opacity="0.85" />
+            </linearGradient>
+          </defs>
+          <path fill="url(#bprG3)" d="M0,420 L1440,420 L1440,195 C1290,130 1120,215 940,168 C760,120 600,205 420,162 C250,121 110,185 0,138 Z" />
+          <path fill="url(#bprG3b)" d="M0,420 L1440,420 L1440,240 C1300,180 1140,255 960,215 C780,174 610,250 430,210 C255,170 115,230 0,188 Z" />
+        </svg>
+      </div>
+    </div>
+
+    <div class="bpr-hero-cont">
+      <p class="bpr-anuncio bpr-hero-e" style="--d: 0.12s">¡Nos casamos!</p>
+      <h1 class="bpr-nombres bpr-hero-e" id="bpr-nombres" style="--d: 0.28s" title="Un toque de cariño">
+        <span class="bpr-nombre">{{NOMBRE_1}}</span>
+        <span class="bpr-amp" aria-hidden="true">&amp;</span>
+        <span class="bpr-nombre">{{NOMBRE_2}}</span>
+      </h1>
+      <svg class="bpr-orn bpr-hero-e" style="--d: 0.46s" viewBox="0 0 240 14" fill="none" aria-hidden="true">
+        <line x1="0" y1="7" x2="102" y2="7" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" />
+        <rect x="115" y="2" width="10" height="10" transform="rotate(45 120 7)" stroke="currentColor" stroke-width="1" />
+        <line x1="138" y1="7" x2="240" y2="7" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" />
+      </svg>
+      <p class="bpr-lema bpr-hero-e" style="--d: 0.6s">
+        Y esta es la carta con la que queríamos contártelo.
+      </p>
+      <button type="button" class="bpr-btn bpr-btn-oro bpr-btn-cancion bpr-hero-e" id="bpr-cancion" style="--d: 0.74s" aria-pressed="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M9 3v10.55A3.97 3.97 0 0 0 7 13a4 4 0 1 0 4 4V7h6V3H9z" />
+        </svg>
+        Nuestra canción
+      </button>
+      <p class="bpr-desliza bpr-hero-e" style="--d: 0.95s" aria-hidden="true">Deslizá <span>↓</span></p>
+    </div>
+  </section>
+
+  <!-- ================= 2 · LA FECHA ================= -->
+  <section class="bpr-fecha" data-bpr-escena>
+    <div class="bpr-sumerge">
+      <p class="bpr-cejilla">Agendá la fecha</p>
+      <div class="bpr-fecha-marco">
+        <p class="bpr-fecha-dia">{{DIA_PALABRA}}</p>
+        <p class="bpr-fecha-mes">{{MES}}</p>
+        <p class="bpr-fecha-anio">{{ANIO}}</p>
+      </div>
+      <p class="bpr-horario">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 3" />
+        </svg>
+        {{HORARIO}}
+      </p>
+      <p class="bpr-fecha-lema">Una tarde para decir que sí — y toda una noche para celebrarlo con vos.</p>
+      <a class="bpr-btn bpr-btn-vino bpr-btn-cal" href="{{LINK_CALENDARIO}}" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm5.56 10.46 5.93-5.93-1.42-1.42-4.51 4.51-2.07-2.07-1.42 1.42 3.49 3.49z" />
+        </svg>
+        Agregar al calendario
+      </a>
+
+      <div class="bpr-cd" id="bpr-cd" data-fecha="{{FECHA_ISO}}">
+        <p class="bpr-cd-titulo">Faltan</p>
+        <div class="bpr-cd-fila">
+          <div class="bpr-cd-celda" style="--d: 0s">
+            <span class="bpr-cd-num" id="bpr-cd-d">—</span>
+            <span class="bpr-cd-eti">días</span>
+          </div>
+          <div class="bpr-cd-celda" style="--d: 0.12s">
+            <span class="bpr-cd-num" id="bpr-cd-h">—</span>
+            <span class="bpr-cd-eti">hrs</span>
+          </div>
+          <div class="bpr-cd-celda" style="--d: 0.24s">
+            <span class="bpr-cd-num" id="bpr-cd-m">—</span>
+            <span class="bpr-cd-eti">min</span>
+          </div>
+          <div class="bpr-cd-celda" style="--d: 0.36s">
+            <span class="bpr-cd-num" id="bpr-cd-s">—</span>
+            <span class="bpr-cd-eti">seg</span>
+          </div>
+        </div>
+        <p class="bpr-cd-hoy" id="bpr-cd-hoy" hidden>¡Llegó el gran día!</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 3 · CAPÍTULO UNO — LA CELEBRACIÓN ================= -->
+  <section class="bpr-cap1" data-bpr-escena>
+    <svg class="bpr-onda-div" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true">
+      <path fill="#f3ead9" d="M0,20 C240,42 480,0 720,16 C960,32 1200,2 1440,18 L1440,0 L0,0 Z" />
+    </svg>
+    <div class="bpr-cap1-grid">
+      <div class="bpr-cap1-texto">
+        <p class="bpr-cejilla bpr-izq" style="--d: 0s">Capítulo uno</p>
+        <h2 class="bpr-titulo bpr-izq" style="--d: 0.1s">La celebración</h2>
+        <p class="bpr-parrafo bpr-izq" style="--d: 0.22s">
+          Un jardín entre montañas, luces colgadas de los árboles y la gente
+          que más queremos. La ceremonia empieza a las {{HORA}} en punto —
+          no llegués tarde, que el atardecer no espera.
+        </p>
+        <div class="bpr-lugar-lockup bpr-izq" style="--d: 0.34s">
+          <p class="bpr-lugar-nombre">{{LUGAR}}</p>
+          <p class="bpr-lugar-dir">{{DIRECCION}}</p>
+        </div>
+        <div class="bpr-cap1-botones bpr-izq" style="--d: 0.46s">
+          <a class="bpr-btn bpr-btn-vino" href="{{LINK_MAPS}}" target="_blank" rel="noopener">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
+            </svg>
+            Cómo llegar
+          </a>
+          <a class="bpr-btn bpr-btn-linea" href="{{LINK_WAZE}}" target="_blank" rel="noopener">
+            Abrir en Waze
+          </a>
+        </div>
+      </div>
+      <div class="bpr-cap1-foto">
+        <div class="bpr-foto-lienzo" data-bpr-parallax="0.1">
+          <img src="{{FOTO_1}}" alt="{{NOMBRE_1}} y {{NOMBRE_2}} al atardecer frente al mar" loading="lazy" />
+        </div>
+        <p class="bpr-foto-pie">El atardecer que nos decidió</p>
+        <div class="bpr-cortina" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 4 · CÓDIGO DE VESTIMENTA ================= -->
+  <section class="bpr-dc" data-bpr-escena>
+    <svg class="bpr-dc-borde bpr-dc-borde-arriba" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">
+      <path fill="#f7f2ea" d="M0,8 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 V0 H0 Z" />
+    </svg>
+
+    <p class="bpr-cejilla bpr-dc-cejilla bpr-brinca" style="--d: 0s">Código de vestimenta</p>
+    <h2 class="bpr-dc-titulo bpr-brinca" style="--d: 0.14s">Formal elegante</h2>
+    <svg class="bpr-orn bpr-dc-orn bpr-brinca" style="--d: 0.28s" viewBox="0 0 240 14" fill="none" aria-hidden="true">
+      <line x1="0" y1="7" x2="102" y2="7" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" />
+      <rect x="115" y="2" width="10" height="10" transform="rotate(45 120 7)" stroke="currentColor" stroke-width="1" />
+      <line x1="138" y1="7" x2="240" y2="7" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" />
+    </svg>
+
+    <div class="bpr-dc-cartas">
+      <div class="bpr-dc-carta bpr-dc-carta-l">
+        <svg class="bpr-dc-icono" width="46" height="46" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+          <path d="M24 20l-9-6-4 4 6 6-6 6 4 4 9-6" />
+          <path d="M24 20l9-6 4 4-6 6 6 6-4 4-9-6" />
+          <rect x="20" y="20" width="8" height="8" rx="2" />
+        </svg>
+        <h3 class="bpr-dc-quien">Caballeros</h3>
+        <p class="bpr-dc-detalle">Traje oscuro, con corbata o corbatín.</p>
+        <div class="bpr-puntos" aria-label="Tonos sugeridos para caballeros">
+          <span class="bpr-punto" style="--d: 0.55s; background: #14141a;" title="Negro"></span>
+          <span class="bpr-punto" style="--d: 0.67s; background: #2b2f3a;" title="Carbón"></span>
+          <span class="bpr-punto" style="--d: 0.79s; background: #23324e;" title="Azul noche"></span>
+        </div>
+      </div>
+      <div class="bpr-dc-carta bpr-dc-carta-r">
+        <svg class="bpr-dc-icono" width="46" height="46" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 8h16l6 10-14 22L10 18z" />
+          <path d="M10 18h28M16 8l8 10 8-10M24 18l0 22" />
+        </svg>
+        <h3 class="bpr-dc-quien">Damas</h3>
+        <p class="bpr-dc-detalle">Vestidos largos o midi en tonos joya.</p>
+        <div class="bpr-puntos" aria-label="Tonos sugeridos para damas">
+          <span class="bpr-punto" style="--d: 0.55s; background: #2e6e57;" title="Esmeralda"></span>
+          <span class="bpr-punto" style="--d: 0.67s; background: #274b8a;" title="Zafiro"></span>
+          <span class="bpr-punto" style="--d: 0.79s; background: #6a3d8f;" title="Amatista"></span>
+          <span class="bpr-punto" style="--d: 0.91s; background: #8a2740;" title="Rubí"></span>
+        </div>
+      </div>
+    </div>
+
+    <p class="bpr-dc-aviso bpr-brinca" style="--d: 0.7s">
+      Colores a evitar: blanco y marfil — reservados para la novia.
+    </p>
+    <p class="bpr-dc-clima bpr-brinca" style="--d: 0.85s">
+      La tarde refresca en el valle después del atardecer — un abrigo
+      liviano no está de más.
+    </p>
+
+    <svg class="bpr-dc-borde bpr-dc-borde-abajo" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">
+      <path fill="#f3ead9" d="M0,32 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 q48,-32 96,0 V40 H0 Z" />
+    </svg>
+  </section>
+
+  <!-- ================= 5 · CAPÍTULO DOS — NUESTRA HISTORIA ================= -->
+  <section class="bpr-historia" data-bpr-escena>
+    <p class="bpr-cejilla bpr-izq" style="--d: 0s">Capítulo dos</p>
+    <h2 class="bpr-titulo bpr-izq" style="--d: 0.1s">Nuestra historia</h2>
+    <p class="bpr-historia-parrafo bpr-izq" style="--d: 0.22s">
+      Nos conocimos un noviembre y el mundo se nos hizo chiquito. París nos
+      escuchó decir «para siempre»; Kioto nos vio bailar bajo los cerezos.
+      Falta el capítulo más lindo — y empieza con vos ahí.
+    </p>
+
+    <div class="bpr-polas">
+      <figure class="bpr-pola bpr-pola-a" style="--rot: -2.5deg; --d: 0.15s" title="Un toque de cariño">
+        <span class="bpr-pola-marco">
+          <img src="{{FOTO_2}}" alt="{{NOMBRE_1}} y {{NOMBRE_2}} de noche junto al río en París" loading="lazy" data-bpr-parallax="-0.07" />
+          <span class="bpr-pola-velo" aria-hidden="true"></span>
+        </span>
+        <figcaption class="bpr-pola-pie">París — el «para siempre»</figcaption>
+      </figure>
+      <figure class="bpr-pola bpr-pola-b" style="--rot: 2deg; --d: 0.35s" title="Un toque de cariño">
+        <span class="bpr-pola-marco">
+          <img src="{{FOTO_3}}" alt="{{NOMBRE_1}} y {{NOMBRE_2}} bailando bajo los cerezos en Kioto" loading="lazy" data-bpr-parallax="0.09" />
+          <span class="bpr-pola-velo" aria-hidden="true"></span>
+        </span>
+        <figcaption class="bpr-pola-pie">Kioto — el primer baile</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= 6 · ¿NOS ACOMPAÑÁS? ================= -->
+  <section class="bpr-rsvp" data-bpr-escena>
+    <svg class="bpr-onda-div" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; top: -1px; left: 0;">
+      <path fill="#f3ead9" d="M0,18 C240,40 480,-2 720,14 C960,30 1200,0 1440,16 L1440,0 L0,0 Z" />
+    </svg>
+    <div style="padding-top: 30px;">
+      <p class="bpr-cejilla bpr-aba" style="--d: 0s">La confirmación</p>
+      <h2 class="bpr-titulo bpr-aba" style="--d: 0.12s">¿Nos acompañás?</h2>
+      <p class="bpr-historia-parrafo bpr-aba" style="--d: 0.24s">
+        Tu presencia es nuestro mejor regalo. Confirmá aquí abajo — te toma
+        menos de un minuto y a nosotros nos hace el año.
+      </p>
+      <p class="bpr-rsvp-nota bpr-aba" style="--d: 0.36s">
+        Celebración solo para adultos — gracias por comprenderlo.
+      </p>
+      <button type="button" class="bpr-btn bpr-btn-vino bpr-btn-confirmar bpr-aba" id="bpr-ir-rsvp" style="--d: 0.48s">
+        Confirmá tu asistencia ▼
+      </button>
+    </div>
+
+    <!-- Las argollas ruedan con el scroll y se encuentran en el centro. -->
+    <div class="bpr-anillos" id="bpr-anillos" aria-hidden="true">
+      <div class="bpr-anillo" id="bpr-anillo-l" title="¡Clink!">
+        <svg viewBox="0 0 52 52" fill="none">
+          <defs>
+            <linearGradient id="bprAnilloL" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#e6cd7a" />
+              <stop offset="1" stop-color="#a87e1c" />
+            </linearGradient>
+          </defs>
+          <circle cx="26" cy="29" r="17" stroke="url(#bprAnilloL)" stroke-width="5" />
+          <path d="M26 5 L31 10 L26 15 L21 10 Z" fill="#e6cd7a" stroke="#8a6a1f" stroke-width="1" />
+        </svg>
+      </div>
+      <div class="bpr-anillo" id="bpr-anillo-r" title="¡Clink!">
+        <svg viewBox="0 0 52 52" fill="none">
+          <defs>
+            <linearGradient id="bprAnilloR" x1="1" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#e6cd7a" />
+              <stop offset="1" stop-color="#a87e1c" />
+            </linearGradient>
+          </defs>
+          <circle cx="26" cy="29" r="17" stroke="url(#bprAnilloR)" stroke-width="5" />
+          <path d="M26 5 L31 10 L26 15 L21 10 Z" fill="#e6cd7a" stroke="#8a6a1f" stroke-width="1" />
+        </svg>
+      </div>
+      <svg class="bpr-anillo-corazon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================= 7 · EL PIE ================= -->
+  <section class="bpr-pie" data-bpr-escena>
+    <svg class="bpr-onda-div" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; top: -1px; left: 0;">
+      <path fill="#f7f2ea" d="M0,16 C240,36 480,-2 720,12 C960,26 1200,2 1440,18 L1440,0 L0,0 Z" />
+    </svg>
+    <div style="padding-top: 26px;">
+      <div class="bpr-pie-linea"></div>
+      <p class="bpr-pie-con bpr-pie-e" style="--d: 0.15s">Con amor,</p>
+      <p class="bpr-pie-nombres bpr-pie-e" style="--d: 0.3s">{{NOMBRE_1}} <span>&amp;</span> {{NOMBRE_2}}</p>
+      <p class="bpr-pie-datos bpr-pie-e" style="--d: 0.45s">{{FECHA_CORTA}} · {{LUGAR}}</p>
+      <p class="bpr-pie-credito bpr-pie-e" style="--d: 0.6s">
+        Música: Smooth Lovin — Kevin MacLeod (incompetech.com), CC BY 3.0
+      </p>
+    </div>
+  </section>
+
+  <script>
+    /* ============ Toggle de música del hero (mismo audio) ============ */
+    (function () {
+      var audio = document.getElementById("bpr-audio");
+      var btn = document.getElementById("bpr-cancion");
+      if (!audio || !btn) return;
+      btn.addEventListener("click", function () {
+        if (audio.paused) {
+          audio.volume = 0.5;
+          var p = audio.play();
+          if (p && p.catch) p.catch(function () {});
+        } else {
+          audio.pause();
+        }
+      });
+    })();
+
+    /* ============ Escenas: cada capítulo entra al scrollear ========== */
+    (function () {
+      var raiz = document.getElementById("bpr");
+      if (!raiz) return;
+      var escenas = raiz.querySelectorAll("[data-bpr-escena]");
+      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reducido || !("IntersectionObserver" in window)) {
+        for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("bpr-vista");
+        return;
+      }
+      raiz.classList.add("bpr-anima");
+      var io = new IntersectionObserver(function (entradas) {
+        entradas.forEach(function (ent) {
+          if (ent.isIntersecting) {
+            ent.target.classList.add("bpr-vista");
+            io.unobserve(ent.target);
+          }
+        });
+      }, { threshold: 0.16, rootMargin: "0px 0px -8% 0px" });
+      escenas.forEach(function (esc) { io.observe(esc); });
+    })();
+
+    /* ============ Cuenta regresiva viva ============ */
+    (function () {
+      var caja = document.getElementById("bpr-cd");
+      if (!caja) return;
+      var objetivo = new Date(caja.getAttribute("data-fecha") || "").getTime();
+      if (isNaN(objetivo)) return;
+      var d = document.getElementById("bpr-cd-d");
+      var h = document.getElementById("bpr-cd-h");
+      var m = document.getElementById("bpr-cd-m");
+      var s = document.getElementById("bpr-cd-s");
+      var hoy = document.getElementById("bpr-cd-hoy");
+      var fila = caja.querySelector(".bpr-cd-fila");
+      var titulo = caja.querySelector(".bpr-cd-titulo");
+      var timer = null;
+      function dos(n) { return n < 10 ? "0" + n : "" + n; }
+      function tic() {
+        var resto = objetivo - Date.now();
+        if (resto <= 0) {
+          if (fila) fila.hidden = true;
+          if (titulo) titulo.hidden = true;
+          if (hoy) hoy.hidden = false;
+          if (timer) window.clearInterval(timer);
+          return;
+        }
+        var seg = Math.floor(resto / 1000);
+        if (d) d.textContent = "" + Math.floor(seg / 86400);
+        if (h) h.textContent = dos(Math.floor((seg % 86400) / 3600));
+        if (m) m.textContent = dos(Math.floor((seg % 3600) / 60));
+        if (s) s.textContent = dos(seg % 60);
+      }
+      tic();
+      timer = window.setInterval(tic, 1000);
+    })();
+
+    /* ============ Ambiente: pétalos que caen y destellos que suben === */
+    /* 20 partículas en móvil (8+12), 32 en ≥768px (14+18). */
+    (function () {
+      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reducido) return;
+      var caja = document.getElementById("bpr-ambiente");
+      if (!caja) return;
+      var ancho = window.matchMedia && window.matchMedia("(min-width: 768px)").matches;
+      var nPetalos = ancho ? 14 : 8;
+      var nDestellos = ancho ? 18 : 12;
+      var i, p;
+      for (i = 0; i < nPetalos; i++) {
+        p = document.createElement("span");
+        p.className = "bpr-petalo";
+        var tamP = 8 + Math.random() * 7;
+        p.style.width = tamP + "px";
+        p.style.height = (tamP * 0.85).toFixed(1) + "px";
+        p.style.left = (2 + Math.random() * 94) + "%";
+        p.style.setProperty("--t", (16 + Math.random() * 12).toFixed(1) + "s");
+        p.style.setProperty("--r", (-Math.random() * 26).toFixed(1) + "s");
+        p.style.setProperty("--dx1", ((Math.random() * 90 - 45) | 0) + "px");
+        p.style.setProperty("--dx2", ((Math.random() * 70 - 35) | 0) + "px");
+        caja.appendChild(p);
+      }
+      for (i = 0; i < nDestellos; i++) {
+        p = document.createElement("span");
+        p.className = "bpr-destello";
+        var tamD = 3 + Math.random() * 3.5;
+        p.style.width = tamD + "px";
+        p.style.height = tamD + "px";
+        p.style.left = (2 + Math.random() * 94) + "%";
+        p.style.setProperty("--t", (15 + Math.random() * 11).toFixed(1) + "s");
+        p.style.setProperty("--r", (-Math.random() * 24).toFixed(1) + "s");
+        p.style.setProperty("--dx1", ((Math.random() * 56 - 28) | 0) + "px");
+        p.style.setProperty("--dx2", ((Math.random() * 40 - 20) | 0) + "px");
+        caja.appendChild(p);
+      }
+    })();
+
+    /* ============ Ligado al scroll (rAF): parallax + argollas ======== */
+    (function () {
+      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reducido) return;
+      var raiz = document.getElementById("bpr");
+      if (!raiz) return;
+      var pares = raiz.querySelectorAll("[data-bpr-par]");
+      var fotos = raiz.querySelectorAll("[data-bpr-parallax]");
+      var anillos = document.getElementById("bpr-anillos");
+      var anilloL = document.getElementById("bpr-anillo-l");
+      var anilloR = document.getElementById("bpr-anillo-r");
+      var enCola = false;
+
+      function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+
+      function paso() {
+        enCola = false;
+        var y = window.scrollY || window.pageYOffset || 0;
+        var vh = window.innerHeight || 1;
+        var i, rect, prog;
+
+        /* La seda del hero: dos capas a velocidades distintas. */
+        if (y < vh * 1.7) {
+          for (i = 0; i < pares.length; i++) {
+            var f = parseFloat(pares[i].getAttribute("data-bpr-par")) || 0;
+            pares[i].style.transform = "translate3d(0," + (y * f).toFixed(1) + "px,0)";
+          }
+        }
+
+        /* Las fotos respiran dentro de su marco. */
+        for (i = 0; i < fotos.length; i++) {
+          var nodo = fotos[i];
+          var marco = nodo.parentElement;
+          if (!marco) continue;
+          rect = marco.getBoundingClientRect();
+          if (rect.bottom < -80 || rect.top > vh + 80) continue;
+          prog = clamp01((vh - rect.top) / (vh + rect.height));
+          var fac = parseFloat(nodo.getAttribute("data-bpr-parallax")) || 0;
+          nodo.style.transform = "translate3d(0," + ((prog - 0.5) * rect.height * fac).toFixed(1) + "px,0)";
+        }
+
+        /* Las argollas ruedan y se encuentran en el centro. */
+        if (anillos && anilloL && anilloR) {
+          rect = anillos.getBoundingClientRect();
+          if (rect.bottom > -60 && rect.top < vh + 60) {
+            prog = clamp01((vh * 0.94 - rect.top) / (vh * 0.6));
+            var suave = prog * prog * (3 - 2 * prog); /* easing suave */
+            var dist = rect.width / 2 - 48;
+            if (dist > 0) {
+              var x = suave * dist;
+              var giro = (x / 163.4) * 360; /* perímetro de la argolla */
+              anilloL.style.transform = "translate3d(" + x.toFixed(1) + "px,0,0) rotate(" + giro.toFixed(1) + "deg)";
+              anilloR.style.transform = "translate3d(" + (-x).toFixed(1) + "px,0,0) rotate(" + (-giro).toFixed(1) + "deg)";
+            }
+            if (suave > 0.97) anillos.classList.add("bpr-junto");
+          }
+        }
+      }
+
+      function pedir() {
+        if (!enCola) {
+          enCola = true;
+          window.requestAnimationFrame(paso);
+        }
+      }
+      window.addEventListener("scroll", pedir, { passive: true });
+      window.addEventListener("resize", pedir);
+      pedir();
+    })();
+
+    /* ============ Micro-interacciones ============ */
+    (function () {
+      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var puedeAnimar = !reducido && document.body && document.body.animate;
+
+      /* Chispas doradas desde un punto (nombres del hero). */
+      function chispas(x, y) {
+        if (!puedeAnimar) return;
+        var n = window.matchMedia && window.matchMedia("(min-width: 768px)").matches ? 18 : 12;
+        for (var i = 0; i < n; i++) {
+          var chispa = document.createElement("span");
+          var rombo = Math.random() < 0.5;
+          chispa.className = "bpr-chispa " + (rombo ? "bpr-chispa-rombo" : "bpr-chispa-punto");
+          var tam = rombo ? 5 + Math.random() * 4 : 3 + Math.random() * 3;
+          chispa.style.width = tam + "px";
+          chispa.style.height = tam + "px";
+          chispa.style.left = (x - tam / 2) + "px";
+          chispa.style.top = (y - tam / 2) + "px";
+          document.body.appendChild(chispa);
+          var ang = Math.random() * Math.PI * 2;
+          var dist = 40 + Math.random() * 75;
+          var dx = Math.cos(ang) * dist;
+          var dy = Math.sin(ang) * dist - 18;
+          var giro = rombo ? " rotate(" + ((Math.random() * 260 - 130) | 0) + "deg)" : "";
+          var anim = chispa.animate(
+            [
+              { transform: "translate(0,0) scale(1)" + (rombo ? " rotate(45deg)" : ""), opacity: 1 },
+              { transform: "translate(" + dx + "px," + dy + "px) scale(0.15)" + giro, opacity: 0 },
+            ],
+            { duration: 520 + Math.random() * 360, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" }
+          );
+          anim.onfinish = (function (nodo) { return function () { nodo.remove(); }; })(chispa);
+        }
+      }
+
+      /* Corazones vino desde un punto (fotos y argollas). */
+      function corazones(x, y) {
+        if (!puedeAnimar) return;
+        for (var i = 0; i < 7; i++) {
+          var c = document.createElement("span");
+          c.className = "bpr-corazon-vuelo";
+          c.textContent = "♥";
+          c.style.left = x + "px";
+          c.style.top = y + "px";
+          c.style.fontSize = (12 + Math.random() * 8) + "px";
+          document.body.appendChild(c);
+          var dx = Math.random() * 110 - 55;
+          var dy = -(46 + Math.random() * 70);
+          var anim = c.animate(
+            [
+              { transform: "translate(-50%,-50%) scale(0.5)", opacity: 1 },
+              { transform: "translate(calc(-50% + " + dx + "px), calc(-50% + " + dy + "px)) scale(1.1)", opacity: 0 },
+            ],
+            { duration: 750 + Math.random() * 420, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" }
+          );
+          anim.onfinish = (function (nodo) { return function () { nodo.remove(); }; })(c);
+        }
+      }
+
+      /* Burbuja de texto de 1 s. */
+      function burbuja(x, y, texto) {
+        var b = document.createElement("span");
+        b.className = "bpr-burbuja";
+        b.textContent = texto;
+        b.style.left = x + "px";
+        b.style.top = (y - 46) + "px";
+        document.body.appendChild(b);
+        if (puedeAnimar) {
+          b.animate(
+            [
+              { transform: "translate(-50%, 6px)", opacity: 0 },
+              { transform: "translate(-50%, 0)", opacity: 1, offset: 0.2 },
+              { transform: "translate(-50%, -4px)", opacity: 1, offset: 0.75 },
+              { transform: "translate(-50%, -14px)", opacity: 0 },
+            ],
+            { duration: 1000, easing: "ease-out" }
+          );
+        }
+        window.setTimeout(function () { b.remove(); }, 1000);
+      }
+
+      function punto(ev) {
+        return {
+          x: ev.clientX || window.innerWidth / 2,
+          y: ev.clientY || window.innerHeight / 2,
+        };
+      }
+
+      /* Los nombres del hero: pop + ráfaga dorada. */
+      var nombres = document.getElementById("bpr-nombres");
+      if (nombres) {
+        var ocupado = false;
+        nombres.addEventListener("click", function (ev) {
+          var pt = punto(ev);
+          chispas(pt.x, pt.y);
+          if (puedeAnimar && !ocupado) {
+            ocupado = true;
+            var pop = nombres.animate(
+              [
+                { transform: "scale(1)" },
+                { transform: "scale(1.035)" },
+                { transform: "scale(1)" },
+              ],
+              { duration: 360, easing: "cubic-bezier(0.34, 1.4, 0.5, 1)" }
+            );
+            pop.onfinish = function () { ocupado = false; };
+          }
+        });
+      }
+
+      /* Las fotos polaroid: pop + corazones. */
+      var polas = document.querySelectorAll(".bpr-pola");
+      polas.forEach(function (pola) {
+        pola.addEventListener("click", function (ev) {
+          var pt = punto(ev);
+          corazones(pt.x, pt.y);
+          if (puedeAnimar) {
+            pola.animate(
+              [
+                { transform: "rotate(var(--rot, 0deg)) scale(1)" },
+                { transform: "rotate(var(--rot, 0deg)) scale(1.04)" },
+                { transform: "rotate(var(--rot, 0deg)) scale(1)" },
+              ],
+              { duration: 380, easing: "cubic-bezier(0.34, 1.4, 0.5, 1)" }
+            );
+          }
+        });
+      });
+
+      /* Las argollas: clink + corazones + burbuja. */
+      ["bpr-anillo-l", "bpr-anillo-r"].forEach(function (id) {
+        var anillo = document.getElementById(id);
+        if (!anillo) return;
+        anillo.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          var pt = punto(ev);
+          corazones(pt.x, pt.y);
+          burbuja(pt.x, pt.y, "¡Clink!");
+          anillo.classList.remove("bpr-clink");
+          void anillo.offsetWidth; /* reinicia la animación */
+          anillo.classList.add("bpr-clink");
+        });
+      });
+
+      /* "Confirmá tu asistencia": scroll suave al bloque RSVP real que
+         la página agrega justo después de este HTML. */
+      var irRsvp = document.getElementById("bpr-ir-rsvp");
+      if (irRsvp) {
+        irRsvp.addEventListener("click", function () {
+          var raiz = document.getElementById("bpr");
+          var cont = raiz ? raiz.parentElement : null;
+          var destino = cont ? cont.nextElementSibling : null;
+          if (destino) {
+            destino.scrollIntoView({ behavior: reducido ? "auto" : "smooth", block: "start" });
+          } else {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: reducido ? "auto" : "smooth" });
+          }
+        });
+      }
+    })();
+  </script>
+</div>

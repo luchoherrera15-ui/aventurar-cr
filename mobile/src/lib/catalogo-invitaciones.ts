@@ -36,6 +36,16 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     tintaIcono: "rgba(255,255,255,0.9)",
   },
   {
+    slug: "demo-boda-premium",
+    nombre: "Carta de Amor",
+    ocasion: "Bodas",
+    descripcion:
+      "Un sobre lacrado que se abre con música: capítulos, código de vestimenta y confirmación de asistencia.",
+    lienzo: Colors.navy2,
+    icono: "mail-open-outline",
+    tintaIcono: "rgba(255,255,255,0.9)",
+  },
+  {
     slug: "demo-invitacion",
     nombre: "Marfil & Champán",
     ocasion: "Bodas",

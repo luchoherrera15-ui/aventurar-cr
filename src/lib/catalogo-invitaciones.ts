@@ -49,6 +49,17 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     muestra: { fondo: "#ffffff", tinta: "#6b2233", acento: "#c9a227" },
   },
   {
+    slug: "demo-boda-premium",
+    nombre: "Carta de Amor",
+    ocasion: "Bodas",
+    descripcion:
+      "Un sobre lacrado que se abre con música: la historia por capítulos, fotos, cuenta regresiva y confirmación en línea.",
+    lienzo: "bg-aventurea-navy",
+    icono: "corazon",
+    iconoClase: "text-white/90",
+    muestra: { fondo: "#f7f2ea", tinta: "#6b2233", acento: "#c9a227" },
+  },
+  {
     slug: "demo-invitacion",
     nombre: "Marfil & Champán",
     ocasion: "Bodas",

@@ -97,8 +97,9 @@ const PIEZAS_EJEMPLO = [
   },
   {
     titulo: "Invitación Premium",
-    texto: "Diseño desde cero, con GPS, cuenta regresiva y confirmación de asistencia.",
-    href: "/i/demo-invitacion",
+    texto:
+      "Un sobre que se abre con música: capítulos, código de vestimenta y confirmación de asistencia.",
+    href: "/i/demo-boda-premium",
     Icono: IconSparkles,
     tono: "bg-white/15 text-white",
   },

@@ -344,9 +344,17 @@ function DisenoPropio({
 
   return (
     <>
+      {/* suppressHydrationWarning: React en dev compara este string
+          contra el innerHTML que el navegador ya NORMALIZÓ (comillas,
+          `&` → `&amp;`, orden de entidades…), así que nunca coinciden
+          textualmente aunque sean el mismo HTML — y React igual no
+          parcha contenido de innerHTML ("won't be patched up"). Sin
+          esto, TODAS las invitaciones con diseño propio llenan la
+          consola de dev con un aviso de hidratación que no es un bug. */}
       <div
         ref={contenedor}
         className="w-full"
+        suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: html }}
       />
       {destino &&

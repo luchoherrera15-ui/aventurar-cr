@@ -64,6 +64,59 @@ const DEMOS = [
     },
   },
   {
+    // La "Invitación Premium" de boda (Carta de Amor): el sobre lacrado
+    // que se abre con música de saxofón y revela la historia por
+    // capítulos al scrollear. Usa el bloque RSVP real de la página.
+    slug: "demo-boda-premium",
+    tema: "boda-premium",
+    plantilla: "docs/plantillas-invitaciones/boda-premium.html",
+    fila: {
+      titulo: "Isabella & Mateo — ¡Nos casamos!",
+      anfitriones: "Isabella & Mateo",
+      mensaje: "Abrí el sobre — tenemos algo que contarte.",
+      fecha_evento: "2026-11-28",
+      hora: "4:00 p. m.",
+      lugar_nombre: "Jardines del Valle Escondido",
+      direccion: "San Rafael de Escazú, San José",
+      estado: "activa",
+    },
+    datos: {
+      NOMBRE_1: "Isabella",
+      NOMBRE_2: "Mateo",
+      INICIALES: "I · M",
+      DIA_PALABRA: "Veintiocho",
+      MES: "Noviembre",
+      ANIO: "2026",
+      HORARIO: "4:00 p. m. a 10:00 p. m.",
+      HORA: "4:00 p. m.",
+      FECHA_ISO: "2026-11-28T16:00:00-06:00",
+      FECHA_CORTA: "28 · 11 · 2026",
+      LUGAR: "Jardines del Valle Escondido",
+      DIRECCION: "San Rafael de Escazú, San José",
+      LINK_MAPS: "https://maps.google.com/?q=9.9189,-84.1370",
+      LINK_WAZE: "https://waze.com/ul?ll=9.9189,-84.1370&navigate=yes",
+      LINK_CALENDARIO:
+        "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+        `&text=${encodeURIComponent("Boda de Isabella & Mateo")}` +
+        "&dates=20261128T160000/20261128T220000" +
+        "&ctz=America/Costa_Rica" +
+        `&details=${encodeURIComponent(
+          "¡Nos casamos! Acompañanos en Jardines del Valle Escondido. Vestimenta: formal elegante.",
+        )}` +
+        `&location=${encodeURIComponent(
+          "Jardines del Valle Escondido, San Rafael de Escazú, San José, Costa Rica",
+        )}`,
+      FOTO_1:
+        "https://bjhprmtobmualefvcmau.supabase.co/storage/v1/object/public/ranchos-fotos/invitaciones-demo/boda-premium/santorini.jpg",
+      FOTO_2:
+        "https://bjhprmtobmualefvcmau.supabase.co/storage/v1/object/public/ranchos-fotos/invitaciones-demo/boda-premium/paris.jpg",
+      FOTO_3:
+        "https://bjhprmtobmualefvcmau.supabase.co/storage/v1/object/public/ranchos-fotos/invitaciones-demo/boda-premium/kioto.jpg",
+      CANCION:
+        "https://bjhprmtobmualefvcmau.supabase.co/storage/v1/object/public/ranchos-fotos/invitaciones-demo/boda-premium/cancion-sax.mp3",
+    },
+  },
+  {
     slug: "demo-formal",
     tema: "formal",
     plantilla: "docs/plantillas-invitaciones/formal.html",
