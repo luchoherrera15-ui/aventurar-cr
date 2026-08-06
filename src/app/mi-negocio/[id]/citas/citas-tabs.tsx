@@ -1,12 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
-import DaySlider from "./day-slider";
-import AgendaPorProfesional from "./agenda-por-profesional";
 import ResumenesCitas from "./resumenes-citas";
 import AgendaCitas, { type CitaDia } from "./agenda-citas";
-import type { MiembroEquipo } from "./actions";
+import type { HorarioSemana } from "@/app/citas/tipos";
 
 type Tab = "agenda" | "resumenes" | "clientes" | "finanzas" | "configuracion";
 
@@ -26,7 +23,8 @@ interface CitasTabsProps {
     duracionMinutos: number | null;
     precio: number | null;
   }>;
-  horario: Record<string, { abre: string; cierra: string } | undefined>;
+  horario: HorarioSemana | null;
+  horariosPorMiembro: Record<string, { dow: number; abre: string; cierra: string }[]>;
   initialFecha: string;
   initialCitas: CitaDia[];
   initialBloqueos: Array<{
@@ -53,26 +51,12 @@ export default function CitasTabs({
   equipo,
   servicios,
   horario,
+  horariosPorMiembro,
   initialFecha,
   initialCitas,
   initialBloqueos,
 }: CitasTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>("agenda");
-  const [fechaSeleccionada, setFechaSeleccionada] = useState(initialFecha);
-
-  // Para la vista por profesional, necesitamos filtrar citas por fecha
-  const citasFecha = initialCitas.filter(
-    (c) => c.hora_inicio.slice(0, 10) === fechaSeleccionada,
-  );
-
-  // Obtener hora de cierre del negocio
-  const hoy = new Date(fechaSeleccionada);
-  const dow = hoy.getDay();
-  const diasSemana = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
-  const diaStr = diasSemana[dow === 0 ? 6 : dow - 1];
-  const horarioHoy = horario?.[diaStr];
-  const horaCierreParts = horarioHoy?.cierra?.split(":") || ["20", "00"];
-  const minutosCierre = parseInt(horaCierreParts[0]) * 60 + parseInt(horaCierreParts[1] || "0");
 
   return (
     <div>
@@ -95,36 +79,23 @@ export default function CitasTabs({
 
       {/* Contenido de tabs */}
       {activeTab === "agenda" && (
-        <div className="space-y-5">
-          <div>
-            <label className="mb-2 block text-[12px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-              Selecciona un día
-            </label>
-            <DaySlider
-              fechaSeleccionada={fechaSeleccionada}
-              onFechaChange={setFechaSeleccionada}
-            />
-          </div>
-
-          <div>
-            <h3 className="mb-3 text-[14px] font-bold text-aventurea-ink">
-              Agenda por profesional
-            </h3>
-            <AgendaPorProfesional
-              citas={citasFecha}
-              profesionales={equipo.map((m) => ({
-                id: m.id,
-                nombre: m.nombre,
-                foto: m.fotoUrl || undefined,
-              }))}
-              horaInicio={360} // 06:00
-              horaFin={minutosCierre}
-              onSelectCita={(cita) => {
-                console.log("Cita seleccionada:", cita);
-              }}
-            />
-          </div>
-        </div>
+        <AgendaCitas
+          ranchoId={ranchoId}
+          zona={zona}
+          equipo={equipo.map((m) => ({
+            id: m.id,
+            nombre: m.nombre,
+            tipo: m.tipo ?? "profesional",
+            activo: m.activo,
+            fotoUrl: m.fotoUrl,
+          }))}
+          servicios={servicios}
+          horario={horario}
+          horariosPorMiembro={horariosPorMiembro}
+          initialFecha={initialFecha}
+          initialCitas={initialCitas}
+          initialBloqueos={initialBloqueos}
+        />
       )}
 
       {activeTab === "resumenes" && (

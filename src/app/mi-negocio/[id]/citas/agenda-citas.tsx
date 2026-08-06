@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { etiquetaMinutos, horaBonita, minutosAHora, type HorarioSemana } from "@/app/citas/tipos";
-import { diaDeSemana, instanteEnZona } from "@/lib/agenda/disponibilidad";
+import {
+  diaDeSemana,
+  instanteEnZona,
+  rangosDelDia,
+  agruparHorarioRecurso,
+  type Rango,
+} from "@/lib/agenda/disponibilidad";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { fmtColones } from "@/lib/finanzas";
 import {
@@ -158,6 +165,7 @@ export default function AgendaCitas({
   equipo,
   servicios,
   horario,
+  horariosPorMiembro,
   initialFecha,
   initialCitas,
   initialBloqueos,
@@ -166,9 +174,14 @@ export default function AgendaCitas({
   zona: string;
   equipo: Miembro[];
   servicios: Servicio[];
-  /** El horario semanal del negocio — sin esto la vista por persona
-   *  cae a un rango por defecto de 8:00 a 18:00. */
+  /** El horario semanal del negocio: lo que hereda cada colaborador
+   *  sin horario propio, y el rango por defecto cuando nadie trabaja
+   *  ese día. */
   horario: HorarioSemana | null;
+  /** Horario propio por persona (0061) — sin filas para alguien, esa
+   *  persona hereda `horario`; con filas manda lo que digan (día libre
+   *  incluido, vía el rango centinela de horarios_recurso). */
+  horariosPorMiembro: Record<string, { dow: number; abre: string; cierra: string }[]>;
   initialFecha: string;
   initialCitas: CitaDia[];
   initialBloqueos: BloqueoAgenda[];
@@ -524,13 +537,35 @@ export default function AgendaCitas({
       : []),
   ];
 
-  // El horario propio del negocio para ESE día de semana manda el
-  // rango base — sin configurar (o el día está marcado como cerrado)
-  // cae al 8:00–18:00 de siempre. Las citas y los bloqueos del día
-  // igual pueden estirar la grilla más allá de ese rango base.
-  const horarioDia = horario ? (horario[String(diaDeSemana(fecha))] ?? null) : null;
-  const baseDesdeMin = horarioDia ? minutosDe(horarioDia.abre) : 8 * 60;
-  const baseHastaMin = horarioDia ? minutosDe(horarioDia.cierra) : 18 * 60;
+  // El horario de CADA colaborador ese día de semana: hereda el del
+  // negocio si no tiene horario propio, o manda el suyo — día libre
+  // incluido, vía el rango centinela de horarios_recurso. La columna
+  // "Sin asignar"/"El negocio" (id null) usa directo el del negocio.
+  const dow = diaDeSemana(fecha);
+  const horarioPorColumna = new Map<string | null, Rango[]>(
+    columnas.map((col) => {
+      if (col.id === null) return [col.id, rangosDelDia(null, dow, horario)];
+      const recurso = {
+        id: col.id,
+        horario: agruparHorarioRecurso(horariosPorMiembro[col.id] ?? []),
+      };
+      return [col.id, rangosDelDia(recurso, dow, horario)];
+    }),
+  );
+
+  // El piso de la grilla es SIEMPRE las 6am — se quiere ver la agenda
+  // abierta desde esa hora aunque nadie entre tan temprano; cada
+  // columna igual pinta atenuadas sus horas realmente cerradas (abajo,
+  // segmentosCerrados). Un dato real de antes de las 6am (una cita
+  // movida a mano) igual estira la grilla — nunca se esconde.
+  const PISO_GRILLA = 6 * 60;
+  const CIERRE_POR_DEFECTO = 20 * 60; // nadie trabaja este día: grilla razonable igual
+  const iniciosColaboradores = [...horarioPorColumna.values()].flatMap((r) => r.map((x) => x.inicio));
+  const finesColaboradores = [...horarioPorColumna.values()].flatMap((r) => r.map((x) => x.fin));
+  const baseDesdeMin =
+    iniciosColaboradores.length > 0 ? Math.min(PISO_GRILLA, ...iniciosColaboradores) : PISO_GRILLA;
+  const baseHastaMin =
+    finesColaboradores.length > 0 ? Math.max(...finesColaboradores) : CIERRE_POR_DEFECTO;
 
   const minutosDia = conAgenda.flatMap((c) => {
     const ini = minutosDe(c.hora_inicio.slice(0, 5));
@@ -550,6 +585,24 @@ export default function AgendaCitas({
   const inicioGrilla = Math.floor(desdeMin / 60) * 60;
   const finGrilla = Math.ceil(hastaMin / 60) * 60;
   const altoGrilla = finGrilla - inicioGrilla; // 1 min = 1 px
+
+  /** Los huecos de una columna FUERA de su horario real ese día, para
+   *  atenuarlos — sin rangos = cerrado el día entero. Recortado a lo
+   *  que se ve en la grilla. */
+  function segmentosCerrados(rangosTrabajo: Rango[]): Rango[] {
+    if (rangosTrabajo.length === 0) return [{ inicio: inicioGrilla, fin: finGrilla }];
+    const ordenados = [...rangosTrabajo].sort((a, b) => a.inicio - b.inicio);
+    const cerrados: Rango[] = [];
+    let cursor = inicioGrilla;
+    for (const r of ordenados) {
+      const ini = Math.max(r.inicio, inicioGrilla);
+      const fin = Math.min(r.fin, finGrilla);
+      if (ini > cursor) cerrados.push({ inicio: cursor, fin: ini });
+      cursor = Math.max(cursor, fin);
+    }
+    if (cursor < finGrilla) cerrados.push({ inicio: cursor, fin: finGrilla });
+    return cerrados;
+  }
 
   // La línea de "ahora": solo tiene sentido si el día que se está
   // viendo es HOY y cae dentro del rango visible de la grilla.
@@ -1352,7 +1405,12 @@ export default function AgendaCitas({
         </div>
       )}
 
-      {!cargando && citas.length === 0 && !error && (
+      {/* La grilla por persona se ve SIEMPRE (columnas + horas desde
+          las 6am), aunque no haya ni una cita ese día — es el mostrador
+          y sirve para agendar en un hueco libre. El aviso de "no hay
+          citas" solo aplica a la vista de lista, que sin citas no
+          tiene nada que listar. */}
+      {vista === "lista" && !cargando && citas.length === 0 && !error && (
         <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
           {esHoy ? "Hoy no tenés citas agendadas." : "Ese día no hay citas agendadas."}
         </p>
@@ -1364,7 +1422,7 @@ export default function AgendaCitas({
         </div>
       )}
 
-      {(vista === "personas" || vista === "persona") && citas.length > 0 && (
+      {(vista === "personas" || vista === "persona") && (
         <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
           {vista === "persona" && columnas.length > 0 && (
             <div className="mb-3 flex items-center justify-center gap-3">
@@ -1383,8 +1441,7 @@ export default function AgendaCitas({
                 return (
                   <div className="flex min-w-0 items-center gap-2">
                     {col.fotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-                      <img src={col.fotoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                      <Image src={col.fotoUrl} alt="" width={32} height={32} className="h-8 w-8 shrink-0 rounded-full object-cover" />
                     ) : (
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-[12px] font-bold text-aventurea-navy">
                         {col.nombre.slice(0, 1).toUpperCase()}
@@ -1444,6 +1501,7 @@ export default function AgendaCitas({
               const bloqueosCol = bloqueosDia.filter(
                 (x) => x.bloqueo.miembro_id === col.id || x.bloqueo.miembro_id === null,
               );
+              const cerradosCol = segmentosCerrados(horarioPorColumna.get(col.id) ?? []);
               return (
                 <div
                   key={col.id ?? "sin"}
@@ -1464,10 +1522,11 @@ export default function AgendaCitas({
                   >
                     {vista !== "persona" &&
                       (col.fotoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- foto remota de Supabase
-                        <img
+                        <Image
                           src={col.fotoUrl}
                           alt=""
+                          width={28}
+                          height={28}
                           className="h-7 w-7 rounded-full object-cover"
                         />
                       ) : (
@@ -1500,7 +1559,10 @@ export default function AgendaCitas({
                       const enBloqueo = bloqueosCol.some(
                         ({ rango }) => redondeado >= rango.inicio && redondeado < rango.fin,
                       );
-                      if (enBloqueo) return;
+                      const enCerrado = cerradosCol.some(
+                        (seg) => redondeado >= seg.inicio && redondeado < seg.fin,
+                      );
+                      if (enBloqueo || enCerrado) return;
                       setSeleccionada(null);
                       setBloqueando(false);
                       setAvisosCrear([]);
@@ -1512,6 +1574,25 @@ export default function AgendaCitas({
                       }));
                     }}
                   >
+                    {/* Fuera del horario real de esta persona ese día
+                        (antes de entrar, después de salir, día libre):
+                        atenuado con rayas, para que la grilla se vea
+                        SIEMPRE desde las 6am pero quede claro dónde no
+                        se puede agendar. */}
+                    {cerradosCol.map((seg, i) => (
+                      <div
+                        key={`cerrado-${i}`}
+                        aria-hidden
+                        className="pointer-events-none absolute left-0 right-0"
+                        style={{
+                          top: seg.inicio - inicioGrilla,
+                          height: seg.fin - seg.inicio,
+                          backgroundColor: "rgba(24,28,38,0.035)",
+                          backgroundImage:
+                            "repeating-linear-gradient(45deg, rgba(24,28,38,0.07) 0, rgba(24,28,38,0.07) 1px, transparent 1px, transparent 9px)",
+                        }}
+                      />
+                    ))}
                     {Array.from(
                       { length: (finGrilla - inicioGrilla) / 30 },
                       (_, i) => inicioGrilla + i * 30,
@@ -1579,9 +1660,23 @@ export default function AgendaCitas({
             })}
           </div>
 
-          <p className="mt-3 text-[11.5px] text-zinc-500">
-            Tocá una cita para ver el detalle y marcar asistencia, o un hueco libre para
-            agendar ahí mismo.
+          <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-zinc-500">
+            <span>
+              Tocá una cita para ver el detalle y marcar asistencia, o un hueco libre para
+              agendar ahí mismo.
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="inline-block h-3 w-3 rounded-sm"
+                style={{
+                  backgroundColor: "rgba(24,28,38,0.035)",
+                  backgroundImage:
+                    "repeating-linear-gradient(45deg, rgba(24,28,38,0.15) 0, rgba(24,28,38,0.15) 1px, transparent 1px, transparent 4px)",
+                }}
+              />
+              Rayado = esa persona no trabaja esa hora
+            </span>
           </p>
         </div>
       )}

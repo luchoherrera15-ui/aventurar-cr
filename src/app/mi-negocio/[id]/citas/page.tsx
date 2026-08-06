@@ -101,10 +101,13 @@ export default async function CitasConfigPage({
       .order("created_at", { ascending: true }),
     // La agenda de hoy: la primera carga sale del servidor y el cambio
     // de fecha se consulta desde el navegador (RLS limita al dueño).
+    // Mismos campos que el refetch del cliente (agenda-citas.tsx,
+    // CAMPOS_CITA) — si difieren, la agenda de HOY se ve distinta (sin
+    // cobro/contacto) hasta que el dueño cambie de fecha una vez.
     supabase
       .from("reservas")
       .select(
-        "id, hora_inicio, duracion_minutos, miembro_id, nombre, tipo_evento, estado, correo, whatsapp, notas, monto_total, origen",
+        "id, hora_inicio, duracion_minutos, miembro_id, nombre, tipo_evento, estado, correo, whatsapp, contacto, notas, monto_total, origen, evento_pagado, monto_cobrado_final",
       )
       .eq("rancho_id", id)
       .eq("fecha", hoy)
@@ -254,7 +257,8 @@ export default async function CitasConfigPage({
               fotoUrl: m.foto_url,
             }))}
             servicios={servicios}
-            horario={(horario ?? {}) as Record<string, { abre: string; cierra: string } | undefined>}
+            horario={horario}
+            horariosPorMiembro={horariosPorMiembro}
             initialFecha={hoy}
             initialCitas={citasHoy}
             initialBloqueos={bloqueos}
