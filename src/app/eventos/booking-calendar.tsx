@@ -27,6 +27,7 @@ import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./tipos-l
 import { terminosPorDefecto } from "@/app/mi-negocio/types";
 import type { PromocionDia } from "@/app/mi-negocio/types";
 import { mejorPromoPorDiaSemana, promoAplicableDelDia } from "@/lib/promociones";
+import { calcularBaseLugar, rangoQueAplica } from "@/lib/precio-lugar";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -63,12 +64,15 @@ export default function BookingCalendar({
   nombreRancho,
   disponibilidad,
   tiers,
+  tiersDiciembre = [],
   servicios,
   tarifaDiciembre,
   depositoReserva,
   modalidadPrecio = "rango_personas",
   precioHora = null,
   precioFijo = null,
+  precioHoraDiciembre = null,
+  precioFijoDiciembre = null,
   promociones = [],
   terminos = [],
   montoMinimo = null,
@@ -87,7 +91,12 @@ export default function BookingCalendar({
   nombreRancho: string;
   disponibilidad: Record<string, DiaDisponibilidad>;
   tiers: PrecioTier[];
+  /** Los rangos propios de diciembre (0099); vacío = ese mes se cobra
+   *  con la tarifa vieja por persona o, si tampoco hay, como siempre. */
+  tiersDiciembre?: PrecioTier[];
   servicios: ServicioAdicional[];
+  /** La tarifa por persona de diciembre de antes de la 0099: sigue
+   *  valiendo como respaldo para quien nunca cargó rangos de diciembre. */
   tarifaDiciembre: number;
   depositoReserva: number;
   /** Cómo cotiza este lugar; default = los rangos de siempre. */
@@ -96,6 +105,10 @@ export default function BookingCalendar({
   precioHora?: number | null;
   /** Para modalidad "fijo": el único precio del evento. */
   precioFijo?: number | null;
+  /** Los mismos dos precios, pero solo para diciembre (0099).
+   *  null = ese mes se cobra igual que el resto del año. */
+  precioHoraDiciembre?: number | null;
+  precioFijoDiciembre?: number | null;
   promociones?: PromocionDia[];
   /** Los del proveedor; vacío = usar los que trae la plataforma. */
   terminos?: string[];
@@ -304,20 +317,73 @@ export default function BookingCalendar({
   // siempre), por hora, o un precio fijo del evento sin importar
   // invitados. El resto del flujo (fecha, depósito, comprobante) es
   // exactamente el mismo para las tres.
-  const tierBase = useMemo(() => {
-    if (promoAplicable?.tipo === "precio_fijo") return promoAplicable.precio_fijo;
-    if (modalidadPrecio === "fijo") return precioFijo ?? null;
+  // La cascada vive en src/lib/precio-lugar.ts (con su espejo en la
+  // app): el servidor guarda el monto que le manda el cliente, así que
+  // web y móvil TIENEN que calcular igual. Acá solo se le pasan los datos.
+  const tierBase = useMemo(
+    () =>
+      calcularBaseLugar({
+        modalidad: modalidadPrecio,
+        esDiciembre,
+        invitados: invitadosNum || null,
+        rangos: tiers,
+        rangosDiciembre: tiersDiciembre,
+        tarifaDiciembrePorPersona: tarifaDiciembre,
+        horas: horasNum || null,
+        precioHora,
+        precioHoraDiciembre,
+        precioFijo,
+        precioFijoDiciembre,
+        promoPrecioFijo:
+          promoAplicable?.tipo === "precio_fijo" ? promoAplicable.precio_fijo : null,
+      }),
+    [
+      promoAplicable,
+      modalidadPrecio,
+      precioFijo,
+      precioFijoDiciembre,
+      horasNum,
+      precioHora,
+      precioHoraDiciembre,
+      invitadosNum,
+      esDiciembre,
+      tiers,
+      tiersDiciembre,
+      tarifaDiciembre,
+    ],
+  );
+
+  // Qué nota mostrar debajo de la cotización cuando el día cae en
+  // diciembre: solo si ese mes REALMENTE se está cobrando distinto, y
+  // diciendo con cuál de los dos esquemas (rangos propios del mes, o la
+  // tarifa por persona vieja). Una promo de precio fijo pisa diciembre,
+  // así que ahí no se anuncia nada.
+  const notaDiciembre = useMemo(() => {
+    if (!esDiciembre || promoAplicable?.tipo === "precio_fijo") return null;
+    if (modalidadPrecio === "fijo") {
+      return precioFijoDiciembre !== null ? "Precio de diciembre" : null;
+    }
     if (modalidadPrecio === "hora") {
-      if (!horasNum || precioHora === null) return null;
-      return horasNum * precioHora;
+      return precioHoraDiciembre !== null ? "Precio de diciembre" : null;
     }
     if (!invitadosNum) return null;
-    if (esDiciembre) return invitadosNum * tarifaDiciembre;
-    const tier = tiers.find(
-      (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
-    );
-    return tier ? tier.precio : null;
-  }, [promoAplicable, modalidadPrecio, precioFijo, horasNum, precioHora, invitadosNum, esDiciembre, tiers, tarifaDiciembre]);
+    // Mismo criterio que el cálculo (rangoQueAplica), no una copia:
+    // así el cartel nunca anuncia un precio que no se está cobrando.
+    if (rangoQueAplica(tiersDiciembre, invitadosNum)) return "Precio de diciembre";
+    if (tarifaDiciembre > 0) {
+      return `Tarifa de diciembre: ${fmtColones(tarifaDiciembre)} por persona`;
+    }
+    return null;
+  }, [
+    esDiciembre,
+    promoAplicable,
+    modalidadPrecio,
+    precioFijoDiciembre,
+    precioHoraDiciembre,
+    invitadosNum,
+    tiersDiciembre,
+    tarifaDiciembre,
+  ]);
 
   const addonsTotal = useMemo(() => {
     return servicios.reduce((acc, s) => {
@@ -1168,10 +1234,8 @@ export default function BookingCalendar({
                             Código de descuento aplicado
                           </p>
                         )}
-                        {modalidadPrecio === "rango_personas" && esDiciembre && invitadosNum > 0 && (
-                          <p className="text-[11px] text-zinc-500">
-                            Tarifa de diciembre: {fmtColones(tarifaDiciembre)} por persona
-                          </p>
+                        {notaDiciembre && (
+                          <p className="text-[11px] text-zinc-500">{notaDiciembre}</p>
                         )}
                       </div>
                       {tierBase !== null ? (

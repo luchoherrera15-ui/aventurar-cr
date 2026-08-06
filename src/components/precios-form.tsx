@@ -1,13 +1,19 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition } from "react";
-import type { PrecioTier, ServicioAdicional } from "@/app/mi-negocio/types";
+import type { Dispatch, SetStateAction } from "react";
+import type {
+  GuardarPreciosInput,
+  PrecioTier,
+  ServicioAdicional,
+} from "@/app/mi-negocio/types";
 import {
   MODALIDADES_PRECIO_LUGAR,
   MODALIDAD_PRECIO_LUGAR_LABEL,
   type ModalidadPrecioLugar,
 } from "@/app/mi-negocio/types";
 import { IconTrash } from "@/components/icons";
+import SeccionPlegable from "@/components/seccion-plegable";
 
 type TierDraft = {
   key: string;
@@ -29,20 +35,156 @@ function newKey() {
   return `new-${keySeq}`;
 }
 
+const CLASE_INPUT =
+  "w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]";
+
+/** Los rangos de diciembre son filas de la misma tabla (0099). */
+function esDeDiciembre(t: PrecioTier) {
+  return t.temporada === "diciembre";
+}
+
+function aDraft(t: PrecioTier): TierDraft {
+  return {
+    key: t.id,
+    min_invitados: t.min_invitados,
+    max_invitados: t.max_invitados,
+    precio: t.precio,
+  };
+}
+
 export type GuardarPreciosFn = (
-  tiers: { min_invitados: number; max_invitados: number; precio: number }[],
-  servicios: {
-    nombre: string;
-    precio: number;
-    requisito_max_invitados: number | null;
-    activo: boolean;
-  }[],
-  tarifaDiciembre: number,
-  depositoReserva: number,
-  modalidadPrecio: ModalidadPrecioLugar,
-  precioHora: number | null,
-  precioFijo: number | null,
+  input: GuardarPreciosInput,
 ) => Promise<{ error: string | null } | undefined>;
+
+/**
+ * La tabla de rangos "desde–hasta–precio". Es la misma para los precios
+ * de todo el año y para los de diciembre: cambiarla en un solo lugar
+ * evita que las dos listas terminen comportándose distinto.
+ */
+function EditorRangos({
+  rangos,
+  setRangos,
+  vacio,
+  nota,
+}: {
+  rangos: TierDraft[];
+  setRangos: Dispatch<SetStateAction<TierDraft[]>>;
+  /** Qué decir cuando todavía no hay ningún rango cargado. */
+  vacio?: string;
+  /** Aclaración corta debajo del botón de agregar. */
+  nota?: string;
+}) {
+  function actualizar(key: string, campo: keyof TierDraft, valor: number) {
+    setRangos((prev) =>
+      prev.map((t) => (t.key === key ? { ...t, [campo]: valor } : t)),
+    );
+  }
+
+  return (
+    <div>
+      {rangos.length > 0 ? (
+        <table className="mt-4 w-full border-collapse">
+          <thead>
+            <tr>
+              {["Desde (invitados)", "Hasta (invitados)", "Precio (₡)", ""].map(
+                (h) => (
+                  <th
+                    key={h}
+                    className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                  >
+                    {h}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {rangos.map((t) => (
+              <tr key={t.key}>
+                <td className="py-1.5 pr-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.min_invitados}
+                    onChange={(e) =>
+                      actualizar(t.key, "min_invitados", Number(e.target.value))
+                    }
+                    className={CLASE_INPUT}
+                  />
+                </td>
+                <td className="py-1.5 pr-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.max_invitados}
+                    onChange={(e) =>
+                      actualizar(t.key, "max_invitados", Number(e.target.value))
+                    }
+                    className={CLASE_INPUT}
+                  />
+                </td>
+                <td className="py-1.5 pr-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.precio}
+                    onChange={(e) =>
+                      actualizar(t.key, "precio", Number(e.target.value))
+                    }
+                    className={CLASE_INPUT}
+                  />
+                </td>
+                <td className="py-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRangos((prev) => prev.filter((x) => x.key !== t.key))
+                    }
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
+                    title="Eliminar"
+                  >
+                    <IconTrash className="h-4 w-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        vacio && (
+          <p className="mt-4 rounded-lg border border-dashed border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[12px] text-aventurea-ink-soft">
+            {vacio}
+          </p>
+        )
+      )}
+
+      <button
+        type="button"
+        onClick={() =>
+          setRangos((prev) => {
+            const anterior = prev[prev.length - 1];
+            const desde = anterior ? anterior.max_invitados + 1 : 1;
+            return [
+              ...prev,
+              {
+                key: newKey(),
+                min_invitados: desde,
+                max_invitados: desde + 9,
+                precio: anterior?.precio ?? 0,
+              },
+            ];
+          })
+        }
+        className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
+      >
+        ＋ Agregar rango
+      </button>
+      {nota && (
+        <p className="mt-2 text-[11px] text-aventurea-ink-soft">{nota}</p>
+      )}
+    </div>
+  );
+}
 
 export default function PreciosForm({
   initialTiers,
@@ -52,8 +194,11 @@ export default function PreciosForm({
   initialModalidadPrecio,
   initialPrecioHora,
   initialPrecioFijo,
+  initialPrecioHoraDiciembre,
+  initialPrecioFijoDiciembre,
   onGuardar,
 }: {
+  /** TODOS los rangos del lugar: acá se separan por temporada (0099). */
   initialTiers: PrecioTier[];
   initialServicios: ServicioAdicional[];
   initialTarifaDiciembre: number;
@@ -61,10 +206,15 @@ export default function PreciosForm({
   initialModalidadPrecio: ModalidadPrecioLugar;
   initialPrecioHora: number | null;
   initialPrecioFijo: number | null;
+  initialPrecioHoraDiciembre: number | null;
+  initialPrecioFijoDiciembre: number | null;
   onGuardar: GuardarPreciosFn;
 }) {
   const [tiers, setTiers] = useState<TierDraft[]>(
-    initialTiers.map((t) => ({ ...t, key: t.id })),
+    initialTiers.filter((t) => !esDeDiciembre(t)).map(aDraft),
+  );
+  const [tiersDiciembre, setTiersDiciembre] = useState<TierDraft[]>(
+    initialTiers.filter(esDeDiciembre).map(aDraft),
   );
   const [servicios, setServicios] = useState<ServicioDraft[]>(
     initialServicios.map((s) => ({ ...s, key: s.id })),
@@ -80,17 +230,18 @@ export default function PreciosForm({
   );
   const [precioHora, setPrecioHora] = useState(initialPrecioHora ?? 0);
   const [precioFijo, setPrecioFijo] = useState(initialPrecioFijo ?? 0);
+  const [precioHoraDiciembre, setPrecioHoraDiciembre] = useState(
+    initialPrecioHoraDiciembre ?? 0,
+  );
+  const [precioFijoDiciembre, setPrecioFijoDiciembre] = useState(
+    initialPrecioFijoDiciembre ?? 0,
+  );
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{
     type: "ok" | "error";
     text: string;
   } | null>(null);
 
-  function updateTier(key: string, field: keyof TierDraft, value: number) {
-    setTiers((prev) =>
-      prev.map((t) => (t.key === key ? { ...t, [field]: value } : t)),
-    );
-  }
   function updateServicio(
     key: string,
     field: keyof ServicioDraft,
@@ -101,16 +252,35 @@ export default function PreciosForm({
     );
   }
 
+  // Se calcula de los valores GUARDADOS, no del estado: si dependiera
+  // de lo que se está escribiendo, borrar el último rango cerraría la
+  // sección de golpe mientras el dueño la está editando.
+  const diciembreYaCargado =
+    initialTiers.some(esDeDiciembre) ||
+    initialTarifaDiciembre > 0 ||
+    (initialPrecioHoraDiciembre ?? 0) > 0 ||
+    (initialPrecioFijoDiciembre ?? 0) > 0;
+
+  // El resumen del encabezado sí sigue lo que hay en pantalla.
+  const tieneDiciembre =
+    modalidadPrecio === "rango_personas"
+      ? tiersDiciembre.length > 0 || tarifaDiciembre > 0
+      : modalidadPrecio === "hora"
+        ? precioHoraDiciembre > 0
+        : precioFijoDiciembre > 0;
+
   function guardar() {
     setMessage(null);
     startTransition(async () => {
-      const res = await onGuardar(
-        tiers.map((t) => ({
-          min_invitados: t.min_invitados,
-          max_invitados: t.max_invitados,
-          precio: t.precio,
-        })),
-        servicios.map((s) => ({
+      const soloRango = (t: TierDraft) => ({
+        min_invitados: t.min_invitados,
+        max_invitados: t.max_invitados,
+        precio: t.precio,
+      });
+      const res = await onGuardar({
+        tiers: tiers.map(soloRango),
+        tiersDiciembre: tiersDiciembre.map(soloRango),
+        servicios: servicios.map((s) => ({
           nombre: s.nombre,
           precio: s.precio,
           requisito_max_invitados: s.requisito_max_invitados,
@@ -119,9 +289,19 @@ export default function PreciosForm({
         tarifaDiciembre,
         depositoReserva,
         modalidadPrecio,
-        modalidadPrecio === "hora" ? precioHora : null,
-        modalidadPrecio === "fijo" ? precioFijo : null,
-      );
+        precioHora: modalidadPrecio === "hora" ? precioHora : null,
+        precioFijo: modalidadPrecio === "fijo" ? precioFijo : null,
+        // 0 no es "gratis en diciembre": es "ese mes cobro lo de
+        // siempre", y eso en la base se escribe null.
+        precioHoraDiciembre:
+          modalidadPrecio === "hora" && precioHoraDiciembre > 0
+            ? precioHoraDiciembre
+            : null,
+        precioFijoDiciembre:
+          modalidadPrecio === "fijo" && precioFijoDiciembre > 0
+            ? precioFijoDiciembre
+            : null,
+      });
       if (res?.error) {
         setMessage({ type: "error", text: res.error });
       } else {
@@ -227,130 +407,113 @@ export default function PreciosForm({
 
       {modalidadPrecio === "rango_personas" && (
         <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
-          Rangos de invitados
-        </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
-          Rangos de precio según número de invitados
-        </h3>
-        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-          Si un número de invitados no cae en ningún rango, el sitio muestra
-          &quot;cotización personalizada&quot;.
-        </p>
+          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
+            Rangos de invitados
+          </p>
+          <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
+            Rangos de precio según número de invitados
+          </h3>
+          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+            Si un número de invitados no cae en ningún rango, el sitio muestra
+            &quot;cotización personalizada&quot;.
+          </p>
 
-        <table className="mt-4 w-full border-collapse">
-          <thead>
-            <tr>
-              {["Desde (invitados)", "Hasta (invitados)", "Precio (₡)", ""].map(
-                (h) => (
-                  <th
-                    key={h}
-                    className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
-                  >
-                    {h}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {tiers.map((t) => (
-              <tr key={t.key}>
-                <td className="py-1.5 pr-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={t.min_invitados}
-                    onChange={(e) =>
-                      updateTier(t.key, "min_invitados", Number(e.target.value))
-                    }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
-                  />
-                </td>
-                <td className="py-1.5 pr-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={t.max_invitados}
-                    onChange={(e) =>
-                      updateTier(t.key, "max_invitados", Number(e.target.value))
-                    }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
-                  />
-                </td>
-                <td className="py-1.5 pr-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={t.precio}
-                    onChange={(e) =>
-                      updateTier(t.key, "precio", Number(e.target.value))
-                    }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
-                  />
-                </td>
-                <td className="py-1.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setTiers((prev) => prev.filter((x) => x.key !== t.key))
-                    }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700"
-                    title="Eliminar"
-                  >
-                    <IconTrash className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          <EditorRangos
+            rangos={tiers}
+            setRangos={setTiers}
+            vacio="Todavía no cargaste ningún rango: mientras tanto, el sitio pide cotización personalizada."
+            nota="Cada rango nuevo continúa automáticamente donde terminó el anterior — solo ajustá el precio."
+          />
+        </section>
+      )}
 
-        <button
-          type="button"
-          onClick={() =>
-            setTiers((prev) => {
-              const anterior = prev[prev.length - 1];
-              const desde = anterior ? anterior.max_invitados + 1 : 1;
-              return [
-                ...prev,
-                {
-                  key: newKey(),
-                  min_invitados: desde,
-                  max_invitados: desde + 9,
-                  precio: anterior?.precio ?? 0,
-                },
-              ];
-            })
-          }
-          className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
-        >
-          ＋ Agregar rango
-        </button>
-        <p className="mt-2 text-[11px] text-aventurea-ink-soft">
-          Cada rango nuevo continúa automáticamente donde terminó el
-          anterior — solo ajustá el precio.
-        </p>
+      {/* Diciembre es su propia lista de precios (0099), no un recargo:
+          lo que quede acá vacío se cobra igual que el resto del año. */}
+      <SeccionPlegable
+        abierta={diciembreYaCargado}
+        etiqueta="Temporada alta"
+        titulo="Precios de diciembre"
+        descripcion="Lo que cobrás solo en diciembre. Si lo dejás vacío, ese mes se cobra igual que el resto del año."
+        resumen={tieneDiciembre ? "Con precios propios" : "Igual todo el año"}
+      >
+        {modalidadPrecio === "rango_personas" && (
+          <>
+            <p className="text-[12.5px] text-aventurea-ink-soft">
+              Los mismos rangos de arriba, pero con los precios de
+              diciembre. Un número de invitados que no caiga en ninguno se
+              cobra con los rangos de todo el año.
+            </p>
 
-        <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
-          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
-            Tarifa especial de diciembre
-          </label>
-          <div className="flex items-center gap-2">
+            <EditorRangos
+              rangos={tiersDiciembre}
+              setRangos={setTiersDiciembre}
+              vacio="Sin rangos de diciembre: ese mes se cobra con los precios de todo el año."
+              nota="Podés copiar los mismos tramos de arriba y subirles el precio."
+            />
+
+            <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                Tarifa por persona de diciembre (₡)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={tarifaDiciembre}
+                  onChange={(e) => setTarifaDiciembre(Number(e.target.value))}
+                  className="w-32 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+                />
+                <span className="text-[12.5px] text-aventurea-ink-soft">
+                  colones por persona
+                </span>
+              </div>
+              <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
+                La forma vieja de cobrar diciembre; sigue funcionando. Si
+                cargaste rangos de diciembre, mandan los rangos. Dejala en
+                0 si no la usás.
+              </p>
+            </div>
+          </>
+        )}
+
+        {modalidadPrecio === "hora" && (
+          <>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+              Precio por hora en diciembre (₡)
+            </label>
             <input
               type="number"
               min={0}
-              value={tarifaDiciembre}
-              onChange={(e) => setTarifaDiciembre(Number(e.target.value))}
-              className="w-32 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
+              value={precioHoraDiciembre}
+              onChange={(e) => setPrecioHoraDiciembre(Number(e.target.value))}
+              className="w-40 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
             />
-            <span className="text-[12.5px] text-aventurea-ink-soft">
-              colones por persona (reemplaza los rangos en diciembre)
-            </span>
-          </div>
-        </div>
-        </section>
-      )}
+            <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
+              Dejalo en 0 si en diciembre cobrás la misma hora que el resto
+              del año.
+            </p>
+          </>
+        )}
+
+        {modalidadPrecio === "fijo" && (
+          <>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+              Precio fijo del evento en diciembre (₡)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={precioFijoDiciembre}
+              onChange={(e) => setPrecioFijoDiciembre(Number(e.target.value))}
+              className="w-40 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+            />
+            <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
+              Dejalo en 0 si en diciembre cobrás lo mismo que el resto del
+              año.
+            </p>
+          </>
+        )}
+      </SeccionPlegable>
 
       <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
@@ -390,7 +553,7 @@ export default function PreciosForm({
                     onChange={(e) =>
                       updateServicio(s.key, "nombre", e.target.value)
                     }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
+                    className={CLASE_INPUT}
                   />
                 </td>
                 <td className="w-28 py-1.5 pr-2">
@@ -401,7 +564,7 @@ export default function PreciosForm({
                     onChange={(e) =>
                       updateServicio(s.key, "precio", Number(e.target.value))
                     }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
+                    className={CLASE_INPUT}
                   />
                 </td>
                 <td className="w-32 py-1.5 pr-2">
@@ -417,7 +580,7 @@ export default function PreciosForm({
                         e.target.value === "" ? null : Number(e.target.value),
                       )
                     }
-                    className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink px-2.5 py-2 text-[13px]"
+                    className={CLASE_INPUT}
                   />
                 </td>
                 <td className="py-1.5 pr-2 text-center">

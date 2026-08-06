@@ -110,6 +110,10 @@ type FilaMensaje = { autor_id: string; texto: string; created_at: string };
 type FilaConocimiento = { pregunta: string; respuesta: string };
 
 type FilaTier = { min_invitados: number; max_invitados: number; precio: number };
+/** Igual, pero con la temporada de la 0099 (puede no venir todavía). */
+type FilaTierConTemporada = FilaTier & { temporada: string | null };
+/** Los rangos del lugar, ya partidos por temporada. */
+type TiersPorTemporada = { normales: FilaTier[]; diciembre: FilaTier[] };
 type FilaServicioAdicional = {
   nombre: string;
   precio: number;
@@ -141,16 +145,37 @@ function diasDePromo(valor: unknown): number[] {
   );
 }
 
+/** Solo números de verdad: lo que no vino (migración sin correr) es null. */
+function numeroDe(valor: unknown): number | null {
+  return typeof valor === "number" && Number.isFinite(valor) ? valor : null;
+}
+
+/** Los rangos, tal como los lee el cliente en la página. */
+function listaDeRangos(tiers: FilaTier[]): string {
+  return tiers
+    .slice(0, MAX_TIERS_PROMPT)
+    .map((t) => `${t.min_invitados}–${t.max_invitados} personas: ${colones(t.precio)}`)
+    .join(" · ");
+}
+
 /**
  * Cómo cobra el negocio, con números reales — sin esto el asistente
  * solo veía "Precio desde" y cotizaba mal (o inventaba): los rangos
- * por invitados, la modalidad por hora o precio fijo, la tarifa de
+ * por invitados, la modalidad por hora o precio fijo, los precios de
  * diciembre, las promociones por día y los servicios adicionales
  * nunca le llegaban.
+ *
+ * DICIEMBRE (0099): lo que se le cuenta al cliente tiene que ser
+ * exactamente lo que después le va a cobrar `calcularBaseLugar`. Antes
+ * acá se afirmaba siempre "en diciembre los rangos no aplican", y con
+ * la 0099 eso quedó mentiroso de dos maneras: el lugar puede tener sus
+ * propios RANGOS de diciembre (o un fijo/hora de diciembre), y también
+ * puede no tener nada especial ese mes — en cuyo caso diciembre ni se
+ * menciona, en vez de insinuar una tarifa que no existe.
  */
 function seccionPrecios(
   rancho: Record<string, unknown>,
-  tiers: FilaTier[],
+  tiers: TiersPorTemporada,
   serviciosAdicionales: FilaServicioAdicional[],
   promociones: FilaPromocion[],
 ): string[] {
@@ -160,27 +185,57 @@ function seccionPrecios(
       ? rancho.modalidad_precio_lugar
       : "rango_personas";
 
+  const fijoDiciembre = numeroDe(rancho.precio_fijo_diciembre);
+  const horaDiciembre = numeroDe(rancho.precio_hora_diciembre);
+  // La tarifa vieja por persona solo cuenta si es mayor que cero: así la
+  // lee el cálculo, y así quedó cargada (en cero) en muchos lugares que
+  // nunca la usaron.
+  const porPersonaCrudo = numeroDe(rancho.tarifa_diciembre_por_persona);
+  const porPersonaDiciembre =
+    porPersonaCrudo !== null && porPersonaCrudo > 0 ? porPersonaCrudo : null;
+
   if (modalidad === "fijo" && typeof rancho.precio_fijo_lugar === "number") {
     partes.push(
       `Precio del evento: ${colones(rancho.precio_fijo_lugar)} fijo, sin importar la cantidad de invitados.`,
     );
+    if (fijoDiciembre !== null) {
+      partes.push(`En DICIEMBRE el evento cuesta ${colones(fijoDiciembre)} fijo.`);
+    }
   } else if (modalidad === "hora" && typeof rancho.precio_hora_lugar === "number") {
     partes.push(
       `Precio del evento: ${colones(rancho.precio_hora_lugar)} por hora contratada.`,
     );
-  } else if (tiers.length > 0) {
-    partes.push(
-      "Precios por cantidad de invitados (el precio del evento es el del rango donde cae la cantidad): " +
-        tiers
-          .slice(0, MAX_TIERS_PROMPT)
-          .map((t) => `${t.min_invitados}–${t.max_invitados} personas: ${colones(t.precio)}`)
-          .join(" · "),
-    );
-    if (typeof rancho.tarifa_diciembre_por_persona === "number" && rancho.tarifa_diciembre_por_persona > 0) {
+    if (horaDiciembre !== null) {
+      partes.push(`En DICIEMBRE la hora cuesta ${colones(horaDiciembre)}.`);
+    }
+  } else if (tiers.normales.length > 0 || tiers.diciembre.length > 0) {
+    if (tiers.normales.length > 0) {
       partes.push(
-        `En DICIEMBRE los rangos no aplican: se cobra ${colones(rancho.tarifa_diciembre_por_persona)} por persona.`,
+        "Precios por cantidad de invitados (el precio del evento es el del rango donde cae la cantidad): " +
+          listaDeRangos(tiers.normales),
       );
     }
+    if (tiers.diciembre.length > 0) {
+      // El respaldo de una cantidad que no cae en ningún rango de
+      // diciembre es el mismo que aplica el cálculo: la tarifa vieja por
+      // persona si está cargada y, si no, el precio normal del año.
+      const respaldo =
+        porPersonaDiciembre !== null
+          ? `se cobra ${colones(porPersonaDiciembre)} por persona`
+          : tiers.normales.length > 0
+            ? "se cobra el precio normal de arriba"
+            : "hay que consultarlo con el equipo del negocio";
+      partes.push(
+        `En DICIEMBRE rigen estos precios: ${listaDeRangos(tiers.diciembre)}. ` +
+          `Si la cantidad de invitados no cae en ninguno de esos rangos de diciembre, ${respaldo}.`,
+      );
+    } else if (porPersonaDiciembre !== null) {
+      partes.push(
+        `En DICIEMBRE los rangos no aplican: se cobra ${colones(porPersonaDiciembre)} por persona.`,
+      );
+    }
+    // Sin rangos ni tarifa de diciembre no se menciona el mes: ese lugar
+    // cobra en diciembre lo mismo que el resto del año.
   }
 
   const activas = promociones.filter((p) => p.activo);
@@ -386,12 +441,49 @@ async function leerConversacion(
   return (legado.data as ConversacionConRancho | null) ?? null;
 }
 
+/**
+ * Los rangos por invitados del lugar, separados por temporada (0099).
+ *
+ * Se pide `temporada`, pero si la migración todavía no corrió PostgREST
+ * rechaza la consulta ENTERA por esa columna: se relee sin ella y todo
+ * queda como antes (rangos de siempre, y diciembre por la tarifa vieja
+ * por persona). El chat nunca se rompe por esto — sin precios el
+ * asistente inventa o manda a consultar, que es peor pero no fatal.
+ */
+async function leerTiers(db: ClienteAdmin, ranchoId: string): Promise<TiersPorTemporada> {
+  try {
+    const conTemporada = await db
+      .from("precio_tiers")
+      .select("min_invitados, max_invitados, precio, temporada")
+      .eq("rancho_id", ranchoId)
+      .order("min_invitados", { ascending: true });
+
+    if (!conTemporada.error) {
+      const filas = (conTemporada.data ?? []) as FilaTierConTemporada[];
+      return {
+        normales: filas.filter((f) => f.temporada !== "diciembre"),
+        diciembre: filas.filter((f) => f.temporada === "diciembre"),
+      };
+    }
+
+    const legado = await db
+      .from("precio_tiers")
+      .select("min_invitados, max_invitados, precio")
+      .eq("rancho_id", ranchoId)
+      .order("min_invitados", { ascending: true });
+    return { normales: (legado.data ?? []) as FilaTier[], diciembre: [] };
+  } catch (e) {
+    console.error("[asistente-ia] No se pudieron leer los rangos de precio:", e);
+    return { normales: [], diciembre: [] };
+  }
+}
+
 /** Arma la ficha del negocio que el modelo puede citar — nada más. */
 function fichaDelNegocio(
   rancho: Record<string, unknown>,
   items: { nombre: string; precio: number | null; duracion_minutos: number | null }[],
   conocimiento: FilaConocimiento[],
-  tiers: FilaTier[],
+  tiers: TiersPorTemporada,
   serviciosAdicionales: FilaServicioAdicional[],
   promociones: FilaPromocion[],
 ): string {
@@ -569,7 +661,7 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
       { data: historialData },
       { data: conocimientoData },
       { data: reservasVentanaData, error: errorReservasVentana },
-      { data: tiersData },
+      tiers,
       { data: serviciosAdicionalesData },
       { data: promocionesData },
     ] = await Promise.all([
@@ -612,12 +704,9 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
         .in("estado", ["pendiente", "confirmada", "bloqueada"]),
       // Los precios REALES del negocio — sin esto el asistente solo
       // veía "Precio desde" y no podía cotizar por invitados, ni sabía
-      // de promociones o servicios adicionales.
-      db
-        .from("precio_tiers")
-        .select("min_invitados, max_invitados, precio")
-        .eq("rancho_id", conversacion.rancho_id)
-        .order("min_invitados", { ascending: true }),
+      // de promociones o servicios adicionales. Vienen partidos por
+      // temporada: los de todo el año y los de diciembre (0099).
+      leerTiers(db, conversacion.rancho_id),
       db
         .from("servicios_adicionales")
         .select("nombre, precio, requisito_max_invitados")
@@ -663,7 +752,7 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
           ranchoFull as Record<string, unknown>,
           itemsData ?? [],
           conocimiento,
-          (tiersData ?? []) as FilaTier[],
+          tiers,
           (serviciosAdicionalesData ?? []) as FilaServicioAdicional[],
           (promocionesData ?? []) as FilaPromocion[],
         ),

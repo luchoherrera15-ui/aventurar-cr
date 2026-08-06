@@ -36,6 +36,8 @@ import { useAuth } from "@/lib/auth-context";
 import { obtenerIdDispositivo } from "@/lib/device";
 import { pedirCorreosDeReserva } from "@/lib/notificaciones";
 import { promoAplicableDelDia } from "@/lib/promociones";
+import { calcularBaseLugar } from "@/lib/precio-lugar";
+import { cargarTiersPorTemporada } from "@/lib/precio-tiers";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import {
   bloqueDisponibleEnDia,
@@ -91,6 +93,8 @@ export default function ReservarScreen() {
 
   const [rancho, setRancho] = useState<Rancho | null>(null);
   const [tiers, setTiers] = useState<PrecioTier[]>([]);
+  /** Los rangos propios de diciembre (0099); vacío = cobra igual. */
+  const [tiersDiciembre, setTiersDiciembre] = useState<PrecioTier[]>([]);
   const [servicios, setServicios] = useState<ServicioAdicional[]>([]);
   const [promociones, setPromociones] = useState<PromocionDia[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -193,13 +197,9 @@ export default function ReservarScreen() {
     setCargando(true);
     setErrorCarga(null);
 
-    const [ranchoRes, tiersRes, svcRes, promoRes] = await Promise.all([
+    const [ranchoRes, tiersPorTemporada, svcRes, promoRes] = await Promise.all([
       supabase.from("ranchos").select("*").eq("id", id).maybeSingle(),
-      supabase
-        .from("precio_tiers")
-        .select("min_invitados, max_invitados, precio")
-        .eq("rancho_id", id)
-        .order("min_invitados", { ascending: true }),
+      cargarTiersPorTemporada(id),
       supabase
         .from("servicios_adicionales")
         .select("id, nombre, precio, requisito_max_invitados")
@@ -214,7 +214,8 @@ export default function ReservarScreen() {
       return;
     }
     setRancho(ranchoRes.data as Rancho);
-    setTiers((tiersRes.data ?? []) as PrecioTier[]);
+    setTiers(tiersPorTemporada.normales);
+    setTiersDiciembre(tiersPorTemporada.diciembre);
     setServicios((svcRes.data ?? []) as ServicioAdicional[]);
     setPromociones((promoRes.data ?? []) as PromocionDia[]);
 
@@ -313,21 +314,37 @@ export default function ReservarScreen() {
     [fechaObj, promociones, invitadosNum],
   );
 
+  // La cascada completa (promo → modalidad → diciembre) vive en
+  // lib/precio-lugar.ts, espejo del de la web: el servidor guarda el
+  // monto que le manda el cliente, así que el cálculo tiene que dar lo
+  // mismo se reserve desde donde se reserve.
   const tierBase = useMemo(() => {
-    if (promoAplicable?.tipo === "precio_fijo") return promoAplicable.precio_fijo;
     if (!rancho) return null;
-    if (modalidadPrecio === "fijo") return rancho.precio_fijo_lugar ?? null;
-    if (modalidadPrecio === "hora") {
-      if (!horasNum || rancho.precio_hora_lugar === null) return null;
-      return horasNum * rancho.precio_hora_lugar;
-    }
-    if (!invitadosNum) return null;
-    if (esDiciembre) return invitadosNum * (rancho.tarifa_diciembre_por_persona ?? 0);
-    const tier = tiers.find(
-      (t) => invitadosNum >= t.min_invitados && invitadosNum <= t.max_invitados,
-    );
-    return tier ? tier.precio : null;
-  }, [promoAplicable, modalidadPrecio, horasNum, invitadosNum, esDiciembre, tiers, rancho]);
+    return calcularBaseLugar({
+      modalidad: modalidadPrecio,
+      esDiciembre,
+      invitados: invitadosNum || null,
+      rangos: tiers,
+      rangosDiciembre: tiersDiciembre,
+      tarifaDiciembrePorPersona: rancho.tarifa_diciembre_por_persona,
+      horas: horasNum || null,
+      precioHora: rancho.precio_hora_lugar,
+      precioHoraDiciembre: rancho.precio_hora_diciembre,
+      precioFijo: rancho.precio_fijo_lugar,
+      precioFijoDiciembre: rancho.precio_fijo_diciembre,
+      promoPrecioFijo:
+        promoAplicable?.tipo === "precio_fijo" ? promoAplicable.precio_fijo : null,
+    });
+  }, [
+    promoAplicable,
+    modalidadPrecio,
+    horasNum,
+    invitadosNum,
+    esDiciembre,
+    tiers,
+    tiersDiciembre,
+    rancho,
+  ]);
 
   // Los horarios de alquiler pueden estar restringidos a ciertos días
   // (ej. "Turno finde" solo Vie-Dom) — la fecha ya está elegida acá,

@@ -10,7 +10,7 @@ import {
   type PromocionInput,
 } from "@/lib/descuentos";
 import { HORARIOS_MAX, TERMINOS_MAX } from "../../types";
-import type { HorarioBloqueConfig, ModalidadPrecioLugar } from "../../types";
+import type { GuardarPreciosInput, HorarioBloqueConfig } from "../../types";
 import type { CuentasPago } from "@/components/cuentas-pago-form";
 
 const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -84,32 +84,12 @@ export async function guardarHorariosPropio(
 
 export async function guardarPreciosPropio(
   ranchoId: string,
-  tiers: { min_invitados: number; max_invitados: number; precio: number }[],
-  servicios: {
-    nombre: string;
-    precio: number;
-    requisito_max_invitados: number | null;
-    activo: boolean;
-  }[],
-  tarifaDiciembre: number,
-  depositoReserva: number,
-  modalidadPrecio: ModalidadPrecioLugar,
-  precioHora: number | null,
-  precioFijo: number | null,
+  precios: GuardarPreciosInput,
 ) {
   const { ok } = await verificarDueno(ranchoId);
   if (!ok) return { error: "No encontramos tu publicación." };
 
-  return guardarPreciosRancho(
-    ranchoId,
-    tiers,
-    servicios,
-    tarifaDiciembre,
-    depositoReserva,
-    modalidadPrecio,
-    precioHora,
-    precioFijo,
-  );
+  return guardarPreciosRancho(ranchoId, precios);
 }
 
 /**

@@ -8,18 +8,9 @@ import {
   type PromocionInput,
 } from "@/lib/descuentos";
 import { NOMBRE_RANCHO_BOOKEAR } from "@/app/eventos/constants";
-import type { PrecioTier, ServicioAdicional } from "./types";
-import type { ModalidadPrecioLugar } from "@/app/mi-negocio/types";
+import type { GuardarPreciosInput } from "@/app/mi-negocio/types";
 
-export async function guardarConfiguracion(
-  tiers: Omit<PrecioTier, "id">[],
-  servicios: Omit<ServicioAdicional, "id">[],
-  tarifaDiciembre: number,
-  depositoReserva: number,
-  modalidadPrecio: ModalidadPrecioLugar,
-  precioHora: number | null,
-  precioFijo: number | null,
-) {
+export async function guardarConfiguracion(precios: GuardarPreciosInput) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
 
@@ -30,16 +21,7 @@ export async function guardarConfiguracion(
     .maybeSingle();
   if (!rancho) return { error: "No se encontró el rancho de Bookea." };
 
-  return guardarPreciosRancho(
-    rancho.id,
-    tiers,
-    servicios,
-    tarifaDiciembre,
-    depositoReserva,
-    modalidadPrecio,
-    precioHora,
-    precioFijo,
-  );
+  return guardarPreciosRancho(rancho.id, precios);
 }
 
 async function ranchoBookearId() {

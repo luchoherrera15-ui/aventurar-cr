@@ -295,11 +295,19 @@ export type Rancho = {
   cuenta_titular: string | null;
   cuenta_tipo: string | null;
   horarios_bloques: HorarioBloqueConfig[];
+  /** La tarifa por persona de diciembre de antes de la 0099. Sigue
+   *  valiendo como respaldo cuando el lugar no cargó rangos de
+   *  diciembre (ver lib/precio-lugar.ts). */
   tarifa_diciembre_por_persona: number | null;
   /** Solo aplica a Lugares — cómo se calcula la cotización al reservar. */
   modalidad_precio_lugar: ModalidadPrecioLugar;
   precio_hora_lugar: number | null;
   precio_fijo_lugar: number | null;
+  /** Precios propios de diciembre para las modalidades 'fijo' y 'hora'
+   *  (0099). null = ese mes se cobra igual que el resto del año.
+   *  Opcionales: toleran una base donde la 0099 todavía no corrió. */
+  precio_fijo_diciembre?: number | null;
+  precio_hora_diciembre?: number | null;
   fotos: string[];
   estado: EstadoRancho;
   created_at: string;
@@ -310,7 +318,14 @@ export type PrecioTier = {
   min_invitados: number;
   max_invitados: number;
   precio: number;
+  /** 'normal' = los precios de todo el año; 'diciembre' = los de ese
+   *  mes (0099). Opcional: si la migración no corrió, la columna no
+   *  viene y todo se trata como 'normal'. */
+  temporada?: TemporadaPrecio;
 };
+
+export const TEMPORADAS_PRECIO = ["normal", "diciembre"] as const;
+export type TemporadaPrecio = (typeof TEMPORADAS_PRECIO)[number];
 
 export type ServicioAdicional = {
   id: string;

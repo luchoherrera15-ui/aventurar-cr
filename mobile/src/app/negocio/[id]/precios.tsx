@@ -13,6 +13,8 @@ import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import { supabase } from "@/lib/supabase";
+import { cargarTiersPorTemporada, type FilaPrecioTier } from "@/lib/precio-tiers";
+import type { ModalidadPrecioLugar, Rancho, TemporadaPrecio } from "@/lib/types";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 
 /**
@@ -28,6 +30,14 @@ import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
  * Cada lista se guarda con la misma estrategia que la web (borrar todo
  * e insertar de nuevo): son listas cortas, se editan enteras, y así no
  * hay que llevar la cuenta de qué fila cambió.
+ *
+ * DICIEMBRE (0099): ese mes tiene su propia lista de precios, con la
+ * misma forma que la del resto del año — rangos aparte para los lugares
+ * que cobran por invitados, y un precio por hora / por evento aparte
+ * para los otros dos modos. Dejarlo todo vacío = diciembre se cobra
+ * igual que siempre. La modalidad de cobro NO se elige acá (eso sigue
+ * siendo del panel web): esta pantalla solo la lee para mostrar el
+ * campo de diciembre que corresponde.
  */
 
 type Tier = {
@@ -37,6 +47,45 @@ type Tier = {
   max_invitados: string;
   precio: string;
 };
+
+const TIER_VACIO: Tier = { min_invitados: "", max_invitados: "", precio: "" };
+
+/** Los enteros que escribe el dueño: solo dígitos, vacío = sin dato. */
+function num(v: string): number | null {
+  const limpio = v.replace(/[^\d]/g, "");
+  if (!limpio) return null;
+  const n = Number(limpio);
+  return Number.isFinite(n) ? n : null;
+}
+
+function aTier(fila: FilaPrecioTier): Tier {
+  return {
+    id: fila.id,
+    min_invitados: String(fila.min_invitados),
+    max_invitados: String(fila.max_invitados),
+    precio: String(fila.precio),
+  };
+}
+
+/**
+ * El primer problema de una lista de rangos, o null si está bien. La
+ * etiqueta dice de cuál de las dos listas se está hablando, que si no
+ * el dueño no sabe cuál corregir.
+ */
+function problemaDeRangos(tiers: Tier[], etiqueta: string): string | null {
+  for (const t of tiers) {
+    const min = num(t.min_invitados);
+    const max = num(t.max_invitados);
+    const precio = num(t.precio);
+    if (min === null || max === null || precio === null) {
+      return `Cada rango ${etiqueta} necesita desde, hasta y precio.`;
+    }
+    if (max < min) {
+      return `El rango ${etiqueta} ${min}–${max} está al revés: el "hasta" es menor que el "desde".`;
+    }
+  }
+  return null;
+}
 
 type Servicio = {
   id?: string;
@@ -77,8 +126,16 @@ export default function PreciosNegocioScreen() {
   const [seccion, setSeccion] = useState<Seccion>("tarifas");
 
   const [tiers, setTiers] = useState<Tier[]>([]);
+  const [tiersDiciembre, setTiersDiciembre] = useState<Tier[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [tarifaDiciembre, setTarifaDiciembre] = useState("");
+  const [precioHoraDiciembre, setPrecioHoraDiciembre] = useState("");
+  const [precioFijoDiciembre, setPrecioFijoDiciembre] = useState("");
+  /** Cómo cobra este lugar; acá solo se lee (se elige en el panel web). */
+  const [modalidad, setModalidad] = useState<ModalidadPrecioLugar>("rango_personas");
+  /** false = la migración 0099 todavía no corrió en esta base: la
+   *  pantalla sigue funcionando como antes, sin lo de diciembre. */
+  const [soportaDiciembre, setSoportaDiciembre] = useState(false);
   const [codigos, setCodigos] = useState<Codigo[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
 
@@ -88,17 +145,12 @@ export default function PreciosNegocioScreen() {
 
   const cargar = useCallback(async () => {
     if (!id) return;
-    const [ranchoRes, tiersRes, serviciosRes, codigosRes, promosRes] = await Promise.all([
-      supabase
-        .from("ranchos")
-        .select("nombre, categoria, tarifa_diciembre_por_persona")
-        .eq("id", id)
-        .maybeSingle(),
-      supabase
-        .from("precio_tiers")
-        .select("id, min_invitados, max_invitados, precio")
-        .eq("rancho_id", id)
-        .order("min_invitados"),
+    const [ranchoRes, tiersPorTemporada, serviciosRes, codigosRes, promosRes] = await Promise.all([
+      // `*` a propósito: los campos de diciembre los agrega la 0099 y
+      // pedirlos por nombre rompería la pantalla entera en una base sin
+      // migrar. Con `*` simplemente no vienen, y se ve el editor de antes.
+      supabase.from("ranchos").select("*").eq("id", id).maybeSingle(),
+      cargarTiersPorTemporada(id),
       supabase
         .from("servicios_adicionales")
         .select("id, nombre, precio, activo")
@@ -115,21 +167,23 @@ export default function PreciosNegocioScreen() {
         .eq("rancho_id", id),
     ]);
 
-    const r = ranchoRes.data;
-    setNombre((r?.nombre as string) ?? null);
+    const r = (ranchoRes.data ?? null) as Partial<Rancho> | null;
+    setNombre(r?.nombre ?? null);
     setEsLugar(r?.categoria === "lugares");
+    setModalidad(r?.modalidad_precio_lugar ?? "rango_personas");
     setTarifaDiciembre(
       r?.tarifa_diciembre_por_persona ? String(r.tarifa_diciembre_por_persona) : "",
     );
-
-    setTiers(
-      (tiersRes.data ?? []).map((t) => ({
-        id: t.id as string,
-        min_invitados: String(t.min_invitados),
-        max_invitados: String(t.max_invitados),
-        precio: String(t.precio),
-      })),
+    setPrecioHoraDiciembre(r?.precio_hora_diciembre ? String(r.precio_hora_diciembre) : "");
+    setPrecioFijoDiciembre(r?.precio_fijo_diciembre ? String(r.precio_fijo_diciembre) : "");
+    // Las columnas de la 0099 van todas juntas: si la fila del rancho ya
+    // trae las suyas y los rangos aceptan `temporada`, hay diciembre.
+    setSoportaDiciembre(
+      tiersPorTemporada.soportaTemporada && !!r && "precio_fijo_diciembre" in r,
     );
+
+    setTiers(tiersPorTemporada.normales.map(aTier));
+    setTiersDiciembre(tiersPorTemporada.diciembre.map(aTier));
     setServicios(
       (serviciosRes.data ?? []).map((s) => ({
         id: s.id as string,
@@ -168,12 +222,16 @@ export default function PreciosNegocioScreen() {
     }, [cargar]),
   );
 
-  const num = (v: string): number | null => {
-    const limpio = v.replace(/[^\d]/g, "");
-    if (!limpio) return null;
-    const n = Number(limpio);
-    return Number.isFinite(n) ? n : null;
-  };
+  /** Una fila de `precio_tiers` lista para insertar. */
+  function aFila(t: Tier, temporada: TemporadaPrecio) {
+    return {
+      rancho_id: id,
+      min_invitados: num(t.min_invitados),
+      max_invitados: num(t.max_invitados),
+      precio: num(t.precio),
+      ...(soportaDiciembre ? { temporada } : {}),
+    };
+  }
 
   async function guardar() {
     setGuardando(true);
@@ -181,44 +239,49 @@ export default function PreciosNegocioScreen() {
     setError(null);
 
     try {
-      // ---- Los rangos por invitados y la tarifa de diciembre ----
+      // ---- Los rangos por invitados (todo el año + diciembre) ----
       if (esLugar) {
-        for (const t of tiers) {
-          const min = num(t.min_invitados);
-          const max = num(t.max_invitados);
-          const precio = num(t.precio);
-          if (min === null || max === null || precio === null) {
-            setError("Cada rango necesita desde, hasta y precio.");
-            return;
-          }
-          if (max < min) {
-            setError(`El rango ${min}–${max} está al revés: el "hasta" es menor que el "desde".`);
-            return;
-          }
+        const problema =
+          problemaDeRangos(tiers, "de todo el año") ??
+          (soportaDiciembre ? problemaDeRangos(tiersDiciembre, "de diciembre") : null);
+        if (problema) {
+          setError(problema);
+          return;
         }
 
+        // Las dos listas viven en la misma tabla, separadas por
+        // `temporada`, así que se reemplazan de una sola vez. Sin la
+        // 0099 corrida no se manda la columna: se guarda como antes.
+        const filas = [
+          ...tiers.map((t) => aFila(t, "normal")),
+          ...(soportaDiciembre ? tiersDiciembre.map((t) => aFila(t, "diciembre")) : []),
+        ];
+
         await supabase.from("precio_tiers").delete().eq("rancho_id", id);
-        if (tiers.length > 0) {
-          const { error: err } = await supabase.from("precio_tiers").insert(
-            tiers.map((t) => ({
-              rancho_id: id,
-              min_invitados: num(t.min_invitados),
-              max_invitados: num(t.max_invitados),
-              precio: num(t.precio),
-            })),
-          );
+        if (filas.length > 0) {
+          const { error: err } = await supabase.from("precio_tiers").insert(filas);
           if (err) {
             setError("No se pudieron guardar los rangos: " + err.message);
             return;
           }
         }
 
+        // Los precios de diciembre que no son rangos. La modalidad y los
+        // precios de todo el año NO se tocan acá: se editan en el panel web.
         const { error: errRancho } = await supabase
           .from("ranchos")
-          .update({ tarifa_diciembre_por_persona: num(tarifaDiciembre) })
+          .update({
+            tarifa_diciembre_por_persona: num(tarifaDiciembre),
+            ...(soportaDiciembre
+              ? {
+                  precio_hora_diciembre: num(precioHoraDiciembre),
+                  precio_fijo_diciembre: num(precioFijoDiciembre),
+                }
+              : {}),
+          })
           .eq("id", id);
         if (errRancho) {
-          setError("No se pudo guardar la tarifa de diciembre: " + errRancho.message);
+          setError("No se pudieron guardar los precios de diciembre: " + errRancho.message);
           return;
         }
       }
@@ -346,78 +409,80 @@ export default function PreciosNegocioScreen() {
           <>
             {esLugar ? (
               <>
-                <View style={styles.bloque}>
-                  <View style={styles.bloqueEncabezado}>
-                    <Text style={styles.bloqueTitulo}>Precio por cantidad de invitados</Text>
-                    <BotonAgregar
-                      onPress={() =>
-                        setTiers([...tiers, { min_invitados: "", max_invitados: "", precio: "" }])
-                      }
+                <BloqueRangos
+                  titulo="Precio por cantidad de invitados"
+                  ayuda="Un rango por fila. El cotizador busca el rango donde cae la cantidad de invitados de la reserva."
+                  vacio="Sin rangos, tu salón no se puede cotizar solo."
+                  tiers={tiers}
+                  onChange={setTiers}
+                />
+
+                {/* Diciembre: la misma forma de cobrar, con otros números.
+                    Vacío = ese mes se cobra igual que el resto del año. */}
+                {soportaDiciembre && modalidad === "rango_personas" && (
+                  <BloqueRangos
+                    titulo="Precios de diciembre"
+                    ayuda="Los rangos que cobrás solo en diciembre. Si dejás esta lista vacía, diciembre se cobra con los precios de arriba."
+                    vacio="Diciembre se cobra igual que el resto del año."
+                    tiers={tiersDiciembre}
+                    onChange={setTiersDiciembre}
+                  />
+                )}
+
+                {modalidad === "rango_personas" && (
+                  <View style={styles.bloque}>
+                    <Text style={styles.bloqueTitulo}>Tarifa de diciembre por persona</Text>
+                    <Text style={styles.bloqueAyuda}>
+                      {soportaDiciembre
+                        ? "La forma vieja de cobrar diciembre: un precio por persona. Solo se usa si no cargaste rangos de diciembre arriba. Dejala vacía si cobrás igual todo el año."
+                        : "Por persona, solo para diciembre. Dejalo vacío si cobrás igual todo el año."}
+                    </Text>
+                    <TextInput
+                      value={tarifaDiciembre}
+                      onChangeText={setTarifaDiciembre}
+                      placeholder="15000"
+                      placeholderTextColor={Colors.inkMuted}
+                      keyboardType="number-pad"
+                      style={styles.input}
                     />
                   </View>
-                  <Text style={styles.bloqueAyuda}>
-                    Un rango por fila. El cotizador busca el rango donde cae la
-                    cantidad de invitados de la reserva.
-                  </Text>
+                )}
 
-                  {tiers.length === 0 ? (
-                    <Text style={styles.vacio}>
-                      Sin rangos, tu salón no se puede cotizar solo.
+                {soportaDiciembre && modalidad === "hora" && (
+                  <View style={styles.bloque}>
+                    <Text style={styles.bloqueTitulo}>Precio por hora en diciembre</Text>
+                    <Text style={styles.bloqueAyuda}>
+                      Lo que cobrás por hora solo en diciembre. Dejalo vacío y ese
+                      mes se cobra con tu precio por hora de siempre.
                     </Text>
-                  ) : (
-                    tiers.map((t, i) => (
-                      <View key={t.id ?? `nuevo-${i}`} style={styles.filaEditable}>
-                        <View style={styles.filaCampos}>
-                          <CampoChico
-                            etiqueta="Desde"
-                            value={t.min_invitados}
-                            onChangeText={(v) => {
-                              const copia = [...tiers];
-                              copia[i] = { ...copia[i], min_invitados: v };
-                              setTiers(copia);
-                            }}
-                          />
-                          <CampoChico
-                            etiqueta="Hasta"
-                            value={t.max_invitados}
-                            onChangeText={(v) => {
-                              const copia = [...tiers];
-                              copia[i] = { ...copia[i], max_invitados: v };
-                              setTiers(copia);
-                            }}
-                          />
-                          <CampoChico
-                            etiqueta="Precio ₡"
-                            ancho
-                            value={t.precio}
-                            onChangeText={(v) => {
-                              const copia = [...tiers];
-                              copia[i] = { ...copia[i], precio: v };
-                              setTiers(copia);
-                            }}
-                          />
-                        </View>
-                        <BotonQuitar onPress={() => setTiers(tiers.filter((_, j) => j !== i))} />
-                      </View>
-                    ))
-                  )}
-                </View>
+                    <TextInput
+                      value={precioHoraDiciembre}
+                      onChangeText={setPrecioHoraDiciembre}
+                      placeholder="25000"
+                      placeholderTextColor={Colors.inkMuted}
+                      keyboardType="number-pad"
+                      style={styles.input}
+                    />
+                  </View>
+                )}
 
-                <View style={styles.bloque}>
-                  <Text style={styles.bloqueTitulo}>Tarifa de diciembre</Text>
-                  <Text style={styles.bloqueAyuda}>
-                    Por persona, solo para diciembre. Dejalo vacío si cobrás igual
-                    todo el año.
-                  </Text>
-                  <TextInput
-                    value={tarifaDiciembre}
-                    onChangeText={setTarifaDiciembre}
-                    placeholder="15000"
-                    placeholderTextColor={Colors.inkMuted}
-                    keyboardType="number-pad"
-                    style={styles.input}
-                  />
-                </View>
+                {soportaDiciembre && modalidad === "fijo" && (
+                  <View style={styles.bloque}>
+                    <Text style={styles.bloqueTitulo}>Precio del evento en diciembre</Text>
+                    <Text style={styles.bloqueAyuda}>
+                      El monto fijo del alquiler solo en diciembre. Dejalo vacío y
+                      ese mes se cobra con tu precio de siempre.
+                    </Text>
+                    <TextInput
+                      value={precioFijoDiciembre}
+                      onChangeText={setPrecioFijoDiciembre}
+                      placeholder="350000"
+                      placeholderTextColor={Colors.inkMuted}
+                      keyboardType="number-pad"
+                      style={styles.input}
+                    />
+                  </View>
+                )}
               </>
             ) : (
               <View style={styles.bloque}>
@@ -741,6 +806,69 @@ export default function PreciosNegocioScreen() {
           )}
         </Pressable>
       </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * Una lista editable de rangos "desde–hasta → precio". Se usa dos
+ * veces: los precios de todo el año y los de diciembre (0099).
+ */
+function BloqueRangos({
+  titulo,
+  ayuda,
+  vacio,
+  tiers,
+  onChange,
+}: {
+  titulo: string;
+  ayuda: string;
+  /** Qué decir cuando la lista está vacía. */
+  vacio: string;
+  tiers: Tier[];
+  onChange: (tiers: Tier[]) => void;
+}) {
+  const editar = (i: number, campo: keyof Tier, valor: string) => {
+    const copia = [...tiers];
+    copia[i] = { ...copia[i], [campo]: valor };
+    onChange(copia);
+  };
+
+  return (
+    <View style={styles.bloque}>
+      <View style={styles.bloqueEncabezado}>
+        <Text style={styles.bloqueTitulo}>{titulo}</Text>
+        <BotonAgregar onPress={() => onChange([...tiers, { ...TIER_VACIO }])} />
+      </View>
+      <Text style={styles.bloqueAyuda}>{ayuda}</Text>
+
+      {tiers.length === 0 ? (
+        <Text style={styles.vacio}>{vacio}</Text>
+      ) : (
+        tiers.map((t, i) => (
+          <View key={t.id ?? `nuevo-${i}`} style={styles.filaEditable}>
+            <View style={styles.filaCampos}>
+              <CampoChico
+                etiqueta="Desde"
+                value={t.min_invitados}
+                onChangeText={(v) => editar(i, "min_invitados", v)}
+              />
+              <CampoChico
+                etiqueta="Hasta"
+                value={t.max_invitados}
+                onChangeText={(v) => editar(i, "max_invitados", v)}
+              />
+              <CampoChico
+                etiqueta="Precio ₡"
+                ancho
+                value={t.precio}
+                onChangeText={(v) => editar(i, "precio", v)}
+              />
+            </View>
+            <BotonQuitar onPress={() => onChange(tiers.filter((_, j) => j !== i))} />
+          </View>
+        ))
+      )}
     </View>
   );
 }

@@ -17,11 +17,12 @@ import type {
 export default async function PreciosPage() {
   const supabase = await createClient();
 
+  // A propósito `*` y no la lista de columnas: los precios de diciembre
+  // (0099) pueden no existir todavía en la base, y pedirlos por nombre
+  // haría fallar la consulta entera y dejaría la pantalla sin rancho.
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select(
-      "id, deposito_reserva, tarifa_diciembre_por_persona, modalidad_precio_lugar, precio_hora_lugar, precio_fijo_lugar",
-    )
+    .select("*")
     .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
     .maybeSingle();
 
@@ -69,6 +70,8 @@ export default async function PreciosPage() {
           initialModalidadPrecio={rancho?.modalidad_precio_lugar ?? "rango_personas"}
           initialPrecioHora={rancho?.precio_hora_lugar ?? null}
           initialPrecioFijo={rancho?.precio_fijo_lugar ?? null}
+          initialPrecioHoraDiciembre={rancho?.precio_hora_diciembre ?? null}
+          initialPrecioFijoDiciembre={rancho?.precio_fijo_diciembre ?? null}
           onGuardar={guardarConfiguracion}
         />
       </div>

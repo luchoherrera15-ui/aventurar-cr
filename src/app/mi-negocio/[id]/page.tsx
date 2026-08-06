@@ -772,6 +772,8 @@ export default async function RanchoDetallePage({
               initialModalidadPrecio={rancho.modalidad_precio_lugar}
               initialPrecioHora={rancho.precio_hora_lugar}
               initialPrecioFijo={rancho.precio_fijo_lugar}
+              initialPrecioHoraDiciembre={rancho.precio_hora_diciembre ?? null}
+              initialPrecioFijoDiciembre={rancho.precio_fijo_diciembre ?? null}
               onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
             />
           </SeccionPlegable>

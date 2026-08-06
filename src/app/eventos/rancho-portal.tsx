@@ -187,6 +187,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   // Datos del calendario de Lugares (su flujo propio, intacto).
   let disponibilidad: Record<string, DiaDisponibilidad> = {};
   let tiers: PrecioTier[] = [];
+  let tiersDiciembre: PrecioTier[] = [];
   let servicios: ServicioAdicional[] = [];
   let promociones: PromocionDia[] = [];
 
@@ -243,9 +244,13 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         .from("disponibilidad_rancho")
         .select("fecha, estado")
         .eq("rancho_id", rancho.id),
+      // A propósito `*` y no la lista de columnas: `temporada` (0099)
+      // puede no existir todavía en la base y pedirla por nombre haría
+      // fallar la consulta entera, dejando la página sin precios. Se
+      // lee abajo con typeof — sin la columna, todo queda en 'normal'.
       supabase
         .from("precio_tiers")
-        .select("min_invitados, max_invitados, precio")
+        .select("*")
         .eq("rancho_id", rancho.id)
         .order("min_invitados", { ascending: true }),
       supabase
@@ -273,7 +278,21 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       acc[r.fecha] = dia;
     });
     disponibilidad = acc;
-    tiers = (tiersRes.data ?? []) as PrecioTier[];
+    // Los rangos de diciembre son filas de la misma tabla, marcadas con
+    // `temporada` (0099). Si la migración todavía no corrió, ninguna
+    // fila la trae y el lugar sigue cotizando como siempre.
+    const filasTiers = (tiersRes.data ?? []) as (PrecioTier & {
+      temporada?: unknown;
+    })[];
+    const esDeDiciembre = (fila: { temporada?: unknown }) =>
+      typeof fila.temporada === "string" && fila.temporada === "diciembre";
+    const soloRango = ({ min_invitados, max_invitados, precio }: PrecioTier): PrecioTier => ({
+      min_invitados,
+      max_invitados,
+      precio,
+    });
+    tiers = filasTiers.filter((f) => !esDeDiciembre(f)).map(soloRango);
+    tiersDiciembre = filasTiers.filter(esDeDiciembre).map(soloRango);
     servicios = (svcRes.data ?? []) as ServicioAdicional[];
     promociones = ((promoRes.data ?? []) as PromocionDia[]).map((p) => ({
       ...p,
@@ -521,12 +540,15 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           nombreRancho={rancho.nombre}
           disponibilidad={disponibilidad}
           tiers={tiers}
+          tiersDiciembre={tiersDiciembre}
           servicios={servicios}
           tarifaDiciembre={rancho.tarifa_diciembre_por_persona ?? 0}
           depositoReserva={rancho.deposito_reserva ?? 25000}
           modalidadPrecio={rancho.modalidad_precio_lugar}
           precioHora={rancho.precio_hora_lugar}
           precioFijo={rancho.precio_fijo_lugar}
+          precioHoraDiciembre={rancho.precio_hora_diciembre ?? null}
+          precioFijoDiciembre={rancho.precio_fijo_diciembre ?? null}
           promociones={promociones}
           terminos={rancho.terminos ?? []}
           montoMinimo={rancho.monto_minimo ?? null}

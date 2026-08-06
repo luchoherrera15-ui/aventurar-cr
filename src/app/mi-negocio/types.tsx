@@ -160,6 +160,13 @@ export const MODALIDAD_PRECIO_LUGAR_LABEL: Record<ModalidadPrecioLugar, string> 
   fijo: "Precio fijo del evento",
 };
 
+/**
+ * A qué época del año pertenece una fila de precios (0099). Diciembre
+ * no es otra tabla: son los mismos rangos, marcados aparte. Sin marca
+ * (base sin migrar) se asume 'normal', que es como funcionó siempre.
+ */
+export type TemporadaPrecio = "normal" | "diciembre";
+
 // Subcategorías por categoría. El id es lo que se guarda en la columna
 // `subcategoria` de la tabla ranchos.
 export const SUBCATEGORIAS: Record<
@@ -599,11 +606,18 @@ export type Rancho = {
   cuenta_titular: string | null;
   cuenta_tipo: string | null;
   horarios_bloques: HorarioBloqueConfig[];
+  /** La tarifa por persona de diciembre de antes de la 0099: sigue
+   *  valiendo como respaldo para quien nunca cargó rangos de diciembre. */
   tarifa_diciembre_por_persona: number | null;
   /** Solo aplica a Lugares — cómo se calcula la cotización al reservar. */
   modalidad_precio_lugar: ModalidadPrecioLugar;
   precio_hora_lugar: number | null;
   precio_fijo_lugar: number | null;
+  /** El precio propio de diciembre de esas dos modalidades (0099).
+   *  null/ausente = ese mes se cobra igual que el resto del año.
+   *  Opcionales a propósito: la base puede no tener la 0099 corrida. */
+  precio_hora_diciembre?: number | null;
+  precio_fijo_diciembre?: number | null;
   fotos: string[];
   /** Qué vertical del marketplace es (0055): eventos es el default. */
   vertical?: "eventos" | "citas" | "hospedajes";
@@ -618,6 +632,51 @@ export type PrecioTier = {
   min_invitados: number;
   max_invitados: number;
   precio: number;
+  /** A qué lista de precios pertenece el rango (0099): 'normal' = todo
+   *  el año, 'diciembre' = solo ese mes. Ausente en las filas leídas de
+   *  una base sin la migración corrida — ahí se asume 'normal'. */
+  temporada?: TemporadaPrecio;
+};
+
+/**
+ * Todo lo que el formulario de precios manda al guardar.
+ *
+ * Antes eran ocho argumentos posicionales y cada dato nuevo (diciembre
+ * trajo tres) los volvía imposibles de leer en la línea de llamada:
+ * `guardar(t, s, 0, 25000, "fijo", null, 90000, null)`. Con un objeto,
+ * el que llama nombra cada cosa y agregar un campo no obliga a contar
+ * comas. Vive acá y no en el formulario ni en `@/lib/precios` porque lo
+ * comparten los dos lados de la frontera: el componente de cliente y
+ * las server actions.
+ */
+export type GuardarPreciosInput = {
+  /** Rangos de todo el año (temporada 'normal'). */
+  tiers: RangoPrecioInput[];
+  /** Rangos que aplican solo en diciembre. Vacío = no usa rangos ese mes. */
+  tiersDiciembre: RangoPrecioInput[];
+  servicios: ServicioPrecioInput[];
+  /** La tarifa por persona vieja de diciembre; 0 = no la usa. */
+  tarifaDiciembre: number;
+  depositoReserva: number;
+  modalidadPrecio: ModalidadPrecioLugar;
+  precioHora: number | null;
+  precioFijo: number | null;
+  /** null = en diciembre se cobra lo mismo que el resto del año. */
+  precioHoraDiciembre: number | null;
+  precioFijoDiciembre: number | null;
+};
+
+export type RangoPrecioInput = {
+  min_invitados: number;
+  max_invitados: number;
+  precio: number;
+};
+
+export type ServicioPrecioInput = {
+  nombre: string;
+  precio: number;
+  requisito_max_invitados: number | null;
+  activo: boolean;
 };
 
 export type ServicioAdicional = {

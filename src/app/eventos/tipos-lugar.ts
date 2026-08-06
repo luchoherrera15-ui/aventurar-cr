@@ -1,3 +1,9 @@
+/**
+ * Un rango de precio tal como lo necesita el cálculo: solo los tres
+ * campos que se usan para cotizar. La lista de diciembre (0099) tiene
+ * exactamente la misma forma; lo que las separa es de qué `temporada`
+ * salieron las filas, y eso ya se resolvió al leerlas.
+ */
 export type PrecioTier = {
   min_invitados: number;
   max_invitados: number;
