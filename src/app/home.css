@@ -258,3 +258,15 @@
 .portada-barra-relleno {
   animation: portada-vaciar 5000ms linear forwards;
 }
+
+/* El texto del velo de entrada entra escalonado detrás del mapa.
+   No se apaga con movimiento reducido: es medio segundo de fundido,
+   y sin él la pantalla aparece de golpe justo antes de saltar sola. */
+@keyframes portada-texto-entra {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.portada-texto {
+  animation: portada-texto-entra 0.7s cubic-bezier(0.22, 1, 0.36, 1)
+    var(--retraso, 0s) both;
+}
