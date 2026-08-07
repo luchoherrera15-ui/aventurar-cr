@@ -7,41 +7,25 @@ import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import MapaLatam from "@/components/mapa-latam";
 import PortadaIntro from "./portada-intro";
-import { IconBalloons, IconCalendarLine, IconWand } from "@/components/icons";
+import { IconWand } from "@/components/icons";
 
 /**
- * El home de Bookea — el techo común de las verticales. Antes / era un
- * redirect directo a /eventos; hoy es una portada MINIMALISTA a
- * pantalla completa: un punto late en el centro y, en menos de un
- * segundo, se abre en las dos puertas (Eventos · Citas y servicios).
+ * El home de Bookea — el techo común de las verticales.
  *
- * La coreografía es 100% CSS con animation-delay (home.css) — no hay
- * estado "cargando" ni JavaScript: el contenido real está en el HTML
- * desde el primer byte, así que Google lo lee igual y nadie espera de
- * verdad. Con prefers-reduced-motion todo aparece de una.
+ * En la PRIMERA visita de cada sesión es una ENTRADA a pantalla
+ * completa (portada-intro.tsx): aparece el logo, se disuelve, entra el
+ * mapa con sus targets encendiéndose, y a los cinco segundos el sitio
+ * pasa solo a Eventos — o antes, si tocan la pantalla. Después de esa
+ * primera vez el home se ve como esta página, para que el logo de la
+ * cabecera no sea un botón que siempre tira a Eventos.
+ *
+ * Las dos tarjetas (Eventos / Citas) salieron: con la entrada llevando
+ * a Eventos eran una decisión que ya nadie tomaba acá, y el pie del
+ * sitio sigue llevando a las cuatro verticales.
  *
  * Sin consultas a la base: la puerta de entrada es la página más
  * liviana del sitio.
  */
-
-const PUERTAS = [
-  {
-    href: "/eventos",
-    nombre: "Eventos",
-    linea: "Lugares, catering, música y decoración.",
-    Marca: IconBalloons,
-    piel: "border-aventurea-navy/10 bg-aventurea-blue-light hover:border-aventurea-navy/30",
-    marca: "text-aventurea-navy/10",
-  },
-  {
-    href: "/citas",
-    nombre: "Citas y servicios",
-    linea: "Belleza, barbería, uñas y spa.",
-    Marca: IconCalendarLine,
-    piel: "border-aventurea-sky/30 bg-aventurea-sky/15 hover:border-aventurea-sky/60",
-    marca: "text-aventurea-sky-dark/20",
-  },
-] as const;
 
 // La franja de "promesas" (confirmación al instante, precios claros...)
 // salió del home: lo mismo lo dicen los tres pasos de abajo, y la
@@ -98,37 +82,6 @@ export default function Home() {
           >
             ¿Qué vas a reservar?
           </h1>
-
-          {/* Las dos puertas: compactas y centradas — la pantalla
-              entera es la decisión, nada más compite. */}
-          <div className="relative z-10 mt-10 grid w-full max-w-[620px] gap-3 sm:grid-cols-2">
-            {PUERTAS.map(({ href, nombre, linea, Marca, piel, marca }, i) => (
-              <Link
-                key={href}
-                href={href}
-                className={`home-entra group relative flex flex-col overflow-hidden rounded-2xl border p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(22,41,94,0.45)] ${piel}`}
-                style={{ "--paso": 2 + i } as React.CSSProperties}
-              >
-                <span
-                  aria-hidden
-                  className={`pointer-events-none absolute -right-4 -top-5 rotate-[14deg] ${marca} [&_svg]:h-28 [&_svg]:w-28`}
-                >
-                  <Marca />
-                </span>
-                <span className="relative z-10">
-                  <span className="titulo block text-[21px] text-aventurea-ink">
-                    {nombre}
-                  </span>
-                  <span className="mt-1.5 block text-[12.5px] leading-snug text-aventurea-ink-soft">
-                    {linea}
-                  </span>
-                  <span className="mt-4 block text-[12.5px] font-extrabold text-aventurea-navy">
-                    Explorar →
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </div>
 
           {/* La invitación a seguir bajando, discreta. */}
           <span

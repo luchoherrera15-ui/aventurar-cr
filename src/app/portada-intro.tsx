@@ -133,20 +133,32 @@ export default function PortadaIntro() {
         saliendo ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* El mapa, protagonista y a lo grande: los pines encendiéndose
-          en ciclo son la entrada — Costa Rica primero, en naranja. */}
-      <MapaLatam className="pointer-events-none absolute left-1/2 top-1/2 h-[min(88vmin,760px)] w-[min(88vmin,760px)] -translate-x-1/2 -translate-y-1/2 text-aventurea-navy" />
+      {/* PRIMER TIEMPO: el logo aparece, se sostiene y se disuelve
+          hacia adelante. Sale del flujo (absolute) para que el mapa
+          entre exactamente en el mismo centro, sin salto. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/logo-bookea.png"
+        alt="Bookea"
+        width={260}
+        height={70}
+        className="intro-logo pointer-events-none absolute left-1/2 top-1/2 z-20 w-[min(58vw,260px)] -translate-x-1/2 -translate-y-1/2"
+      />
+
+      {/* SEGUNDO TIEMPO: entra el mapa con los targets ya corriendo —
+          Costa Rica primero, en naranja. */}
+      <MapaLatam className="intro-mapa pointer-events-none absolute left-1/2 top-1/2 h-[min(88vmin,760px)] w-[min(88vmin,760px)] -translate-x-1/2 -translate-y-1/2 text-aventurea-navy" />
 
       <div className="pointer-events-none relative z-10 flex flex-col items-center px-6 text-center">
         <p
-          className="portada-texto text-[11px] font-bold uppercase tracking-[0.34em] text-aventurea-orange"
-          style={{ "--retraso": "0.15s" } as React.CSSProperties}
+          className="intro-texto text-[11px] font-bold uppercase tracking-[0.34em] text-aventurea-orange"
+          style={{ "--retraso": "2.9s" } as React.CSSProperties}
         >
           Bookea · Costa Rica
         </p>
         <p
-          className="portada-texto titulo mt-5 max-w-[15ch] text-[clamp(32px,7vw,60px)] leading-[1.04] text-aventurea-ink"
-          style={{ "--retraso": "0.35s" } as React.CSSProperties}
+          className="intro-texto titulo mt-5 max-w-[15ch] text-[clamp(32px,7vw,60px)] leading-[1.04] text-aventurea-ink"
+          style={{ "--retraso": "3.1s" } as React.CSSProperties}
         >
           Reservá en todo el país
         </p>

@@ -255,9 +255,6 @@
   from { transform: scaleX(1); }
   to   { transform: scaleX(0); }
 }
-.portada-barra-relleno {
-  animation: portada-vaciar 5000ms linear forwards;
-}
 
 /* El texto del velo de entrada entra escalonado detrás del mapa.
    No se apaga con movimiento reducido: es medio segundo de fundido,
@@ -269,4 +266,51 @@
 .portada-texto {
   animation: portada-texto-entra 0.7s cubic-bezier(0.22, 1, 0.36, 1)
     var(--retraso, 0s) both;
+}
+
+/* ==================================================================
+   LA INTRO DEL SITIO (portada-intro.tsx), en tres tiempos dentro de
+   los cinco segundos que dura antes de pasar a Eventos:
+
+     0.2 → 1.3s   aparece el logo
+     1.3 → 2.2s   se sostiene
+     2.2 → 3.0s   se disuelve (se va hacia adelante y se desenfoca)
+     2.5 → 5.0s   entra el mapa y los targets ya están corriendo
+
+   Toda la coreografía es CSS con animation-delay: no hay una máquina
+   de estados en JavaScript que pueda desincronizarse del reloj que
+   dispara la redirección. Los dos relojes arrancan en el mismo
+   momento —el montaje del velo— y terminan juntos.
+
+   NO se apaga con prefers-reduced-motion: es la entrada del sitio y
+   sin ella la pantalla queda en blanco cinco segundos y después salta
+   sola, que se lee como una falla.
+   ================================================================== */
+
+@keyframes intro-logo {
+  0%   { opacity: 0; transform: scale(0.9); filter: blur(6px); }
+  22%  { opacity: 1; transform: scale(1);   filter: blur(0); }
+  44%  { opacity: 1; transform: scale(1);   filter: blur(0); }
+  60%  { opacity: 0; transform: scale(1.18); filter: blur(10px); }
+  100% { opacity: 0; transform: scale(1.18); filter: blur(10px); }
+}
+.intro-logo {
+  animation: intro-logo 5s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+}
+
+@keyframes intro-aparece {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+.intro-mapa {
+  animation: intro-aparece 1.1s cubic-bezier(0.22, 1, 0.36, 1) 2.5s both;
+}
+.intro-texto {
+  animation: intro-aparece 0.8s cubic-bezier(0.22, 1, 0.36, 1)
+    var(--retraso, 2.9s) both;
+}
+
+/* La cuenta corre los cinco segundos completos, desde el logo. */
+.portada-barra-relleno {
+  animation: portada-vaciar 5000ms linear forwards;
 }
