@@ -8,21 +8,21 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
-import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 
 /**
  * Las piezas animadas de la plantilla clásica de /i/{slug}: el sobre
  * de apertura, el carrito de recién casados, la cuenta regresiva, el
  * ambiente de pétalos y el confetti del RSVP. Todo vive acá para no
- * engordar invitacion-vista; los keyframes (inv2-*) están al final de
- * globals.css. Nada de esto toca el camino de html_personalizado.
+ * engordar invitacion-vista; los keyframes (inv2-*) están en
+ * plantillas.css. Nada de esto toca el camino de html_personalizado.
+ *
+ * NINGUNA de estas piezas consulta prefers-reduced-motion: por decisión
+ * del dueño el producto de invitaciones se anima igual para todo el
+ * mundo (el sobre, los pétalos, el carrito y el confetti corren
+ * siempre). El hook @/lib/use-movimiento-reducido sigue existiendo y
+ * sigue mandando en el RESTO del sitio —el riel de /invitaciones, los
+ * modales del panel, la agenda—; simplemente acá no se usa.
  */
-
-// Re-exportado desde acá para no romper a quien ya lo importaba de este
-// archivo — la definición vive en @/lib/use-movimiento-reducido, que es
-// lo que debe importar cualquier pantalla nueva que solo necesite el
-// hook (ver ese archivo para el porqué).
-export { useMovimientoReducido };
 
 /** "Sofía & Andrés" → "S&A" para el sello de cera. */
 export function inicialesDe(titulo: string): string {
@@ -48,8 +48,9 @@ export function inicialesDe(titulo: string): string {
  * El sobre cerrado que cubre la invitación al llegar: papel crema con
  * sello de cera dorado champán y "Tocá para abrir". Un toque en
  * cualquier lado dispara la apertura (la solapa rota con perspective y
- * la carta emerge); un segundo toque la salta. Con movimiento reducido
- * el CSS lo esconde por completo (display:none) y el padre abre directo.
+ * la carta emerge); un segundo toque la salta. Se muestra siempre: el
+ * sobre ES la invitación, y quien llega con movimiento reducido también
+ * tiene que verlo (antes el CSS lo escondía y se perdía la apertura).
  */
 export function SobreApertura({
   iniciales,
@@ -166,11 +167,10 @@ const RADIO_RUEDA_PX = 19 * (ANCHO_CARRO / 260);
  * Avanza por el caminito según el progreso de scroll de TODA la
  * página (rAF, solo transform) y las ruedas giran lo que corresponde
  * al recorrido. Al tocarlo: saltito, tres corazones por el escape y
- * un globito "¡beep beep!". Con movimiento reducido queda parqueado
- * al centro y solo responde con el globito.
+ * un globito "¡beep beep!". Viaja siempre, sin mirar la señal de
+ * movimiento reducido.
  */
 export function CarritoNovios() {
-  const reducido = useMovimientoReducido();
   const franjaRef = useRef<HTMLDivElement | null>(null);
   const carroRef = useRef<HTMLButtonElement | null>(null);
   const brincoRef = useRef<HTMLSpanElement | null>(null);
@@ -182,7 +182,6 @@ export function CarritoNovios() {
 
   // El viaje: progreso de scroll de la página → posición en la franja.
   useEffect(() => {
-    if (reducido) return;
     let frame = 0;
     const pintar = () => {
       frame = 0;
@@ -210,7 +209,7 @@ export function CarritoNovios() {
       window.removeEventListener("scroll", alMover);
       window.removeEventListener("resize", alMover);
     };
-  }, [reducido]);
+  }, []);
 
   useEffect(() => {
     const pendientes = timeoutsRef.current;
@@ -220,7 +219,6 @@ export function CarritoNovios() {
   function tocarCarro() {
     setBeep(true);
     timeoutsRef.current.push(window.setTimeout(() => setBeep(false), 1000));
-    if (reducido) return;
     // El saltito se redispara quitando y volviendo a poner la clase.
     const brinco = brincoRef.current;
     if (brinco) {
@@ -250,7 +248,6 @@ export function CarritoNovios() {
           onClick={tocarCarro}
           aria-label="Tocá el carrito de los recién casados"
           className="absolute bottom-0 left-0 block w-[168px] cursor-pointer select-none touch-manipulation will-change-transform"
-          style={reducido ? { left: "50%", transform: "translateX(-50%)" } : undefined}
         >
           {beep && (
             <span
@@ -509,10 +506,10 @@ function capaDeParticulas(n: number, sal: number, lenta: boolean): Particula[] {
  * Dos capas fijas de pétalos y destellos cayendo a velocidades
  * distintas (parallax). En dispositivos con giroscopio que no exigen
  * permiso (Android; en iOS requestPermission existe y entonces no se
- * activa) las capas se corren sutilmente con la inclinación.
+ * activa) las capas se corren sutilmente con la inclinación. Caen
+ * siempre: acá no se consulta la señal de movimiento reducido.
  */
 export function AmbienteParticulas() {
-  const reducido = useMovimientoReducido();
   const capaAtrasRef = useRef<HTMLDivElement | null>(null);
   const capaFrenteRef = useRef<HTMLDivElement | null>(null);
 
@@ -525,7 +522,6 @@ export function AmbienteParticulas() {
   );
 
   useEffect(() => {
-    if (reducido) return;
     const Doe = window.DeviceOrientationEvent as unknown as
       | { requestPermission?: () => Promise<string> }
       | undefined;
@@ -555,9 +551,7 @@ export function AmbienteParticulas() {
       if (frame) window.cancelAnimationFrame(frame);
       window.removeEventListener("deviceorientation", alInclinar);
     };
-  }, [reducido]);
-
-  if (reducido) return null;
+  }, []);
 
   const pintarCapa = (particulas: Particula[], opacidad: number, prefijo: string) =>
     particulas.map((p, i) => (

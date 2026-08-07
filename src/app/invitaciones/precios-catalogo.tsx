@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   ahorroPack,
+  descuentoPct,
   FAMILIA_LABEL,
   PACKS_INVITACIONES,
   PRODUCTOS_INDIVIDUALES,
+  PROMO_INVITACIONES,
+  sueltoPack,
   type ProductoIndividual,
 } from "@/lib/paquetes-invitaciones";
 
@@ -42,8 +45,22 @@ export default function PreciosCatalogo({
   const enColones = (usd: number) =>
     "₡" + (Math.round((usd * colonesPorUSD) / 100) * 100).toLocaleString("es-CR");
 
+  const hayPromo = PRODUCTOS_INDIVIDUALES.some((p) => p.precioAntesUSD);
+
   return (
     <div className="mt-12">
+      {/* El aviso de la promo: la fecha sale de PROMO_INVITACIONES, no
+          escrita a mano, para que no siga anunciándose cuando venza. */}
+      {hayPromo && (
+        <p className="mb-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-center text-[13.5px] text-white/60">
+          <span className="rounded-full bg-[#ee7420] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white">
+            {PROMO_INVITACIONES.etiqueta}
+          </span>
+          Las invitaciones están rebajadas hasta el{" "}
+          <span className="font-bold text-white">{PROMO_INVITACIONES.hastaTexto}</span>.
+        </p>
+      )}
+
       {/* ---------- Productos individuales ---------- */}
       <div className="grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
         {ORDEN_FAMILIAS.map((familia) => {
@@ -72,12 +89,24 @@ export default function PreciosCatalogo({
                         )}
                       </span>
                       <span className="shrink-0 text-right">
-                        <span className="block text-[17px] font-bold text-white">
-                          ${p.precioUSD}
+                        <span className="flex items-baseline justify-end gap-2">
+                          {p.precioAntesUSD && (
+                            <span className="text-[13px] text-white/30 line-through">
+                              ${p.precioAntesUSD}
+                            </span>
+                          )}
+                          <span className="text-[17px] font-bold text-white">
+                            ${p.precioUSD}
+                          </span>
                         </span>
                         <span className="block text-[11px] text-white/35">
                           ≈ {enColones(p.precioUSD)}
                         </span>
+                        {descuentoPct(p) !== null && (
+                          <span className="mt-1 inline-block rounded-full bg-[#ee7420] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white">
+                            −{descuentoPct(p)}%
+                          </span>
+                        )}
                       </span>
                     </Link>
                   </li>
@@ -131,22 +160,29 @@ export default function PreciosCatalogo({
                 Pack {p.nombre}
               </p>
 
+              {/* El tachado y el "ahorrás" solo salen si el pack DE VERDAD
+                  sale más barato que comprar suelto hoy: durante una promo
+                  de las piezas la cuenta puede darse vuelta, y anunciar un
+                  ahorro inexistente sería mentirle al cliente. */}
               <p className="mt-3 flex items-baseline gap-2">
                 <span className="titulo text-[44px] leading-none">${p.precioUSD}</span>
-                <span
-                  className={`text-[14px] line-through ${
-                    p.destacado ? "text-[#0a1226]/35" : "text-white/30"
-                  }`}
-                >
-                  ${p.sueltoUSD}
-                </span>
+                {ahorroPack(p) > 0 && (
+                  <span
+                    className={`text-[14px] line-through ${
+                      p.destacado ? "text-[#0a1226]/35" : "text-white/30"
+                    }`}
+                  >
+                    ${sueltoPack(p)}
+                  </span>
+                )}
               </p>
               <p
                 className={`mt-1.5 text-[12.5px] ${
                   p.destacado ? "text-[#0a1226]/50" : "text-white/40"
                 }`}
               >
-                ≈ {enColones(p.precioUSD)} · ahorrás ${ahorroPack(p)}
+                ≈ {enColones(p.precioUSD)}
+                {ahorroPack(p) > 0 && ` · ahorrás $${ahorroPack(p)}`}
               </p>
 
               <p

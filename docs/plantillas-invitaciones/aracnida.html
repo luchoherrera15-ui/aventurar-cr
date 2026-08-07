@@ -11,8 +11,8 @@
   bloque RSVP "¿Nos acompañás?" debajo — esta plantilla termina con la
   franja de ciudad para empatar con eso.
 
-  ESCENAS (se revelan al scrollear con IntersectionObserver, bajo
-  .ara-anima que agrega el script; sin JS todo queda visible):
+  ESCENAS (se revelan al scrollear con IntersectionObserver; sin JS todo
+  queda visible igual, solo que quieto):
     1. Cabecera a pantalla completa (telarañas que se dibujan, arañas
        que bajan por su hilo, ¡POW! que estalla)
     2. Datos en burbujas de cómic (arañas laterales en desktop,
@@ -34,8 +34,16 @@
     RSVP ni el resto de la página.
   - La intro usa <dialog>.showModal(): el top layer escapa el transform
     del contenedor [data-reveal] de la página (position:fixed normal
-    quedaría atrapado ahí). Sin JS o con prefers-reduced-motion la intro
-    simplemente no aparece y la invitación se ve completa.
+    quedaría atrapado ahí). Sin JS la intro simplemente no aparece y la
+    invitación se ve completa.
+  - Las animaciones corren SIEMPRE, iguales para todo el mundo: esta
+    plantilla NO atiende prefers-reduced-motion, ni en el CSS ni en el
+    JS (decisión del dueño — él tiene los efectos de Windows apagados y
+    con la señal respetada no vería nada de esta invitación).
+  - NINGÚN elemento arranca en opacity:0 esperando al observer. El
+    estado por defecto es VISIBLE y la entrada se agrega ENCIMA con la
+    clase .ara-vista: si el IntersectionObserver no corre —o el <script>
+    entero no corre— la invitación se lee completa, quieta.
   - Las arañitas rebotan al tocarlas vía onclick inline (funciona aunque
     el <script> no corra).
 -->
@@ -486,53 +494,34 @@
     /* La ciudad al pie: silueta con ventanitas encendidas. */
     .ara-ciudad { display: block; width: 100%; height: 82px; margin-top: 20px; }
 
-    /* ============ Animaciones al scrollear (bajo .ara-anima) ========= */
-    /* Los estados "oculto antes de revelar" SOLO existen bajo
-       .ara-anima, la clase que agrega el script: sin JS o con
-       movimiento reducido la invitación se ve completa. */
-    .ara-anima [data-ara-escena] .ara-rev {
-      opacity: 0;
-      transform: translateY(26px) scale(0.94) rotate(var(--ara-rotb, 0deg));
-      transition:
-        opacity 0.55s ease var(--ara-d, 0s),
-        transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) var(--ara-d, 0s);
-    }
-    .ara-anima [data-ara-escena].ara-vista .ara-rev {
-      opacity: 1;
-      transform: rotate(var(--ara-rotb, 0deg));
+    /* ============ Animaciones al scrollear ============
+       El estado por defecto de TODO es VISIBLE: la entrada se AGREGA
+       ENCIMA cuando la escena entra en pantalla (.ara-vista). Nada
+       espera al observer para poder leerse — si el <script> no corre,
+       la invitación se ve completa, quieta. */
+    [data-ara-escena].ara-vista .ara-rev {
+      animation: ara-entra 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) var(--ara-d, 0s) both;
     }
 
-    /* Onomatopeyas: estallan al entrar su escena. */
-    .ara-anima [data-ara-escena] .ara-onoma {
-      opacity: 0;
-      transform: scale(0.2) rotate(var(--ara-rot, 0deg));
-      transition:
-        opacity 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) var(--ara-d, 0.35s),
-        transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) var(--ara-d, 0.35s);
-    }
-    .ara-anima [data-ara-escena].ara-vista .ara-onoma {
-      opacity: 1;
-      transform: scale(1) rotate(var(--ara-rot, 0deg));
+    /* Onomatopeyas: estallan al entrar su escena (el flote de fondo
+       sigue corriendo: usa `translate`, no `transform`). */
+    [data-ara-escena].ara-vista .ara-onoma {
+      animation:
+        ara-flota 2.8s ease-in-out infinite alternate,
+        ara-estalla 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) var(--ara-d, 0.35s) both;
     }
 
-    /* Arañas que bajan por su hilo al entrar la escena (ocultas hasta
-       entonces para no asomarse en la escena anterior). */
-    .ara-anima [data-ara-escena] .ara-cuelga {
-      opacity: 0;
-      transform: translateY(-115%);
-      transition:
-        transform 1.4s cubic-bezier(0.34, 1.45, 0.44, 1) var(--ara-d, 0.25s),
-        opacity 0.3s ease var(--ara-d, 0.25s);
+    /* Arañas que bajan por su hilo al entrar la escena. */
+    [data-ara-escena].ara-vista .ara-cuelga {
+      animation: ara-cuelga-entra 1.4s cubic-bezier(0.34, 1.45, 0.44, 1) var(--ara-d, 0.25s) both;
     }
-    .ara-anima [data-ara-escena].ara-vista .ara-cuelga { opacity: 1; transform: translateY(0); }
 
-    /* Telarañas que se dibujan trazo a trazo (pathLength="1"). */
-    .ara-anima [data-ara-escena] .ara-teje path {
-      stroke-dasharray: 1;
-      stroke-dashoffset: 1;
-      transition: stroke-dashoffset 1.9s ease var(--ara-d, 0.2s);
+    /* Telarañas que se dibujan trazo a trazo (pathLength="1"). En reposo
+       quedan DIBUJADAS (dashoffset 0). */
+    .ara-teje path { stroke-dasharray: 1; stroke-dashoffset: 0; }
+    [data-ara-escena].ara-vista .ara-teje path {
+      animation: ara-teje-entra 1.9s ease var(--ara-d, 0.2s) both;
     }
-    .ara-anima [data-ara-escena].ara-vista .ara-teje path { stroke-dashoffset: 0; }
 
     /* ============ Keyframes ============ */
     @keyframes ara-baja {
@@ -559,6 +548,24 @@
       0%, 100% { transform: translateY(0); opacity: 0.75; }
       50% { transform: translateY(4px); opacity: 1; }
     }
+    /* Entradas de escena: van SIEMPRE sobre el estado visible. */
+    @keyframes ara-entra {
+      from { opacity: 0; transform: translateY(26px) scale(0.94) rotate(var(--ara-rotb, 0deg)); }
+      to { opacity: 1; transform: rotate(var(--ara-rotb, 0deg)); }
+    }
+    @keyframes ara-estalla {
+      from { opacity: 0; transform: scale(0.2) rotate(var(--ara-rot, 0deg)); }
+      to { opacity: 1; transform: scale(1) rotate(var(--ara-rot, 0deg)); }
+    }
+    @keyframes ara-cuelga-entra {
+      from { opacity: 0; transform: translateY(-115%); }
+      21% { opacity: 1; }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes ara-teje-entra {
+      from { stroke-dashoffset: 1; }
+      to { stroke-dashoffset: 0; }
+    }
 
     /* En tablet y desktop el cómic aprovecha todo el ancho: telarañas
        y arañas más grandes en los costados, burbujas más generosas y
@@ -580,20 +587,10 @@
       .ara-cartel { font-size: 23px; }
     }
 
-    /* Sin movimiento: nada se anima y la intro ni aparece (el script
-       tampoco la abre ni agrega .ara-anima, esto es el cinturón y los
-       tirantes). */
-    @media (prefers-reduced-motion: reduce) {
-      #ara-intro { display: none !important; }
-      .ara *, .ara *::before, .ara *::after {
-        animation: none !important;
-        transition: none !important;
-      }
-      .ara-anima [data-ara-escena] .ara-rev { opacity: 1; transform: rotate(var(--ara-rotb, 0deg)); }
-      .ara-anima [data-ara-escena] .ara-onoma { opacity: 1; transform: rotate(var(--ara-rot, 0deg)); }
-      .ara-anima [data-ara-escena] .ara-cuelga { opacity: 1; transform: none; }
-      .ara-anima [data-ara-escena] .ara-teje path { stroke-dashoffset: 0; }
-    }
+    /* A propósito NO hay bloque @media (prefers-reduced-motion: reduce):
+       en el producto de invitaciones las animaciones corren siempre,
+       iguales para todo el mundo (decisión del dueño). El resto del
+       sitio sí respeta la señal — el alcance de esta regla es /i/[slug]. */
   </style>
 
   <!-- ================= INTRO ================= -->
@@ -884,15 +881,14 @@
 
 <script>
   /* La intro: <dialog> en el top layer (escapa el transform del lienzo).
-     Se abre en dos como cortinas al tocar o a los 3 segundos. Con
-     movimiento reducido, sin soporte de dialog o sin JS: no hay intro. */
+     Se abre en dos como cortinas al tocar o a los 3 segundos. Sin
+     soporte de dialog o sin JS: no hay intro.
+     Ningún bloque de este script lee prefers-reduced-motion: por
+     decisión del dueño las animaciones de la invitación corren siempre,
+     iguales para todo el mundo. */
   (function () {
     var dlg = document.getElementById("ara-intro");
     if (!dlg || typeof dlg.showModal !== "function") { if (dlg) dlg.remove(); return; }
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      dlg.remove();
-      return;
-    }
     var abierta = false;
     var timer = null;
     function abrir() {
@@ -912,18 +908,16 @@
   })();
 
   /* ============ Escenas: telarañas, arañas y onomatopeyas al
-     scrollear (IntersectionObserver). Con movimiento reducido o sin
-     observer, todo queda visible de una vez. ============ */
+     scrollear (IntersectionObserver). Sin observer, todas las escenas
+     animan de una vez. ============ */
   (function () {
     var raiz = document.querySelector(".ara");
     if (!raiz) return;
     var escenas = raiz.querySelectorAll("[data-ara-escena]");
-    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducido || !("IntersectionObserver" in window)) {
+    if (!("IntersectionObserver" in window)) {
       for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("ara-vista");
       return;
     }
-    raiz.classList.add("ara-anima");
     var io = new IntersectionObserver(function (entradas) {
       entradas.forEach(function (ent) {
         if (ent.isIntersecting) {

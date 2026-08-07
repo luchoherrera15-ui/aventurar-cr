@@ -42,10 +42,16 @@
     fragmento; cero librerías, cero recursos remotos (solo SVG inline y
     un data-URI de huellita). Estilos namespaced con .zoo-/#zoo-.
   - La intro usa <dialog>.showModal() (top layer: escapa el transform del
-    contenedor [data-reveal] de la página). Sin JS o con
-    prefers-reduced-motion no hay intro y todo queda visible.
-  - Los estados "oculto antes de revelar" solo existen bajo .zoo-anima,
-    clase que agrega el script: sin JS la invitación se ve completa.
+    contenedor [data-reveal] de la página). Sin JS no hay intro y todo
+    queda visible.
+  - Las animaciones corren SIEMPRE, iguales para todo el mundo: esta
+    plantilla NO atiende prefers-reduced-motion, ni en el CSS ni en el
+    JS (decisión del dueño — él tiene los efectos de Windows apagados y
+    con la señal respetada no vería nada de esta invitación).
+  - NINGÚN elemento arranca en opacity:0 esperando al observer. El
+    estado por defecto es VISIBLE y la entrada se agrega ENCIMA con la
+    clase .zoo-vista: si el IntersectionObserver no corre —o el <script>
+    entero no corre— la invitación se lee completa, quieta.
   - Los animalitos rebotan y "hablan" con onclick inline (funciona aunque
     el <script> principal no corra).
 -->
@@ -189,13 +195,12 @@
       background: linear-gradient(#9adcf5, var(--zoo-cielo) 46%, #e9f8d6 84%, #d2ecb4);
     }
 
-    /* Estado previo al reveal: SOLO bajo .zoo-anima (la agrega el JS). */
-    .zoo-anima .zoo-esc .zoo-rev {
-      opacity: 0;
-      transform: translateY(26px) scale(0.94);
-      transition: opacity 0.65s ease var(--zoo-d, 0s), transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) var(--zoo-d, 0s);
+    /* Entrada de cada elemento: el estado por defecto es VISIBLE y la
+       animación se AGREGA ENCIMA cuando la escena entra en pantalla
+       (.zoo-vista). Nada espera al observer para poder leerse. */
+    .zoo-esc.zoo-vista .zoo-rev {
+      animation: zoo-entra 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) var(--zoo-d, 0s) both;
     }
-    .zoo-anima .zoo-esc.zoo-vista .zoo-rev { opacity: 1; transform: none; }
 
     /* Animalitos que asoman desde los bordes al armarse la escena. */
     .zoo-peek {
@@ -203,10 +208,8 @@
       z-index: 3;
       line-height: 0;
     }
-    .zoo-anima .zoo-esc .zoo-peek-izq { transform: translateX(-120%) rotate(-6deg); transition: transform 0.9s cubic-bezier(0.34, 1.4, 0.5, 1) var(--zoo-d, 0.35s); }
-    .zoo-anima .zoo-esc .zoo-peek-der { transform: translateX(120%) rotate(6deg); transition: transform 0.9s cubic-bezier(0.34, 1.4, 0.5, 1) var(--zoo-d, 0.35s); }
-    .zoo-anima .zoo-esc.zoo-vista .zoo-peek-izq,
-    .zoo-anima .zoo-esc.zoo-vista .zoo-peek-der { transform: none; }
+    .zoo-esc.zoo-vista .zoo-peek-izq { animation: zoo-asoma-izq 0.9s cubic-bezier(0.34, 1.4, 0.5, 1) var(--zoo-d, 0.35s) both; }
+    .zoo-esc.zoo-vista .zoo-peek-der { animation: zoo-asoma-der 0.9s cubic-bezier(0.34, 1.4, 0.5, 1) var(--zoo-d, 0.35s) both; }
 
     /* ============ Huellitas: el camino del scroll ============ */
     .zoo-huellas {
@@ -224,11 +227,12 @@
     }
     .zoo-huella:nth-child(odd) { transform: translateX(-11px) rotate(-16deg); }
     .zoo-huella:nth-child(even) { transform: translateX(11px) rotate(14deg); }
-    .zoo-anima .zoo-esc .zoo-huella { opacity: 0; transition: opacity 0.45s ease; }
-    .zoo-anima .zoo-esc.zoo-vista .zoo-huella:nth-child(1) { opacity: 0.55; transition-delay: 0s; }
-    .zoo-anima .zoo-esc.zoo-vista .zoo-huella:nth-child(2) { opacity: 0.55; transition-delay: 0.14s; }
-    .zoo-anima .zoo-esc.zoo-vista .zoo-huella:nth-child(3) { opacity: 0.55; transition-delay: 0.28s; }
-    .zoo-anima .zoo-esc.zoo-vista .zoo-huella:nth-child(4) { opacity: 0.55; transition-delay: 0.42s; }
+    /* Las huellitas ya están puestas (opacity 0.55); al entrar la escena
+       se les agrega el encendido escalonado. */
+    .zoo-esc.zoo-vista .zoo-huella { animation: zoo-huella-entra 0.45s ease both; }
+    .zoo-esc.zoo-vista .zoo-huella:nth-child(2) { animation-delay: 0.14s; }
+    .zoo-esc.zoo-vista .zoo-huella:nth-child(3) { animation-delay: 0.28s; }
+    .zoo-esc.zoo-vista .zoo-huella:nth-child(4) { animation-delay: 0.42s; }
 
     /* ============ Cartel de madera y tipos ============ */
     .zoo-cartel {
@@ -525,7 +529,7 @@
     .zoo-elefante { margin-top: 26px; }
     .zoo-ele-trompa { transform-box: fill-box; transform-origin: 20% 8%; }
     /* El saludo: al entrar la escena, la trompa se agita solita. */
-    .zoo-anima #zoo-lugar.zoo-vista .zoo-ele-trompa { animation: zoo-saluda 2.4s ease-in-out 0.7s 1; }
+    #zoo-lugar.zoo-vista .zoo-ele-trompa { animation: zoo-saluda 2.4s ease-in-out 0.7s 1; }
     .zoo-animal.zoo-toc .zoo-ele-trompa { animation: zoo-saluda 1.2s ease-in-out 1; }
 
     /* ============ 6 · Llamado al RSVP ============ */
@@ -615,6 +619,23 @@
       from { opacity: 0; transform: translateY(18px) scale(0.85); }
       to { opacity: 1; transform: none; }
     }
+    /* Entradas de escena: van SIEMPRE sobre el estado visible. */
+    @keyframes zoo-entra {
+      from { opacity: 0; transform: translateY(26px) scale(0.94); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes zoo-asoma-izq {
+      from { transform: translateX(-120%) rotate(-6deg); }
+      to { transform: none; }
+    }
+    @keyframes zoo-asoma-der {
+      from { transform: translateX(120%) rotate(6deg); }
+      to { transform: none; }
+    }
+    @keyframes zoo-huella-entra {
+      from { opacity: 0; }
+      to { opacity: 0.55; }
+    }
 
     @media (min-width: 480px) {
       .zoo-esc { padding-left: 36px; padding-right: 36px; }
@@ -648,20 +669,10 @@
       .zoo-pasto { height: 84px; }
     }
 
-    /* Sin movimiento: nada se anima, la intro ni aparece, el cuello va
-       completo y todo el contenido queda visible. */
-    @media (prefers-reduced-motion: reduce) {
-      #zoo-intro { display: none !important; }
-      .zoo *, .zoo *::before, .zoo *::after {
-        animation: none !important;
-        transition: none !important;
-      }
-      .zoo-jirafa { --zoo-cuello: 1 !important; }
-      .zoo-anima .zoo-esc .zoo-rev { opacity: 1; transform: none; }
-      .zoo-anima .zoo-esc .zoo-peek-izq,
-      .zoo-anima .zoo-esc .zoo-peek-der { transform: none; }
-      .zoo-anima .zoo-esc .zoo-huella { opacity: 0.55; }
-    }
+    /* A propósito NO hay bloque @media (prefers-reduced-motion: reduce):
+       en el producto de invitaciones las animaciones corren siempre,
+       iguales para todo el mundo (decisión del dueño). El resto del
+       sitio sí respeta la señal — el alcance de esta regla es /i/[slug]. */
   </style>
 
   <!-- ================= INTRO ================= -->
@@ -1036,14 +1047,13 @@
 </div>
 
 <script>
-  /* ============ Intro: <dialog> con cortinas de selva ============ */
+  /* ============ Intro: <dialog> con cortinas de selva ============
+     Ningún bloque de este script lee prefers-reduced-motion: por
+     decisión del dueño las animaciones de la invitación corren siempre,
+     iguales para todo el mundo. */
   (function () {
     var dlg = document.getElementById("zoo-intro");
     if (!dlg || typeof dlg.showModal !== "function") { if (dlg) dlg.remove(); return; }
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      dlg.remove();
-      return;
-    }
     var abierta = false;
     var timer = null;
     function abrir() {
@@ -1067,12 +1077,11 @@
     var raiz = document.querySelector(".zoo");
     if (!raiz) return;
     var escenas = raiz.querySelectorAll("[data-zoo-escena]");
-    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducido || !("IntersectionObserver" in window)) {
+    if (!("IntersectionObserver" in window)) {
+      // Sin observer: todas las escenas animan de una vez.
       for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("zoo-vista");
       return;
     }
-    raiz.classList.add("zoo-anima");
     var io = new IntersectionObserver(function (entradas) {
       entradas.forEach(function (ent) {
         if (ent.isIntersecting) {
@@ -1089,7 +1098,6 @@
     var jirafa = document.getElementById("zoo-jirafa");
     var hero = document.getElementById("zoo-hero");
     if (!jirafa || !hero) return;
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     var topInicial = null;
     var pedida = false;

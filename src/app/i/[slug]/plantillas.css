@@ -7,7 +7,8 @@
    Invitación pública v2 (inv2-*): las animaciones de la plantilla
    clásica de /i/{slug} — sobre de apertura, carrito de recién
    casados, cuenta regresiva, pétalos y confetti. Solo transform y
-   opacity; con movimiento reducido todo queda estático (al final).
+   opacity, y corriendo SIEMPRE: la invitación no atiende
+   prefers-reduced-motion (ver la nota del final).
    ================================================================== */
 
 /* — La apertura tipo sobre — */
@@ -213,28 +214,44 @@
   will-change: transform, opacity;
 }
 
-/* Con movimiento reducido: sin sobre (la invitación abre directa),
-   carro y latas quietos, números sin tick y nada de partículas. */
+/* SIN gate por prefers-reduced-motion, ni acá ni en el TSX: por
+   decisión del dueño la invitación se anima igual para todo el mundo
+   —el sobre, la apertura, los pétalos, el carrito, el tick y el
+   confetti—, como lo hace la referencia del rubro. Antes vivía acá un
+   @media (prefers-reduced-motion: reduce) que escondía el sobre
+   (display:none) y apagaba TODAS las animaciones inv2-*: en una máquina
+   con los efectos de Windows apagados la invitación no movía ni un
+   pétalo. El resto del sitio sí sigue respetando la señal (globals.css,
+   reel.css, home.css y @/lib/use-movimiento-reducido).
+
+   Lo de abajo es la otra cara de esa decisión: dos reglas de globals.css
+   que SÍ atienden la señal (las entradas [data-reveal] y la card del
+   RSVP) se restablecen SOLO dentro de la invitación. Van colgadas de
+   `.inv-anima` —la clase del <main> de /i/{slug}— por dos razones: la
+   especificidad extra le gana a la regla general sin importar el orden
+   en que se junten las hojas, y el efecto queda encerrado en esta
+   pantalla aunque el navegador conserve esta hoja al navegar a otra. */
 @media (prefers-reduced-motion: reduce) {
-  .inv2-sobre-overlay {
-    display: none;
+  /* Las entradas de sección: mismo fade + subida de globals.css. */
+  .inv-anima [data-reveal] {
+    opacity: 0;
+    transform: translateY(22px);
+    transition:
+      opacity 0.7s ease-out,
+      transform 0.7s ease-out;
+    transition-delay: var(--reveal-delay, 0ms);
   }
-  .inv2-anim-solapa,
-  .inv2-anim-carta-sale,
-  .inv2-anim-sobre-fade,
-  .inv2-anim-sello,
-  .inv2-anim-pulso,
-  .inv2-anim-contenido,
-  .inv2-anim-lata,
-  .inv2-anim-salto,
-  .inv2-anim-beep,
-  .inv2-anim-tick {
-    animation: none;
+  .inv-anima [data-reveal].is-revealed {
+    opacity: 1;
+    transform: translateY(0);
   }
-  .inv2-anim-caer,
-  .inv2-anim-corazon,
-  .inv2-anim-confetti {
-    display: none;
+  /* La card flotante del RSVP (diseños con data-bookea="abrir-rsvp"):
+     los keyframes velo-entrar/panel-entrar viven en globals.css. */
+  .inv-anima .anim-velo-entrar {
+    animation: velo-entrar 0.22s ease-out both;
+  }
+  .inv-anima .anim-panel-entrar {
+    animation: panel-entrar 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
 

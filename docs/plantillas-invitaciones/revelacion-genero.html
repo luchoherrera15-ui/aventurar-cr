@@ -43,8 +43,11 @@
   NOTAS TÉCNICAS:
   - Autocontenido: CSS en el <style> y JS en el <script> de este mismo
     fragmento; cero recursos remotos (todo SVG inline). Namespace .rg-.
-  - La intro usa <dialog>.showModal() (top layer). Sin JS o con
-    prefers-reduced-motion no hay intro y todo queda visible.
+  - La intro usa <dialog>.showModal() (top layer). Sin JS no hay
+    intro y todo queda visible.
+  - SIN gating por prefers-reduced-motion: por decisión del dueño las
+    animaciones de las invitaciones corren siempre, iguales para todo
+    el mundo (su Windows tiene los efectos apagados).
   - Los estados "oculto antes de revelar" solo existen bajo .rg-anima,
     clase que agrega el script: sin JS la invitación se ve completa.
   - El HTML a la medida se inyecta SIN contenedores con transform, así
@@ -861,22 +864,6 @@
       .rg-boton { font-size: 16.5px; padding: 15px 30px 16px; }
     }
 
-    /* Sin movimiento: todo visible y quieto; sin intro ni globo. */
-    @media (prefers-reduced-motion: reduce) {
-      #rg-intro { display: none !important; }
-      #rg-globo { display: none !important; }
-      #rg-particulas { display: none !important; }
-      .rg *, .rg *::before, .rg *::after {
-        animation: none !important;
-        transition: none !important;
-      }
-      .rg-anima .rg-esc .rg-rev,
-      .rg-anima .rg-esc .rg-rev-izq,
-      .rg-anima .rg-esc .rg-rev-der,
-      .rg-anima .rg-esc .rg-rev-cuelga,
-      .rg-anima .rg-esc .rg-rev-pop { opacity: 1; transform: none; filter: none; }
-      .rg-anima .rg-esc .rg-brinco { opacity: 1; }
-    }
   </style>
 
   <!-- ================= INTRO ================= -->
@@ -1296,10 +1283,6 @@
   (function () {
     var dlg = document.getElementById("rg-intro");
     if (!dlg || typeof dlg.showModal !== "function") { if (dlg) dlg.remove(); return; }
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      dlg.remove();
-      return;
-    }
     var abierta = false;
     var timer = null;
     function abrir() {
@@ -1323,8 +1306,7 @@
     var raiz = document.querySelector(".rg");
     if (!raiz) return;
     var escenas = raiz.querySelectorAll("[data-rg-escena]");
-    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducido || !("IntersectionObserver" in window)) {
+    if (!("IntersectionObserver" in window)) {
       for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("rg-vista");
       return;
     }
@@ -1344,10 +1326,6 @@
   (function () {
     var globo = document.getElementById("rg-globo");
     var hero = document.getElementById("rg-hero");
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      if (globo) globo.remove();
-      return;
-    }
     var capas = [];
     var pares = document.querySelectorAll("[data-rg-par]");
     for (var i = 0; i < pares.length; i++) {
@@ -1469,7 +1447,6 @@
   (function () {
     var caja = document.getElementById("rg-particulas");
     if (!caja) return;
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     var total = window.innerWidth >= 768 ? 34 : 22;
     var CORAZON = 'M12 20 C4 13 1 8 3.5 4.5 C6 1 10 2 12 6 C14 2 18 1 20.5 4.5 C23 8 20 13 12 20 Z';
     for (var i = 0; i < total; i++) {

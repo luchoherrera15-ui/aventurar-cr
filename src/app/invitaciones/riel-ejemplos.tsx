@@ -68,9 +68,11 @@ export default function RielEjemplos({
     () => demos.filter((d) => d.categoria === categoria),
     [demos, categoria],
   );
-  // El mismo hook que ya usa la plantilla de /i/[slug] (invitacion-animada):
   // useSyncExternalStore, no useState+useEffect, para no disparar un
-  // segundo render solo por leer una media query.
+  // segundo render solo por leer una media query. (La plantilla de
+  // /i/[slug] ya NO usa este hook: ahí las animaciones corren siempre
+  // por decisión del dueño. Este riel es sitio, no invitación, y sí
+  // respeta la señal.)
   const animar = !useMovimientoReducido();
 
   const irA = useCallback(

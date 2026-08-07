@@ -23,7 +23,6 @@ import {
   CuentaRegresiva,
   SobreApertura,
   inicialesDe,
-  useMovimientoReducido,
 } from "./invitacion-animada";
 
 /** Los campos de la invitación que usa la vista pública. */
@@ -79,13 +78,17 @@ export default function InvitacionVista({
   const animada = !invitacion.html_personalizado;
 
   // El sobre: cerrado → abriendo (animación) → abierto (se desmonta).
-  // Con movimiento reducido se deriva "abierto" directo, sin efecto.
-  const [faseSobre, setFase] = useState<"cerrado" | "abriendo" | "abierto">(
+  //
+  // La invitación NO consulta prefers-reduced-motion: por decisión del
+  // dueño el producto de invitaciones se ve igual para todo el mundo
+  // (el sobre, su apertura, los pétalos y las entradas corren siempre),
+  // como lo hace la referencia del rubro. La señal se sigue respetando
+  // en el RESTO del sitio — riel de la landing, modales del panel,
+  // agenda —, que es donde vive @/lib/use-movimiento-reducido.
+  const [fase, setFase] = useState<"cerrado" | "abriendo" | "abierto">(
     animada ? "cerrado" : "abierto",
   );
   const aperturaRef = useRef<number | null>(null);
-  const reducido = useMovimientoReducido();
-  const fase = reducido ? "abierto" : faseSobre;
   const iniciales = useMemo(() => inicialesDe(invitacion.titulo), [invitacion.titulo]);
 
   // Mientras el sobre cubre la pantalla no tiene sentido scrollear.
@@ -159,16 +162,21 @@ export default function InvitacionVista({
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(busqueda)}`;
   const hrefWaze = `https://waze.com/ul?q=${encodeURIComponent(busqueda)}&navigate=yes`;
 
+  // `inv-anima` marca el territorio de la invitación: plantillas.css lo
+  // usa para devolverle las entradas (data-reveal) y la card del RSVP a
+  // quien navega con movimiento reducido, sin tocar la regla general de
+  // globals.css que el resto del sitio sí respeta.
   return (
     <main
-      className={`relative min-h-svh overflow-hidden ${
+      className={`inv-anima relative min-h-svh overflow-hidden ${
         animada ? "bg-[#faf7f2] text-[#3d3a35]" : "bg-[#16295e] text-white"
       } ${claseFuente}`}
     >
       <RevealOnScroll />
 
       {/* Animación del "gracias": los keyframes viven acá porque solo
-          esta página los usa — no ensucian globals.css. */}
+          esta página los usa — no ensucian globals.css. Sin gate por
+          prefers-reduced-motion: en la invitación el pop corre siempre. */}
       <style>{`
         @keyframes invitacion-pop {
           0% { opacity: 0; transform: scale(0.92) translateY(10px); }
@@ -176,9 +184,6 @@ export default function InvitacionVista({
           100% { opacity: 1; transform: scale(1) translateY(0); }
         }
         .anim-invitacion-pop { animation: invitacion-pop 0.6s ease-out both; }
-        @media (prefers-reduced-motion: reduce) {
-          .anim-invitacion-pop { animation: none; }
-        }
       `}</style>
 
       {animada ? (
@@ -403,10 +408,11 @@ export const MARCA_CUENTA_REGRESIVA = "cuenta-regresiva";
  * nodo aunque __html no cambió: el DOM mutado se reemplaza por HTML
  * fresco cuyos <script> ya no ejecutan — countdown congelado en "—",
  * música sin gesto, partículas vacías. Se reprodujo con dos disparos
- * reales: el flip post-hidratación de useMovimientoReducido (visitante
- * con reduced motion — el bug que el dueño vio en producción) y
- * setRsvpAbierto al tocar "Confirmá tu asistencia". Con memo y props
- * estables (strings), los re-renders del padre nunca tocan este árbol.
+ * reales: el flip post-hidratación que hacía el hook de movimiento
+ * reducido (el bug que el dueño vio en producción; ese hook ya no se
+ * usa acá) y setRsvpAbierto al tocar "Confirmá tu asistencia" —este
+ * sigue vivo—. Con memo y props estables (strings), los re-renders del
+ * padre nunca tocan este árbol.
  */
 const DisenoPropio = memo(function DisenoPropio({
   html,

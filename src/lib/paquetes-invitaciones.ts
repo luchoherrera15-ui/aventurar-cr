@@ -105,7 +105,37 @@ export type ProductoIndividual = {
   tienePanel?: boolean;
   /** Detalle corto que acompaña al nombre donde haya espacio. */
   detalle?: string;
+  /**
+   * El precio de lista, para mostrarlo tachado al lado del de promo.
+   * Solo se pone mientras la promoción esté viva: `precioUSD` sigue
+   * siendo SIEMPRE lo que se cobra (y lo que dice la base, que es la
+   * que manda). Al vencer la promo se borra este campo y se devuelve
+   * `precioUSD` a su valor de lista, en el código Y en la base.
+   */
+  precioAntesUSD?: number;
 };
+
+/**
+ * La promoción de lanzamiento de las invitaciones (agosto 2026): un mes
+ * de precio rebajado. La fecha vive acá para que el cartel no mienta
+ * cuando pase — y para poder buscarla el día que haya que levantarla.
+ */
+export const PROMO_INVITACIONES = {
+  hasta: "2026-09-06",
+  hastaTexto: "6 de setiembre",
+  etiqueta: "Precio de lanzamiento",
+} as const;
+
+/** ¿Sigue viva la promo? Se evalúa contra el día de hoy. */
+export function promoVigente(hoy: Date = new Date()): boolean {
+  return hoy <= new Date(`${PROMO_INVITACIONES.hasta}T23:59:59-06:00`);
+}
+
+/** El % de descuento redondeado, para el sellito. */
+export function descuentoPct(p: ProductoIndividual): number | null {
+  if (!p.precioAntesUSD || p.precioAntesUSD <= p.precioUSD) return null;
+  return Math.round((1 - p.precioUSD / p.precioAntesUSD) * 100);
+}
 
 export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
   // --- Álbumes digitales (se venden por cantidad de fotos) ---
@@ -122,7 +152,8 @@ export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
     // referencian, y el id nunca se muestra en pantalla.
     id: "inv_esencial",
     nombre: "Invitación Estándar",
-    precioUSD: 25,
+    precioUSD: 19,
+    precioAntesUSD: 25,
     familia: "invitacion",
     tienePanel: false,
     detalle: "Diseño a tu medida y confirmación por WhatsApp.",
@@ -130,7 +161,8 @@ export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
   {
     id: "inv_premium",
     nombre: "Invitación Premium",
-    precioUSD: 85,
+    precioUSD: 45,
+    precioAntesUSD: 85,
     familia: "invitacion",
     detalle: "Con panel de confirmaciones, GPS y cuenta regresiva.",
   },
@@ -168,8 +200,14 @@ export type PackInvitacion = {
   destacado?: boolean;
   lema: string;
   incluye: string[];
-  /** Lo que costaría comprando cada pieza suelta — para mostrar el ahorro. */
-  sueltoUSD: number;
+  /**
+   * El álbum que trae. Lo que costaría suelto NO se escribe a mano: se
+   * calcula con los precios de HOY (ver `sueltoPack`). Cuando la
+   * Premium está en promo, comprar por separado puede salir más barato
+   * que el pack — y entonces el cartel de "ahorrás" no debe aparecer,
+   * en vez de anunciar un ahorro que no existe.
+   */
+  albumId: string;
 };
 
 export const PACKS_INVITACIONES: PackInvitacion[] = [
@@ -177,7 +215,7 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
     id: "perla",
     nombre: "El Brindis",
     precioUSD: 113,
-    sueltoUSD: 85 + 39,
+    albumId: "album_50",
     badge: "Álbum de regalo",
     lema: "La invitación completa, con el álbum de la fiesta incluido.",
     incluye: [
@@ -191,7 +229,7 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
     id: "zafiro",
     nombre: "El Gran Día",
     precioUSD: 138,
-    sueltoUSD: 85 + 69,
+    albumId: "album_150",
     badge: "El favorito",
     destacado: true,
     lema: "El punto justo: más fotos para que no se pierda ningún momento.",
@@ -206,7 +244,7 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
     id: "diamante",
     nombre: "Para Siempre",
     precioUSD: 163,
-    sueltoUSD: 85 + 99,
+    albumId: "album_250",
     badge: "Exclusivo",
     lema: "Para el evento que se cuenta una sola vez en la vida.",
     incluye: [
@@ -218,9 +256,20 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
   },
 ];
 
-/** Lo que se ahorra comprando el pack en vez de las piezas sueltas. */
+/** Lo que costaría comprar las piezas por separado, a precios de HOY. */
+export function sueltoPack(p: PackInvitacion): number {
+  const precio = (id: string) =>
+    PRODUCTOS_INDIVIDUALES.find((x) => x.id === id)?.precioUSD ?? 0;
+  return precio("inv_premium") + precio(p.albumId);
+}
+
+/**
+ * Lo que se ahorra comprando el pack. Puede dar CERO O NEGATIVO durante
+ * una promo de las piezas sueltas: en ese caso la pantalla no muestra
+ * ningún ahorro, en vez de inventarlo.
+ */
 export function ahorroPack(p: PackInvitacion): number {
-  return p.sueltoUSD - p.precioUSD;
+  return sueltoPack(p) - p.precioUSD;
 }
 
 /**

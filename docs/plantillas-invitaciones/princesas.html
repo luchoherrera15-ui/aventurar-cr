@@ -1,0 +1,2193 @@
+<!--
+  Plantilla "Princesas" — invitación de cumpleaños infantil con tema de
+  CASTILLO DE CUENTO. Cuento de hadas con buen gusto: cielo de noche
+  azul profundo, rosa empolvado, lila suave, dorado y blanco perla; nada
+  de rosa chicle ni clip art. Sin nombres ni personajes con marca
+  registrada: el castillo, el carruaje y las hadas son dibujo propio.
+
+  USO: sustituir los placeholders y guardar el resultado en
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta a
+  pantalla completa (el fragmento ocupa todo el ancho del viewport) y
+  monta ella misma dos piezas vivas:
+    · la cuenta regresiva, donde esta plantilla deja
+      <div data-bookea="cuenta-regresiva"></div>
+    · el formulario de confirmación, como card modal, al tocar el
+      <button data-bookea="abrir-rsvp">
+
+  ESCENAS (ocho pantallas completas, cada una entra DISTINTO):
+    1. Portada — telón que se abre, cielo estrellado, la luna que asoma
+       y el castillo que levanta sus torres con las ventanas
+       encendiéndose una por una.
+    2. El cuento — el libro se abre en 3D (rotateY) y las líneas entran
+       escalonadas.
+    3. La fecha — el medallón cae con rebote, la cuenta regresiva
+       cascadea y revolotean mariposas.
+    4. El reino — castillo LIGADO AL SCROLL: las torres se levantan y
+       las tres ventanas se encienden con el itinerario.
+    5. El código del reino — los cuatro escudos giran en X al entrar y
+       estallan en polvo de hadas al tocarlos.
+    6. El lugar — el pergamino se desenrolla y el letrero se mece.
+    7. Confirmá — la cinta se despliega y el sello late.
+    8. Cierre — "y vivieron felices para siempre" letra por letra, con
+       el carruaje cruzando y dejando estela.
+
+  PLACEHOLDERS:
+    {{NOMBRE}}       nombre de la festejada        p. ej. Julieta
+    {{EDAD}}         edad que cumple               p. ej. 6
+    {{FECHA_CORTA}}  fecha en una línea            p. ej. Sábado 13 de marzo · 2027
+    {{FECHA_LARGA}}  fecha completa                p. ej. Sábado 13 de marzo de 2027
+    {{HORA}}         hora de inicio                p. ej. 2:00 p. m.
+    {{HORA_FIN}}     hora de cierre                p. ej. 6:00 p. m.
+    {{HORA_QUEQUE}}  hora del queque y la piñata   p. ej. 4:00
+    {{LUGAR}}        nombre del lugar              p. ej. Salón Los Jardines
+    {{DIRECCION}}    dirección corta               p. ej. Heredia, Costa Rica
+    {{LINK_MAPS}}    URL de Google Maps
+    {{LINK_WAZE}}    URL de Waze
+    {{PADRES}}       firma de los papás            p. ej. Sus papás — Natalia y Diego
+    {{MENSAJE}}      el párrafo del cuento
+    {{LIMITE}}       fecha límite para confirmar   p. ej. viernes 6 de marzo
+
+  NOTAS TÉCNICAS (reglas duras del producto):
+  - Autocontenido: todo el CSS en el <style> y todo el JS en el <script>
+    de este mismo fragmento. Cero librerías, cero imágenes remotas (solo
+    SVG inline). Todo va namespaced con .pri-/#pri- para no tocar el
+    RSVP ni el resto de la página.
+  - Las animaciones corren SIEMPRE, iguales para todo el mundo: acá NO
+    se consulta prefers-reduced-motion, ni en el CSS ni en el JS
+    (decisión del dueño — con la señal respetada él no vería nada). El
+    único matchMedia que existe es de ANCHO (min-width: 768px) y solo
+    sirve para subir la cantidad de partículas en pantallas grandes.
+  - NINGÚN elemento arranca en opacity:0 esperando al observer. El
+    estado por defecto es VISIBLE y la entrada se agrega ENCIMA con la
+    clase .pri-on (o .pri-abierta en la portada): si el
+    IntersectionObserver no corre —o el <script> entero no corre— la
+    invitación se lee completa, quieta y sin telón (el telón nace en
+    display:none y solo el JS lo enciende).
+  - Presupuesto de partículas de teléfono: 12 estrellas + 5 motas de
+    polvo + 2 mariposas ≈ 19 en pantalla, y los estallidos al tocar
+    suman 7 → tope ~25 simultáneas. En ≥768px el JS agrega más.
+  - Solo se animan transform y opacity. Cero backdrop-filter en cosas
+    que se mueven, cero animación de width/top/left.
+  - Todo lo tocable mide 44px o más y las micro-interacciones van por
+    TAP (pointerdown), no por hover.
+-->
+<div class="pri">
+  <style>
+    /* ================= Tokens del reino ================= */
+    .pri {
+      --pri-noche: #10173a;
+      --pri-noche-2: #1b2456;
+      --pri-indigo: #2c2a63;
+      --pri-uva: #3d2f5e;
+      --pri-lila: #b9a3dd;
+      --pri-lila-claro: #e9e0f7;
+      --pri-lila-papel: #f3edfb;
+      --pri-rosa: #e6b3c1;
+      --pri-rosa-hondo: #c4778e;
+      --pri-rosa-claro: #f9e6ea;
+      --pri-perla: #fdf8f5;
+      --pri-oro: #c8a04e;
+      --pri-oro-claro: #f2d9a0;
+      --pri-oro-hondo: #936f2c;
+      --pri-tinta: #2e2648;
+      --pri-tinta-suave: #6a5f86;
+      --pri-serif: var(--inv3-serif, "Cormorant Garamond"), "Playfair Display",
+        Georgia, "Times New Roman", serif;
+      --pri-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: block;
+      width: 100%;
+      color: var(--pri-tinta);
+      font-family: var(--pri-sans);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pri *,
+    .pri *::before,
+    .pri *::after {
+      box-sizing: border-box;
+    }
+
+    /* ================= Estructura de escenas ================= */
+    .pri-sec {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100svh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(52px, 10vh, 92px) 20px;
+      text-align: center;
+      isolation: isolate;
+    }
+    .pri-centro {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    /* Tipografía base del reino. */
+    .pri-kicker {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--pri-oro);
+    }
+    .pri-titulo {
+      margin: 10px 0 0;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(30px, 9vw, 46px);
+      line-height: 1.08;
+      letter-spacing: 0.005em;
+      text-wrap: balance;
+    }
+    .pri-texto {
+      margin: 14px 0 0;
+      font-size: clamp(14.5px, 4vw, 17px);
+      line-height: 1.75;
+      color: var(--pri-tinta-suave);
+      text-wrap: pretty;
+    }
+    .pri-firma {
+      margin: 22px 0 0;
+      font-family: var(--pri-serif);
+      font-style: italic;
+      font-size: clamp(16px, 4.4vw, 19px);
+      color: var(--pri-rosa-hondo);
+    }
+    .pri-oscura .pri-titulo,
+    .pri-oscura .pri-firma {
+      color: var(--pri-perla);
+    }
+    .pri-oscura .pri-texto {
+      color: rgba(253, 248, 245, 0.82);
+    }
+    .pri-oscura .pri-firma {
+      color: var(--pri-rosa);
+    }
+
+    /* Filete dorado — el separador del libro ilustrado. */
+    .pri-filete {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 18px auto 0;
+      color: var(--pri-oro);
+    }
+    .pri-filete i {
+      display: block;
+      width: clamp(34px, 12vw, 64px);
+      height: 1px;
+      background: currentColor;
+      opacity: 0.55;
+    }
+    .pri-filete b {
+      display: block;
+      width: 7px;
+      height: 7px;
+      transform: rotate(45deg);
+      border: 1px solid currentColor;
+    }
+
+    /* ================= 0 · El TELÓN ================= */
+    /* Nace apagado: sin JS nunca aparece y la invitación se ve entera. */
+    #pri-telon {
+      display: none;
+    }
+    #pri-telon.pri-viva {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      overflow: hidden;
+      cursor: pointer;
+      transition: opacity 0.55s ease-out;
+    }
+    #pri-telon.pri-fuera {
+      opacity: 0;
+    }
+    .pri-telon-fondo {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(30rem 22rem at 50% 78%, rgba(198, 150, 176, 0.4), transparent 62%),
+        linear-gradient(180deg, #0c1230 0%, #1b2456 58%, #3f3068 84%, #7b4f74 100%);
+    }
+    .pri-cortina {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 52%;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          rgba(0, 0, 0, 0.24) 0px,
+          rgba(255, 255, 255, 0.07) 13px,
+          rgba(0, 0, 0, 0.24) 27px
+        ),
+        linear-gradient(180deg, #b06d84 0%, #8e4f6a 46%, #5f3050 100%);
+      box-shadow: inset 0 -40px 60px -30px rgba(0, 0, 0, 0.6);
+      transition: transform 1s cubic-bezier(0.72, 0, 0.16, 1);
+      will-change: transform;
+      z-index: 2;
+    }
+    .pri-cortina-izq {
+      left: 0;
+      border-right: 2px solid rgba(242, 217, 160, 0.5);
+    }
+    .pri-cortina-der {
+      right: 0;
+      border-left: 2px solid rgba(242, 217, 160, 0.5);
+    }
+    .pri-telon-abierto .pri-cortina-izq {
+      transform: translate3d(-104%, 0, 0);
+    }
+    .pri-telon-abierto .pri-cortina-der {
+      transform: translate3d(104%, 0, 0);
+    }
+    /* La cenefa dorada de arriba, que se levanta con el telón. */
+    .pri-cenefa {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 78px;
+      z-index: 3;
+      background: linear-gradient(180deg, #7a3f5e 0%, #a05c78 68%, #c98da2 100%);
+      clip-path: polygon(
+        0 0, 100% 0, 100% 62%, 92% 100%, 84% 62%, 75% 100%, 67% 62%, 58% 100%,
+        50% 62%, 42% 100%, 33% 62%, 25% 100%, 16% 62%, 8% 100%, 0 62%
+      );
+      transition: transform 0.9s cubic-bezier(0.72, 0, 0.16, 1);
+      will-change: transform;
+    }
+    .pri-telon-abierto .pri-cenefa {
+      transform: translate3d(0, -105%, 0);
+    }
+    .pri-telon-centro {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+      text-align: center;
+      color: var(--pri-perla);
+      transition:
+        transform 0.55s cubic-bezier(0.5, 0, 0.9, 0.4),
+        opacity 0.45s ease-out;
+      will-change: transform, opacity;
+    }
+    .pri-telon-abierto .pri-telon-centro {
+      opacity: 0;
+      transform: scale(1.16);
+    }
+    .pri-medallon {
+      width: 92px;
+      height: 92px;
+      animation: pri-medallon-late 2.6s ease-in-out infinite;
+    }
+    .pri-telon-kicker {
+      margin: 0;
+      font-family: var(--pri-serif);
+      font-style: italic;
+      font-size: clamp(17px, 5vw, 21px);
+      color: var(--pri-oro-claro);
+    }
+    .pri-telon-nombre {
+      margin: 0;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(42px, 14vw, 66px);
+      line-height: 1;
+      color: var(--pri-perla);
+      text-shadow: 0 6px 26px rgba(0, 0, 0, 0.4);
+    }
+    .pri-telon-toca {
+      margin: 6px 0 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(253, 248, 245, 0.78);
+      animation: pri-respira 1.9s ease-in-out infinite;
+    }
+
+    /* ================= Capa de polvo de hadas (fija) ================= */
+    #pri-polvo {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .pri-mota {
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      margin: -3.5px 0 0 -3.5px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 40% 35%, #fff8e2, rgba(242, 217, 160, 0.15) 70%);
+      box-shadow: 0 0 9px rgba(242, 217, 160, 0.75);
+      opacity: 0.75;
+      animation: pri-mota-flota var(--pri-dur, 14s) ease-in-out var(--pri-retardo, 0s) infinite;
+      will-change: transform, opacity;
+    }
+    .pri-chispa {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      margin: -4px 0 0 -4px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 40% 35%, #fffdf6, rgba(242, 217, 160, 0.2) 72%);
+      box-shadow: 0 0 10px rgba(242, 217, 160, 0.9);
+      animation: pri-chispa-estalla 800ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+      will-change: transform, opacity;
+    }
+
+    /* ================= 1 · PORTADA ================= */
+    .pri-portada {
+      justify-content: flex-start;
+      padding-top: clamp(58px, 11vh, 104px);
+      background:
+        radial-gradient(26rem 18rem at 78% 12%, rgba(242, 217, 160, 0.16), transparent 64%),
+        radial-gradient(34rem 20rem at 50% 100%, rgba(228, 168, 190, 0.5), transparent 66%),
+        linear-gradient(
+          180deg,
+          #0b1130 0%,
+          #141c46 26%,
+          #2a2560 50%,
+          #4b3269 70%,
+          #8b5478 86%,
+          #d79cae 100%
+        );
+    }
+    .pri-cielo {
+      position: absolute;
+      inset: 0 0 34% 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .pri-estrella {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      margin: -1.5px 0 0 -1.5px;
+      border-radius: 999px;
+      background: #fff7e4;
+      box-shadow: 0 0 7px rgba(255, 247, 228, 0.95);
+      opacity: 0.85;
+      animation: pri-titila var(--pri-dur, 3.2s) ease-in-out var(--pri-retardo, 0s) infinite;
+      will-change: transform, opacity;
+    }
+    .pri-estrella-grande {
+      width: 5px;
+      height: 5px;
+      margin: -2.5px 0 0 -2.5px;
+    }
+    .pri-luna {
+      position: absolute;
+      top: clamp(52px, 11vh, 96px);
+      right: clamp(22px, 9vw, 90px);
+      width: clamp(66px, 20vw, 104px);
+      height: clamp(66px, 20vw, 104px);
+      z-index: 2;
+    }
+    .pri-abierta .pri-luna {
+      animation: pri-luna-asoma 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+    }
+    .pri-luna-halo {
+      animation: pri-halo-respira 5.2s ease-in-out infinite;
+      transform-origin: center;
+    }
+
+    .pri-portada-texto {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .pri-abierta .pri-portada-texto > * {
+      animation: pri-sube-suave 0.95s cubic-bezier(0.22, 1, 0.36, 1) var(--pri-retardo, 0s) both;
+    }
+    .pri-erase {
+      margin: 0;
+      font-family: var(--pri-serif);
+      font-style: italic;
+      font-size: clamp(17px, 5vw, 22px);
+      color: var(--pri-oro-claro);
+    }
+    .pri-los-anios {
+      margin: 12px 0 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(253, 248, 245, 0.8);
+    }
+    .pri-nombre {
+      position: relative;
+      margin: 4px 0 0;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(56px, 21vw, 108px);
+      line-height: 0.98;
+      background: linear-gradient(100deg, #f7e6c2 8%, #ffffff 34%, #e9c887 62%, #fff3d6 92%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 8px 26px rgba(12, 16, 44, 0.55));
+    }
+    .pri-abierta .pri-nombre {
+      animation:
+        pri-nombre-entra 1.25s cubic-bezier(0.18, 1.05, 0.32, 1) 0.42s both,
+        pri-flota-lento 7s ease-in-out 1.7s infinite;
+    }
+
+    /* La cinta con la fecha, que ondea. */
+    .pri-cinta {
+      position: relative;
+      display: inline-block;
+      margin-top: 20px;
+      max-width: 100%;
+    }
+    .pri-cinta-cuerpo {
+      position: relative;
+      z-index: 2;
+      display: block;
+      padding: 13px 26px;
+      background: linear-gradient(180deg, #f0c0cf 0%, #d692a8 52%, #b76c88 100%);
+      color: #40203a;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(15px, 4.4vw, 19px);
+      letter-spacing: 0.02em;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 10px 26px -14px rgba(10, 12, 40, 0.8);
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+      animation: pri-cinta-ondea 4.6s ease-in-out infinite;
+      will-change: transform;
+    }
+    .pri-cinta-punta {
+      position: absolute;
+      top: 8px;
+      width: 26px;
+      height: 26px;
+      background: linear-gradient(180deg, #a85f7d, #7d3f5f);
+      z-index: 1;
+    }
+    .pri-cinta-punta-izq {
+      left: -20px;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 34% 62%);
+    }
+    .pri-cinta-punta-der {
+      right: -20px;
+      clip-path: polygon(0 0, 100% 0, 66% 62%, 0 100%);
+    }
+
+    .pri-castillo-portada {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      z-index: 2;
+      width: min(760px, 132%);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .pri-torre {
+      transform-box: fill-box;
+    }
+    .pri-abierta .pri-torre {
+      animation: pri-torre-sube 1.35s cubic-bezier(0.22, 1, 0.36, 1) var(--pri-retardo, 0s) both;
+    }
+    .pri-abierta .pri-ventana {
+      animation: pri-enciende 0.7s ease-out var(--pri-retardo, 0s) both;
+    }
+    .pri-halo {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: pri-halo-titila var(--pri-dur, 4.4s) ease-in-out var(--pri-retardo, 0s) infinite;
+    }
+    .pri-banderin {
+      transform-box: fill-box;
+      transform-origin: left center;
+      animation: pri-banderin-ondea 2.6s ease-in-out infinite;
+    }
+
+    .pri-bajar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 18px;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(64, 32, 58, 0.72);
+      pointer-events: none;
+    }
+    .pri-bajar svg {
+      width: 18px;
+      height: 18px;
+      animation: pri-cae-cae 1.9s ease-in-out infinite;
+    }
+
+    /* ================= 2 · EL CUENTO (libro) ================= */
+    .pri-cuento {
+      background:
+        radial-gradient(24rem 18rem at 12% 8%, rgba(233, 224, 247, 0.9), transparent 62%),
+        radial-gradient(26rem 20rem at 88% 96%, rgba(249, 230, 234, 0.95), transparent 64%),
+        linear-gradient(180deg, #fdf8f5 0%, #f7eef4 100%);
+    }
+    .pri-libro {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      max-width: 560px;
+      margin: 0 auto;
+      perspective: 1400px;
+    }
+    .pri-hoja {
+      position: relative;
+      padding: clamp(26px, 7vw, 44px) clamp(20px, 6vw, 40px);
+      background:
+        radial-gradient(18rem 12rem at 100% 0%, rgba(233, 224, 247, 0.55), transparent 60%),
+        linear-gradient(180deg, #fffcfa 0%, #fdf5f2 100%);
+      border: 1px solid rgba(200, 160, 78, 0.42);
+      border-radius: 4px 16px 16px 4px;
+      box-shadow:
+        0 26px 60px -34px rgba(46, 38, 72, 0.55),
+        inset 0 0 0 6px rgba(255, 255, 255, 0.6),
+        inset 0 0 0 7px rgba(200, 160, 78, 0.18);
+      transform-origin: left center;
+      backface-visibility: hidden;
+    }
+    .pri-hoja::before {
+      /* el lomo del libro */
+      content: "";
+      position: absolute;
+      left: -9px;
+      top: 6px;
+      bottom: 6px;
+      width: 10px;
+      border-radius: 6px 0 0 6px;
+      background: linear-gradient(90deg, #8e4f6a, #c4778e 62%, rgba(196, 119, 142, 0.35));
+    }
+    .pri-on .pri-hoja {
+      animation: pri-hoja-abre 1.15s cubic-bezier(0.26, 0.9, 0.32, 1) both;
+    }
+    .pri-on .pri-linea {
+      animation: pri-linea-entra 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--pri-retardo, 0s) both;
+    }
+    .pri-capitular {
+      float: left;
+      margin: 4px 10px 0 0;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(48px, 15vw, 68px);
+      line-height: 0.78;
+      color: var(--pri-oro);
+    }
+    .pri-esquina {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      color: rgba(200, 160, 78, 0.55);
+      pointer-events: none;
+    }
+    .pri-esq-si { top: 8px; left: 8px; }
+    .pri-esq-sd { top: 8px; right: 8px; transform: scaleX(-1); }
+    .pri-esq-ii { bottom: 8px; left: 8px; transform: scaleY(-1); }
+    .pri-esq-id { bottom: 8px; right: 8px; transform: scale(-1, -1); }
+    .pri-marcapaginas {
+      position: absolute;
+      top: -10px;
+      right: clamp(24px, 9vw, 56px);
+      width: 26px;
+      height: 74px;
+      background: linear-gradient(180deg, #d692a8, #a85f7d);
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+      box-shadow: 0 8px 18px -10px rgba(46, 38, 72, 0.7);
+      transform-origin: top center;
+      animation: pri-marca-mece 5.4s ease-in-out infinite;
+    }
+
+    /* ================= 3 · LA FECHA ================= */
+    .pri-fecha {
+      background:
+        radial-gradient(28rem 20rem at 20% 0%, rgba(196, 119, 142, 0.34), transparent 62%),
+        radial-gradient(26rem 20rem at 84% 100%, rgba(140, 108, 190, 0.4), transparent 66%),
+        linear-gradient(180deg, #2a2560 0%, #453070 48%, #6a3f6d 100%);
+    }
+    .pri-medalla {
+      position: relative;
+      z-index: 3;
+      display: block;
+      width: clamp(120px, 34vw, 160px);
+      height: clamp(120px, 34vw, 160px);
+      margin: 0 auto 14px;
+    }
+    .pri-on .pri-medalla {
+      animation: pri-medalla-cae 1.15s cubic-bezier(0.16, 1.28, 0.4, 1) both;
+    }
+    .pri-medalla-aro {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: pri-gira-lento 26s linear infinite;
+    }
+    .pri-fecha-linea {
+      margin: 0;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(26px, 7.6vw, 40px);
+      line-height: 1.14;
+      color: var(--pri-perla);
+    }
+    .pri-fecha-hora {
+      margin: 8px 0 0;
+      font-size: clamp(13px, 3.8vw, 15px);
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--pri-oro-claro);
+    }
+    .pri-cuenta {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      max-width: 520px;
+      margin: 26px auto 0;
+    }
+    .pri-on .pri-cuenta {
+      animation: pri-cuenta-cascada 0.9s cubic-bezier(0.2, 1.06, 0.36, 1) 0.35s both;
+    }
+    /* La cuenta regresiva la monta la plataforma (React) acá adentro:
+       se le vuelve a vestir con la paleta del reino y se le desactiva la
+       entrada [data-reveal] del sitio para que NUNCA quede invisible. */
+    .pri [data-bookea="cuenta-regresiva"] [data-reveal] {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+    .pri [data-bookea="cuenta-regresiva"] p {
+      color: var(--pri-oro-claro) !important;
+    }
+    .pri [data-bookea="cuenta-regresiva"] > div > div > div {
+      border-color: rgba(242, 217, 160, 0.45) !important;
+      background: rgba(253, 248, 245, 0.12) !important;
+      border-radius: 18px;
+    }
+    .pri [data-bookea="cuenta-regresiva"] > div > div > div > span:first-child {
+      color: var(--pri-perla) !important;
+    }
+    .pri [data-bookea="cuenta-regresiva"] > div > div > div > span:last-child {
+      color: rgba(242, 217, 160, 0.9) !important;
+    }
+    .pri-mariposa {
+      position: absolute;
+      z-index: 2;
+      width: 34px;
+      height: 28px;
+      perspective: 70px;
+      pointer-events: none;
+      animation: pri-mariposa-vuela var(--pri-dur, 15s) ease-in-out var(--pri-retardo, 0s) infinite;
+      will-change: transform;
+    }
+    .pri-ala {
+      transform-box: fill-box;
+      transform-origin: 50% 50%;
+      animation: pri-ala-aletea 0.42s ease-in-out infinite alternate;
+    }
+    .pri-ala-der {
+      animation-name: pri-ala-aletea-der;
+    }
+
+    /* ================= 4 · EL REINO (castillo con el scroll) ======== */
+    .pri-reino {
+      background:
+        radial-gradient(30rem 22rem at 50% 4%, rgba(242, 217, 160, 0.55), transparent 64%),
+        linear-gradient(180deg, #f6eefb 0%, #efe3f7 46%, #f9e6ea 100%);
+    }
+    .pri-reino-grid {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .pri-castillo-reino {
+      display: block;
+      width: min(258px, 68vw);
+      height: auto;
+      flex: none;
+    }
+    .pri-hitos {
+      list-style: none;
+      margin: 6px 0 0;
+      padding: 0;
+      width: 100%;
+      max-width: 420px;
+      text-align: left;
+    }
+    .pri-hito {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 13px 4px;
+      border-bottom: 1px solid rgba(200, 160, 78, 0.28);
+    }
+    .pri-hito:last-child {
+      border-bottom: 0;
+    }
+    .pri-hito.pri-on {
+      animation: pri-hito-entra 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .pri-hito-hora {
+      flex: none;
+      width: 68px;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(19px, 5.4vw, 24px);
+      line-height: 1.1;
+      color: var(--pri-oro-hondo);
+    }
+    .pri-hito-que {
+      margin: 0;
+      font-size: clamp(14px, 3.9vw, 16px);
+      line-height: 1.55;
+      color: var(--pri-tinta);
+    }
+    .pri-hito-que b {
+      display: block;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(17px, 4.8vw, 20px);
+      color: var(--pri-uva);
+    }
+    /* Con JS las ventanas arrancan apagadas y se encienden con el
+       scroll; sin JS quedan encendidas de entrada. */
+    .pri-js [data-pri-vent] {
+      opacity: 0.12;
+    }
+    .pri-js [data-pri-vent].pri-on {
+      animation: pri-enciende 0.85s ease-out both;
+    }
+    .pri-toque {
+      margin: 14px 0 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--pri-oro-hondo);
+      opacity: 0.85;
+    }
+
+    /* ================= 5 · EL CÓDIGO DEL REINO ================= */
+    .pri-codigo {
+      background:
+        radial-gradient(28rem 20rem at 82% 6%, rgba(140, 108, 190, 0.5), transparent 62%),
+        radial-gradient(26rem 20rem at 10% 96%, rgba(196, 119, 142, 0.42), transparent 64%),
+        linear-gradient(180deg, #241d4e 0%, #372a5f 52%, #4c2f5c 100%);
+    }
+    .pri-escudos {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 460px;
+      margin: 24px auto 0;
+      perspective: 900px;
+    }
+    .pri-escudo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 118px;
+      padding: 16px 10px;
+      border: 1px solid rgba(242, 217, 160, 0.42);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(253, 248, 245, 0.13), rgba(253, 248, 245, 0.05));
+      color: var(--pri-perla);
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(15px, 4.2vw, 18px);
+      cursor: pointer;
+      touch-action: manipulation;
+      transform-origin: center;
+    }
+    .pri-escudo svg {
+      width: 40px;
+      height: 40px;
+      color: var(--pri-oro-claro);
+    }
+    .pri-on .pri-escudo {
+      animation: pri-escudo-gira 0.85s cubic-bezier(0.2, 1.06, 0.36, 1) var(--pri-retardo, 0s) both;
+    }
+    .pri-escudo.pri-tocado {
+      animation: pri-escudo-brinca 0.62s cubic-bezier(0.3, 1.2, 0.4, 1) both;
+    }
+    .pri-sello {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 78px;
+      height: 78px;
+      margin: 0 auto 6px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 34% 28%, #f2d9a0, #936f2c 74%);
+      box-shadow:
+        inset 0 2px 6px rgba(255, 255, 255, 0.4),
+        0 10px 24px -12px rgba(10, 12, 40, 0.9);
+      color: #3a2a10;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: 30px;
+    }
+    .pri-on .pri-sello {
+      animation: pri-sello-estampa 0.7s cubic-bezier(0.24, 1.3, 0.4, 1) both;
+    }
+
+    /* ================= 6 · EL LUGAR (pergamino) ================= */
+    .pri-lugar {
+      background:
+        radial-gradient(26rem 18rem at 78% 4%, rgba(233, 224, 247, 0.9), transparent 62%),
+        linear-gradient(180deg, #fdf8f5 0%, #f6eef8 62%, #f9e6ea 100%);
+    }
+    .pri-pergamino {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      max-width: 470px;
+      margin: 22px auto 0;
+      padding: clamp(24px, 6.5vw, 36px) clamp(18px, 5.5vw, 32px);
+      background:
+        radial-gradient(20rem 14rem at 50% 0%, rgba(242, 217, 160, 0.3), transparent 66%),
+        linear-gradient(180deg, #fffaf1 0%, #fbf1e2 100%);
+      border: 1px solid rgba(200, 160, 78, 0.5);
+      border-radius: 10px;
+      box-shadow: 0 26px 60px -34px rgba(46, 38, 72, 0.6);
+      transform-origin: top center;
+    }
+    .pri-on .pri-pergamino {
+      animation: pri-pergamino-abre 1s cubic-bezier(0.26, 0.98, 0.34, 1) both;
+    }
+    .pri-rollo {
+      position: absolute;
+      left: -8px;
+      right: -8px;
+      height: 16px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #e2c78c, #a9803a 60%, #7d5c24);
+      box-shadow: 0 4px 10px -6px rgba(46, 38, 72, 0.8);
+    }
+    .pri-rollo-arriba { top: -10px; }
+    .pri-rollo-abajo { bottom: -10px; }
+    .pri-letrero {
+      display: block;
+      width: 92px;
+      height: 92px;
+      margin: 0 auto 6px;
+      transform-origin: 50% 8%;
+      animation: pri-letrero-mece 4.4s ease-in-out infinite;
+    }
+    .pri-lugar-nombre {
+      margin: 0;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(24px, 7vw, 34px);
+      line-height: 1.12;
+      color: var(--pri-uva);
+    }
+    .pri-lugar-dir {
+      margin: 6px 0 0;
+      font-size: clamp(13.5px, 3.8vw, 15px);
+      color: var(--pri-tinta-suave);
+    }
+    .pri-botones {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .pri-boton {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 48px;
+      min-width: 148px;
+      padding: 13px 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(200, 160, 78, 0.65);
+      background: linear-gradient(180deg, #fdf8f5, #f5e7d2);
+      color: var(--pri-uva);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      touch-action: manipulation;
+      box-shadow: 0 12px 26px -18px rgba(46, 38, 72, 0.9);
+    }
+    .pri-boton svg {
+      width: 17px;
+      height: 17px;
+    }
+    .pri-on .pri-boton {
+      animation: pri-boton-aparece 0.6s cubic-bezier(0.2, 1.1, 0.36, 1) var(--pri-retardo, 0s) both;
+    }
+    .pri-boton.pri-tocado {
+      animation: pri-escudo-brinca 0.5s cubic-bezier(0.3, 1.2, 0.4, 1) both;
+    }
+    .pri-nota {
+      margin: 16px 0 0;
+      font-size: 12.5px;
+      color: var(--pri-tinta-suave);
+    }
+
+    /* ================= 7 · CONFIRMÁ ================= */
+    .pri-rsvp {
+      background:
+        radial-gradient(26rem 18rem at 50% 6%, rgba(242, 217, 160, 0.5), transparent 62%),
+        linear-gradient(180deg, #f9e6ea 0%, #f0d3dd 50%, #e6c6d6 100%);
+    }
+    .pri-banda {
+      position: relative;
+      z-index: 3;
+      display: inline-block;
+      margin: 0 auto;
+      padding: 10px 30px;
+      background: linear-gradient(180deg, #f2d9a0, #c8a04e 62%, #936f2c);
+      color: #3a2a10;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      clip-path: polygon(0 0, 100% 0, 92% 50%, 100% 100%, 0 100%, 8% 50%);
+      transform-origin: center;
+    }
+    .pri-on .pri-banda {
+      animation: pri-banda-despliega 0.85s cubic-bezier(0.24, 1.1, 0.36, 1) both;
+    }
+    .pri-boton-rsvp {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 58px;
+      min-width: min(300px, 88vw);
+      margin-top: 26px;
+      padding: 17px 34px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #4b3070 0%, #35235a 60%, #241a44 100%);
+      color: var(--pri-oro-claro);
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(18px, 5vw, 22px);
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      touch-action: manipulation;
+      box-shadow:
+        0 0 0 1px rgba(242, 217, 160, 0.55),
+        0 20px 42px -22px rgba(36, 26, 68, 1);
+      animation: pri-late 2.4s ease-in-out infinite;
+      will-change: transform;
+    }
+    .pri-boton-rsvp svg {
+      width: 22px;
+      height: 22px;
+      flex: none;
+    }
+    .pri-limite {
+      margin: 16px 0 0;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--pri-rosa-hondo);
+    }
+
+    /* ================= 8 · CIERRE ================= */
+    .pri-cierre {
+      background:
+        radial-gradient(28rem 20rem at 50% 96%, rgba(196, 119, 142, 0.4), transparent 66%),
+        linear-gradient(180deg, #d79cae 0%, #8b5478 16%, #3f2a63 44%, #1b2456 74%, #16295e 100%);
+    }
+    .pri-final {
+      margin: 0;
+      font-family: var(--pri-serif);
+      font-weight: 600;
+      font-size: clamp(30px, 9.4vw, 50px);
+      line-height: 1.12;
+      color: var(--pri-perla);
+      text-wrap: balance;
+    }
+    .pri-final span {
+      display: inline-block;
+      white-space: pre;
+    }
+    .pri-on .pri-final span {
+      animation: pri-letra-entra 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--pri-retardo, 0s) both;
+    }
+    .pri-camino {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: clamp(40px, 12vh, 96px);
+      height: 96px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .pri-carruaje {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 150px;
+      cursor: pointer;
+      touch-action: manipulation;
+      animation: pri-carruaje-cruza 13s linear infinite;
+      will-change: transform;
+    }
+    .pri-carruaje.pri-tocado {
+      animation:
+        pri-carruaje-cruza 13s linear infinite,
+        pri-brinca-carruaje 0.7s cubic-bezier(0.3, 1.2, 0.4, 1);
+    }
+    .pri-rueda {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: pri-gira-rueda 1.5s linear infinite;
+    }
+    .pri-estela {
+      position: absolute;
+      bottom: 22px;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 40% 35%, #fff8e2, rgba(242, 217, 160, 0.1) 70%);
+      animation: pri-estela-brilla var(--pri-dur, 13s) linear var(--pri-retardo, 0s) infinite;
+      will-change: transform, opacity;
+    }
+    .pri-cierre-firma {
+      margin: 26px 0 0;
+      font-family: var(--pri-serif);
+      font-style: italic;
+      font-size: clamp(16px, 4.6vw, 20px);
+      color: var(--pri-rosa);
+    }
+    .pri-cierre-sello {
+      margin: 18px auto 0;
+      width: 56px;
+      height: 56px;
+      color: var(--pri-oro-claro);
+      animation: pri-gira-lento 34s linear infinite;
+    }
+
+    /* ================= Keyframes ================= */
+    @keyframes pri-respira {
+      0%, 100% { opacity: 0.45; }
+      50% { opacity: 1; }
+    }
+    @keyframes pri-medallon-late {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(1.07) rotate(2deg); }
+    }
+    @keyframes pri-titila {
+      0%, 100% { opacity: 0.28; transform: scale(0.75); }
+      50% { opacity: 1; transform: scale(1.35); }
+    }
+    @keyframes pri-halo-respira {
+      0%, 100% { opacity: 0.55; transform: scale(1); }
+      50% { opacity: 0.95; transform: scale(1.12); }
+    }
+    @keyframes pri-halo-titila {
+      0%, 100% { opacity: 0.35; transform: scale(0.92); }
+      45% { opacity: 1; transform: scale(1.08); }
+      70% { opacity: 0.6; transform: scale(1); }
+    }
+    @keyframes pri-luna-asoma {
+      0% { opacity: 0; transform: translate3d(18px, 46px, 0) scale(0.72); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    @keyframes pri-sube-suave {
+      0% { opacity: 0; transform: translate3d(0, 26px, 0); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+    @keyframes pri-nombre-entra {
+      0% { opacity: 0; transform: translate3d(0, 34px, 0) scale(0.86); }
+      62% { opacity: 1; transform: translate3d(0, 0, 0) scale(1.04); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    @keyframes pri-flota-lento {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, -7px, 0); }
+    }
+    @keyframes pri-cinta-ondea {
+      0%, 100% { transform: rotate(-1.1deg) skewY(0.6deg); }
+      50% { transform: rotate(1.1deg) skewY(-0.6deg); }
+    }
+    @keyframes pri-torre-sube {
+      0% { transform: translate3d(0, var(--pri-baja, 130px), 0); }
+      100% { transform: translate3d(0, 0, 0); }
+    }
+    @keyframes pri-enciende {
+      0% { opacity: 0.05; }
+      55% { opacity: 1; }
+      72% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    @keyframes pri-banderin-ondea {
+      0%, 100% { transform: skewY(0deg) scaleX(1); }
+      50% { transform: skewY(-7deg) scaleX(0.9); }
+    }
+    @keyframes pri-cae-cae {
+      0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.6; }
+      50% { transform: translate3d(0, 7px, 0); opacity: 1; }
+    }
+    @keyframes pri-hoja-abre {
+      0% { opacity: 0.2; transform: rotateY(-102deg) translate3d(0, 8px, 0); }
+      100% { opacity: 1; transform: rotateY(0deg) translate3d(0, 0, 0); }
+    }
+    @keyframes pri-linea-entra {
+      0% { opacity: 0; transform: translate3d(0, 16px, 0); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+    @keyframes pri-marca-mece {
+      0%, 100% { transform: rotate(-2.5deg); }
+      50% { transform: rotate(2.5deg); }
+    }
+    @keyframes pri-medalla-cae {
+      0% { opacity: 0; transform: translate3d(0, -130px, 0) scale(0.5) rotate(-22deg); }
+      64% { opacity: 1; transform: translate3d(0, 12px, 0) scale(1.08) rotate(4deg); }
+      82% { transform: translate3d(0, -5px, 0) scale(0.98) rotate(-1.5deg); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+    }
+    @keyframes pri-gira-lento {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes pri-cuenta-cascada {
+      0% { opacity: 0; transform: translate3d(0, 34px, 0) scale(0.94); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    @keyframes pri-mariposa-vuela {
+      0% { transform: translate3d(0, 0, 0) rotate(-8deg); }
+      22% { transform: translate3d(46px, -38px, 0) rotate(9deg); }
+      45% { transform: translate3d(96px, 6px, 0) rotate(-6deg); }
+      68% { transform: translate3d(48px, 44px, 0) rotate(11deg); }
+      86% { transform: translate3d(-18px, 20px, 0) rotate(-5deg); }
+      100% { transform: translate3d(0, 0, 0) rotate(-8deg); }
+    }
+    @keyframes pri-ala-aletea {
+      0% { transform: rotateY(6deg); }
+      100% { transform: rotateY(72deg); }
+    }
+    @keyframes pri-ala-aletea-der {
+      0% { transform: rotateY(-6deg); }
+      100% { transform: rotateY(-72deg); }
+    }
+    @keyframes pri-hito-entra {
+      0% { opacity: 0; transform: translate3d(-24px, 0, 0); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+    @keyframes pri-escudo-gira {
+      0% { opacity: 0; transform: rotateX(82deg) translate3d(0, 20px, 0); }
+      100% { opacity: 1; transform: rotateX(0deg) translate3d(0, 0, 0); }
+    }
+    @keyframes pri-escudo-brinca {
+      0% { transform: scale(1) rotate(0deg); }
+      35% { transform: scale(1.11) rotate(-3.5deg); }
+      65% { transform: scale(0.97) rotate(2.5deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+    @keyframes pri-sello-estampa {
+      0% { opacity: 0; transform: scale(1.75) rotate(-16deg); }
+      70% { opacity: 1; transform: scale(0.94) rotate(4deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    @keyframes pri-pergamino-abre {
+      0% { opacity: 0.35; transform: scaleY(0.04); }
+      58% { opacity: 1; transform: scaleY(1.04); }
+      100% { opacity: 1; transform: scaleY(1); }
+    }
+    @keyframes pri-letrero-mece {
+      0%, 100% { transform: rotate(-5deg); }
+      50% { transform: rotate(5deg); }
+    }
+    @keyframes pri-boton-aparece {
+      0% { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.9); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    @keyframes pri-banda-despliega {
+      0% { opacity: 0.3; transform: scaleX(0.06); }
+      64% { opacity: 1; transform: scaleX(1.05); }
+      100% { opacity: 1; transform: scaleX(1); }
+    }
+    @keyframes pri-late {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.045); }
+    }
+    @keyframes pri-letra-entra {
+      0% { opacity: 0; transform: translate3d(0, 22px, 0) rotate(-7deg); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+    }
+    @keyframes pri-carruaje-cruza {
+      0% { transform: translate3d(-34vw, 0, 0); }
+      100% { transform: translate3d(128vw, 0, 0); }
+    }
+    @keyframes pri-brinca-carruaje {
+      0% { transform: translate3d(0, 0, 0); }
+      40% { transform: translate3d(0, -18px, 0); }
+      100% { transform: translate3d(0, 0, 0); }
+    }
+    @keyframes pri-gira-rueda {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes pri-estela-brilla {
+      0% { opacity: 0; transform: translate3d(-30vw, 0, 0) scale(0.4); }
+      6% { opacity: 1; transform: translate3d(-24vw, -6px, 0) scale(1); }
+      16% { opacity: 0; transform: translate3d(-16vw, -22px, 0) scale(0.3); }
+      100% { opacity: 0; transform: translate3d(128vw, -22px, 0) scale(0.3); }
+    }
+    @keyframes pri-mota-flota {
+      0% { opacity: 0; transform: translate3d(0, 14vh, 0) scale(0.5); }
+      12% { opacity: 0.85; }
+      50% { transform: translate3d(var(--pri-dx, 30px), -22vh, 0) scale(1.15); }
+      82% { opacity: 0.7; }
+      100% { opacity: 0; transform: translate3d(calc(var(--pri-dx, 30px) * -0.6), -52vh, 0) scale(0.5); }
+    }
+    @keyframes pri-chispa-estalla {
+      0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.3); }
+      18% { opacity: 1; transform: translate3d(calc(var(--pri-dx, 0px) * 0.35), calc(var(--pri-dy, 0px) * 0.35), 0) scale(1.25); }
+      100% { opacity: 0; transform: translate3d(var(--pri-dx, 0px), var(--pri-dy, 0px), 0) scale(0.35); }
+    }
+
+    /* ================= Pantallas grandes ================= */
+    @media (min-width: 768px) {
+      .pri-sec {
+        padding: clamp(72px, 12vh, 128px) 40px;
+      }
+      .pri-centro {
+        max-width: 760px;
+      }
+      .pri-reino-grid {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 46px;
+      }
+      .pri-castillo-reino {
+        width: min(320px, 34vw);
+      }
+      .pri-hitos {
+        margin: 0;
+        max-width: 460px;
+      }
+      .pri-escudos {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        max-width: 720px;
+      }
+      .pri-carruaje {
+        width: 210px;
+      }
+      .pri-mariposa {
+        width: 44px;
+        height: 36px;
+      }
+    }
+
+    /* ================= Papel ================= */
+    @media print {
+      .pri-sec {
+        min-height: 0;
+        page-break-inside: avoid;
+        padding: 22px 16px;
+        background: #fff !important;
+        color: #2e2648 !important;
+      }
+      .pri-oscura .pri-titulo,
+      .pri-oscura .pri-texto,
+      .pri-oscura .pri-firma,
+      .pri-final,
+      .pri-fecha-linea,
+      .pri-escudo {
+        color: #2e2648 !important;
+      }
+      .pri-nombre {
+        -webkit-text-fill-color: #936f2c;
+        color: #936f2c;
+        filter: none;
+      }
+      #pri-telon,
+      #pri-polvo,
+      .pri-bajar,
+      .pri-camino,
+      .pri-mariposa,
+      .pri-cielo {
+        display: none !important;
+      }
+      .pri-boton-rsvp {
+        background: none;
+        color: #936f2c;
+        box-shadow: none;
+      }
+    }
+  </style>
+
+  <!-- ============================================================
+       0 · EL TELÓN — nace en display:none; solo el JS lo enciende.
+       ============================================================ -->
+  <div id="pri-telon" role="presentation" aria-hidden="true">
+    <div class="pri-telon-fondo"></div>
+    <div class="pri-cortina pri-cortina-izq"></div>
+    <div class="pri-cortina pri-cortina-der"></div>
+    <div class="pri-cenefa"></div>
+    <div class="pri-telon-centro">
+      <svg class="pri-medallon" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="45" fill="none" stroke="#f2d9a0" stroke-width="1.4" opacity="0.75" />
+        <circle cx="50" cy="50" r="38" fill="rgba(253,248,245,0.08)" stroke="#f2d9a0" stroke-width="2" />
+        <path d="M32 58 L32 44 L40 51 L50 38 L60 51 L68 44 L68 58 Z" fill="#f2d9a0" />
+        <rect x="32" y="61" width="36" height="4" rx="2" fill="#f2d9a0" />
+        <circle cx="40" cy="43" r="2.6" fill="#fdf8f5" />
+        <circle cx="50" cy="36" r="3" fill="#fdf8f5" />
+        <circle cx="60" cy="43" r="2.6" fill="#fdf8f5" />
+      </svg>
+      <p class="pri-telon-kicker">Érase una vez…</p>
+      <p class="pri-telon-nombre">{{NOMBRE}}</p>
+      <p class="pri-telon-toca">Tocá para abrir el cuento</p>
+    </div>
+  </div>
+
+  <!-- Polvo de hadas: capa fija, arriba de todo, sin pointer-events. -->
+  <div id="pri-polvo" aria-hidden="true">
+    <span class="pri-mota" style="left: 12%; top: 74%; --pri-dur: 15s; --pri-retardo: -2s; --pri-dx: 34px"></span>
+    <span class="pri-mota" style="left: 34%; top: 88%; --pri-dur: 18s; --pri-retardo: -7s; --pri-dx: -28px"></span>
+    <span class="pri-mota" style="left: 58%; top: 80%; --pri-dur: 13s; --pri-retardo: -11s; --pri-dx: 22px"></span>
+    <span class="pri-mota" style="left: 78%; top: 92%; --pri-dur: 17s; --pri-retardo: -4s; --pri-dx: -36px"></span>
+    <span class="pri-mota" style="left: 91%; top: 70%; --pri-dur: 20s; --pri-retardo: -14s; --pri-dx: 26px"></span>
+  </div>
+
+  <!-- ============================================================
+       1 · PORTADA
+       ============================================================ -->
+  <section class="pri-sec pri-portada pri-oscura" data-pri-escena>
+    <div class="pri-cielo" aria-hidden="true">
+      <span class="pri-estrella" style="left: 8%; top: 14%; --pri-dur: 3.4s; --pri-retardo: -0.4s"></span>
+      <span class="pri-estrella pri-estrella-grande" style="left: 18%; top: 26%; --pri-dur: 4.2s; --pri-retardo: -1.9s"></span>
+      <span class="pri-estrella" style="left: 27%; top: 9%; --pri-dur: 2.8s; --pri-retardo: -2.6s"></span>
+      <span class="pri-estrella" style="left: 36%; top: 33%; --pri-dur: 3.9s; --pri-retardo: -0.9s"></span>
+      <span class="pri-estrella pri-estrella-grande" style="left: 47%; top: 17%; --pri-dur: 3.1s; --pri-retardo: -3.3s"></span>
+      <span class="pri-estrella" style="left: 55%; top: 38%; --pri-dur: 4.6s; --pri-retardo: -1.2s"></span>
+      <span class="pri-estrella" style="left: 63%; top: 11%; --pri-dur: 3.6s; --pri-retardo: -2.1s"></span>
+      <span class="pri-estrella" style="left: 71%; top: 30%; --pri-dur: 2.9s; --pri-retardo: -0.2s"></span>
+      <span class="pri-estrella pri-estrella-grande" style="left: 84%; top: 22%; --pri-dur: 4.1s; --pri-retardo: -2.8s"></span>
+      <span class="pri-estrella" style="left: 92%; top: 41%; --pri-dur: 3.3s; --pri-retardo: -1.5s"></span>
+      <span class="pri-estrella" style="left: 14%; top: 46%; --pri-dur: 4.4s; --pri-retardo: -3.7s"></span>
+      <span class="pri-estrella" style="left: 78%; top: 50%; --pri-dur: 3.7s; --pri-retardo: -0.7s"></span>
+    </div>
+
+    <svg class="pri-luna" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="pri-luna-halo" cx="50" cy="50" r="46" fill="rgba(255,247,228,0.16)" />
+      <circle class="pri-luna-halo" cx="50" cy="50" r="36" fill="rgba(255,247,228,0.22)" style="animation-delay: -1.8s" />
+      <circle cx="50" cy="50" r="27" fill="#fdf3d9" />
+      <circle cx="41" cy="43" r="4.2" fill="rgba(214,190,150,0.5)" />
+      <circle cx="57" cy="55" r="5.4" fill="rgba(214,190,150,0.42)" />
+      <circle cx="52" cy="36" r="2.6" fill="rgba(214,190,150,0.45)" />
+    </svg>
+
+    <div class="pri-portada-texto">
+      <p class="pri-erase" style="--pri-retardo: 0.15s">Érase una vez…</p>
+      <p class="pri-los-anios" style="--pri-retardo: 0.28s">Los {{EDAD}} años de</p>
+      <h1 class="pri-nombre">{{NOMBRE}}</h1>
+      <div style="--pri-retardo: 0.75s">
+        <span class="pri-cinta">
+          <span class="pri-cinta-punta pri-cinta-punta-izq"></span>
+          <span class="pri-cinta-punta pri-cinta-punta-der"></span>
+          <span class="pri-cinta-cuerpo">{{FECHA_CORTA}}</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- El castillo del horizonte: las torres se levantan y las
+         ventanas se encienden una por una al abrirse el telón. -->
+    <svg class="pri-castillo-portada" viewBox="0 0 390 220" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      <defs>
+        <linearGradient id="pri-g-piedra" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#3b3170" />
+          <stop offset="1" stop-color="#1d1747" />
+        </linearGradient>
+        <linearGradient id="pri-g-techo" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#d98fa8" />
+          <stop offset="1" stop-color="#7d3f63" />
+        </linearGradient>
+        <linearGradient id="pri-g-muro" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#332a63" />
+          <stop offset="1" stop-color="#171240" />
+        </linearGradient>
+        <radialGradient id="pri-g-luz">
+          <stop offset="0" stop-color="#ffe6ab" stop-opacity="0.9" />
+          <stop offset="1" stop-color="#ffe6ab" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+
+      <!-- Torre 1 (izquierda) -->
+      <g class="pri-torre" style="--pri-baja: 130px; --pri-retardo: 0.55s">
+        <rect x="44" y="118" width="40" height="56" fill="url(#pri-g-piedra)" />
+        <path d="M38 118 L64 64 L90 118 Z" fill="url(#pri-g-techo)" />
+        <path d="M64 64 L64 46" stroke="#c8a04e" stroke-width="2" />
+        <path class="pri-banderin" d="M64 46 L86 52 L64 58 Z" fill="#c8a04e" />
+        <ellipse class="pri-halo" cx="64" cy="138" rx="24" ry="22" fill="url(#pri-g-luz)" style="--pri-dur: 4.4s; --pri-retardo: -0.6s" />
+        <path class="pri-ventana" d="M56 148 v-12 a8 8 0 0 1 16 0 v12 z" fill="#ffe6ab" style="--pri-retardo: 1.45s" />
+      </g>
+
+      <!-- Torre 2 -->
+      <g class="pri-torre" style="--pri-baja: 112px; --pri-retardo: 0.7s">
+        <rect x="104" y="132" width="34" height="42" fill="url(#pri-g-piedra)" />
+        <path d="M99 132 L121 90 L143 132 Z" fill="url(#pri-g-techo)" />
+        <path d="M121 90 L121 74" stroke="#c8a04e" stroke-width="1.8" />
+        <path class="pri-banderin" d="M121 74 L139 79 L121 84 Z" fill="#c8a04e" />
+        <ellipse class="pri-halo" cx="121" cy="138" rx="20" ry="18" fill="url(#pri-g-luz)" style="--pri-dur: 3.6s; --pri-retardo: -2.1s" />
+        <path class="pri-ventana" d="M115 144 v-10 a6 6 0 0 1 12 0 v10 z" fill="#ffe6ab" style="--pri-retardo: 1.6s" />
+      </g>
+
+      <!-- Torre 3 (la torre mayor) -->
+      <g class="pri-torre" style="--pri-baja: 178px; --pri-retardo: 0.4s">
+        <rect x="160" y="92" width="72" height="82" fill="url(#pri-g-piedra)" />
+        <path d="M152 92 L196 26 L240 92 Z" fill="url(#pri-g-techo)" />
+        <path d="M196 26 L196 6" stroke="#c8a04e" stroke-width="2.2" />
+        <path class="pri-banderin" d="M196 6 L222 13 L196 20 Z" fill="#f2d9a0" />
+        <ellipse class="pri-halo" cx="196" cy="112" rx="42" ry="34" fill="url(#pri-g-luz)" style="--pri-dur: 5.2s; --pri-retardo: -1.1s" />
+        <circle cx="196" cy="104" r="9" fill="#ffe6ab" class="pri-ventana" style="--pri-retardo: 1.25s" />
+        <circle cx="196" cy="104" r="9" fill="none" stroke="#7d3f63" stroke-width="1.4" />
+        <path d="M187 104 h18 M196 95 v18" stroke="#7d3f63" stroke-width="1.2" />
+        <path class="pri-ventana" d="M172 142 v-14 a6 6 0 0 1 12 0 v14 z" fill="#ffe6ab" style="--pri-retardo: 1.35s" />
+        <path class="pri-ventana" d="M190 142 v-14 a6 6 0 0 1 12 0 v14 z" fill="#ffe6ab" style="--pri-retardo: 1.5s" />
+        <path class="pri-ventana" d="M208 142 v-14 a6 6 0 0 1 12 0 v14 z" fill="#ffe6ab" style="--pri-retardo: 1.65s" />
+      </g>
+
+      <!-- Torre 4 -->
+      <g class="pri-torre" style="--pri-baja: 118px; --pri-retardo: 0.82s">
+        <rect x="252" y="128" width="34" height="46" fill="url(#pri-g-piedra)" />
+        <path d="M247 128 L269 84 L291 128 Z" fill="url(#pri-g-techo)" />
+        <path d="M269 84 L269 68" stroke="#c8a04e" stroke-width="1.8" />
+        <path class="pri-banderin" d="M269 68 L287 73 L269 78 Z" fill="#c8a04e" />
+        <ellipse class="pri-halo" cx="269" cy="136" rx="20" ry="18" fill="url(#pri-g-luz)" style="--pri-dur: 4s; --pri-retardo: -3.2s" />
+        <path class="pri-ventana" d="M263 142 v-10 a6 6 0 0 1 12 0 v10 z" fill="#ffe6ab" style="--pri-retardo: 1.75s" />
+      </g>
+
+      <!-- Torre 5 (derecha) -->
+      <g class="pri-torre" style="--pri-baja: 138px; --pri-retardo: 0.62s">
+        <rect x="304" y="116" width="42" height="58" fill="url(#pri-g-piedra)" />
+        <path d="M298 116 L325 60 L352 116 Z" fill="url(#pri-g-techo)" />
+        <path d="M325 60 L325 42" stroke="#c8a04e" stroke-width="2" />
+        <path class="pri-banderin" d="M325 42 L347 48 L325 54 Z" fill="#c8a04e" />
+        <ellipse class="pri-halo" cx="325" cy="140" rx="24" ry="22" fill="url(#pri-g-luz)" style="--pri-dur: 4.8s; --pri-retardo: -1.7s" />
+        <path class="pri-ventana" d="M317 146 v-12 a8 8 0 0 1 16 0 v12 z" fill="#ffe6ab" style="--pri-retardo: 1.9s" />
+      </g>
+
+      <!-- La muralla va ADELANTE: es la que esconde a las torres
+           mientras están bajas. -->
+      <g>
+        <rect x="22" y="156" width="346" height="64" fill="url(#pri-g-muro)" />
+        <rect x="22" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="49.5" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="77" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="104.5" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="132" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="159.5" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="187" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="214.5" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="242" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="269.5" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="297" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="324.5" y="147" width="16" height="10" fill="#2c2458" />
+        <rect x="352" y="147" width="16" height="10" fill="#2c2458" />
+
+        <ellipse class="pri-halo" cx="195" cy="200" rx="44" ry="34" fill="url(#pri-g-luz)" style="--pri-dur: 6s; --pri-retardo: -0.3s" />
+        <path class="pri-ventana" d="M174 220 v-28 a21 21 0 0 1 42 0 v28 z" fill="#ffdf9c" style="--pri-retardo: 2.05s" />
+        <path d="M174 220 v-28 a21 21 0 0 1 42 0 v28" fill="none" stroke="#c8a04e" stroke-width="2" />
+        <path d="M195 220 v-45" stroke="#936f2c" stroke-width="1.4" opacity="0.7" />
+
+        <ellipse class="pri-halo" cx="86" cy="186" rx="18" ry="16" fill="url(#pri-g-luz)" style="--pri-dur: 3.8s; --pri-retardo: -2.4s" />
+        <path class="pri-ventana" d="M80 192 v-10 a6 6 0 0 1 12 0 v10 z" fill="#ffe6ab" style="--pri-retardo: 2.2s" />
+        <ellipse class="pri-halo" cx="304" cy="186" rx="18" ry="16" fill="url(#pri-g-luz)" style="--pri-dur: 4.6s; --pri-retardo: -1.4s" />
+        <path class="pri-ventana" d="M298 192 v-10 a6 6 0 0 1 12 0 v10 z" fill="#ffe6ab" style="--pri-retardo: 2.35s" />
+      </g>
+    </svg>
+
+    <p class="pri-bajar">
+      <span>Bajá para entrar al castillo</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 5v14M5 12l7 7 7-7" />
+      </svg>
+    </p>
+  </section>
+
+  <!-- ============================================================
+       2 · EL CUENTO — el libro se abre
+       ============================================================ -->
+  <section class="pri-sec pri-cuento" data-pri-escena>
+    <div class="pri-libro">
+      <span class="pri-marcapaginas" aria-hidden="true"></span>
+      <div class="pri-hoja">
+        <svg class="pri-esquina pri-esq-si" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+          <path d="M3 41V13C3 7 7 3 13 3h28" />
+          <path d="M9 41V16c0-4 3-7 7-7h25" opacity="0.6" />
+          <circle cx="13" cy="13" r="2.4" fill="currentColor" stroke="none" />
+        </svg>
+        <svg class="pri-esquina pri-esq-sd" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+          <path d="M3 41V13C3 7 7 3 13 3h28" />
+          <path d="M9 41V16c0-4 3-7 7-7h25" opacity="0.6" />
+          <circle cx="13" cy="13" r="2.4" fill="currentColor" stroke="none" />
+        </svg>
+        <svg class="pri-esquina pri-esq-ii" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+          <path d="M3 41V13C3 7 7 3 13 3h28" />
+          <path d="M9 41V16c0-4 3-7 7-7h25" opacity="0.6" />
+          <circle cx="13" cy="13" r="2.4" fill="currentColor" stroke="none" />
+        </svg>
+        <svg class="pri-esquina pri-esq-id" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+          <path d="M3 41V13C3 7 7 3 13 3h28" />
+          <path d="M9 41V16c0-4 3-7 7-7h25" opacity="0.6" />
+          <circle cx="13" cy="13" r="2.4" fill="currentColor" stroke="none" />
+        </svg>
+
+        <p class="pri-kicker pri-linea" style="--pri-retardo: 0.42s">Capítulo uno</p>
+        <h2 class="pri-titulo pri-linea" style="--pri-retardo: 0.52s">
+          Una princesa que cumple {{EDAD}}
+        </h2>
+        <div class="pri-filete pri-linea" style="--pri-retardo: 0.6s" aria-hidden="true"><i></i><b></b><i></i></div>
+        <p class="pri-texto pri-linea" style="--pri-retardo: 0.68s">
+          <span class="pri-capitular">É</span>{{MENSAJE}}
+        </p>
+        <p class="pri-firma pri-linea" style="--pri-retardo: 0.82s">{{PADRES}}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       3 · LA FECHA + CUENTA REGRESIVA
+       ============================================================ -->
+  <section class="pri-sec pri-fecha pri-oscura" data-pri-escena>
+    <span class="pri-mariposa" style="left: 8%; top: 16%; --pri-dur: 16s; --pri-retardo: -3s" aria-hidden="true">
+      <svg viewBox="0 0 40 32" aria-hidden="true">
+        <g class="pri-ala pri-ala-izq" fill="rgba(233,224,247,0.9)">
+          <path d="M20 16C12 2 2 4 3 13c1 8 10 9 17 3Z" />
+          <path d="M20 16C13 26 5 27 5 21c0-5 8-8 15-5Z" fill="rgba(230,179,193,0.9)" />
+        </g>
+        <g class="pri-ala pri-ala-der" fill="rgba(233,224,247,0.9)">
+          <path d="M20 16C28 2 38 4 37 13c-1 8-10 9-17 3Z" />
+          <path d="M20 16c7 10 15 11 15 5 0-5-8-8-15-5Z" fill="rgba(230,179,193,0.9)" />
+        </g>
+        <ellipse cx="20" cy="16" rx="1.5" ry="7" fill="#f2d9a0" />
+      </svg>
+    </span>
+    <span class="pri-mariposa" style="right: 10%; bottom: 18%; --pri-dur: 19s; --pri-retardo: -9s" aria-hidden="true">
+      <svg viewBox="0 0 40 32" aria-hidden="true">
+        <g class="pri-ala pri-ala-izq" fill="rgba(242,217,160,0.85)">
+          <path d="M20 16C12 2 2 4 3 13c1 8 10 9 17 3Z" />
+          <path d="M20 16C13 26 5 27 5 21c0-5 8-8 15-5Z" fill="rgba(233,224,247,0.85)" />
+        </g>
+        <g class="pri-ala pri-ala-der" fill="rgba(242,217,160,0.85)">
+          <path d="M20 16C28 2 38 4 37 13c-1 8-10 9-17 3Z" />
+          <path d="M20 16c7 10 15 11 15 5 0-5-8-8-15-5Z" fill="rgba(233,224,247,0.85)" />
+        </g>
+        <ellipse cx="20" cy="16" rx="1.5" ry="7" fill="#fdf8f5" />
+      </svg>
+    </span>
+
+    <div class="pri-centro">
+      <svg class="pri-medalla" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="pri-medalla-aro" cx="60" cy="60" r="55" fill="none" stroke="rgba(242,217,160,0.55)" stroke-width="1.2" stroke-dasharray="5 7" />
+        <circle cx="60" cy="60" r="47" fill="rgba(253,248,245,0.09)" stroke="#f2d9a0" stroke-width="2" />
+        <circle cx="60" cy="60" r="40" fill="none" stroke="rgba(242,217,160,0.5)" stroke-width="1" />
+        <text x="60" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="13" letter-spacing="2" fill="#f2d9a0">MARZO</text>
+        <text x="60" y="82" text-anchor="middle" font-family="Georgia, serif" font-size="32" font-weight="600" fill="#fdf8f5">13</text>
+        <path d="M46 60 h28" stroke="rgba(242,217,160,0.65)" stroke-width="1" />
+      </svg>
+
+      <p class="pri-kicker">El día señalado</p>
+      <p class="pri-fecha-linea">{{FECHA_LARGA}}</p>
+      <p class="pri-fecha-hora">De {{HORA}} a {{HORA_FIN}}</p>
+
+      <div class="pri-cuenta">
+        <div data-bookea="cuenta-regresiva"></div>
+      </div>
+
+      <p class="pri-texto" style="max-width: 34ch; margin-left: auto; margin-right: auto">
+        Faltan pocos giros del reloj para que se abran las puertas.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       4 · EL REINO — el castillo se levanta con el scroll
+       ============================================================ -->
+  <section class="pri-sec pri-reino" id="pri-reino" data-pri-escena>
+    <div class="pri-centro" style="max-width: 900px">
+      <p class="pri-kicker">El castillo se levanta</p>
+      <h2 class="pri-titulo" style="color: var(--pri-uva)">El orden del reino</h2>
+      <div class="pri-filete" aria-hidden="true"><i></i><b></b><i></i></div>
+
+      <div class="pri-reino-grid">
+        <svg class="pri-castillo-reino" id="pri-castillo-scroll" viewBox="0 0 260 300" aria-hidden="true">
+          <defs>
+            <linearGradient id="pri-g-reino" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="rgba(253,248,245,0.95)" />
+              <stop offset="1" stop-color="rgba(233,224,247,0.75)" />
+            </linearGradient>
+          </defs>
+
+          <!-- Torreta izquierda -->
+          <g data-pri-torre="150">
+            <rect x="34" y="170" width="32" height="76" fill="url(#pri-g-reino)" stroke="#c8a04e" stroke-width="2" />
+            <path d="M28 170 L50 126 L72 170 Z" fill="rgba(230,179,193,0.55)" stroke="#c8a04e" stroke-width="2" stroke-linejoin="round" />
+            <path d="M50 126 V108" stroke="#c8a04e" stroke-width="2" />
+            <path class="pri-banderin" d="M50 108 L70 114 L50 120 Z" fill="#c8a04e" />
+            <path data-pri-vent d="M42 210 v-14 a8 8 0 0 1 16 0 v14 z" fill="#f2d9a0" stroke="#936f2c" stroke-width="1.4" />
+          </g>
+
+          <!-- Torreta derecha -->
+          <g data-pri-torre="150">
+            <rect x="194" y="170" width="32" height="76" fill="url(#pri-g-reino)" stroke="#c8a04e" stroke-width="2" />
+            <path d="M188 170 L210 126 L232 170 Z" fill="rgba(230,179,193,0.55)" stroke="#c8a04e" stroke-width="2" stroke-linejoin="round" />
+            <path d="M210 126 V108" stroke="#c8a04e" stroke-width="2" />
+            <path class="pri-banderin" d="M210 108 L230 114 L210 120 Z" fill="#c8a04e" />
+            <path data-pri-vent d="M202 210 v-14 a8 8 0 0 1 16 0 v14 z" fill="#f2d9a0" stroke="#936f2c" stroke-width="1.4" />
+          </g>
+
+          <!-- Torre mayor con las tres luces del itinerario -->
+          <g data-pri-torre="240">
+            <rect x="72" y="118" width="116" height="128" fill="url(#pri-g-reino)" stroke="#c8a04e" stroke-width="2.2" />
+            <path d="M64 118 L130 46 L196 118 Z" fill="rgba(196,119,142,0.5)" stroke="#c8a04e" stroke-width="2.2" stroke-linejoin="round" />
+            <path d="M130 46 V18" stroke="#c8a04e" stroke-width="2.4" />
+            <path class="pri-banderin" d="M130 18 L158 26 L130 34 Z" fill="#c8a04e" />
+            <path d="M72 118 h116" stroke="rgba(200,160,78,0.5)" stroke-width="1.2" />
+            <path d="M72 168 h116 M72 208 h116" stroke="rgba(200,160,78,0.35)" stroke-width="1" />
+            <!-- luz 3: la de arriba -->
+            <path data-pri-vent d="M116 160 v-18 a14 14 0 0 1 28 0 v18 z" fill="#f2d9a0" stroke="#936f2c" stroke-width="1.6" />
+            <!-- luz 2: la del medio -->
+            <path data-pri-vent d="M116 200 v-18 a14 14 0 0 1 28 0 v18 z" fill="#f2d9a0" stroke="#936f2c" stroke-width="1.6" />
+            <!-- luz 1: el portón -->
+            <path data-pri-vent d="M110 246 v-26 a20 20 0 0 1 40 0 v26 z" fill="#f2d9a0" stroke="#936f2c" stroke-width="1.8" />
+            <path d="M130 246 V204" stroke="rgba(147,111,44,0.6)" stroke-width="1.2" />
+          </g>
+
+          <!-- Muralla al frente -->
+          <g>
+            <rect x="16" y="246" width="228" height="54" fill="rgba(253,248,245,0.96)" stroke="#c8a04e" stroke-width="2" />
+            <rect x="16" y="238" width="16" height="9" fill="rgba(253,248,245,0.96)" stroke="#c8a04e" stroke-width="1.6" />
+            <rect x="52" y="238" width="16" height="9" fill="rgba(253,248,245,0.96)" stroke="#c8a04e" stroke-width="1.6" />
+            <rect x="88" y="238" width="16" height="9" fill="rgba(253,248,245,0.96)" stroke="#c8a04e" stroke-width="1.6" />
+            <rect x="124" y="238" width="16" height="9" fill="rgba(253,248,245,0.96)" stroke="#c8a04e" stroke-width="1.6" />
+            <rect x="160" y="238" width="16" height="9" fill="rgba(253,248,245,0.96)" stroke="#c8a04e" stroke-width="1.6" />
+            <rect x="196" y="238" width="16" height="9" fill="rgba(253,248,245,0.96)" stroke="#c8a04e" stroke-width="1.6" />
+            <rect x="228" y="238" width="16" height="9" fill="rgba(253,248,245,0.96)" stroke="#c8a04e" stroke-width="1.6" />
+            <path d="M16 300 h228" stroke="#c8a04e" stroke-width="2" />
+          </g>
+        </svg>
+
+        <ol class="pri-hitos">
+          <li class="pri-hito" data-pri-hito>
+            <span class="pri-hito-hora">{{HORA}}</span>
+            <p class="pri-hito-que">
+              <b>Se abren las puertas</b>
+              Llegan las princesas, los príncipes y todo el que traiga ganas de fiesta.
+            </p>
+          </li>
+          <li class="pri-hito" data-pri-hito>
+            <span class="pri-hito-hora">{{HORA_QUEQUE}} en punto</span>
+            <p class="pri-hito-que">
+              <b>El hechizo del queque</b>
+              Se apagan las luces, {{NOMBRE}} pide un deseo y la piñata despierta.
+            </p>
+          </li>
+          <li class="pri-hito" data-pri-hito>
+            <span class="pri-hito-hora">{{HORA_FIN}}</span>
+            <p class="pri-hito-que">
+              <b>Se rompe el encantamiento</b>
+              El carruaje vuelve a ser calabaza y cada quien se lleva su sorpresa.
+            </p>
+          </li>
+        </ol>
+      </div>
+
+      <p class="pri-toque">Tocá el castillo y se encienden todas las ventanas</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       5 · EL CÓDIGO DEL REINO (dress code)
+       ============================================================ -->
+  <section class="pri-sec pri-codigo pri-oscura" data-pri-escena>
+    <div class="pri-centro">
+      <span class="pri-sello" aria-hidden="true">✦</span>
+      <p class="pri-kicker">El código del reino</p>
+      <h2 class="pri-titulo">Vení de tu personaje favorito</h2>
+      <p class="pri-texto">
+        Príncipes, princesas, hadas y dragones: todos son bienvenidos. Si
+        preferís venir de vos, también — con algo rosa, lila o dorado ya
+        entrás al castillo.
+      </p>
+
+      <div class="pri-escudos">
+        <button type="button" class="pri-escudo" data-pri-escudo style="--pri-retardo: 0.1s">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 34 L8 16 l10 8 6-12 6 12 10-8 -2 18 Z" />
+            <path d="M10 38h28" stroke-linecap="round" />
+            <circle cx="18" cy="22" r="1.6" fill="currentColor" stroke="none" />
+            <circle cx="24" cy="14" r="1.8" fill="currentColor" stroke="none" />
+            <circle cx="30" cy="22" r="1.6" fill="currentColor" stroke="none" />
+          </svg>
+          Princesas
+        </button>
+        <button type="button" class="pri-escudo" data-pri-escudo style="--pri-retardo: 0.2s">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">
+            <path d="M24 6 L36 12 v12c0 9-5 15-12 18-7-3-12-9-12-18V12Z" />
+            <path d="M24 16v14M18 22h12" stroke-linecap="round" />
+          </svg>
+          Príncipes
+        </button>
+        <button type="button" class="pri-escudo" data-pri-escudo style="--pri-retardo: 0.3s">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 36 L30 18" />
+            <path d="M34 6 l2.6 6.4 6.4 2.6 -6.4 2.6 -2.6 6.4 -2.6-6.4 -6.4-2.6 6.4-2.6Z" />
+            <path d="M12 12l1.4 3.6 3.6 1.4-3.6 1.4L12 22l-1.4-3.6L7 17l3.6-1.4Z" />
+            <path d="M38 32l1 2.6 2.6 1-2.6 1-1 2.6-1-2.6-2.6-1 2.6-1Z" />
+          </svg>
+          Hadas
+        </button>
+        <button type="button" class="pri-escudo" data-pri-escudo style="--pri-retardo: 0.4s">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 30c6-14 20-16 28-10 4 3 4 9 0 11-4 2-8-1-8-1" />
+            <path d="M36 20c2-4 6-6 6-6s0 5-2 8" />
+            <path d="M8 30c-2 6 2 10 8 10h18" />
+            <circle cx="30" cy="22" r="1.6" fill="currentColor" stroke="none" />
+            <path d="M20 40c2-3 6-4 9-2" />
+          </svg>
+          Dragones
+        </button>
+      </div>
+
+      <p class="pri-toque" style="color: var(--pri-oro-claro)">Tocá cada escudo</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       6 · EL LUGAR
+       ============================================================ -->
+  <section class="pri-sec pri-lugar" data-pri-escena>
+    <div class="pri-centro">
+      <p class="pri-kicker">Cómo llegar al reino</p>
+
+      <div class="pri-pergamino">
+        <span class="pri-rollo pri-rollo-arriba" aria-hidden="true"></span>
+        <span class="pri-rollo pri-rollo-abajo" aria-hidden="true"></span>
+
+        <svg class="pri-letrero" viewBox="0 0 100 100" aria-hidden="true">
+          <path d="M50 6 V26" stroke="#936f2c" stroke-width="3" stroke-linecap="round" />
+          <rect x="14" y="26" width="72" height="26" rx="4" fill="#f7ead3" stroke="#c8a04e" stroke-width="2" />
+          <path d="M86 26 l10 13 -10 13 Z" fill="#f7ead3" stroke="#c8a04e" stroke-width="2" stroke-linejoin="round" />
+          <path d="M24 34h44M24 44h30" stroke="#c4778e" stroke-width="2.4" stroke-linecap="round" />
+          <rect x="20" y="58" width="60" height="22" rx="4" fill="#f0dcc0" stroke="#c8a04e" stroke-width="2" />
+          <path d="M20 58 l-10 11 10 11 Z" fill="#f0dcc0" stroke="#c8a04e" stroke-width="2" stroke-linejoin="round" />
+          <path d="M30 68h34" stroke="#b9a3dd" stroke-width="2.4" stroke-linecap="round" />
+          <path d="M50 80 V94" stroke="#936f2c" stroke-width="3" stroke-linecap="round" />
+        </svg>
+
+        <p class="pri-lugar-nombre">{{LUGAR}}</p>
+        <p class="pri-lugar-dir">{{DIRECCION}}</p>
+
+        <div class="pri-botones">
+          <a class="pri-boton" data-pri-toque href="{{LINK_MAPS}}" target="_blank" rel="noopener noreferrer" style="--pri-retardo: 0.35s">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            Abrir en Maps
+          </a>
+          <a class="pri-boton" data-pri-toque href="{{LINK_WAZE}}" target="_blank" rel="noopener noreferrer" style="--pri-retardo: 0.48s">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3a8 8 0 0 1 8 8v3l2 3h-5a5 5 0 0 1-10 0H2l2-3v-3a8 8 0 0 1 8-8Z" />
+              <path d="M9 10h.01M15 10h.01" />
+            </svg>
+            Ir con Waze
+          </a>
+        </div>
+
+        <p class="pri-nota">Hay parqueo dentro del salón, y sombra para las capas largas.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       7 · CONFIRMÁ TU ASISTENCIA
+       ============================================================ -->
+  <section class="pri-sec pri-rsvp" data-pri-escena>
+    <div class="pri-centro">
+      <span class="pri-banda">La lista real</span>
+      <h2 class="pri-titulo" style="color: var(--pri-uva)">¿Contamos con vos?</h2>
+      <p class="pri-texto">
+        {{NOMBRE}} quiere saber a quién le guarda un lugar en la mesa larga.
+        Confirmanos antes del {{LIMITE}} y quedás en la lista del reino.
+      </p>
+
+      <button type="button" data-bookea="abrir-rsvp" class="pri-boton-rsvp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 7h16v12H4z" />
+          <path d="M4 7l8 6 8-6" />
+        </svg>
+        Confirmar mi asistencia
+      </button>
+
+      <p class="pri-limite">Antes del {{LIMITE}}</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       8 · CIERRE
+       ============================================================ -->
+  <section class="pri-sec pri-cierre pri-oscura" data-pri-escena>
+    <div class="pri-cielo" aria-hidden="true" style="inset: 0 0 55% 0">
+      <span class="pri-estrella" style="left: 12%; top: 52%; --pri-dur: 3.5s; --pri-retardo: -1.1s"></span>
+      <span class="pri-estrella pri-estrella-grande" style="left: 26%; top: 68%; --pri-dur: 4.3s; --pri-retardo: -2.7s"></span>
+      <span class="pri-estrella" style="left: 41%; top: 46%; --pri-dur: 3s; --pri-retardo: -0.5s"></span>
+      <span class="pri-estrella" style="left: 57%; top: 72%; --pri-dur: 4.7s; --pri-retardo: -3.4s"></span>
+      <span class="pri-estrella pri-estrella-grande" style="left: 72%; top: 50%; --pri-dur: 3.8s; --pri-retardo: -1.8s"></span>
+      <span class="pri-estrella" style="left: 86%; top: 66%; --pri-dur: 3.2s; --pri-retardo: -2.2s"></span>
+      <span class="pri-estrella" style="left: 94%; top: 44%; --pri-dur: 4.1s; --pri-retardo: -0.9s"></span>
+      <span class="pri-estrella" style="left: 5%; top: 74%; --pri-dur: 3.6s; --pri-retardo: -3.9s"></span>
+    </div>
+
+    <div class="pri-centro">
+      <h2 class="pri-final">
+        <span style="--pri-retardo: 0.05s">Y </span><span style="--pri-retardo: 0.13s">vivieron </span><span style="--pri-retardo: 0.21s">felices </span><span style="--pri-retardo: 0.29s">para </span><span style="--pri-retardo: 0.37s">siempre.</span>
+      </h2>
+      <div class="pri-filete" aria-hidden="true"><i></i><b></b><i></i></div>
+      <p class="pri-cierre-firma">{{NOMBRE}} · {{EDAD}} años</p>
+      <p class="pri-texto" style="max-width: 30ch; margin-left: auto; margin-right: auto">
+        {{PADRES}}
+      </p>
+      <svg class="pri-cierre-sello" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="24" cy="24" r="21" stroke-dasharray="4 5" />
+        <circle cx="24" cy="24" r="15" />
+        <path d="M24 14l2.6 6.4 6.4 2.6-6.4 2.6L24 32l-2.6-6.4-6.4-2.6 6.4-2.6Z" fill="currentColor" stroke="none" />
+      </svg>
+    </div>
+
+    <!-- El carruaje que cruza dejando estela -->
+    <div class="pri-camino" aria-hidden="true">
+      <span class="pri-estela" style="--pri-dur: 13s; --pri-retardo: -0.2s; bottom: 30px"></span>
+      <span class="pri-estela" style="--pri-dur: 13s; --pri-retardo: -0.5s; bottom: 44px"></span>
+      <span class="pri-estela" style="--pri-dur: 13s; --pri-retardo: -0.8s; bottom: 24px"></span>
+      <svg class="pri-carruaje" id="pri-carruaje" viewBox="0 0 150 96" aria-hidden="true">
+        <path d="M8 84 h134" stroke="rgba(242,217,160,0.35)" stroke-width="1.5" stroke-dasharray="3 8" />
+        <!-- calabaza -->
+        <path d="M42 74 C24 74 18 60 22 46 C26 32 40 24 58 24 C76 24 90 32 94 46 C98 60 92 74 74 74 Z" fill="rgba(242,217,160,0.9)" stroke="#936f2c" stroke-width="2" />
+        <path d="M58 24 C50 36 50 62 58 74 M58 24 C66 36 66 62 58 74" fill="none" stroke="#936f2c" stroke-width="1.4" opacity="0.7" />
+        <path d="M40 30 C46 34 46 64 40 70" fill="none" stroke="#936f2c" stroke-width="1.2" opacity="0.5" />
+        <path d="M76 30 C70 34 70 64 76 70" fill="none" stroke="#936f2c" stroke-width="1.2" opacity="0.5" />
+        <path d="M58 24 C58 16 62 12 68 10" fill="none" stroke="#7d9a4a" stroke-width="3" stroke-linecap="round" />
+        <!-- ventanita del carruaje -->
+        <ellipse cx="58" cy="46" rx="14" ry="16" fill="rgba(43,36,88,0.85)" stroke="#936f2c" stroke-width="1.8" />
+        <ellipse cx="58" cy="46" rx="8" ry="10" fill="rgba(255,230,171,0.5)" />
+        <!-- ruedas -->
+        <g class="pri-rueda">
+          <circle cx="36" cy="78" r="12" fill="none" stroke="#c8a04e" stroke-width="2.4" />
+          <path d="M36 66v24M24 78h24M28 70l16 16M44 70L28 86" stroke="rgba(200,160,78,0.7)" stroke-width="1.2" />
+        </g>
+        <g class="pri-rueda" style="animation-delay: -0.4s">
+          <circle cx="80" cy="78" r="12" fill="none" stroke="#c8a04e" stroke-width="2.4" />
+          <path d="M80 66v24M68 78h24M72 70l16 16M88 70L72 86" stroke="rgba(200,160,78,0.7)" stroke-width="1.2" />
+        </g>
+        <!-- farolito -->
+        <path d="M94 44 h10" stroke="#c8a04e" stroke-width="2" stroke-linecap="round" />
+        <circle cx="108" cy="44" r="6" fill="#ffe6ab" opacity="0.95" />
+        <circle cx="108" cy="44" r="10" fill="url(#pri-g-luz)" />
+      </svg>
+    </div>
+  </section>
+</div>
+
+<script>
+  /* ================================================================
+     El JS del reino. Ningún bloque de este archivo lee
+     prefers-reduced-motion: por decisión del dueño las animaciones de
+     la invitación corren SIEMPRE, iguales para todo el mundo. El único
+     matchMedia que aparece es de ANCHO, y solo sirve para agregar más
+     partículas en pantallas grandes.
+
+     Todo lo de acá SUMA encima de una invitación que ya se ve completa:
+     si este script no corre, no hay telón, las torres están arriba, las
+     ventanas encendidas y cada sección se lee quieta.
+     ================================================================ */
+  (function () {
+    var raiz = document.querySelector(".pri");
+    if (!raiz) return;
+
+    var anchaMQ = window.matchMedia ? window.matchMedia("(min-width: 768px)") : null;
+    var ancha = anchaMQ ? anchaMQ.matches : false;
+
+    /* ---------- 1. El telón que se abre ---------- */
+    (function () {
+      var telon = document.getElementById("pri-telon");
+      if (!telon) return;
+      telon.classList.add("pri-viva");
+
+      var abierto = false;
+      var reloj = null;
+
+      function abrir() {
+        if (abierto) return;
+        abierto = true;
+        if (reloj) window.clearTimeout(reloj);
+        telon.classList.add("pri-telon-abierto");
+        raiz.classList.add("pri-abierta");
+        window.setTimeout(function () {
+          telon.classList.add("pri-fuera");
+          window.setTimeout(function () {
+            if (telon.parentNode) telon.parentNode.removeChild(telon);
+          }, 600);
+        }, 780);
+      }
+
+      telon.addEventListener("click", abrir);
+      telon.addEventListener("touchstart", abrir, { passive: true });
+      window.addEventListener("wheel", abrir, { passive: true });
+      window.addEventListener("keydown", abrir);
+      reloj = window.setTimeout(abrir, 2400);
+    })();
+
+    /* ---------- 2. Las escenas al scrollear ----------
+       El observer solo AGREGA .pri-on; sin él todo queda visible. */
+    (function () {
+      var escenas = raiz.querySelectorAll("[data-pri-escena]");
+      if (!("IntersectionObserver" in window)) {
+        for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("pri-on");
+        return;
+      }
+      var io = new IntersectionObserver(
+        function (entradas) {
+          for (var i = 0; i < entradas.length; i++) {
+            if (entradas[i].isIntersecting) {
+              entradas[i].target.classList.add("pri-on");
+              io.unobserve(entradas[i].target);
+            }
+          }
+        },
+        { threshold: 0.16, rootMargin: "0px 0px -6% 0px" }
+      );
+      for (var j = 0; j < escenas.length; j++) io.observe(escenas[j]);
+    })();
+
+    /* ---------- 3. El castillo ligado al scroll ----------
+       Las torres suben y las tres luces se encienden una por una a
+       medida que la sección atraviesa la pantalla. Solo transform,
+       repintado dentro de un requestAnimationFrame. */
+    (function () {
+      var sec = document.getElementById("pri-reino");
+      var svg = document.getElementById("pri-castillo-scroll");
+      if (!sec || !svg) return;
+
+      var torres = svg.querySelectorAll("[data-pri-torre]");
+      var luces = svg.querySelectorAll("[data-pri-vent]");
+      var hitos = sec.querySelectorAll("[data-pri-hito]");
+      if (!torres.length) return;
+
+      svg.parentNode.classList.add("pri-js");
+      sec.classList.add("pri-js");
+
+      var cuadro = 0;
+
+      function pintar() {
+        cuadro = 0;
+        var caja = sec.getBoundingClientRect();
+        var alto = window.innerHeight || document.documentElement.clientHeight || 800;
+        var p = (alto - caja.top) / (alto * 0.9 + caja.height * 0.3);
+        if (p < 0) p = 0;
+        if (p > 1) p = 1;
+
+        for (var i = 0; i < torres.length; i++) {
+          var baja = parseFloat(torres[i].getAttribute("data-pri-torre")) || 140;
+          var pi = (p - i * 0.07) / 0.5;
+          if (pi < 0) pi = 0;
+          if (pi > 1) pi = 1;
+          var suave = 1 - Math.pow(1 - pi, 3);
+          torres[i].style.transform = "translate3d(0," + (1 - suave) * baja + "px,0)";
+        }
+
+        for (var k = 0; k < luces.length; k++) {
+          if (p > 0.44 + k * 0.05) luces[k].classList.add("pri-on");
+        }
+        for (var h = 0; h < hitos.length; h++) {
+          if (p > 0.5 + h * 0.06) hitos[h].classList.add("pri-on");
+        }
+      }
+
+      function alMover() {
+        if (!cuadro) cuadro = window.requestAnimationFrame(pintar);
+      }
+
+      pintar();
+      window.addEventListener("scroll", alMover, { passive: true });
+      window.addEventListener("resize", alMover);
+
+      /* Tocar el castillo enciende todas las luces de una. */
+      svg.style.cursor = "pointer";
+      svg.style.touchAction = "manipulation";
+      svg.addEventListener("click", function () {
+        for (var i = 0; i < luces.length; i++) {
+          luces[i].classList.remove("pri-on");
+          void luces[i].getBoundingClientRect();
+          luces[i].classList.add("pri-on");
+        }
+      });
+    })();
+
+    /* ---------- 4. Polvo de hadas: estallidos al tocar y estela al
+       arrastrar el dedo (o mover el mouse) ---------- */
+    (function () {
+      var capa = document.getElementById("pri-polvo");
+      if (!capa) return;
+
+      var TOPE = ancha ? 26 : 9; /* chispas vivas a la vez */
+      var POR_TOQUE = ancha ? 12 : 7;
+      var vivas = 0;
+
+      function chispa(x, y, fuerza) {
+        if (vivas >= TOPE) return;
+        vivas++;
+        var s = document.createElement("span");
+        s.className = "pri-chispa";
+        var ang = Math.random() * Math.PI * 2;
+        var dist = (16 + Math.random() * 46) * fuerza;
+        s.style.left = x + "px";
+        s.style.top = y + "px";
+        s.style.setProperty("--pri-dx", Math.cos(ang) * dist + "px");
+        s.style.setProperty("--pri-dy", Math.sin(ang) * dist - 22 + "px");
+        var dur = 620 + Math.random() * 320;
+        s.style.animationDuration = dur + "ms";
+        capa.appendChild(s);
+        window.setTimeout(function () {
+          vivas--;
+          if (s.parentNode) s.parentNode.removeChild(s);
+        }, dur + 60);
+      }
+
+      function estallido(x, y) {
+        for (var i = 0; i < POR_TOQUE; i++) chispa(x, y, 1);
+      }
+
+      raiz.addEventListener(
+        "pointerdown",
+        function (e) {
+          estallido(e.clientX, e.clientY);
+        },
+        { passive: true }
+      );
+
+      var ultimo = 0;
+      raiz.addEventListener(
+        "pointermove",
+        function (e) {
+          var t = Date.now();
+          if (t - ultimo < 70) return;
+          ultimo = t;
+          chispa(e.clientX, e.clientY, 0.5);
+        },
+        { passive: true }
+      );
+
+      /* En pantallas grandes hay aire para más motas flotando. */
+      if (ancha) {
+        for (var i = 0; i < 7; i++) {
+          var m = document.createElement("span");
+          m.className = "pri-mota";
+          m.style.left = 6 + Math.random() * 88 + "%";
+          m.style.top = 60 + Math.random() * 38 + "%";
+          m.style.setProperty("--pri-dur", 13 + Math.random() * 9 + "s");
+          m.style.setProperty("--pri-retardo", -Math.random() * 18 + "s");
+          m.style.setProperty("--pri-dx", (Math.random() - 0.5) * 90 + "px");
+          capa.appendChild(m);
+        }
+      }
+    })();
+
+    /* ---------- 5. Más estrellas en pantallas grandes ---------- */
+    (function () {
+      if (!ancha) return;
+      var cielos = raiz.querySelectorAll(".pri-cielo");
+      for (var c = 0; c < cielos.length; c++) {
+        for (var i = 0; i < 9; i++) {
+          var e = document.createElement("span");
+          e.className = "pri-estrella" + (i % 3 === 0 ? " pri-estrella-grande" : "");
+          e.style.left = Math.random() * 98 + "%";
+          e.style.top = Math.random() * 70 + "%";
+          e.style.setProperty("--pri-dur", 2.8 + Math.random() * 2.4 + "s");
+          e.style.setProperty("--pri-retardo", -Math.random() * 4 + "s");
+          cielos[c].appendChild(e);
+        }
+      }
+    })();
+
+    /* ---------- 6. Micro-interacciones por TAP ----------
+       (el hover no existe en el teléfono) */
+    (function () {
+      function rebote(el) {
+        el.classList.remove("pri-tocado");
+        void el.getBoundingClientRect();
+        el.classList.add("pri-tocado");
+        window.setTimeout(function () {
+          el.classList.remove("pri-tocado");
+        }, 700);
+      }
+
+      var escudos = raiz.querySelectorAll("[data-pri-escudo]");
+      for (var i = 0; i < escudos.length; i++) {
+        escudos[i].addEventListener("click", function () {
+          rebote(this);
+        });
+      }
+
+      var toques = raiz.querySelectorAll("[data-pri-toque]");
+      for (var j = 0; j < toques.length; j++) {
+        toques[j].addEventListener("pointerdown", function () {
+          rebote(this);
+        });
+      }
+
+      var carruaje = document.getElementById("pri-carruaje");
+      if (carruaje) {
+        carruaje.addEventListener("click", function () {
+          rebote(carruaje);
+        });
+      }
+    })();
+  })();
+</script>
