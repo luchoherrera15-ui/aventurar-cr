@@ -31,7 +31,10 @@
       progreso de scroll, con las patas alternando, y al tocarlo ruge
 
   PLACEHOLDERS:
-    {{NOMBRE}}      nombre del cumpleañero     p. ej. Emiliano
+    {{NOMBRE_LETRAS}} el nombre partido en <span class="dino-letra"
+                      style="--i:N">X</span>, una letra por span — así el
+                      título sube letra por letra. Lo arma el script de
+                      siembra a partir del nombre.
     {{EDAD}}        edad que cumple            p. ej. 5
     {{ESPECIE}}     nombre científico de broma p. ej. Emilianosaurus Rex
     {{DIETA}}       dieta de broma             p. ej. Herbívoro de queque
@@ -43,7 +46,9 @@
     {{HORA}}        hora de inicio             p. ej. 11:00 a. m.
     {{HORA_FIN}}    hora de cierre             p. ej. 3:00 p. m.
     {{LUGAR}}       nombre del lugar           p. ej. Rancho El Roble
+    {{LUGAR_CORTO}} el nombre corto del lugar para el mapa  p. ej. El Roble
     {{DIRECCION}}   dirección corta            p. ej. San Rafael de Alajuela
+    {{NOTA_LUGAR}}  la indicación de cómo entrar
     {{LINK_MAPS}}   URL de Google Maps
     {{LINK_WAZE}}   URL de Waze
     {{PADRES}}      firma                      p. ej. Sus papás — Karla y Josué
@@ -113,6 +118,10 @@
     .dino *::after {
       box-sizing: border-box;
     }
+    /* Reset de los botones. OJO con la especificidad: `.dino button` es
+       (0,1,1) y le gana a una clase suelta, así que las piezas que sí
+       traen fondo o color propio van escritas `.dino .dino-x` (0,2,0).
+       Se aprendió a los golpes: la ficha de campo salía transparente. */
     .dino button {
       font: inherit;
       color: inherit;
@@ -181,35 +190,52 @@
       width: 100%;
       height: auto;
     }
+    .dino-capa-cordillera svg { height: clamp(260px, 40vh, 380px); }
 
     /* Volcán + humo */
     .dino-volcan {
       position: absolute;
-      left: -6%;
-      right: -6%;
-      bottom: 16%;
+      left: 0;
+      right: 0;
+      /* Anclado por debajo del borde: el parallax lo sube 44px y así
+         nunca asoma el filo de abajo del cono. */
+      bottom: -54px;
       line-height: 0;
+      /* flex + center: es la única forma de centrar una caja MÁS ANCHA
+         que su contenedor (margin:auto no centra lo que desborda). */
+      display: flex;
+      justify-content: center;
     }
-    .dino-volcan svg {
+    /* El arte del volcán va en una caja centrada y CON TOPE: si se deja
+       al 128% del viewport, en escritorio el cono mide 1.300px de alto y
+       se come la pantalla. El cráter y el humo viven adentro de esta
+       misma caja para que no se despeguen del pico. */
+    .dino-volcan-arte {
+      position: relative;
+      flex: 0 0 auto;
+      width: 150%;
+      max-width: 780px;
+    }
+    .dino-volcan-arte svg {
       display: block;
       width: 100%;
       height: auto;
     }
     .dino-crater {
       position: absolute;
-      left: 50%;
-      top: 4%;
-      width: 96px;
-      height: 34px;
-      margin-left: -48px;
+      left: 53%;
+      top: 15%;
+      width: 130px;
+      height: 46px;
+      margin-left: -65px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(255, 91, 30, 0.85), rgba(255, 91, 30, 0) 70%);
+      background: radial-gradient(circle, rgba(255, 91, 30, 0.9), rgba(255, 140, 40, 0.35) 42%, rgba(255, 91, 30, 0) 72%);
       animation: dino-brasa 2.6s ease-in-out infinite;
     }
     .dino-humo {
       position: absolute;
-      left: 50%;
-      top: 2%;
+      left: 53%;
+      top: 13%;
       width: 74px;
       height: 74px;
       margin-left: -37px;
@@ -224,21 +250,23 @@
 
     .dino-fronda {
       position: absolute;
-      bottom: -8%;
+      bottom: -96px;
+      width: var(--w, 150px);
       color: var(--d-selva2);
       transform-origin: 50% 100%;
       animation: dino-mece 7s ease-in-out infinite alternate;
       will-change: transform;
     }
     .dino-fronda svg { display: block; width: 100%; height: auto; }
+    /* Cuando el T-Rex ruge, los helechos se sacuden (lo pone el JS). */
+    .dino-fronda.dino-sacudida { animation: dino-sacude 0.6s ease-in-out !important; }
 
     .dino-vapor {
       position: absolute;
       left: -30%;
       right: -30%;
-      height: 120px;
-      border-radius: 50%;
-      background: linear-gradient(90deg, rgba(214, 232, 220, 0), rgba(214, 232, 220, 0.11) 40%, rgba(214, 232, 220, 0.05) 62%, rgba(214, 232, 220, 0));
+      height: 150px;
+      background: radial-gradient(58% 100% at 46% 50%, rgba(214, 232, 220, 0.13), rgba(214, 232, 220, 0) 72%);
       animation: dino-vapor 26s linear infinite;
       will-change: transform;
     }
@@ -281,7 +309,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      height: 182px;
+      height: 200px;
       z-index: 6;
       overflow: hidden;
       pointer-events: none;
@@ -291,8 +319,8 @@
       left: 0;
       right: 0;
       bottom: 0;
-      height: 96px;
-      background: linear-gradient(180deg, rgba(4, 21, 13, 0) 0%, rgba(4, 21, 13, 0.72) 58%, rgba(4, 21, 13, 0.92) 100%);
+      height: 84px;
+      background: linear-gradient(180deg, rgba(4, 21, 13, 0) 0%, rgba(4, 21, 13, 0.4) 58%, rgba(4, 21, 13, 0.72) 100%);
     }
     .dino-piso-linea {
       position: absolute;
@@ -306,7 +334,7 @@
       position: absolute;
       left: 0;
       bottom: 2px;
-      width: 190px;
+      width: 200px;
       padding: 0;
       pointer-events: auto;
       will-change: transform;
@@ -324,19 +352,20 @@
     .dino-pata-b { animation-name: dino-paso-b; }
     .dino-cola {
       transform-box: view-box;
-      transform-origin: 96px 112px;
+      transform-origin: 112px 118px;
       animation: dino-cola 1.44s ease-in-out infinite alternate;
     }
-    .dino-cabeza {
-      transform-box: view-box;
-      transform-origin: 206px 74px;
-      animation: dino-cabeza 1.44s ease-in-out infinite alternate;
-    }
     .dino-ojo { animation: dino-parpadeo 4.4s steps(1, end) infinite; }
+    .dino-vaho {
+      transform-box: view-box;
+      transform-origin: 304px 52px;
+      animation: dino-vaho 3.4s ease-out infinite;
+    }
+    .dino-vaho-2 { animation-duration: 3.4s; animation-delay: 0.5s; }
     .dino-roar {
       position: absolute;
-      left: 58%;
-      bottom: 118px;
+      left: 74%;
+      bottom: 152px;
       display: block;
       padding: 7px 14px 8px;
       border-radius: 14px 18px 16px 6px;
@@ -352,13 +381,13 @@
     }
     .dino-onda-roar {
       position: absolute;
-      left: 62%;
-      bottom: 84px;
-      width: 34px;
-      height: 34px;
-      margin: 0 0 -17px -17px;
+      left: 82%;
+      bottom: 118px;
+      width: 30px;
+      height: 30px;
+      margin: 0 0 -15px -15px;
       border-radius: 50%;
-      border: 3px solid var(--d-lava2);
+      border: 2px solid var(--d-lava2);
       opacity: 0;
       transform: scale(0.3);
     }
@@ -428,7 +457,7 @@
       justify-content: center;
       text-align: center;
       padding-top: 64px;
-      padding-bottom: 186px;
+      padding-bottom: 196px;
     }
     .dino-cielo-vuelo {
       position: absolute;
@@ -465,9 +494,9 @@
       text-transform: uppercase;
       color: var(--d-hueso);
       text-shadow:
-        0 4px 0 #062015,
-        0 9px 0 rgba(4, 21, 13, 0.6),
-        0 20px 34px rgba(0, 0, 0, 0.6);
+        0 3px 0 #062015,
+        0 5px 0 rgba(4, 21, 13, 0.55),
+        0 18px 32px rgba(0, 0, 0, 0.62);
     }
     .dino-letra {
       display: inline-block;
@@ -667,7 +696,7 @@
 
     /* ---- 4. Ficha de campo ---- */
     .dino-ficha-escena { perspective: 1000px; }
-    .dino-ficha {
+    .dino .dino-ficha {
       position: relative;
       display: block;
       width: 100%;
@@ -768,7 +797,7 @@
       gap: 16px;
       margin-top: 26px;
     }
-    .dino-roca {
+    .dino .dino-roca {
       position: relative;
       display: block;
       width: 100%;
@@ -910,7 +939,7 @@
       pointer-events: none;
     }
     .dino-anillo-2 { animation-delay: 1.3s; }
-    .dino-cta {
+    .dino .dino-cta {
       position: relative;
       display: inline-flex;
       align-items: center;
@@ -1025,9 +1054,10 @@
       from { transform: rotate(-4deg); }
       to { transform: rotate(5deg); }
     }
-    @keyframes dino-cabeza {
-      from { transform: rotate(2.2deg) translateY(1px); }
-      to { transform: rotate(-2.6deg) translateY(-2px); }
+    @keyframes dino-vaho {
+      0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+      18% { opacity: 0.5; }
+      100% { opacity: 0; transform: translate(34px, -14px) scale(2.4); }
     }
     @keyframes dino-parpadeo {
       0%, 94% { opacity: 1; }
@@ -1042,8 +1072,8 @@
       100% { opacity: 0; transform: translateX(-50%) translateY(-22px) scale(0.9); }
     }
     @keyframes dino-onda {
-      0% { opacity: 0.85; transform: scale(0.3); }
-      100% { opacity: 0; transform: scale(6.5); }
+      0% { opacity: 0.9; transform: scale(0.3); }
+      100% { opacity: 0; transform: scale(4.6); }
     }
     @keyframes dino-rugido-cuerpo {
       0% { transform: translateY(0) scale(1); }
@@ -1075,7 +1105,7 @@
       70% { opacity: 1; transform: translateY(-5px) rotate(1.5deg) scale(1.03); }
       100% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
     }
-    @keyframes dino-pisotón {
+    @keyframes dino-pisada-fuerte {
       0% { opacity: 0; transform: scale(2.1) translateY(-30px); }
       55% { opacity: 1; transform: scale(0.86) translateY(6px); }
       75% { transform: scale(1.06) translateY(-3px); }
@@ -1103,6 +1133,13 @@
       35% { transform: rotate(3deg); }
       55% { transform: rotate(-2deg); }
       78% { transform: rotate(1.4deg); }
+    }
+    @keyframes dino-toc {
+      0% { opacity: 0; transform: translateX(-50%) scale(0.4) rotate(-8deg); }
+      22% { opacity: 1; transform: translateX(-50%) scale(1.14) rotate(3deg); }
+      38% { transform: translateX(-50%) scale(1) rotate(-1deg); }
+      76% { opacity: 1; transform: translateX(-50%) scale(1.02); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-18px) scale(0.92); }
     }
     @keyframes dino-grieta {
       from { stroke-dashoffset: 240; }
@@ -1178,8 +1215,8 @@
       100% { opacity: 1; transform: translateY(0) scale(1); }
     }
     @keyframes dino-anillo {
-      0% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
-      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.75); }
+      0% { opacity: 0.75; transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
     }
     @keyframes dino-late {
       0%, 100% { transform: scale(1); }
@@ -1205,11 +1242,9 @@
       animation-delay: calc(var(--i, 0) * 62ms);
     }
     .dino-esc.dino-vista .dino-edad {
-      animation: dino-pisotón 0.82s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
+      animation: dino-pisada-fuerte 0.82s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
       animation-delay: 560ms;
     }
-    .dino-esc.dino-vista .dino-capa-sacudida,
-    .dino-portada.dino-vista ~ .dino-nada { animation: none; }
     .dino-esc.dino-vista .dino-ent {
       animation: dino-sube 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
       animation-delay: calc(var(--i, 0) * 110ms);
@@ -1259,11 +1294,16 @@
       .dino-caja { max-width: 720px; }
       .dino-rocas { grid-template-columns: 1fr 1fr; }
       .dino-rocas .dino-roca:first-child { grid-column: 1 / -1; }
-      .dino-franja { height: 236px; }
-      .dino-rex { width: 268px; }
-      .dino-roar { font-size: 24px; bottom: 168px; }
+      .dino-franja { height: 272px; }
+      .dino-rex { width: 280px; }
+      .dino-roar { font-size: 24px; bottom: 218px; }
+      .dino-onda-roar { bottom: 168px; }
       .dino-cd-caja { max-width: 640px; }
       .dino-fecha-tarjeta { max-width: 520px; }
+      /* Selva más frondosa y sol más grande en pantalla grande */
+      .dino-fronda { width: calc(var(--w, 150px) * 1.75); bottom: -150px; }
+      .dino-sol { width: 620px; height: 620px; margin: -310px 0 0 -310px; }
+      .dino-vapor { height: 220px; }
     }
   </style>
 
@@ -1271,7 +1311,7 @@
   <svg class="dino-defs" aria-hidden="true" focusable="false">
     <defs>
       <symbol id="dino-fronda" viewBox="0 0 120 200">
-        <path d="M60 200 C58 160 57 118 62 78 C64 52 67 30 70 10" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+        <path d="M60 200 C58 160 57 118 62 78 C64 56 68 42 70 30" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
         <g fill="currentColor">
           <ellipse cx="40" cy="186" rx="25" ry="7.5" transform="rotate(-20 40 186)" />
           <ellipse cx="81" cy="186" rx="25" ry="7.5" transform="rotate(20 81 186)" />
@@ -1293,7 +1333,9 @@
           <ellipse cx="74" cy="58" rx="7.5" ry="3.5" transform="rotate(27 74 58)" />
           <ellipse cx="64" cy="43" rx="5.5" ry="3" transform="rotate(-28 64 43)" />
           <ellipse cx="74" cy="43" rx="5.5" ry="3" transform="rotate(28 74 43)" />
-          <path d="M70 10 C78 8 82 14 79 20 C76 25 69 24 68 19" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" />
+          <ellipse cx="66" cy="34" rx="4" ry="2.6" transform="rotate(-30 66 34)" />
+          <ellipse cx="74" cy="34" rx="4" ry="2.6" transform="rotate(30 74 34)" />
+          <path d="M70 30 C75 27 79 30 77 34 C75 38 70 37 69 34" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
         </g>
       </symbol>
       <symbol id="dino-pisada" viewBox="0 0 40 52">
@@ -1315,47 +1357,79 @@
     <div class="dino-cielo"></div>
     <div class="dino-sol"></div>
 
-    <!-- Cordillera lejana -->
-    <div class="dino-capa" data-dino-par="26" style="bottom: 24%">
-      <svg viewBox="0 0 390 120" preserveAspectRatio="none">
-        <path d="M0 120 L0 74 L38 44 L72 66 L104 34 L140 62 L176 30 L214 60 L248 38 L286 66 L322 42 L358 68 L390 48 L390 120 Z" fill="#0b2e1d" opacity="0.85" />
+    <!-- Cordillera lejana: nace del borde de abajo, así no queda ningún
+         filo horizontal flotando a media pantalla -->
+    <div class="dino-capa dino-capa-cordillera" data-dino-par="26" style="bottom: -34px">
+      <!-- preserveAspectRatio="none" + alto fijo: la cordillera se
+           estira a lo ancho pero nunca crece de alto en escritorio -->
+      <svg viewBox="0 0 390 340" preserveAspectRatio="none">
+        <path d="M0 340 L0 118 L38 84 L72 110 L104 70 L140 104 L176 62 L214 100 L248 74 L286 108 L322 78 L358 110 L390 86 L390 340 Z" fill="#0a2a1a" />
       </svg>
     </div>
 
     <!-- El volcán con su brasa y su humo -->
     <div class="dino-volcan" data-dino-par="44">
+     <div class="dino-volcan-arte">
       <div class="dino-crater"></div>
       <span class="dino-humo"></span>
       <span class="dino-humo"></span>
       <span class="dino-humo"></span>
       <span class="dino-humo"></span>
-      <svg viewBox="0 0 390 200" preserveAspectRatio="none">
-        <path d="M0 200 L118 44 L142 52 L160 34 L182 48 L206 30 L228 50 L250 40 L390 200 Z" fill="#09271a" />
-        <path d="M160 34 L182 48 L206 30 L228 50 L216 62 L196 54 L176 62 Z" fill="#1a1108" />
-        <path d="M196 42 C202 66 210 88 206 110 C220 92 216 70 226 58 C228 82 240 96 236 118 L160 118 C158 96 168 84 172 60 C182 74 188 60 196 42 Z" fill="#ff5b1e" opacity="0.5" />
+      <svg viewBox="0 0 390 230">
+        <defs>
+          <linearGradient id="dino-grad-lava" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ffe08a" />
+            <stop offset="16%" stop-color="#ffc23d" />
+            <stop offset="42%" stop-color="#ff5b1e" />
+            <stop offset="82%" stop-color="#c22f10" stop-opacity="0.35" />
+            <stop offset="100%" stop-color="#c22f10" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        <!-- los cerros de al lado -->
+        <path d="M0 230 L62 137 L104 160 L142 128 L178 154 L206 230 Z" fill="#072316" />
+        <path d="M390 230 L334 132 L298 157 L262 127 L232 154 L206 230 Z" fill="#072316" />
+        <!-- el cono: casi negro, con el filo apenas dibujado para que
+             se despegue del cielo aunque los dos sean verde oscuro -->
+        <path
+          d="M14 230 L150 59 L170 66 L186 47 L204 59 L222 43 L242 62 L260 55 L378 230 Z"
+          fill="#03130b"
+          stroke="#1d5233"
+          stroke-width="2"
+          stroke-linejoin="round"
+        />
+        <!-- la boca, tiznada -->
+        <path d="M186 47 L204 59 L222 43 L236 56 L214 65 L196 59 L176 63 Z" fill="#150f08" />
+        <!-- la lava escurriendo: se desvanece ladera abajo (degradado),
+             no se corta en seco como un palito naranja -->
+        <path
+          d="M205 55 L212 56 L215 84 L212 106 L210 86 L207 98 L202 81 Z"
+          fill="url(#dino-grad-lava)"
+          opacity="0.8"
+        />
       </svg>
+     </div>
     </div>
 
     <span class="dino-vapor" style="bottom: 30%"></span>
     <span class="dino-vapor" style="bottom: 14%; animation-duration: 34s; animation-direction: reverse; opacity: 0.7"></span>
 
-    <!-- Helechos: tres profundidades, cada una a su velocidad -->
-    <div class="dino-capa" data-dino-par="86" style="bottom: 0">
-      <div class="dino-fronda" style="left: -6%; width: 150px; color: #10402a; animation-duration: 8.5s">
+    <!-- Helechos: dos profundidades, cada una a su velocidad -->
+    <div class="dino-capa" data-dino-par="52" style="bottom: 0">
+      <div class="dino-fronda" style="left: -6%; --w: 150px; color: #10402a; animation-duration: 8.5s">
         <svg viewBox="0 0 120 200"><use href="#dino-fronda" /></svg>
       </div>
-      <div class="dino-fronda" style="right: -4%; width: 168px; color: #10402a; animation-duration: 9.5s; animation-delay: -3s">
+      <div class="dino-fronda" style="right: -4%; --w: 168px; color: #10402a; animation-duration: 9.5s; animation-delay: -3s">
         <svg viewBox="0 0 120 200"><use href="#dino-fronda" /></svg>
       </div>
-      <div class="dino-fronda" style="left: 38%; width: 120px; color: #0e3623; animation-duration: 11s; animation-delay: -5s; bottom: -12%">
+      <div class="dino-fronda" style="left: 38%; --w: 120px; color: #0e3623; animation-duration: 11s; animation-delay: -5s; bottom: -130px">
         <svg viewBox="0 0 120 200"><use href="#dino-fronda" /></svg>
       </div>
     </div>
-    <div class="dino-capa" data-dino-par="164" style="bottom: 0">
-      <div class="dino-fronda" style="left: -16%; width: 250px; color: #072116; animation-duration: 7s; bottom: -16%">
+    <div class="dino-capa" data-dino-par="88" style="bottom: 0">
+      <div class="dino-fronda" style="left: -16%; --w: 250px; color: #072116; animation-duration: 7s; bottom: -140px">
         <svg viewBox="0 0 120 200"><use href="#dino-fronda" /></svg>
       </div>
-      <div class="dino-fronda" style="right: -18%; width: 268px; color: #061c12; animation-duration: 7.8s; animation-delay: -2.4s; bottom: -18%">
+      <div class="dino-fronda" style="right: -18%; --w: 268px; color: #061c12; animation-duration: 7.8s; animation-delay: -2.4s; bottom: -150px">
         <svg viewBox="0 0 120 200"><use href="#dino-fronda" /></svg>
       </div>
     </div>
@@ -1378,47 +1452,80 @@
       <span class="dino-roar" aria-hidden="true">¡ROARRR!</span>
       <span class="dino-onda-roar" aria-hidden="true"></span>
       <span class="dino-rex-cuerpo">
-        <svg viewBox="0 0 300 210" aria-hidden="true">
-          <!-- patas de atrás (más oscuras) -->
-          <g class="dino-pata dino-pata-b" style="transform-origin: 144px 126px">
-            <path d="M132 112 C124 132 124 150 132 164 L126 182 L112 194 L152 194 L150 178 L152 160 C160 144 162 128 158 112 Z" fill="#05170f" />
+        <!-- El T-Rex es una SILUETA: un solo verde profundo y un filo de
+             luz lima en todo el contorno, para que se lea de un vistazo
+             contra la selva. Cabeza, cuello y torso van en un solo path
+             (así no queda costura en el trazo); la cola y las dos patas
+             van aparte porque se mueven. -->
+        <svg viewBox="0 0 320 244" aria-hidden="true">
+          <!-- pata de atrás: más oscura, va detrás del cuerpo -->
+          <g class="dino-pata dino-pata-b" style="transform-origin: 128px 132px">
+            <path
+              d="M106 114 C92 144 96 178 114 198 L106 216 L86 230 L92 238 L144 238 L142 216 L138 196 C152 174 154 144 148 114 Z"
+              fill="#041a10"
+              stroke="#a6d94b"
+              stroke-opacity="0.2"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
           </g>
-          <!-- cola -->
+
+          <!-- la cola, que se mece al caminar -->
           <g class="dino-cola">
-            <path d="M4 78 C34 84 62 96 92 112 L96 140 C64 126 34 108 6 92 Z" fill="#0a2718" />
+            <path
+              d="M4 62 C44 68 84 86 116 106 L108 134 C72 116 38 94 2 78 Z"
+              fill="#072317"
+              stroke="#a6d94b"
+              stroke-opacity="0.4"
+              stroke-width="2.2"
+              stroke-linejoin="round"
+            />
           </g>
-          <!-- cuerpo -->
+
+          <!-- cuerpo + cuello + cabeza, todo de una -->
           <path
-            d="M86 112 C96 92 114 78 138 72 C144 52 158 38 178 32 C198 26 220 28 234 38 C244 46 250 56 250 66 C262 68 272 72 274 80 C276 88 268 94 258 94 L232 94 C224 102 212 108 200 108 C196 122 190 134 182 144 C170 158 152 166 134 166 C114 166 96 158 84 146 C74 136 84 122 86 112 Z"
-            fill="#0e3623"
-          />
-          <!-- brillo de la selva en el lomo -->
-          <path
-            d="M86 112 C96 92 114 78 138 72 C144 52 158 38 178 32 C198 26 220 28 234 38 C244 46 250 56 250 66"
-            fill="none"
+            d="M112 108 C120 84 140 62 164 50 C176 34 198 20 222 16 C248 12 274 20 288 34 C298 44 302 54 298 62 L276 66 C260 71 244 71 234 66 C226 82 216 96 206 108 C198 120 194 132 190 146 C182 164 164 174 142 174 C118 174 100 164 92 148 C84 130 100 124 112 108 Z"
+            fill="#0a2f1d"
             stroke="#a6d94b"
-            stroke-width="3"
-            stroke-linecap="round"
-            opacity="0.5"
+            stroke-opacity="0.45"
+            stroke-width="2.4"
+            stroke-linejoin="round"
           />
-          <!-- placas del lomo -->
-          <path d="M112 84 L120 70 L128 82 Z" fill="#1c5c39" />
-          <path d="M136 72 L145 58 L152 70 Z" fill="#1c5c39" />
-          <path d="M160 56 L170 43 L176 55 Z" fill="#1c5c39" />
-          <!-- cabeza (bambolea) -->
-          <g class="dino-cabeza">
-            <path d="M234 38 C244 46 250 56 250 66 C262 68 272 72 274 80 C276 88 268 94 258 94 L232 94 C222 88 214 76 214 62 C214 50 222 40 234 38 Z" fill="#12452b" />
-            <path d="M258 94 L252 102 L246 94 Z" fill="#f6ecd6" />
-            <path d="M246 94 L241 101 L236 94 Z" fill="#f6ecd6" />
-            <circle class="dino-ojo" cx="240" cy="58" r="5" fill="#ffc23d" />
-            <circle cx="241.5" cy="58" r="2.2" fill="#04150d" />
-            <path d="M228 48 C234 44 242 44 248 47" fill="none" stroke="#a6d94b" stroke-width="2.6" stroke-linecap="round" opacity="0.7" />
-          </g>
-          <!-- bracito -->
-          <path d="M186 112 C196 116 202 124 200 134 L192 132 C194 126 190 120 184 118 Z" fill="#05170f" />
-          <!-- pata delantera (más clara) -->
-          <g class="dino-pata dino-pata-a" style="transform-origin: 158px 128px">
-            <path d="M148 114 C140 134 140 152 148 166 L142 184 L128 196 L170 196 L168 180 L170 162 C178 146 180 130 176 114 Z" fill="#12452b" />
+
+          <!-- las placas del lomo -->
+          <path d="M124 92 L132 76 L142 90 Z" fill="#14492d" />
+          <path d="M148 74 L158 58 L167 72 Z" fill="#14492d" />
+          <path d="M176 54 L187 40 L195 53 Z" fill="#14492d" />
+
+          <!-- el arco de la ceja, en sombra -->
+          <path d="M236 30 C248 22 266 20 280 25 L282 35 C268 30 250 32 238 39 Z" fill="#04170e" />
+          <!-- los dientes -->
+          <path d="M290 62 L286 71 L280 62 Z" fill="#f6ecd6" />
+          <path d="M278 63 L273 72 L267 63 Z" fill="#f6ecd6" />
+          <path d="M265 64 L260 73 L255 64 Z" fill="#f6ecd6" />
+          <path d="M252 65 L248 72 L243 65 Z" fill="#f6ecd6" />
+          <!-- el ojo (parpadea) y la fosa nasal -->
+          <circle class="dino-ojo" cx="260" cy="38" r="5.6" fill="#ffc23d" />
+          <circle cx="262" cy="38" r="2.5" fill="#04150d" />
+          <ellipse cx="292" cy="44" rx="3" ry="2.2" fill="#04150d" opacity="0.85" />
+
+          <!-- el vaho de la respiración -->
+          <circle class="dino-vaho" cx="304" cy="52" r="5" fill="#d8e4d6" opacity="0" />
+          <circle class="dino-vaho dino-vaho-2" cx="304" cy="52" r="4" fill="#d8e4d6" opacity="0" />
+
+          <!-- el bracito, corto como corresponde -->
+          <path d="M192 112 C204 116 212 126 210 138 L200 135 C203 127 198 120 190 118 Z" fill="#04170e" />
+
+          <!-- pata de adelante: más clara, va delante del cuerpo -->
+          <g class="dino-pata dino-pata-a" style="transform-origin: 154px 134px">
+            <path
+              d="M132 116 C118 146 122 180 140 200 L132 218 L112 232 L118 240 L170 240 L168 218 L164 198 C178 176 180 146 174 116 Z"
+              fill="#11452c"
+              stroke="#a6d94b"
+              stroke-opacity="0.4"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
           </g>
         </svg>
       </span>
@@ -1447,12 +1554,12 @@
       <div class="dino-caja">
         <p class="dino-antetitulo dino-ent" style="--i: 0">Expedición al Cretácico</p>
         <p class="dino-ruge dino-ent" style="--i: 1; margin-top: 14px; color: rgba(246,236,214,0.7); font-size: clamp(14px,4vw,18px); letter-spacing: 0.2em">El cumple de</p>
-        <h1 class="dino-titular"><span class="dino-letra" style="--i: 0">E</span><span class="dino-letra" style="--i: 1">m</span><span class="dino-letra" style="--i: 2">i</span><span class="dino-letra" style="--i: 3">l</span><span class="dino-letra" style="--i: 4">i</span><span class="dino-letra" style="--i: 5">a</span><span class="dino-letra" style="--i: 6">n</span><span class="dino-letra" style="--i: 7">o</span></h1>
-        <p class="dino-ruge">¡ya ruge <span class="dino-edad">5</span> años!</p>
+        <h1 class="dino-titular">{{NOMBRE_LETRAS}}</h1>
+        <p class="dino-ruge">¡ya ruge <span class="dino-edad">{{EDAD}}</span> años!</p>
 
         <div class="dino-datos-portada">
-          <p class="dino-fecha-linea dino-ent" style="--i: 5">Sábado 7 de noviembre de 2026 · 11:00 a. m.</p>
-          <p class="dino-lugar-linea dino-ent" style="--i: 6">Rancho El Roble · San Rafael de Alajuela</p>
+          <p class="dino-fecha-linea dino-ent" style="--i: 5">{{FECHA}} · {{HORA}}</p>
+          <p class="dino-lugar-linea dino-ent" style="--i: 6">{{LUGAR}} · {{DIRECCION}}</p>
         </div>
 
         <p class="dino-baja dino-ent" style="--i: 7">Bajá siguiendo las huellas<span aria-hidden="true">▼</span></p>
@@ -1512,17 +1619,17 @@
               <ellipse cx="146" cy="116" rx="11" ry="7" fill="#c2ab7c" opacity="0.35" transform="rotate(-8 146 116)" />
             </g>
 
-            <!-- la cría que asoma -->
+            <!-- la cría que asoma la cabeza por la grieta -->
             <g class="dino-cria">
-              <path d="M74 210 C74 168 90 142 112 142 C134 142 150 166 150 200 L150 214 L74 214 Z" fill="#1c5c39" />
-              <path d="M112 142 C126 142 138 152 144 166 C150 160 158 160 162 166 C166 172 162 180 154 180 L148 180" fill="#1c5c39" />
-              <circle cx="100" cy="176" r="6.4" fill="#f6ecd6" />
-              <circle cx="101.5" cy="177" r="3" fill="#04150d" />
-              <circle cx="126" cy="174" r="6.4" fill="#f6ecd6" />
-              <circle cx="127.5" cy="175" r="3" fill="#04150d" />
-              <path d="M104 196 C110 202 120 202 126 196" fill="none" stroke="#04150d" stroke-width="3.4" stroke-linecap="round" />
-              <path d="M92 152 L98 140 L104 152 Z" fill="#a6d94b" />
-              <path d="M110 148 L116 136 L122 148 Z" fill="#a6d94b" />
+              <path d="M84 216 C80 180 84 154 96 134 L136 146 C132 172 134 196 138 216 Z" fill="#1c5c39" />
+              <path d="M96 134 C94 112 108 96 128 96 C148 96 162 108 162 124 C162 133 157 139 148 140 L112 146 C102 146 96 142 96 134 Z" fill="#22703f" />
+              <path d="M150 138 L157 148 L142 145 Z" fill="#f6ecd6" />
+              <path d="M138 144 L132 152 L125 143 Z" fill="#f6ecd6" />
+              <circle cx="138" cy="116" r="8.6" fill="#f6ecd6" />
+              <circle cx="140.5" cy="117" r="3.9" fill="#04150d" />
+              <path d="M100 112 L106 95 L115 111 Z" fill="#a6d94b" />
+              <path d="M117 103 L125 88 L132 102 Z" fill="#a6d94b" />
+              <path d="M110 126 C118 122 128 122 136 125" fill="none" stroke="#a6d94b" stroke-width="2.6" stroke-linecap="round" opacity="0.6" />
             </g>
 
             <!-- mitad de abajo: se asienta -->
@@ -1554,11 +1661,11 @@
 
         <div class="dino-fecha-tarjeta">
           <div class="dino-fecha-grid">
-            <p class="dino-fecha-lado" style="text-align: right">Sábado</p>
-            <p class="dino-fecha-dia">07</p>
-            <p class="dino-fecha-lado" style="text-align: left">Noviembre<br />2026</p>
+            <p class="dino-fecha-lado" style="text-align: right">{{DIA_SEMANA}}</p>
+            <p class="dino-fecha-dia">{{DIA}}</p>
+            <p class="dino-fecha-lado" style="text-align: left">{{MES}}<br />{{ANIO}}</p>
           </div>
-          <p class="dino-fecha-horas">De <strong>11:00 a. m.</strong> a <strong>3:00 p. m.</strong></p>
+          <p class="dino-fecha-horas">De <strong>{{HORA}}</strong> a <strong>{{HORA_FIN}}</strong></p>
         </div>
 
         <div class="dino-cd-caja">
@@ -1572,7 +1679,7 @@
     <!-- ---------- 4. Ficha de campo ---------- -->
     <section class="dino-esc dino-ficha-escena" data-dino-escena aria-label="Ficha del dinosaurio">
       <div class="dino-caja">
-        <span class="dino-rotulo dino-ent" style="--i: 0">Hallazgo n.º 5</span>
+        <span class="dino-rotulo dino-ent" style="--i: 0">Hallazgo n.º {{EDAD}}</span>
         <h2 class="dino-h2 dino-ent" style="--i: 1">Ficha de campo</h2>
 
         <button
@@ -1591,21 +1698,21 @@
             </span>
             <span>
               <span class="dino-ficha-titulo">Registro paleontológico</span>
-              <span class="dino-ficha-especie" style="display: block">Emilianosaurus Rex</span>
+              <span class="dino-ficha-especie" style="display: block">{{ESPECIE}}</span>
             </span>
           </span>
 
           <span class="dino-ficha-fila" style="display: flex">
             <span class="dino-ficha-campo">Edad</span>
-            <span class="dino-ficha-valor">5 años recién rugidos</span>
+            <span class="dino-ficha-valor">{{EDAD}} años recién rugidos</span>
           </span>
           <span class="dino-ficha-fila" style="display: flex">
             <span class="dino-ficha-campo">Dieta</span>
-            <span class="dino-ficha-valor">Herbívoro de queque</span>
+            <span class="dino-ficha-valor">{{DIETA}}</span>
           </span>
           <span class="dino-ficha-fila" style="display: flex">
             <span class="dino-ficha-campo">Hábitat</span>
-            <span class="dino-ficha-valor">Rancho El Roble, San Rafael de Alajuela</span>
+            <span class="dino-ficha-valor">{{LUGAR}}, {{DIRECCION}}</span>
           </span>
           <span class="dino-ficha-fila" style="display: flex">
             <span class="dino-ficha-campo">Rugido</span>
@@ -1637,7 +1744,7 @@
               </svg>
             </span>
             <span class="dino-roca-titulo" style="display: block">La hora</span>
-            <span class="dino-roca-texto" style="display: block">De <strong>11:00 a. m.</strong> a <strong>3:00 p. m.</strong> La excavación abre puntual: si llegás tarde, los fósiles buenos ya se los llevaron.</span>
+            <span class="dino-roca-texto" style="display: block">De <strong>{{HORA}}</strong> a <strong>{{HORA_FIN}}</strong> — la excavación abre puntual: si llegás tarde, los fósiles buenos ya se los llevaron.</span>
           </button>
 
           <button type="button" class="dino-roca" style="--i: 1" aria-label="Qué llevar" onclick="this.classList.remove('dino-tap'); void this.offsetWidth; this.classList.add('dino-tap');">
@@ -1712,12 +1819,12 @@
               <path d="M268 66 C258 66 250 76 250 88 C250 102 268 118 268 118 C268 118 286 102 286 88 C286 76 278 66 268 66 Z" fill="#ff5b1e" />
               <circle cx="268" cy="87" r="7" fill="#f6ecd6" />
             </g>
-            <text x="268" y="140" text-anchor="middle" font-family="Trebuchet MS, sans-serif" font-size="13" font-weight="bold" fill="#d8f486">El Roble</text>
+            <text x="268" y="140" text-anchor="middle" font-family="Trebuchet MS, sans-serif" font-size="13" font-weight="bold" fill="#d8f486">{{LUGAR_CORTO}}</text>
           </svg>
 
           <div class="dino-mapa-pie">
-            <p class="dino-lugar-nombre">Rancho El Roble</p>
-            <p class="dino-lugar-dir">San Rafael de Alajuela</p>
+            <p class="dino-lugar-nombre">{{LUGAR}}</p>
+            <p class="dino-lugar-dir">{{DIRECCION}}</p>
             <div class="dino-botones">
               <a class="dino-btn dino-btn-maps" style="--i: 0" href="{{LINK_MAPS}}" target="_blank" rel="noopener noreferrer">
                 <span aria-hidden="true">📍</span> Google Maps
@@ -1729,7 +1836,7 @@
           </div>
         </div>
 
-        <p class="dino-nota dino-ent" style="--i: 2">Hay parqueo dentro del rancho. Entrás por el portón verde y seguís las huellas hasta el área de la excavación.</p>
+        <p class="dino-nota dino-ent" style="--i: 2">{{NOTA_LUGAR}}</p>
       </div>
     </section>
 
@@ -1757,7 +1864,7 @@
     <section class="dino-esc dino-cierre" data-dino-escena aria-label="Cierre">
       <div class="dino-caja">
         <span class="dino-rotulo dino-ent" style="--i: 0">Nos vemos en la selva</span>
-        <p class="dino-mensaje dino-ent" style="--i: 1">Emiliano lleva medio año convencido de que es un dinosaurio. Ya nos rendimos: le vamos a hacer la fiesta en la selva. Vení a rugir con él.</p>
+        <p class="dino-mensaje dino-ent" style="--i: 1">{{MENSAJE}}</p>
 
         <div class="dino-lejanas" aria-hidden="true">
           <span class="dino-lejana" style="--i: 0; width: 34px; opacity: 0.95"><svg viewBox="0 0 40 52"><use href="#dino-pisada" /></svg></span>
@@ -1769,7 +1876,7 @@
           <span class="dino-lejana" style="--i: 6; width: 8px; opacity: 0.16"><svg viewBox="0 0 40 52"><use href="#dino-pisada" /></svg></span>
         </div>
 
-        <p class="dino-firma">Sus papás — Karla y Josué</p>
+        <p class="dino-firma">{{PADRES}}</p>
         <p class="dino-despedida">Te esperamos en el Cretácico</p>
       </div>
     </section>
@@ -1910,18 +2017,17 @@
     var fondo = document.querySelector(".dino-fondo");
     if (!rex || !fondo) return;
     var capas = fondo.querySelectorAll(".dino-fronda");
+    var pendiente = null;
     rex.addEventListener("click", function () {
+      if (pendiente) window.clearTimeout(pendiente);
       for (var i = 0; i < capas.length; i++) {
-        var c = capas[i];
-        c.style.animationName = "none";
-        void c.offsetWidth;
-        c.style.animationName = "dino-sacude";
-        (function (nodo) {
-          window.setTimeout(function () {
-            nodo.style.animationName = "";
-          }, 620);
-        })(c);
+        capas[i].classList.remove("dino-sacudida");
+        void capas[i].offsetWidth;
+        capas[i].classList.add("dino-sacudida");
       }
+      pendiente = window.setTimeout(function () {
+        for (var j = 0; j < capas.length; j++) capas[j].classList.remove("dino-sacudida");
+      }, 640);
     });
   })();
 </script>

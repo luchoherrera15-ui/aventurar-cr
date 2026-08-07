@@ -128,6 +128,30 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     muestra: { fondo: "#f2e2c4", tinta: "#4a3b22", acento: "#e08a2c" },
   },
   {
+    slug: "demo-dinosaurios",
+    categoria: "infantiles",
+    nombre: "Selva Jurásica",
+    ocasion: "Cumples infantiles",
+    descripcion:
+      "Verde selva y naranja lava: el dinosaurio camina mientras bajás, las huellas marcan el camino y el huevo se abre.",
+    lienzo: "bg-aventurea-navy-3",
+    icono: "estrella",
+    iconoClase: "text-white/90",
+    muestra: { fondo: "#14301f", tinta: "#f2e9d8", acento: "#e08a2c" },
+  },
+  {
+    slug: "demo-princesas",
+    categoria: "infantiles",
+    nombre: "Castillo Encantado",
+    ocasion: "Cumples infantiles",
+    descripcion:
+      "El telón se abre y el castillo se levanta: torres que se encienden, carruaje con estela y polvo de hadas.",
+    lienzo: "bg-aventurea-blue-light",
+    icono: "globo",
+    iconoClase: "text-aventurea-navy",
+    muestra: { fondo: "#1b1440", tinta: "#f7ecf3", acento: "#e6b4d0" },
+  },
+  {
     slug: "demo-quince-anos",
     categoria: "quince",
     nombre: "Corona de Raso",

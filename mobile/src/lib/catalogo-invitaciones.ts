@@ -105,6 +105,28 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     tintaIcono: "rgba(255,255,255,0.95)",
   },
   {
+    slug: "demo-dinosaurios",
+    categoria: "infantiles",
+    nombre: "Selva Jurásica",
+    ocasion: "Cumples infantiles",
+    descripcion:
+      "El dinosaurio camina mientras bajás, las huellas marcan el camino y el huevo se abre.",
+    lienzo: Colors.navy3,
+    icono: "footsteps",
+    tintaIcono: "rgba(255,255,255,0.9)",
+  },
+  {
+    slug: "demo-princesas",
+    categoria: "infantiles",
+    nombre: "Castillo Encantado",
+    ocasion: "Cumples infantiles",
+    descripcion:
+      "El telón se abre y el castillo se levanta: torres que se encienden y polvo de hadas.",
+    lienzo: Colors.blueLight,
+    icono: "sparkles-outline",
+    tintaIcono: Colors.navy,
+  },
+  {
     slug: "demo-quince-anos",
     categoria: "quince",
     nombre: "Corona de Raso",
