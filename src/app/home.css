@@ -145,19 +145,16 @@
   animation-delay: calc(0.28s + var(--paso, 0) * 0.1s);
 }
 
-/* Con movimiento reducido: el mapa se ve quieto (silueta y pines
-   fijos, sin ondas) y el contenido aparece de una. */
+/* Con movimiento reducido: el texto aparece de una, pero los pines
+   del mapa siguen encendiéndose (ver la nota de adentro). */
 @media (prefers-reduced-motion: reduce) {
-  .home-entra,
-  .mapa-tierra,
-  .mapa-pin {
+  /* Los pines del mapa SIGUEN encendiéndose: son la bienvenida del
+     sitio y, desde que la portada se va sola a Eventos, también lo
+     que hace entendible esos cinco segundos. Una pantalla quieta que
+     salta sin aviso se lee como un error. Lo que sí se apaga es la
+     entrada escalonada del texto y el resto del recorrido. */
+  .home-entra {
     animation: none;
-  }
-  .mapa-tierra {
-    opacity: 0.13;
-  }
-  .mapa-onda {
-    display: none;
   }
 }
 
@@ -241,4 +238,23 @@
   to {
     transform: scaleX(1);
   }
+}
+
+/* ==================================================================
+   La barra de la entrada automática (portada-intro.tsx): cinco
+   segundos de mapa y después el sitio se va solo a Eventos. La barra
+   se vacía a la par del reloj de JavaScript — los dos duran 5000 ms,
+   así que lo que se ve y lo que pasa terminan juntos.
+
+   NO se apaga con prefers-reduced-motion: si se apagara, la barra
+   quedaría llena y quieta mientras la página igual se va sola — el
+   salto se sentiría como una falla. Que se vacíe es justamente lo que
+   avisa que va a pasar algo.
+   ================================================================== */
+@keyframes portada-vaciar {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+.portada-barra-relleno {
+  animation: portada-vaciar 5000ms linear forwards;
 }

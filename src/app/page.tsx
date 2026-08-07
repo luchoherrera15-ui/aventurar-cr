@@ -6,6 +6,7 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import MapaLatam from "@/components/mapa-latam";
+import PortadaIntro from "./portada-intro";
 import { IconBalloons, IconCalendarLine, IconWand } from "@/components/icons";
 
 /**
@@ -137,6 +138,13 @@ export default function Home() {
           >
             ↓
           </span>
+
+          {/* La entrada automática: cinco segundos de mapa y el sitio
+              se va solo a Eventos (o antes, si tocan la pantalla).
+              Va acá abajo y no envuelve nada: el home sigue llegando
+              entero en el HTML, así que si el JavaScript no corre, la
+              portada funciona como toda la vida. */}
+          <PortadaIntro />
         </section>
 
         {/* ---------- Así de simple: la banda oscura INMERSIVA, de
