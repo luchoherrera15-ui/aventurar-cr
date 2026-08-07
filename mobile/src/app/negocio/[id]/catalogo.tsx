@@ -17,6 +17,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import BarraSuperior from "@/components/barra-superior";
+import PanelNav, { ALTO_PANEL_NAV } from "@/components/panel-nav";
 import { useAuth } from "@/lib/auth-context";
 import { etiquetaDuracion } from "@/lib/catalogo";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -92,6 +93,8 @@ export default function CatalogoNegocioScreen() {
 
   const [nombreNegocio, setNombreNegocio] = useState("");
   const [categoria, setCategoria] = useState<Categoria>("otros");
+  /** Solo para la barra del panel: cómo se llama esto en cada vertical. */
+  const [vertical, setVertical] = useState<string | null>(null);
   const [items, setItems] = useState<RanchoItem[] | null>(null);
   const [editando, setEditando] = useState<string | "nuevo" | null>(null);
   const [borrador, setBorrador] = useState<Borrador>(VACIO);
@@ -101,7 +104,7 @@ export default function CatalogoNegocioScreen() {
 
   const cargar = useCallback(async () => {
     const [ranchoRes, itemsRes] = await Promise.all([
-      supabase.from("ranchos").select("nombre, categoria").eq("id", id).maybeSingle(),
+      supabase.from("ranchos").select("nombre, categoria, vertical").eq("id", id).maybeSingle(),
       supabase
         .from("rancho_items")
         .select("*")
@@ -112,6 +115,7 @@ export default function CatalogoNegocioScreen() {
     if (ranchoRes.data) {
       setNombreNegocio(ranchoRes.data.nombre as string);
       setCategoria(ranchoRes.data.categoria as Categoria);
+      setVertical((ranchoRes.data.vertical as string) ?? null);
     }
     setItems((itemsRes.data ?? []) as RanchoItem[]);
   }, [id]);
@@ -341,7 +345,14 @@ export default function CatalogoNegocioScreen() {
           <ActivityIndicator color={Colors.accent} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: Spacing.four, gap: Spacing.three }}>
+        <ScrollView
+          contentContainerStyle={{
+            gap: Spacing.three,
+            padding: Spacing.four,
+            // Libre para la barra del panel, que va fija abajo.
+            paddingBottom: ALTO_PANEL_NAV + Spacing.four,
+          }}
+        >
           {error && <Text style={styles.error}>{error}</Text>}
 
           {items.length === 0 && editando === null && (
@@ -453,6 +464,13 @@ export default function CatalogoNegocioScreen() {
           <View style={{ height: Spacing.six }} />
         </ScrollView>
       )}
+
+      <PanelNav
+        negocioId={String(id)}
+        activa="catalogo"
+        mostrarCatalogo
+        etiquetaCatalogo={vertical === "citas" ? "Servicios" : "Catálogo"}
+      />
     </View>
   );
 }

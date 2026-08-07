@@ -14,7 +14,23 @@ export type Tab = {
   /** Contador chiquito al lado del label (ej. reservas por aprobar). */
   badge?: number;
   icon?: ReactNode;
+  /**
+   * Nombres viejos de `?tab=` que ahora aterrizan acá. Existen porque
+   * hay links guardados y correos ya enviados que apuntan a pestañas
+   * que se fusionaron (ej. `?tab=agenda` → Inicio, `?tab=precios` →
+   * Configuración): sin esto caerían en la pestaña por defecto sin
+   * avisar.
+   */
+  alias?: string[];
 };
+
+/** El id de pestaña real detrás de un `?tab=` (propio o heredado). */
+function resolverTab(param: string | null, tabs: Tab[]): string | null {
+  if (!param) return null;
+  const directo = tabs.find((t) => t.id === param && !t.href);
+  if (directo) return directo.id;
+  return tabs.find((t) => !t.href && t.alias?.includes(param))?.id ?? null;
+}
 
 /**
  * El panel de dueño como dashboard con menú lateral. Mismo mecanismo de
@@ -33,10 +49,9 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const inicial = searchParams.get("tab");
-  const [activo, setActivo] = useState(
-    inicial && tabs.some((t) => t.id === inicial) ? inicial : defaultTab,
-  );
+  const paramTab = searchParams.get("tab");
+  const resuelto = resolverTab(paramTab, tabs);
+  const [activo, setActivo] = useState(resuelto ?? defaultTab);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
 
   // Los accesos rápidos del encabezado (ej. "Editar perfil y fotos")
@@ -44,12 +59,10 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
   // parámetro cambia desde afuera, la sección activa lo sigue. Se
   // ajusta durante el render (patrón oficial de React para derivar
   // estado de una prop que cambió), no en un efecto.
-  const [previo, setPrevio] = useState(inicial);
-  if (inicial !== previo) {
-    setPrevio(inicial);
-    if (inicial && inicial !== activo && tabs.some((t) => t.id === inicial && !t.href)) {
-      setActivo(inicial);
-    }
+  const [previo, setPrevio] = useState(paramTab);
+  if (paramTab !== previo) {
+    setPrevio(paramTab);
+    if (resuelto && resuelto !== activo) setActivo(resuelto);
   }
 
   function cambiar(id: string) {

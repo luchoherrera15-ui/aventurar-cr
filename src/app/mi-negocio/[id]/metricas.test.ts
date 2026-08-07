@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { actividadReciente } from "./metricas";
-import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
+import { actividadReciente, type ReservaAuditoria } from "./metricas";
 
-function reserva(overrides: Partial<Reserva>): Reserva {
+function reserva(overrides: Partial<ReservaAuditoria>): ReservaAuditoria {
   return {
     id: "r1",
     rancho_id: "rancho-1",
@@ -101,5 +100,64 @@ describe("actividadReciente", () => {
     expect(conNota.nota).toBe("Llega a las 3");
     const [sinNota] = actividadReciente([reserva({ notas: "   " })]);
     expect(sinNota.nota).toBeNull();
+  });
+
+  it("trae la traza de quién reservó y cómo pagó", () => {
+    const [item] = actividadReciente([
+      reserva({
+        correo: "ana@correo.com",
+        whatsapp: "8888-8888",
+        cedula: "1-1111-1111",
+        metodo_pago: "sinpe",
+        origen: "web",
+        invitados: 40,
+        tipo_evento: "Cumpleaños",
+        deposito_pagado_en: "2026-08-02T16:00:00Z",
+        saldo_pagado_en: "2026-09-12T22:00:00Z",
+        codigo_descuento: "VERANO",
+        descuento_monto: 5000,
+        deposito_comprobante_url: "comprobantes/ana.jpg",
+      }),
+    ]);
+    expect(item).toMatchObject({
+      correo: "ana@correo.com",
+      whatsapp: "8888-8888",
+      cedula: "1-1111-1111",
+      metodoPago: "sinpe",
+      origen: "web",
+      invitados: 40,
+      tipoEvento: "Cumpleaños",
+      depositoPagadoEn: "2026-08-02T16:00:00Z",
+      saldoPagadoEn: "2026-09-12T22:00:00Z",
+      codigoDescuento: "VERANO",
+      descuentoMonto: 5000,
+      comprobanteUrl: "comprobantes/ana.jpg",
+    });
+  });
+
+  it("las columnas que puede no tener la base quedan en null, no en undefined", () => {
+    const [item] = actividadReciente([reserva({})]);
+    expect(item.depositoPagadoEn).toBeNull();
+    expect(item.saldoPagadoEn).toBeNull();
+    expect(item.codigoDescuento).toBeNull();
+    expect(item.adelantoDevuelto).toBe(false);
+  });
+
+  it("manda lo cobrado de verdad sobre la cotización", () => {
+    const [item] = actividadReciente([
+      reserva({ monto_total: 100000, monto_cobrado_final: 90000 }),
+    ]);
+    expect(item.monto).toBe(90000);
+  });
+
+  it("el horario sale legible: el bloque del lugar o la hora de la cita", () => {
+    const [bloque] = actividadReciente([reserva({ horario_bloque: "8 a.m. a 4 p.m." })]);
+    expect(bloque.horario).toBe("8 a.m. a 4 p.m.");
+    const [cita] = actividadReciente([
+      reserva({ horario_bloque: null, hora_inicio: "15:30:00", duracion_horas: 2 }),
+    ]);
+    expect(cita.horario).toBe("3:30 p.m. · 2 h");
+    const [sinHorario] = actividadReciente([reserva({ horario_bloque: null })]);
+    expect(sinHorario.horario).toBeNull();
   });
 });

@@ -14,6 +14,7 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
+import PanelNav, { ALTO_PANEL_NAV } from "@/components/panel-nav";
 import { supabase } from "@/lib/supabase";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import {
@@ -51,6 +52,9 @@ export default function FinanzasNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [nombre, setNombre] = useState<string | null>(null);
+  /** Solo para la barra del panel: qué destinos tiene este negocio. */
+  const [categoria, setCategoria] = useState<string | null>(null);
+  const [vertical, setVertical] = useState<string | null>(null);
   const [reservas, setReservas] = useState<ReservaFinanzas[] | null>(null);
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [vista, setVista] = useState<Vista>("resumen");
@@ -61,7 +65,7 @@ export default function FinanzasNegocioScreen() {
   const cargar = useCallback(async () => {
     if (!id) return;
     const [negocioRes, reservasRes, gastosRes] = await Promise.all([
-      supabase.from("ranchos").select("nombre").eq("id", id).maybeSingle(),
+      supabase.from("ranchos").select("nombre, categoria, vertical").eq("id", id).maybeSingle(),
       supabase
         .from("reservas")
         .select(
@@ -77,6 +81,8 @@ export default function FinanzasNegocioScreen() {
     ]);
 
     setNombre((negocioRes.data?.nombre as string) ?? null);
+    setCategoria((negocioRes.data?.categoria as string) ?? null);
+    setVertical((negocioRes.data?.vertical as string) ?? null);
     setReservas((reservasRes.data ?? []) as ReservaFinanzas[]);
     setGastos((gastosRes.data ?? []) as Gasto[]);
   }, [id]);
@@ -457,6 +463,13 @@ export default function FinanzasNegocioScreen() {
           await cargar();
         }}
       />
+
+      <PanelNav
+        negocioId={String(id)}
+        activa="finanzas"
+        mostrarCatalogo={vertical === "citas" || categoria !== "lugares"}
+        etiquetaCatalogo={vertical === "citas" ? "Servicios" : "Catálogo"}
+      />
     </View>
   );
 }
@@ -678,7 +691,8 @@ function ModalGasto({
 const styles = StyleSheet.create({
   contenedor: { backgroundColor: Colors.cream, flex: 1 },
   centro: { alignItems: "center", flex: 1, justifyContent: "center" },
-  scroll: { gap: Spacing.three, padding: Spacing.three, paddingBottom: Spacing.six },
+  // El final del scroll deja libre la barra del panel (fija abajo).
+  scroll: { gap: Spacing.three, padding: Spacing.three, paddingBottom: ALTO_PANEL_NAV + Spacing.four },
 
   pestanas: {
     flexDirection: "row",

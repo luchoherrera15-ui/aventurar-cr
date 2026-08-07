@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,130 +13,105 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
-import {
-  Boton,
-  ChipCategoria,
-  Estado,
-  Micro,
-  Tarjeta,
-  Vacio,
-  type TonoEstado,
-} from "@/components/ui";
+import AgendaCompacta from "@/components/agenda-compacta";
+import PanelNav, { ALTO_PANEL_NAV } from "@/components/panel-nav";
+import ReservaAuditoria from "@/components/reserva-auditoria";
+import { Boton, ChipCategoria, Micro, Vacio } from "@/components/ui";
 import { pedirCorreoDeAprobacion } from "@/lib/notificaciones";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
+import { fechaISOLocal } from "@/lib/citas";
+import { saldoPendiente } from "@/lib/finanzas";
+import {
+  avisosDe,
+  diasDeAgenda,
+  fechaDelEvento,
+  historico,
+  horarioDelEvento,
+  montosDe,
+  selloDeTiempo,
+  type ReservaPanel,
+} from "@/lib/panel-reservas";
 
 /**
- * Administración de un negocio propio: todas sus reservas con las
- * acciones del panel web — confirmar (una sola por fecha; la base lo
- * garantiza), rechazar, marcar el depósito como validado y abrir el
- * comprobante. Mismas políticas RLS que /mi-negocio: el dueño solo ve
- * y edita lo suyo.
+ * El INICIO del panel del dueño, en el orden en que se usa un teléfono:
+ *
+ *   1. Lo que pide una respuesta — las reservas nuevas por aceptar y
+ *      los avisos de plata (adelantos sin validar, saldos vencidos).
+ *   2. La agenda — qué hay hoy y qué se viene.
+ *   3. El histórico con auditoría — las últimas reservas realizadas:
+ *      quién, con qué correo, a qué hora la hizo, cuánto depositó y
+ *      cuánto queda pendiente. Cada una se abre para ver el resto.
+ *
+ * Antes esta pantalla era una lista de TODAS las reservas con siete
+ * atajos encima; en un celular eso eran tres rieles apilados y el
+ * dueño se perdía. Ahora los destinos del panel son cuatro y viven en
+ * la barra de abajo (PanelNav), y la pantalla cuenta una historia
+ * ordenada de arriba hacia abajo.
+ *
+ * Mismas políticas RLS que /mi-negocio: el dueño solo ve y edita lo
+ * suyo. Las acciones son las del panel web — confirmar (una sola por
+ * fecha; la base lo garantiza), rechazar, validar el adelanto y abrir
+ * el comprobante.
  */
 
-type ReservaNegocio = {
-  id: string;
-  fecha: string;
-  fecha_fin: string | null;
-  hora_inicio: string | null;
-  duracion_minutos: number | null;
-  nombre: string | null;
-  correo: string | null;
-  whatsapp: string | null;
-  tipo_evento: string | null;
-  invitados: number | null;
-  estado:
-    | "pendiente"
-    | "confirmada"
-    | "rechazada"
-    | "bloqueada"
-    // Estados de citas (0061): la asistencia que marca el negocio.
-    | "cumplida"
-    | "no_asistio"
-    | "cancelada";
-  horario_bloque: string | null;
-  monto_total: number | null;
-  deposito_monto: number | null;
-  deposito_comprobante_url: string | null;
-  deposito_validado: boolean;
-  notas: string | null;
-};
+/** Cuántos días muestra la tira de la agenda. */
+const DIAS_AGENDA = 14;
+/** Cuántas reservas del histórico se ven antes de "Ver más". */
+const HISTORICO_VISIBLE = 8;
+/** El techo del histórico: más que esto se consulta en la web. */
+const HISTORICO_MAX = 40;
+/** Cuántas por aceptar se muestran sin desplegar. */
+const POR_ACEPTAR_VISIBLE = 3;
 
-const ESTADO_LABEL: Record<string, string> = {
-  pendiente: "En aprobación",
-  confirmada: "Confirmada",
-  rechazada: "Rechazada",
-  bloqueada: "Bloqueada",
-  cumplida: "Cumplida",
-  no_asistio: "No asistió",
-  cancelada: "Cancelada",
-};
-/** El mismo código de color que la agenda y las reservas del cliente. */
-const ESTADO_TONO: Record<string, TonoEstado> = {
-  pendiente: "naranja",
-  confirmada: "verde",
-  rechazada: "rojo",
-  bloqueada: "gris",
-  cumplida: "verde",
-  no_asistio: "rojo",
-  cancelada: "gris",
-};
+const FILTROS = [
+  { id: "todas", label: "Todas" },
+  { id: "por_cobrar", label: "Con saldo" },
+  { id: "canceladas", label: "Canceladas" },
+] as const;
 
-/** La barra de acento a la izquierda de cada reserva. */
-const ESTADO_BARRA: Record<string, string> = {
-  pendiente: Colors.accent,
-  confirmada: Colors.green,
-  rechazada: Colors.danger,
-  bloqueada: Colors.line,
-  cumplida: Colors.green,
-  no_asistio: Colors.danger,
-  cancelada: Colors.line,
-};
+type Filtro = (typeof FILTROS)[number]["id"];
 
-/** "10:00" o "10:00–10:45" si se sabe cuánto dura. */
-function rangoHora(hora: string, duracionMin: number | null): string {
-  const inicio = hora.slice(0, 5);
-  if (!duracionMin) return inicio;
-  const [h, m] = inicio.split(":").map(Number);
-  const fin = h * 60 + m + duracionMin;
-  const hf = String(Math.floor(fin / 60) % 24).padStart(2, "0");
-  const mf = String(fin % 60).padStart(2, "0");
-  return `${inicio}–${hf}:${mf}`;
-}
-
-const FILTROS = ["todas", "pendiente", "confirmada", "cumplida", "rechazada"] as const;
-
-export default function AdminNegocioScreen() {
+export default function PanelNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { session } = useAuth();
+
   const [nombreNegocio, setNombreNegocio] = useState<string | null>(null);
   const [categoria, setCategoria] = useState<string | null>(null);
-  /** La vertical decide qué atajos tienen sentido (equipo y horario
-   *  solo existen en Citas). */
+  /** La vertical decide cómo se llama el catálogo (servicios en Citas). */
   const [vertical, setVertical] = useState<string | null>(null);
-  const [reservas, setReservas] = useState<ReservaNegocio[] | null>(null);
-  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>("todas");
+  const [reservas, setReservas] = useState<ReservaPanel[] | null>(null);
+
+  const [refrescando, setRefrescando] = useState(false);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [diaAgenda, setDiaAgenda] = useState(() => fechaISOLocal(new Date()));
+  const [verTodasPendientes, setVerTodasPendientes] = useState(false);
+  const [filtro, setFiltro] = useState<Filtro>("todas");
+  const [verTodoHistorico, setVerTodoHistorico] = useState(false);
+  const [fichaAbierta, setFichaAbierta] = useState<string | null>(null);
+  const listaRef = useRef<FlatList<ReservaPanel>>(null);
 
   const cargar = useCallback(async () => {
     if (!session) return;
-    const [{ data: rancho }, { data: reservasData }] = await Promise.all([
+    const [{ data: rancho }, { data: filas }] = await Promise.all([
       supabase.from("ranchos").select("nombre, categoria, vertical").eq("id", id).maybeSingle(),
+      // select("*") a propósito: la auditoría usa casi todas las
+      // columnas, y así una migración nueva (por ejemplo
+      // adelanto_devuelto) no rompe la consulta por nombrar una
+      // columna que todavía no existe en la base.
       supabase
         .from("reservas")
-        .select(
-          "id, fecha, fecha_fin, hora_inicio, duracion_minutos, nombre, correo, whatsapp, tipo_evento, invitados, estado, horario_bloque, monto_total, deposito_monto, deposito_comprobante_url, deposito_validado, notas",
-        )
+        .select("*")
         .eq("rancho_id", id)
         .neq("estado", "temporal")
-        .order("fecha", { ascending: true }),
+        .order("created_at", { ascending: false }),
     ]);
     setNombreNegocio(rancho?.nombre ?? null);
     setCategoria((rancho?.categoria as string) ?? null);
     setVertical((rancho?.vertical as string) ?? null);
-    setReservas((reservasData ?? []) as ReservaNegocio[]);
+    setReservas((filas ?? []) as ReservaPanel[]);
   }, [id, session]);
 
   useFocusEffect(
@@ -145,12 +120,16 @@ export default function AdminNegocioScreen() {
     }, [cargar]),
   );
 
-  async function cambiarEstado(reserva: ReservaNegocio, estado: "confirmada" | "rechazada") {
+  async function refrescar() {
+    setRefrescando(true);
+    await cargar();
+    setRefrescando(false);
+  }
+
+  /** Aprobar o rechazar una reserva que espera respuesta. */
+  async function cambiarEstado(reserva: ReservaPanel, estado: "confirmada" | "rechazada") {
     setOcupado(reserva.id);
-    const { error } = await supabase
-      .from("reservas")
-      .update({ estado })
-      .eq("id", reserva.id);
+    const { error } = await supabase.from("reservas").update({ estado }).eq("id", reserva.id);
     setOcupado(null);
 
     if (error) {
@@ -162,9 +141,7 @@ export default function AdminNegocioScreen() {
       );
       return;
     }
-    setReservas((prev) =>
-      (prev ?? []).map((r) => (r.id === reserva.id ? { ...r, estado } : r)),
-    );
+    setReservas((prev) => (prev ?? []).map((r) => (r.id === reserva.id ? { ...r, estado } : r)));
 
     // El correo lo manda la web (Resend vive en el servidor). Sin await
     // que bloquee: la aprobación ya quedó guardada, así que si esto
@@ -174,26 +151,78 @@ export default function AdminNegocioScreen() {
     }
   }
 
-  async function alternarDeposito(reserva: ReservaNegocio) {
-    const nuevo = !reserva.deposito_validado;
+  function confirmarRechazo(reserva: ReservaPanel) {
+    Alert.alert("Rechazar reserva", "¿Seguro? El cliente verá su reserva como rechazada.", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Rechazar",
+        style: "destructive",
+        onPress: () => cambiarEstado(reserva, "rechazada"),
+      },
+    ]);
+  }
+
+  function quitarConfirmacion(reserva: ReservaPanel) {
+    Alert.alert("Quitar confirmación", "La reserva vuelve a quedar por aceptar.", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Quitar",
+        onPress: async () => {
+          setOcupado(reserva.id);
+          const { error } = await supabase
+            .from("reservas")
+            .update({ estado: "pendiente" })
+            .eq("id", reserva.id);
+          setOcupado(null);
+          if (!error) {
+            setReservas((prev) =>
+              (prev ?? []).map((r) => (r.id === reserva.id ? { ...r, estado: "pendiente" } : r)),
+            );
+          }
+        },
+      },
+    ]);
+  }
+
+  /**
+   * Dar el adelanto por recibido. Se guarda también CUÁNDO se validó
+   * (deposito_pagado_en): sin esa fecha, Finanzas no sabe en qué
+   * semana entró la plata — es el mismo campo que usa la web.
+   */
+  async function alternarAdelanto(reserva: ReservaPanel) {
+    const recibido = !reserva.deposito_validado;
+    const pagadoEn = recibido ? new Date().toISOString() : null;
     setReservas((prev) =>
-      (prev ?? []).map((r) => (r.id === reserva.id ? { ...r, deposito_validado: nuevo } : r)),
+      (prev ?? []).map((r) =>
+        r.id === reserva.id
+          ? { ...r, deposito_validado: recibido, deposito_pagado_en: pagadoEn }
+          : r,
+      ),
     );
     const { error } = await supabase
       .from("reservas")
-      .update({ deposito_validado: nuevo })
-      .eq("id", reserva.id);
+      .update({ deposito_validado: recibido, deposito_pagado_en: pagadoEn })
+      .eq("id", reserva.id)
+      .eq("rancho_id", id);
     if (error) {
+      // Revertir: la base mandó, no la pantalla.
       setReservas((prev) =>
-        (prev ?? []).map((r) => (r.id === reserva.id ? { ...r, deposito_validado: !nuevo } : r)),
+        (prev ?? []).map((r) =>
+          r.id === reserva.id
+            ? {
+                ...r,
+                deposito_validado: reserva.deposito_validado,
+                deposito_pagado_en: reserva.deposito_pagado_en,
+              }
+            : r,
+        ),
       );
+      Alert.alert("No se pudo guardar", error.message);
     }
   }
 
   async function verComprobante(path: string) {
-    const { data, error } = await supabase.storage
-      .from("comprobantes")
-      .createSignedUrl(path, 60);
+    const { data, error } = await supabase.storage.from("comprobantes").createSignedUrl(path, 60);
     if (error || !data?.signedUrl) {
       Alert.alert("No se pudo abrir", "El comprobante no está disponible.");
       return;
@@ -201,337 +230,361 @@ export default function AdminNegocioScreen() {
     WebBrowser.openBrowserAsync(data.signedUrl);
   }
 
-  const lista = (reservas ?? []).filter((r) => filtro === "todas" || r.estado === filtro);
+  const todas = useMemo(() => reservas ?? [], [reservas]);
+  const avisos = useMemo(() => avisosDe(todas), [todas]);
+  const dias = useMemo(() => diasDeAgenda(todas, DIAS_AGENDA), [todas]);
+
+  const historial = useMemo(() => {
+    const lista = historico(todas, HISTORICO_MAX);
+    if (filtro === "por_cobrar") {
+      return lista.filter(
+        (r) =>
+          (r.estado === "confirmada" || r.estado === "pendiente" || r.estado === "cumplida") &&
+          saldoPendiente(r) > 0,
+      );
+    }
+    if (filtro === "canceladas") {
+      return lista.filter(
+        (r) => r.estado === "rechazada" || r.estado === "cancelada" || r.estado === "no_asistio",
+      );
+    }
+    return lista;
+  }, [todas, filtro]);
+
+  /**
+   * Tocar algo de la agenda abre SU ficha en el histórico y desplaza
+   * la pantalla hasta ella: es la misma reserva, no hace falta otra
+   * pantalla para verla en detalle.
+   */
+  function abrirFicha(reserva: ReservaPanel) {
+    setFiltro("todas");
+    setVerTodoHistorico(true);
+    setFichaAbierta(reserva.id);
+    const indice = historico(todas, HISTORICO_MAX).findIndex((r) => r.id === reserva.id);
+    if (indice < 0) return;
+    // Con un respiro para que la lista ya esté re-dibujada con el
+    // filtro en "todas" y todas las filas visibles.
+    setTimeout(() => {
+      listaRef.current?.scrollToIndex({ index: indice, viewPosition: 0.1, animated: true });
+    }, 80);
+  }
+
+  const historialVisible = verTodoHistorico ? historial : historial.slice(0, HISTORICO_VISIBLE);
+  const restantes = historial.length - historialVisible.length;
+
+  const pendientes = avisos.porAceptar;
+  const pendientesVisibles = verTodasPendientes
+    ? pendientes
+    : pendientes.slice(0, POR_ACEPTAR_VISIBLE);
+
+  const mostrarCatalogo = vertical === "citas" || (categoria !== null && categoria !== "lugares");
 
   if (reservas === null) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior kicker="Panel" titulo="Panel de reservas" />
+        <BarraSuperior kicker="Panel" titulo="Inicio" />
         <View style={styles.centro}>
-          <ActivityIndicator color={Colors.accent} />
+          <ActivityIndicator color={Colors.navy} />
         </View>
       </View>
     );
   }
 
-  const pendientes = (reservas ?? []).filter((r) => r.estado === "pendiente").length;
-
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
         kicker="Panel"
-        titulo="Panel de reservas"
-        subtitulo={nombreNegocio ?? undefined}
-        accion={{
-          icono: "create-outline",
-          etiqueta: "Editar negocio",
-          onPress: () => router.push(`/negocio/${id}/editar` as never),
-        }}
+        titulo={nombreNegocio ?? "Tu negocio"}
+        subtitulo="Avisos, agenda e histórico"
       />
+
       <FlatList
-      style={{ flex: 1 }}
-      contentContainerStyle={{ padding: Spacing.three, paddingBottom: 40, gap: Spacing.two }}
-      data={lista}
-      keyExtractor={(r) => r.id}
-      onRefresh={cargar}
-      refreshing={false}
-      ListHeaderComponent={
-        <View style={styles.cabecera}>
-          {/* Administración del negocio, todo desde la app. Para CITAS
-              rige el mismo esquema de 4 del panel web: Inicio (esta
-              pantalla), Citas (la agenda del día), Finanzas y
-              Configuración (equipo, horario, giftcards y bloqueos) —
-              la agenda mensual de eventos y los atajos sueltos de esa
-              vertical (Precios) no aplican. Para las demás verticales,
-              los atajos de siempre. */}
-          <View style={{ gap: Spacing.two }}>
-            <Micro>Tu negocio</Micro>
-            {vertical === "citas" ? (
-              <View style={styles.adminFila}>
-                {/* La agenda del día por persona: donde entran solas
-                    las reservas de la web y se atiende el mostrador. */}
-                <AtajoPanel
-                  icono="time-outline"
-                  texto="Citas"
-                  onPress={() => router.push(`/negocio/${id}/agenda` as never)}
-                />
-                {/* Lo que entró, lo que falta cobrar y los gastos. */}
-                <AtajoPanel
-                  icono="trending-up-outline"
-                  texto="Finanzas"
-                  onPress={() => router.push(`/negocio/${id}/finanzas` as never)}
-                />
-                <AtajoPanel
-                  icono="settings-outline"
-                  texto="Configuración"
-                  onPress={() => router.push(`/negocio/${id}/citas` as never)}
-                />
-              </View>
-            ) : (
-              <View style={styles.adminFila}>
-                {/* La agenda por horas y el feed para sincronizar
-                    Google/Apple Calendar. */}
-                <AtajoPanel
-                  icono="calendar-outline"
-                  texto="Agenda"
-                  onPress={() => router.push(`/negocio/${id}/agenda` as never)}
-                />
-                {/* Importar el calendario viejo (Google/Apple) como bloqueos. */}
-                <AtajoPanel
-                  icono="sync-outline"
-                  texto="Sincronizar"
-                  onPress={() => router.push(`/negocio/${id}/sincronizar` as never)}
-                />
-                <AtajoPanel
-                  icono="create-outline"
-                  texto="Editar página"
-                  onPress={() => router.push(`/negocio/${id}/editar` as never)}
-                />
-                {categoria && categoria !== "lugares" && (
-                  <AtajoPanel
-                    icono="list-outline"
-                    texto="Catálogo"
-                    onPress={() => router.push(`/negocio/${id}/catalogo` as never)}
-                  />
+        ref={listaRef}
+        style={{ flex: 1 }}
+        // Las tarjetas del histórico no miden todas igual (una abierta
+        // es mucho más alta), así que un salto puede fallar: se
+        // reintenta cuando la lista ya midió las filas de en medio.
+        onScrollToIndexFailed={({ index }) => {
+          setTimeout(() => {
+            listaRef.current?.scrollToIndex({ index, viewPosition: 0.1, animated: true });
+          }, 250);
+        }}
+        contentContainerStyle={{
+          gap: Spacing.two,
+          padding: Spacing.three,
+          paddingBottom: ALTO_PANEL_NAV + Spacing.four,
+        }}
+        data={historialVisible}
+        keyExtractor={(r) => r.id}
+        onRefresh={refrescar}
+        refreshing={refrescando}
+        ListHeaderComponent={
+          <View style={styles.cabecera}>
+            {/* ---------------- 1. Lo que pide respuesta ---------------- */}
+            <View style={{ gap: Spacing.two + 2 }}>
+              <View style={styles.filaMicro}>
+                <Micro>Por aceptar</Micro>
+                {pendientes.length > 0 && (
+                  <View style={styles.contador}>
+                    <Text style={styles.contadorTexto}>{pendientes.length}</Text>
+                  </View>
                 )}
-                <AtajoPanel
+              </View>
+
+              {pendientes.length === 0 ? (
+                <View style={styles.alDia}>
+                  <Ionicons name="checkmark-circle" size={17} color={Colors.green} />
+                  <Text style={styles.alDiaTexto}>
+                    Todo al día — ninguna reserva espera tu respuesta.
+                  </Text>
+                </View>
+              ) : (
+                pendientesVisibles.map((r) => (
+                  <TarjetaPorAceptar
+                    key={r.id}
+                    reserva={r}
+                    ocupada={ocupado === r.id}
+                    onAprobar={() => cambiarEstado(r, "confirmada")}
+                    onRechazar={() => confirmarRechazo(r)}
+                    onVerComprobante={verComprobante}
+                  />
+                ))
+              )}
+
+              {pendientes.length > POR_ACEPTAR_VISIBLE && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setVerTodasPendientes((v) => !v)}
+                  style={({ pressed }) => [styles.verMas, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={styles.verMasTexto}>
+                    {verTodasPendientes
+                      ? "Ver menos"
+                      : `Ver las ${pendientes.length - POR_ACEPTAR_VISIBLE} restantes`}
+                  </Text>
+                </Pressable>
+              )}
+
+              {/* Los avisos de plata: no piden un sí o un no, pero sí
+                  que alguien los mire antes de que se enfríen. */}
+              {avisos.adelantosPorValidar.conteo > 0 && (
+                <FilaAviso
                   icono="wallet-outline"
-                  texto="Cobros y tarifas"
-                  onPress={() => router.push(`/negocio/${id}/cobros` as never)}
-                />
-                {/* Rangos por invitados, extras y descuentos. */}
-                <AtajoPanel
-                  icono="pricetags-outline"
-                  texto="Precios"
-                  onPress={() => router.push(`/negocio/${id}/precios` as never)}
-                />
-                <AtajoPanel
-                  icono="trending-up-outline"
-                  texto="Finanzas"
+                  titulo={`${avisos.adelantosPorValidar.conteo} ${
+                    avisos.adelantosPorValidar.conteo === 1 ? "adelanto" : "adelantos"
+                  } por validar`}
+                  detalle={`${fmtColones(avisos.adelantosPorValidar.monto)} que ya te transfirieron`}
                   onPress={() => router.push(`/negocio/${id}/finanzas` as never)}
                 />
-              </View>
-            )}
-          </View>
-
-          {/* Lo que en la web vive DENTRO de la página de Citas o de la
-              Configuración pero acá son pantallas propias — un escalón
-              abajo del esquema de 4, para no perder el acceso. "Editar
-              página" no se repite: ya vive en la barra superior. */}
-          {vertical === "citas" && (
-            <View style={{ gap: Spacing.two }}>
-              <Micro>Más herramientas</Micro>
-              <View style={styles.adminFila}>
-                {/* El CRM: quién viene, quién falta y las promos. */}
-                <AtajoPanel
-                  icono="people-outline"
-                  texto="Clientes"
-                  onPress={() => router.push(`/negocio/${id}/clientes` as never)}
-                />
-                {/* Los servicios con su duración y precio. */}
-                <AtajoPanel
-                  icono="list-outline"
-                  texto="Catálogo"
-                  onPress={() => router.push(`/negocio/${id}/catalogo` as never)}
-                />
-                <AtajoPanel
-                  icono="wallet-outline"
-                  texto="Cobros y tarifas"
-                  onPress={() => router.push(`/negocio/${id}/cobros` as never)}
-                />
-                {/* Importar el calendario viejo (Google/Apple) como bloqueos. */}
-                <AtajoPanel
-                  icono="sync-outline"
-                  texto="Sincronizar"
-                  onPress={() => router.push(`/negocio/${id}/sincronizar` as never)}
-                />
-              </View>
-            </View>
-          )}
-
-          <View style={{ gap: Spacing.two }}>
-            <Micro>
-              {pendientes > 0
-                ? `${pendientes} ${pendientes === 1 ? "espera" : "esperan"} tu aprobación`
-                : "Todo al día"}
-            </Micro>
-            <View style={styles.filtros}>
-              {FILTROS.map((f) => (
-                <ChipCategoria
-                  key={f}
-                  texto={f === "todas" ? "Todas" : ESTADO_LABEL[f]}
-                  activo={filtro === f}
-                  onPress={() => setFiltro(f)}
-                />
-              ))}
-            </View>
-          </View>
-        </View>
-      }
-      ListEmptyComponent={
-        <Vacio
-          icono="calendar-clear-outline"
-          titulo="Sin reservas por aquí"
-          texto="Cuando alguien reserve, aparece acá para que la revisés y la confirmés."
-        />
-      }
-      renderItem={({ item }) => (
-        // La que espera aprobación se contornea en naranja: es la única
-        // que pide algo del dueño, y tiene que saltar en la lista.
-        <Tarjeta
-          style={[
-            styles.tarjeta,
-            item.estado === "pendiente" && styles.tarjetaPendiente,
-          ]}
-        >
-          {item.estado !== "pendiente" && (
-            <View
-              style={[
-                styles.barraEstado,
-                { backgroundColor: ESTADO_BARRA[item.estado] ?? Colors.line },
-              ]}
-            />
-          )}
-          <View style={styles.filaSuperior}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.fecha}>
-                {item.fecha}
-                {item.fecha_fin && item.fecha_fin !== item.fecha ? ` → ${item.fecha_fin}` : ""}
-                {item.hora_inicio
-                  ? ` · ${rangoHora(item.hora_inicio, item.duracion_minutos)}`
-                  : item.horario_bloque
-                    ? ` · ${item.horario_bloque}`
-                    : ""}
-              </Text>
-              <Text style={styles.cliente} numberOfLines={1}>
-                {item.nombre ?? "Sin nombre"}
-                {item.tipo_evento ? ` — ${item.tipo_evento}` : ""}
-              </Text>
-              <Text style={styles.detalle}>
-                {item.invitados ? `${item.invitados} invitados · ` : ""}
-                {item.monto_total ? `Total ${fmtColones(item.monto_total)}` : "Monto a coordinar"}
-              </Text>
-              {(item.correo || item.whatsapp) && (
-                <Text style={styles.detalle} numberOfLines={1}>
-                  {[item.correo, item.whatsapp].filter(Boolean).join(" · ")}
-                </Text>
               )}
-              {item.notas ? (
-                <Text style={styles.notas} numberOfLines={2}>
-                  “{item.notas}”
-                </Text>
-              ) : null}
+              {avisos.saldosVencidos.conteo > 0 && (
+                <FilaAviso
+                  icono="alert-circle-outline"
+                  tono="alerta"
+                  titulo={`${avisos.saldosVencidos.conteo} ${
+                    avisos.saldosVencidos.conteo === 1 ? "saldo vencido" : "saldos vencidos"
+                  }`}
+                  detalle={`${fmtColones(avisos.saldosVencidos.monto)} de eventos que ya pasaron`}
+                  onPress={() => router.push(`/negocio/${id}/finanzas` as never)}
+                />
+              )}
             </View>
-            <Estado
-              texto={ESTADO_LABEL[item.estado]}
-              tono={ESTADO_TONO[item.estado] ?? "gris"}
+
+            {/* ---------------- 2. La agenda ---------------- */}
+            <AgendaCompacta
+              dias={dias}
+              seleccionado={diaAgenda}
+              onElegirDia={setDiaAgenda}
+              onVerCompleta={() => router.push(`/negocio/${id}/agenda` as never)}
+              onTocarReserva={abrirFicha}
             />
-          </View>
 
-          {/* Depósito: cuánto era, si ya se validó, y el comprobante */}
-          <View style={styles.filaDeposito}>
-            <Pressable style={styles.depositoCheck} onPress={() => alternarDeposito(item)}>
-              <Ionicons
-                name={item.deposito_validado ? "checkbox" : "square-outline"}
-                size={20}
-                color={item.deposito_validado ? Colors.green : Colors.inkSoft}
-              />
-              <Text style={styles.depositoTexto}>
-                Depósito {item.deposito_monto ? fmtColones(item.deposito_monto) : ""} validado
+            {/* ---------------- 3. El histórico ---------------- */}
+            <View style={{ gap: Spacing.two }}>
+              <Micro>Últimas reservas</Micro>
+              <Text style={styles.explicacion}>
+                Cada una con cuándo se hizo, quién la hizo, cuánto depositó y cuánto queda
+                pendiente. Tocá una para ver el detalle completo.
               </Text>
-            </Pressable>
-            {item.deposito_comprobante_url && (
-              <Pressable onPress={() => verComprobante(item.deposito_comprobante_url!)}>
-                <Text style={styles.verComprobante}>Ver comprobante</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {/* La acción del mockup: aprobar con un toque. */}
-          {item.estado === "pendiente" && (
-            <View style={styles.acciones}>
-              <Boton
-                compacto
-                tono="verde"
-                icono="checkmark"
-                texto="Aprobar"
-                deshabilitado={ocupado === item.id}
-                onPress={() => cambiarEstado(item, "confirmada")}
-                style={{ flex: 1 }}
-              />
-              {/* Secundaria en contorno, como el "Ver detalle" del
-                  diseño — el verde de aprobar es lo único sólido. */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.botonRechazar,
-                  (pressed || ocupado === item.id) && { opacity: 0.6 },
-                ]}
-                disabled={ocupado === item.id}
-                onPress={() =>
-                  Alert.alert("Rechazar reserva", "¿Seguro? El cliente verá su reserva como rechazada.", [
-                    { text: "Cancelar", style: "cancel" },
-                    { text: "Rechazar", style: "destructive", onPress: () => cambiarEstado(item, "rechazada") },
-                  ])
-                }
-              >
-                <Text style={styles.botonRechazarTexto}>Rechazar</Text>
-              </Pressable>
+              <View style={styles.filtros}>
+                {FILTROS.map((f) => (
+                  <ChipCategoria
+                    key={f.id}
+                    texto={f.label}
+                    activo={filtro === f.id}
+                    onPress={() => {
+                      setFiltro(f.id);
+                      setVerTodoHistorico(false);
+                    }}
+                  />
+                ))}
+              </View>
             </View>
-          )}
-          {item.estado === "confirmada" && (
+          </View>
+        }
+        ListEmptyComponent={
+          <Vacio
+            icono="receipt-outline"
+            titulo={filtro === "todas" ? "Todavía no hay reservas" : "Nada con ese filtro"}
+            texto={
+              filtro === "todas"
+                ? "Cuando alguien reserve, aparece acá con todo el detalle de lo que pagó."
+                : "Probá con otro filtro para ver el resto del histórico."
+            }
+          />
+        }
+        renderItem={({ item }) => (
+          <ReservaAuditoria
+            reserva={item}
+            abierta={fichaAbierta === item.id}
+            ocupada={ocupado === item.id}
+            onAlternar={() => setFichaAbierta((abierta) => (abierta === item.id ? null : item.id))}
+            onValidarAdelanto={alternarAdelanto}
+            onVerComprobante={verComprobante}
+            onQuitarConfirmacion={quitarConfirmacion}
+          />
+        )}
+        ListFooterComponent={
+          restantes > 0 ? (
             <Pressable
-              style={styles.deshacer}
-              onPress={() =>
-                Alert.alert("Quitar confirmación", "La reserva vuelve a quedar en aprobación.", [
-                  { text: "Cancelar", style: "cancel" },
-                  {
-                    text: "Quitar",
-                    onPress: async () => {
-                      const { error } = await supabase
-                        .from("reservas")
-                        .update({ estado: "pendiente" })
-                        .eq("id", item.id);
-                      if (!error) {
-                        setReservas((prev) =>
-                          (prev ?? []).map((r) =>
-                            r.id === item.id ? { ...r, estado: "pendiente" } : r,
-                          ),
-                        );
-                      }
-                    },
-                  },
-                ])
-              }
+              accessibilityRole="button"
+              onPress={() => setVerTodoHistorico(true)}
+              style={({ pressed }) => [styles.verMas, pressed && { opacity: 0.7 }]}
             >
-              <Text style={styles.deshacerTexto}>Quitar confirmación</Text>
+              <Text style={styles.verMasTexto}>Ver las {restantes} restantes</Text>
             </Pressable>
-          )}
-        </Tarjeta>
-      )}
+          ) : null
+        }
+      />
+
+      <PanelNav
+        negocioId={id}
+        activa="inicio"
+        mostrarCatalogo={mostrarCatalogo}
+        etiquetaCatalogo={vertical === "citas" ? "Servicios" : "Catálogo"}
       />
     </View>
   );
 }
 
-/** Un atajo del panel: ícono en burbuja + rótulo, todos del mismo alto. */
-function AtajoPanel({
+/**
+ * Una reserva esperando el sí o el no: lo mínimo para decidir sin
+ * abrir nada (quién, cuándo la hizo, qué día es el evento, cuánto
+ * depositó) y los dos botones. Es la única tarjeta contorneada de la
+ * pantalla — es la única que le pide algo al dueño.
+ */
+function TarjetaPorAceptar({
+  reserva,
+  ocupada,
+  onAprobar,
+  onRechazar,
+  onVerComprobante,
+}: {
+  reserva: ReservaPanel;
+  ocupada: boolean;
+  onAprobar: () => void;
+  onRechazar: () => void;
+  onVerComprobante: (path: string) => void;
+}) {
+  const { adelanto, total } = montosDe(reserva);
+  const horario = horarioDelEvento(reserva);
+  const hecha = selloDeTiempo(reserva.created_at);
+  const deposito = Number(reserva.deposito_monto ?? 0);
+
+  return (
+    <View style={styles.pendiente}>
+      <Text style={styles.pendienteCliente} numberOfLines={1}>
+        {reserva.nombre ?? "Sin nombre"}
+      </Text>
+      <Text style={styles.pendienteEvento} numberOfLines={1}>
+        {fechaDelEvento(reserva)}
+        {horario ? ` · ${horario}` : ""}
+        {reserva.tipo_evento ? ` · ${reserva.tipo_evento}` : ""}
+      </Text>
+      {hecha ? <Text style={styles.pendienteMeta}>Reservó el {hecha}</Text> : null}
+      {reserva.correo ? (
+        <Text style={styles.pendienteMeta} numberOfLines={1}>
+          {reserva.correo}
+        </Text>
+      ) : null}
+      <Text style={styles.pendienteMonto}>
+        {total > 0 ? `Total ${fmtColones(total)}` : "Monto a coordinar"}
+        {deposito > 0
+          ? ` · Adelanto ${fmtColones(deposito)}${adelanto > 0 ? " (validado)" : " sin validar"}`
+          : ""}
+      </Text>
+
+      {reserva.deposito_comprobante_url && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onVerComprobante(reserva.deposito_comprobante_url!)}
+          style={({ pressed }) => [styles.comprobante, pressed && { opacity: 0.7 }]}
+        >
+          <Ionicons name="document-attach-outline" size={15} color={Colors.navy} />
+          <Text style={styles.comprobanteTexto}>Ver comprobante</Text>
+        </Pressable>
+      )}
+
+      <View style={styles.pendienteAcciones}>
+        <Boton
+          compacto
+          tono="verde"
+          icono="checkmark"
+          texto="Aprobar"
+          deshabilitado={ocupada}
+          onPress={onAprobar}
+          style={{ flex: 1 }}
+        />
+        <Pressable
+          accessibilityRole="button"
+          disabled={ocupada}
+          onPress={onRechazar}
+          style={({ pressed }) => [styles.rechazar, (pressed || ocupada) && { opacity: 0.6 }]}
+        >
+          <Text style={styles.rechazarTexto}>Rechazar</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** Un aviso de plata: ícono, qué pasa y a dónde ir a resolverlo. */
+function FilaAviso({
   icono,
-  texto,
+  titulo,
+  detalle,
+  tono = "info",
   onPress,
 }: {
   icono: keyof typeof Ionicons.glyphMap;
-  texto: string;
+  titulo: string;
+  detalle: string | null;
+  tono?: "info" | "alerta";
   onPress: () => void;
 }) {
+  const color = tono === "alerta" ? Colors.danger : Colors.navy;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={texto}
       onPress={onPress}
-      style={({ pressed }) => [styles.atajo, pressed && { opacity: 0.85 }]}
+      style={({ pressed }) => [
+        styles.aviso,
+        tono === "alerta" && { backgroundColor: Colors.dangerLight },
+        pressed && { opacity: 0.8 },
+      ]}
     >
-      <Ionicons name={icono} size={15} color={Colors.navy} />
-      <Text style={styles.atajoTexto}>{texto}</Text>
+      <Ionicons name={icono} size={17} color={color} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[styles.avisoTitulo, { color }]} numberOfLines={1}>
+          {titulo}
+        </Text>
+        {detalle ? (
+          <Text style={styles.avisoDetalle} numberOfLines={1}>
+            {detalle}
+          </Text>
+        ) : null}
+      </View>
+      <Ionicons name="chevron-forward" size={15} color={color} />
     </Pressable>
   );
 }
@@ -541,80 +594,97 @@ const styles = StyleSheet.create({
   centro: { alignItems: "center", flex: 1, justifyContent: "center" },
   cabecera: { gap: Spacing.four, marginBottom: Spacing.two },
 
-  adminFila: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-  atajo: {
+  filaMicro: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
+  contador: {
+    backgroundColor: Colors.sky,
+    borderRadius: Radios.full,
+    minWidth: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  contadorTexto: {
+    color: "#ffffff",
+    fontFamily: Fonts.extraBold,
+    fontSize: 10.5,
+    textAlign: "center",
+  },
+
+  alDia: {
     alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderColor: Colors.line,
-    borderRadius: Radios.sm,
-    borderWidth: 1,
+    backgroundColor: Colors.greenLight,
+    borderRadius: Radios.md,
     flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  atajoTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
-
-  filtros: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-
-  tarjeta: {
-    gap: Spacing.two + 2,
-    overflow: "hidden",
+    gap: Spacing.two,
     paddingHorizontal: Spacing.three,
-    paddingLeft: Spacing.three + 4,
-    paddingVertical: Spacing.three,
+    paddingVertical: 12,
   },
-  // La que espera aprobación se contornea en naranja, sin barra: es la
-  // única que le pide algo al dueño.
-  tarjetaPendiente: {
+  alDiaTexto: { color: Colors.green, flex: 1, fontFamily: Fonts.semiBold, fontSize: 12.5 },
+
+  pendiente: {
+    backgroundColor: Colors.surface,
     borderColor: Colors.sky,
+    borderRadius: Radios.lg,
     borderWidth: 1.5,
-    paddingLeft: Spacing.three,
+    gap: 2,
+    padding: Spacing.three,
   },
-  barraEstado: { bottom: 0, left: 0, position: "absolute", top: 0, width: 4 },
-  filaSuperior: { flexDirection: "row", gap: Spacing.two },
-  fecha: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 13 },
-  cliente: {
+  pendienteCliente: {
     color: Colors.ink,
     fontFamily: Fonts.extraBold,
-    fontSize: 15,
+    fontSize: 15.5,
     letterSpacing: -0.2,
-    marginTop: 3,
   },
-  detalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5, marginTop: 2 },
-  notas: { color: Colors.ink, fontFamily: Fonts.medium, fontSize: 12.5, marginTop: 5 },
-
-  filaDeposito: {
+  pendienteEvento: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5, marginTop: 1 },
+  pendienteMeta: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12 },
+  pendienteMonto: {
+    color: Colors.ink,
+    fontFamily: Fonts.semiBold,
+    fontSize: 12.5,
+    marginTop: 4,
+  },
+  comprobante: {
     alignItems: "center",
-    borderTopColor: Colors.line,
-    borderTopWidth: 1,
+    alignSelf: "flex-start",
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingTop: Spacing.two + 2,
+    gap: 5,
+    marginTop: 6,
   },
-  depositoCheck: { alignItems: "center", flexDirection: "row", flexShrink: 1, gap: 7 },
-  depositoTexto: { color: Colors.ink, flexShrink: 1, fontFamily: Fonts.semiBold, fontSize: 12.5 },
-  verComprobante: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 12.5 },
-
-  acciones: { flexDirection: "row", gap: Spacing.two },
-  botonRechazar: {
+  comprobanteTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12 },
+  pendienteAcciones: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.two + 2 },
+  rechazar: {
     alignItems: "center",
     backgroundColor: Colors.surface,
     borderColor: Colors.line,
     borderRadius: Radios.sm,
     borderWidth: 1,
     flex: 1,
-    flexDirection: "row",
-    gap: 6,
     justifyContent: "center",
-    paddingVertical: 13,
+    paddingVertical: 12,
   },
-  botonRechazarTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 13.5 },
-  deshacer: { alignItems: "center", paddingVertical: 4 },
-  deshacerTexto: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.bold,
-    fontSize: 12.5,
-    textDecorationLine: "underline",
+  rechazarTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 13.5 },
+
+  aviso: {
+    alignItems: "center",
+    backgroundColor: Colors.blueLight,
+    borderRadius: Radios.md,
+    flexDirection: "row",
+    gap: Spacing.two + 2,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 12,
   },
+  avisoTitulo: { fontFamily: Fonts.extraBold, fontSize: 12.5 },
+  avisoDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 1 },
+
+  explicacion: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12, lineHeight: 17 },
+  filtros: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+
+  verMas: {
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    paddingVertical: 11,
+  },
+  verMasTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
 });

@@ -7,6 +7,7 @@ import {
   type ReservaFinanzas,
 } from "@/lib/finanzas";
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
+import { formatearHora, mostrarHorarioReserva } from "@/app/mi-negocio/types";
 
 export type Metricas = {
   reservasEsteMes: number;
@@ -101,8 +102,24 @@ export function calcularMetricas({
   };
 }
 
+/**
+ * La reserva tal como llega del `select("*")` de la tabla: además de lo
+ * que declara `Reserva`, trae las columnas de plata y de descuento que
+ * el tipo del admin no lista. Van opcionales para tolerar una base sin
+ * las migraciones nuevas corridas.
+ */
+export type ReservaAuditoria = Reserva & {
+  monto_cobrado_final?: number | null;
+  deposito_pagado_en?: string | null;
+  saldo_pagado_en?: string | null;
+  adelanto_devuelto?: boolean;
+  descuento_monto?: number | null;
+  codigo_descuento?: string | null;
+};
+
 export type ActividadItem = {
   id: string;
+  clienteId: string | null;
   nombre: string | null;
   monto: number | null;
   // "bloqueada" queda afuera a propósito: el filtro de abajo nunca deja
@@ -117,23 +134,55 @@ export type ActividadItem = {
   pendiente: number;
   /** La nota que dejó el cliente (o el dueño al cargarla a mano). */
   nota: string | null;
+
+  // --- El detalle de auditoría: quién, cómo y cuándo entró la plata ---
+  /** El correo con el que se hizo la reserva — la traza de quién fue. */
+  correo: string | null;
+  whatsapp: string | null;
+  /** Campo viejo, de antes de separar correo y WhatsApp. */
+  contacto: string | null;
+  cedula: string | null;
+  /** El bloque de alquiler o la hora de inicio, ya legible. */
+  horario: string | null;
+  tipoEvento: string | null;
+  invitados: number | null;
+  /** Lo que el cliente dijo que iba a depositar (validado o no). */
+  depositoMonto: number | null;
+  depositoValidado: boolean;
+  /** Cuándo se dio por recibido el adelanto. */
+  depositoPagadoEn: string | null;
+  /** Cuándo se cobró el saldo del día del evento. */
+  saldoPagadoEn: string | null;
+  eventoPagado: boolean;
+  /** El adelanto se devolvió al cancelar y ya no cuenta como ingreso. */
+  adelantoDevuelto: boolean;
+  metodoPago: Reserva["metodo_pago"];
+  origen: Reserva["origen"];
+  codigoDescuento: string | null;
+  descuentoMonto: number | null;
+  /** El comprobante subido por el cliente, para poder abrirlo. */
+  comprobanteUrl: string | null;
 };
 
 /**
  * Últimas reservas/solicitudes creadas, para la AUDITORÍA de Inicio:
- * cuándo se hizo cada una, cuánto se depositó y cuánto queda pendiente.
- * No es una query nueva: `reservas` ya viene de page.tsx con
- * select("*") — esto solo reordena lo que ya está en memoria por fecha
- * de CREACIÓN (no de evento) y calcula la plata con las mismas reglas
- * que Finanzas (adelantoCobrado/saldoPendiente), para que los números
- * no se contradigan entre pantallas.
+ * cuándo se hizo cada una, con qué correo, cuánto se depositó y cuánto
+ * queda pendiente. No es una query nueva: `reservas` ya viene de
+ * page.tsx con select("*") — esto solo reordena lo que ya está en
+ * memoria por fecha de CREACIÓN (no de evento) y calcula la plata con
+ * las mismas reglas que Finanzas (adelantoCobrado/saldoPendiente), para
+ * que los números no se contradigan entre pantallas.
  */
-export function actividadReciente(reservas: Reserva[], limite = 30): ActividadItem[] {
+export function actividadReciente(
+  reservas: ReservaAuditoria[],
+  limite = 40,
+): ActividadItem[] {
   return [...reservas]
     // Un bloqueo no es actividad de un cliente. El type guard deja el
     // "bloqueada" afuera también para TypeScript, no solo en runtime.
     .filter(
-      (r): r is Reserva & { estado: ActividadItem["estado"] } => r.estado !== "bloqueada",
+      (r): r is ReservaAuditoria & { estado: ActividadItem["estado"] } =>
+        r.estado !== "bloqueada",
     )
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, limite)
@@ -141,16 +190,45 @@ export function actividadReciente(reservas: Reserva[], limite = 30): ActividadIt
       const paraPlata = r as unknown as ReservaFinanzas;
       return {
         id: r.id,
+        clienteId: r.cliente_id,
         nombre: r.nombre,
-        monto: r.monto_total,
+        monto: r.monto_cobrado_final ?? r.monto_total,
         estado: r.estado,
         creadoEn: r.created_at,
         fechaEvento: r.fecha,
         adelanto: adelantoCobrado(paraPlata),
         pendiente: saldoPendiente(paraPlata),
         nota: r.notas?.trim() ? r.notas.trim() : null,
+        correo: r.correo,
+        whatsapp: r.whatsapp,
+        contacto: r.contacto,
+        cedula: r.cedula,
+        horario: horarioLegible(r),
+        tipoEvento: r.tipo_evento,
+        invitados: r.invitados,
+        depositoMonto: r.deposito_monto,
+        depositoValidado: r.deposito_validado,
+        depositoPagadoEn: r.deposito_pagado_en ?? null,
+        saldoPagadoEn: r.saldo_pagado_en ?? null,
+        eventoPagado: r.evento_pagado,
+        adelantoDevuelto: r.adelanto_devuelto === true,
+        metodoPago: r.metodo_pago,
+        origen: r.origen,
+        codigoDescuento: r.codigo_descuento ?? null,
+        descuentoMonto: r.descuento_monto ?? null,
+        comprobanteUrl: r.deposito_comprobante_url,
       };
     });
+}
+
+/** El bloque de alquiler (Lugares) o la hora de inicio (servicios/citas). */
+function horarioLegible(r: ReservaAuditoria): string | null {
+  if (r.horario_bloque) return mostrarHorarioReserva(r.horario_bloque);
+  if (r.hora_inicio) {
+    const hora = formatearHora(r.hora_inicio.slice(0, 5));
+    return r.duracion_horas ? `${hora} · ${r.duracion_horas} h` : hora;
+  }
+  return null;
 }
 
 /** "3× más que el mes pasado" / "+40% vs. el mes pasado" / etc. */
