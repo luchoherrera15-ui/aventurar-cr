@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { parsearPrecioPorPersona } from "@/lib/precio-lugar";
 import type {
   GuardarPreciosInput,
   RangoPrecioInput,
@@ -11,6 +12,9 @@ type FilaTier = RangoPrecioInput & { rancho_id: string; temporada?: TemporadaPre
 
 const AVISO_MIGRACION_PENDIENTE =
   "Guardamos el resto de tus precios, pero los de diciembre no: a la base todavía le falta la migración 0099 (supabase/migrations/0099_precios_diciembre.sql). Corrala y volvé a guardar.";
+
+const AVISO_MIGRACION_0103 =
+  "Guardamos el resto de tus precios, pero la modalidad Por persona no: a la base todavía le falta la migración 0103 (supabase/migrations/0103_precio_por_persona.sql). Corrala y volvé a guardar.";
 
 /**
  * ¿El error es "esa columna no existe"? Pasa cuando la base todavía no
@@ -97,6 +101,7 @@ export async function guardarPreciosRancho(
     precioFijo,
     precioHoraDiciembre,
     precioFijoDiciembre,
+    precioPorPersona = null,
   } = input;
 
   // --- Todo se valida ANTES del primer borrado ---
@@ -120,6 +125,24 @@ export async function guardarPreciosRancho(
     if (typeof s.precio !== "number" || !Number.isFinite(s.precio) || s.precio < 0) {
       return { error: `Revisá el precio del servicio "${s.nombre || "sin nombre"}".` };
     }
+  }
+
+  // La config "por persona" se revalida acá con el MISMO parser que usa
+  // el cálculo (cruzó la red: no se confía en lo que armó el cliente).
+  // Con otra modalidad activa queda en null — igual que precio_hora o
+  // precio_fijo, la modalidad que no se usa se limpia.
+  const esPorPersona = modalidadPrecio === "por_persona";
+  const ppValidado = esPorPersona ? parsearPrecioPorPersona(precioPorPersona) : null;
+  if (esPorPersona && !ppValidado) {
+    return {
+      error:
+        "Revisá la modalidad Por persona: todos los montos (los de diciembre también) van con números mayores a cero.",
+    };
+  }
+  if (esPorPersona && ppValidado && ppValidado.dicTramos.length === 0) {
+    return {
+      error: "Agregá al menos un ancla a la tarifa deslizante de diciembre.",
+    };
   }
 
   const supabase = await createClient();
@@ -174,12 +197,36 @@ export async function guardarPreciosRancho(
     if (error) return { error: error.message };
   }
 
+  // --- La modalidad "por persona" va en su propio update (0103) ---
+  // El jsonb se escribe ANTES que la modalidad: si la columna no existe
+  // es que la 0103 no corrió, y en esa base el check viejo de
+  // modalidad_precio_lugar tampoco conoce 'por_persona' — escribirla
+  // reventaría el update entero del rancho. Detectada la falta, la
+  // modalidad no se toca (queda la que la base ya tiene), lo demás se
+  // guarda y al final se avisa. Con otra modalidad activa el jsonb no
+  // se borra: la modalidad manda al cotizar, así que una config vieja
+  // guardada no cobra nada — y el dueño puede volver sin reescribirla.
+  let faltaMigracion0103 = false;
+  if (esPorPersona) {
+    const { error: errorPorPersona } = await supabase
+      .from("ranchos")
+      .update({ precio_por_persona: ppValidado })
+      .eq("id", ranchoId);
+    if (errorPorPersona) {
+      if (!esColumnaInexistente(errorPorPersona, "precio_por_persona")) {
+        return { error: errorPorPersona.message };
+      }
+      faltaMigracion0103 = true;
+    }
+  }
+
   const camposRancho = {
     tarifa_diciembre_por_persona: tarifaDiciembre,
     deposito_reserva: depositoReserva,
-    modalidad_precio_lugar: modalidadPrecio,
     precio_hora_lugar: precioHora,
     precio_fijo_lugar: precioFijo,
+    // Sin la 0103, 'por_persona' no pasa el check de la base.
+    ...(faltaMigracion0103 ? {} : { modalidad_precio_lugar: modalidadPrecio }),
   };
   const camposDiciembre = {
     precio_hora_diciembre: precioHoraDiciembre,
@@ -206,6 +253,7 @@ export async function guardarPreciosRancho(
   revalidatePath("/mi-negocio", "layout");
   revalidatePath("/eventos");
 
+  if (faltaMigracion0103) return { error: AVISO_MIGRACION_0103 };
   if (faltaMigracion) return { error: AVISO_MIGRACION_PENDIENTE };
   return { error: null };
 }

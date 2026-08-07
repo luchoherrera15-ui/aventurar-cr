@@ -15,7 +15,6 @@ import {
   bloqueDisponibleEnDia,
   etiquetaHorario,
   type HorarioBloqueConfig,
-  type ModalidadPrecioLugar,
 } from "@/app/mi-negocio/types";
 import {
   cancelarReservaTemporal,
@@ -27,7 +26,12 @@ import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./tipos-l
 import { terminosPorDefecto } from "@/app/mi-negocio/types";
 import type { PromocionDia } from "@/app/mi-negocio/types";
 import { mejorPromoPorDiaSemana, promoAplicableDelDia } from "@/lib/promociones";
-import { calcularBaseLugar, rangoQueAplica } from "@/lib/precio-lugar";
+import {
+  calcularBaseLugar,
+  parsearPrecioPorPersona,
+  rangoQueAplica,
+  type ModalidadPrecio,
+} from "@/lib/precio-lugar";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -73,6 +77,7 @@ export default function BookingCalendar({
   precioFijo = null,
   precioHoraDiciembre = null,
   precioFijoDiciembre = null,
+  precioPorPersona = null,
   promociones = [],
   terminos = [],
   montoMinimo = null,
@@ -100,7 +105,7 @@ export default function BookingCalendar({
   tarifaDiciembre: number;
   depositoReserva: number;
   /** Cómo cotiza este lugar; default = los rangos de siempre. */
-  modalidadPrecio?: ModalidadPrecioLugar;
+  modalidadPrecio?: ModalidadPrecio;
   /** Para modalidad "hora": lo que cobra cada hora contratada. */
   precioHora?: number | null;
   /** Para modalidad "fijo": el único precio del evento. */
@@ -109,6 +114,10 @@ export default function BookingCalendar({
    *  null = ese mes se cobra igual que el resto del año. */
   precioHoraDiciembre?: number | null;
   precioFijoDiciembre?: number | null;
+  /** La config jsonb de la modalidad por_persona (0103), tal cual viene
+   *  de la base — acá adentro se valida con parsearPrecioPorPersona y
+   *  cualquier cosa rara termina en "consultar", nunca en ₡0. */
+  precioPorPersona?: unknown;
   promociones?: PromocionDia[];
   /** Los del proveedor; vacío = usar los que trae la plataforma. */
   terminos?: string[];
@@ -290,6 +299,19 @@ export default function BookingCalendar({
     return new Date(y, m - 1, d);
   }, [selectedDate]);
   const esDiciembre = selectedDateObj?.getMonth() === 11;
+  // El día LOCAL de la fecha elegida (0=domingo … 6=sábado): solo lo usa
+  // la modalidad por_persona para el fijo de diciembre. selectedDateObj
+  // ya viene de new Date(y, m-1, d) — nunca del constructor con string,
+  // que interpreta "YYYY-MM-DD" en UTC y corre el día de la semana.
+  const diaSemana = selectedDateObj ? selectedDateObj.getDay() : null;
+
+  // La config por_persona validada UNA vez: un jsonb roto (o la columna
+  // que todavía no existe) queda en null y la cotización cae en
+  // "consultar" — igual que cuando faltan rangos.
+  const porPersona = useMemo(
+    () => parsearPrecioPorPersona(precioPorPersona),
+    [precioPorPersona],
+  );
 
   const invitadosNum = parseInt(invitados) || 0;
   const horasNum = parseInt(horasEvento) || 0;
@@ -325,6 +347,8 @@ export default function BookingCalendar({
       calcularBaseLugar({
         modalidad: modalidadPrecio,
         esDiciembre,
+        porPersona,
+        diaSemana,
         invitados: invitadosNum || null,
         rangos: tiers,
         rangosDiciembre: tiersDiciembre,
@@ -340,6 +364,8 @@ export default function BookingCalendar({
     [
       promoAplicable,
       modalidadPrecio,
+      porPersona,
+      diaSemana,
       precioFijo,
       precioFijoDiciembre,
       horasNum,
@@ -360,6 +386,12 @@ export default function BookingCalendar({
   // así que ahí no se anuncia nada.
   const notaDiciembre = useMemo(() => {
     if (!esDiciembre || promoAplicable?.tipo === "precio_fijo") return null;
+    if (modalidadPrecio === "por_persona") {
+      // La config trae SIEMPRE sus precios de diciembre (el parser los
+      // exige), así que con config válida ese mes se cobra distinto.
+      // Solo se anuncia eso — la tarifa por persona jamás se muestra.
+      return porPersona ? "Precio de diciembre" : null;
+    }
     if (modalidadPrecio === "fijo") {
       return precioFijoDiciembre !== null ? "Precio de diciembre" : null;
     }
@@ -378,6 +410,7 @@ export default function BookingCalendar({
     esDiciembre,
     promoAplicable,
     modalidadPrecio,
+    porPersona,
     precioFijoDiciembre,
     precioHoraDiciembre,
     invitadosNum,
@@ -470,8 +503,8 @@ export default function BookingCalendar({
   );
 
   // Lo que hace falta para avanzar cambia según la modalidad: por
-  // rangos necesita invitados, por hora necesita las horas, y el
-  // precio fijo no depende de ninguno de los dos.
+  // rangos (y por persona) necesita invitados, por hora necesita las
+  // horas, y el precio fijo no depende de ninguno de los dos.
   const cotizacionCompleta =
     modalidadPrecio === "hora"
       ? horasNum > 0
@@ -482,7 +515,7 @@ export default function BookingCalendar({
   // El lugar tiene un tope físico de gente — no se puede reservar para
   // más de lo que da su capacidad_max, sin importar la modalidad de cobro.
   const excedeCapacidad =
-    modalidadPrecio === "rango_personas" &&
+    (modalidadPrecio === "rango_personas" || modalidadPrecio === "por_persona") &&
     !!capacidadMax &&
     invitadosNum > capacidadMax;
 
@@ -1131,7 +1164,10 @@ export default function BookingCalendar({
                           className={inputCls}
                         />
                       </div>
-                    ) : modalidadPrecio === "rango_personas" ? (
+                    ) : modalidadPrecio !== "fijo" ? (
+                      /* Rangos de invitados y por persona preguntan lo
+                         mismo: cuánta gente viene. Solo el precio fijo
+                         se salta la pregunta. */
                       <div>
                         <label className={labelCls}>
                           Número de invitados

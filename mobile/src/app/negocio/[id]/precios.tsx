@@ -14,7 +14,18 @@ import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import { supabase } from "@/lib/supabase";
 import { cargarTiersPorTemporada, type FilaPrecioTier } from "@/lib/precio-tiers";
-import type { ModalidadPrecioLugar, Rancho, TemporadaPrecio } from "@/lib/types";
+import {
+  parsearPrecioPorPersona,
+  type PrecioPorPersona,
+  type TramoTarifa,
+} from "@/lib/precio-lugar";
+import {
+  MODALIDADES_PRECIO_LUGAR,
+  MODALIDAD_PRECIO_LUGAR_LABEL,
+  type ModalidadPrecioLugar,
+  type Rancho,
+  type TemporadaPrecio,
+} from "@/lib/types";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 
 /**
@@ -35,9 +46,17 @@ import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
  * misma forma que la del resto del año — rangos aparte para los lugares
  * que cobran por invitados, y un precio por hora / por evento aparte
  * para los otros dos modos. Dejarlo todo vacío = diciembre se cobra
- * igual que siempre. La modalidad de cobro NO se elige acá (eso sigue
- * siendo del panel web): esta pantalla solo la lee para mostrar el
- * campo de diciembre que corresponde.
+ * igual que siempre.
+ *
+ * POR PERSONA (0103): la modalidad de cobro ahora sí se elige acá, en
+ * paridad con el panel web, porque la forma nueva "por persona" se
+ * edita completa en la app: el fijo de los grupos chicos, la tarifa
+ * por invitado, los tres fijos de diciembre por día y las anclas de la
+ * tarifa deslizante. Con esa modalidad activa los RANGOS no se
+ * muestran. La config viaja en un solo jsonb (`precio_por_persona`)
+ * con las llaves camelCase exactas del type PrecioPorPersona; si la
+ * columna todavía no existe (0103 sin correr), se guarda todo lo demás
+ * y se avisa con cariño.
  */
 
 type Tier = {
@@ -87,6 +106,105 @@ function problemaDeRangos(tiers: Tier[], etiqueta: string): string | null {
   return null;
 }
 
+/** El borrador del cobro "por persona" (0103), todo en texto como se
+ *  escribe. Se convierte a PrecioPorPersona recién al guardar. */
+type PorPersonaDraft = {
+  baseMax: string;
+  basePrecio: string;
+  tarifa: string;
+  dicLunJue: string;
+  dicViernes: string;
+  dicSabDom: string;
+  tramos: { invitados: string; tarifa: string }[];
+};
+
+function ppVacio(): PorPersonaDraft {
+  return {
+    baseMax: "",
+    basePrecio: "",
+    tarifa: "",
+    dicLunJue: "",
+    dicViernes: "",
+    dicSabDom: "",
+    tramos: [],
+  };
+}
+
+function aPorPersonaDraft(cfg: PrecioPorPersona | null): PorPersonaDraft {
+  if (!cfg) return ppVacio();
+  return {
+    baseMax: String(cfg.baseMax),
+    basePrecio: String(cfg.basePrecio),
+    tarifa: String(cfg.tarifa),
+    dicLunJue: String(cfg.dicLunJue),
+    dicViernes: String(cfg.dicViernes),
+    dicSabDom: String(cfg.dicSabDom),
+    tramos: cfg.dicTramos.map((t) => ({
+      invitados: String(t.invitados),
+      tarifa: String(t.tarifa),
+    })),
+  };
+}
+
+/**
+ * Del borrador al jsonb que se guarda — con las llaves camelCase
+ * EXACTAS del type. El parser canónico de lib/precio-lugar.ts tiene la
+ * última palabra: lo que él no acepte, no entra a la base.
+ */
+function armarPorPersona(d: PorPersonaDraft): {
+  config: PrecioPorPersona | null;
+  problema: string | null;
+} {
+  const baseMax = num(d.baseMax);
+  const basePrecio = num(d.basePrecio);
+  const tarifa = num(d.tarifa);
+  if (!baseMax || !basePrecio || !tarifa) {
+    return {
+      config: null,
+      problema:
+        "Al cobro por persona le faltan los números de todo el año: hasta cuántas personas cubre el fijo, ese precio fijo, y la tarifa por persona.",
+    };
+  }
+  const dicLunJue = num(d.dicLunJue);
+  const dicViernes = num(d.dicViernes);
+  const dicSabDom = num(d.dicSabDom);
+  if (!dicLunJue || !dicViernes || !dicSabDom) {
+    return {
+      config: null,
+      problema:
+        "Cargá los tres fijos de diciembre: lunes a jueves, viernes, y sábado y domingo.",
+    };
+  }
+  const dicTramos: TramoTarifa[] = [];
+  for (const t of d.tramos) {
+    const invitados = num(t.invitados);
+    const tarifaTramo = num(t.tarifa);
+    if (!invitados || !tarifaTramo) {
+      return {
+        config: null,
+        problema: "Cada ancla de diciembre necesita sus invitados y su tarifa.",
+      };
+    }
+    dicTramos.push({ invitados, tarifa: tarifaTramo });
+  }
+  const config = parsearPrecioPorPersona({
+    baseMax,
+    basePrecio,
+    tarifa,
+    dicLunJue,
+    dicViernes,
+    dicSabDom,
+    dicTramos,
+  });
+  if (!config) {
+    return {
+      config: null,
+      problema: "Revisá los números del cobro por persona: hay alguno que no es válido.",
+    };
+  }
+  return { config, problema: null };
+}
+
 type Servicio = {
   id?: string;
   nombre: string;
@@ -131,11 +249,17 @@ export default function PreciosNegocioScreen() {
   const [tarifaDiciembre, setTarifaDiciembre] = useState("");
   const [precioHoraDiciembre, setPrecioHoraDiciembre] = useState("");
   const [precioFijoDiciembre, setPrecioFijoDiciembre] = useState("");
-  /** Cómo cobra este lugar; acá solo se lee (se elige en el panel web). */
+  /** Cómo cobra este lugar; desde la 0103 se elige acá también. */
   const [modalidad, setModalidad] = useState<ModalidadPrecioLugar>("rango_personas");
+  /** El borrador del cobro por persona (0103). */
+  const [pp, setPp] = useState<PorPersonaDraft>(ppVacio);
   /** false = la migración 0099 todavía no corrió en esta base: la
    *  pantalla sigue funcionando como antes, sin lo de diciembre. */
   const [soportaDiciembre, setSoportaDiciembre] = useState(false);
+  /** false = la 0103 no corrió: el cobro por persona no se puede
+   *  guardar todavía (ni la modalidad — el check de la base la
+   *  rechazaría). Lo demás se guarda igual. */
+  const [soportaPorPersona, setSoportaPorPersona] = useState(false);
   const [codigos, setCodigos] = useState<Codigo[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
 
@@ -181,6 +305,10 @@ export default function PreciosNegocioScreen() {
     setSoportaDiciembre(
       tiersPorTemporada.soportaTemporada && !!r && "precio_fijo_diciembre" in r,
     );
+    // La 0103: con `select *`, si la columna existe viene (aunque sea
+    // null). Si no viene, la base todavía no está lista para esto.
+    setSoportaPorPersona(!!r && "precio_por_persona" in r);
+    setPp(aPorPersonaDraft(parsearPrecioPorPersona(r?.precio_por_persona)));
 
     setTiers(tiersPorTemporada.normales.map(aTier));
     setTiersDiciembre(tiersPorTemporada.diciembre.map(aTier));
@@ -222,6 +350,20 @@ export default function PreciosNegocioScreen() {
     }, [cargar]),
   );
 
+  /** Un campo suelto del borrador por persona. */
+  function editarPp(campo: keyof Omit<PorPersonaDraft, "tramos">, v: string) {
+    setPp((prev) => ({ ...prev, [campo]: v }));
+  }
+
+  /** Una ancla de la tarifa deslizante de diciembre. */
+  function editarTramo(i: number, campo: "invitados" | "tarifa", v: string) {
+    setPp((prev) => {
+      const tramos = [...prev.tramos];
+      tramos[i] = { ...tramos[i], [campo]: v };
+      return { ...prev, tramos };
+    });
+  }
+
   /** Una fila de `precio_tiers` lista para insertar. */
   function aFila(t: Tier, temporada: TemporadaPrecio) {
     return {
@@ -238,15 +380,35 @@ export default function PreciosNegocioScreen() {
     setMensaje(null);
     setError(null);
 
+    // Eligieron cobrar por persona pero la 0103 no corrió: se guarda
+    // todo lo demás y al final se avisa (ni la modalidad se puede
+    // mandar — el check de la base la rechazaría).
+    const porPersonaSinMigrar = modalidad === "por_persona" && !soportaPorPersona;
+
     try {
       // ---- Los rangos por invitados (todo el año + diciembre) ----
       if (esLugar) {
+        // Con el cobro por persona activo los rangos no se muestran:
+        // no se validan (siguen guardándose tal cual se cargaron).
         const problema =
-          problemaDeRangos(tiers, "de todo el año") ??
-          (soportaDiciembre ? problemaDeRangos(tiersDiciembre, "de diciembre") : null);
+          modalidad !== "por_persona"
+            ? (problemaDeRangos(tiers, "de todo el año") ??
+              (soportaDiciembre ? problemaDeRangos(tiersDiciembre, "de diciembre") : null))
+            : null;
         if (problema) {
           setError(problema);
           return;
+        }
+
+        // ---- El cobro por persona (0103): validar ANTES de borrar nada ----
+        let configPorPersona: PrecioPorPersona | null = null;
+        if (modalidad === "por_persona" && soportaPorPersona) {
+          const { config, problema: problemaPP } = armarPorPersona(pp);
+          if (problemaPP) {
+            setError(problemaPP);
+            return;
+          }
+          configPorPersona = config;
         }
 
         // Las dos listas viven en la misma tabla, separadas por
@@ -266,8 +428,9 @@ export default function PreciosNegocioScreen() {
           }
         }
 
-        // Los precios de diciembre que no son rangos. La modalidad y los
-        // precios de todo el año NO se tocan acá: se editan en el panel web.
+        // Los precios de diciembre que no son rangos, la modalidad de
+        // cobro (0103) y la config por persona. Los precios por hora /
+        // fijos de todo el año siguen siendo del panel web.
         const { error: errRancho } = await supabase
           .from("ranchos")
           .update({
@@ -278,10 +441,15 @@ export default function PreciosNegocioScreen() {
                   precio_fijo_diciembre: num(precioFijoDiciembre),
                 }
               : {}),
+            ...(porPersonaSinMigrar ? {} : { modalidad_precio_lugar: modalidad }),
+            // El jsonb solo se escribe cuando la modalidad está activa:
+            // al cambiar a otra forma de cobro la config queda guardada
+            // por si el dueño vuelve.
+            ...(configPorPersona ? { precio_por_persona: configPorPersona } : {}),
           })
           .eq("id", id);
         if (errRancho) {
-          setError("No se pudieron guardar los precios de diciembre: " + errRancho.message);
+          setError("No se pudieron guardar los precios del lugar: " + errRancho.message);
           return;
         }
       }
@@ -363,6 +531,15 @@ export default function PreciosNegocioScreen() {
         }
       }
 
+      if (porPersonaSinMigrar) {
+        // Sin recargar: así lo que escribió del cobro por persona no se
+        // pierde y puede reintentar cuando la base esté lista.
+        setError(
+          "Se guardó todo menos el cobro por persona: a la base le falta una actualización (la migración 0103). Cuando esté corrida, tocá guardar de nuevo.",
+        );
+        return;
+      }
+
       setMensaje("Listo, se guardó.");
       await cargar();
     } finally {
@@ -409,13 +586,173 @@ export default function PreciosNegocioScreen() {
           <>
             {esLugar ? (
               <>
-                <BloqueRangos
-                  titulo="Precio por cantidad de invitados"
-                  ayuda="Un rango por fila. El cotizador busca el rango donde cae la cantidad de invitados de la reserva."
-                  vacio="Sin rangos, tu salón no se puede cotizar solo."
-                  tiers={tiers}
-                  onChange={setTiers}
-                />
+                {/* La forma de cobro, en paridad con el "¿Cómo cobrás?"
+                    del panel web (0103). */}
+                <View style={styles.bloque}>
+                  <Text style={styles.bloqueTitulo}>¿Cómo cobrás?</Text>
+                  <Text style={styles.bloqueAyuda}>
+                    El sitio y la app cotizan solos con la forma que elijás acá.
+                  </Text>
+                  <View style={styles.filaTipoPromo}>
+                    {MODALIDADES_PRECIO_LUGAR.map((m) => {
+                      const activa = modalidad === m;
+                      return (
+                        <Pressable
+                          key={m}
+                          onPress={() => setModalidad(m)}
+                          style={[styles.tipoPromo, activa && styles.tipoPromoActivo]}
+                        >
+                          <Text
+                            style={[styles.tipoPromoTexto, activa && styles.tipoPromoTextoActivo]}
+                          >
+                            {MODALIDAD_PRECIO_LUGAR_LABEL[m]}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {(modalidad === "hora" || modalidad === "fijo") && (
+                    <Text style={styles.bloqueAyuda}>
+                      {modalidad === "hora"
+                        ? "El precio por hora de todo el año se configura en el panel web; acá podés cargar el de diciembre."
+                        : "El precio del evento de todo el año se configura en el panel web; acá podés cargar el de diciembre."}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Con el cobro por persona activo, los RANGOS no se
+                    muestran: manda el fijo + tarifa de abajo. */}
+                {modalidad === "por_persona" ? (
+                  <>
+                    <View style={styles.bloque}>
+                      <Text style={styles.bloqueTitulo}>Cobro por persona</Text>
+                      <Text style={styles.bloqueAyuda}>
+                        Un precio fijo cubre a los grupos chicos; de ahí en
+                        adelante la cotización es invitados × tarifa. Ej.: hasta
+                        25 personas ₡95.000 fijo; de 26 en adelante, cada
+                        invitado a ₡3.400. El cliente siempre ve solo el total
+                        de su grupo — nunca la tarifa por persona.
+                      </Text>
+                      {!soportaPorPersona && (
+                        <Text style={styles.avisoMigracion}>
+                          A la base le falta una actualización (la migración
+                          0103): podés dejar los números listos, pero esta forma
+                          de cobro todavía no se guarda.
+                        </Text>
+                      )}
+                      <View style={styles.filaCampos}>
+                        <CampoChico
+                          etiqueta="Fijo hasta (personas)"
+                          value={pp.baseMax}
+                          onChangeText={(v) => editarPp("baseMax", v)}
+                        />
+                        <CampoChico
+                          etiqueta="Precio fijo ₡"
+                          ancho
+                          value={pp.basePrecio}
+                          onChangeText={(v) => editarPp("basePrecio", v)}
+                        />
+                      </View>
+                      <View style={styles.filaCampos}>
+                        <CampoChico
+                          etiqueta="Tarifa por persona ₡"
+                          ancho
+                          value={pp.tarifa}
+                          onChangeText={(v) => editarPp("tarifa", v)}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.bloque}>
+                      <Text style={styles.bloqueTitulo}>
+                        Diciembre: el fijo según el día
+                      </Text>
+                      <Text style={styles.bloqueAyuda}>
+                        En diciembre los grupos chicos pagan un fijo distinto
+                        según el día del evento. Los tres son obligatorios para
+                        esta forma de cobro.
+                      </Text>
+                      <View style={styles.filaCampos}>
+                        <CampoChico
+                          etiqueta="Lun–Jue ₡"
+                          value={pp.dicLunJue}
+                          onChangeText={(v) => editarPp("dicLunJue", v)}
+                        />
+                        <CampoChico
+                          etiqueta="Viernes ₡"
+                          value={pp.dicViernes}
+                          onChangeText={(v) => editarPp("dicViernes", v)}
+                        />
+                        <CampoChico
+                          etiqueta="Sáb–Dom ₡"
+                          value={pp.dicSabDom}
+                          onChangeText={(v) => editarPp("dicSabDom", v)}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.bloque}>
+                      <View style={styles.bloqueEncabezado}>
+                        <Text style={styles.bloqueTitulo}>
+                          Diciembre: tarifa deslizante
+                        </Text>
+                        <BotonAgregar
+                          onPress={() =>
+                            setPp((prev) => ({
+                              ...prev,
+                              tramos: [...prev.tramos, { invitados: "", tarifa: "" }],
+                            }))
+                          }
+                        />
+                      </View>
+                      <Text style={styles.bloqueAyuda}>
+                        Anclas “a tantos invitados, tanto por persona”. Entre dos
+                        anclas la tarifa se ajusta proporcional; después de la
+                        última queda igual. Vacía = en diciembre rige tu tarifa
+                        de siempre.
+                      </Text>
+                      {pp.tramos.length === 0 ? (
+                        <Text style={styles.vacio}>
+                          Sin anclas: diciembre usa la tarifa de todo el año.
+                        </Text>
+                      ) : (
+                        pp.tramos.map((t, i) => (
+                          <View key={`ancla-${i}`} style={styles.filaEditable}>
+                            <View style={styles.filaCampos}>
+                              <CampoChico
+                                etiqueta="Invitados"
+                                value={t.invitados}
+                                onChangeText={(v) => editarTramo(i, "invitados", v)}
+                              />
+                              <CampoChico
+                                etiqueta="Tarifa por persona ₡"
+                                ancho
+                                value={t.tarifa}
+                                onChangeText={(v) => editarTramo(i, "tarifa", v)}
+                              />
+                            </View>
+                            <BotonQuitar
+                              onPress={() =>
+                                setPp((prev) => ({
+                                  ...prev,
+                                  tramos: prev.tramos.filter((_, j) => j !== i),
+                                }))
+                              }
+                            />
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  </>
+                ) : (
+                  <BloqueRangos
+                    titulo="Precio por cantidad de invitados"
+                    ayuda="Un rango por fila. El cotizador busca el rango donde cae la cantidad de invitados de la reserva."
+                    vacio="Sin rangos, tu salón no se puede cotizar solo."
+                    tiers={tiers}
+                    onChange={setTiers}
+                  />
+                )}
 
                 {/* Diciembre: la misma forma de cobrar, con otros números.
                     Vacío = ese mes se cobra igual que el resto del año. */}
@@ -1055,6 +1392,17 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: "center",
     width: 36,
+  },
+
+  /** El aviso de que la 0103 no corrió: llama la atención sin gritar. */
+  avisoMigracion: {
+    backgroundColor: Colors.skyLight,
+    borderRadius: Radios.sm,
+    color: Colors.skyInk,
+    fontFamily: Fonts.bold,
+    fontSize: 12,
+    lineHeight: 17,
+    padding: Spacing.two,
   },
 
   error: {

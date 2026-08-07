@@ -300,6 +300,14 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     }));
   }
 
+  // La config de la modalidad por_persona (0103), tal cual del jsonb.
+  // La columna puede no existir todavía en la base (la migración la pega
+  // el dueño a mano): como las páginas cargan la fila con select("*"),
+  // sin columna esto llega undefined y queda en null — el calendario la
+  // valida con parsearPrecioPorPersona y cotiza como siempre.
+  const precioPorPersonaCrudo =
+    (rancho as Rancho & { precio_por_persona?: unknown }).precio_por_persona ?? null;
+
   return (
     <div
       className={`min-h-screen bg-aventurea-cream-2 ${esLugar ? "pb-16 lg:pb-0" : ""}`}
@@ -549,6 +557,7 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           precioFijo={rancho.precio_fijo_lugar}
           precioHoraDiciembre={rancho.precio_hora_diciembre ?? null}
           precioFijoDiciembre={rancho.precio_fijo_diciembre ?? null}
+          precioPorPersona={precioPorPersonaCrudo}
           promociones={promociones}
           terminos={rancho.terminos ?? []}
           montoMinimo={rancho.monto_minimo ?? null}

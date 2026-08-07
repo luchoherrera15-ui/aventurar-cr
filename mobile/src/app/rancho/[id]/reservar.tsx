@@ -36,7 +36,7 @@ import { useAuth } from "@/lib/auth-context";
 import { obtenerIdDispositivo } from "@/lib/device";
 import { pedirCorreosDeReserva } from "@/lib/notificaciones";
 import { promoAplicableDelDia } from "@/lib/promociones";
-import { calcularBaseLugar } from "@/lib/precio-lugar";
+import { calcularBaseLugar, parsearPrecioPorPersona } from "@/lib/precio-lugar";
 import { cargarTiersPorTemporada } from "@/lib/precio-tiers";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import {
@@ -300,9 +300,19 @@ export default function ReservarScreen() {
   const horasNum = parseInt(horasEvento) || 0;
 
   // Cómo cotiza este lugar según lo configuró el dueño en su panel:
-  // por rangos de invitados (de siempre), por hora, o un precio fijo
-  // del evento. Mismo cálculo que el BookingCalendar de /web.
+  // por rangos de invitados (de siempre), por hora, un precio fijo
+  // del evento, o por persona (0103). Mismo cálculo que /web.
   const modalidadPrecio = rancho?.modalidad_precio_lugar ?? "rango_personas";
+
+  // La config "por persona" (0103), validada por el parser canónico:
+  // si la columna no existe todavía (migración sin correr) o el jsonb
+  // viene raro, esto es null y la pantalla muestra "consultar". El
+  // acceso es tolerante: en una base sin 0103 el `select *` simplemente
+  // no trae la columna.
+  const porPersona = useMemo(
+    () => parsearPrecioPorPersona(rancho?.precio_por_persona),
+    [rancho],
+  );
 
   // La promo vigente para el día elegido, ya con invitados en mano —
   // una de tipo precio_fijo aplicable (dentro de su tope de personas,
@@ -323,6 +333,10 @@ export default function ReservarScreen() {
     return calcularBaseLugar({
       modalidad: modalidadPrecio,
       esDiciembre,
+      porPersona,
+      // El día LOCAL de la fecha elegida (fechaObj se arma con partes
+      // locales, no con UTC): decide el fijo de diciembre por día.
+      diaSemana: fechaObj.getDay(),
       invitados: invitadosNum || null,
       rangos: tiers,
       rangosDiciembre: tiersDiciembre,
@@ -338,6 +352,8 @@ export default function ReservarScreen() {
   }, [
     promoAplicable,
     modalidadPrecio,
+    porPersona,
+    fechaObj,
     horasNum,
     invitadosNum,
     esDiciembre,
@@ -404,8 +420,8 @@ export default function ReservarScreen() {
   }
 
   // Lo que hace falta para cotizar cambia según la modalidad: por
-  // rangos necesita invitados, por hora necesita las horas, y el
-  // precio fijo no depende de ninguno de los dos.
+  // rangos y por persona necesitan invitados, por hora necesita las
+  // horas, y el precio fijo no depende de ninguno de los dos.
   const cotizacionCompleta =
     modalidadPrecio === "hora"
       ? horasNum > 0
@@ -414,9 +430,10 @@ export default function ReservarScreen() {
         : invitadosNum > 0;
 
   // El lugar tiene un tope físico de gente, sin importar la modalidad
-  // de cobro que haya configurado.
+  // de cobro que haya configurado — aplica a las dos que preguntan por
+  // invitados.
   const excedeCapacidad =
-    modalidadPrecio === "rango_personas" &&
+    (modalidadPrecio === "rango_personas" || modalidadPrecio === "por_persona") &&
     !!rancho?.capacidad_max &&
     invitadosNum > rancho.capacidad_max;
 
@@ -728,7 +745,8 @@ export default function ReservarScreen() {
                     keyboardType="numeric"
                     placeholder="Ej. 5"
                   />
-                ) : modalidadPrecio === "rango_personas" ? (
+                ) : modalidadPrecio === "rango_personas" ||
+                  modalidadPrecio === "por_persona" ? (
                   <Campo
                     label={
                       rancho?.capacidad_max

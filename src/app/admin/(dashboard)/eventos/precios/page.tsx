@@ -1,4 +1,5 @@
 ﻿import { createClient } from "@/lib/supabase/server";
+import { parsearPrecioPorPersona } from "@/lib/precio-lugar";
 import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
 import {
@@ -14,17 +15,34 @@ import type {
   ServicioAdicional,
 } from "@/app/mi-negocio/types";
 
-export default async function PreciosPage() {
+/**
+ * Precios a nivel ADMINISTRATIVO: el selector de arriba deja editar
+ * los precios de CUALQUIER negocio (pedido del dueño — ej. cargarle a
+ * Rancho Las Torres la modalidad por persona sin entrar con su
+ * cuenta). Sin selección se edita el rancho de la casa, como siempre.
+ * La política de update de `ranchos` (0008) ya permite is_admin().
+ */
+export default async function PreciosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ rancho?: string }>;
+}) {
+  const { rancho: ranchoParam } = await searchParams;
   const supabase = await createClient();
 
-  // A propósito `*` y no la lista de columnas: los precios de diciembre
-  // (0099) pueden no existir todavía en la base, y pedirlos por nombre
-  // haría fallar la consulta entera y dejaría la pantalla sin rancho.
-  const { data: rancho } = await supabase
+  // Los negocios del selector, por nombre.
+  const { data: negocios } = await supabase
     .from("ranchos")
-    .select("*")
-    .eq("nombre", NOMBRE_RANCHO_BOOKEAR)
-    .maybeSingle();
+    .select("id, nombre")
+    .order("nombre", { ascending: true });
+
+  // A propósito `*` y no la lista de columnas: los precios de diciembre
+  // (0099) o el por-persona (0103) pueden no existir todavía en la
+  // base, y pedirlos por nombre haría fallar la consulta entera.
+  const consulta = supabase.from("ranchos").select("*");
+  const { data: rancho } = await (ranchoParam
+    ? consulta.eq("id", ranchoParam).maybeSingle()
+    : consulta.eq("nombre", NOMBRE_RANCHO_BOOKEAR).maybeSingle());
 
   const [tiersRes, serviciosRes, codigosRes, promocionesRes] = await Promise.all([
     supabase
@@ -61,6 +79,37 @@ export default async function PreciosPage() {
         público.
       </p>
 
+      {/* El selector: GET simple, sin JavaScript — elegir y "Cambiar"
+          recarga la página con ese negocio ya cargado en el form. */}
+      <form className="mt-5 flex flex-wrap items-end gap-2.5">
+        <div>
+          <label
+            htmlFor="admin-rancho"
+            className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft"
+          >
+            Negocio que estás editando
+          </label>
+          <select
+            id="admin-rancho"
+            name="rancho"
+            defaultValue={(rancho?.id as string | undefined) ?? ""}
+            className="min-w-[280px] rounded-xl border border-aventurea-line bg-white px-3.5 py-2.5 text-[13.5px] font-semibold text-aventurea-ink"
+          >
+            {(negocios ?? []).map((n) => (
+              <option key={n.id as string} value={n.id as string}>
+                {n.nombre as string}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="rounded-xl border border-aventurea-navy px-4 py-2.5 text-[13px] font-bold text-aventurea-navy transition-colors hover:bg-aventurea-navy hover:text-white"
+        >
+          Cambiar
+        </button>
+      </form>
+
       <div className="mt-6">
         <PreciosForm
           initialTiers={(tiersRes.data ?? []) as PrecioTier[]}
@@ -72,7 +121,13 @@ export default async function PreciosPage() {
           initialPrecioFijo={rancho?.precio_fijo_lugar ?? null}
           initialPrecioHoraDiciembre={rancho?.precio_hora_diciembre ?? null}
           initialPrecioFijoDiciembre={rancho?.precio_fijo_diciembre ?? null}
-          onGuardar={guardarConfiguracion}
+          initialPrecioPorPersona={parsearPrecioPorPersona(
+            rancho?.precio_por_persona,
+          )}
+          onGuardar={guardarConfiguracion.bind(
+            null,
+            (rancho?.id as string | undefined) ?? null,
+          )}
         />
       </div>
 
@@ -85,8 +140,14 @@ export default async function PreciosPage() {
       <DescuentosForm
         initialCodigos={(codigosRes.data ?? []) as CodigoDescuento[]}
         initialPromociones={(promocionesRes.data ?? []) as PromocionDia[]}
-        onGuardarCodigos={guardarCodigosBookear}
-        onGuardarPromociones={guardarPromocionesBookear}
+        onGuardarCodigos={guardarCodigosBookear.bind(
+          null,
+          (rancho?.id as string | undefined) ?? null,
+        )}
+        onGuardarPromociones={guardarPromocionesBookear.bind(
+          null,
+          (rancho?.id as string | undefined) ?? null,
+        )}
       />
     </div>
   );

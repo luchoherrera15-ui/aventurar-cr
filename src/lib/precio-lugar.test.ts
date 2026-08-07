@@ -158,3 +158,124 @@ describe("calcularBaseLugar — la promo de precio fijo del día", () => {
     expect(calcularBaseLugar(base({ promoPrecioFijo: 0 }))).toBe(0);
   });
 });
+
+// ------------------------------------------------------------------
+// Modalidad por_persona (0103) — los números reales de Rancho Las
+// Torres: fijo 1-25, tarifa plana el año, y en diciembre fijo por día
+// + tarifa deslizante 30→₡5.500, 50→₡4.500, 100→₡4.000.
+// ------------------------------------------------------------------
+
+import {
+  parsearPrecioPorPersona,
+  tarifaPorTramos,
+  type PrecioPorPersona,
+} from "./precio-lugar";
+
+const LAS_TORRES: PrecioPorPersona = {
+  baseMax: 25,
+  basePrecio: 95_000,
+  tarifa: 3_400,
+  dicLunJue: 125_000,
+  dicViernes: 145_000,
+  dicSabDom: 165_000,
+  dicTramos: [
+    { invitados: 30, tarifa: 5_500 },
+    { invitados: 50, tarifa: 4_500 },
+    { invitados: 100, tarifa: 4_000 },
+  ],
+};
+
+function porPersona(extra: Partial<DatosPrecioLugar> = {}): DatosPrecioLugar {
+  return {
+    modalidad: "por_persona",
+    esDiciembre: false,
+    porPersona: LAS_TORRES,
+    diaSemana: 2,
+    invitados: 20,
+    rangos: [],
+    horas: null,
+    precioHora: null,
+    precioFijo: null,
+    ...extra,
+  };
+}
+
+describe("calcularBaseLugar — por persona, resto del año", () => {
+  it("el fijo cubre 1-25", () => {
+    expect(calcularBaseLugar(porPersona({ invitados: 1 }))).toBe(95_000);
+    expect(calcularBaseLugar(porPersona({ invitados: 25 }))).toBe(95_000);
+  });
+
+  it("desde 26 es invitados × tarifa, mostrado como total", () => {
+    expect(calcularBaseLugar(porPersona({ invitados: 26 }))).toBe(88_400);
+    expect(calcularBaseLugar(porPersona({ invitados: 40 }))).toBe(136_000);
+    expect(calcularBaseLugar(porPersona({ invitados: 100 }))).toBe(340_000);
+  });
+
+  it("sin invitados o sin config no hay precio", () => {
+    expect(calcularBaseLugar(porPersona({ invitados: null }))).toBeNull();
+    expect(calcularBaseLugar(porPersona({ porPersona: null }))).toBeNull();
+  });
+
+  it("una promo de precio fijo del día manda sobre todo", () => {
+    expect(calcularBaseLugar(porPersona({ promoPrecioFijo: 60_000 }))).toBe(60_000);
+  });
+});
+
+describe("calcularBaseLugar — por persona en diciembre", () => {
+  const dic = (extra: Partial<DatosPrecioLugar> = {}) =>
+    porPersona({ esDiciembre: true, ...extra });
+
+  it("grupos chicos: el fijo del día (lun-jue / viernes / sáb-dom)", () => {
+    expect(calcularBaseLugar(dic({ invitados: 20, diaSemana: 1 }))).toBe(125_000);
+    expect(calcularBaseLugar(dic({ invitados: 20, diaSemana: 4 }))).toBe(125_000);
+    expect(calcularBaseLugar(dic({ invitados: 20, diaSemana: 5 }))).toBe(145_000);
+    expect(calcularBaseLugar(dic({ invitados: 20, diaSemana: 6 }))).toBe(165_000);
+    // Domingo cobra como sábado (decisión del dueño).
+    expect(calcularBaseLugar(dic({ invitados: 20, diaSemana: 0 }))).toBe(165_000);
+  });
+
+  it("antes de la primera ancla rige su tarifa (26-30 → ₡5.500)", () => {
+    expect(calcularBaseLugar(dic({ invitados: 26 }))).toBe(26 * 5_500);
+    expect(calcularBaseLugar(dic({ invitados: 30 }))).toBe(165_000);
+  });
+
+  it("entre 30 y 50 la tarifa baja en línea recta hasta ₡4.500", () => {
+    expect(calcularBaseLugar(dic({ invitados: 40 }))).toBe(40 * 5_000);
+    expect(calcularBaseLugar(dic({ invitados: 50 }))).toBe(50 * 4_500);
+  });
+
+  it("entre 50 y 100 sigue bajando suave hasta ₡4.000 y se planta", () => {
+    expect(calcularBaseLugar(dic({ invitados: 75 }))).toBe(75 * 4_250);
+    expect(calcularBaseLugar(dic({ invitados: 100 }))).toBe(400_000);
+    expect(calcularBaseLugar(dic({ invitados: 150 }))).toBe(600_000);
+  });
+
+  it("sin tramos de diciembre cae a la tarifa normal", () => {
+    const sinTramos = { ...LAS_TORRES, dicTramos: [] };
+    expect(calcularBaseLugar(dic({ invitados: 40, porPersona: sinTramos }))).toBe(136_000);
+  });
+});
+
+describe("tarifaPorTramos y parseo de la config", () => {
+  it("interpola al colón entre anclas", () => {
+    expect(tarifaPorTramos(LAS_TORRES.dicTramos, 35)).toBe(5_250);
+    expect(tarifaPorTramos(LAS_TORRES.dicTramos, 63)).toBe(4_370);
+  });
+
+  it("una config malformada devuelve null (nunca ₡0)", () => {
+    expect(parsearPrecioPorPersona(null)).toBeNull();
+    expect(parsearPrecioPorPersona({ baseMax: 25 })).toBeNull();
+    expect(
+      parsearPrecioPorPersona({ ...LAS_TORRES, dicTramos: [{ invitados: 30 }] }),
+    ).toBeNull();
+  });
+
+  it("una config buena pasa entera y ordena los tramos", () => {
+    const v = parsearPrecioPorPersona({
+      ...LAS_TORRES,
+      dicTramos: [...LAS_TORRES.dicTramos].reverse(),
+    });
+    expect(v?.dicTramos.map((t) => t.invitados)).toEqual([30, 50, 100]);
+  });
+});

@@ -12,6 +12,10 @@ import {
   MODALIDAD_PRECIO_LUGAR_LABEL,
   type ModalidadPrecioLugar,
 } from "@/app/mi-negocio/types";
+import {
+  parsearPrecioPorPersona,
+  type PrecioPorPersona,
+} from "@/lib/precio-lugar";
 import { IconTrash } from "@/components/icons";
 import SeccionPlegable from "@/components/seccion-plegable";
 
@@ -21,6 +25,14 @@ type TierDraft = {
   max_invitados: number;
   precio: number;
 };
+
+/**
+ * Un ancla de la tarifa deslizante de diciembre, mientras se edita.
+ * Los campos van como texto para poder quedar vacíos (placeholder) sin
+ * inventar un 0: al guardar se convierten y los valida el MISMO parser
+ * que usa el cálculo.
+ */
+type TramoDraft = { key: string; invitados: string; tarifa: string };
 type ServicioDraft = {
   key: string;
   nombre: string;
@@ -186,6 +198,11 @@ function EditorRangos({
   );
 }
 
+/** Para prellenar los campos de texto: null/ausente = casilla vacía. */
+function aTexto(n: number | null | undefined): string {
+  return typeof n === "number" && n > 0 ? String(n) : "";
+}
+
 export default function PreciosForm({
   initialTiers,
   initialServicios,
@@ -196,6 +213,7 @@ export default function PreciosForm({
   initialPrecioFijo,
   initialPrecioHoraDiciembre,
   initialPrecioFijoDiciembre,
+  initialPrecioPorPersona = null,
   onGuardar,
 }: {
   /** TODOS los rangos del lugar: acá se separan por temporada (0099). */
@@ -208,6 +226,9 @@ export default function PreciosForm({
   initialPrecioFijo: number | null;
   initialPrecioHoraDiciembre: number | null;
   initialPrecioFijoDiciembre: number | null;
+  /** La config "por persona" (0103) YA validada con
+   *  parsearPrecioPorPersona; null = nunca la cargó (editor vacío). */
+  initialPrecioPorPersona?: PrecioPorPersona | null;
   onGuardar: GuardarPreciosFn;
 }) {
   const [tiers, setTiers] = useState<TierDraft[]>(
@@ -236,6 +257,36 @@ export default function PreciosForm({
   const [precioFijoDiciembre, setPrecioFijoDiciembre] = useState(
     initialPrecioFijoDiciembre ?? 0,
   );
+
+  // --- Modalidad "por persona" (0103) ---
+  // Texto y no número para que una casilla sin cargar quede vacía con
+  // su placeholder, en vez de un 0 que parece un precio real.
+  const [ppBaseMax, setPpBaseMax] = useState(aTexto(initialPrecioPorPersona?.baseMax));
+  const [ppBasePrecio, setPpBasePrecio] = useState(
+    aTexto(initialPrecioPorPersona?.basePrecio),
+  );
+  const [ppTarifa, setPpTarifa] = useState(aTexto(initialPrecioPorPersona?.tarifa));
+  const [ppDicLunJue, setPpDicLunJue] = useState(
+    aTexto(initialPrecioPorPersona?.dicLunJue),
+  );
+  const [ppDicViernes, setPpDicViernes] = useState(
+    aTexto(initialPrecioPorPersona?.dicViernes),
+  );
+  const [ppDicSabDom, setPpDicSabDom] = useState(
+    aTexto(initialPrecioPorPersona?.dicSabDom),
+  );
+  // Siempre hay al menos una fila de ancla: la lista vacía no existe
+  // en este editor (sin anclas, diciembre cobraría la tarifa normal).
+  const [ppTramos, setPpTramos] = useState<TramoDraft[]>(() => {
+    const tramos = initialPrecioPorPersona?.dicTramos ?? [];
+    if (tramos.length === 0) return [{ key: newKey(), invitados: "", tarifa: "" }];
+    return tramos.map((t) => ({
+      key: newKey(),
+      invitados: String(t.invitados),
+      tarifa: String(t.tarifa),
+    }));
+  });
+
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{
     type: "ok" | "error";
@@ -259,7 +310,10 @@ export default function PreciosForm({
     initialTiers.some(esDeDiciembre) ||
     initialTarifaDiciembre > 0 ||
     (initialPrecioHoraDiciembre ?? 0) > 0 ||
-    (initialPrecioFijoDiciembre ?? 0) > 0;
+    (initialPrecioFijoDiciembre ?? 0) > 0 ||
+    // Una config "por persona" válida siempre trae sus precios de
+    // diciembre — si existe, diciembre ya está cargado.
+    initialPrecioPorPersona !== null;
 
   // El resumen del encabezado sí sigue lo que hay en pantalla.
   const tieneDiciembre =
@@ -267,10 +321,56 @@ export default function PreciosForm({
       ? tiersDiciembre.length > 0 || tarifaDiciembre > 0
       : modalidadPrecio === "hora"
         ? precioHoraDiciembre > 0
-        : precioFijoDiciembre > 0;
+        : modalidadPrecio === "por_persona"
+          ? Number(ppDicLunJue) > 0 ||
+            Number(ppDicViernes) > 0 ||
+            Number(ppDicSabDom) > 0
+          : precioFijoDiciembre > 0;
+
+  function actualizarTramo(key: string, campo: "invitados" | "tarifa", valor: string) {
+    setPpTramos((prev) =>
+      prev.map((t) => (t.key === key ? { ...t, [campo]: valor } : t)),
+    );
+  }
+
+  /**
+   * Arma la config con las llaves EXACTAS del jsonb y la pasa por el
+   * mismo parser del cálculo: si algo quedó vacío o en 0, devuelve null
+   * y no se guarda nada a medias. Number("") da 0, que el parser
+   * rechaza — una casilla vacía nunca se convierte en precio.
+   */
+  function armarPorPersona(): PrecioPorPersona | null {
+    return parsearPrecioPorPersona({
+      baseMax: Number(ppBaseMax),
+      basePrecio: Number(ppBasePrecio),
+      tarifa: Number(ppTarifa),
+      dicLunJue: Number(ppDicLunJue),
+      dicViernes: Number(ppDicViernes),
+      dicSabDom: Number(ppDicSabDom),
+      dicTramos: ppTramos.map((t) => ({
+        invitados: Number(t.invitados),
+        tarifa: Number(t.tarifa),
+      })),
+    });
+  }
 
   function guardar() {
     setMessage(null);
+
+    // La modalidad "por persona" se valida ANTES de mandar nada: sin
+    // config completa el sitio público solo podría decir "consultar".
+    let precioPorPersona: PrecioPorPersona | null = null;
+    if (modalidadPrecio === "por_persona") {
+      precioPorPersona = armarPorPersona();
+      if (!precioPorPersona) {
+        setMessage({
+          type: "error",
+          text: "Completá todos los campos de la modalidad Por persona (los de diciembre también) con montos mayores a cero.",
+        });
+        return;
+      }
+    }
+
     startTransition(async () => {
       const soloRango = (t: TierDraft) => ({
         min_invitados: t.min_invitados,
@@ -301,6 +401,7 @@ export default function PreciosForm({
           modalidadPrecio === "fijo" && precioFijoDiciembre > 0
             ? precioFijoDiciembre
             : null,
+        precioPorPersona,
       });
       if (res?.error) {
         setMessage({ type: "error", text: res.error });
@@ -401,6 +502,61 @@ export default function PreciosForm({
               Un solo precio para todo el evento, sin importar la cantidad de
               invitados.
             </p>
+          </div>
+        )}
+
+        {modalidadPrecio === "por_persona" && (
+          <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
+            <div className="flex flex-wrap gap-4">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Precio fijo hasta&hellip; (invitados)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="25"
+                  value={ppBaseMax}
+                  onChange={(e) => setPpBaseMax(e.target.value)}
+                  className="w-32 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Ese precio fijo (₡)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="95000"
+                  value={ppBasePrecio}
+                  onChange={(e) => setPpBasePrecio(e.target.value)}
+                  className="w-40 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+                />
+              </div>
+            </div>
+            <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
+              Del invitado 1 hasta ese número se cobra el fijo, lleguen los
+              que lleguen.
+            </p>
+
+            <div className="mt-4">
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                Tarifa por persona después de ese número (₡)
+              </label>
+              <input
+                type="number"
+                min={0}
+                placeholder="3400"
+                value={ppTarifa}
+                onChange={(e) => setPpTarifa(e.target.value)}
+                className="w-40 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+              />
+              <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
+                A partir de ahí se cobra invitados × esta tarifa. El cliente
+                siempre ve el total ya multiplicado, nunca la tarifa.
+              </p>
+            </div>
           </div>
         )}
       </section>
@@ -511,6 +667,157 @@ export default function PreciosForm({
               Dejalo en 0 si en diciembre cobrás lo mismo que el resto del
               año.
             </p>
+          </>
+        )}
+
+        {modalidadPrecio === "por_persona" && (
+          <>
+            <p className="text-[12.5px] text-aventurea-ink-soft">
+              En esta modalidad diciembre tiene su propia lista y estos
+              campos son obligatorios: el precio fijo de los grupos chicos
+              cambia según el día del evento, y la tarifa por persona baja
+              conforme crece el grupo.
+            </p>
+
+            <p className="mt-4 mb-1.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+              Precio fijo hasta {ppBaseMax || "N"} invitados, según el día
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Lunes a jueves (₡)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="125000"
+                  value={ppDicLunJue}
+                  onChange={(e) => setPpDicLunJue(e.target.value)}
+                  className="w-36 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Viernes (₡)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="145000"
+                  value={ppDicViernes}
+                  onChange={(e) => setPpDicViernes(e.target.value)}
+                  className="w-36 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Sábado y domingo (₡)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="165000"
+                  value={ppDicSabDom}
+                  onChange={(e) => setPpDicSabDom(e.target.value)}
+                  className="w-36 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                Anclas de la tarifa por persona
+              </p>
+              <p className="mt-1 text-[12px] text-aventurea-ink-soft">
+                Cada ancla dice &quot;a tantos invitados, tanta tarifa&quot;.
+                Entre anclas la tarifa baja en línea recta; después de la
+                última queda plana.
+              </p>
+
+              <table className="mt-3 w-full max-w-md border-collapse">
+                <thead>
+                  <tr>
+                    {["Invitados", "Tarifa por persona (₡)", ""].map((h) => (
+                      <th
+                        key={h}
+                        className="pb-2 text-left text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ppTramos.map((t) => (
+                    <tr key={t.key}>
+                      <td className="py-1.5 pr-2">
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder="30"
+                          value={t.invitados}
+                          onChange={(e) =>
+                            actualizarTramo(t.key, "invitados", e.target.value)
+                          }
+                          className={CLASE_INPUT}
+                        />
+                      </td>
+                      <td className="py-1.5 pr-2">
+                        <input
+                          type="number"
+                          min={0}
+                          placeholder="5500"
+                          value={t.tarifa}
+                          onChange={(e) =>
+                            actualizarTramo(t.key, "tarifa", e.target.value)
+                          }
+                          className={CLASE_INPUT}
+                        />
+                      </td>
+                      <td className="py-1.5">
+                        <button
+                          type="button"
+                          disabled={ppTramos.length === 1}
+                          onClick={() =>
+                            setPpTramos((prev) =>
+                              prev.length > 1
+                                ? prev.filter((x) => x.key !== t.key)
+                                : prev,
+                            )
+                          }
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-400 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-aventurea-line disabled:hover:text-aventurea-ink-soft"
+                          title={
+                            ppTramos.length === 1
+                              ? "Tiene que quedar al menos un ancla"
+                              : "Eliminar"
+                          }
+                        >
+                          <IconTrash className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPpTramos((prev) => [
+                    ...prev,
+                    { key: newKey(), invitados: "", tarifa: "" },
+                  ])
+                }
+                className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
+              >
+                ＋ Agregar ancla
+              </button>
+              <p className="mt-2 text-[11px] text-aventurea-ink-soft">
+                Ejemplo: 30 → ₡5.500, 50 → ₡4.500, 100 → ₡4.000. El
+                cliente nunca ve estas tarifas — solo el total ya
+                multiplicado.
+              </p>
+            </div>
           </>
         )}
       </SeccionPlegable>

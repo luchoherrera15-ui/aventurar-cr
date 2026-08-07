@@ -185,11 +185,25 @@ export const UNIDAD_PRECIO_LABEL: Record<UnidadPrecio, string> = {
  * Cómo cobra un LUGAR por su fecha (distinto de UnidadPrecio, que es
  * para el "desde ₡X" de las demás categorías): "rango_personas" son
  * los tramos de precio_tiers de siempre; "hora" y "fijo" son un solo
- * número que el dueño fija, sin depender de invitados. Espejo de
- * src/app/mi-negocio/types.tsx en /web.
+ * número que el dueño fija, sin depender de invitados; "por_persona"
+ * (0103) es un fijo para grupos chicos y de ahí en adelante
+ * invitados × tarifa — su config vive en `precio_por_persona`. Espejo
+ * de src/app/mi-negocio/types.tsx en /web.
  */
-export const MODALIDADES_PRECIO_LUGAR = ["rango_personas", "hora", "fijo"] as const;
+export const MODALIDADES_PRECIO_LUGAR = [
+  "rango_personas",
+  "hora",
+  "fijo",
+  "por_persona",
+] as const;
 export type ModalidadPrecioLugar = (typeof MODALIDADES_PRECIO_LUGAR)[number];
+
+export const MODALIDAD_PRECIO_LUGAR_LABEL: Record<ModalidadPrecioLugar, string> = {
+  rango_personas: "Por rangos de invitados",
+  hora: "Por hora",
+  fijo: "Precio fijo del evento",
+  por_persona: "Por persona",
+};
 
 export const DIAS_SEMANA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
@@ -308,6 +322,11 @@ export type Rancho = {
    *  Opcionales: toleran una base donde la 0099 todavía no corrió. */
   precio_fijo_diciembre?: number | null;
   precio_hora_diciembre?: number | null;
+  /** La config jsonb de la modalidad 'por_persona' (0103). Se lee
+   *  SIEMPRE con parsearPrecioPorPersona de lib/precio-lugar.ts —
+   *  cualquier cosa rara ahí es "consultar", nunca ₡0. Opcional:
+   *  tolera una base donde la 0103 todavía no corrió. */
+  precio_por_persona?: unknown;
   fotos: string[];
   estado: EstadoRancho;
   created_at: string;

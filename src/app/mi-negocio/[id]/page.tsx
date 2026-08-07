@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { parsearPrecioPorPersona } from "@/lib/precio-lugar";
 import {
   IconCalendarLine,
   IconChartBars,
@@ -774,6 +775,9 @@ export default async function RanchoDetallePage({
               initialPrecioFijo={rancho.precio_fijo_lugar}
               initialPrecioHoraDiciembre={rancho.precio_hora_diciembre ?? null}
               initialPrecioFijoDiciembre={rancho.precio_fijo_diciembre ?? null}
+              initialPrecioPorPersona={parsearPrecioPorPersona(
+                rancho.precio_por_persona,
+              )}
               onGuardar={guardarPreciosPropio.bind(null, rancho.id)}
             />
           </SeccionPlegable>

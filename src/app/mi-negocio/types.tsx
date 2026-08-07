@@ -6,6 +6,7 @@ import {
   IconRancho,
   IconWand,
 } from "@/components/icons";
+import type { PrecioPorPersona } from "@/lib/precio-lugar";
 
 export const PROVINCIAS = [
   "San José",
@@ -149,15 +150,24 @@ export const UNIDAD_PRECIO_LABEL: Record<UnidadPrecio, string> = {
  * Cómo cobra un LUGAR por su fecha (distinto de UnidadPrecio, que es
  * para el "desde ₡X" de las demás categorías): "rango_personas" son
  * los tramos de precio_tiers de siempre; "hora" y "fijo" son un solo
- * número que el dueño fija, sin depender de invitados.
+ * número que el dueño fija, sin depender de invitados; "por_persona"
+ * (0103) es un fijo para grupos chicos y de ahí en adelante
+ * invitados × tarifa — su config vive en el jsonb precio_por_persona
+ * y el cálculo canónico en src/lib/precio-lugar.ts.
  */
-export const MODALIDADES_PRECIO_LUGAR = ["rango_personas", "hora", "fijo"] as const;
+export const MODALIDADES_PRECIO_LUGAR = [
+  "rango_personas",
+  "hora",
+  "fijo",
+  "por_persona",
+] as const;
 export type ModalidadPrecioLugar = (typeof MODALIDADES_PRECIO_LUGAR)[number];
 
 export const MODALIDAD_PRECIO_LUGAR_LABEL: Record<ModalidadPrecioLugar, string> = {
   rango_personas: "Por rangos de invitados",
   hora: "Por hora",
   fijo: "Precio fijo del evento",
+  por_persona: "Por persona",
 };
 
 /**
@@ -618,6 +628,10 @@ export type Rancho = {
    *  Opcionales a propósito: la base puede no tener la 0099 corrida. */
   precio_hora_diciembre?: number | null;
   precio_fijo_diciembre?: number | null;
+  /** La config jsonb de la modalidad "por persona" (0103). Es `unknown`
+   *  a propósito: SIEMPRE se valida con parsearPrecioPorPersona al leer.
+   *  Opcional porque la base puede no tener la 0103 corrida. */
+  precio_por_persona?: unknown;
   fotos: string[];
   /** Qué vertical del marketplace es (0055): eventos es el default. */
   vertical?: "eventos" | "citas" | "hospedajes";
@@ -664,6 +678,10 @@ export type GuardarPreciosInput = {
   /** null = en diciembre se cobra lo mismo que el resto del año. */
   precioHoraDiciembre: number | null;
   precioFijoDiciembre: number | null;
+  /** La config de la modalidad "por persona" (0103), ya validada por el
+   *  formulario. null = no usa esa modalidad (y en la base se limpia).
+   *  Opcional para no romper a quien llama sin conocer la modalidad. */
+  precioPorPersona?: PrecioPorPersona | null;
 };
 
 export type RangoPrecioInput = {
