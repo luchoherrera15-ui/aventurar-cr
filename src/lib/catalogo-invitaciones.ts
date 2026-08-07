@@ -128,6 +128,18 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     muestra: { fondo: "#f2e2c4", tinta: "#4a3b22", acento: "#e08a2c" },
   },
   {
+    slug: "demo-magia",
+    categoria: "infantiles",
+    nombre: "Academia Candelaria",
+    ocasion: "Cumples infantiles",
+    descripcion:
+      "La carta de admisión llega con su lacre: se abre, suena el vals y el búho cruza la noche mientras el mapa se dibuja solo.",
+    lienzo: "bg-aventurea-navy",
+    icono: "destellos",
+    iconoClase: "text-white/90",
+    muestra: { fondo: "#141334", tinta: "#f4ead2", acento: "#d8b45f" },
+  },
+  {
     slug: "demo-dinosaurios",
     categoria: "infantiles",
     nombre: "Selva Jurásica",

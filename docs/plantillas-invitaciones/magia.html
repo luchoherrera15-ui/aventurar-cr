@@ -1,0 +1,4233 @@
+<!--
+  Plantilla "Magia" — invitación de cumpleaños infantil con tema de
+  ESCUELA DE MAGIA. Mundo propio: la ACADEMIA CANDELARIA DE ARTES
+  MAYORES, con sus cuatro gremios (Vela, Tinta, Raíz y Bruma), su
+  escudo —un libro abierto, una vela encendida y tres estrellas— y su
+  lema "Lumbre, tinta y palabra". Todo el género (carta de admisión,
+  lacre, velas flotantes, caldero, búho mensajero, mapa que se dibuja,
+  gran comedor de mesas largas) es de dominio común; NADA de acá viene
+  de ninguna franquicia: ni nombres, ni casas, ni hechizos, ni
+  criaturas, ni música, ni tipografías de marca. El escudo, el
+  castillo, el búho, el caldero y el mapa son dibujo propio en SVG
+  inline.
+
+  USO: sustituir los placeholders y guardar el resultado en
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta a
+  pantalla completa (el fragmento ocupa todo el ancho del viewport) y
+  monta ella misma dos piezas vivas:
+    · la cuenta regresiva, donde esta plantilla deja
+      <div data-bookea="cuenta-regresiva"></div>
+    · el formulario de confirmación, como card modal, al tocar el
+      <button type="button" data-bookea="abrir-rsvp">
+
+  LA PUERTA Y LA MÚSICA:
+  - Al entrar, un <dialog> en el TOP LAYER muestra el sobre de
+    pergamino con el lacre de la Academia. Espera el toque: mientras
+    está puesto no se scrollea (overscroll-behavior: contain +
+    touch-action: none sobre el dialog, y un listener devuelve a 0 lo
+    que se escape). NUNCA se toca la clase de html/body — React los
+    hidrata y una clase ajena da mismatch.
+  - Al tocar: el lacre se parte en dos mitades que caen, la solapa se
+    abre, la carta sale y se despliega, y el sobre se va. Un segundo
+    toque salta la animación.
+  - LA MÚSICA (vals, loop, volumen 0.5) tiene prioridad de gesto:
+    (a) play() se llama SINCRÓNICO como PRIMERA instrucción del handler
+    del clic — la activación transitoria expira dentro de un setTimeout
+    y Chrome/Safari lo rechazarían en silencio; el lacre se rompe en
+    paralelo, la música no lo espera. (b) preload="none": son 5,3 MB y
+    no se le gastan a quien nunca toca. (c) si el navegador la bloquea
+    igual, el .catch() deja el ♪ flotante pulsando (mag-invita) y su
+    clic —activación nueva— la arranca. El ♪ refleja el estado REAL del
+    audio (eventos play/pause, nunca una variable propia).
+
+  ESCENAS (nueve pantallas completas; ninguna entra como la anterior):
+    0. La carta de admisión — <dialog>, lacre que se parte.
+    1. Portada — el castillo se levanta, las ventanas se encienden una
+       por una y el título se MATERIALIZA letra por letra.
+    2. La carta abierta — el pergamino se DESENROLLA y una pluma
+       ESCRIBE el texto renglón por renglón (velo que avanza) con su
+       rúbrica en stroke-dashoffset.
+    3. La fecha — INMERSIÓN (translateY + scale + blur→nítido), el
+       medallón cae con BRINCO y la cuenta regresiva cascadea.
+    4. El gran comedor — LIGADO AL SCROLL: las velas flotantes suben y
+       se encienden, y los platos entran alternando de lado.
+    5. El taller — las tarjetas suben como BURBUJAS desde el caldero.
+    6. Los gremios — REVELADO POR CORTINA (dos telones que se abren) y
+       los cuatro escudos giran en Y uno por uno.
+    7. El lugar — el mapa se DIBUJA SOLO con tinta (stroke-dashoffset)
+       y la dirección se escribe con la misma pluma.
+    8. Confirmá — el lacre SE ESTAMPA (escala 2.6 → 1) con onda de
+       choque.
+    9. Cierre — las letras se encienden una por una y las velas se van
+       flotando hacia arriba.
+
+  LIGADO AL SCROLL (protagonistas):
+    · EL BÚHO MENSAJERO cruza la pantalla de izquierda a derecha
+      conforme se baja, aleteando y soltando chispas. Es tocable.
+    · El hilo de tinta del borde izquierdo avanza con el progreso.
+    · Las velas del gran comedor suben con el avance de su sección.
+
+  PLACEHOLDERS:
+    {{NOMBRE}}       nombre del cumpleañero        p. ej. Tomás
+    {{EDAD}}         edad que cumple               p. ej. 8
+    {{FECHA_CORTA}}  fecha en una línea            p. ej. Sábado 24 de abril · 2027
+    {{FECHA_LARGA}}  fecha completa                p. ej. Sábado 24 de abril de 2027
+    {{DIA}}          día del mes, para el medallón p. ej. 24
+    {{MES_CORTO}}    mes en versalitas             p. ej. ABRIL
+    {{ANIO}}         año                           p. ej. 2027
+    {{HORA}}         hora de inicio                p. ej. 3:00 p. m.
+    {{HORA_FIN}}     hora de cierre                p. ej. 7:00 p. m.
+    {{HORA_QUEQUE}}  hora del queque               p. ej. 5:00 p. m.
+    {{LUGAR}}        nombre del lugar              p. ej. Casa Quinta El Roble Viejo
+    {{DIRECCION}}    dirección corta               p. ej. Santa Ana, San José
+    {{LINK_MAPS}}    URL de Google Maps
+    {{LINK_WAZE}}    URL de Waze
+    {{PADRES}}       firma de los papás            p. ej. Sus papás — Andrea y Rodrigo
+    {{MENSAJE}}      el párrafo de la carta (dos o tres oraciones)
+    {{LIMITE}}       fecha límite para confirmar   p. ej. viernes 16 de abril
+    {{CANCION}}      URL del mp3 (loop, volumen 0.5)
+    {{CREDITO_MUSICA}} crédito de la canción en el pie
+
+  NOTAS TÉCNICAS (reglas duras del producto):
+  - Autocontenido: todo el CSS en el <style> y todo el JS en los
+    <script> de este mismo fragmento. Cero librerías, cero imágenes
+    remotas (solo SVG inline). Todo namespaced con .mag-/#mag- para no
+    tocar el RSVP ni el resto de la página.
+  - Las animaciones corren SIEMPRE, iguales para todo el mundo: acá NO
+    se consulta prefers-reduced-motion, ni en el CSS ni en el JS
+    (decisión del dueño — con la señal respetada él no vería nada). El
+    único matchMedia que existe es de ANCHO (min-width: 768px) y solo
+    sirve para subir la cantidad de partículas en pantallas grandes.
+  - NINGÚN elemento arranca en opacity:0 esperando al observer. El
+    estado por defecto es VISIBLE y la entrada se agrega ENCIMA con la
+    clase .mag-on (o .mag-abierta en la portada): si el
+    IntersectionObserver no corre —o el <script> entero no corre— la
+    invitación se lee completa y quieta. El sobre es un <dialog> sin
+    atributo open: sin JS jamás aparece.
+  - Presupuesto de partículas de teléfono: 5 motas + 3 velas flotantes
+    en la capa fija + 12 estrellas en la sección oscura que se esté
+    viendo ≈ 20, y los estallidos al tocar están topados en 5 vivas →
+    máximo ~25 simultáneas. En ≥768px el JS agrega más.
+  - Solo se animan transform y opacity. El único filter que existe es
+    el blur de UNA entrada (la inmersión de la sección de la fecha), de
+    un solo tiro y sobre un solo elemento; cero backdrop-filter en cosas
+    que se mueven, cero animación de width/top/left.
+  - Todo lo tocable mide 44px o más y las micro-interacciones van por
+    TAP (pointerdown), no por hover.
+-->
+<div class="mag" id="mag">
+  <style>
+    /* ================= Tokens de la Academia ================= */
+    .mag {
+      --mag-noche: #0a0d28;
+      --mag-noche-2: #121740;
+      --mag-indigo: #1b2258;
+      --mag-violeta: #2a1f57;
+      --mag-piedra: #171a33;
+      --mag-piedra-2: #23263f;
+      --mag-pergamino: #f4e7cd;
+      --mag-pergamino-2: #ecdcba;
+      --mag-pergamino-3: #e2cda4;
+      --mag-tinta: #2b2340;
+      --mag-tinta-suave: #625876;
+      --mag-oro: #c2942c;
+      --mag-oro-claro: #f2d98d;
+      --mag-oro-hondo: #856313;
+      --mag-ambar: #f0a848;
+      --mag-llama: #ffd98c;
+      --mag-lacre: #8e2237;
+      --mag-lacre-claro: #c34a5e;
+      --mag-vela: #e6a545;
+      --mag-tintag: #5560bb;
+      --mag-raiz: #6f8f5a;
+      --mag-bruma: #9db0cc;
+      --mag-serif: var(--inv3-serif, "Cormorant Garamond"), "Playfair Display",
+        Georgia, "Times New Roman", serif;
+      --mag-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: block;
+      width: 100%;
+      color: var(--mag-tinta);
+      font-family: var(--mag-sans);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mag *,
+    .mag *::before,
+    .mag *::after {
+      box-sizing: border-box;
+    }
+
+    /* ================= Estructura de escenas ================= */
+    .mag-sec {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100svh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(58px, 11vh, 104px) 20px;
+      text-align: center;
+      isolation: isolate;
+    }
+    .mag-centro {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* Tipografía de la Academia. */
+    .mag-kicker {
+      margin: 0;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--mag-oro);
+    }
+    .mag-titulo {
+      margin: 12px 0 0;
+      font-family: var(--mag-serif);
+      font-weight: 600;
+      font-size: clamp(31px, 9.2vw, 48px);
+      line-height: 1.06;
+      letter-spacing: 0.005em;
+      text-wrap: balance;
+    }
+    .mag-texto {
+      margin: 15px 0 0;
+      font-size: clamp(14.5px, 4vw, 17px);
+      line-height: 1.75;
+      color: var(--mag-tinta-suave);
+      text-wrap: pretty;
+    }
+    .mag-oscura {
+      color: var(--mag-pergamino);
+    }
+    .mag-oscura .mag-titulo {
+      color: #fff8e9;
+    }
+    .mag-oscura .mag-texto {
+      color: rgba(244, 231, 205, 0.84);
+    }
+
+    /* Filete: dos líneas y una estrellita — el separador del libro. */
+    .mag-filete {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      margin: 17px auto 0;
+      color: var(--mag-oro);
+    }
+    .mag-filete i {
+      display: block;
+      width: clamp(30px, 11vw, 60px);
+      height: 1px;
+      background: currentColor;
+      opacity: 0.5;
+    }
+    .mag-filete b {
+      display: block;
+      width: 9px;
+      height: 9px;
+      background: currentColor;
+      clip-path: polygon(
+        50% 0%,
+        61% 39%,
+        100% 50%,
+        61% 61%,
+        50% 100%,
+        39% 61%,
+        0% 50%,
+        39% 39%
+      );
+    }
+
+    /* ================================================================ */
+    /* AMBIENTE PERMANENTE — capa fija, siempre viva                    */
+    /* ================================================================ */
+    .mag-ambiente {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    /* Motas de polvo dorado que suben en diagonal. */
+    .mag-mota {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        rgba(242, 217, 141, 0.95),
+        rgba(242, 217, 141, 0) 70%
+      );
+      opacity: 0;
+      animation: mag-mota-flota var(--mag-dur, 13s) ease-in-out var(--mag-retardo, 0s)
+        infinite;
+      will-change: transform, opacity;
+    }
+    @keyframes mag-mota-flota {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 22px, 0) scale(0.6);
+      }
+      18%,
+      74% {
+        opacity: 0.85;
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(var(--mag-dx, 26px), -110px, 0) scale(1.25);
+      }
+    }
+
+    /* Velas flotantes: el emblema del género. Cera + llama temblando. */
+    .mag-vela-flota {
+      position: absolute;
+      width: 13px;
+      height: 44px;
+      animation: mag-vela-bota var(--mag-dur, 7s) ease-in-out var(--mag-retardo, 0s)
+        infinite alternate;
+      will-change: transform;
+    }
+    .mag-cera {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 11px;
+      height: 26px;
+      margin-left: -5.5px;
+      border-radius: 3px 3px 4px 4px;
+      background: linear-gradient(180deg, #fdf3dd, #e6d3ab 62%, #cdb787);
+      box-shadow: 0 0 16px rgba(255, 208, 122, 0.35);
+    }
+    .mag-cera::after {
+      /* El chorrete de cera derretida por un costado. */
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 1px;
+      width: 3px;
+      height: 13px;
+      border-radius: 0 0 3px 3px;
+      background: rgba(255, 250, 235, 0.85);
+    }
+    .mag-mecha {
+      position: absolute;
+      bottom: 25px;
+      left: 50%;
+      width: 1.5px;
+      height: 5px;
+      margin-left: -0.75px;
+      background: #3a2c1a;
+    }
+    .mag-llama {
+      position: absolute;
+      bottom: 29px;
+      left: 50%;
+      width: 11px;
+      height: 17px;
+      margin-left: -5.5px;
+      border-radius: 50% 50% 45% 45%;
+      transform-origin: 50% 100%;
+      background: radial-gradient(
+        ellipse at 50% 78%,
+        #fffbe8 0%,
+        var(--mag-llama) 38%,
+        var(--mag-ambar) 68%,
+        rgba(240, 138, 40, 0) 100%
+      );
+      animation: mag-llama-tiembla 0.9s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+    .mag-halo {
+      position: absolute;
+      bottom: 22px;
+      left: 50%;
+      width: 46px;
+      height: 46px;
+      margin-left: -23px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        rgba(255, 198, 96, 0.28),
+        rgba(255, 198, 96, 0) 68%
+      );
+      animation: mag-halo-late 2.4s ease-in-out infinite alternate;
+    }
+    @keyframes mag-llama-tiembla {
+      0% {
+        transform: scale(0.88, 0.94) rotate(-5deg);
+        opacity: 0.85;
+      }
+      40% {
+        transform: scale(1.06, 1.1) rotate(3deg);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(0.95, 1.16) rotate(-2deg);
+        opacity: 0.95;
+      }
+    }
+    @keyframes mag-halo-late {
+      0% {
+        transform: scale(0.86);
+        opacity: 0.55;
+      }
+      100% {
+        transform: scale(1.14);
+        opacity: 1;
+      }
+    }
+    @keyframes mag-vela-bota {
+      0% {
+        transform: translate3d(0, 0, 0) rotate(-2deg);
+      }
+      100% {
+        transform: translate3d(var(--mag-dx, 10px), -16px, 0) rotate(2deg);
+      }
+    }
+    /* Al tocar una vela la llama pega un salto. */
+    .mag-vela-tocada .mag-llama {
+      animation: mag-llama-salta 0.62s cubic-bezier(0.22, 1.4, 0.36, 1);
+    }
+    @keyframes mag-llama-salta {
+      0% {
+        transform: scale(1);
+      }
+      35% {
+        transform: scale(1.5, 2.1) translateY(-3px);
+      }
+      68% {
+        transform: scale(0.86, 0.82);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* Estrellas titilando (viven dentro de cada cielo oscuro). */
+    .mag-cielo {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .mag-estrella {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: #fff6dd;
+      opacity: 0.6;
+      animation: mag-titila var(--mag-dur, 3.4s) ease-in-out var(--mag-retardo, 0s)
+        infinite alternate;
+    }
+    .mag-estrella-grande {
+      width: 5px;
+      height: 5px;
+      box-shadow: 0 0 8px rgba(255, 240, 200, 0.9);
+    }
+    @keyframes mag-titila {
+      0% {
+        opacity: 0.14;
+        transform: scale(0.6);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1.18);
+      }
+    }
+
+    /* Chispas: estallan al tocar y las suelta el búho al volar. */
+    .mag-chispa {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      margin: -2.5px 0 0 -2.5px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        #fffaea 0%,
+        var(--mag-oro-claro) 45%,
+        rgba(242, 217, 141, 0) 72%
+      );
+      animation: mag-chispa-vuela 0.75s ease-out forwards;
+      will-change: transform, opacity;
+      pointer-events: none;
+    }
+    @keyframes mag-chispa-vuela {
+      0% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(0.5);
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(var(--mag-dx, 0px), var(--mag-dy, -32px), 0) scale(1.5);
+      }
+    }
+
+    /* ================================================================ */
+    /* EL HILO DE TINTA — la varita marca el avance por el borde        */
+    /* ================================================================ */
+    .mag-hilo {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 2px;
+      height: 100vh;
+      height: 100svh;
+      z-index: 46;
+      pointer-events: none;
+    }
+    .mag-hilo i {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(242, 217, 141, 0.9),
+        rgba(194, 148, 44, 0.35)
+      );
+      transform-origin: 50% 0;
+    }
+    .mag-hilo b {
+      position: absolute;
+      top: -4px;
+      left: -3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff6dd, rgba(242, 217, 141, 0) 70%);
+      will-change: transform;
+    }
+
+    /* ================================================================ */
+    /* EL BÚHO MENSAJERO — cruza la pantalla con el scroll              */
+    /* ================================================================ */
+    .mag-buho-capa {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .mag-buho {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 62px;
+      height: 62px;
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: pointer;
+      pointer-events: auto;
+      touch-action: manipulation;
+      transform: translate3d(14px, 13vh, 0);
+      will-change: transform;
+    }
+    .mag-buho svg {
+      display: block;
+      width: 62px;
+      height: 62px;
+      overflow: visible;
+      filter: drop-shadow(0 6px 12px rgba(6, 8, 26, 0.5));
+    }
+    .mag-ala {
+      transform-origin: 32px 26px;
+      animation: mag-aletea 0.46s ease-in-out infinite alternate;
+    }
+    .mag-ala-der {
+      animation-name: mag-aletea-der;
+    }
+    @keyframes mag-aletea {
+      0% {
+        transform: rotate(6deg) scaleY(0.9);
+      }
+      100% {
+        transform: rotate(-34deg) scaleY(1.12);
+      }
+    }
+    @keyframes mag-aletea-der {
+      0% {
+        transform: rotate(-6deg) scaleY(0.9);
+      }
+      100% {
+        transform: rotate(34deg) scaleY(1.12);
+      }
+    }
+    .mag-buho-ojo {
+      transform-origin: center;
+      animation: mag-parpadeo 5.4s ease-in-out infinite;
+    }
+    @keyframes mag-parpadeo {
+      0%,
+      92%,
+      100% {
+        transform: scaleY(1);
+      }
+      95% {
+        transform: scaleY(0.08);
+      }
+    }
+    .mag-buho-globo {
+      position: absolute;
+      left: 50%;
+      top: -22px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--mag-pergamino);
+      color: var(--mag-tinta);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translate(-50%, 6px) scale(0.7);
+      pointer-events: none;
+    }
+    .mag-buho-hablo .mag-buho-globo {
+      animation: mag-globo 1s ease-out;
+    }
+    @keyframes mag-globo {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, 6px) scale(0.6);
+      }
+      18% {
+        opacity: 1;
+        transform: translate(-50%, -2px) scale(1.12);
+      }
+      74% {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -8px) scale(0.94);
+      }
+    }
+    .mag-buho-hablo svg {
+      animation: mag-buho-brinca 0.6s cubic-bezier(0.24, 1.5, 0.4, 1);
+    }
+    @keyframes mag-buho-brinca {
+      0% {
+        transform: translateY(0) scale(1);
+      }
+      35% {
+        transform: translateY(-11px) scale(1.14);
+      }
+      70% {
+        transform: translateY(2px) scale(0.95);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* ================================================================ */
+    /* EL ♪ FLOTANTE — nace apagado; el JS lo enciende                  */
+    /* ================================================================ */
+    #mag-musica {
+      display: none;
+    }
+    #mag-musica.mag-viva {
+      display: flex;
+      position: fixed;
+      right: 14px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+      z-index: 60;
+      width: 48px;
+      height: 48px;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid rgba(242, 217, 141, 0.7);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(38, 30, 82, 0.95), rgba(16, 18, 52, 0.95));
+      color: var(--mag-oro-claro);
+      cursor: pointer;
+      touch-action: manipulation;
+      box-shadow: 0 12px 26px -12px rgba(6, 8, 26, 0.95);
+      transition: transform 0.18s ease;
+    }
+    #mag-musica:active {
+      transform: scale(0.92);
+    }
+    #mag-musica svg {
+      display: block;
+    }
+    #mag-musica.mag-sonando svg {
+      animation: mag-nota-baila 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes mag-nota-baila {
+      0% {
+        transform: rotate(-11deg) translateY(1px);
+      }
+      100% {
+        transform: rotate(11deg) translateY(-2px);
+      }
+    }
+    .mag-nota-off {
+      position: absolute;
+      width: 2px;
+      height: 28px;
+      border-radius: 2px;
+      background: currentColor;
+      transform: rotate(45deg);
+      display: none;
+      pointer-events: none;
+    }
+    #mag-musica.mag-pausada .mag-nota-off {
+      display: block;
+    }
+    /* Si el navegador bloqueó el arranque, el ♪ pulsa invitando al
+       toque: su clic es una activación de usuario nueva. */
+    #mag-musica.mag-invita::after {
+      content: "";
+      position: absolute;
+      inset: -5px;
+      border-radius: inherit;
+      border: 2px solid var(--mag-oro-claro);
+      animation: mag-invita-onda 1.6s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes mag-invita-onda {
+      0% {
+        opacity: 0.9;
+        transform: scale(0.86);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.5);
+      }
+    }
+
+    /* ================================================================ */
+    /* 0 · EL SOBRE — <dialog> en el top layer                          */
+    /* ================================================================ */
+    #mag-sobre {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      padding: 22px;
+      border: 0;
+      background:
+        radial-gradient(38rem 26rem at 50% 16%, rgba(240, 168, 72, 0.16), transparent 62%),
+        radial-gradient(46rem 34rem at 50% 116%, rgba(42, 31, 87, 0.75), transparent 64%),
+        linear-gradient(180deg, #131840, var(--mag-noche));
+      overflow: hidden;
+      z-index: 2147483000;
+      cursor: pointer;
+      color: var(--mag-pergamino);
+      opacity: 1;
+      transition: opacity 0.5s ease;
+      -webkit-tap-highlight-color: transparent;
+      /* El lock de scroll NO toca html/body (React los hidrata y una
+         clase ajena da mismatch): el dialog modal cubre el viewport,
+         esto corta el encadenado de scroll y el touch, y el script
+         devuelve a 0 cualquier scroll que se escape (teclado). */
+      overscroll-behavior: contain;
+      touch-action: none;
+    }
+    #mag-sobre:focus {
+      outline: none;
+    }
+    #mag-sobre::backdrop {
+      background: #0a0d28;
+    }
+    #mag-sobre[open] {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #mag-sobre.mag-yendo {
+      opacity: 0;
+    }
+
+    .mag-sobre-esc {
+      position: relative;
+      animation: mag-sobre-entra 1s cubic-bezier(0.24, 1.28, 0.42, 1) both;
+    }
+    @keyframes mag-sobre-entra {
+      0% {
+        opacity: 0;
+        transform: translateY(42px) scale(0.78) rotate(-4deg);
+      }
+      58% {
+        opacity: 1;
+        transform: translateY(-8px) scale(1.05) rotate(1.5deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(0deg);
+      }
+    }
+    .mag-sobre-caja {
+      position: relative;
+      width: min(330px, 84vw);
+      aspect-ratio: 10 / 7;
+      perspective: 1100px;
+      animation: mag-sobre-flota 5s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+    @keyframes mag-sobre-flota {
+      0% {
+        transform: translateY(0) rotate(-0.7deg);
+      }
+      100% {
+        transform: translateY(-11px) rotate(0.7deg);
+      }
+    }
+    .mag-abriendo .mag-sobre-caja {
+      animation: none;
+    }
+
+    .mag-sobre-atras {
+      position: absolute;
+      inset: 0;
+      border-radius: 6px;
+      background: linear-gradient(160deg, var(--mag-pergamino-2), var(--mag-pergamino-3));
+      box-shadow: 0 26px 54px -20px rgba(4, 6, 22, 0.95);
+    }
+    /* La carta que sale del sobre. */
+    .mag-carta {
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 7%;
+      bottom: 12%;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 4px;
+      background: linear-gradient(175deg, #fdf6e6, var(--mag-pergamino));
+      box-shadow: 0 8px 18px -10px rgba(4, 6, 22, 0.7);
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
+    }
+    .mag-abriendo .mag-carta {
+      animation: mag-carta-sale 1.15s cubic-bezier(0.2, 1, 0.32, 1) 0.55s both;
+    }
+    @keyframes mag-carta-sale {
+      0% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      55% {
+        transform: translate3d(0, -48%, 0) scale(1.08);
+      }
+      100% {
+        transform: translate3d(0, -64%, 0) scale(1.24);
+      }
+    }
+    /* Cuando la solapa ya pasó de los 90° la carta pasa adelante de
+       todo: sale del sobre hacia el que la está leyendo. */
+    #mag-sobre.mag-carta-arriba .mag-carta {
+      z-index: 8;
+    }
+    #mag-sobre.mag-carta-arriba .mag-solapa {
+      z-index: 1;
+    }
+    .mag-carta-titulo {
+      font-family: var(--mag-serif);
+      font-size: clamp(15px, 4.6vw, 19px);
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--mag-oro-hondo);
+      line-height: 1.2;
+    }
+    .mag-carta-linea {
+      display: block;
+      width: 54px;
+      height: 1px;
+      background: var(--mag-oro);
+      opacity: 0.65;
+    }
+    .mag-carta-lema {
+      font-family: var(--mag-serif);
+      font-style: italic;
+      font-size: clamp(13px, 3.8vw, 15px);
+      color: var(--mag-tinta-suave);
+    }
+    .mag-carta-mini {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(43, 35, 64, 0.5);
+    }
+
+    .mag-sobre-frente {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0 0 12px;
+      border-radius: 6px;
+      background:
+        linear-gradient(150deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%),
+        linear-gradient(180deg, var(--mag-pergamino-2), var(--mag-pergamino-3));
+      box-shadow: inset 0 -1px 0 rgba(133, 99, 19, 0.25);
+    }
+    /* El frente tapa TODO el sobre (nada de clip en V: por el hueco del
+       centro se veía la carta de adentro antes de tiempo). El pliegue de
+       abajo es este triángulo pintado encima, no un recorte. */
+    .mag-sobre-frente::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 6px;
+      background: linear-gradient(
+        180deg,
+        rgba(133, 99, 19, 0.13),
+        rgba(133, 99, 19, 0.02)
+      );
+      clip-path: polygon(0 100%, 50% 44%, 100% 100%);
+    }
+    /* Los dos costados del sobre, para que se lea como papel plegado. */
+    .mag-sobre-lado {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      border-radius: 6px;
+      background: linear-gradient(180deg, var(--mag-pergamino-2), var(--mag-pergamino-3));
+    }
+    .mag-sobre-lado-izq {
+      clip-path: polygon(0 0, 50% 50%, 0 100%);
+      filter: brightness(0.965);
+    }
+    .mag-sobre-lado-der {
+      clip-path: polygon(100% 0, 50% 50%, 100% 100%);
+      filter: brightness(0.94);
+    }
+    .mag-sobre-para {
+      position: relative;
+      z-index: 2;
+      font-family: var(--mag-serif);
+      font-size: clamp(13px, 3.8vw, 16px);
+      font-style: italic;
+      color: rgba(43, 35, 64, 0.72);
+      text-align: center;
+      line-height: 1.4;
+    }
+    .mag-sobre-para b {
+      display: block;
+      font-style: normal;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--mag-oro-hondo);
+    }
+
+    /* La solapa que se abre hacia atrás. */
+    .mag-solapa {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 58%;
+      z-index: 4;
+      transform-origin: 50% 0;
+      transform: rotateX(0deg);
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      background: linear-gradient(180deg, var(--mag-pergamino), var(--mag-pergamino-3));
+      box-shadow: 0 6px 14px -8px rgba(4, 6, 22, 0.6);
+      backface-visibility: hidden;
+      will-change: transform;
+    }
+    .mag-abriendo .mag-solapa {
+      animation: mag-solapa-abre 0.62s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;
+    }
+    @keyframes mag-solapa-abre {
+      0% {
+        transform: rotateX(0deg);
+      }
+      100% {
+        transform: rotateX(-172deg);
+      }
+    }
+
+    /* EL LACRE: dos mitades que se parten y caen. */
+    .mag-sello {
+      position: absolute;
+      left: 50%;
+      top: 52%;
+      z-index: 6;
+      width: 78px;
+      height: 78px;
+      margin: -39px 0 0 -39px;
+      pointer-events: none;
+    }
+    .mag-sello-mitad {
+      position: absolute;
+      inset: 0;
+      display: block;
+      will-change: transform;
+    }
+    .mag-sello-mitad i {
+      position: absolute;
+      inset: 0;
+      display: block;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 34% 28%, var(--mag-lacre-claro), var(--mag-lacre) 58%, #6a1526 100%);
+      box-shadow: 0 6px 14px -6px rgba(4, 6, 22, 0.85);
+      /* Borde irregular de cera derramada. */
+      clip-path: polygon(
+        50% 0%, 66% 5%, 79% 3%, 88% 14%, 97% 24%, 95% 39%, 100% 52%,
+        94% 65%, 96% 78%, 84% 86%, 74% 96%, 60% 94%, 47% 100%, 34% 95%,
+        21% 97%, 12% 86%, 3% 76%, 6% 62%, 0% 49%, 7% 36%, 4% 22%,
+        17% 13%, 26% 3%, 39% 6%
+      );
+    }
+    .mag-sello-mitad svg {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 46px;
+      height: 46px;
+      margin: -23px 0 0 -23px;
+      color: rgba(255, 232, 200, 0.82);
+    }
+    .mag-mitad-a {
+      clip-path: inset(0 50% 0 0);
+    }
+    .mag-mitad-b {
+      clip-path: inset(0 0 0 50%);
+    }
+    .mag-sello-lat {
+      /* El brillo que recorre el lacre mientras espera. */
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at 32% 26%,
+        rgba(255, 236, 214, 0.55),
+        rgba(255, 236, 214, 0) 46%
+      );
+      animation: mag-sello-late 2.1s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes mag-sello-late {
+      0%,
+      100% {
+        opacity: 0.5;
+        transform: scale(0.92);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.06);
+      }
+    }
+    .mag-abriendo .mag-sello-lat {
+      opacity: 0;
+      animation: none;
+    }
+    .mag-abriendo .mag-mitad-a {
+      animation: mag-lacre-izq 0.85s cubic-bezier(0.35, 0.05, 0.6, 1) both;
+    }
+    .mag-abriendo .mag-mitad-b {
+      animation: mag-lacre-der 0.85s cubic-bezier(0.35, 0.05, 0.6, 1) both;
+    }
+    @keyframes mag-lacre-izq {
+      0% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) rotate(0deg);
+      }
+      22% {
+        transform: translate3d(-5px, -7px, 0) rotate(-8deg);
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(-46px, 92px, 0) rotate(-62deg);
+      }
+    }
+    @keyframes mag-lacre-der {
+      0% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) rotate(0deg);
+      }
+      22% {
+        transform: translate3d(5px, -7px, 0) rotate(8deg);
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(46px, 96px, 0) rotate(58deg);
+      }
+    }
+
+    .mag-sobre-pista {
+      position: relative;
+      z-index: 4;
+      margin: clamp(30px, 7vh, 54px) 0 0;
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--mag-oro-claro);
+      text-align: center;
+      animation: mag-pista-late 2.3s ease-in-out infinite;
+    }
+    .mag-sobre-pista small {
+      display: block;
+      margin-top: 7px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: none;
+      color: rgba(244, 231, 205, 0.6);
+    }
+    @keyframes mag-pista-late {
+      0%,
+      100% {
+        opacity: 0.55;
+        transform: translateY(0);
+      }
+      50% {
+        opacity: 1;
+        transform: translateY(-3px);
+      }
+    }
+    .mag-abriendo .mag-sobre-pista {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      animation: none;
+    }
+    /* Las velas que rodean el sobre mientras espera. */
+    .mag-sobre-velas {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .mag-abriendo .mag-sobre-velas {
+      animation: mag-velas-suben 1.5s ease-in both;
+    }
+    @keyframes mag-velas-suben {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-70px) scale(1.3);
+      }
+    }
+    /* ================================================================ */
+    /* EL REPERTORIO DE ENTRADAS                                        */
+    /* Ninguna clase de acá vive sola: todas cuelgan de .mag-on (que    */
+    /* pone el observer) o de .mag-abierta (que pone la apertura del    */
+    /* sobre). Sin JS no se aplica ninguna y todo se ve quieto y        */
+    /* completo — jamás en opacity:0.                                   */
+    /* ================================================================ */
+    @keyframes mag-inmersion {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 74px, 0) scale(0.9);
+        filter: blur(10px);
+      }
+      58% {
+        opacity: 1;
+        filter: blur(0);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+        filter: blur(0);
+      }
+    }
+    @keyframes mag-brinco {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, -78px, 0) scale(0.55);
+      }
+      52% {
+        opacity: 1;
+        transform: translate3d(0, 12px, 0) scale(1.14);
+      }
+      74% {
+        transform: translate3d(0, -7px, 0) scale(0.96);
+      }
+      88% {
+        transform: translate3d(0, 3px, 0) scale(1.02);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+    @keyframes mag-cascada {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 24px, 0);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+    }
+    @keyframes mag-letra {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 28px, 0) scale(0.28) rotate(-26deg);
+      }
+      54% {
+        opacity: 1;
+        transform: translate3d(0, -7px, 0) scale(1.18) rotate(6deg);
+      }
+      78% {
+        transform: translate3d(0, 3px, 0) scale(0.95) rotate(-2deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+      }
+    }
+    @keyframes mag-desenrolla {
+      0% {
+        opacity: 0.25;
+        transform: scaleY(0.035);
+      }
+      62% {
+        opacity: 1;
+        transform: scaleY(1.045);
+      }
+      82% {
+        transform: scaleY(0.985);
+      }
+      100% {
+        opacity: 1;
+        transform: scaleY(1);
+      }
+    }
+    @keyframes mag-burbuja {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 58px, 0) scale(0.7);
+      }
+      46% {
+        opacity: 1;
+        transform: translate3d(-7px, -10px, 0) scale(1.07);
+      }
+      72% {
+        transform: translate3d(5px, 4px, 0) scale(0.97);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+    @keyframes mag-gira-y {
+      0% {
+        opacity: 0;
+        transform: perspective(700px) rotateY(-104deg) scale(0.78);
+      }
+      58% {
+        opacity: 1;
+        transform: perspective(700px) rotateY(16deg) scale(1.06);
+      }
+      80% {
+        transform: perspective(700px) rotateY(-6deg) scale(0.98);
+      }
+      100% {
+        opacity: 1;
+        transform: perspective(700px) rotateY(0deg) scale(1);
+      }
+    }
+    @keyframes mag-desliza-izq {
+      0% {
+        opacity: 0;
+        transform: translate3d(-58px, 0, 0) rotate(-5deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) rotate(0deg);
+      }
+    }
+    @keyframes mag-desliza-der {
+      0% {
+        opacity: 0;
+        transform: translate3d(58px, 0, 0) rotate(5deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) rotate(0deg);
+      }
+    }
+    @keyframes mag-estampa {
+      0% {
+        opacity: 0;
+        transform: scale(2.9) rotate(-18deg);
+      }
+      52% {
+        opacity: 1;
+        transform: scale(0.88) rotate(4deg);
+      }
+      70% {
+        transform: scale(1.09) rotate(-2deg);
+      }
+      86% {
+        transform: scale(0.98) rotate(1deg);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+      }
+    }
+    @keyframes mag-onda-choque {
+      0% {
+        opacity: 0.9;
+        transform: scale(0.35);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(2.9);
+      }
+    }
+    @keyframes mag-enciende {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 10px, 0) scale(0.72);
+      }
+      60% {
+        opacity: 1;
+        transform: translate3d(0, -3px, 0) scale(1.14);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+    @keyframes mag-traza {
+      0% {
+        stroke-dashoffset: var(--mag-largo, 600);
+      }
+      100% {
+        stroke-dashoffset: 0;
+      }
+    }
+    @keyframes mag-escribe {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(101%);
+      }
+    }
+
+    /* Cascada genérica: los hijos marcados entran escalonados. */
+    .mag-on [data-mag-hijo] {
+      animation: mag-cascada 0.82s cubic-bezier(0.2, 1.02, 0.36, 1)
+        var(--mag-retardo, 0s) both;
+    }
+
+    /* ================================================================ */
+    /* LA PLUMA QUE ESCRIBE — velo que avanza sobre cada renglón        */
+    /* ================================================================ */
+    .mag-linea {
+      position: relative;
+      display: block;
+      overflow: hidden;
+    }
+    .mag-velo {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      bottom: -4px;
+      left: -4px;
+      display: block;
+      background: var(--mag-pergamino);
+      transform: translateX(101%);
+      pointer-events: none;
+    }
+    .mag-on .mag-velo {
+      animation: mag-escribe var(--mag-dur, 1.05s) cubic-bezier(0.55, 0, 0.35, 1)
+        var(--mag-retardo, 0s) both;
+    }
+    /* La punta de la pluma: el trazo de tinta fresca que va dejando. */
+    .mag-velo::before {
+      content: "";
+      position: absolute;
+      top: 5px;
+      bottom: 5px;
+      left: 0;
+      width: 2px;
+      border-radius: 2px;
+      background: linear-gradient(
+        180deg,
+        rgba(194, 148, 44, 0),
+        var(--mag-oro) 40%,
+        var(--mag-oro-hondo) 100%
+      );
+    }
+    .mag-velo::after {
+      content: "";
+      position: absolute;
+      top: 1px;
+      left: -7px;
+      width: 15px;
+      height: 15px;
+      border-radius: 60% 8% 60% 8%;
+      background: linear-gradient(140deg, #5b4a2a, #2f2415);
+      transform: rotate(-38deg);
+    }
+    /* La pluma de escribir apoyada en la hoja: se mece mientras escribe. */
+    .mag-pluma-icono {
+      position: absolute;
+      right: -6px;
+      top: -26px;
+      width: 52px;
+      height: 52px;
+      color: var(--mag-oro-hondo);
+      transform-origin: 60% 90%;
+      animation: mag-pluma-mece 3.4s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+    @keyframes mag-pluma-mece {
+      0% {
+        transform: rotate(-7deg) translateY(0);
+      }
+      100% {
+        transform: rotate(6deg) translateY(-4px);
+      }
+    }
+
+    /* Trazos de tinta que se dibujan solos (rúbrica, mapa, aro). */
+    .mag-trazo {
+      stroke-dasharray: var(--mag-largo, 600);
+      stroke-dashoffset: 0;
+    }
+    .mag-on .mag-trazo,
+    .mag-abierta .mag-portada .mag-trazo {
+      animation: mag-traza var(--mag-dur, 1.6s) ease-out var(--mag-retardo, 0s) both;
+    }
+
+    /* ================================================================ */
+    /* BORDES CON PERSONALIDAD entre escenas                            */
+    /* ================================================================ */
+    .mag-borde {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      z-index: 5;
+      display: block;
+      pointer-events: none;
+    }
+    .mag-borde-arriba {
+      top: -1px;
+    }
+    .mag-borde-abajo {
+      bottom: -1px;
+    }
+    .mag-borde svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    /* Pergamino rasgado: se abre desde el centro al llegar. */
+    .mag-rasgado {
+      height: 30px;
+      transform-origin: 50% 0;
+    }
+    .mag-on .mag-rasgado {
+      animation: mag-rasga 0.95s cubic-bezier(0.2, 1, 0.32, 1) both;
+    }
+    @keyframes mag-rasga {
+      0% {
+        transform: scaleX(0.1);
+      }
+      100% {
+        transform: scaleX(1);
+      }
+    }
+    /* Goterones de cera: caen uno por uno. */
+    .mag-cera-borde {
+      height: 34px;
+    }
+    .mag-cera-borde path {
+      transform-origin: 50% 0;
+    }
+    .mag-on .mag-cera-borde path {
+      animation: mag-gotea 0.8s cubic-bezier(0.3, 1.3, 0.4, 1) both;
+    }
+    @keyframes mag-gotea {
+      0% {
+        transform: scaleY(0.06);
+      }
+      70% {
+        transform: scaleY(1.1);
+      }
+      100% {
+        transform: scaleY(1);
+      }
+    }
+    /* Almenas de piedra. */
+    .mag-almenas {
+      height: 26px;
+    }
+    .mag-on .mag-almenas {
+      animation: mag-almena-baja 0.85s cubic-bezier(0.2, 1.1, 0.35, 1) both;
+    }
+    @keyframes mag-almena-baja {
+      0% {
+        transform: translateY(-28px);
+      }
+      100% {
+        transform: translateY(0);
+      }
+    }
+    /* Humo ondulado. */
+    .mag-humo-borde {
+      height: 46px;
+    }
+    .mag-humo-borde svg {
+      animation: mag-humo-onda 9s ease-in-out infinite alternate;
+    }
+    @keyframes mag-humo-onda {
+      0% {
+        transform: translateX(-2.5%) scaleY(0.94);
+      }
+      100% {
+        transform: translateX(2.5%) scaleY(1.06);
+      }
+    }
+
+    /* ================================================================ */
+    /* 1 · PORTADA — el castillo de la Academia                         */
+    /* ================================================================ */
+    .mag-portada {
+      background:
+        radial-gradient(30rem 20rem at 78% 12%, rgba(242, 217, 141, 0.16), transparent 60%),
+        radial-gradient(46rem 30rem at 20% 88%, rgba(42, 31, 87, 0.85), transparent 66%),
+        linear-gradient(180deg, #060926 0%, var(--mag-noche) 42%, #171b45 78%, #232748 100%);
+      justify-content: flex-start;
+      padding-top: calc(env(safe-area-inset-top, 0px) + clamp(48px, 9vh, 88px));
+    }
+    .mag-luna {
+      position: absolute;
+      right: 10%;
+      top: 9%;
+      z-index: 1;
+      width: 78px;
+      height: 78px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 36% 32%, #fffaf0, #f0e0b8 58%, #d9c391);
+      box-shadow: 0 0 44px rgba(255, 240, 200, 0.4), 0 0 90px rgba(255, 226, 150, 0.24);
+      animation: mag-luna-late 7s ease-in-out infinite alternate;
+    }
+    .mag-luna::after {
+      content: "";
+      position: absolute;
+      inset: 14% 16% 44% 22%;
+      border-radius: 50%;
+      background: rgba(196, 176, 132, 0.35);
+      filter: blur(1px);
+    }
+    @keyframes mag-luna-late {
+      0% {
+        transform: scale(0.97) translateY(0);
+        opacity: 0.9;
+      }
+      100% {
+        transform: scale(1.04) translateY(-6px);
+        opacity: 1;
+      }
+    }
+    .mag-abierta .mag-luna {
+      animation: mag-luna-asoma 1.6s cubic-bezier(0.2, 1, 0.3, 1) 0.1s both,
+        mag-luna-late 7s ease-in-out 1.7s infinite alternate;
+    }
+    @keyframes mag-luna-asoma {
+      0% {
+        opacity: 0;
+        transform: translate3d(26px, 46px, 0) scale(0.5);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+
+    .mag-capa {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1;
+      pointer-events: none;
+      will-change: transform;
+    }
+    .mag-capa svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .mag-castillo {
+      /* Centrado con left:0/right:0 + margin auto: el transform está
+         reservado para la animación de subida, así que no puede usarse
+         un translateX(-50%) para centrarlo. */
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      width: min(720px, 128%);
+      margin: 0 auto;
+      pointer-events: auto;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .mag-castillo svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .mag-abierta .mag-castillo {
+      animation: mag-castillo-sube 1.65s cubic-bezier(0.18, 1, 0.3, 1) 0.16s both;
+    }
+    @keyframes mag-castillo-sube {
+      0% {
+        opacity: 0.15;
+        transform: translate3d(0, 132px, 0) scale(1.1);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+    [data-mag-vent] {
+      transform-origin: center;
+      transform-box: fill-box;
+    }
+    .mag-abierta [data-mag-vent] {
+      animation: mag-ventana 0.62s cubic-bezier(0.24, 1.4, 0.4, 1)
+        var(--mag-retardo, 0s) both;
+    }
+    @keyframes mag-ventana {
+      0% {
+        opacity: 0;
+        transform: scale(0.2);
+      }
+      55% {
+        opacity: 1;
+        transform: scale(1.45);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    .mag-castillo-tocado [data-mag-vent] {
+      animation: mag-ventana-fogonazo 0.7s ease-out;
+    }
+    @keyframes mag-ventana-fogonazo {
+      0% {
+        transform: scale(1);
+      }
+      40% {
+        transform: scale(2.1);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* El escudo de la Academia. */
+    .mag-escudo {
+      display: block;
+      width: clamp(96px, 26vw, 128px);
+      height: auto;
+      margin: 0 auto;
+      color: var(--mag-oro-claro);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .mag-abierta .mag-escudo-hero {
+      animation: mag-brinco 1.05s cubic-bezier(0.22, 1.35, 0.36, 1) 0.42s both;
+    }
+    .mag-escudo-tocado {
+      animation: mag-escudo-gira 0.9s cubic-bezier(0.3, 1.2, 0.4, 1);
+    }
+    @keyframes mag-escudo-gira {
+      0% {
+        transform: rotate(0deg) scale(1);
+      }
+      55% {
+        transform: rotate(196deg) scale(1.16);
+      }
+      100% {
+        transform: rotate(360deg) scale(1);
+      }
+    }
+
+    .mag-academia {
+      margin: 16px 0 0;
+      font-size: clamp(10px, 2.9vw, 12px);
+      font-weight: 700;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--mag-oro-claro);
+    }
+    .mag-abierta .mag-academia {
+      animation: mag-cascada 0.85s ease-out 0.52s both;
+    }
+    .mag-lema {
+      margin: 8px 0 0;
+      font-family: var(--mag-serif);
+      font-style: italic;
+      font-size: clamp(13px, 3.6vw, 16px);
+      color: rgba(244, 231, 205, 0.66);
+    }
+    .mag-abierta .mag-lema {
+      animation: mag-cascada 0.85s ease-out 0.63s both;
+    }
+    .mag-nom {
+      margin: 20px 0 0;
+      font-family: var(--mag-serif);
+      font-weight: 600;
+      font-size: clamp(46px, 16vw, 96px);
+      line-height: 0.98;
+      color: #fff8e9;
+      text-shadow: 0 0 28px rgba(255, 210, 130, 0.34);
+    }
+    .mag-nom span {
+      display: inline-block;
+    }
+    .mag-abierta .mag-nom span {
+      animation: mag-letra 0.8s cubic-bezier(0.22, 1.5, 0.36, 1)
+        var(--mag-retardo, 0s) both;
+    }
+    .mag-edad {
+      margin: 12px 0 0;
+      font-size: clamp(14px, 4vw, 18px);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: var(--mag-oro-claro);
+    }
+    .mag-edad b {
+      font-family: var(--mag-serif);
+      font-size: 1.7em;
+      font-weight: 700;
+      vertical-align: -0.09em;
+      color: #fff8e9;
+    }
+    .mag-abierta .mag-edad {
+      animation: mag-cascada 0.85s ease-out 1.18s both;
+    }
+    .mag-fecha-hero {
+      margin: 18px 0 0;
+      font-size: clamp(12.5px, 3.4vw, 15px);
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: rgba(244, 231, 205, 0.82);
+    }
+    .mag-abierta .mag-fecha-hero {
+      animation: mag-cascada 0.85s ease-out 1.3s both;
+    }
+    .mag-baja {
+      position: absolute;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+      z-index: 6;
+      transform: translateX(-50%);
+      /* Cae encima de la muralla del castillo: sin este velo oscuro
+         detrás, el dorado sobre la piedra no se lee. */
+      padding: 9px 18px 7px;
+      border-radius: 999px;
+      background: radial-gradient(
+        closest-side,
+        rgba(6, 8, 26, 0.8),
+        rgba(6, 8, 26, 0) 100%
+      );
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(242, 217, 141, 0.9);
+      text-shadow: 0 2px 12px rgba(6, 8, 26, 0.95), 0 0 4px rgba(6, 8, 26, 0.8);
+      animation: mag-baja-late 2.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .mag-baja i {
+      display: block;
+      width: 1px;
+      height: 24px;
+      margin: 7px auto 0;
+      background: linear-gradient(180deg, rgba(242, 217, 141, 0.9), transparent);
+    }
+    @keyframes mag-baja-late {
+      0%,
+      100% {
+        opacity: 0.45;
+        transform: translate(-50%, 0);
+      }
+      50% {
+        opacity: 1;
+        transform: translate(-50%, 6px);
+      }
+    }
+
+    /* ================================================================ */
+    /* 2 · LA CARTA ABIERTA — el pergamino y la pluma                   */
+    /* ================================================================ */
+    .mag-carta-sec {
+      background:
+        radial-gradient(26rem 18rem at 12% 8%, rgba(194, 148, 44, 0.14), transparent 62%),
+        radial-gradient(30rem 22rem at 92% 96%, rgba(133, 99, 19, 0.12), transparent 62%),
+        linear-gradient(180deg, #efe1c4, var(--mag-pergamino) 30%, #efe3c8 100%);
+    }
+    .mag-hoja {
+      position: relative;
+      z-index: 4;
+      max-width: 560px;
+      margin: 0 auto;
+      padding: clamp(26px, 7vw, 44px) clamp(20px, 6vw, 40px);
+      border-radius: 3px;
+      background: var(--mag-pergamino);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.7) inset,
+        0 26px 50px -26px rgba(43, 35, 64, 0.5);
+      transform-origin: 50% 0;
+    }
+    .mag-on .mag-hoja {
+      animation: mag-desenrolla 1.15s cubic-bezier(0.24, 1.06, 0.36, 1) both;
+    }
+    /* Los dos rodillos del pergamino. */
+    .mag-rodillo {
+      position: absolute;
+      left: -10px;
+      right: -10px;
+      height: 15px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #d8c197, #b99c68 55%, #8c7342);
+      box-shadow: 0 4px 10px -5px rgba(43, 35, 64, 0.6);
+    }
+    .mag-rodillo-arriba {
+      top: -8px;
+    }
+    .mag-rodillo-abajo {
+      bottom: -8px;
+    }
+    .mag-carta-enc {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--mag-oro-hondo);
+    }
+    .mag-carta-cuerpo {
+      margin: 20px 0 0;
+      font-family: var(--mag-serif);
+      font-size: clamp(16px, 4.6vw, 20px);
+      line-height: 1.75;
+      color: var(--mag-tinta);
+      text-align: left;
+    }
+    .mag-carta-cuerpo .mag-linea + .mag-linea {
+      margin-top: 4px;
+    }
+    .mag-capitular {
+      float: left;
+      margin: 4px 9px 0 0;
+      font-family: var(--mag-serif);
+      font-size: 3.05em;
+      font-weight: 700;
+      line-height: 0.78;
+      color: var(--mag-lacre);
+    }
+    .mag-rubrica-caja {
+      position: relative;
+      margin: 22px 0 0;
+      text-align: right;
+    }
+    .mag-rubrica-nombre {
+      display: block;
+      font-family: var(--mag-serif);
+      font-style: italic;
+      font-size: clamp(19px, 5.4vw, 24px);
+      color: var(--mag-tinta);
+    }
+    .mag-rubrica {
+      display: block;
+      width: min(230px, 74%);
+      height: auto;
+      margin: 2px 0 0 auto;
+      color: var(--mag-lacre);
+    }
+    .mag-carta-firma {
+      margin: 8px 0 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(43, 35, 64, 0.5);
+      text-align: right;
+    }
+    /* El goterón de lacre al pie de la carta. */
+    .mag-gota-lacre {
+      position: absolute;
+      left: 50%;
+      bottom: -20px;
+      width: 44px;
+      height: 44px;
+      margin-left: -22px;
+      border-radius: 46% 54% 50% 50%;
+      background: radial-gradient(circle at 36% 30%, var(--mag-lacre-claro), var(--mag-lacre) 62%, #66101f);
+      box-shadow: 0 8px 16px -8px rgba(43, 35, 64, 0.8);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .mag-on .mag-gota-lacre {
+      animation: mag-estampa 0.9s cubic-bezier(0.22, 1.2, 0.36, 1) 1.9s both;
+    }
+
+    /* ================================================================ */
+    /* 3 · LA FECHA — inmersión, medallón y cuenta regresiva            */
+    /* ================================================================ */
+    .mag-fecha {
+      background:
+        radial-gradient(28rem 20rem at 50% 6%, rgba(240, 168, 72, 0.18), transparent 64%),
+        radial-gradient(40rem 30rem at 50% 110%, rgba(27, 34, 88, 0.9), transparent 66%),
+        linear-gradient(180deg, #1c1743 0%, var(--mag-noche-2) 55%, #0e1233 100%);
+    }
+    .mag-inmerso {
+      will-change: transform, opacity;
+    }
+    .mag-on .mag-inmerso {
+      animation: mag-inmersion 1.25s cubic-bezier(0.2, 0.95, 0.3, 1) both;
+    }
+    .mag-medallon {
+      position: relative;
+      z-index: 4;
+      width: clamp(140px, 42vw, 176px);
+      height: clamp(140px, 42vw, 176px);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 34% 26%, rgba(255, 246, 221, 0.22), rgba(255, 246, 221, 0) 58%),
+        linear-gradient(160deg, #2c2461 0%, #1a1a48 100%);
+      border: 2px solid rgba(242, 217, 141, 0.7);
+      box-shadow: 0 0 44px -12px rgba(240, 168, 72, 0.7);
+    }
+    .mag-on .mag-medallon {
+      animation: mag-brinco 1.1s cubic-bezier(0.22, 1.32, 0.36, 1) 0.5s both;
+    }
+    .mag-medallon::before {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border-radius: 50%;
+      border: 1px solid rgba(242, 217, 141, 0.32);
+    }
+    .mag-med-mes {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--mag-oro-claro);
+    }
+    .mag-med-dia {
+      font-family: var(--mag-serif);
+      font-size: clamp(50px, 15vw, 66px);
+      font-weight: 600;
+      line-height: 1;
+      color: #fff8e9;
+    }
+    .mag-med-anio {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      color: rgba(244, 231, 205, 0.62);
+    }
+    .mag-horas {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin: 26px 0 0;
+      flex-wrap: wrap;
+    }
+    .mag-hora-caja {
+      min-width: 108px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(242, 217, 141, 0.32);
+      background: rgba(255, 246, 221, 0.07);
+    }
+    .mag-hora-eti {
+      display: block;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(242, 217, 141, 0.85);
+    }
+    .mag-hora-val {
+      display: block;
+      margin-top: 5px;
+      font-family: var(--mag-serif);
+      font-size: clamp(20px, 5.6vw, 25px);
+      color: #fff8e9;
+    }
+    /* La cuenta regresiva la monta la plataforma (React) acá adentro: se
+       le vuelve a vestir con la paleta de la Academia y se le desactiva
+       la entrada [data-reveal] del sitio para que NUNCA quede invisible. */
+    .mag-cuenta {
+      margin: 30px 0 0;
+    }
+    .mag-on .mag-cuenta {
+      animation: mag-cascada 0.95s cubic-bezier(0.2, 1.04, 0.36, 1) 0.95s both;
+    }
+    .mag [data-bookea="cuenta-regresiva"] [data-reveal] {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+    .mag [data-bookea="cuenta-regresiva"] p {
+      color: var(--mag-oro-claro) !important;
+    }
+    .mag [data-bookea="cuenta-regresiva"] > div > div > div {
+      border-color: rgba(242, 217, 141, 0.4) !important;
+      background: rgba(255, 246, 221, 0.08) !important;
+      border-radius: 16px;
+    }
+    .mag [data-bookea="cuenta-regresiva"] > div > div > div > span:first-child {
+      color: #fff8e9 !important;
+    }
+    .mag [data-bookea="cuenta-regresiva"] > div > div > div > span:last-child {
+      color: rgba(242, 217, 141, 0.88) !important;
+    }
+    /* El reloj de arena que gira al costado del medallón. */
+    .mag-reloj {
+      position: absolute;
+      right: 8%;
+      top: 16%;
+      z-index: 2;
+      width: 46px;
+      height: 62px;
+      color: rgba(242, 217, 141, 0.72);
+      cursor: pointer;
+      touch-action: manipulation;
+      animation: mag-reloj-gira 11s ease-in-out infinite;
+    }
+    @keyframes mag-reloj-gira {
+      0%,
+      44% {
+        transform: rotate(0deg);
+      }
+      52%,
+      94% {
+        transform: rotate(180deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+    .mag-arena {
+      animation: mag-arena-cae 5.5s linear infinite;
+      transform-origin: 50% 0;
+      transform-box: fill-box;
+    }
+    @keyframes mag-arena-cae {
+      0% {
+        transform: scaleY(1);
+      }
+      100% {
+        transform: scaleY(0.05);
+      }
+    }
+
+    /* ================================================================ */
+    /* 4 · EL GRAN COMEDOR — velas ligadas al scroll                    */
+    /* ================================================================ */
+    .mag-comedor {
+      background:
+        radial-gradient(34rem 24rem at 50% 20%, rgba(240, 168, 72, 0.2), transparent 62%),
+        linear-gradient(180deg, #0f1231 0%, #1a1c3c 46%, #262032 100%);
+    }
+    .mag-velas-scroll {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: clamp(14px, 5vw, 30px);
+      height: 92px;
+      margin: 0 0 6px;
+    }
+    .mag-velas-scroll .mag-vela-flota {
+      position: relative;
+      animation: none;
+      will-change: transform;
+      cursor: pointer;
+      touch-action: manipulation;
+      padding: 0 8px;
+      width: 29px;
+      box-sizing: content-box;
+    }
+    /* La mesa larga del comedor. */
+    .mag-mesa {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .mag-mesa svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      color: var(--mag-oro);
+    }
+    .mag-menu {
+      list-style: none;
+      margin: 26px 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .mag-menu li {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 13px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(242, 217, 141, 0.26);
+      background: rgba(255, 246, 221, 0.06);
+      text-align: left;
+      min-height: 56px;
+    }
+    .mag-on .mag-menu li:nth-child(odd) {
+      animation: mag-desliza-izq 0.8s cubic-bezier(0.2, 1.05, 0.35, 1)
+        var(--mag-retardo, 0s) both;
+    }
+    .mag-on .mag-menu li:nth-child(even) {
+      animation: mag-desliza-der 0.8s cubic-bezier(0.2, 1.05, 0.35, 1)
+        var(--mag-retardo, 0s) both;
+    }
+    .mag-menu-ico {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      color: var(--mag-oro-claro);
+    }
+    .mag-menu b {
+      display: block;
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #fff8e9;
+    }
+    .mag-menu span {
+      display: block;
+      margin-top: 2px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: rgba(244, 231, 205, 0.7);
+    }
+
+    /* ================================================================ */
+    /* 5 · EL TALLER — el caldero y las burbujas                        */
+    /* ================================================================ */
+    .mag-taller {
+      background:
+        radial-gradient(24rem 18rem at 50% 78%, rgba(111, 143, 90, 0.3), transparent 62%),
+        linear-gradient(180deg, #241f38 0%, #1d2340 52%, #141a38 100%);
+    }
+    .mag-caldero {
+      position: relative;
+      z-index: 3;
+      width: clamp(150px, 44vw, 190px);
+      margin: 0 auto 4px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .mag-caldero svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .mag-on .mag-caldero {
+      animation: mag-brinco 1.05s cubic-bezier(0.22, 1.3, 0.36, 1) 0.1s both;
+    }
+    .mag-caldero-tocado svg {
+      animation: mag-caldero-tiembla 0.6s ease-in-out;
+    }
+    @keyframes mag-caldero-tiembla {
+      0%,
+      100% {
+        transform: rotate(0deg) scale(1);
+      }
+      22% {
+        transform: rotate(-3.5deg) scale(1.05);
+      }
+      55% {
+        transform: rotate(3.5deg) scale(1.03);
+      }
+      80% {
+        transform: rotate(-1.5deg) scale(1);
+      }
+    }
+    .mag-burbujas {
+      position: absolute;
+      left: 50%;
+      bottom: 58%;
+      width: 120px;
+      height: 130px;
+      margin-left: -60px;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .mag-burbuja {
+      position: absolute;
+      bottom: 0;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at 34% 30%,
+        rgba(226, 255, 214, 0.95),
+        rgba(126, 190, 110, 0.5) 60%,
+        rgba(126, 190, 110, 0) 76%
+      );
+      opacity: 0;
+      animation: mag-sube-burbuja var(--mag-dur, 3.4s) ease-in var(--mag-retardo, 0s)
+        infinite;
+      will-change: transform, opacity;
+    }
+    @keyframes mag-sube-burbuja {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 0, 0) scale(0.4);
+      }
+      16% {
+        opacity: 0.95;
+      }
+      76% {
+        opacity: 0.7;
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(var(--mag-dx, 12px), -120px, 0) scale(1.35);
+      }
+    }
+    .mag-humo {
+      position: absolute;
+      left: 50%;
+      bottom: 62%;
+      width: 74px;
+      height: 74px;
+      margin-left: -37px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        rgba(190, 224, 178, 0.3),
+        rgba(190, 224, 178, 0) 68%
+      );
+      pointer-events: none;
+      animation: mag-humo-sube 6s ease-in-out infinite;
+    }
+    @keyframes mag-humo-sube {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 20px, 0) scale(0.5);
+      }
+      30% {
+        opacity: 0.8;
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(18px, -84px, 0) scale(1.6);
+      }
+    }
+    .mag-cartas {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin: 26px 0 0;
+    }
+    .mag-card {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 15px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(242, 217, 141, 0.24);
+      background: linear-gradient(160deg, rgba(255, 246, 221, 0.09), rgba(255, 246, 221, 0.03));
+      text-align: left;
+      min-height: 60px;
+      cursor: pointer;
+      touch-action: manipulation;
+      will-change: transform, opacity;
+    }
+    .mag-on .mag-card {
+      animation: mag-burbuja 1.05s cubic-bezier(0.24, 1.22, 0.38, 1)
+        var(--mag-retardo, 0s) both;
+    }
+    .mag-card-tocada {
+      animation: mag-card-rebota 0.55s cubic-bezier(0.24, 1.5, 0.4, 1) !important;
+    }
+    @keyframes mag-card-rebota {
+      0% {
+        transform: scale(1);
+      }
+      42% {
+        transform: scale(1.05) translateY(-5px);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+    .mag-card-ico {
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+      color: var(--mag-oro-claro);
+    }
+    .mag-card b {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff8e9;
+    }
+    .mag-card span {
+      display: block;
+      margin-top: 3px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: rgba(244, 231, 205, 0.72);
+    }
+    /* El libro que pasa una página al tocarlo. */
+    .mag-pagina {
+      transform-origin: 0% 50%;
+      transform-box: fill-box;
+    }
+    .mag-card-tocada .mag-pagina {
+      animation: mag-pasa-pagina 0.85s ease-in-out;
+    }
+    @keyframes mag-pasa-pagina {
+      0% {
+        transform: perspective(320px) rotateY(0deg);
+      }
+      50% {
+        transform: perspective(320px) rotateY(-84deg);
+      }
+      100% {
+        transform: perspective(320px) rotateY(0deg);
+      }
+    }
+
+    /* ================================================================ */
+    /* 6 · LOS GREMIOS — cortina y escudos que giran                    */
+    /* ================================================================ */
+    .mag-gremios {
+      background:
+        radial-gradient(30rem 22rem at 50% 0%, rgba(142, 34, 55, 0.34), transparent 62%),
+        linear-gradient(180deg, #1a1029 0%, #221636 50%, #171029 100%);
+    }
+    .mag-telon {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 52%;
+      z-index: 7;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          rgba(0, 0, 0, 0.24) 0 5px,
+          rgba(255, 255, 255, 0.05) 5px 17px,
+          rgba(0, 0, 0, 0.18) 17px 26px
+        ),
+        linear-gradient(180deg, #6d1a2c, #4a1020 62%, #350a17);
+      box-shadow: 0 0 44px rgba(0, 0, 0, 0.6);
+      will-change: transform;
+    }
+    .mag-telon-izq {
+      left: 0;
+      transform: translateX(-101%);
+    }
+    .mag-telon-der {
+      right: 0;
+      transform: translateX(101%);
+    }
+    .mag-on .mag-telon-izq {
+      animation: mag-telon-abre-izq 1.35s cubic-bezier(0.62, 0, 0.2, 1) both;
+    }
+    .mag-on .mag-telon-der {
+      animation: mag-telon-abre-der 1.35s cubic-bezier(0.62, 0, 0.2, 1) both;
+    }
+    @keyframes mag-telon-abre-izq {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(-101%);
+      }
+    }
+    @keyframes mag-telon-abre-der {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(101%);
+      }
+    }
+    .mag-vestimenta {
+      margin: 16px auto 0;
+      max-width: 44ch;
+    }
+    .mag-gremio-lista {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 26px 0 0;
+    }
+    .mag-gremio {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 7px;
+      padding: 16px 10px 14px;
+      border-radius: 18px;
+      border: 1px solid var(--mag-color, rgba(242, 217, 141, 0.4));
+      background: linear-gradient(170deg, rgba(255, 246, 221, 0.1), rgba(255, 246, 221, 0.02));
+      cursor: pointer;
+      touch-action: manipulation;
+      min-height: 132px;
+      will-change: transform, opacity;
+    }
+    .mag-on .mag-gremio {
+      animation: mag-gira-y 0.95s cubic-bezier(0.24, 1.2, 0.36, 1)
+        var(--mag-retardo, 0s) both;
+    }
+    .mag-gremio-tocado {
+      animation: mag-gremio-vuelta 0.85s cubic-bezier(0.3, 1.1, 0.4, 1) !important;
+    }
+    @keyframes mag-gremio-vuelta {
+      0% {
+        transform: perspective(700px) rotateY(0deg) scale(1);
+      }
+      50% {
+        transform: perspective(700px) rotateY(180deg) scale(1.09);
+      }
+      100% {
+        transform: perspective(700px) rotateY(360deg) scale(1);
+      }
+    }
+    .mag-gremio svg {
+      display: block;
+      width: 42px;
+      height: 42px;
+      color: var(--mag-color, var(--mag-oro-claro));
+    }
+    .mag-gremio b {
+      font-family: var(--mag-serif);
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff8e9;
+      letter-spacing: 0.04em;
+    }
+    .mag-gremio span {
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: rgba(244, 231, 205, 0.72);
+    }
+    .mag-gremio-globo {
+      position: absolute;
+      left: 50%;
+      top: -14px;
+      z-index: 3;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--mag-pergamino);
+      color: var(--mag-tinta);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translate(-50%, 6px) scale(0.7);
+      pointer-events: none;
+    }
+    .mag-gremio-tocado .mag-gremio-globo {
+      animation: mag-globo 1.1s ease-out;
+    }
+    /* El farol de la elección. */
+    .mag-farol {
+      display: block;
+      width: 58px;
+      height: 74px;
+      margin: 24px auto 0;
+      color: var(--mag-oro-claro);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .mag-farol-luz {
+      transform-origin: center;
+      transform-box: fill-box;
+      animation: mag-farol-late 2.6s ease-in-out infinite alternate;
+    }
+    @keyframes mag-farol-late {
+      0% {
+        opacity: 0.45;
+        transform: scale(0.86);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1.12);
+      }
+    }
+
+    /* ================================================================ */
+    /* 7 · EL LUGAR — el mapa que se dibuja solo                        */
+    /* ================================================================ */
+    .mag-lugar {
+      background:
+        radial-gradient(26rem 18rem at 84% 10%, rgba(194, 148, 44, 0.16), transparent 60%),
+        linear-gradient(180deg, #f0e2c6, var(--mag-pergamino) 34%, #e9dab9 100%);
+    }
+    .mag-mapa {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      max-width: 460px;
+      margin: 22px auto 0;
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(133, 99, 19, 0.34);
+      background: rgba(255, 250, 236, 0.6);
+      box-shadow: 0 20px 44px -26px rgba(43, 35, 64, 0.55);
+    }
+    .mag-mapa svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      color: var(--mag-tinta);
+    }
+    /* Doble clase a propósito: `.mag-mapa svg` le pone width:100% a todo
+       lo que cuelgue del mapa y se llevaría puesta a la brújula. */
+    .mag-mapa .mag-brujula {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      width: 46px;
+      height: 46px;
+      color: var(--mag-oro-hondo);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .mag-on .mag-brujula {
+      animation: mag-brujula-entra 1.2s cubic-bezier(0.22, 1.2, 0.36, 1) 0.4s both;
+    }
+    @keyframes mag-brujula-entra {
+      0% {
+        opacity: 0;
+        transform: rotate(-320deg) scale(0.35);
+      }
+      100% {
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+      }
+    }
+    .mag-aguja {
+      transform-origin: center;
+      transform-box: fill-box;
+      animation: mag-aguja-oscila 5.5s ease-in-out infinite alternate;
+    }
+    @keyframes mag-aguja-oscila {
+      0% {
+        transform: rotate(-11deg);
+      }
+      100% {
+        transform: rotate(11deg);
+      }
+    }
+    .mag-direccion {
+      margin: 22px auto 0;
+      max-width: 40ch;
+      font-family: var(--mag-serif);
+      font-size: clamp(17px, 4.8vw, 21px);
+      line-height: 1.6;
+      color: var(--mag-tinta);
+    }
+    .mag-direccion .mag-velo {
+      background: #f1e3c7;
+    }
+    .mag-botones {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 11px;
+      margin: 24px 0 0;
+    }
+    .mag-boton {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 50px;
+      padding: 0 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(133, 99, 19, 0.45);
+      background: linear-gradient(180deg, #fdf6e6, var(--mag-pergamino-2));
+      color: var(--mag-tinta);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      touch-action: manipulation;
+      transition: transform 0.18s ease;
+      box-shadow: 0 10px 22px -14px rgba(43, 35, 64, 0.7);
+    }
+    .mag-boton:active {
+      transform: scale(0.96);
+    }
+    .mag-boton svg {
+      flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      color: var(--mag-oro-hondo);
+    }
+    .mag-on .mag-botones .mag-boton {
+      animation: mag-cascada 0.8s cubic-bezier(0.2, 1.06, 0.36, 1)
+        var(--mag-retardo, 0s) both;
+    }
+
+    /* ================================================================ */
+    /* 8 · CONFIRMÁ — el lacre que se estampa                           */
+    /* ================================================================ */
+    .mag-confirma {
+      background:
+        radial-gradient(28rem 20rem at 50% 30%, rgba(142, 34, 55, 0.42), transparent 62%),
+        linear-gradient(180deg, #1b1130 0%, #241344 48%, #120d2c 100%);
+    }
+    .mag-sello-caja {
+      position: relative;
+      width: 128px;
+      height: 128px;
+      margin: 0 auto 22px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .mag-sello-disco {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: radial-gradient(circle at 34% 28%, var(--mag-lacre-claro), var(--mag-lacre) 58%, #62101e 100%);
+      box-shadow: 0 16px 32px -16px rgba(6, 8, 26, 0.95);
+      clip-path: polygon(
+        50% 0%, 66% 5%, 79% 3%, 88% 14%, 97% 24%, 95% 39%, 100% 52%,
+        94% 65%, 96% 78%, 84% 86%, 74% 96%, 60% 94%, 47% 100%, 34% 95%,
+        21% 97%, 12% 86%, 3% 76%, 6% 62%, 0% 49%, 7% 36%, 4% 22%,
+        17% 13%, 26% 3%, 39% 6%
+      );
+      will-change: transform, opacity;
+    }
+    .mag-on .mag-sello-disco {
+      animation: mag-estampa 1s cubic-bezier(0.24, 1.2, 0.38, 1) 0.15s both;
+    }
+    .mag-sello-disco svg {
+      width: 74px;
+      height: 74px;
+      color: rgba(255, 236, 210, 0.86);
+    }
+    .mag-sello-onda {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px solid rgba(242, 217, 141, 0.75);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .mag-on .mag-sello-onda {
+      animation: mag-onda-choque 0.85s ease-out 0.62s both;
+    }
+    .mag-sello-tocado .mag-sello-onda {
+      animation: mag-onda-choque 0.8s ease-out !important;
+    }
+    .mag-sello-tocado .mag-sello-disco {
+      animation: mag-sello-golpe 0.55s cubic-bezier(0.24, 1.4, 0.4, 1) !important;
+    }
+    @keyframes mag-sello-golpe {
+      0% {
+        transform: scale(1);
+      }
+      40% {
+        transform: scale(1.16) rotate(-4deg);
+      }
+      100% {
+        transform: scale(1) rotate(0deg);
+      }
+    }
+    .mag-rsvp {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 58px;
+      margin: 26px 0 0;
+      padding: 0 clamp(26px, 8vw, 42px);
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--mag-oro-claro), #d9ab48 62%, var(--mag-oro));
+      color: #2b1a06;
+      font-family: var(--mag-sans);
+      font-size: clamp(15px, 4.2vw, 17px);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      touch-action: manipulation;
+      box-shadow: 0 18px 34px -18px rgba(242, 217, 141, 0.9);
+      transition: transform 0.18s ease;
+    }
+    .mag-rsvp:active {
+      transform: scale(0.96);
+    }
+    .mag-on .mag-rsvp {
+      animation: mag-brinco 1s cubic-bezier(0.22, 1.34, 0.36, 1) 0.85s both;
+    }
+    .mag-rsvp-brillo {
+      position: relative;
+      display: inline-block;
+    }
+    .mag-limite {
+      margin: 16px 0 0;
+      font-size: 12.5px;
+      letter-spacing: 0.06em;
+      color: rgba(244, 231, 205, 0.68);
+    }
+
+    /* ================================================================ */
+    /* 9 · CIERRE                                                        */
+    /* ================================================================ */
+    .mag-cierre {
+      background:
+        radial-gradient(30rem 22rem at 50% 96%, rgba(240, 168, 72, 0.2), transparent 64%),
+        linear-gradient(180deg, #0d1030 0%, var(--mag-noche) 60%, #060926 100%);
+      justify-content: center;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(64px, 12vh, 110px));
+    }
+    .mag-final {
+      margin: 20px 0 0;
+      font-family: var(--mag-serif);
+      font-size: clamp(25px, 7.4vw, 38px);
+      line-height: 1.25;
+      color: #fff8e9;
+    }
+    .mag-final span {
+      display: inline-block;
+    }
+    .mag-on .mag-final span {
+      animation: mag-enciende 0.75s cubic-bezier(0.24, 1.36, 0.4, 1)
+        var(--mag-retardo, 0s) both;
+    }
+    .mag-padres {
+      margin: 26px 0 0;
+      font-family: var(--mag-serif);
+      font-style: italic;
+      font-size: clamp(16px, 4.4vw, 19px);
+      color: var(--mag-oro-claro);
+    }
+    .mag-on .mag-padres {
+      animation: mag-cascada 0.9s ease-out 1.2s both;
+    }
+    .mag-credito {
+      margin: 30px 0 0;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: rgba(244, 231, 205, 0.42);
+    }
+    .mag-on .mag-credito {
+      animation: mag-cascada 0.9s ease-out 1.45s both;
+    }
+
+    /* ================================================================ */
+    /* REMATES: detalles vivos y respuestas al TAP                      */
+    /* ================================================================ */
+    .mag-texto b {
+      font-weight: 700;
+      color: var(--mag-oro-claro);
+    }
+    .mag-lugar .mag-texto b,
+    .mag-carta-sec .mag-texto b {
+      color: var(--mag-oro-hondo);
+    }
+    /* Los banderines del castillo ondeando. */
+    .mag-bandera {
+      transform-origin: left center;
+      transform-box: fill-box;
+      animation: mag-ondea 1.9s ease-in-out infinite alternate;
+    }
+    @keyframes mag-ondea {
+      0% {
+        transform: scaleX(1) skewY(0deg);
+      }
+      100% {
+        transform: scaleX(0.62) skewY(-6deg);
+      }
+    }
+    /* La superficie de la poción respirando. */
+    .mag-pocion {
+      transform-origin: center;
+      transform-box: fill-box;
+      animation: mag-pocion-late 3.2s ease-in-out infinite alternate;
+    }
+    @keyframes mag-pocion-late {
+      0% {
+        transform: scale(0.92);
+        opacity: 0.7;
+      }
+      100% {
+        transform: scale(1.06);
+        opacity: 1;
+      }
+    }
+    /* Las alas del búho giran alrededor del hombro del dibujo. */
+    .mag-ala {
+      transform-box: view-box;
+    }
+    /* El bloque sólido donde la pluma escribe la dirección: el velo
+       tiene que tener EXACTAMENTE el mismo color de fondo. */
+    .mag-dir-caja {
+      display: inline-block;
+      position: relative;
+      z-index: 4;
+      margin: 24px auto 0;
+      padding: 16px 24px;
+      border-radius: 4px;
+      background: #f6ecd6;
+      border: 1px solid rgba(133, 99, 19, 0.28);
+      box-shadow: 0 14px 30px -20px rgba(43, 35, 64, 0.6);
+    }
+    .mag-dir-caja .mag-velo {
+      background: #f6ecd6;
+    }
+    .mag-direccion {
+      margin: 0;
+    }
+    .mag-carta-parrafo {
+      margin: 15px 0 0;
+    }
+    .mag-on #mag-escudo-pie {
+      animation: mag-brinco 1.05s cubic-bezier(0.22, 1.32, 0.36, 1) 0.05s both;
+    }
+    /* Respuestas al toque que no tenían clase todavía. */
+    .mag-gota-tocada {
+      animation: mag-sello-golpe 0.6s cubic-bezier(0.24, 1.45, 0.4, 1) !important;
+    }
+    .mag-reloj-tocado {
+      animation: mag-vuelta-entera 0.9s cubic-bezier(0.35, 0.05, 0.3, 1) !important;
+    }
+    .mag-brujula-tocada {
+      animation: mag-vuelta-entera 0.95s cubic-bezier(0.3, 1.1, 0.4, 1) !important;
+    }
+    @keyframes mag-vuelta-entera {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+    .mag-farol-tocado {
+      animation: mag-farol-golpe 0.85s cubic-bezier(0.24, 1.4, 0.4, 1);
+    }
+    @keyframes mag-farol-golpe {
+      0% {
+        transform: rotate(0deg) scale(1);
+      }
+      25% {
+        transform: rotate(-9deg) scale(1.1);
+      }
+      55% {
+        transform: rotate(8deg) scale(1.05);
+      }
+      80% {
+        transform: rotate(-3deg) scale(1.01);
+      }
+      100% {
+        transform: rotate(0deg) scale(1);
+      }
+    }
+    .mag-farol-tocado .mag-farol-luz {
+      animation: mag-farol-fogonazo 0.85s ease-out;
+    }
+    @keyframes mag-farol-fogonazo {
+      0% {
+        transform: scale(1);
+        opacity: 0.6;
+      }
+      35% {
+        transform: scale(1.9);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 0.65;
+      }
+    }
+
+    /* ================================================================ */
+    /* PANTALLAS GRANDES — la expansión, nunca al revés                 */
+    /* ================================================================ */
+    @media (min-width: 768px) {
+      .mag-centro {
+        max-width: 720px;
+      }
+      .mag-sec {
+        padding: clamp(80px, 12vh, 130px) 40px;
+      }
+      .mag-luna {
+        width: 108px;
+        height: 108px;
+        right: 13%;
+      }
+      .mag-buho,
+      .mag-buho svg {
+        width: 82px;
+        height: 82px;
+      }
+      .mag-cartas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .mag-gremio-lista {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      .mag-menu {
+        max-width: 640px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .mag-hoja {
+        max-width: 640px;
+      }
+      .mag-mapa {
+        max-width: 560px;
+      }
+      .mag-sobre-caja {
+        width: 420px;
+      }
+      .mag-sello {
+        width: 94px;
+        height: 94px;
+        margin: -47px 0 0 -47px;
+      }
+      .mag-sello-mitad svg {
+        width: 56px;
+        height: 56px;
+        margin: -28px 0 0 -28px;
+      }
+      .mag-velas-scroll {
+        height: 120px;
+      }
+      .mag-hilo {
+        width: 3px;
+      }
+    }
+    @media (min-width: 1200px) {
+      .mag-centro {
+        max-width: 820px;
+      }
+      .mag-nom {
+        font-size: clamp(86px, 8vw, 120px);
+      }
+      .mag-castillo {
+        width: min(1000px, 92%);
+      }
+    }
+  </style>
+
+  <!-- La música: el vals que arranca al abrir la carta.
+       preload="none" a propósito: son 5,3 MB y no se le gastan a quien
+       nunca toca. -->
+  <audio id="mag-audio" src="{{CANCION}}" loop preload="none"></audio>
+
+  <!-- El ♪ flotante (el JS lo enciende). -->
+  <button type="button" id="mag-musica" class="mag-pausada" aria-label="Reproducir la música">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M9 3v10.55A3.97 3.97 0 0 0 7 13a4 4 0 1 0 4 4V7h6V3H9z" />
+    </svg>
+    <span class="mag-nota-off" aria-hidden="true"></span>
+  </button>
+
+  <!-- ================================================================
+       0 · LA CARTA DE ADMISIÓN — <dialog> en el top layer.
+       Sin el atributo open: si el JS no corre, jamás aparece y la
+       invitación se lee completa desde el principio.
+       ================================================================ -->
+  <dialog id="mag-sobre" aria-label="Carta de admisión de {{NOMBRE}} — tocá para abrirla">
+    <div class="mag-sobre-velas" aria-hidden="true">
+      <span class="mag-vela-flota" style="left: 11%; top: 17%; --mag-dur: 6.2s; --mag-retardo: -1s; --mag-dx: 8px">
+        <i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i>
+      </span>
+      <span class="mag-vela-flota" style="left: 82%; top: 22%; --mag-dur: 7.4s; --mag-retardo: -3s; --mag-dx: -9px">
+        <i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i>
+      </span>
+      <span class="mag-vela-flota" style="left: 21%; top: 72%; --mag-dur: 6.8s; --mag-retardo: -4.4s; --mag-dx: 11px">
+        <i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i>
+      </span>
+      <span class="mag-vela-flota" style="left: 74%; top: 76%; --mag-dur: 8s; --mag-retardo: -2.2s; --mag-dx: -7px">
+        <i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i>
+      </span>
+      <span class="mag-mota" style="left: 34%; top: 34%; --mag-dur: 9s; --mag-retardo: -2s; --mag-dx: 18px"></span>
+      <span class="mag-mota" style="left: 62%; top: 58%; --mag-dur: 11s; --mag-retardo: -5s; --mag-dx: -20px"></span>
+      <span class="mag-mota" style="left: 47%; top: 84%; --mag-dur: 10s; --mag-retardo: -7s; --mag-dx: 14px"></span>
+    </div>
+
+    <div class="mag-sobre-esc">
+      <div class="mag-sobre-caja">
+        <span class="mag-sobre-atras"></span>
+        <div class="mag-carta" aria-hidden="true">
+          <span class="mag-carta-mini">Carta de admisión</span>
+          <span class="mag-carta-titulo">Academia<br />Candelaria</span>
+          <span class="mag-carta-linea"></span>
+          <span class="mag-carta-lema">Lumbre, tinta y palabra</span>
+        </div>
+        <span class="mag-sobre-lado mag-sobre-lado-izq"></span>
+        <span class="mag-sobre-lado mag-sobre-lado-der"></span>
+        <div class="mag-sobre-frente">
+          <span class="mag-sobre-para">
+            <b>Para</b>
+            {{NOMBRE}}, primer curso
+          </span>
+        </div>
+        <span class="mag-solapa"></span>
+        <div class="mag-sello">
+          <span class="mag-sello-mitad mag-mitad-a">
+            <i></i>
+            <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+              <circle cx="50" cy="50" r="45" stroke="currentColor" stroke-width="2.4" opacity="0.9" />
+              <circle cx="50" cy="50" r="38" stroke="currentColor" stroke-width="1.1" opacity="0.5" />
+              <path d="M50 9 Q51.6 14.8 57 16.4 Q51.6 18 50 23.8 Q48.4 18 43 16.4 Q48.4 14.8 50 9 Z" fill="currentColor" />
+              <path d="M26 28 Q27.2 31.6 31 32.8 Q27.2 34 26 37.6 Q24.8 34 21 32.8 Q24.8 31.6 26 28 Z" fill="currentColor" />
+              <path d="M74 28 Q75.2 31.6 79 32.8 Q75.2 34 74 37.6 Q72.8 34 69 32.8 Q72.8 31.6 74 28 Z" fill="currentColor" />
+              <path d="M50 26 C55 33 57.5 37 57.5 41 C57.5 45.6 54.2 48.6 50 48.6 C45.8 48.6 42.5 45.6 42.5 41 C42.5 37 45 33 50 26 Z" fill="currentColor" />
+              <rect x="45.5" y="48" width="9" height="20" rx="2" fill="currentColor" opacity="0.92" />
+              <path d="M20 68 C30 63 42 63 50 68 C58 63 70 63 80 68 L80 76 C70 71 58 71 50 76 C42 71 30 71 20 76 Z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="mag-sello-mitad mag-mitad-b">
+            <i></i>
+            <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+              <circle cx="50" cy="50" r="45" stroke="currentColor" stroke-width="2.4" opacity="0.9" />
+              <circle cx="50" cy="50" r="38" stroke="currentColor" stroke-width="1.1" opacity="0.5" />
+              <path d="M50 9 Q51.6 14.8 57 16.4 Q51.6 18 50 23.8 Q48.4 18 43 16.4 Q48.4 14.8 50 9 Z" fill="currentColor" />
+              <path d="M26 28 Q27.2 31.6 31 32.8 Q27.2 34 26 37.6 Q24.8 34 21 32.8 Q24.8 31.6 26 28 Z" fill="currentColor" />
+              <path d="M74 28 Q75.2 31.6 79 32.8 Q75.2 34 74 37.6 Q72.8 34 69 32.8 Q72.8 31.6 74 28 Z" fill="currentColor" />
+              <path d="M50 26 C55 33 57.5 37 57.5 41 C57.5 45.6 54.2 48.6 50 48.6 C45.8 48.6 42.5 45.6 42.5 41 C42.5 37 45 33 50 26 Z" fill="currentColor" />
+              <rect x="45.5" y="48" width="9" height="20" rx="2" fill="currentColor" opacity="0.92" />
+              <path d="M20 68 C30 63 42 63 50 68 C58 63 70 63 80 68 L80 76 C70 71 58 71 50 76 C42 71 30 71 20 76 Z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="mag-sello-lat"></span>
+        </div>
+      </div>
+    </div>
+
+    <p class="mag-sobre-pista">
+      Tocá para abrir tu carta
+      <small>Suena mejor con volumen ♪</small>
+    </p>
+  </dialog>
+
+  <script>
+    /* ============ LA CARTA: lock, apertura y música ============ */
+    /* Corre temprano (este script vive antes de las secciones) para que
+       el sobre cubra la pantalla desde el primer pintado. */
+    (function () {
+      var raiz = document.getElementById("mag");
+      var dlg = document.getElementById("mag-sobre");
+      var audio = document.getElementById("mag-audio");
+      var pill = document.getElementById("mag-musica");
+      if (!raiz || !dlg) return;
+
+      if (pill) pill.classList.add("mag-viva");
+
+      /* Si el navegador rechaza el play, el ♪ queda pulsando: su clic
+         es una activación de usuario nueva y ahí sí arranca. */
+      function invitar() {
+        if (pill) pill.classList.add("mag-invita");
+      }
+
+      function reproducir() {
+        if (!audio) return;
+        audio.volume = 0.5;
+        var p;
+        try {
+          p = audio.play();
+        } catch (e) {
+          invitar();
+          return;
+        }
+        /* AbortError no es un bloqueo: es que el propio usuario le dio
+           pausa antes de que la promesa del play() se resolviera. Si se
+           tratara igual, el ♪ se quedaría pulsando "tocame" sin motivo. */
+        if (p && p.catch)
+          p.catch(function (e) {
+            if (!e || e.name !== "AbortError") invitar();
+          });
+      }
+
+      if (audio && pill) {
+        pill.addEventListener("click", function () {
+          if (audio.paused) reproducir();
+          else audio.pause();
+        });
+        /* El ♪ SIEMPRE refleja el estado real del audio: se escuchan
+           los eventos play/pause, nunca una variable propia. */
+        audio.addEventListener("play", function () {
+          pill.classList.add("mag-sonando");
+          pill.classList.remove("mag-pausada");
+          pill.classList.remove("mag-invita");
+          pill.setAttribute("aria-label", "Pausar la música");
+        });
+        audio.addEventListener("pause", function () {
+          pill.classList.remove("mag-sonando");
+          pill.classList.add("mag-pausada");
+          pill.setAttribute("aria-label", "Reproducir la música");
+        });
+      }
+
+      var abierto = false;
+      var abriendo = false;
+      var timers = [];
+
+      /* Mientras la carta esté cerrada, cualquier scroll que se escape
+         del dialog (teclado, restauración del navegador) vuelve a 0. */
+      function reancla() {
+        if (!abierto) window.scrollTo(0, 0);
+      }
+
+      function finalizar() {
+        if (abierto) return;
+        abierto = true;
+        for (var i = 0; i < timers.length; i++) window.clearTimeout(timers[i]);
+        window.removeEventListener("scroll", reancla);
+        raiz.classList.add("mag-abierta");
+        try {
+          dlg.close();
+        } catch (e) {
+          dlg.removeAttribute("open");
+        }
+        window.scrollTo(0, 0);
+      }
+
+      function abrir() {
+        if (abierto) return;
+        if (abriendo) {
+          finalizar();
+          return;
+        } /* segundo toque = saltar */
+        abriendo = true;
+        /* LA MÚSICA PRIMERO, sincrónica y como PRIMERA instrucción del
+           handler del clic: la activación transitoria del usuario expira
+           si play() se llama desde un setTimeout o después de esperar la
+           animación — Chrome/Safari lo rechazan en silencio. El lacre se
+           parte en paralelo; la música no lo espera. */
+        reproducir();
+        dlg.classList.add("mag-abriendo");
+        timers.push(
+          window.setTimeout(function () {
+            dlg.classList.add("mag-carta-arriba");
+          }, 620),
+        );
+        /* La portada arranca ANTES de que el sobre se vaya: cuando el
+           velo se levanta, el castillo ya viene subiendo y el nombre ya
+           se está armando. Si se espera a finalizar(), el título aparece
+           tres segundos y medio después del toque y se siente muerto. */
+        timers.push(
+          window.setTimeout(function () {
+            raiz.classList.add("mag-abierta");
+          }, 1000),
+        );
+        timers.push(
+          window.setTimeout(function () {
+            dlg.classList.add("mag-yendo");
+          }, 1900),
+        );
+        timers.push(window.setTimeout(finalizar, 2400));
+      }
+
+      if (typeof dlg.showModal !== "function") {
+        /* Sin dialog: la invitación queda abierta de una vez. */
+        abierto = true;
+        raiz.classList.add("mag-abierta");
+        return;
+      }
+      try {
+        dlg.showModal();
+      } catch (e) {
+        abierto = true;
+        raiz.classList.add("mag-abierta");
+        return;
+      }
+      window.scrollTo(0, 0);
+      window.addEventListener("scroll", reancla, { passive: true });
+      /* Solo por CLIC (y teclado): el toque en pantalla llega como click
+         y trae la activación del usuario que la música necesita. Un
+         touchstart se adelantaría al click SIN activación y dejaría el
+         vals mudo. */
+      dlg.addEventListener("click", abrir);
+      dlg.addEventListener("cancel", function (e) {
+        e.preventDefault();
+        abrir();
+      });
+    })();
+  </script>
+
+  <!-- Ambiente permanente: motas de polvo dorado y velas flotando.
+       Las siembra el script final; estas tres son el piso mínimo. -->
+  <div class="mag-ambiente" id="mag-ambiente" aria-hidden="true">
+    <span class="mag-vela-flota" style="left: 1.5%; top: 24%; --mag-dur: 7.5s; --mag-retardo: -2s; --mag-dx: 9px">
+      <i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i>
+    </span>
+    <span class="mag-vela-flota" style="left: 95.5%; top: 56%; --mag-dur: 8.6s; --mag-retardo: -5s; --mag-dx: -10px">
+      <i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i>
+    </span>
+    <span class="mag-vela-flota" style="left: 2.5%; top: 76%; --mag-dur: 6.9s; --mag-retardo: -3.4s; --mag-dx: 12px">
+      <i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i>
+    </span>
+  </div>
+
+  <!-- El hilo de tinta: la varita marca el avance por el borde. -->
+  <div class="mag-hilo" id="mag-hilo" aria-hidden="true">
+    <i id="mag-hilo-barra"></i>
+    <b id="mag-hilo-punta"></b>
+  </div>
+
+  <!-- EL BÚHO MENSAJERO: cruza la pantalla con el scroll y es tocable. -->
+  <div class="mag-buho-capa" id="mag-buho-capa">
+    <button type="button" class="mag-buho" id="mag-buho" aria-label="El búho mensajero de la Academia">
+      <span class="mag-buho-globo" aria-hidden="true">¡Uhú!</span>
+      <svg viewBox="0 0 64 58" fill="none" aria-hidden="true">
+        <path class="mag-ala mag-ala-izq" d="M30 22 C20 19 8 25 3 36 C12 39 22 36 30 32 Z" fill="#57401f" />
+        <path class="mag-ala mag-ala-der" d="M34 22 C44 19 56 25 61 36 C52 39 42 36 34 32 Z" fill="#57401f" />
+        <path d="M20 13 L17 4 L27 10 Z" fill="#7a5f3a" />
+        <path d="M44 13 L47 4 L37 10 Z" fill="#7a5f3a" />
+        <path d="M32 7 C42 7 48 16 48 28 C48 40 41 47 32 47 C23 47 16 40 16 28 C16 16 22 7 32 7 Z" fill="#7a5f3a" />
+        <path d="M32 22 C38 22 42 28 42 34 C42 41 37 45 32 45 C27 45 22 41 22 34 C22 28 26 22 32 22 Z" fill="#c9a86e" opacity="0.8" />
+        <g class="mag-buho-ojo">
+          <circle cx="26" cy="24" r="6.6" fill="#fdf3dd" />
+          <circle cx="38" cy="24" r="6.6" fill="#fdf3dd" />
+          <circle cx="26.7" cy="24" r="3.3" fill="#1d1608" />
+          <circle cx="37.3" cy="24" r="3.3" fill="#1d1608" />
+        </g>
+        <path d="M32 28 L35.4 32 L32 35.6 L28.6 32 Z" fill="#e6a545" />
+        <rect x="25" y="44" width="14" height="10" rx="1.6" fill="#f4e7cd" stroke="#c2942c" stroke-width="0.9" />
+        <path d="M25.8 44.8 L32 49.6 L38.2 44.8" stroke="#c2942c" stroke-width="0.9" fill="none" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- ================================================================
+       1 · PORTADA — el castillo de la Academia Candelaria
+       ================================================================ -->
+  <section class="mag-sec mag-portada mag-oscura" id="mag-portada" data-mag-escena>
+    <div class="mag-cielo" aria-hidden="true" data-mag-cielo>
+      <span class="mag-estrella mag-estrella-grande" style="left: 8%; top: 12%; --mag-dur: 3.2s; --mag-retardo: -0.4s"></span>
+      <span class="mag-estrella" style="left: 19%; top: 26%; --mag-dur: 4.1s; --mag-retardo: -2.1s"></span>
+      <span class="mag-estrella" style="left: 31%; top: 8%; --mag-dur: 2.9s; --mag-retardo: -1.3s"></span>
+      <span class="mag-estrella mag-estrella-grande" style="left: 44%; top: 20%; --mag-dur: 4.6s; --mag-retardo: -3.2s"></span>
+      <span class="mag-estrella" style="left: 57%; top: 10%; --mag-dur: 3.6s; --mag-retardo: -0.8s"></span>
+      <span class="mag-estrella" style="left: 66%; top: 30%; --mag-dur: 4.3s; --mag-retardo: -2.6s"></span>
+      <span class="mag-estrella mag-estrella-grande" style="left: 83%; top: 36%; --mag-dur: 3.1s; --mag-retardo: -1.7s"></span>
+      <span class="mag-estrella" style="left: 92%; top: 16%; --mag-dur: 4.8s; --mag-retardo: -3.9s"></span>
+      <span class="mag-estrella" style="left: 12%; top: 42%; --mag-dur: 3.4s; --mag-retardo: -2.9s"></span>
+      <span class="mag-estrella" style="left: 74%; top: 6%; --mag-dur: 4.4s; --mag-retardo: -1.1s"></span>
+      <span class="mag-estrella" style="left: 27%; top: 38%; --mag-dur: 3.9s; --mag-retardo: -3.5s"></span>
+      <span class="mag-estrella" style="left: 51%; top: 34%; --mag-dur: 2.8s; --mag-retardo: -0.2s"></span>
+    </div>
+    <span class="mag-luna" aria-hidden="true"></span>
+
+    <!-- Dos cordilleras a velocidades distintas (parallax). -->
+    <div class="mag-capa" data-mag-par="0.14" aria-hidden="true" style="bottom: 8%">
+      <svg viewBox="0 0 1440 220" preserveAspectRatio="none">
+        <path fill="#1b2258" fill-opacity="0.75" d="M0,220 L0,142 C120,120 200,150 300,128 C400,106 470,140 560,120 C650,100 730,132 820,112 C920,90 1000,126 1100,108 C1200,90 1310,124 1440,104 L1440,220 Z" />
+      </svg>
+    </div>
+    <div class="mag-capa" data-mag-par="0.07" aria-hidden="true" style="bottom: 0">
+      <svg viewBox="0 0 1440 200" preserveAspectRatio="none">
+        <path fill="#101334" d="M0,200 L0,132 C140,104 240,140 360,122 C480,104 560,138 690,124 C820,110 900,142 1030,126 C1160,110 1290,140 1440,118 L1440,200 Z" />
+      </svg>
+    </div>
+
+    <!-- EL CASTILLO: se levanta al abrir la carta y sus ventanas se
+         encienden una por una. Tocarlo las prende todas de golpe. -->
+    <div class="mag-castillo" id="mag-castillo" role="img" aria-label="El castillo de la Academia Candelaria">
+      <svg viewBox="0 0 720 320" fill="none">
+        <path fill="#0b0e2b" d="M0,320 L0,282 C80,270 150,280 220,266 C290,252 360,262 430,254 C500,246 570,258 640,268 C680,274 700,270 720,276 L720,320 Z" />
+        <g fill="#080b22">
+          <path d="M52,320 L52,182 L110,182 L110,320 Z" />
+          <path d="M46,182 L81,124 L116,182 Z" />
+          <path d="M118,320 L118,212 L162,212 L162,320 Z" />
+          <path d="M112,212 L140,166 L168,212 Z" />
+          <path d="M172,320 L172,156 L288,156 L288,320 Z" />
+          <path d="M164,156 L230,82 L296,156 Z" />
+          <path d="M296,320 L296,124 L364,124 L364,320 Z" />
+          <path d="M288,124 L330,44 L372,124 Z" />
+          <path d="M372,320 L372,166 L474,166 L474,320 Z" />
+          <path d="M364,166 L423,96 L482,166 Z" />
+          <path d="M478,320 L478,208 L526,208 L526,320 Z" />
+          <path d="M472,208 L502,162 L532,208 Z" />
+          <path d="M534,320 L534,186 L594,186 L594,320 Z" />
+          <path d="M528,186 L564,130 L600,186 Z" />
+          <path d="M100,320 L100,242 L180,242 L180,320 Z" />
+          <path d="M466,320 L466,246 L546,246 L546,320 Z" />
+          <path d="M604,320 L604,258 L668,258 L668,320 Z" />
+        </g>
+        <!-- El portón. -->
+        <path fill="#160f2c" d="M306,320 L306,268 A24,24 0 0 1 354,268 L354,320 Z" />
+        <path stroke="#c2942c" stroke-opacity="0.55" stroke-width="2" fill="none" d="M306,320 L306,268 A24,24 0 0 1 354,268 L354,320" />
+        <path stroke="#c2942c" stroke-opacity="0.3" stroke-width="1.4" d="M330,268 L330,320" />
+        <!-- Banderines que ondean. -->
+        <g fill="#c2942c">
+          <path class="mag-bandera" d="M330,44 L330,20 L360,29 L330,38 Z" />
+          <path class="mag-bandera" style="animation-delay: -0.6s" d="M230,82 L230,60 L256,68 L230,76 Z" />
+          <path class="mag-bandera" style="animation-delay: -1.2s" d="M423,96 L423,74 L449,82 L423,90 Z" />
+        </g>
+        <!-- Las ventanas encendidas. -->
+        <g fill="#ffd98c">
+          <rect data-mag-vent style="--mag-retardo: 0.7s" x="64" y="206" width="12" height="17" rx="6" />
+          <rect data-mag-vent style="--mag-retardo: 0.78s" x="88" y="206" width="12" height="17" rx="6" />
+          <rect data-mag-vent style="--mag-retardo: 0.86s" x="134" y="238" width="12" height="16" rx="6" />
+          <rect data-mag-vent style="--mag-retardo: 0.94s" x="192" y="184" width="14" height="19" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.02s" x="222" y="184" width="14" height="19" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.1s" x="252" y="184" width="14" height="19" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.18s" x="192" y="230" width="14" height="19" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.26s" x="252" y="230" width="14" height="19" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.34s" x="308" y="150" width="14" height="20" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.42s" x="338" y="150" width="14" height="20" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.5s" x="308" y="198" width="14" height="20" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.58s" x="338" y="198" width="14" height="20" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.66s" x="388" y="196" width="14" height="19" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.74s" x="416" y="196" width="14" height="19" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.82s" x="444" y="196" width="14" height="19" rx="7" />
+          <rect data-mag-vent style="--mag-retardo: 1.9s" x="494" y="236" width="12" height="16" rx="6" />
+          <rect data-mag-vent style="--mag-retardo: 1.98s" x="546" y="214" width="12" height="17" rx="6" />
+          <rect data-mag-vent style="--mag-retardo: 2.06s" x="570" y="214" width="12" height="17" rx="6" />
+        </g>
+      </svg>
+    </div>
+
+    <div class="mag-centro">
+      <svg class="mag-escudo mag-escudo-hero" id="mag-escudo-hero" viewBox="0 0 100 100" fill="none" role="img" aria-label="Escudo de la Academia Candelaria">
+        <circle class="mag-trazo" style="--mag-largo: 283; --mag-dur: 1.9s; --mag-retardo: 0.55s" cx="50" cy="50" r="45" stroke="currentColor" stroke-width="1.8" opacity="0.9" />
+        <circle cx="50" cy="50" r="38" stroke="currentColor" stroke-width="0.9" opacity="0.45" />
+        <path d="M50 9 Q51.6 14.8 57 16.4 Q51.6 18 50 23.8 Q48.4 18 43 16.4 Q48.4 14.8 50 9 Z" fill="currentColor" />
+        <path d="M26 28 Q27.2 31.6 31 32.8 Q27.2 34 26 37.6 Q24.8 34 21 32.8 Q24.8 31.6 26 28 Z" fill="currentColor" />
+        <path d="M74 28 Q75.2 31.6 79 32.8 Q75.2 34 74 37.6 Q72.8 34 69 32.8 Q72.8 31.6 74 28 Z" fill="currentColor" />
+        <path d="M50 26 C55 33 57.5 37 57.5 41 C57.5 45.6 54.2 48.6 50 48.6 C45.8 48.6 42.5 45.6 42.5 41 C42.5 37 45 33 50 26 Z" fill="currentColor" />
+        <rect x="45.5" y="48" width="9" height="20" rx="2" fill="currentColor" opacity="0.9" />
+        <path d="M20 68 C30 63 42 63 50 68 C58 63 70 63 80 68 L80 76 C70 71 58 71 50 76 C42 71 30 71 20 76 Z" fill="currentColor" />
+      </svg>
+
+      <p class="mag-academia">Academia Candelaria de Artes Mayores</p>
+      <p class="mag-lema">Lumbre, tinta y palabra</p>
+
+      <h1 class="mag-nom" id="mag-nom" data-mag-letras aria-label="{{NOMBRE}}">{{NOMBRE}}</h1>
+
+      <p class="mag-edad">cumple <b>{{EDAD}}</b> años</p>
+      <p class="mag-fecha-hero">{{FECHA_CORTA}} · {{HORA}}</p>
+    </div>
+
+    <p class="mag-baja" aria-hidden="true">Bajá y entrá <i></i></p>
+  </section>
+
+  <!-- ================================================================
+       2 · LA CARTA ABIERTA — el pergamino y la pluma que escribe
+       ================================================================ -->
+  <section class="mag-sec mag-carta-sec" id="mag-carta-sec" data-mag-escena>
+    <div class="mag-borde mag-borde-arriba mag-rasgado" aria-hidden="true">
+      <svg viewBox="0 0 1440 30" preserveAspectRatio="none">
+        <path fill="#232748" d="M0,0 L1440,0 L1440,12 L1390,20 L1340,9 L1290,19 L1236,8 L1182,21 L1128,10 L1074,22 L1020,11 L966,23 L912,9 L858,20 L804,8 L750,21 L696,10 L642,22 L588,11 L534,23 L480,9 L426,20 L372,8 L318,21 L264,10 L210,22 L156,11 L102,23 L48,10 L0,20 Z" />
+      </svg>
+    </div>
+
+    <div class="mag-centro">
+      <div class="mag-hoja">
+        <span class="mag-rodillo mag-rodillo-arriba" aria-hidden="true"></span>
+        <span class="mag-rodillo mag-rodillo-abajo" aria-hidden="true"></span>
+
+        <svg class="mag-pluma-icono" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+          <path d="M44 6 C31 8 18 18 12 32 C10 36 9 40 9 44 L14 44 C15 34 20 25 28 19 C22 27 18 35 17 44 L22 44 C25 30 34 16 44 6 Z" fill="currentColor" opacity="0.85" />
+          <path d="M9 44 L4 49" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+        </svg>
+
+        <p class="mag-carta-enc">Academia Candelaria de Artes Mayores</p>
+
+        <div class="mag-carta-cuerpo">
+          <span class="mag-linea" style="--mag-retardo: 0.5s; --mag-dur: 0.75s">Estimado {{NOMBRE}}:<i class="mag-velo"></i></span>
+          <span class="mag-linea" style="--mag-retardo: 1s; --mag-dur: 0.95s">Tenemos el honor de informarle<i class="mag-velo"></i></span>
+          <span class="mag-linea" style="--mag-retardo: 1.5s; --mag-dur: 0.95s">que ha sido admitido en el primer<i class="mag-velo"></i></span>
+          <span class="mag-linea" style="--mag-retardo: 2s; --mag-dur: 0.9s">curso de nuestra Academia.<i class="mag-velo"></i></span>
+          <p class="mag-linea mag-carta-parrafo" style="--mag-retardo: 2.6s; --mag-dur: 1.6s">
+            <span class="mag-capitular">{{INICIAL}}</span>{{MENSAJE}}
+            <i class="mag-velo"></i>
+          </p>
+        </div>
+
+        <div class="mag-rubrica-caja">
+          <span class="mag-rubrica-nombre">Ilaria Quinteros</span>
+          <svg class="mag-rubrica" viewBox="0 0 230 46" fill="none" aria-hidden="true">
+            <path class="mag-trazo" style="--mag-largo: 430; --mag-dur: 1.8s; --mag-retardo: 4.3s" d="M6 34 C26 6 48 6 56 22 C62 34 50 42 44 33 C38 24 58 12 82 20 C102 27 94 40 108 36 C126 31 120 10 144 16 C164 21 156 40 174 36 C190 32 198 22 224 27" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+          <p class="mag-carta-firma">Rectora de la Academia</p>
+        </div>
+
+        <span class="mag-gota-lacre" id="mag-gota-lacre" role="button" tabindex="0" aria-label="El lacre de la Academia"></span>
+      </div>
+    </div>
+
+    <div class="mag-borde mag-borde-abajo mag-cera-borde" aria-hidden="true">
+      <svg viewBox="0 0 1440 34" preserveAspectRatio="none">
+        <path fill="#1c1743" d="M0,34 L1440,34 L1440,14 C1380,14 1360,26 1330,26 C1300,26 1284,12 1240,12 C1196,12 1180,28 1146,28 C1112,28 1096,11 1050,11 C1004,11 990,27 954,27 C918,27 902,13 860,13 C818,13 800,29 764,29 C728,29 712,12 668,12 C624,12 610,28 574,28 C538,28 522,11 478,11 C434,11 420,27 384,27 C348,27 332,13 288,13 C244,13 230,29 194,29 C158,29 142,12 98,12 C54,12 40,26 0,14 Z" />
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       3 · LA FECHA — inmersión, medallón y cuenta regresiva
+       ================================================================ -->
+  <section class="mag-sec mag-fecha mag-oscura" id="mag-fecha" data-mag-escena>
+    <div class="mag-cielo" aria-hidden="true" data-mag-cielo>
+      <span class="mag-estrella" style="left: 10%; top: 16%; --mag-dur: 3.3s; --mag-retardo: -1.2s"></span>
+      <span class="mag-estrella mag-estrella-grande" style="left: 24%; top: 62%; --mag-dur: 4.2s; --mag-retardo: -2.8s"></span>
+      <span class="mag-estrella" style="left: 38%; top: 12%; --mag-dur: 3.7s; --mag-retardo: -0.6s"></span>
+      <span class="mag-estrella" style="left: 62%; top: 74%; --mag-dur: 4.5s; --mag-retardo: -3.3s"></span>
+      <span class="mag-estrella mag-estrella-grande" style="left: 79%; top: 20%; --mag-dur: 3s; --mag-retardo: -1.9s"></span>
+      <span class="mag-estrella" style="left: 90%; top: 66%; --mag-dur: 4.8s; --mag-retardo: -2.2s"></span>
+      <span class="mag-estrella" style="left: 52%; top: 88%; --mag-dur: 3.5s; --mag-retardo: -0.9s"></span>
+      <span class="mag-estrella" style="left: 6%; top: 84%; --mag-dur: 4.1s; --mag-retardo: -3.7s"></span>
+    </div>
+
+    <svg class="mag-reloj" id="mag-reloj" viewBox="0 0 46 62" fill="none" role="img" aria-label="Reloj de arena">
+      <rect x="6" y="2" width="34" height="5.4" rx="2.7" fill="currentColor" />
+      <rect x="6" y="54.6" width="34" height="5.4" rx="2.7" fill="currentColor" />
+      <path d="M12 8 C12 19.5 23 26.5 23 31 C23 35.5 12 42.5 12 54 M34 8 C34 19.5 23 26.5 23 31 C23 35.5 34 42.5 34 54" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none" />
+      <path class="mag-arena" d="M15 9.5 H31 C31 18.5 23 26 23 28.5 C23 26 15 18.5 15 9.5 Z" fill="currentColor" opacity="0.8" />
+      <path d="M17.5 52.5 H28.5 C28.5 45.5 23 40 23 38 C23 40 17.5 45.5 17.5 52.5 Z" fill="currentColor" opacity="0.45" />
+      <path d="M23 32.5 L23 45" stroke="currentColor" stroke-width="1.6" opacity="0.85" />
+    </svg>
+
+    <div class="mag-centro mag-inmerso">
+      <p class="mag-kicker">El día señalado</p>
+      <div class="mag-medallon">
+        <span class="mag-med-mes">{{MES_CORTO}}</span>
+        <span class="mag-med-dia">{{DIA}}</span>
+        <span class="mag-med-anio">{{ANIO}}</span>
+      </div>
+      <h2 class="mag-titulo" data-mag-hijo style="--mag-retardo: 0.8s">{{FECHA_LARGA}}</h2>
+      <span class="mag-filete" data-mag-hijo style="--mag-retardo: 0.88s" aria-hidden="true"><i></i><b></b><i></i></span>
+
+      <div class="mag-horas">
+        <div class="mag-hora-caja" data-mag-hijo style="--mag-retardo: 0.96s">
+          <span class="mag-hora-eti">Se abren las puertas</span>
+          <span class="mag-hora-val">{{HORA}}</span>
+        </div>
+        <div class="mag-hora-caja" data-mag-hijo style="--mag-retardo: 1.04s">
+          <span class="mag-hora-eti">Se apagan las velas</span>
+          <span class="mag-hora-val">{{HORA_FIN}}</span>
+        </div>
+      </div>
+
+      <div class="mag-cuenta">
+        <div data-bookea="cuenta-regresiva"></div>
+      </div>
+    </div>
+
+    <div class="mag-borde mag-borde-abajo mag-almenas" aria-hidden="true">
+      <svg viewBox="0 0 1440 26" preserveAspectRatio="none">
+        <path fill="#0f1231" d="M0,26 L1440,26 L1440,10 L1380,10 L1380,0 L1320,0 L1320,10 L1260,10 L1260,0 L1200,0 L1200,10 L1140,10 L1140,0 L1080,0 L1080,10 L1020,10 L1020,0 L960,0 L960,10 L900,10 L900,0 L840,0 L840,10 L780,10 L780,0 L720,0 L720,10 L660,10 L660,0 L600,0 L600,10 L540,10 L540,0 L480,0 L480,10 L420,10 L420,0 L360,0 L360,10 L300,10 L300,0 L240,0 L240,10 L180,10 L180,0 L120,0 L120,10 L60,10 L60,0 L0,0 Z" />
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       4 · EL GRAN COMEDOR — velas ligadas al scroll
+       ================================================================ -->
+  <section class="mag-sec mag-comedor mag-oscura" id="mag-comedor" data-mag-escena>
+    <div class="mag-centro">
+      <p class="mag-kicker" data-mag-hijo style="--mag-retardo: 0.05s">La mesa larga</p>
+      <h2 class="mag-titulo" data-mag-hijo style="--mag-retardo: 0.15s">El Gran Comedor</h2>
+      <p class="mag-texto" data-mag-hijo style="--mag-retardo: 0.25s">
+        Las velas suben solas cuando alguien se acerca. Debajo de ellas,
+        la mesa que se llena sin que nadie la vea.
+      </p>
+
+      <div class="mag-velas-scroll" id="mag-velas-scroll" aria-hidden="true">
+        <span class="mag-vela-flota" data-mag-velita="0"><i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i></span>
+        <span class="mag-vela-flota" data-mag-velita="1"><i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i></span>
+        <span class="mag-vela-flota" data-mag-velita="2"><i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i></span>
+        <span class="mag-vela-flota" data-mag-velita="3"><i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i></span>
+        <span class="mag-vela-flota" data-mag-velita="4"><i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i></span>
+      </div>
+
+      <div class="mag-mesa" aria-hidden="true">
+        <svg viewBox="0 0 560 132" fill="none">
+          <ellipse cx="122" cy="52" rx="22" ry="6.5" fill="currentColor" opacity="0.5" />
+          <ellipse cx="228" cy="52" rx="22" ry="6.5" fill="currentColor" opacity="0.5" />
+          <ellipse cx="334" cy="52" rx="22" ry="6.5" fill="currentColor" opacity="0.5" />
+          <ellipse cx="440" cy="52" rx="22" ry="6.5" fill="currentColor" opacity="0.5" />
+          <rect x="30" y="56" width="500" height="12" rx="6" fill="currentColor" opacity="0.75" />
+          <path d="M46 68 L58 126 M514 68 L502 126 M280 68 L280 126" stroke="currentColor" stroke-width="6" stroke-linecap="round" opacity="0.55" />
+          <rect x="18" y="96" width="524" height="6" rx="3" fill="currentColor" opacity="0.3" />
+        </svg>
+      </div>
+
+      <ul class="mag-menu">
+        <li style="--mag-retardo: 0.3s">
+          <svg class="mag-menu-ico" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+            <path d="M6 13 H28 L26 25 C25.4 28 22.6 30 17 30 C11.4 30 8.6 28 8 25 Z" fill="currentColor" opacity="0.85" />
+            <path d="M4 11 H30" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+            <path d="M10 30 L7 33 M24 30 L27 33" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+          <span><b>Calderos de macarrones</b><span>Con queso derretido, servidos en su propio calderito.</span></span>
+        </li>
+        <li style="--mag-retardo: 0.4s">
+          <svg class="mag-menu-ico" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+            <path d="M5 27 L24 8" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+            <path d="M24 8 L29 3" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.7" />
+            <path d="M27 12 Q28 15 31 16 Q28 17 27 20 Q26 17 23 16 Q26 15 27 12 Z" fill="currentColor" />
+            <path d="M14 5 Q14.8 7.4 17 8 Q14.8 8.6 14 11 Q13.2 8.6 11 8 Q13.2 7.4 14 5 Z" fill="currentColor" opacity="0.8" />
+          </svg>
+          <span><b>Varitas de pollo</b><span>Empanizadas, con salsa de miel y mostaza para mojar.</span></span>
+        </li>
+        <li style="--mag-retardo: 0.5s">
+          <svg class="mag-menu-ico" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+            <path d="M12 3 H22 V11 L27 24 C28 28 25 31 17 31 C9 31 6 28 7 24 L12 11 Z" fill="currentColor" opacity="0.85" />
+            <path d="M10 3 H24" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+            <circle cx="14" cy="24" r="2.2" fill="#1a1c3c" opacity="0.55" />
+            <circle cx="20" cy="20" r="1.6" fill="#1a1c3c" opacity="0.55" />
+          </svg>
+          <span><b>Poción de frutas</b><span>Fresco natural que hace espuma de colores al servirlo.</span></span>
+        </li>
+        <li style="--mag-retardo: 0.6s">
+          <svg class="mag-menu-ico" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+            <circle cx="17" cy="18" r="12" fill="currentColor" opacity="0.85" />
+            <circle cx="13" cy="15" r="2.6" fill="#1a1c3c" opacity="0.5" />
+            <circle cx="21" cy="21" r="2" fill="#1a1c3c" opacity="0.5" />
+            <path d="M17 2 Q18 5.4 21.4 6.4 Q18 7.4 17 10.8 Q16 7.4 12.6 6.4 Q16 5.4 17 2 Z" fill="currentColor" />
+          </svg>
+          <span><b>Piedras lunares</b><span>Bolitas de chocolate y malvavisco que brillan un poquito.</span></span>
+        </li>
+        <li style="--mag-retardo: 0.7s">
+          <svg class="mag-menu-ico" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+            <path d="M5 30 V19 C5 17 7 16 9 16 H25 C27 16 29 17 29 19 V30 Z" fill="currentColor" opacity="0.85" />
+            <path d="M3 30 H31" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+            <path d="M12 16 V10 M17 16 V8 M22 16 V10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <circle cx="12" cy="7" r="2" fill="currentColor" />
+            <circle cx="17" cy="5" r="2.2" fill="currentColor" />
+            <circle cx="22" cy="7" r="2" fill="currentColor" />
+          </svg>
+          <span><b>El queque de las {{EDAD}} velas</b><span>A las {{HORA_QUEQUE}}, y todos cantan aunque les dé pena.</span></span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="mag-borde mag-borde-abajo mag-humo-borde" aria-hidden="true">
+      <svg viewBox="0 0 1440 46" preserveAspectRatio="none">
+        <path fill="#241f38" fill-opacity="0.85" d="M0,46 L1440,46 L1440,16 C1320,4 1200,30 1080,20 C960,10 840,32 720,22 C600,12 480,34 360,24 C240,14 120,32 0,20 Z" />
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       5 · EL TALLER — el caldero y las burbujas
+       ================================================================ -->
+  <section class="mag-sec mag-taller mag-oscura" id="mag-taller" data-mag-escena>
+    <div class="mag-centro">
+      <p class="mag-kicker" data-mag-hijo style="--mag-retardo: 0.05s">El patio de atrás</p>
+      <h2 class="mag-titulo" data-mag-hijo style="--mag-retardo: 0.14s">El Taller de la Academia</h2>
+
+      <div class="mag-caldero" id="mag-caldero" role="img" aria-label="El caldero del taller">
+        <div class="mag-burbujas" aria-hidden="true" id="mag-burbujas">
+          <span class="mag-burbuja" style="left: 22%; --mag-dur: 3.2s; --mag-retardo: -0.4s; --mag-dx: 10px"></span>
+          <span class="mag-burbuja" style="left: 44%; --mag-dur: 4s; --mag-retardo: -1.6s; --mag-dx: -14px"></span>
+          <span class="mag-burbuja" style="left: 62%; --mag-dur: 3.6s; --mag-retardo: -2.5s; --mag-dx: 16px"></span>
+          <span class="mag-burbuja" style="left: 34%; --mag-dur: 4.4s; --mag-retardo: -3.2s; --mag-dx: -8px"></span>
+          <span class="mag-burbuja" style="left: 74%; --mag-dur: 3.9s; --mag-retardo: -1.1s; --mag-dx: 12px"></span>
+        </div>
+        <span class="mag-humo" aria-hidden="true"></span>
+        <svg viewBox="0 0 120 112" fill="none">
+          <ellipse cx="60" cy="104" rx="42" ry="7" fill="#05061a" opacity="0.5" />
+          <path d="M18 46 C18 44 102 44 102 46 L98 80 C96 94 84 102 60 102 C36 102 24 94 22 80 Z" fill="#2a2b3d" />
+          <path d="M22 62 C40 68 80 68 98 62 L96 80 C94 94 84 102 60 102 C36 102 26 94 24 80 Z" fill="#20212f" />
+          <rect x="12" y="40" width="96" height="10" rx="5" fill="#3d3f56" />
+          <ellipse cx="60" cy="45" rx="42" ry="7" fill="#4d7a3c" />
+          <ellipse class="mag-pocion" cx="60" cy="44" rx="34" ry="5.4" fill="#a7cf8a" opacity="0.9" />
+          <path d="M30 100 L23 110 M90 100 L97 110" stroke="#2a2b3d" stroke-width="7" stroke-linecap="round" />
+          <path d="M18 52 C10 58 10 70 18 76" stroke="#3d3f56" stroke-width="5" stroke-linecap="round" fill="none" />
+          <path d="M102 52 C110 58 110 70 102 76" stroke="#3d3f56" stroke-width="5" stroke-linecap="round" fill="none" />
+        </svg>
+      </div>
+
+      <p class="mag-texto" data-mag-hijo style="--mag-retardo: 0.24s">
+        Cuatro talleres montados en el jardín. Se entra a todos y se sale
+        con las manos sucias, que es como se aprende.
+      </p>
+
+      <div class="mag-cartas">
+        <div class="mag-card" style="--mag-retardo: 0.32s" role="button" tabindex="0" aria-label="Laboratorio de pociones">
+          <svg class="mag-card-ico" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <path d="M15 4 H25 V14 L32 29 C34 34 30 37 20 37 C10 37 6 34 8 29 L15 14 Z" fill="currentColor" opacity="0.85" />
+            <path d="M13 4 H27" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            <circle cx="16" cy="29" r="2.6" fill="#1d2340" opacity="0.6" />
+            <circle cx="24" cy="25" r="1.9" fill="#1d2340" opacity="0.6" />
+          </svg>
+          <span><b>Laboratorio de pociones</b><span>Mezclás la tuya, brilla en la oscuridad y te la llevás en su frasquito.</span></span>
+        </div>
+
+        <div class="mag-card" style="--mag-retardo: 0.42s" role="button" tabindex="0" aria-label="Taller de varitas">
+          <svg class="mag-card-ico" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <path d="M6 34 L27 10" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" />
+            <path d="M27 10 L33 4" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" opacity="0.65" />
+            <path d="M31 15 Q32.2 19 36 20 Q32.2 21 31 25 Q29.8 21 26 20 Q29.8 19 31 15 Z" fill="currentColor" />
+            <path d="M12 8 Q12.9 11 16 11.8 Q12.9 12.6 12 15.6 Q11.1 12.6 8 11.8 Q11.1 11 12 8 Z" fill="currentColor" opacity="0.75" />
+          </svg>
+          <span><b>Taller de varitas</b><span>De rama de roble del mismo jardín, con tu nombre grabado a fuego.</span></span>
+        </div>
+
+        <div class="mag-card" style="--mag-retardo: 0.52s" role="button" tabindex="0" aria-label="El libro que se escribe solo">
+          <svg class="mag-card-ico" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <path d="M4 8 C10 5 16 5 20 8 L20 34 C16 31 10 31 4 34 Z" fill="currentColor" opacity="0.85" />
+            <path class="mag-pagina" d="M20 8 C24 5 30 5 36 8 L36 34 C30 31 24 31 20 34 Z" fill="currentColor" opacity="0.5" />
+            <path d="M20 8 L20 34" stroke="currentColor" stroke-width="1.6" opacity="0.9" />
+          </svg>
+          <span><b>El libro que se escribe solo</b><span>Escribí tu hechizo, firmá el libro y mirá lo que contesta.</span></span>
+        </div>
+
+        <div class="mag-card" style="--mag-retardo: 0.62s" role="button" tabindex="0" aria-label="La búsqueda del amuleto">
+          <svg class="mag-card-ico" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <path d="M6 6 L14 9 L26 5 L34 8 L34 33 L26 30 L14 34 L6 31 Z" fill="currentColor" opacity="0.8" />
+            <path d="M14 9 L14 34 M26 5 L26 30" stroke="#1d2340" stroke-width="1.6" opacity="0.5" />
+            <path d="M17 17 L24 24 M24 17 L17 24" stroke="#1d2340" stroke-width="3" stroke-linecap="round" />
+          </svg>
+          <span><b>La búsqueda del amuleto</b><span>Un mapa, tres pistas y un cofre escondido en algún lado del jardín.</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       6 · LOS GREMIOS — revelado por cortina
+       ================================================================ -->
+  <section class="mag-sec mag-gremios mag-oscura" id="mag-gremios" data-mag-escena>
+    <span class="mag-telon mag-telon-izq" aria-hidden="true"></span>
+    <span class="mag-telon mag-telon-der" aria-hidden="true"></span>
+
+    <div class="mag-centro">
+      <p class="mag-kicker" data-mag-hijo style="--mag-retardo: 1s">Código de vestimenta</p>
+      <h2 class="mag-titulo" data-mag-hijo style="--mag-retardo: 1.08s">
+        Vení de mago, bruja o criatura mágica
+      </h2>
+      <p class="mag-texto mag-vestimenta" data-mag-hijo style="--mag-retardo: 1.18s">
+        Capa, sombrero, orejas, escamas, lo que se te ocurra. Si no
+        tenés nada, con una camiseta oscura y una rama en la mano ya sos
+        de los nuestros.
+      </p>
+
+      <div class="mag-gremio-lista">
+        <div class="mag-gremio" style="--mag-color: #e6a545; --mag-retardo: 1.3s" role="button" tabindex="0" aria-label="Gremio de la Vela">
+          <span class="mag-gremio-globo" aria-hidden="true">Los que alumbran</span>
+          <svg viewBox="0 0 42 42" fill="none" aria-hidden="true">
+            <rect x="15" y="16" width="12" height="22" rx="3" fill="currentColor" opacity="0.85" />
+            <path d="M21 3 C26 11 28 15 28 19 C28 23.4 24.9 26 21 26 C17.1 26 14 23.4 14 19 C14 15 16 11 21 3 Z" fill="currentColor" />
+            <path d="M11 39 H31" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+          </svg>
+          <b>Vela</b>
+          <span>Valientes de noche</span>
+        </div>
+
+        <div class="mag-gremio" style="--mag-color: #7a86e0; --mag-retardo: 1.42s" role="button" tabindex="0" aria-label="Gremio de la Tinta">
+          <span class="mag-gremio-globo" aria-hidden="true">Los que escriben</span>
+          <svg viewBox="0 0 42 42" fill="none" aria-hidden="true">
+            <path d="M37 4 C27 7 16 15 11 26 C9 30 8 33 8 36 L12 36 C13 28 17 21 24 16 C19 22 15 29 14 36 L18 36 C21 24 28 13 37 4 Z" fill="currentColor" />
+            <path d="M5 40 H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+            <circle cx="34" cy="33" r="5.5" fill="currentColor" opacity="0.7" />
+          </svg>
+          <b>Tinta</b>
+          <span>Curiosos de todo</span>
+        </div>
+
+        <div class="mag-gremio" style="--mag-color: #7fa866; --mag-retardo: 1.54s" role="button" tabindex="0" aria-label="Gremio de la Raíz">
+          <span class="mag-gremio-globo" aria-hidden="true">Los que sostienen</span>
+          <svg viewBox="0 0 42 42" fill="none" aria-hidden="true">
+            <path d="M21 3 C29 10 34 16 34 23 C34 29.6 28 34 21 34 C14 34 8 29.6 8 23 C8 16 13 10 21 3 Z" fill="currentColor" opacity="0.82" />
+            <path d="M21 11 L21 40 M21 27 L13 34 M21 23 L29 29" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+          </svg>
+          <b>Raíz</b>
+          <span>Firmes de corazón</span>
+        </div>
+
+        <div class="mag-gremio" style="--mag-color: #a9bcd6; --mag-retardo: 1.66s" role="button" tabindex="0" aria-label="Gremio de la Bruma">
+          <span class="mag-gremio-globo" aria-hidden="true">Los que descubren</span>
+          <svg viewBox="0 0 42 42" fill="none" aria-hidden="true">
+            <path d="M21 34 C13 34 7 29 7 22 C7 14.7 13.7 8 21 8 C27.6 8 33 13 33 19 C33 24.5 29 28 24.5 28 C21 28 18.5 25.7 18.5 22.5 C18.5 20.3 20 19 22 19" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" />
+            <path d="M6 39 H30" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" opacity="0.6" />
+          </svg>
+          <b>Bruma</b>
+          <span>Astutos de mente</span>
+        </div>
+      </div>
+
+      <svg class="mag-farol" id="mag-farol" viewBox="0 0 58 74" fill="none" role="img" aria-label="El Farol de la Elección">
+        <path d="M29 2 L29 9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+        <path d="M13 13 H45 L40 20 H18 Z" fill="currentColor" opacity="0.85" />
+        <path d="M18 20 H40 L38 58 H20 Z" stroke="currentColor" stroke-width="2.6" fill="none" />
+        <path d="M13 62 H45" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" />
+        <ellipse class="mag-farol-luz" cx="29" cy="39" rx="8" ry="12" fill="currentColor" opacity="0.65" />
+      </svg>
+      <p class="mag-texto" data-mag-hijo style="--mag-retardo: 1.72s">
+        Al llegar te toca el <b>Farol de la Elección</b>: se enciende del
+        color de tu gremio y ese es tu equipo toda la tarde.
+      </p>
+    </div>
+
+    <div class="mag-borde mag-borde-abajo mag-rasgado" aria-hidden="true">
+      <svg viewBox="0 0 1440 30" preserveAspectRatio="none">
+        <path fill="#f0e2c6" d="M0,30 L1440,30 L1440,10 L1390,20 L1340,9 L1290,19 L1236,8 L1182,21 L1128,10 L1074,22 L1020,11 L966,23 L912,9 L858,20 L804,8 L750,21 L696,10 L642,22 L588,11 L534,23 L480,9 L426,20 L372,8 L318,21 L264,10 L210,22 L156,11 L102,23 L48,10 L0,20 Z" />
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       7 · EL LUGAR — el mapa que se dibuja solo
+       ================================================================ -->
+  <section class="mag-sec mag-lugar" id="mag-lugar" data-mag-escena>
+    <div class="mag-centro">
+      <p class="mag-kicker" data-mag-hijo style="--mag-retardo: 0.05s">Dónde queda</p>
+      <h2 class="mag-titulo" data-mag-hijo style="--mag-retardo: 0.14s">{{LUGAR}}</h2>
+
+      <div class="mag-mapa">
+        <svg viewBox="0 0 400 250" fill="none" role="img" aria-label="Mapa dibujado a mano del camino a {{LUGAR}}">
+          <rect x="7" y="7" width="386" height="236" rx="4" stroke="currentColor" stroke-width="1" stroke-dasharray="5 6" opacity="0.28" />
+          <path class="mag-trazo" style="--mag-largo: 430; --mag-dur: 2s; --mag-retardo: 0.5s" d="M8 198 C60 184 98 216 160 204 C222 192 260 222 320 208 C350 201 378 208 392 202" stroke="#5560bb" stroke-width="3.4" stroke-linecap="round" opacity="0.55" />
+          <path class="mag-trazo" style="--mag-largo: 290; --mag-dur: 1.7s; --mag-retardo: 0.2s" d="M18 240 C68 214 88 176 146 158 C204 140 240 116 258 84" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" opacity="0.72" />
+          <path class="mag-trazo" style="--mag-largo: 130; --mag-dur: 1.1s; --mag-retardo: 0.9s" d="M258 84 C284 76 316 84 344 62" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.55" />
+          <g stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity="0.6" fill="none">
+            <path class="mag-trazo" style="--mag-largo: 40; --mag-dur: 0.6s; --mag-retardo: 1.2s" d="M74 172 L74 150 M74 160 L66 152 M74 156 L82 148" />
+            <circle class="mag-trazo" style="--mag-largo: 92; --mag-dur: 0.7s; --mag-retardo: 1.3s" cx="74" cy="139" r="14" />
+            <path class="mag-trazo" style="--mag-largo: 34; --mag-dur: 0.6s; --mag-retardo: 1.4s" d="M338 152 L338 134 M338 142 L332 136" />
+            <circle class="mag-trazo" style="--mag-largo: 76; --mag-dur: 0.7s; --mag-retardo: 1.5s" cx="338" cy="124" r="12" />
+            <path class="mag-trazo" style="--mag-largo: 34; --mag-dur: 0.6s; --mag-retardo: 1.6s" d="M140 206 L140 188 M140 196 L134 190" />
+            <circle class="mag-trazo" style="--mag-largo: 69; --mag-dur: 0.7s; --mag-retardo: 1.7s" cx="140" cy="178" r="11" />
+          </g>
+          <g stroke="currentColor" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round" fill="none">
+            <path class="mag-trazo" style="--mag-largo: 220; --mag-dur: 1.3s; --mag-retardo: 1.85s" d="M228 76 L260 48 L292 76 L292 106 L228 106 Z" />
+            <path class="mag-trazo" style="--mag-largo: 52; --mag-dur: 0.6s; --mag-retardo: 2.3s" d="M252 106 L252 88 L268 88 L268 106" />
+            <path class="mag-trazo" style="--mag-largo: 26; --mag-dur: 0.5s; --mag-retardo: 2.4s" d="M275 66 L275 54 L283 54" />
+          </g>
+          <g stroke="#8e2237" stroke-width="4.4" stroke-linecap="round">
+            <path class="mag-trazo" style="--mag-largo: 36; --mag-dur: 0.4s; --mag-retardo: 2.6s" d="M244 128 L272 154" />
+            <path class="mag-trazo" style="--mag-largo: 36; --mag-dur: 0.4s; --mag-retardo: 2.8s" d="M272 128 L244 154" />
+          </g>
+          <text aria-hidden="true" x="290" y="150" font-size="15" font-style="italic" fill="#8e2237" opacity="0.85">aquí</text>
+          <text aria-hidden="true" x="24" y="232" font-size="13" fill="currentColor" opacity="0.5">desde la ruta</text>
+        </svg>
+
+        <svg class="mag-brujula" id="mag-brujula" viewBox="0 0 46 46" fill="none" role="img" aria-label="Rosa de los vientos">
+          <circle cx="23" cy="23" r="20" stroke="currentColor" stroke-width="2" />
+          <circle cx="23" cy="23" r="15" stroke="currentColor" stroke-width="0.9" opacity="0.5" />
+          <g class="mag-aguja">
+            <path d="M23 6 L28.5 23 L23 19.6 L17.5 23 Z" fill="#8e2237" />
+            <path d="M23 40 L17.5 23 L23 26.4 L28.5 23 Z" fill="currentColor" />
+          </g>
+          <circle cx="23" cy="23" r="2.4" fill="currentColor" />
+        </svg>
+      </div>
+
+      <div class="mag-dir-caja">
+        <p class="mag-direccion">
+          <span class="mag-linea" style="--mag-retardo: 1.1s; --mag-dur: 0.9s">{{LUGAR}}<i class="mag-velo"></i></span>
+          <span class="mag-linea" style="--mag-retardo: 1.6s; --mag-dur: 0.9s">{{DIRECCION}}<i class="mag-velo"></i></span>
+        </p>
+      </div>
+
+      <div class="mag-botones">
+        <a class="mag-boton" style="--mag-retardo: 1.35s" href="{{LINK_MAPS}}" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 22s7-6.2 7-12A7 7 0 1 0 5 10c0 5.8 7 12 7 12Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+            <circle cx="12" cy="10" r="2.6" fill="currentColor" />
+          </svg>
+          Google Maps
+        </a>
+        <a class="mag-boton" style="--mag-retardo: 1.47s" href="{{LINK_WAZE}}" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M3 11.5 20.5 4 13.5 21l-2-7.5L3 11.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+          </svg>
+          Waze
+        </a>
+      </div>
+
+      <p class="mag-texto" data-mag-hijo style="--mag-retardo: 1.62s">
+        Hay campo para parquear frente al roble grande. Buscá el farol
+        encendido en el portón: ahí es.
+      </p>
+    </div>
+
+    <div class="mag-borde mag-borde-abajo mag-cera-borde" aria-hidden="true">
+      <svg viewBox="0 0 1440 34" preserveAspectRatio="none">
+        <path fill="#1b1130" d="M0,34 L1440,34 L1440,14 C1400,14 1380,27 1348,27 C1316,27 1300,12 1256,12 C1212,12 1198,28 1164,28 C1130,28 1114,11 1070,11 C1026,11 1012,27 976,27 C940,27 924,13 880,13 C836,13 822,29 786,29 C750,29 734,12 690,12 C646,12 632,28 596,28 C560,28 544,11 500,11 C456,11 442,27 406,27 C370,27 354,13 310,13 C266,13 252,29 216,29 C180,29 164,12 120,12 C76,12 44,26 0,14 Z" />
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       8 · CONFIRMÁ — el lacre que se estampa
+       ================================================================ -->
+  <section class="mag-sec mag-confirma mag-oscura" id="mag-confirma" data-mag-escena>
+    <div class="mag-cielo" aria-hidden="true" data-mag-cielo>
+      <span class="mag-estrella" style="left: 13%; top: 20%; --mag-dur: 3.4s; --mag-retardo: -1.5s"></span>
+      <span class="mag-estrella mag-estrella-grande" style="left: 29%; top: 72%; --mag-dur: 4.4s; --mag-retardo: -2.4s"></span>
+      <span class="mag-estrella" style="left: 47%; top: 14%; --mag-dur: 3.1s; --mag-retardo: -0.7s"></span>
+      <span class="mag-estrella" style="left: 68%; top: 80%; --mag-dur: 4.7s; --mag-retardo: -3.6s"></span>
+      <span class="mag-estrella mag-estrella-grande" style="left: 86%; top: 26%; --mag-dur: 3.8s; --mag-retardo: -1.1s"></span>
+      <span class="mag-estrella" style="left: 8%; top: 58%; --mag-dur: 4.2s; --mag-retardo: -2.9s"></span>
+    </div>
+
+    <div class="mag-centro">
+      <div class="mag-sello-caja" id="mag-sello-caja" role="button" tabindex="0" aria-label="El lacre de la Academia">
+        <span class="mag-sello-onda" aria-hidden="true"></span>
+        <span class="mag-sello-disco">
+          <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+            <circle cx="50" cy="50" r="45" stroke="currentColor" stroke-width="2.4" opacity="0.9" />
+            <circle cx="50" cy="50" r="38" stroke="currentColor" stroke-width="1.1" opacity="0.5" />
+            <path d="M50 9 Q51.6 14.8 57 16.4 Q51.6 18 50 23.8 Q48.4 18 43 16.4 Q48.4 14.8 50 9 Z" fill="currentColor" />
+            <path d="M26 28 Q27.2 31.6 31 32.8 Q27.2 34 26 37.6 Q24.8 34 21 32.8 Q24.8 31.6 26 28 Z" fill="currentColor" />
+            <path d="M74 28 Q75.2 31.6 79 32.8 Q75.2 34 74 37.6 Q72.8 34 69 32.8 Q72.8 31.6 74 28 Z" fill="currentColor" />
+            <path d="M50 26 C55 33 57.5 37 57.5 41 C57.5 45.6 54.2 48.6 50 48.6 C45.8 48.6 42.5 45.6 42.5 41 C42.5 37 45 33 50 26 Z" fill="currentColor" />
+            <rect x="45.5" y="48" width="9" height="20" rx="2" fill="currentColor" opacity="0.92" />
+            <path d="M20 68 C30 63 42 63 50 68 C58 63 70 63 80 68 L80 76 C70 71 58 71 50 76 C42 71 30 71 20 76 Z" fill="currentColor" />
+          </svg>
+        </span>
+      </div>
+
+      <p class="mag-kicker" data-mag-hijo style="--mag-retardo: 0.5s">Se lleva registro</p>
+      <h2 class="mag-titulo" data-mag-hijo style="--mag-retardo: 0.6s">
+        Sellá tu lugar en el primer curso
+      </h2>
+      <p class="mag-texto" data-mag-hijo style="--mag-retardo: 0.7s">
+        Necesitamos saber cuántas varitas hay que tallar y cuántos
+        calderos hay que llenar. Es un toque y ya.
+      </p>
+
+      <button type="button" data-bookea="abrir-rsvp" class="mag-rsvp">
+        <span class="mag-rsvp-brillo">Confirmá tu asistencia</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <p class="mag-limite" data-mag-hijo style="--mag-retardo: 1.1s">
+        Contanos antes del {{LIMITE}}, porfa.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       9 · CIERRE
+       ================================================================ -->
+  <section class="mag-sec mag-cierre mag-oscura" id="mag-cierre" data-mag-escena>
+    <div class="mag-cielo" aria-hidden="true" data-mag-cielo>
+      <span class="mag-estrella mag-estrella-grande" style="left: 11%; top: 18%; --mag-dur: 3.6s; --mag-retardo: -0.9s"></span>
+      <span class="mag-estrella" style="left: 25%; top: 60%; --mag-dur: 4.3s; --mag-retardo: -2.7s"></span>
+      <span class="mag-estrella" style="left: 40%; top: 12%; --mag-dur: 3.2s; --mag-retardo: -1.4s"></span>
+      <span class="mag-estrella mag-estrella-grande" style="left: 58%; top: 66%; --mag-dur: 4.6s; --mag-retardo: -3.1s"></span>
+      <span class="mag-estrella" style="left: 74%; top: 22%; --mag-dur: 3.9s; --mag-retardo: -0.5s"></span>
+      <span class="mag-estrella" style="left: 90%; top: 54%; --mag-dur: 4.1s; --mag-retardo: -2.2s"></span>
+      <span class="mag-estrella" style="left: 48%; top: 86%; --mag-dur: 3.4s; --mag-retardo: -3.8s"></span>
+    </div>
+
+    <div class="mag-centro">
+      <svg class="mag-escudo" id="mag-escudo-pie" viewBox="0 0 100 100" fill="none" role="img" aria-label="Escudo de la Academia Candelaria">
+        <circle cx="50" cy="50" r="45" stroke="currentColor" stroke-width="1.8" opacity="0.75" />
+        <circle cx="50" cy="50" r="38" stroke="currentColor" stroke-width="0.9" opacity="0.4" />
+        <path d="M50 9 Q51.6 14.8 57 16.4 Q51.6 18 50 23.8 Q48.4 18 43 16.4 Q48.4 14.8 50 9 Z" fill="currentColor" />
+        <path d="M26 28 Q27.2 31.6 31 32.8 Q27.2 34 26 37.6 Q24.8 34 21 32.8 Q24.8 31.6 26 28 Z" fill="currentColor" />
+        <path d="M74 28 Q75.2 31.6 79 32.8 Q75.2 34 74 37.6 Q72.8 34 69 32.8 Q72.8 31.6 74 28 Z" fill="currentColor" />
+        <path d="M50 26 C55 33 57.5 37 57.5 41 C57.5 45.6 54.2 48.6 50 48.6 C45.8 48.6 42.5 45.6 42.5 41 C42.5 37 45 33 50 26 Z" fill="currentColor" />
+        <rect x="45.5" y="48" width="9" height="20" rx="2" fill="currentColor" opacity="0.9" />
+        <path d="M20 68 C30 63 42 63 50 68 C58 63 70 63 80 68 L80 76 C70 71 58 71 50 76 C42 71 30 71 20 76 Z" fill="currentColor" />
+      </svg>
+
+      <h2 class="mag-final">
+        <span style="--mag-retardo: 0.15s">Te&nbsp;</span><span style="--mag-retardo: 0.28s">esperamos&nbsp;</span><span style="--mag-retardo: 0.41s">con&nbsp;</span><span style="--mag-retardo: 0.54s">la&nbsp;</span><span style="--mag-retardo: 0.67s">vela&nbsp;</span><span style="--mag-retardo: 0.8s">encendida.</span>
+      </h2>
+
+      <span class="mag-filete" data-mag-hijo style="--mag-retardo: 1s" aria-hidden="true"><i></i><b></b><i></i></span>
+
+      <p class="mag-padres">{{PADRES}}</p>
+
+      <p class="mag-credito">
+        {{CREDITO_MUSICA}}
+      </p>
+    </div>
+  </section>
+
+  <script>
+    /* ================================================================
+       EL RESTO DE LA MAGIA. Todo lo de acá abajo solo AGREGA cosas: si
+       este script no corriera, la invitación se lee entera, quieta y
+       sin nada invisible.
+       ================================================================ */
+    (function () {
+      var raiz = document.getElementById("mag");
+      if (!raiz) return;
+
+      /* El único matchMedia de toda la plantilla, y es de ANCHO: sirve
+         para subir la cantidad de partículas en pantallas grandes. */
+      var anchaMQ = window.matchMedia ? window.matchMedia("(min-width: 768px)") : null;
+      var ancha = anchaMQ ? anchaMQ.matches : false;
+
+      /* ---------- 1. El nombre, letra por letra ---------- */
+      (function () {
+        var h = document.getElementById("mag-nom");
+        if (!h) return;
+        var txt = (h.textContent || "").trim();
+        if (!txt) return;
+        h.textContent = "";
+        for (var i = 0; i < txt.length; i++) {
+          var c = txt.charAt(i);
+          var s = document.createElement("span");
+          s.textContent = c === " " ? " " : c;
+          s.style.setProperty("--mag-retardo", 0.72 + i * 0.075 + "s");
+          h.appendChild(s);
+        }
+      })();
+
+      /* ---------- 2. Las escenas al scrollear ----------
+         El observer solo AGREGA .mag-on; sin él todo queda visible. */
+      (function () {
+        var escenas = raiz.querySelectorAll("[data-mag-escena]");
+        if (!("IntersectionObserver" in window)) {
+          for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("mag-on");
+          return;
+        }
+        var io = new IntersectionObserver(
+          function (entradas) {
+            for (var i = 0; i < entradas.length; i++) {
+              if (entradas[i].isIntersecting) {
+                entradas[i].target.classList.add("mag-on");
+                io.unobserve(entradas[i].target);
+              }
+            }
+          },
+          { threshold: 0.14, rootMargin: "0px 0px -5% 0px" },
+        );
+        for (var j = 0; j < escenas.length; j++) io.observe(escenas[j]);
+      })();
+
+      /* ---------- 3. Las chispas ----------
+         Viven en la capa fija del ambiente (inset:0), así que las
+         coordenadas del puntero sirven tal cual. */
+      var capa = document.getElementById("mag-ambiente");
+      var TOPE = ancha ? 20 : 6;
+      var POR_TOQUE = ancha ? 9 : 5;
+      var vivas = 0;
+
+      function chispa(x, y, fuerza) {
+        if (!capa || vivas >= TOPE) return;
+        vivas++;
+        var s = document.createElement("span");
+        s.className = "mag-chispa";
+        var ang = Math.random() * Math.PI * 2;
+        var dist = (14 + Math.random() * 44) * fuerza;
+        s.style.left = x + "px";
+        s.style.top = y + "px";
+        s.style.setProperty("--mag-dx", Math.cos(ang) * dist + "px");
+        s.style.setProperty("--mag-dy", Math.sin(ang) * dist - 24 + "px");
+        var dur = 620 + Math.random() * 320;
+        s.style.animationDuration = dur + "ms";
+        capa.appendChild(s);
+        window.setTimeout(function () {
+          vivas--;
+          if (s.parentNode) s.parentNode.removeChild(s);
+        }, dur + 60);
+      }
+
+      function estallido(x, y, cuantas) {
+        var n = cuantas || POR_TOQUE;
+        for (var i = 0; i < n; i++) chispa(x, y, 1);
+      }
+
+      raiz.addEventListener(
+        "pointerdown",
+        function (e) {
+          estallido(e.clientX, e.clientY);
+        },
+        { passive: true },
+      );
+
+      /* ---------- 4. Todo lo ligado al scroll, en un solo rAF ----------
+         El búho que cruza, el hilo de tinta del borde, las cordilleras
+         en parallax y las velas del Gran Comedor que suben. Solo
+         transform (y la opacidad de las velas). */
+      (function () {
+        var buho = document.getElementById("mag-buho");
+        var barra = document.getElementById("mag-hilo-barra");
+        var punta = document.getElementById("mag-hilo-punta");
+        var capas = raiz.querySelectorAll("[data-mag-par]");
+        var comedor = document.getElementById("mag-comedor");
+        var velitas = raiz.querySelectorAll("[data-mag-velita]");
+        var cuadro = 0;
+        var ultimaChispa = 0;
+
+        function pintar() {
+          cuadro = 0;
+          var alto = window.innerHeight || document.documentElement.clientHeight || 800;
+          var ancho = window.innerWidth || document.documentElement.clientWidth || 390;
+          var doc = document.documentElement;
+          var total = (doc.scrollHeight || 0) - alto;
+          var y = window.pageYOffset || doc.scrollTop || 0;
+          var p = total > 0 ? y / total : 0;
+          if (p < 0) p = 0;
+          if (p > 1) p = 1;
+
+          /* EL BÚHO: cruza de izquierda a derecha y ondula al volar. */
+          if (buho) {
+            var bx = 12 + p * (ancho - (ancha ? 106 : 86));
+            var by = alto * (0.05 + 0.05 * Math.sin(p * Math.PI * 3.2));
+            buho.style.transform =
+              "translate3d(" + bx + "px," + by + "px,0) rotate(" +
+              Math.sin(p * Math.PI * 3.2) * 7 + "deg)";
+            /* Va soltando chispas mientras cruza. */
+            var t = Date.now();
+            if (t - ultimaChispa > 300) {
+              ultimaChispa = t;
+              chispa(bx + 14, by + 46, 0.45);
+            }
+          }
+
+          /* EL HILO DE TINTA del borde izquierdo. */
+          if (barra) barra.style.transform = "scaleY(" + Math.max(0.015, p) + ")";
+          if (punta) punta.style.transform = "translate3d(0," + p * alto + "px,0)";
+
+          /* Las cordilleras a velocidades distintas. */
+          for (var i = 0; i < capas.length; i++) {
+            var f = parseFloat(capas[i].getAttribute("data-mag-par")) || 0.1;
+            var pad = capas[i].parentNode;
+            if (!pad || !pad.getBoundingClientRect) continue;
+            var rt = pad.getBoundingClientRect().top;
+            capas[i].style.transform = "translate3d(0," + -rt * f + "px,0)";
+          }
+
+          /* LAS VELAS DEL GRAN COMEDOR suben con el avance de su
+             sección: cada una arranca un poquito después. */
+          if (comedor && velitas.length) {
+            var caja = comedor.getBoundingClientRect();
+            var pv = (alto - caja.top) / (alto * 0.85 + caja.height * 0.2);
+            if (pv < 0) pv = 0;
+            if (pv > 1) pv = 1;
+            for (var k = 0; k < velitas.length; k++) {
+              var pi = (pv - 0.06 - k * 0.06) / 0.42;
+              if (pi < 0) pi = 0;
+              if (pi > 1) pi = 1;
+              var suave = 1 - Math.pow(1 - pi, 3);
+              velitas[k].style.transform =
+                "translate3d(0," + (1 - suave) * 84 + "px,0) scale(" +
+                (0.72 + 0.28 * suave) + ")";
+              velitas[k].style.opacity = 0.2 + 0.8 * suave;
+            }
+          }
+        }
+
+        function alMover() {
+          if (!cuadro) cuadro = window.requestAnimationFrame(pintar);
+        }
+
+        pintar();
+        window.addEventListener("scroll", alMover, { passive: true });
+        window.addEventListener("resize", alMover);
+      })();
+
+      /* ---------- 5. Micro-interacciones por TAP ----------
+         (el hover no existe en el teléfono) */
+      (function () {
+        function tap(el, clase, ms, extra) {
+          if (!el) return;
+          el.addEventListener("click", function (e) {
+            el.classList.remove(clase);
+            void el.getBoundingClientRect();
+            el.classList.add(clase);
+            window.setTimeout(function () {
+              el.classList.remove(clase);
+            }, ms);
+            if (extra) extra(e);
+          });
+        }
+
+        function centro(el) {
+          var r = el.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        }
+
+        tap(document.getElementById("mag-castillo"), "mag-castillo-tocado", 760);
+        tap(document.getElementById("mag-escudo-hero"), "mag-escudo-tocado", 950, function (e) {
+          estallido(e.clientX, e.clientY, ancha ? 12 : 5);
+        });
+        tap(document.getElementById("mag-escudo-pie"), "mag-escudo-tocado", 950);
+        tap(document.getElementById("mag-gota-lacre"), "mag-gota-tocada", 620);
+        tap(document.getElementById("mag-reloj"), "mag-reloj-tocado", 900);
+        tap(document.getElementById("mag-brujula"), "mag-brujula-tocada", 950);
+        tap(document.getElementById("mag-sello-caja"), "mag-sello-tocado", 900);
+        tap(document.getElementById("mag-farol"), "mag-farol-tocado", 900, function (e) {
+          estallido(e.clientX, e.clientY, ancha ? 10 : 5);
+        });
+
+        /* El búho contesta cuando lo tocan. */
+        var buho = document.getElementById("mag-buho");
+        tap(buho, "mag-buho-hablo", 1150, function () {
+          if (!buho) return;
+          var c = centro(buho);
+          estallido(c.x, c.y, ancha ? 10 : 5);
+        });
+
+        /* El caldero: se sacude y suelta un chorro de burbujas. */
+        var caldero = document.getElementById("mag-caldero");
+        var burbujas = document.getElementById("mag-burbujas");
+        tap(caldero, "mag-caldero-tocado", 660, function () {
+          if (!burbujas) return;
+          var n = ancha ? 7 : 4;
+          for (var i = 0; i < n; i++) {
+            (function (i) {
+              var b = document.createElement("span");
+              b.className = "mag-burbuja";
+              b.style.left = 14 + Math.random() * 72 + "%";
+              b.style.setProperty("--mag-dur", 1.5 + Math.random() * 0.9 + "s");
+              b.style.setProperty("--mag-retardo", i * 0.09 + "s");
+              b.style.setProperty("--mag-dx", (Math.random() - 0.5) * 46 + "px");
+              b.style.animationIterationCount = "1";
+              burbujas.appendChild(b);
+              window.setTimeout(function () {
+                if (b.parentNode) b.parentNode.removeChild(b);
+              }, 2800);
+            })(i);
+          }
+        });
+
+        /* Las tarjetas del taller (una de ellas pasa página). */
+        var cards = raiz.querySelectorAll(".mag-card");
+        for (var c = 0; c < cards.length; c++) tap(cards[c], "mag-card-tocada", 920);
+
+        /* Los escudos de gremio: giran y sueltan su lema. */
+        var gremios = raiz.querySelectorAll(".mag-gremio");
+        for (var g = 0; g < gremios.length; g++) {
+          tap(gremios[g], "mag-gremio-tocado", 1180, function (e) {
+            estallido(e.clientX, e.clientY, ancha ? 9 : 4);
+          });
+        }
+
+        /* Las velas del Gran Comedor: la llama pega un salto. */
+        var vel = raiz.querySelectorAll("[data-mag-velita]");
+        for (var v = 0; v < vel.length; v++) {
+          (function (el) {
+            el.addEventListener("click", function (e) {
+              el.classList.remove("mag-vela-tocada");
+              void el.getBoundingClientRect();
+              el.classList.add("mag-vela-tocada");
+              window.setTimeout(function () {
+                el.classList.remove("mag-vela-tocada");
+              }, 700);
+              estallido(e.clientX, e.clientY, ancha ? 8 : 4);
+            });
+          })(vel[v]);
+        }
+
+        /* Con teclado: Enter y espacio hacen lo mismo que el toque. */
+        raiz.addEventListener("keydown", function (e) {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          var t = e.target;
+          if (!t || !t.getAttribute || t.getAttribute("role") !== "button") return;
+          e.preventDefault();
+          t.click();
+        });
+      })();
+
+      /* ---------- 6. El ambiente: motas de polvo dorado ----------
+         En teléfono son pocas a propósito (presupuesto de partículas);
+         en pantallas grandes hay aire para más. */
+      (function () {
+        if (!capa) return;
+        var cuantas = ancha ? 14 : 4;
+        for (var i = 0; i < cuantas; i++) {
+          var m = document.createElement("span");
+          m.className = "mag-mota";
+          m.style.left = (Math.random() < 0.5 ? Math.random() * 6 : 94 + Math.random() * 5) + "%";
+          m.style.top = 40 + Math.random() * 58 + "%";
+          m.style.setProperty("--mag-dur", 11 + Math.random() * 9 + "s");
+          m.style.setProperty("--mag-retardo", -Math.random() * 18 + "s");
+          m.style.setProperty("--mag-dx", (Math.random() - 0.5) * 90 + "px");
+          capa.appendChild(m);
+        }
+
+        /* Y más velas flotando cuando hay pantalla de sobra. */
+        if (ancha) {
+          for (var v = 0; v < 3; v++) {
+            var ve = document.createElement("span");
+            ve.className = "mag-vela-flota";
+            ve.style.left = (Math.random() < 0.5 ? Math.random() * 4.5 : 95 + Math.random() * 4) + "%";
+            ve.style.top = 12 + Math.random() * 72 + "%";
+            ve.style.setProperty("--mag-dur", 6.5 + Math.random() * 3 + "s");
+            ve.style.setProperty("--mag-retardo", -Math.random() * 6 + "s");
+            ve.style.setProperty("--mag-dx", (Math.random() - 0.5) * 26 + "px");
+            ve.innerHTML =
+              '<i class="mag-halo"></i><i class="mag-llama"></i><i class="mag-mecha"></i><i class="mag-cera"></i>';
+            capa.appendChild(ve);
+          }
+        }
+      })();
+
+      /* ---------- 7. Más estrellas en pantallas grandes ---------- */
+      (function () {
+        if (!ancha) return;
+        var cielos = raiz.querySelectorAll("[data-mag-cielo]");
+        for (var c = 0; c < cielos.length; c++) {
+          for (var i = 0; i < 10; i++) {
+            var e = document.createElement("span");
+            e.className = "mag-estrella" + (i % 3 === 0 ? " mag-estrella-grande" : "");
+            e.style.left = Math.random() * 97 + "%";
+            e.style.top = Math.random() * 86 + "%";
+            e.style.setProperty("--mag-dur", 2.8 + Math.random() * 2.4 + "s");
+            e.style.setProperty("--mag-retardo", -Math.random() * 4 + "s");
+            cielos[c].appendChild(e);
+          }
+        }
+      })();
+    })();
+  </script>
+</div>
+
+
+
