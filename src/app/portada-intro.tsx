@@ -2,86 +2,65 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import MapaLatam from "@/components/mapa-latam";
 
-/** Cuánto dura la entrada antes de pasar sola a Eventos. */
-const DURACION_MS = 5000;
+/** Lo que dura la entrada antes de pasar sola a Eventos. */
+const DURACION_MS = 3000;
 
 /**
- * LA ENTRADA AL SITIO (pedido del dueño): al llegar a bookea.lat se ve
- * el mapa de Centroamérica con sus pines encendiéndose como targets
- * durante cinco segundos, y después la página pasa sola a Eventos.
- * Quien no quiera esperar toca la pantalla y entra de una.
- *
- * Es un VELO a pantalla completa, no un aviso al pie: el mapa tiene
- * que ser lo único, si no la "entrada" se ve igual que el home de
- * siempre. El home real queda debajo y aparece si alguien cancela con
- * Escape o si ya entró antes en esta visita.
+ * LA ENTRADA AL SITIO: el logo de Bookea, una barrita que carga tres
+ * segundos, y adentro — la página de Eventos. Nada más. Quien no
+ * quiera esperar toca la pantalla y entra de una.
  *
  * TRES DECISIONES QUE NO SE VEN PERO EVITAN BUGS REALES:
  *
  * 1. `router.replace`, no `push`. Con push, /eventos quedaría con el
  *    home debajo en el historial: tocar "atrás" volvería a la portada,
- *    que a los cinco segundos volvería a mandar a Eventos — un lazo
- *    del que no se sale.
+ *    que a los tres segundos volvería a mandar a Eventos — un lazo del
+ *    que no se sale.
  *
- * 2. La entrada corre SIEMPRE que se pise "/", no una vez por visita.
- *    Se probó con un guardián de sesión y confundía: el dueño entraba
- *    de nuevo y veía el home viejo, sin entender por qué. La
- *    consecuencia a tener presente es que el logo de la cabecera
- *    —que está en todas las páginas y apunta a "/"— ahora pasa por
- *    estos cinco segundos antes de dejar a nadie en Eventos.
+ * 2. `router.prefetch` apenas monta. Los tres segundos no son una
+ *    espera decorativa: se usan para traer Eventos, así que cuando la
+ *    barra termina la página ya está lista y el cambio es instantáneo.
+ *    Eso es lo que hace que la barra no sea mentira.
  *
  * 3. El velo se monta solo en el cliente (useSyncExternalStore, no un
  *    efecto que cambie estado): el HTML que llega sigue siendo el home
- *    entero, que es lo que lee Google, y sin JavaScript la portada
+ *    entero —que es lo que lee Google— y sin JavaScript la portada
  *    funciona como toda la vida.
  */
-
 export default function PortadaIntro() {
   const router = useRouter();
   const yaSalio = useRef(false);
-  // El velo solo existe en el cliente: en el servidor devuelve false y
-  // así el HTML que llega sigue siendo el home entero, que es lo que
-  // lee Google. No es un efecto que cambie estado (eso pintaría dos
-  // veces), es una lectura del entorno.
+  // En el servidor devuelve false (no hay velo en el HTML); el cliente
+  // lo enciende al hidratar, sin un render de más.
   const enElNavegador = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false,
   );
-  const [cancelada, setCancelada] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
-  const activa = enElNavegador && !cancelada;
 
   useEffect(() => {
-    if (!activa) return;
+    if (!enElNavegador) return;
+
+    // Que los tres segundos sirvan para algo: mientras la barra carga,
+    // Next ya está trayendo /eventos.
+    router.prefetch("/eventos");
 
     const entrar = () => {
       if (yaSalio.current) return;
       yaSalio.current = true;
-      // El velo se desvanece mientras Next ya está trayendo /eventos:
-      // el corte seco se siente como un error del sitio.
+      // El velo se desvanece mientras la página entra: el corte seco se
+      // siente como un error del sitio.
       setSaliendo(true);
       router.replace("/eventos");
     };
 
     const t = setTimeout(entrar, DURACION_MS);
-
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // Escape = "dejame ver el home", no "llevame".
-        yaSalio.current = true;
-        clearTimeout(t);
-        setCancelada(true);
-      } else if (e.key === "Enter" || e.key === " ") {
-        clearTimeout(t);
-        entrar();
-      }
-    };
+    const alTeclear = () => entrar();
     document.addEventListener("keydown", alTeclear);
 
-    // Mientras el velo cubre la pantalla no tiene sentido scrollear.
+    // Mientras el velo cubre no tiene sentido scrollear lo de atrás.
     const overflowPrevio = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -90,9 +69,9 @@ export default function PortadaIntro() {
       document.removeEventListener("keydown", alTeclear);
       document.body.style.overflow = overflowPrevio;
     };
-  }, [activa, router]);
+  }, [enElNavegador, router]);
 
-  if (!activa) return null;
+  if (!enElNavegador) return null;
 
   return (
     <div
@@ -105,57 +84,22 @@ export default function PortadaIntro() {
         setSaliendo(true);
         router.replace("/eventos");
       }}
-      className={`fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center overflow-hidden bg-aventurea-cream transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center gap-9 bg-white transition-opacity duration-300 ${
         saliendo ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* PRIMER TIEMPO: el logo aparece, se sostiene y se disuelve
-          hacia adelante. Sale del flujo (absolute) para que el mapa
-          entre exactamente en el mismo centro, sin salto. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo-bookea.png"
         alt="Bookea"
-        width={260}
-        height={70}
-        className="intro-logo pointer-events-none absolute left-1/2 top-1/2 z-20 w-[min(58vw,260px)] -translate-x-1/2 -translate-y-1/2"
+        width={300}
+        height={80}
+        className="intro-logo pointer-events-none w-[min(62vw,300px)]"
       />
 
-      {/* SEGUNDO TIEMPO: entra el mapa con los targets ya corriendo —
-          Costa Rica primero, en naranja. */}
-      <MapaLatam className="intro-mapa pointer-events-none absolute left-1/2 top-1/2 h-[min(88vmin,760px)] w-[min(88vmin,760px)] -translate-x-1/2 -translate-y-1/2 text-aventurea-navy" />
-
-      <div className="pointer-events-none relative z-10 flex flex-col items-center px-6 text-center">
-        <p
-          className="intro-texto text-[11px] font-bold uppercase tracking-[0.34em] text-aventurea-orange"
-          style={{ "--retraso": "2.9s" } as React.CSSProperties}
-        >
-          Bookea · Costa Rica
-        </p>
-        <p
-          className="intro-texto titulo mt-5 max-w-[15ch] text-[clamp(32px,7vw,60px)] leading-[1.04] text-aventurea-ink"
-          style={{ "--retraso": "3.1s" } as React.CSSProperties}
-        >
-          Reservá en todo el país
-        </p>
-      </div>
-
-      {/* TERCER TIEMPO: la barrita de carga. Aparece recién cuando el
-          mapa ya está puesto y se llena rápido — es el "ya vamos" que
-          empalma con Eventos. Una pantalla que salta sola sin avisar se
-          lee como una falla del sitio; con la barra a la vista se
-          entiende que está cargando algo. */}
-      <div className="intro-carga pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-5 pb-10">
-        <span className="block h-[4px] w-48 overflow-hidden rounded-full bg-aventurea-navy/10">
-          <span className="intro-carga-relleno block h-full w-0 rounded-full bg-aventurea-orange" />
-        </span>
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-aventurea-ink-soft">
-          Cargando Eventos
-        </p>
-        <p className="text-[11.5px] text-aventurea-ink-soft/60">
-          Tocá la pantalla para entrar ya
-        </p>
-      </div>
+      <span className="pointer-events-none block h-[3px] w-40 overflow-hidden rounded-full bg-aventurea-navy/10">
+        <span className="intro-carga-relleno block h-full w-0 rounded-full bg-aventurea-orange" />
+      </span>
     </div>
   );
 }
