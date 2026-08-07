@@ -7,9 +7,6 @@ import MapaLatam from "@/components/mapa-latam";
 /** Cuánto dura la entrada antes de pasar sola a Eventos. */
 const DURACION_MS = 5000;
 
-/** Para no volver a secuestrar el home en la misma visita al sitio. */
-const YA_ENTRO = "bookea:portada-vista";
-
 /**
  * LA ENTRADA AL SITIO (pedido del dueño): al llegar a bookea.lat se ve
  * el mapa de Centroamérica con sus pines encendiéndose como targets
@@ -28,11 +25,12 @@ const YA_ENTRO = "bookea:portada-vista";
  *    que a los cinco segundos volvería a mandar a Eventos — un lazo
  *    del que no se sale.
  *
- * 2. El envío automático pasa UNA vez por visita (sessionStorage). Sin
- *    eso, el logo de Bookea —que está en todas las páginas y apunta al
- *    home— se volvería un botón que siempre tira a Eventos: alguien
- *    mirando Citas que toca el logo terminaría en la vertical
- *    equivocada.
+ * 2. La entrada corre SIEMPRE que se pise "/", no una vez por visita.
+ *    Se probó con un guardián de sesión y confundía: el dueño entraba
+ *    de nuevo y veía el home viejo, sin entender por qué. La
+ *    consecuencia a tener presente es que el logo de la cabecera
+ *    —que está en todas las páginas y apunta a "/"— ahora pasa por
+ *    estos cinco segundos antes de dejar a nadie en Eventos.
  *
  * 3. El velo se monta solo en el cliente (useSyncExternalStore, no un
  *    efecto que cambie estado): el HTML que llega sigue siendo el home
@@ -40,44 +38,28 @@ const YA_ENTRO = "bookea:portada-vista";
  *    funciona como toda la vida.
  */
 
-/** ¿Es la primera vez que se pisa el home en esta visita al sitio? */
-function leerPrimeraVez(): boolean {
-  try {
-    return sessionStorage.getItem(YA_ENTRO) !== "1";
-  } catch {
-    // Navegador con el almacenamiento bloqueado: se comporta como
-    // primera visita. Peor sería no entrar nunca.
-    return true;
-  }
-}
-
 export default function PortadaIntro() {
   const router = useRouter();
   const yaSalio = useRef(false);
-  const primeraVez = useSyncExternalStore(
+  // El velo solo existe en el cliente: en el servidor devuelve false y
+  // así el HTML que llega sigue siendo el home entero, que es lo que
+  // lee Google. No es un efecto que cambie estado (eso pintaría dos
+  // veces), es una lectura del entorno.
+  const enElNavegador = useSyncExternalStore(
     () => () => {},
-    leerPrimeraVez,
+    () => true,
     () => false,
   );
   const [cancelada, setCancelada] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
-  const activa = primeraVez && !cancelada;
+  const activa = enElNavegador && !cancelada;
 
   useEffect(() => {
     if (!activa) return;
 
-    const marcarVisto = () => {
-      try {
-        sessionStorage.setItem(YA_ENTRO, "1");
-      } catch {
-        /* sin almacenamiento se repetirá la próxima vez: aceptable */
-      }
-    };
-
     const entrar = () => {
       if (yaSalio.current) return;
       yaSalio.current = true;
-      marcarVisto();
       // El velo se desvanece mientras Next ya está trayendo /eventos:
       // el corte seco se siente como un error del sitio.
       setSaliendo(true);
@@ -91,7 +73,6 @@ export default function PortadaIntro() {
         // Escape = "dejame ver el home", no "llevame".
         yaSalio.current = true;
         clearTimeout(t);
-        marcarVisto();
         setCancelada(true);
       } else if (e.key === "Enter" || e.key === " ") {
         clearTimeout(t);
@@ -121,11 +102,6 @@ export default function PortadaIntro() {
       onClick={() => {
         if (yaSalio.current) return;
         yaSalio.current = true;
-        try {
-          sessionStorage.setItem(YA_ENTRO, "1");
-        } catch {
-          /* ignorado */
-        }
         setSaliendo(true);
         router.replace("/eventos");
       }}
@@ -164,16 +140,19 @@ export default function PortadaIntro() {
         </p>
       </div>
 
-      {/* La cuenta, abajo: una pantalla que salta sola sin avisar se
-          lee como una falla; con la barra a la vista se entiende. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2.5 px-5 pb-9">
-        <span className="portada-barra block h-[3px] w-40 overflow-hidden rounded-full bg-aventurea-navy/12">
-          <span className="portada-barra-relleno block h-full w-full origin-left rounded-full bg-aventurea-orange" />
+      {/* TERCER TIEMPO: la barrita de carga. Aparece recién cuando el
+          mapa ya está puesto y se llena rápido — es el "ya vamos" que
+          empalma con Eventos. Una pantalla que salta sola sin avisar se
+          lee como una falla del sitio; con la barra a la vista se
+          entiende que está cargando algo. */}
+      <div className="intro-carga pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 px-5 pb-10">
+        <span className="block h-[4px] w-48 overflow-hidden rounded-full bg-aventurea-navy/10">
+          <span className="intro-carga-relleno block h-full w-0 rounded-full bg-aventurea-orange" />
         </span>
-        <p className="text-[11.5px] font-bold uppercase tracking-[0.18em] text-aventurea-ink-soft">
-          Entrando a Eventos
+        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-aventurea-ink-soft">
+          Cargando Eventos
         </p>
-        <p className="text-[11.5px] text-aventurea-ink-soft/70">
+        <p className="text-[11.5px] text-aventurea-ink-soft/60">
           Tocá la pantalla para entrar ya
         </p>
       </div>

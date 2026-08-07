@@ -240,21 +240,6 @@
   }
 }
 
-/* ==================================================================
-   La barra de la entrada automática (portada-intro.tsx): cinco
-   segundos de mapa y después el sitio se va solo a Eventos. La barra
-   se vacía a la par del reloj de JavaScript — los dos duran 5000 ms,
-   así que lo que se ve y lo que pasa terminan juntos.
-
-   NO se apaga con prefers-reduced-motion: si se apagara, la barra
-   quedaría llena y quieta mientras la página igual se va sola — el
-   salto se sentiría como una falla. Que se vacíe es justamente lo que
-   avisa que va a pasar algo.
-   ================================================================== */
-@keyframes portada-vaciar {
-  from { transform: scaleX(1); }
-  to   { transform: scaleX(0); }
-}
 
 /* El texto del velo de entrada entra escalonado detrás del mapa.
    No se apaga con movimiento reducido: es medio segundo de fundido,
@@ -310,7 +295,23 @@
     var(--retraso, 2.9s) both;
 }
 
-/* La cuenta corre los cinco segundos completos, desde el logo. */
-.portada-barra-relleno {
-  animation: portada-vaciar 5000ms linear forwards;
+
+/* La barrita de carga de la intro: entra cuando el mapa ya está
+   puesto (3.2s) y se llena rápido hasta los 5s, que es cuando la
+   página pasa a Eventos. Los dos relojes —este y el setTimeout que
+   dispara la redirección— arrancan juntos al montarse el velo, así
+   que la barra termina de llenarse justo cuando el sitio cambia.
+
+   Empieza en 0 y crece con `width` a propósito y no con transform:
+   son 1,8 s de una sola barra chica, y con scaleX el borde redondeado
+   se estiraría deforme. */
+@keyframes intro-carga-llena {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+.intro-carga-relleno {
+  animation: intro-carga-llena 1.8s cubic-bezier(0.4, 0, 0.2, 1) 3.2s both;
+}
+.intro-carga {
+  animation: intro-aparece 0.5s ease-out 3.1s both;
 }
