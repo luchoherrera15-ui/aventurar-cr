@@ -9,8 +9,10 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
  * mensaje claro en vez de romper la página.
  */
 export function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // .trim(): en Vercel el valor puede traer un \n pegado (ver
+  // a/[slug]/page.tsx).
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !serviceKey) return null;
 
   return createSupabaseClient(url, serviceKey, {

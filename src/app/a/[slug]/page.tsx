@@ -118,7 +118,13 @@ export default async function AlbumPage({
 
   // Las fotos viven en el bucket público `albumes`: la URL se arma
   // directo, sin firmar nada.
-  const baseFotos = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/albumes/`;
+  //
+  // El .trim() es un blindaje ganado a golpes: la variable en Vercel
+  // llegó a tener DOS saltos de línea pegados al final. Un <img> normal
+  // lo perdona (el parser de URLs del navegador quita los saltos), pero
+  // el optimizador de next/image recibe la URL codificada tal cual y
+  // responde 400 — y el álbum entero se quedó sin fotos en producción.
+  const baseFotos = `${process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()}/storage/v1/object/public/albumes/`;
 
   // La portada: la PRIMERA foto que se subió (las fotos vienen de la
   // más nueva a la más vieja) — suele ser la del anfitrión, no la

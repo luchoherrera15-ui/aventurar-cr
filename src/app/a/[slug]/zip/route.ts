@@ -151,7 +151,9 @@ async function armarDescarga(slug: string, elegidas: Set<string> | null) {
     );
   }
 
-  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/albumes/`;
+  // .trim(): en Vercel el valor puede traer un \n pegado (ver
+  // a/[slug]/page.tsx).
+  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()}/storage/v1/object/public/albumes/`;
   const iterador = generarZip(fotosComoArchivos(fotos, base));
 
   const cuerpo = new ReadableStream<Uint8Array>({

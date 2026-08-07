@@ -108,6 +108,39 @@ export default function InvitacionVista({
     }
   }
 
+  // El RSVP como CARD MODAL (pedido del dueño): si el diseño a la
+  // medida trae algún elemento con data-bookea="abrir-rsvp", el
+  // formulario deja de ser una sección al pie y pasa a abrirse como
+  // card flotante al tocar ese botón. Derivado del HTML — los diseños
+  // sin la marca siguen con el bloque al pie de siempre.
+  const rsvpEnModal =
+    !esEjemplo && !!invitacion.html_personalizado?.includes('data-bookea="abrir-rsvp"');
+  const [rsvpAbierto, setRsvpAbierto] = useState(false);
+
+  useEffect(() => {
+    if (!rsvpEnModal) return;
+    // Delegado en document: el botón vive dentro del HTML inyectado,
+    // así que no hay ref de React que lo alcance.
+    const alTocar = (e: MouseEvent) => {
+      const marcado = (e.target as Element | null)?.closest?.(
+        '[data-bookea="abrir-rsvp"]',
+      );
+      if (marcado) {
+        e.preventDefault();
+        setRsvpAbierto(true);
+      }
+    };
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setRsvpAbierto(false);
+    };
+    document.addEventListener("click", alTocar);
+    document.addEventListener("keydown", alTeclear);
+    return () => {
+      document.removeEventListener("click", alTocar);
+      document.removeEventListener("keydown", alTeclear);
+    };
+  }, [rsvpEnModal]);
+
   // Destino de "cómo llegar": el link exacto si el equipo lo cargó, o
   // la búsqueda por texto del lugar. Waze siempre busca por texto.
   const busqueda = [invitacion.lugar_nombre, invitacion.direccion, "Costa Rica"]
@@ -249,6 +282,40 @@ export default function InvitacionVista({
               Quiero la mía
             </Link>
           </div>
+        ) : rsvpEnModal ? (
+          /* El diseño trae su propio botón de confirmar: el formulario
+             vive en una card flotante, no como sección al pie. */
+          rsvpAbierto && (
+            <div
+              className="fixed inset-0 z-[95] flex items-center justify-center p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Confirmá tu asistencia"
+            >
+              <button
+                type="button"
+                aria-label="Cerrar"
+                onClick={() => setRsvpAbierto(false)}
+                className="anim-velo-entrar absolute inset-0 cursor-default bg-[#1c1730]/60 backdrop-blur-[2px]"
+              />
+              <div className="anim-panel-entrar relative max-h-[92svh] w-full max-w-[600px] overflow-y-auto rounded-3xl">
+                <button
+                  type="button"
+                  onClick={() => setRsvpAbierto(false)}
+                  aria-label="Cerrar"
+                  className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#3d3a35]/10 text-[17px] font-bold text-[#6b6459] transition-colors hover:bg-[#3d3a35]/20"
+                >
+                  ✕
+                </button>
+                <BloqueRsvp
+                  invitacionId={invitacion.id}
+                  preguntas={preguntas}
+                  animada={animada}
+                  enModal
+                />
+              </div>
+            </div>
+          )
         ) : (
           <BloqueRsvp invitacionId={invitacion.id} preguntas={preguntas} animada={animada} />
         )}
@@ -559,11 +626,14 @@ function BloqueRsvp({
   invitacionId,
   preguntas,
   animada,
+  enModal = false,
 }: {
   invitacionId: string;
   preguntas: PreguntaInvitacion[];
   /** true en la plantilla clásica: habilita el confetti del "sí". */
   animada: boolean;
+  /** Dentro de la card flotante: sin fondo de sección ni data-reveal. */
+  enModal?: boolean;
 }) {
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
@@ -607,10 +677,13 @@ function BloqueRsvp({
   }
 
   // El RSVP como sección de borde a borde: el fondo llena el viewport
-  // y la tarjeta del formulario queda centrada y legible.
-  const seccionCls = `relative flex w-full flex-col items-center justify-center px-6 py-20 sm:py-24 ${
-    animada ? "bg-[#efe5d0]/60" : "bg-black/20"
-  }`;
+  // y la tarjeta del formulario queda centrada y legible. En la card
+  // flotante no hay fondo ni relleno: el panel del modal ya encuadra.
+  const seccionCls = enModal
+    ? "relative flex w-full flex-col items-center"
+    : `relative flex w-full flex-col items-center justify-center px-6 py-20 sm:py-24 ${
+        animada ? "bg-[#efe5d0]/60" : "bg-black/20"
+      }`;
 
   if (enviado !== null) {
     return (
@@ -633,7 +706,13 @@ function BloqueRsvp({
   }
 
   return (
-    <section data-reveal className={`${seccionCls} min-h-[70svh]`}>
+    // Sin data-reveal dentro del modal: el observador de scroll corre
+    // al montar la página y una card que aparece después quedaría
+    // invisible esperando un scroll que nunca la alcanza.
+    <section
+      {...(enModal ? {} : { "data-reveal": true })}
+      className={enModal ? seccionCls : `${seccionCls} min-h-[70svh]`}
+    >
       <div className="w-full max-w-[560px] rounded-3xl border border-[#e3d9c4] bg-[#fffdf8] p-7 shadow-[0_24px_60px_-36px_rgba(122,101,62,0.5)] sm:p-10">
       <h2 className="inv3-serif text-center text-[clamp(26px,5.4vw,32px)] text-[#3d3a35]">
         ¿Nos acompañás?

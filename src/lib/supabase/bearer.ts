@@ -36,8 +36,10 @@ export async function sesionDesdeBearer(req: Request): Promise<SesionBearer | nu
   const token = tokenDeLaPeticion(req);
   if (!token) return null;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // .trim(): en Vercel el valor puede traer un \n pegado (ver
+  // a/[slug]/page.tsx).
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anon) return null;
 
   const supabase = createSupabaseClient(url, anon, {
