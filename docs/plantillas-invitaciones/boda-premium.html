@@ -13,17 +13,23 @@
     html/body — React los hidrata y una clase ajena da mismatch.
   - Un toque lo abre: el sello se rompe, la solapa gira con perspective,
     la carta emerge y el velo se disuelve. Un segundo toque salta la
-    animación. Ese clic es el gesto que arranca la MÚSICA (saxofón, en
-    loop, volumen 0.5). El botón flotante ♪ (siempre visible, ≥44px)
-    pausa/reanuda; el botón "♪ Nuestra canción" del hero es el mismo
-    toggle.
+    animación.
+  - LA MÚSICA (saxofón, loop, volumen 0.5) tiene prioridad de gesto:
+    (a) play() se llama SINCRÓNICO dentro del handler del click del
+    sobre — la activación transitoria expira en un setTimeout y
+    Chrome/Safari rechazarían en silencio; (b) si el navegador la
+    bloquea igual, el .catch() deja el ♪ flotante pulsando (bpr-invita)
+    y tanto él como el botón grande "Reproducir nuestra canción" del
+    hero arrancan con su propio clic. Ambos botones reflejan el estado
+    REAL del audio (eventos play/pause, nunca una variable propia).
 
   CAPÍTULOS (cada uno entra DISTINTO, IntersectionObserver):
     1. Hero de seda: cascada escalonada tras abrir el sobre; nombres con
        overshoot, "&" dorado que respira; tocar los nombres suelta
        chispas doradas.
     2. La fecha: INMERSIÓN (translateY grande + scale 0.92→1 + blur→
-       nítido); cuenta regresiva viva con celdas que brincan; botón
+       nítido) y el marco monumental CRECE aparte (scale 0.85 con
+       overshoot); cuenta regresiva viva con celdas que brincan; botón
        "Agregar al calendario" (Google Calendar real).
     3. Capítulo uno — La celebración: la foto se revela con una CORTINA
        vino que se corre; el texto entra desde la izquierda escalonado.
@@ -31,19 +37,30 @@
     4. Código de vestimenta: banda VINO con bordes de festón; el título
        BRINCA con rebote elástico; las cartas giran al entrar y los
        puntitos de colores estallan en cascada.
-    5. Capítulo dos — Nuestra historia: las fotos se destapan con velos
-       que corren en direcciones opuestas y se asientan en su
-       inclinación; parallax sutil; tocarlas suelta corazones.
+    5. Capítulo dos — Nuestra historia: el encabezado entra con la
+       SEGUNDA INMERSIÓN; las fotos se destapan con velos que corren en
+       direcciones opuestas y se asientan en su inclinación; parallax
+       sutil; tocarlas suelta corazones. OJO: los velos/cortinas tienen
+       el estado REVELADO por defecto — solo cubren bajo .bpr-anima
+       mientras la escena no entró, así un observer caído jamás deja
+       una foto invisible.
     6. ¿Nos acompañás?: entrada en abanico; DOS ARGOLLAS DORADAS ruedan
        desde los bordes y se encuentran en el centro según el progreso
        del scroll (rAF) — al juntarse brota un corazón; tocarlas hace
-       "¡clink!". El botón scrollea suave al bloque RSVP REAL que la
-       página agrega debajo (no hay formulario propio).
+       "¡clink!". El botón lleva data-bookea="abrir-rsvp": la página
+       /i/[slug] detecta la marca, no pinta el RSVP al pie y abre el
+       formulario REAL como card modal con ese clic (no hay formulario
+       propio).
     7. Pie en vino profundo: la línea dorada se dibuja, la firma y el
        crédito de la música.
 
-  AMBIENTE PERMANENTE: pétalos rosados cayendo + destellos dorados
-  subiendo (20 partículas en móvil, 32 en ≥768px), en contenedor fijo.
+  AMBIENTE PERMANENTE: pétalos de rosa SVG cayendo en zigzag (15 en
+  móvil, 30 en ≥768px) + destellos dorados subiendo (8/16), en
+  contenedor fijo. Y la SEDA EN VIVO: cada sección lleva capas de olas
+  tono sobre tono meciéndose en loop perpetuo (ciclos 9.5–17 s
+  desfasados, translate+rotate+scaleY — amplitud que se nota en 3–4 s
+  de mirar), vía isolation + z-index -1 para pintarse entre el fondo y
+  el contenido.
 
   PLACEHOLDERS:
     {{NOMBRE_1}}         primer nombre               p. ej. Isabella
@@ -76,10 +93,8 @@
   - prefers-reduced-motion: el sobre no aparece (display:none y el
     script tampoco lo abre), cero loops, todo visible y estático.
   - Sin JS: el <dialog> queda cerrado (oculto), no hay lock de scroll y
-    la invitación completa es visible y legible.
-  - El scroll a la confirmación busca el hermano siguiente del
-    contenedor que la página le da al html_personalizado — ahí vive el
-    bloque RSVP real de /i/[slug].
+    la invitación completa es visible y legible (fotos incluidas: los
+    estados "tapado" solo existen bajo .bpr-anima).
 -->
 <div class="bpr" id="bpr">
   <style>
@@ -390,6 +405,21 @@
       pointer-events: none;
     }
     #bpr-musica.bpr-pausada .bpr-nota-off { display: block; }
+    /* Si el navegador bloqueó el autoplay, el ♪ pulsa invitando al
+       toque (su clic es una activación de usuario nueva). */
+    #bpr-musica.bpr-invita::after {
+      content: "";
+      position: absolute;
+      inset: -5px;
+      border-radius: inherit;
+      border: 2px solid var(--bpr-oro-claro);
+      animation: bpr-invita-onda 1.6s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes bpr-invita-onda {
+      0%   { opacity: 0.9; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.6); }
+    }
 
     /* ================================================================ */
     /* AMBIENTE PERMANENTE — pétalos y destellos (contenedor fijo)       */
@@ -401,22 +431,25 @@
       overflow: hidden;
       pointer-events: none;
     }
+    /* Pétalos de rosa DE VERDAD (SVG), cayendo y meciéndose en zigzag
+       todo el recorrido — 15 en móvil, 30 en ≥768px. */
     .bpr-petalo {
       position: absolute;
-      top: -4vh;
-      border-radius: 62% 8% 62% 62%;
-      background: linear-gradient(140deg, rgba(226, 164, 177, 0.7), rgba(197, 118, 136, 0.5));
+      top: -5vh;
       opacity: 0;
-      animation: bpr-caer var(--t, 19s) linear infinite;
+      animation: bpr-caer var(--t, 17s) linear infinite;
       animation-delay: var(--r, 0s);
       will-change: transform;
     }
+    .bpr-petalo svg { display: block; width: 100%; height: 100%; }
     @keyframes bpr-caer {
-      0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(10deg); }
-      8%   { opacity: 0.85; }
-      50%  { transform: translate3d(var(--dx1, 34px), 52vh, 0) rotate(200deg); }
-      88%  { opacity: 0.5; }
-      100% { opacity: 0; transform: translate3d(var(--dx2, -18px), 106vh, 0) rotate(390deg); }
+      0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+      6%   { opacity: 0.95; }
+      30%  { transform: translate3d(var(--dx1, 40px), 30vh, 0) rotate(120deg); }
+      55%  { transform: translate3d(calc(var(--dx1, 40px) * -0.7), 58vh, 0) rotate(235deg); }
+      80%  { transform: translate3d(var(--dx2, -24px), 86vh, 0) rotate(330deg); }
+      92%  { opacity: 0.75; }
+      100% { opacity: 0; transform: translate3d(calc(var(--dx2, -24px) * 0.4), 110vh, 0) rotate(410deg); }
     }
     .bpr-destello {
       position: absolute;
@@ -507,24 +540,51 @@
       display: block;
       will-change: transform;
     }
-    .bpr-ola-1 { top: -7%; left: -20%; width: 140%; height: 44%; animation: bpr-mecer-a 16s ease-in-out infinite alternate; }
-    .bpr-ola-2 { top: 6%; right: -24%; width: 120%; height: 50%; display: none; animation: bpr-mecer-b 19s ease-in-out infinite alternate-reverse; }
-    .bpr-ola-3 { bottom: -6%; left: -20%; width: 140%; height: 46%; animation: bpr-mecer-c 13s ease-in-out infinite alternate; }
+    /* El viento: ciclos cortos y DESFASADOS (9.5s/17s/13s con delays
+       negativos) y amplitud que se nota en 3–4 segundos de mirar —
+       translate 3.5% + rotate ~1deg + una respiración de scaleY. */
+    .bpr-ola-1 { top: -7%; left: -20%; width: 140%; height: 44%; animation: bpr-mecer-a 9.5s ease-in-out -3.2s infinite alternate; }
+    .bpr-ola-2 { top: 6%; right: -24%; width: 120%; height: 50%; display: none; animation: bpr-mecer-b 17s ease-in-out -7.4s infinite alternate-reverse; }
+    .bpr-ola-3 { bottom: -6%; left: -20%; width: 140%; height: 46%; animation: bpr-mecer-c 13s ease-in-out -5.1s infinite alternate; }
     @media (min-width: 768px) {
       .bpr-ola-2 { display: block; }
     }
     @keyframes bpr-mecer-a {
-      from { transform: translate3d(-2.2%, -1%, 0) rotate(-0.5deg); }
-      to   { transform: translate3d(2.4%, 1.2%, 0) rotate(0.6deg); }
+      from { transform: translate3d(-3.4%, -1.8%, 0) rotate(-1deg) scaleY(0.96); }
+      to   { transform: translate3d(3.6%, 2%, 0) rotate(1.1deg) scaleY(1.05); }
     }
     @keyframes bpr-mecer-b {
-      from { transform: translate3d(2.6%, 1.4%, 0) rotate(0.7deg); }
-      to   { transform: translate3d(-2.4%, -1.2%, 0) rotate(-0.6deg); }
+      from { transform: translate3d(3.8%, 2.2%, 0) rotate(1.2deg) scaleY(1.04); }
+      to   { transform: translate3d(-3.4%, -1.8%, 0) rotate(-1deg) scaleY(0.96); }
     }
     @keyframes bpr-mecer-c {
-      from { transform: translate3d(-1.8%, 1%, 0) rotate(0.4deg); }
-      to   { transform: translate3d(2%, -1.2%, 0) rotate(-0.5deg); }
+      from { transform: translate3d(-3%, 1.8%, 0) rotate(0.9deg) scaleY(1.04); }
+      to   { transform: translate3d(3.4%, -2%, 0) rotate(-1deg) scaleY(0.96); }
     }
+
+    /* La seda acompaña TODO el recorrido: cada sección lleva su propia
+       capa de olas tono sobre tono meciéndose (duraciones y fases
+       propias vía style inline). isolation + z-index -1 la pintan
+       encima del fondo de la sección y debajo de todo el contenido. */
+    .bpr-fecha, .bpr-cap1, .bpr-dc, .bpr-historia, .bpr-rsvp, .bpr-pie {
+      isolation: isolate;
+    }
+    .bpr-seda-fondo {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bpr-olaf {
+      position: absolute;
+      left: -22%;
+      width: 144%;
+      height: 58%;
+      will-change: transform;
+    }
+    .bpr-olaf-a { top: -14%; animation: bpr-mecer-a 11s ease-in-out infinite alternate; }
+    .bpr-olaf-b { bottom: -14%; animation: bpr-mecer-c 15s ease-in-out infinite alternate-reverse; }
 
     .bpr-hero-cont {
       position: relative;
@@ -663,7 +723,17 @@
       .bpr-btn-oro:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(201, 162, 39, 0.24); }
       .bpr-btn-linea:hover { background: rgba(107, 34, 51, 0.06); }
     }
-    .bpr-btn-cancion { margin-top: 26px; }
+    /* El botón protagonista de la música: grande, vino, con el texto
+       que refleja el estado real del audio. */
+    .bpr-btn-cancion {
+      margin-top: 26px;
+      min-height: 54px;
+      padding: 16px 30px;
+      font-size: 13px;
+    }
+    .bpr-cancion-pausa { display: none; }
+    .bpr-btn-cancion.bpr-tocando .bpr-cancion-pausa { display: block; }
+    .bpr-btn-cancion.bpr-tocando .bpr-cancion-play { display: none; }
     .bpr-desliza {
       position: absolute;
       bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
@@ -701,6 +771,7 @@
       align-items: center;
       text-align: center;
       max-width: 720px;
+      margin: 0 auto;
       opacity: 1;
       transform: none;
       filter: none;
@@ -713,6 +784,19 @@
       opacity: 0;
       transform: translateY(74px) scale(0.92);
       filter: blur(10px);
+    }
+
+    /* CRECIMIENTO: el campo se agranda al entrar (scale 0.85 con
+       overshoot sutil) — lo usa el marco monumental de la fecha. */
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-crece { opacity: 0; }
+    .bpr-anima .bpr-vista .bpr-crece {
+      opacity: 0;
+      animation: bpr-crecer 0.95s cubic-bezier(0.26, 1.2, 0.4, 1) 0.3s forwards;
+    }
+    @keyframes bpr-crecer {
+      0%   { opacity: 0; transform: scale(0.85); }
+      70%  { opacity: 1; transform: scale(1.03); }
+      100% { opacity: 1; transform: scale(1); }
     }
     .bpr-cejilla {
       margin: 0;
@@ -942,17 +1026,19 @@
       object-fit: cover;
       display: block;
     }
+    /* La cortina REVELADA es el estado por defecto: solo cubre cuando
+       el JS confirmó que anima (.bpr-anima) y la escena aún no entró.
+       Si el observer falla, la foto se ve siempre. */
     .bpr-cortina {
       position: absolute;
       inset: 0;
       z-index: 2;
       background: linear-gradient(100deg, var(--bpr-vino) 55%, var(--bpr-vino-prof));
-      transform: translateX(0);
+      transform: translateX(101%);
       transition: transform 0.95s cubic-bezier(0.65, 0, 0.25, 1) 0.15s;
       will-change: transform;
     }
-    [data-bpr-escena].bpr-vista .bpr-cortina { transform: translateX(101%); }
-    .bpr:not(.bpr-anima) .bpr-cortina { transform: translateX(101%); transition: none; }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-cortina { transform: translateX(0); }
     .bpr-foto-pie {
       position: absolute;
       z-index: 3;
@@ -976,6 +1062,7 @@
       overflow: hidden;
       text-align: center;
     }
+    /* Los festones se desenrollan al entrar la escena. */
     .bpr-dc-borde {
       position: absolute;
       left: 0;
@@ -983,9 +1070,18 @@
       height: 34px;
       display: block;
       pointer-events: none;
+      transition: transform 0.85s cubic-bezier(0.22, 0.65, 0.25, 1) 0.15s;
     }
-    .bpr-dc-borde-arriba { top: -1px; }
-    .bpr-dc-borde-abajo { bottom: -1px; }
+    .bpr-dc-borde-arriba { top: -1px; transform-origin: 50% 0; }
+    .bpr-dc-borde-abajo { bottom: -1px; transform-origin: 50% 100%; }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-dc-borde { transform: scaleY(0); }
+
+    /* Las ondas divisoras se dibujan de izquierda a derecha. */
+    .bpr-onda-anima {
+      transform-origin: 0 50%;
+      transition: transform 1s cubic-bezier(0.22, 0.65, 0.25, 1) 0.1s;
+    }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-onda-anima { transform: scaleX(0.02); }
     .bpr-dc-cejilla { color: var(--bpr-oro-claro); }
     .bpr-dc-titulo {
       margin: 14px 0 0;
@@ -1147,7 +1243,11 @@
       .bpr-pola-a { margin-right: -26px; z-index: 2; }
       .bpr-pola-b { margin-top: 42px; }
     }
+    /* display:block es OBLIGATORIO: el marco es un <span> y aspect-ratio
+       no aplica a elementos inline — sin esto colapsa a altura cero y
+       la polaroid queda como tarjeta blanca vacía. */
     .bpr-pola-marco {
+      display: block;
       position: relative;
       overflow: hidden;
       aspect-ratio: 4 / 3;
@@ -1161,19 +1261,19 @@
       display: block;
       will-change: transform;
     }
+    /* Igual que la cortina: el velo DESCUBIERTO es el estado por
+       defecto; solo tapa mientras .bpr-anima espera la entrada. */
     .bpr-pola-velo {
       position: absolute;
       inset: 0;
       z-index: 2;
       background: var(--bpr-crema);
-      transform: translateY(0);
       transition: transform 0.9s cubic-bezier(0.65, 0, 0.25, 1) calc(var(--d, 0s) + 0.25s);
       will-change: transform;
     }
-    .bpr-pola-a .bpr-pola-velo { transform: translateY(0); }
-    [data-bpr-escena].bpr-vista .bpr-pola-a .bpr-pola-velo { transform: translateY(-102%); }
-    [data-bpr-escena].bpr-vista .bpr-pola-b .bpr-pola-velo { transform: translateY(102%); }
-    .bpr:not(.bpr-anima) .bpr-pola-velo { display: none; }
+    .bpr-pola-a .bpr-pola-velo { transform: translateY(-102%); }
+    .bpr-pola-b .bpr-pola-velo { transform: translateY(102%); }
+    .bpr-anima [data-bpr-escena]:not(.bpr-vista) .bpr-pola-velo { transform: translateY(0); }
     .bpr-pola-pie {
       margin: 12px 0 0;
       font: italic 600 15px/1.4 var(--bpr-serif);
@@ -1341,12 +1441,13 @@
       #bpr-sobre { display: none !important; }
       .bpr-hero-e, .bpr-nombres, .bpr-sumerge, .bpr-izq, .bpr-dc-carta,
       .bpr-punto, .bpr-cd-celda, .bpr-pola, .bpr-aba, .bpr-pie-e,
-      .bpr-brinca {
+      .bpr-brinca, .bpr-crece {
         opacity: 1 !important;
         transform: none !important;
         filter: none !important;
       }
       .bpr-pola { transform: rotate(var(--rot, 0deg)) !important; }
+      .bpr-dc-borde, .bpr-onda-anima { transform: none !important; }
       .bpr-cortina, .bpr-pola-velo { display: none !important; }
       .bpr-petalo, .bpr-destello, .bpr-sobre-mota { display: none !important; }
       #bpr-anillo-l { left: calc(50% - 54px) !important; }
@@ -1412,11 +1513,23 @@
 
       raiz.classList.add("bpr-js");
 
+      /* Si el navegador rechaza el play, el ♪ queda pulsando: su clic
+         es una activación de usuario nueva y ahí sí arranca. */
+      function invitar() {
+        if (pill) pill.classList.add("bpr-invita");
+      }
+
       function reproducir() {
         if (!audio) return;
         audio.volume = 0.5;
-        var p = audio.play();
-        if (p && p.catch) p.catch(function () {});
+        var p;
+        try {
+          p = audio.play();
+        } catch (e) {
+          invitar();
+          return;
+        }
+        if (p && p.catch) p.catch(invitar);
       }
 
       /* El toggle del ♪ flotante; el del hero se ata en el script final. */
@@ -1425,19 +1538,27 @@
           if (audio.paused) reproducir();
           else audio.pause();
         });
+        /* El ♪ y el botón grande del hero SIEMPRE reflejan el estado
+           real del audio: se escuchan los eventos play/pause, nunca
+           una variable propia. */
         audio.addEventListener("play", function () {
           pill.classList.add("bpr-sonando");
           pill.classList.remove("bpr-pausada");
+          pill.classList.remove("bpr-invita");
           pill.setAttribute("aria-label", "Pausar la música");
           var h = document.getElementById("bpr-cancion");
-          if (h) h.setAttribute("aria-pressed", "true");
+          if (h) { h.setAttribute("aria-pressed", "true"); h.classList.add("bpr-tocando"); }
+          var eti = document.getElementById("bpr-cancion-eti");
+          if (eti) eti.textContent = "Pausar la canción";
         });
         audio.addEventListener("pause", function () {
           pill.classList.remove("bpr-sonando");
           pill.classList.add("bpr-pausada");
           pill.setAttribute("aria-label", "Reproducir la música");
           var h = document.getElementById("bpr-cancion");
-          if (h) h.setAttribute("aria-pressed", "false");
+          if (h) { h.setAttribute("aria-pressed", "false"); h.classList.remove("bpr-tocando"); }
+          var eti = document.getElementById("bpr-cancion-eti");
+          if (eti) eti.textContent = "Reproducir nuestra canción";
         });
       }
 
@@ -1465,7 +1586,11 @@
         if (abierto) return;
         if (abriendo) { finalizar(); return; } /* segundo toque = saltar */
         abriendo = true;
-        reproducir(); /* el clic del sobre es el gesto que permite el audio */
+        /* LA MÚSICA PRIMERO, sincrónica dentro del handler del click:
+           la activación transitoria del usuario expira si play() se
+           llama desde un setTimeout — Chrome/Safari lo rechazarían en
+           silencio. La animación de apertura corre en paralelo. */
+        reproducir();
         dlg.classList.add("bpr-abriendo");
         timers.push(window.setTimeout(function () { dlg.classList.add("bpr-solapa-atras"); }, 300));
         timers.push(window.setTimeout(function () { dlg.classList.add("bpr-carta-arriba"); }, 480));
@@ -1558,11 +1683,14 @@
       <p class="bpr-lema bpr-hero-e" style="--d: 0.6s">
         Y esta es la carta con la que queríamos contártelo.
       </p>
-      <button type="button" class="bpr-btn bpr-btn-oro bpr-btn-cancion bpr-hero-e" id="bpr-cancion" style="--d: 0.74s" aria-pressed="false">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M9 3v10.55A3.97 3.97 0 0 0 7 13a4 4 0 1 0 4 4V7h6V3H9z" />
+      <button type="button" class="bpr-btn bpr-btn-vino bpr-btn-cancion bpr-hero-e" id="bpr-cancion" style="--d: 0.74s" aria-pressed="false">
+        <svg class="bpr-cancion-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M8 5v14l11-7z" />
         </svg>
-        Nuestra canción
+        <svg class="bpr-cancion-pausa" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+        </svg>
+        <span id="bpr-cancion-eti">Reproducir nuestra canción</span>
       </button>
       <p class="bpr-desliza bpr-hero-e" style="--d: 0.95s" aria-hidden="true">Deslizá <span>↓</span></p>
     </div>
@@ -1570,9 +1698,17 @@
 
   <!-- ================= 2 · LA FECHA ================= -->
   <section class="bpr-fecha" data-bpr-escena>
+    <div class="bpr-seda-fondo" aria-hidden="true">
+      <svg class="bpr-olaf bpr-olaf-a" style="animation-duration: 10s; animation-delay: -2.4s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#fffdf8" fill-opacity="0.55" d="M0,0 L1440,0 L1440,170 C1180,240 940,140 720,200 C480,260 240,160 0,220 Z" />
+      </svg>
+      <svg class="bpr-olaf bpr-olaf-b" style="animation-duration: 14s; animation-delay: -6s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#e9dcc2" fill-opacity="0.5" d="M0,420 L1440,420 L1440,230 C1200,160 960,260 720,200 C480,140 240,250 0,190 Z" />
+      </svg>
+    </div>
     <div class="bpr-sumerge">
       <p class="bpr-cejilla">Agendá la fecha</p>
-      <div class="bpr-fecha-marco">
+      <div class="bpr-fecha-marco bpr-crece">
         <p class="bpr-fecha-dia">{{DIA_PALABRA}}</p>
         <p class="bpr-fecha-mes">{{MES}}</p>
         <p class="bpr-fecha-anio">{{ANIO}}</p>
@@ -1619,7 +1755,15 @@
 
   <!-- ================= 3 · CAPÍTULO UNO — LA CELEBRACIÓN ================= -->
   <section class="bpr-cap1" data-bpr-escena>
-    <svg class="bpr-onda-div" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true">
+    <div class="bpr-seda-fondo" aria-hidden="true">
+      <svg class="bpr-olaf bpr-olaf-a" style="animation-duration: 12s; animation-delay: -4s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#efe7d8" fill-opacity="0.6" d="M0,0 L1440,0 L1440,170 C1180,240 940,140 720,200 C480,260 240,160 0,220 Z" />
+      </svg>
+      <svg class="bpr-olaf bpr-olaf-b" style="animation-duration: 16s; animation-delay: -8s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#fffdf8" fill-opacity="0.6" d="M0,420 L1440,420 L1440,230 C1200,160 960,260 720,200 C480,140 240,250 0,190 Z" />
+      </svg>
+    </div>
+    <svg class="bpr-onda-div bpr-onda-anima" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true">
       <path fill="#f3ead9" d="M0,20 C240,42 480,0 720,16 C960,32 1200,2 1440,18 L1440,0 L0,0 Z" />
     </svg>
     <div class="bpr-cap1-grid">
@@ -1648,7 +1792,7 @@
         </div>
       </div>
       <div class="bpr-cap1-foto">
-        <div class="bpr-foto-lienzo" data-bpr-parallax="0.1">
+        <div class="bpr-foto-lienzo" data-bpr-parallax="0.14">
           <img src="{{FOTO_1}}" alt="{{NOMBRE_1}} y {{NOMBRE_2}} al atardecer frente al mar" loading="lazy" />
         </div>
         <p class="bpr-foto-pie">El atardecer que nos decidió</p>
@@ -1659,6 +1803,14 @@
 
   <!-- ================= 4 · CÓDIGO DE VESTIMENTA ================= -->
   <section class="bpr-dc" data-bpr-escena>
+    <div class="bpr-seda-fondo" aria-hidden="true">
+      <svg class="bpr-olaf bpr-olaf-a" style="animation-duration: 11s; animation-delay: -5s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#8a2e44" fill-opacity="0.35" d="M0,0 L1440,0 L1440,170 C1180,240 940,140 720,200 C480,260 240,160 0,220 Z" />
+      </svg>
+      <svg class="bpr-olaf bpr-olaf-b" style="animation-duration: 15s; animation-delay: -2s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#2b0d14" fill-opacity="0.3" d="M0,420 L1440,420 L1440,230 C1200,160 960,260 720,200 C480,140 240,250 0,190 Z" />
+      </svg>
+    </div>
     <svg class="bpr-dc-borde bpr-dc-borde-arriba" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">
       <path fill="#f7f2ea" d="M0,8 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 q48,32 96,0 V0 H0 Z" />
     </svg>
@@ -1717,25 +1869,37 @@
 
   <!-- ================= 5 · CAPÍTULO DOS — NUESTRA HISTORIA ================= -->
   <section class="bpr-historia" data-bpr-escena>
-    <p class="bpr-cejilla bpr-izq" style="--d: 0s">Capítulo dos</p>
-    <h2 class="bpr-titulo bpr-izq" style="--d: 0.1s">Nuestra historia</h2>
-    <p class="bpr-historia-parrafo bpr-izq" style="--d: 0.22s">
-      Nos conocimos un noviembre y el mundo se nos hizo chiquito. París nos
-      escuchó decir «para siempre»; Kioto nos vio bailar bajo los cerezos.
-      Falta el capítulo más lindo — y empieza con vos ahí.
-    </p>
+    <div class="bpr-seda-fondo" aria-hidden="true">
+      <svg class="bpr-olaf bpr-olaf-a" style="animation-duration: 13s; animation-delay: -7s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#e9dcc2" fill-opacity="0.5" d="M0,0 L1440,0 L1440,170 C1180,240 940,140 720,200 C480,260 240,160 0,220 Z" />
+      </svg>
+      <svg class="bpr-olaf bpr-olaf-b" style="animation-duration: 9.5s; animation-delay: -3s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#fffdf8" fill-opacity="0.55" d="M0,420 L1440,420 L1440,230 C1200,160 960,260 720,200 C480,140 240,250 0,190 Z" />
+      </svg>
+    </div>
+    <!-- El encabezado entra con INMERSIÓN (como sumergirse en el
+         recuerdo); las polaroids traen su propio destape. -->
+    <div class="bpr-sumerge">
+      <p class="bpr-cejilla">Capítulo dos</p>
+      <h2 class="bpr-titulo">Nuestra historia</h2>
+      <p class="bpr-historia-parrafo">
+        Nos conocimos un noviembre y el mundo se nos hizo chiquito. París nos
+        escuchó decir «para siempre»; Kioto nos vio bailar bajo los cerezos.
+        Falta el capítulo más lindo — y empieza con vos ahí.
+      </p>
+    </div>
 
     <div class="bpr-polas">
       <figure class="bpr-pola bpr-pola-a" style="--rot: -2.5deg; --d: 0.15s" title="Un toque de cariño">
         <span class="bpr-pola-marco">
-          <img src="{{FOTO_2}}" alt="{{NOMBRE_1}} y {{NOMBRE_2}} de noche junto al río en París" loading="lazy" data-bpr-parallax="-0.07" />
+          <img src="{{FOTO_2}}" alt="{{NOMBRE_1}} y {{NOMBRE_2}} de noche junto al río en París" loading="lazy" data-bpr-parallax="-0.1" />
           <span class="bpr-pola-velo" aria-hidden="true"></span>
         </span>
         <figcaption class="bpr-pola-pie">París — el «para siempre»</figcaption>
       </figure>
       <figure class="bpr-pola bpr-pola-b" style="--rot: 2deg; --d: 0.35s" title="Un toque de cariño">
         <span class="bpr-pola-marco">
-          <img src="{{FOTO_3}}" alt="{{NOMBRE_1}} y {{NOMBRE_2}} bailando bajo los cerezos en Kioto" loading="lazy" data-bpr-parallax="0.09" />
+          <img src="{{FOTO_3}}" alt="{{NOMBRE_1}} y {{NOMBRE_2}} bailando bajo los cerezos en Kioto" loading="lazy" data-bpr-parallax="0.12" />
           <span class="bpr-pola-velo" aria-hidden="true"></span>
         </span>
         <figcaption class="bpr-pola-pie">Kioto — el primer baile</figcaption>
@@ -1745,7 +1909,15 @@
 
   <!-- ================= 6 · ¿NOS ACOMPAÑÁS? ================= -->
   <section class="bpr-rsvp" data-bpr-escena>
-    <svg class="bpr-onda-div" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; top: -1px; left: 0;">
+    <div class="bpr-seda-fondo" aria-hidden="true">
+      <svg class="bpr-olaf bpr-olaf-a" style="animation-duration: 10.5s; animation-delay: -1.5s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#efe7d8" fill-opacity="0.55" d="M0,0 L1440,0 L1440,170 C1180,240 940,140 720,200 C480,260 240,160 0,220 Z" />
+      </svg>
+      <svg class="bpr-olaf bpr-olaf-b" style="animation-duration: 14.5s; animation-delay: -9s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#fffdf8" fill-opacity="0.6" d="M0,420 L1440,420 L1440,230 C1200,160 960,260 720,200 C480,140 240,250 0,190 Z" />
+      </svg>
+    </div>
+    <svg class="bpr-onda-div bpr-onda-anima" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; top: -1px; left: 0;">
       <path fill="#f3ead9" d="M0,18 C240,40 480,-2 720,14 C960,30 1200,0 1440,16 L1440,0 L0,0 Z" />
     </svg>
     <div style="padding-top: 30px;">
@@ -1758,8 +1930,11 @@
       <p class="bpr-rsvp-nota bpr-aba" style="--d: 0.36s">
         Celebración solo para adultos — gracias por comprenderlo.
       </p>
-      <button type="button" class="bpr-btn bpr-btn-vino bpr-btn-confirmar bpr-aba" id="bpr-ir-rsvp" style="--d: 0.48s">
-        Confirmá tu asistencia ▼
+      <!-- data-bookea="abrir-rsvp": la página /i/[slug] detecta esta
+           marca, no pinta el RSVP al pie y abre el formulario real
+           como card modal al clickear este botón. -->
+      <button type="button" class="bpr-btn bpr-btn-vino bpr-btn-confirmar bpr-aba" id="bpr-ir-rsvp" data-bookea="abrir-rsvp" style="--d: 0.48s">
+        Confirmá tu asistencia
       </button>
     </div>
 
@@ -1797,7 +1972,15 @@
 
   <!-- ================= 7 · EL PIE ================= -->
   <section class="bpr-pie" data-bpr-escena>
-    <svg class="bpr-onda-div" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; top: -1px; left: 0;">
+    <div class="bpr-seda-fondo" aria-hidden="true">
+      <svg class="bpr-olaf bpr-olaf-a" style="animation-duration: 12.5s; animation-delay: -6s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#8a2e44" fill-opacity="0.2" d="M0,0 L1440,0 L1440,170 C1180,240 940,140 720,200 C480,260 240,160 0,220 Z" />
+      </svg>
+      <svg class="bpr-olaf bpr-olaf-b" style="animation-duration: 16.5s; animation-delay: -3s" viewBox="0 0 1440 420" preserveAspectRatio="none">
+        <path fill="#14060a" fill-opacity="0.4" d="M0,420 L1440,420 L1440,230 C1200,160 960,260 720,200 C480,140 240,250 0,190 Z" />
+      </svg>
+    </div>
+    <svg class="bpr-onda-div bpr-onda-anima" viewBox="0 0 1440 42" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; top: -1px; left: 0;">
       <path fill="#f7f2ea" d="M0,16 C240,36 480,-2 720,12 C960,26 1200,2 1440,18 L1440,0 L0,0 Z" />
     </svg>
     <div style="padding-top: 26px;">
@@ -1892,20 +2075,28 @@
       var caja = document.getElementById("bpr-ambiente");
       if (!caja) return;
       var ancho = window.matchMedia && window.matchMedia("(min-width: 768px)").matches;
-      var nPetalos = ancho ? 14 : 8;
-      var nDestellos = ancho ? 18 : 12;
+      var nPetalos = ancho ? 30 : 15;
+      var nDestellos = ancho ? 16 : 8;
+      var colores = ["#e2a4b1", "#c57688", "#a34d62"];
       var i, p;
       for (i = 0; i < nPetalos; i++) {
         p = document.createElement("span");
         p.className = "bpr-petalo";
-        var tamP = 8 + Math.random() * 7;
+        var tamP = (ancho ? 12 : 10) + Math.random() * (ancho ? 8 : 6);
+        var color = colores[(Math.random() * colores.length) | 0];
         p.style.width = tamP + "px";
-        p.style.height = (tamP * 0.85).toFixed(1) + "px";
+        p.style.height = (tamP * 1.15).toFixed(1) + "px";
         p.style.left = (2 + Math.random() * 94) + "%";
-        p.style.setProperty("--t", (16 + Math.random() * 12).toFixed(1) + "s");
-        p.style.setProperty("--r", (-Math.random() * 26).toFixed(1) + "s");
+        p.style.setProperty("--t", (12 + Math.random() * 10).toFixed(1) + "s");
+        p.style.setProperty("--r", (-Math.random() * 22).toFixed(1) + "s");
         p.style.setProperty("--dx1", ((Math.random() * 90 - 45) | 0) + "px");
         p.style.setProperty("--dx2", ((Math.random() * 70 - 35) | 0) + "px");
+        /* Un pétalo de rosa con su vena de luz, girado al azar. */
+        p.innerHTML =
+          '<svg viewBox="0 0 24 28" style="transform: rotate(' + ((Math.random() * 360) | 0) + 'deg)">' +
+          '<path fill="' + color + '" fill-opacity="0.85" d="M12 1 C18 5 22 12 20 19 C18.5 24 15 27 12 27 C9 27 5.5 24 4 19 C2 12 6 5 12 1 Z" />' +
+          '<path fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.1" stroke-linecap="round" d="M12 4 C14.5 9 15.2 14 13.8 21" />' +
+          "</svg>";
         caja.appendChild(p);
       }
       for (i = 0; i < nDestellos; i++) {
@@ -2137,21 +2328,9 @@
         });
       });
 
-      /* "Confirmá tu asistencia": scroll suave al bloque RSVP real que
-         la página agrega justo después de este HTML. */
-      var irRsvp = document.getElementById("bpr-ir-rsvp");
-      if (irRsvp) {
-        irRsvp.addEventListener("click", function () {
-          var raiz = document.getElementById("bpr");
-          var cont = raiz ? raiz.parentElement : null;
-          var destino = cont ? cont.nextElementSibling : null;
-          if (destino) {
-            destino.scrollIntoView({ behavior: reducido ? "auto" : "smooth", block: "start" });
-          } else {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: reducido ? "auto" : "smooth" });
-          }
-        });
-      }
+      /* "Confirmá tu asistencia" no necesita JS propio: lleva la marca
+         data-bookea="abrir-rsvp" y la página /i/[slug] abre el
+         formulario real como card modal con ese clic. */
     })();
   </script>
 </div>
