@@ -43,18 +43,24 @@ export async function POST(request: Request) {
 
     const supabase = await createClient();
 
-    // El dueño mirando su propia página no es una visita, y un admin
-    // revisando publicaciones tampoco. Solo se pregunta si hay sesión:
-    // el visitante de a pie (el caso normal) no paga estas consultas.
+    // El DUEÑO mirando su propia página no cuenta: si no, el negocio
+    // que revisa su publicación diez veces al día se infla su propio
+    // número y el cartel deja de decir la verdad.
+    //
+    // El ADMIN sí cuenta y sí ve el cartel como cualquiera (decisión
+    // del dueño): es una persona más mirando, y excluirlo obligaba a
+    // abrir una ventana de incógnito solo para comprobar que el
+    // contador funciona.
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      const [{ data: rancho }, { data: perfil }] = await Promise.all([
-        supabase.from("ranchos").select("owner_id").eq("id", ranchoId).maybeSingle(),
-        supabase.from("perfiles").select("rol").eq("id", user.id).maybeSingle(),
-      ]);
-      if (rancho?.owner_id === user.id || perfil?.rol === "admin") {
+      const { data: rancho } = await supabase
+        .from("ranchos")
+        .select("owner_id")
+        .eq("id", ranchoId)
+        .maybeSingle();
+      if (rancho?.owner_id === user.id) {
         return new NextResponse(null, SIN_CONTENIDO);
       }
     }
