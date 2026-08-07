@@ -57,30 +57,6 @@ export const metadata: Metadata = {
 const NAVY_PROFUNDO = "#0a1226";
 const NAVY = "#16295e";
 
-/** Lo que NO es, que es la objeción real de quien nunca vio una. */
-const DIFERENCIAS = [
-  {
-    titulo: "No es una imagen que se reenvía",
-    cuerpo:
-      "Es una página propia con su dirección. Se abre a pantalla completa, con movimiento, música si querés, y se ve igual de nítida en cualquier teléfono.",
-  },
-  {
-    titulo: "No se llena a mano",
-    cuerpo:
-      "Cada quien confirma desde su celular y tu lista se actualiza sola. No hay que ir anotando en una libreta lo que llega por WhatsApp.",
-  },
-  {
-    titulo: "No se acaba",
-    cuerpo:
-      "Mandala las veces que quieras, a cuanta gente quieras. No se imprime, no se pierde, no hay que pedir más.",
-  },
-  {
-    titulo: "No es una plantilla",
-    cuerpo:
-      "La diseñamos para tu evento, desde una hoja en blanco: tus colores, tu temática, tus nombres. No elegís entre doce moldes.",
-  },
-];
-
 /**
  * Las cuatro piezas del producto, cada una apuntando a un ejemplo que
  * se abre de verdad. Los slugs están verificados: si se borra una demo
@@ -252,47 +228,6 @@ export default function InvitacionesLanding() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= QUÉ NO ES ================= */}
-      <section className="relative overflow-hidden px-5 py-24 sm:px-8" style={{ background: NAVY }}>
-        {/* Sin esto la sección es un rectángulo azul de punta a punta:
-            el halo y los números en naranja le dan el respiro y el
-            acento de la marca, que es lo que la separa del resto. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-32 top-1/3 h-[420px] w-[420px] rounded-full opacity-[0.14] blur-[110px]"
-          style={{ background: "#ee7420" }}
-        />
-
-        <div className="relative mx-auto w-[min(1120px,92vw)]">
-          <div data-reveal className="max-w-[26ch]">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#ee7420]">
-              Antes de seguir
-            </p>
-            <h2 className="titulo mt-4 text-[clamp(30px,5vw,58px)] leading-[1.06]">
-              Lo que <span className="text-[#ee7420]">no</span> es.
-            </h2>
-            <p className="mt-4 text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
-              La mayoría llega pensando en una imagen bonita para WhatsApp. Es otra cosa.
-            </p>
-          </div>
-
-          <div className="mt-14 grid gap-x-10 gap-y-11 sm:grid-cols-2">
-            {DIFERENCIAS.map((d, i) => (
-              <div key={d.titulo} data-reveal>
-                <div className="h-[2px] w-12 rounded-full bg-[#ee7420]" />
-                <p className="mt-5 text-[12px] font-bold tabular-nums tracking-[0.2em] text-[#ee7420]">
-                  {String(i + 1).padStart(2, "0")}
-                </p>
-                <h3 className="mt-2 text-[19px] font-bold leading-snug">{d.titulo}</h3>
-                <p className="mt-2.5 max-w-[46ch] text-[14.5px] leading-relaxed text-white/55">
-                  {d.cuerpo}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
       </section>

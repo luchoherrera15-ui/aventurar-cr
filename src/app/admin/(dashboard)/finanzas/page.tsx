@@ -5,9 +5,15 @@ import type { Gasto, RanchoBalance, ReservaBalance } from "../balance/types";
 import IngresosPanel, { type Cobro } from "../ingresos/ingresos-panel";
 import FinanzasTabs from "./finanzas-tabs";
 import { esTabFinanzas } from "./pestanas";
+import LibroCobrosPanel from "./libro-cobros-panel";
 import { perteneceASeccion, SECCION_LABEL } from "../vertical";
 import { seccionActiva } from "../vertical-server";
 import type { CobroNegocio } from "@/lib/cobro-plataforma";
+import {
+  esTablaCobrosInexistente,
+  MIGRACION_LIBRO,
+  type CobroPlataforma,
+} from "@/lib/libro-cobros";
 
 /**
  * Finanzas: toda la plata de la plataforma en una sola pantalla.
@@ -29,7 +35,7 @@ export default async function AdminFinanzasPage({
   const supabase = await createClient();
   const seccion = await seccionActiva();
 
-  const [reservasRes, ranchosRes, gastosRes, configRes, pedidosRes] =
+  const [reservasRes, ranchosRes, gastosRes, configRes, pedidosRes, libroRes] =
     await Promise.all([
       // Los montos hacen falta para la tarifa por % del evento (0098);
       // 'cumplida' entra porque en Citas la reserva atendida pasa a ese
@@ -53,6 +59,15 @@ export default async function AdminFinanzasPage({
           "id, paquete, metodo_pago, monto_crc, precio_crc, estado, pagado_en, created_at, nombre_evento, contacto_nombre",
         )
         .not("metodo_pago", "is", null),
+      // El LIBRO DE COBROS (0106). La migración la corre el dueño a
+      // mano: mientras no exista la tabla, esto devuelve error y la
+      // pantalla muestra el aviso en vez de romperse.
+      supabase
+        .from("cobros_plataforma")
+        .select(
+          "id, reserva_id, rancho_id, concepto, personas, tarifa, modelo, monto, estado, semana, cliente, fecha_evento, devengado_en, pagado_en, notas",
+        )
+        .order("semana", { ascending: true }),
     ]);
 
   // Los ingresos de la sección: solo reservas de negocios de esa vertical.
@@ -91,6 +106,29 @@ export default async function AdminFinanzasPage({
     .filter(Boolean)
     .map((e) => e!.message);
 
+  // --- El libro de cobros, filtrado por la sección del panel ---
+  const faltaLibro = libroRes.error
+    ? esTablaCobrosInexistente(libroRes.error)
+    : false;
+  // Un error que NO sea "falta la tabla" sí se cuenta como error real.
+  if (libroRes.error && !faltaLibro) errores.push(libroRes.error.message);
+
+  const cobrosLibro = ((libroRes.data ?? []) as CobroPlataforma[]).filter((c) =>
+    perteneceASeccion(c.rancho_id ? verticalPorRancho.get(c.rancho_id) : null, seccion),
+  );
+  const nombrePorRancho: Record<string, string> = Object.fromEntries(
+    todosLosRanchos.map((r) => [r.id, r.nombre]),
+  );
+  // "Hoy" en hora de Costa Rica, igual que el trigger que arma la
+  // semana: si el servidor corre en UTC, después de las 6 p.m. de acá
+  // ya sería el día siguiente y el corte semanal se correría solo.
+  const hoyIso = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Costa_Rica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   const cobros: Cobro[] = [];
   for (const p of pedidosRes.data ?? []) {
     const monto = Number(p.monto_crc ?? p.precio_crc ?? 0);
@@ -124,20 +162,50 @@ export default async function AdminFinanzasPage({
       <FinanzasTabs
         inicial={esTabFinanzas(tab) ? tab : "alquileres"}
         alquileres={
-          <div>
+          <div className="flex flex-col gap-8">
             {errores.length > 0 && (
-              <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+              <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
                 No se pudo cargar todo: {errores.join(" · ")}
               </p>
             )}
-            <BalancePanel
-              reservas={reservas}
-              ranchos={ranchos}
-              gastosIniciales={(gastosRes.data ?? []) as Gasto[]}
-              comisionInicial={Number(configRes.data?.comision_por_persona ?? 0)}
-              seccion={seccion}
-              cobros={cobrosNegocio}
-            />
+
+            {/* 1. Lo primero: lo que ya se debe y hay que cobrar. */}
+            {faltaLibro ? (
+              <AvisoLibroPendiente />
+            ) : (
+              <LibroCobrosPanel
+                cobros={cobrosLibro}
+                nombrePorRancho={nombrePorRancho}
+                hoyIso={hoyIso}
+              />
+            )}
+
+            {/* 2. Después: la proyección, el ranking y el simulador —
+                que son otra cosa y la pantalla lo aclara. */}
+            <div>
+              <div className="mb-5 border-t border-aventurea-line pt-6">
+                <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-ink-soft before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-ink-soft">
+                  Lo que se ganaría
+                </p>
+                <h2 className="mt-1 text-[19px] font-bold text-aventurea-ink">
+                  Proyección y análisis del periodo
+                </h2>
+                <p className="mt-1 max-w-[74ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
+                  Esto <strong>no</strong> es plata que se deba: es una
+                  simulación que aplica la tarifa de hoy a las reservas del
+                  periodo que elijás, para comparar negocios y probar modelos de
+                  cobro. Lo que de verdad hay que cobrar está arriba.
+                </p>
+              </div>
+              <BalancePanel
+                reservas={reservas}
+                ranchos={ranchos}
+                gastosIniciales={(gastosRes.data ?? []) as Gasto[]}
+                comisionInicial={Number(configRes.data?.comision_por_persona ?? 0)}
+                seccion={seccion}
+                cobros={cobrosNegocio}
+              />
+            </div>
           </div>
         }
         promocion={<PaquetesPromocion />}
@@ -154,6 +222,38 @@ export default async function AdminFinanzasPage({
         }
       />
     </div>
+  );
+}
+
+/**
+ * La 0106 la pega el dueño a mano en el SQL Editor. Hasta que eso pase
+ * no hay libro de cobros — y en vez de reventar la pantalla (o, peor,
+ * mostrar ₡0 como si nadie debiera nada) se dice exactamente qué falta.
+ */
+function AvisoLibroPendiente() {
+  return (
+    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">
+        Falta correr una migración
+      </p>
+      <h2 className="mt-1 text-[17px] font-bold text-amber-900">
+        El libro de cobros todavía no existe en la base
+      </h2>
+      <p className="mt-2 max-w-[74ch] text-[13.5px] leading-relaxed text-amber-900">
+        Acá va la cuenta por cobrar: cuánto dejó cada reserva confirmada, junto
+        por semana y por negocio, con el botón para marcarla pagada. Para que
+        empiece a llenarse sola hay que pegar este archivo en el SQL Editor de
+        Supabase:
+      </p>
+      <p className="mt-3 overflow-x-auto rounded-lg bg-amber-100 px-3 py-2 font-mono text-[12.5px] text-amber-900">
+        {MIGRACION_LIBRO}
+      </p>
+      <p className="mt-3 max-w-[74ch] text-[12.5px] text-amber-800">
+        Crea la tabla <code>cobros_plataforma</code> y el disparador que anota
+        el cobro cuando una reserva se confirma. Mientras tanto, lo de abajo
+        sigue funcionando: es la proyección de siempre, no lo devengado.
+      </p>
+    </section>
   );
 }
 
