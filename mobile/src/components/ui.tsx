@@ -9,7 +9,16 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Fonts, Radios, Sombras, Spacing, Tipo } from "@/constants/theme";
+import {
+  Colors,
+  Fonts,
+  Radios,
+  Sombras,
+  Spacing,
+  Tipo,
+  colorAcentoDe,
+  type Vertical,
+} from "@/constants/theme";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
@@ -361,6 +370,49 @@ export function Identidad({
         </View>
       </View>
       {derecha}
+    </View>
+  );
+}
+
+/**
+ * La tarjetita de prueba social que corona la página de un negocio:
+ * un punto encendido y "12 personas visitaron este sitio hoy".
+ *
+ * Es chica y va sola en su línea, apenas debajo del encabezado — tiene
+ * que leerse como un dato vivo del lugar, no como un anuncio: por eso
+ * el número en negrita y el resto en gris, sin relleno de color. El
+ * punto toma el acento de la vertical (naranja en Eventos y
+ * Restaurantes, navy en Servicios y Hospedajes).
+ *
+ * Quién la muestra y cuándo lo decide `lib/visitas.ts` (la regla de los
+ * 3). Acá no hay lógica: si llega, se pinta.
+ */
+export function PruebaSocial({
+  numero,
+  texto,
+  vertical = "eventos",
+}: {
+  numero: number;
+  /** Lo que va después del número: "personas visitaron este sitio hoy". */
+  texto: string;
+  vertical?: Vertical;
+}) {
+  const color = colorAcentoDe(vertical);
+  // Con separador de miles, igual que `fmtColones` y que la web.
+  const cifra = numero.toLocaleString("es-CR");
+  return (
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={`${cifra} ${texto}`}
+      style={styles.pruebaSocial}
+    >
+      {/* El halo alrededor del punto es lo que lo hace ver "encendido". */}
+      <View style={[styles.pruebaSocialHalo, { backgroundColor: `${color}26` }]}>
+        <View style={[styles.pruebaSocialPunto, { backgroundColor: color }]} />
+      </View>
+      <Text style={styles.pruebaSocialTexto} numberOfLines={1}>
+        <Text style={styles.pruebaSocialNumero}>{cifra}</Text> {texto}
+      </Text>
     </View>
   );
 }
@@ -742,6 +794,35 @@ const styles = StyleSheet.create({
   identidadMeta: { alignItems: "center", flexDirection: "row", gap: 3, marginTop: 2 },
   identidadMetaFuerte: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12 },
   identidadMetaTexto: { color: Colors.inkSoft, flexShrink: 1, fontFamily: Fonts.medium, fontSize: 12 },
+
+  pruebaSocial: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 7,
+    maxWidth: "100%",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pruebaSocialHalo: {
+    alignItems: "center",
+    borderRadius: Radios.full,
+    height: 14,
+    justifyContent: "center",
+    width: 14,
+  },
+  pruebaSocialPunto: { borderRadius: Radios.full, height: 6, width: 6 },
+  pruebaSocialTexto: {
+    color: Colors.inkSoft,
+    flexShrink: 1,
+    fontFamily: Fonts.medium,
+    fontSize: 12,
+  },
+  pruebaSocialNumero: { color: Colors.ink, fontFamily: Fonts.extraBold },
 
   estado: {
     alignSelf: "flex-start",

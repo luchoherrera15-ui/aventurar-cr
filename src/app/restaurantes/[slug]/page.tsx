@@ -15,6 +15,7 @@ import {
 } from "../tipos";
 import ProveedorActual from "@/components/proveedor-actual";
 import BotonConsultar from "@/components/boton-consultar";
+import VisitasPagina from "@/components/visitas-pagina";
 
 type Local = {
   id: string;
@@ -144,6 +145,11 @@ export default async function RestaurantePage({
         >
           ← Todos los restaurantes
         </Link>
+
+        {/* Prueba social real: "12 personas visitaron este sitio hoy".
+            Con pocas visitas no se muestra nada — un número bajo vende
+            menos que ningún número. */}
+        <VisitasPagina ranchoId={local.id} className="mt-3" />
 
         {/* La portada */}
         <div className="mt-3 overflow-hidden rounded-2xl border border-aventurea-line bg-white">

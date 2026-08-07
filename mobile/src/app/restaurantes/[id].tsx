@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import BarraRapida, { BARRA_RAPIDA_ESPACIO } from "@/components/barra-rapida";
+import TarjetaVisitas from "@/components/tarjeta-visitas";
 import { Avatar, Boton, Micro, Tarjeta, Vacio } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -342,6 +343,11 @@ export default function RestauranteFichaScreen() {
               )}
             </View>
           </Tarjeta>
+
+          {/* Prueba social real, apenas debajo del encabezado. Solo
+              aparece si el número da (la regla de los 3, en
+              lib/visitas.ts); si no, acá no queda nada. */}
+          <TarjetaVisitas ranchoId={local.id} vertical="restaurantes" />
         </View>
 
         {(!!local.direccion_exacta || hrefMaps || hrefWaze) && (
@@ -462,7 +468,13 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  zonaIdentidad: { marginTop: -Spacing.four - Spacing.two, paddingHorizontal: Spacing.three },
+  // El `gap` es para la tarjetita de visitas que va debajo; sin ella no
+  // separa nada, porque queda un solo hijo.
+  zonaIdentidad: {
+    gap: Spacing.two,
+    marginTop: -Spacing.four - Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
   identidad: { gap: Spacing.two + 2, padding: Spacing.three },
   identidadFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
   nombre: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 20, letterSpacing: -0.5 },

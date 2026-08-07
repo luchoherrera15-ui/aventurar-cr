@@ -21,6 +21,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import CalendarioMensual from "@/components/calendario-mensual";
 import SeccionEncabezado from "@/components/seccion-encabezado";
+import TarjetaVisitas from "@/components/tarjeta-visitas";
 import { BotonFlotante, FilaFlotante } from "@/components/boton-flotante";
 import { Avatar, Boton, Micro, Tarjeta, Vacio } from "@/components/ui";
 import {
@@ -295,6 +296,12 @@ export default function RanchoDetalleScreen() {
               </View>
             </View>
           </Tarjeta>
+
+          {/* Prueba social real, apenas debajo del encabezado: solo
+              aparece si el número da (ver la regla de los 3 en
+              lib/visitas.ts). Esta pantalla también sirve a Hospedajes
+              y va toda en el acento naranja, así que el punto la sigue. */}
+          <TarjetaVisitas ranchoId={rancho.id} vertical="eventos" />
         </View>
 
         {/* ---------- Sobre este lugar ---------- */}
@@ -644,7 +651,13 @@ const styles = StyleSheet.create({
 
   seccion: { gap: Spacing.two + 2, paddingHorizontal: Spacing.three, paddingTop: Spacing.four },
   // La identidad monta sobre la foto, como el encabezado del mockup.
-  seccionIdentidad: { marginTop: -Spacing.four, paddingHorizontal: Spacing.three },
+  // El `gap` es para la tarjetita de visitas que va debajo; sin ella no
+  // separa nada, porque queda un solo hijo.
+  seccionIdentidad: {
+    gap: Spacing.two,
+    marginTop: -Spacing.four,
+    paddingHorizontal: Spacing.three,
+  },
   identidad: { gap: Spacing.two + 2, padding: Spacing.three },
   identidadFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
   titulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 20, letterSpacing: -0.5 },

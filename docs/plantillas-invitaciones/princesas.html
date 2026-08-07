@@ -14,6 +14,26 @@
     · el formulario de confirmación, como card modal, al tocar el
       <button data-bookea="abrir-rsvp">
 
+  EL TELÓN Y LA MÚSICA (la puerta de entrada):
+  - Al entrar, el telón cubre la pantalla y ESPERA el toque: mientras
+    está puesto no se scrollea (overscroll-behavior: contain +
+    touch-action: none sobre la capa fija, y un listener devuelve a 0 lo
+    que se escape). NUNCA se toca la clase de html/body — React los
+    hidrata y una clase ajena da mismatch.
+  - Se abre SOLO por toque o tecla. Ya no se abre solo a los 2,4 s ni
+    con la rueda del mouse: los dos abrían el cuento sin gesto del
+    usuario y con eso la canción quedaba muda.
+  - LA MÚSICA ("Fairytale Waltz", loop, volumen 0.5) tiene prioridad de
+    gesto: (a) play() se llama SINCRÓNICO como PRIMERA instrucción del
+    handler del clic — la activación transitoria expira dentro de un
+    setTimeout y Chrome/Safari lo rechazarían en silencio; las cortinas
+    se abren en paralelo, la música no las espera. (b) preload="none":
+    son 3,1 MB y no se le gastan a quien nunca toca. (c) si el navegador
+    la bloquea igual, el .catch() deja el ♪ flotante pulsando
+    (pri-invita) y su clic —activación nueva— la arranca. El ♪ refleja
+    el estado REAL del audio (eventos play/pause, nunca una variable
+    propia).
+
   ESCENAS (ocho pantallas completas, cada una entra DISTINTO):
     1. Portada — telón que se abre, cielo estrellado, la luna que asoma
        y el castillo que levanta sus torres con las ventanas
@@ -214,6 +234,13 @@
       overflow: hidden;
       cursor: pointer;
       transition: opacity 0.55s ease-out;
+      /* El lock de scroll NO toca html/body (React los hidrata y una
+         clase ajena da mismatch): el telón cubre el viewport, esto
+         corta el encadenado y el touch, y el script devuelve a 0 lo que
+         se escape (teclado, restauración del navegador). */
+      overscroll-behavior: contain;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
     }
     #pri-telon.pri-fuera {
       opacity: 0;
@@ -326,6 +353,70 @@
       text-transform: uppercase;
       color: rgba(253, 248, 245, 0.78);
       animation: pri-respira 1.9s ease-in-out infinite;
+    }
+
+    /* ================= El ♪ flotante ================= */
+    /* Nace apagado (sin JS no hay música que gobernar). Queda por
+       DEBAJO del telón: mientras el cuento no se abre, no hay nada que
+       pausar. */
+    #pri-musica { display: none; }
+    #pri-musica.pri-viva {
+      display: flex;
+      position: fixed;
+      right: 14px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+      z-index: 60;
+      width: 48px;
+      height: 48px;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid rgba(242, 217, 160, 0.7);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(60, 42, 96, 0.94), rgba(36, 26, 68, 0.94));
+      color: var(--pri-oro-claro);
+      cursor: pointer;
+      touch-action: manipulation;
+      box-shadow: 0 12px 26px -12px rgba(16, 23, 58, 0.95);
+      transition: transform 0.18s ease;
+    }
+    #pri-musica:active { transform: scale(0.92); }
+    #pri-musica svg { display: block; }
+    #pri-musica.pri-sonando svg { animation: pri-nota-baila 1.6s ease-in-out infinite alternate; }
+    .pri-nota-off {
+      position: absolute;
+      width: 2px;
+      height: 28px;
+      border-radius: 2px;
+      background: currentColor;
+      transform: rotate(45deg);
+      display: none;
+      pointer-events: none;
+    }
+    #pri-musica.pri-pausada .pri-nota-off { display: block; }
+    /* Si el navegador bloqueó el arranque, el ♪ pulsa invitando al
+       toque: su clic es una activación de usuario nueva. */
+    #pri-musica.pri-invita::after {
+      content: "";
+      position: absolute;
+      inset: -5px;
+      border-radius: inherit;
+      border: 2px solid var(--pri-oro-claro);
+      animation: pri-invita-onda 1.6s ease-out infinite;
+      pointer-events: none;
+    }
+
+    /* El crédito de la música: discreto, al pie, como manda la
+       licencia CC BY 3.0. */
+    .pri-credito {
+      margin: 20px auto 0;
+      max-width: 30ch;
+      font-size: 10.5px;
+      line-height: 1.6;
+      letter-spacing: 0.04em;
+      /* sin balance el "3.0" se queda solo en la segunda línea */
+      text-wrap: balance;
+      color: rgba(253, 248, 245, 0.42);
     }
 
     /* ================= Capa de polvo de hadas (fija) ================= */
@@ -1148,6 +1239,14 @@
       0%, 100% { opacity: 0.45; }
       50% { opacity: 1; }
     }
+    @keyframes pri-nota-baila {
+      from { transform: rotate(-9deg); }
+      to { transform: rotate(9deg); }
+    }
+    @keyframes pri-invita-onda {
+      0% { opacity: 0.9; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.65); }
+    }
     @keyframes pri-medallon-late {
       0%, 100% { transform: scale(1) rotate(0deg); }
       50% { transform: scale(1.07) rotate(2deg); }
@@ -1379,6 +1478,7 @@
         filter: none;
       }
       #pri-telon,
+      #pri-musica,
       #pri-polvo,
       .pri-bajar,
       .pri-camino,
@@ -1393,6 +1493,24 @@
       }
     }
   </style>
+
+  <!-- La música: el vals que arranca al abrirse el telón.
+       preload="none" a propósito: son 3,1 MB y no se le gastan a quien
+       nunca toca. -->
+  <audio
+    id="pri-audio"
+    src="https://bjhprmtobmualefvcmau.supabase.co/storage/v1/object/public/ranchos-fotos/invitaciones-demo/princesas/cancion.mp3"
+    loop
+    preload="none"
+  ></audio>
+
+  <!-- El ♪ flotante (el JS lo enciende). -->
+  <button type="button" id="pri-musica" class="pri-pausada" aria-label="Reproducir la música">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M9 3v10.55A3.97 3.97 0 0 0 7 13a4 4 0 1 0 4 4V7h6V3H9z" />
+    </svg>
+    <span class="pri-nota-off" aria-hidden="true"></span>
+  </button>
 
   <!-- ============================================================
        0 · EL TELÓN — nace en display:none; solo el JS lo enciende.
@@ -1942,6 +2060,9 @@
         <circle cx="24" cy="24" r="15" />
         <path d="M24 14l2.6 6.4 6.4 2.6-6.4 2.6L24 32l-2.6-6.4-6.4-2.6 6.4-2.6Z" fill="currentColor" stroke="none" />
       </svg>
+      <p class="pri-credito">
+        Música: Fairytale Waltz — Kevin MacLeod (incompetech.com), CC BY 3.0
+      </p>
     </div>
 
     <!-- El carruaje que cruza dejando estela -->
@@ -2005,19 +2126,73 @@
     var anchaMQ = window.matchMedia ? window.matchMedia("(min-width: 768px)") : null;
     var ancha = anchaMQ ? anchaMQ.matches : false;
 
-    /* ---------- 1. El telón que se abre ---------- */
+    /* ---------- 1. El telón que se abre, y la música ---------- */
     (function () {
       var telon = document.getElementById("pri-telon");
+      var audio = document.getElementById("pri-audio");
+      var pill = document.getElementById("pri-musica");
       if (!telon) return;
       telon.classList.add("pri-viva");
+      if (pill) pill.classList.add("pri-viva");
+
+      /* Si el navegador rechaza el play, el ♪ queda pulsando: su clic
+         es una activación de usuario nueva y ahí sí arranca. */
+      function invitar() {
+        if (pill) pill.classList.add("pri-invita");
+      }
+
+      function reproducir() {
+        if (!audio) return;
+        audio.volume = 0.5;
+        var p;
+        try {
+          p = audio.play();
+        } catch (e) {
+          invitar();
+          return;
+        }
+        if (p && p.catch) p.catch(invitar);
+      }
+
+      if (audio && pill) {
+        pill.addEventListener("click", function () {
+          if (audio.paused) reproducir();
+          else audio.pause();
+        });
+        /* El ♪ SIEMPRE refleja el estado real del audio: se escuchan
+           los eventos play/pause, nunca una variable propia. */
+        audio.addEventListener("play", function () {
+          pill.classList.add("pri-sonando");
+          pill.classList.remove("pri-pausada");
+          pill.classList.remove("pri-invita");
+          pill.setAttribute("aria-label", "Pausar la música");
+        });
+        audio.addEventListener("pause", function () {
+          pill.classList.remove("pri-sonando");
+          pill.classList.add("pri-pausada");
+          pill.setAttribute("aria-label", "Reproducir la música");
+        });
+      }
 
       var abierto = false;
-      var reloj = null;
+
+      /* Mientras el telón esté puesto, cualquier scroll que se escape
+         (teclado, restauración del navegador) vuelve a 0. */
+      function reancla() {
+        if (!abierto) window.scrollTo(0, 0);
+      }
 
       function abrir() {
+        /* LA MÚSICA PRIMERO, sincrónica y como PRIMERA instrucción del
+           handler: la activación transitoria del usuario expira si
+           play() se llama desde un setTimeout o después de esperar la
+           animación — Chrome/Safari lo rechazan en silencio. Las
+           cortinas se abren en paralelo; la música no las espera. */
+        reproducir();
         if (abierto) return;
         abierto = true;
-        if (reloj) window.clearTimeout(reloj);
+        window.removeEventListener("scroll", reancla);
+        window.removeEventListener("keydown", abrir);
         telon.classList.add("pri-telon-abierto");
         raiz.classList.add("pri-abierta");
         window.setTimeout(function () {
@@ -2028,11 +2203,15 @@
         }, 780);
       }
 
+      window.scrollTo(0, 0);
+      window.addEventListener("scroll", reancla, { passive: true });
+      /* Solo por CLIC (y teclado): el toque en pantalla llega como
+         click y trae la activación del usuario que la música necesita.
+         Un touchstart se adelantaría al click SIN activación y dejaría
+         el vals mudo; la rueda del mouse y el viejo temporizador de
+         2,4 s abrían el cuento sin gesto ninguno. */
       telon.addEventListener("click", abrir);
-      telon.addEventListener("touchstart", abrir, { passive: true });
-      window.addEventListener("wheel", abrir, { passive: true });
       window.addEventListener("keydown", abrir);
-      reloj = window.setTimeout(abrir, 2400);
     })();
 
     /* ---------- 2. Las escenas al scrollear ----------

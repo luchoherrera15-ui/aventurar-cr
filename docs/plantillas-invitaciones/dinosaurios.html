@@ -10,6 +10,29 @@
   pantalla completa (el fragmento ocupa TODO el ancho del viewport; la
   selva ES la página).
 
+  LA PUERTA (la primera pantalla, antes de la portada):
+  - Al entrar, la boca de la cueva está SELLADA con dos mitades de roca
+    y una veta de lava en el corte: "Tocá para entrar a la expedición".
+    Mientras la roca está puesta no se scrollea (overscroll-behavior:
+    contain + touch-action: none sobre la capa fija, y un listener
+    devuelve a 0 lo que se escape). NUNCA se toca la clase de html/body
+    — React los hidrata y una clase ajena da mismatch.
+  - Un toque y la roca cede: las dos mitades se corren a los lados con
+    polvareda, la veta estalla y la selva queda a la vista. La portada
+    GUARDA su entrada mientras la roca está puesta (.dino-cerrada) y la
+    suelta justo cuando se abre: el nombre sube letra por letra CUANDO
+    el que mira está viendo, no a sus espaldas.
+  - LA MÚSICA ("Bumbly March", loop, volumen 0.5) tiene prioridad de
+    gesto: (a) play() se llama SINCRÓNICO como primera instrucción del
+    handler del clic — la activación transitoria expira dentro de un
+    setTimeout y Chrome/Safari lo rechazarían en silencio; la apertura
+    de la roca corre en paralelo, la música no la espera. (b)
+    preload="none": son 2,3 MB y no se le gastan a quien nunca toca.
+    (c) si el navegador la bloquea igual, el .catch() deja el ♪
+    flotante pulsando (dino-invita) y su clic —activación nueva— la
+    arranca. El ♪ refleja el estado REAL del audio (eventos
+    play/pause, nunca una variable propia).
+
   ESCENAS (cada una entra DISTINTO, reveladas con IntersectionObserver):
     1. Portada 100svh — el nombre sube letra por letra, la edad pisa
        fuerte, pterosaurios cruzando el cielo
@@ -143,6 +166,265 @@
       opacity: 1 !important;
       transform: none !important;
       transition: none !important;
+    }
+
+    /* ================= 0 · LA PUERTA DE PIEDRA =================
+       La boca de la cueva, sellada con dos mitades de roca y una veta
+       de lava en el corte. Nace en display:none: sin JS nunca aparece
+       y la invitación se lee completa desde la portada. */
+    #dino-puerta { display: none; }
+    #dino-puerta.dino-viva {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      overflow: hidden;
+      cursor: pointer;
+      color: var(--d-hueso);
+      /* El lock de scroll NO toca html/body (React los hidrata y una
+         clase ajena da mismatch): esta capa cubre el viewport, corta el
+         encadenado y el touch, y el script devuelve a 0 lo que se
+         escape (teclado, restauración del navegador). */
+      overscroll-behavior: contain;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.55s ease-out;
+    }
+    #dino-puerta.dino-puerta-fuera { opacity: 0; }
+    /* El fondo negro solo existe para que no se cuele ni un pelo de luz
+       entre las dos mitades. Al abrirse se va RÁPIDO: si se queda, la
+       roca se corre y detrás no aparece la selva sino esta oscuridad, y
+       el gesto pierde todo el sentido. */
+    .dino-puerta-fondo {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(58% 38% at 50% 54%, rgba(255, 91, 30, 0.26), transparent 66%),
+        linear-gradient(180deg, #061c12 0%, #04150d 60%, #020b07 100%);
+      transition: opacity 0.42s ease-out;
+    }
+    .dino-puerta-abierta .dino-puerta-fondo { opacity: 0; }
+    /* Las dos mitades. El filo de las dos es el MISMO zigzag: los
+       porcentajes están sacados sobre cajas del 54% del viewport, así
+       los dientes calzan exactos y no queda ni una rendija de luz por
+       donde se vea la selva antes de tiempo. */
+    .dino-porton {
+      position: absolute;
+      top: -1%;
+      bottom: -1%;
+      width: 54%;
+      background:
+        /* los hoyos de la piedra */
+        radial-gradient(24px 17px at 24% 16%, rgba(0, 0, 0, 0.5), transparent 72%),
+        radial-gradient(32px 21px at 66% 39%, rgba(0, 0, 0, 0.44), transparent 74%),
+        radial-gradient(28px 19px at 38% 63%, rgba(0, 0, 0, 0.4), transparent 72%),
+        radial-gradient(20px 14px at 74% 82%, rgba(0, 0, 0, 0.34), transparent 70%),
+        radial-gradient(16px 11px at 16% 46%, rgba(0, 0, 0, 0.3), transparent 70%),
+        /* los estratos: la roca está en capas, como en un corte de
+           cantera. Van cruzados con fracturas casi verticales para que
+           no se lean como las láminas de un techo. */
+        repeating-linear-gradient(
+          97deg,
+          rgba(0, 0, 0, 0.14) 0 1px,
+          rgba(0, 0, 0, 0) 1px 47px
+        ),
+        repeating-linear-gradient(
+          5deg,
+          rgba(246, 236, 214, 0.035) 0 2px,
+          rgba(0, 0, 0, 0.13) 2px 5px,
+          rgba(0, 0, 0, 0) 5px 52px
+        ),
+        repeating-linear-gradient(
+          7deg,
+          rgba(0, 0, 0, 0.12) 0 1px,
+          rgba(0, 0, 0, 0) 1px 23px
+        ),
+        linear-gradient(104deg, #33453a 0%, #1e3126 46%, #0d1811 100%);
+      box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.62);
+      transition: transform 1.05s cubic-bezier(0.72, 0, 0.16, 1);
+      will-change: transform;
+      z-index: 2;
+    }
+    .dino-porton-izq {
+      left: 0;
+      clip-path: polygon(
+        0 0, 92.6% 0, 85.2% 12%, 98.1% 26%, 87% 38%, 100% 52%,
+        86.1% 64%, 98.1% 78%, 87% 90%, 92.6% 100%, 0 100%
+      );
+    }
+    .dino-porton-der {
+      right: 0;
+      clip-path: polygon(
+        7.4% 0, 100% 0, 100% 100%, 7.4% 100%, 1.85% 90%, 12.96% 78%,
+        0.93% 64%, 14.8% 52%, 1.85% 38%, 12.96% 26%, 0 12%
+      );
+    }
+    .dino-puerta-abierta .dino-porton-izq { transform: translate3d(-104%, 0, 0) rotate(-1.6deg); }
+    .dino-puerta-abierta .dino-porton-der { transform: translate3d(104%, 0, 0) rotate(1.6deg); }
+    /* La veta de lava del corte, encima de la roca (el brillo son dos
+       trazos superpuestos y no un filter: nada de blur en esta capa). */
+    .dino-veta {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      animation: dino-veta 2.8s ease-in-out infinite;
+    }
+    .dino-veta svg { display: block; width: 100%; height: 100%; }
+    /* El derrame de luz sobre las dos caras de roca. */
+    .dino-veta-halo {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 22%;
+      margin-left: -11%;
+      background: linear-gradient(
+        90deg,
+        rgba(255, 91, 30, 0) 0%,
+        rgba(255, 91, 30, 0.1) 34%,
+        rgba(255, 138, 58, 0.24) 50%,
+        rgba(255, 91, 30, 0.1) 66%,
+        rgba(255, 91, 30, 0) 100%
+      );
+    }
+    .dino-puerta-abierta .dino-veta { animation: dino-veta-estalla 0.6s ease-out both; }
+    /* Al ceder, la roca levanta tierra. */
+    .dino-polvareda {
+      position: absolute;
+      bottom: -46px;
+      width: min(320px, 62vw);
+      height: 130px;
+      z-index: 3;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(214, 232, 220, 0.32), rgba(214, 232, 220, 0) 70%);
+      opacity: 0;
+      transform: scale(0.3);
+      pointer-events: none;
+    }
+    .dino-polvareda-izq { left: 2%; }
+    .dino-polvareda-der { right: 2%; }
+    .dino-puerta-abierta .dino-polvareda { animation: dino-polvareda 1.15s ease-out both; }
+    .dino-puerta-abierta .dino-polvareda-der { animation-delay: 0.09s; }
+
+    .dino-puerta-centro {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+      text-align: center;
+      transition:
+        transform 0.5s cubic-bezier(0.5, 0, 0.9, 0.4),
+        opacity 0.42s ease-out;
+      will-change: transform, opacity;
+    }
+    .dino-puerta-abierta .dino-puerta-centro {
+      opacity: 0;
+      transform: scale(1.18);
+    }
+    /* La huella tallada en un disco de piedra: suelta, del tamaño que
+       tenía, parecía una mancha verde pegada al corte. */
+    .dino-puerta-huella {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 94px;
+      height: 94px;
+      border-radius: 50%;
+      border: 1px solid rgba(166, 217, 75, 0.34);
+      background:
+        radial-gradient(circle at 38% 32%, rgba(30, 60, 40, 0.94), rgba(4, 21, 13, 0.92) 68%);
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5), 0 10px 26px rgba(0, 0, 0, 0.45);
+      color: var(--d-lima);
+      animation: dino-huella-late 2.6s ease-in-out infinite;
+    }
+    .dino-puerta-huella svg { display: block; width: 38px; height: auto; }
+    .dino-puerta-kicker {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--d-lima);
+    }
+    .dino-puerta-nombre {
+      margin: 0;
+      font-family: var(--d-f-titulo);
+      font-size: clamp(38px, 12.5vw, 72px);
+      line-height: 1;
+      text-transform: uppercase;
+      color: var(--d-hueso);
+      text-shadow: 0 3px 0 #041a10, 0 14px 30px rgba(0, 0, 0, 0.7);
+    }
+    .dino-puerta-toca {
+      margin: 4px 0 0;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(246, 236, 214, 0.86);
+      animation: dino-respira 1.9s ease-in-out infinite;
+    }
+    /* Con la roca puesta la portada GUARDA su entrada: el observer ya
+       le puso .dino-vista, pero acá se le apaga la animación. Al
+       abrirse la puerta la clase se va y la animación arranca de cero,
+       a la vista de quien tocó. */
+    .dino.dino-cerrada .dino-portada .dino-letra,
+    .dino.dino-cerrada .dino-portada .dino-edad,
+    .dino.dino-cerrada .dino-portada .dino-ent {
+      animation: none !important;
+    }
+
+    /* ================= El ♪ flotante ================= */
+    /* Nace apagado (sin JS no hay música que gobernar). Vive arriba a
+       la derecha: abajo camina el T-Rex y le pasaría por encima. */
+    #dino-musica { display: none; }
+    #dino-musica.dino-viva {
+      display: flex;
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 14px);
+      right: 14px;
+      z-index: 80;
+      width: 48px;
+      height: 48px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid rgba(166, 217, 75, 0.5);
+      background: rgba(6, 26, 17, 0.86);
+      color: var(--d-lima2);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.5);
+      transition: transform 0.18s ease;
+    }
+    #dino-musica:active { transform: scale(0.92); }
+    #dino-musica svg { display: block; }
+    #dino-musica.dino-sonando svg { animation: dino-nota-baila 1.6s ease-in-out infinite alternate; }
+    .dino-nota-off {
+      position: absolute;
+      width: 2px;
+      height: 28px;
+      border-radius: 2px;
+      background: currentColor;
+      transform: rotate(45deg);
+      display: none;
+      pointer-events: none;
+    }
+    #dino-musica.dino-pausada .dino-nota-off { display: block; }
+    /* Si el navegador bloqueó el arranque, el ♪ pulsa invitando al
+       toque: su clic es una activación de usuario nueva. */
+    #dino-musica.dino-invita::after {
+      content: "";
+      position: absolute;
+      inset: -5px;
+      border-radius: inherit;
+      border: 2px solid var(--d-ambar);
+      animation: dino-invita-onda 1.6s ease-out infinite;
+      pointer-events: none;
     }
 
     /* ================= Fondo fijo ================= */
@@ -1008,10 +1290,56 @@
       text-transform: uppercase;
       color: var(--d-lima);
     }
+    /* El crédito de la música: discreto, al pie, como manda la
+       licencia CC BY 3.0. */
+    .dino-credito {
+      margin: 22px auto 0;
+      max-width: 30ch;
+      font-size: 10.5px;
+      line-height: 1.6;
+      letter-spacing: 0.04em;
+      /* sin balance el "3.0" se queda solo en la segunda línea */
+      text-wrap: balance;
+      color: rgba(246, 236, 214, 0.4);
+    }
 
     /* ================= Keyframes ================= */
     /* Todo lo que se mueve lo hace con transform y opacity.
        Sin gate por prefers-reduced-motion: corre siempre. */
+    /* — la puerta y el ♪ — */
+    @keyframes dino-veta {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    /* Al ceder la roca la veta da un fogonazo y se apaga rápido: si se
+       queda estirándose, la luz sobrevive a la piedra y parece un rayo
+       de neón colgado sobre la selva. */
+    @keyframes dino-veta-estalla {
+      0% { opacity: 1; transform: scaleX(1); }
+      16% { opacity: 1; transform: scaleX(1.22); }
+      100% { opacity: 0; transform: scaleX(2.1); }
+    }
+    @keyframes dino-polvareda {
+      0% { opacity: 0; transform: scale(0.3) translateY(18px); }
+      26% { opacity: 0.9; }
+      100% { opacity: 0; transform: scale(1.75) translateY(-16px); }
+    }
+    @keyframes dino-huella-late {
+      0%, 100% { transform: scale(1) rotate(-3deg); }
+      50% { transform: scale(1.09) rotate(3deg); }
+    }
+    @keyframes dino-respira {
+      0%, 100% { opacity: 0.42; }
+      50% { opacity: 1; }
+    }
+    @keyframes dino-nota-baila {
+      from { transform: rotate(-9deg); }
+      to { transform: rotate(9deg); }
+    }
+    @keyframes dino-invita-onda {
+      0% { opacity: 0.9; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.65); }
+    }
     @keyframes dino-latido {
       0%, 100% { transform: scale(1); opacity: 0.9; }
       50% { transform: scale(1.14); opacity: 1; }
@@ -1359,6 +1687,196 @@
       </symbol>
     </defs>
   </svg>
+
+  <!-- ====== La música: la marcha que arranca al abrir la roca ======
+       preload="none" a propósito: son 2,3 MB y no se le gastan a quien
+       nunca toca la puerta. -->
+  <audio
+    id="dino-audio"
+    src="https://bjhprmtobmualefvcmau.supabase.co/storage/v1/object/public/ranchos-fotos/invitaciones-demo/dinosaurios/cancion.mp3"
+    loop
+    preload="none"
+  ></audio>
+
+  <!-- ====== LA PUERTA: la roca que sella la cueva ====== -->
+  <div id="dino-puerta" role="presentation" aria-hidden="true">
+    <div class="dino-puerta-fondo"></div>
+    <div class="dino-porton dino-porton-izq"></div>
+    <div class="dino-porton dino-porton-der"></div>
+
+    <!-- La veta de lava del corte: el mismo zigzag que el filo de las
+         dos mitades (por eso preserveAspectRatio="none" y el trazo sin
+         escalar: la línea calza con la roca a cualquier tamaño). -->
+    <div class="dino-veta">
+      <span class="dino-veta-halo" aria-hidden="true"></span>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <!-- El resplandor son SEIS trazos del mismo zigzag, cada vez más
+             finos y más claros: sigue el corte exacto y no cuesta un
+             filter (que además se distorsionaría con el scaleX de la
+             apertura). -->
+        <g fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round">
+          <polyline
+            points="50,0 46,12 53,26 47,38 54,52 46.5,64 53,78 47,90 50,100"
+            stroke="#ff5b1e"
+            stroke-width="46"
+            stroke-opacity="0.07"
+            vector-effect="non-scaling-stroke"
+          />
+          <polyline
+            points="50,0 46,12 53,26 47,38 54,52 46.5,64 53,78 47,90 50,100"
+            stroke="#ff5b1e"
+            stroke-width="30"
+            stroke-opacity="0.12"
+            vector-effect="non-scaling-stroke"
+          />
+          <polyline
+            points="50,0 46,12 53,26 47,38 54,52 46.5,64 53,78 47,90 50,100"
+            stroke="#ff6a22"
+            stroke-width="19"
+            stroke-opacity="0.2"
+            vector-effect="non-scaling-stroke"
+          />
+          <polyline
+            points="50,0 46,12 53,26 47,38 54,52 46.5,64 53,78 47,90 50,100"
+            stroke="#ff8a3a"
+            stroke-width="11"
+            stroke-opacity="0.34"
+            vector-effect="non-scaling-stroke"
+          />
+          <polyline
+            points="50,0 46,12 53,26 47,38 54,52 46.5,64 53,78 47,90 50,100"
+            stroke="#ffc23d"
+            stroke-width="5"
+            stroke-opacity="0.75"
+            vector-effect="non-scaling-stroke"
+          />
+          <polyline
+            points="50,0 46,12 53,26 47,38 54,52 46.5,64 53,78 47,90 50,100"
+            stroke="#fff3cf"
+            stroke-width="1.8"
+            vector-effect="non-scaling-stroke"
+          />
+        </g>
+      </svg>
+    </div>
+
+    <span class="dino-polvareda dino-polvareda-izq" aria-hidden="true"></span>
+    <span class="dino-polvareda dino-polvareda-der" aria-hidden="true"></span>
+
+    <div class="dino-puerta-centro">
+      <span class="dino-puerta-huella" aria-hidden="true">
+        <svg viewBox="0 0 40 52"><use href="#dino-pisada" /></svg>
+      </span>
+      <p class="dino-puerta-kicker">Expedición al Cretácico</p>
+      <p class="dino-puerta-nombre">{{NOMBRE_LETRAS}}</p>
+      <p class="dino-puerta-toca">Tocá para entrar a la expedición</p>
+    </div>
+  </div>
+
+  <!-- El ♪ flotante (el JS lo enciende). -->
+  <button type="button" id="dino-musica" class="dino-pausada" aria-label="Reproducir la música">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M9 3v10.55A3.97 3.97 0 0 0 7 13a4 4 0 1 0 4 4V7h6V3H9z" />
+    </svg>
+    <span class="dino-nota-off" aria-hidden="true"></span>
+  </button>
+
+  <script>
+    /* ============ LA PUERTA: lock, apertura y música ============
+       Corre temprano (este script vive antes de las secciones) para que
+       la roca cubra la pantalla desde el primer pintado. */
+    (function () {
+      var raiz = document.querySelector(".dino");
+      var puerta = document.getElementById("dino-puerta");
+      var audio = document.getElementById("dino-audio");
+      var pill = document.getElementById("dino-musica");
+      if (!raiz || !puerta) return;
+
+      puerta.classList.add("dino-viva");
+      raiz.classList.add("dino-cerrada");
+      if (pill) pill.classList.add("dino-viva");
+
+      /* Si el navegador rechaza el play, el ♪ queda pulsando: su clic
+         es una activación de usuario nueva y ahí sí arranca. */
+      function invitar() {
+        if (pill) pill.classList.add("dino-invita");
+      }
+
+      function reproducir() {
+        if (!audio) return;
+        audio.volume = 0.5;
+        var p;
+        try {
+          p = audio.play();
+        } catch (e) {
+          invitar();
+          return;
+        }
+        if (p && p.catch) p.catch(invitar);
+      }
+
+      if (audio && pill) {
+        pill.addEventListener("click", function () {
+          if (audio.paused) reproducir();
+          else audio.pause();
+        });
+        /* El ♪ SIEMPRE refleja el estado real del audio: se escuchan
+           los eventos play/pause, nunca una variable propia. */
+        audio.addEventListener("play", function () {
+          pill.classList.add("dino-sonando");
+          pill.classList.remove("dino-pausada");
+          pill.classList.remove("dino-invita");
+          pill.setAttribute("aria-label", "Pausar la música");
+        });
+        audio.addEventListener("pause", function () {
+          pill.classList.remove("dino-sonando");
+          pill.classList.add("dino-pausada");
+          pill.setAttribute("aria-label", "Reproducir la música");
+        });
+      }
+
+      var abierta = false;
+
+      /* Mientras la roca esté puesta, cualquier scroll que se escape
+         (teclado, restauración del navegador) vuelve a 0. */
+      function reancla() {
+        if (!abierta) window.scrollTo(0, 0);
+      }
+
+      function abrir() {
+        /* LA MÚSICA PRIMERO, sincrónica y como PRIMERA instrucción del
+           handler: la activación transitoria del usuario expira si
+           play() se llama desde un setTimeout o después de esperar la
+           animación — Chrome/Safari lo rechazan en silencio. La roca se
+           abre en paralelo; la música no la espera. */
+        reproducir();
+        if (abierta) return;
+        abierta = true;
+        window.removeEventListener("scroll", reancla);
+        window.removeEventListener("keydown", abrir);
+        puerta.classList.add("dino-puerta-abierta");
+        /* Recién acá se suelta la entrada de la portada. */
+        raiz.classList.remove("dino-cerrada");
+        /* La roca tarda 1,05 s en salirse de cuadro: recién después se
+           desvanece la capa y se saca del DOM. */
+        window.setTimeout(function () {
+          puerta.classList.add("dino-puerta-fuera");
+        }, 1020);
+        window.setTimeout(function () {
+          if (puerta.parentNode) puerta.parentNode.removeChild(puerta);
+        }, 1640);
+      }
+
+      window.scrollTo(0, 0);
+      window.addEventListener("scroll", reancla, { passive: true });
+      /* Solo por CLIC (y teclado): el toque en pantalla llega como
+         click y trae la activación del usuario que la música necesita.
+         Un touchstart se adelantaría al click SIN activación y dejaría
+         la canción muda. */
+      puerta.addEventListener("click", abrir);
+      window.addEventListener("keydown", abrir);
+    })();
+  </script>
 
   <!-- ====== Fondo fijo: cielo, volcán, helechos en parallax ====== -->
   <div class="dino-fondo" aria-hidden="true">
@@ -1886,6 +2404,9 @@
 
         <p class="dino-firma">{{PADRES}}</p>
         <p class="dino-despedida">Te esperamos en el Cretácico</p>
+        <p class="dino-credito">
+          Música: Bumbly March — Kevin MacLeod (incompetech.com), CC BY 3.0
+        </p>
       </div>
     </section>
   </div>

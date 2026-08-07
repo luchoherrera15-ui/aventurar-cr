@@ -12,6 +12,7 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
+import TarjetaVisitas from "@/components/tarjeta-visitas";
 import {
   Avatar,
   Boton,
@@ -229,62 +230,69 @@ export default function NegocioCitasScreen() {
         </View>
 
         {/* La identidad, montada sobre la foto: el encabezado del mockup. */}
-        <Tarjeta style={styles.identidad}>
-          <View style={styles.identidadFila}>
-            <Avatar nombre={negocio.nombre} tamano={46} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.nombre} numberOfLines={2}>
-                {negocio.nombre}
-              </Text>
-              <View style={styles.meta}>
-                {calif && calif.total > 0 && (
-                  <>
-                    <Ionicons name="star" size={12} color={Colors.accent} />
-                    <Text style={styles.metaFuerte}>{calif.promedio.toFixed(1)}</Text>
-                    <Text style={styles.metaTexto}>({calif.total})</Text>
-                  </>
-                )}
-                <Text style={styles.metaTexto} numberOfLines={1}>
-                  {calif && calif.total > 0 ? "· " : ""}
-                  {CATEGORIA_CITA_LABEL[normalizarCategoriaCita(negocio.categoria)]}
-                  {ubicacion ? ` · ${ubicacion}` : ""}
+        <View style={styles.zonaIdentidad}>
+          <Tarjeta style={styles.identidad}>
+            <View style={styles.identidadFila}>
+              <Avatar nombre={negocio.nombre} tamano={46} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.nombre} numberOfLines={2}>
+                  {negocio.nombre}
                 </Text>
+                <View style={styles.meta}>
+                  {calif && calif.total > 0 && (
+                    <>
+                      <Ionicons name="star" size={12} color={Colors.accent} />
+                      <Text style={styles.metaFuerte}>{calif.promedio.toFixed(1)}</Text>
+                      <Text style={styles.metaTexto}>({calif.total})</Text>
+                    </>
+                  )}
+                  <Text style={styles.metaTexto} numberOfLines={1}>
+                    {calif && calif.total > 0 ? "· " : ""}
+                    {CATEGORIA_CITA_LABEL[normalizarCategoriaCita(negocio.categoria)]}
+                    {ubicacion ? ` · ${ubicacion}` : ""}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          {!!negocio.descripcion && (
-            <Text style={styles.descripcion}>{negocio.descripcion}</Text>
-          )}
+            {!!negocio.descripcion && (
+              <Text style={styles.descripcion}>{negocio.descripcion}</Text>
+            )}
 
-          {/* Los números que dan confianza — espejo de la web. */}
-          {stats && (stats.citasTotales > 0 || stats.clientesAtendidos > 0) && (
-            <View style={styles.statsFila}>
-              {stats.citasTotales > 0 && (
-                <Estado
-                  tono="gris"
-                  texto={`${stats.citasTotales} cita${stats.citasTotales === 1 ? "" : "s"} agendada${stats.citasTotales === 1 ? "" : "s"}`}
-                />
-              )}
-              {stats.clientesAtendidos > 0 && (
-                <Estado
-                  tono="gris"
-                  texto={`${stats.clientesAtendidos} cliente${stats.clientesAtendidos === 1 ? "" : "s"}`}
-                />
-              )}
-            </View>
-          )}
+            {/* Los números que dan confianza — espejo de la web. */}
+            {stats && (stats.citasTotales > 0 || stats.clientesAtendidos > 0) && (
+              <View style={styles.statsFila}>
+                {stats.citasTotales > 0 && (
+                  <Estado
+                    tono="gris"
+                    texto={`${stats.citasTotales} cita${stats.citasTotales === 1 ? "" : "s"} agendada${stats.citasTotales === 1 ? "" : "s"}`}
+                  />
+                )}
+                {stats.clientesAtendidos > 0 && (
+                  <Estado
+                    tono="gris"
+                    texto={`${stats.clientesAtendidos} cliente${stats.clientesAtendidos === 1 ? "" : "s"}`}
+                  />
+                )}
+              </View>
+            )}
 
-          {items.length > 0 && (
-            <Boton
-              texto="Ver fechas disponibles"
-              tono="navy"
-              icono="calendar-outline"
-              onPress={() => irAReservar()}
-              style={{ marginTop: Spacing.three }}
-            />
-          )}
-        </Tarjeta>
+            {items.length > 0 && (
+              <Boton
+                texto="Ver fechas disponibles"
+                tono="navy"
+                icono="calendar-outline"
+                onPress={() => irAReservar()}
+                style={{ marginTop: Spacing.three }}
+              />
+            )}
+          </Tarjeta>
+
+          {/* Prueba social real, apenas debajo del encabezado. Solo
+              aparece si el número da (la regla de los 3, en
+              lib/visitas.ts); si no, acá no queda nada. */}
+          <TarjetaVisitas ranchoId={negocio.id} vertical="citas" />
+        </View>
 
         {/* ---------- Servicios ---------- */}
         <View style={styles.bloque}>
@@ -496,7 +504,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  identidad: { marginTop: -Spacing.four, padding: Spacing.three },
+  // El sube-sobre-la-foto pasó a la zona para que la tarjetita de
+  // visitas viaje pegada a la identidad, no a 24px de distancia.
+  zonaIdentidad: { gap: Spacing.two, marginTop: -Spacing.four },
+  identidad: { padding: Spacing.three },
   identidadFila: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
   nombre: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 19, letterSpacing: -0.5 },
   meta: { alignItems: "center", flexDirection: "row", gap: 3, marginTop: 3 },

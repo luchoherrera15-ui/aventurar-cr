@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { fmtColones } from "@/lib/finanzas";
+import BotonEliminar from "@/components/boton-eliminar";
+import { eliminarPedidoInvitacion } from "../invitaciones/actions";
 
 export type Cobro = {
   id: string;
@@ -43,6 +45,15 @@ function restarDias(dias: number): string {
 export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
   const [periodo, setPeriodo] = useState<(typeof PERIODOS)[number]["id"]>("30d");
   const [soloConfirmados, setSoloConfirmados] = useState(false);
+  /**
+   * Los cobros que se acaban de borrar. El servidor revalida
+   * /admin/finanzas y las props vuelven ya sin ellos, pero eso llega un
+   * instante después: hasta entonces la fila desaparece igual y los
+   * totales del periodo se recalculan de una vez. Cuando las props se
+   * refrescan, el id simplemente ya no está y el filtro deja de tener
+   * efecto — no hay estado que se quede desincronizado.
+   */
+  const [borrados, setBorrados] = useState<string[]>([]);
 
   const desde = useMemo(() => {
     const p = PERIODOS.find((x) => x.id === periodo);
@@ -53,11 +64,12 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
     () =>
       cobros.filter(
         (c) =>
+          !borrados.includes(c.id) &&
           c.fecha >= desde &&
           c.fecha <= hoyISO() &&
           (!soloConfirmados || c.confirmado),
       ),
-    [cobros, desde, soloConfirmados],
+    [cobros, borrados, desde, soloConfirmados],
   );
 
   /** Totales por método, y cuánto está aún por verificar. */
@@ -263,18 +275,25 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
           <table className="w-full text-left text-[13px]">
             <thead className="bg-aventurea-cream-2/60">
               <tr>
-                {["Fecha", "Evento", "Cliente", "Paquete", "Método", "Estado", "Monto"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className={`px-4 py-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft ${
-                        h === "Monto" ? "text-right" : ""
-                      }`}
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
+                {[
+                  "Fecha",
+                  "Evento",
+                  "Cliente",
+                  "Paquete",
+                  "Método",
+                  "Estado",
+                  "Monto",
+                  "",
+                ].map((h, i) => (
+                  <th
+                    key={h || `acciones-${i}`}
+                    className={`px-4 py-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft ${
+                      h === "Monto" ? "text-right" : ""
+                    }`}
+                  >
+                    {h || <span className="sr-only">Acciones</span>}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -309,6 +328,35 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                   </td>
                   <td className="px-4 py-3 text-right font-bold tabular-nums text-aventurea-ink">
                     {fmtColones(c.monto)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <BotonEliminar
+                      variante="texto"
+                      que="este cobro"
+                      detalles={[
+                        { rotulo: "Evento", valor: c.concepto },
+                        { rotulo: "Cliente", valor: c.cliente },
+                        { rotulo: "Paquete", valor: c.paquete },
+                        {
+                          rotulo: "Método",
+                          valor: METODOS.find((m) => m.id === c.metodo)?.label ?? c.metodo,
+                        },
+                        { rotulo: "Monto", valor: fmtColones(c.monto) },
+                        { rotulo: "Fecha", valor: c.fecha },
+                        {
+                          rotulo: "Estado",
+                          valor: c.confirmado ? "Verificado" : "Por verificar",
+                        },
+                      ]}
+                      advertencia={
+                        `Esta fila es plata: se borra de forma PERMANENTE el pedido de invitación completo ` +
+                        `y ${fmtColones(c.monto)} salen del total del periodo. ` +
+                        `El pedido también desaparece de Invitaciones digitales. ` +
+                        `La invitación que ya se le entregó al cliente no se toca.`
+                      }
+                      onEliminar={() => eliminarPedidoInvitacion(c.id)}
+                      onEliminado={() => setBorrados((prev) => [...prev, c.id])}
+                    />
                   </td>
                 </tr>
               ))}

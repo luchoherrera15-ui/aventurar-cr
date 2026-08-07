@@ -9,6 +9,7 @@ import {
 } from "./actions";
 import type { DetallePedido, Reserva } from "./types";
 import { formatearHora, mostrarHorarioReserva } from "@/app/mi-negocio/types";
+import BotonEliminar from "@/components/boton-eliminar";
 
 const ESTADO_LABEL: Record<Reserva["estado"], string> = {
   pendiente: "En aprobación",
@@ -127,6 +128,7 @@ export default function ReservasTable({
   onSetEstado,
   onMarcarValidado,
   onVerComprobante,
+  onEliminar,
 }: {
   initialReservas: Reserva[];
   nombrePorRancho?: Map<string, string>;
@@ -145,6 +147,13 @@ export default function ReservasTable({
   onSetEstado?: (id: string, estado: string) => Promise<{ error: string | null }>;
   onMarcarValidado?: (id: string, validado: boolean) => Promise<{ error: string | null }>;
   onVerComprobante?: (path: string) => Promise<{ url: string | null; error: string | null }>;
+  /**
+   * Borrar la reserva. NO tiene default a propósito: sin esta prop no
+   * aparece el botón. El panel del propio negocio (variante "cards")
+   * nunca la pasa — un dueño no borra el historial de su local, lo
+   * rechaza. Solo el admin la inyecta, para limpiar datos de prueba.
+   */
+  onEliminar?: (id: string) => Promise<{ error: string | null }>;
 }) {
   const [reservas, setReservas] = useState(initialReservas);
   const [query, setQuery] = useState("");
@@ -212,6 +221,46 @@ export default function ReservasTable({
         prev.map((r) => (r.id === id ? { ...r, deposito_validado: true } : r)),
       );
     });
+  }
+
+  /**
+   * El botón de borrar de una fila, con el detalle exacto que se va a
+   * perder. Se arma acá una sola vez porque la tabla ancha y las
+   * tarjetas de celular muestran la MISMA advertencia — si se escribe
+   * dos veces, un día dicen cosas distintas.
+   */
+  function botonBorrar(r: Reserva, variante: "boton" | "texto") {
+    if (!onEliminar) return null;
+    const plata = Number(r.deposito_monto || 0) || Number(r.monto_total || 0);
+    return (
+      <BotonEliminar
+        variante={variante}
+        que="esta reserva"
+        detalles={[
+          { rotulo: "Cliente", valor: r.nombre },
+          { rotulo: "Fecha", valor: fmtRango(r) },
+          { rotulo: "Evento", valor: r.tipo_evento },
+          { rotulo: "Estado", valor: ESTADO_LABEL[r.estado] },
+          {
+            rotulo: "Depósito",
+            valor: r.deposito_monto ? fmtMoney(r.deposito_monto) : null,
+          },
+          { rotulo: "Total", valor: r.monto_total ? fmtMoney(r.monto_total) : null },
+        ]}
+        advertencia={
+          (r.estado === "confirmada" || plata > 0
+            ? `Esta reserva es plata: se borra de forma PERMANENTE${
+                plata > 0 ? ` (${fmtMoney(plata)})` : ""
+              } y los totales del periodo en Finanzas van a cambiar. `
+            : "Se borra de forma permanente. ") +
+          "Se va también lo que colgaba de ella: la conversación del chat, la reseña y el detalle del pedido. " +
+          "El cobro de la plataforma NO se borra: queda anulado en el libro de cobros, para no perder el histórico. " +
+          "Si ese cobro ya está pagado, el servidor no deja borrarla."
+        }
+        onEliminar={() => onEliminar(r.id)}
+        onEliminado={() => setReservas((prev) => prev.filter((x) => x.id !== r.id))}
+      />
+    );
   }
 
   return (
@@ -399,6 +448,12 @@ export default function ReservasTable({
                 Mensajes
               </Link>
             )}
+
+            {onEliminar && (
+              <div className="mt-3.5 flex justify-end border-t border-aventurea-line pt-3.5">
+                {botonBorrar(r, "boton")}
+              </div>
+            )}
           </div>
           );
         })}
@@ -551,6 +606,7 @@ export default function ReservasTable({
                         Mensajes
                       </Link>
                     )}
+                    {botonBorrar(r, "texto")}
                   </div>
                 </td>
               </tr>

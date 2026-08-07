@@ -3,7 +3,13 @@
 import { useState, useTransition } from "react";
 import { briefDelPedido, type PedidoParaBrief } from "@/lib/invitaciones/brief";
 import { SITIO_URL } from "@/lib/qr";
-import { cambiarEstadoPedido, entregarPedido, urlComprobantePedido } from "./actions";
+import BotonEliminar from "@/components/boton-eliminar";
+import {
+  cambiarEstadoPedido,
+  eliminarPedidoInvitacion,
+  entregarPedido,
+  urlComprobantePedido,
+} from "./actions";
 import { ESTADOS_PEDIDO_ABIERTOS } from "./pestanas";
 
 /**
@@ -97,6 +103,10 @@ export default function PedidosPanel({
 }) {
   const [filtro, setFiltro] = useState("abiertos");
   const [abierto, setAbierto] = useState<string | null>(null);
+  // Los que se acaban de borrar: la tarjeta se va de una, sin esperar a
+  // que el servidor revalide la página (después vuelven las props ya
+  // sin ellos y este filtro deja de tener efecto).
+  const [borrados, setBorrados] = useState<string[]>([]);
   const [copiado, setCopiado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Qué invitación se eligió para entregar, por pedido.
@@ -106,6 +116,7 @@ export default function PedidosPanel({
   const invitacionPorId = new Map(invitaciones.map((i) => [i.id, i]));
 
   const visibles = pedidos.filter((p) => {
+    if (borrados.includes(p.id)) return false;
     if (filtro === "todos") return true;
     if (filtro === "abiertos") return ESTADOS_PEDIDO_ABIERTOS.includes(p.estado);
     return p.estado === filtro;
@@ -271,6 +282,35 @@ export default function PedidosPanel({
                     >
                       {desplegado ? "Ocultar datos" : "Ver todos los datos"}
                     </button>
+                    <BotonEliminar
+                      que="este pedido"
+                      detalles={[
+                        { rotulo: "Evento", valor: p.nombre_evento },
+                        { rotulo: "Cliente", valor: p.contacto_nombre },
+                        { rotulo: "Paquete", valor: p.paqueteNombre ?? p.paquete },
+                        { rotulo: "Monto", valor: p.montoEtiqueta },
+                        {
+                          rotulo: "Método",
+                          valor: p.metodo_pago
+                            ? (METODO[p.metodo_pago] ?? p.metodo_pago)
+                            : "Sin pago registrado",
+                        },
+                        { rotulo: "Pedido del", valor: fechaCorta(p.created_at) },
+                        { rotulo: "Estado", valor: chip?.label ?? p.estado },
+                      ]}
+                      advertencia={
+                        p.montoEtiqueta || p.metodo_pago
+                          ? `Este pedido tiene plata cobrada (${p.montoEtiqueta ?? "monto sin registrar"}). ` +
+                            "Se borra de forma PERMANENTE, junto con su comprobante, y ese monto sale " +
+                            "del total del periodo en Finanzas → Invitaciones virtuales. " +
+                            (p.invitacion_id
+                              ? "La invitación que ya se entregó NO se toca: el cliente conserva su link."
+                              : "")
+                          : null
+                      }
+                      onEliminar={() => eliminarPedidoInvitacion(p.id)}
+                      onEliminado={() => setBorrados((prev) => [...prev, p.id])}
+                    />
                   </div>
                 </div>
 

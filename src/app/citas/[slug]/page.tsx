@@ -20,6 +20,7 @@ import { cargarAgendaPro } from "../agenda-pro";
 import { linkGoogleMaps, type Rancho, type RanchoItem } from "@/app/mi-negocio/types";
 import ProveedorActual from "@/components/proveedor-actual";
 import BotonConsultar from "@/components/boton-consultar";
+import VisitasPagina from "@/components/visitas-pagina";
 
 type Miembro = {
   id: string;
@@ -206,6 +207,11 @@ export default async function NegocioCitasPage({
         <Link href="/citas" className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy">
           ← Todos los negocios
         </Link>
+
+        {/* Prueba social real: "12 personas visitaron este sitio hoy".
+            Con pocas visitas no se muestra nada — un número bajo vende
+            menos que ningún número. */}
+        <VisitasPagina ranchoId={negocio.id} className="mt-3" />
 
         {/* ---------- Presentación ---------- */}
         <div className="mt-4 overflow-hidden rounded-3xl border border-aventurea-line bg-white shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)]">

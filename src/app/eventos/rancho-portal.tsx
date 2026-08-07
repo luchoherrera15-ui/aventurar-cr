@@ -42,6 +42,7 @@ import ReservaServicio from "./[id]/reserva-servicio";
 import MenuServicio from "./[id]/menu-servicio";
 import ProveedorActual from "@/components/proveedor-actual";
 import SiteFooter from "@/components/site-footer";
+import VisitasPagina from "@/components/visitas-pagina";
 
 function fmtColones(n: number | null) {
   if (n === null) return null;
@@ -352,6 +353,10 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       <GaleriaHero fotos={fotosHero} categoria={categoriaEventos} nombre={rancho.nombre} />
 
       <div className="mx-auto max-w-[1080px] px-7 pt-6">
+        {/* Prueba social real, arriba de todo: "12 personas visitaron
+            este sitio hoy". Con pocas visitas no se muestra nada — un
+            número bajo vende menos que ningún número. */}
+        <VisitasPagina ranchoId={rancho.id} className="mb-3" />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11.5px] font-bold uppercase tracking-wide text-aventurea-navy">

@@ -574,6 +574,66 @@ export async function entregarPedido(pedidoId: string, invitacionId: string) {
 }
 
 /**
+ * BORRA un pedido de invitación, con todo y su plata.
+ *
+ * Es lo que hay detrás del botón "Eliminar" del panel de pedidos y de
+ * la tabla "Cobro por cobro" de Finanzas: las dos listas muestran la
+ * MISMA fila de `pedidos_invitacion`, así que borrarla en cualquiera de
+ * las dos la saca de las dos y el total del periodo baja.
+ *
+ * Qué pasa con lo que colgaba del pedido:
+ *
+ *  - La INVITACIÓN entregada NO se toca. El vínculo es
+ *    pedido → invitación (`invitacion_id ... on delete set null`), o sea
+ *    que borrar el pedido no deja huérfana a la invitación ni le quita
+ *    el link al cliente. Es a propósito: el pedido es la orden de
+ *    compra, la invitación es el producto — el cliente ya la tiene.
+ *  - El COMPROBANTE del bucket privado sí se borra, porque sin su
+ *    pedido nadie lo puede volver a abrir: quedaría ocupando espacio
+ *    para siempre. Si falla, el pedido se borra igual y queda el aviso
+ *    en el log; un archivo colgando no justifica dejar la fila viva.
+ *
+ * Solo admin: la RLS de la 0075 ni siquiera le da `delete` al cliente,
+ * pero esto va con la service key, así que la puerta la cuida acá.
+ */
+export async function eliminarPedidoInvitacion(id: string) {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  const admin = createAdminClient();
+  if (!admin) return { error: FALTA_SERVICE_KEY };
+
+  const { data: pedido, error: errorLectura } = await admin
+    .from("pedidos_invitacion")
+    .select("id, comprobante_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (errorLectura) return { error: errorLectura.message };
+  if (!pedido) return { error: "Ese pedido ya no existe — quizá alguien lo borró antes." };
+
+  const { error } = await admin.from("pedidos_invitacion").delete().eq("id", id);
+  if (error) return { error: "No se pudo borrar el pedido: " + error.message };
+
+  const comprobante = pedido.comprobante_url as string | null;
+  if (comprobante) {
+    const { error: errorArchivo } = await admin.storage
+      .from("comprobantes")
+      .remove([comprobante]);
+    if (errorArchivo) {
+      console.error(
+        "[admin] Pedido borrado, pero el comprobante quedó en el bucket:",
+        errorArchivo.message,
+      );
+    }
+  }
+
+  revalidatePath("/admin/invitaciones");
+  revalidatePath("/admin/finanzas");
+  revalidatePath("/cuenta");
+  return { error: null };
+}
+
+/**
  * El comprobante de pago vive en un bucket privado, así que se abre con
  * una URL firmada de un minuto — igual que en el panel de eventos.
  */

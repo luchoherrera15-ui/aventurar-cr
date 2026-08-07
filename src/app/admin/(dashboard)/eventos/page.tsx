@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { eliminarReserva } from "./actions";
 import ReservasTable from "./reservas-table";
 import type { Reserva } from "./types";
 import { perteneceASeccion, SECCION_LABEL } from "../vertical";
@@ -89,7 +90,14 @@ export default async function AdminReservasPage() {
         />
       </div>
 
-      <ReservasTable initialReservas={reservas} nombrePorRancho={nombrePorRancho} />
+      {/* Solo acá se inyecta el borrado: el mismo componente en
+          /mi-negocio no lo recibe, así que el dueño de un local no ve
+          el botón ni por error. */}
+      <ReservasTable
+        initialReservas={reservas}
+        nombrePorRancho={nombrePorRancho}
+        onEliminar={eliminarReserva}
+      />
     </div>
   );
 }
