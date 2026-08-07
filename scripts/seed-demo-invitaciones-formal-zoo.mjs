@@ -44,7 +44,7 @@ const DEMOS = [
       titulo: "Valeria & Andrés — ¡Nos casamos!",
       anfitriones: "Valeria & Andrés",
       mensaje: "Queremos celebrarlo con vos.",
-      fecha_evento: "2027-02-14",
+      fecha_evento: "2027-01-03",
       hora: "4:00 p. m.",
       lugar_nombre: "Hacienda Monteflor",
       direccion: "Ciudad Colón, San José",
@@ -53,8 +53,8 @@ const DEMOS = [
     datos: {
       NOMBRE_1: "Valeria",
       NOMBRE_2: "Andrés",
-      FECHA: "14 · Febrero · 2027",
-      FECHA_ISO: "2027-02-14T16:00:00-06:00",
+      FECHA: "3 · Enero · 2027",
+      FECHA_ISO: "2027-01-03T16:00:00-06:00",
       HORA: "4:00 p. m.",
       LUGAR: "Hacienda Monteflor",
       LINK_MAPS: "https://maps.google.com/?q=9.9439,-84.2273",
@@ -74,7 +74,7 @@ const DEMOS = [
       titulo: "Isabella & Mateo — ¡Nos casamos!",
       anfitriones: "Isabella & Mateo",
       mensaje: "Abrí el sobre — tenemos algo que contarte.",
-      fecha_evento: "2026-11-28",
+      fecha_evento: "2027-01-03",
       hora: "4:00 p. m.",
       lugar_nombre: "Jardines del Valle Escondido",
       direccion: "San Rafael de Escazú, San José",
@@ -84,13 +84,13 @@ const DEMOS = [
       NOMBRE_1: "Isabella",
       NOMBRE_2: "Mateo",
       INICIALES: "I · M",
-      DIA_PALABRA: "Veintiocho",
-      MES: "Noviembre",
-      ANIO: "2026",
+      DIA_PALABRA: "Tres",
+      MES: "Enero",
+      ANIO: "2027",
       HORARIO: "4:00 p. m. a 10:00 p. m.",
       HORA: "4:00 p. m.",
-      FECHA_ISO: "2026-11-28T16:00:00-06:00",
-      FECHA_CORTA: "28 · 11 · 2026",
+      FECHA_ISO: "2027-01-03T16:00:00-06:00",
+      FECHA_CORTA: "03 · 01 · 2027",
       LUGAR: "Jardines del Valle Escondido",
       DIRECCION: "San Rafael de Escazú, San José",
       LINK_MAPS: "https://maps.google.com/?q=9.9189,-84.1370",
@@ -98,7 +98,7 @@ const DEMOS = [
       LINK_CALENDARIO:
         "https://calendar.google.com/calendar/render?action=TEMPLATE" +
         `&text=${encodeURIComponent("Boda de Isabella & Mateo")}` +
-        "&dates=20261128T160000/20261128T220000" +
+        "&dates=20270103T160000/20270103T220000" +
         "&ctz=America/Costa_Rica" +
         `&details=${encodeURIComponent(
           "¡Nos casamos! Acompañanos en Jardines del Valle Escondido. Vestimenta: formal elegante.",

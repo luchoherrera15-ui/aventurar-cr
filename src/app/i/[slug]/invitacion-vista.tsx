@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type RefObject,
+} from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -385,8 +393,22 @@ export const MARCA_CUENTA_REGRESIVA = "cuenta-regresiva";
  * un portal y no partiendo el HTML en pedazos: la marca puede venir
  * anidada dentro de una sección, y cortar el texto ahí rompería el
  * árbol. Si el diseño no trae la marca, todo funciona como antes.
+ *
+ * memo(): OBLIGATORIO, no una optimización. Los <script> de las
+ * plantillas sembradas (docs/plantillas-invitaciones) llegan por SSR y
+ * corren al parsear el documento — mutan su propio DOM (countdown que
+ * tictaquea, pétalos sembrados, el sobre en el top layer, listeners).
+ * En React 19 + Next 16, CUALQUIER re-render del padre que alcance
+ * este div vuelve a aplicar el dangerouslySetInnerHTML sobre el mismo
+ * nodo aunque __html no cambió: el DOM mutado se reemplaza por HTML
+ * fresco cuyos <script> ya no ejecutan — countdown congelado en "—",
+ * música sin gesto, partículas vacías. Se reprodujo con dos disparos
+ * reales: el flip post-hidratación de useMovimientoReducido (visitante
+ * con reduced motion — el bug que el dueño vio en producción) y
+ * setRsvpAbierto al tocar "Confirmá tu asistencia". Con memo y props
+ * estables (strings), los re-renders del padre nunca tocan este árbol.
  */
-function DisenoPropio({
+const DisenoPropio = memo(function DisenoPropio({
   html,
   fechaIso,
   hora,
@@ -411,24 +433,52 @@ function DisenoPropio({
 
   return (
     <>
-      {/* suppressHydrationWarning: React en dev compara este string
-          contra el innerHTML que el navegador ya NORMALIZÓ (comillas,
-          `&` → `&amp;`, orden de entidades…), así que nunca coinciden
-          textualmente aunque sean el mismo HTML — y React igual no
-          parcha contenido de innerHTML ("won't be patched up"). Sin
-          esto, TODAS las invitaciones con diseño propio llenan la
-          consola de dev con un aviso de hidratación que no es un bug. */}
-      <div
-        ref={contenedor}
-        className="w-full"
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <HtmlDelEquipo html={html} contenedor={contenedor} />
       {destino &&
         createPortal(<CuentaRegresiva fechaIso={fechaIso} hora={hora} />, destino)}
     </>
   );
-}
+});
+
+/**
+ * El HTML del equipo, aislado en su propio componente memo.
+ *
+ * No es cosmético: DisenoPropio se re-renderiza SOLO cuando su efecto
+ * encuentra la marca de la cuenta regresiva y llama a setDestino. En ese
+ * re-render React volvía a aplicar el dangerouslySetInnerHTML sobre el
+ * mismo div —aunque el string no cambió— y se llevaba puesto el DOM que
+ * ya había: las clases que agregó el <script> de la plantilla y, peor,
+ * el nodo marcado al que el portal acababa de mandar la cuenta regresiva
+ * (que quedaba tictaqueando en un nodo huérfano, invisible). Es decir:
+ * la marca data-bookea="cuenta-regresiva" se rompía a sí misma.
+ *
+ * Con el HTML acá adentro y props estables (un string y un ref), memo
+ * corta ese re-render antes de que llegue al DOM: el árbol inyectado se
+ * monta una vez y no lo vuelve a tocar nadie.
+ *
+ * suppressHydrationWarning: React en dev compara este string contra el
+ * innerHTML que el navegador ya NORMALIZÓ (comillas, `&` → `&amp;`,
+ * orden de entidades…), así que nunca coinciden textualmente aunque sean
+ * el mismo HTML — y React igual no parcha contenido de innerHTML ("won't
+ * be patched up"). Sin esto, TODAS las invitaciones con diseño propio
+ * llenan la consola de dev con un aviso de hidratación que no es un bug.
+ */
+const HtmlDelEquipo = memo(function HtmlDelEquipo({
+  html,
+  contenedor,
+}: {
+  html: string;
+  contenedor: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div
+      ref={contenedor}
+      className="w-full"
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+});
 
 /**
  * La plantilla "clásico" en secciones a pantalla completa, estilo

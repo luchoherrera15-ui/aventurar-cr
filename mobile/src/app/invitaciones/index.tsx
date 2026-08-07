@@ -20,7 +20,11 @@ import { abrirHiloConsulta } from "@/lib/consulta";
 import { pedirAvisoDeMensaje } from "@/lib/notificaciones";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { SLUG_NEGOCIO_INVITACIONES } from "@/lib/paquetes-invitaciones";
-import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
+import {
+  CATALOGO_INVITACIONES,
+  CATEGORIAS_INVITACIONES,
+  type CategoriaInvitacion,
+} from "@/lib/catalogo-invitaciones";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
@@ -76,6 +80,14 @@ export default function InvitacionesScreen() {
   const [albumes, setAlbumes] = useState<Album[] | null>(null);
   const [refrescando, setRefrescando] = useState(false);
   const [pidiendo, setPidiendo] = useState<string | null>(null);
+  // La pestaña de la vitrina: arranca en la primera que tenga ejemplos.
+  const [categoria, setCategoria] = useState<CategoriaInvitacion>(
+    () =>
+      CATEGORIAS_INVITACIONES.find((c) =>
+        CATALOGO_INVITACIONES.some((d) => d.categoria === c.id),
+      )?.id ?? CATEGORIAS_INVITACIONES[0].id,
+  );
+  const demosVisibles = CATALOGO_INVITACIONES.filter((d) => d.categoria === categoria);
 
   const cargar = useCallback(async () => {
     if (!session) return;
@@ -318,12 +330,43 @@ export default function InvitacionesScreen() {
             Tocá cualquiera y vivila como la viviría tu invitado — cada una es
             una invitación real. Y si querés algo único, lo diseñamos desde cero.
           </Text>
+          {/* Las pestañas por ocasión — espejo de la web. También en
+              riel horizontal: cinco etiquetas no caben en 390px. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pestanas}
+          >
+            {CATEGORIAS_INVITACIONES.map((c) => {
+              const activa = c.id === categoria;
+              return (
+                <Pressable
+                  key={c.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: activa }}
+                  onPress={() => setCategoria(c.id)}
+                  style={[styles.pestana, activa && styles.pestanaActiva]}
+                >
+                  <Text style={[styles.pestanaTexto, activa && styles.pestanaTextoActiva]}>
+                    {c.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {demosVisibles.length === 0 ? (
+            <Text style={styles.sinNada}>
+              Estamos preparando los ejemplos de esta categoría. Escribinos y te
+              diseñamos la tuya desde cero.
+            </Text>
+          ) : (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.vitrina}
           >
-            {CATALOGO_INVITACIONES.map((d) => (
+            {demosVisibles.map((d) => (
               <Pressable
                 key={d.slug}
                 accessibilityRole="button"
@@ -348,6 +391,7 @@ export default function InvitacionesScreen() {
               </Pressable>
             ))}
           </ScrollView>
+          )}
         </View>
 
         {/* El link al sitio, deliberadamente neutro: informa dónde se
@@ -446,6 +490,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  pestanas: { gap: 8, paddingBottom: Spacing.two, paddingRight: Spacing.three },
+  pestana: {
+    backgroundColor: Colors.cream2,
+    borderColor: Colors.line,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  pestanaActiva: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  pestanaTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.extraBold,
+    fontSize: 12,
+  },
+  pestanaTextoActiva: { color: "#ffffff" },
   // La vitrina va en riel horizontal: cinco cards apiladas empujarían
   // los paquetes (que es lo que se vende) demasiado abajo.
   vitrina: { gap: Spacing.two, paddingBottom: 4, paddingRight: Spacing.three },

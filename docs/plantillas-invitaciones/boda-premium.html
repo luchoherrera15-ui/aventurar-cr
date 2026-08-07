@@ -90,8 +90,10 @@
     fotos y el mp3 que hospedó el dueño.
   - 60 fps: solo transform/opacity en todo lo que se anima en loop; el
     blur de la sección 2 es una transición única de entrada.
-  - prefers-reduced-motion: el sobre no aparece (display:none y el
-    script tampoco lo abre), cero loops, todo visible y estático.
+  - Las animaciones corren SIEMPRE, para todo el mundo: esta plantilla
+    no atiende prefers-reduced-motion (decisión del dueño — sobre,
+    música, pétalos, seda, parallax y entradas idénticos con o sin la
+    señal del sistema).
   - Sin JS: el <dialog> queda cerrado (oculto), no hay lock de scroll y
     la invitación completa es visible y legible (fotos incluidas: los
     estados "tapado" solo existen bajo .bpr-anima).
@@ -502,7 +504,7 @@
     /* ================================================================ */
     /* SISTEMA DE ESCENAS                                                */
     /* Los estados "oculto antes de entrar" viven SOLO bajo .bpr-anima   */
-    /* (la agrega el JS): sin JS o con reduced-motion todo es visible.   */
+    /* (la agrega el JS): sin JS todo queda visible de una vez.          */
     /* ================================================================ */
     .bpr section { position: relative; }
 
@@ -1432,28 +1434,6 @@
       color: rgba(247, 242, 234, 0.45);
     }
 
-    /* ============ Movimiento reducido: todo quieto y visible ========= */
-    @media (prefers-reduced-motion: reduce) {
-      .bpr *, .bpr *::before, .bpr *::after {
-        animation: none !important;
-        transition: none !important;
-      }
-      #bpr-sobre { display: none !important; }
-      .bpr-hero-e, .bpr-nombres, .bpr-sumerge, .bpr-izq, .bpr-dc-carta,
-      .bpr-punto, .bpr-cd-celda, .bpr-pola, .bpr-aba, .bpr-pie-e,
-      .bpr-brinca, .bpr-crece {
-        opacity: 1 !important;
-        transform: none !important;
-        filter: none !important;
-      }
-      .bpr-pola { transform: rotate(var(--rot, 0deg)) !important; }
-      .bpr-dc-borde, .bpr-onda-anima { transform: none !important; }
-      .bpr-cortina, .bpr-pola-velo { display: none !important; }
-      .bpr-petalo, .bpr-destello, .bpr-sobre-mota { display: none !important; }
-      #bpr-anillo-l { left: calc(50% - 54px) !important; }
-      #bpr-anillo-r { right: calc(50% - 54px) !important; }
-      .bpr-anillo-corazon { opacity: 1 !important; transform: scale(1) !important; }
-    }
   </style>
 
   <!-- La música: el saxofón que arranca al abrir el sobre. -->
@@ -1508,7 +1488,6 @@
       var dlg = document.getElementById("bpr-sobre");
       var audio = document.getElementById("bpr-audio");
       var pill = document.getElementById("bpr-musica");
-      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (!raiz || !dlg) return;
 
       raiz.classList.add("bpr-js");
@@ -1598,7 +1577,7 @@
         timers.push(window.setTimeout(finalizar, 1800));
       }
 
-      if (reducido || typeof dlg.showModal !== "function") {
+      if (typeof dlg.showModal !== "function") {
         /* Sin sobre: la invitación queda abierta de una vez. */
         abierto = true;
         raiz.classList.add("bpr-abierta");
@@ -2016,8 +1995,7 @@
       var raiz = document.getElementById("bpr");
       if (!raiz) return;
       var escenas = raiz.querySelectorAll("[data-bpr-escena]");
-      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (reducido || !("IntersectionObserver" in window)) {
+      if (!("IntersectionObserver" in window)) {
         for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("bpr-vista");
         return;
       }
@@ -2068,10 +2046,8 @@
     })();
 
     /* ============ Ambiente: pétalos que caen y destellos que suben === */
-    /* 20 partículas en móvil (8+12), 32 en ≥768px (14+18). */
+    /* 23 partículas en móvil (15+8), 46 en ≥768px (30+16). */
     (function () {
-      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (reducido) return;
       var caja = document.getElementById("bpr-ambiente");
       if (!caja) return;
       var ancho = window.matchMedia && window.matchMedia("(min-width: 768px)").matches;
@@ -2116,8 +2092,6 @@
 
     /* ============ Ligado al scroll (rAF): parallax + argollas ======== */
     (function () {
-      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (reducido) return;
       var raiz = document.getElementById("bpr");
       if (!raiz) return;
       var pares = raiz.querySelectorAll("[data-bpr-par]");
@@ -2186,8 +2160,7 @@
 
     /* ============ Micro-interacciones ============ */
     (function () {
-      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      var puedeAnimar = !reducido && document.body && document.body.animate;
+      var puedeAnimar = !!(document.body && document.body.animate);
 
       /* Chispas doradas desde un punto (nombres del hero). */
       function chispas(x, y) {

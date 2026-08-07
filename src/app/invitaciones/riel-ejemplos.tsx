@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconPause, IconPlay } from "@/components/icons";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
-import type { DemoInvitacion } from "@/lib/catalogo-invitaciones";
+import {
+  CATEGORIAS_INVITACIONES,
+  type CategoriaInvitacion,
+  type DemoInvitacion,
+} from "@/lib/catalogo-invitaciones";
 
 /** Cuánto dura cada slide antes de pasar solo al siguiente. */
 const DURACION_MS = 5000;
@@ -51,6 +55,19 @@ export default function RielEjemplos({
   // (al reanudar de una pausa) — es la llave de `key` del relleno.
   const [ciclo, setCiclo] = useState(0);
   const [pausado, setPausado] = useState(false);
+
+  // La pestaña activa. Arranca en la primera que TENGA ejemplos: si
+  // "Fiestas Infantiles" quedara sin ninguno, abrir ahí sería recibir
+  // al visitante con una vitrina vacía.
+  const [categoria, setCategoria] = useState<CategoriaInvitacion>(
+    () =>
+      CATEGORIAS_INVITACIONES.find((c) => demos.some((d) => d.categoria === c.id))?.id ??
+      CATEGORIAS_INVITACIONES[0].id,
+  );
+  const visibles = useMemo(
+    () => demos.filter((d) => d.categoria === categoria),
+    [demos, categoria],
+  );
   // El mismo hook que ya usa la plantilla de /i/[slug] (invitacion-animada):
   // useSyncExternalStore, no useState+useEffect, para no disparar un
   // segundo render solo por leer una media query.
@@ -59,8 +76,8 @@ export default function RielEjemplos({
   const irA = useCallback(
     (indice: number) => {
       const el = rielRef.current;
-      if (!el || demos.length === 0) return;
-      const destino = ((indice % demos.length) + demos.length) % demos.length;
+      if (!el || visibles.length === 0) return;
+      const destino = ((indice % visibles.length) + visibles.length) % visibles.length;
       activoRef.current = destino;
       setActivo(destino);
       setCiclo((c) => c + 1);
@@ -69,8 +86,24 @@ export default function RielEjemplos({
         behavior: animar ? "smooth" : "auto",
       });
     },
-    [demos.length, animar],
+    [visibles.length, animar],
   );
+
+  /**
+   * Cambiar de pestaña reinicia el riel: el slide activo, la barra de
+   * progreso y el scroll vuelven al principio. Sin esto, saltar de una
+   * pestaña de tres ejemplos a una de uno dejaría el riel scrolleado a
+   * una posición que ya no existe (en blanco).
+   */
+  function cambiarCategoria(id: CategoriaInvitacion) {
+    if (id === categoria) return;
+    setCategoria(id);
+    activoRef.current = 0;
+    setActivo(0);
+    setCiclo((c) => c + 1);
+    slidesRef.current = [];
+    rielRef.current?.scrollTo({ left: 0, behavior: "auto" });
+  }
 
   function alternarPausa() {
     // Al reanudar, la barra arranca de cero en vez de seguir a mitad:
@@ -101,28 +134,66 @@ export default function RielEjemplos({
     );
     slidesRef.current.forEach((s) => s && io.observe(s));
     return () => io.disconnect();
-  }, [demos.length]);
+    // `categoria` en las deps: al cambiar de pestaña los slides son
+    // otros nodos y hay que volver a observarlos.
+  }, [visibles.length, categoria]);
 
   // El avance automático. Un timeout por slide (no un intervalo): así
   // se cancela limpio cada vez que cambia el slide, se reinicia el
   // ciclo o se pausa — sin arrastrar un resto de tiempo de la vez
   // anterior.
   useEffect(() => {
-    if (pausado || !animar || demos.length <= 1) return;
+    if (pausado || !animar || visibles.length <= 1) return;
     const t = setTimeout(() => irA(activoRef.current + 1), DURACION_MS);
     return () => clearTimeout(t);
-  }, [activo, ciclo, pausado, animar, demos.length, irA]);
+  }, [activo, ciclo, pausado, animar, visibles.length, irA]);
 
   if (demos.length === 0) return null;
 
   return (
     <div>
+      {/* Las pestañas: en pantalla angosta se deslizan de lado en vez
+          de apilarse en tres filas. */}
+      <div
+        role="tablist"
+        aria-label="Categorías de invitaciones"
+        className="mb-6 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center sm:overflow-visible"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {CATEGORIAS_INVITACIONES.map((c) => {
+          const activa = c.id === categoria;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              role="tab"
+              aria-selected={activa}
+              onClick={() => cambiarCategoria(c.id)}
+              className={`shrink-0 rounded-full px-4 py-2.5 text-[12.5px] font-bold transition-colors sm:text-[13px] ${
+                activa
+                  ? "bg-[#ee7420] text-white"
+                  : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+              }`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {visibles.length === 0 ? (
+        <p className="rounded-3xl border border-dashed border-white/20 px-6 py-16 text-center text-[14px] text-white/60">
+          Estamos preparando los ejemplos de esta categoría. Escribinos y te
+          diseñamos la tuya desde cero.
+        </p>
+      ) : (
+        <>
       <div
         ref={rielRef}
         className="flex snap-x snap-mandatory overflow-x-auto rounded-3xl"
         style={{ scrollbarWidth: "none" }}
       >
-        {demos.map((demo, i) => {
+        {visibles.map((demo, i) => {
           const m = demo.muestra ?? PALETA_DEFECTO;
           return (
             <div
@@ -175,16 +246,16 @@ export default function RielEjemplos({
       {/* El indicador: puntos chicos, y el activo se estira en una
           píldora que se rellena mientras dura el slide — igual que un
           carrusel de historias. Tocar un punto salta directo ahí. */}
-      {demos.length > 1 && (
+      {visibles.length > 1 && (
         <div className="mt-6 flex items-center justify-center gap-1.5">
-          {demos.map((demo, i) => {
+          {visibles.map((demo, i) => {
             const esActivo = i === activo;
             return (
               <button
                 key={demo.slug}
                 type="button"
                 onClick={() => irA(i)}
-                aria-label={`Ir al ejemplo ${i + 1} de ${demos.length}: ${demo.nombre}`}
+                aria-label={`Ir al ejemplo ${i + 1} de ${visibles.length}: ${demo.nombre}`}
                 aria-current={esActivo}
                 className="flex items-center justify-center p-1.5"
               >
@@ -223,6 +294,8 @@ export default function RielEjemplos({
             {pausado ? <IconPlay /> : <IconPause />}
           </button>
         </div>
+      )}
+        </>
       )}
     </div>
   );

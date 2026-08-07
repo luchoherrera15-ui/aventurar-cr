@@ -3,9 +3,27 @@
  * en /i/{slug}. Para sumar un diseño nuevo al catálogo basta con
  * sembrar su invitación demo y agregar acá su entrada.
  */
+
+/**
+ * Las pestañas de la vitrina: quien entra buscando la invitación de un
+ * quinceaños no debería tener que pasar por seis bodas para llegar.
+ * El orden es el que se muestra en pantalla.
+ */
+export const CATEGORIAS_INVITACIONES = [
+  { id: "infantiles", label: "Fiestas Infantiles" },
+  { id: "bodas", label: "Bodas" },
+  { id: "quince", label: "Quince Años" },
+  { id: "general", label: "Fiestas en General" },
+  { id: "corporativas", label: "Invitaciones Corporativas" },
+] as const;
+
+export type CategoriaInvitacion = (typeof CATEGORIAS_INVITACIONES)[number]["id"];
+
 export type DemoInvitacion = {
   slug: string;
   nombre: string;
+  /** La pestaña donde vive. */
+  categoria: CategoriaInvitacion;
   ocasion: string;
   descripcion: string;
   /** Clases del lienzo de la mini-card: azul sólido de la paleta de la
@@ -39,6 +57,7 @@ export type DemoInvitacion = {
 export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   {
     slug: "demo-boda-estandar",
+    categoria: "bodas",
     nombre: "Seda & Marfil",
     ocasion: "Bodas",
     descripcion:
@@ -50,6 +69,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-boda-premium",
+    categoria: "bodas",
     nombre: "Carta de Amor",
     ocasion: "Bodas",
     descripcion:
@@ -61,6 +81,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-invitacion",
+    categoria: "bodas",
     nombre: "Marfil & Champán",
     ocasion: "Bodas",
     descripcion:
@@ -72,6 +93,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-formal",
+    categoria: "general",
     nombre: "Gala de Etiqueta",
     ocasion: "Aniversarios y galas",
     descripcion:
@@ -83,6 +105,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-aracnida",
+    categoria: "infantiles",
     nombre: "Héroe Arácnido",
     ocasion: "Cumples infantiles",
     descripcion:
@@ -94,6 +117,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-zoologico",
+    categoria: "infantiles",
     nombre: "Safari de Colores",
     ocasion: "Cumples infantiles",
     descripcion:
@@ -104,7 +128,32 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     muestra: { fondo: "#f2e2c4", tinta: "#4a3b22", acento: "#e08a2c" },
   },
   {
+    slug: "demo-quince-anos",
+    categoria: "quince",
+    nombre: "Corona de Raso",
+    ocasion: "Quince años",
+    descripcion:
+      "Borgoña de noche y oro rosa: el XV se arma con destellos y una cinta de raso se desenrolla mientras bajás.",
+    lienzo: "bg-aventurea-navy-2",
+    icono: "destellos",
+    iconoClase: "text-white/90",
+    muestra: { fondo: "#451227", tinta: "#f7ecef", acento: "#d9a077" },
+  },
+  {
+    slug: "demo-corporativa",
+    categoria: "corporativas",
+    nombre: "Protocolo",
+    ocasion: "Eventos de empresa",
+    descripcion:
+      "Navy y dorado tenue, sin adornos de fiesta: agenda de la noche que se traza sola y confirmación en línea.",
+    lienzo: "bg-aventurea-navy",
+    icono: "estrella",
+    iconoClase: "text-white/90",
+    muestra: { fondo: "#0f1a33", tinta: "#eef1f6", acento: "#c9a227" },
+  },
+  {
     slug: "revelacion-maria-jesus-y-luis",
+    categoria: "general",
     nombre: "¿Niño o Niña?",
     ocasion: "Revelación de género",
     descripcion:

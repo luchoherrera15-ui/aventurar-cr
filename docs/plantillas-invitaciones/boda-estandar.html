@@ -8,7 +8,9 @@
 
   Fondo blanco con "efecto tela": ondas crema (#f3ead9 / #efe7d8) que se
   mecen perpetuamente como seda al viento — solo transform/opacity, 12 a
-  21 s por ciclo, quietas con prefers-reduced-motion.
+  21 s por ciclo. Las animaciones corren SIEMPRE, para todo el mundo:
+  esta plantilla no atiende prefers-reduced-motion (decisión del dueño —
+  la experiencia es idéntica con o sin la señal del sistema).
 
   JERARQUÍA (columna centrada, tarjeta de boda clásica):
     1. "¡NOS CASAMOS!" en tracking amplio + "Queremos celebrarlo con vos"
@@ -384,15 +386,6 @@
       .bde-btn { padding: 14px 30px; font-size: 13px; }
     }
 
-    /* ============ Movimiento reducido: todo quieto y visible ============ */
-    @media (prefers-reduced-motion: reduce) {
-      .bde *, .bde *::before, .bde *::after {
-        animation: none !important;
-        transition: none !important;
-      }
-      .bde-entra, .bde-nombres { opacity: 1 !important; transform: none !important; }
-      .bde-mota { display: none; }
-    }
   </style>
 
   <!-- La seda: capas de ondas crema de borde a borde. -->
@@ -558,8 +551,6 @@
 
     /* ============ Destellos ambiente: 14 en móvil, 24 en desktop ====== */
     (function () {
-      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (reducido) return;
       var caja = document.getElementById("bde-motas");
       if (!caja) return;
       var n = window.matchMedia && window.matchMedia("(min-width: 768px)").matches ? 24 : 14;
@@ -579,9 +570,8 @@
 
     /* ============ Micro-interacción: chispas al tocar los nombres ===== */
     (function () {
-      var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       var nombres = document.getElementById("bde-nombres");
-      if (!nombres || reducido || !nombres.animate) return;
+      if (!nombres || !nombres.animate) return;
       var ocupado = false;
       nombres.addEventListener("click", function (ev) {
         // Pop suave del lockup (no se encima si tocan rápido).

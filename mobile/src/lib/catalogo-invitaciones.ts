@@ -11,9 +11,22 @@ import { Colors } from "@/constants/theme";
  * escala navy → blue que usa la vitrina de la web.
  */
 
+/** Las pestañas de la vitrina — espejo de la web, mismo orden. */
+export const CATEGORIAS_INVITACIONES = [
+  { id: "infantiles", label: "Fiestas Infantiles" },
+  { id: "bodas", label: "Bodas" },
+  { id: "quince", label: "Quince Años" },
+  { id: "general", label: "Fiestas en General" },
+  { id: "corporativas", label: "Invitaciones Corporativas" },
+] as const;
+
+export type CategoriaInvitacion = (typeof CATEGORIAS_INVITACIONES)[number]["id"];
+
 export type DemoInvitacion = {
   slug: string;
   nombre: string;
+  /** La pestaña donde vive. */
+  categoria: CategoriaInvitacion;
   ocasion: string;
   descripcion: string;
   /** Color de fondo del lienzo de la mini-card. */
@@ -27,6 +40,7 @@ export type DemoInvitacion = {
 export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   {
     slug: "demo-boda-estandar",
+    categoria: "bodas",
     nombre: "Seda & Marfil",
     ocasion: "Bodas",
     descripcion:
@@ -37,6 +51,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-boda-premium",
+    categoria: "bodas",
     nombre: "Carta de Amor",
     ocasion: "Bodas",
     descripcion:
@@ -47,6 +62,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-invitacion",
+    categoria: "bodas",
     nombre: "Marfil & Champán",
     ocasion: "Bodas",
     descripcion:
@@ -57,6 +73,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-formal",
+    categoria: "general",
     nombre: "Gala de Etiqueta",
     ocasion: "Aniversarios y galas",
     descripcion:
@@ -67,6 +84,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-aracnida",
+    categoria: "infantiles",
     nombre: "Héroe Arácnido",
     ocasion: "Cumples infantiles",
     descripcion:
@@ -77,6 +95,7 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
   },
   {
     slug: "demo-zoologico",
+    categoria: "infantiles",
     nombre: "Safari de Colores",
     ocasion: "Cumples infantiles",
     descripcion:
@@ -86,7 +105,30 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     tintaIcono: "rgba(255,255,255,0.95)",
   },
   {
+    slug: "demo-quince-anos",
+    categoria: "quince",
+    nombre: "Corona de Raso",
+    ocasion: "Quince años",
+    descripcion:
+      "Borgoña de noche y oro rosa: el XV se arma con destellos y una cinta de raso se desenrolla al bajar.",
+    lienzo: Colors.navy2,
+    icono: "sparkles",
+    tintaIcono: "rgba(255,255,255,0.9)",
+  },
+  {
+    slug: "demo-corporativa",
+    categoria: "corporativas",
+    nombre: "Protocolo",
+    ocasion: "Eventos de empresa",
+    descripcion:
+      "Navy y dorado tenue: agenda de la noche que se traza sola y confirmación en línea.",
+    lienzo: Colors.navy,
+    icono: "business-outline",
+    tintaIcono: "rgba(255,255,255,0.9)",
+  },
+  {
     slug: "revelacion-maria-jesus-y-luis",
+    categoria: "general",
     nombre: "¿Niño o Niña?",
     ocasion: "Revelación de género",
     descripcion:

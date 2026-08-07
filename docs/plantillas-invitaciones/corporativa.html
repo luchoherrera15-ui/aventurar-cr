@@ -1,0 +1,1865 @@
+<!--
+  Plantilla "Corporativa" — el registro MÁS FORMAL del catálogo: cenas
+  de fin de año, aniversarios de empresa, galas de premiación, lanzamientos
+  y convenciones. Paleta navy profundo + dorado tenue + perla; sans limpia
+  para el cuerpo y serif fina solo en los números y los títulos grandes.
+  Retícula ordenada, mucho aire, líneas geométricas finas. Nada de pétalos,
+  corazones ni purpurina: acá manda la sobriedad.
+
+  USO: sustituir los placeholders y guardar el resultado en
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta a
+  pantalla completa (el fragmento ocupa todo el ancho del viewport y el
+  navy ES la página, footer de Bookea incluido).
+
+  ESTRUCTURA (secciones a pantalla completa, storytelling al scrollear):
+    1. Portada 100svh: logotipo tipográfico + nombre del evento
+    2. La cita: fecha en grande, cuenta regresiva viva y "Agregar al calendario"
+    3. AGENDA DE LA NOCHE: línea de tiempo que se traza punto por punto
+       (la sección que distingue a la corporativa)
+    4. El año en números: cifras que cuentan hacia arriba
+    5. Código de vestimenta: siluetas en trazo fino
+    6. El lugar: skyline en parallax, cómo llegar y nota de parqueo
+    7. Confirmación: el botón que abre el formulario real de la página
+    8. Cierre con la marca
+
+  PLACEHOLDERS:
+    {{EMPRESA}}          nombre de la empresa        p. ej. Grupo Altamar
+    {{EMPRESA_NOTA}}     bajada del logotipo         p. ej. Costa Rica · desde 2011
+    {{EVENTO}}           nombre del evento           p. ej. Cena de Fin de Año
+    {{ANIO}}             el año, en grande           p. ej. 2026
+    {{FECHA_LARGA}}      fecha en palabras           p. ej. Viernes 11 de diciembre
+    {{DIA}}              número del día              p. ej. 11
+    {{MES}}              mes corto                   p. ej. Diciembre
+    {{DIA_SEMANA}}       día de la semana            p. ej. Viernes
+    {{HORA}}             hora de inicio              p. ej. 6:30 p. m.
+    {{HORA_NUM}}         solo el número de la hora   p. ej. 6:30
+    {{HORA_SUF}}         solo el sufijo              p. ej. p. m.
+    {{LUGAR}}            nombre del lugar            p. ej. Salón Panorama
+    {{DIRECCION}}        dirección corta             p. ej. Escazú, San José
+    {{NOTA_PARQUEO}}     una línea sobre el parqueo
+    {{VESTIMENTA}}       el código                   p. ej. Formal de negocios / cóctel
+    {{VESTIMENTA_NOTA}}  detalle del código
+    {{FECHA_LIMITE}}     fecha tope para confirmar   p. ej. 1 de diciembre
+    {{NOTA_RSVP}}        una línea extra del RSVP
+    {{LINK_MAPS}}        URL de Google Maps
+    {{LINK_WAZE}}        URL de Waze
+    {{LINK_CALENDARIO}}  URL de Google Calendar (con dates y ctz)
+    {{HITO_N_HORA}} / {{HITO_N_TITULO}} / {{HITO_N_TEXTO}}   N = 1..5
+    {{CIFRA_N}} / {{CIFRA_N_LBL}}                            N = 1..4
+
+  NOTAS TÉCNICAS (leer antes de tocar nada):
+  - Autocontenido: CSS en el <style> y JS en el <script> de este mismo
+    fragmento; cero librerías, cero recursos remotos (solo SVG inline).
+    Todo va namespaced con .corp-/#corp- para no tocar el RSVP ni la página.
+  - NADA arranca en opacity:0 esperando un observer. El estado por defecto
+    de TODO es visible; el IntersectionObserver solo AGREGA la clase .on
+    que reproduce la entrada encima. Si el observer nunca dispara (o el JS
+    no corre del todo), la invitación se lee completa e igual se mueve:
+    el ambiente (trama, orbes, motas, anillos, brillos) es CSS infinito
+    que no depende de una sola línea de JavaScript.
+  - Las animaciones corren SIEMPRE, iguales para todo el mundo: acá no hay
+    ni un gate por preferencias de movimiento del sistema. Es decisión del
+    dueño del producto (su referencia hace lo mismo).
+  - La cuenta regresiva NO se dibuja acá: se marca el lugar con
+    <div data-bookea="cuenta-regresiva"></div> y /i/{slug} monta encima el
+    componente vivo de React (los <script> de este HTML no le sirven).
+    Los estilos de .corp-cr la revisten en navy/dorado sin tocar su markup.
+  - El botón de confirmar lleva data-bookea="abrir-rsvp": la página abre el
+    formulario real como card modal. No hace scroll por su cuenta.
+  - Solo se anima transform y opacity (y stroke-dashoffset en dos íconos de
+    trazo, que son dos paths de nada) para no salirse de los 60fps.
+-->
+<div class="corp">
+  <style>
+    /* ==================== Tokens ==================== */
+    .corp {
+      --c-tinta: #071120;
+      --c-navy: #0b1a2d;
+      --c-navy-alto: #10263f;
+      --c-oro: #c9a86a;
+      --c-oro-claro: #e0c894;
+      --c-oro-sof: rgba(201, 168, 106, 0.42);
+      --c-oro-tenue: rgba(201, 168, 106, 0.16);
+      --c-perla: #eef2f7;
+      --c-perla-sof: rgba(238, 242, 247, 0.66);
+      --c-humo: rgba(238, 242, 247, 0.44);
+      --c-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      --c-serif: var(--inv3-serif, "Cormorant Garamond"), Georgia, "Times New Roman", serif;
+      display: block;
+      width: 100%;
+      font-family: var(--c-sans);
+      color: var(--c-perla);
+      -webkit-font-smoothing: antialiased;
+    }
+    .corp,
+    .corp *,
+    .corp *::before,
+    .corp *::after {
+      box-sizing: border-box;
+    }
+    /* OJO: nada de `.corp li` acá. Ese selector (0,1,1) le gana en
+       especificidad a .corp-hito (0,1,0) y le borraba la sangría de 46px
+       a la línea de tiempo: los rombos se montaban encima de la hora. */
+    .corp h1,
+    .corp h2,
+    .corp h3,
+    .corp p,
+    .corp ol,
+    .corp figure {
+      margin: 0;
+      padding: 0;
+    }
+    .corp ol {
+      list-style: none;
+    }
+
+    /* ==================== Fondo perpetuo ====================
+       Capa fija: navy sólido + retícula fina que se desplaza para
+       siempre + dos veladuras que respiran + motas que suben. Es lo
+       que garantiza que SIEMPRE haya movimiento en pantalla, aunque
+       el JS no corra nunca. */
+    .corp-fondo {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+      background:
+        radial-gradient(60rem 40rem at 78% -10%, rgba(16, 38, 63, 0.95), transparent 62%),
+        radial-gradient(52rem 38rem at -10% 42%, rgba(13, 30, 50, 0.9), transparent 60%),
+        linear-gradient(180deg, var(--c-tinta) 0%, var(--c-navy) 48%, var(--c-tinta) 100%);
+    }
+    .corp-trama {
+      position: absolute;
+      inset: -80px;
+      opacity: 0.5;
+      background-image:
+        linear-gradient(to right, rgba(201, 168, 106, 0.075) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(201, 168, 106, 0.075) 1px, transparent 1px);
+      background-size: 64px 64px;
+      animation: corp-trama-mover 34s linear infinite;
+      will-change: transform;
+    }
+    @keyframes corp-trama-mover {
+      from {
+        transform: translate3d(0, 0, 0);
+      }
+      to {
+        transform: translate3d(-64px, -64px, 0);
+      }
+    }
+    .corp-orbe {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(48px);
+      will-change: transform;
+    }
+    .corp-orbe-1 {
+      top: -14%;
+      right: -18%;
+      width: 62vw;
+      height: 62vw;
+      max-width: 620px;
+      max-height: 620px;
+      background: radial-gradient(circle, rgba(201, 168, 106, 0.17), transparent 68%);
+      animation: corp-orbe-a 21s ease-in-out infinite alternate;
+    }
+    .corp-orbe-2 {
+      bottom: -16%;
+      left: -22%;
+      width: 74vw;
+      height: 74vw;
+      max-width: 700px;
+      max-height: 700px;
+      background: radial-gradient(circle, rgba(46, 96, 150, 0.24), transparent 66%);
+      animation: corp-orbe-b 27s ease-in-out infinite alternate;
+    }
+    @keyframes corp-orbe-a {
+      from {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      to {
+        transform: translate3d(-7%, 9%, 0) scale(1.16);
+      }
+    }
+    @keyframes corp-orbe-b {
+      from {
+        transform: translate3d(0, 0, 0) scale(1.12);
+      }
+      to {
+        transform: translate3d(9%, -8%, 0) scale(0.94);
+      }
+    }
+    /* El barrido de luz que cruza el lienzo cada tanto. */
+    .corp-barrido {
+      position: absolute;
+      inset: -30% -60%;
+      background: linear-gradient(
+        104deg,
+        transparent 40%,
+        rgba(201, 168, 106, 0.07) 47%,
+        rgba(238, 242, 247, 0.11) 50%,
+        rgba(201, 168, 106, 0.07) 53%,
+        transparent 60%
+      );
+      transform: translate3d(-70%, 0, 0);
+      animation: corp-barrido-cruzar 15s ease-in-out infinite;
+      will-change: transform;
+    }
+    @keyframes corp-barrido-cruzar {
+      0% {
+        transform: translate3d(-70%, 0, 0);
+      }
+      55%,
+      100% {
+        transform: translate3d(70%, 0, 0);
+      }
+    }
+    .corp-mota {
+      position: absolute;
+      bottom: -6vh;
+      width: 3px;
+      height: 3px;
+      background: var(--c-oro);
+      opacity: 0.42;
+      transform: translate3d(0, 0, 0);
+      animation: corp-mota-subir var(--dur, 26s) linear var(--del, 0s) infinite;
+      will-change: transform, opacity;
+    }
+    @keyframes corp-mota-subir {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 0, 0) rotate(0deg);
+      }
+      12%,
+      82% {
+        opacity: var(--op, 0.4);
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(var(--dx, 20px), -112vh, 0) rotate(180deg);
+      }
+    }
+    .corp-vineta {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(120% 80% at 50% 40%, transparent 42%, rgba(4, 9, 17, 0.72) 100%);
+    }
+
+    /* ==================== Secciones ==================== */
+    .corp-sec {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      width: 100%;
+      flex-direction: column;
+      align-items: center;
+      padding: clamp(78px, 15vw, 132px) 22px;
+      text-align: center;
+    }
+    .corp-int {
+      width: 100%;
+      max-width: 760px;
+    }
+    .corp-kicker {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: var(--c-oro);
+    }
+    .corp-h2 {
+      margin-top: 14px;
+      font-family: var(--c-serif);
+      font-size: clamp(30px, 8.4vw, 54px);
+      font-weight: 500;
+      line-height: 1.08;
+      letter-spacing: 0.01em;
+      color: var(--c-perla);
+    }
+    .corp-txt {
+      margin-top: 16px;
+      font-size: 14.5px;
+      line-height: 1.75;
+      color: var(--c-perla-sof);
+    }
+    .corp-nota {
+      margin-top: 18px;
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--c-humo);
+    }
+
+    /* La regla fina con el rombo al centro: separador de la casa. */
+    .corp-regla {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 22px auto 0;
+      width: min(320px, 78%);
+    }
+    .corp-regla i {
+      display: block;
+      height: 1px;
+      flex: 1;
+      background: linear-gradient(90deg, transparent, var(--c-oro-sof));
+      transform: scaleX(1);
+      transform-origin: right center;
+    }
+    .corp-regla i + i {
+      background: linear-gradient(90deg, var(--c-oro-sof), transparent);
+      transform-origin: left center;
+    }
+    .corp-regla span {
+      display: block;
+      width: 7px;
+      height: 7px;
+      border: 1px solid var(--c-oro);
+      transform: rotate(45deg);
+      animation: corp-rombo-latir 5.5s ease-in-out infinite;
+    }
+    @keyframes corp-rombo-latir {
+      0%,
+      100% {
+        transform: rotate(45deg) scale(1);
+        opacity: 0.75;
+      }
+      50% {
+        transform: rotate(135deg) scale(1.22);
+        opacity: 1;
+      }
+    }
+    .on.corp-regla i {
+      animation: corp-trazar-x 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    @keyframes corp-trazar-x {
+      from {
+        transform: scaleX(0);
+      }
+      to {
+        transform: scaleX(1);
+      }
+    }
+
+    /* ==================== Entradas (siempre encima de lo visible) ======
+       Doble selector a propósito: el observer marca .on sobre el
+       elemento que lleva data-ap, y de ahí cuelgan los hijos con su
+       propio --d para el escalonado. */
+    .on.corp-e,
+    .on .corp-e {
+      animation: corp-entrar 0.9s cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0s) both;
+    }
+    @keyframes corp-entrar {
+      from {
+        opacity: 0;
+        transform: translate3d(0, 26px, 0);
+      }
+      to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+    }
+    .on.corp-e-izq,
+    .on .corp-e-izq {
+      animation: corp-entrar-izq 0.95s cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0s) both;
+    }
+    @keyframes corp-entrar-izq {
+      from {
+        opacity: 0;
+        transform: translate3d(-30px, 0, 0);
+      }
+      to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+    }
+    .on.corp-e-esc,
+    .on .corp-e-esc {
+      animation: corp-entrar-esc 1.05s cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0s) both;
+    }
+    @keyframes corp-entrar-esc {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* ==================== 1 · Portada ==================== */
+    .corp-portada {
+      min-height: 100vh;
+      min-height: 100svh;
+      justify-content: center;
+      padding-top: clamp(64px, 12vh, 120px);
+      padding-bottom: clamp(84px, 14vh, 130px);
+      overflow: hidden;
+    }
+    /* El marco de líneas finas que se dibuja al entrar. */
+    .corp-marco {
+      position: absolute;
+      inset: 14px;
+      pointer-events: none;
+    }
+    .corp-marco i {
+      position: absolute;
+      background: var(--c-oro-sof);
+    }
+    .corp-marco i:nth-child(1) {
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      transform-origin: left center;
+    }
+    .corp-marco i:nth-child(2) {
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      transform-origin: center top;
+    }
+    .corp-marco i:nth-child(3) {
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      transform-origin: right center;
+    }
+    .corp-marco i:nth-child(4) {
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      transform-origin: center bottom;
+    }
+    .on.corp-marco i:nth-child(1) {
+      animation: corp-trazar-x 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+    }
+    .on.corp-marco i:nth-child(2) {
+      animation: corp-trazar-y 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+    }
+    .on.corp-marco i:nth-child(3) {
+      animation: corp-trazar-x 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.55s both;
+    }
+    .on.corp-marco i:nth-child(4) {
+      animation: corp-trazar-y 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.8s both;
+    }
+    @keyframes corp-trazar-y {
+      from {
+        transform: scaleY(0);
+      }
+      to {
+        transform: scaleY(1);
+      }
+    }
+    /* Las esquinas: cuatro escuadras que aparecen después del marco. */
+    .corp-esquina {
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      border: 0 solid var(--c-oro);
+      opacity: 0.85;
+    }
+    .corp-esquina-1 {
+      top: -1px;
+      left: -1px;
+      border-top-width: 2px;
+      border-left-width: 2px;
+    }
+    .corp-esquina-2 {
+      top: -1px;
+      right: -1px;
+      border-top-width: 2px;
+      border-right-width: 2px;
+    }
+    .corp-esquina-3 {
+      bottom: -1px;
+      right: -1px;
+      border-bottom-width: 2px;
+      border-right-width: 2px;
+    }
+    .corp-esquina-4 {
+      bottom: -1px;
+      left: -1px;
+      border-bottom-width: 2px;
+      border-left-width: 2px;
+    }
+    .on .corp-esquina {
+      animation: corp-esquina-entrar 0.7s cubic-bezier(0.22, 1, 0.36, 1) 1s both;
+    }
+    @keyframes corp-esquina-entrar {
+      from {
+        opacity: 0;
+        transform: scale(0.4);
+      }
+      to {
+        opacity: 0.85;
+        transform: scale(1);
+      }
+    }
+
+    /* El año gigante en contorno, detrás de todo (parallax). */
+    .corp-anio-fondo {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .corp-anio-fondo span {
+      font-family: var(--c-serif);
+      font-size: clamp(160px, 62vw, 480px);
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(201, 168, 106, 0.19);
+      opacity: 0.9;
+      animation: corp-anio-respirar 12s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+    @keyframes corp-anio-respirar {
+      from {
+        transform: scale(1) translate3d(0, 0, 0);
+      }
+      to {
+        transform: scale(1.05) translate3d(0, -10px, 0);
+      }
+    }
+
+    .corp-portada-cuerpo {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 720px;
+    }
+
+    /* El logotipo tipográfico de la empresa + la marca geométrica. */
+    .corp-marca {
+      display: block;
+      width: 78px;
+      height: 78px;
+      margin: 0 auto;
+    }
+    .corp-anillo-ext,
+    .corp-anillo-int {
+      transform-box: fill-box;
+      transform-origin: center;
+      will-change: transform;
+    }
+    .corp-anillo-ext {
+      animation: corp-girar 26s linear infinite;
+    }
+    .corp-anillo-int {
+      animation: corp-girar-inv 19s linear infinite;
+    }
+    @keyframes corp-girar {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    @keyframes corp-girar-inv {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(-360deg);
+      }
+    }
+    .corp-nucleo {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: corp-nucleo-latir 4.2s ease-in-out infinite;
+    }
+    @keyframes corp-nucleo-latir {
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 0.9;
+      }
+      50% {
+        transform: scale(1.45);
+        opacity: 0.45;
+      }
+    }
+    .corp-logotipo {
+      margin-top: 16px;
+      font-size: clamp(15px, 4.4vw, 21px);
+      font-weight: 600;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      text-indent: 0.42em;
+      color: var(--c-perla);
+    }
+    .corp-logo-nota {
+      margin-top: 9px;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--c-humo);
+    }
+    .corp-invita {
+      margin-top: clamp(34px, 8vh, 62px);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--c-oro);
+    }
+    .corp-h1 {
+      margin-top: 14px;
+      font-family: var(--c-serif);
+      font-size: clamp(40px, 12.6vw, 92px);
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: 0.005em;
+      color: var(--c-perla);
+    }
+    .corp-h1 b {
+      display: block;
+      margin-top: 6px;
+      font-weight: 600;
+      color: var(--c-oro-claro);
+      letter-spacing: 0.06em;
+    }
+    .corp-portada-datos {
+      margin-top: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      font-size: 12.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--c-perla-sof);
+    }
+    .corp-portada-datos b {
+      font-weight: 600;
+      color: var(--c-perla);
+    }
+
+    .corp-cue {
+      position: absolute;
+      left: 50%;
+      bottom: 30px;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+      transform: translateX(-50%);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--c-humo);
+    }
+    .corp-cue i {
+      display: block;
+      width: 1px;
+      height: 42px;
+      background: linear-gradient(180deg, var(--c-oro), transparent);
+      transform-origin: center top;
+      animation: corp-cue-caer 2.3s ease-in-out infinite;
+    }
+    @keyframes corp-cue-caer {
+      0%,
+      100% {
+        transform: scaleY(0.35);
+        opacity: 0.4;
+      }
+      50% {
+        transform: scaleY(1);
+        opacity: 1;
+      }
+    }
+
+    /* ==================== 2 · La cita ==================== */
+    .corp-fecha-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: clamp(8px, 3vw, 22px);
+      margin: 30px auto 0;
+      max-width: 560px;
+    }
+    .corp-fecha-col span {
+      display: block;
+    }
+    .corp-fecha-num {
+      font-family: var(--c-serif);
+      font-size: clamp(30px, 9.5vw, 62px);
+      font-weight: 600;
+      line-height: 1;
+      color: var(--c-perla);
+    }
+    .corp-fecha-lbl {
+      margin-top: 9px;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--c-oro);
+    }
+    .corp-div-v {
+      display: block;
+      width: 1px;
+      height: 46px;
+      background: linear-gradient(180deg, transparent, var(--c-oro-sof), transparent);
+      transform: scaleY(1);
+    }
+    .on .corp-div-v {
+      animation: corp-trazar-y 1s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+    }
+
+    /* La cuenta regresiva viva de la página, revestida en navy/dorado.
+       Solo se le cambia la piel: el markup lo pone React. */
+    .corp-cr {
+      margin: clamp(34px, 8vw, 58px) auto 0;
+      width: 100%;
+      max-width: 560px;
+    }
+    .corp-cr [data-reveal] {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+    .corp-cr [data-reveal] > p {
+      font-family: var(--c-sans);
+      font-size: 10.5px !important;
+      font-weight: 700;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: var(--c-oro);
+    }
+    .corp-cr [data-reveal] > div {
+      gap: 8px;
+      margin-top: 20px;
+    }
+    .corp-cr [data-reveal] > div > div {
+      position: relative;
+      border: 1px solid var(--c-oro-tenue);
+      border-radius: 2px;
+      background: rgba(238, 242, 247, 0.045);
+      padding: 16px 2px 13px;
+      overflow: hidden;
+    }
+    .corp-cr [data-reveal] > div > div::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--c-oro), transparent);
+      transform: translate3d(-100%, 0, 0);
+      animation: corp-filo 4.6s ease-in-out infinite;
+    }
+    .corp-cr [data-reveal] > div > div:nth-child(2)::before {
+      animation-delay: 0.4s;
+    }
+    .corp-cr [data-reveal] > div > div:nth-child(3)::before {
+      animation-delay: 0.8s;
+    }
+    .corp-cr [data-reveal] > div > div:nth-child(4)::before {
+      animation-delay: 1.2s;
+    }
+    @keyframes corp-filo {
+      0% {
+        transform: translate3d(-100%, 0, 0);
+      }
+      60%,
+      100% {
+        transform: translate3d(100%, 0, 0);
+      }
+    }
+    .corp-cr [data-reveal] > div > div > span:first-child {
+      font-family: var(--c-serif);
+      font-weight: 600;
+      color: var(--c-perla) !important;
+    }
+    .corp-cr [data-reveal] > div > div > span + span {
+      font-size: 8.5px !important;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--c-oro) !important;
+    }
+
+    /* Botones: rectangulares, filo dorado, con su destello perpetuo. */
+    .corp-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      overflow: hidden;
+      min-height: 50px;
+      padding: 15px 26px;
+      border: 1px solid var(--c-oro-sof);
+      border-radius: 2px;
+      background: rgba(238, 242, 247, 0.04);
+      color: var(--c-perla);
+      font-family: var(--c-sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 0.3s ease, background 0.3s ease, transform 0.3s ease;
+    }
+    .corp-btn::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 42%;
+      background: linear-gradient(
+        100deg,
+        transparent,
+        rgba(224, 200, 148, 0.22),
+        transparent
+      );
+      transform: translate3d(-260%, 0, 0);
+      animation: corp-destello 6.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes corp-destello {
+      0% {
+        transform: translate3d(-260%, 0, 0);
+      }
+      45%,
+      100% {
+        transform: translate3d(360%, 0, 0);
+      }
+    }
+    .corp-btn:hover {
+      border-color: var(--c-oro);
+      background: rgba(201, 168, 106, 0.12);
+      transform: translateY(-2px);
+    }
+    .corp-btn-oro {
+      border-color: var(--c-oro);
+      background: linear-gradient(180deg, rgba(201, 168, 106, 0.2), rgba(201, 168, 106, 0.08));
+      color: var(--c-oro-claro);
+    }
+    .corp-btn-fila {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    /* ==================== 3 · Agenda de la noche ==================== */
+    .corp-agenda-caja {
+      position: relative;
+      width: 100%;
+      max-width: 620px;
+      margin: clamp(34px, 8vw, 56px) auto 0;
+      text-align: left;
+    }
+    .corp-riel-caja {
+      position: absolute;
+      top: 6px;
+      bottom: 22px;
+      left: 15px;
+      width: 1px;
+    }
+    .corp-riel {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        180deg,
+        var(--c-oro-sof),
+        rgba(201, 168, 106, 0.28) 70%,
+        transparent
+      );
+      transform-origin: center top;
+    }
+    .on.corp-riel,
+    .on .corp-riel {
+      animation: corp-trazar-y 1.6s cubic-bezier(0.33, 1, 0.68, 1) both;
+    }
+    .corp-cometa {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 7px;
+      height: 7px;
+      margin-left: -3px;
+      border-radius: 50%;
+      background: var(--c-oro-claro);
+      box-shadow: 0 0 12px 3px rgba(201, 168, 106, 0.5);
+      transform: translate3d(0, 0, 0);
+      animation: corp-cometa-latir 2.6s ease-in-out infinite;
+      will-change: transform;
+    }
+    @keyframes corp-cometa-latir {
+      0%,
+      100% {
+        opacity: 0.55;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+    .corp-hito {
+      position: relative;
+      padding: 0 0 clamp(26px, 6vw, 38px) 46px;
+    }
+    .corp-hito:last-child {
+      padding-bottom: 0;
+    }
+    .corp-punto {
+      position: absolute;
+      left: 9px;
+      top: 5px;
+      width: 13px;
+      height: 13px;
+      border: 1px solid var(--c-oro);
+      background: var(--c-tinta);
+      transform: rotate(45deg);
+    }
+    .corp-punto::before {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      background: var(--c-oro);
+      opacity: 0.9;
+    }
+    .corp-punto::after {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border: 1px solid var(--c-oro);
+      opacity: 0;
+      animation: corp-onda 3.4s ease-out var(--po, 0s) infinite;
+    }
+    @keyframes corp-onda {
+      0% {
+        opacity: 0.55;
+        transform: scale(0.55);
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: scale(1.5);
+      }
+    }
+    .on .corp-punto {
+      animation: corp-punto-entrar 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes corp-punto-entrar {
+      from {
+        transform: rotate(0deg) scale(0);
+      }
+      to {
+        transform: rotate(45deg) scale(1);
+      }
+    }
+    .corp-hora {
+      display: block;
+      font-family: var(--c-serif);
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--c-oro-claro);
+    }
+    .corp-hito-tit {
+      margin-top: 3px;
+      font-size: 14.5px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--c-perla);
+    }
+    .corp-hito-txt {
+      margin-top: 7px;
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--c-perla-sof);
+    }
+
+    /* ==================== 4 · El año en números ==================== */
+    .corp-cifras {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      margin: clamp(30px, 7vw, 48px) auto 0;
+      max-width: 620px;
+      background: var(--c-oro-tenue);
+      border: 1px solid var(--c-oro-tenue);
+    }
+    .corp-cifra {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(22px, 6vw, 34px) 10px;
+      background: rgba(7, 17, 32, 0.72);
+    }
+    .corp-cifra-num {
+      display: block;
+      font-family: var(--c-serif);
+      font-size: clamp(34px, 10vw, 56px);
+      font-weight: 600;
+      line-height: 1;
+      color: var(--c-oro-claro);
+      font-variant-numeric: tabular-nums;
+    }
+    .corp-cifra-lbl {
+      display: block;
+      margin-top: 10px;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--c-humo);
+    }
+
+    /* ==================== 5 · Vestimenta ==================== */
+    .corp-siluetas {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: clamp(26px, 9vw, 56px);
+      margin: clamp(28px, 7vw, 44px) auto 0;
+    }
+    .corp-silueta {
+      width: clamp(86px, 26vw, 128px);
+      height: auto;
+    }
+    .corp-silueta path,
+    .corp-silueta line,
+    .corp-silueta circle,
+    .corp-silueta ellipse {
+      stroke: var(--c-oro);
+      fill: none;
+      stroke-width: 1.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .corp-silueta .corp-relleno {
+      fill: rgba(201, 168, 106, 0.08);
+    }
+    /* Dibujado: por defecto están COMPLETAS (dashoffset 0); .on solo
+       repite el trazo desde cero. */
+    .corp-trazo {
+      stroke-dasharray: var(--largo, 420);
+      stroke-dashoffset: 0;
+    }
+    .on .corp-trazo {
+      animation: corp-dibujar 1.9s cubic-bezier(0.33, 1, 0.68, 1) var(--d, 0s) both;
+    }
+    @keyframes corp-dibujar {
+      from {
+        stroke-dashoffset: var(--largo, 420);
+      }
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+    .corp-paleta {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 26px;
+    }
+    .corp-paleta span {
+      display: block;
+      width: 26px;
+      height: 26px;
+      border: 1px solid rgba(238, 242, 247, 0.22);
+      border-radius: 50%;
+      animation: corp-paleta-flotar 5s ease-in-out var(--pd, 0s) infinite alternate;
+    }
+    @keyframes corp-paleta-flotar {
+      from {
+        transform: translate3d(0, 0, 0);
+      }
+      to {
+        transform: translate3d(0, -7px, 0);
+      }
+    }
+
+    /* ==================== 6 · El lugar ==================== */
+    .corp-panorama {
+      position: relative;
+      width: 100%;
+      max-width: 760px;
+      height: clamp(180px, 44vw, 280px);
+      margin: clamp(28px, 7vw, 44px) auto 0;
+      overflow: hidden;
+      border-top: 1px solid var(--c-oro-tenue);
+      border-bottom: 1px solid var(--c-oro-tenue);
+    }
+    .corp-capa {
+      position: absolute;
+      inset: 0;
+      will-change: transform;
+    }
+    .corp-capa svg {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .corp-luna {
+      position: absolute;
+      top: 16%;
+      right: 14%;
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--c-oro-sof);
+      border-radius: 50%;
+      animation: corp-luna-latir 8s ease-in-out infinite alternate;
+    }
+    @keyframes corp-luna-latir {
+      from {
+        transform: translate3d(0, 0, 0) scale(1);
+        opacity: 0.5;
+      }
+      to {
+        transform: translate3d(0, -8px, 0) scale(1.1);
+        opacity: 0.95;
+      }
+    }
+    .corp-ventana {
+      animation: corp-ventana-titilar var(--vd, 5s) ease-in-out var(--vr, 0s) infinite;
+    }
+    @keyframes corp-ventana-titilar {
+      0%,
+      100% {
+        opacity: 0.18;
+      }
+      50% {
+        opacity: 0.85;
+      }
+    }
+    .corp-lugar-nombre {
+      margin-top: 26px;
+      font-family: var(--c-serif);
+      font-size: clamp(28px, 8vw, 46px);
+      font-weight: 500;
+      color: var(--c-perla);
+    }
+    .corp-lugar-dir {
+      margin-top: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--c-oro);
+    }
+    .corp-parqueo {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin: 28px auto 0;
+      max-width: 520px;
+      padding: 16px 18px;
+      border: 1px solid var(--c-oro-tenue);
+      border-left: 2px solid var(--c-oro);
+      background: rgba(238, 242, 247, 0.035);
+      text-align: left;
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--c-perla-sof);
+    }
+    .corp-parqueo svg {
+      flex: 0 0 auto;
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      stroke: var(--c-oro);
+      fill: none;
+      stroke-width: 1.4;
+    }
+
+    /* ==================== 7 · Confirmación ==================== */
+    .corp-rsvp {
+      padding-bottom: clamp(60px, 12vw, 96px);
+    }
+    .corp-limite {
+      display: inline-block;
+      margin-top: 22px;
+      padding: 9px 16px;
+      border: 1px dashed var(--c-oro-sof);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--c-oro-claro);
+      animation: corp-limite-latir 4.5s ease-in-out infinite;
+    }
+    @keyframes corp-limite-latir {
+      0%,
+      100% {
+        transform: scale(1);
+        border-color: var(--c-oro-sof);
+      }
+      50% {
+        transform: scale(1.035);
+        border-color: var(--c-oro);
+      }
+    }
+    #corp-confirmar {
+      margin-top: 26px;
+      min-width: min(320px, 84vw);
+      min-height: 58px;
+      font-size: 12px;
+      letter-spacing: 0.26em;
+    }
+
+    /* ==================== 8 · Cierre ==================== */
+    .corp-cierre {
+      padding-top: clamp(50px, 10vw, 78px);
+      padding-bottom: clamp(46px, 9vw, 70px);
+      background: linear-gradient(180deg, transparent, rgba(22, 41, 94, 0.55));
+    }
+    .corp-cierre .corp-logotipo {
+      font-size: 12.5px;
+      letter-spacing: 0.36em;
+    }
+    .corp-cierre-nota {
+      margin-top: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--c-humo);
+    }
+
+    /* ==================== Aire extra en pantallas grandes ========== */
+    @media (min-width: 768px) {
+      .corp-cifras {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .corp-hito {
+        padding-left: 58px;
+      }
+      .corp-riel-caja {
+        left: 21px;
+      }
+      .corp-punto {
+        left: 15px;
+      }
+      .corp-portada-datos {
+        font-size: 13.5px;
+        letter-spacing: 0.24em;
+      }
+    }
+  </style>
+
+  <!-- ============ Fondo perpetuo (fijo al viewport) ============ -->
+  <div class="corp-fondo" aria-hidden="true">
+    <div class="corp-trama"></div>
+    <div class="corp-orbe corp-orbe-1"></div>
+    <div class="corp-orbe corp-orbe-2"></div>
+    <div class="corp-barrido"></div>
+    <span class="corp-mota" style="left: 6%; --dur: 26s; --del: -2s; --dx: 22px; --op: 0.42"></span>
+    <span class="corp-mota" style="left: 14%; --dur: 34s; --del: -9s; --dx: -18px; --op: 0.3"></span>
+    <span class="corp-mota" style="left: 23%; --dur: 29s; --del: -16s; --dx: 30px; --op: 0.5"></span>
+    <span class="corp-mota" style="left: 31%; --dur: 38s; --del: -5s; --dx: -26px; --op: 0.26"></span>
+    <span class="corp-mota" style="left: 39%; --dur: 24s; --del: -20s; --dx: 16px; --op: 0.46"></span>
+    <span class="corp-mota" style="left: 47%; --dur: 32s; --del: -12s; --dx: -22px; --op: 0.34"></span>
+    <span class="corp-mota" style="left: 55%; --dur: 27s; --del: -25s; --dx: 28px; --op: 0.44"></span>
+    <span class="corp-mota" style="left: 63%; --dur: 36s; --del: -7s; --dx: -14px; --op: 0.28"></span>
+    <span class="corp-mota" style="left: 71%; --dur: 30s; --del: -18s; --dx: 24px; --op: 0.4"></span>
+    <span class="corp-mota" style="left: 78%; --dur: 25s; --del: -3s; --dx: -30px; --op: 0.36"></span>
+    <span class="corp-mota" style="left: 86%; --dur: 33s; --del: -22s; --dx: 18px; --op: 0.48"></span>
+    <span class="corp-mota" style="left: 93%; --dur: 28s; --del: -14s; --dx: -20px; --op: 0.32"></span>
+    <span class="corp-mota" style="left: 50%; --dur: 40s; --del: -30s; --dx: 34px; --op: 0.24"></span>
+    <span class="corp-mota" style="left: 18%; --dur: 22s; --del: -11s; --dx: -12px; --op: 0.38"></span>
+    <div class="corp-vineta"></div>
+  </div>
+
+  <!-- ============ 1 · Portada ============ -->
+  <section class="corp-sec corp-portada" id="corp-portada">
+    <div class="corp-marco" data-ap aria-hidden="true">
+      <i></i><i></i><i></i><i></i>
+      <span class="corp-esquina corp-esquina-1"></span>
+      <span class="corp-esquina corp-esquina-2"></span>
+      <span class="corp-esquina corp-esquina-3"></span>
+      <span class="corp-esquina corp-esquina-4"></span>
+    </div>
+
+    <div class="corp-anio-fondo" aria-hidden="true" data-par="0.08">
+      <span>{{ANIO}}</span>
+    </div>
+
+    <div class="corp-portada-cuerpo" data-par="0.05">
+      <div class="corp-e corp-e-esc" data-ap>
+        <svg class="corp-marca" viewBox="0 0 120 120" aria-hidden="true">
+          <circle
+            class="corp-anillo-ext"
+            cx="60"
+            cy="60"
+            r="54"
+            fill="none"
+            stroke="rgba(201,168,106,0.55)"
+            stroke-width="1"
+            stroke-dasharray="3 9"
+          />
+          <circle
+            class="corp-anillo-int"
+            cx="60"
+            cy="60"
+            r="44"
+            fill="none"
+            stroke="rgba(201,168,106,0.3)"
+            stroke-width="1"
+            stroke-dasharray="14 10"
+          />
+          <path
+            d="M60 26 L88 60 L60 94 L32 60 Z"
+            fill="rgba(201,168,106,0.07)"
+            stroke="#c9a86a"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M42 66 h36 M47 74 h26"
+            fill="none"
+            stroke="rgba(238,242,247,0.5)"
+            stroke-width="1.2"
+            stroke-linecap="round"
+          />
+          <circle class="corp-nucleo" cx="60" cy="53" r="4.5" fill="#e0c894" />
+        </svg>
+        <p class="corp-logotipo">{{EMPRESA}}</p>
+        <p class="corp-logo-nota">{{EMPRESA_NOTA}}</p>
+      </div>
+
+      <p class="corp-invita corp-e" data-ap style="--d: 0.2s">Te invitamos a la</p>
+      <h1 class="corp-h1 corp-e" data-ap style="--d: 0.32s">
+        {{EVENTO}}
+        <b>{{ANIO}}</b>
+      </h1>
+
+      <div class="corp-regla" data-ap aria-hidden="true">
+        <i></i><span></span><i></i>
+      </div>
+
+      <div class="corp-portada-datos corp-e" data-ap style="--d: 0.5s">
+        <span><b>{{FECHA_LARGA}}</b> · {{HORA}}</span>
+        <span>{{LUGAR}} — {{DIRECCION}}</span>
+      </div>
+    </div>
+
+    <div class="corp-cue" aria-hidden="true">
+      <i></i>
+      <span>Deslizá</span>
+    </div>
+  </section>
+
+  <!-- ============ 2 · La cita ============ -->
+  <section class="corp-sec" id="corp-cita">
+    <div class="corp-int">
+      <p class="corp-kicker corp-e" data-ap>La cita</p>
+      <h2 class="corp-h2 corp-e" data-ap style="--d: 0.1s">Guardá la fecha</h2>
+
+      <div class="corp-fecha-grid" data-ap>
+        <div class="corp-fecha-col corp-e" style="--d: 0.06s">
+          <span class="corp-fecha-num">{{DIA}}</span>
+          <span class="corp-fecha-lbl">{{MES}}</span>
+        </div>
+        <span class="corp-div-v" aria-hidden="true"></span>
+        <div class="corp-fecha-col corp-e" style="--d: 0.16s">
+          <span class="corp-fecha-num">{{ANIO}}</span>
+          <span class="corp-fecha-lbl">{{DIA_SEMANA}}</span>
+        </div>
+        <span class="corp-div-v" aria-hidden="true"></span>
+        <div class="corp-fecha-col corp-e" style="--d: 0.26s">
+          <span class="corp-fecha-num">{{HORA_NUM}}</span>
+          <span class="corp-fecha-lbl">{{HORA_SUF}}</span>
+        </div>
+      </div>
+
+      <!-- La página monta acá la cuenta regresiva viva. No poner nada
+           adentro: React limpia el nodo antes de montar. -->
+      <div class="corp-cr" data-ap>
+        <div data-bookea="cuenta-regresiva"></div>
+      </div>
+
+      <div class="corp-btn-fila" data-ap>
+        <a
+          class="corp-btn corp-e"
+          href="{{LINK_CALENDARIO}}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            aria-hidden="true"
+          >
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4M12 14v4M10 16h4" stroke-linecap="round" />
+          </svg>
+          Agregar al calendario
+        </a>
+      </div>
+      <p class="corp-nota corp-e" data-ap style="--d: 0.12s">
+        Se agrega con la hora de Costa Rica, para que no falle el recordatorio.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ 3 · Agenda de la noche ============ -->
+  <section class="corp-sec" id="corp-agenda">
+    <div class="corp-int">
+      <p class="corp-kicker corp-e" data-ap>Agenda de la noche</p>
+      <h2 class="corp-h2 corp-e" data-ap style="--d: 0.1s">El orden de la velada</h2>
+      <div class="corp-regla" data-ap aria-hidden="true">
+        <i></i><span></span><i></i>
+      </div>
+
+      <div class="corp-agenda-caja">
+        <div class="corp-riel-caja" id="corp-riel-caja" aria-hidden="true">
+          <span class="corp-riel" data-ap></span>
+          <span class="corp-cometa" id="corp-cometa"></span>
+        </div>
+
+        <ol>
+          <li class="corp-hito corp-e-izq" data-ap>
+            <span class="corp-punto" style="--po: 0s" aria-hidden="true"></span>
+            <span class="corp-hora">{{HITO_1_HORA}}</span>
+            <h3 class="corp-hito-tit">{{HITO_1_TITULO}}</h3>
+            <p class="corp-hito-txt">{{HITO_1_TEXTO}}</p>
+          </li>
+          <li class="corp-hito corp-e-izq" data-ap>
+            <span class="corp-punto" style="--po: 0.5s" aria-hidden="true"></span>
+            <span class="corp-hora">{{HITO_2_HORA}}</span>
+            <h3 class="corp-hito-tit">{{HITO_2_TITULO}}</h3>
+            <p class="corp-hito-txt">{{HITO_2_TEXTO}}</p>
+          </li>
+          <li class="corp-hito corp-e-izq" data-ap>
+            <span class="corp-punto" style="--po: 1s" aria-hidden="true"></span>
+            <span class="corp-hora">{{HITO_3_HORA}}</span>
+            <h3 class="corp-hito-tit">{{HITO_3_TITULO}}</h3>
+            <p class="corp-hito-txt">{{HITO_3_TEXTO}}</p>
+          </li>
+          <li class="corp-hito corp-e-izq" data-ap>
+            <span class="corp-punto" style="--po: 1.5s" aria-hidden="true"></span>
+            <span class="corp-hora">{{HITO_4_HORA}}</span>
+            <h3 class="corp-hito-tit">{{HITO_4_TITULO}}</h3>
+            <p class="corp-hito-txt">{{HITO_4_TEXTO}}</p>
+          </li>
+          <li class="corp-hito corp-e-izq" data-ap>
+            <span class="corp-punto" style="--po: 2s" aria-hidden="true"></span>
+            <span class="corp-hora">{{HITO_5_HORA}}</span>
+            <h3 class="corp-hito-tit">{{HITO_5_TITULO}}</h3>
+            <p class="corp-hito-txt">{{HITO_5_TEXTO}}</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 · El año en números ============ -->
+  <section class="corp-sec" id="corp-cifras">
+    <div class="corp-int">
+      <p class="corp-kicker corp-e" data-ap>El año que cerramos</p>
+      <h2 class="corp-h2 corp-e" data-ap style="--d: 0.1s">Hay mucho que celebrar</h2>
+
+      <div class="corp-cifras" data-ap>
+        <div class="corp-cifra corp-e" style="--d: 0s">
+          <span class="corp-cifra-num" data-hasta="{{CIFRA_1}}">{{CIFRA_1}}</span>
+          <span class="corp-cifra-lbl">{{CIFRA_1_LBL}}</span>
+        </div>
+        <div class="corp-cifra corp-e" style="--d: 0.12s">
+          <span class="corp-cifra-num" data-hasta="{{CIFRA_2}}">{{CIFRA_2}}</span>
+          <span class="corp-cifra-lbl">{{CIFRA_2_LBL}}</span>
+        </div>
+        <div class="corp-cifra corp-e" style="--d: 0.24s">
+          <span class="corp-cifra-num" data-hasta="{{CIFRA_3}}">{{CIFRA_3}}</span>
+          <span class="corp-cifra-lbl">{{CIFRA_3_LBL}}</span>
+        </div>
+        <div class="corp-cifra corp-e" style="--d: 0.36s">
+          <span class="corp-cifra-num" data-hasta="{{CIFRA_4}}">{{CIFRA_4}}</span>
+          <span class="corp-cifra-lbl">{{CIFRA_4_LBL}}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 · Código de vestimenta ============ -->
+  <section class="corp-sec" id="corp-vestimenta">
+    <div class="corp-int">
+      <p class="corp-kicker corp-e" data-ap>Código de vestimenta</p>
+      <h2 class="corp-h2 corp-e" data-ap style="--d: 0.1s">{{VESTIMENTA}}</h2>
+
+      <div class="corp-siluetas" data-ap>
+        <!-- Saco y corbata, en trazo fino. -->
+        <svg class="corp-silueta" viewBox="0 0 120 190" aria-hidden="true">
+          <path
+            class="corp-trazo"
+            style="--largo: 300"
+            d="M46 34 L28 46 Q16 52 14 68 L8 168 Q7 176 15 176 L44 176"
+          />
+          <path
+            class="corp-trazo"
+            style="--largo: 300; --d: 0.1s"
+            d="M74 34 L92 46 Q104 52 106 68 L112 168 Q113 176 105 176 L76 176"
+          />
+          <path
+            class="corp-trazo corp-relleno"
+            style="--largo: 260; --d: 0.22s"
+            d="M46 34 L60 62 L74 34 L74 176 L46 176 Z"
+          />
+          <path class="corp-trazo" style="--largo: 120; --d: 0.34s" d="M46 34 L60 62 L74 34" />
+          <path
+            class="corp-trazo"
+            style="--largo: 130; --d: 0.46s"
+            d="M55 40 L60 50 L65 40 L62 74 L58 74 Z"
+          />
+          <path class="corp-trazo" style="--largo: 70; --d: 0.58s" d="M40 106 h14 M66 106 h14" />
+        </svg>
+
+        <!-- Vestido de cóctel, en trazo fino. -->
+        <svg class="corp-silueta" viewBox="0 0 120 190" aria-hidden="true">
+          <path
+            class="corp-trazo"
+            style="--largo: 340; --d: 0.06s"
+            d="M42 30 Q60 44 78 30 L84 44 Q72 52 72 66 L74 96 Q74 104 68 106 L52 106 Q46 104 46 96 L48 66 Q48 52 36 44 Z"
+          />
+          <path
+            class="corp-trazo corp-relleno"
+            style="--largo: 360; --d: 0.2s"
+            d="M52 106 L68 106 L96 172 Q98 178 90 178 L30 178 Q22 178 24 172 Z"
+          />
+          <path class="corp-trazo" style="--largo: 90; --d: 0.36s" d="M46 92 h28" />
+          <path class="corp-trazo" style="--largo: 120; --d: 0.5s" d="M60 12 v14 M52 20 h16" />
+          <circle class="corp-trazo" style="--largo: 40; --d: 0.62s" cx="60" cy="8" r="5" />
+        </svg>
+      </div>
+
+      <div class="corp-paleta" data-ap aria-hidden="true">
+        <span style="background: #0b1a2d; --pd: 0s"></span>
+        <span style="background: #33383f; --pd: 0.4s"></span>
+        <span style="background: #10131a; --pd: 0.8s"></span>
+        <span style="background: #c9a86a; --pd: 1.2s"></span>
+      </div>
+
+      <p class="corp-txt corp-e" data-ap style="--d: 0.1s">{{VESTIMENTA_NOTA}}</p>
+    </div>
+  </section>
+
+  <!-- ============ 6 · El lugar ============ -->
+  <section class="corp-sec" id="corp-lugar">
+    <div class="corp-int">
+      <p class="corp-kicker corp-e" data-ap>El lugar</p>
+
+      <div class="corp-panorama" data-ap>
+        <span class="corp-luna" aria-hidden="true"></span>
+
+        <!-- Capa lejana -->
+        <div class="corp-capa" data-par="-0.06">
+          <svg viewBox="0 0 400 200" preserveAspectRatio="none" aria-hidden="true">
+            <g fill="rgba(238,242,247,0.05)" stroke="rgba(201,168,106,0.18)" stroke-width="0.8">
+              <rect x="10" y="118" width="34" height="82" />
+              <rect x="56" y="96" width="26" height="104" />
+              <rect x="94" y="130" width="40" height="70" />
+              <rect x="146" y="86" width="24" height="114" />
+              <rect x="182" y="122" width="36" height="78" />
+              <rect x="230" y="102" width="28" height="98" />
+              <rect x="270" y="132" width="42" height="68" />
+              <rect x="324" y="94" width="26" height="106" />
+              <rect x="362" y="126" width="30" height="74" />
+            </g>
+          </svg>
+        </div>
+
+        <!-- Capa media -->
+        <div class="corp-capa" data-par="-0.13">
+          <svg viewBox="0 0 400 200" preserveAspectRatio="none" aria-hidden="true">
+            <g fill="rgba(7,17,32,0.82)" stroke="rgba(201,168,106,0.3)" stroke-width="0.9">
+              <rect x="0" y="142" width="52" height="58" />
+              <rect x="64" y="122" width="38" height="78" />
+              <rect x="116" y="152" width="56" height="48" />
+              <rect x="186" y="128" width="34" height="72" />
+              <rect x="234" y="148" width="50" height="52" />
+              <rect x="298" y="118" width="36" height="82" />
+              <rect x="348" y="146" width="52" height="54" />
+            </g>
+            <g fill="#e0c894">
+              <rect class="corp-ventana" style="--vd: 4.2s; --vr: 0s" x="12" y="152" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 5.4s; --vr: 0.7s" x="26" y="152" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 3.8s; --vr: 1.4s" x="74" y="134" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 6.1s; --vr: 0.3s" x="88" y="148" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 4.6s; --vr: 2.1s" x="130" y="164" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 5.9s; --vr: 1.1s" x="152" y="164" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 4s; --vr: 1.8s" x="196" y="140" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 5.2s; --vr: 0.5s" x="206" y="158" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 6.4s; --vr: 2.4s" x="248" y="160" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 3.6s; --vr: 1.6s" x="266" y="160" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 5s; --vr: 0.9s" x="308" y="130" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 4.4s; --vr: 2.7s" x="320" y="148" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 5.6s; --vr: 0.2s" x="362" y="158" width="4" height="6" />
+              <rect class="corp-ventana" style="--vd: 4.8s; --vr: 1.3s" x="380" y="158" width="4" height="6" />
+            </g>
+          </svg>
+        </div>
+
+        <!-- Capa cercana: el salón, en línea dorada -->
+        <div class="corp-capa" data-par="-0.2">
+          <svg viewBox="0 0 400 200" preserveAspectRatio="none" aria-hidden="true">
+            <g fill="rgba(7,17,32,0.94)" stroke="#c9a86a" stroke-width="1.1">
+              <path d="M132 200 V150 L200 118 L268 150 V200 Z" />
+              <path d="M156 200 v-30 h20 v30 M224 200 v-30 h20 v30" fill="rgba(201,168,106,0.14)" />
+              <path d="M188 200 v-42 h24 v42" fill="rgba(201,168,106,0.2)" />
+            </g>
+            <path
+              d="M0 200 h400"
+              stroke="rgba(201,168,106,0.45)"
+              stroke-width="1"
+              fill="none"
+            />
+          </svg>
+        </div>
+      </div>
+
+      <h2 class="corp-lugar-nombre corp-e" data-ap>{{LUGAR}}</h2>
+      <p class="corp-lugar-dir corp-e" data-ap style="--d: 0.1s">{{DIRECCION}}</p>
+
+      <div class="corp-btn-fila" data-ap>
+        <a
+          class="corp-btn corp-e"
+          href="{{LINK_MAPS}}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            aria-hidden="true"
+          >
+            <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" stroke-linejoin="round" />
+            <circle cx="12" cy="10" r="2.6" />
+          </svg>
+          Cómo llegar
+        </a>
+        <a
+          class="corp-btn corp-e"
+          style="--d: 0.1s"
+          href="{{LINK_WAZE}}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            aria-hidden="true"
+          >
+            <path d="M3 11l18-7-7 18-2.5-7.5L3 11z" stroke-linejoin="round" />
+          </svg>
+          Abrir en Waze
+        </a>
+      </div>
+
+      <div class="corp-parqueo corp-e" data-ap style="--d: 0.12s">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M9 16V8h3.5a2.5 2.5 0 0 1 0 5H9" stroke-linecap="round" />
+        </svg>
+        <span>{{NOTA_PARQUEO}}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7 · Confirmación ============ -->
+  <section class="corp-sec corp-rsvp" id="corp-rsvp">
+    <div class="corp-int">
+      <p class="corp-kicker corp-e" data-ap>Confirmación</p>
+      <h2 class="corp-h2 corp-e" data-ap style="--d: 0.1s">Contamos con vos</h2>
+      <div class="corp-regla" data-ap aria-hidden="true">
+        <i></i><span></span><i></i>
+      </div>
+
+      <p class="corp-txt corp-e" data-ap style="--d: 0.16s">
+        Cada campo en la mesa se asigna con la confirmación en mano, así que
+        no lo dejés para última hora.
+      </p>
+
+      <p class="corp-limite" data-ap>
+        Confirmá antes del {{FECHA_LIMITE}} para reservar tu campo
+      </p>
+
+      <div data-ap>
+        <!-- data-bookea="abrir-rsvp": /i/{slug} detecta esta marca y abre
+             el formulario real como card modal. Sin href, sin scroll. -->
+        <button
+          type="button"
+          id="corp-confirmar"
+          class="corp-btn corp-btn-oro corp-e"
+          data-bookea="abrir-rsvp"
+        >
+          Confirmar asistencia
+        </button>
+      </div>
+
+      <p class="corp-nota corp-e" data-ap style="--d: 0.1s">{{NOTA_RSVP}}</p>
+    </div>
+  </section>
+
+  <!-- ============ 8 · Cierre ============ -->
+  <section class="corp-sec corp-cierre" id="corp-cierre">
+    <div class="corp-int corp-e" data-ap>
+      <svg class="corp-marca" viewBox="0 0 120 120" aria-hidden="true" style="width: 52px; height: 52px">
+        <circle
+          class="corp-anillo-ext"
+          cx="60"
+          cy="60"
+          r="54"
+          fill="none"
+          stroke="rgba(201,168,106,0.4)"
+          stroke-width="1"
+          stroke-dasharray="3 9"
+        />
+        <path
+          d="M60 26 L88 60 L60 94 L32 60 Z"
+          fill="none"
+          stroke="rgba(201,168,106,0.7)"
+          stroke-width="1.2"
+          stroke-linejoin="round"
+        />
+        <circle class="corp-nucleo" cx="60" cy="60" r="4" fill="#e0c894" />
+      </svg>
+      <p class="corp-logotipo">{{EMPRESA}}</p>
+      <p class="corp-cierre-nota">{{EVENTO}} · {{ANIO}}</p>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      "use strict";
+
+      // El fragmento se inyecta dentro de la página: se busca la raíz
+      // desde el propio <script> y, si no se puede, por clase.
+      var raiz = null;
+      var actual = document.currentScript;
+      if (actual && actual.closest) raiz = actual.closest(".corp");
+      if (!raiz) raiz = document.querySelector(".corp");
+      if (!raiz) return;
+
+      /* ---------- Números que cuentan hacia arriba ---------- */
+      // El HTML YA trae el número final: esto solo lo vuelve a contar
+      // desde cero cuando la cifra entra en pantalla. Si el JS muere a
+      // medio camino, el valor final se restituye igual.
+      function contar(el) {
+        if (el.getAttribute("data-contando") === "1") return;
+        var fin = parseInt(el.getAttribute("data-hasta"), 10);
+        if (!isFinite(fin) || fin <= 0) return;
+        el.setAttribute("data-contando", "1");
+        var t0 = 0;
+        var dur = 1500;
+        function paso(t) {
+          if (!t0) t0 = t;
+          var p = (t - t0) / dur;
+          if (p >= 1) {
+            el.textContent = String(fin);
+            return;
+          }
+          var e = 1 - Math.pow(1 - p, 3);
+          el.textContent = String(Math.round(fin * e));
+          requestAnimationFrame(paso);
+        }
+        el.textContent = "0";
+        requestAnimationFrame(paso);
+      }
+
+      /* ---------- Encender una entrada ---------- */
+      function prender(el) {
+        if (!el || el.classList.contains("on")) return;
+        el.classList.add("on");
+        var nums = el.querySelectorAll("[data-hasta]");
+        for (var i = 0; i < nums.length; i++) contar(nums[i]);
+      }
+
+      var piezas = raiz.querySelectorAll("[data-ap]");
+
+      // La portada se enciende de una: nunca depende de un observer.
+      var enPortada = raiz.querySelectorAll("#corp-portada [data-ap]");
+      for (var p = 0; p < enPortada.length; p++) prender(enPortada[p]);
+
+      if (!("IntersectionObserver" in window)) {
+        for (var q = 0; q < piezas.length; q++) prender(piezas[q]);
+      } else {
+        var obs = new IntersectionObserver(
+          function (entradas) {
+            for (var k = 0; k < entradas.length; k++) {
+              if (entradas[k].isIntersecting) {
+                prender(entradas[k].target);
+                obs.unobserve(entradas[k].target);
+              }
+            }
+          },
+          { rootMargin: "0px 0px -8% 0px", threshold: 0.12 }
+        );
+        for (var r = 0; r < piezas.length; r++) obs.observe(piezas[r]);
+      }
+
+      /* ---------- Parallax de capas + cometa de la agenda ---------- */
+      // Solo transform, en rAF, y midiendo SIEMPRE el contenedor sin
+      // transformar (medir el propio elemento realimentaría el cálculo).
+      var capas = raiz.querySelectorAll("[data-par]");
+      var cajaRiel = raiz.querySelector("#corp-riel-caja");
+      var cometa = raiz.querySelector("#corp-cometa");
+      var cuadro = 0;
+
+      function pintar() {
+        cuadro = 0;
+        var alto = window.innerHeight || 800;
+        for (var i = 0; i < capas.length; i++) {
+          var capa = capas[i];
+          var padre = capa.parentElement;
+          if (!padre) continue;
+          var caja = padre.getBoundingClientRect();
+          var centro = caja.top + caja.height / 2 - alto / 2;
+          var v = parseFloat(capa.getAttribute("data-par")) || 0;
+          capa.style.transform = "translate3d(0," + (-centro * v).toFixed(2) + "px,0)";
+        }
+        if (cajaRiel && cometa) {
+          var cr = cajaRiel.getBoundingClientRect();
+          if (cr.height > 0) {
+            var avance = (alto * 0.62 - cr.top) / cr.height;
+            if (avance < 0) avance = 0;
+            if (avance > 1) avance = 1;
+            cometa.style.transform =
+              "translate3d(0," + (avance * cr.height).toFixed(1) + "px,0)";
+          }
+        }
+      }
+
+      function alMover() {
+        if (!cuadro) cuadro = requestAnimationFrame(pintar);
+      }
+
+      pintar();
+      window.addEventListener("scroll", alMover, { passive: true });
+      window.addEventListener("resize", alMover);
+    })();
+  </script>
+</div>
