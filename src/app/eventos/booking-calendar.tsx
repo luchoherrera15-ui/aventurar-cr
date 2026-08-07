@@ -323,7 +323,10 @@ export default function BookingCalendar({
   // descuento sobre el normal.
   const promoAplicable = useMemo(() => {
     if (!selectedDateObj) return null;
-    return promoAplicableDelDia(promociones, selectedDateObj.getDay(), invitadosNum);
+    return promoAplicableDelDia(promociones, selectedDateObj.getDay(), invitadosNum, {
+      // Diciembre va a precio de temporada, sin descuento encima.
+      esDiciembre: selectedDateObj.getMonth() === 11,
+    });
   }, [promociones, selectedDateObj, invitadosNum]);
 
   // Los horarios de alquiler pueden estar restringidos a ciertos días
@@ -849,9 +852,13 @@ export default function BookingCalendar({
               let badge: number | null = null;
               // Solo tiene sentido anunciar el descuento en días que se
               // pueden reservar: en uno ocupado es publicidad muerta.
-              const promoDia = isBlocked
-                ? null
-                : promoPorDiaSemana[cellDate.getDay()] ?? null;
+              // Y diciembre no lleva promo (va a precio de temporada),
+              // así que tampoco lleva badge — se mira por celda porque
+              // la grilla del mes muestra días de dos meses distintos.
+              const promoDia =
+                isBlocked || cellDate.getMonth() === 11
+                  ? null
+                  : promoPorDiaSemana[cellDate.getDay()] ?? null;
 
               if (isPast) {
                 cls += " cursor-default text-zinc-300";

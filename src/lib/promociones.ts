@@ -1,6 +1,26 @@
 import type { PromocionDia } from "@/app/mi-negocio/types";
 
 /**
+ * DICIEMBRE NO LLEVA DESCUENTO (decisión del dueño).
+ *
+ * Los lugares de alquiler tienen precios propios de diciembre, más
+ * altos, porque es temporada alta. Las promociones automáticas por día
+ * de la semana se los comían: un lunes de diciembre con la promo de
+ * −30 % quedaba en ₡140.000 cuando el mismo lunes de setiembre salía
+ * ₡136.000 — el recargo de temporada desaparecía y encima el
+ * calendario anunciaba "30% OFF" en todo diciembre.
+ *
+ * Por eso las dos funciones de acá aceptan `esDiciembre` y en ese caso
+ * no devuelven promo: ni el badge del calendario ni el descuento del
+ * precio. Los códigos de descuento manuales no pasan por acá y siguen
+ * funcionando — esto es solo lo automático por día.
+ */
+export function esFechaDeDiciembre(iso: string): boolean {
+  // "YYYY-MM-DD" → el mes sin construir un Date (que se corre por UTC).
+  return iso.slice(5, 7) === "12";
+}
+
+/**
  * `dias_semana` es un integer[] de Postgres, pero según de dónde venga
  * la fila (distintas versiones de PostgREST/cliente) a veces llega ya
  * parseado y a veces como el string JSON crudo — normalizarlo acá,
@@ -50,7 +70,11 @@ function elegirMejor(candidatas: PromocionDia[]): PromocionDia | null {
  */
 export function mejorPromoPorDiaSemana(
   promociones: PromocionDia[],
+  opciones: { esDiciembre?: boolean } = {},
 ): Record<number, PromocionDia> {
+  // Diciembre no lleva promo: ni un badge en el calendario.
+  if (opciones.esDiciembre) return {};
+
   const candidatasPorDia: Record<number, PromocionDia[]> = {};
   promociones
     .filter((p) => p.activo)
@@ -78,7 +102,11 @@ export function promoAplicableDelDia(
   promociones: PromocionDia[],
   dow: number,
   invitadosNum: number,
+  opciones: { esDiciembre?: boolean } = {},
 ): PromocionDia | null {
+  // Diciembre se cobra a precio de temporada, sin descuento encima.
+  if (opciones.esDiciembre) return null;
+
   const activas = promociones.filter((p) => p.activo && diasDe(p).includes(dow));
   if (activas.length === 0) return null;
 

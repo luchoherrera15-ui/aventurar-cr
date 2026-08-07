@@ -131,8 +131,12 @@ export function promoVigente(hoy: Date = new Date()): boolean {
   return hoy <= new Date(`${PROMO_INVITACIONES.hasta}T23:59:59-06:00`);
 }
 
-/** El % de descuento redondeado, para el sellito. */
-export function descuentoPct(p: ProductoIndividual): number | null {
+/** El % de descuento redondeado, para el sellito. Sirve para productos
+ *  sueltos y para packs: los dos llevan precio y precio de lista. */
+export function descuentoPct(p: {
+  precioUSD: number;
+  precioAntesUSD?: number;
+}): number | null {
   if (!p.precioAntesUSD || p.precioAntesUSD <= p.precioUSD) return null;
   return Math.round((1 - p.precioUSD / p.precioAntesUSD) * 100);
 }
@@ -198,6 +202,8 @@ export type PackInvitacion = {
   precioUSD: number;
   badge: string;
   destacado?: boolean;
+  /** El precio de lista, tachado mientras dure la promo. */
+  precioAntesUSD?: number;
   lema: string;
   incluye: string[];
   /**
@@ -214,7 +220,8 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
   {
     id: "perla",
     nombre: "El Brindis",
-    precioUSD: 113,
+    precioUSD: 75,
+    precioAntesUSD: 113,
     albumId: "album_50",
     badge: "Álbum de regalo",
     lema: "La invitación completa, con el álbum de la fiesta incluido.",
@@ -228,7 +235,8 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
   {
     id: "zafiro",
     nombre: "El Gran Día",
-    precioUSD: 138,
+    precioUSD: 99,
+    precioAntesUSD: 138,
     albumId: "album_150",
     badge: "El favorito",
     destacado: true,
@@ -243,7 +251,8 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
   {
     id: "diamante",
     nombre: "Para Siempre",
-    precioUSD: 163,
+    precioUSD: 125,
+    precioAntesUSD: 163,
     albumId: "album_250",
     badge: "Exclusivo",
     lema: "Para el evento que se cuenta una sola vez en la vida.",

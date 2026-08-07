@@ -9,7 +9,7 @@ import {
   PACKS_INVITACIONES,
   PRODUCTOS_INDIVIDUALES,
   PROMO_INVITACIONES,
-  sueltoPack,
+
   type ProductoIndividual,
 } from "@/lib/paquetes-invitaciones";
 
@@ -164,15 +164,20 @@ export default function PreciosCatalogo({
                   sale más barato que comprar suelto hoy: durante una promo
                   de las piezas la cuenta puede darse vuelta, y anunciar un
                   ahorro inexistente sería mentirle al cliente. */}
-              <p className="mt-3 flex items-baseline gap-2">
+              <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="titulo text-[44px] leading-none">${p.precioUSD}</span>
-                {ahorroPack(p) > 0 && (
+                {p.precioAntesUSD && (
                   <span
-                    className={`text-[14px] line-through ${
+                    className={`text-[15px] line-through ${
                       p.destacado ? "text-[#0a1226]/35" : "text-white/30"
                     }`}
                   >
-                    ${sueltoPack(p)}
+                    ${p.precioAntesUSD}
+                  </span>
+                )}
+                {descuentoPct(p) !== null && (
+                  <span className="rounded-full bg-[#ee7420] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-white">
+                    −{descuentoPct(p)}%
                   </span>
                 )}
               </p>
@@ -182,7 +187,8 @@ export default function PreciosCatalogo({
                 }`}
               >
                 ≈ {enColones(p.precioUSD)}
-                {ahorroPack(p) > 0 && ` · ahorrás $${ahorroPack(p)}`}
+                {ahorroPack(p) > 0 &&
+                  ` · $${ahorroPack(p)} menos que comprándolo por separado`}
               </p>
 
               <p

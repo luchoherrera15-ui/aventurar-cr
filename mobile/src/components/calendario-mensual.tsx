@@ -115,7 +115,12 @@ export default function CalendarioMensual({
           const bloqueada = !reservada && (info?.temporales ?? 0) > 0;
           const pendientes = info?.pendientes ?? 0;
           const deshabilitada = esPasado || reservada || bloqueada;
-          const promoDia = deshabilitada ? null : promoPorDiaSemana[fechaObj.getDay()] ?? null;
+          // Diciembre no lleva badge de promo: va a precio de temporada.
+          // Se mira por celda porque la grilla muestra dos meses.
+          const promoDia =
+            deshabilitada || fechaObj.getMonth() === 11
+              ? null
+              : promoPorDiaSemana[fechaObj.getDay()] ?? null;
 
           return (
             <View key={fecha} style={styles.celda}>

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { mejorPromoPorDiaSemana, promoAplicableDelDia } from "./promociones";
+import {
+  esFechaDeDiciembre,
+  mejorPromoPorDiaSemana,
+  promoAplicableDelDia,
+} from "./promociones";
 import type { PromocionDia } from "@/app/mi-negocio/types";
 
 function promo(overrides: Partial<PromocionDia>): PromocionDia {
@@ -106,5 +110,49 @@ describe("mejorPromoPorDiaSemana", () => {
   it("ignora promociones inactivas", () => {
     const promos = [promo({ activo: false })];
     expect(mejorPromoPorDiaSemana(promos)).toEqual({});
+  });
+});
+
+/* ==================================================================
+   DICIEMBRE NO LLEVA DESCUENTO
+   ==================================================================
+   Los lugares cobran precios propios de diciembre (más altos, es
+   temporada alta) y la promo automática del día se los comía: un lunes
+   de diciembre con −30 % quedaba MÁS BARATO que el mismo lunes de
+   setiembre. Estos casos fijan la regla. */
+
+describe("diciembre no lleva descuento", () => {
+  const entreSemana = promo({ dias_semana: [1, 2, 3, 4], porcentaje_descuento: 30 });
+
+  it("un lunes normal sí tiene promo", () => {
+    expect(promoAplicableDelDia([entreSemana], 1, 40)).not.toBeNull();
+  });
+
+  it("el mismo lunes en diciembre NO tiene promo", () => {
+    expect(promoAplicableDelDia([entreSemana], 1, 40, { esDiciembre: true })).toBeNull();
+  });
+
+  it("en diciembre el calendario tampoco anuncia badges", () => {
+    expect(mejorPromoPorDiaSemana([entreSemana])).not.toEqual({});
+    expect(mejorPromoPorDiaSemana([entreSemana], { esDiciembre: true })).toEqual({});
+  });
+
+  it("un precio fijo promocional también queda fuera en diciembre", () => {
+    const fijo = promo({
+      id: "fijo",
+      tipo: "precio_fijo",
+      precio_fijo: 55_000,
+      porcentaje_descuento: null,
+      dias_semana: [1],
+    });
+    expect(promoAplicableDelDia([fijo], 1, 15)).not.toBeNull();
+    expect(promoAplicableDelDia([fijo], 1, 15, { esDiciembre: true })).toBeNull();
+  });
+
+  it("reconoce diciembre por la fecha ISO, sin correrse por zona horaria", () => {
+    expect(esFechaDeDiciembre("2026-12-01")).toBe(true);
+    expect(esFechaDeDiciembre("2026-12-31")).toBe(true);
+    expect(esFechaDeDiciembre("2026-11-30")).toBe(false);
+    expect(esFechaDeDiciembre("2027-01-01")).toBe(false);
   });
 });

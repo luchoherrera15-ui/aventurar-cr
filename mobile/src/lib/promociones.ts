@@ -1,6 +1,20 @@
 import type { PromocionDia } from "@/lib/types";
 
 /**
+ * DICIEMBRE NO LLEVA DESCUENTO (decisión del dueño) — espejo de
+ * src/lib/promociones.ts en la web.
+ *
+ * Los lugares de alquiler tienen precios propios de diciembre, más
+ * altos, porque es temporada alta. Las promociones automáticas por día
+ * se los comían: un lunes de diciembre con −30 % terminaba más barato
+ * que el mismo lunes de setiembre. Por eso las dos funciones aceptan
+ * `esDiciembre` y en ese caso no devuelven promo.
+ */
+export function esFechaDeDiciembre(iso: string): boolean {
+  return iso.slice(5, 7) === "12";
+}
+
+/**
  * `dias_semana` es un integer[] de Postgres, pero según de dónde venga
  * la fila a veces llega ya parseado y a veces como el string JSON
  * crudo — normalizarlo acá, en el único lugar que lo lee (mismo fix
@@ -47,7 +61,10 @@ function elegirMejor(candidatas: PromocionDia[]): PromocionDia | null {
  */
 export function mejorPromoPorDiaSemana(
   promociones: PromocionDia[],
+  opciones: { esDiciembre?: boolean } = {},
 ): Record<number, PromocionDia> {
+  if (opciones.esDiciembre) return {};
+
   const candidatasPorDia: Record<number, PromocionDia[]> = {};
   promociones
     .filter((p) => p.activo)
@@ -75,7 +92,10 @@ export function promoAplicableDelDia(
   promociones: PromocionDia[],
   dow: number,
   invitadosNum: number,
+  opciones: { esDiciembre?: boolean } = {},
 ): PromocionDia | null {
+  if (opciones.esDiciembre) return null;
+
   const activas = promociones.filter((p) => p.activo && diasDe(p).includes(dow));
   if (activas.length === 0) return null;
 

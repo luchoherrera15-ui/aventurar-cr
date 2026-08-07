@@ -320,7 +320,11 @@ export default function ReservarScreen() {
   // de abajo, porque es un precio de REEMPLAZO, no un descuento sobre
   // el normal (mismo orden que el BookingCalendar de /web).
   const promoAplicable = useMemo(
-    () => promoAplicableDelDia(promociones, fechaObj.getDay(), invitadosNum),
+    () =>
+      promoAplicableDelDia(promociones, fechaObj.getDay(), invitadosNum, {
+        // Diciembre va a precio de temporada, sin descuento encima.
+        esDiciembre: fechaObj.getMonth() === 11,
+      }),
     [fechaObj, promociones, invitadosNum],
   );
 
