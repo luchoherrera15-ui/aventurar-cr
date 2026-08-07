@@ -42,10 +42,19 @@ export default function SiteFooter() {
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element -- el
                 logo oficial es un PNG estático: next/image no aporta
-                nada acá. */}
+                nada acá. Ver site-header.tsx: -nav.png es la versión de
+                4.2 KB del master de 29.8 KB.
+
+                `loading="lazy"` porque el pie está siempre abajo del
+                pliegue: no tiene por qué competir por ancho de banda
+                con la foto que la persona sí está mirando. */}
             <img
-              src="/logo-bookea.png"
+              src="/logo-bookea-nav.png"
               alt="Bookea"
+              width={440}
+              height={109}
+              loading="lazy"
+              decoding="async"
               className="h-8 w-auto"
             />
             <p className="mt-4 max-w-[42ch] text-[13px] leading-relaxed text-aventurea-ink-soft">

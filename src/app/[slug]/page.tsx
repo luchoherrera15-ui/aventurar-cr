@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizarCategoria, type Rancho } from "@/app/mi-negocio/types";
 import RanchoPortal from "@/app/eventos/rancho-portal";
+import EsqueletoPortal from "@/app/eventos/esqueleto-portal";
 
 /**
  * La URL corta de cada rancho/servicio, ej. bookea.lat/rancholastorres.
@@ -18,6 +20,9 @@ export default async function SlugPortalPage({
 }) {
   const { slug } = await params;
   const supabase = await createClient();
+  // Esta es la ÚNICA consulta que bloquea la respuesta: es la que decide
+  // si esto es un 404, un redirect a otra vertical, o la página del
+  // negocio. Todo lo demás va detrás del <Suspense> de abajo.
   const { data } = await supabase
     .from("ranchos")
     .select("*")
@@ -50,5 +55,14 @@ export default async function SlugPortalPage({
     redirect("/invitaciones");
   }
 
-  return <RanchoPortal rancho={rancho} />;
+  // Con el estado HTTP ya decidido (404/redirect arriba), el resto se
+  // transmite: Next manda de una el armazón + el esqueleto y va
+  // completando la página cuando la base contesta. Un `loading.tsx` no
+  // serviría acá — saldría ANTES del notFound() y un slug inexistente
+  // respondería 200.
+  return (
+    <Suspense fallback={<EsqueletoPortal />}>
+      <RanchoPortal rancho={rancho} />
+    </Suspense>
+  );
 }

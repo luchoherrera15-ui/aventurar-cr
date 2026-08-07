@@ -129,6 +129,11 @@ export default function RanchoCardGrande({
                   src={portada}
                   alt={rancho.nombre}
                   fill
+                  // Misma razón que en la card compacta: la portada de
+                  // la primera tarjeta de la grilla es el LCP y estaba
+                  // en `lazy`.
+                  loading={index === 0 ? "eager" : undefined}
+                  fetchPriority={index === 0 ? "high" : undefined}
                   sizes="(max-width: 640px) 60vw, 340px"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />

@@ -38,10 +38,23 @@ export default async function SiteHeader({
         <Link href="/" className="flex shrink-0 items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- el
               logo oficial es un PNG estático: next/image no aporta
-              nada acá. */}
+              nada acá.
+
+              -nav.png es el mismo logo a 440×109 y con paleta de 128
+              colores: 4.2 KB contra los 29.8 KB del master de
+              1251×309, que se estaba bajando entero para pintarlo a
+              146×36. Como está en el header Y en el pie, son ~51 KB
+              menos por página, en todas las páginas del sitio. El
+              master sigue en /logo-bookea.png para lo que necesite
+              resolución (correos, OG, la app móvil).
+
+              width/height explícitos: sin ellos el navegador no sabe
+              cuánto espacio reservar hasta que baja la imagen. */}
           <img
-            src="/logo-bookea.png"
+            src="/logo-bookea-nav.png"
             alt="Bookear"
+            width={440}
+            height={109}
             className="h-8 w-auto shrink-0 sm:h-9"
           />
           {breadcrumb && (

@@ -116,6 +116,14 @@ export default function RanchoCard({
               src={rancho.foto_url}
               alt={rancho.nombre}
               fill
+              // La foto de la primera card es el elemento LCP medido de
+              // /eventos, del home y de /citas — y salía `loading=lazy`,
+              // o sea que el navegador la dejaba para el final. Eager +
+              // prioridad alta, sin `preload`: son varios rieles y no se
+              // sabe cuál queda arriba de todo, y los docs de Next 16
+              // desaconsejan el <link preload> justo en ese caso.
+              loading={index === 0 ? "eager" : undefined}
+              fetchPriority={index === 0 ? "high" : undefined}
               sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 260px"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />

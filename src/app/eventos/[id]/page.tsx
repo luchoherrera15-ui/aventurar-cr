@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizarCategoria, type Rancho } from "@/app/mi-negocio/types";
 import RanchoPortal from "../rancho-portal";
+import EsqueletoPortal from "../esqueleto-portal";
 
 /**
  * Enlace legado (bookea.lat/eventos/<uuid>): sigue
@@ -37,5 +39,11 @@ export default async function RanchoPortalPage({
     redirect(`/${rancho.slug}`);
   }
 
-  return <RanchoPortal rancho={rancho} />;
+  // Igual que /[slug]: el 404 y el redirect ya quedaron decididos con la
+  // consulta de arriba, así que de acá para abajo se puede transmitir.
+  return (
+    <Suspense fallback={<EsqueletoPortal />}>
+      <RanchoPortal rancho={rancho} />
+    </Suspense>
+  );
 }

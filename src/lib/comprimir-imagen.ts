@@ -14,6 +14,13 @@
 const LADO_MAX = 1920;
 const CALIDAD = 0.82;
 
+/**
+ * Por debajo de esto y ya dentro del lado máximo, no se toca: volver a
+ * encodear una foto que ya está liviana solo le saca calidad y quema
+ * CPU del teléfono. 300 KB a 1920 px de lado es una foto sana.
+ */
+const YA_LIVIANA_BYTES = 300 * 1024;
+
 export async function comprimirImagen(
   archivo: File,
   opts: { ladoMax?: number; calidad?: number } = {},
@@ -37,6 +44,11 @@ export async function comprimirImagen(
     });
 
     const escala = Math.min(1, ladoMax / Math.max(img.naturalWidth, img.naturalHeight));
+
+    // Ya está dentro del lado máximo y ya pesa poco: se sube tal cual.
+    // Reencodearla no la haría más chica, solo peor.
+    if (escala === 1 && archivo.size <= YA_LIVIANA_BYTES) return archivo;
+
     const ancho = Math.max(1, Math.round(img.naturalWidth * escala));
     const alto = Math.max(1, Math.round(img.naturalHeight * escala));
 
@@ -45,12 +57,24 @@ export async function comprimirImagen(
     canvas.height = alto;
     const ctx = canvas.getContext("2d");
     if (!ctx) return archivo;
+    // El JPEG no tiene canal alfa: lo transparente de un PNG salía
+    // NEGRO al encodear (el canvas nace con píxeles transparentes y
+    // toBlob los aplasta a 0,0,0). Pintar el fondo blanco antes de
+    // dibujar es lo que espera cualquiera que sube un logo o un flyer
+    // con fondo recortado.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, ancho, alto);
     ctx.drawImage(img, 0, 0, ancho, alto);
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", calidad),
     );
     if (!blob) return archivo;
+
+    // Red de seguridad: un PNG chico de pocos colores puede salir MÁS
+    // pesado como JPEG. Si pasó eso y encima no hubo que achicar la
+    // imagen, gana el original.
+    if (escala === 1 && blob.size >= archivo.size) return archivo;
 
     const nombre = archivo.name.replace(/\.[^./]+$/, "") + ".jpg";
     return new File([blob], nombre, { type: "image/jpeg" });

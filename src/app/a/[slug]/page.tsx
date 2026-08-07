@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata, Viewport } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -39,21 +40,31 @@ type Album = {
   invitacion_id: string | null;
 };
 
+/**
+ * El álbum, UNA sola vez por visita: `generateMetadata` y la página
+ * pedían la misma fila por separado — dos idas y vueltas a Supabase de
+ * ~55 ms para lo mismo. `cache()` de React deduplica por render.
+ */
+const cargarAlbum = cache(async (slug: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("albumes")
+    .select("id, slug, titulo, subtitulo, cliente_id, invitacion_id")
+    .eq("slug", slug)
+    .eq("estado", "activo")
+    .maybeSingle();
+  return (data ?? null) as Album | null;
+});
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("albumes")
-    .select("titulo")
-    .eq("slug", slug)
-    .eq("estado", "activo")
-    .maybeSingle();
+  const album = await cargarAlbum(slug);
   return {
-    title: data ? `Álbum · ${data.titulo as string}` : "Álbum de fotos",
+    title: album ? `Álbum · ${album.titulo}` : "Álbum de fotos",
     description: "Las fotos del evento — miralas y subí las tuyas.",
     robots: { index: false },
   };
@@ -78,27 +89,23 @@ export default async function AlbumPage({
 }) {
   const { slug } = await params;
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("albumes")
-    .select("id, slug, titulo, subtitulo, cliente_id, invitacion_id")
-    .eq("slug", slug)
-    .eq("estado", "activo")
-    .maybeSingle();
-
-  const album = (data ?? null) as Album | null;
+  const album = await cargarAlbum(slug);
   if (!album) notFound();
 
-  const [{ data: fotosData }, { data: sesion }] = await Promise.all([
+  // La paleta entra en esta misma tanda: solo necesita
+  // `album.invitacion_id`, que ya se sabe. Antes esperaba a que
+  // terminara la consulta de fotos para recién arrancar — una ida y
+  // vuelta entera (~55 ms) puesta en fila por nada.
+  const [{ data: fotosData }, { data: sesion }, paleta] = await Promise.all([
     supabase
       .from("album_fotos")
       .select("id, path, autor")
       .eq("album_id", album.id)
       .order("created_at", { ascending: false }),
     supabase.auth.getUser(),
+    paletaDeLaInvitacion(supabase, album.invitacion_id),
   ]);
   const fotos = (fotosData ?? []) as FotoAlbum[];
-
-  const paleta = await paletaDeLaInvitacion(supabase, album.invitacion_id);
 
   // El dueño del álbum (o un admin) puede quitar cualquier foto; un
   // invitado, solo las suyas, y eso lo resuelve el navegador.
@@ -139,7 +146,7 @@ export default async function AlbumPage({
       {/* El velo de carga: primero "Cargando… %", y el álbum aparece
           entero de una sola vez (las primeras fotos ya en caché). */}
       <VeloCarga
-        urls={fotos.slice(0, 12).map((f) => `${baseFotos}${f.path}`)}
+        hayFotos={fotos.length > 0}
         titulo={album.titulo}
         paleta={paleta}
         claseSerif={cormorant.className}

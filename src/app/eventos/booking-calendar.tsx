@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import {
   IconCalendarLine,
@@ -32,6 +31,27 @@ import {
   rangoQueAplica,
   type ModalidadPrecio,
 } from "@/lib/precio-lugar";
+
+/**
+ * El cliente de Supabase se carga cuando de verdad hace falta, no con
+ * la página.
+ *
+ * Importado arriba, arrastraba GoTrueClient + RealtimeClient al chunk
+ * crítico de la ficha de un lugar: 63.2 KB comprimidos (el chunk
+ * medido) que el navegador tiene que bajar, parsear y ejecutar antes
+ * de que la página responda a un clic. Y no se usa para pintar nada:
+ * las tres cosas que necesitan Supabase acá —prellenar el formulario
+ * con la sesión, validar un código de descuento y subir el
+ * comprobante— pasan después, o directamente nunca.
+ *
+ * En la ficha de un negocio se midió la peor ventana muerta del sitio:
+ * se ve a los 2604 ms y no responde hasta los 4323 ms (móvil de gama
+ * media, 4G lento). Esto ataca ese número.
+ */
+async function clienteSupabase() {
+  const { createClient } = await import("@/lib/supabase/client");
+  return createClient();
+}
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -236,9 +256,17 @@ export default function BookingCalendar({
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
+    // El `await import` de acá es lo que saca los 63.2 KB del camino
+    // crítico: el chunk de Supabase se pide DESPUÉS de que la página ya
+    // está pintada e hidratada, y mientras tanto el formulario funciona
+    // igual (solo arranca sin prellenar).
+    let vivo = true;
+    void (async () => {
+      const supabase = await clienteSupabase();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!vivo || !user) return;
       const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
       const nombreMeta = [meta.nombre, meta.full_name].find(
         (v): v is string => typeof v === "string" && v.trim() !== "",
@@ -255,7 +283,10 @@ export default function BookingCalendar({
       if (typeof whatsappMeta === "string" && whatsappMeta.trim() !== "") {
         setWhatsapp((prev) => prev || whatsappMeta);
       }
-    });
+    })();
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   // Devuelve una fecha al calendario: su bloqueo temporal ya se soltó.
@@ -465,7 +496,7 @@ export default function BookingCalendar({
     if (!codigoInput.trim()) return;
     setVerificandoCodigo(true);
     setCodigoError(null);
-    const supabase = createClient();
+    const supabase = await clienteSupabase();
     const { data, error } = await supabase.rpc("verificar_codigo_descuento", {
       p_rancho_id: ranchoId,
       p_codigo: codigoInput.trim(),
@@ -679,7 +710,7 @@ export default function BookingCalendar({
     setSubmitting(true);
     setSubmitError(null);
 
-    const supabase = createClient();
+    const supabase = await clienteSupabase();
     const liviano = await comprimirImagen(comprobante);
     const path = `${selectedDate}/${Date.now()}-${liviano.name}`;
     const { error: uploadError } = await supabase.storage

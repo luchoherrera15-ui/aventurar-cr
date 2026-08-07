@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useActionState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { solicitarCotizacion, type CotizacionState } from "../cotizacion-actions";
 import type { RanchoItem } from "@/app/mi-negocio/types";
@@ -178,6 +177,11 @@ export default function ReservaServicio({
     setComprobanteNombre(null);
     if (!archivo) return;
     setSubiendo(true);
+    // Igual que en booking-calendar: el cliente de Supabase (63.2 KB
+    // comprimidos, GoTrue + Realtime) solo hace falta cuando alguien
+    // adjunta un comprobante, no para pintar la página del servicio.
+    // Importándolo acá adentro sale del chunk crítico de /[slug].
+    const { createClient } = await import("@/lib/supabase/client");
     const supabase = createClient();
     const liviano = await comprimirImagen(archivo);
     const path = `servicios/${ranchoId}/${Date.now()}-${liviano.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;

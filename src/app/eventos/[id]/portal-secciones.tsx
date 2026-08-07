@@ -394,7 +394,15 @@ export function CierreSeccion({
           alt=""
           aria-hidden
           fill
-          sizes="100vw"
+          // Decía "100vw", pero el contenedor es `xl:max-w-[1280px]`
+          // con márgenes: nunca ocupa el ancho de la ventana. Con
+          // 100vw una pantalla DPR2 pedía el candidato de 3840 y se
+          // bajaba cientos de KB para una foto que va detrás de un
+          // velo navy al 80% de opacidad.
+          sizes="(max-width: 1280px) 100vw, 1280px"
+          // Va al final de la página, detrás del velo: que baje
+          // cuando se llega, no compitiendo con el hero.
+          quality={60}
           className="object-cover"
         />
       )}

@@ -1,8 +1,61 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Lightbox } from "@/components/galeria-lightbox";
+
+/**
+ * El visor a pantalla completa solo aparece cuando alguien toca una
+ * foto. Cargarlo con la página metía su JS en el chunk crítico del
+ * portal, que es justo donde se midió la ventana muerta más larga del
+ * sitio (la ficha de un negocio se ve a los 2604 ms y no responde
+ * hasta los 4323 ms en móvil 4G). Ahora entra al hacer clic.
+ */
+const Lightbox = dynamic(
+  () => import("@/components/galeria-lightbox").then((m) => m.Lightbox),
+  { ssr: false },
+);
+
+/**
+ * Punto de corte `sm` de Tailwind: por debajo se ve el carrusel, por
+ * encima la grilla. Los `sizes` de abajo repiten este número a mano
+ * porque el navegador elige la foto ANTES de aplicar el CSS.
+ */
+const SM = 640;
+
+/**
+ * Las dos galerías se renderizan siempre y una se esconde con CSS
+ * (`sm:hidden` / `hidden sm:grid`) — pero el navegador descarga las
+ * fotos de las dos: `display:none` no cancela una descarga que ya
+ * eligió el escáner de precarga. Medido en producción: en escritorio
+ * se bajaba la foto del carrusel invisible a w=1920 (264 KB) y en
+ * móvil la grilla invisible a w=640 (37 KB) más 4 miniaturas.
+ *
+ * El arreglo es decirle al navegador el tamaño REAL que va a ocupar la
+ * foto en cada viewport, incluido el caso en que no ocupa nada. Como
+ * next/image arma el srcset a partir de la fracción de `vw` más chica
+ * que encuentre, declarar `3vw` para la rama invisible logra dos
+ * cosas: mete los anchos chiquitos en el srcset y hace que el
+ * navegador elija justamente uno de esos.
+ *
+ * ¿Por qué 3vw y no 1vw? Con 1vw el filtro de next/image deja entrar
+ * el candidato de 16w, y el optimizador de Vercel lo rechaza:
+ * `/_next/image?…&w=16` devuelve 400 INVALID_IMAGE_OPTIMIZE_REQUEST
+ * (probado contra producción). Con 3vw el candidato más chico pasa a
+ * ser 32w, que sí responde.
+ *
+ * Medido sobre la foto real de rancholastorres (IMG_1067.jpeg,
+ * original de 5112 KB en el bucket), por el optimizador de producción:
+ *
+ *   w=32 → 294 B · w=48 → 532 B · w=96 → 1476 B
+ *   w=640 → 37 430 B (la que SÍ se ve en escritorio)
+ *   w=1920 → 270 112 B (la que se bajaba de gusto)
+ *
+ * O sea que en escritorio la galería invisible pasa de 270 KB a 532 B.
+ */
+const SIZES_CARRUSEL = `(min-width: ${SM}px) 3vw, 100vw`;
+const SIZES_GRANDE = `(max-width: ${SM - 1}px) 3vw, (max-width: 1080px) 50vw, 540px`;
+const SIZES_CHICA = `(max-width: ${SM - 1}px) 3vw, (max-width: 1080px) 25vw, 135px`;
 
 /**
  * Las fotos del hero del portal. En desktop es la grilla de 1 grande +
@@ -20,6 +73,28 @@ export default function GaleriaHeroFotos({
   const [abierta, setAbierta] = useState<number | null>(null);
   const [visible, setVisible] = useState(0);
   const rielRef = useRef<HTMLDivElement>(null);
+
+  // Las 4 fotos que siguen en el carrusel viven fuera de pantalla pero
+  // el navegador las bajaba igual (un riel horizontal cae dentro del
+  // margen de carga diferida de Chrome): ~493 KB en móvil ANTES de que
+  // nadie deslizara, robándole ancho de banda a la única foto que sí
+  // se ve — que por eso tardaba 4785 ms en llegar en 4G lento. Ahora
+  // entran cuando la persona toca el riel o cuando la página terminó
+  // de cargar, lo que pase primero.
+  const [restoListo, setRestoListo] = useState(false);
+  useEffect(() => {
+    if (restoListo) return;
+    const activar = () => setRestoListo(true);
+    // En una navegación de cliente la página ya está "complete" y el
+    // evento `load` no vuelve a dispararse nunca: ahí se agenda para
+    // el turno siguiente.
+    if (document.readyState === "complete") {
+      const t = window.setTimeout(activar, 0);
+      return () => window.clearTimeout(t);
+    }
+    window.addEventListener("load", activar, { once: true });
+    return () => window.removeEventListener("load", activar);
+  }, [restoListo]);
 
   const [grande, ...resto] = fotos;
   const chicas = resto.slice(0, 4);
@@ -40,7 +115,9 @@ export default function GaleriaHeroFotos({
       <div className="relative sm:hidden">
         <div
           ref={rielRef}
+          onPointerDown={() => setRestoListo(true)}
           onScroll={(e) => {
+            setRestoListo(true);
             const el = e.currentTarget;
             setVisible(Math.round(el.scrollLeft / el.clientWidth));
           }}
@@ -48,22 +125,37 @@ export default function GaleriaHeroFotos({
         >
           {previa.map((foto, i) => {
             const esUltima = i === previa.length - 1 && ocultasMovil > 0;
+            // La primera se pinta siempre (es el LCP de la página en
+            // móvil); las demás esperan a `restoListo`. El <button>
+            // sigue ahí con su tamaño, así que el riel no se mueve ni
+            // un pixel cuando entran (CLS medido: 0.000).
+            const mostrar = i === 0 || restoListo;
             return (
               <button
                 key={foto + i}
                 type="button"
                 onClick={() => setAbierta(i)}
                 aria-label={`Ver la foto ${i + 1} de ${nombre} en grande`}
-                className="relative aspect-[16/11] w-full shrink-0 snap-center"
+                className="relative aspect-[16/11] w-full shrink-0 snap-center bg-aventurea-cream-2"
               >
-                <Image
-                  src={foto}
-                  alt={`${nombre} — foto ${i + 1}`}
-                  fill
-                  priority={i === 0}
-                  sizes="100vw"
-                  className="object-cover"
-                />
+                {mostrar && (
+                  <Image
+                    src={foto}
+                    alt={`${nombre} — foto ${i + 1}`}
+                    fill
+                    // `eager` + `high` en vez de `preload`: los docs de
+                    // Next 16 lo piden explícitamente cuando el LCP
+                    // cambia según el viewport, que es justo este caso
+                    // (acá el carrusel, abajo la grilla). Antes las dos
+                    // llevaban `priority`, o sea DOS <link preload> en
+                    // el <head>, y un preload se descarga aunque el
+                    // elemento esté en display:none.
+                    loading={i === 0 ? "eager" : undefined}
+                    fetchPriority={i === 0 ? "high" : undefined}
+                    sizes={SIZES_CARRUSEL}
+                    className="object-cover"
+                  />
+                )}
                 {esUltima && (
                   <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[15px] font-extrabold text-white">
                     +{ocultasMovil} fotos
@@ -117,8 +209,11 @@ export default function GaleriaHeroFotos({
             src={grande}
             alt={nombre}
             fill
-            priority
-            sizes="(max-width: 1080px) 50vw, 540px"
+            // Ídem el carrusel: sin <link preload>, pero eager y con
+            // prioridad alta — es el LCP medido en escritorio.
+            loading="eager"
+            fetchPriority="high"
+            sizes={SIZES_GRANDE}
             className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         </button>
@@ -136,7 +231,7 @@ export default function GaleriaHeroFotos({
                 src={foto}
                 alt={`${nombre} — foto ${i + 2}`}
                 fill
-                sizes="(max-width: 1080px) 25vw, 135px"
+                sizes={SIZES_CHICA}
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
               {esUltima && (
@@ -161,13 +256,15 @@ export default function GaleriaHeroFotos({
         )}
       </div>
 
-      <Lightbox
-        fotos={fotos}
-        nombre={nombre}
-        abierta={abierta}
-        onCambiar={setAbierta}
-        onCerrar={() => setAbierta(null)}
-      />
+      {abierta !== null && (
+        <Lightbox
+          fotos={fotos}
+          nombre={nombre}
+          abierta={abierta}
+          onCambiar={setAbierta}
+          onCerrar={() => setAbierta(null)}
+        />
+      )}
     </div>
   );
 }

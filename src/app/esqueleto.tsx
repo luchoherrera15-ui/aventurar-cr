@@ -1,0 +1,115 @@
+/**
+ * Las piezas de las pantallas de carga (los `loading.tsx` de cada ruta).
+ *
+ * ¿Por qué existen? Medido en producción: en las páginas dinámicas el
+ * navegador pasaba entre 176 y 685 ms SIN SABER todavía qué CSS ni qué
+ * JS pedir, porque Next no puede mandar el `<head>` hasta que el
+ * componente de la página termina de renderizar — y eso incluye
+ * esperar a Supabase. En /citas/[slug] eran 685 ms de pantalla en
+ * blanco puramente por eso; en /rancholastorres, 597 ms.
+ *
+ * Un `loading.tsx` crea un límite de Suspense en la ruta: Next manda
+ * de inmediato el armazón (html + head con los preloads de CSS/JS + este
+ * esqueleto) y va transmitiendo el contenido real cuando la base
+ * contesta. El TTFB pasa a ser el del armazón, no el de las consultas.
+ *
+ * Regla de diseño: el esqueleto CALCA la forma de la página (el lugar de
+ * la foto, del título y del precio). No un spinner centrado — un hueco
+ * con la forma correcta hace que la misma espera se sienta la mitad, y
+ * además evita que la página salte cuando llega el contenido.
+ *
+ * ⚠️ POR QUÉ CASI NO HAY `loading.tsx` ACÁ, Y SÍ `<Suspense>`
+ *
+ * Un `loading.tsx` no cubre solo su página: cubre TODO el segmento,
+ * hijos incluidos. Lo probé contra el servidor de producción local y
+ * rompía los 404: con `src/app/citas/loading.tsx` puesto,
+ * `/citas/no-existe-este-negocio` respondía **200** en vez de 404, y
+ * `/eventos/<uuid inexistente>` igual — porque el armazón sale por el
+ * cable ANTES de que la página corra su `notFound()`, y para entonces
+ * la cabecera HTTP ya se mandó. Para Google eso son páginas basura
+ * indexables.
+ *
+ * Por eso las rutas públicas con hijos dinámicos usan un `<Suspense>`
+ * DENTRO de la página, puesto después de lo que decide el estado HTTP.
+ * Se gana lo mismo (el `<head>` con los preloads sale de una) sin
+ * mentir con el código de respuesta. Verificado después del cambio:
+ * `/zzz-no-existe` → 404, `/citas/no-existe` → 404.
+ *
+ * `loading.tsx` sí queda donde no hay hijos con `notFound()` público:
+ * /hospedajes y /mi-negocio/[id] (panel privado, detrás de sesión).
+ */
+
+/** Un bloque gris que respira. La forma la pone quien lo usa. */
+export function Bloque({ className = "" }: { className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={`animate-pulse rounded-lg bg-aventurea-navy/[0.07] ${className}`}
+    />
+  );
+}
+
+/**
+ * La barra de arriba del sitio, del alto exacto del SiteHeader real
+ * (64px) para que el contenido no salte cuando llega el header de
+ * verdad.
+ */
+export function EsqueletoHeader({ ancho = "max-w-[1600px]" }: { ancho?: string }) {
+  return (
+    <div className="h-16 border-b border-aventurea-line bg-white">
+      <div className={`mx-auto flex h-full ${ancho} items-center gap-4 px-4 lg:px-6`}>
+        <Bloque className="h-7 w-[130px]" />
+        <div className="flex-1" />
+        <Bloque className="hidden h-8 w-[120px] sm:block" />
+        <Bloque className="h-8 w-8 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * La tarjeta de un negocio: foto 16/10, nombre, ubicación y la línea de
+ * precio abajo — el mismo esquema de rancho-card / CardNegocio.
+ */
+export function EsqueletoCard({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl border border-aventurea-line bg-white ${className}`}
+    >
+      <Bloque className="aspect-[16/10] w-full rounded-none" />
+      <div className="p-4">
+        <Bloque className="h-4 w-3/4" />
+        <Bloque className="mt-2 h-3 w-1/2" />
+        <div className="mt-3 flex items-center justify-between border-t border-[#e8eef8] pt-3">
+          <Bloque className="h-3.5 w-24" />
+          <Bloque className="h-3.5 w-16" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** La grilla de tarjetas de un directorio. */
+export function EsqueletoGrilla({ cantidad = 6 }: { cantidad?: number }) {
+  return (
+    <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: cantidad }, (_, i) => (
+        <EsqueletoCard key={i} />
+      ))}
+    </div>
+  );
+}
+
+/** El buscador + la fila de chips de categoría de los directorios. */
+export function EsqueletoFiltros() {
+  return (
+    <>
+      <Bloque className="h-12 w-full rounded-xl" />
+      <div className="mt-3 flex gap-2 overflow-hidden">
+        {Array.from({ length: 7 }, (_, i) => (
+          <Bloque key={i} className="h-9 w-[104px] shrink-0 rounded-full" />
+        ))}
+      </div>
+    </>
+  );
+}

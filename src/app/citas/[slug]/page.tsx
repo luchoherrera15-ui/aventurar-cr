@@ -44,19 +44,25 @@ export default async function NegocioCitasPage({
 }) {
   const { slug } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
+  // La sesión y el negocio, juntos: antes `auth.getUser()` esperaba sola
+  // antes de que arrancara siquiera la consulta del negocio. No depende
+  // una de la otra.
+  //
   // Por slug (la URL bonita) y si no, por id — para negocios recién
   // creados que aún no tienen slug.
-  let { data } = await supabase
-    .from("ranchos")
-    .select("*")
-    .eq("slug", slug)
-    .eq("vertical", "citas")
-    .eq("estado", "aprobado")
-    .maybeSingle();
+  const [sesion, negocioRes] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("ranchos")
+      .select("*")
+      .eq("slug", slug)
+      .eq("vertical", "citas")
+      .eq("estado", "aprobado")
+      .maybeSingle(),
+  ]);
+  const user = sesion.data.user;
+  let { data } = negocioRes;
   if (!data && /^[0-9a-f-]{36}$/.test(slug)) {
     ({ data } = await supabase
       .from("ranchos")
@@ -70,12 +76,28 @@ export default async function NegocioCitasPage({
   const negocio = data as unknown as (Rancho & { vertical: string }) | null;
   if (!negocio) notFound();
 
+  // Los contadores del negocio (citas agendadas, clientes atendidos y
+  // citas por persona del equipo) salen con la service key: la
+  // política de reservas solo deja ver las propias, y acá se exponen
+  // únicamente números agregados — nunca datos de nadie.
+  const admin = createAdminClient();
+
+  /* Todo lo que falta, en UNA tanda.
+   *
+   * `cargarAgendaPro` y el conteo de citas estaban después, cada uno
+   * esperando su turno, aunque los dos solo necesitan `negocio.id` —
+   * que ya se sabía en la consulta de arriba. Eran dos idas y vueltas
+   * a Supabase (~55 ms cada una, medidas) puestas en fila por nada.
+   * /citas/demo-nails-studio-cr devolvía el documento a los 420 ms;
+   * esto le saca dos de sus cuatro tandas. */
   const [
     { data: itemsData },
     { data: equipoData },
     { data: califData },
     { data: resenasData },
     { data: perfil },
+    agendaPro,
+    { data: filasCitas },
   ] = await Promise.all([
       supabase
         .from("rancho_items")
@@ -103,6 +125,15 @@ export default async function NegocioCitasPage({
       user
         ? supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle()
         : Promise.resolve({ data: null }),
+      cargarAgendaPro(supabase, negocio.id),
+      admin
+        ? admin
+            .from("reservas")
+            .select("cliente_id, correo, fecha, miembro_id")
+            .eq("rancho_id", negocio.id)
+            .eq("estado", "confirmada")
+            .not("hora_inicio", "is", null)
+        : Promise.resolve({ data: null }),
     ]);
 
   const items = (itemsData ?? []) as (RanchoItem & {
@@ -110,7 +141,6 @@ export default async function NegocioCitasPage({
     buffer_min: number | null;
   })[];
   const equipo = (equipoData ?? []) as Miembro[];
-  const agendaPro = await cargarAgendaPro(supabase, negocio.id);
   const calif = califData as { promedio: number; total: number } | null;
   const resenas = (resenasData ?? []) as Resena[];
   const horario = horarioDeDetalles(negocio.detalles);
@@ -118,21 +148,12 @@ export default async function NegocioCitasPage({
   const ubicacion = [negocio.canton, negocio.provincia].filter(Boolean).join(", ");
   const rutaBase = `/citas/${negocio.slug ?? negocio.id}`;
 
-  // Los contadores del negocio (citas agendadas, clientes atendidos y
-  // citas por persona del equipo) salen con la service key: la
-  // política de reservas solo deja ver las propias, y acá se exponen
-  // únicamente números agregados — nunca datos de nadie.
-  const admin = createAdminClient();
+  // Los números agregados de arriba, ya contados (la consulta viajó en
+  // la tanda anterior).
   let citasTotales = 0;
   let clientesAtendidos = 0;
   const citasPorMiembro: Record<string, number> = {};
-  if (admin) {
-    const { data: filasCitas } = await admin
-      .from("reservas")
-      .select("cliente_id, correo, fecha, miembro_id")
-      .eq("rancho_id", negocio.id)
-      .eq("estado", "confirmada")
-      .not("hora_inicio", "is", null);
+  {
     const hoy = hoyISOCR();
     const filas = (filasCitas ?? []) as {
       cliente_id: string | null;

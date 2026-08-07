@@ -1,5 +1,54 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { sesionDesdeBearer } from "@/lib/supabase/bearer";
+
+/**
+ * ¿Quién está viendo esta página? UNA sola vez por render.
+ *
+ * Problema contado en el código (no medido en producción, hace falta
+ * fabricar una cookie de sesión): renderizar /eventos con la sesión
+ * abierta disparaba CUATRO `auth.getUser()` distintos para responder la
+ * misma pregunta — uno en `proxy.ts`, uno en la página, uno en
+ * `negocio-propio.ts` y uno en `acciones-sesion.tsx`. Cada uno construye
+ * su propio cliente de Supabase, así que ninguno reusaba el caché del
+ * otro. Para alguien con sesión, cada uno de esos es una ida y vuelta a
+ * `/auth/v1/user` (144–150 ms medidos contra ese endpoint).
+ *
+ * `cache()` de React deduplica por render: el primero que pregunta hace
+ * el viaje y el resto recibe la misma respuesta. Para un visitante
+ * anónimo no cambia nada — `getUser()` sin cookie corta sin salir a la
+ * red (verificado en @supabase/auth-js: devuelve AuthSessionMissingError).
+ *
+ * Todo lo que renderiza en el servidor y necesite saber quién es la
+ * persona debería pasar por acá.
+ */
+export const usuarioActual = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});
+
+/**
+ * El perfil de quien mira (nombre, rol, foto), también una sola vez por
+ * render. Devuelve null si no hay sesión.
+ */
+export const perfilActual = cache(
+  async (
+    columnas = "nombre, rol",
+  ): Promise<Record<string, unknown> | null> => {
+    const user = await usuarioActual();
+    if (!user) return null;
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("perfiles")
+      .select(columnas)
+      .eq("id", user.id)
+      .maybeSingle();
+    return (data ?? null) as Record<string, unknown> | null;
+  },
+);
 
 /**
  * ¿Es admin quien manda esta petición? Sirve para las rutas de API que

@@ -6,6 +6,22 @@ import { IconChevronLeft, IconChevronRight } from "@/components/icons";
 import { FOTOS_DESTACADAS } from "@/app/mi-negocio/types";
 
 /**
+ * Los hosts que `next.config.ts` le autoriza al optimizador de
+ * imágenes. Si la foto no viene de acá (blob: de una subida en curso,
+ * URL firmada, dominio ajeno), se sirve tal cual.
+ */
+const HOSTS_OPTIMIZABLES = ["bjhprmtobmualefvcmau.supabase.co", "images.unsplash.com"];
+
+function esOptimizable(src: string) {
+  return src.startsWith("/") || HOSTS_OPTIMIZABLES.some((h) => src.startsWith(`https://${h}/`));
+}
+
+/** La misma foto pasada por el optimizador, a un ancho concreto. */
+function urlVisor(src: string, ancho: number) {
+  return `/_next/image?url=${encodeURIComponent(src)}&w=${ancho}&q=75`;
+}
+
+/**
  * La grilla de fotos del portal (rancho, DJ, catering...), pero cada
  * foto abre en grande al tocarla. Antes solo se veían del tamaño fijo
  * de la grilla — para ver detalle había que confiar en el zoom del
@@ -93,9 +109,26 @@ export function Lightbox({
           pantalla completa: cada foto tiene un aspect ratio distinto y
           desconocido de antemano, así que necesita su tamaño intrínseco
           real (object-contain + max-h/max-w) — no es la miniatura que
-          se repite en la grilla (esas sí van por next/image, abajo). */}
+          se repite en la grilla (esas sí van por next/image, abajo).
+
+          Lo que SÍ cambió: el `src` apuntaba al archivo crudo del
+          bucket. Se auditó el bucket `ranchos-fotos` y hay 43 archivos
+          de más de 1 MB, el mayor de 5702 KB (5712×4284, foto de
+          iPhone sin tocar) — o sea que tocar una foto podía disparar
+          una descarga de 5.7 MB para verla, como mucho, a 92vw. Ahora
+          pasa por el optimizador con un srcset acotado: mismo encuadre
+          (no hay `fill`, el tamaño intrínseco lo sigue poniendo la
+          imagen), pero AVIF/WebP al ancho que corresponde. */}
       <img
-        src={fotos[abierta]}
+        src={esOptimizable(fotos[abierta]) ? urlVisor(fotos[abierta], 1920) : fotos[abierta]}
+        srcSet={
+          esOptimizable(fotos[abierta])
+            ? [828, 1200, 1920]
+                .map((w) => `${urlVisor(fotos[abierta], w)} ${w}w`)
+                .join(", ")
+            : undefined
+        }
+        sizes="92vw"
         alt={`${nombre} — foto ${abierta + 1}`}
         onClick={(e) => e.stopPropagation()}
         className="max-h-[85vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"

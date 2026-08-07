@@ -141,19 +141,103 @@ export default async function RanchoDetallePage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/mi-negocio/login");
 
-  const { data } = await supabase.from("ranchos").select("*").eq("id", id).maybeSingle();
+  /* ======== El panel entero en UNA tanda a Supabase ========
+   *
+   * Antes esta pantalla hacía NUEVE tandas en cascada: ranchos →
+   * perfiles → (7 consultas) → calendario_tokens → agendas_externas →
+   * puedeUsarAgendaIA → (conocimiento + addon) → (equipo, horarios,
+   * asignaciones, bloqueos). A ~55 ms por ida y vuelta medidos desde
+   * Vercel, eso son ~500 ms de puro esperar antes de pintar nada — y es
+   * la pantalla que el dueño abre veinte veces al día.
+   *
+   * Todas filtran por el mismo `id` que viene en la URL, así que
+   * ninguna necesitaba esperar a la anterior. Van juntas.
+   *
+   * Sobre seguridad: disparar estas consultas ANTES de comprobar que la
+   * publicación es suya no abre nada. Todas van con la sesión de quien
+   * mira, o sea que la RLS de la base decide qué filas devuelve; la
+   * comprobación de abajo (`owner_id`/rol admin) sigue siendo la
+   * segunda barrera y sigue cortando con notFound() antes de renderizar
+   * una sola línea.
+   */
+  const [
+    { data },
+    { data: perfil },
+    [reservasRes, gastosRes, tiersRes, serviciosRes, codigosRes, promocionesRes, itemsRes],
+    tokenRes,
+    agendasRes,
+    addonAgendaIA,
+    conocimientoRes,
+    contratadoRes,
+  ] = await Promise.all([
+    supabase.from("ranchos").select("*").eq("id", id).maybeSingle(),
+    // El dueño entra siempre; un admin también puede entrar a modificar
+    // la publicación en nombre del proveedor (por ejemplo cuando pide
+    // ayuda desde el botón "Modificar tu página" del portal público).
+    supabase.from("perfiles").select("rol").eq("id", user.id).maybeSingle(),
+    Promise.all([
+      supabase
+        .from("reservas")
+        .select("*")
+        .eq("rancho_id", id)
+        .neq("estado", "temporal")
+        .order("fecha", { ascending: true }),
+      supabase
+        .from("gastos_rancho")
+        .select("id, fecha, concepto, categoria, monto, nota")
+        .eq("rancho_id", id)
+        .order("fecha", { ascending: false }),
+      supabase
+        .from("precio_tiers")
+        .select("*")
+        .eq("rancho_id", id)
+        .order("min_invitados", { ascending: true }),
+      supabase.from("servicios_adicionales").select("*").eq("rancho_id", id),
+      supabase
+        .from("codigos_descuento")
+        .select("*")
+        .eq("rancho_id", id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("promociones_dia")
+        .select("*")
+        .eq("rancho_id", id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("rancho_items")
+        .select("*")
+        .eq("rancho_id", id)
+        .order("orden", { ascending: true })
+        .order("created_at", { ascending: true }),
+    ]),
+    // El feed .ics para suscribir la agenda en Google/Apple Calendar.
+    supabase.from("calendario_tokens").select("token").eq("rancho_id", id).maybeSingle(),
+    // Los calendarios externos conectados (0072).
+    supabase
+      .from("agendas_externas")
+      .select("id, nombre, url, ultima_sync, ultimo_error, eventos_importados")
+      .eq("rancho_id", id)
+      .order("created_at", { ascending: true }),
+    // El complemento de pago que desbloquea leer la agenda con IA. Se
+    // resuelve en el servidor con la llave de servicio: la tarjeta del
+    // panel solo pinta lo que corresponda, y el endpoint lo vuelve a
+    // comprobar antes de gastar un token (0077).
+    puedeUsarAgendaIA(id),
+    // Las respuestas propias que el dueño le enseñó al asistente...
+    supabase
+      .from("conocimiento_negocio")
+      .select("id, pregunta, respuesta, activo, orden")
+      .eq("rancho_id", id)
+      .order("orden", { ascending: true })
+      .order("created_at", { ascending: true }),
+    // ...y si tiene contratado el complemento `asistente_ia` (0090,
+    // security definer — se puede preguntar con la sesión del dueño sin
+    // abrirle la tabla).
+    supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "asistente_ia" }),
+  ]);
+
   if (!data) notFound();
 
-  // El dueño entra siempre; un admin también puede entrar a modificar la
-  // publicación en nombre del proveedor (por ejemplo cuando pide ayuda
-  // desde el botón "Modificar tu página" del portal público). Las
-  // políticas de la base ya permiten ambos casos — esto es la segunda
-  // barrera para que nadie más abra una publicación ajena pegando el id.
-  const { data: perfil } = await supabase
-    .from("perfiles")
-    .select("rol")
-    .eq("id", user.id)
-    .maybeSingle();
   const esAdminSesion = perfil?.rol === "admin";
   if (data.owner_id !== user.id && !esAdminSesion) notFound();
 
@@ -177,43 +261,6 @@ export default async function RanchoDetallePage({
     .filter(Boolean)
     .join(", ");
 
-  const [reservasRes, gastosRes, tiersRes, serviciosRes, codigosRes, promocionesRes, itemsRes] =
-    await Promise.all([
-      supabase
-        .from("reservas")
-        .select("*")
-        .eq("rancho_id", rancho.id)
-        .neq("estado", "temporal")
-        .order("fecha", { ascending: true }),
-      supabase
-        .from("gastos_rancho")
-        .select("id, fecha, concepto, categoria, monto, nota")
-        .eq("rancho_id", rancho.id)
-        .order("fecha", { ascending: false }),
-      supabase
-        .from("precio_tiers")
-        .select("*")
-        .eq("rancho_id", rancho.id)
-        .order("min_invitados", { ascending: true }),
-      supabase.from("servicios_adicionales").select("*").eq("rancho_id", rancho.id),
-      supabase
-        .from("codigos_descuento")
-        .select("*")
-        .eq("rancho_id", rancho.id)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("promociones_dia")
-        .select("*")
-        .eq("rancho_id", rancho.id)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("rancho_items")
-        .select("*")
-        .eq("rancho_id", rancho.id)
-        .order("orden", { ascending: true })
-        .order("created_at", { ascending: true }),
-    ]);
-
   const errorFinanzas = reservasRes.error ?? gastosRes.error;
   const reservas = (reservasRes.data ?? []) as Reserva[];
   const reservasFinanzas = reservas as unknown as ReservaFinanzas[];
@@ -236,61 +283,31 @@ export default async function RanchoDetallePage({
   // no lo deja crear el token), feedUrl queda null y la tarjeta no
   // aparece — nada se rompe.
   let feedUrl: string | null = null;
-  {
-    const { data: tokenFila, error: tokenError } = await supabase
-      .from("calendario_tokens")
-      .select("token")
-      .eq("rancho_id", rancho.id)
-      .maybeSingle();
-    if (!tokenError) {
-      let token = (tokenFila?.token as string | undefined) ?? undefined;
-      if (!token) {
-        const { data: creado } = await supabase
-          .from("calendario_tokens")
-          .insert({ rancho_id: rancho.id })
-          .select("token")
-          .maybeSingle();
-        token = (creado?.token as string | undefined) ?? undefined;
-      }
-      if (token) {
-        const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://bookea.lat";
-        feedUrl = `${sitio}/api/calendario/feed/${token}`;
-      }
+  if (!tokenRes.error) {
+    let token = (tokenRes.data?.token as string | undefined) ?? undefined;
+    // El INSERT es lo ÚNICO que puede quedar como segunda tanda, y solo
+    // la primera vez que se abre el panel de un negocio: después el
+    // token ya existe y la lectura de arriba lo trae.
+    if (!token) {
+      const { data: creado } = await supabase
+        .from("calendario_tokens")
+        .insert({ rancho_id: rancho.id })
+        .select("token")
+        .maybeSingle();
+      token = (creado?.token as string | undefined) ?? undefined;
+    }
+    if (token) {
+      const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://bookea.lat";
+      feedUrl = `${sitio}/api/calendario/feed/${token}`;
     }
   }
 
   // Los calendarios externos conectados (0072). null = la migración
   // no ha corrido y la tarjeta de importar no se muestra.
-  let agendasExternas: AgendaExternaFila[] | null = null;
-  {
-    const { data, error } = await supabase
-      .from("agendas_externas")
-      .select("id, nombre, url, ultima_sync, ultimo_error, eventos_importados")
-      .eq("rancho_id", rancho.id)
-      .order("created_at", { ascending: true });
-    if (!error) agendasExternas = (data ?? []) as AgendaExternaFila[];
-  }
+  const agendasExternas: AgendaExternaFila[] | null = agendasRes.error
+    ? null
+    : ((agendasRes.data ?? []) as AgendaExternaFila[]);
 
-  // El complemento de pago que desbloquea leer la agenda con IA. Se
-  // resuelve en el servidor con la llave de servicio: la tarjeta del
-  // panel solo pinta lo que corresponda, y el endpoint lo vuelve a
-  // comprobar antes de gastar un token (0077).
-  const addonAgendaIA = await puedeUsarAgendaIA(rancho.id);
-
-  // Lo que antes leía la pantalla suelta de "Tu asistente" (ahora una
-  // sección más dentro de Configuración): las respuestas propias que le
-  // enseñó el dueño y si tiene contratado el complemento `asistente_ia`
-  // (0090, security definer — se puede preguntar con la sesión del
-  // dueño sin abrirle la tabla).
-  const [conocimientoRes, contratadoRes] = await Promise.all([
-    supabase
-      .from("conocimiento_negocio")
-      .select("id, pregunta, respuesta, activo, orden")
-      .eq("rancho_id", rancho.id)
-      .order("orden", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase.rpc("tiene_addon", { p_rancho_id: rancho.id, p_addon: "asistente_ia" }),
-  ]);
   const conocimiento = (conocimientoRes.data ?? []) as ConocimientoFila[];
   // `asistente_activo`/`asistente_instrucciones` no están en el tipo
   // `Rancho` (llegan de la 0078, que puede no haber corrido todavía) —

@@ -12,19 +12,39 @@
 
 /* Reveal-on-scroll: fade + subida sutil, nada de rebotes ni rotación.
    Se usa junto con RevealOnScroll (IntersectionObserver) que agrega
-   la clase .is-revealed cuando la sección entra en pantalla. */
+   la clase .is-revealed cuando la sección entra en pantalla.
+
+   OJO con el sentido de la regla, que se dio vuelta a propósito:
+
+   Antes esto era `[data-reveal] { opacity: 0 }` y RevealOnScroll iba
+   agregando .is-revealed. Como RevealOnScroll es JS de cliente, eso
+   significaba que TODA card y TODA sección del sitio estaba invisible
+   hasta que React hidrataba. Medido en producción, móvil de gama media
+   en 4G lento: la ficha de un negocio se ve a los 2604 ms pero hidrata
+   a los 4323 ms, y el LCP quedaba en 4832 ms — el navegador ya tenía
+   la foto pintada, con opacity 0. En /eventos el elemento LCP es
+   justamente la foto de una card, o sea que el LCP del directorio
+   estaba atado a la hidratación.
+
+   Ahora el estado por defecto es VISIBLE, y RevealOnScroll es el que
+   agrega .por-revelar a lo que quedó abajo del pliegue antes de
+   animarlo. Si el JS tarda, falla o no corre, la página se ve igual —
+   solo se pierde la animación, que es exactamente lo que debe pasar. */
 [data-reveal] {
-  opacity: 0;
-  transform: translateY(22px);
   transition: opacity 0.7s ease-out, transform 0.7s ease-out;
   transition-delay: var(--reveal-delay, 0ms);
+}
+[data-reveal].por-revelar {
+  opacity: 0;
+  transform: translateY(22px);
 }
 [data-reveal].is-revealed {
   opacity: 1;
   transform: translateY(0);
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] {
+  [data-reveal],
+  [data-reveal].por-revelar {
     opacity: 1;
     transform: none;
     transition: none;

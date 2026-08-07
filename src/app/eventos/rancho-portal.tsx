@@ -56,11 +56,186 @@ function fmtColones(n: number | null) {
  * se encarga de buscar la fila en `ranchos` a su manera (por id o por
  * slug) y le pasa acá el resultado ya normalizado.
  */
+/**
+ * Todo lo que el portal necesita además de la fila de `ranchos`, en una
+ * sola forma para Lugares y para Servicios (cada uno llena su mitad).
+ * Existe para poder pedirlo TODO en una sola tanda — ver el comentario
+ * grande de RanchoPortal.
+ */
+type DatosPortal = {
+  disponibilidad: Record<string, DiaDisponibilidad>;
+  tiers: PrecioTier[];
+  tiersDiciembre: PrecioTier[];
+  servicios: ServicioAdicional[];
+  promociones: PromocionDia[];
+  itemsCatalogo: RanchoItem[];
+  disponibilidadServicioPorDia: Record<string, CupoDia>;
+};
+
+const DATOS_PORTAL_VACIO: DatosPortal = {
+  disponibilidad: {},
+  tiers: [],
+  tiersDiciembre: [],
+  servicios: [],
+  promociones: [],
+  itemsCatalogo: [],
+  disponibilidadServicioPorDia: {},
+};
+
+/** Los datos del calendario de un Lugar: cuatro consultas, una tanda. */
+async function datosDeLugar(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ranchoId: string,
+): Promise<DatosPortal> {
+  const [dispRes, tiersRes, svcRes, promoRes] = await Promise.all([
+    supabase.from("disponibilidad_rancho").select("fecha, estado").eq("rancho_id", ranchoId),
+    // A propósito `*` y no la lista de columnas: `temporada` (0099)
+    // puede no existir todavía en la base y pedirla por nombre haría
+    // fallar la consulta entera, dejando la página sin precios. Se
+    // lee abajo con typeof — sin la columna, todo queda en 'normal'.
+    supabase
+      .from("precio_tiers")
+      .select("*")
+      .eq("rancho_id", ranchoId)
+      .order("min_invitados", { ascending: true }),
+    supabase
+      .from("servicios_adicionales")
+      .select("id, nombre, precio, requisito_max_invitados")
+      .eq("rancho_id", ranchoId)
+      .eq("activo", true),
+    supabase
+      .from("promociones_dia")
+      .select("*")
+      .eq("rancho_id", ranchoId)
+      .eq("activo", true),
+  ]);
+
+  const disponibilidad: Record<string, DiaDisponibilidad> = {};
+  (dispRes.data ?? []).forEach((r) => {
+    const dia = disponibilidad[r.fecha] ?? {
+      confirmada: false,
+      pendientes: 0,
+      temporales: 0,
+    };
+    if (r.estado === "confirmada") dia.confirmada = true;
+    else if (r.estado === "temporal") dia.temporales += 1;
+    else dia.pendientes += 1;
+    disponibilidad[r.fecha] = dia;
+  });
+
+  // Los rangos de diciembre son filas de la misma tabla, marcadas con
+  // `temporada` (0099). Si la migración todavía no corrió, ninguna
+  // fila la trae y el lugar sigue cotizando como siempre.
+  const filasTiers = (tiersRes.data ?? []) as (PrecioTier & { temporada?: unknown })[];
+  const esDeDiciembre = (fila: { temporada?: unknown }) =>
+    typeof fila.temporada === "string" && fila.temporada === "diciembre";
+  const soloRango = ({ min_invitados, max_invitados, precio }: PrecioTier): PrecioTier => ({
+    min_invitados,
+    max_invitados,
+    precio,
+  });
+
+  return {
+    ...DATOS_PORTAL_VACIO,
+    disponibilidad,
+    tiers: filasTiers.filter((f) => !esDeDiciembre(f)).map(soloRango),
+    tiersDiciembre: filasTiers.filter(esDeDiciembre).map(soloRango),
+    servicios: (svcRes.data ?? []) as ServicioAdicional[],
+    promociones: ((promoRes.data ?? []) as PromocionDia[]).map((p) => ({
+      ...p,
+      dias_semana: Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]"),
+    })),
+  };
+}
+
+/**
+ * El catálogo (menú/paquetes) de un Servicio: es lo que el cliente elige
+ * al armar su reserva. La disponibilidad dice qué días ya están llenos y
+ * cuánto queda de cada paquete por fecha.
+ */
+async function datosDeServicio(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ranchoId: string,
+): Promise<DatosPortal> {
+  const hoy = hoyISOCR();
+  const [itemsRes, dispServicio] = await Promise.all([
+    supabase
+      .from("rancho_items")
+      .select("*")
+      .eq("rancho_id", ranchoId)
+      .eq("activo", true)
+      .order("orden", { ascending: true })
+      .order("created_at", { ascending: true }),
+    disponibilidadServicio(supabase, ranchoId, hoy, sumarDiasISO(hoy, 365)),
+  ]);
+  return {
+    ...DATOS_PORTAL_VACIO,
+    itemsCatalogo: (itemsRes.data ?? []) as RanchoItem[],
+    disponibilidadServicioPorDia: dispServicio,
+  };
+}
+
 export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
   const supabase = await createClient();
+
+  // Esta página solo se renderiza para negocios de la vertical Eventos
+  // (/eventos/[id] y /[slug] la resuelven así antes de llamar acá) — el
+  // cast es seguro.
+  const categoriaEventos = rancho.categoria as Categoria;
+  const esLugar = categoriaEventos === "lugares";
+
+  /* ================= UNA sola tanda a Supabase =================
+   *
+   * Antes esta página hacía CUATRO tandas en cascada más una escritura:
+   * getUser → (calificaciones ∥ reseñas) → DELETE de reservas temporales
+   * → (disponibilidad ∥ tiers ∥ servicios ∥ promociones). Medido contra
+   * producción, /rancholastorres devolvía el documento a los 449 ms
+   * (contra 129 ms de una página servida desde la CDN): +274 ms que eran
+   * puro esperar viajes a la base, uno detrás de otro, sin que ninguno
+   * dependiera del anterior — todos filtran por `rancho.id`, que ya
+   * viene en las props.
+   *
+   * Acá se piden todos juntos. Para un visitante anónimo esto es UNA
+   * tanda (`auth.getUser()` sin cookie de sesión no sale a la red).
+   *
+   * DESAPARECIÓ el `DELETE` de reservas temporales vencidas que corría
+   * en cada visita pública. No hacía falta para lo que muestra la
+   * página: la vista `disponibilidad_rancho` (migración 0072, líneas
+   * 75-82) ya las excluye ella misma con
+   * `or (r.estado = 'temporal' and r.expira_en > now())`. Era una
+   * ESCRITURA a la base por cada visitante anónimo — un viaje entero, y
+   * además algo que vuelve la página imposible de cachear por
+   * definición. La limpieza pasó al cron diario de /api/auto-cobro.
+   */
+  const [sesion, { data: califData }, { data: resenasData }, datos] = await Promise.all([
+    supabase.auth.getUser(),
+    // Calificación y reseñas reales (solo de reservas confirmadas).
+    supabase
+      .from("calificaciones_rancho")
+      .select("promedio, total")
+      .eq("rancho_id", rancho.id)
+      .maybeSingle(),
+    supabase
+      .from("resenas")
+      .select("id, calificacion, comentario, created_at")
+      .eq("rancho_id", rancho.id)
+      .order("created_at", { ascending: false })
+      .limit(6),
+    esLugar ? datosDeLugar(supabase, rancho.id) : datosDeServicio(supabase, rancho.id),
+  ]);
+
+  const user = sesion.data.user;
+  const calificacion = califData as { promedio: number; total: number } | null;
+  const resenas = (resenasData ?? []) as Resena[];
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    disponibilidad,
+    tiers,
+    tiersDiciembre,
+    servicios,
+    promociones,
+    itemsCatalogo,
+    disponibilidadServicioPorDia,
+  } = datos;
 
   // El dueño (o un admin ayudándolo) ve un acceso directo a modificar
   // esta misma publicación, sin tener que buscarla en "Mis publicaciones".
@@ -109,11 +284,6 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
     );
   }
 
-  // Esta página solo se renderiza para negocios de la vertical Eventos
-  // (/eventos/[id] y /[slug] la resuelven así antes de llamar acá) — el
-  // cast es seguro.
-  const categoriaEventos = rancho.categoria as Categoria;
-  const esLugar = categoriaEventos === "lugares";
   // Un negocio editado antes desde el móvil puede tener la portada
   // repetida dentro de fotos — de acá para adelante ya no debería pasar,
   // pero esto cubre lo que ya quedó guardado así.
@@ -185,121 +355,8 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
         },
       ];
 
-  // Datos del calendario de Lugares (su flujo propio, intacto).
-  let disponibilidad: Record<string, DiaDisponibilidad> = {};
-  let tiers: PrecioTier[] = [];
-  let tiersDiciembre: PrecioTier[] = [];
-  let servicios: ServicioAdicional[] = [];
-  let promociones: PromocionDia[] = [];
-
-  // El catálogo (menú/paquetes) de los servicios: es lo que el cliente
-  // elige al armar su reserva. La disponibilidad dice qué días ya
-  // están llenos y cuánto queda de cada paquete por fecha.
-  let itemsCatalogo: RanchoItem[] = [];
-  let disponibilidadServicioPorDia: Record<string, CupoDia> = {};
-  if (!esLugar) {
-    const hoy = hoyISOCR();
-    const [itemsRes, dispServicio] = await Promise.all([
-      supabase
-        .from("rancho_items")
-        .select("*")
-        .eq("rancho_id", rancho.id)
-        .eq("activo", true)
-        .order("orden", { ascending: true })
-        .order("created_at", { ascending: true }),
-      disponibilidadServicio(supabase, rancho.id, hoy, sumarDiasISO(hoy, 365)),
-    ]);
-    itemsCatalogo = (itemsRes.data ?? []) as RanchoItem[];
-    disponibilidadServicioPorDia = dispServicio;
-  }
   const anticipacionDias = Number(rancho.detalles?.anticipacion_dias) || 0;
   const etiquetaCatalogo = CATALOGO_LABEL[categoriaEventos];
-
-  // Calificación y reseñas reales (solo de reservas confirmadas).
-  const [{ data: califData }, { data: resenasData }] = await Promise.all([
-    supabase
-      .from("calificaciones_rancho")
-      .select("promedio, total")
-      .eq("rancho_id", rancho.id)
-      .maybeSingle(),
-    supabase
-      .from("resenas")
-      .select("id, calificacion, comentario, created_at")
-      .eq("rancho_id", rancho.id)
-      .order("created_at", { ascending: false })
-      .limit(6),
-  ]);
-  const calificacion = califData as { promedio: number; total: number } | null;
-  const resenas = (resenasData ?? []) as Resena[];
-
-  if (esLugar) {
-    await supabase
-      .from("reservas")
-      .delete()
-      .eq("rancho_id", rancho.id)
-      .eq("estado", "temporal")
-      .lt("expira_en", new Date().toISOString());
-
-    const [dispRes, tiersRes, svcRes, promoRes] = await Promise.all([
-      supabase
-        .from("disponibilidad_rancho")
-        .select("fecha, estado")
-        .eq("rancho_id", rancho.id),
-      // A propósito `*` y no la lista de columnas: `temporada` (0099)
-      // puede no existir todavía en la base y pedirla por nombre haría
-      // fallar la consulta entera, dejando la página sin precios. Se
-      // lee abajo con typeof — sin la columna, todo queda en 'normal'.
-      supabase
-        .from("precio_tiers")
-        .select("*")
-        .eq("rancho_id", rancho.id)
-        .order("min_invitados", { ascending: true }),
-      supabase
-        .from("servicios_adicionales")
-        .select("id, nombre, precio, requisito_max_invitados")
-        .eq("rancho_id", rancho.id)
-        .eq("activo", true),
-      supabase
-        .from("promociones_dia")
-        .select("*")
-        .eq("rancho_id", rancho.id)
-        .eq("activo", true),
-    ]);
-
-    const acc: Record<string, DiaDisponibilidad> = {};
-    (dispRes.data ?? []).forEach((r) => {
-      const dia = acc[r.fecha] ?? {
-        confirmada: false,
-        pendientes: 0,
-        temporales: 0,
-      };
-      if (r.estado === "confirmada") dia.confirmada = true;
-      else if (r.estado === "temporal") dia.temporales += 1;
-      else dia.pendientes += 1;
-      acc[r.fecha] = dia;
-    });
-    disponibilidad = acc;
-    // Los rangos de diciembre son filas de la misma tabla, marcadas con
-    // `temporada` (0099). Si la migración todavía no corrió, ninguna
-    // fila la trae y el lugar sigue cotizando como siempre.
-    const filasTiers = (tiersRes.data ?? []) as (PrecioTier & {
-      temporada?: unknown;
-    })[];
-    const esDeDiciembre = (fila: { temporada?: unknown }) =>
-      typeof fila.temporada === "string" && fila.temporada === "diciembre";
-    const soloRango = ({ min_invitados, max_invitados, precio }: PrecioTier): PrecioTier => ({
-      min_invitados,
-      max_invitados,
-      precio,
-    });
-    tiers = filasTiers.filter((f) => !esDeDiciembre(f)).map(soloRango);
-    tiersDiciembre = filasTiers.filter(esDeDiciembre).map(soloRango);
-    servicios = (svcRes.data ?? []) as ServicioAdicional[];
-    promociones = ((promoRes.data ?? []) as PromocionDia[]).map((p) => ({
-      ...p,
-      dias_semana: Array.isArray(p.dias_semana) ? p.dias_semana : JSON.parse(p.dias_semana || "[]"),
-    }));
-  }
 
   // La config de la modalidad por_persona (0103), tal cual del jsonb.
   // La columna puede no existir todavía en la base (la migración la pega

@@ -1,7 +1,9 @@
-﻿import type { Metadata } from "next";
+﻿import { Suspense } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { Bloque, EsqueletoCard, EsqueletoFiltros } from "../esqueleto";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
@@ -52,22 +54,98 @@ type Fila = Pick<
 
 type Local = Omit<Fila, "categoria"> & { categoria: CategoriaRestaurante };
 
+/**
+ * El armazón de /restaurantes. Mismo criterio que /eventos y /citas: el
+ * contenido va detrás de un `<Suspense>` para que el `<head>` con los
+ * preloads de CSS y JS salga sin esperar a Supabase.
+ *
+ * `<Suspense>` y no `loading.tsx`: un `loading.tsx` acá también taparía
+ * /restaurantes/[slug] y ahí el armazón saldría antes del `notFound()`.
+ * Verificado contra el servidor local: con el loading.tsx puesto,
+ * `/restaurantes/no-existe` respondía 200 en vez de 404.
+ */
 export default async function RestaurantesPage({
   searchParams,
 }: {
   searchParams: Promise<{ categoria?: string | string[]; q?: string | string[] }>;
 }) {
   const params = await searchParams;
-  const categoriaParam = unSolo(params.categoria);
-  // Una categoría inventada en la URL no debe vaciar el directorio:
-  // si no es una de las nuestras, se ignora y se ven todos.
-  const categoria = (CATEGORIAS_RESTAURANTES as readonly string[]).includes(
-    categoriaParam ?? "",
+  const catParam = unSolo(params.categoria);
+  const categoriaSel = (CATEGORIAS_RESTAURANTES as readonly string[]).includes(
+    catParam ?? "",
   )
-    ? (categoriaParam as CategoriaRestaurante)
+    ? (catParam as CategoriaRestaurante)
     : undefined;
-  const q = unSolo(params.q);
-  const busqueda = (q ?? "").trim();
+  const busquedaSel = (unSolo(params.q) ?? "").trim();
+
+  return (
+    <div className="relative min-h-screen bg-aventurea-cream-2">
+      <SiteHeader breadcrumb="Restaurantes" />
+
+      <section className="relative mx-auto max-w-[1100px] px-4 pb-10 pt-4 sm:px-6">
+        <h1 className="sr-only">Restaurantes — reservá mesa y pedí para recoger</h1>
+        <div className="mb-4">
+          <SelectorVertical />
+        </div>
+
+        {/* La altura reservada es lo que evita que el pie de página
+            salte. Medido con red a 700 kbps y CPU 4×: el esqueleto de
+            dos filas ocupaba 944 px y el contenido real de hoy —la
+            sección todavía no tiene restaurantes— 513 px, así que al
+            llegar el contenido el <footer> subía 431 px de golpe y el
+            CLS de /restaurantes daba 0,1213 (Google pide < 0,1). Era
+            la única ruta del sitio con CLS distinto de 0.
+            Con el esqueleto de UNA fila y este min-h, los dos estados
+            ocupan lo mismo y el CLS vuelve a 0,000. */}
+        <div className="min-h-[592px]">
+          <Suspense
+            key={`${categoriaSel ?? ""}|${busquedaSel}`}
+            fallback={<EsqueletoRestaurantes />}
+          >
+            <ContenidoRestaurantes categoria={categoriaSel} busqueda={busquedaSel} />
+          </Suspense>
+        </div>
+      </section>
+
+      <SiteFooter />
+    </div>
+  );
+}
+
+/**
+ * Calca la vista por defecto: filas horizontales por categoría.
+ *
+ * UNA fila, no dos. Un esqueleto no puede prometer más de lo que la
+ * página entrega: con dos filas dibujaba ocho tarjetas en una sección
+ * que hoy está vacía, y al llegar el contenido real el pie de página
+ * subía 431 px (CLS 0,1213). Una fila deja el esqueleto en la misma
+ * altura que reserva el contenedor de arriba.
+ */
+function EsqueletoRestaurantes() {
+  return (
+    <>
+      <EsqueletoFiltros />
+      <div className="mt-6">
+        <section>
+          <Bloque className="h-5 w-[190px]" />
+          <div className="mt-3.5 flex gap-4 overflow-hidden pb-2 pt-0.5">
+            {Array.from({ length: 4 }, (_, i) => (
+              <EsqueletoCard key={i} className="w-[270px] shrink-0 sm:w-[300px]" />
+            ))}
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+
+async function ContenidoRestaurantes({
+  categoria,
+  busqueda,
+}: {
+  categoria: CategoriaRestaurante | undefined;
+  busqueda: string;
+}) {
   const supabase = await createClient();
 
   const [{ data: localesData }, { data: califData }] = await Promise.all([
@@ -124,15 +202,7 @@ export default async function RestaurantesPage({
   const vistaFilas = !categoria && !aguja;
 
   return (
-    <div className="relative min-h-screen bg-aventurea-cream-2">
-      <SiteHeader breadcrumb="Restaurantes" />
-
-      <section className="relative mx-auto max-w-[1100px] px-4 pb-10 pt-4 sm:px-6">
-        <h1 className="sr-only">Restaurantes — reservá mesa y pedí para recoger</h1>
-        <div className="mb-4">
-          <SelectorVertical />
-        </div>
-
+    <>
         {/* Buscador + la fila de categorías — la misma pieza que /citas.
             Las 18 de comida caben en una línea porque la fila scrollea
             en horizontal. */}
@@ -214,10 +284,7 @@ export default async function RestaurantesPage({
             ))}
           </div>
         )}
-      </section>
-
-      <SiteFooter />
-    </div>
+    </>
   );
 }
 

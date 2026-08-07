@@ -1,7 +1,9 @@
-﻿import type { Metadata } from "next";
+﻿import { Suspense } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { Bloque, EsqueletoCard, EsqueletoFiltros } from "../esqueleto";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
@@ -65,6 +67,22 @@ function unSolo(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
+/**
+ * El armazón de /citas: lo que se pinta sin esperar a la base.
+ *
+ * Igual que /eventos, el contenido va detrás de un `<Suspense>` para que
+ * el `<head>` con los preloads salga de una. Medido en producción antes
+ * del cambio: 195 ms de brecha entre que llegaba el documento y que
+ * arrancaba el primer CSS/JS, y /citas es además la ruta con más
+ * peticiones del sitio (51), así que adelantarle los preloads al
+ * navegador es lo que más paga acá. Con `next start` el primer byte
+ * quedó en 11 ms y el documento completo en 170 ms.
+ *
+ * `<Suspense>` y no `loading.tsx`: un `loading.tsx` en este segmento
+ * también taparía /citas/[slug], y ahí el armazón saldría antes del
+ * `notFound()`. Verificado: con el loading.tsx puesto,
+ * `/citas/no-existe-este-negocio` respondía 200; sin él, 404.
+ */
 export default async function CitasPage({
   searchParams,
 }: {
@@ -72,15 +90,64 @@ export default async function CitasPage({
 }) {
   const params = await searchParams;
   const categoriaParam = unSolo(params.categoria);
-  // Una categoría inventada en la URL no debe vaciar el directorio:
-  // si no es una de las nuestras, se ignora y se ven todos.
   const categoria = (CATEGORIAS_CITAS as readonly string[]).includes(
     categoriaParam ?? "",
   )
     ? (categoriaParam as CategoriaCita)
     : undefined;
-  const q = unSolo(params.q);
-  const busqueda = (q ?? "").trim();
+  const busqueda = (unSolo(params.q) ?? "").trim();
+
+  return (
+    <div className="relative min-h-screen bg-aventurea-cream-2">
+      <SiteHeader breadcrumb="Citas y Reservas" />
+
+      <section className="relative mx-auto max-w-[1100px] px-4 pb-10 pt-4 sm:px-6">
+        {/* Sin hero: el conmutador de verticales y el buscador — el
+            espacio es para las cards. El h1 queda para lectores de
+            pantalla y SEO. */}
+        <h1 className="sr-only">Citas y Reservas — reservá tu cita en línea</h1>
+        <div className="mb-4">
+          <SelectorVertical activo="citas" />
+        </div>
+
+        <Suspense key={`${categoria ?? ""}|${busqueda}`} fallback={<EsqueletoCitas />}>
+          <ContenidoCitas categoria={categoria} busqueda={busqueda} />
+        </Suspense>
+      </section>
+
+      <SiteFooter />
+    </div>
+  );
+}
+
+/** Calca la vista por defecto: filas horizontales por categoría. */
+function EsqueletoCitas() {
+  return (
+    <>
+      <EsqueletoFiltros />
+      <div className="mt-6 space-y-8">
+        {Array.from({ length: 2 }, (_, fila) => (
+          <section key={fila}>
+            <Bloque className="h-5 w-[190px]" />
+            <div className="mt-3.5 flex gap-4 overflow-hidden pb-2 pt-0.5">
+              {Array.from({ length: 4 }, (_, i) => (
+                <EsqueletoCard key={i} className="w-[270px] shrink-0 sm:w-[300px]" />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </>
+  );
+}
+
+async function ContenidoCitas({
+  categoria,
+  busqueda,
+}: {
+  categoria: CategoriaCita | undefined;
+  busqueda: string;
+}) {
   const supabase = await createClient();
 
   const [{ data: negociosData }, { data: califData }] = await Promise.all([
@@ -138,18 +205,7 @@ export default async function CitasPage({
   const vistaFilas = !categoria && !aguja;
 
   return (
-    <div className="relative min-h-screen bg-aventurea-cream-2">
-      <SiteHeader breadcrumb="Citas y Reservas" />
-
-      <section className="relative mx-auto max-w-[1100px] px-4 pb-10 pt-4 sm:px-6">
-        {/* Sin hero: el conmutador de verticales y el buscador — el
-            espacio es para las cards. El h1 queda para lectores de
-            pantalla y SEO. */}
-        <h1 className="sr-only">Citas y Reservas — reservá tu cita en línea</h1>
-        <div className="mb-4">
-          <SelectorVertical activo="citas" />
-        </div>
-
+    <>
         {/* Buscador + la fila de categorías, con el mismo chip de
             /eventos: ícono en burbuja naranja y sin conteos. */}
         <BarraFiltrosDirectorio
@@ -238,10 +294,7 @@ export default async function CitasPage({
         {/* Sin secciones informativas: esta página son las cards de los
             negocios y nada más (la invitación a publicar vive en
             /publicar y en el estado vacío). */}
-      </section>
-
-      <SiteFooter />
-    </div>
+    </>
   );
 }
 
