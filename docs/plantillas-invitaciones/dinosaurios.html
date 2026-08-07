@@ -575,9 +575,17 @@
       color: rgba(166, 217, 75, 0.34);
       transform-origin: 50% 70%;
     }
-    .dino-pisada svg { display: block; width: 100%; height: auto; }
-    .dino-pisada:nth-child(odd) { transform: translateY(-13px) rotate(-9deg); }
-    .dino-pisada:nth-child(even) { transform: translateY(9px) rotate(8deg); }
+    /* El zigzag va en el <svg> de adentro y NO en la huella: el
+       transform de la entrada (.dino-vista) vive en .dino-pisada y se
+       comería cualquier rotación puesta ahí. */
+    .dino-pisada svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      transform: rotate(var(--rot, 0deg));
+    }
+    .dino-pisada:nth-child(odd) { --rot: -11deg; margin-bottom: 24px; }
+    .dino-pisada:nth-child(even) { --rot: 9deg; margin-bottom: 0; }
 
     /* ---- 3. El huevo y la fecha ---- */
     .dino-fecha { text-align: center; }
