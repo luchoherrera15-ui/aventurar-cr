@@ -45,8 +45,15 @@ const nextConfig: NextConfig = {
     // libre deja que cualquiera haga trabajar al optimizador con
     // valores arbitrarios). 75 es el default de todo el sitio; 60 es
     // para las fotos que van detrás de un velo, donde nadie nota la
-    // diferencia y se ahorra ~30%.
-    qualities: [60, 75],
+    // diferencia y se ahorra ~30%; 82 es SOLO para la galería del
+    // negocio y su visor a pantalla completa — las fotos contra las
+    // que un cliente compara con Airbnb.
+    //
+    // Que sea una lista corta y no un rango es a propósito: cada valor
+    // nuevo multiplica el trabajo del optimizador y las entradas de
+    // caché (una por ancho × formato × calidad). Antes de agregar un
+    // cuarto número, medir si se nota.
+    qualities: [60, 75, 82],
     // Supabase Storage sirve las fotos con `max-age=3600`, y el
     // optimizador toma el mayor entre eso y este TTL (default 4 h). O
     // sea que Vercel volvía a bajar el original —hay archivos de 5.7

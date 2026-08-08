@@ -16,7 +16,7 @@ import { decode as decodeBase64 } from "base64-arraybuffer";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
-import { comprimirImagen } from "@/lib/comprimir-imagen";
+import { comprimirImagen, FOTO_DE_VITRINA } from "@/lib/comprimir-imagen";
 import BarraSuperior from "@/components/barra-superior";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -105,7 +105,11 @@ export default function EditarNegocioScreen() {
     if (cupo <= 0) return;
     const resultado = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      quality: 0.8,
+      // Sin recomprimir acá: el picker entregaba un JPEG al 0.8 que
+      // después `comprimirImagen` volvía a encodear, y el optimizador
+      // de la web una tercera vez. Son las fotos de la galería, la
+      // vitrina del negocio — se comprimen UNA sola vez, abajo.
+      quality: 1,
       allowsMultipleSelection: true,
       selectionLimit: cupo,
     });
@@ -145,8 +149,8 @@ export default function EditarNegocioScreen() {
 
   /** Sube una foto local del teléfono al bucket y devuelve su URL pública. */
   async function subirFoto(uri: string): Promise<string> {
-    // Mismo criterio que la web: 1920px / JPEG 0.82 antes de tocar la red.
-    const comprimida = await comprimirImagen(uri);
+    // Mismo criterio que la web: 2560px / JPEG 0.9, porque es vitrina.
+    const comprimida = await comprimirImagen(uri, undefined, FOTO_DE_VITRINA);
     const base64 = await FileSystem.readAsStringAsync(comprimida, { encoding: "base64" });
     const extension = comprimida.split(".").pop()?.toLowerCase() || "jpg";
     const path = `${id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;

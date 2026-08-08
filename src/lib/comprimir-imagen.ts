@@ -15,6 +15,31 @@ const LADO_MAX = 1920;
 const CALIDAD = 0.82;
 
 /**
+ * Las fotos de VITRINA: la galería del negocio, su foto principal y el
+ * catálogo. Las que un cliente mira para decidir si reserva, y contra
+ * las que compara con Airbnb.
+ *
+ * Van más grandes y con menos compresión que el resto A PROPÓSITO, y
+ * esto NO le cuesta un byte al visitante: nadie descarga jamás el
+ * archivo del bucket. next/image lo reencoda a AVIF al ancho exacto de
+ * cada pantalla, así que lo que se sube es el NEGATIVO, no la copia
+ * que se entrega. Subir un JPEG ya machacado al 0.82 y volver a
+ * comprimirlo a AVIF es perder dos veces sobre la misma foto: los
+ * artefactos de la primera pasada se encodean como si fueran detalle.
+ *
+ * 2560 px y no 1920 porque el ancho máximo que sirve el sitio es 1920
+ * (ver `deviceSizes` en next.config.ts): con un original de 2560 esa
+ * variante se genera REDUCIENDO, que es donde un encoder se luce, en
+ * vez de copiar píxel a píxel un archivo que ya venía con pérdida.
+ *
+ * Lo único que se paga es almacenamiento —unos 900 KB por foto contra
+ * 400— y hay 100 GB en el plan con 120 MB usados. Los comprobantes de
+ * pago y los avatares del equipo se quedan en el ajuste normal: son
+ * documentos y miniaturas, no vitrina.
+ */
+export const FOTO_DE_VITRINA = { ladoMax: 2560, calidad: 0.9 } as const;
+
+/**
  * Por debajo de esto y ya dentro del lado máximo, no se toca: volver a
  * encodear una foto que ya está liviana solo le saca calidad y quema
  * CPU del teléfono. 300 KB a 1920 px de lado es una foto sana.

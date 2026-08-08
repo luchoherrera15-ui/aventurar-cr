@@ -15,7 +15,7 @@ import * as FileSystem from "expo-file-system";
 import { decode as decodeBase64 } from "base64-arraybuffer";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
-import { comprimirImagen } from "@/lib/comprimir-imagen";
+import { comprimirImagen, FOTO_DE_VITRINA } from "@/lib/comprimir-imagen";
 import BarraSuperior from "@/components/barra-superior";
 import PanelNav, { ALTO_PANEL_NAV } from "@/components/panel-nav";
 import { useAuth } from "@/lib/auth-context";
@@ -169,15 +169,17 @@ export default function CatalogoNegocioScreen() {
   async function subirFoto() {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      quality: 0.8,
+      // Ver editar.tsx: el catálogo también es vitrina, se comprime
+      // una sola vez y abajo, no dos.
+      quality: 1,
     });
     if (res.canceled || !res.assets[0]) return;
     setSubiendoFoto(true);
     setError(null);
     try {
-      // Mismo criterio que la web: 1920px / JPEG 0.82 antes de tocar
-      // la red. El picker ya trae las dimensiones del asset.
-      const uri = await comprimirImagen(res.assets[0].uri, res.assets[0]);
+      // Mismo criterio que la web: 2560px / JPEG 0.9, porque es
+      // vitrina. El picker ya trae las dimensiones del asset.
+      const uri = await comprimirImagen(res.assets[0].uri, res.assets[0], FOTO_DE_VITRINA);
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" });
       const extension = uri.split(".").pop()?.toLowerCase() || "jpg";
       const path = `${id}/catalogo/${Date.now()}-foto.${extension}`;

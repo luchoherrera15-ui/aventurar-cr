@@ -55,7 +55,41 @@ const SM = 640;
  */
 const SIZES_CARRUSEL = `(min-width: ${SM}px) 3vw, 100vw`;
 const SIZES_GRANDE = `(max-width: ${SM - 1}px) 3vw, (max-width: 1080px) 50vw, 540px`;
-const SIZES_CHICA = `(max-width: ${SM - 1}px) 3vw, (max-width: 1080px) 25vw, 135px`;
+/**
+ * 270px, no 135px. El número viejo salía de dividir el ancho de la
+ * foto grande (540) entre las 4 columnas — pero la grande NO es la
+ * grilla: ocupa 2 de las 4 columnas. La grilla entera mide 1080, así
+ * que una columna son 270.
+ *
+ * Ese factor de 2 se veía: medido en producción con Playwright a
+ * DPR 2, las cuatro miniaturas ocupan 250 px de CSS (500 px físicos) y
+ * recibían la variante de 384 px — 0.77 del tamaño al que se dibujan.
+ * El navegador las estiraba, y de ahí venía el aspecto lavado de la
+ * galería contra la misma foto vista en grande. Pasa en TODA página de
+ * negocio, no en una sola.
+ *
+ * Con 270 el candidato elegido pasa a ser el de 640 (1.28×, ya nítido)
+ * y cuesta 12 KB más por miniatura en pantallas Retina; en las de
+ * densidad 1 el salto es de 256 a 384 px, unos 3 KB.
+ */
+const SIZES_CHICA = `(max-width: ${SM - 1}px) 3vw, (max-width: 1080px) 25vw, 270px`;
+
+/**
+ * La galería es LO PRIMERO que se mira de un negocio y contra lo que
+ * se lo compara con Airbnb o Booking, así que estas fotos —y solo
+ * estas— van por encima del 75 que usa el resto del sitio.
+ *
+ * Medido contra el optimizador de producción sobre la foto real de
+ * rancholastorres (5712 px, 4992 KB en el bucket), en AVIF:
+ *
+ *   w=640  → q60 12.8 KB · q75 20.5 KB · q82 ~27 KB
+ *   w=1080 → q60 32.2 KB · q75 51.9 KB · q82 ~68 KB
+ *
+ * O sea 16 KB más en la foto principal. Es la única imagen grande de
+ * la vista y es el LCP: se paga barato y se nota, que es exactamente
+ * lo contrario de subir la calidad en todas las imágenes del sitio.
+ */
+const CALIDAD_GALERIA = 82;
 
 /**
  * Las fotos del hero del portal. En desktop es la grilla de 1 grande +
@@ -153,6 +187,7 @@ export default function GaleriaHeroFotos({
                     loading={i === 0 ? "eager" : undefined}
                     fetchPriority={i === 0 ? "high" : undefined}
                     sizes={SIZES_CARRUSEL}
+                    quality={CALIDAD_GALERIA}
                     className="object-cover"
                   />
                 )}
@@ -214,6 +249,7 @@ export default function GaleriaHeroFotos({
             loading="eager"
             fetchPriority="high"
             sizes={SIZES_GRANDE}
+            quality={CALIDAD_GALERIA}
             className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         </button>

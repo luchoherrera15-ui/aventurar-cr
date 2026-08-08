@@ -17,8 +17,15 @@ function esOptimizable(src: string) {
 }
 
 /** La misma foto pasada por el optimizador, a un ancho concreto. */
+/**
+ * El visor va a calidad 82 y no al 75 del resto del sitio: es la única
+ * pantalla donde la foto se mira A PROPÓSITO, en grande y sin nada
+ * alrededor, y no cuesta nada en la carga de la página — este módulo
+ * entra por `dynamic(..., { ssr: false })` recién cuando alguien toca
+ * una foto. Los 30% de bytes extra los paga quien pidió ver la foto.
+ */
 function urlVisor(src: string, ancho: number) {
-  return `/_next/image?url=${encodeURIComponent(src)}&w=${ancho}&q=75`;
+  return `/_next/image?url=${encodeURIComponent(src)}&w=${ancho}&q=82`;
 }
 
 /**

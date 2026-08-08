@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { comprimirImagen } from "@/lib/comprimir-imagen";
+import { comprimirImagen, FOTO_DE_VITRINA } from "@/lib/comprimir-imagen";
 import type { RanchoItem } from "../types";
 import { etiquetaDuracion } from "@/lib/catalogo";
 import { etiquetaMinutos } from "@/app/citas/tipos";
@@ -183,7 +183,7 @@ export default function CatalogoPanel({
     // Mismo bucket público que las fotos del negocio; el catálogo va en
     // su propia carpeta para no mezclarse con la galería.
     const supabase = createClient();
-    const liviana = await comprimirImagen(file);
+    const liviana = await comprimirImagen(file, FOTO_DE_VITRINA);
     const path = `${ranchoId}/catalogo/${Date.now()}-${nombreSeguro(liviana.name)}`;
     const { error: errorSubida } = await supabase.storage
       .from("ranchos-fotos")

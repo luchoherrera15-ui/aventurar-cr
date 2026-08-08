@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { comprimirImagen } from "@/lib/comprimir-imagen";
+import { comprimirImagen, FOTO_DE_VITRINA } from "@/lib/comprimir-imagen";
 import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icons";
 import { Lightbox } from "@/components/galeria-lightbox";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
@@ -180,7 +180,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     setSubidaError(null);
 
     if (fotoFile) {
-      const liviana = await comprimirImagen(fotoFile);
+      const liviana = await comprimirImagen(fotoFile, FOTO_DE_VITRINA);
       const path = `${rancho.id}/${Date.now()}-${nombreSeguro(liviana.name)}`;
       const { error } = await supabase.storage
         .from("ranchos-fotos")
@@ -199,7 +199,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
       ? presentacionClave
       : null;
     for (const { file, preview } of fotosNuevas) {
-      const liviana = await comprimirImagen(file);
+      const liviana = await comprimirImagen(file, FOTO_DE_VITRINA);
       const path = `${rancho.id}/galeria/${Date.now()}-${nombreSeguro(liviana.name)}`;
       const { error } = await supabase.storage
         .from("ranchos-fotos")
