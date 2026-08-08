@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type {
   GuardarPreciosInput,
@@ -13,7 +13,9 @@ import {
   type ModalidadPrecioLugar,
 } from "@/app/mi-negocio/types";
 import {
+  calcularBaseLugar,
   parsearPrecioPorPersona,
+  type EscalonFijo,
   type PrecioPorPersona,
 } from "@/lib/precio-lugar";
 import { IconTrash } from "@/components/icons";
@@ -33,6 +35,28 @@ type TierDraft = {
  * que usa el cálculo.
  */
 type TramoDraft = { key: string; invitados: string; tarifa: string };
+
+/**
+ * Un escalón de precio fijo mientras se edita. Solo se escribe el
+ * "hasta": el "desde" sale del escalón anterior, así el dueño no puede
+ * dejar un hueco (o un solape) entre dos tramos por escribir mal un
+ * número.
+ */
+type EscalonDraft = { key: string; hasta: string; precio: string };
+
+/**
+ * Un problema de la config "por persona". Se distinguen dos clases
+ * porque no se muestran igual: "incompleto" es una casilla que todavía
+ * no llenaron (avisar mientras escribe sería regañarlo por no haber
+ * terminado) y solo sale al guardar; "estructura" es una lista que ya
+ * está mal armada y se muestra en vivo, que es cuando sirve.
+ */
+type ProblemaPorPersona = { tipo: "incompleto" | "estructura"; texto: string };
+
+/** Los tamaños de grupo del ejemplo vivo debajo del editor. */
+const EJEMPLOS_INVITADOS = [15, 25, 50, 100];
+
+const colones = (n: number) => `₡${n.toLocaleString("es-CR")}`;
 type ServicioDraft = {
   key: string;
   nombre: string;
@@ -261,11 +285,22 @@ export default function PreciosForm({
   // --- Modalidad "por persona" (0103) ---
   // Texto y no número para que una casilla sin cargar quede vacía con
   // su placeholder, en vez de un 0 que parece un precio real.
-  const [ppBaseMax, setPpBaseMax] = useState(aTexto(initialPrecioPorPersona?.baseMax));
-  const [ppBasePrecio, setPpBasePrecio] = useState(
-    aTexto(initialPrecioPorPersona?.basePrecio),
-  );
+  // Los escalones son una lista: "1-20 a ₡80.000, 21-30 a ₡100.000…".
+  // Siempre queda al menos una fila — sin ningún escalón la modalidad no
+  // tendría precio para los grupos chicos.
+  const [ppEscalones, setPpEscalones] = useState<EscalonDraft[]>(() => {
+    const guardados = initialPrecioPorPersona?.escalones ?? [];
+    if (guardados.length === 0) return [{ key: newKey(), hasta: "", precio: "" }];
+    return guardados.map((e) => ({
+      key: newKey(),
+      hasta: String(e.hasta),
+      precio: String(e.precio),
+    }));
+  });
   const [ppTarifa, setPpTarifa] = useState(aTexto(initialPrecioPorPersona?.tarifa));
+  const [ppMaxPersonas, setPpMaxPersonas] = useState(
+    aTexto(initialPrecioPorPersona?.maxPersonas),
+  );
   const [ppDicLunJue, setPpDicLunJue] = useState(
     aTexto(initialPrecioPorPersona?.dicLunJue),
   );
@@ -333,6 +368,159 @@ export default function PreciosForm({
     );
   }
 
+  function actualizarEscalon(key: string, campo: "hasta" | "precio", valor: string) {
+    setPpEscalones((prev) =>
+      prev.map((e) => (e.key === key ? { ...e, [campo]: valor } : e)),
+    );
+  }
+
+  /**
+   * Desde qué invitado arranca el escalón `i`: el 1, o donde terminó el
+   * anterior. Nunca se escribe a mano — se muestra calculado para que
+   * el dueño lea el tramo completo ("21 a 30") mientras edita.
+   */
+  function desdeDelEscalon(i: number): number | null {
+    if (i === 0) return 1;
+    const anterior = Number(ppEscalones[i - 1]?.hasta);
+    return Number.isFinite(anterior) && anterior > 0 ? anterior + 1 : null;
+  }
+
+  /** El último "hasta" cargado — de ahí en adelante manda la tarifa. */
+  const ultimoEscalon = (() => {
+    const n = Number(ppEscalones[ppEscalones.length - 1]?.hasta);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  })();
+
+  /**
+   * Revisa la config "por persona" antes de dejar guardar. El parser de
+   * @/lib/precio-lugar también la valida (y es el que manda), pero
+   * devuelve un null pelado: acá se arma el mensaje que dice QUÉ está
+   * mal y en qué fila. null = no hay nada que corregir.
+   */
+  function revisarPorPersona(): ProblemaPorPersona | null {
+    const hastas: number[] = [];
+
+    for (let i = 0; i < ppEscalones.length; i++) {
+      const fila = i + 1;
+      const hasta = Number(ppEscalones[i].hasta);
+      const precio = Number(ppEscalones[i].precio);
+
+      if (ppEscalones[i].hasta.trim() === "" || !Number.isFinite(hasta) || hasta <= 0) {
+        return {
+          tipo: "incompleto",
+          texto: `Escalón ${fila}: escribí hasta cuántos invitados llega.`,
+        };
+      }
+      if (!Number.isInteger(hasta)) {
+        return {
+          tipo: "estructura",
+          texto: `Escalón ${fila}: la cantidad de invitados va en números enteros, sin decimales.`,
+        };
+      }
+      if (ppEscalones[i].precio.trim() === "" || !Number.isFinite(precio) || precio <= 0) {
+        return {
+          tipo: "incompleto",
+          texto: `Escalón ${fila}: falta el precio del tramo (tiene que ser mayor a cero).`,
+        };
+      }
+      hastas.push(hasta);
+    }
+
+    for (let i = 1; i < hastas.length; i++) {
+      if (hastas[i] === hastas[i - 1]) {
+        return {
+          tipo: "estructura",
+          texto: `Dos escalones terminan en ${hastas[i]} invitados. Cada uno tiene que cubrir un tramo distinto.`,
+        };
+      }
+      if (hastas[i] < hastas[i - 1]) {
+        return {
+          tipo: "estructura",
+          texto: `Los escalones van de menor a mayor: el de ${hastas[i]} invitados no puede ir después del de ${hastas[i - 1]}.`,
+        };
+      }
+    }
+
+    const tarifa = Number(ppTarifa);
+    if (ppTarifa.trim() === "" || !Number.isFinite(tarifa) || tarifa <= 0) {
+      return {
+        tipo: "incompleto",
+        texto: "Falta la tarifa por persona que se cobra pasado el último escalón.",
+      };
+    }
+
+    if (ppMaxPersonas.trim() !== "") {
+      const tope = Number(ppMaxPersonas);
+      if (!Number.isFinite(tope) || tope <= 0 || !Number.isInteger(tope)) {
+        return {
+          tipo: "estructura",
+          texto: "El tope de personas va en números enteros mayores a cero, o vacío si no tenés tope.",
+        };
+      }
+      const ultimo = hastas[hastas.length - 1];
+      if (tope <= ultimo) {
+        return {
+          tipo: "estructura",
+          texto: `El tope de personas (${tope}) tiene que ser mayor que el último escalón (${ultimo}); si no, la tarifa por persona nunca se usaría.`,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  const problemaPorPersona =
+    modalidadPrecio === "por_persona" ? revisarPorPersona() : null;
+
+  /**
+   * La config tal como está escrita AHORA, para el ejemplo vivo. Los
+   * montos de diciembre no importan acá (el ejemplo es fuera de
+   * diciembre) pero el tipo los pide, así que van como están.
+   */
+  const configEnPantalla = useMemo<PrecioPorPersona | null>(() => {
+    const escalones: EscalonFijo[] = [];
+    for (const e of ppEscalones) {
+      const hasta = Number(e.hasta);
+      const precio = Number(e.precio);
+      if (!Number.isFinite(hasta) || hasta <= 0) return null;
+      if (!Number.isFinite(precio) || precio <= 0) return null;
+      escalones.push({ hasta, precio });
+    }
+    const tarifa = Number(ppTarifa);
+    if (escalones.length === 0 || !Number.isFinite(tarifa) || tarifa <= 0) return null;
+    const tope = Number(ppMaxPersonas);
+    return {
+      escalones: [...escalones].sort((a, b) => a.hasta - b.hasta),
+      tarifa,
+      maxPersonas:
+        ppMaxPersonas.trim() !== "" && Number.isFinite(tope) && tope > 0 ? tope : null,
+      dicLunJue: Number(ppDicLunJue) || tarifa,
+      dicViernes: Number(ppDicViernes) || tarifa,
+      dicSabDom: Number(ppDicSabDom) || tarifa,
+      dicTramos: [],
+    };
+  }, [ppEscalones, ppTarifa, ppMaxPersonas, ppDicLunJue, ppDicViernes, ppDicSabDom]);
+
+  /**
+   * Cuánto pagaría un grupo de ese tamaño, con la MISMA función que usa
+   * el sitio público — si el ejemplo tuviera su propia cuenta, podría
+   * mostrar un número que después no se cobra.
+   */
+  function ejemploPara(invitados: number): string {
+    if (!configEnPantalla) return "—";
+    const total = calcularBaseLugar({
+      modalidad: "por_persona",
+      esDiciembre: false,
+      porPersona: configEnPantalla,
+      invitados,
+      rangos: [],
+      horas: null,
+      precioHora: null,
+      precioFijo: null,
+    });
+    return total === null ? "Cotización personalizada" : colones(total);
+  }
+
   /**
    * Arma la config con las llaves EXACTAS del jsonb y la pasa por el
    * mismo parser del cálculo: si algo quedó vacío o en 0, devuelve null
@@ -341,9 +529,14 @@ export default function PreciosForm({
    */
   function armarPorPersona(): PrecioPorPersona | null {
     return parsearPrecioPorPersona({
-      baseMax: Number(ppBaseMax),
-      basePrecio: Number(ppBasePrecio),
+      escalones: ppEscalones.map((e) => ({
+        hasta: Number(e.hasta),
+        precio: Number(e.precio),
+      })),
       tarifa: Number(ppTarifa),
+      // Vacío es "sin tope", que en el jsonb se escribe null; el parser
+      // rechaza un 0, que es lo que daría Number("").
+      maxPersonas: ppMaxPersonas.trim() === "" ? null : Number(ppMaxPersonas),
       dicLunJue: Number(ppDicLunJue),
       dicViernes: Number(ppDicViernes),
       dicSabDom: Number(ppDicSabDom),
@@ -361,6 +554,13 @@ export default function PreciosForm({
     // config completa el sitio público solo podría decir "consultar".
     let precioPorPersona: PrecioPorPersona | null = null;
     if (modalidadPrecio === "por_persona") {
+      // Primero el mensaje que dice qué fila está mal; el parser de
+      // abajo solo sabe decir "no sirve".
+      const problema = revisarPorPersona();
+      if (problema) {
+        setMessage({ type: "error", text: problema.texto });
+        return;
+      }
       precioPorPersona = armarPorPersona();
       if (!precioPorPersona) {
         setMessage({
@@ -507,55 +707,214 @@ export default function PreciosForm({
 
         {modalidadPrecio === "por_persona" && (
           <div className="mt-4.5 border-t border-dashed border-aventurea-line pt-4">
-            <div className="flex flex-wrap gap-4">
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Precio fijo hasta&hellip; (invitados)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="25"
-                  value={ppBaseMax}
-                  onChange={(e) => setPpBaseMax(e.target.value)}
-                  className="w-32 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Ese precio fijo (₡)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="95000"
-                  value={ppBasePrecio}
-                  onChange={(e) => setPpBasePrecio(e.target.value)}
-                  className="w-40 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
-                />
-              </div>
-            </div>
-            <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
-              Del invitado 1 hasta ese número se cobra el fijo, lleguen los
-              que lleguen.
+            <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+              Escalones de precio fijo
+            </p>
+            <p className="mt-1 text-[12px] text-aventurea-ink-soft">
+              Los grupos chicos pagan un precio fijo por tramo, lleguen los
+              que lleguen. Vos escribís hasta dónde llega cada escalón; el
+              tramo que cubre se calcula solo desde el anterior.
             </p>
 
-            <div className="mt-4">
-              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Tarifa por persona después de ese número (₡)
-              </label>
-              <input
-                type="number"
-                min={0}
-                placeholder="3400"
-                value={ppTarifa}
-                onChange={(e) => setPpTarifa(e.target.value)}
-                className="w-40 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
-              />
-              <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
-                A partir de ahí se cobra invitados × esta tarifa. El cliente
-                siempre ve el total ya multiplicado, nunca la tarifa.
+            <ul className="mt-3 flex flex-col gap-2.5">
+              {ppEscalones.map((e, i) => {
+                const desde = desdeDelEscalon(i);
+                const hasta = Number(e.hasta);
+                const tramo =
+                  desde !== null && Number.isFinite(hasta) && hasta >= desde
+                    ? `${desde} a ${hasta} invitados`
+                    : desde !== null
+                      ? `desde ${desde} invitado${desde === 1 ? "" : "s"}`
+                      : "tramo por definir";
+                return (
+                  <li
+                    key={e.key}
+                    className="rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span
+                        data-tramo={i}
+                        className="rounded-md border border-aventurea-navy/20 bg-aventurea-navy/[0.06] px-2 py-1 text-[11px] font-bold text-aventurea-navy"
+                      >
+                        Cubre {tramo}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={ppEscalones.length === 1}
+                        onClick={() =>
+                          setPpEscalones((prev) =>
+                            prev.length > 1
+                              ? prev.filter((x) => x.key !== e.key)
+                              : prev,
+                          )
+                        }
+                        aria-label={`Quitar escalón ${i + 1}`}
+                        title={
+                          ppEscalones.length === 1
+                            ? "Tiene que quedar al menos un escalón"
+                            : "Quitar escalón"
+                        }
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-red-400 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-aventurea-line disabled:hover:text-aventurea-ink-soft"
+                      >
+                        <IconTrash className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="mt-2.5 flex max-w-md flex-wrap gap-3">
+                      <div className="min-w-0 flex-1 basis-[110px]">
+                        <label
+                          htmlFor={`escalon-hasta-${i}`}
+                          className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                        >
+                          Hasta (invitados)
+                        </label>
+                        <input
+                          id={`escalon-hasta-${i}`}
+                          type="number"
+                          min={1}
+                          step={1}
+                          placeholder="20"
+                          value={e.hasta}
+                          onChange={(ev) =>
+                            actualizarEscalon(e.key, "hasta", ev.target.value)
+                          }
+                          className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[13px] text-aventurea-ink"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1 basis-[130px]">
+                        <label
+                          htmlFor={`escalon-precio-${i}`}
+                          className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                        >
+                          Precio del tramo (₡)
+                        </label>
+                        <input
+                          id={`escalon-precio-${i}`}
+                          type="number"
+                          min={0}
+                          placeholder="80000"
+                          value={e.precio}
+                          onChange={(ev) =>
+                            actualizarEscalon(e.key, "precio", ev.target.value)
+                          }
+                          className="w-full rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-surface px-2.5 py-2 text-[13px] text-aventurea-ink"
+                        />
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <button
+              type="button"
+              onClick={() =>
+                setPpEscalones((prev) => [
+                  ...prev,
+                  { key: newKey(), hasta: "", precio: "" },
+                ])
+              }
+              className="mt-3.5 rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-3.5 py-2 text-[11.5px] font-bold text-aventurea-ink hover:border-aventurea-navy hover:text-aventurea-navy"
+            >
+              ＋ Agregar escalón
+            </button>
+
+            <div className="mt-4.5 flex flex-wrap gap-4 border-t border-dashed border-aventurea-line pt-4">
+              <div className="min-w-0 flex-1 basis-[150px]">
+                <label
+                  htmlFor="pp-tarifa"
+                  className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                >
+                  Tarifa por persona (₡)
+                </label>
+                <input
+                  id="pp-tarifa"
+                  type="number"
+                  min={0}
+                  placeholder="3200"
+                  value={ppTarifa}
+                  onChange={(ev) => setPpTarifa(ev.target.value)}
+                  className="w-full max-w-[190px] rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+                />
+                <p className="mt-1.5 text-[11px] text-aventurea-ink-soft">
+                  Se cobra pasado el último escalón
+                  {ultimoEscalon ? ` (del invitado ${ultimoEscalon + 1} en adelante)` : ""}:
+                  invitados × esta tarifa.
+                </p>
+              </div>
+              <div className="min-w-0 flex-1 basis-[150px]">
+                <label
+                  htmlFor="pp-max"
+                  className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                >
+                  Tope de personas
+                </label>
+                <input
+                  id="pp-max"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Sin tope"
+                  value={ppMaxPersonas}
+                  onChange={(ev) => setPpMaxPersonas(ev.target.value)}
+                  className="w-full max-w-[190px] rounded-lg border-[1.5px] border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink"
+                />
+                <p className="mt-1.5 text-[11px] text-aventurea-ink-soft">
+                  Más personas que esto quedan a &quot;cotización
+                  personalizada&quot;. Dejalo vacío si no tenés tope.
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-3 rounded-lg border border-dashed border-aventurea-line px-3 py-2 text-[11.5px] text-aventurea-ink-soft">
+              El cliente siempre ve el total ya multiplicado — la tarifa por
+              persona es información tuya y nunca aparece en el sitio.
+            </p>
+
+            {/* El ejemplo vivo: la forma de darse cuenta de un número mal
+                escrito ANTES de guardarlo, y no cuando llega la reserva. */}
+            <div className="mt-4 rounded-xl border border-aventurea-navy/25 bg-aventurea-navy/[0.04] p-3.5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-navy">
+                Así queda la cotización
               </p>
+              <p className="mt-1 text-[11.5px] text-aventurea-ink-soft">
+                Lo que vería un cliente hoy, fuera de diciembre, con lo que
+                está escrito acá arriba.
+              </p>
+
+              {problemaPorPersona?.tipo === "estructura" ? (
+                <p
+                  role="alert"
+                  data-error-escalones
+                  className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-[12px] font-bold text-red-800"
+                >
+                  {problemaPorPersona.texto}
+                </p>
+              ) : (
+                <>
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {EJEMPLOS_INVITADOS.map((n) => (
+                      <div
+                        key={n}
+                        data-ejemplo={n}
+                        className="min-w-0 rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-2"
+                      >
+                        <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                          {n} personas
+                        </p>
+                        <p className="mt-0.5 break-words text-[13.5px] font-bold text-aventurea-ink">
+                          {ejemploPara(n)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {!configEnPantalla && (
+                    <p className="mt-2 text-[11px] text-aventurea-ink-soft">
+                      Completá los escalones y la tarifa para ver el ejemplo.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -680,7 +1039,7 @@ export default function PreciosForm({
             </p>
 
             <p className="mt-4 mb-1.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-              Precio fijo hasta {ppBaseMax || "N"} invitados, según el día
+              Precio fijo hasta {ultimoEscalon ?? "N"} invitados, según el día
             </p>
             <div className="flex flex-wrap gap-4">
               <div>

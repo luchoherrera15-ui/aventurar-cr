@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GuardarPreciosInput } from "@/app/mi-negocio/types";
+import type { PrecioPorPersona } from "@/lib/precio-lugar";
 
 /**
  * Guardar precios es BORRAR todo y volver a insertar, sin transacción:
@@ -216,6 +217,81 @@ describe("guardarPreciosRancho", () => {
     expect(updates).toHaveLength(2);
     expect(updates[1]?.payload).not.toHaveProperty("precio_hora_diciembre");
     expect(res.error).toMatch(/0099/);
+  });
+
+  // --- La modalidad "por persona" (0103) ---
+  // Lo que manda el navegador se vuelve a validar acá: el formulario ya
+  // avisa, pero la petición puede llegar armada a mano.
+  const porPersona = (extra: Partial<PrecioPorPersona> = {}): GuardarPreciosInput =>
+    entrada({
+      tiers: [],
+      modalidadPrecio: "por_persona",
+      precioPorPersona: {
+        escalones: [
+          { hasta: 20, precio: 80_000 },
+          { hasta: 30, precio: 100_000 },
+        ],
+        tarifa: 3_200,
+        maxPersonas: 150,
+        dicLunJue: 125_000,
+        dicViernes: 145_000,
+        dicSabDom: 165_000,
+        dicTramos: [{ invitados: 30, tarifa: 5_500 }],
+        ...extra,
+      },
+    });
+
+  it("guarda los escalones tal como los mandó el panel", async () => {
+    const ops = supabaseFalso();
+    const res = await guardarPreciosRancho("r1", porPersona());
+
+    expect(res.error).toBeNull();
+    const update = ops.find(
+      (o) =>
+        o.tabla === "ranchos" &&
+        o.tipo === "update" &&
+        (o.payload as Record<string, unknown>).precio_por_persona !== undefined,
+    );
+    expect(update?.payload).toMatchObject({
+      precio_por_persona: {
+        escalones: [
+          { hasta: 20, precio: 80_000 },
+          { hasta: 30, precio: 100_000 },
+        ],
+        tarifa: 3_200,
+        maxPersonas: 150,
+      },
+    });
+  });
+
+  it("no borra nada si dos escalones terminan en el mismo número", async () => {
+    const ops = supabaseFalso();
+    const res = await guardarPreciosRancho(
+      "r1",
+      porPersona({
+        escalones: [
+          { hasta: 20, precio: 80_000 },
+          { hasta: 20, precio: 100_000 },
+        ],
+      }),
+    );
+
+    expect(res.error).toMatch(/20 invitados/);
+    expect(ops).toHaveLength(0);
+  });
+
+  it("no borra nada si el tope queda por debajo del último escalón", async () => {
+    const ops = supabaseFalso();
+    const res = await guardarPreciosRancho("r1", porPersona({ maxPersonas: 25 }));
+
+    expect(res.error).toMatch(/tope/);
+    expect(ops).toHaveLength(0);
+  });
+
+  it("acepta la config sin tope: ese lugar cotiza cualquier cantidad", async () => {
+    supabaseFalso();
+    const res = await guardarPreciosRancho("r1", porPersona({ maxPersonas: null }));
+    expect(res.error).toBeNull();
   });
 
   it("un error real de la base se devuelve tal cual, sin culpar a la migración", async () => {

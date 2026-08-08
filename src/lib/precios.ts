@@ -144,6 +144,27 @@ export async function guardarPreciosRancho(
       error: "Agregá al menos un ancla a la tarifa deslizante de diciembre.",
     };
   }
+  // Lo que el parser no puede saber solo: dos escalones que terminan en
+  // el mismo número dejan un tramo muerto (el segundo nunca se cobra), y
+  // un tope por debajo del último escalón deja la tarifa por persona sin
+  // uso. El parser ya los devolvió ordenados, así que alcanza con mirar
+  // cada uno contra el anterior.
+  if (esPorPersona && ppValidado) {
+    const { escalones, maxPersonas } = ppValidado;
+    for (let i = 1; i < escalones.length; i++) {
+      if (escalones[i].hasta === escalones[i - 1].hasta) {
+        return {
+          error: `Revisá los escalones: dos terminan en ${escalones[i].hasta} invitados. Cada uno tiene que cubrir un tramo distinto.`,
+        };
+      }
+    }
+    const ultimo = escalones[escalones.length - 1].hasta;
+    if (maxPersonas && maxPersonas <= ultimo) {
+      return {
+        error: `Revisá el tope de personas (${maxPersonas}): tiene que ser mayor que el último escalón (${ultimo}).`,
+      };
+    }
+  }
 
   const supabase = await createClient();
 

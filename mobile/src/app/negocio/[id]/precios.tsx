@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,11 +15,14 @@ import BarraSuperior from "@/components/barra-superior";
 import { supabase } from "@/lib/supabase";
 import { cargarTiersPorTemporada, type FilaPrecioTier } from "@/lib/precio-tiers";
 import {
+  calcularBaseLugar,
   parsearPrecioPorPersona,
+  type EscalonFijo,
   type PrecioPorPersona,
   type TramoTarifa,
 } from "@/lib/precio-lugar";
 import {
+  fmtColones,
   MODALIDADES_PRECIO_LUGAR,
   MODALIDAD_PRECIO_LUGAR_LABEL,
   type ModalidadPrecioLugar,
@@ -50,13 +53,21 @@ import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
  *
  * POR PERSONA (0103): la modalidad de cobro ahora sí se elige acá, en
  * paridad con el panel web, porque la forma nueva "por persona" se
- * edita completa en la app: el fijo de los grupos chicos, la tarifa
- * por invitado, los tres fijos de diciembre por día y las anclas de la
- * tarifa deslizante. Con esa modalidad activa los RANGOS no se
- * muestran. La config viaja en un solo jsonb (`precio_por_persona`)
- * con las llaves camelCase exactas del type PrecioPorPersona; si la
- * columna todavía no existe (0103 sin correr), se guarda todo lo demás
- * y se avisa con cariño.
+ * edita completa en la app: los ESCALONES fijos de los grupos chicos,
+ * la tarifa por invitado, el tope de personas que el lugar cotiza
+ * solo, los tres fijos de diciembre por día y las anclas de la tarifa
+ * deslizante. Con esa modalidad activa los RANGOS no se muestran. La
+ * config viaja en un solo jsonb (`precio_por_persona`) con las llaves
+ * camelCase exactas del type PrecioPorPersona; si la columna todavía
+ * no existe (0103 sin correr), se guarda todo lo demás y se avisa con
+ * cariño.
+ *
+ * Los escalones son una LISTA (antes era uno solo): "hasta 20 ₡80.000,
+ * hasta 30 ₡100.000, de ahí en adelante ₡3.200 por persona". Los
+ * bordes NO se pisan — cada escalón arranca donde terminó el anterior.
+ * Lo que se le muestra al cliente es siempre el TOTAL ya multiplicado:
+ * la tarifa por persona es información del dueño, no del comprador, y
+ * por eso solo se ve en esta pantalla.
  */
 
 type Tier = {
@@ -106,12 +117,16 @@ function problemaDeRangos(tiers: Tier[], etiqueta: string): string | null {
   return null;
 }
 
+/** Una fila del editor de escalones, tal cual se escribe. */
+type EscalonDraft = { hasta: string; precio: string };
+
 /** El borrador del cobro "por persona" (0103), todo en texto como se
  *  escribe. Se convierte a PrecioPorPersona recién al guardar. */
 type PorPersonaDraft = {
-  baseMax: string;
-  basePrecio: string;
+  escalones: EscalonDraft[];
   tarifa: string;
+  /** Vacío = el lugar cotiza cualquier cantidad, sin tope. */
+  maxPersonas: string;
   dicLunJue: string;
   dicViernes: string;
   dicSabDom: string;
@@ -120,9 +135,12 @@ type PorPersonaDraft = {
 
 function ppVacio(): PorPersonaDraft {
   return {
-    baseMax: "",
-    basePrecio: "",
+    // Una fila lista para escribir: el caso más común es tener al
+    // menos un escalón, y así no hay que buscar el botón "Agregar"
+    // para empezar.
+    escalones: [{ hasta: "", precio: "" }],
     tarifa: "",
+    maxPersonas: "",
     dicLunJue: "",
     dicViernes: "",
     dicSabDom: "",
@@ -133,9 +151,12 @@ function ppVacio(): PorPersonaDraft {
 function aPorPersonaDraft(cfg: PrecioPorPersona | null): PorPersonaDraft {
   if (!cfg) return ppVacio();
   return {
-    baseMax: String(cfg.baseMax),
-    basePrecio: String(cfg.basePrecio),
+    escalones: cfg.escalones.map((e) => ({
+      hasta: String(e.hasta),
+      precio: String(e.precio),
+    })),
     tarifa: String(cfg.tarifa),
+    maxPersonas: cfg.maxPersonas ? String(cfg.maxPersonas) : "",
     dicLunJue: String(cfg.dicLunJue),
     dicViernes: String(cfg.dicViernes),
     dicSabDom: String(cfg.dicSabDom),
@@ -147,6 +168,26 @@ function aPorPersonaDraft(cfg: PrecioPorPersona | null): PorPersonaDraft {
 }
 
 /**
+ * De qué a qué cantidad de gente cubre el escalón `i`, en palabras.
+ * Se calcula contra los DEMÁS escalones y no contra la fila de arriba
+ * a propósito: el que manda es el orden de los números (el parser los
+ * ordena al guardar), así que la etiqueta dice la verdad aunque el
+ * dueño los haya cargado desordenados — y sobre todo, las filas no se
+ * reacomodan solas mientras escribe.
+ */
+function rangoDelEscalon(escalones: EscalonDraft[], i: number): string | null {
+  const hasta = num(escalones[i].hasta);
+  if (!hasta) return null;
+  const menores = escalones
+    .map((e) => num(e.hasta))
+    .filter((h): h is number => h !== null && h > 0 && h < hasta);
+  const desde = menores.length > 0 ? Math.max(...menores) + 1 : 1;
+  if (desde > hasta) return null;
+  if (desde === hasta) return `Justo ${hasta} ${hasta === 1 ? "persona" : "personas"}`;
+  return `De ${desde} a ${hasta} personas`;
+}
+
+/**
  * Del borrador al jsonb que se guarda — con las llaves camelCase
  * EXACTAS del type. El parser canónico de lib/precio-lugar.ts tiene la
  * última palabra: lo que él no acepte, no entra a la base.
@@ -155,16 +196,61 @@ function armarPorPersona(d: PorPersonaDraft): {
   config: PrecioPorPersona | null;
   problema: string | null;
 } {
-  const baseMax = num(d.baseMax);
-  const basePrecio = num(d.basePrecio);
-  const tarifa = num(d.tarifa);
-  if (!baseMax || !basePrecio || !tarifa) {
+  const escalones: EscalonFijo[] = [];
+  for (const e of d.escalones) {
+    const hasta = num(e.hasta);
+    const precio = num(e.precio);
+    if (!hasta || !precio) {
+      return {
+        config: null,
+        problema:
+          "Cada escalón necesita hasta cuántas personas cubre y su precio fijo — o quitalo si no lo vas a usar.",
+      };
+    }
+    if (escalones.some((x) => x.hasta === hasta)) {
+      return {
+        config: null,
+        problema: `Hay dos escalones que llegan hasta ${hasta} personas: dejá uno solo, si no el segundo nunca se cobraría.`,
+      };
+    }
+    escalones.push({ hasta, precio });
+  }
+  if (escalones.length === 0) {
     return {
       config: null,
       problema:
-        "Al cobro por persona le faltan los números de todo el año: hasta cuántas personas cubre el fijo, ese precio fijo, y la tarifa por persona.",
+        "Agregá al menos un escalón de precio fijo (por ejemplo: hasta 20 personas, ₡80.000).",
     };
   }
+
+  const tarifa = num(d.tarifa);
+  if (!tarifa) {
+    return {
+      config: null,
+      problema:
+        "Falta la tarifa por persona: lo que cobrás por cada invitado pasado el último escalón.",
+    };
+  }
+
+  // El tope es opcional, pero si lo escribieron tiene que dejar vivo
+  // al último escalón — un tope más bajo lo volvería inalcanzable.
+  const topeEscrito = d.maxPersonas.replace(/[^\d]/g, "") !== "";
+  const maxPersonas = topeEscrito ? num(d.maxPersonas) : null;
+  if (topeEscrito && !maxPersonas) {
+    return {
+      config: null,
+      problema:
+        "El tope de personas tiene que ser un número mayor a 0 — o dejalo vacío si cotizás cualquier cantidad.",
+    };
+  }
+  const ultimoEscalon = Math.max(...escalones.map((e) => e.hasta));
+  if (maxPersonas !== null && maxPersonas < ultimoEscalon) {
+    return {
+      config: null,
+      problema: `El tope (${maxPersonas} personas) no puede quedar por debajo del último escalón (${ultimoEscalon}): ese escalón nunca se cobraría.`,
+    };
+  }
+
   const dicLunJue = num(d.dicLunJue);
   const dicViernes = num(d.dicViernes);
   const dicSabDom = num(d.dicSabDom);
@@ -185,12 +271,21 @@ function armarPorPersona(d: PorPersonaDraft): {
         problema: "Cada ancla de diciembre necesita sus invitados y su tarifa.",
       };
     }
+    // Dos anclas con la misma cantidad de invitados dejarían la
+    // interpolación sin distancia que recorrer (una división por cero
+    // que sale NaN): mejor pedirle al dueño que deje una.
+    if (dicTramos.some((x) => x.invitados === invitados)) {
+      return {
+        config: null,
+        problema: `Hay dos anclas de diciembre en ${invitados} invitados: dejá una sola.`,
+      };
+    }
     dicTramos.push({ invitados, tarifa: tarifaTramo });
   }
   const config = parsearPrecioPorPersona({
-    baseMax,
-    basePrecio,
+    escalones,
     tarifa,
+    maxPersonas,
     dicLunJue,
     dicViernes,
     dicSabDom,
@@ -253,6 +348,8 @@ export default function PreciosNegocioScreen() {
   const [modalidad, setModalidad] = useState<ModalidadPrecioLugar>("rango_personas");
   /** El borrador del cobro por persona (0103). */
   const [pp, setPp] = useState<PorPersonaDraft>(ppVacio);
+  /** Cuánta gente prueba el dueño en el ejemplo vivo de abajo. */
+  const [ejemploInvitados, setEjemploInvitados] = useState("");
   /** false = la migración 0099 todavía no corrió en esta base: la
    *  pantalla sigue funcionando como antes, sin lo de diciembre. */
   const [soportaDiciembre, setSoportaDiciembre] = useState(false);
@@ -351,8 +448,17 @@ export default function PreciosNegocioScreen() {
   );
 
   /** Un campo suelto del borrador por persona. */
-  function editarPp(campo: keyof Omit<PorPersonaDraft, "tramos">, v: string) {
+  function editarPp(campo: keyof Omit<PorPersonaDraft, "tramos" | "escalones">, v: string) {
     setPp((prev) => ({ ...prev, [campo]: v }));
+  }
+
+  /** Una fila del editor de escalones fijos. */
+  function editarEscalon(i: number, campo: keyof EscalonDraft, v: string) {
+    setPp((prev) => {
+      const escalones = [...prev.escalones];
+      escalones[i] = { ...escalones[i], [campo]: v };
+      return { ...prev, escalones };
+    });
   }
 
   /** Una ancla de la tarifa deslizante de diciembre. */
@@ -363,6 +469,43 @@ export default function PreciosNegocioScreen() {
       return { ...prev, tramos };
     });
   }
+
+  // ---- El ejemplo vivo ----
+  // Se cotiza con calcularBaseLugar, el MISMO cálculo que corre al
+  // reservar: si acá sale un número, ese es el que va a ver el cliente.
+  // Y se arma con armarPorPersona, así que solo aparece cuando lo que
+  // hay escrito es guardable — nada de previsualizar un precio que la
+  // base no aceptaría.
+  const configEjemplo = useMemo(() => armarPorPersona(pp).config, [pp]);
+  const ejemplo = useMemo(() => {
+    const invitados = num(ejemploInvitados);
+    if (!configEjemplo || !invitados) return null;
+    const cotizar = (esDiciembre: boolean, diaSemana: number | null) =>
+      calcularBaseLugar({
+        modalidad: "por_persona",
+        esDiciembre,
+        porPersona: configEjemplo,
+        diaSemana,
+        invitados,
+        rangos: [],
+        horas: null,
+        precioHora: null,
+        precioFijo: null,
+      });
+    return {
+      invitados,
+      normal: cotizar(false, null),
+      dicLunJue: cotizar(true, 2),
+      dicViernes: cotizar(true, 5),
+      dicSabDom: cotizar(true, 6),
+    };
+  }, [configEjemplo, ejemploInvitados]);
+  // Pasado el último escalón, diciembre ya no depende del día (manda la
+  // tarifa deslizante): ahí las tres filas dirían lo mismo y se juntan.
+  const diciembreIgualTodoElDia =
+    !!ejemplo &&
+    ejemplo.dicLunJue === ejemplo.dicViernes &&
+    ejemplo.dicViernes === ejemplo.dicSabDom;
 
   /** Una fila de `precio_tiers` lista para insertar. */
   function aFila(t: Tier, temporada: TemporadaPrecio) {
@@ -621,17 +764,28 @@ export default function PreciosNegocioScreen() {
                 </View>
 
                 {/* Con el cobro por persona activo, los RANGOS no se
-                    muestran: manda el fijo + tarifa de abajo. */}
+                    muestran: mandan los escalones + la tarifa de abajo. */}
                 {modalidad === "por_persona" ? (
                   <>
                     <View style={styles.bloque}>
-                      <Text style={styles.bloqueTitulo}>Cobro por persona</Text>
+                      <View style={styles.bloqueEncabezado}>
+                        <Text style={styles.bloqueTitulo}>
+                          Escalones de precio fijo
+                        </Text>
+                        <BotonAgregar
+                          onPress={() =>
+                            setPp((prev) => ({
+                              ...prev,
+                              escalones: [...prev.escalones, { hasta: "", precio: "" }],
+                            }))
+                          }
+                        />
+                      </View>
                       <Text style={styles.bloqueAyuda}>
-                        Un precio fijo cubre a los grupos chicos; de ahí en
-                        adelante la cotización es invitados × tarifa. Ej.: hasta
-                        25 personas ₡95.000 fijo; de 26 en adelante, cada
-                        invitado a ₡3.400. El cliente siempre ve solo el total
-                        de su grupo — nunca la tarifa por persona.
+                        Los grupos chicos pagan un monto fijo, escalonado. Cada
+                        escalón arranca donde terminó el anterior — no se pisan.
+                        Ej.: hasta 20 personas ₡80.000; de 21 a 30, ₡100.000. Más
+                        arriba manda la tarifa por persona de abajo.
                       </Text>
                       {!soportaPorPersona && (
                         <Text style={styles.avisoMigracion}>
@@ -640,19 +794,57 @@ export default function PreciosNegocioScreen() {
                           de cobro todavía no se guarda.
                         </Text>
                       )}
-                      <View style={styles.filaCampos}>
-                        <CampoChico
-                          etiqueta="Fijo hasta (personas)"
-                          value={pp.baseMax}
-                          onChangeText={(v) => editarPp("baseMax", v)}
-                        />
-                        <CampoChico
-                          etiqueta="Precio fijo ₡"
-                          ancho
-                          value={pp.basePrecio}
-                          onChangeText={(v) => editarPp("basePrecio", v)}
-                        />
-                      </View>
+                      {pp.escalones.length === 0 ? (
+                        <Text style={styles.vacio}>
+                          Falta al menos un escalón: sin ninguno, esta forma de
+                          cobro no se puede guardar.
+                        </Text>
+                      ) : (
+                        pp.escalones.map((e, i) => {
+                          const rango = rangoDelEscalon(pp.escalones, i);
+                          return (
+                            <View key={`escalon-${i}`} style={styles.escalon}>
+                              <View style={styles.bloqueEncabezado}>
+                                <Text style={styles.escalonRango}>
+                                  {rango ?? `Escalón ${i + 1}`}
+                                </Text>
+                                <BotonQuitar
+                                  onPress={() =>
+                                    setPp((prev) => ({
+                                      ...prev,
+                                      escalones: prev.escalones.filter((_, j) => j !== i),
+                                    }))
+                                  }
+                                />
+                              </View>
+                              <View style={styles.filaCampos}>
+                                <CampoChico
+                                  etiqueta="Hasta (personas)"
+                                  value={e.hasta}
+                                  onChangeText={(v) => editarEscalon(i, "hasta", v)}
+                                />
+                                <CampoChico
+                                  etiqueta="Precio fijo ₡"
+                                  ancho
+                                  value={e.precio}
+                                  onChangeText={(v) => editarEscalon(i, "precio", v)}
+                                />
+                              </View>
+                            </View>
+                          );
+                        })
+                      )}
+                    </View>
+
+                    <View style={styles.bloque}>
+                      <Text style={styles.bloqueTitulo}>
+                        Pasado el último escalón
+                      </Text>
+                      <Text style={styles.bloqueAyuda}>
+                        De ahí en adelante la cotización es invitados × tarifa. El
+                        cliente ve solo el total de su grupo — la tarifa por
+                        persona es tuya, nunca se le muestra.
+                      </Text>
                       <View style={styles.filaCampos}>
                         <CampoChico
                           etiqueta="Tarifa por persona ₡"
@@ -660,7 +852,17 @@ export default function PreciosNegocioScreen() {
                           value={pp.tarifa}
                           onChangeText={(v) => editarPp("tarifa", v)}
                         />
+                        <CampoChico
+                          etiqueta="Tope de personas"
+                          value={pp.maxPersonas}
+                          onChangeText={(v) => editarPp("maxPersonas", v)}
+                        />
                       </View>
+                      <Text style={styles.bloqueAyuda}>
+                        Arriba de ese tope el sitio no inventa un número: le dice al
+                        cliente que es cotización personalizada y que te escriba.
+                        Dejalo vacío si cotizás cualquier cantidad.
+                      </Text>
                     </View>
 
                     <View style={styles.bloque}>
@@ -741,6 +943,59 @@ export default function PreciosNegocioScreen() {
                             />
                           </View>
                         ))
+                      )}
+                    </View>
+
+                    {/* El ejemplo vivo: la misma cuenta que corre al
+                        reservar, para que el dueño vea el total antes de
+                        que lo vea un cliente. */}
+                    <View style={styles.bloque}>
+                      <Text style={styles.bloqueTitulo}>Probá tu tarifa</Text>
+                      <Text style={styles.bloqueAyuda}>
+                        Escribí una cantidad de invitados y mirá lo que se le
+                        cotiza. Es la misma cuenta que hace el sitio y la app al
+                        reservar.
+                      </Text>
+                      <View style={styles.filaCampos}>
+                        <CampoChico
+                          etiqueta="Invitados de prueba"
+                          ancho
+                          value={ejemploInvitados}
+                          onChangeText={setEjemploInvitados}
+                        />
+                      </View>
+                      {!ejemplo ? (
+                        <Text style={styles.vacio}>
+                          {configEjemplo
+                            ? "Escribí una cantidad de invitados para ver el total."
+                            : "Completá los números de arriba y acá te muestro el total que vería tu cliente."}
+                        </Text>
+                      ) : (
+                        <View style={styles.ejemplo}>
+                          <Text style={styles.ejemploTitulo}>
+                            Un grupo de {ejemplo.invitados}{" "}
+                            {ejemplo.invitados === 1 ? "persona paga" : "personas paga"}:
+                          </Text>
+                          <FilaEjemplo etiqueta="Resto del año" monto={ejemplo.normal} />
+                          {diciembreIgualTodoElDia ? (
+                            <FilaEjemplo etiqueta="Diciembre" monto={ejemplo.dicLunJue} />
+                          ) : (
+                            <>
+                              <FilaEjemplo
+                                etiqueta="Diciembre, lun–jue"
+                                monto={ejemplo.dicLunJue}
+                              />
+                              <FilaEjemplo
+                                etiqueta="Diciembre, viernes"
+                                monto={ejemplo.dicViernes}
+                              />
+                              <FilaEjemplo
+                                etiqueta="Diciembre, sáb–dom"
+                                monto={ejemplo.dicSabDom}
+                              />
+                            </>
+                          )}
+                        </View>
                       )}
                     </View>
                   </>
@@ -1236,6 +1491,22 @@ function CampoChico({
   );
 }
 
+/**
+ * Una línea del ejemplo vivo. `monto` en null es lo que el cliente
+ * vería como "cotización personalizada" (pasó el tope de personas), no
+ * un error: por eso se dice con las mismas palabras que usa el sitio.
+ */
+function FilaEjemplo({ etiqueta, monto }: { etiqueta: string; monto: number | null }) {
+  return (
+    <View style={styles.filaEjemplo}>
+      <Text style={styles.filaEjemploEtiqueta}>{etiqueta}</Text>
+      <Text style={[styles.filaEjemploMonto, monto === null && styles.filaEjemploACotizar]}>
+        {monto === null ? "Cotización personalizada" : fmtColones(monto)}
+      </Text>
+    </View>
+  );
+}
+
 function BotonAgregar({ onPress }: { onPress: () => void }) {
   return (
     <Pressable style={styles.botonAgregar} onPress={onPress} hitSlop={6}>
@@ -1318,6 +1589,29 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
   },
   filaCampos: { alignItems: "flex-end", flex: 1, flexDirection: "row", gap: Spacing.two },
+
+  /** Un escalón fijo: el rango en palabras y el basurero arriba, los
+   *  dos campos abajo — así el pulgar borra la fila sin rozar la plata. */
+  escalon: {
+    borderTopColor: Colors.line,
+    borderTopWidth: 1,
+    gap: Spacing.two,
+    paddingTop: Spacing.two,
+  },
+  escalonRango: { color: Colors.navy, flex: 1, fontFamily: Fonts.bold, fontSize: 12.5 },
+
+  ejemplo: {
+    backgroundColor: Colors.cream2,
+    borderRadius: Radios.sm,
+    gap: Spacing.two,
+    padding: Spacing.two + 2,
+  },
+  ejemploTitulo: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12.5 },
+  filaEjemplo: { alignItems: "center", flexDirection: "row", gap: Spacing.two },
+  filaEjemploEtiqueta: { color: Colors.inkSoft, flex: 1, fontFamily: Fonts.semiBold, fontSize: 12 },
+  filaEjemploMonto: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 15 },
+  filaEjemploACotizar: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 12 },
+
   campoChico: { flex: 1, gap: 3 },
   campoChicoEtiqueta: { color: Colors.inkSoft, fontFamily: Fonts.semiBold, fontSize: 10.5 },
   input: {
