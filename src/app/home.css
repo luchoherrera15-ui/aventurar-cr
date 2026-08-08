@@ -256,11 +256,14 @@
 
 /* ==================================================================
    LA INTRO DEL SITIO (portada-intro.tsx): el logo de Bookea, una
-   barrita que carga tres segundos, y adentro.
+   barrita que carga rápido, y adentro.
 
    Los dos relojes —esta barra y el setTimeout que dispara la
-   redirección— arrancan juntos al montarse el velo y duran lo mismo,
-   así que la barra termina de llenarse justo cuando la página cambia.
+   redirección— arrancan juntos al montarse el velo y duran LO MISMO
+   (1400 ms), así que la barra termina de llenarse justo cuando la
+   página cambia. Si se tocan estos números, hay que tocar los dos:
+   una barra que termina antes que la redirección deja al visitante
+   mirando una barra llena sin que pase nada.
    No se apaga con prefers-reduced-motion: una barra llena y quieta
    mientras la pantalla salta sola se lee como una falla.
    ================================================================== */
@@ -272,12 +275,13 @@
   animation: intro-logo-entra 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Crece con `width` y no con transform: son tres segundos de una barra
-   chica, y con scaleX el borde redondeado se estiraría deforme. */
+/* Crece con `width` y no con transform: es una barra chica y con
+   scaleX el borde redondeado se estiraría deforme. La curva arranca
+   rápido y afloja al final: se siente veloz sin llegar antes. */
 @keyframes intro-carga-llena {
   from { width: 0%; }
   to   { width: 100%; }
 }
 .intro-carga-relleno {
-  animation: intro-carga-llena 3000ms cubic-bezier(0.3, 0, 0.2, 1) both;
+  animation: intro-carga-llena 1400ms cubic-bezier(0.25, 0.6, 0.3, 1) both;
 }

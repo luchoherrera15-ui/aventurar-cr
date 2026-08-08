@@ -172,9 +172,14 @@ import {
 } from "./precio-lugar";
 
 const LAS_TORRES: PrecioPorPersona = {
-  baseMax: 25,
-  basePrecio: 95_000,
-  tarifa: 3_400,
+  // Los números reales del rancho: 1-20 a ₡80.000, 21-30 a ₡100.000,
+  // de 31 en adelante ₡3.200 por persona, y hasta 150 personas.
+  escalones: [
+    { hasta: 20, precio: 80_000 },
+    { hasta: 30, precio: 100_000 },
+  ],
+  tarifa: 3_200,
+  maxPersonas: 150,
   dicLunJue: 125_000,
   dicViernes: 145_000,
   dicSabDom: 165_000,
@@ -201,15 +206,24 @@ function porPersona(extra: Partial<DatosPrecioLugar> = {}): DatosPrecioLugar {
 }
 
 describe("calcularBaseLugar — por persona, resto del año", () => {
-  it("el fijo cubre 1-25", () => {
-    expect(calcularBaseLugar(porPersona({ invitados: 1 }))).toBe(95_000);
-    expect(calcularBaseLugar(porPersona({ invitados: 25 }))).toBe(95_000);
+  it("el primer escalón cubre 1-20", () => {
+    expect(calcularBaseLugar(porPersona({ invitados: 1 }))).toBe(80_000);
+    expect(calcularBaseLugar(porPersona({ invitados: 20 }))).toBe(80_000);
   });
 
-  it("desde 26 es invitados × tarifa, mostrado como total", () => {
-    expect(calcularBaseLugar(porPersona({ invitados: 26 }))).toBe(88_400);
-    expect(calcularBaseLugar(porPersona({ invitados: 40 }))).toBe(136_000);
-    expect(calcularBaseLugar(porPersona({ invitados: 100 }))).toBe(340_000);
+  it("el segundo escalón cubre 21-30", () => {
+    expect(calcularBaseLugar(porPersona({ invitados: 21 }))).toBe(100_000);
+    expect(calcularBaseLugar(porPersona({ invitados: 30 }))).toBe(100_000);
+  });
+
+  it("desde 31 es invitados × tarifa, mostrado como total", () => {
+    expect(calcularBaseLugar(porPersona({ invitados: 31 }))).toBe(99_200);
+    expect(calcularBaseLugar(porPersona({ invitados: 50 }))).toBe(160_000);
+    expect(calcularBaseLugar(porPersona({ invitados: 150 }))).toBe(480_000);
+  });
+
+  it("pasado el tope queda a cotizar, no multiplica al infinito", () => {
+    expect(calcularBaseLugar(porPersona({ invitados: 151 }))).toBeNull();
   });
 
   it("sin invitados o sin config no hay precio", () => {
@@ -235,9 +249,11 @@ describe("calcularBaseLugar — por persona en diciembre", () => {
     expect(calcularBaseLugar(dic({ invitados: 20, diaSemana: 0 }))).toBe(165_000);
   });
 
-  it("antes de la primera ancla rige su tarifa (26-30 → ₡5.500)", () => {
-    expect(calcularBaseLugar(dic({ invitados: 26 }))).toBe(26 * 5_500);
-    expect(calcularBaseLugar(dic({ invitados: 30 }))).toBe(165_000);
+  it("los grupos chicos van al fijo del día, no a la tarifa", () => {
+    // Con escalones hasta 30, el por-persona de diciembre recién
+    // arranca en 31: 26 y 30 caen en el fijo del día.
+    expect(calcularBaseLugar(dic({ invitados: 26, diaSemana: 1 }))).toBe(125_000);
+    expect(calcularBaseLugar(dic({ invitados: 30, diaSemana: 6 }))).toBe(165_000);
   });
 
   it("entre 30 y 50 la tarifa baja en línea recta hasta ₡4.500", () => {
@@ -253,7 +269,7 @@ describe("calcularBaseLugar — por persona en diciembre", () => {
 
   it("sin tramos de diciembre cae a la tarifa normal", () => {
     const sinTramos = { ...LAS_TORRES, dicTramos: [] };
-    expect(calcularBaseLugar(dic({ invitados: 40, porPersona: sinTramos }))).toBe(136_000);
+    expect(calcularBaseLugar(dic({ invitados: 40, porPersona: sinTramos }))).toBe(128_000);
   });
 });
 

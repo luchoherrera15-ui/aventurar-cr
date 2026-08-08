@@ -26,18 +26,38 @@ export type RangoPrecio = {
 export type TramoTarifa = { invitados: number; tarifa: number };
 
 /**
+ * Un escalón de precio fijo: "hasta N invitados, ₡X" — cerrado por
+ * arriba. El primero arranca en 1; cada uno siguiente arranca donde
+ * terminó el anterior.
+ */
+export type EscalonFijo = { hasta: number; precio: number };
+
+/**
  * La modalidad "por persona" (0103, pedida para Rancho Las Torres):
- * un fijo cubre a los grupos chicos y de ahí en adelante el precio es
- * invitados × tarifa — el cliente ve SOLO el total multiplicado.
- * En diciembre el fijo depende del día y la tarifa es deslizante.
+ * unos ESCALONES fijos cubren a los grupos chicos y de ahí en adelante
+ * el precio es invitados × tarifa — el cliente ve SOLO el total
+ * multiplicado, nunca la tarifa. En diciembre el fijo depende del día
+ * y la tarifa es deslizante.
+ *
+ * Los escalones son una LISTA y no un solo tramo porque el dueño pidió
+ * escalonarlos: 1-20 a ₡80.000, 21-30 a ₡100.000 y de 31 en adelante
+ * por persona. Todo configurable desde el panel.
  */
 export type PrecioPorPersona = {
-  /** El fijo cubre 1..baseMax invitados. */
-  baseMax: number;
-  /** Ese fijo, el resto del año. */
-  basePrecio: number;
-  /** Por persona (baseMax+1 en adelante), el resto del año. */
+  /**
+   * Los tramos de precio fijo, ordenados de menor a mayor. El primero
+   * cubre 1..escalones[0].hasta; el segundo, hasta[0]+1..hasta[1]; y
+   * así. Después del último manda la tarifa por persona.
+   */
+  escalones: EscalonFijo[];
+  /** Por persona, pasado el último escalón, el resto del año. */
   tarifa: number;
+  /**
+   * Tope de personas que este lugar cotiza solo. Más que esto queda a
+   * "cotización personalizada" en vez de tirar un número inventado.
+   * null = sin tope.
+   */
+  maxPersonas?: number | null;
   /** Diciembre, grupos chicos: el fijo según el día. */
   dicLunJue: number;
   dicViernes: number;
@@ -60,15 +80,37 @@ export function parsearPrecioPorPersona(crudo: unknown): PrecioPorPersona | null
   const n = (x: unknown): number | null =>
     typeof x === "number" && Number.isFinite(x) && x > 0 ? x : null;
 
-  const baseMax = n(v.baseMax);
-  const basePrecio = n(v.basePrecio);
   const tarifa = n(v.tarifa);
   const dicLunJue = n(v.dicLunJue);
   const dicViernes = n(v.dicViernes);
   const dicSabDom = n(v.dicSabDom);
-  if (!baseMax || !basePrecio || !tarifa || !dicLunJue || !dicViernes || !dicSabDom) {
-    return null;
+  if (!tarifa || !dicLunJue || !dicViernes || !dicSabDom) return null;
+
+  // Los escalones fijos. Se acepta la forma VIEJA (un solo tramo, con
+  // baseMax/basePrecio) y se traduce sola: hay configuraciones ya
+  // guardadas así y no se pueden quedar sin precio de un día para otro.
+  let escalones: EscalonFijo[] = [];
+  if (Array.isArray(v.escalones)) {
+    for (const e of v.escalones) {
+      if (!e || typeof e !== "object") return null;
+      const hasta = n((e as Record<string, unknown>).hasta);
+      const precio = n((e as Record<string, unknown>).precio);
+      if (!hasta || !precio) return null;
+      escalones.push({ hasta, precio });
+    }
+    escalones.sort((a, b) => a.hasta - b.hasta);
+  } else {
+    const baseMax = n(v.baseMax);
+    const basePrecio = n(v.basePrecio);
+    if (baseMax && basePrecio) escalones = [{ hasta: baseMax, precio: basePrecio }];
   }
+  if (escalones.length === 0) return null;
+
+  // El tope es opcional: sin él, el lugar cotiza cualquier cantidad.
+  const maxCrudo = v.maxPersonas;
+  const maxPersonas =
+    maxCrudo === null || maxCrudo === undefined ? null : n(maxCrudo);
+  if (maxCrudo !== null && maxCrudo !== undefined && !maxPersonas) return null;
 
   const tramosCrudos = Array.isArray(v.dicTramos) ? v.dicTramos : [];
   const dicTramos: TramoTarifa[] = [];
@@ -81,7 +123,29 @@ export function parsearPrecioPorPersona(crudo: unknown): PrecioPorPersona | null
   }
   dicTramos.sort((a, b) => a.invitados - b.invitados);
 
-  return { baseMax, basePrecio, tarifa, dicLunJue, dicViernes, dicSabDom, dicTramos };
+  return {
+    escalones,
+    tarifa,
+    maxPersonas,
+    dicLunJue,
+    dicViernes,
+    dicSabDom,
+    dicTramos,
+  };
+}
+
+/**
+ * El escalón fijo que cubre a ese grupo, o null si ya se pasó de todos
+ * (ahí manda la tarifa por persona).
+ */
+export function escalonQueAplica(
+  escalones: EscalonFijo[],
+  invitados: number,
+): EscalonFijo | null {
+  for (const e of escalones) {
+    if (invitados <= e.hasta) return e;
+  }
+  return null;
 }
 
 /**
@@ -180,9 +244,17 @@ export function calcularBaseLugar(datos: DatosPrecioLugar): number | null {
     const pp = datos.porPersona;
     if (!pp || !invitados) return null;
 
-    // Grupos chicos: el fijo — y en diciembre, el fijo del día.
-    if (invitados <= pp.baseMax) {
-      if (!esDiciembre) return pp.basePrecio;
+    // Pasado el tope, el lugar no cotiza solo: "cotización
+    // personalizada" es más honesto que multiplicar hasta el infinito.
+    if (pp.maxPersonas && invitados > pp.maxPersonas) return null;
+
+    // Grupos chicos: el escalón fijo que les toque.
+    const escalon = escalonQueAplica(pp.escalones, invitados);
+    if (escalon) {
+      if (!esDiciembre) return escalon.precio;
+      // En diciembre los grupos chicos van al fijo DEL DÍA, uno solo
+      // para todos los escalones: es temporada alta y el precio lo
+      // manda el día, no el tamaño del grupo.
       const dia = datos.diaSemana;
       if (dia === 5) return pp.dicViernes;
       if (dia === 0 || dia === 6) return pp.dicSabDom;

@@ -1,5 +1,12 @@
 import Image from "next/image";
-import { IconCafe, IconCloche } from "@/components/icons";
+import {
+  IconCafe,
+  IconCloche,
+  IconHelado,
+  IconJugo,
+  IconPan,
+  IconUtensils,
+} from "@/components/icons";
 import type { RanchoItem } from "@/app/mi-negocio/types";
 
 /**
@@ -18,6 +25,47 @@ import type { RanchoItem } from "@/app/mi-negocio/types";
 
 function fmtColones(n: number) {
   return "₡" + Number(n).toLocaleString("es-CR");
+}
+
+/**
+ * El ícono que acompaña a cada grupo del menú, elegido por el NOMBRE
+ * de la categoría y no por su posición.
+ *
+ * Va por nombre a propósito: el dueño ordena y renombra sus categorías
+ * desde el panel, así que atarlo a la posición haría que "Panadería"
+ * apareciera con una taza el día que la suba al primer lugar.
+ *
+ * Lo que no reconoce cae en los cubiertos, que sirven para cualquier
+ * cosa — nunca queda un hueco.
+ */
+const ICONOS_GRUPO: { claves: string[]; Icono: typeof IconCafe }[] = [
+  // Bebidas frías y tés: el vaso. Va PRIMERO para que "Café y té"
+  // caiga acá y no repita la taza del grupo de matcha — dos rieles
+  // seguidos con el mismo dibujo no ayudan a ubicarse.
+  { claves: ['te', 'tes', 'jugo', 'jugos', 'fresco', 'frescos', 'refresco', 'refrescos', 'smoothie', 'smoothies', 'batido', 'batidos', 'limonada', 'limonadas', 'soda', 'sodas', 'frias', 'frios'], Icono: IconJugo },
+  { claves: ['pan', 'panaderia', 'reposteria', 'bolleria', 'masa', 'masas'], Icono: IconPan },
+  { claves: ['postre', 'postres', 'helado', 'helados', 'dulce', 'dulces', 'torta', 'tortas', 'queque', 'queques'], Icono: IconHelado },
+  { claves: ['matcha', 'cafe', 'cafes', 'bebida', 'bebidas', 'latte', 'chocolate', 'infusion', 'infusiones', 'calientes'], Icono: IconCafe },
+];
+
+/**
+ * Compara por PALABRA y no por texto suelto: buscando "te" adentro de
+ * la cadena, "Repostería" se llevaba el vaso de jugo. Se acepta
+ * también que la palabra EMPIECE con la clave, para que "panadería"
+ * entre por "pan" sin listar cada variante.
+ */
+function iconoDelGrupo(nombre: string | null) {
+  if (!nombre) return IconUtensils;
+  const palabras = nombre
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  for (const { claves, Icono } of ICONOS_GRUPO) {
+    if (palabras.some((w) => claves.some((c) => w === c || w.startsWith(c)))) return Icono;
+  }
+  return IconUtensils;
 }
 
 /** Agrupa respetando el orden de aparición (que ya viene por `orden`). */
@@ -121,12 +169,23 @@ export default function MenuServicio({
         <div className="mt-9 flex flex-col gap-11">
           {grupos.map((g, i) => (
             <div key={g.nombre ?? `grupo-${i}`}>
-              {conEncabezados && (
-                <h3 className="mb-4 flex items-center gap-3 text-[12px] font-bold uppercase tracking-[0.14em] text-aventurea-ink">
-                  {g.nombre ?? "Otros"}
-                  <span aria-hidden className="h-px flex-1 bg-aventurea-line" />
-                </h3>
-              )}
+              {conEncabezados &&
+                (() => {
+                  const IconoGrupo = iconoDelGrupo(g.nombre);
+                  return (
+                    <h3 className="mb-4 flex items-center gap-2.5 text-[12px] font-bold uppercase tracking-[0.14em] text-aventurea-ink">
+                      {/* El ícono de la categoría: da un golpe de vista
+                          para saltar directo a lo que se anda buscando
+                          en un menú largo. Decorativo — el nombre al
+                          lado ya lo dice todo. */}
+                      <span aria-hidden className="shrink-0 text-aventurea-sky">
+                        <IconoGrupo className="h-[18px] w-[18px]" />
+                      </span>
+                      {g.nombre ?? "Otros"}
+                      <span aria-hidden className="h-px flex-1 bg-aventurea-line" />
+                    </h3>
+                  );
+                })()}
               <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
                 {g.items.map((item) => (
                   <TarjetaItem key={item.id} item={item} />

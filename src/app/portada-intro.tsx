@@ -4,12 +4,16 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
 /** Lo que dura la entrada antes de pasar sola a Eventos. */
-const DURACION_MS = 3000;
+const DURACION_MS = 1400;
 
 /**
- * LA ENTRADA AL SITIO: el logo de Bookea, una barrita que carga tres
- * segundos, y adentro — la página de Eventos. Nada más. Quien no
- * quiera esperar toca la pantalla y entra de una.
+ * LA ENTRADA AL SITIO: el logo de Bookea, una barrita que carga y
+ * adentro — la página de Eventos. Nada más. Quien no quiera ni eso,
+ * toca la pantalla y entra de una.
+ *
+ * DURACION_MS y la animación .intro-carga-relleno de home.css duran LO
+ * MISMO a propósito: si la barra terminara antes, el visitante se
+ * quedaría mirando una barra llena esperando que pase algo.
  *
  * TRES DECISIONES QUE NO SE VEN PERO EVITAN BUGS REALES:
  *

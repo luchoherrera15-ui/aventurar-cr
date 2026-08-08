@@ -785,6 +785,31 @@ export function IconCafe({ className = base }: IconProps) {
   );
 }
 
+/** Jugos y frescos: el vaso alto con su pajilla y una rodaja. */
+export function IconJugo({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinejoin="round" d="M6.5 7h11l-1.1 12.2a2 2 0 0 1-2 1.8H9.6a2 2 0 0 1-2-1.8L6.5 7Z" />
+      <path strokeLinecap="round" d="M7 11.5h10" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 7 16 2.8" />
+      <circle cx="9.2" cy="4.6" r="1.9" />
+    </svg>
+  );
+}
+
+/** Panadería: el pan con sus tres cortes. */
+export function IconPan({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path
+        strokeLinejoin="round"
+        d="M4.2 12.4c0-3.3 3.5-5.6 7.8-5.6s7.8 2.3 7.8 5.6c0 .9-.7 1.6-1.6 1.6h-.6v2.6a2.6 2.6 0 0 1-2.6 2.6H9a2.6 2.6 0 0 1-2.6-2.6V14h-.6a1.6 1.6 0 0 1-1.6-1.6Z"
+      />
+      <path strokeLinecap="round" d="M9.4 10.2 8.2 12.1M12.4 10.2l-1.2 1.9M15.4 10.2l-1.2 1.9" />
+    </svg>
+  );
+}
+
 /** Postres y heladerías: el cono. */
 export function IconHelado({ className = base }: IconProps) {
   return (
