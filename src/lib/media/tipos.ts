@@ -12,15 +12,18 @@
  * quedan como están y sirven de red de seguridad. Este módulo es el
  * vocabulario de esa capa.
  *
- * ── POR QUÉ ESTE MÓDULO NO IMPORTA NADA ──────────────────────────────
+ * ── UN ASSET VIVE EN VARIOS LADOS A LA VEZ ───────────────────────────
  *
- * Funciones y tablas puras, cero red, cero SDK, cero `process.env`. Se
- * puede leer desde el servidor, desde el navegador y desde los tests sin
- * arrastrar nada. Los adaptadores que SÍ hablan con Cloudflare y con R2
- * llegan en el bloque siguiente y son solo-servidor.
+ * Acá NO hay un campo `provider`. Lo hubo, y estaba mal: un asset
+ * migrado tiene el original en R2, la copia visual en Cloudflare Images
+ * Y el fallback en Supabase, los tres al mismo tiempo. Un único valor
+ * no puede describir eso sin mentir sobre dos de los tres.
  *
- * Ojo con la frontera "use client" ↔ servidor: este archivo es NEUTRAL a
- * propósito (sin "use client"), igual que src/lib/business/modulos.ts.
+ * Dónde está cada cosa se DERIVA de los campos que lo dicen de verdad:
+ * `r2_key`, `cf_image_id`, `legacy_url`, `estado` y el tipo de archivo.
+ *
+ * Módulo NEUTRAL a propósito (sin "use client"), igual que
+ * src/lib/business/modulos.ts: sin red, sin SDK, sin `process.env`.
  */
 
 // ------------------------------------------------------------
@@ -56,19 +59,8 @@ export type Visibilidad = (typeof VISIBILIDADES)[number];
  * por un camino nuevo, un backfill apurado, un bug— en una filtración
  * silenciosa. Con `privada`, el mismo olvido produce una foto que no se
  * ve: molesto, visible, y arreglable sin que se haya expuesto nada.
- *
- * La 0110 va a declarar esta misma constante como default de columna, y
- * cada camino de subida tiene que decir explícitamente qué visibilidad
- * quiere (ver `visibilidadDeEntidad`).
  */
 export const VISIBILIDAD_POR_DEFECTO: Visibilidad = "privada";
-
-/** Etiquetas para el panel del dueño y el admin. */
-export const VISIBILIDAD_LABEL: Record<Visibilidad, string> = {
-  publica: "Pública",
-  compartida: "Con enlace",
-  privada: "Privada",
-};
 
 /**
  * Cómo se entrega cada nivel. Es una tabla y no un `if` desparramado
@@ -107,8 +99,7 @@ export type EntidadMedia = (typeof ENTIDADES)[number];
  *
  * No es un default silencioso: quien crea un asset la pide explícita a
  * esta función, y si algún día aparece una entidad nueva TypeScript
- * obliga a agregarla acá antes de compilar. Es lo contrario de que se
- * cuele con el valor de otro.
+ * obliga a agregarla acá antes de compilar.
  */
 export const VISIBILIDAD_DE_ENTIDAD: Record<EntidadMedia, Visibilidad> = {
   rancho: "publica",
@@ -126,29 +117,101 @@ export function visibilidadDeEntidad(entidad: EntidadMedia): Visibilidad {
 }
 
 // ------------------------------------------------------------
-// 3. Proveedor y estado
+// 3. Tipos de archivo y MIME
 // ------------------------------------------------------------
 
 /**
- * Dónde vive HOY este archivo.
+ * Los MIME que se aceptan.
  *
- * `supabase_legacy` no es un estado transitorio ni una vergüenza: es el
- * proveedor de todo lo que ya existe, y va a seguir sirviendo fotos
- * mientras haya una sola app publicada apuntando a esas URLs. Nada lo
- * apura.
+ * HEIC y HEIF están en la lista y siguen SIN PROBAR contra nuestra
+ * cuenta de Cloudflare Images. La apuesta es que Cloudflare los
+ * decodifique del lado del servidor —hoy el canvas del navegador no
+ * puede fuera de Safari, y el álbum termina descartando la foto en
+ * silencio—, pero eso es una expectativa, no un hecho medido. Hasta que
+ * exista la prueba con archivos reales de iPhone (iOS 17 y 18), tratar
+ * el soporte HEIC como no confirmado.
  */
-export const PROVEEDORES = ["supabase_legacy", "cloudflare", "r2"] as const;
+export const MIMES_IMAGEN = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/heic",
+  "image/heif",
+] as const;
 
-export type Provider = (typeof PROVEEDORES)[number];
+export const MIMES_VIDEO = ["video/mp4", "video/webm", "video/quicktime"] as const;
+
+export const MIMES_AUDIO = ["audio/mpeg", "audio/mp4", "audio/ogg"] as const;
+
+export const MIMES_PERMITIDOS = [...MIMES_IMAGEN, ...MIMES_VIDEO, ...MIMES_AUDIO] as const;
+
+export type MimePermitido = (typeof MIMES_PERMITIDOS)[number];
+
+export type TipoArchivo = "imagen" | "video" | "audio";
 
 /**
- * La máquina de estados de una subida doble (original a R2 + copia
- * visual a Cloudflare Images).
+ * El tope de una imagen: 10 MB, que es el máximo que acepta Cloudflare
+ * Images por archivo.
+ *
+ * Una imagen más grande se RECHAZA antes de firmar la subida, y eso es
+ * a propósito. La alternativa —guardarla solo en R2— produce una foto
+ * nueva que no se puede mostrar en ninguna variante, que nunca puede
+ * completar el flujo dual y que se queda en `parcial_r2` para siempre:
+ * un asset roto por diseño, creado por nosotros. Mejor pedirle a la
+ * persona una foto más liviana que aceptarle una que no vamos a poder
+ * dibujar.
+ *
+ * Que hoy no molesta a nadie está medido: el archivo más pesado de todo
+ * `ranchos-fotos` son 5702 KB (5,57 MB), y el promedio del bucket de
+ * álbumes son 716 KB. Todo lo que ya existe entra sin tocar nada.
+ *
+ * Derivar una copia visual para originales de más de 10 MB
+ * (recomprimir antes de mandarla a Cloudflare) es un bloque aparte.
+ */
+export const MAX_BYTES_IMAGEN = 10 * 1024 * 1024;
+
+/**
+ * ── LO QUE ESTO NO DEMUESTRA ─────────────────────────────────────────
+ *
+ * El MIME sale del `Content-Type` que declara el navegador, y un
+ * `HEAD` contra R2 devuelve el `Content-Type` que se firmó — o sea, el
+ * mismo dato que se está tratando de verificar. Ninguno de los dos
+ * prueba qué hay ADENTRO del archivo: quien pide una URL prefirmada
+ * puede declarar `image/jpeg` y subir cualquier cosa.
+ *
+ * La confirmación de la subida (bloque 3) tiene que leer los primeros
+ * bytes del objeto y comparar la firma real (magic bytes) contra el
+ * MIME declarado, y borrar el objeto si no coinciden. Esta tabla es un
+ * filtro de entrada, no una verificación.
+ */
+function normalizarMime(mime: string): string {
+  return mime.toLowerCase().split(";")[0].trim();
+}
+
+export function tipoDeMime(mime: unknown): TipoArchivo | null {
+  if (typeof mime !== "string") return null;
+  const m = normalizarMime(mime);
+  if ((MIMES_IMAGEN as readonly string[]).includes(m)) return "imagen";
+  if ((MIMES_VIDEO as readonly string[]).includes(m)) return "video";
+  if ((MIMES_AUDIO as readonly string[]).includes(m)) return "audio";
+  return null;
+}
+
+export function esMimePermitido(mime: unknown): boolean {
+  return tipoDeMime(mime) !== null;
+}
+
+// ------------------------------------------------------------
+// 4. Estado y destinos obligatorios
+// ------------------------------------------------------------
+
+/**
+ * La máquina de estados de la subida.
  *
  * Los dos estados PARCIALES existen porque las dos cargas pueden fallar
  * por separado y hay que poder reintentar solo la que falló, sin volver
- * a subir 30 MB al pedo. `listo` exige las DOS verificadas con HEAD: un
- * asset a medias que se marque listo es una foto rota en producción.
+ * a subir 30 MB al pedo.
  */
 export const ESTADOS = [
   "pendiente",
@@ -171,45 +234,21 @@ export const ESTADOS_REINTENTABLES: readonly EstadoMedia[] = [
   "error",
 ];
 
-// ------------------------------------------------------------
-// 4. Variantes de Cloudflare Images
-// ------------------------------------------------------------
-
 /**
- * Las cuatro variantes YA CREADAS en la cuenta de Cloudflare. Los
- * números están acá porque el frontend necesita saberlos para poner
- * `width`/`height` explícitos y no provocar saltos de maqueta (CLS).
+ * Qué destinos tiene que tener confirmados un archivo de este tipo para
+ * poder considerarse completo.
  *
- * `gallery` es "Scale down" y no "Cover": el visor conserva la
- * proporción real de cada foto, así que 1600 es el LADO MAYOR, no un
- * recorte. Por eso su `alto` es el mismo número que su `ancho` — es una
- * caja que contiene, no un marco que recorta.
+ * El original en R2 es obligatorio SIEMPRE: es lo que se descarga, y sin
+ * él no se puede prometer una descarga.
+ *
+ * La copia visual en Cloudflare Images solo aplica a imágenes. Un video
+ * o un audio no tienen "variante thumb": exigirles Cloudflare los
+ * dejaría colgados en `parcial_r2` para siempre, sin nada que
+ * reintentar.
  */
-export const VARIANTES = ["thumb", "card", "gallery", "hero"] as const;
-
-export type Variante = (typeof VARIANTES)[number];
-
-type DefinicionVariante = {
-  id: Variante;
-  ancho: number;
-  alto: number;
-  ajuste: "cover" | "scale-down";
-  /** Para qué se usa, en palabras de la maqueta. */
-  uso: string;
-};
-
-export const DEFINICION_VARIANTE: Record<Variante, DefinicionVariante> = {
-  thumb: { id: "thumb", ancho: 400, alto: 400, ajuste: "cover", uso: "Cuadrículas y miniaturas." },
-  card: { id: "card", ancho: 768, alto: 576, ajuste: "cover", uso: "Tarjetas de directorio." },
-  gallery: {
-    id: "gallery",
-    ancho: 1600,
-    alto: 1600,
-    ajuste: "scale-down",
-    uso: "Visor ampliado; conserva la proporción real.",
-  },
-  hero: { id: "hero", ancho: 1920, alto: 1080, ajuste: "cover", uso: "Portadas a lo ancho." },
-};
+export function destinosRequeridos(tipo: TipoArchivo): { r2: boolean; cloudflare: boolean } {
+  return { r2: true, cloudflare: tipo === "imagen" };
+}
 
 // ------------------------------------------------------------
 // 5. El asset
@@ -218,9 +257,8 @@ export const DEFINICION_VARIANTE: Record<Variante, DefinicionVariante> = {
 /**
  * Una fila de `media_assets`, tal como la va a declarar la 0110.
  *
- * Los campos anulables lo son de verdad: un asset recién creado no tiene
- * `cf_image_id` todavía, y uno que viene del pasado no tiene `r2_key`
- * pero sí `legacy_url`. El resolver está hecho para eso.
+ * Sin campo `provider`: dónde vive el archivo se deriva de `r2_key`,
+ * `cf_image_id` y `legacy_url` (ver el encabezado del módulo).
  */
 export type MediaAsset = {
   id: string;
@@ -228,7 +266,6 @@ export type MediaAsset = {
   entity_type: EntidadMedia;
   entity_id: string;
 
-  provider: Provider;
   visibilidad: Visibilidad;
   estado: EstadoMedia;
 
@@ -256,8 +293,53 @@ export type MediaAsset = {
   error_detalle: string | null;
 };
 
+/** Lo mínimo que hace falta para saber si un asset está completo. */
+export type AssetVerificable = Pick<
+  MediaAsset,
+  "estado" | "deleted_at" | "mime" | "r2_key" | "cf_image_id"
+>;
+
 // ------------------------------------------------------------
-// 6. Guardas de tipo
+// 6. Variantes de Cloudflare Images
+// ------------------------------------------------------------
+
+/**
+ * Las cuatro variantes YA CREADAS en la cuenta de Cloudflare. Los
+ * números están acá porque el frontend necesita saberlos para poner
+ * `width`/`height` explícitos y no provocar saltos de maqueta (CLS).
+ *
+ * `gallery` es "Scale down" y no "Cover": el visor conserva la
+ * proporción real de cada foto, así que 1600 es el LADO MAYOR, no un
+ * recorte. Por eso su `alto` es el mismo número que su `ancho` — es una
+ * caja que contiene, no un marco que recorta.
+ */
+export const VARIANTES = ["thumb", "card", "gallery", "hero"] as const;
+
+export type Variante = (typeof VARIANTES)[number];
+
+type DefinicionVariante = {
+  id: Variante;
+  ancho: number;
+  alto: number;
+  ajuste: "cover" | "scale-down";
+  uso: string;
+};
+
+export const DEFINICION_VARIANTE: Record<Variante, DefinicionVariante> = {
+  thumb: { id: "thumb", ancho: 400, alto: 400, ajuste: "cover", uso: "Cuadrículas y miniaturas." },
+  card: { id: "card", ancho: 768, alto: 576, ajuste: "cover", uso: "Tarjetas de directorio." },
+  gallery: {
+    id: "gallery",
+    ancho: 1600,
+    alto: 1600,
+    ajuste: "scale-down",
+    uso: "Visor ampliado; conserva la proporción real.",
+  },
+  hero: { id: "hero", ancho: 1920, alto: 1080, ajuste: "cover", uso: "Portadas a lo ancho." },
+};
+
+// ------------------------------------------------------------
+// 7. Guardas de tipo
 // ------------------------------------------------------------
 
 /**
@@ -271,13 +353,12 @@ function esUnoDe<T extends string>(lista: readonly T[], valor: unknown): valor i
 }
 
 export const esVisibilidad = (v: unknown): v is Visibilidad => esUnoDe(VISIBILIDADES, v);
-export const esProvider = (v: unknown): v is Provider => esUnoDe(PROVEEDORES, v);
 export const esEstado = (v: unknown): v is EstadoMedia => esUnoDe(ESTADOS, v);
 export const esEntidad = (v: unknown): v is EntidadMedia => esUnoDe(ENTIDADES, v);
 export const esVariante = (v: unknown): v is Variante => esUnoDe(VARIANTES, v);
 
 // ------------------------------------------------------------
-// 7. Preguntas que se hacen en todos lados
+// 8. Preguntas que se hacen en todos lados
 // ------------------------------------------------------------
 
 /** Vivo = no borrado lógicamente. El borrado duro es del worker. */
@@ -286,47 +367,85 @@ export function estaVivo(asset: Pick<MediaAsset, "deleted_at">): boolean {
 }
 
 /**
- * Listo de verdad: los dos destinos verificados y el asset sin borrar.
- * Un `parcial_*` NO es listo, por más que una de las dos copias sirva.
+ * Qué destinos le FALTAN a un asset para estar completo, según su tipo.
+ *
+ * Un MIME que no se reconoce devuelve los dos: no se puede saber qué
+ * exigirle, así que no se le da por cumplido nada.
  */
-export function estaListo(asset: Pick<MediaAsset, "estado" | "deleted_at">): boolean {
-  return estaVivo(asset) && asset.estado === "listo";
+export function faltantes(asset: Pick<AssetVerificable, "mime" | "r2_key" | "cf_image_id">) {
+  const tipo = tipoDeMime(asset.mime);
+  const requeridos = tipo ? destinosRequeridos(tipo) : { r2: true, cloudflare: true };
+  const falta: ("cloudflare" | "r2")[] = [];
+  if (requeridos.r2 && !asset.r2_key) falta.push("r2");
+  if (requeridos.cloudflare && !asset.cf_image_id) falta.push("cloudflare");
+  return falta;
+}
+
+/**
+ * Listo de verdad.
+ *
+ * NO alcanza con que la columna diga `listo`: se verifica que estén los
+ * archivos que ese tipo exige. Una fila marcada lista a la que le falta
+ * `r2_key` es un registro inconsistente —pasó por un camino que no
+ * verificó, o alguien la editó a mano— y tratarla como buena produce
+ * una foto rota o una descarga que devuelve 404.
+ *
+ * Que el chequeo viva acá y no en cada pantalla es el punto: hay UNA
+ * definición de "listo" en todo el producto.
+ */
+export function estaListo(asset: AssetVerificable): boolean {
+  if (!estaVivo(asset)) return false;
+  if (asset.estado !== "listo") return false;
+  // Sin MIME reconocible no se puede saber qué destinos exigirle.
+  if (tipoDeMime(asset.mime) === null) return false;
+  return faltantes(asset).length === 0;
+}
+
+/**
+ * Una fila que dice `listo` pero no lo está. Se separa de `estaListo`
+ * porque el que importa para MOSTRAR es el booleano, y este es para
+ * poder registrarlo y arreglarlo.
+ */
+export function esInconsistente(asset: AssetVerificable): boolean {
+  return estaVivo(asset) && asset.estado === "listo" && !estaListo(asset);
 }
 
 export function sePuedeReintentar(asset: Pick<MediaAsset, "estado" | "deleted_at">): boolean {
   return estaVivo(asset) && ESTADOS_REINTENTABLES.includes(asset.estado);
 }
 
-/** Qué le falta a un asset para poder marcarse `listo`. */
-export function faltantes(
-  asset: Pick<MediaAsset, "cf_image_id" | "r2_key">,
-): ("cloudflare" | "r2")[] {
-  const falta: ("cloudflare" | "r2")[] = [];
-  if (!asset.cf_image_id) falta.push("cloudflare");
-  if (!asset.r2_key) falta.push("r2");
-  return falta;
-}
-
 /**
- * El estado que corresponde según qué destinos se confirmaron. Es la
- * ÚNICA función que puede devolver `listo`, para que no haya dos
- * criterios distintos dando vueltas.
+ * El estado que corresponde según qué destinos se confirmaron y qué
+ * tipo de archivo es. Es la ÚNICA función que puede devolver `listo`,
+ * para que no haya dos criterios distintos dando vueltas.
+ *
+ * ── VIDEO Y AUDIO: CLOUDFLARE NO SE MIRA ─────────────────────────────
+ *
+ * Para los tipos que no llevan copia visual, `destinos.cloudflare` se
+ * descarta ENTERO y la función sale antes de llegar a los estados
+ * parciales. La versión anterior neutralizaba Cloudflare solo para
+ * decidir `listo`, pero después caía en `if (destinos.cloudflare)` sin
+ * volver a preguntar si era requerido: un video con `r2: false` y
+ * `cloudflare: true` respondía `parcial_cf`, o sea "la copia visual
+ * está lista", sobre un archivo que no tiene copia visual y al que le
+ * falta lo único que importa. Y `parcial_cf` es reintentable, así que
+ * el reintento habría ido a buscar la mitad equivocada.
+ *
+ * Un `cloudflare: true` sobre un video es un dato imposible; acá se
+ * ignora en vez de dejar que decida nada.
  */
-export function estadoSegunDestinos(destinos: {
-  r2: boolean;
-  cloudflare: boolean;
-}): EstadoMedia {
+export function estadoSegunDestinos(
+  destinos: { r2: boolean; cloudflare: boolean },
+  tipo: TipoArchivo,
+): EstadoMedia {
+  const requeridos = destinosRequeridos(tipo);
+
+  // R2-only (video y audio): solo cuenta el original.
+  if (!requeridos.cloudflare) return destinos.r2 ? "listo" : "subiendo";
+
+  // Imágenes: los dos destinos, con sus dos estados parciales.
   if (destinos.r2 && destinos.cloudflare) return "listo";
   if (destinos.r2) return "parcial_r2";
   if (destinos.cloudflare) return "parcial_cf";
   return "subiendo";
-}
-
-/** Ordena una galería: por `posicion` y, a igual posición, por antigüedad. */
-export function ordenarAssets<T extends Pick<MediaAsset, "posicion" | "created_at">>(
-  assets: readonly T[],
-): T[] {
-  return [...assets].sort(
-    (a, b) => a.posicion - b.posicion || a.created_at.localeCompare(b.created_at),
-  );
 }

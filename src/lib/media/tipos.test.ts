@@ -2,22 +2,39 @@ import { describe, expect, it } from "vitest";
 import {
   ENTIDADES,
   ENTREGA,
+  MAX_BYTES_IMAGEN,
+  MIMES_PERMITIDOS,
   VISIBILIDADES,
   VISIBILIDAD_POR_DEFECTO,
+  destinosRequeridos,
   esEntidad,
   esEstado,
-  esProvider,
+  esInconsistente,
+  esMimePermitido,
   esVariante,
   esVisibilidad,
   estaListo,
   estaVivo,
   estadoSegunDestinos,
   faltantes,
-  ordenarAssets,
   sePuedeReintentar,
+  tipoDeMime,
   visibilidadDeEntidad,
+  type AssetVerificable,
   type EntidadMedia,
 } from "./tipos";
+
+/** Una imagen completa y sana, para variar solo lo que cada test mira. */
+function imagen(over: Partial<AssetVerificable> = {}): AssetVerificable {
+  return {
+    estado: "listo",
+    deleted_at: null,
+    mime: "image/jpeg",
+    r2_key: "originals/a/album/b/c/foto.jpg",
+    cf_image_id: "cf-123",
+    ...over,
+  };
+}
 
 describe("visibilidad", () => {
   it("tiene los tres niveles y no dos", () => {
@@ -58,8 +75,6 @@ describe("guardas de tipo", () => {
   it("acepta lo conocido y rechaza lo inventado", () => {
     expect(esVisibilidad("compartida")).toBe(true);
     expect(esVisibilidad("publico")).toBe(false);
-    expect(esProvider("supabase_legacy")).toBe(true);
-    expect(esProvider("s3")).toBe(false);
     expect(esEstado("parcial_r2")).toBe(true);
     expect(esEstado("casi")).toBe(false);
     expect(esEntidad("album")).toBe(true);
@@ -77,20 +92,114 @@ describe("guardas de tipo", () => {
   });
 });
 
-describe("estado del asset", () => {
-  it("borrado lógico deja de estar vivo", () => {
-    expect(estaVivo({ deleted_at: null })).toBe(true);
-    expect(estaVivo({ deleted_at: "2026-01-01T00:00:00Z" })).toBe(false);
+describe("MIME", () => {
+  it("clasifica los tres tipos", () => {
+    expect(tipoDeMime("image/jpeg")).toBe("imagen");
+    expect(tipoDeMime("image/heic")).toBe("imagen");
+    expect(tipoDeMime("video/quicktime")).toBe("video");
+    expect(tipoDeMime("audio/mpeg")).toBe("audio");
+  });
+
+  it("rechaza lo que no es media, incluido SVG", () => {
+    // SVG es vectorial y puede traer <script>: no entra.
+    for (const m of ["application/zip", "text/html", "image/svg+xml", "image/gif", ""]) {
+      expect(esMimePermitido(m)).toBe(false);
+    }
+  });
+
+  it("tolera el charset pegado y las mayúsculas", () => {
+    expect(tipoDeMime("IMAGE/JPEG; charset=binary")).toBe("imagen");
+  });
+
+  it("no se cae con basura", () => {
+    for (const m of [null, undefined, 42, {}]) expect(esMimePermitido(m)).toBe(false);
+  });
+
+  it("los doce MIME permitidos se clasifican todos", () => {
+    for (const m of MIMES_PERMITIDOS) expect(tipoDeMime(m)).not.toBe(null);
+    expect(MIMES_PERMITIDOS).toHaveLength(12);
+  });
+});
+
+describe("destinos obligatorios por tipo", () => {
+  it("la imagen necesita R2 y Cloudflare", () => {
+    expect(destinosRequeridos("imagen")).toEqual({ r2: true, cloudflare: true });
+  });
+
+  it("video y audio son R2-only: no tienen copia visual", () => {
+    expect(destinosRequeridos("video")).toEqual({ r2: true, cloudflare: false });
+    expect(destinosRequeridos("audio")).toEqual({ r2: true, cloudflare: false });
+  });
+
+  it("el tope de imagen es el de Cloudflare Images", () => {
+    expect(MAX_BYTES_IMAGEN).toBe(10 * 1024 * 1024);
+  });
+});
+
+describe("estaListo — no alcanza con que la columna diga listo", () => {
+  it("una imagen con las dos copias está lista", () => {
+    expect(estaListo(imagen())).toBe(true);
+  });
+
+  it("imagen en estado listo SIN r2_key no está lista", () => {
+    // Prometería una descarga que no existe.
+    const a = imagen({ r2_key: null });
+    expect(estaListo(a)).toBe(false);
+    expect(esInconsistente(a)).toBe(true);
+    expect(faltantes(a)).toEqual(["r2"]);
+  });
+
+  it("imagen en estado listo SIN cf_image_id no está lista", () => {
+    const a = imagen({ cf_image_id: null });
+    expect(estaListo(a)).toBe(false);
+    expect(esInconsistente(a)).toBe(true);
+    expect(faltantes(a)).toEqual(["cloudflare"]);
+  });
+
+  it("un video confirmado SOLO en R2 sí está listo", () => {
+    const v = imagen({ mime: "video/mp4", cf_image_id: null });
+    expect(estaListo(v)).toBe(true);
+    expect(faltantes(v)).toEqual([]);
+    expect(esInconsistente(v)).toBe(false);
+  });
+
+  it("un audio confirmado SOLO en R2 sí está listo", () => {
+    const a = imagen({ mime: "audio/mpeg", cf_image_id: null });
+    expect(estaListo(a)).toBe(true);
+    expect(faltantes(a)).toEqual([]);
+  });
+
+  it("un video sin r2_key NO está listo: no hay qué descargar", () => {
+    const v = imagen({ mime: "video/mp4", r2_key: null, cf_image_id: null });
+    expect(estaListo(v)).toBe(false);
+    expect(faltantes(v)).toEqual(["r2"]);
+  });
+
+  it("registro inconsistente: MIME nulo o desconocido nunca está listo", () => {
+    expect(estaListo(imagen({ mime: null }))).toBe(false);
+    expect(estaListo(imagen({ mime: "application/zip" }))).toBe(false);
+    // Sin saber el tipo no se puede saber qué exigir: se piden los dos.
+    expect(faltantes({ mime: null, r2_key: null, cf_image_id: null })).toEqual([
+      "r2",
+      "cloudflare",
+    ]);
   });
 
   it("un parcial NO es listo, aunque una copia sirva", () => {
-    expect(estaListo({ estado: "listo", deleted_at: null })).toBe(true);
-    expect(estaListo({ estado: "parcial_cf", deleted_at: null })).toBe(false);
-    expect(estaListo({ estado: "parcial_r2", deleted_at: null })).toBe(false);
-    // Listo pero borrado sigue sin mostrarse.
-    expect(estaListo({ estado: "listo", deleted_at: "2026-01-01T00:00:00Z" })).toBe(false);
+    expect(estaListo(imagen({ estado: "parcial_cf" }))).toBe(false);
+    expect(estaListo(imagen({ estado: "parcial_r2" }))).toBe(false);
+    // Y no es "inconsistente": es un estado legítimo a mitad de camino.
+    expect(esInconsistente(imagen({ estado: "parcial_r2" }))).toBe(false);
   });
 
+  it("borrado lógico deja de estar vivo y de estar listo", () => {
+    expect(estaVivo({ deleted_at: null })).toBe(true);
+    expect(estaVivo({ deleted_at: "2026-01-01T00:00:00Z" })).toBe(false);
+    expect(estaListo(imagen({ deleted_at: "2026-01-01T00:00:00Z" }))).toBe(false);
+  });
+});
+
+describe("reintentos", () => {
   it("solo se reintenta lo que puede avanzar", () => {
     expect(sePuedeReintentar({ estado: "parcial_r2", deleted_at: null })).toBe(true);
     expect(sePuedeReintentar({ estado: "error", deleted_at: null })).toBe(true);
@@ -100,36 +209,46 @@ describe("estado del asset", () => {
 });
 
 describe("estadoSegunDestinos — la subida doble", () => {
-  it("solo con los DOS destinos confirmados llega a listo", () => {
-    expect(estadoSegunDestinos({ r2: true, cloudflare: true })).toBe("listo");
-    expect(estadoSegunDestinos({ r2: true, cloudflare: false })).toBe("parcial_r2");
-    expect(estadoSegunDestinos({ r2: false, cloudflare: true })).toBe("parcial_cf");
-    expect(estadoSegunDestinos({ r2: false, cloudflare: false })).toBe("subiendo");
+  it("una imagen solo llega a listo con los DOS destinos", () => {
+    expect(estadoSegunDestinos({ r2: true, cloudflare: true }, "imagen")).toBe("listo");
+    expect(estadoSegunDestinos({ r2: true, cloudflare: false }, "imagen")).toBe("parcial_r2");
+    expect(estadoSegunDestinos({ r2: false, cloudflare: true }, "imagen")).toBe("parcial_cf");
+    expect(estadoSegunDestinos({ r2: false, cloudflare: false }, "imagen")).toBe("subiendo");
   });
 
-  it("dice qué falta para poder cerrar", () => {
-    expect(faltantes({ cf_image_id: null, r2_key: null })).toEqual(["cloudflare", "r2"]);
-    expect(faltantes({ cf_image_id: "abc", r2_key: null })).toEqual(["r2"]);
-    expect(faltantes({ cf_image_id: "abc", r2_key: "originals/x" })).toEqual([]);
-  });
-});
-
-describe("ordenarAssets", () => {
-  it("ordena por posición y desempata por antigüedad", () => {
-    const orden = ordenarAssets([
-      { posicion: 1, created_at: "2026-01-02T00:00:00Z" },
-      { posicion: 0, created_at: "2026-01-03T00:00:00Z" },
-      { posicion: 1, created_at: "2026-01-01T00:00:00Z" },
-    ]).map((a) => `${a.posicion}@${a.created_at.slice(8, 10)}`);
-    expect(orden).toEqual(["0@03", "1@01", "1@02"]);
+  it("un video llega a listo solo con R2", () => {
+    expect(estadoSegunDestinos({ r2: true, cloudflare: false }, "video")).toBe("listo");
+    expect(estadoSegunDestinos({ r2: false, cloudflare: false }, "video")).toBe("subiendo");
   });
 
-  it("no muta el arreglo que recibe", () => {
-    const original = [
-      { posicion: 2, created_at: "2026-01-01T00:00:00Z" },
-      { posicion: 1, created_at: "2026-01-01T00:00:00Z" },
-    ];
-    ordenarAssets(original);
-    expect(original[0].posicion).toBe(2);
+  it("un audio llega a listo solo con R2", () => {
+    expect(estadoSegunDestinos({ r2: true, cloudflare: false }, "audio")).toBe("listo");
+    expect(estadoSegunDestinos({ r2: false, cloudflare: false }, "audio")).toBe("subiendo");
+  });
+
+  it("VIDEO sin R2 pero con cloudflare true → subiendo, NUNCA parcial_cf", () => {
+    // `parcial_cf` diría "la copia visual está lista" sobre un archivo
+    // que no tiene copia visual, y encima es reintentable: el reintento
+    // habría ido a buscar la mitad equivocada.
+    expect(estadoSegunDestinos({ r2: false, cloudflare: true }, "video")).toBe("subiendo");
+  });
+
+  it("AUDIO sin R2 pero con cloudflare true → subiendo, NUNCA parcial_cf", () => {
+    expect(estadoSegunDestinos({ r2: false, cloudflare: true }, "audio")).toBe("subiendo");
+  });
+
+  it("en video y audio, cloudflare no cambia nada: solo manda R2", () => {
+    for (const tipo of ["video", "audio"] as const) {
+      for (const cloudflare of [true, false]) {
+        expect(estadoSegunDestinos({ r2: true, cloudflare }, tipo)).toBe("listo");
+        expect(estadoSegunDestinos({ r2: false, cloudflare }, tipo)).toBe("subiendo");
+      }
+    }
+  });
+
+  it("y una imagen conserva sus dos estados parciales", () => {
+    // El caso que NO se puede perder al arreglar lo de arriba.
+    expect(estadoSegunDestinos({ r2: false, cloudflare: true }, "imagen")).toBe("parcial_cf");
+    expect(estadoSegunDestinos({ r2: true, cloudflare: false }, "imagen")).toBe("parcial_r2");
   });
 });

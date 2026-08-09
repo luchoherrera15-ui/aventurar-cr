@@ -1,33 +1,34 @@
 import { describe, expect, it } from "vitest";
 import {
-  contarPorOrigen,
-  legacyYaNoSeUsa,
   necesitaMigracion,
   resolverOriginal,
   resolverVisual,
   rutaCloudflare,
   urlVisual,
 } from "./resolver";
-import type { EstadoMedia, MediaAsset, Provider, Visibilidad } from "./tipos";
+import type { AssetVerificable, MediaAsset, Visibilidad } from "./tipos";
 
 const DELIVERY = "https://imagedelivery.net/hash-de-cuenta";
 const LEGACY = "https://proyecto.supabase.co/storage/v1/object/public/albumes/a/1.jpg";
+const R2 = "originals/a/album/b/c/foto.jpg";
 
-type Visual = Parameters<typeof resolverVisual>[0];
+type Visual = AssetVerificable & Pick<MediaAsset, "visibilidad" | "legacy_url">;
 
-function asset(over: Partial<MediaAsset> = {}): Visual {
+function asset(over: Partial<Visual> = {}): Visual {
   return {
-    estado: "listo" as EstadoMedia,
+    estado: "listo",
     deleted_at: null,
-    visibilidad: "publica" as Visibilidad,
+    mime: "image/jpeg",
+    r2_key: R2,
     cf_image_id: "cf-123",
+    visibilidad: "publica" as Visibilidad,
     legacy_url: LEGACY,
     ...over,
   };
 }
 
 describe("orden de resolución", () => {
-  it("1. si está listo en Cloudflare, usa Cloudflare", () => {
+  it("1. si está listo y verificado, usa Cloudflare", () => {
     expect(resolverVisual(asset(), "card", { deliveryUrl: DELIVERY })).toEqual({
       tipo: "cloudflare",
       url: `${DELIVERY}/cf-123/card`,
@@ -35,11 +36,9 @@ describe("orden de resolución", () => {
   });
 
   it("2. si todavía no está migrado, usa la URL de Supabase", () => {
-    const r = resolverVisual(
-      asset({ estado: "pendiente", cf_image_id: null }),
-      "card",
-      { deliveryUrl: DELIVERY },
-    );
+    const r = resolverVisual(asset({ estado: "pendiente", cf_image_id: null }), "card", {
+      deliveryUrl: DELIVERY,
+    });
     expect(r).toEqual({ tipo: "legacy", url: LEGACY });
   });
 
@@ -67,16 +66,20 @@ describe("orden de resolución", () => {
   });
 });
 
-describe("un asset parcial NO se sirve por Cloudflare", () => {
-  it("parcial_cf tiene imagen pero no original: cae a legacy", () => {
-    // Servirlo prometería una descarga del original que no existe.
-    const r = resolverVisual(asset({ estado: "parcial_cf" }), "card", { deliveryUrl: DELIVERY });
+describe("una fila inconsistente no se sirve por Cloudflare", () => {
+  it("marcada listo pero sin r2_key: cae a legacy", () => {
+    // Servirla prometería una descarga del original que no existe.
+    const r = resolverVisual(asset({ r2_key: null }), "card", { deliveryUrl: DELIVERY });
     expect(r).toEqual({ tipo: "legacy", url: LEGACY });
   });
 
-  it("parcial_r2 tampoco", () => {
-    const r = resolverVisual(asset({ estado: "parcial_r2" }), "card", { deliveryUrl: DELIVERY });
-    expect(r.tipo).toBe("legacy");
+  it("un parcial tampoco", () => {
+    expect(resolverVisual(asset({ estado: "parcial_cf" }), "card", { deliveryUrl: DELIVERY })).toEqual(
+      { tipo: "legacy", url: LEGACY },
+    );
+    expect(resolverVisual(asset({ estado: "parcial_r2" }), "card", { deliveryUrl: DELIVERY }).tipo).toBe(
+      "legacy",
+    );
   });
 });
 
@@ -92,10 +95,9 @@ describe("sin deliveryUrl configurada, todo cae a legacy", () => {
 
 describe("visibilidad y firma", () => {
   it("pública se sirve directo, sin token", () => {
-    const r = resolverVisual(asset({ visibilidad: "publica" }), "hero", {
-      deliveryUrl: DELIVERY,
-    });
-    expect(r).toEqual({ tipo: "cloudflare", url: `${DELIVERY}/cf-123/hero` });
+    expect(resolverVisual(asset({ visibilidad: "publica" }), "hero", { deliveryUrl: DELIVERY })).toEqual(
+      { tipo: "cloudflare", url: `${DELIVERY}/cf-123/hero` },
+    );
   });
 
   it("compartida en Cloudflare EXIGE firma; sin firmante lo dice", () => {
@@ -117,27 +119,49 @@ describe("visibilidad y firma", () => {
     const r = resolverVisual(
       asset({ visibilidad: "privada", estado: "pendiente", cf_image_id: null }),
       "card",
-      { deliveryUrl: DELIVERY },
+      { deliveryUrl: DELIVERY, tokenDeAlbumValidado: true },
     );
     expect(r).toEqual({ tipo: "sin-imagen", motivo: "sin-firmante" });
   });
+});
 
-  it("compartida SÍ cae a legacy mientras el bucket del álbum sea público (0068)", () => {
-    const r = resolverVisual(
-      asset({ visibilidad: "compartida", estado: "pendiente", cf_image_id: null }),
-      "card",
-      { deliveryUrl: DELIVERY },
-    );
-    expect(r).toEqual({ tipo: "legacy", url: LEGACY });
+describe("fallback del álbum compartido — el default es CERRADO", () => {
+  const albumSinMigrar = asset({
+    visibilidad: "compartida",
+    estado: "pendiente",
+    cf_image_id: null,
   });
 
-  it("y deja de caer cuando el álbum pase a ser privado de verdad", () => {
-    const r = resolverVisual(
-      asset({ visibilidad: "compartida", estado: "pendiente", cf_image_id: null }),
-      "card",
-      { deliveryUrl: DELIVERY, legacyCompartidaEsPublica: false },
-    );
-    expect(r).toEqual({ tipo: "sin-imagen", motivo: "sin-firmante" });
+  it("sin validar el token del álbum, NO se sirve el legacy", () => {
+    // El caso que importa: una ruta nueva que se olvida de validar el
+    // QR no filtra las fotos de un álbum ajeno.
+    expect(resolverVisual(albumSinMigrar, "card", { deliveryUrl: DELIVERY })).toEqual({
+      tipo: "sin-imagen",
+      motivo: "sin-firmante",
+    });
+  });
+
+  it("pasar el flag en false es lo mismo que no pasarlo", () => {
+    expect(
+      resolverVisual(albumSinMigrar, "card", {
+        deliveryUrl: DELIVERY,
+        tokenDeAlbumValidado: false,
+      }),
+    ).toEqual({ tipo: "sin-imagen", motivo: "sin-firmante" });
+  });
+
+  it("solo con el token YA validado se sirve el legacy público (0068)", () => {
+    expect(
+      resolverVisual(albumSinMigrar, "card", {
+        deliveryUrl: DELIVERY,
+        tokenDeAlbumValidado: true,
+      }),
+    ).toEqual({ tipo: "legacy", url: LEGACY });
+  });
+
+  it("un valor que no sea exactamente true no abre la puerta", () => {
+    const opciones = { deliveryUrl: DELIVERY, tokenDeAlbumValidado: undefined };
+    expect(resolverVisual(albumSinMigrar, "card", opciones).tipo).toBe("sin-imagen");
   });
 });
 
@@ -159,93 +183,85 @@ describe("rutaCloudflare y la barra final", () => {
   });
 
   it("una deliveryUrl con barra final no produce una doble barra", () => {
-    const r = resolverVisual(asset(), "card", { deliveryUrl: `${DELIVERY}/` });
-    expect(r).toEqual({ tipo: "cloudflare", url: `${DELIVERY}/cf-123/card` });
+    expect(resolverVisual(asset(), "card", { deliveryUrl: `${DELIVERY}/` })).toEqual({
+      tipo: "cloudflare",
+      url: `${DELIVERY}/cf-123/card`,
+    });
   });
 });
 
-describe("resolverOriginal (la descarga)", () => {
-  it("prefiere R2 y devuelve la CLAVE, nunca una URL", () => {
-    const r = resolverOriginal({
-      estado: "listo",
-      deleted_at: null,
-      r2_key: "originals/a/album/b/c/foto.jpg",
-      legacy_url: LEGACY,
-    });
-    expect(r).toEqual({ tipo: "r2", clave: "originals/a/album/b/c/foto.jpg" });
+describe("resolverOriginal — solo claves CONFIRMADAS", () => {
+  it("listo devuelve la CLAVE de R2, nunca una URL", () => {
+    expect(
+      resolverOriginal({ estado: "listo", deleted_at: null, r2_key: R2, legacy_url: LEGACY }),
+    ).toEqual({ tipo: "r2", clave: R2 });
   });
 
-  it("un parcial_r2 SÍ sirve para descargar: el original ya está arriba", () => {
-    const r = resolverOriginal({
-      estado: "parcial_r2",
-      deleted_at: null,
-      r2_key: "originals/x",
-      legacy_url: null,
-    });
-    expect(r).toEqual({ tipo: "r2", clave: "originals/x" });
+  it("parcial_r2 también: el original ya está arriba y verificado", () => {
+    expect(
+      resolverOriginal({ estado: "parcial_r2", deleted_at: null, r2_key: R2, legacy_url: null }),
+    ).toEqual({ tipo: "r2", clave: R2 });
+  });
+
+  it("PENDIENTE con r2_key preasignada NO se descarga de R2", () => {
+    // La clave se calcula al firmar la subida, o sea ANTES de que el
+    // objeto exista. Firmar una descarga contra ella da 404.
+    expect(
+      resolverOriginal({ estado: "pendiente", deleted_at: null, r2_key: R2, legacy_url: LEGACY }),
+    ).toEqual({ tipo: "legacy", url: LEGACY });
+  });
+
+  it("subiendo, parcial_cf y error tampoco", () => {
+    for (const estado of ["subiendo", "parcial_cf", "error"] as const) {
+      expect(
+        resolverOriginal({ estado, deleted_at: null, r2_key: R2, legacy_url: LEGACY }),
+      ).toEqual({ tipo: "legacy", url: LEGACY });
+    }
+  });
+
+  it("sin confirmar y sin legacy, no hay descarga", () => {
+    expect(
+      resolverOriginal({ estado: "pendiente", deleted_at: null, r2_key: R2, legacy_url: null }),
+    ).toEqual({ tipo: "sin-original", motivo: "sin-origen" });
   });
 
   it("sin R2 todavía, se baja de Supabase", () => {
-    const r = resolverOriginal({
-      estado: "pendiente",
-      deleted_at: null,
-      r2_key: null,
-      legacy_url: LEGACY,
-    });
-    expect(r).toEqual({ tipo: "legacy", url: LEGACY });
+    expect(
+      resolverOriginal({ estado: "pendiente", deleted_at: null, r2_key: null, legacy_url: LEGACY }),
+    ).toEqual({ tipo: "legacy", url: LEGACY });
   });
 
   it("borrada no se descarga", () => {
-    const r = resolverOriginal({
-      estado: "listo",
-      deleted_at: "2026-01-01T00:00:00Z",
-      r2_key: "originals/x",
-      legacy_url: null,
-    });
-    expect(r).toEqual({ tipo: "sin-original", motivo: "borrada" });
+    expect(
+      resolverOriginal({
+        estado: "listo",
+        deleted_at: "2026-01-01T00:00:00Z",
+        r2_key: R2,
+        legacy_url: null,
+      }),
+    ).toEqual({ tipo: "sin-original", motivo: "borrada" });
   });
 });
 
-describe("preguntas de mantenimiento", () => {
-  it("necesitaMigracion solo se apaga con cloudflare + listo", () => {
-    const base = { deleted_at: null };
-    expect(
-      necesitaMigracion({ ...base, provider: "supabase_legacy" as Provider, estado: "listo" }),
-    ).toBe(true);
-    expect(
-      necesitaMigracion({ ...base, provider: "cloudflare" as Provider, estado: "parcial_cf" }),
-    ).toBe(true);
-    expect(necesitaMigracion({ ...base, provider: "cloudflare" as Provider, estado: "listo" })).toBe(
+describe("necesitaMigracion — derivada, sin campo provider", () => {
+  it("una imagen completa ya no necesita nada", () => {
+    expect(necesitaMigracion(asset())).toBe(false);
+  });
+
+  it("le falta migrar mientras no esté completa", () => {
+    expect(necesitaMigracion(asset({ estado: "pendiente" }))).toBe(true);
+    expect(necesitaMigracion(asset({ estado: "parcial_cf" }))).toBe(true);
+    // Marcada listo pero sin original: hay que volver a intentarlo.
+    expect(necesitaMigracion(asset({ r2_key: null }))).toBe(true);
+  });
+
+  it("un video con su original en R2 ya está migrado", () => {
+    expect(necesitaMigracion(asset({ mime: "video/mp4", cf_image_id: null }))).toBe(false);
+  });
+
+  it("lo borrado no se migra", () => {
+    expect(necesitaMigracion(asset({ estado: "pendiente", deleted_at: "2026-01-01T00:00:00Z" }))).toBe(
       false,
     );
-  });
-
-  it("legacyYaNoSeUsa exige las DOS copias", () => {
-    expect(
-      legacyYaNoSeUsa({ estado: "listo", deleted_at: null, cf_image_id: "a", r2_key: "b" }),
-    ).toBe(true);
-    expect(
-      legacyYaNoSeUsa({ estado: "listo", deleted_at: null, cf_image_id: "a", r2_key: null }),
-    ).toBe(false);
-  });
-
-  it("contarPorOrigen mide el avance de la migración", () => {
-    const cuenta = contarPorOrigen(
-      [
-        asset(),
-        asset(),
-        asset({ estado: "pendiente", cf_image_id: null }),
-        asset({ visibilidad: "compartida" }),
-        asset({ cf_image_id: null, legacy_url: null }),
-      ],
-      "card",
-      { deliveryUrl: DELIVERY },
-    );
-    expect(cuenta).toEqual({
-      cloudflare: 2,
-      legacy: 1,
-      "requiere-firma": 1,
-      "sin-imagen": 1,
-    });
   });
 });

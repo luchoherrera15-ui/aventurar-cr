@@ -21,6 +21,8 @@
  * Módulo puro: sin red, sin SDK, sin `process.env`.
  */
 
+import { esMimePermitido, type EntidadMedia, type MimePermitido } from "./tipos";
+
 // ------------------------------------------------------------
 // Caracteres y nombres que no pueden pasar
 // ------------------------------------------------------------
@@ -194,7 +196,12 @@ function exigirId(valor: string, campo: string): string {
 export type PartesClave = {
   /** El dueño; "compartido" para lo que no cuelga de un usuario. */
   propietarioId: string;
-  entidad: string;
+  /**
+   * `EntidadMedia` y no `string`: la carpeta del medio de la clave sale
+   * de acá, y con un string libre cualquier typo (`"albumes"`,
+   * `"Album"`) crea una carpeta nueva que nada vuelve a encontrar.
+   */
+  entidad: EntidadMedia;
   entidadId: string;
   assetId: string;
   /** El nombre tal cual lo mandó el navegador; se sanitiza acá adentro. */
@@ -227,19 +234,6 @@ export function claveOriginal(partes: PartesClave): string {
   return clave;
 }
 
-/**
- * La clave del ZIP de un álbum. Vive aparte de `originals/` para poder
- * ponerle una regla de expiración propia en R2 sin tocar los originales.
- */
-export function claveZip(albumId: string, jobId: string): string {
-  const clave = ["exports", exigirId(albumId, "albumId"), `${exigirId(jobId, "jobId")}.zip`].join(
-    "/",
-  );
-  const revision = revisarClave(clave);
-  if (!revision.ok) throw new Error(`Clave de ZIP inválida (${revision.motivo}).`);
-  return clave;
-}
-
 /** El prefijo de un asset, para borrar todo lo suyo de una. */
 export function prefijoDeAsset(partes: Omit<PartesClave, "nombre">): string {
   return [
@@ -256,30 +250,45 @@ export function prefijoDeAsset(partes: Omit<PartesClave, "nombre">): string {
 // ------------------------------------------------------------
 
 /**
- * La extensión que corresponde a un MIME. Se usa cuando el nombre no
- * trae ninguna (pasa con las fotos que vienen de la cámara en Android)
- * o cuando trae una que miente.
+ * La extensión que le corresponde a cada MIME.
+ *
+ * Es un `Record<MimePermitido, string>` y no un `Record<string, string>`
+ * a propósito: así TypeScript EXIGE que estén los doce MIME aceptados y
+ * ninguno más. La versión anterior era un mapa libre y se desalineó sola
+ * —tenía `image/gif`, que no está permitido, y le faltaban todos los de
+ * video y audio, que sí lo están—. Con esta forma, agregar un MIME a
+ * `MIMES_PERMITIDOS` sin darle extensión no compila.
  */
-const EXT_POR_MIME: Record<string, string> = {
+const EXT_POR_MIME: Record<MimePermitido, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/avif": "avif",
   "image/heic": "heic",
   "image/heif": "heif",
-  "image/gif": "gif",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
+  "audio/mpeg": "mp3",
+  // audio/mp4 es .m4a; video/mp4 es .mp4. Mismo contenedor, distinto uso.
+  "audio/mp4": "m4a",
+  "audio/ogg": "ogg",
 };
 
-export function extensionDeMime(mime: string): string | null {
-  return EXT_POR_MIME[mime.toLowerCase().split(";")[0].trim()] ?? null;
+export function extensionDeMime(mime: unknown): string | null {
+  if (typeof mime !== "string") return null;
+  const normalizado = mime.toLowerCase().split(";")[0].trim();
+  return esMimePermitido(normalizado) ? EXT_POR_MIME[normalizado as MimePermitido] : null;
 }
 
 /**
- * Un nombre con la extensión que de verdad le corresponde al contenido.
+ * Un nombre con la extensión que le corresponde al MIME permitido.
  *
  * El MIME manda sobre lo que diga el nombre: un `.jpg` que en realidad
- * es HEIC se sirve mal en todos lados, y el navegador ya nos dijo cuál
- * es. Si el MIME no se conoce, se respeta lo que vino.
+ * es HEIC se sirve mal en todos lados. Si el MIME NO está en la lista
+ * de permitidos, se devuelve el nombre sanitizado tal cual — pero eso
+ * no es una aceptación: `validarArchivo` ya lo rechazó antes, y esta
+ * función nunca debería verlo.
  */
 export function nombreConExtension(nombre: string, mime: string): string {
   const limpio = sanitizarNombre(nombre);

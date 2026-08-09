@@ -8,15 +8,15 @@
  *
  * El orden es siempre el mismo, y no se negocia:
  *
- *   1. ¿El asset está LISTO en Cloudflare?  → Cloudflare.
- *   2. ¿Todavía no está migrado?            → la URL de Supabase (legacy).
- *   3. ¿Falló la migración?                 → legacy igual, y se registra.
- *   4. ¿No hay nada?                        → null, y quien llama decide
- *                                             qué placeholder pone.
+ *   1. ¿El asset está LISTO y verificado?  → Cloudflare.
+ *   2. ¿Todavía no está migrado?           → la URL de Supabase (legacy).
+ *   3. ¿Falló la migración?                → legacy igual, y se registra.
+ *   4. ¿No hay nada?                       → null, y quien llama decide
+ *                                            qué placeholder pone.
  *
  * El paso 3 es el que más importa: una migración a medias NO puede
- * dejar a nadie sin foto. Mientras `legacy_url` tenga algo, la foto se
- * ve — venga de donde venga.
+ * dejar a nadie sin foto. Mientras `legacy_url` tenga algo y la
+ * visibilidad lo permita, la foto se ve — venga de donde venga.
  *
  * ── LO QUE ESTE MÓDULO NO HACE ───────────────────────────────────────
  *
@@ -32,6 +32,7 @@ import {
   ENTREGA,
   estaListo,
   estaVivo,
+  type AssetVerificable,
   type MediaAsset,
   type Variante,
 } from "./tipos";
@@ -40,10 +41,7 @@ import {
 // El resultado
 // ------------------------------------------------------------
 
-export type MotivoSinImagen =
-  | "borrada"
-  | "sin-origen"
-  | "sin-firmante";
+export type MotivoSinImagen = "borrada" | "sin-origen" | "sin-firmante";
 
 /**
  * Unión discriminada y no un `string | null` a secas: la diferencia
@@ -71,15 +69,24 @@ export type OpcionesResolver = {
    */
   firmar?: (ruta: string, variante: Variante) => string;
   /**
-   * Hoy los álbumes viven en un bucket PÚBLICO de Supabase (migración
-   * 0068) y se comparten por QR. Mientras eso siga así, el fallback
-   * legacy de un asset `compartida` es legítimo: es literalmente la URL
-   * que la página ya está sirviendo.
+   * ── LEER ANTES DE PONER ESTO EN true ─────────────────────────────
    *
-   * Cuando el álbum pase a Cloudflare con firma, esto se pone en false
-   * y el fallback deja de aplicar. En `privada` NO aplica nunca.
+   * Los álbumes viven hoy en un bucket PÚBLICO de Supabase (migración
+   * 0068), así que su `legacy_url` es una URL que cualquiera puede
+   * abrir. Servirla es legítimo SOLO cuando quien mira ya demostró que
+   * tiene derecho: es decir, después de que la página validó el
+   * QR/share token del álbum.
+   *
+   * Por eso el default es `false` y el nombre dice lo que hay que haber
+   * hecho, no lo que pasa con el bucket. Un default permisivo
+   * convertiría cualquier llamada distraída —una ruta nueva, un
+   * componente reutilizado, un test— en una fuga de las fotos de un
+   * álbum ajeno. Con `false`, esa misma distracción produce una foto
+   * que no se ve.
+   *
+   * NUNCA aplica a `privada`.
    */
-  legacyCompartidaEsPublica?: boolean;
+  tokenDeAlbumValidado?: boolean;
 };
 
 // ------------------------------------------------------------
@@ -101,10 +108,7 @@ export function rutaCloudflare(cfImageId: string, variante: Variante): string {
  * todo el módulo.
  */
 export function resolverVisual(
-  asset: Pick<
-    MediaAsset,
-    "estado" | "deleted_at" | "visibilidad" | "cf_image_id" | "legacy_url"
-  >,
+  asset: AssetVerificable & Pick<MediaAsset, "visibilidad" | "legacy_url">,
   variante: Variante,
   opciones: OpcionesResolver = {},
 ): ResultadoVisual {
@@ -115,11 +119,10 @@ export function resolverVisual(
 
   const necesitaFirma = ENTREGA[asset.visibilidad] === "firmada";
 
-  // 1. Cloudflare, si el asset está listo de verdad y hay a dónde
-  //    apuntar. `estaListo` exige que los DOS destinos se hayan
-  //    verificado: un `parcial_cf` tiene imagen en Cloudflare pero no
-  //    original en R2, y servirlo sería prometer una descarga que no
-  //    existe.
+  // 1. Cloudflare, solo si el asset está listo Y VERIFICADO. `estaListo`
+  //    comprueba que existan los archivos que el tipo exige, no que la
+  //    columna diga "listo": una fila inconsistente cae a legacy en vez
+  //    de producir un 404 con cara de foto.
   if (estaListo(asset) && asset.cf_image_id && opciones.deliveryUrl) {
     const ruta = rutaCloudflare(asset.cf_image_id, variante);
 
@@ -140,10 +143,10 @@ export function resolverVisual(
   if (asset.legacy_url) {
     const legacyPermitido =
       asset.visibilidad === "publica" ||
-      (asset.visibilidad === "compartida" && opciones.legacyCompartidaEsPublica !== false);
+      // `privada` NUNCA: el legacy de un comprobante es una ruta de
+      // bucket privado, no una URL que se pueda poner en un <img>.
+      (asset.visibilidad === "compartida" && opciones.tokenDeAlbumValidado === true);
 
-    // En `privada` NUNCA: el legacy de un comprobante es una ruta de
-    // bucket privado, no una URL que se pueda poner en un <img>.
     if (legacyPermitido) return { tipo: "legacy", url: asset.legacy_url };
     return { tipo: "sin-imagen", motivo: "sin-firmante" };
   }
@@ -174,6 +177,20 @@ export type ResultadoOriginal =
   | { tipo: "sin-original"; motivo: MotivoSinImagen };
 
 /**
+ * Los dos estados en los que el original de R2 está CONFIRMADO.
+ *
+ * `r2_key` se escribe al RESERVAR la clave, antes de que el archivo
+ * exista: se calcula para poder firmar la URL de subida. O sea que una
+ * fila en `pendiente` o `subiendo` ya tiene `r2_key` y no tiene objeto
+ * detrás. Firmar una descarga contra esa clave entrega un 404 con
+ * pinta de error nuestro.
+ *
+ * `parcial_cf` es el mismo problema con otra cara: la copia visual
+ * subió, el original no.
+ */
+const ORIGINAL_CONFIRMADO: readonly string[] = ["listo", "parcial_r2"];
+
+/**
  * De dónde se baja el ORIGINAL (la descarga, no lo que se mira).
  *
  * Devuelve la CLAVE de R2, nunca una URL: firmarla es cosa del servidor
@@ -185,57 +202,26 @@ export function resolverOriginal(
 ): ResultadoOriginal {
   if (!estaVivo(asset)) return { tipo: "sin-original", motivo: "borrada" };
 
-  // Acá alcanza con que el original esté arriba: un `parcial_r2` no
-  // tiene copia visual todavía, pero el archivo que se descarga sí
-  // existe y está verificado.
-  if (asset.r2_key) return { tipo: "r2", clave: asset.r2_key };
+  if (asset.r2_key && ORIGINAL_CONFIRMADO.includes(asset.estado)) {
+    return { tipo: "r2", clave: asset.r2_key };
+  }
+  // Con la clave reservada pero el objeto sin confirmar, todavía sirve
+  // lo de siempre: la foto se baja de Supabase hasta que R2 confirme.
   if (asset.legacy_url) return { tipo: "legacy", url: asset.legacy_url };
   return { tipo: "sin-original", motivo: "sin-origen" };
 }
 
 // ------------------------------------------------------------
-// Preguntas de mantenimiento
+// Mantenimiento
 // ------------------------------------------------------------
 
-/** ¿A este asset le falta pasar por Cloudflare/R2? */
-export function necesitaMigracion(
-  asset: Pick<MediaAsset, "provider" | "estado" | "deleted_at">,
-): boolean {
-  return estaVivo(asset) && !(asset.provider === "cloudflare" && asset.estado === "listo");
-}
-
 /**
- * ¿Se puede soltar la referencia a Supabase?
+ * ¿A este asset le falta pasar por Cloudflare/R2?
  *
- * Solo cuando el asset está listo Y tiene las dos copias. Aun así, el
- * plan es NO borrar nada de Supabase: esta función dice que el legacy ya
- * no se usa para servir, no que haya que borrarlo.
+ * Se deriva de si está completo y verificado, no de un campo
+ * `provider`: un asset puede tener el original arriba y la copia visual
+ * no, y eso es exactamente lo que hay que volver a intentar.
  */
-export function legacyYaNoSeUsa(
-  asset: Pick<MediaAsset, "estado" | "deleted_at" | "cf_image_id" | "r2_key">,
-): boolean {
-  return estaListo(asset) && Boolean(asset.cf_image_id) && Boolean(asset.r2_key);
-}
-
-/**
- * Cuántos assets de una lista siguen saliendo de Supabase. Es el número
- * que mide el avance de la migración y el que va a decir cuánto egress
- * queda por recuperar.
- */
-export function contarPorOrigen(
-  assets: readonly Pick<
-    MediaAsset,
-    "estado" | "deleted_at" | "visibilidad" | "cf_image_id" | "legacy_url"
-  >[],
-  variante: Variante,
-  opciones: OpcionesResolver = {},
-): Record<ResultadoVisual["tipo"], number> {
-  const cuenta: Record<ResultadoVisual["tipo"], number> = {
-    cloudflare: 0,
-    legacy: 0,
-    "requiere-firma": 0,
-    "sin-imagen": 0,
-  };
-  for (const a of assets) cuenta[resolverVisual(a, variante, opciones).tipo] += 1;
-  return cuenta;
+export function necesitaMigracion(asset: AssetVerificable): boolean {
+  return estaVivo(asset) && !estaListo(asset);
 }

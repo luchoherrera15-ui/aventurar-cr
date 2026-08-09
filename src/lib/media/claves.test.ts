@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_CLAVE,
   claveOriginal,
-  claveZip,
   esClaveSegura,
   extensionDeMime,
   nombreConExtension,
@@ -11,10 +10,11 @@ import {
   revisarClave,
   sanitizarNombre,
 } from "./claves";
+import { MIMES_PERMITIDOS } from "./tipos";
 
 const PARTES = {
   propietarioId: "11111111-1111-4111-8111-111111111111",
-  entidad: "album",
+  entidad: "album" as const,
   entidadId: "22222222-2222-4222-8222-222222222222",
   assetId: "33333333-3333-4333-8333-333333333333",
 };
@@ -92,8 +92,7 @@ describe("sanitizarNombre — nombres normales", () => {
   });
 
   it("recorta lo larguísimo sin perder la extensión", () => {
-    const largo = "a".repeat(500) + ".jpg";
-    const salida = sanitizarNombre(largo);
+    const salida = sanitizarNombre("a".repeat(500) + ".jpg");
     expect(salida.endsWith(".jpg")).toBe(true);
     expect(salida.length).toBeLessThanOrEqual(65);
   });
@@ -169,39 +168,71 @@ describe("claveOriginal", () => {
   });
 });
 
-describe("claveZip y prefijoDeAsset", () => {
-  it("el ZIP vive fuera de originals/", () => {
-    expect(claveZip("alb", "job")).toBe("exports/alb/job.zip");
-  });
-
-  it("el prefijo de un asset termina en su propio id", () => {
+describe("prefijoDeAsset", () => {
+  it("termina en el id del asset", () => {
     expect(prefijoDeAsset(PARTES)).toBe(
       `originals/${PARTES.propietarioId}/album/${PARTES.entidadId}/${PARTES.assetId}`,
     );
   });
 
-  it("el prefijo es prefijo de la clave del archivo", () => {
+  it("es prefijo de la clave del archivo", () => {
     const clave = claveOriginal({ ...PARTES, nombre: "foto.jpg" });
     expect(clave.startsWith(prefijoDeAsset(PARTES) + "/")).toBe(true);
   });
+});
 
-  it("rechaza ids hostiles", () => {
-    expect(() => claveZip("../otro", "job")).toThrow();
+describe("extensión y MIME — las tablas están alineadas", () => {
+  it("los DOCE MIME permitidos tienen extensión", () => {
+    for (const m of MIMES_PERMITIDOS) {
+      expect(extensionDeMime(m), `falta extensión para ${m}`).not.toBe(null);
+    }
+  });
+
+  it("imágenes", () => {
+    expect(extensionDeMime("image/jpeg")).toBe("jpg");
+    expect(extensionDeMime("image/png")).toBe("png");
+    expect(extensionDeMime("image/webp")).toBe("webp");
+    expect(extensionDeMime("image/avif")).toBe("avif");
+    expect(extensionDeMime("image/heic")).toBe("heic");
+    expect(extensionDeMime("image/heif")).toBe("heif");
+  });
+
+  it("video", () => {
+    expect(extensionDeMime("video/mp4")).toBe("mp4");
+    expect(extensionDeMime("video/webm")).toBe("webm");
+    expect(extensionDeMime("video/quicktime")).toBe("mov");
+  });
+
+  it("audio, y m4a no se confunde con mp4", () => {
+    expect(extensionDeMime("audio/mpeg")).toBe("mp3");
+    expect(extensionDeMime("audio/mp4")).toBe("m4a");
+    expect(extensionDeMime("audio/ogg")).toBe("ogg");
+  });
+
+  it("un MIME que NO está permitido no tiene extensión", () => {
+    // GIF estaba en la tabla vieja sin estar en la lista de permitidos.
+    expect(extensionDeMime("image/gif")).toBe(null);
+    expect(extensionDeMime("image/svg+xml")).toBe(null);
+    expect(extensionDeMime("application/zip")).toBe(null);
+    expect(extensionDeMime(null)).toBe(null);
+  });
+
+  it("tolera el charset pegado y las mayúsculas", () => {
+    expect(extensionDeMime("IMAGE/WEBP")).toBe("webp");
+    expect(extensionDeMime("image/jpeg; charset=binary")).toBe("jpg");
   });
 });
 
-describe("extensión y MIME", () => {
-  it("conoce los formatos que se aceptan", () => {
-    expect(extensionDeMime("image/jpeg")).toBe("jpg");
-    expect(extensionDeMime("image/heic")).toBe("heic");
-    expect(extensionDeMime("IMAGE/WEBP")).toBe("webp");
-    expect(extensionDeMime("image/jpeg; charset=binary")).toBe("jpg");
-    expect(extensionDeMime("application/zip")).toBe(null);
-  });
-
+describe("nombreConExtension", () => {
   it("el MIME le gana a una extensión mentirosa", () => {
     // El caso de iPhone: se llama .jpg pero es HEIC.
     expect(nombreConExtension("recuerdo.jpg", "image/heic")).toBe("recuerdo.heic");
+  });
+
+  it("corrige también video y audio", () => {
+    expect(nombreConExtension("clip.avi", "video/mp4")).toBe("clip.mp4");
+    expect(nombreConExtension("cancion.wav", "audio/mpeg")).toBe("cancion.mp3");
+    expect(nombreConExtension("nota.mp4", "audio/mp4")).toBe("nota.m4a");
   });
 
   it("no reescribe cuando ya coincide, ni jpeg por jpg", () => {
@@ -213,7 +244,8 @@ describe("extensión y MIME", () => {
     expect(nombreConExtension("IMG_0042", "image/jpeg")).toBe("IMG_0042.jpg");
   });
 
-  it("respeta el nombre si el MIME no se conoce", () => {
+  it("con un MIME no permitido devuelve el nombre sanitizado tal cual", () => {
+    // validarArchivo ya lo rechazó antes; esto nunca debería verlo.
     expect(nombreConExtension("archivo.raro", "application/octet-stream")).toBe("archivo.raro");
   });
 });
