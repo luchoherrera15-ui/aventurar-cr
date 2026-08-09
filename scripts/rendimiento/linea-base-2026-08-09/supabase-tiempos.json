@@ -1,0 +1,34 @@
+[
+  {
+    "nombre": "ranchos (COLUMNAS_CARD, aprobados)",
+    "mediana": 168.806,
+    "min": 159.7949,
+    "max": 383.3207,
+    "filas": 6,
+    "bytes": 4608
+  },
+  {
+    "nombre": "disponibilidad_rancho (confirmadas)",
+    "mediana": 157.9198,
+    "min": 153.2578,
+    "max": 284.0891,
+    "filas": 38,
+    "bytes": 2482
+  },
+  {
+    "nombre": "calificaciones_rancho",
+    "mediana": 156.4227,
+    "min": 148.7522,
+    "max": 166.4889,
+    "filas": 0,
+    "bytes": 2
+  },
+  {
+    "nombre": "resenas (limit 300)",
+    "mediana": 160.4045,
+    "min": 148.6839,
+    "max": 167.1201,
+    "filas": 0,
+    "bytes": 2
+  }
+]

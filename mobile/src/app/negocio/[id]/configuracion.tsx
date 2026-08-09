@@ -7,6 +7,11 @@ import BarraSuperior from "@/components/barra-superior";
 import PanelNav, { ALTO_PANEL_NAV } from "@/components/panel-nav";
 import { FilaLista, Lista, Micro } from "@/components/ui";
 import { useAuth } from "@/lib/auth-context";
+import {
+  cargarContextoNegocio,
+  TIPO_NEGOCIO_LABEL,
+  type ContextoNegocio,
+} from "@/lib/business";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 
 /**
@@ -34,6 +39,7 @@ export default function ConfiguracionNegocioScreen() {
   const [nombre, setNombre] = useState<string | null>(null);
   const [categoria, setCategoria] = useState<string | null>(null);
   const [vertical, setVertical] = useState<string | null>(null);
+  const [negocio, setNegocio] = useState<ContextoNegocio | null>(null);
   const [cargando, setCargando] = useState(true);
 
   useFocusEffect(
@@ -52,6 +58,13 @@ export default function ConfiguracionNegocioScreen() {
           setVertical((data?.vertical as string) ?? null);
           setCargando(false);
         });
+      // Bookea Business: qué módulos usa el negocio. Se elige desde la
+      // web (bookea.lat); el app los respeta.
+      cargarContextoNegocio(id)
+        .then((ctx) => {
+          if (vigente) setNegocio(ctx);
+        })
+        .catch(() => {});
       return () => {
         vigente = false;
       };
@@ -118,7 +131,11 @@ export default function ConfiguracionNegocioScreen() {
       : []),
   ];
 
-  const clientes: Entrada[] = esCitas
+  // El módulo manda: un negocio que apagó Clientes en la web tampoco
+  // lo ve acá. Mientras el contexto no cargó rige lo de siempre.
+  const conClientes = negocio ? negocio.modulos.has("clientes") : true;
+
+  const clientes: Entrada[] = esCitas && conClientes
     ? [
         {
           ruta: `/negocio/${id}/clientes`,
@@ -149,6 +166,26 @@ export default function ConfiguracionNegocioScreen() {
           <Bloque titulo="Plata" entradas={plata} />
           <Bloque titulo="Agenda" entradas={agenda} />
           {clientes.length > 0 && <Bloque titulo="Clientes" entradas={clientes} />}
+
+          {negocio && (
+            <View style={{ gap: Spacing.two }}>
+              <Micro>Tipo de negocio</Micro>
+              <Lista>
+                <FilaLista primera>
+                  <View style={styles.burbuja}>
+                    <Ionicons name="business-outline" size={17} color={Colors.navy} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.titulo}>{TIPO_NEGOCIO_LABEL[negocio.tipo]}</Text>
+                    <Text style={styles.detalle}>
+                      Define qué herramientas ves. Se cambia desde bookea.lat, en Configuración →
+                      Tipo de negocio y módulos.
+                    </Text>
+                  </View>
+                </FilaLista>
+              </Lista>
+            </View>
+          )}
 
           <Text style={styles.pie}>
             Lo que no está acá —el asistente con IA y los informes largos— se maneja mejor desde

@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { cargarContextoNegocio, type ModuloId } from "@/lib/business";
 
 /**
  * Las secciones del panel del dueño, en una barra fija abajo.
@@ -20,6 +22,14 @@ import { Colors, Fonts, Spacing } from "@/constants/theme";
  * Configuración. Se ve formal a propósito: barra blanca con una línea
  * fina arriba y el navy de marca en lo activo, nada de dock de vidrio
  * — ese es el lenguaje del lado del cliente, no el del panel.
+ *
+ * BOOKEA BUSINESS: qué destinos aparecen lo deciden los MÓDULOS que el
+ * negocio tiene encendidos (src/lib/business.ts), igual que el menú
+ * lateral de la web — apagar "Servicios" en el panel web también acorta
+ * esta barra. La consulta se hace acá adentro para que las cuatro
+ * pantallas del panel no tengan que cargarlo cada una; mientras llega,
+ * manda `mostrarCatalogo` (lo que ya sabe la pantalla), así la barra
+ * nunca parpadea.
  */
 
 export type SeccionPanel = "inicio" | "catalogo" | "finanzas" | "configuracion";
@@ -50,6 +60,24 @@ export default function PanelNav({
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [modulos, setModulos] = useState<Set<ModuloId> | null>(null);
+
+  useEffect(() => {
+    let vigente = true;
+    cargarContextoNegocio(negocioId)
+      .then((ctx) => {
+        if (vigente) setModulos(ctx.modulos);
+      })
+      // Sin módulos (red caída, migración sin correr) la barra se queda
+      // con lo que la pantalla ya sabía: nunca se queda sin destinos.
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, [negocioId]);
+
+  const conCatalogo = modulos ? modulos.has("servicios") : mostrarCatalogo;
+  const conFinanzas = modulos ? modulos.has("pagos") : true;
 
   const destinos: Destino[] = [
     {
@@ -59,7 +87,7 @@ export default function PanelNav({
       iconoActivo: "home",
       ruta: `/negocio/${negocioId}`,
     },
-    ...(mostrarCatalogo
+    ...(conCatalogo
       ? [
           {
             id: "catalogo" as const,
@@ -70,13 +98,17 @@ export default function PanelNav({
           },
         ]
       : []),
-    {
-      id: "finanzas",
-      label: "Finanzas",
-      icono: "trending-up-outline",
-      iconoActivo: "trending-up",
-      ruta: `/negocio/${negocioId}/finanzas`,
-    },
+    ...(conFinanzas
+      ? [
+          {
+            id: "finanzas" as const,
+            label: "Finanzas",
+            icono: "trending-up-outline" as const,
+            iconoActivo: "trending-up" as const,
+            ruta: `/negocio/${negocioId}/finanzas`,
+          },
+        ]
+      : []),
     {
       id: "configuracion",
       label: "Configuración",

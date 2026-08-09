@@ -50,3 +50,6 @@ credentials*.json
 
 # Fotos de negocios que se suben con script (no van al repo)
 /puramatcha/
+
+# Arnés de medición de rendimiento (Lighthouse pesa mucho; ver scripts/rendimiento/README.md)
+/.rendimiento/

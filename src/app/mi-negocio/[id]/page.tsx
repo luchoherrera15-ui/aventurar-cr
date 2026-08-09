@@ -102,6 +102,13 @@ import type {
 } from "./citas/actions";
 import { horarioDeDetalles } from "@/app/citas/tipos";
 import { sumarDiasISO } from "@/lib/fechas";
+// BOOKEA BUSINESS: el tipo de negocio y sus módulos deciden qué ítems
+// tiene el menú y qué números muestra el tablero — antes eso era un
+// `vertical === 'citas' ? A : B` cableado más abajo.
+import { contextoDesdeDatos } from "@/lib/business/contexto";
+import { definicionTipo } from "@/lib/business/modulos";
+import { widgetsDashboard } from "@/lib/business/widgets";
+import ModulosPanel from "./modulos-panel";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -169,6 +176,7 @@ export default async function RanchoDetallePage({
     addonAgendaIA,
     conocimientoRes,
     contratadoRes,
+    modulosRes,
   ] = await Promise.all([
     supabase.from("ranchos").select("*").eq("id", id).maybeSingle(),
     // El dueño entra siempre; un admin también puede entrar a modificar
@@ -234,6 +242,12 @@ export default async function RanchoDetallePage({
     // security definer — se puede preguntar con la sesión del dueño sin
     // abrirle la tabla).
     supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "asistente_ia" }),
+    // Los módulos que este negocio encendió o apagó (0108). Guarda solo
+    // las DIFERENCIAS contra el default de su tipo: sin filas, manda el
+    // tipo. Si la migración todavía no se pegó, el error se arrastra
+    // hasta la sección de Bookea Business y el resto del panel sigue
+    // funcionando con los defaults (mismo patrón que giftcards).
+    supabase.from("modulos_negocio").select("modulo, activo").eq("rancho_id", id),
   ]);
 
   if (!data) notFound();
@@ -260,6 +274,28 @@ export default async function RanchoDetallePage({
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
+
+  // BOOKEA BUSINESS — qué tipo de negocio es y qué módulos usa. De acá
+  // salen los ítems del menú, las secciones de Configuración y los
+  // números del tablero. Un negocio que nunca tocó nada resuelve
+  // exactamente los módulos que le corresponden por su categoría, así
+  // que ve el mismo panel de siempre (cubierto por modulos.test.ts).
+  const overridesModulos: Record<string, boolean> = {};
+  for (const fila of (modulosRes.data ?? []) as { modulo: string; activo: boolean }[]) {
+    overridesModulos[fila.modulo] = fila.activo;
+  }
+  const negocio = contextoDesdeDatos(
+    {
+      id: rancho.id,
+      vertical: rancho.vertical,
+      categoria: rancho.categoria,
+      tipo_negocio:
+        ((data as Record<string, unknown>).tipo_negocio as string | null) ?? null,
+    },
+    overridesModulos,
+    modulosRes.error?.message ?? null,
+  );
+  const modulos = negocio.modulos;
 
   const errorFinanzas = reservasRes.error ?? gastosRes.error;
   const reservas = (reservasRes.data ?? []) as Reserva[];
@@ -632,7 +668,17 @@ export default async function RanchoDetallePage({
           )}
         </BarraAvisos>
 
-        <DashboardMetricas metricas={metricas} esLugar={esLugar} />
+        <DashboardMetricas
+          metricas={metricas}
+          widgets={widgetsDashboard({
+            tipo: negocio.tipo,
+            modulos,
+            // La ocupación por día solo dice algo donde una fecha se
+            // reserva entera (Lugares); en una barbería el mismo día
+            // tiene veinte espacios.
+            ocupacionDisponible: metricas.ocupacionProximos30 !== null,
+          })}
+        />
 
         {/* (b) La agenda, entera y con todas sus acciones. */}
         <section>
@@ -735,6 +781,29 @@ export default async function RanchoDetallePage({
   // "Precios" y "Asistente IA") son ahora secciones plegables de UNA
   // sola pestaña — el mismo patrón que ya usaba la vertical Citas. Se
   // declaran acá y se montan más abajo, después de `contenidoAsistente`.
+  // La sección de Bookea Business, idéntica en las dos verticales: qué
+  // tipo de negocio es y qué módulos usa. Es lo que reordena el menú, el
+  // tablero y el resto de Configuración, así que va arriba de todo lo
+  // que configura — justo después del perfil.
+  const seccionBookeaBusiness = (
+    <SeccionPlegable
+      marco={false}
+      abierta={seccion === "modulos"}
+      titulo="Tipo de negocio y módulos"
+      descripcion="Qué administrás y qué herramientas querés ver. Apagá lo que no usás y tu panel se acorta."
+      resumen={definicionTipo(negocio.tipo).label}
+    >
+      <ModulosPanel
+        ranchoId={rancho.id}
+        vertical={rancho.vertical ?? "eventos"}
+        tipo={negocio.tipo}
+        tipoExplicito={negocio.tipoExplicito}
+        activos={[...modulos]}
+        errorModulos={negocio.errorModulos}
+      />
+    </SeccionPlegable>
+  );
+
   const seccionesConfigEventos = (
     <>
       <SeccionPlegable
@@ -745,6 +814,8 @@ export default async function RanchoDetallePage({
       >
         <EditarRanchoForm rancho={rancho} />
       </SeccionPlegable>
+
+      {seccionBookeaBusiness}
 
       {/* Con depósito + cuentas configuradas, el negocio de servicio
           pasa de recibir "solicitudes" a reservas agendadas con pago
@@ -967,6 +1038,8 @@ export default async function RanchoDetallePage({
           <EditarRanchoForm rancho={rancho} />
         </SeccionPlegable>
 
+        {seccionBookeaBusiness}
+
         <SeccionPlegable
           marco={false}
           abierta={seccion === "productos"}
@@ -979,21 +1052,25 @@ export default async function RanchoDetallePage({
           {contenidoCatalogo}
         </SeccionPlegable>
 
-        <SeccionPlegable
-          marco={false}
-          abierta={seccion === "colaboradores"}
-          titulo="Mis colaboradores"
-          descripcion="Las personas que atienden (y también espacios como cabinas o camillas). Cada quien puede tener su propio horario y sus propios servicios."
-          resumen={equipoCitas.length > 0 ? `${equipoCitas.length} en el equipo` : undefined}
-        >
-          <EquipoPanel
-            ranchoId={rancho.id}
-            initialEquipo={equipoCitas}
-            serviciosCita={serviciosCita}
-            asignaciones={asignacionesCitas}
-            horarios={horariosPorMiembroCitas}
-          />
-        </SeccionPlegable>
+        {/* El equipo es un módulo: un profesional que trabaja solo lo
+            apaga y deja de ver esta sección. */}
+        {modulos.has("equipo") && (
+          <SeccionPlegable
+            marco={false}
+            abierta={seccion === "colaboradores"}
+            titulo="Mis colaboradores"
+            descripcion="Las personas que atienden (y también espacios como cabinas o camillas). Cada quien puede tener su propio horario y sus propios servicios."
+            resumen={equipoCitas.length > 0 ? `${equipoCitas.length} en el equipo` : undefined}
+          >
+            <EquipoPanel
+              ranchoId={rancho.id}
+              initialEquipo={equipoCitas}
+              serviciosCita={serviciosCita}
+              asignaciones={asignacionesCitas}
+              horarios={horariosPorMiembroCitas}
+            />
+          </SeccionPlegable>
+        )}
 
         <SeccionPlegable
           marco={false}
@@ -1094,29 +1171,40 @@ export default async function RanchoDetallePage({
     ),
   };
 
-  // CUATRO ítems en las dos verticales — el menú de siete saturaba el
-  // teléfono (pedido del dueño):
+  // EL MENÚ SE ARMA DE LOS MÓDULOS, no de la vertical. Cada ítem
+  // declara qué módulo necesita; un módulo apagado (o una pantalla que
+  // todavía no existe) simplemente no aporta ítem.
   //
-  // CITAS — Inicio, Citas (la agenda del día, donde entran solas las
-  // reservas de la web y se agenda/mueve/cancela todo), Finanzas y
-  // Configuración (todo lo demás, plegado).
+  // Con los defaults de cada tipo esto da EXACTAMENTE el menú de antes:
+  //   CITAS    — Inicio · Citas · Finanzas · Configuración
+  //   EVENTOS  — Inicio · Catálogo (si no es lugar) · Finanzas · Config.
+  // Lo verifica src/lib/business/modulos.test.ts contra la regla vieja,
+  // caso por caso.
   //
-  // EVENTOS y demás — Inicio (avisos + agenda + histórico), Catálogo
-  // (solo si no es lugar), Finanzas y Configuración (lo que antes eran
-  // "Mi negocio", "Precios" y "Asistente IA").
-  const tabs: Tab[] = esVerticalCitas
-    ? [
-        tabInicio,
-        {
-          id: "citas",
-          label: "Citas",
-          href: `/mi-negocio/${rancho.id}/citas`,
-          icon: <IconClock />,
-        } satisfies Tab,
-        tabFinanzas,
-        tabConfig,
-      ]
-    : [tabInicio, ...(!esLugar ? [tabCatalogo] : []), tabFinanzas, tabConfigEventos];
+  // Los `grupo` son para cuando el menú crece (un gimnasio con clases,
+  // membresías y check-in): PanelSidebar solo pinta los encabezados
+  // cuando hay de qué agrupar.
+  const tabs: Tab[] = [
+    { ...tabInicio, grupo: "agenda" },
+    // La agenda del día vive en su propia ruta y hoy solo existe para
+    // la vertical de citas.
+    ...(esVerticalCitas && modulos.has("agenda")
+      ? [
+          {
+            id: "citas",
+            label: "Citas",
+            href: `/mi-negocio/${rancho.id}/citas`,
+            icon: <IconClock />,
+            grupo: "agenda",
+          } satisfies Tab,
+        ]
+      : []),
+    ...(!esVerticalCitas && modulos.has("servicios")
+      ? [{ ...tabCatalogo, grupo: "gestion" as const }]
+      : []),
+    ...(modulos.has("pagos") ? [{ ...tabFinanzas, grupo: "finanzas" as const }] : []),
+    { ...(esVerticalCitas ? tabConfig : tabConfigEventos), grupo: "config" },
+  ];
 
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 

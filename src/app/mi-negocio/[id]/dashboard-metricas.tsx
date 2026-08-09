@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { fmtColones } from "@/lib/finanzas";
 import { compararTexto, type Metricas } from "./metricas";
+import type { WidgetDashboard, WidgetId } from "@/lib/business/widgets";
 import {
   IconCalendarLine,
   IconChartBars,
@@ -42,6 +43,59 @@ type Card = {
   icono: ReactNode;
   plata?: boolean;
 };
+
+/**
+ * Cómo se pinta cada widget. El TÍTULO no está acá a propósito: lo pone
+ * `widgetsDashboard` según el tipo de negocio ("Citas este mes" en una
+ * barbería, "Reservas este mes" en un salón de eventos). Acá vive solo
+ * el número y su ícono.
+ */
+function contenidoWidget(id: WidgetId, m: Metricas): Omit<Card, "titulo"> | null {
+  switch (id) {
+    case "ingresos_mes":
+      return {
+        valor: fmtColones(m.ingresosEsteMes),
+        detalle: compararTexto(m.ingresosEsteMes, m.ingresosMesAnterior),
+        icono: <IconChartBars />,
+        plata: true,
+      };
+    case "por_cobrar_30":
+      return {
+        valor: fmtColones(m.porCobrarProximos30),
+        detalle: "Saldos que faltan",
+        icono: <IconTagLine />,
+        plata: true,
+      };
+    case "reservas_mes":
+      return {
+        valor: String(m.reservasEsteMes),
+        detalle: compararTexto(m.reservasEsteMes, m.reservasMesAnterior),
+        icono: <IconCalendarLine />,
+      };
+    case "proxima_reserva":
+      return {
+        valor: m.proximaReserva ? fmtFechaCorta(m.proximaReserva.fecha) : "—",
+        detalle: m.proximaReserva?.nombre ?? (m.proximaReserva ? undefined : "Nada agendado"),
+        icono: <IconClock />,
+      };
+    case "ocupacion_30":
+      return m.ocupacionProximos30 === null
+        ? null
+        : {
+            valor: `${m.ocupacionProximos30}%`,
+            detalle: "Días ya confirmados",
+            icono: <IconCheck />,
+          };
+    case "reservas_historico":
+      return {
+        valor: String(m.totalReservasHistorico),
+        detalle: "Desde siempre",
+        icono: <IconUsers />,
+      };
+    default:
+      return null;
+  }
+}
 
 /** Un número del tablero, con su ícono de marca de agua sangrando por
  *  la esquina (el overflow-hidden lo recorta). El naranja marca lo que
@@ -84,31 +138,26 @@ function Dato({
 }
 
 /**
- * El pulso del negocio en TRES números — los que de verdad se miran
- * todos los días: cuánta plata entró este mes, cuánta falta cobrar en
- * los próximos 30 y cuántas reservas cerró el mes. El resto (próxima
- * reserva, ocupación, total histórico) queda detrás de "Ver más": son
- * de análisis, no de operación, y seis tarjetas en fila saturaban el
- * teléfono.
+ * El pulso del negocio: los números que de verdad se miran todos los
+ * días arriba, y los de análisis detrás de "Ver más" (seis tarjetas en
+ * fila saturaban el teléfono).
+ *
+ * CUÁLES son y cómo se llaman ya no se decide acá: llegan en `widgets`,
+ * resueltos por `widgetsDashboard` según el tipo de negocio y sus
+ * módulos (src/lib/business/widgets.ts). Así una barbería lee "Citas
+ * este mes" y un salón de eventos "Reservas este mes" con el MISMO
+ * componente — y cuando lleguen membresías o check-ins, se agregan a
+ * esa lista sin volver a tocar esta pantalla.
  */
 export default function DashboardMetricas({
   metricas,
-  esLugar,
+  widgets,
 }: {
   metricas: Metricas;
-  esLugar: boolean;
+  widgets: WidgetDashboard[];
 }) {
   const [abierto, setAbierto] = useState(false);
-  const {
-    reservasEsteMes,
-    reservasMesAnterior,
-    ingresosEsteMes,
-    ingresosMesAnterior,
-    proximaReserva,
-    ocupacionProximos30,
-    porCobrarProximos30,
-    totalReservasHistorico,
-  } = metricas;
+  const { ingresosEsteMes, proximaReserva, totalReservasHistorico } = metricas;
 
   if (totalReservasHistorico === 0 && ingresosEsteMes === 0 && !proximaReserva) {
     return (
@@ -119,57 +168,18 @@ export default function DashboardMetricas({
     );
   }
 
-  // Las tres de siempre: lo que entró, lo que falta entrar, y el
-  // volumen del mes. Nada de esto se repite más abajo en la pantalla.
-  const principales: Card[] = [
-    {
-      titulo: "Ingresos este mes",
-      valor: fmtColones(ingresosEsteMes),
-      detalle: compararTexto(ingresosEsteMes, ingresosMesAnterior),
-      icono: <IconChartBars />,
-      plata: true,
-    },
-    {
-      titulo: "Por cobrar 30 días",
-      valor: fmtColones(porCobrarProximos30),
-      detalle: "Saldos que faltan",
-      icono: <IconTagLine />,
-      plata: true,
-    },
-    {
-      titulo: "Reservas este mes",
-      valor: String(reservasEsteMes),
-      detalle: compararTexto(reservasEsteMes, reservasMesAnterior),
-      icono: <IconCalendarLine />,
-    },
-  ];
+  const armar = (nivel: WidgetDashboard["nivel"]): Card[] =>
+    widgets
+      .filter((w) => w.nivel === nivel)
+      .flatMap((w) => {
+        const contenido = contenidoWidget(w.id, metricas);
+        return contenido ? [{ titulo: w.titulo, ...contenido }] : [];
+      });
 
-  // De análisis: la próxima reserva ya se ve en la agenda de abajo, y
-  // ocupación/histórico se consultan de vez en cuando.
-  const secundarias: Card[] = [
-    {
-      titulo: "Próxima reserva",
-      valor: proximaReserva ? fmtFechaCorta(proximaReserva.fecha) : "—",
-      detalle: proximaReserva?.nombre ?? (proximaReserva ? undefined : "Nada agendado"),
-      icono: <IconClock />,
-    },
-    ...(esLugar && ocupacionProximos30 !== null
-      ? [
-          {
-            titulo: "Ocupación 30 días",
-            valor: `${ocupacionProximos30}%`,
-            detalle: "Días ya confirmados",
-            icono: <IconCheck />,
-          },
-        ]
-      : []),
-    {
-      titulo: "Reservas totales",
-      valor: String(totalReservasHistorico),
-      detalle: "Desde siempre",
-      icono: <IconUsers />,
-    },
-  ];
+  const principales = armar("principal");
+  const secundarias = armar("secundario");
+
+  if (principales.length === 0 && secundarias.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-2">
@@ -187,17 +197,19 @@ export default function DashboardMetricas({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setAbierto((v) => !v)}
-        aria-expanded={abierto}
-        className="flex items-center gap-1 self-start text-[12px] font-bold text-aventurea-navy hover:underline"
-      >
-        {abierto ? "Ver menos" : "Ver más números"}
-        <IconChevronDown
-          className={`h-3.5 w-3.5 transition-transform ${abierto ? "rotate-180" : ""}`}
-        />
-      </button>
+      {secundarias.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setAbierto((v) => !v)}
+          aria-expanded={abierto}
+          className="flex items-center gap-1 self-start text-[12px] font-bold text-aventurea-navy hover:underline"
+        >
+          {abierto ? "Ver menos" : "Ver más números"}
+          <IconChevronDown
+            className={`h-3.5 w-3.5 transition-transform ${abierto ? "rotate-180" : ""}`}
+          />
+        </button>
+      )}
     </div>
   );
 }

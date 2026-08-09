@@ -1,0 +1,65 @@
+[
+  {
+    "ruta": "/terminos",
+    "desc": "estática, sin base",
+    "ttfbMediana": 175,
+    "min": 159,
+    "max": 221,
+    "bytes": 11825,
+    "cache": "MISS"
+  },
+  {
+    "ruta": "/politicas",
+    "desc": "estática, sin base",
+    "ttfbMediana": 165,
+    "min": 159,
+    "max": 231,
+    "bytes": 9552,
+    "cache": "MISS"
+  },
+  {
+    "ruta": "/eventos",
+    "desc": "4 consultas en paralelo + auth",
+    "ttfbMediana": 168,
+    "min": 164,
+    "max": 281,
+    "bytes": 13222,
+    "cache": "MISS"
+  },
+  {
+    "ruta": "/rancholastorres",
+    "desc": "ficha de negocio",
+    "ttfbMediana": 204,
+    "min": 195,
+    "max": 266,
+    "bytes": 16948,
+    "cache": "MISS"
+  },
+  {
+    "ruta": "/citas",
+    "desc": "directorio de citas",
+    "ttfbMediana": 165,
+    "min": 159,
+    "max": 398,
+    "bytes": 11908,
+    "cache": "MISS"
+  },
+  {
+    "ruta": "/a/fotos-revelacion-maria-jesus-y-luis",
+    "desc": "álbum de 164 fotos",
+    "ttfbMediana": 325,
+    "min": 297,
+    "max": 368,
+    "bytes": 15814,
+    "cache": "MISS"
+  },
+  {
+    "ruta": "/i/demo-boda-premium",
+    "desc": "invitación",
+    "ttfbMediana": 147,
+    "min": 141,
+    "max": 174,
+    "bytes": 42721,
+    "cache": "HIT"
+  }
+]

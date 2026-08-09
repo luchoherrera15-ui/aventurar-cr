@@ -5,6 +5,7 @@ import { hoyISOCR, fmtFechaCorta, sumarDiasISO } from "@/lib/fechas";
 import { fmtColones } from "@/lib/finanzas";
 import { horarioDeDetalles } from "@/app/citas/tipos";
 import { agruparClientes, type ReservaCliente } from "@/lib/crm-citas";
+import { cargarContextoNegocio } from "@/lib/business/contexto";
 import SeccionPlegable from "@/components/seccion-plegable";
 import AgendaCitas, { type CitaDia } from "./agenda-citas";
 import ClientesPanel from "./clientes-panel";
@@ -89,6 +90,7 @@ export default async function CitasConfigPage({
     horariosRes,
     crmRes,
     giftcardsRes,
+    negocio,
   ] = await Promise.all([
     supabase
       .from("equipo_rancho")
@@ -151,6 +153,16 @@ export default async function CitasConfigPage({
       .eq("rancho_id", id)
       .order("created_at", { ascending: false })
       .limit(50),
+    // BOOKEA BUSINESS: qué módulos usa este negocio. Lo que acompaña la
+    // operación (clientes, reportes) se muestra solo si los tiene
+    // encendidos; sin la 0108 corrida resuelve los defaults de su tipo,
+    // o sea todo como estaba.
+    cargarContextoNegocio(supabase, {
+      id,
+      vertical: rancho.vertical,
+      categoria: rancho.categoria,
+      tipo_negocio: (rancho as { tipo_negocio?: string | null }).tipo_negocio ?? null,
+    }),
   ]);
 
   const equipo = (equipoRes.data ?? []) as MiembroEquipo[];
@@ -248,30 +260,34 @@ export default async function CitasConfigPage({
 
         {/* Lo que acompaña la operación, plegado y cerrado: se abre
             cuando hace falta, sin agrandar la pantalla. */}
-        <SeccionPlegable
-          marco={false}
-          id="clientes"
-          titulo="Clientes"
-          descripcion="Quién viene, quién dejó de venir y quién te está fallando — con la promoción de re-enganche a un clic."
-          resumen={clientes.length > 0 ? `${clientes.length}` : undefined}
-        >
-          <ClientesPanel
-            ranchoId={rancho.id}
-            nombreNegocio={rancho.nombre}
-            clientes={clientes}
-          />
-        </SeccionPlegable>
+        {negocio.modulos.has("clientes") && (
+          <SeccionPlegable
+            marco={false}
+            id="clientes"
+            titulo="Clientes"
+            descripcion="Quién viene, quién dejó de venir y quién te está fallando — con la promoción de re-enganche a un clic."
+            resumen={clientes.length > 0 ? `${clientes.length}` : undefined}
+          >
+            <ClientesPanel
+              ranchoId={rancho.id}
+              nombreNegocio={rancho.nombre}
+              clientes={clientes}
+            />
+          </SeccionPlegable>
+        )}
 
-        <SeccionPlegable
-          marco={false}
-          titulo="Cómo va el negocio"
-          descripcion="Citas, asistencia, ingresos, quién atiende más y a qué horas — derivado de tu agenda real."
-        >
-          <ReportesCitas
-            ranchoId={rancho.id}
-            equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre }))}
-          />
-        </SeccionPlegable>
+        {negocio.modulos.has("reportes") && (
+          <SeccionPlegable
+            marco={false}
+            titulo="Cómo va el negocio"
+            descripcion="Citas, asistencia, ingresos, quién atiende más y a qué horas — derivado de tu agenda real."
+          >
+            <ReportesCitas
+              ranchoId={rancho.id}
+              equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre }))}
+            />
+          </SeccionPlegable>
+        )}
 
         <SeccionPlegable
           marco={false}

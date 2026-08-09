@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { IconChevronDown } from "@/components/icons";
+import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
 
 /** Con `href` el ítem es un link a otra pantalla (sin contenido acá). */
 export type Tab = {
@@ -14,6 +15,11 @@ export type Tab = {
   /** Contador chiquito al lado del label (ej. reservas por aprobar). */
   badge?: number;
   icon?: ReactNode;
+  /**
+   * El bloque del menú al que pertenece (Agenda, Gestión, Fitness…).
+   * Solo se pinta el encabezado cuando el menú es largo — ver abajo.
+   */
+  grupo?: GrupoId;
   /**
    * Nombres viejos de `?tab=` que ahora aterrizan acá. Existen porque
    * hay links guardados y correos ya enviados que apuntan a pestañas
@@ -77,11 +83,22 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
   // activos por pathname; el resto, por el estado `activo`.
   const esActivo = (t: Tab) => (t.href ? pathname.startsWith(t.href) : activo === t.id);
 
+  // Los encabezados de bloque (AGENDA, GESTIÓN, FITNESS…) solo aparecen
+  // cuando el menú de verdad los necesita: con los cuatro ítems de una
+  // barbería agrupar es ruido, con los nueve de un gimnasio es lo único
+  // que lo hace leíble.
+  const gruposDistintos = new Set(tabs.map((t) => t.grupo).filter(Boolean)).size;
+  const conEncabezados = gruposDistintos > 1 && tabs.length > 5;
+
   function itemsNav(alCerrar: () => void) {
+    let grupoPintado: GrupoId | undefined;
     return (
       <nav className="flex flex-col gap-1">
         {tabs.map((t) => {
           const activa = esActivo(t);
+          const abreGrupo = conEncabezados && !!t.grupo && t.grupo !== grupoPintado;
+          const primerGrupo = abreGrupo && grupoPintado === undefined;
+          if (t.grupo) grupoPintado = t.grupo;
           const cls = `flex items-center gap-2.5 rounded-xl border-l-[3px] px-3.5 py-2.5 text-[13.5px] font-bold transition-colors ${
             activa
               ? "border-aventurea-sky bg-white/10 text-white"
@@ -101,14 +118,26 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
               )}
             </>
           );
-          return t.href ? (
-            <Link key={t.id} href={t.href} className={cls} onClick={alCerrar}>
+          const item = t.href ? (
+            <Link href={t.href} className={cls} onClick={alCerrar}>
               {contenidoItem}
             </Link>
           ) : (
-            <button key={t.id} type="button" onClick={() => cambiar(t.id)} className={cls}>
+            <button type="button" onClick={() => cambiar(t.id)} className={cls}>
               {contenidoItem}
             </button>
+          );
+          return (
+            <Fragment key={t.id}>
+              {abreGrupo && (
+                <p
+                  className={`px-3.5 pb-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/35 ${primerGrupo ? "" : "mt-3"}`}
+                >
+                  {GRUPO_LABEL[t.grupo as GrupoId]}
+                </p>
+              )}
+              {item}
+            </Fragment>
           );
         })}
       </nav>
