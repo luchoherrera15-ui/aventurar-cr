@@ -107,6 +107,18 @@ const nextConfig: NextConfig = {
   // mandados, favoritos guardados) siguen sirviendo.
   async redirects() {
     return [
+      // Entrar a bookea.lat aterriza DIRECTO en el directorio de
+      // eventos (pedido del dueño): la intro animada del home hacía
+      // esperar ~5 segundos a cada visita nueva antes de mostrar nada
+      // reservable. El edge responde esta redirección al instante, sin
+      // invocar servidor. No-permanente a propósito: si algún día la
+      // raíz vuelve a ser un home con contenido, los navegadores no
+      // tendrán cacheado un 308.
+      {
+        source: "/",
+        destination: "/eventos",
+        permanent: false,
+      },
       {
         source: "/ranchos-eventos",
         destination: "/eventos",
