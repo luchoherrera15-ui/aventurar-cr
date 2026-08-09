@@ -253,6 +253,21 @@ body {
   }
 }
 
+/* Las tres tarjetas de /publicar/ejemplos entran al cargar, una
+   detrás de otra (--pub-delay). No usa RevealOnScroll a propósito: esa
+   página mide una pantalla, no hay nada debajo del pliegue que valga
+   un observer ni el JS que lo trae. */
+@keyframes ejemplos-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Los puntitos del conector entre teléfonos: laten en secuencia. */
 @keyframes publicar-punto {
   0%,
@@ -287,6 +302,10 @@ body {
 .anim-publicar-punto {
   animation: publicar-punto 1.8s ease-in-out var(--pub-delay, 0s) infinite;
 }
+.anim-ejemplos-entrar {
+  animation: ejemplos-entrar 0.7s cubic-bezier(0.22, 1, 0.36, 1)
+    var(--pub-delay, 0s) 1 both;
+}
 
 /* Con movimiento reducido las escenas quedan quietas mostrando el
    estado final (cita confirmada, reserva aprobada). */
@@ -295,7 +314,8 @@ body {
   .anim-publicar-pulsar,
   .anim-publicar-entrar,
   .anim-publicar-flotar,
-  .anim-publicar-punto {
+  .anim-publicar-punto,
+  .anim-ejemplos-entrar {
     animation: none;
   }
 }

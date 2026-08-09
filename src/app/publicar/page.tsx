@@ -132,7 +132,7 @@ export default function PublicarPage() {
               Publicar mi negocio gratis
             </Link>
             <Link
-              href="/citas"
+              href="/publicar/ejemplos"
               className="rounded-full border border-white/25 px-7 py-3.5 text-[14.5px] font-bold text-white/90 transition-colors hover:border-white/60"
             >
               Ver cómo se ve mi página
