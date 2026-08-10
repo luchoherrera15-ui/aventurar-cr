@@ -6,7 +6,9 @@ import {
   MIMES_PERMITIDOS,
   VISIBILIDADES,
   VISIBILIDAD_POR_DEFECTO,
+  cloudflareConfirmado,
   destinosRequeridos,
+  r2Confirmado,
   esEntidad,
   esEstado,
   esInconsistente,
@@ -24,6 +26,8 @@ import {
   type EntidadMedia,
 } from "./tipos";
 
+const SELLO = "2026-08-10T12:00:00Z";
+
 /** Una imagen completa y sana, para variar solo lo que cada test mira. */
 function imagen(over: Partial<AssetVerificable> = {}): AssetVerificable {
   return {
@@ -31,7 +35,9 @@ function imagen(over: Partial<AssetVerificable> = {}): AssetVerificable {
     deleted_at: null,
     mime: "image/jpeg",
     r2_key: "originals/a/album/b/c/foto.jpg",
+    r2_verificado_en: SELLO,
     cf_image_id: "cf-123",
+    cf_verificado_en: SELLO,
     ...over,
   };
 }
@@ -157,20 +163,26 @@ describe("estaListo — no alcanza con que la columna diga listo", () => {
   });
 
   it("un video confirmado SOLO en R2 sí está listo", () => {
-    const v = imagen({ mime: "video/mp4", cf_image_id: null });
+    const v = imagen({ mime: "video/mp4", cf_image_id: null, cf_verificado_en: null });
     expect(estaListo(v)).toBe(true);
     expect(faltantes(v)).toEqual([]);
     expect(esInconsistente(v)).toBe(false);
   });
 
   it("un audio confirmado SOLO en R2 sí está listo", () => {
-    const a = imagen({ mime: "audio/mpeg", cf_image_id: null });
+    const a = imagen({ mime: "audio/mpeg", cf_image_id: null, cf_verificado_en: null });
     expect(estaListo(a)).toBe(true);
     expect(faltantes(a)).toEqual([]);
   });
 
   it("un video sin r2_key NO está listo: no hay qué descargar", () => {
-    const v = imagen({ mime: "video/mp4", r2_key: null, cf_image_id: null });
+    const v = imagen({
+      mime: "video/mp4",
+      r2_key: null,
+      r2_verificado_en: null,
+      cf_image_id: null,
+      cf_verificado_en: null,
+    });
     expect(estaListo(v)).toBe(false);
     expect(faltantes(v)).toEqual(["r2"]);
   });
@@ -179,10 +191,15 @@ describe("estaListo — no alcanza con que la columna diga listo", () => {
     expect(estaListo(imagen({ mime: null }))).toBe(false);
     expect(estaListo(imagen({ mime: "application/zip" }))).toBe(false);
     // Sin saber el tipo no se puede saber qué exigir: se piden los dos.
-    expect(faltantes({ mime: null, r2_key: null, cf_image_id: null })).toEqual([
-      "r2",
-      "cloudflare",
-    ]);
+    expect(
+      faltantes({
+        mime: null,
+        r2_key: null,
+        r2_verificado_en: null,
+        cf_image_id: null,
+        cf_verificado_en: null,
+      }),
+    ).toEqual(["r2", "cloudflare"]);
   });
 
   it("un parcial NO es listo, aunque una copia sirva", () => {
@@ -190,6 +207,37 @@ describe("estaListo — no alcanza con que la columna diga listo", () => {
     expect(estaListo(imagen({ estado: "parcial_r2" }))).toBe(false);
     // Y no es "inconsistente": es un estado legítimo a mitad de camino.
     expect(esInconsistente(imagen({ estado: "parcial_r2" }))).toBe(false);
+  });
+
+  it("una r2_key RESERVADA sin sello no cuenta como confirmada", () => {
+    // El caso que motiva las dos columnas: la clave se calcula antes de
+    // subir, así que existe desde que la fila nace.
+    const a = imagen({ r2_verificado_en: null });
+    expect(r2Confirmado(a)).toBe(false);
+    expect(estaListo(a)).toBe(false);
+    expect(faltantes(a)).toEqual(["r2"]);
+    expect(esInconsistente(a)).toBe(true);
+  });
+
+  it("un cf_image_id BORRADOR sin sello no cuenta como confirmado", () => {
+    // Direct Creator Upload devuelve el id antes de recibir un byte.
+    const a = imagen({ cf_verificado_en: null });
+    expect(cloudflareConfirmado(a)).toBe(false);
+    expect(estaListo(a)).toBe(false);
+    expect(faltantes(a)).toEqual(["cloudflare"]);
+  });
+
+  it("un asset pendiente con las DOS reservas y ningún sello no está listo", () => {
+    const a = imagen({ estado: "pendiente", r2_verificado_en: null, cf_verificado_en: null });
+    expect(estaListo(a)).toBe(false);
+    expect(faltantes(a)).toEqual(["r2", "cloudflare"]);
+    // No es "inconsistente": es un estado legítimo a mitad de camino.
+    expect(esInconsistente(a)).toBe(false);
+  });
+
+  it("un sello sin su clave tampoco alcanza", () => {
+    expect(r2Confirmado({ r2_key: null, r2_verificado_en: SELLO })).toBe(false);
+    expect(cloudflareConfirmado({ cf_image_id: null, cf_verificado_en: SELLO })).toBe(false);
   });
 
   it("borrado lógico deja de estar vivo y de estar listo", () => {

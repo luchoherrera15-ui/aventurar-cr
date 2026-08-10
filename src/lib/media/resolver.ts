@@ -30,8 +30,10 @@
 
 import {
   ENTREGA,
+  cloudflareConfirmado,
   estaListo,
   estaVivo,
+  r2Confirmado,
   type AssetVerificable,
   type MediaAsset,
   type Variante,
@@ -119,11 +121,16 @@ export function resolverVisual(
 
   const necesitaFirma = ENTREGA[asset.visibilidad] === "firmada";
 
-  // 1. Cloudflare, solo si el asset está listo Y VERIFICADO. `estaListo`
-  //    comprueba que existan los archivos que el tipo exige, no que la
-  //    columna diga "listo": una fila inconsistente cae a legacy en vez
-  //    de producir un 404 con cara de foto.
-  if (estaListo(asset) && asset.cf_image_id && opciones.deliveryUrl) {
+  // 1. Cloudflare, solo si el asset está listo Y la copia visual está
+  //    CONFIRMADA. `estaListo` comprueba los sellos que el tipo exige,
+  //    no que la columna diga "listo": una fila inconsistente cae a
+  //    legacy en vez de producir un 404 con cara de foto.
+  //
+  //    `cloudflareConfirmado` se pide aparte y no es redundante: para un
+  //    VIDEO, `estaListo` es true sin Cloudflare (no tiene copia visual),
+  //    y sin esta segunda condición se armaría una URL de variante para
+  //    un archivo que no tiene ninguna.
+  if (estaListo(asset) && cloudflareConfirmado(asset) && asset.cf_image_id && opciones.deliveryUrl) {
     const ruta = rutaCloudflare(asset.cf_image_id, variante);
 
     if (!necesitaFirma) {
@@ -177,32 +184,28 @@ export type ResultadoOriginal =
   | { tipo: "sin-original"; motivo: MotivoSinImagen };
 
 /**
- * Los dos estados en los que el original de R2 está CONFIRMADO.
- *
- * `r2_key` se escribe al RESERVAR la clave, antes de que el archivo
- * exista: se calcula para poder firmar la URL de subida. O sea que una
- * fila en `pendiente` o `subiendo` ya tiene `r2_key` y no tiene objeto
- * detrás. Firmar una descarga contra esa clave entrega un 404 con
- * pinta de error nuestro.
- *
- * `parcial_cf` es el mismo problema con otra cara: la copia visual
- * subió, el original no.
- */
-const ORIGINAL_CONFIRMADO: readonly string[] = ["listo", "parcial_r2"];
-
-/**
  * De dónde se baja el ORIGINAL (la descarga, no lo que se mira).
  *
  * Devuelve la CLAVE de R2, nunca una URL: firmarla es cosa del servidor
  * y con expiración corta. Que este módulo no pueda producir una URL de
  * descarga es una propiedad, no una carencia.
+ *
+ * ── SE MIRA EL SELLO, NO EL ESTADO ───────────────────────────────────
+ *
+ * La versión anterior aceptaba la clave cuando `estado` era 'listo' o
+ * 'parcial_r2'. Funcionaba, pero por un rodeo: deducía del estado algo
+ * que ahora se sabe directamente. `r2_verificado_en` ES el hecho —
+ * "hicimos HEAD contra R2 y el objeto está ahí"—, así que preguntar por
+ * él es más corto y no se desincroniza si mañana aparece un estado
+ * nuevo. Un `error` cuyo original ya subió sigue siendo descargable, que
+ * es lo correcto: el archivo existe.
  */
 export function resolverOriginal(
-  asset: Pick<MediaAsset, "estado" | "deleted_at" | "r2_key" | "legacy_url">,
+  asset: Pick<MediaAsset, "deleted_at" | "r2_key" | "r2_verificado_en" | "legacy_url">,
 ): ResultadoOriginal {
   if (!estaVivo(asset)) return { tipo: "sin-original", motivo: "borrada" };
 
-  if (asset.r2_key && ORIGINAL_CONFIRMADO.includes(asset.estado)) {
+  if (r2Confirmado(asset) && asset.r2_key) {
     return { tipo: "r2", clave: asset.r2_key };
   }
   // Con la clave reservada pero el objeto sin confirmar, todavía sirve

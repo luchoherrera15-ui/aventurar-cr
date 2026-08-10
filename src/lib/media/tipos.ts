@@ -255,7 +255,7 @@ export function destinosRequeridos(tipo: TipoArchivo): { r2: boolean; cloudflare
 // ------------------------------------------------------------
 
 /**
- * Una fila de `media_assets`, tal como la va a declarar la 0110.
+ * Una fila de `media_assets`, tal como la declara la migración 0110.
  *
  * Sin campo `provider`: dónde vive el archivo se deriva de `r2_key`,
  * `cf_image_id` y `legacy_url` (ver el encabezado del módulo).
@@ -269,10 +269,26 @@ export type MediaAsset = {
   visibilidad: Visibilidad;
   estado: EstadoMedia;
 
-  /** El id en Cloudflare Images (la copia que se MIRA). */
+  /**
+   * El id en Cloudflare Images (la copia que se MIRA).
+   *
+   * OJO: existe desde el Direct Creator Upload, con la imagen en
+   * BORRADOR y sin un solo byte. No prueba nada por sí solo.
+   */
   cf_image_id: string | null;
-  /** La clave en R2 (el original que se DESCARGA). */
+  /** Cuándo se comprobó CONTRA Cloudflare que la imagen está subida. */
+  cf_verificado_en: string | null;
+
+  /**
+   * La clave en R2 (el original que se DESCARGA).
+   *
+   * OJO: se RESERVA antes de subir, para poder firmar la URL de carga.
+   * Una fila en `pendiente` ya la tiene y no hay objeto detrás.
+   */
   r2_key: string | null;
+  /** Cuándo se comprobó CONTRA R2 (HEAD) que el objeto existe. */
+  r2_verificado_en: string | null;
+
   /**
    * La URL de Supabase de toda la vida. No se vacía nunca mientras
    * exista una app publicada que pueda pedirla: es el fallback.
@@ -289,14 +305,28 @@ export type MediaAsset = {
 
   posicion: number;
   created_at: string;
-  deleted_at: string | null;
+  updated_at: string;
+  error_en: string | null;
   error_detalle: string | null;
+  deleted_at: string | null;
 };
 
-/** Lo mínimo que hace falta para saber si un asset está completo. */
+/**
+ * Lo mínimo que hace falta para saber si un asset está completo.
+ *
+ * Incluye los DOS sellos: sin ellos no se puede responder la pregunta,
+ * solo adivinarla a partir de unas claves que existen desde antes de
+ * que exista ningún archivo.
+ */
 export type AssetVerificable = Pick<
   MediaAsset,
-  "estado" | "deleted_at" | "mime" | "r2_key" | "cf_image_id"
+  | "estado"
+  | "deleted_at"
+  | "mime"
+  | "r2_key"
+  | "r2_verificado_en"
+  | "cf_image_id"
+  | "cf_verificado_en"
 >;
 
 // ------------------------------------------------------------
@@ -367,28 +397,66 @@ export function estaVivo(asset: Pick<MediaAsset, "deleted_at">): boolean {
 }
 
 /**
+ * ── UNA CLAVE NO ES UN ARCHIVO ───────────────────────────────────────
+ *
+ * Estas dos funciones son la diferencia entre "reservamos un lugar" y
+ * "el archivo está ahí", y de ellas depende todo lo demás:
+ *
+ *   · `r2_key` se calcula ANTES de subir, para poder firmar la URL de
+ *     carga. Una fila recién creada ya la tiene.
+ *
+ *   · `cf_image_id` lo devuelve Cloudflare al pedir un Direct Creator
+ *     Upload, o sea cuando la imagen todavía es un BORRADOR y no
+ *     recibió un solo byte.
+ *
+ * Confirmado = la clave Y el sello que se escribe después de comprobar
+ * contra el proveedor. Las restricciones de la 0110 exigen lo mismo del
+ * lado de la base.
+ */
+export function r2Confirmado(
+  asset: Pick<AssetVerificable, "r2_key" | "r2_verificado_en">,
+): boolean {
+  return Boolean(asset.r2_key) && Boolean(asset.r2_verificado_en);
+}
+
+export function cloudflareConfirmado(
+  asset: Pick<AssetVerificable, "cf_image_id" | "cf_verificado_en">,
+): boolean {
+  return Boolean(asset.cf_image_id) && Boolean(asset.cf_verificado_en);
+}
+
+/**
  * Qué destinos le FALTAN a un asset para estar completo, según su tipo.
  *
  * Un MIME que no se reconoce devuelve los dos: no se puede saber qué
- * exigirle, así que no se le da por cumplido nada.
+ * exigirle, así que no se le da por cumplido nada. Fallar conservador es
+ * la regla — un asset mal formado nunca se comporta como completo.
  */
-export function faltantes(asset: Pick<AssetVerificable, "mime" | "r2_key" | "cf_image_id">) {
+export function faltantes(
+  asset: Pick<
+    AssetVerificable,
+    "mime" | "r2_key" | "r2_verificado_en" | "cf_image_id" | "cf_verificado_en"
+  >,
+) {
   const tipo = tipoDeMime(asset.mime);
   const requeridos = tipo ? destinosRequeridos(tipo) : { r2: true, cloudflare: true };
   const falta: ("cloudflare" | "r2")[] = [];
-  if (requeridos.r2 && !asset.r2_key) falta.push("r2");
-  if (requeridos.cloudflare && !asset.cf_image_id) falta.push("cloudflare");
+  if (requeridos.r2 && !r2Confirmado(asset)) falta.push("r2");
+  if (requeridos.cloudflare && !cloudflareConfirmado(asset)) falta.push("cloudflare");
   return falta;
 }
 
 /**
  * Listo de verdad.
  *
- * NO alcanza con que la columna diga `listo`: se verifica que estén los
- * archivos que ese tipo exige. Una fila marcada lista a la que le falta
- * `r2_key` es un registro inconsistente —pasó por un camino que no
- * verificó, o alguien la editó a mano— y tratarla como buena produce
- * una foto rota o una descarga que devuelve 404.
+ * NO alcanza con que la columna diga `listo`: se verifica que estén
+ * CONFIRMADOS los destinos que ese tipo exige. Una fila marcada lista a
+ * la que le falta el sello de R2 es un registro inconsistente —pasó por
+ * un camino que no verificó, o alguien la editó a mano— y tratarla como
+ * buena produce una foto rota o una descarga que devuelve 404.
+ *
+ *   · imagen      → R2 confirmado Y Cloudflare confirmado;
+ *   · video/audio → solo R2 confirmado (no tienen copia visual).
  *
  * Que el chequeo viva acá y no en cada pantalla es el punto: hay UNA
  * definición de "listo" en todo el producto.

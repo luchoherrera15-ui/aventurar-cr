@@ -11,6 +11,7 @@ import type { AssetVerificable, MediaAsset, Visibilidad } from "./tipos";
 const DELIVERY = "https://imagedelivery.net/hash-de-cuenta";
 const LEGACY = "https://proyecto.supabase.co/storage/v1/object/public/albumes/a/1.jpg";
 const R2 = "originals/a/album/b/c/foto.jpg";
+const SELLO = "2026-08-10T12:00:00Z";
 
 type Visual = AssetVerificable & Pick<MediaAsset, "visibilidad" | "legacy_url">;
 
@@ -20,7 +21,9 @@ function asset(over: Partial<Visual> = {}): Visual {
     deleted_at: null,
     mime: "image/jpeg",
     r2_key: R2,
+    r2_verificado_en: SELLO,
     cf_image_id: "cf-123",
+    cf_verificado_en: SELLO,
     visibilidad: "publica" as Visibilidad,
     legacy_url: LEGACY,
     ...over,
@@ -80,6 +83,40 @@ describe("una fila inconsistente no se sirve por Cloudflare", () => {
     expect(resolverVisual(asset({ estado: "parcial_r2" }), "card", { deliveryUrl: DELIVERY }).tipo).toBe(
       "legacy",
     );
+  });
+});
+
+describe("video y audio no tienen copia visual", () => {
+  const video = asset({ mime: "video/mp4", cf_image_id: null, cf_verificado_en: null });
+
+  it("un video LISTO (solo R2) no recibe una URL de variante de Cloudflare", () => {
+    // `estaListo` es true —un video no necesita Cloudflare— pero armar
+    // `.../cf-xxx/card` para un mp4 sería prometer una miniatura que no
+    // existe. Cae al legacy, que es el archivo de verdad.
+    expect(resolverVisual(video, "card", { deliveryUrl: DELIVERY })).toEqual({
+      tipo: "legacy",
+      url: LEGACY,
+    });
+  });
+
+  it("un audio LISTO tampoco", () => {
+    const audio = asset({ mime: "audio/mpeg", cf_image_id: null, cf_verificado_en: null });
+    expect(resolverVisual(audio, "thumb", { deliveryUrl: DELIVERY }).tipo).toBe("legacy");
+  });
+
+  it("pero su ORIGINAL sí se descarga: el sello de R2 está", () => {
+    expect(
+      resolverOriginal({
+        deleted_at: null,
+        r2_key: R2,
+        r2_verificado_en: SELLO,
+        legacy_url: null,
+      }),
+    ).toEqual({ tipo: "r2", clave: R2 });
+  });
+
+  it("y no necesitan migración por no tener Cloudflare", () => {
+    expect(necesitaMigracion(video)).toBe(false);
   });
 });
 
@@ -190,53 +227,45 @@ describe("rutaCloudflare y la barra final", () => {
   });
 });
 
-describe("resolverOriginal — solo claves CONFIRMADAS", () => {
-  it("listo devuelve la CLAVE de R2, nunca una URL", () => {
+describe("resolverOriginal — manda el SELLO, no el estado", () => {
+  it("con clave y sello devuelve la CLAVE de R2, nunca una URL", () => {
     expect(
-      resolverOriginal({ estado: "listo", deleted_at: null, r2_key: R2, legacy_url: LEGACY }),
+      resolverOriginal({ deleted_at: null, r2_key: R2, r2_verificado_en: SELLO, legacy_url: LEGACY }),
     ).toEqual({ tipo: "r2", clave: R2 });
   });
 
-  it("parcial_r2 también: el original ya está arriba y verificado", () => {
-    expect(
-      resolverOriginal({ estado: "parcial_r2", deleted_at: null, r2_key: R2, legacy_url: null }),
-    ).toEqual({ tipo: "r2", clave: R2 });
-  });
-
-  it("PENDIENTE con r2_key preasignada NO se descarga de R2", () => {
+  it("r2_key RESERVADA sin sello NO se descarga de R2", () => {
     // La clave se calcula al firmar la subida, o sea ANTES de que el
     // objeto exista. Firmar una descarga contra ella da 404.
     expect(
-      resolverOriginal({ estado: "pendiente", deleted_at: null, r2_key: R2, legacy_url: LEGACY }),
+      resolverOriginal({ deleted_at: null, r2_key: R2, r2_verificado_en: null, legacy_url: LEGACY }),
     ).toEqual({ tipo: "legacy", url: LEGACY });
   });
 
-  it("subiendo, parcial_cf y error tampoco", () => {
-    for (const estado of ["subiendo", "parcial_cf", "error"] as const) {
-      expect(
-        resolverOriginal({ estado, deleted_at: null, r2_key: R2, legacy_url: LEGACY }),
-      ).toEqual({ tipo: "legacy", url: LEGACY });
-    }
+  it("un sello sin clave tampoco alcanza", () => {
+    expect(
+      resolverOriginal({ deleted_at: null, r2_key: null, r2_verificado_en: SELLO, legacy_url: LEGACY }),
+    ).toEqual({ tipo: "legacy", url: LEGACY });
   });
 
   it("sin confirmar y sin legacy, no hay descarga", () => {
     expect(
-      resolverOriginal({ estado: "pendiente", deleted_at: null, r2_key: R2, legacy_url: null }),
+      resolverOriginal({ deleted_at: null, r2_key: R2, r2_verificado_en: null, legacy_url: null }),
     ).toEqual({ tipo: "sin-original", motivo: "sin-origen" });
   });
 
   it("sin R2 todavía, se baja de Supabase", () => {
     expect(
-      resolverOriginal({ estado: "pendiente", deleted_at: null, r2_key: null, legacy_url: LEGACY }),
+      resolverOriginal({ deleted_at: null, r2_key: null, r2_verificado_en: null, legacy_url: LEGACY }),
     ).toEqual({ tipo: "legacy", url: LEGACY });
   });
 
   it("borrada no se descarga", () => {
     expect(
       resolverOriginal({
-        estado: "listo",
         deleted_at: "2026-01-01T00:00:00Z",
         r2_key: R2,
+        r2_verificado_en: SELLO,
         legacy_url: null,
       }),
     ).toEqual({ tipo: "sin-original", motivo: "borrada" });
