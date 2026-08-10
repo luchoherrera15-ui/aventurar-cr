@@ -21,6 +21,7 @@ import {
   configuracionCF,
   detalleImagen,
   esConfirmada,
+  importarDesdeUrl,
   firmarUrl,
   medidasDeVariante,
   solicitarSubidaDirecta,
@@ -202,6 +203,74 @@ describe("solicitarSubidaDirecta", () => {
     const r = await solicitarSubidaDirecta({ requiereFirma: false }, deps({ fetch: fn }));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.codigo).toBe("respuesta-invalida");
+  });
+});
+
+describe("importarDesdeUrl — el camino del piloto 3.1A", () => {
+  const URL_R2 = "https://cuenta.r2.cloudflarestorage.com/obj?X-Amz-Signature=abc";
+
+  it("importa y devuelve id + fecha de subida en UN solo paso", async () => {
+    const { fn, llamadas } = fetchFalso({
+      json: SOBRE_OK({
+        id: "img-importada",
+        uploaded: "2026-08-10T12:00:00.000Z",
+        requireSignedURLs: false,
+        variants: [`${DELIVERY}/img-importada/card`],
+      }),
+    });
+    const r = await importarDesdeUrl({ url: URL_R2, requiereFirma: false }, deps({ fetch: fn }));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.valor.id).toBe("img-importada");
+      // No hay estado borrador en este flujo: se confirma de una.
+      expect(r.valor.subidaEn).toBe("2026-08-10T12:00:00.000Z");
+    }
+    expect(llamadas[0].url).toContain("/images/v1");
+    expect(llamadas[0].init.method).toBe("POST");
+  });
+
+  it("manda la URL en el campo `url` y respeta requireSignedURLs", async () => {
+    const { fn, llamadas } = fetchFalso({
+      json: SOBRE_OK({ id: "x", uploaded: "2026-08-10T12:00:00.000Z" }),
+    });
+    await importarDesdeUrl({ url: URL_R2, requiereFirma: true }, deps({ fetch: fn }));
+    const cuerpo = llamadas[0].init.body as FormData;
+    expect(cuerpo.get("url")).toBe(URL_R2);
+    expect(cuerpo.get("requireSignedURLs")).toBe("true");
+  });
+
+  it("SIN `uploaded` válido NO se da por importada", async () => {
+    // Es el único camino que habilita escribir cf_verificado_en: si
+    // Cloudflare no dice cuándo se subió, no se afirma que esté lista.
+    for (const uploaded of [undefined, "", "no-es-fecha", null]) {
+      const { fn } = fetchFalso({ json: SOBRE_OK({ id: "x", uploaded }) });
+      const r = await importarDesdeUrl({ url: URL_R2, requiereFirma: false }, deps({ fetch: fn }));
+      expect(r.ok, String(uploaded)).toBe(false);
+      if (!r.ok) expect(r.error.codigo).toBe("respuesta-invalida");
+    }
+  });
+
+  it("rechaza una URL que no es https, sin llamar a la API", async () => {
+    const { fn, llamadas } = fetchFalso({ json: SOBRE_OK({}) });
+    for (const url of ["", "http://inseguro/x", "ftp://x", "no-es-url"]) {
+      const r = await importarDesdeUrl({ url, requiereFirma: false }, deps({ fetch: fn }));
+      expect(r.ok, url).toBe(false);
+    }
+    expect(llamadas).toHaveLength(0);
+  });
+
+  it("un fallo de Cloudflare se reporta sin filtrar la URL firmada", async () => {
+    const { fn } = fetchFalso({
+      status: 415,
+      json: { success: false, errors: [{ code: 5443, message: "Unsupported image" }] },
+    });
+    const r = await importarDesdeUrl({ url: URL_R2, requiereFirma: false }, deps({ fetch: fn }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.mensaje).toContain("5443");
+      expect(r.error.mensaje).not.toContain("X-Amz-Signature");
+      expect(r.error.mensaje).not.toContain("token-secreto-de-prueba");
+    }
   });
 });
 

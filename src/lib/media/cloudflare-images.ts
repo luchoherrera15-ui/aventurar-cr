@@ -322,6 +322,100 @@ export async function solicitarSubidaDirecta(
 }
 
 // ------------------------------------------------------------
+// 1.b Importar desde una URL — el camino del piloto 3.1A
+// ------------------------------------------------------------
+
+export type ImagenImportada = {
+  id: string;
+  subidaEn: string | null;
+  requiereFirma: boolean;
+  variantes: string[];
+};
+
+/**
+ * Le pide a Cloudflare que se descargue la imagen ÉL MISMO desde una
+ * URL, en vez de que la suba el navegador.
+ *
+ * ── POR QUÉ ESTO Y NO DIRECT CREATOR UPLOAD ──────────────────────────
+ *
+ * El diseño anterior tenía al navegador subiendo DOS veces: el original
+ * a R2 y la copia visual a Cloudflare. Eso permite que un cliente
+ * malicioso mande la imagen A a R2 y la imagen B a Cloudflare — dos
+ * archivos distintos bajo un mismo asset, con la verificación hecha
+ * sobre el que nadie va a mirar. Y de paso duplica el ancho de banda
+ * móvil, que es lo que este proyecto vino a bajar.
+ *
+ * Acá el navegador sube UNA vez, a R2. El servidor verifica metadatos y
+ * firma real sobre ESE objeto, y recién entonces le pasa a Cloudflare
+ * una URL firmada de vida corta para que importe exactamente el mismo
+ * archivo. Es imposible que difieran.
+ *
+ * La URL firmada NUNCA vuelve al navegador: se usa solo entre nuestro
+ * servidor y el de Cloudflare.
+ *
+ * Ventaja secundaria que conviene conocer: la respuesta de este
+ * endpoint ya trae `uploaded`, así que **no hay estado borrador en este
+ * flujo** — `cf_image_id` y `cf_verificado_en` se escriben juntos,
+ * después de que Cloudflare confirme. `solicitarSubidaDirecta` se
+ * conserva para cuando llegue el flujo de invitados de álbum, que sí lo
+ * necesita.
+ */
+export async function importarDesdeUrl(
+  params: {
+    /** URL firmada de R2, de vida corta. No sale al navegador. */
+    url: string;
+    /** `true` para álbumes y privados; `false` para lo público. */
+    requiereFirma: boolean;
+    metadata?: Record<string, string>;
+  },
+  deps: DependenciasCF = {},
+): Promise<ResultadoCF<ImagenImportada>> {
+  if (!params.url || !/^https:\/\//i.test(params.url)) {
+    return fallo("id-invalido", "La URL a importar no es válida.");
+  }
+
+  const config = preparar(deps);
+  if (!config.ok) return config;
+
+  // La API v1 de subida espera multipart. El campo `url` es lo que le
+  // dice a Cloudflare "andá a buscarla vos".
+  const form = new FormData();
+  form.set("url", params.url);
+  form.set("requireSignedURLs", String(params.requiereFirma));
+  if (params.metadata) form.set("metadata", JSON.stringify(params.metadata));
+
+  const r = await llamar(config.valor, "/images/v1", { method: "POST", body: form }, deps);
+  if (!r.ok) return r;
+
+  const res = r.valor;
+  if (typeof res !== "object" || res === null || !("id" in res)) {
+    return fallo("respuesta-invalida", "Cloudflare no devolvió la imagen importada.");
+  }
+  const obj = res as Record<string, unknown>;
+
+  // Se exige `uploaded` válido: sin él no se puede afirmar que la
+  // imagen esté servible, y este es el único camino que habilita
+  // escribir `cf_verificado_en`.
+  const subidaEn = fechaValida(obj.uploaded);
+  if (subidaEn === null) {
+    return fallo(
+      "respuesta-invalida",
+      "Cloudflare aceptó la importación pero no informó cuándo se subió.",
+    );
+  }
+
+  return {
+    ok: true,
+    valor: {
+      id: String(obj.id),
+      subidaEn,
+      requiereFirma: obj.requireSignedURLs === true,
+      variantes: Array.isArray(obj.variants) ? obj.variants.map(String) : [],
+    },
+  };
+}
+
+// ------------------------------------------------------------
 // 2. Detalle y confirmación
 // ------------------------------------------------------------
 

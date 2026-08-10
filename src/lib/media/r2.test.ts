@@ -135,12 +135,12 @@ describe("firmarSubida", () => {
       expect(r.valor.url).toContain("https://");
       expect(r.valor.clave).toBe(CLAVE);
       expect(r.valor.cabeceras["Content-Type"]).toBe("image/jpeg");
-      expect(r.valor.cabeceras["Content-Length"]).toBe("1234");
+      expect(r.valor.cabeceras["If-None-Match"]).toBe("*");
     }
     expect(d.presignar).toHaveBeenCalledTimes(1);
   });
 
-  it("el tipo y el tamaño van DENTRO de la firma", async () => {
+  it("el tipo, el tamaño y If-None-Match van DENTRO de la firma", async () => {
     const d = deps();
     await firmarSubida({ clave: CLAVE, mime: "image/png", bytes: 99 }, d);
     const opciones = (d.presignar as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][2] as {
@@ -150,6 +150,28 @@ describe("firmarSubida", () => {
     // cualquier cosa de cualquier tamaño.
     expect(opciones.signableHeaders.has("content-type")).toBe(true);
     expect(opciones.signableHeaders.has("content-length")).toBe(true);
+    // Y sin esto, la URL serviría para SOBRESCRIBIR un objeto ya sellado.
+    expect(opciones.signableHeaders.has("if-none-match")).toBe(true);
+  });
+
+  it("el comando lleva IfNoneMatch: '*' (escritura condicional)", async () => {
+    const d = deps();
+    await firmarSubida({ clave: CLAVE, mime: "image/jpeg", bytes: 10 }, d);
+    const comando = (d.presignar as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0][1] as { input: { IfNoneMatch?: string } };
+    expect(comando.input.IfNoneMatch).toBe("*");
+  });
+
+  it("devuelve If-None-Match pero NO Content-Length (cabecera prohibida)", async () => {
+    // `fetch` no deja establecer Content-Length; el navegador la manda
+    // sola. Pedírsela al frontend sería pedirle algo imposible.
+    const r = await firmarSubida({ clave: CLAVE, mime: "image/jpeg", bytes: 10 }, deps());
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.valor.cabeceras["If-None-Match"]).toBe("*");
+      expect(r.valor.cabeceras["Content-Type"]).toBe("image/jpeg");
+      expect(r.valor.cabeceras).not.toHaveProperty("Content-Length");
+    }
   });
 
   it("rechaza una clave con traversal antes de firmar", async () => {

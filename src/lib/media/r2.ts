@@ -293,6 +293,29 @@ export type SubidaFirmada = {
  * si el cliente sube otra cosa o de otro tamaño, R2 rechaza la petición.
  * Sin eso, una URL para "una foto de 2 MB" serviría para subir un
  * ejecutable de 2 GB.
+ *
+ * ── ESCRITURA ÚNICA: `If-None-Match: *` ──────────────────────────────
+ *
+ * Una URL prefirmada sigue sirviendo hasta que vence. Si el archivo se
+ * confirma antes —y se confirma en segundos—, el cliente todavía tiene
+ * en la mano una URL capaz de SOBRESCRIBIR un objeto ya sellado. Todo
+ * el trabajo de verificar metadatos y firma no valdría nada: lo
+ * verificado y lo servido podrían ser archivos distintos.
+ *
+ * `If-None-Match: *` es la escritura condicional de R2: el PUT solo
+ * prospera si la clave NO existe. El primero crea; cualquier repetición
+ * devuelve **412**, que el frontend traduce a "esta subida ya fue
+ * utilizada".
+ *
+ * Va DENTRO de la firma (`signableHeaders`), así que quitarla del
+ * request invalida la firma — no es una sugerencia que el cliente pueda
+ * omitir.
+ *
+ * ⚠️ Requiere que la CORS del bucket R2 permita `If-None-Match` en
+ *    `AllowedHeaders`. Sin eso el navegador no la manda y la subida
+ *    falla, aunque los tests pasen: es configuración del bucket, no
+ *    código. Y a diferencia de `Content-Length`, esta cabecera SÍ la
+ *    puede establecer `fetch`.
  */
 export async function firmarSubida(
   params: {
@@ -329,8 +352,13 @@ export async function firmarSubida(
         Key: params.clave,
         ContentType: params.mime,
         ContentLength: params.bytes,
+        // Escritura condicional: solo crea si la clave no existe.
+        IfNoneMatch: "*",
       }),
-      { expiresIn: expira, signableHeaders: new Set(["content-type", "content-length"]) },
+      {
+        expiresIn: expira,
+        signableHeaders: new Set(["content-type", "content-length", "if-none-match"]),
+      },
     );
 
     return {
@@ -338,9 +366,14 @@ export async function firmarSubida(
       valor: {
         url,
         clave: params.clave,
+        // Solo las que el navegador PUEDE establecer. `Content-Length`
+        // es una *forbidden header name*: `fetch` la ignora si se
+        // intenta poner, pero la manda sola con el tamaño real del
+        // Blob — que es el que se firmó. Pedirla acá sería pedirle al
+        // frontend algo imposible.
         cabeceras: {
           "Content-Type": params.mime,
-          "Content-Length": String(params.bytes),
+          "If-None-Match": "*",
         },
         expiraEnSegundos: expira,
       },
