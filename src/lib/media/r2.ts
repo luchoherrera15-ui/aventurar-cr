@@ -230,8 +230,15 @@ function crearCliente(config: ConfigR2): S3Client {
   });
 }
 
-/** Prepara config + cliente + firmador, o devuelve el error de entorno. */
-function preparar(deps: DependenciasR2) {
+/**
+ * Guarda de servidor + config + cliente. Exportada porque
+ * `firma-archivo.ts` necesita exactamente esto para leer un rango del
+ * objeto, y tener una segunda copia de la construcción del `S3Client`
+ * es la clase de duplicación que se desincroniza sin que nadie lo note.
+ */
+export function prepararClienteR2(
+  deps: Pick<DependenciasR2, "cliente" | "entorno"> = {},
+): ResultadoR2<{ config: ConfigR2; cliente: S3Client }> {
   const guarda = exigirServidor();
   if (guarda) return fallo(guarda.codigo, guarda.mensaje);
 
@@ -239,12 +246,19 @@ function preparar(deps: DependenciasR2) {
   if (!config.ok) return config;
 
   return {
+    ok: true,
+    valor: { config: config.valor, cliente: deps.cliente ?? crearCliente(config.valor) },
+  };
+}
+
+/** Prepara config + cliente + firmador, o devuelve el error de entorno. */
+function preparar(deps: DependenciasR2) {
+  const base = prepararClienteR2(deps);
+  if (!base.ok) return base;
+
+  return {
     ok: true as const,
-    valor: {
-      config: config.valor,
-      cliente: deps.cliente ?? crearCliente(config.valor),
-      presignar: deps.presignar ?? getSignedUrl,
-    },
+    valor: { ...base.valor, presignar: deps.presignar ?? getSignedUrl },
   };
 }
 
