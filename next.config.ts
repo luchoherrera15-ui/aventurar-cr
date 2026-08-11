@@ -81,7 +81,20 @@ const nextConfig: NextConfig = {
     return [
       {
         source:
-          "/:archivo(logo-bookea-nav\\.png|logo-bookea\\.png|logo-bookea-blanco\\.png|icono-bookea\\.png|portada-bookea\\.jpg)",
+          // ── OJO AL CAMBIAR UN LOGO ──
+          //
+          // Estos archivos se sirven con una semana de `max-age` y un mes
+          // de `stale-while-revalidate`. Reemplazar el CONTENIDO dejando
+          // el mismo nombre NO se ve: los navegadores que ya lo tenían
+          // siguen mostrando el viejo hasta que expire. Pasó exactamente
+          // eso al estrenar el logo de 2026.
+          //
+          // La forma correcta de cambiar un logo es cambiarle el NOMBRE
+          // (el sufijo -v2, -v3…) y actualizar las referencias. La URL
+          // nueva no tiene caché que la ensucie y el cambio se ve al
+          // instante, sin tocar estas cabeceras ni pedirle a nadie que
+          // limpie el navegador.
+          "/:archivo(logo-bookea-nav-v2\\.png|logo-bookea-v2\\.png|logo-bookea-blanco-v2\\.png|icono-bookea-v2\\.png|portada-bookea\\.jpg)",
         headers: [
           { key: "cache-control", value: "public, max-age=604800, stale-while-revalidate=2592000" },
         ],

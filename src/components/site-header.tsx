@@ -45,13 +45,13 @@ export default async function SiteHeader({
               1251×309, que se estaba bajando entero para pintarlo a
               146×36. Como está en el header Y en el pie, son ~51 KB
               menos por página, en todas las páginas del sitio. El
-              master sigue en /logo-bookea.png para lo que necesite
+              master sigue en /logo-bookea-v2.png para lo que necesite
               resolución (correos, OG, la app móvil).
 
               width/height explícitos: sin ellos el navegador no sabe
               cuánto espacio reservar hasta que baja la imagen. */}
           <img
-            src="/logo-bookea-nav.png"
+            src="/logo-bookea-nav-v2.png"
             alt="Bookear"
             width={440}
             height={109}

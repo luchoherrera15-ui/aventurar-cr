@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Fonts } from "@/constants/theme";
-import logoBlanco from "../../assets/images/logo-bookea-blanco.png";
+import logoBlanco from "../../assets/images/logo-bookea-blanco-v2.png";
 
 /**
  * La misma portada que la web (src/app/page.tsx), adaptada al

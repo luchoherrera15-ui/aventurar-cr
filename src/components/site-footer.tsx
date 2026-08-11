@@ -49,7 +49,7 @@ export default function SiteFooter() {
                 pliegue: no tiene por qué competir por ancho de banda
                 con la foto que la persona sí está mirando. */}
             <img
-              src="/logo-bookea-nav.png"
+              src="/logo-bookea-nav-v2.png"
               alt="Bookea"
               width={440}
               height={109}

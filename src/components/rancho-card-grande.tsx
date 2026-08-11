@@ -134,7 +134,22 @@ export default function RanchoCardGrande({
                   // en `lazy`.
                   loading={index === 0 ? "eager" : undefined}
                   fetchPriority={index === 0 ? "high" : undefined}
-                  sizes="(max-width: 640px) 60vw, 340px"
+                  // ── POR QUÉ ESTOS NÚMEROS Y NO OTROS ──
+                  //
+                  // La grilla es 1 / 2 / 3 columnas (gap-5) dentro de un
+                  // contenedor de max-w-[1600px] con px-6. La portada
+                  // ocupa el 68% de la tarjeta (el 32% restante son las
+                  // miniaturas, más 3px de separación).
+                  //
+                  //   1 col            → ~64vw
+                  //   2 col (≤1279px)  → tarjeta ~48vw → portada ~33vw
+                  //   3 col (≥1280px)  → tarjeta 504px → portada ~345px
+                  //
+                  // Estaba declarado "340px" para TODOS los anchos, y en
+                  // dos columnas la portada llega a ~408px: el navegador
+                  // pedía un candidato para 340 y lo estiraba. En una
+                  // pantalla DPR2 eso se ve.
+                  sizes="(max-width: 640px) 64vw, (max-width: 1279px) 33vw, 345px"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
@@ -147,7 +162,13 @@ export default function RanchoCardGrande({
                         src={foto}
                         alt={`${rancho.nombre} — foto ${i + 2}`}
                         fill
-                        sizes="120px"
+                        // 32% de la tarjeta: hasta ~194px en dos
+                        // columnas y ~161px en tres. Estaba en "120px"
+                        // fijo — un 40% menos de lo que se dibuja, que
+                        // en DPR2 obliga a estirar el candidato de 256
+                        // hasta casi 400. Eran las más borrosas de la
+                        // tarjeta.
+                        sizes="(max-width: 640px) 30vw, (max-width: 1279px) 16vw, 165px"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     </div>
