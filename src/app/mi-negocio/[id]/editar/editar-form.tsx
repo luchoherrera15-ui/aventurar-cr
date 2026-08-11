@@ -2,8 +2,8 @@
 
 import { useActionState, useState } from "react";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen, FOTO_DE_VITRINA } from "@/lib/comprimir-imagen";
+import { subirArchivo } from "@/lib/media/cliente-subida";
 import { IconCamera, IconFrame, IconTrash, IconWarning } from "@/components/icons";
 import { Lightbox } from "@/components/galeria-lightbox";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
@@ -38,11 +38,10 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
-// Los nombres de archivo llegan tal cual del dispositivo del dueño —
-// los limpiamos para que la ruta en el bucket sea siempre válida.
-function nombreSeguro(nombre: string) {
-  return nombre.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
+// El saneado del nombre de archivo vivía acá, para armar la ruta del
+// bucket. Ya no: la clave la deriva el SERVIDOR (src/lib/media/claves.ts),
+// que además descarta travesías de ruta, caracteres de control y marcas
+// bidi. Que el cliente no elija dónde se escribe es justamente el punto.
 
 type FotoNueva = { file: File; preview: string };
 
@@ -174,24 +173,50 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
     setNuevaAmenidad("");
   }
 
+  /**
+   * Sube UNA foto a Cloudflare y devuelve su URL, o corta con el mensaje
+   * que haya mandado el servidor.
+   *
+   * ── LO QUE NO CAMBIA ─────────────────────────────────────────────
+   *
+   * Lo que se guarda sigue siendo una URL absoluta, igual que antes. Por
+   * eso las fotos viejas de Supabase y las nuevas de Cloudflare conviven
+   * en el mismo arreglo `fotos` sin que ninguna pantalla de lectura se
+   * entere. Lo que cambia es DÓNDE vive el archivo, no cómo se referencia.
+   *
+   * La compresión se conserva: `FOTO_DE_VITRINA` es 2560px al 90%, que es
+   * un original digno —sirve para imprimir— y evita mandar 12 megapíxeles
+   * crudos desde un celular. Cloudflare genera las cuatro variantes a
+   * partir de eso.
+   */
+  async function subirFoto(file: File, dondeFalla: string): Promise<string | null> {
+    const liviana = await comprimirImagen(file, FOTO_DE_VITRINA);
+    const r = await subirArchivo({
+      archivo: liviana,
+      entidad: { tipo: "rancho", id: rancho.id },
+    });
+
+    if (!r.ok) {
+      setSubiendo(false);
+      setSubidaError(`${dondeFalla}: ${r.mensaje}`);
+      return null;
+    }
+    if (!r.url) {
+      setSubiendo(false);
+      setSubidaError(`${dondeFalla}: la foto subió pero no se pudo obtener su dirección.`);
+      return null;
+    }
+    return r.url;
+  }
+
   async function onSubmit(formData: FormData) {
-    const supabase = createClient();
     setSubiendo(true);
     setSubidaError(null);
 
     if (fotoFile) {
-      const liviana = await comprimirImagen(fotoFile, FOTO_DE_VITRINA);
-      const path = `${rancho.id}/${Date.now()}-${nombreSeguro(liviana.name)}`;
-      const { error } = await supabase.storage
-        .from("ranchos-fotos")
-        .upload(path, liviana, { upsert: true });
-      if (error) {
-        setSubiendo(false);
-        setSubidaError("No se pudo subir la foto principal: " + error.message);
-        return;
-      }
-      const { data } = supabase.storage.from("ranchos-fotos").getPublicUrl(path);
-      formData.set("foto_url", data.publicUrl);
+      const url = await subirFoto(fotoFile, "No se pudo subir la foto principal");
+      if (!url) return;
+      formData.set("foto_url", url);
     }
 
     const urls = [...galeria];
@@ -199,22 +224,13 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
       ? presentacionClave
       : null;
     for (const { file, preview } of fotosNuevas) {
-      const liviana = await comprimirImagen(file, FOTO_DE_VITRINA);
-      const path = `${rancho.id}/galeria/${Date.now()}-${nombreSeguro(liviana.name)}`;
-      const { error } = await supabase.storage
-        .from("ranchos-fotos")
-        .upload(path, liviana, { upsert: true });
-      if (error) {
-        setSubiendo(false);
-        setSubidaError("No se pudo subir una foto de la galería: " + error.message);
-        return;
-      }
-      const { data } = supabase.storage.from("ranchos-fotos").getPublicUrl(path);
-      urls.push(data.publicUrl);
+      const url = await subirFoto(file, "No se pudo subir una foto de la galería");
+      if (!url) return;
+      urls.push(url);
       // Si la elegida para presentación era esta foto recién subida, hay
       // que mandar la URL real y no el preview local, que no existe fuera
       // de esta pestaña.
-      if (presentacionClave === preview) presentacionUrl = data.publicUrl;
+      if (presentacionClave === preview) presentacionUrl = url;
     }
     formData.set("fotos", JSON.stringify(urls.slice(0, FOTOS_MAX)));
     formData.set("foto_presentacion", presentacionUrl ?? "");
