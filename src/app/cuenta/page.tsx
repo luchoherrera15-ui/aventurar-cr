@@ -78,7 +78,34 @@ export default async function CuentaPage() {
   ]);
 
   const reservas = (reservasData ?? []) as { id: string; fecha: string; estado: string }[];
-  const negocios = (negociosData ?? []) as NegocioResumen[];
+  const propios = (negociosData ?? []) as NegocioResumen[];
+
+  // Los negocios donde alguien la sumó como colaboradora (0116) cuentan
+  // igual que los propios para esta pantalla: si no, quien administra el
+  // negocio de otro entra a /cuenta y ve la vista de cliente, sin puerta
+  // al panel. Era lo que pasaba justo después de darle el acceso.
+  //
+  // Si la 0116 todavía no corrió, la consulta falla y queda solo lo
+  // propio: el mismo comportamiento que había antes.
+  const { data: colabData } = await supabase
+    .from("rancho_colaboradores")
+    .select("rancho_id")
+    .eq("usuario_id", user.id);
+
+  const idsColaborados = (colabData ?? [])
+    .map((c) => (c as { rancho_id: string }).rancho_id)
+    .filter((rid) => !propios.some((n) => n.id === rid));
+
+  let colaborados: NegocioResumen[] = [];
+  if (idsColaborados.length > 0) {
+    const { data: extra } = await supabase
+      .from("ranchos")
+      .select("id, estado")
+      .in("id", idsColaborados);
+    colaborados = (extra ?? []) as NegocioResumen[];
+  }
+
+  const negocios = [...propios, ...colaborados];
   const invitacionIds = ((invitacionesData ?? []) as { id: string }[]).map((i) => i.id);
   const tieneNegocio = negocios.length > 0;
 

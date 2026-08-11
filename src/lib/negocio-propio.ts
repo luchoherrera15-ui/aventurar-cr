@@ -33,9 +33,29 @@ export const tieneNegocioPropio = cache(async (): Promise<boolean> => {
     .select("id", { count: "exact", head: true })
     .eq("owner_id", user.id);
 
+  if (!error && (count ?? 0) > 0) return true;
+
+  // ── Y los negocios donde ALGUIEN LA SUMÓ (0116) ──
+  //
+  // Sin esto, quien colabora en un negocio ajeno nunca ve la puerta a su
+  // panel: el header le sigue ofreciendo "Publicá tu espacio" como si
+  // fuera un cliente cualquiera. Es lo que pasaba después de darle
+  // acceso a alguien — el permiso estaba bien, pero no había por dónde
+  // entrar.
+  //
+  // Va en una consulta aparte y no en un `or`: `.eq("owner_id", …)`
+  // filtra sobre `ranchos`, y la relación vive en otra tabla.
+  //
+  // Si la 0116 todavía no corrió, esta consulta falla y se responde que
+  // no — exactamente el comportamiento que había antes.
+  const { count: colaborados, error: errorColab } = await supabase
+    .from("rancho_colaboradores")
+    .select("rancho_id", { count: "exact", head: true })
+    .eq("usuario_id", user.id);
+
   // Ante un error se responde que no: seguir mostrando "Publicá tu
   // espacio" es inofensivo, mientras que mandar a /mi-negocio a alguien
   // que no tiene nada lo deja en una pantalla vacía.
-  if (error) return false;
-  return (count ?? 0) > 0;
+  if (errorColab) return false;
+  return (colaborados ?? 0) > 0;
 });
