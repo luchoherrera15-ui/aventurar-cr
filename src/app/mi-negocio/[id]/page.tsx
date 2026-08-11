@@ -45,6 +45,7 @@ import DescuentosForm from "@/components/descuentos-form";
 import TerminosForm from "@/components/terminos-form";
 import HorariosForm from "@/components/horarios-form";
 import CuentasPagoForm from "@/components/cuentas-pago-form";
+import ColaboradoresPanel, { type Colaborador } from "./colaboradores-panel";
 import SeccionPlegable from "@/components/seccion-plegable";
 import FinanzasPanel from "./finanzas/finanzas-panel";
 import {
@@ -253,7 +254,32 @@ export default async function RanchoDetallePage({
   if (!data) notFound();
 
   const esAdminSesion = perfil?.rol === "admin";
-  if (data.owner_id !== user.id && !esAdminSesion) notFound();
+
+  // Quién entra: el dueño, un admin de plataforma, o alguien a quien el
+  // dueño sumó como colaborador (0116). La pregunta se le hace a la
+  // base y no se arma acá con un `or`: `gestiona_rancho` es la MISMA
+  // función que respaldan las políticas RLS, así que la pantalla y los
+  // datos no pueden opinar distinto.
+  let puedeEntrar = data.owner_id === user.id || esAdminSesion;
+  if (!puedeEntrar) {
+    const { data: gestiona } = await supabase.rpc("gestiona_rancho", { p_rancho: id });
+    puedeEntrar = gestiona === true;
+  }
+  if (!puedeEntrar) notFound();
+
+  const esColaborador = !esAdminSesion && data.owner_id !== user.id;
+
+  // La lista solo la necesita el dueño (es el único que ve el panel), y
+  // se pide por RPC porque `rancho_colaboradores` guarda ids: el correo
+  // vive en `auth.users`, que el cliente no puede leer.
+  //
+  // Si la 0116 todavía no se pegó, el error se traga acá y el resto del
+  // panel sigue funcionando — mismo criterio que giftcards y módulos.
+  let colaboradores: Colaborador[] = [];
+  if (!esColaborador) {
+    const { data: filas } = await supabase.rpc("colaboradores_del_rancho", { p_rancho: id });
+    colaboradores = (filas ?? []) as Colaborador[];
+  }
 
   const rancho = data as Rancho;
   // "lugares" solo existe en la vertical Eventos — para Citas/Hospedajes/
@@ -925,6 +951,19 @@ export default async function RanchoDetallePage({
           onGuardar={guardarCuentasPagoPropio.bind(null, rancho.id)}
         />
       </SeccionPlegable>
+
+      {/* Solo para el dueño: un colaborador no puede invitar a otros, así
+          que mostrarle el formulario sería una puerta que no abre. */}
+      {!esColaborador && (
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "colaboradores"}
+          titulo="Quién administra este negocio"
+          descripcion="Dale acceso al panel a alguien de tu equipo. Va a poder hacer lo mismo que vos, salvo invitar gente, borrar el negocio o ver tus documentos de verificación."
+        >
+          <ColaboradoresPanel ranchoId={rancho.id} colaboradores={colaboradores} />
+        </SeccionPlegable>
+      )}
     </>
   );
 
@@ -1167,6 +1206,20 @@ export default async function RanchoDetallePage({
         >
           {contenidoAsistente}
         </SeccionPlegable>
+
+        {/* Va también en Citas y no solo en Eventos: dar acceso al
+            equipo no depende de la vertical, y dejarlo en una sola
+            haría que estos negocios no pudieran hacerlo. */}
+        {!esColaborador && (
+          <SeccionPlegable
+            marco={false}
+            abierta={seccion === "colaboradores"}
+            titulo="Quién administra este negocio"
+            descripcion="Dale acceso al panel a alguien de tu equipo. Va a poder hacer lo mismo que vos, salvo invitar gente, borrar el negocio o ver tus documentos de verificación."
+          >
+            <ColaboradoresPanel ranchoId={rancho.id} colaboradores={colaboradores} />
+          </SeccionPlegable>
+        )}
       </div>
     ),
   };

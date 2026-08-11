@@ -53,13 +53,39 @@ export default async function MiRanchoHubPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/mi-negocio/login");
 
+  // Los propios...
   const { data } = await supabase
     .from("ranchos")
     .select("*")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: true });
 
-  const ranchos = (data ?? []) as Rancho[];
+  // ...y aquellos donde alguien lo sumó como colaborador (0116). Van en
+  // dos consultas y no en un `or`: la RLS ya deja ver los dos conjuntos,
+  // pero `.eq("owner_id", ...)` filtra de más y dejaría fuera los
+  // colaborados. Se piden los ids aparte y se traen esos negocios.
+  const { data: colabs } = await supabase
+    .from("rancho_colaboradores")
+    .select("rancho_id")
+    .eq("usuario_id", user.id);
+
+  const idsColaborados = (colabs ?? [])
+    .map((c) => (c as { rancho_id: string }).rancho_id)
+    .filter((id) => !(data ?? []).some((r) => (r as Rancho).id === id));
+
+  let colaborados: Rancho[] = [];
+  if (idsColaborados.length > 0) {
+    const { data: extra } = await supabase
+      .from("ranchos")
+      .select("*")
+      .in("id", idsColaborados)
+      .order("created_at", { ascending: true });
+    colaborados = (extra ?? []) as Rancho[];
+  }
+
+  const propios = (data ?? []) as Rancho[];
+  const ranchos = [...propios, ...colaborados];
+  const idsPropios = new Set(propios.map((r) => r.id));
 
   // Nadie llega acá sin publicar nada todavía: el primer servicio se
   // arma con el formulario completo de onboarding, no con una card vacía.
@@ -135,6 +161,14 @@ export default async function MiRanchoHubPage() {
               <h2 className="truncate text-[15px] font-bold text-aventurea-ink group-hover:text-aventurea-ink">
                 {rancho.nombre}
               </h2>
+              {/* Un negocio ajeno donde te sumaron se marca: si no, en la
+                  grilla se ve idéntico al propio y no queda claro por qué
+                  algunas cosas —transferirlo, invitar gente— no aparecen. */}
+              {!idsPropios.has(rancho.id) && (
+                <span className="mt-0.5 inline-block rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Colaborás acá
+                </span>
+              )}
               <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
                 {etiquetaCategoria}
               </span>
