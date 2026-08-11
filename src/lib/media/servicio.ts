@@ -98,6 +98,22 @@ export type ClienteRpc = {
   }>;
 };
 
+/**
+ * La URL de entrega de una imagen pública.
+ *
+ * Se usa la variante `gallery` (1600, scale down) y no el original:
+ * conserva la proporción real, pesa una fracción, y es la más grande de
+ * las cuatro — así la misma URL sirve lo mismo para una miniatura que
+ * para el visor, y `next/image` la reduce desde ahí.
+ *
+ * Devuelve null si Cloudflare no está configurado, en vez de armar una
+ * URL rota con `undefined` adentro.
+ */
+function urlPublica(entorno: NodeJS.ProcessEnv, imageId: string): string | null {
+  const base = entorno.CLOUDFLARE_IMAGES_DELIVERY_URL?.trim().replace(/\/+$/, "");
+  return base ? `${base}/${imageId}/gallery` : null;
+}
+
 /** Una fila de un `returns table (...)`, que PostgREST manda como arreglo. */
 function filaDe(data: unknown): Record<string, unknown> | null {
   const bruto = Array.isArray(data) ? data[0] : data;
@@ -1129,7 +1145,28 @@ export async function manejarConfirmar(
 
   const cFin = fin.error ? null : txt(fin.fila, "codigo");
   if (cFin === "finalizada" || cFin === "reutilizada") {
-    return exito({ asset_id: assetId, estado: "listo", destino: "r2+cloudflare" }, ctx, 200);
+    // ── LA URL, para que el cliente no tenga que armarla ─────────────
+    //
+    // Las galerías de este producto guardan URLs, no ids: `ranchos.fotos`
+    // es un arreglo de URLs absolutas. Devolviendo la URL acá, una foto
+    // nueva entra en ese mismo arreglo al lado de las viejas de Supabase
+    // y NINGUNA pantalla de lectura tiene que cambiar. Es lo que hace que
+    // el corte sea chico.
+    //
+    // Solo se devuelve para lo PÚBLICO. Un álbum o un comprobante se
+    // sirven firmados y con vida corta: una URL suya metida en una tabla
+    // sería un enlace que caduca y que además se puede reenviar. Esos se
+    // resuelven al mostrarlos, no al guardarlos.
+    return exito(
+      {
+        asset_id: assetId,
+        estado: "listo",
+        destino: "r2+cloudflare",
+        url: visibilidad === "publica" ? urlPublica(d.entorno, importada.valor.id) : null,
+      },
+      ctx,
+      200,
+    );
   }
 
   // ---------- 7. Cloudflare creó la imagen y SQL no la registró ----------

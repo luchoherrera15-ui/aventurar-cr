@@ -26,6 +26,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      // Cloudflare Images: de acá salen todas las fotos nuevas. Sin esta
+      // entrada, `next/image` se niega a cargarlas y la galería queda en
+      // blanco — falla en tiempo de ejecución, no en el build, así que no
+      // la atrapa ninguna prueba.
+      {
+        protocol: "https",
+        hostname: "imagedelivery.net",
+      },
     ],
     // AVIF primero, WebP de respaldo. Sin esta línea el default de Next
     // es solo ['image/webp'] — se midió pidiendo con
