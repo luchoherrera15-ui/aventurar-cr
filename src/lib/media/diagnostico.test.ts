@@ -268,3 +268,74 @@ describe("el diagnóstico NO filtra credenciales", () => {
     }
   });
 });
+
+// ============================================================
+// El plan B de CORS: el preflight real
+// ============================================================
+
+/** Un fetch que responde al preflight OPTIONS con las cabeceras dadas. */
+function fetchPreflight(cabeceras: Record<string, string> | null) {
+  return (async () =>
+    ({
+      ok: true,
+      status: cabeceras ? 200 : 403,
+      headers: new Headers(cabeceras ?? {}),
+      json: async () => ({ success: true, result: { variants: {} } }),
+    }) as unknown as Response) as unknown as typeof fetch;
+}
+
+describe("CORS por preflight, cuando el token no puede leer la política", () => {
+  it("si el preflight devuelve if-none-match, da OK y lo dice", async () => {
+    const r = await diagnosticarMedia({
+      entorno: COMPLETO,
+      clienteR2: clienteR2Falso({ corsLanza: true }),
+      fetch: fetchPreflight({
+        "access-control-allow-origin": "https://bookea.lat",
+        "access-control-allow-headers": "content-type, if-none-match",
+        "access-control-allow-methods": "PUT, GET, HEAD",
+      }),
+    });
+    const c = buscar(r.chequeos, "if-none-match");
+    expect(c?.estado).toBe("ok");
+    expect(c?.detalle).toContain("preflight real");
+  });
+
+  it("si NO la devuelve, es falla y no un aviso: rompe todas las subidas", async () => {
+    const r = await diagnosticarMedia({
+      entorno: COMPLETO,
+      clienteR2: clienteR2Falso({ corsLanza: true }),
+      fetch: fetchPreflight({
+        "access-control-allow-origin": "https://bookea.lat",
+        "access-control-allow-headers": "content-type",
+        "access-control-allow-methods": "PUT",
+      }),
+    });
+    const c = buscar(r.chequeos, "if-none-match");
+    expect(c?.estado).toBe("falla");
+    expect(c?.detalle).toContain("TODAS las subidas fallan");
+  });
+
+  it("si el bucket rechaza el origen, lo dice por su nombre", async () => {
+    const r = await diagnosticarMedia({
+      entorno: COMPLETO,
+      clienteR2: clienteR2Falso({ corsLanza: true }),
+      fetch: fetchPreflight(null),
+    });
+    const c = buscar(r.chequeos, "R2 · CORS");
+    expect(c?.estado).toBe("falla");
+    expect(c?.detalle).toContain("bookea.lat");
+  });
+
+  it("sin PUT en el preflight tampoco se puede subir", async () => {
+    const r = await diagnosticarMedia({
+      entorno: COMPLETO,
+      clienteR2: clienteR2Falso({ corsLanza: true }),
+      fetch: fetchPreflight({
+        "access-control-allow-origin": "https://bookea.lat",
+        "access-control-allow-headers": "if-none-match",
+        "access-control-allow-methods": "GET, HEAD",
+      }),
+    });
+    expect(buscar(r.chequeos, "PUT")?.estado).toBe("falla");
+  });
+});

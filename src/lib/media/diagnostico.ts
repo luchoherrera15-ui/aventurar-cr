@@ -157,15 +157,87 @@ async function revisarR2(deps: DependenciasDiagnostico): Promise<Chequeo[]> {
       );
     }
   } catch {
-    salida.push(
-      aviso(
-        "R2 · CORS",
-        "No se pudo leer la configuración de CORS. El token de R2 puede no tener permiso para leerla; revisala a mano en el panel.",
-      ),
-    );
+    // ── Plan B: preguntar como pregunta el NAVEGADOR ──
+    //
+    // Leer la política con `GetBucketCors` exige que el token tenga
+    // permisos de administración del bucket, y el token de producción
+    // no tiene por qué tenerlos — solo necesita leer y escribir
+    // objetos. Pero la CORS igual se puede comprobar, y mejor: haciendo
+    // el mismo preflight que hace Chrome antes de subir.
+    //
+    // Un OPTIONS con `Access-Control-Request-Headers: if-none-match` no
+    // necesita credenciales, y R2 responde qué cabeceras admite. Si
+    // `if-none-match` no vuelve en `Access-Control-Allow-Headers`, el
+    // navegador tampoco la va a poder mandar y la subida va a fallar.
+    //
+    // O sea que esto no es un sustituto peor: prueba el comportamiento
+    // real en vez de leer la configuración que lo describe.
+    salida.push(...(await revisarCorsPorPreflight(deps, listo.valor.config.endpoint, listo.valor.config.bucket)));
   }
 
   return salida;
+}
+
+async function revisarCorsPorPreflight(
+  deps: DependenciasDiagnostico,
+  endpoint: string,
+  bucket: string,
+): Promise<Chequeo[]> {
+  const entorno = deps.entorno ?? process.env;
+  const hacerFetch = deps.fetch ?? fetch;
+  const origen = origenesPermitidos(entorno)[0];
+
+  if (!origen) {
+    return [aviso("R2 · CORS", "No hay un origen configurado contra el cual probar el preflight.")];
+  }
+
+  try {
+    const r = await hacerFetch(`${endpoint.replace(/\/+$/, "")}/${bucket}/diagnostico-cors`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: origen,
+        "Access-Control-Request-Method": "PUT",
+        "Access-Control-Request-Headers": `content-type, ${CABECERA_CRITICA}`,
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    const permitidas = (r.headers.get("access-control-allow-headers") ?? "").toLowerCase();
+    const metodos = (r.headers.get("access-control-allow-methods") ?? "").toUpperCase();
+    const origenOk = r.headers.get("access-control-allow-origin");
+
+    if (!origenOk) {
+      return [
+        falla(
+          "R2 · CORS",
+          `El bucket rechazó el preflight desde ${origen}. Agregá ese origen a AllowedOrigins en Settings → CORS Policy.`,
+        ),
+      ];
+    }
+
+    const salida: Chequeo[] = [];
+    salida.push(
+      permitidas.includes(CABECERA_CRITICA) || permitidas.includes("*")
+        ? ok("R2 · CORS · if-none-match", "Permitida (comprobado con un preflight real). La escritura única funciona.")
+        : falla(
+            "R2 · CORS · if-none-match",
+            "El bucket NO la devuelve en el preflight. Sin esto TODAS las subidas fallan. Agregala a AllowedHeaders en Settings → CORS Policy.",
+          ),
+    );
+    salida.push(
+      metodos.includes("PUT") || metodos.includes("*")
+        ? ok("R2 · CORS · PUT", "Permitido (comprobado con un preflight real).")
+        : falla("R2 · CORS · PUT", "El bucket no admite PUT desde el navegador. Agregalo a AllowedMethods."),
+    );
+    return salida;
+  } catch {
+    return [
+      aviso(
+        "R2 · CORS",
+        "No se pudo leerla con el token ni comprobarla con un preflight. Revisá a mano que AllowedHeaders incluya `if-none-match`.",
+      ),
+    ];
+  }
 }
 
 // ------------------------------------------------------------
