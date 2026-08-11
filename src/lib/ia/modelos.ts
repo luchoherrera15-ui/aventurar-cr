@@ -246,27 +246,23 @@ export function tipoCambioDeEntorno(): number {
 }
 
 /**
- * Formatea dólares con los decimales que hagan falta: los montos
- * chicos necesitan cuatro para no verse como "$0.00".
+ * El formato de la plata se mudó a `src/lib/dinero.ts`.
+ *
+ * Vivía acá porque este panel fue el primero que lo necesitó, pero el de
+ * almacenamiento pide exactamente lo mismo y dos copias del formato de
+ * colón conviviendo en /admin es cómo se termina con el mismo número
+ * escrito de dos formas en dos pantallas.
+ *
+ * Se REEXPORTA para que ningún llamador de este módulo tenga que
+ * cambiar, y el comportamiento es idéntico al que había.
+ *
+ * Se importa ADEMÁS de reexportar: un `export ... from` solo reexporta y
+ * no trae los nombres al ámbito de este archivo, donde `etiquetaPrecio`
+ * y `etiquetaPrecioAmbas` los usan unas líneas más abajo.
  */
-export function formatearUSD(usd: number): string {
-  const abs = Math.abs(usd);
-  const decimales = abs > 0 && abs < 0.01 ? 4 : 2;
-  return `$${usd.toLocaleString("en-US", {
-    minimumFractionDigits: decimales,
-    maximumFractionDigits: decimales,
-  })}`;
-}
+import { formatearAmbas, formatearUSD } from "@/lib/dinero";
 
-/** Formatea colones sin decimales: nadie cobra céntimos de colón. */
-export function formatearCRC(crc: number): string {
-  return `₡${Math.round(crc).toLocaleString("es-CR")}`;
-}
-
-/** "$0.0412 · ₡21" — el gasto siempre se muestra en las dos monedas. */
-export function formatearAmbas(usd: number, tipoCambio: number): string {
-  return `${formatearUSD(usd)} · ${formatearCRC(usd * tipoCambio)}`;
-}
+export { formatearAmbas, formatearCRC, formatearUSD } from "@/lib/dinero";
 
 /** "$1.00 / $5.00 por millón" — el precio de lista de un modelo. */
 export function etiquetaPrecio(modelo: ModeloIA, fecha: Date = new Date()): string {
