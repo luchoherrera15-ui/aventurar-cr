@@ -108,15 +108,16 @@ export default function ComplementosPanel({
 
   const ocultos = negocios.length - filtrados.length;
 
-  // Agrupados por categoría, con la categoría en orden alfabético para
-  // que la lista no baile entre cargas.
-  const porCategoria = useMemo(() => {
-    const mapa = new Map<string, NegocioConAddons[]>();
-    for (const n of filtrados) {
-      const cat = SECCION_CORTA[n.vertical ?? ""] ?? "Sin categoría";
-      mapa.set(cat, [...(mapa.get(cat) ?? []), n]);
-    }
-    return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0], "es"));
+  // Ordenados por categoría y después por nombre: los de un mismo
+  // rubro quedan juntos sin necesidad de un encabezado por grupo. Con
+  // el filtro de sección puesto habría UN solo grupo, y un encabezado
+  // que repite lo que ya dice la casilla de arriba no informa nada.
+  const ordenados = useMemo(() => {
+    return [...filtrados].sort((a, b) => {
+      const ca = SECCION_CORTA[a.vertical ?? ""] ?? "Sin categoría";
+      const cb = SECCION_CORTA[b.vertical ?? ""] ?? "Sin categoría";
+      return ca.localeCompare(cb, "es") || a.nombre.localeCompare(b.nombre, "es");
+    });
   }, [filtrados]);
 
   const negocio = negocios.find((n) => n.id === elegido) ?? null;
@@ -195,69 +196,77 @@ export default function ComplementosPanel({
 
       <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
         {/* ── La lista, por categoría ─────────────────────────── */}
-        <div className="space-y-4">
-          {porCategoria.length === 0 ? (
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft">
+            Negocios · {ordenados.length}
+          </p>
+
+          {ordenados.length === 0 ? (
             <p className="rounded-2xl border border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
               Ningún negocio con ese nombre.
             </p>
           ) : (
-            porCategoria.map(([categoria, lista]) => (
-              <div key={categoria}>
-                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft">
-                  {categoria} · {lista.length}
-                </p>
-                <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
-                  {lista.map((n, i) => {
-                    const activos = n.addons.filter(
-                      (a) => estadoDeAddon(a) === "activo",
-                    ).length;
-                    const plan = PLANES_ID.includes(n.planLealtad as never)
-                      ? PLANES[n.planLealtad as keyof typeof PLANES]
-                      : null;
+            <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
+              {ordenados.map((n, i) => {
+                const activos = n.addons.filter((a) => estadoDeAddon(a) === "activo").length;
+                const plan = PLANES_ID.includes(n.planLealtad as never)
+                  ? PLANES[n.planLealtad as keyof typeof PLANES]
+                  : null;
+                const seleccionado = elegido === n.id;
 
-                    return (
-                      <button
-                        key={n.id}
-                        type="button"
-                        onClick={() => setElegido(n.id)}
-                        className={`flex w-full items-center gap-2 px-4 py-3 text-left ${
-                          i > 0 ? "border-t border-aventurea-line" : ""
-                        } ${
-                          elegido === n.id
-                            ? "bg-aventurea-navy text-white"
-                            : "hover:bg-aventurea-cream-2"
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => setElegido(n.id)}
+                    className={`flex w-full items-center gap-2 px-4 py-3 text-left ${
+                      i > 0 ? "border-t border-aventurea-line" : ""
+                    } ${
+                      seleccionado ? "bg-aventurea-navy" : "hover:bg-aventurea-cream-2"
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`flex items-center gap-2 ${
+                          seleccionado ? "text-white" : "text-aventurea-ink"
                         }`}
                       >
-                        <span className="min-w-0 flex-1">
-                          <span
-                            className={`block truncate text-[13.5px] font-bold ${
-                              elegido === n.id ? "text-white" : "text-aventurea-ink"
-                            }`}
-                          >
-                            {n.nombre}
-                          </span>
-                          <span
-                            className={`block text-[11.5px] ${
-                              elegido === n.id ? "text-white/70" : "text-aventurea-ink-soft"
-                            }`}
-                          >
-                            {plan ? plan.nombre : "Sin plan"}
-                            {activos > 0 ? ` · ${activos} complemento${activos === 1 ? "" : "s"}` : ""}
-                          </span>
+                        <span className="truncate text-[13.5px] font-bold">{n.nombre}</span>
+                        {/* La categoría viaja con cada fila, no en un
+                            encabezado: así sigue visible cuando la
+                            búsqueda mezcla negocios de varias. */}
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+                            seleccionado
+                              ? "bg-white/15 text-white/80"
+                              : "bg-aventurea-cream-2 text-aventurea-ink-soft"
+                          }`}
+                        >
+                          {SECCION_CORTA[n.vertical ?? ""] ?? "sin categoría"}
                         </span>
-                        {(plan || activos > 0) && (
-                          <span
-                            className={`h-2 w-2 shrink-0 rounded-full ${
-                              elegido === n.id ? "bg-white" : "bg-aventurea-green"
-                            }`}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
+                      </span>
+                      <span
+                        className={`mt-0.5 block text-[11.5px] ${
+                          seleccionado ? "text-white/70" : "text-aventurea-ink-soft"
+                        }`}
+                      >
+                        {plan ? plan.nombre : "Sin plan"}
+                        {activos > 0
+                          ? ` · ${activos} complemento${activos === 1 ? "" : "s"}`
+                          : ""}
+                      </span>
+                    </span>
+                    {(plan || activos > 0) && (
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${
+                          seleccionado ? "bg-white" : "bg-aventurea-green"
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
