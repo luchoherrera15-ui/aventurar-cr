@@ -130,3 +130,62 @@ export async function verificarAccesoRancho(ranchoId: string) {
   const ok = !!rancho && (rancho.owner_id === user.id || esAdmin);
   return { supabase, user, ok, esAdmin };
 }
+
+/**
+ * Acceso OPERATIVO al panel: el dueño, un admin, o un encargado que el
+ * dueño sumó al negocio (`rancho_colaboradores`, migración 0116).
+ *
+ * ── POR QUÉ NO SE LE AGREGÓ EL ENCARGADO A LA FUNCIÓN DE ARRIBA ──────
+ *
+ * `verificarAccesoRancho` protege 43 acciones repartidas en 11 archivos,
+ * y ahí conviven dos cosas muy distintas: mover una cita y cambiar la
+ * cuenta bancaria donde entra la plata del negocio.
+ *
+ * Un `|| esColaborador` en esa función habilitaba las 43 de una vez,
+ * incluida `guardarCuentasPagoPropio`. Un encargado habría podido
+ * redirigir los cobros. Por eso son DOS funciones y la migración de cada
+ * acción es explícita: lo que no se cambió a mano sigue siendo del dueño.
+ *
+ * La regla, en una línea: **agregar una acción al panel no le da acceso
+ * al encargado hasta que alguien lo decida.**
+ *
+ * ── LO QUE ESTA FUNCIÓN NO CONCEDE ──────────────────────────────────
+ *
+ * Nada que la 0116 le haya reservado al dueño. Invitar o quitar
+ * encargados, transferir el negocio y ver las cédulas de verificación
+ * están bloqueados en la BASE, no acá: aunque esta función dijera que
+ * sí, la RLS y el trigger `ranchos_proteger_dueno` lo rechazan igual.
+ *
+ * ── ESTADOS ─────────────────────────────────────────────────────────
+ *
+ * `rancho_colaboradores` es binaria a propósito: la fila existe y hay
+ * acceso, se borra y no lo hay. No existe "invitado pendiente" ni
+ * "desactivado" — quitar a alguien es borrar su fila, y el efecto es
+ * inmediato.
+ *
+ * ── FALLA CERRADA ───────────────────────────────────────────────────
+ *
+ * Si la consulta falla —tabla ausente porque la 0116 no corrió, error de
+ * red, RLS negando— se responde que NO. Nunca se concede acceso por no
+ * haber podido comprobar lo contrario.
+ */
+export async function verificarAccesoOperativo(ranchoId: string) {
+  const base = await verificarAccesoRancho(ranchoId);
+
+  // Dueño o admin: ya está resuelto, y no hace falta una consulta más.
+  if (base.ok || !base.user) return { ...base, esColaborador: false };
+
+  // La consulta va con el cliente DEL USUARIO, no con `service_role`: la
+  // política "Ver los colaboradores del negocio" (0116) ya le deja ver
+  // su propia fila. Si algún día esa política cambia, esto deja de
+  // conceder acceso — que es la dirección segura de fallar.
+  const { data, error } = await base.supabase
+    .from("rancho_colaboradores")
+    .select("usuario_id")
+    .eq("rancho_id", ranchoId)
+    .eq("usuario_id", base.user.id)
+    .maybeSingle();
+
+  const esColaborador = !error && !!data;
+  return { ...base, ok: esColaborador, esColaborador };
+}

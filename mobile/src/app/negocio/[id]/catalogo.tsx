@@ -21,9 +21,31 @@ import PanelNav, { ALTO_PANEL_NAV } from "@/components/panel-nav";
 import { useAuth } from "@/lib/auth-context";
 import { etiquetaDuracion } from "@/lib/catalogo";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
-import { CATALOGO_LABEL, fmtColones, type Categoria, type RanchoItem } from "@/lib/types";
+import {
+  CATALOGO_LABEL,
+  fmtColones,
+  type Categoria,
+  type LugarServicio,
+  type ModalidadServicio,
+  type RanchoItem,
+} from "@/lib/types";
 
 const UNIDADES = ["por persona", "por unidad", "por hora", "por evento", "por día"];
+
+/** Modalidad y lugar son DOS preguntas distintas (0117): cuánta gente
+ *  entra en la sesión, y dónde se presta. Una clase grupal puede ser
+ *  en línea, así que no pueden compartir una sola lista. */
+const MODALIDADES: { valor: ModalidadServicio | ""; label: string }[] = [
+  { valor: "", label: "Individual" },
+  { valor: "grupal", label: "Grupal" },
+  { valor: "recurso", label: "Por recurso" },
+];
+
+const LUGARES: { valor: LugarServicio | ""; label: string }[] = [
+  { valor: "", label: "Presencial" },
+  { valor: "online", label: "En línea" },
+  { valor: "hibrido", label: "Híbrido" },
+];
 
 type Borrador = {
   nombre: string;
@@ -33,11 +55,23 @@ type Borrador = {
   tipo: "paquete" | "producto";
   grupo: string;
   duracionHoras: string;
+  /** Citas mide en minutos, no en horas (0055). */
+  duracionMinutos: string;
+  /** Limpieza/preparación después de la cita (0061). */
+  bufferMin: string;
   fotoUrl: string | null;
   minPorReserva: string;
   maxPorReserva: string;
   capacidadDia: string;
   esPaqueteBase: boolean;
+  /** "" = sin declarar, que la base interpreta como individual. */
+  modalidad: ModalidadServicio | "";
+  lugarServicio: LugarServicio | "";
+  cupoMinSesion: string;
+  cupoMaxSesion: string;
+  anticipacionMinHoras: string;
+  anticipacionMaxDias: string;
+  depositoServicio: string;
 };
 
 const VACIO: Borrador = {
@@ -48,12 +82,64 @@ const VACIO: Borrador = {
   tipo: "paquete",
   grupo: "",
   duracionHoras: "",
+  duracionMinutos: "",
+  bufferMin: "",
   fotoUrl: null,
   minPorReserva: "1",
   maxPorReserva: "",
   capacidadDia: "",
   esPaqueteBase: false,
+  modalidad: "",
+  lugarServicio: "",
+  cupoMinSesion: "",
+  cupoMaxSesion: "",
+  anticipacionMinHoras: "",
+  anticipacionMaxDias: "",
+  depositoServicio: "",
 };
+
+/**
+ * Columnas que agregó una migración posterior a la 0035, agrupadas POR
+ * MIGRACIÓN. Postgres nombra una sola columna desconocida por error,
+ * así que soltarlas todas de golpe haría que una base con la 0061 pero
+ * sin la 0117 perdiera en silencio el buffer y la duración: se
+ * guardaría "bien" y el dueño vería su configuración desaparecer.
+ */
+const GRUPOS_OPCIONALES: readonly (readonly string[])[] = [
+  ["duracion_minutos"], // 0055
+  ["buffer_min"], // 0061
+  ["es_paquete_base"], // 0067
+  ["modalidad", "lugar_servicio", "cupo_min_sesion", "cupo_max_sesion"], // 0117
+  ["anticipacion_min_horas", "anticipacion_max_dias", "deposito_servicio"], // 0118
+];
+
+type Fila = Record<string, unknown>;
+type Respuesta = { data: unknown; error: { message: string } | null };
+
+/**
+ * Guarda y, si la base no tiene alguna migración, reintenta sin las
+ * columnas de ESA migración. Cada vuelta suelta un grupo que todavía
+ * estaba en la fila, así que el ciclo siempre avanza y termina.
+ */
+async function guardarTolerante(
+  fila: Fila,
+  intentar: (fila: Fila) => PromiseLike<Respuesta>,
+): Promise<Respuesta> {
+  const actual: Fila = { ...fila };
+
+  for (let vuelta = 0; vuelta <= GRUPOS_OPCIONALES.length; vuelta++) {
+    const res = await intentar(actual);
+    if (!res.error) return res;
+
+    const culpable = GRUPOS_OPCIONALES.find((grupo) =>
+      grupo.some((c) => c in actual && res.error!.message.includes(c)),
+    );
+    if (!culpable) return res;
+    for (const c of culpable) delete actual[c];
+  }
+
+  return intentar(actual);
+}
 
 function num(v: string): number | null {
   const limpio = v.trim();
@@ -71,11 +157,30 @@ function deItem(item: RanchoItem): Borrador {
     tipo: item.tipo,
     grupo: item.grupo ?? "",
     duracionHoras: item.duracion_horas === null ? "" : String(item.duracion_horas),
+    duracionMinutos: item.duracion_minutos ? String(item.duracion_minutos) : "",
+    bufferMin: item.buffer_min ? String(item.buffer_min) : "",
     fotoUrl: item.foto_url,
     minPorReserva: String(item.min_por_reserva),
     maxPorReserva: item.max_por_reserva === null ? "" : String(item.max_por_reserva),
     capacidadDia: item.capacidad_dia === null ? "" : String(item.capacidad_dia),
     esPaqueteBase: item.es_paquete_base === true,
+    modalidad: item.modalidad ?? "",
+    lugarServicio: item.lugar_servicio ?? "",
+    cupoMinSesion: item.cupo_min_sesion ? String(item.cupo_min_sesion) : "",
+    cupoMaxSesion: item.cupo_max_sesion ? String(item.cupo_max_sesion) : "",
+    // El 0 es válido en la anticipación mínima ("hasta el último
+    // minuto"), así que acá no sirve el truthy que usan los cupos.
+    anticipacionMinHoras:
+      item.anticipacion_min_horas === null || item.anticipacion_min_horas === undefined
+        ? ""
+        : String(item.anticipacion_min_horas),
+    anticipacionMaxDias: item.anticipacion_max_dias
+      ? String(item.anticipacion_max_dias)
+      : "",
+    depositoServicio:
+      item.deposito_servicio === null || item.deposito_servicio === undefined
+        ? ""
+        : String(item.deposito_servicio),
   };
 }
 
@@ -127,6 +232,9 @@ export default function CatalogoNegocioScreen() {
   );
 
   function aFila(b: Borrador) {
+    // Igual que en la web: el cupo por sesión solo existe si el
+    // servicio es grupal, así lo guardado es siempre lo que se ve.
+    const esGrupal = b.modalidad === "grupal";
     return {
       nombre: b.nombre.trim(),
       descripcion: b.descripcion.trim() || null,
@@ -135,20 +243,23 @@ export default function CatalogoNegocioScreen() {
       tipo: b.tipo,
       grupo: b.grupo.trim() || null,
       duracion_horas: num(b.duracionHoras),
+      duracion_minutos: num(b.duracionMinutos),
+      buffer_min: num(b.bufferMin) ?? 0,
       foto_url: b.fotoUrl,
       min_por_reserva: num(b.minPorReserva) ?? 1,
       max_por_reserva: num(b.maxPorReserva),
       capacidad_dia: num(b.capacidadDia),
       es_paquete_base: b.tipo === "paquete" && b.esPaqueteBase,
+      modalidad: b.modalidad || null,
+      lugar_servicio: b.lugarServicio || null,
+      cupo_min_sesion: esGrupal ? num(b.cupoMinSesion) : null,
+      cupo_max_sesion: esGrupal ? num(b.cupoMaxSesion) : null,
+      anticipacion_min_horas: num(b.anticipacionMinHoras),
+      anticipacion_max_dias: num(b.anticipacionMaxDias),
+      deposito_servicio: num(b.depositoServicio),
     };
   }
 
-  /** Base sin la migración 0067: se reintenta sin es_paquete_base. */
-  function sinPaqueteBase(fila: ReturnType<typeof aFila>) {
-    const copia = { ...fila } as Record<string, unknown>;
-    delete copia.es_paquete_base;
-    return copia;
-  }
 
   function validar(b: Borrador): string | null {
     if (!b.nombre.trim() || b.nombre.trim().length > 120) {
@@ -162,6 +273,44 @@ export default function CatalogoNegocioScreen() {
     const max = num(b.maxPorReserva);
     if (max !== null && max < min) {
       return "El máximo por reserva no puede ser menor que el mínimo.";
+    }
+    // Mismos rangos que los checks de la base, para no mandar un
+    // insert que va a rebotar: duración 5..480 (0055), limpieza
+    // 0..240 (0061) y cupo por sesión 1..999 (0117).
+    const minutos = num(b.duracionMinutos);
+    if (minutos !== null && (!Number.isInteger(minutos) || minutos < 5 || minutos > 480)) {
+      return "La duración debe ser una cantidad de minutos entre 5 y 480.";
+    }
+    const buffer = num(b.bufferMin);
+    if (buffer !== null && (!Number.isInteger(buffer) || buffer < 0 || buffer > 240)) {
+      return "El tiempo de limpieza debe estar entre 0 y 240 minutos.";
+    }
+    const cupoMin = num(b.cupoMinSesion);
+    const cupoMax = num(b.cupoMaxSesion);
+    for (const [valor, cual] of [
+      [cupoMin, "mínimo"],
+      [cupoMax, "máximo"],
+    ] as const) {
+      if (valor !== null && (!Number.isInteger(valor) || valor < 1 || valor > 999)) {
+        return `El ${cual} de personas por sesión debe estar entre 1 y 999.`;
+      }
+    }
+    if (cupoMin !== null && cupoMax !== null && cupoMax < cupoMin) {
+      return "El máximo de personas por sesión no puede ser menor que el mínimo.";
+    }
+    // Mismos rangos que rancho_items_anticipacion_check (0118). Estos
+    // no son cosméticos: el RPC rechaza la cita que los incumple.
+    const antMin = num(b.anticipacionMinHoras);
+    if (antMin !== null && (!Number.isInteger(antMin) || antMin < 0 || antMin > 720)) {
+      return "La anticipación mínima debe estar entre 0 y 720 horas (30 días).";
+    }
+    const antMax = num(b.anticipacionMaxDias);
+    if (antMax !== null && (!Number.isInteger(antMax) || antMax < 1 || antMax > 365)) {
+      return "El máximo hacia adelante debe estar entre 1 y 365 días.";
+    }
+    const adelanto = num(b.depositoServicio);
+    if (adelanto !== null && (adelanto < 0 || adelanto > 10000000)) {
+      return "El adelanto debe estar entre ₡0 y ₡10.000.000.";
     }
     return null;
   }
@@ -212,18 +361,13 @@ export default function CatalogoNegocioScreen() {
     const fila = aFila(borrador);
     if (editando === "nuevo") {
       const maxOrden = Math.max(0, ...(items ?? []).map((i) => i.orden));
-      let { data, error: err } = await supabase
-        .from("rancho_items")
-        .insert({ rancho_id: id, orden: maxOrden + 1, ...fila })
-        .select("*")
-        .single();
-      if (err && err.message.includes("es_paquete_base")) {
-        ({ data, error: err } = await supabase
+      const { data, error: err } = await guardarTolerante(fila, (f) =>
+        supabase
           .from("rancho_items")
-          .insert({ rancho_id: id, orden: maxOrden + 1, ...sinPaqueteBase(fila) })
+          .insert({ rancho_id: id, orden: maxOrden + 1, ...f })
           .select("*")
-          .single());
-      }
+          .single(),
+      );
       setOcupado(false);
       if (err) {
         setError("No se pudo guardar: " + err.message);
@@ -231,22 +375,15 @@ export default function CatalogoNegocioScreen() {
       }
       setItems((prev) => [...(prev ?? []), data as RanchoItem]);
     } else if (editando) {
-      let { data, error: err } = await supabase
-        .from("rancho_items")
-        .update(fila)
-        .eq("id", editando)
-        .eq("rancho_id", id)
-        .select("*")
-        .single();
-      if (err && err.message.includes("es_paquete_base")) {
-        ({ data, error: err } = await supabase
+      const { data, error: err } = await guardarTolerante(fila, (f) =>
+        supabase
           .from("rancho_items")
-          .update(sinPaqueteBase(fila))
+          .update(f)
           .eq("id", editando)
           .eq("rancho_id", id)
           .select("*")
-          .single());
-      }
+          .single(),
+      );
       setOcupado(false);
       if (err) {
         setError("No se pudo guardar: " + err.message);
@@ -338,6 +475,9 @@ export default function CatalogoNegocioScreen() {
   }
 
   const etiqueta = CATALOGO_LABEL[categoria];
+  // Mismo corte que el panel web: en Citas el servicio se mide en
+  // minutos y declara su modalidad; en Eventos nada de esto aparece.
+  const esCitas = vertical === "citas";
 
   return (
     <View style={styles.contenedor}>
@@ -375,6 +515,7 @@ export default function CatalogoNegocioScreen() {
                 subirFoto={subirFoto}
                 ocupado={ocupado}
                 textoBoton="Guardar cambios"
+                esCitas={esCitas}
                 onGuardar={guardar}
                 onCancelar={() => {
                   setEditando(null);
@@ -441,6 +582,7 @@ export default function CatalogoNegocioScreen() {
               subirFoto={subirFoto}
               ocupado={ocupado}
               textoBoton="Agregar"
+              esCitas={esCitas}
               onGuardar={guardar}
               onCancelar={() => {
                 setEditando(null);
@@ -506,6 +648,7 @@ function Formulario({
   subirFoto,
   ocupado,
   textoBoton,
+  esCitas,
   onGuardar,
   onCancelar,
 }: {
@@ -515,6 +658,8 @@ function Formulario({
   subirFoto: () => void;
   ocupado: boolean;
   textoBoton: string;
+  /** Vertical de Citas: duración en minutos, modalidad y cupo. */
+  esCitas: boolean;
   onGuardar: () => void;
   onCancelar: () => void;
 }) {
@@ -606,15 +751,152 @@ function Formulario({
         </View>
       </View>
 
+      {esCitas && (
+        <>
+          <View style={styles.dosColumnas}>
+            <Campo
+              label="Duración (minutos)"
+              valor={borrador.duracionMinutos}
+              onCambiar={set("duracionMinutos")}
+              placeholder="30"
+              numerico
+              mitad
+            />
+            {/* El buffer del motor pro (0061): limpiar la silla,
+                acomodar la cabina. La franja ocupa duración + esto. */}
+            <Campo
+              label="Limpieza después (min)"
+              valor={borrador.bufferMin}
+              onCambiar={set("bufferMin")}
+              placeholder="0"
+              numerico
+              mitad
+            />
+          </View>
+
+          <View>
+            <Text style={styles.campoLabel}>Modalidad</Text>
+            <View style={styles.chipsEnvueltos}>
+              {MODALIDADES.map((m) => (
+                <Pressable
+                  key={m.valor || "individual"}
+                  onPress={() => setBorrador((b) => ({ ...b, modalidad: m.valor }))}
+                  style={[styles.chipMini, borrador.modalidad === m.valor && styles.chipActivo]}
+                >
+                  <Text
+                    style={[
+                      styles.chipMiniTexto,
+                      borrador.modalidad === m.valor && styles.chipTextoActivo,
+                    ]}
+                  >
+                    {m.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <View>
+            <Text style={styles.campoLabel}>Dónde se presta</Text>
+            <View style={styles.chipsEnvueltos}>
+              {LUGARES.map((l) => (
+                <Pressable
+                  key={l.valor || "presencial"}
+                  onPress={() => setBorrador((b) => ({ ...b, lugarServicio: l.valor }))}
+                  style={[styles.chipMini, borrador.lugarServicio === l.valor && styles.chipActivo]}
+                >
+                  <Text
+                    style={[
+                      styles.chipMiniTexto,
+                      borrador.lugarServicio === l.valor && styles.chipTextoActivo,
+                    ]}
+                  >
+                    {l.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {borrador.modalidad === "grupal" && (
+            <View>
+              <View style={styles.dosColumnas}>
+                <Campo
+                  label="Personas mínimas"
+                  valor={borrador.cupoMinSesion}
+                  onCambiar={set("cupoMinSesion")}
+                  placeholder="Sin mínimo"
+                  numerico
+                  mitad
+                />
+                <Campo
+                  label="Personas máximas"
+                  valor={borrador.cupoMaxSesion}
+                  onCambiar={set("cupoMaxSesion")}
+                  placeholder="20"
+                  numerico
+                  mitad
+                />
+              </View>
+              {/* Honestidad con el dueño: esto queda anotado, todavía
+                  no cambia cómo se reserva. */}
+              <Text style={styles.notaAyuda}>
+                Por ahora esto queda anotado en la ficha del servicio: la agenda sigue
+                tomando una reserva a la vez. Las clases con cupo compartido llegan más
+                adelante.
+              </Text>
+            </View>
+          )}
+
+          {/* Política de reserva (0118). A diferencia del cupo, esto
+              SÍ se hace cumplir: el motor rechaza la cita que no la
+              respete, venga de la web o de acá. */}
+          <View style={styles.dosColumnas}>
+            <Campo
+              label="Anticipación mínima (horas)"
+              valor={borrador.anticipacionMinHoras}
+              onCambiar={set("anticipacionMinHoras")}
+              placeholder="Sin mínimo"
+              numerico
+              mitad
+            />
+            <Campo
+              label="Se reserva hasta (días)"
+              valor={borrador.anticipacionMaxDias}
+              onCambiar={set("anticipacionMaxDias")}
+              placeholder="Sin tope"
+              numerico
+              mitad
+            />
+          </View>
+
+          <View>
+            <Campo
+              label="Adelanto de este servicio ₡"
+              valor={borrador.depositoServicio}
+              onCambiar={set("depositoServicio")}
+              placeholder="Vacío = el adelanto general del negocio"
+              numerico
+            />
+            <Text style={styles.notaAyuda}>
+              Estas tres reglas sí se aplican al reservar: una cita que no las cumpla
+              se rechaza, venga de la web o de la app.
+            </Text>
+          </View>
+        </>
+      )}
+
       <View style={styles.dosColumnas}>
-        <Campo
-          label="Horas que incluye"
-          valor={borrador.duracionHoras}
-          onCambiar={set("duracionHoras")}
-          placeholder="5"
-          numerico
-          mitad
-        />
+        {!esCitas && (
+          <Campo
+            label="Horas que incluye"
+            valor={borrador.duracionHoras}
+            onCambiar={set("duracionHoras")}
+            placeholder="5"
+            numerico
+            mitad
+          />
+        )}
         <Campo
           label="Sección (opcional)"
           valor={borrador.grupo}
@@ -814,6 +1096,13 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     color: Colors.ink,
+    fontFamily: Fonts.regular,
+  },
+  notaAyuda: {
+    marginTop: 6,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: Colors.inkSoft,
     fontFamily: Fonts.regular,
   },
   fotoFila: { flexDirection: "row", alignItems: "center", gap: Spacing.three },

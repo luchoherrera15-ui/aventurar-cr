@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { verificarAccesoRancho } from "@/lib/auth";
+import { verificarAccesoOperativo } from "@/lib/auth";
 import { notificarReservaAprobada } from "@/lib/notificaciones-reserva";
 
 async function verificarDueno(ranchoId: string) {
-  const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
+  const { supabase, user, ok } = await verificarAccesoOperativo(ranchoId);
   if (!user) redirect("/mi-negocio/login");
   if (!ok) return { supabase, rancho: null };
 

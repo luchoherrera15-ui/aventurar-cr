@@ -23,7 +23,7 @@ import { Colors, Fonts, Spacing } from "@/constants/theme";
 import TituloPantalla from "@/components/titulo-pantalla";
 import PieLegal from "@/components/pie-legal";
 import BotonesSociales from "@/components/botones-sociales";
-import logoBookea from "../../assets/images/logo-bookea-v2.png";
+import logoBookea from "../../assets/images/logo-bookea-v3.png";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

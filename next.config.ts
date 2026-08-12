@@ -8,6 +8,22 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "12mb",
     },
   },
+  // ── Assets del pase de Wallet ──
+  //
+  // Vercel arma el bundle de cada función siguiendo los `import`. Los
+  // archivos que se abren con `readFile` en tiempo de ejecución —la
+  // fuente Montserrat y el ícono del emisor, en `assets-wallet/`— no
+  // aparecen en ese rastreo y quedarían fuera del despliegue.
+  //
+  // El fallo no lo atrapa el build: compila perfecto y revienta con un
+  // 500 la primera vez que alguien pide su tarjeta en producción. Por
+  // eso van declarados a mano.
+  //
+  // La clave es un glob de RUTA (no de archivo): cubre cualquier ruta
+  // que genere un pase, presente o futura.
+  outputFileTracingIncludes: {
+    "/**": ["assets-wallet/**/*"],
+  },
   // Casi todas las fotos remotas del sitio cuelgan de estos dos hosts
   // (buckets públicos de este mismo proyecto de Supabase, y las fotos
   // placeholder de los seeds de demo) — con esto next/image las puede
@@ -94,7 +110,9 @@ const nextConfig: NextConfig = {
           // nueva no tiene caché que la ensucie y el cambio se ve al
           // instante, sin tocar estas cabeceras ni pedirle a nadie que
           // limpie el navegador.
-          "/:archivo(logo-bookea-nav-v2\\.png|logo-bookea-v2\\.png|logo-bookea-blanco-v2\\.png|icono-bookea-v2\\.png|portada-bookea\\.jpg)",
+          // El isotipo (`icono-bookea-v2`) sigue en v2: solo cambió el
+          // logotipo, así que no hay motivo para invalidar su caché.
+          "/:archivo(logo-bookea-nav-v3\\.png|logo-bookea-v3\\.png|logo-bookea-blanco-v3\\.png|icono-bookea-v2\\.png|portada-bookea\\.jpg)",
         headers: [
           { key: "cache-control", value: "public, max-age=604800, stale-while-revalidate=2592000" },
         ],

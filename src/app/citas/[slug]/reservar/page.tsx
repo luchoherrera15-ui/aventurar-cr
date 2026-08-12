@@ -6,6 +6,30 @@ import ReservarCita from "./reservar-cita";
 import { horarioDeDetalles } from "../../tipos";
 import { cargarAgendaPro } from "../../agenda-pro";
 
+const CAMPOS_SERVICIO = "id, nombre, precio, duracion_minutos, buffer_min, grupo";
+/** Política de reserva (0118). Las pega el dueño a mano en el SQL
+ *  Editor, así que este código puede llegar a producción antes que el
+ *  esquema: si las columnas no existen todavía se reintenta sin ellas
+ *  y la página de reservas sigue en pie, solo que sin política. */
+const CAMPOS_POLITICA = "anticipacion_min_horas, anticipacion_max_dias";
+
+async function cargarServicios(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ranchoId: string,
+) {
+  const consulta = (campos: string) =>
+    supabase
+      .from("rancho_items")
+      .select(campos)
+      .eq("rancho_id", ranchoId)
+      .eq("activo", true)
+      .order("orden", { ascending: true });
+
+  const conPolitica = await consulta(`${CAMPOS_SERVICIO}, ${CAMPOS_POLITICA}`);
+  if (!conPolitica.error) return conPolitica;
+  return consulta(CAMPOS_SERVICIO);
+}
+
 /**
  * El flujo de reserva de una cita: servicio → con quién → día → hora
  * libre → confirmar. La página server junta los datos; la interacción
@@ -43,13 +67,20 @@ export default async function ReservarCitaPage({
   }
   if (!data) notFound();
 
-  const [{ data: itemsData }, { data: equipoData }, { data: califData }, { data: perfil }] =
-    await Promise.all([
+  const [
+    { data: itemsData },
+    { data: seccionesData },
+    { data: equipoData },
+    { data: califData },
+    { data: perfil },
+  ] = await Promise.all([
+      cargarServicios(supabase, data.id),
+      // El orden de las secciones (0119). Si la tabla no existe todavía
+      // esto devuelve error y las secciones salen como vengan.
       supabase
-        .from("rancho_items")
-        .select("id, nombre, precio, duracion_minutos, buffer_min, grupo")
+        .from("categorias_negocio")
+        .select("nombre")
         .eq("rancho_id", data.id)
-        .eq("activo", true)
         .order("orden", { ascending: true }),
       supabase
         .from("equipo_rancho")
@@ -92,6 +123,9 @@ export default async function ReservarCitaPage({
             rutaBase={rutaBase}
             nombreNegocio={data.nombre}
             items={(itemsData ?? []) as never}
+            ordenSecciones={((seccionesData ?? []) as { nombre: string }[]).map(
+              (s) => s.nombre,
+            )}
             equipo={(equipoData ?? []) as never}
             horario={horarioDeDetalles(data.detalles)}
             zonaHoraria={data.zona_horaria ?? "America/Costa_Rica"}

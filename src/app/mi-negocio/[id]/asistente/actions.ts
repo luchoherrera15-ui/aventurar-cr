@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { verificarAccesoRancho } from "@/lib/auth";
+import { verificarAccesoOperativo } from "@/lib/auth";
 
 /**
  * Lo que el dueño le enseña a su asistente del chat: el interruptor por
@@ -41,7 +41,7 @@ const INSTRUCCIONES_MAX = 800;
 const FILAS_MAX = 60;
 
 async function verificarDueno(ranchoId: string) {
-  const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
+  const { supabase, user, ok } = await verificarAccesoOperativo(ranchoId);
   if (!user) redirect("/mi-negocio/login");
   return { supabase, ok };
 }

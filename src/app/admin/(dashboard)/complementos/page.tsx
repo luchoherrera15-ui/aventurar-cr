@@ -29,10 +29,28 @@ export default async function AdminComplementosPage() {
     );
   }
 
-  const [ranchosRes, addonsRes] = await Promise.all([
-    admin.from("ranchos").select("id, nombre, slug, vertical, estado").order("nombre"),
+  const [ranchosRes, addonsRes, programasRes, miembrosRes] = await Promise.all([
+    admin
+      .from("ranchos")
+      .select("id, nombre, slug, vertical, estado, plan_lealtad")
+      .order("nombre"),
     admin.from("addons_negocio").select("rancho_id, addon, activo, vence_en, notas, activado_en"),
+    // El programa de lealtad de cada negocio, para poder contar sus
+    // miembros contra el tope del plan.
+    admin.from("programa_lealtad").select("id, rancho_id"),
+    admin.from("miembros").select("programa_id"),
   ]);
+
+  // Cuántos miembros lleva cada negocio. El tope NO se guarda: sale de
+  // la definición del plan (0124) y se compara contra esta cuenta.
+  const programaDeRancho = new Map<string, string>();
+  for (const p of (programasRes.data ?? []) as { id: string; rancho_id: string }[]) {
+    programaDeRancho.set(p.rancho_id, p.id);
+  }
+  const miembrosPorPrograma = new Map<string, number>();
+  for (const m of (miembrosRes.data ?? []) as { programa_id: string }[]) {
+    miembrosPorPrograma.set(m.programa_id, (miembrosPorPrograma.get(m.programa_id) ?? 0) + 1);
+  }
 
   const porRancho = new Map<string, FilaAddon[]>();
   for (const a of (addonsRes.data ?? []) as FilaAddon[]) {
@@ -46,6 +64,7 @@ export default async function AdminComplementosPage() {
       slug: string | null;
       vertical: string | null;
       estado: string | null;
+      plan_lealtad: string | null;
     }[]
   )
     .filter((r) => perteneceASeccion(r.vertical, seccion))
@@ -56,6 +75,8 @@ export default async function AdminComplementosPage() {
       vertical: r.vertical,
       estado: r.estado,
       addons: porRancho.get(r.id) ?? [],
+      planLealtad: r.plan_lealtad ?? null,
+      miembros: miembrosPorPrograma.get(programaDeRancho.get(r.id) ?? "") ?? 0,
     }));
 
   // Los contadores se calculan sobre lo que se ve, no sobre la tabla

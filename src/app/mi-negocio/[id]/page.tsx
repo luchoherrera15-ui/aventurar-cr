@@ -27,6 +27,9 @@ import type {
 } from "../types";
 import { categoriaLabel, esCategoriaValida } from "@/lib/categorias-vertical";
 import CatalogoPanel from "./catalogo-panel";
+import type { CategoriaNegocio } from "./categorias-actions";
+import PasesPanel from "./pases-panel";
+import type { ProgramaFila, RecompensaFila } from "./pases-actions";
 import {
   resumenFinanciero,
   saldoPendiente,
@@ -171,7 +174,17 @@ export default async function RanchoDetallePage({
   const [
     { data },
     { data: perfil },
-    [reservasRes, gastosRes, tiersRes, serviciosRes, codigosRes, promocionesRes, itemsRes],
+    [
+      reservasRes,
+      gastosRes,
+      tiersRes,
+      serviciosRes,
+      codigosRes,
+      promocionesRes,
+      itemsRes,
+      categoriasRes,
+      programaRes,
+    ],
     tokenRes,
     agendasRes,
     addonAgendaIA,
@@ -218,6 +231,16 @@ export default async function RanchoDetallePage({
         .eq("rancho_id", id)
         .order("orden", { ascending: true })
         .order("created_at", { ascending: true }),
+      // El orden de las secciones (0119). Si la migración todavía no
+      // se pegó, esto devuelve error y el panel cae al orden implícito.
+      supabase
+        .from("categorias_negocio")
+        .select("*")
+        .eq("rancho_id", id)
+        .order("orden", { ascending: true }),
+      // Pases de lealtad (0060/0121/0122). Si las migraciones no están,
+      // estas dos traen error y la pestaña no se muestra.
+      supabase.from("programa_lealtad").select("*").eq("rancho_id", id).maybeSingle(),
     ]),
     // El feed .ics para suscribir la agenda en Google/Apple Calendar.
     supabase.from("calendario_tokens").select("token").eq("rancho_id", id).maybeSingle(),
@@ -761,6 +784,7 @@ export default async function RanchoDetallePage({
               etiqueta={etiquetaCatalogo}
               vertical={(data as { vertical?: string }).vertical ?? "eventos"}
               eleccionesIniciales={leerEleccionesIncluidas(rancho.detalles)}
+              categoriasIniciales={(categoriasRes.data ?? []) as CategoriaNegocio[]}
             />
           </>
         )}
@@ -1237,6 +1261,29 @@ export default async function RanchoDetallePage({
   // Los `grupo` son para cuando el menú crece (un gimnasio con clases,
   // membresías y check-in): PanelSidebar solo pinta los encabezados
   // cuando hay de qué agrupar.
+  // ── Pases de lealtad ──
+  // Los dos complementos los enciende Bookea desde admin: el dueño no
+  // puede auto-activárselos porque `addons_negocio` es solo-servidor
+  // (0077). `tiene_addon` además respeta el vencimiento.
+  const [{ data: tienePasesRpc }, { data: tieneCercaniaRpc }, recompensasRes] =
+    await Promise.all([
+      supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "pases" }),
+      supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "pases_cercania" }),
+      programaRes.data?.id
+        ? supabase
+            .from("recompensas")
+            .select("*")
+            .eq("programa_id", programaRes.data.id)
+            .order("costo_puntos", { ascending: true })
+        : Promise.resolve({ data: [] as RecompensaFila[] }),
+    ]);
+
+  // Sin las migraciones de lealtad corridas, `programaRes` viene con
+  // error y la pestaña no aparece — en vez de romper el panel entero.
+  const tienePases = tienePasesRpc === true && !programaRes.error;
+  const tieneCercania = tieneCercaniaRpc === true;
+  const recompensas = (recompensasRes.data ?? []) as RecompensaFila[];
+
   const tabs: Tab[] = [
     { ...tabInicio, grupo: "agenda" },
     // La agenda del día vive en su propia ruta y hoy solo existe para
@@ -1256,6 +1303,26 @@ export default async function RanchoDetallePage({
       ? [{ ...tabCatalogo, grupo: "gestion" as const }]
       : []),
     ...(modulos.has("pagos") ? [{ ...tabFinanzas, grupo: "finanzas" as const }] : []),
+    // Pases de lealtad: solo para quien tenga el complemento activo
+    // (0122). Lo enciende Bookea desde admin, no el dueño.
+    ...(tienePases
+      ? [
+          {
+            id: "pases",
+            label: "Pases de lealtad",
+            icon: <IconSparkles />,
+            grupo: "gestion" as const,
+            content: (
+              <PasesPanel
+                ranchoId={rancho.id}
+                programaInicial={(programaRes.data ?? null) as ProgramaFila | null}
+                recompensasIniciales={recompensas}
+                tieneCercania={tieneCercania}
+              />
+            ),
+          } satisfies Tab,
+        ]
+      : []),
     { ...(esVerticalCitas ? tabConfig : tabConfigEventos), grupo: "config" },
   ];
 

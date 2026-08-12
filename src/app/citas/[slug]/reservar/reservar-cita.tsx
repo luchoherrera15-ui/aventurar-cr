@@ -10,6 +10,7 @@ import BotonConsultar from "@/components/boton-consultar";
 import { crearCita } from "../../actions";
 import { apuntarseListaEspera } from "../../lista-espera-actions";
 import { etiquetaMinutos, horaBonita, type HorarioSemana } from "../../tipos";
+import { seccionesEnOrden } from "@/lib/catalogo";
 import {
   calcularDisponibilidad,
   instanteEnZona,
@@ -19,6 +20,12 @@ import {
   type RecursoDisponibilidad,
 } from "@/lib/agenda/disponibilidad";
 
+/** "Corte · 45 min · ₡9.000" — la línea de una opción del select. */
+function etiquetaServicio(s: Servicio) {
+  const base = `${s.nombre} · ${etiquetaMinutos(s.duracion_minutos ?? 30)}`;
+  return s.precio !== null ? `${base} · ${fmtColones(s.precio)}` : base;
+}
+
 type Servicio = {
   id: string;
   nombre: string;
@@ -26,6 +33,11 @@ type Servicio = {
   duracion_minutos: number | null;
   buffer_min: number | null;
   grupo: string | null;
+  /** Política de reserva del servicio (0118). Anulables: null = sin
+   *  restricción. crear_cita las hace cumplir; acá se usan para no
+   *  ofrecer un espacio que el motor va a rechazar. */
+  anticipacion_min_horas?: number | null;
+  anticipacion_max_dias?: number | null;
 };
 
 /** Fila de la vista disponibilidad_citas (desde 0081 con su buffer). */
@@ -107,6 +119,7 @@ export default function ReservarCita({
   rutaBase,
   nombreNegocio,
   items,
+  ordenSecciones = [],
   equipo,
   horario,
   zonaHoraria,
@@ -126,6 +139,9 @@ export default function ReservarCita({
   rutaBase: string;
   nombreNegocio: string;
   items: Servicio[];
+  /** Orden de las secciones guardado por el dueño (categorias_negocio,
+   *  0119). Vacío = las secciones salen como vengan los servicios. */
+  ordenSecciones?: string[];
   equipo: Miembro[];
   horario: HorarioSemana | null;
   /** Zona IANA del negocio (ranchos.zona_horaria) para los bloqueos. */
@@ -186,6 +202,11 @@ export default function ReservarCita({
   const servicio = items.find((i) => i.id === servicioId) ?? null;
   const duracion = servicio?.duracion_minutos ?? 30;
   const buffer = servicio?.buffer_min ?? 0;
+  const anticipacionMin = servicio?.anticipacion_min_horas ?? 0;
+  const anticipacionMax = servicio?.anticipacion_max_dias ?? null;
+  // Los servicios ya vienen ordenados por la consulta; esto solo los
+  // reparte en secciones y respeta el orden guardado (0119).
+  const seccionesDeServicios = seccionesEnOrden(items, ordenSecciones);
   const horarioNegocio = horario ?? HORARIO_DEFAULT;
 
   // El equipo que da el servicio elegido: con filas en
@@ -227,7 +248,7 @@ export default function ReservarCita({
   // Los próximos días: abierto si ALGÚN recurso del servicio trabaja
   // ese día (horario propio o heredado) — o el negocio, si no hay
   // equipo. Sin nadie que atienda, ningún día se ofrece.
-  const dias = useMemo(() => {
+  const diasDelHorario = useMemo(() => {
     // La tira arranca en el "hoy" DEL NEGOCIO. Antes salía del reloj
     // del aparato: en el servidor eso es UTC, así que después de las
     // 6 de la tarde en Costa Rica el HTML ya empezaba en mañana —
@@ -250,6 +271,17 @@ export default function ReservarCita({
       return { date: d, iso: fechaISOLocal(d), dow, abierto, esHoy: i === 0 };
     });
   }, [recursos, horarioNegocio, sinNadieQueAtienda, zonaHoraria]);
+
+  // El tope de anticipación del servicio (0118) cierra los días que el
+  // motor rechazaría igual. Va FUERA del memo a propósito: depende del
+  // servicio elegido, no del horario del negocio, y meterlo adentro le
+  // rompe la memoización al compilador de React.
+  const dias =
+    anticipacionMax === null
+      ? diasDelHorario
+      : diasDelHorario.map((d, i) =>
+          i <= anticipacionMax ? d : { ...d, abierto: false },
+        );
 
   // Arranca en el primer día abierto de los visibles.
   const [fecha, setFecha] = useState(() => dias.find((d) => d.abierto)?.iso ?? "");
@@ -320,10 +352,16 @@ export default function ReservarCita({
           inicio: b.inicio,
           fin: b.fin,
         })),
-        // Para hoy: media hora de cortesía — nadie llega a una cita
-        // reservada para dentro de tres minutos (mismo margen que
-        // esta pantalla ofrecía antes).
-        ahora: diaElegido.esHoy ? new Date(ahora.getTime() + 30 * 60000) : undefined,
+        // `ahora` va SIEMPRE, no solo hoy: la anticipación mínima
+        // (0118) puede cruzar la medianoche — con 48 h, el corte cae
+        // dos días adelante. Pasarlo solo el día de hoy dejaba al motor
+        // sin con qué calcularlo y la página ofrecía horas que
+        // crear_cita rechazaba. Para un día lejano el margen da
+        // negativo y el motor lo aplana en 0, así que no filtra nada.
+        ahora,
+        // La media hora de gracia que esta pantalla ya tenía es el
+        // piso; si el servicio pide más anticipación, manda la suya.
+        anticipacionMinHoras: Math.max(0.5, anticipacionMin),
       });
   const horas = !disponibilidad
     ? []
@@ -532,12 +570,26 @@ export default function ReservarCita({
                 onChange={(e) => setServicioId(e.target.value)}
                 className="w-full appearance-none rounded-xl border border-aventurea-line bg-white px-4 py-3 text-[13.5px] font-bold text-aventurea-ink focus:border-aventurea-navy focus:outline-none"
               >
-                {items.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre} · {etiquetaMinutos(s.duracion_minutos ?? 30)}
-                    {s.precio !== null ? ` · ${fmtColones(s.precio)}` : ""}
-                  </option>
-                ))}
+                {/* Agrupado por sección (0119) en el orden que guardó el
+                    dueño. Con una sola sección —o ninguna— el <select>
+                    se ve exactamente igual que antes. */}
+                {seccionesDeServicios.map((seccion) =>
+                  seccion.grupo === null && seccionesDeServicios.length === 1 ? (
+                    seccion.items.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {etiquetaServicio(s)}
+                      </option>
+                    ))
+                  ) : (
+                    <optgroup key={seccion.grupo ?? "otros"} label={seccion.grupo ?? "Otros"}>
+                      {seccion.items.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {etiquetaServicio(s)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ),
+                )}
               </select>
             </label>
 

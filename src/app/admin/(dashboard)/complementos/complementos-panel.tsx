@@ -9,6 +9,8 @@ import {
   type EstadoAddon,
 } from "@/lib/addons";
 import { activarAddon, desactivarAddon } from "./actions";
+import { asignarPlanLealtad } from "./plan-actions";
+import { estadoDelLimite, PLANES, PLANES_ID } from "@/lib/lealtad/planes";
 
 export type FilaAddon = {
   rancho_id: string;
@@ -26,6 +28,10 @@ export type NegocioConAddons = {
   vertical: string | null;
   estado: string | null;
   addons: FilaAddon[];
+  /** Plan de la plataforma de lealtad (0124). null = sin plan. */
+  planLealtad: string | null;
+  /** Miembros afiliados, para comparar contra el tope del plan. */
+  miembros: number;
 };
 
 const CHIP: Record<EstadoAddon, string> = {
@@ -169,6 +175,8 @@ export default function ComplementosPanel({
                 )}
               </div>
 
+              <PlanDeLealtad negocio={negocio} />
+
               <div className="mt-3.5 grid gap-3 lg:grid-cols-3">
                 {ADDONS.map((def) => {
                   const fila =
@@ -262,6 +270,88 @@ export default function ComplementosPanel({
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * El plan de la plataforma de lealtad de un negocio (0124).
+ *
+ * Va junto a los complementos porque es lo mismo: qué contrató. La
+ * diferencia es que el plan trae un paquete de capacidades y un tope de
+ * miembros, mientras que un complemento abre una sola cosa.
+ *
+ * El tope NO se guarda en la base: sale de la definición del plan y se
+ * compara contra los miembros contados. Por eso acá se ve al instante
+ * si un negocio se está quedando corto.
+ */
+function PlanDeLealtad({ negocio }: { negocio: NegocioConAddons }) {
+  const [plan, setPlan] = useState(negocio.planLealtad);
+  const [error, setError] = useState<string | null>(null);
+  const [pendiente, iniciar] = useTransition();
+
+  const limite = estadoDelLimite(plan, negocio.miembros);
+
+  function cambiar(nuevo: string) {
+    const valor = nuevo || null;
+    const anterior = plan;
+    setPlan(valor);
+    setError(null);
+    iniciar(async () => {
+      const res = await asignarPlanLealtad({ ranchoId: negocio.id, plan: valor });
+      if (res.error) {
+        setError(res.error);
+        setPlan(anterior); // se devuelve a lo que de verdad está guardado
+      }
+    });
+  }
+
+  return (
+    <div className="mt-3.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          Programa de lealtad
+        </span>
+
+        <select
+          value={plan ?? ""}
+          onChange={(e) => cambiar(e.target.value)}
+          disabled={pendiente}
+          className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] font-bold text-aventurea-ink"
+        >
+          <option value="">Sin plan</option>
+          {PLANES_ID.map((id) => (
+            <option key={id} value={id}>
+              {PLANES[id].nombre} · {PLANES[id].limiteMiembros?.toLocaleString("es-CR")} miembros
+            </option>
+          ))}
+        </select>
+
+        {plan && (
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+              limite.lleno
+                ? "bg-red-50 text-red-700"
+                : limite.cerca
+                  ? "bg-aventurea-sky-light text-aventurea-orange-dark"
+                  : "bg-aventurea-cream-2 text-aventurea-ink-soft"
+            }`}
+          >
+            {negocio.miembros.toLocaleString("es-CR")} de{" "}
+            {limite.limite?.toLocaleString("es-CR")} miembros
+            {limite.lleno ? " · lleno" : limite.cerca ? " · casi lleno" : ""}
+          </span>
+        )}
+      </div>
+
+      {error && <p className="mt-2 text-[12px] font-bold text-red-700">{error}</p>}
+
+      {plan && limite.cerca && !limite.lleno && (
+        <p className="mt-2 text-[12px] leading-snug text-aventurea-ink-soft">
+          Le queda poco espacio. Conviene ofrecerle el plan siguiente antes de que se tope:
+          al llenarse, un cliente nuevo no se puede afiliar.
+        </p>
       )}
     </div>
   );

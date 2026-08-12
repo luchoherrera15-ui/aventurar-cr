@@ -89,9 +89,11 @@ export default function NegocioCitasScreen() {
   const [cargando, setCargando] = useState(true);
   const [stats, setStats] = useState<Stats | null>(null);
   const [perfilMiembro, setPerfilMiembro] = useState<Miembro | null>(null);
+  /** Orden de las secciones guardado por el dueño (0119). */
+  const [ordenSecciones, setOrdenSecciones] = useState<string[]>([]);
 
   const cargar = useCallback(async () => {
-    const [n, i, e, c, r] = await Promise.all([
+    const [n, i, e, c, r, sec] = await Promise.all([
       supabase
         .from("ranchos")
         .select(
@@ -124,12 +126,21 @@ export default function NegocioCitasScreen() {
         .eq("rancho_id", id)
         .order("created_at", { ascending: false })
         .limit(4),
+      // El orden de las secciones (0119). El teléfono puede estar contra
+      // una base sin la migración: ahí esto viene con error y las
+      // secciones salen como vengan los servicios, igual que antes.
+      supabase
+        .from("categorias_negocio")
+        .select("nombre")
+        .eq("rancho_id", id)
+        .order("orden", { ascending: true }),
     ]);
     setNegocio((n.data ?? null) as Negocio | null);
     setItems((i.data ?? []) as Servicio[]);
     setEquipo((e.data ?? []) as Miembro[]);
     setCalif((c.data ?? null) as { promedio: number; total: number } | null);
     setResenas((r.data ?? []) as Resena[]);
+    setOrdenSecciones(((sec.data ?? []) as { nombre: string }[]).map((s) => s.nombre));
     setHorario(horarioDeDetalles(n.data?.detalles));
     setCargando(false);
   }, [id]);
@@ -183,13 +194,29 @@ export default function NegocioCitasScreen() {
 
   const ubicacion = [negocio.canton, negocio.provincia].filter(Boolean).join(", ");
 
-  // Agrupar servicios por sección del catálogo.
+  // Agrupar servicios por sección del catálogo, respetando el orden que
+  // el dueño guardó (0119). Las secciones que no ordenó quedan detrás,
+  // en el orden en que aparecen sus servicios — que es como era antes.
   const grupos = new Map<string, Servicio[]>();
   items.forEach((s) => {
     const g = s.grupo?.trim() || "Servicios";
     if (!grupos.has(g)) grupos.set(g, []);
     grupos.get(g)!.push(s);
   });
+
+  const seccionesOrdenadas = (() => {
+    if (ordenSecciones.length === 0) return [...grupos.entries()];
+    const clave = (n: string) => n.trim().toLowerCase();
+    const posicion = new Map(ordenSecciones.map((n, i) => [clave(n), i]));
+    const conPosicion: [string, Servicio[]][] = [];
+    const resto: [string, Servicio[]][] = [];
+    for (const entrada of grupos.entries()) {
+      if (posicion.has(clave(entrada[0]))) conPosicion.push(entrada);
+      else resto.push(entrada);
+    }
+    conPosicion.sort((a, b) => posicion.get(clave(a[0]))! - posicion.get(clave(b[0]))!);
+    return [...conPosicion, ...resto];
+  })();
 
   const irAReservar = (servicioId?: string, miembroId?: string) => {
     const params = new URLSearchParams();
@@ -300,7 +327,7 @@ export default function NegocioCitasScreen() {
           {items.length === 0 ? (
             <Text style={styles.aviso}>Este negocio todavía no publicó sus servicios.</Text>
           ) : (
-            [...grupos.entries()].map(([grupo, lista]) => (
+            seccionesOrdenadas.map(([grupo, lista]) => (
               <View key={grupo} style={{ gap: Spacing.two }}>
                 {grupos.size > 1 && <Text style={styles.grupo}>{grupo}</Text>}
                 <Lista>

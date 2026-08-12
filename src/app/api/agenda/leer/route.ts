@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verificarAccesoRancho } from "@/lib/auth";
+import { verificarAccesoOperativo } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR } from "@/lib/fechas";
 import { motivoParaNoGastar } from "@/lib/ia/config-ia";
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   // 1. ¿Es suyo?
-  const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
+  const { supabase, user, ok } = await verificarAccesoOperativo(ranchoId);
   if (!user) {
     return NextResponse.json({ error: "Iniciá sesión." }, { status: 401 });
   }

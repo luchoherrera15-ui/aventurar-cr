@@ -7,6 +7,9 @@ import { horarioDeDetalles } from "@/app/citas/tipos";
 import { agruparClientes, type ReservaCliente } from "@/lib/crm-citas";
 import { cargarContextoNegocio } from "@/lib/business/contexto";
 import SeccionPlegable from "@/components/seccion-plegable";
+import MembresiasPanel from "./membresias-panel";
+import type { MembresiaFila, PlanFila } from "./membresias-actions";
+import type { ConsumoMembresia } from "@/lib/membresias";
 import AgendaCitas, { type CitaDia } from "./agenda-citas";
 import ClientesPanel from "./clientes-panel";
 import ReportesCitas from "./reportes-citas";
@@ -90,6 +93,9 @@ export default async function CitasConfigPage({
     horariosRes,
     crmRes,
     giftcardsRes,
+    planesRes,
+    membresiasRes,
+    consumosRes,
     negocio,
   ] = await Promise.all([
     supabase
@@ -153,6 +159,25 @@ export default async function CitasConfigPage({
       .eq("rancho_id", id)
       .order("created_at", { ascending: false })
       .limit(50),
+    // Membresías y bonos (0120). Las tres van juntas porque el panel
+    // deriva el saldo de los consumos: con los planes solos no puede
+    // pintar nada útil. Si la migración no se pegó, las tres traen
+    // error y el panel muestra su aviso en vez de romperse.
+    supabase
+      .from("planes_membresia")
+      .select("*")
+      .eq("rancho_id", id)
+      .order("orden", { ascending: true }),
+    supabase
+      .from("membresias")
+      .select("*")
+      .eq("rancho_id", id)
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("consumos_membresia")
+      .select("membresia_id, cantidad, membresias!inner(rancho_id)")
+      .eq("membresias.rancho_id", id),
     // BOOKEA BUSINESS: qué módulos usa este negocio. Lo que acompaña la
     // operación (clientes, reportes) se muestra solo si los tiene
     // encendidos; sin la 0108 corrida resuelve los defaults de su tipo,
@@ -288,6 +313,21 @@ export default async function CitasConfigPage({
             />
           </SeccionPlegable>
         )}
+
+        <SeccionPlegable
+          marco={false}
+          titulo="Membresías y bonos"
+          descripcion="Lo que el cliente paga por adelantado: un plan con período, o un bono de sesiones que se van gastando."
+        >
+          <MembresiasPanel
+            ranchoId={rancho.id}
+            hoy={hoy}
+            planesIniciales={(planesRes.data ?? []) as PlanFila[]}
+            membresiasIniciales={(membresiasRes.data ?? []) as MembresiaFila[]}
+            consumosIniciales={(consumosRes.data ?? []) as ConsumoMembresia[]}
+            faltaMigracion={!!planesRes.error}
+          />
+        </SeccionPlegable>
 
         <SeccionPlegable
           marco={false}

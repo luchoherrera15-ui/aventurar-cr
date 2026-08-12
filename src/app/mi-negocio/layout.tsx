@@ -89,7 +89,7 @@ export default async function MiRanchoLayout({
             {/* eslint-disable-next-line @next/next/no-img-element -- el
                 logo oficial es un PNG estático: next/image no aporta
                 nada acá. */}
-            <img src="/logo-bookea-v2.png" alt="Bookear" className="h-7 w-auto shrink-0" />
+            <img src="/logo-bookea-v3.png" alt="Bookear" className="h-7 w-auto shrink-0" />
             <span className="text-zinc-300">/</span>
             <span className="text-[13px] font-light text-aventurea-ink-soft">
               Publicá tu negocio

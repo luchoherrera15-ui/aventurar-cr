@@ -92,6 +92,7 @@ export default async function NegocioCitasPage({
    * esto le saca dos de sus cuatro tandas. */
   const [
     { data: itemsData },
+    { data: seccionesData },
     { data: equipoData },
     { data: califData },
     { data: resenasData },
@@ -104,6 +105,13 @@ export default async function NegocioCitasPage({
         .select("*")
         .eq("rancho_id", negocio.id)
         .eq("activo", true)
+        .order("orden", { ascending: true }),
+      // El orden de las secciones (0119). Sin la migración esto viene
+      // con error y las secciones salen como vengan los servicios.
+      supabase
+        .from("categorias_negocio")
+        .select("nombre")
+        .eq("rancho_id", negocio.id)
         .order("orden", { ascending: true }),
       supabase
         .from("equipo_rancho")
@@ -186,6 +194,7 @@ export default async function NegocioCitasPage({
     rutaBase,
     nombreNegocio: negocio.nombre,
     items,
+    ordenSecciones: ((seccionesData ?? []) as { nombre: string }[]).map((s) => s.nombre),
     equipo,
     horario,
     agendaPro: {
