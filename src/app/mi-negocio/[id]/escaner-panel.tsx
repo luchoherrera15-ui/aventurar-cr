@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 import { sumarSelloEscaneado, type ResultadoEscaneo } from "./escaner-actions";
+import { canjearRecompensa } from "./lealtad-operar-actions";
 
 /**
  * Escanear la tarjeta del cliente para sumarle un sello.
@@ -17,7 +18,17 @@ import { sumarSelloEscaneado, type ResultadoEscaneo } from "./escaner-actions";
  * el navegador muestre el permiso apenas se abre la pestaña, que es la
  * forma más rápida de que alguien lo niegue para siempre.
  */
-export default function EscanerPanel({ ranchoId }: { ranchoId: string }) {
+export default function EscanerPanel({
+  ranchoId,
+  pideMonto = false,
+  recompensa = null,
+}: {
+  ranchoId: string;
+  /** true en modo puntos/cashback: la compra trae un monto. */
+  pideMonto?: boolean;
+  /** La meta actual, para ofrecer el canje apenas el saldo alcance. */
+  recompensa?: { id: string; nombre: string; costo: number } | null;
+}) {
   const video = useRef<HTMLVideoElement | null>(null);
   const lienzo = useRef<HTMLCanvasElement | null>(null);
   const flujo = useRef<MediaStream | null>(null);
@@ -27,6 +38,12 @@ export default function EscanerPanel({ ranchoId }: { ranchoId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<ResultadoEscaneo | null>(null);
   const [procesando, setProcesando] = useState(false);
+  const [monto, setMonto] = useState("");
+  const [canje, setCanje] = useState<
+    | { fase: "hecho"; nombre: string; sku: string | null; instrucciones: string | null }
+    | { fase: "error"; motivo: string }
+    | null
+  >(null);
 
   const apagar = useCallback(() => {
     buscando.current = false;
@@ -115,9 +132,33 @@ export default function EscanerPanel({ ranchoId }: { ranchoId: string }) {
     canjear(codigo.data);
   }
 
+  function confirmarCanje() {
+    if (!resultado?.ok || !recompensa) return;
+    setProcesando(true);
+    setCanje(null);
+    canjearRecompensa(ranchoId, resultado.miembroId, recompensa.id)
+      .then((res) => {
+        if (res.ok) {
+          setCanje({
+            fase: "hecho",
+            nombre: res.recompensa,
+            sku: res.sku,
+            instrucciones: res.instrucciones,
+          });
+          // El saldo mostrado baja al del canje.
+          setResultado({ ...resultado, saldo: res.saldo });
+        } else {
+          setCanje({ fase: "error", motivo: res.motivo });
+        }
+      })
+      .catch(() => setCanje({ fase: "error", motivo: "No se pudo canjear. Probá de nuevo." }))
+      .finally(() => setProcesando(false));
+  }
+
   function canjear(serial: string) {
     setProcesando(true);
-    sumarSelloEscaneado(ranchoId, serial)
+    const montoLimpio = pideMonto && monto.trim() !== "" ? Number(monto) : null;
+    sumarSelloEscaneado(ranchoId, serial, Number.isInteger(montoLimpio) ? montoLimpio : null)
       .then((res) => {
         setResultado(res);
         apagar();
@@ -165,10 +206,66 @@ export default function EscanerPanel({ ranchoId }: { ranchoId: string }) {
                 Lleva {resultado.saldo} en total.
                 {resultado.yaEstaba && " Se le contó hace menos de un minuto."}
               </p>
+
+              {/* El canje aparece SOLO cuando el saldo alcanza. El RPC
+                  vuelve a validar todo bajo lock (saldo, stock,
+                  vigencia, límites): esto es la puerta, no la
+                  garantía. */}
+              {recompensa && resultado.saldo >= recompensa.costo && !canje && (
+                <button
+                  type="button"
+                  onClick={confirmarCanje}
+                  disabled={procesando}
+                  className="mt-2.5 rounded-[10px] bg-aventurea-green px-4 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+                >
+                  {procesando
+                    ? "Canjeando…"
+                    : `Canjear: ${recompensa.nombre} (${recompensa.costo})`}
+                </button>
+              )}
+
+              {canje?.fase === "hecho" && (
+                <div className="mt-2.5 rounded-xl border border-aventurea-green/40 bg-white px-3 py-2.5">
+                  <p className="text-[13px] font-bold text-aventurea-green">
+                    Canje hecho: {canje.nombre}
+                  </p>
+                  {canje.instrucciones && (
+                    <p className="mt-1 text-[12.5px] text-aventurea-ink">
+                      {canje.instrucciones}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[12px] text-aventurea-ink-soft">
+                    {canje.sku
+                      ? `Registralo en tu caja con el código ${canje.sku}.`
+                      : "Registralo en tu caja como cortesía del programa."}
+                  </p>
+                </div>
+              )}
+              {canje?.fase === "error" && (
+                <p className="mt-2.5 rounded-xl bg-red-50 px-3 py-2 text-[12.5px] font-bold text-red-700">
+                  {canje.motivo}
+                </p>
+              )}
             </>
           ) : (
             <p className="text-[13.5px] font-bold text-red-700">{resultado.motivo}</p>
           )}
+        </div>
+      )}
+
+      {pideMonto && (
+        <div className="mt-4 max-w-[220px]">
+          <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+            Monto de la compra (₡)
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            placeholder="Opcional"
+            className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500"
+          />
         </div>
       )}
 

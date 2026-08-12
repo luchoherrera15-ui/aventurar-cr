@@ -222,8 +222,16 @@ export default function PasesPanel({
       )}
 
       {/* Primero lo que se usa a diario: sumar el sello del cliente que
-          está en el mostrador. La configuración se toca una vez. */}
-      <EscanerPanel ranchoId={ranchoId} />
+          está en el mostrador. La configuración se toca una vez. El
+          modo decide si se pregunta el monto, y la meta habilita el
+          canje apenas el saldo alcanza. */}
+      <EscanerPanel
+        ranchoId={ranchoId}
+        pideMonto={(programa?.modo ?? borrador.modo) !== "sellos"}
+        recompensa={
+          meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
+        }
+      />
       {guardado && (
         <p className="rounded-xl bg-aventurea-green-light px-3 py-2 text-[12.5px] font-bold text-aventurea-green">
           Guardado. Las tarjetas nuevas ya salen con estos cambios.

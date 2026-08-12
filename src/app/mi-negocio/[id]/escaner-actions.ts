@@ -20,7 +20,15 @@ import { avisarCambioDePase } from "@/lib/wallet/servicio";
  */
 
 export type ResultadoEscaneo =
-  | { ok: true; cliente: string; puntos: number; saldo: number; yaEstaba: boolean }
+  | {
+      ok: true;
+      cliente: string;
+      puntos: number;
+      saldo: number;
+      yaEstaba: boolean;
+      /** Para que el panel pueda ofrecer el canje sin volver a escanear. */
+      miembroId: string;
+    }
   | { ok: false; motivo: string };
 
 /**
@@ -117,5 +125,12 @@ export async function sumarSelloEscaneado(
   void avisarCambioDePase(miembro.id);
   revalidatePath(`/mi-negocio/${ranchoId}`);
 
-  return { ok: true, cliente, puntos: r.puntos ?? 0, saldo: r.saldo ?? 0, yaEstaba };
+  return {
+    ok: true,
+    cliente,
+    puntos: r.puntos ?? 0,
+    saldo: r.saldo ?? 0,
+    yaEstaba,
+    miembroId: miembro.id,
+  };
 }

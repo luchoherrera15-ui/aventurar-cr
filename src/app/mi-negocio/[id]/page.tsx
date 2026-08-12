@@ -30,6 +30,11 @@ import CatalogoPanel from "./catalogo-panel";
 import type { CategoriaNegocio } from "./categorias-actions";
 import PasesPanel from "./pases-panel";
 import LealtadEstado from "./lealtad-estado";
+import {
+  ActividadLealtad,
+  IntegracionesLealtad,
+  WalletLealtad,
+} from "./lealtad-secciones";
 import type { ProgramaFila, RecompensaFila } from "./pases-actions";
 import {
   resumenFinanciero,
@@ -1332,6 +1337,38 @@ export default async function RanchoDetallePage({
                   recompensasIniciales={recompensas}
                   tieneCercania={tieneCercania}
                 />
+
+                {/* Consulta: el libro, los pases y el POS. Plegadas y
+                    cerradas — se abren cuando hacen falta. */}
+                <SeccionPlegable
+                  marco={false}
+                  titulo="Actividad"
+                  descripcion="Cada sello, canje y ajuste, con su saldo. El libro nunca se edita: los errores se corrigen con el movimiento contrario."
+                >
+                  <ActividadLealtad
+                    ranchoId={rancho.id}
+                    programaId={(programaRes.data?.id as string | undefined) ?? null}
+                  />
+                </SeccionPlegable>
+                <SeccionPlegable
+                  marco={false}
+                  titulo="Wallet"
+                  descripcion="Cuántas tarjetas emitiste, cuántas se actualizan solas y el estado de las credenciales."
+                >
+                  <WalletLealtad
+                    programaId={(programaRes.data?.id as string | undefined) ?? null}
+                  />
+                </SeccionPlegable>
+                <SeccionPlegable
+                  marco={false}
+                  titulo="Integraciones (POS)"
+                  descripcion="Los canjes que faltan por pasar a tu caja, y el modo de integración."
+                >
+                  <IntegracionesLealtad
+                    ranchoId={rancho.id}
+                    programaId={(programaRes.data?.id as string | undefined) ?? null}
+                  />
+                </SeccionPlegable>
               </div>
             ),
           } satisfies Tab,
