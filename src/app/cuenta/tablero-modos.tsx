@@ -91,7 +91,6 @@ export default function TableroModos({
   favoritosCount,
 }: TableroModosProps) {
   const [modoNegocio, setModoNegocio] = useState(false);
-  const [montado, setMontado] = useState(false);
 
   useEffect(() => {
     // Lectura única de una preferencia guardada en el navegador — no hay
@@ -99,7 +98,6 @@ export default function TableroModos({
     // localStorage), así que el efecto es necesario, no evitable.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setModoNegocio(localStorage.getItem("cuenta_modo_negocio") === "true" && tieneNegocio);
-    setMontado(true);
   }, [tieneNegocio]);
 
   const toggleModo = () => {
@@ -108,8 +106,16 @@ export default function TableroModos({
     localStorage.setItem("cuenta_modo_negocio", String(nuevoModo));
   };
 
-  if (!montado) return null;
-
+  // Antes esto era `if (!montado) return null`, y dejaba la cuenta VACÍA
+  // —solo el perfil y "Cerrar sesión"— hasta que el navegador terminaba
+  // de hidratar. Con la red lenta, o si el JS falla, esa pantalla en
+  // blanco es todo lo que el usuario ve, sin ninguna explicación.
+  //
+  // Ahora el servidor pinta el modo normal (que es el estado inicial en
+  // los dos lados, así que no hay desajuste de hidratación) y el efecto
+  // cambia a modo negocio si esa era la preferencia guardada. Se paga
+  // un parpadeo de las tarjetas para quien está en modo negocio; se
+  // gana que la pantalla nunca esté vacía.
   return (
     <div className="mt-4 space-y-3">
       {!modoNegocio ? (
