@@ -94,7 +94,7 @@ export default function PortadaIntro() {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo-bookea-v2.png"
+        src="/logo-bookea-v3.png"
         alt="Bookea"
         width={300}
         height={80}
