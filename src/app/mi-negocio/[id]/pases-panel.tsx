@@ -10,7 +10,27 @@ import {
   type ProgramaInput,
   type RecompensaFila,
 } from "./pases-actions";
-import EscanerPanel from "./escaner-panel";
+import dynamic from "next/dynamic";
+
+/**
+ * El escáner se carga aparte y SOLO en el navegador.
+ *
+ * Arrastra `jsqr` y pide la cámara: nada de eso puede correr en el
+ * servidor, y sobre todo, nada de eso puede tener la posibilidad de
+ * tumbar el resto del panel. Cargándolo así, si la librería falla o el
+ * dispositivo no tiene cámara, lo único que se pierde es el escáner —
+ * la configuración del programa sigue en pie.
+ */
+const EscanerPanel = dynamic(() => import("./escaner-panel"), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+      <p className="text-[13px] font-bold text-aventurea-ink-soft">
+        Preparando el escáner…
+      </p>
+    </div>
+  ),
+});
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";

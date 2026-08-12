@@ -15,9 +15,9 @@ export default function RegistroPage() {
           Creá tu cuenta
         </h1>
         <p className="mt-1.5 text-sm text-aventurea-ink-soft">
-          Registrate para publicar tu negocio para eventos en Bookea —
-          lugares, comida, música, decoración y más, en todo el país. Sin
-          contraseñas: entrás con un código que te llega al correo.
+          Registrate para publicar tu negocio en Bookea — salones y citas,
+          lugares para eventos, hospedajes y restaurantes, en todo el país.
+          Sin contraseñas: entrás con un código que te llega al correo.
         </p>
 
         <FormularioCodigoAcceso

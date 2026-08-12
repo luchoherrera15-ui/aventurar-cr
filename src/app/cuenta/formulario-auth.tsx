@@ -108,7 +108,9 @@ export default function FormularioAuth({
       )}
 
       <p className="mt-3 text-center text-[12px] text-zinc-400">
-        ¿Tenés un negocio para eventos?{" "}
+        {/* Sin "para eventos": Bookea ya son cuatro verticales, y un
+            salón de uñas o un restaurante leía esto y se iba. */}
+        ¿Tenés un negocio?{" "}
         <Link href="/mi-negocio/login" className="font-bold text-aventurea-ink-soft underline">
           Entrá como proveedor
         </Link>
