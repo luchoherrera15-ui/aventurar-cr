@@ -15,6 +15,8 @@ interface TableroModosProps {
   reservasNuevasNegocio: number;
   vecesContratado: number;
   negociosLength: number;
+  /** true = al menos un negocio suyo tiene el programa contratado. */
+  lealtadActiva: boolean;
   confirmacionesNuevas: number;
   invitacionIds: string[];
   personasConfirmadas: number;
@@ -83,6 +85,7 @@ export default function TableroModos({
   reservasNuevasNegocio,
   vecesContratado,
   negociosLength,
+  lealtadActiva,
   confirmacionesNuevas,
   invitacionIds,
   personasConfirmadas,
@@ -161,6 +164,20 @@ export default function TableroModos({
             icono={<IconChartBars className="h-28 w-28" />}
             titulo="Finanzas"
             detalle={`${vecesContratado} reservas confirmadas`}
+          />
+          {/* La tarjeta sale SIEMPRE, tenga o no el programa contratado.
+              Si no lo tiene, es la única forma de que se entere de que
+              existe — un producto que solo se ve cuando ya se compró no
+              lo compra nadie. */}
+          <TarjetaAcceso
+            href={lealtadActiva ? "/cuenta/ir/lealtad" : "/lealtad"}
+            icono={<IconHeart className="h-28 w-28" />}
+            titulo="Programa de lealtad"
+            detalle={
+              lealtadActiva
+                ? "Sellos, puntos y tarjeta en el Wallet de tus clientes"
+                : "Hacé que tus clientes vuelvan — ver cómo funciona"
+            }
           />
         </>
       )}

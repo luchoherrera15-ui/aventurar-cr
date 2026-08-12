@@ -12,6 +12,10 @@ const DESTINOS: Record<string, string> = {
   mensajes: "/mensajes",
   proveedor: "/mi-negocio",
   invitaciones: "/cuenta/invitaciones",
+  // El programa de lealtad vive dentro de cada negocio (una pestaña
+  // por publicación), así que la tarjeta lleva al listado y desde ahí
+  // se elige cuál. No hay una pantalla "de lealtad" global.
+  lealtad: "/mi-negocio",
 };
 
 export async function GET(

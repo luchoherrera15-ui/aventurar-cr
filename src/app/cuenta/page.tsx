@@ -109,6 +109,25 @@ export default async function CuentaPage() {
   const invitacionIds = ((invitacionesData ?? []) as { id: string }[]).map((i) => i.id);
   const tieneNegocio = negocios.length > 0;
 
+  // ¿Alguno de sus negocios tiene el programa de lealtad contratado?
+  // Con uno alcanza: la tarjeta lleva al listado y ahí se elige cuál.
+  // Si ninguno lo tiene, la tarjeta igual aparece pero invitando a
+  // contratarlo — es lo que hace que alguien se entere de que existe.
+  let lealtadActiva = false;
+  if (tieneNegocio) {
+    const { data: conLealtad } = await supabase
+      .from("addons_negocio")
+      .select("rancho_id")
+      .in(
+        "rancho_id",
+        negocios.map((n) => n.id),
+      )
+      .eq("addon", "lealtad")
+      .eq("activo", true)
+      .limit(1);
+    lealtadActiva = (conLealtad ?? []).length > 0;
+  }
+
   const hoy = hoyISOCR();
   // Mismo criterio que /cuenta/reservas: los estados finales van al
   // historial aunque la fecha sea hoy.
@@ -223,6 +242,7 @@ export default async function CuentaPage() {
           reservasNuevasNegocio={reservasNuevasNegocio}
           vecesContratado={vecesContratado}
           negociosLength={negocios.length}
+          lealtadActiva={lealtadActiva}
           confirmacionesNuevas={confirmacionesNuevas}
           invitacionIds={invitacionIds}
           personasConfirmadas={personasConfirmadas}
