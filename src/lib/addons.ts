@@ -31,6 +31,17 @@ export const ADDONS = [
     nombre: "Lealtad",
     resumen: "Sellos y puntos digitales con tarjeta en el Wallet.",
   },
+  {
+    id: "pases",
+    nombre: "Pases de lealtad",
+    resumen: "Tarjeta del negocio en Apple Wallet, con su logo y sus colores.",
+  },
+  {
+    id: "pases_cercania",
+    nombre: "Aviso por cercanía",
+    resumen:
+      "La tarjeta aparece sola en la pantalla bloqueada cuando el cliente pasa cerca del local.",
+  },
 ] as const;
 
 export type AddonId = (typeof ADDONS)[number]["id"];
