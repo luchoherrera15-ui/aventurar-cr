@@ -50,7 +50,7 @@ export default async function CompartirTarjeta({
 
       <div className="mt-4 flex flex-wrap items-center gap-5">
         <div
-          className="h-36 w-36 shrink-0 overflow-hidden rounded-xl border border-aventurea-line bg-white [&_svg]:h-full [&_svg]:w-full"
+          className="qr-claro h-36 w-36 shrink-0 overflow-hidden rounded-xl border border-aventurea-line bg-white [&_svg]:h-full [&_svg]:w-full"
           // El SVG viene de la librería `qrcode` con datos generados por
           // nosotros (la URL de arriba), no de entrada del usuario.
           dangerouslySetInnerHTML={{ __html: svg }}

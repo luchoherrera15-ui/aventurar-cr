@@ -168,6 +168,7 @@ export async function guardarPrograma(
   if (error) return { error: traducir(error.message, "guardar el programa") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
+  revalidatePath(`/admin/lealtad/${ranchoId}`);
   return { programa: data as ProgramaFila };
 }
 
@@ -326,6 +327,7 @@ export async function guardarRecompensa(
   if (error) return { error: traducir(error.message, "guardar la recompensa") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
+  revalidatePath(`/admin/lealtad/${ranchoId}`);
   return { recompensa: data as RecompensaFila };
 }
 
@@ -354,6 +356,7 @@ export async function eliminarRecompensa(
   if (error) return { error: traducir(error.message, "eliminar la recompensa") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
+  revalidatePath(`/admin/lealtad/${ranchoId}`);
   return {};
 }
 
@@ -450,5 +453,6 @@ export async function cambiarEstadoPrograma(
   if (error) return { error: traducir(error.message, "cambiar el estado") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
+  revalidatePath(`/admin/lealtad/${ranchoId}`);
   return { programa: data as ProgramaFila };
 }

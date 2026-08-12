@@ -10,7 +10,6 @@ import TabsLealtad, { type PestanaLealtad } from "./tabs-lealtad";
 import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
 import CompartirTarjeta from "./compartir-tarjeta";
-import PasesPanel from "./pases-panel";
 import MetricasLealtad from "./metricas";
 import AuditoriaResumen from "./auditoria-resumen";
 import EquipoLealtad, { type MiembroEquipo } from "./equipo-cliente";
@@ -130,11 +129,6 @@ export default async function PanelNegocioLealtad({
     ? estadoDelPrograma({ estado: p.estado ?? null, activo: p.activo }) === "activo"
     : false;
 
-  const { data: cercania } = await acceso.supabase.rpc("tiene_addon", {
-    p_rancho_id: id,
-    p_addon: "pases_cercania",
-  });
-
   // ── El equipo (solo lo carga quien lo puede editar) ─────────────────
   let equipo: MiembroEquipo[] = [];
   const puedeEquipo = acceso.esDueno || acceso.esAdmin;
@@ -161,6 +155,9 @@ export default async function PanelNegocioLealtad({
   }
 
   // ── Las pestañas según el permiso ───────────────────────────────────
+  // Configurar el programa NO está acá ni para el admin: nadie genera
+  // sus pases desde la interfaz del negocio — el editor vive en
+  // /admin/lealtad/[id], dentro del sitio de administración.
   const pestanas: PestanaLealtad[] = [
     { id: "general", etiqueta: "General" },
     ...(permisos.auditoria
@@ -170,7 +167,6 @@ export default async function PanelNegocioLealtad({
         ]
       : []),
     ...(puedeEquipo ? [{ id: "equipo", etiqueta: "Equipo" }] : []),
-    ...(acceso.esAdmin ? [{ id: "config", etiqueta: "Configuración (Bookea)" }] : []),
   ];
 
   const contenidos: Record<string, React.ReactNode> = {
@@ -239,23 +235,6 @@ export default async function PanelNegocioLealtad({
           ),
         }
       : {}),
-    ...(acceso.esAdmin
-      ? {
-          config: (
-            <Papel>
-              <p className="mb-4 rounded-xl bg-aventurea-cream-2 px-3 py-2 text-[12px] font-bold text-aventurea-ink-soft">
-                Vista de Bookea: el negocio no ve esta pestaña.
-              </p>
-              <PasesPanel
-                ranchoId={id}
-                programaInicial={p}
-                recompensasIniciales={lista}
-                tieneCercania={cercania === true}
-              />
-            </Papel>
-          ),
-        }
-      : {}),
   };
 
   return (
@@ -278,7 +257,7 @@ function Cascaron({
 }) {
   const def = definicionDe(plan);
   return (
-    <main className="min-h-svh px-5 py-8" style={{ background: NAVY_PROFUNDO }}>
+    <main className="lealtad-oscuro min-h-svh px-5 py-8" style={{ background: NAVY_PROFUNDO }}>
       <div className="mx-auto w-[min(1040px,94vw)]">
         <header className="flex items-center justify-between">
           <Link href="/lealtad/panel" className="text-[12.5px] font-bold text-white/50 hover:text-white">
@@ -317,9 +296,20 @@ function Cascaron({
   );
 }
 
-/** El panel claro donde vive el contenido de cada pestaña. */
+/**
+ * El contenedor de cada pestaña: azul con opacidad sobre el navy (el
+ * dueño vetó los paneles claros). Las cards internas se re-mapean con
+ * el tema .lealtad-oscuro de globals.css.
+ */
 function Papel({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-3xl bg-[#f7f5f0] p-4 sm:p-6">{children}</div>;
+  return (
+    <div
+      className="rounded-3xl border p-4 sm:p-6"
+      style={{ background: "rgba(255,255,255,.03)", borderColor: "rgba(255,255,255,.08)" }}
+    >
+      {children}
+    </div>
+  );
 }
 
 function Titulo({ children, className = "" }: { children: React.ReactNode; className?: string }) {

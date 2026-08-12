@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import FormularioSolicitud, { type NegocioElegible } from "./formulario-solicitud";
+import FormularioSolicitud, {
+  type DatosPago,
+  type NegocioElegible,
+} from "./formulario-solicitud";
 
 /**
  * Las tarjetas de los tres paquetes. Elegir una abre el paso de
@@ -27,11 +30,13 @@ export default function PlanesCliente({
   negocios,
   negocioInicial,
   conSesion,
+  pago,
 }: {
   planes: TarjetaPlan[];
   negocios: NegocioElegible[];
   negocioInicial: string | null;
   conSesion: boolean;
+  pago: DatosPago;
 }) {
   const [elegido, setElegido] = useState<string | null>(null);
   const plan = planes.find((p) => p.id === elegido) ?? null;
@@ -101,6 +106,7 @@ export default function PlanesCliente({
             planNombre={plan.nombre}
             negocios={negocios}
             negocioInicial={negocioInicial}
+            pago={pago}
             alCerrar={() => setElegido(null)}
           />
         </div>

@@ -18,6 +18,8 @@ export type SolicitudPendiente = {
   correo: string;
   telefono: string | null;
   mensaje: string | null;
+  metodoPago: string | null;
+  comprobanteUrl: string | null;
   fecha: string;
 };
 
@@ -72,7 +74,7 @@ function Fila({
         <p className="text-[13px] font-bold text-aventurea-green">
           {s.negocio} activado con el plan {s.plan}.{" "}
           <a
-            href={`/lealtad/panel/${s.ranchoId}`}
+            href={`/admin/lealtad/${s.ranchoId}`}
             className="text-aventurea-ink underline"
           >
             Configurar su programa →
@@ -112,6 +114,20 @@ function Fila({
       <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
         Pide {s.solicitante} · {s.correo}
         {s.telefono ? ` · tel ${s.telefono}` : ""}
+        {s.metodoPago ? ` · pagó por ${s.metodoPago}` : ""}
+        {s.comprobanteUrl && (
+          <>
+            {" · "}
+            <a
+              href={s.comprobanteUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-bold text-aventurea-ink underline"
+            >
+              ver comprobante
+            </a>
+          </>
+        )}
       </p>
       {s.mensaje && (
         <p className="mt-0.5 text-[12.5px] italic text-aventurea-ink-soft">“{s.mensaje}”</p>

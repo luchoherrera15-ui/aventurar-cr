@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
+import {
+  ETIQUETAS_CAPACIDAD,
+  PLANES as PLANES_REALES,
+  PLANES_ID,
+} from "@/lib/lealtad/planes";
 import EscenaSellos from "./escena-sellos";
 import EscenaDescuentos from "./escena-descuentos";
 import HeroTelefono from "./hero-telefono";
@@ -15,8 +20,9 @@ import HeroTelefono from "./hero-telefono";
  * de Reel.tsx pero con su propio prefijo de clases/variables para no
  * chocar entre sí ni con `invitacion-*`.
  *
- * Los precios son de lanzamiento; el motor real vive en la migración
- * 0060 (programa_lealtad, ledger de puntos, pases).
+ * Los paquetes salen de src/lib/lealtad/planes.ts (la misma fuente que
+ * /lealtad/planes); el motor real vive en la migración 0060
+ * (programa_lealtad, ledger de puntos, pases).
  */
 
 const NAVY_PROFUNDO = "#0a1226";
@@ -29,50 +35,22 @@ export const metadata: Metadata = {
     "Sellos y puntos digitales para tu negocio: tarjeta en el teléfono, descuentos al instante y todo conectado a tus reservas y citas de Bookea.",
 };
 
-const PLANES: {
-  nombre: string;
-  precio: string;
-  detalle: string;
-  incluye: string[];
-  destacado?: boolean;
-}[] = [
-  {
-    nombre: "Para empezar",
-    precio: "Gratis",
-    detalle: "Probalo con tus clientes de siempre",
-    incluye: [
-      "Tarjeta digital de sellos",
-      "Hasta 50 clientes afiliados",
-      "1 recompensa activa",
-      "Canje con QR en el local",
-    ],
-  },
-  {
-    nombre: "Lealtad",
-    precio: "₡12 900",
-    detalle: "por mes · precio de lanzamiento",
-    incluye: [
-      "Clientes y sellos ilimitados",
-      "Tarjeta en Apple Wallet y Google Wallet",
-      "Puntos por visita o por monto",
-      "Catálogo de recompensas ilimitado",
-      "El pase se actualiza solo al sumar puntos",
-    ],
-    destacado: true,
-  },
-  {
-    nombre: "Pro",
-    precio: "₡24 900",
-    detalle: "por mes · para multi-sucursal",
-    incluye: [
-      "Todo lo del plan Lealtad",
-      "Varias sucursales, un solo programa",
-      "Paquetes de membresía de pago",
-      "Reportes de visitas y canjes",
-      "Acompañamiento para arrancar",
-    ],
-  },
-];
+/**
+ * Los paquetes REALES, derivados de la única fuente de verdad
+ * (src/lib/lealtad/planes.ts, 0124): Básico / Estándar / Enterprise.
+ * Antes acá vivía una lista inventada con otros nombres y precios —
+ * la landing prometía una cosa y la plataforma vendía otra.
+ */
+const PAQUETES = PLANES_ID.map((id) => {
+  const def = PLANES_REALES[id];
+  return {
+    id,
+    nombre: def.nombre,
+    limite: def.limiteMiembros,
+    incluye: def.capacidades.map((c) => ETIQUETAS_CAPACIDAD[c]),
+    destacado: id === "enterprise",
+  };
+});
 
 const NEGOCIOS = [
   "Restaurantes",
@@ -359,26 +337,26 @@ export default function LealtadPage() {
         </div>
       </section>
 
-      {/* ================= PRECIOS ================= */}
+      {/* ================= PAQUETES ================= */}
       <section id="precios" className="scroll-mt-8 px-5 py-24 sm:px-8" style={{ background: NAVY }}>
         <div className="mx-auto w-[min(1120px,92vw)]">
           <div data-reveal className="text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
-              Precios de lanzamiento
+              Paquetes
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
-              Menos que un combo al mes.
+              Elegí el tamaño de tu programa.
             </h2>
             <p className="mx-auto mt-4 max-w-[52ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
-              Sin contratos ni permanencia mínima. Y si además tomás reservas
-              o citas con Bookea, todo vive en el mismo panel.
+              Dejás la solicitud con tu depósito y el equipo de Bookea genera el
+              programa y la tarjeta por vos — con tus colores, tu logo y tu regalía.
             </p>
           </div>
 
           <div className="mt-14 grid gap-4 lg:grid-cols-3">
-            {PLANES.map((plan) => (
+            {PAQUETES.map((plan) => (
               <div
-                key={plan.nombre}
+                key={plan.id}
                 data-reveal
                 className={`flex flex-col rounded-3xl border p-7 ${plan.destacado ? "" : "border-white/12"}`}
                 style={{
@@ -390,14 +368,16 @@ export default function LealtadPage() {
                   className="text-[12px] font-extrabold uppercase tracking-wide"
                   style={{ color: plan.destacado ? NARANJA : "rgba(255,255,255,.55)" }}
                 >
-                  {plan.nombre}
+                  {plan.destacado ? "El más completo" : "Paquete"}
                 </p>
                 <p className="titulo mt-2 text-[36px] leading-none tracking-tight text-white">
-                  {plan.precio}
+                  {plan.nombre}
                 </p>
-                <p className="mt-1.5 text-[12.5px] text-white/50">{plan.detalle}</p>
+                <p className="mt-1.5 text-[12.5px] text-white/50">
+                  Hasta {plan.limite === null ? "miembros ilimitados" : `${plan.limite.toLocaleString("es-CR")} miembros`}
+                </p>
 
-                <ul className="mt-6 flex flex-col gap-2.5">
+                <ul className="mt-6 flex flex-1 flex-col gap-2.5">
                   {plan.incluye.map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-[13.5px] leading-relaxed">
                       <span
@@ -412,21 +392,21 @@ export default function LealtadPage() {
                 </ul>
 
                 <Link
-                  href="/mi-negocio/nuevo"
+                  href="/lealtad/planes"
                   className={`mt-7 flex h-11 items-center justify-center rounded-full text-[14px] font-bold transition-transform hover:scale-[1.02] ${
                     plan.destacado ? "text-white" : "border border-white/25 text-white"
                   }`}
                   style={plan.destacado ? { background: NARANJA } : undefined}
                 >
-                  Empezar con {plan.nombre === "Para empezar" ? "el plan gratis" : plan.nombre}
+                  Solicitar {plan.nombre}
                 </Link>
               </div>
             ))}
           </div>
 
           <p className="mt-8 text-center text-[12px] text-white/40">
-            Los pases de Apple Wallet y Google Wallet están en fase de
-            habilitación — los primeros negocios en afiliarse los estrenan.
+            El pago es por SINPE Móvil o transferencia: adjuntás el comprobante
+            con la solicitud y Bookea activa tu programa.
           </p>
         </div>
       </section>

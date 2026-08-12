@@ -44,7 +44,7 @@ export default async function AdminComplementosPage() {
     // viene con error y la bandeja simplemente no se muestra.
     admin
       .from("solicitudes_lealtad")
-      .select("id, rancho_id, solicitante_id, plan, telefono, mensaje, created_at")
+      .select("*")
       .eq("estado", "pendiente")
       .order("created_at", { ascending: true }),
   ]);
@@ -101,6 +101,9 @@ export default async function AdminComplementosPage() {
     telefono: string | null;
     mensaje: string | null;
     created_at: string;
+    /** 0128; ausentes si esa migración no corrió. */
+    metodo_pago?: string | null;
+    comprobante_url?: string | null;
   }[];
   const idsSolicitantes = [...new Set(filasSolicitud.map((s) => s.solicitante_id))];
   const { data: perfilesSol } = idsSolicitantes.length
@@ -130,6 +133,8 @@ export default async function AdminComplementosPage() {
     correo: perfilDe.get(s.solicitante_id)?.email ?? "—",
     telefono: s.telefono,
     mensaje: s.mensaje,
+    metodoPago: s.metodo_pago ?? null,
+    comprobanteUrl: s.comprobante_url ?? null,
     fecha: FECHA_SOL.format(new Date(s.created_at)),
   }));
 

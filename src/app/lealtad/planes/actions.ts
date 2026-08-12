@@ -24,8 +24,21 @@ export async function solicitarPlanLealtad(
   plan: string,
   telefono: string,
   mensaje: string,
+  metodoPago: string,
+  comprobanteUrl: string,
 ): Promise<Resultado> {
   if (!esPlan(plan)) return { ok: false, motivo: "Ese paquete no existe." };
+  if (metodoPago !== "sinpe" && metodoPago !== "transferencia") {
+    return { ok: false, motivo: "Elegí cómo pagaste: SINPE o transferencia." };
+  }
+
+  // Sin depósito no hay solicitud — y el link tiene que ser del NUESTRO
+  // bucket de comprobantes, no una URL cualquiera que despues abra un
+  // admin confiado desde el correo.
+  const bucketComprobantes = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/comprobantes/`;
+  if (!comprobanteUrl.startsWith(bucketComprobantes)) {
+    return { ok: false, motivo: "Adjuntá la captura del depósito para enviar la solicitud." };
+  }
 
   const supabase = await createClient();
   const {
@@ -57,6 +70,8 @@ export async function solicitarPlanLealtad(
     plan,
     telefono: tel || null,
     mensaje: msj || null,
+    metodo_pago: metodoPago,
+    comprobante_url: comprobanteUrl,
   });
 
   if (error) {
@@ -65,6 +80,9 @@ export async function solicitarPlanLealtad(
     }
     if (error.code === "42501") {
       return { ok: false, motivo: "No administrás ese negocio." };
+    }
+    if (/metodo_pago|comprobante_url/.test(error.message) && /schema cache|Could not find|does not exist/i.test(error.message)) {
+      return { ok: false, motivo: "Falta correr la migración 0128 en Supabase." };
     }
     if (/solicitudes_lealtad/.test(error.message) && /does not exist|schema cache|Could not find/i.test(error.message)) {
       return { ok: false, motivo: "Falta correr la migración 0126 en Supabase." };
@@ -94,6 +112,8 @@ export async function solicitarPlanLealtad(
           <tr><td style="padding:4px 12px 4px 0"><b>Solicitante</b></td><td>${escapar(nombrePersona)}</td></tr>
           <tr><td style="padding:4px 12px 4px 0"><b>Correo</b></td><td>${escapar(correo)}</td></tr>
           <tr><td style="padding:4px 12px 4px 0"><b>Teléfono</b></td><td>${escapar(tel || "—")}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0"><b>Pagó por</b></td><td>${escapar(metodoPago)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0"><b>Comprobante</b></td><td><a href="${escapar(comprobanteUrl)}">ver la captura del depósito</a></td></tr>
           <tr><td style="padding:4px 12px 4px 0"><b>Mensaje</b></td><td>${escapar(msj || "—")}</td></tr>
         </table>
         <p style="margin:16px 0 0">

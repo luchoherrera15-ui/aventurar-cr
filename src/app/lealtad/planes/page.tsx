@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { ETIQUETAS_CAPACIDAD, PLANES, PLANES_ID } from "@/lib/lealtad/planes";
+import { datosDePagoBookea } from "@/lib/pagos-bookea";
 import PlanesCliente, { type TarjetaPlan } from "./planes-cliente";
 import type { NegocioElegible } from "./formulario-solicitud";
 
@@ -106,6 +107,7 @@ export default async function PlanesLealtadPage({
             negocios={negocios}
             negocioInicial={negocio ?? null}
             conSesion={!!user}
+            pago={datosDePagoBookea()}
           />
         </div>
 

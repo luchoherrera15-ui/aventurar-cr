@@ -2,27 +2,41 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { solicitarPlanLealtad } from "./actions";
 
 /**
  * El paso final de la compra: elegido el paquete, se confirma el
- * negocio (si hay varios), se deja un teléfono y va la solicitud.
- * Bookea recibe el correo y activa desde el panel administrativo.
+ * negocio, se hace el DEPÓSITO (SINPE o transferencia — los datos
+ * están acá mismo), se adjunta la captura y recién ahí sale la
+ * solicitud. Sin comprobante no hay botón: nadie inicia el programa
+ * sin haber pagado.
+ *
+ * El comprobante va al mismo bucket `comprobantes` que ya usan las
+ * invitaciones y las reservas — un solo lugar donde buscar depósitos.
  */
 
 export type NegocioElegible = { id: string; nombre: string };
+
+export type DatosPago = {
+  sinpe: { numero: string; titular: string };
+  banco: { nombre: string; cuenta: string; titular: string };
+};
 
 export default function FormularioSolicitud({
   plan,
   planNombre,
   negocios,
   negocioInicial,
+  pago,
   alCerrar,
 }: {
   plan: string;
   planNombre: string;
   negocios: NegocioElegible[];
   negocioInicial: string | null;
+  pago: DatosPago;
   alCerrar: () => void;
 }) {
   const [negocioId, setNegocioId] = useState(
@@ -30,14 +44,47 @@ export default function FormularioSolicitud({
       ? negocioInicial
       : (negocios[0]?.id ?? ""),
   );
+  const [metodo, setMetodo] = useState<"sinpe" | "transferencia">("sinpe");
+  const [comprobanteUrl, setComprobanteUrl] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
+  const [errorSubida, setErrorSubida] = useState("");
   const [telefono, setTelefono] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [estado, setEstado] = useState<"editando" | "enviada" | string>("editando");
   const [ocupado, iniciar] = useTransition();
 
+  async function subirComprobante(archivo: File) {
+    setErrorSubida("");
+    if (archivo.size > 8 * 1024 * 1024) {
+      setErrorSubida("El archivo pesa más de 8 MB — mandá una captura más liviana.");
+      return;
+    }
+    setSubiendo(true);
+    const supabase = createClient();
+    const liviano = await comprimirImagen(archivo);
+    const ext = liviano.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `solicitudes-lealtad/${negocioId || "sin-negocio"}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("comprobantes").upload(path, liviano);
+    if (error) {
+      setErrorSubida("No pudimos subir el comprobante. Intentá de nuevo.");
+      setSubiendo(false);
+      return;
+    }
+    const { data } = supabase.storage.from("comprobantes").getPublicUrl(path);
+    setComprobanteUrl(data?.publicUrl ?? "");
+    setSubiendo(false);
+  }
+
   function enviar() {
     iniciar(async () => {
-      const res = await solicitarPlanLealtad(negocioId, plan, telefono, mensaje);
+      const res = await solicitarPlanLealtad(
+        negocioId,
+        plan,
+        telefono,
+        mensaje,
+        metodo,
+        comprobanteUrl,
+      );
       setEstado(res.ok ? "enviada" : res.motivo);
     });
   }
@@ -47,12 +94,16 @@ export default function FormularioSolicitud({
       <div className="rounded-2xl bg-white/10 p-5 text-center">
         <p className="text-[14.5px] font-extrabold text-white">¡Solicitud enviada!</p>
         <p className="mx-auto mt-1.5 max-w-[380px] text-[12.5px] leading-relaxed text-white/60">
-          El equipo de Bookea la recibió y te contacta para dejar el plan {planNombre}{" "}
-          funcionando. Vas a ver el estado en tu panel de lealtad.
+          Recibimos tu depósito y tu solicitud del plan {planNombre}. El equipo de Bookea
+          los revisa, arma tu programa y te avisa al correo cuando esté funcionando.
         </p>
       </div>
     );
   }
+
+  const etiqueta = "grid gap-1 text-[11.5px] font-bold uppercase tracking-wide text-white/50";
+  const campo =
+    "rounded-[10px] border border-white/20 bg-[#131c36] px-3 py-2.5 text-[13.5px] font-normal normal-case tracking-normal text-white placeholder:text-white/30";
 
   return (
     <div className="rounded-2xl bg-white/10 p-5">
@@ -74,13 +125,9 @@ export default function FormularioSolicitud({
       ) : (
         <div className="mt-3 grid gap-2.5">
           {negocios.length > 1 && (
-            <label className="grid gap-1 text-[11.5px] font-bold uppercase tracking-wide text-white/50">
+            <label className={etiqueta}>
               Para cuál negocio
-              <select
-                value={negocioId}
-                onChange={(e) => setNegocioId(e.target.value)}
-                className="rounded-[10px] border border-white/20 bg-[#131c36] px-3 py-2.5 text-[13.5px] font-normal normal-case tracking-normal text-white"
-              >
+              <select value={negocioId} onChange={(e) => setNegocioId(e.target.value)} className={campo}>
                 {negocios.map((n) => (
                   <option key={n.id} value={n.id}>
                     {n.nombre}
@@ -95,18 +142,90 @@ export default function FormularioSolicitud({
             </p>
           )}
 
-          <label className="grid gap-1 text-[11.5px] font-bold uppercase tracking-wide text-white/50">
+          {/* ── El depósito: primero se paga, después se solicita ── */}
+          <div className="rounded-xl border border-white/15 bg-[#0f1930] p-3.5">
+            <p className="text-[12px] font-bold uppercase tracking-wide text-white/50">
+              1 · Hacé el depósito
+            </p>
+            <div className="mt-2 flex gap-1.5">
+              {(["sinpe", "transferencia"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMetodo(m)}
+                  className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${
+                    metodo === m ? "bg-white text-[#0a1226]" : "bg-white/10 text-white/60"
+                  }`}
+                >
+                  {m === "sinpe" ? "SINPE Móvil" : "Transferencia"}
+                </button>
+              ))}
+            </div>
+            {metodo === "sinpe" ? (
+              <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
+                SINPE Móvil al{" "}
+                <strong className="text-white">{pago.sinpe.numero}</strong> a nombre de{" "}
+                <strong className="text-white">{pago.sinpe.titular}</strong>. En el detalle
+                poné el nombre de tu negocio.
+              </p>
+            ) : pago.banco.cuenta ? (
+              <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
+                {pago.banco.nombre} · cuenta{" "}
+                <strong className="text-white">{pago.banco.cuenta}</strong> a nombre de{" "}
+                <strong className="text-white">{pago.banco.titular}</strong>. En el detalle
+                poné el nombre de tu negocio.
+              </p>
+            ) : (
+              <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
+                Escribinos y te pasamos la cuenta — o usá SINPE Móvil al{" "}
+                <strong className="text-white">{pago.sinpe.numero}</strong>, que es inmediato.
+              </p>
+            )}
+
+            <p className="mt-3 text-[12px] font-bold uppercase tracking-wide text-white/50">
+              2 · Adjuntá la captura
+            </p>
+            {comprobanteUrl ? (
+              <p className="mt-1.5 text-[12.5px] font-bold text-emerald-300">
+                ✓ Comprobante adjunto.{" "}
+                <button
+                  type="button"
+                  onClick={() => setComprobanteUrl("")}
+                  className="font-bold text-white/50 underline"
+                >
+                  Cambiarlo
+                </button>
+              </p>
+            ) : (
+              <label className="mt-1.5 block">
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={subiendo}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void subirComprobante(f);
+                  }}
+                  className="block w-full text-[12.5px] text-white/60 file:mr-3 file:rounded-[10px] file:border-0 file:bg-white/15 file:px-3 file:py-2 file:text-[12.5px] file:font-bold file:text-white"
+                />
+              </label>
+            )}
+            {subiendo && <p className="mt-1 text-[12px] text-white/50">Subiendo…</p>}
+            {errorSubida && <p className="mt-1 text-[12.5px] font-bold text-red-300">{errorSubida}</p>}
+          </div>
+
+          <label className={etiqueta}>
             Teléfono (para coordinar)
             <input
               value={telefono}
               onChange={(e) => setTelefono(e.target.value)}
               placeholder="8888 8888"
               maxLength={30}
-              className="rounded-[10px] border border-white/20 bg-[#131c36] px-3 py-2.5 text-[13.5px] font-normal normal-case tracking-normal text-white placeholder:text-white/30"
+              className={campo}
             />
           </label>
 
-          <label className="grid gap-1 text-[11.5px] font-bold uppercase tracking-wide text-white/50">
+          <label className={etiqueta}>
             Algo que debamos saber (opcional)
             <textarea
               value={mensaje}
@@ -114,17 +233,21 @@ export default function FormularioSolicitud({
               rows={2}
               maxLength={500}
               placeholder="Colores de la marca, la regalía que querés dar…"
-              className="rounded-[10px] border border-white/20 bg-[#131c36] px-3 py-2.5 text-[13.5px] font-normal normal-case tracking-normal text-white placeholder:text-white/30"
+              className={campo}
             />
           </label>
 
           <button
             type="button"
             onClick={enviar}
-            disabled={ocupado || !negocioId}
+            disabled={ocupado || subiendo || !negocioId || !comprobanteUrl}
             className="rounded-xl bg-[#ee7420] px-5 py-3 text-[13.5px] font-extrabold text-white disabled:opacity-40"
           >
-            {ocupado ? "Enviando…" : "Enviar la solicitud"}
+            {ocupado
+              ? "Enviando…"
+              : comprobanteUrl
+                ? "Enviar la solicitud"
+                : "Adjuntá el comprobante para enviar"}
           </button>
 
           {estado !== "editando" && (

@@ -423,8 +423,14 @@ function PlanDeLealtad({ negocio }: { negocio: NegocioConAddons }) {
 
   return (
     <div className="mt-4 rounded-xl border border-aventurea-navy/25 bg-aventurea-navy/[0.04] px-4 py-3.5">
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-navy">
+      <p className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-navy">
         Programa de lealtad
+        <a
+          href={`/admin/lealtad/${negocio.id}`}
+          className="font-bold normal-case tracking-normal underline"
+        >
+          Configurar el programa →
+        </a>
       </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">

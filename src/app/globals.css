@@ -682,3 +682,90 @@ body {
   }
 }
 
+/* ────────────────────────────────────────────────────────────────────
+   TEMA OSCURO DE LEALTAD (.lealtad-oscuro)
+
+   El panel /lealtad/panel/[id] reusa componentes que nacieron en el
+   panel claro de mi-negocio (cards blancas, tinta navy). El dueño pidió
+   "nada de blancos: azul con opacidad" — y reescribir cada componente
+   duplicaría lo que la doctrina del repo prohíbe duplicar.
+
+   En su lugar, este bloque re-mapea las clases del tema claro a sus
+   equivalentes translúcidos sobre navy, scoped al contenedor. Funciona
+   porque las utilidades de Tailwind v4 viven en @layer y estas reglas
+   NO: lo sin capa gana en la cascada sin importar el orden.
+
+   `.qr-claro` es la excepción deliberada: un QR sobre fondo oscuro no
+   se escanea. ─────────────────────────────────────────────────────── */
+.lealtad-oscuro .bg-white:not(.qr-claro) {
+  background-color: rgba(255, 255, 255, 0.055);
+}
+.lealtad-oscuro .bg-aventurea-surface {
+  background-color: rgba(255, 255, 255, 0.045);
+}
+.lealtad-oscuro .bg-aventurea-cream-2,
+.lealtad-oscuro .bg-aventurea-cream {
+  background-color: rgba(255, 255, 255, 0.09);
+}
+.lealtad-oscuro .border-aventurea-line {
+  border-color: rgba(255, 255, 255, 0.13);
+}
+.lealtad-oscuro .text-aventurea-ink {
+  color: #ffffff;
+}
+.lealtad-oscuro .text-aventurea-ink-soft {
+  color: rgba(255, 255, 255, 0.62);
+}
+.lealtad-oscuro input::placeholder,
+.lealtad-oscuro textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+.lealtad-oscuro input,
+.lealtad-oscuro select,
+.lealtad-oscuro textarea {
+  color-scheme: dark;
+}
+.lealtad-oscuro input[type="checkbox"] {
+  accent-color: #ee7420;
+}
+/* El navy corporativo desaparece sobre el navy profundo del fondo:
+   se aclara para que los botones (Escanear, Invitar…) sigan siendo
+   botones. */
+.lealtad-oscuro .bg-aventurea-navy {
+  background-color: #26386f;
+}
+.lealtad-oscuro .text-aventurea-navy {
+  color: #9db4ff;
+}
+.lealtad-oscuro .border-aventurea-navy {
+  border-color: rgba(157, 180, 255, 0.45);
+}
+/* Chips y avisos: mismo significado, versión para fondo oscuro. */
+.lealtad-oscuro .bg-aventurea-green-light {
+  background-color: rgba(52, 199, 123, 0.16);
+}
+.lealtad-oscuro .text-aventurea-green {
+  color: #6ee7a8;
+}
+.lealtad-oscuro .bg-aventurea-sky-light {
+  background-color: rgba(125, 178, 255, 0.16);
+}
+.lealtad-oscuro .text-aventurea-orange-dark {
+  color: #ffb076;
+}
+.lealtad-oscuro .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.14);
+}
+.lealtad-oscuro .text-amber-800 {
+  color: #fcd34d;
+}
+.lealtad-oscuro .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.14);
+}
+.lealtad-oscuro .text-red-700 {
+  color: #fca5a5;
+}
+.lealtad-oscuro .text-zinc-500 {
+  color: rgba(255, 255, 255, 0.45);
+}
+
