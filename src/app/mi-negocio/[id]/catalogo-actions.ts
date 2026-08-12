@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { RanchoItem } from "../types";
+import type { LugarServicio, ModalidadServicio, RanchoItem } from "../types";
 
 /**
  * CRUD del catálogo (menú/paquetes/productos) de un negocio. Las
@@ -36,8 +36,26 @@ export type ItemInput = {
   /** true = este paquete SUSTITUYE la tarifa por evento/paquete del
    *  cotizador al elegirlo (0067). */
   esPaqueteBase: boolean;
+  /** Forma de la capacidad del servicio (0117). null = individual. */
+  modalidad: ModalidadServicio | null;
+  /** Dónde se presta (0117). null = presencial. */
+  lugarServicio: LugarServicio | null;
+  /** Personas mínimas para que la sesión se realice (0117). */
+  cupoMinSesion: number | null;
+  /** Personas máximas en UNA sesión (0117). Declarativo: todavía no
+   *  lo hace cumplir ningún motor. */
+  cupoMaxSesion: number | null;
+  /** Horas mínimas de anticipación (0118). Lo hace cumplir el RPC. */
+  anticipacionMinHoras: number | null;
+  /** Días máximos hacia adelante (0118). Lo hace cumplir el RPC. */
+  anticipacionMaxDias: number | null;
+  /** Adelanto de este servicio (0118). null = el del negocio. */
+  depositoServicio: number | null;
   activo: boolean;
 };
+
+const MODALIDADES: readonly ModalidadServicio[] = ["individual", "grupal", "recurso"];
+const LUGARES: readonly LugarServicio[] = ["presencial", "online", "hibrido"];
 
 function validar(datos: ItemInput) {
   const nombre = datos.nombre.trim();
@@ -89,10 +107,71 @@ function validar(datos: ItemInput) {
   ) {
     return "La cantidad por día debe ser al menos 1.";
   }
+  // Mismos rangos que rancho_items_cupo_sesion_check (0117). El cupo de
+  // la SESIÓN es cuánta gente atiende el servicio a la vez; no se
+  // confunde con min/maxPorReserva, que son unidades de un pedido.
+  for (const [valor, cual] of [
+    [datos.cupoMinSesion, "mínimo"],
+    [datos.cupoMaxSesion, "máximo"],
+  ] as const) {
+    if (valor !== null && (!Number.isInteger(valor) || valor < 1 || valor > 999)) {
+      return `El ${cual} de personas por sesión debe estar entre 1 y 999.`;
+    }
+  }
+  if (
+    datos.cupoMinSesion !== null &&
+    datos.cupoMaxSesion !== null &&
+    datos.cupoMaxSesion < datos.cupoMinSesion
+  ) {
+    return "El máximo de personas por sesión no puede ser menor que el mínimo.";
+  }
+  // Los mismos valores que aceptan rancho_items_modalidad_check y
+  // rancho_items_lugar_servicio_check (0117). La base los rechazaría
+  // igual, pero acá el mensaje sale en español en vez de un error de
+  // constraint — y una acción de servidor no debe confiar en que el
+  // cliente mandó una de las opciones del select.
+  if (datos.modalidad !== null && !MODALIDADES.includes(datos.modalidad)) {
+    return "Esa modalidad no existe.";
+  }
+  if (datos.lugarServicio !== null && !LUGARES.includes(datos.lugarServicio)) {
+    return "Ese lugar de atención no existe.";
+  }
+  // Mismos rangos que rancho_items_anticipacion_check (0118). Estos no
+  // son cosméticos: el RPC rechaza la cita que los incumple.
+  if (
+    datos.anticipacionMinHoras !== null &&
+    (!Number.isInteger(datos.anticipacionMinHoras) ||
+      datos.anticipacionMinHoras < 0 ||
+      datos.anticipacionMinHoras > 720)
+  ) {
+    return "La anticipación mínima debe estar entre 0 y 720 horas (30 días).";
+  }
+  if (
+    datos.anticipacionMaxDias !== null &&
+    (!Number.isInteger(datos.anticipacionMaxDias) ||
+      datos.anticipacionMaxDias < 1 ||
+      datos.anticipacionMaxDias > 365)
+  ) {
+    return "El máximo hacia adelante debe estar entre 1 y 365 días.";
+  }
+  // Mismo rango que ranchos_deposito_citas_check (0095).
+  if (
+    datos.depositoServicio !== null &&
+    (!Number.isFinite(datos.depositoServicio) ||
+      datos.depositoServicio < 0 ||
+      datos.depositoServicio > 10000000)
+  ) {
+    return "El adelanto debe estar entre ₡0 y ₡10.000.000.";
+  }
   return null;
 }
 
 function aFila(datos: ItemInput) {
+  // El cupo por sesión solo tiene sentido en un servicio grupal. Si el
+  // dueño vuelve a "individual" después de haber puesto 20, se guarda
+  // null: así lo que hay en la base es siempre lo que el panel muestra,
+  // y no queda un 20 escondido esperando a la ocurrencia de clase.
+  const esGrupal = datos.modalidad === "grupal";
   return {
     nombre: datos.nombre.trim(),
     descripcion: datos.descripcion.trim() || null,
@@ -108,25 +187,69 @@ function aFila(datos: ItemInput) {
     max_por_reserva: datos.maxPorReserva,
     capacidad_dia: datos.capacidadDia,
     es_paquete_base: datos.esPaqueteBase,
+    modalidad: datos.modalidad,
+    lugar_servicio: datos.lugarServicio,
+    cupo_min_sesion: esGrupal ? datos.cupoMinSesion : null,
+    cupo_max_sesion: esGrupal ? datos.cupoMaxSesion : null,
+    anticipacion_min_horas: datos.anticipacionMinHoras,
+    anticipacion_max_dias: datos.anticipacionMaxDias,
+    deposito_servicio: datos.depositoServicio,
     activo: datos.activo,
   };
 }
 
 /**
- * Si las migraciones 0061/0067 todavía no se corrieron, las columnas
- * buffer_min / es_paquete_base no existen y el insert/update entero
- * fallaría. Se detecta ese caso puntual y se reintenta sin ellas, para
- * que el catálogo siga siendo editable con la base vieja.
+ * Columnas que agregó una migración posterior a la 0035. Las
+ * migraciones las pega el dueño a mano en el SQL Editor, así que el
+ * código puede llegar a producción antes que el esquema: si alguna de
+ * estas no existe todavía, el insert/update ENTERO fallaría y el
+ * catálogo quedaría de piedra. Se detecta ese caso y se reintenta sin
+ * ellas, para que lo viejo se siga pudiendo editar con la base vieja.
  */
-function sinPaqueteBase(fila: ReturnType<typeof aFila>) {
-  const copia = { ...fila } as Record<string, unknown>;
-  delete copia.es_paquete_base;
-  delete copia.buffer_min;
-  return copia;
-}
+/**
+ * Van agrupadas POR MIGRACIÓN, no en una lista suelta. Postgres nombra
+ * una sola columna desconocida por error, así que si se soltaran todas
+ * de golpe una base con la 0061 y la 0067 pero sin la 0117 perdería en
+ * silencio el buffer y el paquete base: se guardaría "bien" y el dueño
+ * vería su configuración desaparecer sin ningún aviso.
+ *
+ * Soltando de a una migración, solo se pierde lo que esa base
+ * realmente no puede guardar.
+ */
+const GRUPOS_OPCIONALES: readonly (readonly string[])[] = [
+  ["buffer_min"], // 0061
+  ["es_paquete_base"], // 0067
+  ["modalidad", "lugar_servicio", "cupo_min_sesion", "cupo_max_sesion"], // 0117
+  ["anticipacion_min_horas", "anticipacion_max_dias", "deposito_servicio"], // 0118
+];
 
-function faltaColumnaPaqueteBase(mensaje: string) {
-  return mensaje.includes("es_paquete_base") || mensaje.includes("buffer_min");
+type Fila = Record<string, unknown>;
+type Respuesta = { data: unknown; error: { message: string } | null };
+
+/**
+ * Ejecuta el guardado y, si la base no tiene alguna migración, vuelve a
+ * intentar sin las columnas de ESA migración. Cada vuelta suelta un
+ * grupo que todavía estaba en la fila, así que el ciclo siempre avanza
+ * y termina.
+ */
+async function guardarTolerante(
+  fila: Fila,
+  intentar: (fila: Fila) => PromiseLike<Respuesta>,
+): Promise<Respuesta> {
+  const actual: Fila = { ...fila };
+
+  for (let vuelta = 0; vuelta <= GRUPOS_OPCIONALES.length; vuelta++) {
+    const res = await intentar(actual);
+    if (!res.error) return res;
+
+    const culpable = GRUPOS_OPCIONALES.find((grupo) =>
+      grupo.some((c) => c in actual && res.error!.message.includes(c)),
+    );
+    if (!culpable) return res;
+    for (const c of culpable) delete actual[c];
+  }
+
+  return intentar(actual);
 }
 
 export async function crearItemCatalogo(
@@ -148,29 +271,17 @@ export async function crearItemCatalogo(
     .limit(1)
     .maybeSingle();
 
-  const fila = aFila(datos);
-  let { data, error } = await supabase
-    .from("rancho_items")
-    .insert({
-      rancho_id: ranchoId,
-      orden: (ultimo?.orden ?? 0) + 1,
-      ...fila,
-    })
-    .select("*")
-    .single();
-
-  // Base sin la migración 0067: se guarda sin es_paquete_base.
-  if (error && faltaColumnaPaqueteBase(error.message)) {
-    ({ data, error } = await supabase
+  const { data, error } = await guardarTolerante(aFila(datos), (fila) =>
+    supabase
       .from("rancho_items")
       .insert({
         rancho_id: ranchoId,
         orden: (ultimo?.orden ?? 0) + 1,
-        ...sinPaqueteBase(fila),
+        ...fila,
       })
       .select("*")
-      .single());
-  }
+      .single(),
+  );
 
   if (error) {
     // El caso típico: las migraciones todavía no se corrieron.
@@ -196,25 +307,15 @@ export async function actualizarItemCatalogo(
   if (invalido) return { error: invalido };
 
   const supabase = await createClient();
-  const fila = aFila(datos);
-  let { data, error } = await supabase
-    .from("rancho_items")
-    .update(fila)
-    .eq("id", itemId)
-    .eq("rancho_id", ranchoId)
-    .select("*")
-    .single();
-
-  // Base sin la migración 0067: se guarda sin es_paquete_base.
-  if (error && faltaColumnaPaqueteBase(error.message)) {
-    ({ data, error } = await supabase
+  const { data, error } = await guardarTolerante(aFila(datos), (fila) =>
+    supabase
       .from("rancho_items")
-      .update(sinPaqueteBase(fila))
+      .update(fila)
       .eq("id", itemId)
       .eq("rancho_id", ranchoId)
       .select("*")
-      .single());
-  }
+      .single(),
+  );
 
   if (error) return { error: "No se pudo guardar: " + error.message };
 

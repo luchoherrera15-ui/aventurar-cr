@@ -261,6 +261,61 @@ describe("cierre, intervalo y hoy", () => {
 });
 
 /**
+ * Anticipación mínima del servicio (0118). El motor no la inventa: la
+ * hace cumplir crear_cita en el servidor. Acá solo se corre el corte
+ * para no OFRECER un espacio que el RPC iba a rechazar.
+ */
+describe("anticipación mínima", () => {
+  it("sin anticipación se comporta igual que antes", () => {
+    const r = calcularDisponibilidad(
+      // 14:05Z = 8:05 CR, antes de abrir: el día entero está libre.
+      base({ ahora: new Date("2026-08-03T14:05:00Z"), anticipacionMinHoras: 0 }),
+    );
+    expect(r.cualquiera).toEqual(["09:00", "09:30", "10:00", "10:30", "11:00"]);
+  });
+
+  it("corre el corte las horas que pida el servicio", () => {
+    const r = calcularDisponibilidad(
+      // 8:05 CR + 2 h de anticipación = no antes de las 10:05.
+      base({ ahora: new Date("2026-08-03T14:05:00Z"), anticipacionMinHoras: 2 }),
+    );
+    expect(r.cualquiera).toEqual(["10:30", "11:00"]);
+  });
+
+  it("deja el día sin espacios si el margen se lo come entero", () => {
+    const r = calcularDisponibilidad(
+      base({ ahora: new Date("2026-08-03T14:05:00Z"), anticipacionMinHoras: 6 }),
+    );
+    expect(r.cualquiera).toEqual([]);
+  });
+
+  it("el margen cruza la medianoche y sigue mordiendo el día siguiente", () => {
+    // Lunes 8:05 CR + 26 h cae el martes a las 10:05, así que el
+    // martes solo quedan las 10:30 y las 11:00.
+    const r = calcularDisponibilidad(
+      base({
+        fecha: "2026-08-04", // martes
+        horarioNegocio: { "2": { abre: "09:00", cierra: "12:00" } },
+        ahora: new Date("2026-08-03T14:05:00Z"),
+        anticipacionMinHoras: 26,
+      }),
+    );
+    expect(r.cualquiera).toEqual(["10:30", "11:00"]);
+  });
+
+  it("un día lo bastante lejos no lo toca el margen", () => {
+    const r = calcularDisponibilidad(
+      base({
+        fecha: "2026-08-10", // lunes siguiente
+        ahora: new Date("2026-08-03T14:05:00Z"),
+        anticipacionMinHoras: 26,
+      }),
+    );
+    expect(r.cualquiera).toEqual(["09:00", "09:30", "10:00", "10:30", "11:00"]);
+  });
+});
+
+/**
  * La convención de herencia que comparten el motor, el armado de las
  * filas de horarios_recurso y el RPC crear_cita (migración 0081):
  * clave presente = ese día MANDA el horario propio (aunque esté

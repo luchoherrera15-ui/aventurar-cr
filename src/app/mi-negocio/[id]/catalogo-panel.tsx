@@ -4,7 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen, FOTO_DE_VITRINA } from "@/lib/comprimir-imagen";
-import type { RanchoItem } from "../types";
+import type { LugarServicio, ModalidadServicio, RanchoItem } from "../types";
+import CategoriasPanel from "./categorias-panel";
+import type { CategoriaNegocio } from "./categorias-actions";
 import { etiquetaDuracion } from "@/lib/catalogo";
 import { etiquetaMinutos } from "@/app/citas/tipos";
 import {
@@ -48,6 +50,14 @@ type Borrador = {
   maxPorReserva: string;
   capacidadDia: string;
   esPaqueteBase: boolean;
+  /** "" = sin declarar, que la base interpreta como individual. */
+  modalidad: ModalidadServicio | "";
+  lugarServicio: LugarServicio | "";
+  cupoMinSesion: string;
+  cupoMaxSesion: string;
+  anticipacionMinHoras: string;
+  anticipacionMaxDias: string;
+  depositoServicio: string;
 };
 
 const VACIO: Borrador = {
@@ -65,6 +75,13 @@ const VACIO: Borrador = {
   maxPorReserva: "",
   capacidadDia: "",
   esPaqueteBase: false,
+  modalidad: "",
+  lugarServicio: "",
+  cupoMinSesion: "",
+  cupoMaxSesion: "",
+  anticipacionMinHoras: "",
+  anticipacionMaxDias: "",
+  depositoServicio: "",
 };
 
 function num(v: string): number | null {
@@ -90,6 +107,16 @@ function aInput(b: Borrador, activo: boolean): ItemInput {
     maxPorReserva: num(b.maxPorReserva),
     capacidadDia: num(b.capacidadDia),
     esPaqueteBase: b.tipo === "paquete" && b.esPaqueteBase,
+    modalidad: b.modalidad || null,
+    lugarServicio: b.lugarServicio || null,
+    // Solo si es grupal, igual que hace `aFila` en el servidor: si no,
+    // un valor viejo escondido en un campo que ya no se ve podría
+    // trabar el guardado con un error que el dueño no puede ubicar.
+    cupoMinSesion: b.modalidad === "grupal" ? num(b.cupoMinSesion) : null,
+    cupoMaxSesion: b.modalidad === "grupal" ? num(b.cupoMaxSesion) : null,
+    anticipacionMinHoras: num(b.anticipacionMinHoras),
+    anticipacionMaxDias: num(b.anticipacionMaxDias),
+    depositoServicio: num(b.depositoServicio),
     activo,
   };
 }
@@ -111,6 +138,24 @@ function deItem(item: RanchoItem): Borrador {
     maxPorReserva: item.max_por_reserva === null ? "" : String(item.max_por_reserva),
     capacidadDia: item.capacidad_dia === null ? "" : String(item.capacidad_dia),
     esPaqueteBase: item.es_paquete_base === true,
+    modalidad: item.modalidad ?? "",
+    lugarServicio: item.lugar_servicio ?? "",
+    cupoMinSesion: item.cupo_min_sesion ? String(item.cupo_min_sesion) : "",
+    cupoMaxSesion: item.cupo_max_sesion ? String(item.cupo_max_sesion) : "",
+    // Ojo con el 0: es un valor válido para la anticipación mínima
+    // ("se puede reservar hasta el último minuto"), así que acá no
+    // sirve el truthy que usan los cupos.
+    anticipacionMinHoras:
+      item.anticipacion_min_horas === null || item.anticipacion_min_horas === undefined
+        ? ""
+        : String(item.anticipacion_min_horas),
+    anticipacionMaxDias: item.anticipacion_max_dias
+      ? String(item.anticipacion_max_dias)
+      : "",
+    depositoServicio:
+      item.deposito_servicio === null || item.deposito_servicio === undefined
+        ? ""
+        : String(item.deposito_servicio),
   };
 }
 
@@ -126,6 +171,7 @@ export default function CatalogoPanel({
   etiqueta,
   vertical = "eventos",
   eleccionesIniciales = {},
+  categoriasIniciales = [],
 }: {
   ranchoId: string;
   initialItems: RanchoItem[];
@@ -134,6 +180,9 @@ export default function CatalogoPanel({
   vertical?: string;
   /** Sección → N incluidos en la tarifa (detalles.elecciones_incluidas). */
   eleccionesIniciales?: Record<string, number>;
+  /** Orden explícito de las secciones (categorias_negocio, 0119). Vacío
+   *  = todavía no ordenó ninguna, que es como funcionaba antes. */
+  categoriasIniciales?: CategoriaNegocio[];
 }) {
   const esCitas = vertical === "citas";
   const [items, setItems] = useState(
@@ -412,6 +461,7 @@ export default function CatalogoPanel({
       </div>
 
       {esCitas ? (
+        <>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>Duración (minutos)</label>
@@ -444,6 +494,141 @@ export default function CatalogoPanel({
             />
           </div>
         </div>
+
+        {/* Modalidad (0117): dos preguntas distintas, no una. Cuánta
+            gente entra en la sesión, y dónde se presta. Una clase
+            grupal puede ser online, así que van separadas. */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Modalidad</label>
+            <select
+              value={borrador.modalidad}
+              onChange={(e) =>
+                setBorrador({
+                  ...borrador,
+                  modalidad: e.target.value as ModalidadServicio | "",
+                })
+              }
+              className={inputCls}
+            >
+              <option value="">Individual (1 cliente)</option>
+              <option value="grupal">Grupal (varios a la vez)</option>
+              <option value="recurso">Por recurso (cancha, sala)</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Dónde se presta</label>
+            <select
+              value={borrador.lugarServicio}
+              onChange={(e) =>
+                setBorrador({
+                  ...borrador,
+                  lugarServicio: e.target.value as LugarServicio | "",
+                })
+              }
+              className={inputCls}
+            >
+              <option value="">Presencial</option>
+              <option value="online">En línea</option>
+              <option value="hibrido">Híbrido</option>
+            </select>
+          </div>
+        </div>
+
+        {borrador.modalidad === "grupal" && (
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Personas mínimas</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={borrador.cupoMinSesion}
+                  onChange={(e) =>
+                    setBorrador({ ...borrador, cupoMinSesion: e.target.value })
+                  }
+                  placeholder="Sin mínimo"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Personas máximas</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={borrador.cupoMaxSesion}
+                  onChange={(e) =>
+                    setBorrador({ ...borrador, cupoMaxSesion: e.target.value })
+                  }
+                  placeholder="Ej. 20"
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            {/* Honestidad con el dueño: esto queda anotado, todavía no
+                cambia cómo se reserva. Que no crea que ya activó algo. */}
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+              Por ahora esto queda anotado en la ficha del servicio: la agenda
+              sigue tomando una reserva a la vez. Las clases con cupo compartido
+              llegan más adelante.
+            </p>
+          </div>
+        )}
+
+        {/* Política de reserva (0118). A diferencia del cupo de arriba,
+            esto SÍ se hace cumplir: el motor rechaza la cita que no la
+            respete, venga de la web o de la app. */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Anticipación mínima (horas)</label>
+            <input
+              type="number"
+              min={0}
+              max={720}
+              value={borrador.anticipacionMinHoras}
+              onChange={(e) =>
+                setBorrador({ ...borrador, anticipacionMinHoras: e.target.value })
+              }
+              placeholder="Sin mínimo"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Se reserva hasta (días)</label>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={borrador.anticipacionMaxDias}
+              onChange={(e) =>
+                setBorrador({ ...borrador, anticipacionMaxDias: e.target.value })
+              }
+              placeholder="Sin tope"
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Adelanto de este servicio (₡)</label>
+          <input
+            type="number"
+            min={0}
+            value={borrador.depositoServicio}
+            onChange={(e) =>
+              setBorrador({ ...borrador, depositoServicio: e.target.value })
+            }
+            placeholder="Vacío = el adelanto general del negocio"
+            className={inputCls}
+          />
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            Estas tres reglas sí se aplican al reservar: una cita que no las
+            cumpla se rechaza, venga de la web o de la app.
+          </p>
+        </div>
+        </>
       ) : (
         <div>
           <label className={labelCls}>Horas que incluye (opcional)</label>
@@ -717,6 +902,17 @@ export default function CatalogoPanel({
           </h3>
           {formulario(guardarNuevo, "Agregar")}
         </div>
+      )}
+
+      {/* El orden de las secciones (0119). Solo Citas por ahora: el
+          catálogo de Eventos sigue ordenándose por el orden de sus
+          ítems, que es como funcionó siempre. */}
+      {esCitas && (
+        <CategoriasPanel
+          ranchoId={ranchoId}
+          iniciales={categoriasIniciales}
+          detectadas={grupos}
+        />
       )}
 
       {/* "Elegí hasta N sin costo" por sección: el menú incluido de un

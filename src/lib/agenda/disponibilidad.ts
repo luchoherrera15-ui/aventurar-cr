@@ -101,6 +101,10 @@ export type ParametrosDisponibilidad = {
    * del negocio, las horas ya pasadas no se ofrecen. Omitirlo = no
    * filtrar (útil en tests). */
   ahora?: Date;
+  /** Anticipación mínima del servicio en horas (0118). Corre el corte
+   * de "ya pasó" hacia adelante, para no ofrecer un espacio que el
+   * motor va a rechazar. Necesita `ahora`; sin él no hace nada. */
+  anticipacionMinHoras?: number;
 };
 
 export type Disponibilidad = {
@@ -109,6 +113,18 @@ export type Disponibilidad = {
   /** "Cualquier profesional": la unión, ordenada y sin repetidos. */
   cualquiera: string[];
 };
+
+/**
+ * Días entre dos fechas "YYYY-MM-DD". Se arma en UTC a propósito: son
+ * fechas de calendario, no instantes, y construirlas en la zona local
+ * del servidor haría que un cambio de horario de verano corriera la
+ * cuenta un día.
+ */
+function diasEntre(desde: string, hasta: string): number {
+  const aUtc = (f: string) =>
+    Date.UTC(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1, Number(f.slice(8, 10)));
+  return Math.round((aUtc(hasta) - aUtc(desde)) / 86_400_000);
+}
 
 /** El día de la semana (0=domingo) de una fecha "YYYY-MM-DD". */
 export function diaDeSemana(fecha: string): number {
@@ -270,16 +286,25 @@ export function calcularDisponibilidad(params: ParametrosDisponibilidad): Dispon
     bloqueos,
     intervaloMinutos = 30,
     ahora,
+    anticipacionMinHoras,
   } = params;
 
   const dow = diaDeSemana(fecha);
 
-  // Para hoy (en la zona del negocio) no se ofrecen horas pasadas.
+  // Para hoy (en la zona del negocio) no se ofrecen horas pasadas, y
+  // desde la 0118 tampoco las que caen dentro de la anticipación
+  // mínima del servicio: crear_cita las rechazaría igual, así que
+  // ofrecerlas solo sirve para que el cliente choque contra un error.
   let desdeMinutos = 0;
   if (ahora) {
     const local = instanteEnZona(ahora.toISOString(), zonaHoraria);
-    if (local.fecha === fecha) desdeMinutos = local.minutos + 1;
-    else if (local.fecha > fecha) return { porRecurso: {}, cualquiera: [] };
+    if (local.fecha > fecha) return { porRecurso: {}, cualquiera: [] };
+    // El margen puede pasar de la medianoche: con 48 horas de
+    // anticipación el corte cae dos días adelante, así que se mide
+    // desde el arranque del día consultado y no solo contra "hoy".
+    const corte = local.minutos + 1 + Math.max(0, anticipacionMinHoras ?? 0) * 60;
+    const diasDelta = diasEntre(local.fecha, fecha);
+    desdeMinutos = Math.max(0, corte - diasDelta * 1440);
   }
 
   const bloqueosDia = bloqueos

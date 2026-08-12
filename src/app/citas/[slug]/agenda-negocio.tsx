@@ -4,6 +4,7 @@ import { useState } from "react";
 import { IconClock } from "@/components/icons";
 import { fmtColones } from "@/lib/finanzas";
 import { etiquetaMinutos, type HorarioSemana } from "../tipos";
+import { seccionesEnOrden } from "@/lib/catalogo";
 import {
   ReservarCitaModal,
   type DatosAgendaPro,
@@ -34,6 +35,7 @@ export default function AgendaNegocio({
   nombreNegocio,
   resumen,
   items,
+  ordenSecciones = [],
   equipo,
   horario,
   agendaPro,
@@ -45,6 +47,9 @@ export default function AgendaNegocio({
   nombreNegocio: string;
   resumen: ResumenNegocio;
   items: ServicioFila[];
+  /** Orden de las secciones guardado por el dueño (0119). Vacío = como
+   *  vengan los servicios, que es el comportamiento de siempre. */
+  ordenSecciones?: string[];
   equipo: Miembro[];
   horario: HorarioSemana | null;
   agendaPro: DatosAgendaPro;
@@ -59,13 +64,15 @@ export default function AgendaNegocio({
     setAbierta(true);
   }
 
-  // Agrupar servicios por sección del catálogo.
-  const grupos = new Map<string, ServicioFila[]>();
-  items.forEach((i) => {
-    const g = i.grupo?.trim() || "Servicios";
-    if (!grupos.has(g)) grupos.set(g, []);
-    grupos.get(g)!.push(i);
-  });
+  // Agrupar servicios por sección del catálogo, en el orden que guardó
+  // el dueño (0119). `seccionesEnOrden` deja sin sección al final, así
+  // que acá se les pone el título genérico que esta página ya usaba.
+  const grupos = new Map<string, ServicioFila[]>(
+    seccionesEnOrden(items, ordenSecciones).map((s) => [
+      s.grupo ?? "Servicios",
+      s.items,
+    ]),
+  );
 
   return (
     <div id="servicios" className="mt-8 scroll-mt-24">

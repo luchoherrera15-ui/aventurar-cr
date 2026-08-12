@@ -56,6 +56,11 @@ type Servicio = {
   precio: number | null;
   duracion_minutos: number | null;
   buffer_min: number | null;
+  /** Política de reserva del servicio (0118). Anulables: null = sin
+   *  restricción. crear_cita las hace cumplir; acá se usan para no
+   *  ofrecer un espacio que el motor va a rechazar. */
+  anticipacion_min_horas?: number | null;
+  anticipacion_max_dias?: number | null;
 };
 
 type Miembro = { id: string; nombre: string; foto_url: string | null };
@@ -70,6 +75,29 @@ type CitaDelDia = {
 
 /** Cuatro semanas hacia adelante, igual que la agenda de la web. */
 const DIAS_VISIBLES = 28;
+
+const CAMPOS_SERVICIO = "id, nombre, precio, duracion_minutos, buffer_min";
+/** Política de reserva (0118). La app vive en un teléfono que puede
+ *  estar contra una base donde el dueño todavía no pegó la migración:
+ *  si las columnas no existen se reintenta sin ellas y la pantalla de
+ *  reservar sigue funcionando, solo que sin política. */
+const CAMPOS_POLITICA = "anticipacion_min_horas, anticipacion_max_dias";
+
+async function cargarServicios(ranchoId: string): Promise<{ data: Servicio[] | null }> {
+  const consulta = (campos: string) =>
+    supabase
+      .from("rancho_items")
+      .select(campos)
+      .eq("rancho_id", ranchoId)
+      .eq("activo", true)
+      .order("orden", { ascending: true });
+
+  const conPolitica = await consulta(`${CAMPOS_SERVICIO}, ${CAMPOS_POLITICA}`);
+  const res = conPolitica.error ? await consulta(CAMPOS_SERVICIO) : conPolitica;
+  // El select con una lista de campos armada en runtime no se puede
+  // inferir; el shape lo garantizan las dos constantes de arriba.
+  return { data: (res.data as unknown as Servicio[] | null) ?? null };
+}
 
 /** Sin horario configurado, el negocio "abre" 8–18 todos los días —
  * el mismo default de siempre de esta pantalla. */
@@ -154,12 +182,7 @@ export default function ReservarCitaScreen() {
         .eq("vertical", "citas")
         .eq("estado", "aprobado")
         .maybeSingle(),
-      supabase
-        .from("rancho_items")
-        .select("id, nombre, precio, duracion_minutos, buffer_min")
-        .eq("rancho_id", id)
-        .eq("activo", true)
-        .order("orden", { ascending: true }),
+      cargarServicios(id),
       supabase
         .from("equipo_rancho")
         .select("id, nombre, foto_url")
@@ -255,6 +278,8 @@ export default function ReservarCitaScreen() {
   const servicio = items.find((s) => s.id === servicioId) ?? null;
   const duracion = servicio?.duracion_minutos ?? 30;
   const buffer = servicio?.buffer_min ?? 0;
+  const anticipacionMin = servicio?.anticipacion_min_horas ?? 0;
+  const anticipacionMax = servicio?.anticipacion_max_dias ?? null;
   const horarioNegocio = horario ?? HORARIO_DEFAULT;
 
   // El equipo que da el servicio elegido: con filas en
@@ -297,11 +322,16 @@ export default function ReservarCitaScreen() {
     const d = new Date(hoyBase);
     d.setDate(d.getDate() + k);
     const dow = d.getDay();
+    // Más allá del tope de anticipación del servicio (0118) el día se
+    // muestra cerrado: crear_cita rechazaría la cita igual.
+    const dentroDelTope = anticipacionMax === null || k <= anticipacionMax;
     const abierto = sinNadieQueAtienda
       ? false
-      : recursos.length > 0
-        ? recursos.some((r) => rangosDelDia(r, dow, horarioNegocio).length > 0)
-        : rangosDelDia(null, dow, horarioNegocio).length > 0;
+      : !dentroDelTope
+        ? false
+        : recursos.length > 0
+          ? recursos.some((r) => rangosDelDia(r, dow, horarioNegocio).length > 0)
+          : rangosDelDia(null, dow, horarioNegocio).length > 0;
     return { iso: fechaISOLocal(d), dow, dia: d.getDate(), mes: d.getMonth(), abierto, esHoy: k === 0 };
   });
 
@@ -360,9 +390,16 @@ export default function ReservarCitaScreen() {
             inicio: b.inicio,
             fin: b.fin,
           })),
-          // Para hoy: media hora de cortesía — nadie llega a una cita
-          // reservada para dentro de tres minutos.
-          ahora: diaElegido.esHoy ? new Date(ahora.getTime() + 30 * 60000) : undefined,
+          // `ahora` va SIEMPRE, no solo hoy: la anticipación mínima
+          // (0118) puede cruzar la medianoche — con 48 h, el corte cae
+          // dos días adelante. Pasarlo solo el día de hoy dejaba al
+          // motor sin con qué calcularlo y la pantalla ofrecía horas
+          // que crear_cita rechazaba. Para un día lejano el margen da
+          // negativo y el motor lo aplana en 0, así que no filtra nada.
+          ahora,
+          // La media hora de gracia que ya existía es el piso; si el
+          // servicio pide más anticipación, manda la suya.
+          anticipacionMinHoras: Math.max(0.5, anticipacionMin),
         });
   const horas = !disponibilidad
     ? []

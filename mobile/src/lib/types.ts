@@ -579,8 +579,37 @@ export type RanchoItem = {
   /** true = al elegirlo, su precio SUSTITUYE la tarifa por evento o
    *  paquete del cotizador (0067). Opcional: tolera bases sin migrar. */
   es_paquete_base?: boolean | null;
+  /** Duración en minutos ("Corte · 45 min") — la usa la vertical de
+   *  Citas (0055). Los paquetes de Eventos usan duracion_horas. */
+  duracion_minutos?: number | null;
+  /** Minutos de limpieza/preparación después de la cita (0061). */
+  buffer_min?: number | null;
+  /** Forma de la capacidad del servicio (0117). null = individual. */
+  modalidad?: ModalidadServicio | null;
+  /** Dónde se presta (0117). null = presencial. */
+  lugar_servicio?: LugarServicio | null;
+  /** Personas mínimas para que la sesión se realice (0117). NO es
+   *  min_por_reserva, que son unidades de un pedido de Eventos. */
+  cupo_min_sesion?: number | null;
+  /** Personas máximas en UNA sesión (0117). Todavía ningún motor lo
+   *  hace cumplir: eso llega con la ocurrencia de clase. */
+  cupo_max_sesion?: number | null;
+  /** Horas mínimas de anticipación para reservar (0118). null = sin
+   *  mínimo. Esto SÍ lo hace cumplir crear_cita. */
+  anticipacion_min_horas?: number | null;
+  /** Días máximos hacia adelante que se puede reservar (0118). */
+  anticipacion_max_dias?: number | null;
+  /** Adelanto de ESTE servicio (0118). Pisa a ranchos.deposito_citas;
+   *  null = se usa el del negocio. Lo resuelve el RPC. */
+  deposito_servicio?: number | null;
   created_at: string;
 };
+
+/** Cuánta gente entra en una sesión y qué la ocupa (0117). */
+export type ModalidadServicio = "individual" | "grupal" | "recurso";
+
+/** Dónde se presta el servicio (0117). Ortogonal a la modalidad. */
+export type LugarServicio = "presencial" | "online" | "hibrido";
 
 /** Snapshot del pedido al momento de reservar — los precios no cambian
  *  aunque el proveedor edite su catálogo después. */

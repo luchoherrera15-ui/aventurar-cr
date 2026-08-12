@@ -807,8 +807,33 @@ export type RanchoItem = {
   es_paquete_base?: boolean | null;
   /** Minutos de limpieza/preparación después de la cita (0061). */
   buffer_min?: number | null;
+  /** Forma de la capacidad del servicio (0117). null = individual.
+   *  Solo la usa Citas. Opcional: tolera bases sin migrar. */
+  modalidad?: ModalidadServicio | null;
+  /** Dónde se presta (0117). null = presencial. Solo la usa Citas. */
+  lugar_servicio?: LugarServicio | null;
+  /** Personas mínimas para que la sesión se realice (0117). null = sin
+   *  mínimo. NO es min_por_reserva, que son unidades de un pedido. */
+  cupo_min_sesion?: number | null;
+  /** Personas máximas en UNA sesión (0117). Todavía ningún motor lo
+   *  hace cumplir: eso llega con la ocurrencia de clase. */
+  cupo_max_sesion?: number | null;
+  /** Horas mínimas de anticipación para reservar (0118). null = sin
+   *  mínimo. Esto SÍ lo hace cumplir crear_cita. */
+  anticipacion_min_horas?: number | null;
+  /** Días máximos hacia adelante que se puede reservar (0118). */
+  anticipacion_max_dias?: number | null;
+  /** Adelanto de ESTE servicio (0118). Pisa a ranchos.deposito_citas;
+   *  null = se usa el del negocio. Lo resuelve el RPC. */
+  deposito_servicio?: number | null;
   created_at: string;
 };
+
+/** Cuánta gente entra en una sesión y qué la ocupa (0117). */
+export type ModalidadServicio = "individual" | "grupal" | "recurso";
+
+/** Dónde se presta el servicio (0117). Ortogonal a la modalidad. */
+export type LugarServicio = "presencial" | "online" | "hibrido";
 
 /** Cómo se llama el catálogo según el rubro — "Menú" para comida, etc. */
 /**
