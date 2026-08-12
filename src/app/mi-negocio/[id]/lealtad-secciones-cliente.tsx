@@ -25,6 +25,7 @@ export default function FilaActividad({
   motivo,
   saldoPosterior,
   esReversion,
+  porQuien,
   fecha,
   primera,
 }: {
@@ -37,6 +38,8 @@ export default function FilaActividad({
   motivo: string;
   saldoPosterior: number | null;
   esReversion: boolean;
+  /** El colaborador que lo hizo. null = lo hizo el sistema. */
+  porQuien: string | null;
   fecha: string;
   primera: boolean;
 }) {
@@ -81,6 +84,12 @@ export default function FilaActividad({
             → {saldoPosterior}
           </span>
         )}
+        {/* Quién lo hizo, siempre visible: es la diferencia entre un
+            registro y un rumor. "sistema" = lo otorgó Bookea solo (ej.
+            puntos por cita cumplida). */}
+        <span className="rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
+          {porQuien ?? "sistema"}
+        </span>
         <span className="text-[11.5px] text-aventurea-ink-soft">{fecha}</span>
 
         {/* Una reversión no se revierte: se registra el movimiento

@@ -63,13 +63,30 @@ export async function ActividadLealtad({
 
   const { data: tx } = await db
     .from("transacciones_puntos")
-    .select("id, miembro_id, tipo, puntos, motivo, saldo_posterior, reversion_de, created_at")
+    .select(
+      "id, miembro_id, tipo, puntos, motivo, saldo_posterior, reversion_de, usuario_id, created_at",
+    )
     .in("miembro_id", ids)
     .order("created_at", { ascending: false })
     .limit(60);
 
   const filas = tx ?? [];
   if (filas.length === 0) return <Vacio texto="Todavía no hay movimientos." />;
+
+  // QUIÉN lo hizo: el colaborador o dueño que escaneó/canjeó/ajustó.
+  // usuario_id null = lo hizo el sistema (ej. puntos por cita cumplida).
+  const operadores = [
+    ...new Set(filas.map((t) => t.usuario_id).filter(Boolean) as string[]),
+  ];
+  const { data: perfilesOp } = operadores.length
+    ? await db.from("perfiles").select("id, nombre").in("id", operadores)
+    : { data: [] };
+  const nombreOperador = new Map(
+    ((perfilesOp ?? []) as { id: string; nombre: string | null }[]).map((p) => [
+      p.id,
+      (p.nombre ?? "").trim() || "Colaborador",
+    ]),
+  );
 
   return (
     <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
@@ -85,6 +102,9 @@ export async function ActividadLealtad({
           motivo={(t.motivo as string) ?? ""}
           saldoPosterior={t.saldo_posterior as number | null}
           esReversion={t.reversion_de !== null}
+          porQuien={
+            t.usuario_id ? (nombreOperador.get(t.usuario_id as string) ?? "Colaborador") : null
+          }
           fecha={FECHA.format(new Date(t.created_at as string))}
           primera={i === 0}
         />
