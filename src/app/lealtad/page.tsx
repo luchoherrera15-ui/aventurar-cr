@@ -63,21 +63,104 @@ const NEGOCIOS = [
   "Lavacars",
 ];
 
-const VERTICALES = [
+/**
+ * El catálogo de la familia de pases: cada producto que puede vivir
+ * como tarjeta en el Wallet del cliente. La lealtad y los paquetes de
+ * membresía (0120) ya existen en la plataforma; el resto es el mapa de
+ * lo que la familia ofrece — por eso cada card lleva su categoría de
+ * negocio (retención, reactivación…) en vez de un precio.
+ */
+const PRODUCTOS_PASE: {
+  titulo: string;
+  texto: string;
+  chip: string;
+  icono: React.ReactNode;
+}[] = [
   {
-    titulo: "Restaurantes y cafés",
+    titulo: "Pase de confirmación de cita",
     texto:
-      "Un sello por visita, o puntos por lo que gastan. La tarjeta vive en su teléfono, no en una libretita de cartón que se pierde.",
+      "Cada reserva o cita genera su pase con fecha, hora y ubicación. Recordatorios en la pantalla del teléfono, sin que tengás que mover un dedo.",
+    chip: "Citas y reservas",
+    icono: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="3" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+      </svg>
+    ),
   },
   {
-    titulo: "Citas y Servicios",
+    titulo: "Tarjetas de lealtad digitales",
     texto:
-      "Barberías, salones, spas: cada turno que atendés por la agenda de Citas puede sumar solo, sin afiliar a nadie aparte — el cliente ya está en Bookea.",
+      "El clásico «10 sellos y el 11 gratis», pero digital: se sella solo con cada visita, sin cartón que se pierde ni que se olvide traer al cliente.",
+    chip: "Retención",
+    icono: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="3" />
+        <circle cx="8" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      </svg>
+    ),
   },
   {
-    titulo: "Lugares para eventos",
+    titulo: "Gift cards digitales",
     texto:
-      "Quien ya reservó tu rancho o salón una vez, vuelve con puntos acumulados para el próximo — sin que tengas que acordarte vos de ofrecérselo.",
+      "Tarjetas de regalo que se compran dentro de Bookea y se guardan directo en el Wallet de quien las recibe, listas para usarse en cualquier visita.",
+    chip: "Nuevo ingreso",
+    icono: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="8" width="18" height="13" rx="2" />
+        <path d="M3 12h18M12 8v13M12 8c-2.5 0-4.5-1.5-4.5-3.2C7.5 3.2 9 2.5 10.2 3c1.5.6 1.8 3 1.8 5zm0 0c2.5 0 4.5-1.5 4.5-3.2 0-1.6-1.5-2.3-2.7-1.8-1.5.6-1.8 3-1.8 5z" />
+      </svg>
+    ),
+  },
+  {
+    titulo: "Paquetes prepagados",
+    texto:
+      "«5 masajes», «10 clases», «manicure x4». El pase muestra el saldo restante y se descuenta solo en cada visita — la caja entra por adelantado.",
+    chip: "Caja anticipada",
+    icono: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
+        <path d="M3 8l9 5 9-5M12 13v8" />
+      </svg>
+    ),
+  },
+  {
+    titulo: "Membresías",
+    texto:
+      "Acceso ilimitado o precio de socio, con la fecha de renovación visible en el pase — como un carnet, pero que nunca se olvida en casa.",
+    chip: "Ingreso recurrente",
+    icono: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="3" />
+        <circle cx="9" cy="11" r="2.2" />
+        <path d="M5.5 17c.8-1.8 2-2.6 3.5-2.6s2.7.8 3.5 2.6M15 9h4M15 13h4" />
+      </svg>
+    ),
+  },
+  {
+    titulo: "Pases VIP / prioridad",
+    texto:
+      "Para tus clientes de más valor: otro color, otro diseño, y beneficios reales como prioridad de horario o un descuento fijo.",
+    chip: "Segmentación",
+    icono: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2.5l2.9 5.9 6.6 1-4.7 4.6 1.1 6.5-5.9-3.1-5.9 3.1 1.1-6.5L2.5 9.4l6.6-1z" />
+      </svg>
+    ),
+  },
+  {
+    titulo: "Cupones y promos con vencimiento",
+    texto:
+      "«Hace 30 días no venís — tenés 15% off»: entregado como pase con fecha límite, no como un código que se pierde en un chat.",
+    chip: "Reactivación",
+    icono: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 3 12.2V5a2 2 0 0 1 2-2h7.2a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8z" />
+        <circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" />
+      </svg>
+    ),
   },
 ];
 
@@ -280,38 +363,52 @@ export default function LealtadPage() {
         </div>
       </section>
 
-      {/* ================= TAMBIÉN PARA CITAS Y SERVICIOS ================= */}
+      {/* ================= LA FAMILIA DE PASES ================= */}
       <section className="px-5 py-24 sm:px-8">
         <div className="mx-auto w-[min(1120px,92vw)]">
           <div data-reveal className="mx-auto max-w-[56ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
-              No es solo para restaurantes
+              Más que sellos
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
-              Un solo programa para todo lo que hacés en Bookea
+              Cada producto, un pase en el teléfono
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
-              Lealtad no vive aparte del resto de la plataforma: se conecta
-              con las Citas, las reservas y los pedidos que ya pasan por tu
-              cuenta.
+              Sin apps extra y sin papel: cada tarjeta vive en el Wallet de tu
+              cliente y se actualiza sola cada vez que reserva, compra o
+              visita tu negocio.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-4 sm:grid-cols-3">
-            {VERTICALES.map((v, i) => (
+          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {PRODUCTOS_PASE.map((p, i) => (
               <div
-                key={v.titulo}
+                key={p.titulo}
                 data-reveal
-                className="rounded-3xl border border-white/12 p-6"
+                className="flex flex-col rounded-3xl border border-white/12 p-6"
                 style={
                   {
                     background: "rgba(255,255,255,.04)",
-                    "--reveal-delay": `${i * 90}ms`,
+                    "--reveal-delay": `${(i % 3) * 90}ms`,
                   } as React.CSSProperties
                 }
               >
-                <h3 className="text-[16.5px] font-extrabold text-white">{v.titulo}</h3>
-                <p className="mt-2.5 text-[13.5px] leading-relaxed text-white/55">{v.texto}</p>
+                <span
+                  className="flex h-10 w-10 items-center justify-center rounded-xl [&_svg]:h-5 [&_svg]:w-5"
+                  style={{ background: "rgba(238,116,32,.14)", color: NARANJA }}
+                >
+                  {p.icono}
+                </span>
+                <h3 className="mt-4 text-[16.5px] font-extrabold text-white">{p.titulo}</h3>
+                <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-white/55">
+                  {p.texto}
+                </p>
+                <span
+                  className="mt-4 self-start rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide"
+                  style={{ background: "rgba(238,116,32,.14)", color: NARANJA }}
+                >
+                  {p.chip}
+                </span>
               </div>
             ))}
           </div>
