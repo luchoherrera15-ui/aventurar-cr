@@ -6,8 +6,16 @@ import { dibujarIcono, dibujarLogo, dibujarTiraDeSellos } from "./imagenes";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
 
-/** Base pública del sitio; Apple le agrega `/v1/...` por su cuenta. */
-const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://bookea.lat";
+/**
+ * Base pública del sitio; Apple le agrega `/v1/...` por su cuenta.
+ *
+ * TIENE que ser el host CANÓNICO, con `www`. El ápex `bookea.lat`
+ * responde 308 hacia `www`, y el Web Service de Wallet no sigue
+ * redirecciones de forma confiable: el iPhone acepta el pase, nunca
+ * completa el registro, y el sello no se refresca jamás. No hay error
+ * visible en ningún lado — por eso está clavado y no derivado.
+ */
+const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
 import {
   coloresDe,
   construirPassJson,
