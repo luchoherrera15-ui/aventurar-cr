@@ -172,6 +172,20 @@ export default function LealtadPage() {
               Quiero el programa en mi negocio
             </Link>
           </div>
+
+          {/* Para quien YA lo tiene. Sin esto la landing solo habla con
+              el que todavía no compró, y el que ya pagó tiene que
+              adivinar por dónde entra. */}
+          <p className="mt-5 text-[13px] text-white/45">
+            ¿Ya tenés el programa?{" "}
+            <Link
+              href="/lealtad/login"
+              className="font-bold underline transition-colors hover:text-white/80"
+              style={{ color: NARANJA }}
+            >
+              Entrá acá
+            </Link>
+          </p>
         </div>
       </section>
 
