@@ -166,7 +166,7 @@ export default function LealtadPage() {
               Ver precios
             </Link>
             <Link
-              href="/mi-negocio/nuevo"
+              href="/lealtad/nuevo"
               className="rounded-full border border-white/25 px-7 py-3.5 text-[14.5px] font-bold text-white/90 transition-colors hover:border-white/60"
             >
               Quiero el programa en mi negocio

@@ -30,6 +30,8 @@ import CatalogoPanel from "./catalogo-panel";
 import type { CategoriaNegocio } from "./categorias-actions";
 import PasesPanel from "./pases-panel";
 import LealtadEstado from "./lealtad-estado";
+import CompartirTarjeta from "./compartir-tarjeta";
+import LealtadBloqueada from "./lealtad-bloqueada";
 import {
   ActividadLealtad,
   IntegracionesLealtad,
@@ -1313,13 +1315,17 @@ export default async function RanchoDetallePage({
       ? [{ ...tabCatalogo, grupo: "gestion" as const }]
       : []),
     ...(modulos.has("pagos") ? [{ ...tabFinanzas, grupo: "finanzas" as const }] : []),
-    // Pases de lealtad: solo para quien tenga el complemento activo
-    // (0122). Lo enciende Bookea desde admin, no el dueño.
-    ...(tienePases
-      ? [
-          {
+    // Lealtad aparece SIEMPRE. Sin el complemento muestra la vista
+    // bloqueada con el camino para conseguirlo — esconder la pestaña
+    // hacía imposible distinguir "no lo compré" de "está roto", y un
+    // producto que solo se ve cuando ya se compró no lo compra nadie.
+    // La activación sigue siendo de Bookea (0077): el candado real es
+    // del servidor, la pestaña es solo la vitrina.
+    ...[
+      tienePases
+        ? {
             id: "pases",
-            label: "Pases de lealtad",
+            label: "Lealtad",
             icon: <IconSparkles />,
             grupo: "gestion" as const,
             content: (
@@ -1331,6 +1337,16 @@ export default async function RanchoDetallePage({
                   plan={(rancho as { plan_lealtad?: string | null }).plan_lealtad ?? null}
                   meta={recompensas.find((r) => r.activo)?.costo_puntos ?? null}
                 />
+                {/* Cómo la consiguen los clientes: el QR del mostrador
+                    y el link para WhatsApp. */}
+                <CompartirTarjeta
+                  slug={rancho.slug ?? null}
+                  programaActivo={
+                    ((programaRes.data?.estado as string | null) ??
+                      (programaRes.data?.activo ? "activo" : "pausado")) === "activo"
+                  }
+                />
+
                 <PasesPanel
                   ranchoId={rancho.id}
                   programaInicial={(programaRes.data ?? null) as ProgramaFila | null}
@@ -1371,9 +1387,15 @@ export default async function RanchoDetallePage({
                 </SeccionPlegable>
               </div>
             ),
-          } satisfies Tab,
-        ]
-      : []),
+          }
+        : {
+            id: "pases",
+            label: "Lealtad",
+            icon: <IconSparkles />,
+            grupo: "gestion" as const,
+            content: <LealtadBloqueada />,
+          },
+    ].map((t) => t satisfies Tab),
     { ...(esVerticalCitas ? tabConfig : tabConfigEventos), grupo: "config" },
   ];
 
