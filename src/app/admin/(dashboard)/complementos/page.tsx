@@ -1,6 +1,6 @@
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { ADDONS, estadoDeAddon } from "@/lib/addons";
-import { perteneceASeccion, SECCION_LABEL, type SeccionAdmin } from "../vertical";
+import { SECCION_LABEL, type SeccionAdmin } from "../vertical";
 import { seccionActiva } from "../vertical-server";
 import ComplementosPanel, {
   type FilaAddon,
@@ -67,7 +67,11 @@ export default async function AdminComplementosPage() {
       plan_lealtad: string | null;
     }[]
   )
-    .filter((r) => perteneceASeccion(r.vertical, seccion))
+    // NO se filtra por sección acá: se le pasan todos al panel, que
+    // aplica la sección como filtro VISIBLE y la ignora al buscar.
+    // Filtrarlos en el servidor dejaba a un negocio invisible en la
+    // única pantalla desde la que se le puede vender el primer plan, y
+    // sin ninguna pista de que estaba escondido.
     .map((r) => ({
       id: r.id,
       nombre: r.nombre,
@@ -102,7 +106,7 @@ export default async function AdminComplementosPage() {
         </p>
       )}
 
-      <ComplementosPanel negocios={negocios} />
+      <ComplementosPanel negocios={negocios} seccion={seccion} />
     </div>
   );
 }
