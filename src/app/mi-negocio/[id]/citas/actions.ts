@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { avisarListaEspera } from "@/lib/lista-espera";
-import { verificarAccesoRancho } from "@/lib/auth";
+import { verificarAccesoOperativo } from "@/lib/auth";
 import { otorgarPuntosPorCita } from "@/lib/lealtad/citas";
 import { agruparClientes } from "@/lib/crm-citas";
 import { utcDesdeZona } from "@/lib/agenda/zona";
@@ -64,7 +64,7 @@ const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_REGEX = /^[0-9a-f-]{36}$/i;
 
 async function verificarDueno(ranchoId: string) {
-  const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
+  const { supabase, user, ok } = await verificarAccesoOperativo(ranchoId);
   if (!user) redirect("/mi-negocio/login");
   return { supabase, ok };
 }
@@ -417,7 +417,7 @@ export type CitaManualInput = {
  * la base (trigger 0055), con o sin aviso.
  */
 async function detectarAdvertencias(
-  supabase: Awaited<ReturnType<typeof verificarAccesoRancho>>["supabase"],
+  supabase: Awaited<ReturnType<typeof verificarAccesoOperativo>>["supabase"],
   ranchoId: string,
   datos: {
     fecha: string;

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { verificarAccesoRancho } from "@/lib/auth";
+import { verificarAccesoOperativo, verificarAccesoRancho } from "@/lib/auth";
 import { CATEGORIAS_GASTO, type CategoriaGasto } from "@/lib/finanzas";
 
 /**
@@ -18,13 +18,38 @@ async function verificarDueno(ranchoId: string) {
   return { supabase, ok };
 }
 
+/**
+ * Cobrar es tarea de MOSTRADOR, no de dueño: quien atiende recibe el
+ * comprobante del adelanto y le cobra el saldo al cliente cuando
+ * termina. Esas dos acciones —`marcarDepositoRecibido` y
+ * `registrarPagoFinal`— admiten también al encargado (0116).
+ *
+ * Lo que NO: revertir un cobro, devolver un adelanto y cargar o borrar
+ * gastos. La diferencia no es el monto sino la dirección — registrar
+ * plata que entró es parte de atender; deshacerlo o declarar salidas
+ * corrige los números del negocio, y eso es del dueño.
+ *
+ * Cambiar las cuentas donde entra la plata (`guardarCuentasPagoPropio`,
+ * en precios/actions.ts) tampoco: eso nunca fue operativo.
+ *
+ * La misma operación existe en la pantalla de Reservas
+ * (`marcarDepositoValidadoRancho`). Que una la permitiera y la otra no
+ * era una incoherencia: el mismo trabajo, bloqueado según por dónde se
+ * entrara.
+ */
+async function verificarOperativo(ranchoId: string) {
+  const { supabase, user, ok } = await verificarAccesoOperativo(ranchoId);
+  if (!user) redirect("/mi-negocio/login");
+  return { supabase, ok };
+}
+
 /** Marca (o desmarca) que el adelanto llegó a la cuenta. */
 export async function marcarDepositoRecibido(
   ranchoId: string,
   reservaId: string,
   recibido: boolean,
 ) {
-  const { supabase, ok } = await verificarDueno(ranchoId);
+  const { supabase, ok } = await verificarOperativo(ranchoId);
   if (!ok) return { error: "No encontramos tu publicación." };
 
   const { error } = await supabase
@@ -54,7 +79,7 @@ export async function registrarPagoFinal(
   reservaId: string,
   montoFinal: number | null,
 ) {
-  const { supabase, ok } = await verificarDueno(ranchoId);
+  const { supabase, ok } = await verificarOperativo(ranchoId);
   if (!ok) return { error: "No encontramos tu publicación." };
 
   if (montoFinal !== null && (!Number.isFinite(montoFinal) || montoFinal < 0)) {
