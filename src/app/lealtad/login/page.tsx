@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import FormularioCodigoAcceso from "@/components/formulario-codigo-acceso";
+import BotonesSociales from "./botones-sociales";
 
 /**
  * Entrada al sistema de lealtad.
@@ -81,10 +82,17 @@ export default function LoginLealtadPage() {
           </p>
 
           {/* El formulario es el MISMO de todo el sitio. Acá solo cambia
-              a dónde va después de entrar. */}
-          <div className="mt-1 [&_input]:border-white/15 [&_input]:bg-white/[0.06] [&_input]:text-white [&_input]:placeholder:text-white/35 [&_label]:text-white/70 [&_p]:text-white/55">
+              a dónde va después de entrar.
+
+              OJO con el selector: se estilizan inputs y labels, pero NO
+              los <p> — los mensajes del formulario ("ya te mandamos un
+              código…", errores) traen su propio fondo claro, y pintarles
+              el texto de blanco los volvía ilegibles. Ya pasó. */}
+          <div className="mt-1 [&_input]:border-white/15 [&_input]:bg-white/[0.06] [&_input]:text-white [&_input]:placeholder:text-white/35 [&_label]:text-white/70">
             <FormularioCodigoAcceso destino="/lealtad/entrar" acento="orange" />
           </div>
+
+          <BotonesSociales destino="/lealtad/entrar" />
         </div>
 
         <p className="mt-5 text-center text-[12.5px] text-white/45">
