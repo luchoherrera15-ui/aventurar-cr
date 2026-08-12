@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { verificarAccesoOperativo } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
@@ -96,8 +97,10 @@ export async function acreditarOperacion(
     return { ok: false, motivo: r.motivo ?? "No se pudo acreditar." };
   }
 
-  // El aviso al teléfono nunca frena la operación: los puntos ya están.
-  void avisarCambioDePase(miembroId);
+  // El aviso al teléfono nunca frena la operación (los puntos ya
+  // están), pero un `void` suelto muere cuando Vercel congela la
+  // función al responder: `after` lo mantiene vivo.
+  after(() => avisarCambioDePase(miembroId));
   revalidatePath(`/mi-negocio/${ranchoId}`);
 
   return {
@@ -171,7 +174,7 @@ export async function canjearRecompensa(
     }
   }
 
-  void avisarCambioDePase(miembroId);
+  after(() => avisarCambioDePase(miembroId));
   revalidatePath(`/mi-negocio/${ranchoId}`);
 
   return {
@@ -221,7 +224,7 @@ export async function revertirMovimiento(
   const r = data as { ok: boolean; motivo?: string; saldo?: number };
   if (!r.ok) return { ok: false, motivo: r.motivo ?? "No se pudo revertir." };
 
-  void avisarCambioDePase(miembroId);
+  after(() => avisarCambioDePase(miembroId));
   revalidatePath(`/mi-negocio/${ranchoId}`);
   return { ok: true, saldo: r.saldo ?? 0 };
 }

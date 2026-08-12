@@ -134,13 +134,18 @@ async function avisarSeriales(seriales: string[]): Promise<void> {
 
     const { avisarPaseActualizado } = await import("./apns");
     const res = await avisarPaseActualizado(tokens);
+    if (!res.ok) {
+      console.warn(`[wallet] No se pudo avisar a APNs: ${res.motivo}`);
+    }
 
     // Un 410 significa que ese teléfono ya no tiene el pase. Dejarlo en
     // la tabla hace que cada cambio futuro intente avisarle en vano.
     if (res.ok && res.caducados.length > 0) {
       await db.from("registros_dispositivo").delete().in("push_token", res.caducados);
     }
-  } catch {
-    // Silencio a propósito: ver el comentario de arriba.
+  } catch (e) {
+    // El fallo no se propaga (el sello ya se dio) pero SÍ se registra:
+    // "no llegó nada" sin logs es un misterio; con logs es un ticket.
+    console.warn("[wallet] Falló el aviso de cambio de pase:", e);
   }
 }

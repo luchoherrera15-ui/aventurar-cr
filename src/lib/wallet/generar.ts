@@ -11,11 +11,18 @@ import { credencialesDelEntorno } from "./firma";
  *
  * TIENE que ser el host CANÓNICO, con `www`. El ápex `bookea.lat`
  * responde 308 hacia `www`, y el Web Service de Wallet no sigue
- * redirecciones de forma confiable: el iPhone acepta el pase, nunca
- * completa el registro, y el sello no se refresca jamás. No hay error
- * visible en ningún lado — por eso está clavado y no derivado.
+ * redirecciones: el iPhone acepta el pase, nunca completa el registro,
+ * y el sello no se refresca jamás — sin error visible en ningún lado.
+ *
+ * El `replace` no es paranoia: en Vercel `NEXT_PUBLIC_SITE_URL` está
+ * seteada AL ÁPEX, y esa URL viaja horneada dentro de cada .pkpass.
+ * Así se emitieron pases mudos de verdad (registros_dispositivo en
+ * cero) — por eso el host se corrige acá, gane quien gane la variable.
  */
-const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
+const SITIO_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat").replace(
+  /^https:\/\/bookea\.lat(?=\/|$)/,
+  "https://www.bookea.lat",
+);
 import {
   coloresDe,
   construirPassJson,

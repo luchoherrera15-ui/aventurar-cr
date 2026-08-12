@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -64,19 +65,25 @@ async function refrescarPases(miembroId: string, saldo: number): Promise<void> {
  * Le avisa al teléfono que el pase cambió. Apple manda un aviso vacío y
  * el iPhone responde pidiendo el pase nuevo a nuestro Web Service.
  *
- * NO se espera el resultado ni se propagan sus fallos: los puntos ya
- * están en el ledger, y un push que no sale no puede tumbar la
- * operación que lo originó. Si el aviso se pierde, el pase se actualiza
- * igual la próxima vez que el teléfono pregunte por su cuenta.
+ * Sus fallos no se propagan: los puntos ya están en el ledger, y un
+ * push que no sale no puede tumbar la operación que lo originó. Pero SÍ
+ * tiene que ejecutarse: una promesa suelta con `void` muere cuando
+ * Vercel congela la función al responder — `after` la mantiene viva
+ * hasta que el aviso salga.
  *
  * Google Wallet todavía no: su API es otra y `pases_wallet.plataforma`
  * ya distingue las dos para cuando toque.
  */
 function notificarActualizacionDePase(pase: { plataforma: string; serial_number: string }) {
   if (pase.plataforma !== "apple") return;
-  void import("@/lib/wallet/servicio")
-    .then(({ avisarCambioDePaseporSerial }) => avisarCambioDePaseporSerial(pase.serial_number))
-    .catch(() => {});
+  after(async () => {
+    try {
+      const { avisarCambioDePaseporSerial } = await import("@/lib/wallet/servicio");
+      await avisarCambioDePaseporSerial(pase.serial_number);
+    } catch (e) {
+      console.warn("[wallet] No salió el aviso de pase actualizado:", e);
+    }
+  });
 }
 
 /**

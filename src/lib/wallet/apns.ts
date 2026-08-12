@@ -63,9 +63,15 @@ export async function avisarPaseActualizado(
     // En serie y no en paralelo: son pocos dispositivos por pase (los
     // teléfonos de UN cliente) y la conexión HTTP/2 se reusa igual.
     for (const token of pushTokens) {
-      const estado = await enviarUno(cliente, token, cred.passTypeIdentifier);
+      const { estado, cuerpo } = await enviarUno(cliente, token, cred.passTypeIdentifier);
       if (estado === 410) caducados.push(token);
       else if (estado >= 200 && estado < 300) enviados++;
+      else {
+        // Un 400 BadDeviceToken o 403 BadCertificate tragado en
+        // silencio es un pase mudo PARA SIEMPRE sin pista alguna: al
+        // log, que es lo único que se mira cuando "no llegó nada".
+        console.warn(`[apns] Push rechazado (HTTP ${estado}): ${cuerpo || "sin detalle"}`);
+      }
     }
   } catch (e) {
     return { ok: false, motivo: e instanceof Error ? e.message : "Falló el aviso a APNs." };
@@ -80,7 +86,7 @@ function enviarUno(
   cliente: ReturnType<typeof connect>,
   token: string,
   topic: string,
-): Promise<number> {
+): Promise<{ estado: number; cuerpo: string }> {
   return new Promise((listo) => {
     const peticion = cliente.request({
       [constants.HTTP2_HEADER_METHOD]: "POST",
@@ -94,13 +100,16 @@ function enviarUno(
     });
 
     let estado = 0;
+    let cuerpo = "";
     peticion.on("response", (cabeceras) => {
       estado = Number(cabeceras[constants.HTTP2_HEADER_STATUS]) || 0;
     });
-    // El cuerpo se descarta salvo para no dejar el flujo abierto.
-    peticion.on("data", () => {});
-    peticion.on("end", () => listo(estado));
-    peticion.on("error", () => listo(0));
+    // El cuerpo trae la razón del rechazo ({"reason":"BadDeviceToken"}).
+    peticion.on("data", (pedazo) => {
+      if (cuerpo.length < 500) cuerpo += String(pedazo);
+    });
+    peticion.on("end", () => listo({ estado, cuerpo }));
+    peticion.on("error", () => listo({ estado: 0, cuerpo: "error de conexión" }));
 
     // Vacío A PROPÓSITO: Apple ignora el contenido y el teléfono
     // responde pidiendo el pase actualizado.

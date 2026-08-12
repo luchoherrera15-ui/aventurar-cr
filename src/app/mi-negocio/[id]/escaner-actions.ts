@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { verificarAccesoOperativo } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
@@ -121,8 +122,10 @@ export async function sumarSelloEscaneado(
     .maybeSingle();
   const cliente = (perfil?.nombre as string | null)?.trim() || "Cliente";
 
-  // El aviso al teléfono nunca frena la operación: los puntos ya están.
-  void avisarCambioDePase(miembro.id);
+  // El aviso al teléfono nunca frena la operación (los puntos ya
+  // están), pero SÍ tiene que ejecutarse: un `void` suelto muere cuando
+  // Vercel congela la función al responder. `after` la mantiene viva.
+  after(() => avisarCambioDePase(miembro.id));
   revalidatePath(`/mi-negocio/${ranchoId}`);
 
   return {
