@@ -5,21 +5,6 @@ import { logout } from "./actions";
 import { seccionActiva } from "./vertical-server";
 import VerticalSwitcher from "./vertical-switcher";
 
-const NAV: [string, string][] = [
-  ["/admin", "Inicio"],
-  ["/admin/agenda", "Agenda"],
-  ["/admin/ranchos", "Negocios"],
-  ["/admin/eventos", "Reservas"],
-  ["/admin/finanzas", "Finanzas"],
-  ["/admin/ia", "IA"],
-  ["/admin/almacenamiento", "Almacenamiento"],
-  ["/admin/invitaciones", "Invitaciones"],
-  ["/admin/complementos", "Complementos"],
-  ["/admin/usuarios", "Cuentas"],
-  ["/admin/campanas", "Campañas"],
-  ["/admin/eventos/precios", "Precios"],
-];
-
 /**
  * La segunda puerta del panel, y la que de verdad importa.
  *
@@ -57,26 +42,16 @@ export default async function DashboardLayout({
               Panel Admin
             </span>
           </Link>
-          <nav className="flex flex-wrap items-center gap-1">
-            {NAV.map(([href, label]) => (
-              <Link
-                key={href}
-                href={href}
-                className="rounded-lg px-3 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:bg-aventurea-cream-2 hover:text-aventurea-ink"
-              >
-                {label}
-              </Link>
-            ))}
-            <span className="mx-2 h-[18px] w-px bg-aventurea-line" />
-            <form action={logout}>
-              <button
-                type="submit"
-                className="rounded-xl border border-aventurea-line bg-white px-4 py-1.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
-              >
-                Cerrar sesión
-              </button>
-            </form>
-          </nav>
+          {/* La navegación entre secciones vive en las cards de /admin;
+              el logo trae de vuelta al inicio desde cualquier página. */}
+          <form action={logout}>
+            <button
+              type="submit"
+              className="rounded-xl border border-aventurea-line bg-white px-4 py-1.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
+            >
+              Cerrar sesión
+            </button>
+          </form>
         </div>
         <div className="border-t border-aventurea-line/60">
           <div className="mx-auto max-w-[1600px] px-6 py-2 lg:px-10">

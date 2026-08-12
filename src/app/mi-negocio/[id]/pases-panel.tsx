@@ -10,6 +10,7 @@ import {
   type ProgramaInput,
   type RecompensaFila,
 } from "./pases-actions";
+import EscanerPanel from "./escaner-panel";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
@@ -159,6 +160,10 @@ export default function PasesPanel({
           {error}
         </p>
       )}
+
+      {/* Primero lo que se usa a diario: sumar el sello del cliente que
+          está en el mostrador. La configuración se toca una vez. */}
+      <EscanerPanel ranchoId={ranchoId} />
       {guardado && (
         <p className="rounded-xl bg-aventurea-green-light px-3 py-2 text-[12.5px] font-bold text-aventurea-green">
           Guardado. Las tarjetas nuevas ya salen con estos cambios.
