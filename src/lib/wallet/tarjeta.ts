@@ -31,6 +31,12 @@ export type DatosTarjeta = {
   /** Coordenadas del local. Habilitan el aviso en pantalla bloqueada
    *  cuando el cliente pasa cerca — Apple lo hace nativo. */
   ubicacion?: { latitud: number; longitud: number } | null;
+  /** Secreto con el que ESTE pase se autentica ante nuestro Web
+   *  Service (`pases_wallet.auth_token`). Sin él el pase no se
+   *  actualiza solo: el iPhone ni siquiera se registra. */
+  authToken?: string | null;
+  /** Base del Web Service, sin el `/v1`. Apple se lo agrega. */
+  webServiceUrl?: string | null;
 };
 
 /** Navy de Bookea, para el negocio que no eligió colores. */
@@ -155,6 +161,15 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
       },
     ],
   };
+
+  // Los DOS juntos o ninguno: Apple exige `webServiceURL` y
+  // `authenticationToken` a la vez. Declarar uno solo produce un pase
+  // que el iPhone acepta pero nunca registra para actualizaciones, y
+  // el síntoma es silencioso — el sello simplemente no se refresca.
+  if (datos.webServiceUrl && datos.authToken) {
+    pass.webServiceURL = datos.webServiceUrl;
+    pass.authenticationToken = datos.authToken;
+  }
 
   // El aviso por cercanía es nativo de Wallet: con la coordenada del
   // local, el iPhone muestra la tarjeta en la pantalla bloqueada

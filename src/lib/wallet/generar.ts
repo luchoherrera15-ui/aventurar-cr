@@ -5,6 +5,9 @@ import { puede } from "@/lib/lealtad/planes";
 import { dibujarIcono, dibujarLogo, dibujarTiraDeSellos } from "./imagenes";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
+
+/** Base pública del sitio; Apple le agrega `/v1/...` por su cuenta. */
+const SITIO_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://bookea.lat";
 import {
   coloresDe,
   construirPassJson,
@@ -114,7 +117,7 @@ export async function generarPaseDeLealtad({
   // nueva en vez de refrescar la que el cliente ya tiene.
   let { data: pase } = await db
     .from("pases_wallet")
-    .select("serial_number")
+    .select("serial_number, auth_token")
     .eq("miembro_id", miembro!.id)
     .eq("plataforma", "apple")
     .maybeSingle();
@@ -130,13 +133,14 @@ export async function generarPaseDeLealtad({
         auth_token: randomBytes(32).toString("hex"),
         saldo_cache: saldo,
       })
-      .select("serial_number")
+      .select("serial_number, auth_token")
       .single();
     if (error) return { ok: false, motivo: "No se pudo crear el pase: " + error.message };
     pase = nuevo;
   }
 
   const serialNumber = pase!.serial_number as string;
+  const authToken = pase!.auth_token as string;
 
   // ── Las imágenes ──────────────────────────────────────────────────
   const config: ConfigPase = {
@@ -194,6 +198,11 @@ export async function generarPaseDeLealtad({
     passTypeIdentifier: credenciales.passTypeIdentifier,
     teamIdentifier: credenciales.teamIdentifier,
     ubicacion: tieneCercania === true ? coordenadasDe(negocio) : null,
+    // Con esto el pase se registra solo para recibir actualizaciones:
+    // al sumar un sello, el teléfono lo refresca sin que el cliente
+    // vuelva a bajarlo.
+    authToken,
+    webServiceUrl: `${SITIO_URL}/api/wallet`,
   });
   archivos["pass.json"] = Buffer.from(JSON.stringify(passJson, null, 2), "utf8");
 

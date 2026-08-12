@@ -61,15 +61,22 @@ async function refrescarPases(miembroId: string, saldo: number): Promise<void> {
 }
 
 /**
- * Stub del push de actualización del pase (Apple APNs / Google Wallet
- * API): las credenciales todavía no están, así que por ahora solo
- * queda el registro. Cuando lleguen, esto se cambia por el push real
- * sin tocar al resto del motor.
+ * Le avisa al teléfono que el pase cambió. Apple manda un aviso vacío y
+ * el iPhone responde pidiendo el pase nuevo a nuestro Web Service.
+ *
+ * NO se espera el resultado ni se propagan sus fallos: los puntos ya
+ * están en el ledger, y un push que no sale no puede tumbar la
+ * operación que lo originó. Si el aviso se pierde, el pase se actualiza
+ * igual la próxima vez que el teléfono pregunte por su cuenta.
+ *
+ * Google Wallet todavía no: su API es otra y `pases_wallet.plataforma`
+ * ya distingue las dos para cuando toque.
  */
 function notificarActualizacionDePase(pase: { plataforma: string; serial_number: string }) {
-  console.log(
-    `[lealtad] Pase ${pase.plataforma} ${pase.serial_number} desactualizado — push pendiente de credenciales.`,
-  );
+  if (pase.plataforma !== "apple") return;
+  void import("@/lib/wallet/servicio")
+    .then(({ avisarCambioDePaseporSerial }) => avisarCambioDePaseporSerial(pase.serial_number))
+    .catch(() => {});
 }
 
 /**
