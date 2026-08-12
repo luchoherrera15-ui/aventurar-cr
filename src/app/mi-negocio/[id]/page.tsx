@@ -29,6 +29,7 @@ import { categoriaLabel, esCategoriaValida } from "@/lib/categorias-vertical";
 import CatalogoPanel from "./catalogo-panel";
 import type { CategoriaNegocio } from "./categorias-actions";
 import PasesPanel from "./pases-panel";
+import LealtadEstado from "./lealtad-estado";
 import type { ProgramaFila, RecompensaFila } from "./pases-actions";
 import {
   resumenFinanciero,
@@ -1317,12 +1318,21 @@ export default async function RanchoDetallePage({
             icon: <IconSparkles />,
             grupo: "gestion" as const,
             content: (
-              <PasesPanel
-                ranchoId={rancho.id}
-                programaInicial={(programaRes.data ?? null) as ProgramaFila | null}
-                recompensasIniciales={recompensas}
-                tieneCercania={tieneCercania}
-              />
+              <div className="space-y-6">
+                {/* El estado va PRIMERO: es lo que se mira todos los
+                    días. La configuración se toca una vez. */}
+                <LealtadEstado
+                  programaId={(programaRes.data?.id as string | undefined) ?? null}
+                  plan={(rancho as { plan_lealtad?: string | null }).plan_lealtad ?? null}
+                  meta={recompensas.find((r) => r.activo)?.costo_puntos ?? null}
+                />
+                <PasesPanel
+                  ranchoId={rancho.id}
+                  programaInicial={(programaRes.data ?? null) as ProgramaFila | null}
+                  recompensasIniciales={recompensas}
+                  tieneCercania={tieneCercania}
+                />
+              </div>
             ),
           } satisfies Tab,
         ]
