@@ -4,35 +4,33 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verificarAccesoOperativo } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { otorgarPuntos } from "@/lib/lealtad/motor";
+import { avisarCambioDePase } from "@/lib/wallet/servicio";
 
 /**
- * Sumar un sello escaneando la tarjeta del cliente.
+ * Sumar una visita/compra escaneando la tarjeta del cliente.
  *
  * Lo puede hacer el dueño o un colaborador: `verificarAccesoOperativo`
- * resuelve los dos. Hoy ser colaborador ES el permiso — no hay
- * permisos granulares en `rancho_colaboradores` (0116).
+ * resuelve los dos. El QR del pase lleva el `serial_number`, que es la
+ * identidad de la tarjeta; de ahí sale el miembro.
  *
- * El QR del pase lleva el `serial_number`, que es la identidad de la
- * tarjeta. De ahí sale el miembro y de ahí el programa.
+ * Desde la 0125 esto delega en el RPC `acreditar_lealtad`: el cálculo
+ * de puntos, la compra mínima, los topes por transacción y por día y
+ * el estado del programa se validan TODOS bajo lock en la base. El
+ * navegador manda el hecho (escaneó, gastó tanto) — nunca los puntos.
  */
 
 export type ResultadoEscaneo =
-  | { ok: true; cliente: string; saldo: number; yaEstaba: false }
-  | { ok: true; cliente: string; saldo: number; yaEstaba: true }
+  | { ok: true; cliente: string; puntos: number; saldo: number; yaEstaba: boolean }
   | { ok: false; motivo: string };
 
 /**
- * La cámara lee el QR unas diez veces por segundo. Sin protección, un
- * solo acercamiento daría diez sellos.
+ * La cámara lee el QR unas diez veces por segundo. El cliente para el
+ * bucle al primer acierto, pero eso es cortesía: la garantía es esta
+ * referencia con el MINUTO adentro — el unique del ledger rebota el
+ * segundo intento del mismo minuto.
  *
- * El cliente para el bucle al primer acierto, pero eso es cortesía: la
- * garantía va en el servidor, con una referencia que incluye el MINUTO.
- * `transacciones_puntos` tiene único (miembro_id, referencia), así que
- * el segundo intento del mismo minuto rebota solo.
- *
- * Consecuencia aceptada: no se pueden dar dos sellos al mismo cliente
- * dentro del mismo minuto. Para eso está el botón manual del panel.
+ * Consecuencia aceptada: no se le dan dos sellos al mismo cliente
+ * dentro del mismo minuto por escaneo. Para eso está el botón manual.
  */
 function referenciaDelMinuto(serial: string, ahora: Date) {
   return `escaneo:${serial}:${ahora.toISOString().slice(0, 16)}`;
@@ -41,6 +39,8 @@ function referenciaDelMinuto(serial: string, ahora: Date) {
 export async function sumarSelloEscaneado(
   ranchoId: string,
   serialNumber: string,
+  /** Colones enteros de la compra; null = visita sin monto (sellos). */
+  monto: number | null = null,
 ): Promise<ResultadoEscaneo> {
   const { user, ok } = await verificarAccesoOperativo(ranchoId);
   if (!user) redirect("/mi-negocio/login");
@@ -49,6 +49,9 @@ export async function sumarSelloEscaneado(
   const serial = serialNumber.trim();
   if (!serial || serial.length > 100) {
     return { ok: false, motivo: "Ese código no es una tarjeta de Bookea." };
+  }
+  if (monto !== null && (!Number.isInteger(monto) || monto < 0 || monto > 10_000_000)) {
+    return { ok: false, motivo: "El monto debe ser una cantidad entera de colones." };
   }
 
   // Llave de servicio: `pases_wallet` no le da lectura al negocio, solo
@@ -61,63 +64,58 @@ export async function sumarSelloEscaneado(
     .select("miembro_id")
     .eq("serial_number", serial)
     .maybeSingle();
-
   if (!pase) return { ok: false, motivo: "Esa tarjeta no existe." };
 
   const { data: miembro } = await db
     .from("miembros")
-    .select("id, estado, cliente_id, programa_id")
+    .select("id, cliente_id, programa_id")
     .eq("id", pase.miembro_id)
     .maybeSingle();
-
   if (!miembro) return { ok: false, motivo: "Esa tarjeta ya no tiene dueño." };
-  if (miembro.estado !== "activa") {
-    return { ok: false, motivo: "Esa membresía está " + miembro.estado + "." };
-  }
 
   // LA COMPROBACIÓN QUE IMPORTA: que la tarjeta sea de ESTE negocio.
-  // Sin esto, escanear la tarjeta de otro local sumaría puntos acá — y
-  // el serial viene del QR, o sea de fuera.
+  // El serial viene del QR, o sea de fuera — sin esto, escanear la
+  // tarjeta de otro local sumaría puntos acá.
   const { data: programa } = await db
     .from("programa_lealtad")
-    .select("id, rancho_id, activo, puntos_por_visita")
+    .select("rancho_id")
     .eq("id", miembro.programa_id)
     .maybeSingle();
-
   if (!programa || programa.rancho_id !== ranchoId) {
     return { ok: false, motivo: "Esa tarjeta es de otro negocio." };
   }
-  if (!programa.activo) {
-    return { ok: false, motivo: "Tu programa de lealtad está apagado." };
-  }
 
-  const puntos = programa.puntos_por_visita > 0 ? programa.puntos_por_visita : 1;
-
-  const resultado = await otorgarPuntos({
-    miembroId: miembro.id,
-    puntos,
-    motivo: "Sello por visita (escaneo)",
-    referencia: referenciaDelMinuto(serial, new Date()),
+  const { data, error } = await db.rpc("acreditar_lealtad", {
+    p_miembro_id: miembro.id,
+    p_monto: monto,
+    p_referencia: referenciaDelMinuto(serial, new Date()),
+    p_usuario_id: user.id,
+    p_motivo: monto === null ? "Sello por visita (escaneo)" : "Compra (escaneo)",
   });
 
-  if (!resultado.ok) return { ok: false, motivo: resultado.error };
+  if (error) {
+    if (error.message.includes("acreditar_lealtad")) {
+      return { ok: false, motivo: "Falta correr la migración 0125 en Supabase." };
+    }
+    return { ok: false, motivo: "No se pudo registrar: " + error.message };
+  }
+
+  const r = data as { otorgado: boolean; puntos?: number; saldo?: number; motivo?: string };
+  const yaEstaba = !r.otorgado && r.motivo === "ya-otorgado";
+  if (!r.otorgado && !yaEstaba) {
+    return { ok: false, motivo: r.motivo ?? "No se pudo registrar." };
+  }
 
   const { data: perfil } = await db
     .from("perfiles")
     .select("nombre")
     .eq("id", miembro.cliente_id)
     .maybeSingle();
-
   const cliente = (perfil?.nombre as string | null)?.trim() || "Cliente";
 
+  // El aviso al teléfono nunca frena la operación: los puntos ya están.
+  void avisarCambioDePase(miembro.id);
   revalidatePath(`/mi-negocio/${ranchoId}`);
 
-  // `otorgado: false` acá significa "ya se le dio este minuto", no un
-  // fallo: se le dice al del mostrador para que no lo intente otra vez.
-  return {
-    ok: true,
-    cliente,
-    saldo: resultado.saldo,
-    yaEstaba: !resultado.otorgado,
-  };
+  return { ok: true, cliente, puntos: r.puntos ?? 0, saldo: r.saldo ?? 0, yaEstaba };
 }

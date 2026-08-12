@@ -26,6 +26,12 @@ export type ProgramaFila = {
   pase_color_fondo: string | null;
   pase_color_sello: string | null;
   pase_logo_url: string | null;
+  /** Ciclo de vida (0125). null = se deriva de `activo`. Opcional:
+   *  tolera bases sin migrar. */
+  estado?: string | null;
+  compra_minima?: number | null;
+  max_por_transaccion?: number | null;
+  max_diario_cliente?: number | null;
 };
 
 export type RecompensaFila = {
@@ -36,6 +42,13 @@ export type RecompensaFila = {
   costo_puntos: number;
   orden: number;
   activo: boolean;
+  /** Campos de la 0125. Opcionales: toleran bases sin migrar. */
+  tipo?: string | null;
+  valor?: number | null;
+  stock_total?: number | null;
+  limite_por_cliente?: number | null;
+  sku?: string | null;
+  instrucciones?: string | null;
 };
 
 export type ProgramaInput = {
@@ -157,7 +170,34 @@ export type RecompensaInput = {
   /** En modo sellos, esto ES la meta: "10 sellos". */
   costoPuntos: number;
   activo: boolean;
+  /** Tipo de recompensa (0125). null = personalizada. */
+  tipo: TipoRecompensa | null;
+  /** % (1..100) o colones, según el tipo. Solo para descuentos. */
+  valor: number | null;
+  /** null = sin límite. El RPC lo CUENTA contra los canjes: no es un
+   *  contador que se descuenta y se desincroniza. */
+  stockTotal: number | null;
+  limitePorCliente: number | null;
+  /** Referencia externa para el POS. */
+  sku: string;
+  /** Qué debe hacer el personal al entregarla. */
+  instrucciones: string;
 };
+
+export type TipoRecompensa =
+  | "producto"
+  | "servicio"
+  | "descuento_porcentaje"
+  | "descuento_fijo"
+  | "personalizada";
+
+const TIPOS_RECOMPENSA: readonly TipoRecompensa[] = [
+  "producto",
+  "servicio",
+  "descuento_porcentaje",
+  "descuento_fijo",
+  "personalizada",
+];
 
 function validarRecompensa(datos: RecompensaInput) {
   const nombre = datos.nombre.trim();
@@ -165,6 +205,39 @@ function validarRecompensa(datos: RecompensaInput) {
   if (datos.descripcion.trim().length > 300) return "La descripción es muy larga.";
   if (!Number.isInteger(datos.costoPuntos) || datos.costoPuntos < 1) {
     return "La recompensa tiene que costar al menos 1.";
+  }
+  if (datos.tipo !== null && !TIPOS_RECOMPENSA.includes(datos.tipo)) {
+    return "Ese tipo de recompensa no existe.";
+  }
+  // Mismos rangos que recompensas_detalle_check (0125): un 150% de
+  // descuento o un fijo negativo son errores de digitación.
+  if (datos.tipo === "descuento_porcentaje") {
+    if (datos.valor === null || !(datos.valor > 0 && datos.valor <= 100)) {
+      return "El descuento porcentual va de 1 a 100.";
+    }
+  }
+  if (datos.tipo === "descuento_fijo") {
+    if (datos.valor === null || !(datos.valor > 0 && datos.valor <= 10000000)) {
+      return "El descuento fijo va de ₡1 a ₡10.000.000.";
+    }
+  }
+  if (
+    datos.stockTotal !== null &&
+    (!Number.isInteger(datos.stockTotal) || datos.stockTotal < 1 || datos.stockTotal > 1000000)
+  ) {
+    return "El stock debe estar entre 1 y 1.000.000 (vacío = sin límite).";
+  }
+  if (
+    datos.limitePorCliente !== null &&
+    (!Number.isInteger(datos.limitePorCliente) ||
+      datos.limitePorCliente < 1 ||
+      datos.limitePorCliente > 10000)
+  ) {
+    return "El límite por cliente debe estar entre 1 y 10.000.";
+  }
+  if (datos.sku.trim().length > 60) return "El SKU es muy largo (máximo 60).";
+  if (datos.instrucciones.trim().length > 500) {
+    return "Las instrucciones son muy largas (máximo 500).";
   }
   return null;
 }
@@ -202,21 +275,46 @@ export async function guardarRecompensa(
     descripcion: datos.descripcion.trim() || null,
     costo_puntos: datos.costoPuntos,
     activo: datos.activo,
+    tipo: datos.tipo,
+    valor: datos.tipo?.startsWith("descuento") ? datos.valor : null,
+    stock_total: datos.stockTotal,
+    limite_por_cliente: datos.limitePorCliente,
+    sku: datos.sku.trim() || null,
+    instrucciones: datos.instrucciones.trim() || null,
   };
 
-  const { data, error } = recompensaId
-    ? await supabase
-        .from("recompensas")
-        .update(fila)
-        .eq("id", recompensaId)
-        .eq("programa_id", programaId)
-        .select("*")
-        .single()
-    : await supabase
-        .from("recompensas")
-        .insert({ programa_id: programaId, ...fila })
-        .select("*")
-        .single();
+  const guardarCon = (f: Record<string, unknown>) =>
+    recompensaId
+      ? supabase
+          .from("recompensas")
+          .update(f)
+          .eq("id", recompensaId)
+          .eq("programa_id", programaId)
+          .select("*")
+          .single()
+      : supabase
+          .from("recompensas")
+          .insert({ programa_id: programaId, ...f })
+          .select("*")
+          .single();
+
+  let { data, error } = await guardarCon(fila);
+
+  // Base sin la 0125: se reintenta con las columnas de la 0060 nada
+  // más, para que la recompensa básica se pueda seguir editando.
+  if (
+    error &&
+    ["tipo", "stock_total", "limite_por_cliente", "sku", "instrucciones"].some((c) =>
+      error!.message.includes(c),
+    )
+  ) {
+    ({ data, error } = await guardarCon({
+      nombre: fila.nombre,
+      descripcion: fila.descripcion,
+      costo_puntos: fila.costo_puntos,
+      activo: fila.activo,
+    }));
+  }
 
   if (error) return { error: traducir(error.message, "guardar la recompensa") };
 
@@ -250,4 +348,100 @@ export async function eliminarRecompensa(
 
   revalidatePath(`/mi-negocio/${ranchoId}`);
   return {};
+}
+
+/**
+ * Cambia el ciclo de vida del programa (0125).
+ *
+ * Las reglas viven en src/lib/lealtad/reglas.ts y se comprueban ACÁ,
+ * en el servidor — el panel solo pinta los botones:
+ *
+ *   · activar exige reglas que otorguen algo y ≥1 recompensa activa
+ *     (una tarjeta que nunca avanza ni promete nada no se publica);
+ *   · con historial, archivado es para siempre y no se vuelve a
+ *     borrador — el historial no se borra ni se "resetea".
+ *
+ * También se mantiene el booleano `activo` de la 0060 espejado, porque
+ * la política de afiliación de miembros (0060) y el flujo de citas lo
+ * siguen leyendo.
+ */
+export async function cambiarEstadoPrograma(
+  ranchoId: string,
+  programaId: string,
+  estadoNuevo: string,
+): Promise<{ error?: string; programa?: ProgramaFila }> {
+  const { estadoDelPrograma, puedeActivarse, transicionValida, ESTADOS_PROGRAMA } =
+    await import("@/lib/lealtad/reglas");
+
+  if (!(ESTADOS_PROGRAMA as readonly string[]).includes(estadoNuevo)) {
+    return { error: "Ese estado no existe." };
+  }
+
+  const { supabase, ok } = await guard(ranchoId);
+  if (!ok) return { error: "No tenés acceso a este negocio." };
+
+  const { data: programa } = await supabase
+    .from("programa_lealtad")
+    .select("*")
+    .eq("id", programaId)
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+  if (!programa) return { error: "Ese programa no es de este negocio." };
+
+  const p = programa as ProgramaFila;
+  const actual = estadoDelPrograma({ estado: p.estado ?? null, activo: p.activo });
+
+  // ¿Tiene movimientos? Decide si archivado es reversible.
+  const { data: miembros } = await supabase
+    .from("miembros")
+    .select("id")
+    .eq("programa_id", programaId)
+    .limit(1);
+  const tieneMovimientos = (miembros ?? []).length > 0;
+
+  if (!transicionValida(actual, estadoNuevo as never, tieneMovimientos)) {
+    return {
+      error:
+        actual === "archivado"
+          ? "Un programa archivado con historial no se reactiva: se crea la etapa nueva con otro programa."
+          : `No se puede pasar de ${actual} a ${estadoNuevo}.`,
+    };
+  }
+
+  if (estadoNuevo === "activo") {
+    const { data: recompensas } = await supabase
+      .from("recompensas")
+      .select("id")
+      .eq("programa_id", programaId)
+      .eq("activo", true)
+      .limit(1);
+    const veredicto = puedeActivarse({
+      puntos_por_visita: p.puntos_por_visita,
+      puntos_por_colon: Number(p.puntos_por_colon),
+      recompensasActivas: (recompensas ?? []).length,
+    });
+    if (!veredicto.puede) return { error: veredicto.motivo };
+  }
+
+  let { data, error } = await supabase
+    .from("programa_lealtad")
+    .update({ estado: estadoNuevo, activo: estadoNuevo === "activo" })
+    .eq("id", programaId)
+    .select("*")
+    .single();
+
+  // Base sin la 0125: al menos el booleano viejo queda coherente.
+  if (error && error.message.includes("estado")) {
+    ({ data, error } = await supabase
+      .from("programa_lealtad")
+      .update({ activo: estadoNuevo === "activo" })
+      .eq("id", programaId)
+      .select("*")
+      .single());
+  }
+
+  if (error) return { error: traducir(error.message, "cambiar el estado") };
+
+  revalidatePath(`/mi-negocio/${ranchoId}`);
+  return { programa: data as ProgramaFila };
 }

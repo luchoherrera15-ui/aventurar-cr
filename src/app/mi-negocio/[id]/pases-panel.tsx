@@ -9,7 +9,9 @@ import {
   type ProgramaFila,
   type ProgramaInput,
   type RecompensaFila,
+  cambiarEstadoPrograma,
 } from "./pases-actions";
+import { estadoDelPrograma } from "@/lib/lealtad/reglas";
 import dynamic from "next/dynamic";
 
 /**
@@ -50,6 +52,26 @@ const MODOS: { id: ModoPrograma; label: string; ayuda: string }[] = [
     ayuda: "«₡3.400 acumulados». Se usa con puntos por colón — 0.05 es devolver el 5%.",
   },
   { id: "puntos", label: "Puntos", ayuda: "«340 puntos». El clásico, sin meta visible." },
+];
+
+/** El alta de recompensa arranca simple; "más opciones" abre el resto. */
+const RECOMPENSA_VACIA = {
+  nombre: "",
+  costo: "",
+  tipo: null as import("./pases-actions").TipoRecompensa | null,
+  valor: "",
+  stock: "",
+  limite: "",
+  sku: "",
+  instrucciones: "",
+};
+
+const TIPOS_UI: { id: import("./pases-actions").TipoRecompensa; label: string }[] = [
+  { id: "producto", label: "Producto gratis" },
+  { id: "servicio", label: "Servicio gratis" },
+  { id: "descuento_porcentaje", label: "Descuento %" },
+  { id: "descuento_fijo", label: "Descuento ₡" },
+  { id: "personalizada", label: "Otro beneficio" },
 ];
 
 type Borrador = {
@@ -111,7 +133,8 @@ export default function PasesPanel({
   const [guardado, setGuardado] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const [nuevaRecompensa, setNuevaRecompensa] = useState({ nombre: "", costo: "" });
+  const [nuevaRecompensa, setNuevaRecompensa] = useState(RECOMPENSA_VACIA);
+  const [masOpciones, setMasOpciones] = useState(false);
 
   const meta = recompensas.find((r) => r.activo) ?? null;
 
@@ -150,14 +173,31 @@ export default function PasesPanel({
         descripcion: "",
         costoPuntos: Math.round(num(nuevaRecompensa.costo)),
         activo: true,
+        tipo: nuevaRecompensa.tipo,
+        valor: num(nuevaRecompensa.valor),
+        stockTotal: num(nuevaRecompensa.stock) === 0 ? null : num(nuevaRecompensa.stock) || null,
+        limitePorCliente:
+          num(nuevaRecompensa.limite) === 0 ? null : num(nuevaRecompensa.limite) || null,
+        sku: nuevaRecompensa.sku,
+        instrucciones: nuevaRecompensa.instrucciones,
       });
       if (res.error) setError(res.error);
       else if (res.recompensa) {
         setRecompensas((prev) =>
           [...prev, res.recompensa!].sort((a, b) => a.costo_puntos - b.costo_puntos),
         );
-        setNuevaRecompensa({ nombre: "", costo: "" });
+        setNuevaRecompensa(RECOMPENSA_VACIA);
       }
+    });
+  }
+
+  function cambiarEstado(estadoNuevo: string) {
+    if (!programa) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await cambiarEstadoPrograma(ranchoId, programa.id, estadoNuevo);
+      if (res.error) setError(res.error);
+      else if (res.programa) setPrograma(res.programa);
     });
   }
 
@@ -310,6 +350,104 @@ export default function PasesPanel({
             Agregar
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setMasOpciones((v) => !v)}
+          className="mt-3 text-[12.5px] font-bold text-aventurea-ink-soft underline"
+        >
+          {masOpciones ? "Menos opciones" : "Más opciones (tipo, stock, POS…)"}
+        </button>
+
+        {masOpciones && (
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>Tipo</label>
+              <select
+                value={nuevaRecompensa.tipo ?? ""}
+                onChange={(e) =>
+                  setNuevaRecompensa({
+                    ...nuevaRecompensa,
+                    tipo: (e.target.value || null) as typeof nuevaRecompensa.tipo,
+                  })
+                }
+                className={inputCls}
+              >
+                <option value="">Sin especificar</option>
+                {TIPOS_UI.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {(nuevaRecompensa.tipo === "descuento_porcentaje" ||
+              nuevaRecompensa.tipo === "descuento_fijo") && (
+              <div>
+                <label className={labelCls}>
+                  {nuevaRecompensa.tipo === "descuento_porcentaje"
+                    ? "Descuento (%)"
+                    : "Descuento (₡)"}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={nuevaRecompensa.valor}
+                  onChange={(e) =>
+                    setNuevaRecompensa({ ...nuevaRecompensa, valor: e.target.value })
+                  }
+                  className={inputCls}
+                />
+              </div>
+            )}
+            <div>
+              <label className={labelCls}>Stock total</label>
+              <input
+                type="number"
+                min={1}
+                value={nuevaRecompensa.stock}
+                onChange={(e) =>
+                  setNuevaRecompensa({ ...nuevaRecompensa, stock: e.target.value })
+                }
+                placeholder="Vacío = sin límite"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Máximo por cliente</label>
+              <input
+                type="number"
+                min={1}
+                value={nuevaRecompensa.limite}
+                onChange={(e) =>
+                  setNuevaRecompensa({ ...nuevaRecompensa, limite: e.target.value })
+                }
+                placeholder="Vacío = sin límite"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>SKU / código en tu POS</label>
+              <input
+                value={nuevaRecompensa.sku}
+                onChange={(e) => setNuevaRecompensa({ ...nuevaRecompensa, sku: e.target.value })}
+                placeholder="Opcional"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Instrucciones para el personal</label>
+              <input
+                value={nuevaRecompensa.instrucciones}
+                onChange={(e) =>
+                  setNuevaRecompensa({ ...nuevaRecompensa, instrucciones: e.target.value })
+                }
+                placeholder="Ej. aplicar en caja como cortesía"
+                className={inputCls}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Cómo se ve ──────────────────────────────────────────── */}
@@ -387,6 +525,47 @@ export default function PasesPanel({
           <p className="mt-3 text-right text-[10px] text-white/60">Powered by Bookea.lat</p>
         </div>
       </div>
+
+      {/* ── El ciclo de vida (0125) ─────────────────────────────── */}
+      {programa && (
+        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+          <h3 className="text-[15px] font-bold text-aventurea-ink">Estado del programa</h3>
+          <p className={ayudaCls}>
+            Solo el <strong>activo</strong> acumula y canjea. Pausar conserva todo; archivar
+            con historial es para siempre — el historial nunca se borra.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(
+              [
+                ["borrador", "Borrador"],
+                ["activo", "Activo"],
+                ["pausado", "Pausado"],
+                ["archivado", "Archivado"],
+              ] as const
+            ).map(([id, label]) => {
+              const actual = estadoDelPrograma({
+                estado: programa.estado ?? null,
+                activo: programa.activo,
+              });
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => cambiarEstado(id)}
+                  disabled={pending || actual === id}
+                  className={`rounded-xl border px-3 py-2 text-[12.5px] font-bold ${
+                    actual === id
+                      ? "border-aventurea-navy bg-aventurea-navy text-white"
+                      : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-navy"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <button
