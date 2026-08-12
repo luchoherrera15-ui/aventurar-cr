@@ -1267,7 +1267,11 @@ export default async function RanchoDetallePage({
   // (0077). `tiene_addon` además respeta el vencimiento.
   const [{ data: tienePasesRpc }, { data: tieneCercaniaRpc }, recompensasRes] =
     await Promise.all([
-      supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "pases" }),
+      // `lealtad` gobierna el módulo entero: programa, tarjeta de
+      // Wallet y escáner. Antes esto preguntaba por un `pases` aparte y
+      // era una trampa — se activaba "Lealtad", que es lo que uno
+      // elige, y la pestaña no aparecía.
+      supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "lealtad" }),
       supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "pases_cercania" }),
       programaRes.data?.id
         ? supabase

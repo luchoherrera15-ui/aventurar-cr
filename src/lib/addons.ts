@@ -28,13 +28,9 @@ export const ADDONS = [
   },
   {
     id: "lealtad",
-    nombre: "Lealtad",
-    resumen: "Sellos y puntos digitales con tarjeta en el Wallet.",
-  },
-  {
-    id: "pases",
-    nombre: "Pases de lealtad",
-    resumen: "Tarjeta del negocio en Apple Wallet, con su logo y sus colores.",
+    nombre: "Lealtad y pases",
+    resumen:
+      "Sellos y puntos, con la tarjeta del negocio en Apple Wallet: su logo, sus colores y el escáner para sumar sellos.",
   },
   {
     id: "pases_cercania",
@@ -43,6 +39,19 @@ export const ADDONS = [
       "La tarjeta aparece sola en la pantalla bloqueada cuando el cliente pasa cerca del local.",
   },
 ] as const;
+
+/**
+ * `pases` NO está en la lista a propósito.
+ *
+ * Existió unas horas como complemento aparte de `lealtad`, y fue un
+ * error: dos nombres casi iguales donde el intuitivo —"Lealtad"— no
+ * gateaba nada y el que abría el panel era el otro. Se activaba el
+ * equivocado y la pestaña no aparecía, sin ninguna pista de por qué.
+ *
+ * Ahora `lealtad` gobierna todo el módulo: programa, tarjeta y escáner.
+ * El valor sigue permitido en el check de `addons_negocio` (0122) —
+ * quitarlo no aporta nada y ninguna fila lo usa— pero no se ofrece.
+ */
 
 export type AddonId = (typeof ADDONS)[number]["id"];
 
