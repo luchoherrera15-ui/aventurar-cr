@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { verificarAccesoOperativo } from "@/lib/auth";
+import { verificarAccesoRancho } from "@/lib/auth";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 
 /**
@@ -13,6 +13,13 @@ import type { ModoPrograma } from "@/lib/wallet/tarjeta";
  * regalía salen de la recompensa activa más barata; el saldo, del
  * ledger. Acá solo se edita lo que no se puede deducir de ningún lado:
  * las reglas de cómo se ganan puntos y cómo se ve la tarjeta.
+ *
+ * DESDE LA INTERFAZ NUEVA, CONFIGURA SOLO BOOKEA: el negocio elige un
+ * paquete y deja una solicitud (/lealtad/planes, 0126); el programa lo
+ * arma el equipo "para que se haga bien". Por eso el guard exige admin
+ * de PLATAFORMA y no dueño — el dueño ve su programa, no lo edita.
+ * (Las escrituras van con la sesión del admin: las políticas de la
+ * 0060 ya incluyen `is_admin()`.)
  */
 
 export type ProgramaFila = {
@@ -68,9 +75,9 @@ const MODOS: readonly ModoPrograma[] = ["sellos", "cashback", "puntos"];
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
 async function guard(ranchoId: string) {
-  const { supabase, user, ok } = await verificarAccesoOperativo(ranchoId);
-  if (!user) redirect("/mi-negocio/login");
-  return { supabase, ok };
+  const { supabase, user, ok, esAdmin } = await verificarAccesoRancho(ranchoId);
+  if (!user) redirect("/lealtad/login");
+  return { supabase, ok: ok && esAdmin };
 }
 
 function faltaLaTabla(mensaje: string) {
@@ -126,7 +133,7 @@ export async function guardarPrograma(
   if (invalido) return { error: invalido };
 
   const { supabase, ok } = await guard(ranchoId);
-  if (!ok) return { error: "No tenés acceso a este negocio." };
+  if (!ok) return { error: "La configuración del programa la hace el equipo de Bookea." };
 
   const fila = {
     nombre: datos.nombre.trim(),
@@ -160,7 +167,7 @@ export async function guardarPrograma(
 
   if (error) return { error: traducir(error.message, "guardar el programa") };
 
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { programa: data as ProgramaFila };
 }
 
@@ -257,7 +264,7 @@ export async function guardarRecompensa(
   if (invalido) return { error: invalido };
 
   const { supabase, ok } = await guard(ranchoId);
-  if (!ok) return { error: "No tenés acceso a este negocio." };
+  if (!ok) return { error: "La configuración del programa la hace el equipo de Bookea." };
 
   // El programa tiene que ser DE ESTE negocio: `recompensas` cuelga del
   // programa y no lleva rancho_id propio, así que sin esta comprobación
@@ -318,7 +325,7 @@ export async function guardarRecompensa(
 
   if (error) return { error: traducir(error.message, "guardar la recompensa") };
 
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { recompensa: data as RecompensaFila };
 }
 
@@ -328,7 +335,7 @@ export async function eliminarRecompensa(
   recompensaId: string,
 ): Promise<{ error?: string }> {
   const { supabase, ok } = await guard(ranchoId);
-  if (!ok) return { error: "No tenés acceso a este negocio." };
+  if (!ok) return { error: "La configuración del programa la hace el equipo de Bookea." };
 
   const { data: programa } = await supabase
     .from("programa_lealtad")
@@ -346,7 +353,7 @@ export async function eliminarRecompensa(
 
   if (error) return { error: traducir(error.message, "eliminar la recompensa") };
 
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
   return {};
 }
 
@@ -378,7 +385,7 @@ export async function cambiarEstadoPrograma(
   }
 
   const { supabase, ok } = await guard(ranchoId);
-  if (!ok) return { error: "No tenés acceso a este negocio." };
+  if (!ok) return { error: "La configuración del programa la hace el equipo de Bookea." };
 
   const { data: programa } = await supabase
     .from("programa_lealtad")
@@ -442,6 +449,6 @@ export async function cambiarEstadoPrograma(
 
   if (error) return { error: traducir(error.message, "cambiar el estado") };
 
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { programa: data as ProgramaFila };
 }

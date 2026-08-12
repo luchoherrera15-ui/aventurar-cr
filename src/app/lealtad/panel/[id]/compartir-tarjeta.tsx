@@ -43,8 +43,8 @@ export default async function CompartirTarjeta({
 
       {!programaActivo && (
         <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] font-bold text-amber-800">
-          El programa no está activo: el link va a responder “no encontrado” hasta que
-          lo activés abajo.
+          El programa no está activo: el link va a responder “no encontrado”. Escribile
+          a Bookea para activarlo o reanudarlo.
         </p>
       )}
 

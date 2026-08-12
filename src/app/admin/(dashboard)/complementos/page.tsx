@@ -6,6 +6,7 @@ import ComplementosPanel, {
   type FilaAddon,
   type NegocioConAddons,
 } from "./complementos-panel";
+import SolicitudesPanel, { type SolicitudPendiente } from "./solicitudes-panel";
 
 /**
  * Complementos: qué tiene contratado cada negocio, a quién se le venció
@@ -29,7 +30,7 @@ export default async function AdminComplementosPage() {
     );
   }
 
-  const [ranchosRes, addonsRes, programasRes, miembrosRes] = await Promise.all([
+  const [ranchosRes, addonsRes, programasRes, miembrosRes, solicitudesRes] = await Promise.all([
     admin
       .from("ranchos")
       .select("id, nombre, slug, vertical, estado, plan_lealtad")
@@ -39,6 +40,13 @@ export default async function AdminComplementosPage() {
     // miembros contra el tope del plan.
     admin.from("programa_lealtad").select("id, rancho_id"),
     admin.from("miembros").select("programa_id"),
+    // La cola de solicitudes del plan (0126). Si la migración no corrió,
+    // viene con error y la bandeja simplemente no se muestra.
+    admin
+      .from("solicitudes_lealtad")
+      .select("id, rancho_id, solicitante_id, plan, telefono, mensaje, created_at")
+      .eq("estado", "pendiente")
+      .order("created_at", { ascending: true }),
   ]);
 
   // Cuántos miembros lleva cada negocio. El tope NO se guarda: sale de
@@ -83,6 +91,48 @@ export default async function AdminComplementosPage() {
       miembros: miembrosPorPrograma.get(programaDeRancho.get(r.id) ?? "") ?? 0,
     }));
 
+  // La bandeja de solicitudes, con el solicitante ya resuelto a nombre
+  // y correo (perfiles guarda los dos).
+  const filasSolicitud = (solicitudesRes.data ?? []) as {
+    id: string;
+    rancho_id: string;
+    solicitante_id: string;
+    plan: string;
+    telefono: string | null;
+    mensaje: string | null;
+    created_at: string;
+  }[];
+  const idsSolicitantes = [...new Set(filasSolicitud.map((s) => s.solicitante_id))];
+  const { data: perfilesSol } = idsSolicitantes.length
+    ? await admin.from("perfiles").select("id, nombre, email").in("id", idsSolicitantes)
+    : { data: [] };
+  const perfilDe = new Map(
+    ((perfilesSol ?? []) as { id: string; nombre: string | null; email: string | null }[]).map(
+      (p) => [p.id, p],
+    ),
+  );
+  const nombreRancho = new Map(
+    ((ranchosRes.data ?? []) as { id: string; nombre: string }[]).map((r) => [r.id, r.nombre]),
+  );
+  const FECHA_SOL = new Intl.DateTimeFormat("es-CR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Costa_Rica",
+  });
+  const solicitudes: SolicitudPendiente[] = filasSolicitud.map((s) => ({
+    id: s.id,
+    ranchoId: s.rancho_id,
+    negocio: nombreRancho.get(s.rancho_id) ?? "(negocio)",
+    plan: s.plan,
+    solicitante: (perfilDe.get(s.solicitante_id)?.nombre ?? "").trim() || "(sin nombre)",
+    correo: perfilDe.get(s.solicitante_id)?.email ?? "—",
+    telefono: s.telefono,
+    mensaje: s.mensaje,
+    fecha: FECHA_SOL.format(new Date(s.created_at)),
+  }));
+
   // Los contadores se calculan sobre lo que se ve, no sobre la tabla
   // entera: si el conmutador está en "Citas", los números son de Citas.
   let activos = 0;
@@ -106,6 +156,7 @@ export default async function AdminComplementosPage() {
         </p>
       )}
 
+      <SolicitudesPanel solicitudes={solicitudes} />
       <ComplementosPanel negocios={negocios} seccion={seccion} />
     </div>
   );

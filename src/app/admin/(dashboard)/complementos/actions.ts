@@ -24,6 +24,8 @@ function refrescar(ranchoId: string) {
   // El asistente vive plegado en la página unificada (Configuración),
   // no en la ruta /asistente vieja (hoy solo un redirect stub).
   revalidatePath(`/mi-negocio/${ranchoId}`);
+  // Y lealtad ya no vive ahí: su panel propio también cambia con el gate.
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
 }
 
 export async function activarAddon({

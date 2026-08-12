@@ -28,16 +28,6 @@ import type {
 import { categoriaLabel, esCategoriaValida } from "@/lib/categorias-vertical";
 import CatalogoPanel from "./catalogo-panel";
 import type { CategoriaNegocio } from "./categorias-actions";
-import PasesPanel from "./pases-panel";
-import LealtadEstado from "./lealtad-estado";
-import CompartirTarjeta from "./compartir-tarjeta";
-import LealtadBloqueada from "./lealtad-bloqueada";
-import {
-  ActividadLealtad,
-  IntegracionesLealtad,
-  WalletLealtad,
-} from "./lealtad-secciones";
-import type { ProgramaFila, RecompensaFila } from "./pases-actions";
 import {
   resumenFinanciero,
   saldoPendiente,
@@ -191,7 +181,6 @@ export default async function RanchoDetallePage({
       promocionesRes,
       itemsRes,
       categoriasRes,
-      programaRes,
     ],
     tokenRes,
     agendasRes,
@@ -246,9 +235,6 @@ export default async function RanchoDetallePage({
         .select("*")
         .eq("rancho_id", id)
         .order("orden", { ascending: true }),
-      // Pases de lealtad (0060/0121/0122). Si las migraciones no están,
-      // estas dos traen error y la pestaña no se muestra.
-      supabase.from("programa_lealtad").select("*").eq("rancho_id", id).maybeSingle(),
     ]),
     // El feed .ics para suscribir la agenda en Google/Apple Calendar.
     supabase.from("calendario_tokens").select("token").eq("rancho_id", id).maybeSingle(),
@@ -1269,33 +1255,6 @@ export default async function RanchoDetallePage({
   // Los `grupo` son para cuando el menú crece (un gimnasio con clases,
   // membresías y check-in): PanelSidebar solo pinta los encabezados
   // cuando hay de qué agrupar.
-  // ── Pases de lealtad ──
-  // Los dos complementos los enciende Bookea desde admin: el dueño no
-  // puede auto-activárselos porque `addons_negocio` es solo-servidor
-  // (0077). `tiene_addon` además respeta el vencimiento.
-  const [{ data: tienePasesRpc }, { data: tieneCercaniaRpc }, recompensasRes] =
-    await Promise.all([
-      // `lealtad` gobierna el módulo entero: programa, tarjeta de
-      // Wallet y escáner. Antes esto preguntaba por un `pases` aparte y
-      // era una trampa — se activaba "Lealtad", que es lo que uno
-      // elige, y la pestaña no aparecía.
-      supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "lealtad" }),
-      supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "pases_cercania" }),
-      programaRes.data?.id
-        ? supabase
-            .from("recompensas")
-            .select("*")
-            .eq("programa_id", programaRes.data.id)
-            .order("costo_puntos", { ascending: true })
-        : Promise.resolve({ data: [] as RecompensaFila[] }),
-    ]);
-
-  // Sin las migraciones de lealtad corridas, `programaRes` viene con
-  // error y la pestaña no aparece — en vez de romper el panel entero.
-  const tienePases = tienePasesRpc === true && !programaRes.error;
-  const tieneCercania = tieneCercaniaRpc === true;
-  const recompensas = (recompensasRes.data ?? []) as RecompensaFila[];
-
   const tabs: Tab[] = [
     { ...tabInicio, grupo: "agenda" },
     // La agenda del día vive en su propia ruta y hoy solo existe para
@@ -1315,87 +1274,16 @@ export default async function RanchoDetallePage({
       ? [{ ...tabCatalogo, grupo: "gestion" as const }]
       : []),
     ...(modulos.has("pagos") ? [{ ...tabFinanzas, grupo: "finanzas" as const }] : []),
-    // Lealtad aparece SIEMPRE. Sin el complemento muestra la vista
-    // bloqueada con el camino para conseguirlo — esconder la pestaña
-    // hacía imposible distinguir "no lo compré" de "está roto", y un
-    // producto que solo se ve cuando ya se compró no lo compra nadie.
-    // La activación sigue siendo de Bookea (0077): el candado real es
-    // del servidor, la pestaña es solo la vitrina.
-    ...[
-      tienePases
-        ? {
-            id: "pases",
-            label: "Lealtad",
-            icon: <IconSparkles />,
-            grupo: "gestion" as const,
-            content: (
-              <div className="space-y-6">
-                {/* El estado va PRIMERO: es lo que se mira todos los
-                    días. La configuración se toca una vez. */}
-                <LealtadEstado
-                  programaId={(programaRes.data?.id as string | undefined) ?? null}
-                  plan={(rancho as { plan_lealtad?: string | null }).plan_lealtad ?? null}
-                  meta={recompensas.find((r) => r.activo)?.costo_puntos ?? null}
-                />
-                {/* Cómo la consiguen los clientes: el QR del mostrador
-                    y el link para WhatsApp. */}
-                <CompartirTarjeta
-                  slug={rancho.slug ?? null}
-                  programaActivo={
-                    ((programaRes.data?.estado as string | null) ??
-                      (programaRes.data?.activo ? "activo" : "pausado")) === "activo"
-                  }
-                />
-
-                <PasesPanel
-                  ranchoId={rancho.id}
-                  programaInicial={(programaRes.data ?? null) as ProgramaFila | null}
-                  recompensasIniciales={recompensas}
-                  tieneCercania={tieneCercania}
-                />
-
-                {/* Consulta: el libro, los pases y el POS. Plegadas y
-                    cerradas — se abren cuando hacen falta. */}
-                <SeccionPlegable
-                  marco={false}
-                  titulo="Actividad"
-                  descripcion="Cada sello, canje y ajuste, con su saldo. El libro nunca se edita: los errores se corrigen con el movimiento contrario."
-                >
-                  <ActividadLealtad
-                    ranchoId={rancho.id}
-                    programaId={(programaRes.data?.id as string | undefined) ?? null}
-                  />
-                </SeccionPlegable>
-                <SeccionPlegable
-                  marco={false}
-                  titulo="Wallet"
-                  descripcion="Cuántas tarjetas emitiste, cuántas se actualizan solas y el estado de las credenciales."
-                >
-                  <WalletLealtad
-                    programaId={(programaRes.data?.id as string | undefined) ?? null}
-                  />
-                </SeccionPlegable>
-                <SeccionPlegable
-                  marco={false}
-                  titulo="Integraciones (POS)"
-                  descripcion="Los canjes que faltan por pasar a tu caja, y el modo de integración."
-                >
-                  <IntegracionesLealtad
-                    ranchoId={rancho.id}
-                    programaId={(programaRes.data?.id as string | undefined) ?? null}
-                  />
-                </SeccionPlegable>
-              </div>
-            ),
-          }
-        : {
-            id: "pases",
-            label: "Lealtad",
-            icon: <IconSparkles />,
-            grupo: "gestion" as const,
-            content: <LealtadBloqueada />,
-          },
-    ].map((t) => t satisfies Tab),
+    // Lealtad ya NO vive acá: tiene su propia interfaz en
+    // /lealtad/panel/[id] (dashboard navy, tabs, roles y auditoría).
+    // Este ítem es solo la puerta — con `href`, como "Citas".
+    {
+      id: "pases",
+      label: "Lealtad",
+      href: `/lealtad/panel/${rancho.id}`,
+      icon: <IconSparkles />,
+      grupo: "gestion" as const,
+    } satisfies Tab,
     { ...(esVerticalCitas ? tabConfig : tabConfigEventos), grupo: "config" },
   ];
 

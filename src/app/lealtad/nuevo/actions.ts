@@ -65,8 +65,7 @@ export async function crearNegocioLealtad(formData: FormData): Promise<void> {
     redirect("/lealtad/nuevo?error=guardar");
   }
 
-  // Derecho a su pestaña de Lealtad, que ahora existe SIEMPRE: si
-  // Bookea todavía no le activó el complemento, ahí mismo ve cómo
-  // conseguirlo — no una pantalla vacía.
-  redirect(`/mi-negocio/${data.id}?tab=pases`);
+  // Derecho a elegir su paquete: el negocio se creó exactamente para
+  // eso, y la solicitud es el paso que sigue — no una pantalla vacía.
+  redirect(`/lealtad/planes?negocio=${data.id}`);
 }

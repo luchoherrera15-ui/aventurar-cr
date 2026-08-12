@@ -185,16 +185,28 @@ export default async function PanelLealtadPage() {
               </p>
 
               {/* El menú de productos del negocio. Hoy: solo lealtad.
-                  Los próximos se agregan a ESTA fila. */}
+                  Los próximos se agregan a ESTA fila. Sin el addon, el
+                  botón lleva a los paquetes — ahí empieza la compra. */}
               <div className="mt-4 grid gap-2">
-                <Link
-                  href={`/mi-negocio/${n.id}?tab=pases`}
-                  className="flex items-center justify-between rounded-xl px-4 py-3 text-[13.5px] font-bold text-white transition-transform hover:scale-[1.01]"
-                  style={{ background: NARANJA }}
-                >
-                  Plan de Lealtad
-                  <span aria-hidden>→</span>
-                </Link>
+                {n.addonActivo ? (
+                  <Link
+                    href={`/lealtad/panel/${n.id}`}
+                    className="flex items-center justify-between rounded-xl px-4 py-3 text-[13.5px] font-bold text-white transition-transform hover:scale-[1.01]"
+                    style={{ background: NARANJA }}
+                  >
+                    Plan de Lealtad
+                    <span aria-hidden>→</span>
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/lealtad/planes?negocio=${n.id}`}
+                    className="flex items-center justify-between rounded-xl border px-4 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-white/10"
+                    style={{ borderColor: NARANJA, color: NARANJA }}
+                  >
+                    Solicitar el plan
+                    <span aria-hidden>→</span>
+                  </Link>
+                )}
                 <p className="text-center text-[11px] text-white/30">
                   Más herramientas de Bookea, pronto.
                 </p>

@@ -105,6 +105,26 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
   },
 };
 
+/**
+ * Cómo se le cuenta cada capacidad a un dueño de negocio. Vive junto a
+ * las capacidades para que agregar una NUEVA obligue a pensar su
+ * etiqueta (TypeScript exige la llave) — una capacidad sin nombre
+ * visible no se puede vender.
+ */
+export const ETIQUETAS_CAPACIDAD: Record<Capacidad, string> = {
+  wallet: "Tarjeta en Apple Wallet con tu marca",
+  notificaciones: "Notificaciones push al teléfono del cliente",
+  cercania: "La tarjeta aparece sola cerca de tu local",
+  bienvenida_cumpleanos: "Regalos de bienvenida y cumpleaños",
+  referidos: "Programa de referidos",
+  niveles: "Niveles Silver / Gold / Platinum",
+  misiones: "Sorteos y misiones",
+  codigos_promo: "Códigos promocionales",
+  prepago: "Crédito y saldo prepago",
+  segmentacion: "Segmentación de clientes (VIP, inactivos, en riesgo)",
+  api: "Acceso por API e integración con POS",
+};
+
 export function esPlan(valor: string | null): valor is PlanId {
   return valor !== null && (PLANES_ID as readonly string[]).includes(valor);
 }

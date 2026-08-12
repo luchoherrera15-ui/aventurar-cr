@@ -34,8 +34,8 @@ export default async function LealtadEstado({
     return (
       <div className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center">
         <p className="text-[13.5px] text-aventurea-ink-soft">
-          Todavía no hay programa. Configuralo abajo y acá vas a ver quién se afilia,
-          cuántos sellos lleva cada quien y a quién le toca su regalía.
+          Todavía no hay programa. Cuando el equipo de Bookea lo active, acá vas a ver
+          quién se afilia, cuántos sellos lleva cada quien y a quién le toca su regalía.
         </p>
       </div>
     );

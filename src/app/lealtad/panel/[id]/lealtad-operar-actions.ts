@@ -4,9 +4,10 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { verificarAccesoOperativo } from "@/lib/auth";
+import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
+import type { PermisoLealtad } from "@/lib/lealtad/permisos";
 
 /**
  * Las operaciones del día a día del programa de lealtad: acreditar,
@@ -15,26 +16,36 @@ import { avisarCambioDePase } from "@/lib/wallet/servicio";
  * puede y sobre QUÉ negocio.
  *
  * El patrón de seguridad es el mismo del escáner: primero
- * `verificarAccesoOperativo` (dueño, colaborador o admin), después la
- * comprobación de que el miembro pertenece a ESTE negocio — porque el
- * id del miembro llega del navegador, o sea de fuera — y solo entonces
- * el RPC con la llave de servicio. Los RPC no aceptan llamadas de
- * `authenticated` (0125): sin este camino no hay forma de moverle el
- * saldo a nadie.
+ * `verificarAccesoLealtad` (dueño, colaborador o admin, con el
+ * checklist de la 0127 ya resuelto — cada acción declara QUÉ permiso
+ * exige), después la comprobación de que el miembro pertenece a ESTE
+ * negocio — porque el id del miembro llega del navegador, o sea de
+ * fuera — y solo entonces el RPC con la llave de servicio. Los RPC no
+ * aceptan llamadas de `authenticated` (0125): sin este camino no hay
+ * forma de moverle el saldo a nadie.
  */
 
 type Resultado<T = object> = ({ ok: true } & T) | { ok: false; motivo: string };
 
+const SIN_PERMISO: Record<PermisoLealtad, string> = {
+  acreditar: "No tenés permiso para dar sellos — pedíselo al dueño.",
+  canjear: "No tenés permiso para canjear premios — pedíselo al dueño.",
+  revertir: "No tenés permiso para revertir movimientos — pedíselo al dueño.",
+  auditoria: "No tenés permiso para ver la auditoría — pedíselo al dueño.",
+};
+
 async function guardYMiembro(
   ranchoId: string,
   miembroId: string,
+  permiso: PermisoLealtad,
 ): Promise<
   | { ok: true; db: NonNullable<ReturnType<typeof createAdminClient>>; usuarioId: string }
   | { ok: false; motivo: string }
 > {
-  const { user, ok } = await verificarAccesoOperativo(ranchoId);
-  if (!user) redirect("/mi-negocio/login");
+  const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
+  if (!user) redirect("/lealtad/login");
   if (!ok) return { ok: false, motivo: "No tenés acceso a este negocio." };
+  if (!permisos[permiso]) return { ok: false, motivo: SIN_PERMISO[permiso] };
 
   const db = createAdminClient();
   if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
@@ -79,7 +90,7 @@ export async function acreditarOperacion(
     return { ok: false, motivo: "El monto debe ser una cantidad entera de colones." };
   }
 
-  const g = await guardYMiembro(ranchoId, miembroId);
+  const g = await guardYMiembro(ranchoId, miembroId, "acreditar");
   if (!g.ok) return g;
 
   const { data, error } = await g.db.rpc("acreditar_lealtad", {
@@ -101,7 +112,7 @@ export async function acreditarOperacion(
   // están), pero un `void` suelto muere cuando Vercel congela la
   // función al responder: `after` lo mantiene vivo.
   after(() => avisarCambioDePase(miembroId));
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
 
   return {
     ok: true,
@@ -125,7 +136,7 @@ export async function canjearRecompensa(
 ): Promise<
   Resultado<{ saldo: number; recompensa: string; sku: string | null; instrucciones: string | null }>
 > {
-  const g = await guardYMiembro(ranchoId, miembroId);
+  const g = await guardYMiembro(ranchoId, miembroId, "canjear");
   if (!g.ok) return g;
 
   const { data, error } = await g.db.rpc("canjear_recompensa", {
@@ -175,7 +186,7 @@ export async function canjearRecompensa(
   }
 
   after(() => avisarCambioDePase(miembroId));
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
 
   return {
     ok: true,
@@ -201,7 +212,7 @@ export async function revertirMovimiento(
   if (!limpio) return { ok: false, motivo: "Decí por qué se revierte: queda en el historial." };
   if (limpio.length > 200) return { ok: false, motivo: "El motivo es muy largo (máximo 200)." };
 
-  const g = await guardYMiembro(ranchoId, miembroId);
+  const g = await guardYMiembro(ranchoId, miembroId, "revertir");
   if (!g.ok) return g;
 
   // El movimiento tiene que ser DE ESTE miembro: el id llega de fuera.
@@ -225,7 +236,7 @@ export async function revertirMovimiento(
   if (!r.ok) return { ok: false, motivo: r.motivo ?? "No se pudo revertir." };
 
   after(() => avisarCambioDePase(miembroId));
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { ok: true, saldo: r.saldo ?? 0 };
 }
 
@@ -242,13 +253,15 @@ export async function cambiarEstadoMiembro(
     return { ok: false, motivo: "Ese estado no existe." };
   }
 
-  const g = await guardYMiembro(ranchoId, miembroId);
+  // Suspender una membresía pesa lo mismo que revertir: le corta el
+  // programa a un cliente. Mismo permiso, no uno nuevo.
+  const g = await guardYMiembro(ranchoId, miembroId, "revertir");
   if (!g.ok) return g;
 
   const { error } = await g.db.from("miembros").update({ estado }).eq("id", miembroId);
   if (error) return { ok: false, motivo: "No se pudo cambiar: " + error.message };
 
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { ok: true };
 }
 
@@ -263,7 +276,7 @@ export async function marcarCanjeEnPos(
   canjeId: string,
   facturaRef: string,
 ): Promise<Resultado> {
-  const g = await guardYMiembro(ranchoId, miembroId);
+  const g = await guardYMiembro(ranchoId, miembroId, "canjear");
   if (!g.ok) return g;
 
   const { data, error } = await g.db
@@ -282,7 +295,7 @@ export async function marcarCanjeEnPos(
   if (error) return { ok: false, motivo: "No se pudo marcar: " + error.message };
   if (!data) return { ok: false, motivo: "Ese canje ya estaba marcado (o no existe)." };
 
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { ok: true };
 }
 

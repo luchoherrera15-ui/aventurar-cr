@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { sesionDesdeBearer } from "@/lib/supabase/bearer";
+import { permisosDeFila, PERMISOS_TODO, PERMISOS_NADA } from "@/lib/lealtad/permisos";
 
 /**
  * ¿Quién está viendo esta página? UNA sola vez por render.
@@ -188,4 +189,87 @@ export async function verificarAccesoOperativo(ranchoId: string) {
 
   const esColaborador = !error && !!data;
   return { ...base, ok: esColaborador, esColaborador };
+}
+
+/**
+ * Acceso al módulo de LEALTAD, con el checklist de la 0127 resuelto.
+ *
+ * `verificarAccesoOperativo` responde una pregunta binaria: ¿puede
+ * entrar? Lealtad necesita cuatro más: ¿puede acreditar, canjear,
+ * revertir, ver la auditoría? El dueño y el admin de plataforma pueden
+ * todo; un colaborador depende de su rol ('administrador' = todo,
+ * 'empleado' = su checklist).
+ *
+ * `esDueno` distingue al dueño del resto porque la pantalla de Equipo
+ * (editar roles) es SOLO suya — la política "El dueño ajusta el rol"
+ * (0127) lo repite en la base.
+ *
+ * Si la 0127 todavía no corrió, las columnas no existen y la consulta
+ * falla con "columna ausente": SOLO en ese caso se reintenta a la forma
+ * binaria de la 0116, donde el colaborador conserva el acceso total que
+ * tenía antes de esa migración. Cualquier OTRO error (timeout, red,
+ * RLS) niega — la revisión adversaria encontró que el fallback amplio
+ * convertía un error transitorio en elevación de permisos: la primera
+ * consulta falla, la segunda acierta, y un empleado con checklist
+ * recortado revertía movimientos. En permisos, el empate se pierde.
+ */
+export async function verificarAccesoLealtad(ranchoId: string) {
+  const base = await verificarAccesoRancho(ranchoId);
+
+  if (!base.user) {
+    return { ...base, esDueno: false, esColaborador: false, permisos: PERMISOS_NADA };
+  }
+  if (base.ok) {
+    return {
+      ...base,
+      esDueno: !base.esAdmin,
+      esColaborador: false,
+      permisos: PERMISOS_TODO,
+    };
+  }
+
+  const comun = { ...base, esDueno: false };
+
+  const { data, error } = await base.supabase
+    .from("rancho_colaboradores")
+    .select("rol, permisos_lealtad")
+    .eq("rancho_id", ranchoId)
+    .eq("usuario_id", base.user.id)
+    .maybeSingle();
+
+  if (!error) {
+    if (!data) return { ...comun, esColaborador: false, permisos: PERMISOS_NADA };
+    return {
+      ...comun,
+      ok: true,
+      esColaborador: true,
+      permisos: permisosDeFila(data.rol as string | null, data.permisos_lealtad),
+    };
+  }
+
+  // ¿El error es "esas columnas no existen" (0127 sin correr)?
+  // 42703 = undefined_column en Postgres; PGRST204 = PostgREST sin la
+  // columna en su caché de esquema. Todo lo demás NIEGA.
+  const columnaAusente =
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    (/rol|permisos_lealtad/.test(error.message) && /column|columna/i.test(error.message));
+  if (!columnaAusente) {
+    return { ...comun, esColaborador: false, permisos: PERMISOS_NADA };
+  }
+
+  const { data: fila, error: error2 } = await base.supabase
+    .from("rancho_colaboradores")
+    .select("usuario_id")
+    .eq("rancho_id", ranchoId)
+    .eq("usuario_id", base.user.id)
+    .maybeSingle();
+
+  const esColaborador = !error2 && !!fila;
+  return {
+    ...comun,
+    ok: esColaborador,
+    esColaborador,
+    permisos: esColaborador ? PERMISOS_TODO : PERMISOS_NADA,
+  };
 }

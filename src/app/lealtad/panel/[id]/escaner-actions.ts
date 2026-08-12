@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { verificarAccesoOperativo } from "@/lib/auth";
+import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
 
@@ -51,9 +51,12 @@ export async function sumarSelloEscaneado(
   /** Colones enteros de la compra; null = visita sin monto (sellos). */
   monto: number | null = null,
 ): Promise<ResultadoEscaneo> {
-  const { user, ok } = await verificarAccesoOperativo(ranchoId);
-  if (!user) redirect("/mi-negocio/login");
+  const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
+  if (!user) redirect("/lealtad/login");
   if (!ok) return { ok: false, motivo: "No tenés acceso a este negocio." };
+  if (!permisos.acreditar) {
+    return { ok: false, motivo: "No tenés permiso para dar sellos — pedíselo al dueño." };
+  }
 
   const serial = serialNumber.trim();
   if (!serial || serial.length > 100) {
@@ -126,7 +129,7 @@ export async function sumarSelloEscaneado(
   // están), pero SÍ tiene que ejecutarse: un `void` suelto muere cuando
   // Vercel congela la función al responder. `after` la mantiene viva.
   after(() => avisarCambioDePase(miembro.id));
-  revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
 
   return {
     ok: true,
