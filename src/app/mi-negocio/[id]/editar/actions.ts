@@ -10,6 +10,7 @@ import { esCategoriaValida, usaSubcategoria } from "@/lib/categorias-vertical";
 import { camposDeCategoriaCita } from "@/app/citas/campos-servicio";
 import { COMODIDADES_CITA } from "@/app/citas/comodidades";
 import type { CategoriaCita } from "@/app/citas/tipos";
+import { llavesDeSistemaDe } from "./llaves-de-sistema";
 
 /** Mismo criterio de sanitización que ya usaba el bloque de Eventos:
  *  booleanos solo true/omit, multi solo valores dentro de las opciones,
@@ -81,9 +82,12 @@ export async function actualizarRancho(
   // El vertical real sale de la base, nunca del formulario: así nadie
   // puede manipular el <select> del cliente para guardar una categoría
   // de otro vertical (ej. una de Citas en un negocio de Eventos).
+  // `detalles` viene en el mismo viaje porque este formulario lo
+  // REEMPLAZA, y adentro viven llaves que el formulario nunca muestra
+  // (ver LLAVES_DE_SISTEMA).
   const { data: ranchoVertical } = await supabase
     .from("ranchos")
-    .select("vertical")
+    .select("vertical, detalles")
     .eq("id", ranchoId)
     .maybeSingle();
   const vertical = (ranchoVertical?.vertical as string | undefined) ?? "eventos";
@@ -248,7 +252,13 @@ export async function actualizarRancho(
   // Solo Eventos guarda `detalles` desde este formulario por ahora: para
   // otro vertical se deja fuera del update parcial, así no se pisa lo
   // que ya hubiera (ver comentario donde se arma `detalles` más arriba).
-  if (procesaDetalles) update.detalles = detalles;
+  //
+  // Las llaves de sistema van PRIMERO y los campos del formulario
+  // encima: así el reemplazo sigue permitiendo desmarcar una casilla,
+  // pero el horario semanal y la pausa sobreviven al guardado.
+  if (procesaDetalles) {
+    update.detalles = { ...llavesDeSistemaDe(ranchoVertical?.detalles), ...detalles };
+  }
   if (fotoUrl) update.foto_url = fotoUrl;
 
   const { error } = await supabase
