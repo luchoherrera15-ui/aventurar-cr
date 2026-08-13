@@ -185,6 +185,17 @@ export default function LealtadPage() {
     <main className="min-h-svh" style={{ background: NAVY_PROFUNDO, color: "#ffffff" }}>
       <RevealOnScroll />
 
+      {/* La landing no tiene header (inmersiva a propósito): esta
+          burbuja es la única puerta de vuelta al sitio. Fija, para que
+          exista también a mitad del scroll. */}
+      <Link
+        href="/"
+        className="fixed left-4 top-4 z-50 flex items-center gap-1.5 rounded-full border px-4 py-2 text-[13px] font-bold text-white/85 backdrop-blur transition-colors hover:text-white"
+        style={{ background: "rgba(10,18,38,.75)", borderColor: "rgba(255,255,255,.22)" }}
+      >
+        <span aria-hidden>←</span> Volver
+      </Link>
+
       {/* ================= HERO ================= */}
       <section className="relative overflow-hidden pb-14 pt-16 sm:pb-20 sm:pt-20">
         <div
