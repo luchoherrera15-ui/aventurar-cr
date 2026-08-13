@@ -43,6 +43,7 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
   const [paso, setPaso] = useState<1 | 2 | 3>(1);
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState("citas");
+  const [detalleOtro, setDetalleOtro] = useState("");
   const [plan, setPlan] = useState<string | null>(null);
   const [metodo, setMetodo] = useState<"sinpe" | "transferencia">("sinpe");
   const [comprobanteUrl, setComprobanteUrl] = useState("");
@@ -83,6 +84,7 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
       const res = await solicitarAltaConPlan({
         nombreNegocio: nombre,
         tipo,
+        detalleOtro,
         plan: planElegido.id,
         metodoPago: metodo,
         comprobanteUrl,
@@ -154,9 +156,21 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
               ))}
             </div>
           </div>
+          {tipo === "otro" && (
+            <label className={etiqueta}>
+              ¿Qué negocio es?
+              <input
+                value={detalleOtro}
+                onChange={(e) => setDetalleOtro(e.target.value)}
+                maxLength={80}
+                placeholder="Ferretería, academia de baile, veterinaria…"
+                className={campo}
+              />
+            </label>
+          )}
           <button
             type="button"
-            disabled={!nombre.trim()}
+            disabled={!nombre.trim() || (tipo === "otro" && !detalleOtro.trim())}
             onClick={() => setPaso(2)}
             className="mt-1 rounded-xl bg-[#ee7420] px-5 py-3 text-[13.5px] font-extrabold text-white disabled:opacity-40"
           >
@@ -188,8 +202,14 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
                 <span className="text-[15px] font-extrabold text-white">{p.nombre}</span>
                 {p.precio !== null && (
                   <span className="text-[15px] font-extrabold text-white">
-                    ₡{p.precio.toLocaleString("es-CR")}
-                    <span className="text-[11px] font-bold text-white/50"> /mes</span>
+                    {p.precio === 0 ? (
+                      "₡0 — para probar"
+                    ) : (
+                      <>
+                        ₡{p.precio.toLocaleString("es-CR")}
+                        <span className="text-[11px] font-bold text-white/50"> /mes</span>
+                      </>
+                    )}
                   </span>
                 )}
                 <span className="text-[11.5px] text-white/50">
@@ -217,13 +237,15 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
         </div>
       )}
 
-      {/* ── Paso 3: el depósito y enviar ── */}
+      {/* ── Paso 3: el depósito (si el plan cuesta) y enviar ── */}
       {paso === 3 && planElegido && (
         <div className="mt-4 grid gap-3">
           <p className="text-[13px] text-white/70">
             <strong className="text-white">{nombre}</strong> · plan{" "}
             <strong className="text-white">{planElegido.nombre}</strong>
-            {planElegido.precio !== null && (
+            {planElegido.precio === 0 ? (
+              <> — gratis: sin depósito, hasta 5 miembros</>
+            ) : planElegido.precio !== null ? (
               <>
                 {" "}
                 — depositá{" "}
@@ -232,9 +254,10 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
                 </strong>{" "}
                 (primer mes)
               </>
-            )}
+            ) : null}
           </p>
 
+          {planElegido.precio !== 0 && (
           <div className="rounded-xl border border-white/15 bg-[#0f1930] p-3.5">
             <div className="flex gap-1.5">
               {(["sinpe", "transferencia"] as const).map((m) => (
@@ -300,6 +323,7 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
               <p className="mt-1 text-[12.5px] font-bold text-red-300">{errorSubida}</p>
             )}
           </div>
+          )}
 
           <label className={etiqueta}>
             Teléfono (para coordinar)
@@ -327,12 +351,14 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
             <button
               type="button"
               onClick={enviar}
-              disabled={ocupado || subiendo || !comprobanteUrl}
+              disabled={
+                ocupado || subiendo || (planElegido.precio !== 0 && !comprobanteUrl)
+              }
               className="rounded-xl bg-[#ee7420] px-5 py-3 text-[13.5px] font-extrabold text-white disabled:opacity-40"
             >
               {ocupado
                 ? "Enviando…"
-                : comprobanteUrl
+                : planElegido.precio === 0 || comprobanteUrl
                   ? "Enviar la solicitud"
                   : "Adjuntá el comprobante para enviar"}
             </button>

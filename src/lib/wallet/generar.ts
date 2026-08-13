@@ -95,6 +95,28 @@ export async function generarPaseDeLealtad({
     .maybeSingle();
 
   if (!miembro) {
+    // EL TOPE DEL PLAN SE CUMPLE ACÁ, no solo se pinta: sin este
+    // check, el plan Gratis (5 miembros) afiliaría al sexto igual y
+    // el tope sería decorativo. Los miembros existentes no se tocan —
+    // solo se frena la afiliación NUEVA.
+    const { definicionDe } = await import("@/lib/lealtad/planes");
+    const limite = definicionDe(
+      (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
+    )?.limiteMiembros;
+    if (limite !== null && limite !== undefined) {
+      const { count } = await db
+        .from("miembros")
+        .select("*", { count: "exact", head: true })
+        .eq("programa_id", programa.id);
+      if ((count ?? 0) >= limite) {
+        return {
+          ok: false,
+          motivo:
+            "El programa de este negocio está lleno por ahora — preguntá en el local.",
+        };
+      }
+    }
+
     const { data: nuevo, error } = await db
       .from("miembros")
       .insert({ programa_id: programa.id, cliente_id: clienteId, estado: "activa" })

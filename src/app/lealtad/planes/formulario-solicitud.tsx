@@ -145,7 +145,13 @@ export default function FormularioSolicitud({
             </p>
           )}
 
-          {/* ── El depósito: primero se paga, después se solicita ── */}
+          {/* ── El depósito: primero se paga, después se solicita.
+                 El plan Gratis se salta este paso entero. ── */}
+          {precio === 0 ? (
+            <p className="rounded-xl border border-white/15 bg-[#0f1930] px-3.5 py-3 text-[13px] text-white/70">
+              Plan gratis — sin depósito. Hasta 5 miembros para probar el programa.
+            </p>
+          ) : (
           <div className="rounded-xl border border-white/15 bg-[#0f1930] p-3.5">
             <p className="text-[12px] font-bold uppercase tracking-wide text-white/50">
               1 · Hacé el depósito
@@ -219,6 +225,7 @@ export default function FormularioSolicitud({
             {subiendo && <p className="mt-1 text-[12px] text-white/50">Subiendo…</p>}
             {errorSubida && <p className="mt-1 text-[12.5px] font-bold text-red-300">{errorSubida}</p>}
           </div>
+          )}
 
           <label className={etiqueta}>
             Teléfono (para coordinar)
@@ -246,12 +253,14 @@ export default function FormularioSolicitud({
           <button
             type="button"
             onClick={enviar}
-            disabled={ocupado || subiendo || !negocioId || !comprobanteUrl}
+            disabled={
+              ocupado || subiendo || !negocioId || (precio !== 0 && !comprobanteUrl)
+            }
             className="rounded-xl bg-[#ee7420] px-5 py-3 text-[13.5px] font-extrabold text-white disabled:opacity-40"
           >
             {ocupado
               ? "Enviando…"
-              : comprobanteUrl
+              : precio === 0 || comprobanteUrl
                 ? "Enviar la solicitud"
                 : "Adjuntá el comprobante para enviar"}
           </button>

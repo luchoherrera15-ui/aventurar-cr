@@ -394,7 +394,7 @@ export default function LealtadPage() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-4 lg:grid-cols-3">
+          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PAQUETES.map((plan) => (
               <div
                 key={plan.id}
@@ -416,8 +416,14 @@ export default function LealtadPage() {
                 </p>
                 {plan.precio !== null && (
                   <p className="mt-2 text-[22px] font-extrabold leading-none text-white">
-                    ₡{plan.precio.toLocaleString("es-CR")}
-                    <span className="text-[13px] font-bold text-white/50"> /mes</span>
+                    {plan.precio === 0 ? (
+                      "₡0 — para probar"
+                    ) : (
+                      <>
+                        ₡{plan.precio.toLocaleString("es-CR")}
+                        <span className="text-[13px] font-bold text-white/50"> /mes</span>
+                      </>
+                    )}
                   </p>
                 )}
                 <p className="mt-1.5 text-[12.5px] text-white/50">
@@ -445,7 +451,7 @@ export default function LealtadPage() {
                   }`}
                   style={plan.destacado ? { background: NARANJA } : undefined}
                 >
-                  Solicitar {plan.nombre}
+                  {plan.precio === 0 ? "Empezar gratis" : `Solicitar ${plan.nombre}`}
                 </Link>
               </div>
             ))}

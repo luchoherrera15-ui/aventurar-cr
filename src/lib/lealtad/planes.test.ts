@@ -128,7 +128,11 @@ describe("estadoDelLimite", () => {
 describe("definicionDe", () => {
   it("devuelve null para lo que no es plan", () => {
     expect(definicionDe(null)).toBeNull();
-    expect(definicionDe("gratis")).toBeNull();
+    // "gratis" ERA el ejemplo de plan inexistente… hasta que se volvió
+    // un plan real (0131). El impostor de turno es otro.
+    expect(definicionDe("premium")).toBeNull();
+    expect(definicionDe("gratis")?.limiteMiembros).toBe(5);
+    expect(definicionDe("gratis")?.precioMensual).toBe(0);
     expect(definicionDe("enterprise")?.nombre).toBe("Enterprise");
   });
 });

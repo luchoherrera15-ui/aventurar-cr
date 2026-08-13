@@ -147,6 +147,7 @@ export default async function AdminComplementosPage() {
     /** 0130. */
     negocio_nombre?: string | null;
     negocio_vertical?: string | null;
+    negocio_detalle?: string | null;
   }[];
   const idsSolicitantes = [...new Set(filasSolicitud.map((s) => s.solicitante_id))];
   const { data: perfilesSol } = idsSolicitantes.length
@@ -174,7 +175,10 @@ export default async function AdminComplementosPage() {
       ? (nombreRancho.get(s.rancho_id) ?? "(negocio)")
       : (s.negocio_nombre ?? "(negocio nuevo)"),
     esAlta: !s.rancho_id,
-    tipoNegocio: s.negocio_vertical ?? null,
+    tipoNegocio:
+      s.negocio_vertical === "otro" && s.negocio_detalle
+        ? `otro — ${s.negocio_detalle}`
+        : (s.negocio_vertical ?? null),
     plan: s.plan,
     solicitante: (perfilDe.get(s.solicitante_id)?.nombre ?? "").trim() || "(sin nombre)",
     correo: perfilDe.get(s.solicitante_id)?.email ?? "—",

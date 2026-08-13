@@ -45,7 +45,7 @@ export default function PlanesCliente({
 
   return (
     <div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {planes.map((p) => (
           <div
             key={p.id}
@@ -63,8 +63,14 @@ export default function PlanesCliente({
             <h2 className="text-[18px] font-extrabold text-white">{p.nombre}</h2>
             {p.precio !== null && (
               <p className="mt-1 text-[26px] font-extrabold leading-none text-white">
-                ₡{p.precio.toLocaleString("es-CR")}
-                <span className="text-[13px] font-bold text-white/50"> /mes</span>
+                {p.precio === 0 ? (
+                  "Gratis"
+                ) : (
+                  <>
+                    ₡{p.precio.toLocaleString("es-CR")}
+                    <span className="text-[13px] font-bold text-white/50"> /mes</span>
+                  </>
+                )}
               </p>
             )}
             <p className="mt-0.5 text-[12.5px] text-white/55">
@@ -92,7 +98,11 @@ export default function PlanesCliente({
                     : "bg-[#ee7420] text-white hover:brightness-110"
                 }`}
               >
-                {elegido === p.id ? "Elegido ↓" : "Solicitar este plan"}
+                {elegido === p.id
+                  ? "Elegido ↓"
+                  : p.precio === 0
+                    ? "Empezar gratis"
+                    : "Solicitar este plan"}
               </button>
             ) : (
               <Link

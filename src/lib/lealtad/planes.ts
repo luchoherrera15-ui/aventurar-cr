@@ -10,11 +10,15 @@
  */
 
 /**
- * Básico → Estándar → Enterprise. Están en orden creciente a
+ * Gratis → Básico → Estándar → Enterprise. Están en orden creciente a
  * propósito: hay código y tests que dependen de que el índice mayor
  * incluya todo lo del menor.
+ *
+ * OJO: agregar un plan acá pide también ampliar los CHECK de la base
+ * (ranchos.plan_lealtad de la 0124 y solicitudes_lealtad.plan de la
+ * 0126) — la 0131 lo hizo para 'gratis'.
  */
-export const PLANES_ID = ["basico", "estandar", "enterprise"] as const;
+export const PLANES_ID = ["gratis", "basico", "estandar", "enterprise"] as const;
 export type PlanId = (typeof PLANES_ID)[number];
 
 /**
@@ -68,6 +72,16 @@ export type DefinicionPlan = {
  * no obliga a seguir tres saltos para saber si Élite manda push.
  */
 export const PLANES: Record<PlanId, DefinicionPlan> = {
+  gratis: {
+    id: "gratis",
+    nombre: "Gratis",
+    // CINCO pases y ni uno más: es la prueba, no el producto. El tope
+    // se HACE CUMPLIR al afiliar (generar.ts / google.ts): el sexto
+    // cliente ve "programa lleno" y el negocio, la razón para pagar.
+    limiteMiembros: 5,
+    precioMensual: 0,
+    capacidades: ["wallet"],
+  },
   basico: {
     id: "basico",
     nombre: "Básico",

@@ -35,6 +35,12 @@ begin
         or negocio_vertical in ('citas', 'eventos', 'hospedajes', 'restaurantes', 'otro')
       );
 
+    -- Cuando eligen «Otro», acá va SU respuesta en sus palabras
+    -- («ferretería», «academia de baile»): el dato que un selector
+    -- nunca captura y que al aprobar dice qué negocio es de verdad.
+    alter table solicitudes_lealtad add column negocio_detalle text
+      check (negocio_detalle is null or char_length(negocio_detalle) <= 80);
+
     -- Una fila es de UPGRADE (con rancho) o de ALTA (con nombre):
     -- nunca ninguna de las dos.
     alter table solicitudes_lealtad add constraint solicitudes_alta_coherente
@@ -46,6 +52,8 @@ comment on column solicitudes_lealtad.negocio_nombre is
   'Solo en solicitudes de ALTA (rancho_id null): el negocio que se creará si Bookea acepta.';
 comment on column solicitudes_lealtad.negocio_vertical is
   'El tipo elegido en el alta, incluida la opción «otro» (el rancho se crea con una vertical válida).';
+comment on column solicitudes_lealtad.negocio_detalle is
+  'Si eligieron «otro»: qué negocio es, en sus palabras.';
 
 -- El que pide un ALTA todavía no gestiona ningún rancho: política
 -- propia. Sigue naciendo pendiente y a su propio nombre.

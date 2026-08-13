@@ -275,7 +275,7 @@ export async function generarPaseGoogle({
 
   const { data: negocio } = await db
     .from("ranchos")
-    .select("id, nombre")
+    .select("id, nombre, plan_lealtad")
     .eq("id", ranchoId)
     .maybeSingle();
   if (!negocio) return { ok: false, motivo: "Ese negocio no existe." };
@@ -298,6 +298,26 @@ export async function generarPaseGoogle({
     .eq("cliente_id", clienteId)
     .maybeSingle();
   if (!miembro) {
+    // El tope del plan se cumple igual que en Apple (generar.ts): la
+    // afiliación NUEVA se frena cuando el programa está lleno.
+    const { definicionDe } = await import("@/lib/lealtad/planes");
+    const limite = definicionDe(
+      (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
+    )?.limiteMiembros;
+    if (limite !== null && limite !== undefined) {
+      const { count } = await db
+        .from("miembros")
+        .select("*", { count: "exact", head: true })
+        .eq("programa_id", programa.id);
+      if ((count ?? 0) >= limite) {
+        return {
+          ok: false,
+          motivo:
+            "El programa de este negocio está lleno por ahora — preguntá en el local.",
+        };
+      }
+    }
+
     const { data: nuevo, error } = await db
       .from("miembros")
       .insert({ programa_id: programa.id, cliente_id: clienteId, estado: "activa" })
