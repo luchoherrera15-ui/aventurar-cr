@@ -2,7 +2,9 @@
 
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, esPlan } from "@/lib/lealtad/planes";
+import { generarSlugUnico } from "@/lib/slug";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 
 /** El plan Gratis no lleva depósito: sin método ni comprobante. */
@@ -28,7 +30,13 @@ function esGratis(plan: string): boolean {
 const TIPOS = ["citas", "eventos", "hospedajes", "restaurantes", "otro"] as const;
 export type TipoNegocio = (typeof TIPOS)[number];
 
-type Resultado = { ok: true } | { ok: false; motivo: string };
+type Resultado =
+  | {
+      ok: true;
+      /** Solo el plan Gratis del creador: se creó TODO al instante. */
+      creado?: { ranchoId: string; slug: string | null };
+    }
+  | { ok: false; motivo: string };
 
 export async function solicitarAltaConPlan(datos: {
   nombreNegocio: string;
@@ -99,6 +107,27 @@ export async function solicitarAltaConPlan(datos: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, motivo: "Iniciá sesión para enviar la solicitud." };
+
+  // ── EL CAMINO AUTOMÁTICO: Gratis + creador = se crea TODO al toque ──
+  // Sin depósito no hay nada que verificar: el único requisito era la
+  // cuenta, y ya la tiene. Los planes DE PAGO siguen el camino manual
+  // (abajo): la confirmación del depósito es humana a propósito.
+  // El personalizado también es humano aunque sea gratis: lo diseña el
+  // equipo, no una plantilla.
+  if (gratis && !datos.personalizado) {
+    return crearGratisAlInstante({
+      userId: user.id,
+      nombre,
+      tipo,
+      detalle,
+      paseColor: datos.paseColor,
+      paseLogoUrl: datos.paseLogoUrl || null,
+      regalia,
+      metaSellos: datos.metaSellos,
+      telefono: datos.telefono.trim().slice(0, 30) || null,
+      correo: user.email ?? "(sin correo)",
+    });
+  }
 
   const { error } = await supabase.from("solicitudes_lealtad").insert({
     rancho_id: null,
@@ -180,6 +209,137 @@ export async function solicitarAltaConPlan(datos: {
   );
 
   return { ok: true };
+}
+
+/**
+ * Crea negocio + programa + recompensa AL INSTANTE (plan Gratis del
+ * creador). Va con la llave de servicio: setea la aprobación de
+ * lealtad (0129) que el trigger le niega a la sesión del usuario, y
+ * deja la solicitud como registro YA ATENDIDO (atendida_por null =
+ * el sistema). El correo al equipo es informativo, no una tarea.
+ */
+async function crearGratisAlInstante(d: {
+  userId: string;
+  nombre: string;
+  tipo: string;
+  detalle: string;
+  paseColor: string;
+  paseLogoUrl: string | null;
+  regalia: string;
+  metaSellos: number;
+  telefono: string | null;
+  correo: string;
+}): Promise<Resultado> {
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  const vertical = ["citas", "eventos", "hospedajes", "restaurantes"].includes(d.tipo)
+    ? d.tipo
+    : "citas";
+  const slug = await generarSlugUnico(admin, d.nombre);
+
+  const { data: rancho, error: eRancho } = await admin
+    .from("ranchos")
+    .insert({
+      owner_id: d.userId,
+      nombre: d.nombre,
+      slug,
+      vertical,
+      categoria: "otros",
+      estado: "pendiente",
+      lealtad_aprobado_en: new Date().toISOString(),
+      lealtad_aprobado_por: null, // el sistema
+      plan_lealtad: "gratis",
+    })
+    .select("id, slug")
+    .single();
+  if (eRancho) {
+    if (eRancho.message.includes("plan_lealtad")) {
+      return { ok: false, motivo: "Falta correr la migración 0131 en Supabase." };
+    }
+    if (eRancho.message.includes("lealtad_aprobado")) {
+      return { ok: false, motivo: "Falta correr la migración 0129 en Supabase." };
+    }
+    return { ok: false, motivo: "No se pudo crear el negocio: " + eRancho.message };
+  }
+  const ranchoId = rancho.id as string;
+
+  const { data: prog, error: eProg } = await admin
+    .from("programa_lealtad")
+    .insert({
+      rancho_id: ranchoId,
+      nombre: "Programa de lealtad",
+      modo: "sellos",
+      puntos_por_visita: 1,
+      puntos_por_colon: 0,
+      activo: true,
+      estado: "activo",
+      pase_color_fondo: d.paseColor,
+      pase_logo_url: d.paseLogoUrl,
+    })
+    .select("id")
+    .single();
+  if (eProg || !prog) {
+    return { ok: false, motivo: "El negocio se creó pero el programa no: " + (eProg?.message ?? "") };
+  }
+
+  const { error: eRec } = await admin.from("recompensas").insert({
+    programa_id: prog.id,
+    nombre: d.regalia,
+    costo_puntos: d.metaSellos,
+    activo: true,
+  });
+  if (eRec) console.error("[alta-gratis] La recompensa no se pudo crear:", eRec.message);
+
+  // El complemento que gobierna el módulo (0077): sin él, el panel
+  // muestra "sin activar" aunque todo lo demás exista.
+  const { error: eAddon } = await admin.from("addons_negocio").upsert(
+    {
+      rancho_id: ranchoId,
+      addon: "lealtad",
+      activo: true,
+      vence_en: null,
+      activado_en: new Date().toISOString(),
+      notas: "Plan gratis — creado solo por el creador de cards",
+    },
+    { onConflict: "rancho_id,addon" },
+  );
+  if (eAddon) console.error("[alta-gratis] El addon no se pudo activar:", eAddon.message);
+
+  // El registro: la solicitud queda ATENDIDA por el sistema, con todo
+  // lo que la persona armó — auditoría y finanzas la ven igual.
+  const { error: eSol } = await admin.from("solicitudes_lealtad").insert({
+    rancho_id: ranchoId,
+    solicitante_id: d.userId,
+    negocio_nombre: d.nombre,
+    negocio_vertical: d.tipo,
+    negocio_detalle: d.detalle || null,
+    plan: "gratis",
+    telefono: d.telefono,
+    personalizado: false,
+    pase_color: d.paseColor,
+    pase_logo_url: d.paseLogoUrl,
+    regalia: d.regalia,
+    meta_sellos: d.metaSellos,
+    estado: "atendida",
+    atendida_en: new Date().toISOString(),
+  });
+  if (eSol) console.error("[alta-gratis] La solicitud-registro no se pudo guardar:", eSol.message);
+
+  after(() =>
+    avisarAAdministradores({
+      subject: `NEGOCIO NUEVO AUTO-CREADO (plan Gratis) — ${d.nombre}`,
+      html: `
+        <p><b>${escapar(d.nombre)}</b> (${escapar(d.tipo)}${d.detalle ? ` — ${escapar(d.detalle)}` : ""})
+        se creó SOLO con el plan Gratis: programa activo, regalía
+        «${escapar(d.regalia)}» a ${d.metaSellos} sellos. Dueño: ${escapar(d.correo)}.</p>
+        <p>No hay nada que aprobar — es informativo.
+        <a href="https://www.bookea.lat/admin/lealtad/${ranchoId}">Ver su programa</a>.</p>
+      `,
+    }),
+  );
+
+  return { ok: true, creado: { ranchoId, slug: (rancho.slug as string | null) ?? null } };
 }
 
 function escapar(texto: string): string {

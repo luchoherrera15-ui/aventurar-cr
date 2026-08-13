@@ -87,6 +87,7 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
   const [errorSubida, setErrorSubida] = useState("");
   const [telefono, setTelefono] = useState("");
   const [estado, setEstado] = useState<"editando" | "enviada" | string>("editando");
+  const [creado, setCreado] = useState<{ ranchoId: string; slug: string | null } | null>(null);
   const [ocupado, iniciar] = useTransition();
 
   const pantallas: Pantalla[] =
@@ -186,8 +187,40 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
         regalia,
         metaSellos: meta,
       });
+      if (res.ok && res.creado) setCreado(res.creado);
       setEstado(res.ok ? "enviada" : res.motivo);
     });
+  }
+
+  // El camino AUTOMÁTICO del Gratis: no hay espera — la tarjeta existe.
+  if (estado === "enviada" && creado) {
+    return (
+      <div className="rounded-2xl bg-white/10 p-6 text-center">
+        <p className="text-[18px] font-extrabold text-white">¡Tu tarjeta está LISTA! 🎉</p>
+        <p className="mx-auto mt-2 max-w-[440px] text-[13px] leading-relaxed text-white/60">
+          <strong className="text-white">{nombre}</strong> quedó creado con su programa
+          funcionando: {meta} sellos → {regalia || "tu regalía"}. Compartí el QR de tu
+          panel y tus primeros 5 clientes ya pueden agregarla al teléfono.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href={`/lealtad/panel/${creado.ranchoId}`}
+            className="rounded-full px-6 py-3 text-[14px] font-bold text-white"
+            style={{ background: NARANJA }}
+          >
+            Ir a mi panel →
+          </a>
+          {creado.slug && (
+            <a
+              href={`/tarjeta/${creado.slug}`}
+              className="rounded-full border border-white/25 px-6 py-3 text-[14px] font-bold text-white/85"
+            >
+              Ver mi tarjeta como cliente
+            </a>
+          )}
+        </div>
+      </div>
+    );
   }
 
   if (estado === "enviada") {
@@ -567,10 +600,14 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
               >
                 {pantalla === "pago"
                   ? ocupado
-                    ? "Enviando…"
+                    ? camino === "creador" && esGratis
+                      ? "Creando tu tarjeta…"
+                      : "Enviando…"
                     : camino === "personalizado"
                       ? "Enviar mi pedido"
-                      : "Enviar la solicitud"
+                      : esGratis
+                        ? "Crear mi tarjeta YA →"
+                        : "Enviar la solicitud"
                   : "Continuar →"}
               </button>
             )}
