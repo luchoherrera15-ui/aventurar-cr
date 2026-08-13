@@ -6,8 +6,6 @@ import {
   PLANES as PLANES_REALES,
   PLANES_ID,
 } from "@/lib/lealtad/planes";
-import EscenaSellos from "./escena-sellos";
-import EscenaDescuentos from "./escena-descuentos";
 import HeroTelefono from "./hero-telefono";
 
 /**
@@ -53,15 +51,20 @@ const PAQUETES = PLANES_ID.map((id) => {
   };
 });
 
-const NEGOCIOS = [
-  "Restaurantes",
-  "Cafeterías",
-  "Sodas",
-  "Barberías",
-  "Salones de belleza",
-  "Spas",
-  "Gimnasios",
-  "Lavacars",
+/**
+ * Cada categoría con su DEMO: la chip es clickeable y aterriza en
+ * /lealtad/demo/[tipo] — la tarjeta de ejemplo de ese negocio, para
+ * que el dueño se vea antes de comprar.
+ */
+const NEGOCIOS: { nombre: string; demo: string }[] = [
+  { nombre: "Restaurantes", demo: "restaurantes" },
+  { nombre: "Cafeterías", demo: "cafeterias" },
+  { nombre: "Sodas", demo: "sodas" },
+  { nombre: "Barberías", demo: "barberias" },
+  { nombre: "Salones de belleza", demo: "salones" },
+  { nombre: "Spas", demo: "spas" },
+  { nombre: "Gimnasios", demo: "gimnasios" },
+  { nombre: "Lavacars", demo: "lavacars" },
 ];
 
 /**
@@ -293,119 +296,6 @@ export default function LealtadPage() {
         </div>
       </section>
 
-      {/* ================= ESCENA 1: SELLOS ================= */}
-      <section className="px-5 py-20 sm:px-8 sm:py-24">
-        <div className="mx-auto w-[min(1120px,92vw)]">
-          <div className="grid items-center gap-14 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
-            <div data-reveal>
-              <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
-                En vivo, ahora mismo
-              </p>
-              <h2 className="titulo mt-4 max-w-[17ch] text-[clamp(30px,4.6vw,50px)] leading-[1.08]">
-                Una tarjeta de sellos que se completa sola
-              </h2>
-              <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-white/55">
-                Esto no es un dibujo: es lo que ve tu cliente en su teléfono y
-                lo que ves vos en tu panel, al mismo tiempo.
-              </p>
-
-              <div className="mt-9 flex flex-col gap-6">
-                {[
-                  {
-                    titulo: "Se afilia con un QR",
-                    texto: "Lo escanea una sola vez y su tarjeta queda en el teléfono — sin descargar nada.",
-                  },
-                  {
-                    titulo: "Suma un sello en cada visita",
-                    texto: "Vos decidís las reglas (por visita o por monto) y el sistema lleva la cuenta solo.",
-                  },
-                  {
-                    titulo: "Se desbloquea y canjea",
-                    texto: "Al completar la tarjeta, canjea su premio con el mismo QR — y arranca de nuevo.",
-                  },
-                ].map((p, i) => (
-                  <div key={p.titulo} className="flex gap-4">
-                    <span
-                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold text-white"
-                      style={{ background: NARANJA }}
-                    >
-                      {i + 1}
-                    </span>
-                    <div>
-                      <h3 className="text-[16px] font-extrabold text-white">{p.titulo}</h3>
-                      <p className="mt-1.5 text-[13.5px] leading-relaxed text-white/55">{p.texto}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div data-reveal style={{ "--reveal-delay": "120ms" } as React.CSSProperties}>
-              <EscenaSellos />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= ESCENA 2: DESCUENTOS Y PUNTOS ================= */}
-      <section className="relative overflow-hidden px-5 py-20 sm:px-8 sm:py-24" style={{ background: NAVY }}>
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-32 top-1/4 h-[420px] w-[420px] rounded-full opacity-[0.14] blur-[110px]"
-          style={{ background: NARANJA }}
-        />
-        <div className="relative mx-auto w-[min(1120px,92vw)]">
-          <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
-            <div data-reveal className="order-2 lg:order-1">
-              <EscenaDescuentos />
-            </div>
-
-            <div data-reveal className="order-1 lg:order-2">
-              <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
-                Sin canjear en caja
-              </p>
-              <h2 className="titulo mt-4 max-w-[17ch] text-[clamp(30px,4.6vw,50px)] leading-[1.08]">
-                El descuento se aplica al toque, no se pide
-              </h2>
-              <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-white/55">
-                Nada de anotar puntos a mano ni de que el cliente tenga que
-                acordarse de pedirlo: aparece solo cuando le conviene.
-              </p>
-
-              <div className="mt-9 flex flex-col gap-6">
-                {[
-                  {
-                    titulo: "Puntos que se ven de una",
-                    texto: "El cliente ve cuánto tiene disponible apenas abre su tarjeta, sin preguntar.",
-                  },
-                  {
-                    titulo: "Un toque y baja el total",
-                    texto: "Usa sus puntos y el precio se actualiza en el momento — vos solo cobrás lo que queda.",
-                  },
-                  {
-                    titulo: "Vos ves todo en tu panel",
-                    texto: "Cuántos clientes canjearon hoy, cuánto representó en descuentos, quién fue.",
-                  },
-                ].map((p, i) => (
-                  <div key={p.titulo} className="flex gap-4">
-                    <span
-                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold text-white"
-                      style={{ background: NARANJA }}
-                    >
-                      {i + 1}
-                    </span>
-                    <div>
-                      <h3 className="text-[16px] font-extrabold text-white">{p.titulo}</h3>
-                      <p className="mt-1.5 text-[13.5px] leading-relaxed text-white/55">{p.texto}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ================= LA FAMILIA DE PASES ================= */}
       <section className="px-5 py-24 sm:px-8">
         <div className="mx-auto w-[min(1120px,92vw)]">
@@ -458,20 +348,31 @@ export default function LealtadPage() {
         </div>
       </section>
 
-      {/* ================= PARA QUIÉN ================= */}
+      {/* ================= LOS DEMOS POR CATEGORÍA ================= */}
       <section className="px-5 py-16 sm:px-8">
         <div className="mx-auto w-[min(1120px,92vw)] text-center">
           <p data-reveal className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
             Hecho para negocios con clientela que vuelve
           </p>
-          <div data-reveal className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
+          <h2
+            data-reveal
+            className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(24px,3.6vw,40px)] leading-[1.1]"
+          >
+            Mirá los demos de cada negocio — cómo podría funcionar el tuyo
+          </h2>
+          <p data-reveal className="mx-auto mt-3 max-w-[48ch] text-[14px] leading-relaxed text-white/55">
+            Tocá tu categoría y vé la tarjeta de ejemplo: los sellos, la regalía y
+            cómo se vería en el teléfono de tus clientes.
+          </p>
+          <div data-reveal className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
             {NEGOCIOS.map((n) => (
-              <span
-                key={n}
-                className="rounded-xl border border-white/15 px-4 py-2 text-[13px] font-bold text-white/80"
+              <Link
+                key={n.demo}
+                href={`/lealtad/demo/${n.demo}`}
+                className="rounded-xl border border-white/15 px-4 py-2 text-[13px] font-bold text-white/80 transition-colors hover:border-[#ee7420] hover:text-white"
               >
-                {n}
-              </span>
+                {n.nombre} →
+              </Link>
             ))}
           </div>
         </div>
