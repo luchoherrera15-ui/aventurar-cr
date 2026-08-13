@@ -10,14 +10,14 @@
 export function datosDePagoBookea() {
   return {
     sinpe: {
-      numero: process.env.SINPE_NUMERO ?? "8689 3939",
-      titular: process.env.SINPE_TITULAR ?? "José Pablo Herrera Ovares",
+      numero: process.env.SINPE_NUMERO ?? "8710 3739",
+      titular: process.env.SINPE_TITULAR ?? "Luis Herrera Ovares",
     },
     banco: {
       nombre: process.env.BANCO_NOMBRE ?? "Banco Nacional",
       // Pendiente: se llena con BANCO_CUENTA_IBAN sin tocar código.
       cuenta: process.env.BANCO_CUENTA_IBAN ?? "",
-      titular: process.env.BANCO_TITULAR ?? "José Pablo Herrera Ovares",
+      titular: process.env.BANCO_TITULAR ?? "Luis Herrera Ovares",
     },
   };
 }

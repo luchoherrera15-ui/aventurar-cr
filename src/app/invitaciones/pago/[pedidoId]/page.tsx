@@ -7,6 +7,7 @@ import {
   precioPaquete,
   resolverPaquete,
 } from "@/lib/paquetes-invitaciones";
+import { datosDePagoBookea } from "@/lib/pagos-bookea";
 import OpcionesPago from "./opciones-pago";
 
 export const metadata = { title: "Pagá tu invitación" };
@@ -45,19 +46,10 @@ export default async function PagoPage({
   if (!paquete) notFound();
   const colones = montoEnColones(paquete);
 
-  // Los datos de cobro son públicos (el cliente tiene que verlos para
-  // pagar), así que van con valor por defecto y se pueden cambiar sin
-  // tocar código con las variables de entorno.
-  const sinpe = {
-    numero: process.env.SINPE_NUMERO ?? "8689 3939",
-    titular: process.env.SINPE_TITULAR ?? "José Pablo Herrera Ovares",
-  };
-  const banco = {
-    nombre: process.env.BANCO_NOMBRE ?? "Banco Nacional",
-    // Pendiente: se llena con BANCO_CUENTA_IBAN sin tocar código.
-    cuenta: process.env.BANCO_CUENTA_IBAN ?? "",
-    titular: process.env.BANCO_TITULAR ?? "José Pablo Herrera Ovares",
-  };
+  // Los datos de cobro viven en UN solo lugar (lib/pagos-bookea) para
+  // que corregir el número no deje una copia vieja cobrando por ahí —
+  // acá había un duplicado con un SINPE desactualizado.
+  const { sinpe, banco } = datosDePagoBookea();
   const stripeListo = Boolean(process.env.STRIPE_SECRET_KEY);
 
   if (yaPago || pedido.estado !== "pendiente_pago") {
