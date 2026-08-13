@@ -17,7 +17,9 @@ export function datosDePagoBookea() {
       nombre: process.env.BANCO_NOMBRE ?? "Banco Nacional",
       // Pendiente: se llena con BANCO_CUENTA_IBAN sin tocar código.
       cuenta: process.env.BANCO_CUENTA_IBAN ?? "",
-      titular: process.env.BANCO_TITULAR ?? "Luis Herrera Ovares",
+      // La cuenta del banco es de José Pablo; el SINPE, de Luis. Son
+      // titulares DISTINTOS a propósito — no unificar sin preguntar.
+      titular: process.env.BANCO_TITULAR ?? "José Pablo Herrera Ovares",
     },
   };
 }

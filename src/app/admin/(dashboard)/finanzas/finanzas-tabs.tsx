@@ -16,9 +16,13 @@ const TABS: { id: TabFinanzas; label: string; hint: string }[] = [
     hint: "Más adelante",
   },
   {
+    // El id conserva el nombre viejo para no romper enlaces guardados
+    // (?tab=invitaciones): la pestaña ahora junta TODA la venta directa
+    // de Bookea — invitaciones y planes de lealtad — desglosada por
+    // producto y por método de pago.
     id: "invitaciones",
-    label: "Invitaciones virtuales",
-    hint: "SINPE, transferencia y Stripe",
+    label: "Ventas Bookea",
+    hint: "Invitaciones y planes de lealtad · SINPE vs transferencia",
   },
 ];
 

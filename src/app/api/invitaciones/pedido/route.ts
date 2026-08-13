@@ -8,6 +8,7 @@ import {
   type DatosPedido,
 } from "@/lib/invitaciones/pedido";
 import { montoEnColones, precioPaquete, resolverPaquete } from "@/lib/paquetes-invitaciones";
+import { datosDePagoBookea } from "@/lib/pagos-bookea";
 
 /**
  * POST /api/invitaciones/pedido
@@ -78,15 +79,9 @@ export async function GET(req: Request) {
       tienePanel: paquete.tienePanel,
     },
     monto: precioPaquete(colones),
-    sinpe: {
-      numero: process.env.SINPE_NUMERO ?? "8689 3939",
-      titular: process.env.SINPE_TITULAR ?? "José Pablo Herrera Ovares",
-    },
-    banco: {
-      nombre: process.env.BANCO_NOMBRE ?? "Banco Nacional",
-      cuenta: process.env.BANCO_CUENTA_IBAN ?? "",
-      titular: process.env.BANCO_TITULAR ?? "José Pablo Herrera Ovares",
-    },
+    // Fuente única (lib/pagos-bookea): acá vivía el TERCER duplicado
+    // de estos datos, con el SINPE viejo adentro.
+    ...datosDePagoBookea(),
   });
 }
 

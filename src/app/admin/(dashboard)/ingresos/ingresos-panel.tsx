@@ -7,7 +7,9 @@ import { eliminarPedidoInvitacion } from "../invitaciones/actions";
 
 export type Cobro = {
   id: string;
-  /** El evento de la invitación. */
+  /** De qué producto de Bookea entró la plata. */
+  fuente: "invitaciones" | "lealtad";
+  /** El evento de la invitación, o el negocio del plan de lealtad. */
   concepto: string;
   cliente: string;
   paquete: string;
@@ -17,12 +19,19 @@ export type Cobro = {
   fecha: string;
   /** Ya verificado por el equipo (vs. comprobante por revisar). */
   confirmado: boolean;
+  /** La captura del depósito, si el flujo la guarda (lealtad, 0128). */
+  comprobanteUrl?: string | null;
 };
 
 const METODOS: { id: Cobro["metodo"]; label: string; color: string }[] = [
   { id: "sinpe", label: "SINPE Móvil", color: "bg-aventurea-navy" },
   { id: "transferencia", label: "Transferencia", color: "bg-[#3b7fc4]" },
   { id: "stripe", label: "Stripe (tarjeta)", color: "bg-aventurea-sky" },
+];
+
+const FUENTES: { id: Cobro["fuente"]; label: string }[] = [
+  { id: "invitaciones", label: "Invitaciones" },
+  { id: "lealtad", label: "Planes de Lealtad" },
 ];
 
 const PERIODOS = [
@@ -44,6 +53,7 @@ function restarDias(dias: number): string {
 
 export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
   const [periodo, setPeriodo] = useState<(typeof PERIODOS)[number]["id"]>("30d");
+  const [fuente, setFuente] = useState<"todas" | Cobro["fuente"]>("todas");
   const [soloConfirmados, setSoloConfirmados] = useState(false);
   /**
    * Los cobros que se acaban de borrar. El servidor revalida
@@ -67,10 +77,41 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
           !borrados.includes(c.id) &&
           c.fecha >= desde &&
           c.fecha <= hoyISO() &&
+          (fuente === "todas" || c.fuente === fuente) &&
           (!soloConfirmados || c.confirmado),
       ),
-    [cobros, borrados, desde, soloConfirmados],
+    [cobros, borrados, desde, fuente, soloConfirmados],
   );
+
+  /**
+   * El control minucioso: por cada producto, cuánto entró y POR DÓNDE
+   * (SINPE vs transferencia vs tarjeta). Ignora el filtro de fuente a
+   * propósito — esta tabla ES la comparación entre fuentes.
+   */
+  const porFuente = useMemo(() => {
+    const base = cobros.filter(
+      (c) =>
+        !borrados.includes(c.id) &&
+        c.fecha >= desde &&
+        c.fecha <= hoyISO() &&
+        (!soloConfirmados || c.confirmado),
+    );
+    return FUENTES.map((f) => {
+      const propios = base.filter((c) => c.fuente === f.id);
+      const porMetodo: Record<string, number> = {};
+      for (const m of METODOS) {
+        porMetodo[m.id] = propios
+          .filter((c) => c.metodo === m.id)
+          .reduce((s, c) => s + c.monto, 0);
+      }
+      return {
+        ...f,
+        n: propios.length,
+        total: propios.reduce((s, c) => s + c.monto, 0),
+        porMetodo,
+      };
+    });
+  }, [cobros, borrados, desde, soloConfirmados]);
 
   /** Totales por método, y cuánto está aún por verificar. */
   const porMetodo = useMemo(() => {
@@ -133,6 +174,21 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
             {p.label}
           </button>
         ))}
+        <span className="mx-1 h-6 w-px bg-aventurea-line" aria-hidden />
+        {(["todas", ...FUENTES.map((f) => f.id)] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFuente(f)}
+            className={`rounded-xl px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
+              fuente === f
+                ? "bg-aventurea-navy text-white"
+                : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:text-aventurea-ink"
+            }`}
+          >
+            {f === "todas" ? "Todo" : FUENTES.find((x) => x.id === f)?.label}
+          </button>
+        ))}
         <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12.5px] font-bold text-aventurea-ink">
           <input
             type="checkbox"
@@ -142,6 +198,61 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
           />
           Solo pagos verificados
         </label>
+      </div>
+
+      {/* Por producto: cuánto entra de cada cosa, y POR DÓNDE entra */}
+      <div>
+        <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
+          Por producto
+        </p>
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm">
+          <table className="w-full text-left text-[13px]">
+            <thead className="bg-aventurea-cream-2/60">
+              <tr>
+                <th className="px-4 py-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Producto
+                </th>
+                {METODOS.map((m) => (
+                  <th
+                    key={m.id}
+                    className="px-4 py-3 text-right text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+                  >
+                    {m.label}
+                  </th>
+                ))}
+                <th className="px-4 py-3 text-right text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {porFuente.map((f) => (
+                <tr
+                  key={f.id}
+                  className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream-2/40"
+                >
+                  <td className="px-4 py-3 font-bold text-aventurea-ink">
+                    {f.label}
+                    <span className="ml-2 text-[11px] font-normal text-aventurea-ink-soft">
+                      {f.n} cobro{f.n === 1 ? "" : "s"}
+                    </span>
+                  </td>
+                  {METODOS.map((m) => (
+                    <td
+                      key={m.id}
+                      className="px-4 py-3 text-right tabular-nums text-aventurea-ink-soft"
+                    >
+                      {f.porMetodo[m.id] ? fmtColones(f.porMetodo[m.id]) : "—"}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3 text-right font-bold tabular-nums text-aventurea-ink">
+                    {fmtColones(f.total)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Totales por método */}
@@ -230,7 +341,7 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                     colSpan={5}
                     className="px-4 py-8 text-center text-[13px] text-aventurea-ink-soft"
                   >
-                    Todavía no hay pagos de invitaciones en este periodo.
+                    Todavía no hay pagos en este periodo.
                   </td>
                 </tr>
               )}
@@ -303,8 +414,13 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                   className="border-b border-aventurea-line last:border-none hover:bg-aventurea-cream-2/40"
                 >
                   <td className="px-4 py-3 text-aventurea-ink-soft">{c.fecha}</td>
-                  <td className="max-w-[220px] truncate px-4 py-3 font-semibold text-aventurea-ink">
-                    {c.concepto}
+                  <td className="max-w-[240px] px-4 py-3">
+                    <span className="block truncate font-semibold text-aventurea-ink">
+                      {c.concepto}
+                    </span>
+                    <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      {FUENTES.find((f) => f.id === c.fuente)?.label ?? c.fuente}
+                    </span>
                   </td>
                   <td className="max-w-[160px] truncate px-4 py-3 text-aventurea-ink-soft">
                     {c.cliente || "—"}
@@ -314,6 +430,16 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                   </td>
                   <td className="px-4 py-3 text-aventurea-ink-soft">
                     {METODOS.find((m) => m.id === c.metodo)?.label ?? c.metodo}
+                    {c.comprobanteUrl && (
+                      <a
+                        href={c.comprobanteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-2 text-[11.5px] font-bold text-aventurea-navy underline"
+                      >
+                        comprobante
+                      </a>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -330,6 +456,10 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                     {fmtColones(c.monto)}
                   </td>
                   <td className="px-4 py-3 text-right">
+                    {/* Un cobro de lealtad vive en su solicitud (0126):
+                        no se borra desde acá — el registro es la
+                        auditoría del depósito. */}
+                    {c.fuente === "invitaciones" && (
                     <BotonEliminar
                       variante="texto"
                       que="este cobro"
@@ -357,6 +487,7 @@ export default function IngresosPanel({ cobros }: { cobros: Cobro[] }) {
                       onEliminar={() => eliminarPedidoInvitacion(c.id)}
                       onEliminado={() => setBorrados((prev) => [...prev, c.id])}
                     />
+                    )}
                   </td>
                 </tr>
               ))}

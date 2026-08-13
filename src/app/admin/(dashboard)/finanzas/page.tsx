@@ -14,6 +14,7 @@ import {
   MIGRACION_LIBRO,
   type CobroPlataforma,
 } from "@/lib/libro-cobros";
+import { definicionDe } from "@/lib/lealtad/planes";
 
 /**
  * Finanzas: toda la plata de la plataforma en una sola pantalla.
@@ -69,6 +70,14 @@ export default async function AdminFinanzasPage({
         )
         .order("semana", { ascending: true }),
     ]);
+
+  // Los depósitos de los planes de lealtad (0126/0128). `select *`
+  // porque metodo_pago/comprobante_url son de la 0128 y pueden faltar;
+  // si la tabla entera no existe, la fuente simplemente queda vacía.
+  const solicitudesLealtadRes = await supabase
+    .from("solicitudes_lealtad")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   // Los ingresos de la sección: solo reservas de negocios de esa vertical.
   const todosLosRanchos = (ranchosRes.data ?? []) as (RanchoBalance & {
@@ -135,6 +144,7 @@ export default async function AdminFinanzasPage({
     if (!monto) continue;
     cobros.push({
       id: String(p.id),
+      fuente: "invitaciones",
       concepto: String(p.nombre_evento ?? "Invitación"),
       cliente: String(p.contacto_nombre ?? ""),
       paquete: String(p.paquete ?? ""),
@@ -145,6 +155,51 @@ export default async function AdminFinanzasPage({
       confirmado: ["pagado", "en_diseno", "entregado"].includes(String(p.estado)),
     });
   }
+
+  // Los depósitos del plan de lealtad: el monto sale de la definición
+  // del plan (el precio no se guarda en la fila — un solo lugar donde
+  // cambiarlo), el método y la captura vienen de la 0128, y "verificado"
+  // = un admin aprobó la solicitud. Las rechazadas no son ingreso.
+  type SolicitudFila = {
+    id: string;
+    rancho_id: string;
+    solicitante_id: string;
+    plan: string;
+    estado: string;
+    created_at: string;
+    metodo_pago?: string | null;
+    comprobante_url?: string | null;
+  };
+  const solicitantesLealtad = new Map<string, string>();
+  const filasLealtad = ((solicitudesLealtadRes.data ?? []) as SolicitudFila[]).filter(
+    (s) => s.estado !== "rechazada" && (s.metodo_pago === "sinpe" || s.metodo_pago === "transferencia"),
+  );
+  if (filasLealtad.length > 0) {
+    const { data: perfilesSol } = await supabase
+      .from("perfiles")
+      .select("id, nombre")
+      .in("id", [...new Set(filasLealtad.map((s) => s.solicitante_id))]);
+    for (const p of (perfilesSol ?? []) as { id: string; nombre: string | null }[]) {
+      solicitantesLealtad.set(p.id, (p.nombre ?? "").trim());
+    }
+  }
+  for (const s of filasLealtad) {
+    const def = definicionDe(s.plan);
+    if (!def?.precioMensual) continue; // sin precio no hay monto que cuadrar
+    cobros.push({
+      id: `lealtad-${s.id}`,
+      fuente: "lealtad",
+      concepto: nombrePorRancho[s.rancho_id] ?? "(negocio)",
+      cliente: solicitantesLealtad.get(s.solicitante_id) ?? "",
+      paquete: `Plan ${def.nombre}`,
+      metodo: s.metodo_pago as Cobro["metodo"],
+      monto: def.precioMensual,
+      fecha: String(s.created_at ?? "").slice(0, 10),
+      confirmado: s.estado === "atendida",
+      comprobanteUrl: s.comprobante_url ?? null,
+    });
+  }
+
   cobros.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 
   return (

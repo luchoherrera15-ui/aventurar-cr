@@ -197,15 +197,46 @@ export default function LealtadPage() {
           <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
             Bookea Lealtad
           </p>
-          <h1 className="titulo mx-auto mt-5 max-w-[18ch] text-balance text-[clamp(32px,5.6vw,58px)] leading-[1.05]">
-            Que tus clientes vuelvan — y lo sientan.
+          {/* El ataque: la promesa es CRECER la clientela — el triple
+              beneficio en el orden en que el dueño lo siente. La
+              animación de al lado lo dibuja: el contador sube y los
+              avisos caen. */}
+          <h1 className="titulo mx-auto mt-5 max-w-[16ch] text-balance text-[clamp(34px,5.8vw,62px)] leading-[1.04]">
+            Más clientes. Más visitas. Más ventas.
           </h1>
-          <p className="mx-auto mt-4 max-w-[48ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60">
-            El pase vive de verdad en el teléfono de tu cliente. Mirá:
+          <p className="mx-auto mt-4 max-w-[52ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60">
+            El programa de lealtad que vive en el teléfono: tus clientes
+            acumulan sellos, vuelven más seguido — y te traen al siguiente.
           </p>
 
           <div className="relative mt-10 sm:mt-12" data-reveal>
             <HeroTelefono />
+          </div>
+
+          {/* Cómo funciona, en una línea de tres pasos — la versión
+              breve; el detalle vive en las escenas de más abajo. */}
+          <div className="mx-auto mt-10 grid max-w-[760px] gap-3 text-left sm:grid-cols-3">
+            {[
+              ["1", "Ponés el QR en tu mostrador", "El cliente lo escanea una vez y la tarjeta queda en su Wallet."],
+              ["2", "Cada visita suma sola", "Sellos o puntos, con tus reglas — el pase se actualiza al instante."],
+              ["3", "Canjean… y vuelven", "El premio los trae de vuelta, y la tarjeta se los recuerda a diario."],
+            ].map(([n, titulo, texto]) => (
+              <div
+                key={n}
+                data-reveal
+                className="rounded-2xl border border-white/12 p-4"
+                style={{ background: "rgba(255,255,255,.04)" }}
+              >
+                <span
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-extrabold text-white"
+                  style={{ background: NARANJA }}
+                >
+                  {n}
+                </span>
+                <p className="mt-2.5 text-[13.5px] font-extrabold text-white">{titulo}</p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-white/55">{texto}</p>
+              </div>
+            ))}
           </div>
 
           <p className="mt-8 flex items-center justify-center gap-2 text-[12.5px] font-bold text-white/45">

@@ -43,6 +43,14 @@ function IconQR({ className }: { className?: string }) {
   );
 }
 
+/** Los avisos que caen alrededor del teléfono: el negocio GANANDO
+ *  clientes en vivo — la promesa del titular, dibujada. */
+const AVISOS = [
+  { texto: "María se afilió con el QR", chip: "+1 cliente" },
+  { texto: "José sumó su sello — va 7/10", chip: "volvió" },
+  { texto: "Ana canjeó su premio y reservó otra vez", chip: "canje" },
+];
+
 export default function HeroTelefono() {
   return (
     <div
@@ -50,6 +58,55 @@ export default function HeroTelefono() {
       style={{ "--hero-dur": "7s" } as React.CSSProperties}
       className="relative mx-auto flex w-fit items-center justify-center"
     >
+      {/* El contador que sube: la promesa del titular en un número. */}
+      <div
+        className="absolute -left-10 top-2 z-10 hidden w-[168px] rounded-2xl border p-3.5 text-left md:block lg:-left-40"
+        style={{ background: "rgba(10,18,38,.92)", borderColor: "rgba(255,255,255,.14)" }}
+      >
+        <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-white/45">
+          Clientes este mes
+        </p>
+        <div className="relative mt-1 h-[30px]">
+          {[47, 48, 49].map((n, i) => (
+            <span
+              key={n}
+              className="anim-hero-cifra absolute left-0 top-0 text-[26px] font-extrabold leading-none text-white"
+              style={{ "--cifra-delay": `${(i * 7) / 3}s` } as React.CSSProperties}
+            >
+              {n}
+              <span className="ml-1.5 text-[11px] font-bold text-[#7de3a8]">
+                ▲ {i + 5} esta semana
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Los avisos cayendo a la derecha, uno por tercio del ciclo. */}
+      <div className="absolute -right-12 bottom-10 z-10 hidden w-[220px] flex-col gap-2 text-left md:flex lg:-right-48">
+        {AVISOS.map((a, i) => (
+          <div
+            key={a.texto}
+            className="anim-hero-chip flex items-start gap-2 rounded-xl border px-3 py-2.5"
+            style={
+              {
+                background: "rgba(10,18,38,.92)",
+                borderColor: "rgba(255,255,255,.14)",
+                "--chip-delay": `${(i * 7) / 3}s`,
+              } as React.CSSProperties
+            }
+          >
+            <span
+              className="mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
+              style={{ background: "rgba(238,116,32,.2)", color: "#ee7420" }}
+            >
+              {a.chip}
+            </span>
+            <span className="text-[11.5px] font-bold leading-snug text-white/85">{a.texto}</span>
+          </div>
+        ))}
+      </div>
+
       {/* El pase de Google Wallet, asomando detrás — quieto, apenas
           girado, como cuando Wallet apila más de un pase. */}
       <div

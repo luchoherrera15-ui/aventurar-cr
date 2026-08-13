@@ -89,11 +89,77 @@
     infinite both;
 }
 
+/* --- La capa de CRECIMIENTO --------------------------------------------
+   El titular promete "más clientes": alrededor del teléfono van cayendo
+   los avisos que el dueño vería en su panel — una afiliación, un sello,
+   un canje que volvió — y el contador de clientes del mes sube. Tres
+   chips en la misma línea de tiempo (--hero-dur), cada uno dueño de un
+   tercio del ciclo vía --chip-delay. */
+
+@keyframes hero-chip {
+  0%,
+  4% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.92);
+  }
+  9%,
+  26% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  32%,
+  100% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.95);
+  }
+}
+
+.anim-hero-chip {
+  animation: hero-chip var(--hero-dur, 7s) ease-in-out var(--chip-delay, 0s)
+    infinite both;
+}
+
+/* El contador: tres cifras apiladas que se turnan un tercio del ciclo
+   cada una — crossfade suave y el bucle cierra sin salto. */
+@keyframes hero-cifra {
+  0%,
+  27% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  33%,
+  94% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-hero-cifra {
+  animation: hero-cifra var(--hero-dur, 7s) ease-in-out var(--cifra-delay, 0s)
+    infinite both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .anim-hero-tap,
   .anim-hero-ping,
   .anim-hero-pop,
-  .anim-hero-pulso {
+  .anim-hero-pulso,
+  .anim-hero-chip {
     animation: none;
+  }
+  .anim-hero-chip {
+    opacity: 0; /* sin animación, tres chips apilados serían ruido */
+  }
+  .anim-hero-cifra {
+    animation: none;
+    opacity: 0;
+  }
+  /* La primera cifra queda fija como estado de reposo. */
+  .anim-hero-cifra:first-child {
+    opacity: 1;
   }
 }
