@@ -17,6 +17,32 @@ export function hoyISOCR(): string {
   }).format(new Date());
 }
 
+/**
+ * "YYYY-MM-DDTHH:MM" en hora de Costa Rica — el MINUTO en que pasó algo.
+ *
+ * Existe para las llaves de idempotencia del mostrador. La llave de un
+ * canje o de una acreditación se arma con quién, qué y en qué minuto
+ * (`llaveDeCanje`, src/lib/lealtad/canje.ts): dos toques del mismo
+ * botón dentro del mismo minuto producen la misma llave, y el segundo
+ * choca contra el índice único y no escribe nada.
+ *
+ * Por eso el minuto tiene que salir de UNA sola función. Si cada
+ * llamador lo calculara por su cuenta, uno usaría UTC y otro CR, las
+ * llaves no coincidirían en la frontera de la hora y el doble cobro
+ * volvería justo a las 6 de la tarde — el peor momento para que un
+ * mostrador falle.
+ *
+ * `sv-SE` y no `en-CA` porque acá hace falta fecha Y hora: es el único
+ * locale que escribe "2026-08-13 14:30" (ISO sin la T). Con `es-CR`
+ * saldría "13/8/2026, 2:30 p. m." y habría que parsearlo.
+ */
+export function minutoISOCR(t: Date = new Date()): string {
+  return t
+    .toLocaleString("sv-SE", { timeZone: TZ_CR, hour12: false })
+    .replace(" ", "T")
+    .slice(0, 16);
+}
+
 /** La fecha (YYYY-MM-DD) de un timestamp, vista desde Costa Rica. */
 export function fechaISOCR(t: Date): string {
   return new Intl.DateTimeFormat("en-CA", {

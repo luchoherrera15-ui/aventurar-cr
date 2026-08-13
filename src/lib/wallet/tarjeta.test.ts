@@ -28,6 +28,9 @@ function datos(extra: Partial<DatosTarjeta> = {}): DatosTarjeta {
     serialNumber: "PM-0001",
     passTypeIdentifier: "pass.lat.bookea.afiliacion",
     teamIdentifier: "425GBKXN83",
+    // Obligatorio desde el arreglo del cableado: un programa sin la
+    // config de la 0135 lo manda en null, pero lo manda.
+    beneficio: null,
     ...extra,
   };
 }

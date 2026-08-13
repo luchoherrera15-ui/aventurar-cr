@@ -5,7 +5,24 @@ import dynamic from "next/dynamic";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 import type { ProgramaFila, RecompensaFila, TipoRecompensa } from "./pases-actions";
 import { estadoDelPrograma } from "@/lib/lealtad/reglas";
-import { ProveedorPrograma, usePrograma } from "./programa-contexto";
+import {
+  AvisoError,
+  AvisoGuardado,
+  BarraGuardar,
+  NotaCercania,
+  ProveedorPrograma,
+  usePrograma,
+} from "./programa-contexto";
+import { BloqueDiseno } from "./seccion-tarjeta-digital";
+
+/**
+ * «Tarjeta digital» ES el editor nuevo (seccion-tarjeta-digital.tsx).
+ *
+ * Se re-exporta desde acá para que la página no cambie de import: el
+ * bloque viejo que vivía en este archivo —dos ruedas de color y un
+ * campo pidiendo la URL del logo— ya no existe.
+ */
+export { default as SeccionTarjeta } from "./seccion-tarjeta-digital";
 
 /**
  * El escáner se carga aparte y SOLO en el navegador.
@@ -115,7 +132,7 @@ export default function PasesPanel({
         <AvisoGuardado />
         <BloqueComoSeGana />
         <BloqueQueSeGana />
-        <BloqueComoSeVe />
+        <BloqueDiseno />
         <BloqueEstado />
         <BarraGuardar />
         <NotaCercania />
@@ -140,38 +157,7 @@ export function SeccionRecompensas() {
   );
 }
 
-/** Cómo se ve la tarjeta que el cliente lleva en el teléfono. */
-export function SeccionTarjeta() {
-  return (
-    <div className="space-y-5">
-      <AvisoError />
-      <AvisoGuardado />
-      <BloqueComoSeVe />
-      <BarraGuardar />
-      <NotaCercania />
-    </div>
-  );
-}
-
 // ── Los bloques ───────────────────────────────────────────────────
-
-function AvisoError() {
-  const { error } = usePrograma();
-  if (!error) return null;
-  return (
-    <p className="rounded-xl bg-red-50 px-3 py-2 text-[12.5px] font-bold text-red-700">{error}</p>
-  );
-}
-
-function AvisoGuardado() {
-  const { guardado } = usePrograma();
-  if (!guardado) return null;
-  return (
-    <p className="rounded-xl bg-aventurea-green-light px-3 py-2 text-[12.5px] font-bold text-aventurea-green">
-      Guardado. Las tarjetas nuevas ya salen con estos cambios.
-    </p>
-  );
-}
 
 function EscanerDelPanel() {
   const { ranchoId, programa, borrador, meta } = usePrograma();
@@ -420,87 +406,6 @@ function BloqueQueSeGana() {
   );
 }
 
-function BloqueComoSeVe() {
-  const { borrador, cambiar, meta } = usePrograma();
-
-  return (
-    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-      <h3 className="text-[15px] font-bold text-aventurea-ink">Cómo se ve la tarjeta</h3>
-
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className={labelCls}>Color de fondo</label>
-          <div className="flex gap-2">
-            <input
-              type="color"
-              value={borrador.colorFondo}
-              onChange={(e) => cambiar({ colorFondo: e.target.value })}
-              className="h-[42px] w-14 shrink-0 rounded-[10px] border border-aventurea-line"
-            />
-            <input
-              value={borrador.colorFondo}
-              onChange={(e) => cambiar({ colorFondo: e.target.value })}
-              className={inputCls}
-            />
-          </div>
-        </div>
-        <div>
-          <label className={labelCls}>Color del sello</label>
-          <div className="flex gap-2">
-            <input
-              type="color"
-              value={borrador.colorSello}
-              onChange={(e) => cambiar({ colorSello: e.target.value })}
-              className="h-[42px] w-14 shrink-0 rounded-[10px] border border-aventurea-line"
-            />
-            <input
-              value={borrador.colorSello}
-              onChange={(e) => cambiar({ colorSello: e.target.value })}
-              className={inputCls}
-            />
-          </div>
-        </div>
-        <div className="sm:col-span-2">
-          <label className={labelCls}>Logo del negocio (URL https)</label>
-          <input
-            value={borrador.logoUrl}
-            onChange={(e) => cambiar({ logoUrl: e.target.value })}
-            placeholder="Vacío = se escribe el nombre del negocio"
-            className={inputCls}
-          />
-          <p className={ayudaCls}>
-            Va arriba a la izquierda y dentro de cada sello. Sin logo, la tarjeta escribe el
-            nombre del negocio.
-          </p>
-        </div>
-      </div>
-
-      {/* Vista previa aproximada: la de verdad la dibuja Apple. */}
-      <div
-        className="mt-4 overflow-hidden rounded-2xl p-4"
-        style={{ backgroundColor: borrador.colorFondo }}
-      >
-        <p className="text-[15px] font-light text-white">
-          {borrador.logoUrl ? "· logo del negocio ·" : borrador.nombre}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {Array.from({ length: Math.min(meta?.costo_puntos ?? 10, 20) }, (_, i) => (
-            <span
-              key={i}
-              className="h-6 w-6 rounded-full"
-              style={{
-                backgroundColor: borrador.colorSello,
-                opacity: i < Math.ceil((meta?.costo_puntos ?? 10) / 2) ? 1 : 0.26,
-              }}
-            />
-          ))}
-        </div>
-        <p className="mt-3 text-right text-[10px] text-white/60">Powered by Bookea.lat</p>
-      </div>
-    </div>
-  );
-}
-
 /** El ciclo de vida del programa (0125). */
 function BloqueEstado() {
   const { programa, ocupado, cambiarEstado } = usePrograma();
@@ -546,37 +451,3 @@ function BloqueEstado() {
   );
 }
 
-function BarraGuardar() {
-  const { borrador, cambiar, ocupado, guardar } = usePrograma();
-  return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={guardar}
-        disabled={ocupado}
-        className="rounded-[10px] bg-aventurea-ink px-5 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
-      >
-        Guardar
-      </button>
-      <label className="flex items-center gap-2 text-[12.5px] font-bold text-aventurea-ink-soft">
-        <input
-          type="checkbox"
-          checked={borrador.activo}
-          onChange={(e) => cambiar({ activo: e.target.checked })}
-        />
-        Programa activo
-      </label>
-    </div>
-  );
-}
-
-function NotaCercania() {
-  const { tieneCercania } = usePrograma();
-  return (
-    <p className={ayudaCls}>
-      {tieneCercania
-        ? "Aviso por cercanía activo: la tarjeta aparece sola en la pantalla bloqueada cuando el cliente pasa cerca del local."
-        : "El aviso por cercanía —que la tarjeta salga sola cuando el cliente pasa cerca— es un complemento aparte."}
-    </p>
-  );
-}

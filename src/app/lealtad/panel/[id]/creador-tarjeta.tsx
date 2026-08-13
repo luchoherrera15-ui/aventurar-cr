@@ -11,6 +11,8 @@ import {
 import { Icono } from "./iconos";
 import SelectorTipo from "./selector-tipo";
 import PasoBeneficio, { Interruptor } from "./paso-beneficio";
+import SubirImagen from "@/components/subir-imagen";
+import CampoColor from "@/components/campo-color";
 import VistaPase from "./vista-pase";
 import { crearTarjeta, type BorradorTarjeta } from "./crear-actions";
 
@@ -80,11 +82,9 @@ const REGLAS_VACIAS: Reglas = {
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 export default function CreadorTarjeta({
-  cuentaId,
   ranchoId,
   negocioNombre,
 }: {
-  cuentaId: string | null;
   ranchoId: string;
   negocioNombre: string;
 }) {
@@ -100,6 +100,7 @@ export default function CreadorTarjeta({
   const [colorFondo, setColorFondo] = useState("#062653");
   const [colorSello, setColorSello] = useState("#FF6A00");
   const [logoUrl, setLogoUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
   const [reglas, setReglas] = useState<Reglas>(REGLAS_VACIAS);
 
   // Cambiar de tipo REEMPLAZA la config: los campos de una gift card
@@ -118,14 +119,14 @@ export default function CreadorTarjeta({
   function publicar() {
     setError(null);
     const borrador: BorradorTarjeta = {
-      cuentaId,
-      ranchoId,
+          ranchoId,
       nombre: nombre.trim(),
       tipo,
       beneficio,
       colorFondo,
       colorSello,
       logoUrl: logoUrl.trim(),
+      bannerUrl: bannerUrl.trim(),
       reglas,
     };
     guardar(async () => {
@@ -214,20 +215,39 @@ export default function CreadorTarjeta({
                 />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <ColorCampo id="c-fondo" label="Color de fondo" valor={colorFondo} alCambiar={setColorFondo} />
-                <ColorCampo id="c-sello" label="Color del acento" valor={colorSello} alCambiar={setColorSello} />
+                <CampoColor id="c-fondo" etiqueta="Color de fondo" valor={colorFondo} alCambiar={setColorFondo} />
+                <CampoColor id="c-sello" etiqueta="Color del acento" valor={colorSello} alCambiar={setColorSello} />
               </div>
-              <div>
-                <label className={etiqueta} htmlFor="c-logo">
-                  Logo (URL https)
-                </label>
-                <input
-                  id="c-logo"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="Vacío = se escribe el nombre del negocio"
-                  className={campo}
+              {/* Acá se pedía «Logo (URL https)», o sea que el dueño de
+                  una barbería tenía que subir su logo a algún lado,
+                  encontrar el link DIRECTO y comprobar que fuera https.
+                  La mitad pegaba el link de una carpeta de Drive —que
+                  no es una imagen— y se quedaba sin logo sin entender
+                  por qué. Ahora se arrastra el archivo y ya. */}
+              <div className="sm:col-span-2">
+                <SubirImagen
+                  etiqueta="Logo del negocio"
+                  valor={logoUrl}
+                  alCambiar={setLogoUrl}
+                  destino="logo"
+                  carpeta="lealtad/logos"
                 />
+                <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+                  Sin logo, la tarjeta escribe el nombre del negocio.
+                </p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <SubirImagen
+                  etiqueta="Banda de la tarjeta (opcional)"
+                  valor={bannerUrl}
+                  alCambiar={setBannerUrl}
+                  destino="banner"
+                  carpeta="lealtad/bandas"
+                />
+                <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+                  La franja de arriba del pase. Una foto de tu local o de lo que vendés.
+                </p>
               </div>
             </div>
           </section>
@@ -276,8 +296,24 @@ export default function CreadorTarjeta({
           </section>
         </div>
 
-        {/* ── Barra de navegación ──────────────────────────────── */}
-        <div className="sticky bottom-0 mt-6 flex items-center gap-2 border-t border-bookea-linea bg-white py-3">
+        {/* ── Barra de navegación ────────────────────────────────
+            `--hoja` y no `bg-white`. La clase blanca se re-mapea dentro
+            del panel oscuro a un blanco al 5% —o sea, casi transparente—
+            y una barra PEGAJOSA translúcida deja ver el formulario
+            pasando por detrás de los botones: se lee como si estuviera
+            rota, que es exactamente lo que se veía.
+
+            El token es opaco en los dos temas, así que la barra tapa lo
+            que pasa debajo tanto en la pantalla clara de /crear como
+            acá adentro.
+
+            Y el padding lateral es propio, con `rounded-b`: sin eso el
+            borde superior nacía y moría en un ancho distinto al de la
+            caja que la contiene, y la barra parecía cortada al costado. */}
+        <div
+          className="sticky bottom-0 -mx-1 mt-6 flex items-center gap-2 rounded-b-2xl border-t border-bookea-linea px-4 py-3.5"
+          style={{ background: "var(--hoja)" }}
+        >
           <button
             type="button"
             onClick={() => setPaso((p) => Math.max(0, p - 1))}
@@ -330,6 +366,7 @@ export default function CreadorTarjeta({
               colorFondo,
               colorSello,
               logoUrl: logoUrl.trim() || null,
+              bannerUrl: bannerUrl.trim() || null,
             }}
           />
         </div>
@@ -351,6 +388,7 @@ export default function CreadorTarjeta({
                 colorFondo,
                 colorSello,
                 logoUrl: logoUrl.trim() || null,
+              bannerUrl: bannerUrl.trim() || null,
               }}
             />
             <button
@@ -368,41 +406,6 @@ export default function CreadorTarjeta({
 }
 
 // ── Piezas ─────────────────────────────────────────────────────────
-
-function ColorCampo({
-  id,
-  label,
-  valor,
-  alCambiar,
-}: {
-  id: string;
-  label: string;
-  valor: string;
-  alCambiar: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className={etiqueta} htmlFor={id}>
-        {label}
-      </label>
-      <div className="flex gap-2">
-        <input
-          id={id}
-          type="color"
-          value={valor}
-          onChange={(e) => alCambiar(e.target.value)}
-          className="h-[42px] w-14 shrink-0 rounded-xl border border-bookea-linea"
-        />
-        <input
-          value={valor}
-          onChange={(e) => alCambiar(e.target.value)}
-          aria-label={`${label} en hexadecimal`}
-          className={campo}
-        />
-      </div>
-    </div>
-  );
-}
 
 /**
  * Paso 4. TODO arranca apagado: una tarjeta sin reglas es la que más

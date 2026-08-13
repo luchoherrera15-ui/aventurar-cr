@@ -34,11 +34,25 @@ type Demo = {
   regla: string;
   regalia: string;
   pasos: [string, string, string];
+  /**
+   * La banda del negocio en el pase (el `strip` de Apple).
+   * Que un barbero vea una barbería y no un degradado hace la
+   * diferencia entre «qué lindo» y «así se me vería a mí».
+   */
+  foto: string;
+  /**
+   * Un negocio REAL de esa categoría, ya publicado en Bookea, para
+   * quien no se conforma con la maqueta. Solo lo declaran las
+   * categorías que tienen uno de verdad: el resto no muestra el
+   * enlace en vez de mandar a una página de mentira.
+   */
+  ejemplo?: { href: string; texto: string };
 };
 
 const DEMOS: Record<string, Demo> = {
   restaurantes: {
     categoria: "Restaurantes",
+    foto: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=640&q=70",
     negocio: "Restaurante Doña Flor",
     // El caso de % de vuelto: la cuenta varía mucho de mesa a mesa, así
     // que premiar por MONTO es más justo que por visita.
@@ -56,6 +70,7 @@ const DEMOS: Record<string, Demo> = {
   },
   cafeterias: {
     categoria: "Cafeterías",
+    foto: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=640&q=70",
     negocio: "Café La Esquina",
     modo: "sellos",
     etiquetaCampo: "Sellos",
@@ -69,9 +84,14 @@ const DEMOS: Record<string, Demo> = {
       "Cada café suma un sello al instante, sin cartón que se pierda.",
       "El café gratis lo trae de vuelta mañana — y su tarjeta se lo recuerda.",
     ],
+    ejemplo: {
+      href: "/restaurantes/cafeoscuro",
+      texto: "Ver una cafetería de verdad",
+    },
   },
   barberias: {
     categoria: "Barberías",
+    foto: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=640&q=70",
     negocio: "Barbería El Patio",
     modo: "sellos",
     etiquetaCampo: "Cortes",
@@ -88,6 +108,7 @@ const DEMOS: Record<string, Demo> = {
   },
   salones: {
     categoria: "Salones de belleza",
+    foto: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=640&q=70",
     negocio: "Salón Karla",
     modo: "sellos",
     etiquetaCampo: "Visitas",
@@ -104,6 +125,7 @@ const DEMOS: Record<string, Demo> = {
   },
   spas: {
     categoria: "Spas",
+    foto: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=640&q=70",
     negocio: "Spa Serena",
     modo: "puntos",
     etiquetaCampo: "Puntos",
@@ -119,6 +141,7 @@ const DEMOS: Record<string, Demo> = {
   },
   gimnasios: {
     categoria: "Gimnasios",
+    foto: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=640&q=70",
     negocio: "Gimnasio Fuerza",
     modo: "sellos",
     etiquetaCampo: "Check-ins",
@@ -135,6 +158,7 @@ const DEMOS: Record<string, Demo> = {
   },
   lavacars: {
     categoria: "Lavacars",
+    foto: "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&w=640&q=70",
     negocio: "Lavacar El Rayo",
     modo: "sellos",
     etiquetaCampo: "Lavados",
@@ -289,6 +313,22 @@ export default async function DemoCategoriaPage({
                 Ver los paquetes
               </Link>
             </div>
+
+            {/* La prueba de que esto no es una maqueta: un local de la
+                misma categoría, publicado y con su carta puesta. Va
+                DEBAJO y en texto, no en botón — el llamado comercial
+                sigue siendo «Quiero esto en mi negocio». */}
+            {demo.ejemplo && (
+              <p className="mt-4 text-[13px] text-white/45">
+                <Link
+                  href={demo.ejemplo.href}
+                  className="font-bold text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline"
+                >
+                  {demo.ejemplo.texto} →
+                </Link>{" "}
+                — ese sí existe, con su carta y sus precios.
+              </p>
+            )}
           </div>
 
           {/* ── La tarjeta de ejemplo ── */}
@@ -296,6 +336,7 @@ export default async function DemoCategoriaPage({
             <PaseWallet
               marca="apple"
               negocio={demo.negocio}
+              foto={demo.foto}
               etiquetaCampo={demo.etiquetaCampo}
               valorCampo={demo.valor}
               colorFondo={NAVY_PROFUNDO}

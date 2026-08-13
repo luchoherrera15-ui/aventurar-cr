@@ -2,7 +2,21 @@ import { createSign } from "node:crypto";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { consultarSaldo } from "@/lib/lealtad/motor";
-import { coloresDe, metaDeSellos, type ConfigPase } from "./tarjeta";
+import {
+  camposSegunModo,
+  coloresDe,
+  metaDeSellos,
+  tarjetaDesdeFila,
+  type ConfigPase,
+  type MetaRecompensa,
+} from "./tarjeta";
+import {
+  tipoDe,
+  TIPOS_HEREDADOS,
+  TIPOS_TARJETA,
+  type ConfigBeneficio,
+  type TipoTarjeta,
+} from "@/lib/lealtad/tipos-tarjeta";
 
 /**
  * Pases de lealtad en GOOGLE Wallet (Android) — el espejo de Apple.
@@ -120,6 +134,19 @@ export function idDeObjeto(issuerId: string, miembroId: string): string {
 
 // ── Los recursos, como los quiere la API ──────────────────────────────
 
+/** Una imagen como las pide la API: la URL y su texto alternativo. */
+type ImagenGoogle = {
+  sourceUri: { uri: string };
+  contentDescription: { defaultValue: { language: string; value: string } };
+};
+
+function imagenGoogle(uri: string, descripcion: string): ImagenGoogle {
+  return {
+    sourceUri: { uri },
+    contentDescription: { defaultValue: { language: "es", value: descripcion } },
+  };
+}
+
 export function construirClase({
   issuerId,
   ranchoId,
@@ -136,68 +163,172 @@ export function construirClase({
     id: idDeClase(issuerId, ranchoId),
     issuerName: "Bookea",
     programName: nombreNegocio,
-    programLogo: {
-      sourceUri: { uri: config.pase_logo_url || LOGO_BOOKEA },
-      contentDescription: {
-        defaultValue: { language: "es", value: `Logo de ${nombreNegocio}` },
-      },
-    },
+    programLogo: imagenGoogle(config.pase_logo_url || LOGO_BOOKEA, `Logo de ${nombreNegocio}`),
     hexBackgroundColor: colores.fondo,
     countryCode: "CR",
     reviewStatus: "UNDER_REVIEW",
   };
 }
 
+/**
+ * Cómo se llama el número grande de la tarjeta en Android.
+ *
+ * Es un Record COMPLETO sobre `TipoTarjeta` y no un ternario: antes
+ * eran tres tipos escritos a mano y los otros CINCO caían en «Puntos»,
+ * o sea cinco tarjetas distintas mostrando la misma palabra
+ * equivocada. Así el catálogo manda: el día que se agregue un noveno
+ * tipo esto no compila hasta que alguien decida cómo se llama su saldo.
+ *
+ * En minúscula-inicial porque Google lo dibuja tal cual; Apple usa
+ * mayúsculas por su propio layout (`camposSegunModo`).
+ */
+const ETIQUETA_SALDO: Record<TipoTarjeta, string> = {
+  sellos: "Sellos",
+  puntos: "Puntos",
+  cupon: "Cupón",
+  descuento: "Descuento",
+  membresia: "Membresía",
+  giftcard: "Saldo",
+  evento: "Entrada",
+  cashback: "Saldo",
+};
+
+type ModuloDeTexto = { id: string; header: string; body: string };
+
+/**
+ * Lo que CAMBIA dentro del LoyaltyObject: el saldo y su explicación.
+ *
+ * Vive afuera de `construirObjeto` porque hay dos caminos que escriben
+ * lo mismo —crear el objeto y el PATCH que lo refresca en cada sello—
+ * y estaban duplicados, cada uno con su propio ternario de tres tipos.
+ * Un pase que se CREA diciendo una cosa y se REFRESCA diciendo otra es
+ * el bug que nadie reporta: aparece solo después, sin que nadie toque
+ * nada.
+ *
+ * El texto sale de `camposSegunModo`, el mismo que arma el pase de
+ * Apple: el iPhone y el Android de dos clientes del mismo negocio
+ * tienen que decir lo mismo.
+ *
+ * Recibe la CONFIG entera y no solo el modo: la banda del negocio
+ * (0132) es parte de lo que el objeto muestra, y si esta función
+ * hubiera seguido recibiendo un campo suelto habría hecho falta
+ * agregarlo en los dos caminos a mano — que es exactamente la forma en
+ * que un pase nace con foto y la pierde al primer sello.
+ */
+export function contenidoDelObjeto({
+  negocioNombre,
+  saldo,
+  config,
+  meta,
+  beneficio,
+}: {
+  negocioNombre: string;
+  saldo: number;
+  config: ConfigPase;
+  meta: MetaRecompensa;
+  beneficio: ConfigBeneficio | null;
+}): {
+  loyaltyPoints: { label: string; balance: { int: number } | { string: string } };
+  textModulesData?: ModuloDeTexto[];
+  heroImage?: ImagenGoogle;
+} {
+  const tipo = tipoDe(config.modo);
+  const campos = camposSegunModo({ negocioNombre, saldo, meta, config, beneficio });
+
+  const modulos: ModuloDeTexto[] = [];
+  if (TIPOS_HEREDADOS.includes(tipo)) {
+    // La meta de un programa de los viejos vive en `recompensas`: es el
+    // «5 de 10» de toda la vida y se deja intacto.
+    const total = metaDeSellos(meta);
+    if (meta) {
+      modulos.push({
+        id: "meta",
+        header: meta.nombre,
+        body:
+          total !== null
+            ? `${Math.min(saldo, total)} de ${total} — al completarlos es tuya.`
+            : `Cuesta ${meta.costo_puntos} puntos.`,
+      });
+    }
+  } else if (campos.detalle.value.trim()) {
+    // Los tipos de la 0135 llevan su promesa en `beneficio`, no en una
+    // recompensa: acá va lo que el cliente necesita saber para usarla
+    // (cómo se cobra el cupón, qué da la membresía, dónde es el evento).
+    modulos.push({
+      id: "beneficio",
+      header: enTitulo(campos.detalle.label),
+      body: campos.detalle.value,
+    });
+  }
+
+  // La banda del negocio: el equivalente del `strip.png` de Apple. Va
+  // en el OBJETO y no en la clase porque la clase es del negocio y el
+  // objeto es del cliente — y porque así el mismo PATCH que refresca el
+  // saldo la mantiene, sin un segundo camino que se pueda olvidar.
+  //
+  // Solo si hay foto: un `heroImage` sin URI hace que Google rechace el
+  // objeto entero, y el pase no se emite. Ojo con el otro lado de eso —
+  // como el refresco es un PATCH, QUITAR la banda del editor no la
+  // borra del objeto ya creado; se queda con la última que tuvo.
+  const banda = config.pase_banner_url ?? null;
+
+  return {
+    loyaltyPoints: {
+      label: ETIQUETA_SALDO[tipo],
+      // Un cupón o una entrada no tienen saldo que crezca: mostrar un
+      // «0» sería mentirle al cliente sobre lo que tiene en la mano.
+      // `balance` acepta int o string, y acá el string ES el beneficio.
+      balance: TIPOS_TARJETA[tipo].acumula ? { int: saldo } : { string: campos.encabezado.value },
+    },
+    ...(modulos.length > 0 ? { textModulesData: modulos } : {}),
+    ...(banda ? { heroImage: imagenGoogle(banda, `Banda de ${negocioNombre}`) } : {}),
+  };
+}
+
+/** «CÓMO SE USA» (mayúsculas de Apple) → «Cómo se usa» (Google). */
+function enTitulo(texto: string): string {
+  const minuscula = texto.toLocaleLowerCase("es-CR");
+  return minuscula.charAt(0).toLocaleUpperCase("es-CR") + minuscula.slice(1);
+}
+
 export function construirObjeto({
   issuerId,
   ranchoId,
   miembroId,
+  nombreNegocio,
   nombreCliente,
   serial,
   saldo,
-  modo,
+  config,
   meta,
+  beneficio,
 }: {
   issuerId: string;
   ranchoId: string;
   miembroId: string;
+  nombreNegocio: string;
   nombreCliente: string;
   /** El MISMO serial de pases_wallet: es lo que lee el escáner. */
   serial: string;
   saldo: number;
-  modo: ConfigPase["modo"];
-  meta: { nombre: string; costo_puntos: number } | null;
+  /** La apariencia del pase, tal como sale de `tarjetaDesdeFila`. */
+  config: ConfigPase;
+  meta: MetaRecompensa;
+  /** La config propia del tipo (0135). null = programa anterior. */
+  beneficio: ConfigBeneficio | null;
 }) {
-  const total = metaDeSellos(meta);
   return {
     id: idDeObjeto(issuerId, miembroId),
     classId: idDeClase(issuerId, ranchoId),
     state: "ACTIVE",
     accountId: miembroId,
     accountName: nombreCliente,
-    loyaltyPoints: {
-      label: (modo ?? "puntos") === "sellos" ? "Sellos" : modo === "cashback" ? "Saldo" : "Puntos",
-      balance: { int: saldo },
-    },
     barcode: {
       type: "QR_CODE",
       value: serial,
       alternateText: "Tarjeta Bookea",
     },
-    ...(meta
-      ? {
-          textModulesData: [
-            {
-              id: "meta",
-              header: meta.nombre,
-              body:
-                total !== null
-                  ? `${Math.min(saldo, total)} de ${total} — al completarlos es tuya.`
-                  : `Cuesta ${meta.costo_puntos} puntos.`,
-            },
-          ],
-        }
-      : {}),
+    ...contenidoDelObjeto({ negocioNombre: nombreNegocio, saldo, config, meta, beneficio }),
   };
 }
 
@@ -292,14 +423,11 @@ export async function generarPaseGoogle({
   if (!programaFila) {
     return { ok: false, motivo: "Este negocio todavía no tiene programa de lealtad." };
   }
-  const programa = programaFila as {
-    id: string;
-    activo: boolean;
-    modo: string | null;
-    pase_color_fondo: string | null;
-    pase_color_sello: string | null;
-    pase_logo_url: string | null;
-  };
+  const programa = programaFila as { id: string; activo: boolean };
+  // Apariencia y beneficio de la fila, con el MISMO lector que Apple
+  // (tarjeta.ts). Antes cada plataforma casteaba la fila a su propia
+  // lista de columnas escrita a mano y ninguna incluía `beneficio`.
+  const { config, beneficio } = tarjetaDesdeFila(programaFila as Record<string, unknown>);
 
   // Afiliación implícita, igual que en Apple: pedir la tarjeta ES unirse.
   let { data: miembro } = await db
@@ -383,13 +511,6 @@ export async function generarPaseGoogle({
     .eq("id", clienteId)
     .maybeSingle();
 
-  const config: ConfigPase = {
-    modo: programa.modo as ConfigPase["modo"],
-    pase_color_fondo: programa.pase_color_fondo as string | null,
-    pase_color_sello: programa.pase_color_sello as string | null,
-    pase_logo_url: programa.pase_logo_url as string | null,
-  };
-
   try {
     await asegurarRecurso(
       cred,
@@ -403,13 +524,17 @@ export async function generarPaseGoogle({
         issuerId: cred.issuerId,
         ranchoId,
         miembroId: miembro!.id,
+        nombreNegocio: negocio.nombre,
         nombreCliente: ((perfil?.nombre as string | null) ?? "").trim() || "Cliente",
         serial: pase!.serial_number as string,
         saldo,
-        modo: config.modo,
+        // La config ENTERA: de acá sale también la banda del negocio.
+        config,
         meta: recompensa
           ? { nombre: recompensa.nombre as string, costo_puntos: recompensa.costo_puntos as number }
           : null,
+        // Lo que hace que un cupón diga «30% OFF» y no «Puntos 0».
+        beneficio,
       }),
     );
   } catch (e) {
@@ -458,11 +583,27 @@ export async function refrescarPaseGoogleDeMiembro(miembroId: string): Promise<v
       .maybeSingle();
     if (!miembro) return;
 
-    const { data: programa } = await db
+    // `select *` y no `modo, beneficio`: la 0135 puede no estar
+    // corrida y pedir la columna por nombre haría fallar la consulta
+    // entera, dejando el pase sin refrescar sin decir por qué.
+    const { data: programaFila } = await db
       .from("programa_lealtad")
-      .select("modo")
+      .select("*")
       .eq("id", miembro.programa_id)
       .maybeSingle();
+    const programa = (programaFila ?? {}) as Record<string, unknown>;
+    const { config, beneficio } = tarjetaDesdeFila(programa);
+
+    // El nombre del negocio es el respaldo del «dónde» de un evento.
+    let nombreNegocio = "";
+    if (typeof programa.rancho_id === "string") {
+      const { data: negocio } = await db
+        .from("ranchos")
+        .select("nombre")
+        .eq("id", programa.rancho_id)
+        .maybeSingle();
+      nombreNegocio = ((negocio?.nombre as string | null) ?? "").trim();
+    }
 
     const saldo = (await consultarSaldo(miembroId)) ?? 0;
     const { data: recompensa } = await db
@@ -474,36 +615,19 @@ export async function refrescarPaseGoogleDeMiembro(miembroId: string): Promise<v
       .limit(1)
       .maybeSingle();
 
-    const meta = recompensa
+    const meta: MetaRecompensa = recompensa
       ? { nombre: recompensa.nombre as string, costo_puntos: recompensa.costo_puntos as number }
       : null;
-    const total = metaDeSellos(meta);
 
-    const parche = {
-      loyaltyPoints: {
-        label:
-          ((programa?.modo as string | null) ?? "puntos") === "sellos"
-            ? "Sellos"
-            : programa?.modo === "cashback"
-              ? "Saldo"
-              : "Puntos",
-        balance: { int: saldo },
-      },
-      ...(meta
-        ? {
-            textModulesData: [
-              {
-                id: "meta",
-                header: meta.nombre,
-                body:
-                  total !== null
-                    ? `${Math.min(saldo, total)} de ${total} — al completarlos es tuya.`
-                    : `Cuesta ${meta.costo_puntos} puntos.`,
-              },
-            ],
-          }
-        : {}),
-    };
+    // El MISMO armado que usa la creación: el PATCH no puede decir algo
+    // distinto de lo que el pase decía al nacer.
+    const parche = contenidoDelObjeto({
+      negocioNombre: nombreNegocio,
+      saldo,
+      config,
+      meta,
+      beneficio,
+    });
 
     const res = await llamarApi(
       cred,
@@ -517,11 +641,27 @@ export async function refrescarPaseGoogleDeMiembro(miembroId: string): Promise<v
       console.warn(`[google-wallet] PATCH respondió ${res.status}: ${JSON.stringify(res.json).slice(0, 200)}`);
     }
 
-    await db
-      .from("pases_wallet")
-      .update({ saldo_cache: saldo, actualizado_en: new Date().toISOString() })
-      .eq("miembro_id", miembroId)
-      .eq("plataforma", "google");
+    // ── EL ESPEJO SOLO SE ESCRIBE SI EL PATCH ENTRÓ ────────────────
+    // Antes esto corría siempre, incluso justo después del `warn` de un
+    // PATCH fallido. El resultado era la peor combinación posible: el
+    // panel mostrando un saldo que el teléfono del cliente NO tiene, y
+    // sin ninguna señal de que divergieron. En el mostrador eso es una
+    // discusión con el cliente y la palabra del negocio en duda.
+    //
+    // Si el PATCH no entró, `saldo_cache` se queda con el valor viejo
+    // —que es el que el teléfono sigue mostrando—, o sea que el panel y
+    // el pase siguen diciendo lo MISMO aunque los dos estén atrasados.
+    // Dos fuentes de acuerdo valen más que una adelantada y una atrás.
+    //
+    // La verdad siempre es `transacciones_puntos`; esto es solo el
+    // espejo para pintar sin sumar el ledger.
+    if (res.status < 300) {
+      await db
+        .from("pases_wallet")
+        .update({ saldo_cache: saldo, actualizado_en: new Date().toISOString() })
+        .eq("miembro_id", miembroId)
+        .eq("plataforma", "google");
+    }
   } catch (e) {
     console.warn("[google-wallet] No se pudo refrescar el pase:", e);
   }

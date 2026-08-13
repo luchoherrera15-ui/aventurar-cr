@@ -549,8 +549,13 @@ export function Interruptor({
         className="relative mt-0.5 h-[22px] w-[40px] shrink-0 rounded-full transition-colors"
         style={{ background: activo ? "var(--orange)" : "var(--line)" }}
       >
+        {/* La perilla se pinta con `style` y no con `bg-white`: dentro
+            del panel oscuro, `.lealtad-oscuro .bg-white` se re-mapea a
+            un blanco al 5% y la perilla desaparecía sobre el naranja —
+            el interruptor se veía apagado estando encendido. */}
         <span
-          className={`absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-white transition-transform duration-200 ${
+          style={{ background: "#ffffff" }}
+          className={`absolute left-[3px] top-[3px] h-4 w-4 rounded-full transition-transform duration-200 ${
             activo ? "translate-x-[18px]" : ""
           }`}
         />

@@ -2,7 +2,25 @@
    Dos vidas: en pantalla es una hoja centrada con su barra de acciones;
    al imprimir, la hoja ES la página (A4) y todo lo demás desaparece.
 
-   Las medidas van en milímetros a propósito: es papel, no pantalla. */
+   Las medidas van en milímetros a propósito: es papel, no pantalla.
+
+   CINCO ESTILOS, UNA SOLA MARCACIÓN
+   El estilo llega en `data-estilo` sobre `.poster-hoja` y de ahí cuelga
+   todo. Son cinco LAYOUTS y no cinco paletas: cambia dónde cae el QR,
+   cuánto pesa el título, si hay foto, si hay marco. Si solo cambiara el
+   color sería un diseño disfrazado de cinco.
+
+   La paleta y la tipografía de cada estilo se escriben sobre
+   `.poster-hoja[data-estilo=…]` y no sobre `[data-estilo=…]` a secas:
+   las miniaturas del selector también llevan el atributo, y sin la
+   clase heredarían la crema del clásico o la mono del ticket.
+
+   EL PRESUPUESTO DE ALTO
+   La hoja mide 100cqw de ancho y 141.4cqw de alto (A4). Todo lo de
+   adentro se mide en cqw, así que ese 141.4 es el techo REAL de cada
+   estilo — y hay que sumar a mano: `overflow: hidden` no avisa, recorta.
+   Antes de esto la hoja pedía ~176cqw y el pie salía cortado en papel.
+   Cada estilo de acá abajo lleva su cuenta anotada. */
 
 .poster-pantalla {
   min-height: 100svh;
@@ -49,66 +67,247 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* La hoja: proporción A4 exacta para que lo que se ve sea lo que sale
-   por la impresora. */
+/* --- El selector de diseño (nunca va al papel) -----------------------
+   Vive fuera de la hoja a propósito: es una decisión de quien imprime,
+   no parte del cartel. */
+
+.poster-estilos {
+  width: min(210mm, 100%);
+}
+
+.poster-estilos-titulo {
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.poster-estilos-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.poster-estilos-lista li {
+  flex: 1 1 150px;
+}
+
+.poster-estilo {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+}
+.poster-estilo:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+.poster-estilo:focus-visible {
+  outline: 2px solid #ee7420;
+  outline-offset: 2px;
+}
+/* El elegido con borde naranja Y con el nombre en blanco: el color solo
+   no alcanza si alguien no lo distingue. */
+.poster-estilo.es-elegido {
+  border-color: #ee7420;
+  background: rgba(238, 116, 32, 0.12);
+}
+
+.poster-estilo-nombre {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.65);
+}
+.poster-estilo.es-elegido .poster-estilo-nombre {
+  color: #fff;
+}
+.poster-estilo-nota {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Las miniaturas: cada una es la SILUETA de su estilo (dónde cae el QR,
+   si hay banda de foto, si hay marco). Se dibujan con dos
+   pseudo-elementos y no con imágenes: cinco PNG que habría que volver a
+   exportar cada vez que un layout cambia se desactualizan en la primera
+   corrección. */
+.poster-mini {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 42px;
+  border-radius: 3px;
+  background: #fff;
+  overflow: hidden;
+}
+/* El cuadradito blanco es el QR; `--y` lo sube o lo baja. */
+.poster-mini::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: var(--y, 50%);
+  translate: -50% -50%;
+  width: var(--qr, 16px);
+  height: var(--qr, 16px);
+  background: #0a1226;
+}
+.poster-mini[data-estilo="minimalista"] {
+  --qr: 20px;
+}
+.poster-mini[data-estilo="audaz"] {
+  --qr: 13px;
+  --y: 65%;
+  background: var(--poster-marca);
+}
+/* La banda del título, que en audaz es lo que se ve desde lejos. */
+.poster-mini[data-estilo="audaz"]::before {
+  content: "";
+  position: absolute;
+  inset: 5px 5px auto;
+  height: 9px;
+  background: rgba(255, 255, 255, 0.9);
+}
+.poster-mini[data-estilo="clasico"] {
+  --qr: 13px;
+  background: #f6efe1;
+  box-shadow: inset 0 0 0 1px rgba(10, 18, 38, 0.45);
+}
+.poster-mini[data-estilo="vitrina"] {
+  --qr: 12px;
+  --y: 72%;
+}
+/* La foto: la mitad de arriba, que es todo el estilo. */
+.poster-mini[data-estilo="vitrina"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 58% 0;
+  background: linear-gradient(135deg, var(--poster-marca), var(--poster-acento));
+}
+.poster-mini[data-estilo="ticket"] {
+  --qr: 13px;
+  background: #fbfaf7;
+  box-shadow: inset 0 0 0 1px #0a1226;
+}
+.poster-mini[data-estilo="ticket"]::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px dashed rgba(10, 18, 38, 0.5);
+}
+/* El personalizado se dibuja como lo que es: renglones para escribir. */
+.poster-mini[data-estilo="personalizado"] {
+  --qr: 11px;
+  --y: 64%;
+  box-shadow: inset 0 0 0 1px rgba(10, 18, 38, 0.25);
+}
+.poster-mini[data-estilo="personalizado"]::before {
+  content: "";
+  position: absolute;
+  inset: 5px 6px auto;
+  height: 3px;
+  background: var(--poster-acento);
+  box-shadow:
+    0 6px 0 -0.5px rgba(10, 18, 38, 0.3),
+    0 11px 0 -0.5px rgba(10, 18, 38, 0.3);
+}
+
+/* --- La hoja ---------------------------------------------------------
+   Proporción A4 exacta para que lo que se ve sea lo que sale por la
+   impresora. */
 .poster-hoja {
+  /* Los dos colores del negocio los pone la página en el `style`. Estos
+     valores son el respaldo por si alguna vez llega sin ellos. */
+  --poster-marca: #002472;
+  --poster-acento: #f39200;
+  --poster-papel: #ffffff;
+  --poster-tinta: #101828;
+  --poster-suave: rgba(16, 24, 40, 0.6);
+
   width: min(210mm, 100%);
   aspect-ratio: 210 / 297;
   border-radius: 6px;
   box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.7);
   overflow: hidden;
   container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  background: var(--poster-papel);
+  color: var(--poster-tinta);
 }
 
 /* Todo el interior se mide en cqw (porcentaje del ancho de la hoja):
    así la hoja se ve idéntica en el teléfono, en la compu y en papel —
    una sola maqueta en vez de tres juegos de breakpoints. */
 .poster-cuerpo {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 3cqw;
-  padding: 7cqw 8cqw;
+  gap: 2cqw;
+  padding: 7cqw;
   text-align: center;
-  color: #fff;
+}
+
+.poster-encabezado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5cqw;
 }
 
 .poster-logo {
-  width: 18cqw;
-  height: 18cqw;
+  width: 11cqw;
+  height: 11cqw;
   border-radius: 999px;
   object-fit: cover;
-  border: 0.6cqw solid rgba(255, 255, 255, 0.9);
   background: #fff;
 }
 
 .poster-negocio {
-  font-size: 4.6cqw;
+  font-size: 3.8cqw;
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  opacity: 0.85;
 }
 
 .poster-titulo {
-  font-size: 9.5cqw;
+  font-size: 8cqw;
   font-weight: 800;
-  line-height: 1.05;
+  line-height: 1.08;
   letter-spacing: -0.02em;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+/* El copy trae el corte en `\n`: la línea la decide quien escribió el
+   texto, no el ancho que le toque a la caja. */
+.poster-linea {
+  display: block;
+}
+
+.poster-foco {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2cqw;
 }
 
 /* El QR sobre blanco SIEMPRE: es lo único que la cámara tiene que
-   leer, y sobre un fondo de color la lectura falla. */
+   leer, y sobre un fondo de color la lectura falla.
+
+   Y nunca por debajo de ~35mm: más chico, la cámara del teléfono no
+   engancha el foco a la distancia a la que uno se para frente a una
+   caja. 35mm sobre 210mm de hoja = 16.7cqw, así que ningún estilo baja
+   de 30cqw y quedan de sobra. */
 .poster-qr {
-  width: 46cqw;
-  height: 46cqw;
-  padding: 2cqw;
+  width: 36cqw;
+  height: 36cqw;
+  padding: 1.8cqw;
   background: #fff;
-  border-radius: 3cqw;
-  box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.25);
+  border-radius: 2cqw;
 }
 .poster-qr svg {
   width: 100%;
@@ -117,68 +316,733 @@
 }
 
 .poster-escanea {
-  font-size: 3.6cqw;
+  font-size: 3.4cqw;
   font-weight: 700;
-  opacity: 0.85;
 }
 
 .poster-premio {
-  border: 0.5cqw solid;
+  border: 0.45cqw solid var(--poster-acento);
   border-radius: 3cqw;
-  padding: 2.4cqw 5cqw;
-  background: rgba(255, 255, 255, 0.1);
+  padding: 2cqw 4.5cqw;
 }
 .poster-premio-etiqueta {
   display: block;
-  font-size: 3cqw;
+  font-size: 2.7cqw;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  color: var(--poster-acento);
 }
 .poster-premio-nombre {
   display: block;
-  margin-top: 0.6cqw;
-  font-size: 5.4cqw;
+  margin-top: 0.5cqw;
+  font-size: 4.4cqw;
   font-weight: 800;
   line-height: 1.15;
 }
 
 .poster-pasos {
   display: grid;
-  gap: 1.6cqw;
+  gap: 1.4cqw;
   width: 100%;
   text-align: left;
-  font-size: 3.4cqw;
+  font-size: 3.1cqw;
   line-height: 1.35;
 }
 .poster-pasos li {
   display: flex;
   align-items: center;
-  gap: 2.4cqw;
+  gap: 2.2cqw;
 }
 .poster-num {
   flex: none;
-  width: 6cqw;
-  height: 6cqw;
+  width: 5cqw;
+  height: 5cqw;
   border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3.2cqw;
+  font-size: 2.8cqw;
   font-weight: 800;
   color: #fff;
+  background: var(--poster-acento);
+}
+
+/* El cierre de la hoja: las insignias de Wallet y —si el dueño lo deja
+   puesto— el pie. El `margin-top: auto` vive acá y no en el pie: es lo
+   que empuja el bloque contra el borde de abajo del papel, y con el pie
+   apagado las insignias tienen que quedarse igual donde estaban. */
+.poster-cierre {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1cqw;
+  width: 100%;
 }
 
 .poster-pie {
-  margin-top: auto;
-  font-size: 2.8cqw;
-  opacity: 0.75;
+  font-size: 2.4cqw;
+  color: var(--poster-suave);
 }
 .poster-marca {
   display: block;
-  margin-top: 0.8cqw;
-  font-size: 2.4cqw;
-  opacity: 0.7;
+  margin-top: 0.7cqw;
+  font-size: 2.1cqw;
+}
+
+/* Las insignias de Wallet.
+
+   Heredan la tinta neutra del cierre y NINGÚN estilo las pinta con el
+   color del negocio: un logo ajeno teñido es lo primero que rechaza
+   una revisión de marca. Cuando se reemplacen por el arte oficial
+   (ver `marcas-wallet.tsx`), esa regla tiene que sobrevivir. */
+.poster-wallets {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3cqw;
+  color: var(--poster-suave);
+}
+.poster-wallet {
+  display: flex;
+  align-items: center;
+  gap: 1cqw;
+}
+.poster-wallet-glifo {
+  flex: none;
+  width: 3.4cqw;
+  height: auto;
+}
+.poster-wallet-nombre {
+  font-size: 2.3cqw;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+/* La banda de foto. Solo la dibuja el estilo que la usa (`usaFoto` en
+   `plantillas-poster`), y si el programa no tiene banner queda el
+   degradado de los dos colores del negocio: nunca un hueco gris. */
+.poster-foto {
+  flex: none;
+  position: relative;
+  background: linear-gradient(135deg, var(--poster-marca), var(--poster-acento));
+}
+.poster-foto-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ====================================================================
+   1. MINIMALISTA — papel blanco, muchísimo aire, el QR enorme al centro
+   ====================================================================
+   Casi sin texto: acá el QR ES el cartel. Los tres pasos se esconden a
+   propósito — quien está a un metro de un QR de 10cm ya sacó el
+   teléfono, y el instructivo solo le roba el aire a la hoja.
+
+   Alto: 18 (padding) + 16 (4 gaps) + 19.6 + 13.6 + 54.5 + 9 + 10.3 =
+   141 de 141.4. */
+[data-estilo="minimalista"] .poster-cuerpo {
+  justify-content: center;
+  gap: 4cqw;
+  padding: 9cqw;
+}
+[data-estilo="minimalista"] .poster-logo {
+  width: 13cqw;
+  height: 13cqw;
+}
+[data-estilo="minimalista"] .poster-negocio {
+  font-size: 3.6cqw;
+  color: var(--poster-suave);
+}
+[data-estilo="minimalista"] .poster-titulo {
+  font-size: 6.2cqw;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+[data-estilo="minimalista"] .poster-qr {
+  width: 44cqw;
+  height: 44cqw;
+  padding: 2cqw;
+  border-radius: 0;
+  box-shadow: 0 0 0 0.25cqw rgba(16, 24, 40, 0.12);
+}
+[data-estilo="minimalista"] .poster-escanea {
+  font-size: 3.4cqw;
+  font-weight: 600;
+  color: var(--poster-suave);
+}
+/* El premio sin caja: una línea, que es todo lo que este estilo tolera
+   sin dejar de ser minimalista. */
+[data-estilo="minimalista"] .poster-premio {
+  border: 0;
+  padding: 0;
+}
+[data-estilo="minimalista"] .poster-premio-nombre {
+  font-size: 4.6cqw;
+}
+[data-estilo="minimalista"] .poster-pasos {
+  display: none;
+}
+[data-estilo="minimalista"] .poster-cierre {
+  margin-top: 0;
+}
+
+/* ====================================================================
+   2. AUDAZ — el color del negocio inunda la hoja
+   ====================================================================
+   Para el local con tránsito: el título tiene que leerse desde la otra
+   punta. Todo alineado a la izquierda (un bloque de texto centrado a
+   ese tamaño se lee peor), y el QR sobre una tarjeta blanca — sobre el
+   color no se escanea.
+
+   Los tres pasos pasan a una fila de tres columnas: apilados le comían
+   30cqw al título, que es lo único que este estilo tiene que gritar.
+
+   Alto: 14 (padding) + 11.5 (5 gaps) + 10 + 21 + 49 + 12.8 + 12 + 10.3
+   = 140.6 de 141.4. */
+.poster-hoja[data-estilo="audaz"] {
+  --poster-papel: var(--poster-marca);
+  --poster-tinta: #ffffff;
+  --poster-suave: rgba(255, 255, 255, 0.72);
+}
+[data-estilo="audaz"] .poster-cuerpo {
+  align-items: stretch;
+  gap: 2.3cqw;
+  padding: 7cqw;
+  text-align: left;
+}
+[data-estilo="audaz"] .poster-encabezado {
+  flex-direction: row;
+  align-items: center;
+  gap: 2.5cqw;
+}
+[data-estilo="audaz"] .poster-logo {
+  width: 10cqw;
+  height: 10cqw;
+  border: 0.5cqw solid rgba(255, 255, 255, 0.9);
+}
+[data-estilo="audaz"] .poster-titulo {
+  font-size: 10.5cqw;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+/* La tarjeta blanca: es lo que vuelve legible el QR sobre el color, y
+   de paso lo despega del fondo como si fuera un papel pegado encima. */
+[data-estilo="audaz"] .poster-foco {
+  border-radius: 4cqw;
+  background: #fff;
+  padding: 3.5cqw;
+  color: #101828;
+}
+[data-estilo="audaz"] .poster-qr {
+  width: 36cqw;
+  height: 36cqw;
+  padding: 0;
+  border-radius: 0;
+}
+[data-estilo="audaz"] .poster-escanea {
+  font-size: 3.2cqw;
+}
+/* Sobre el color de la marca, el acento pierde contraste: el premio se
+   marca con blanco translúcido, que funciona con cualquier color que el
+   negocio elija. */
+[data-estilo="audaz"] .poster-premio {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+[data-estilo="audaz"] .poster-premio-etiqueta {
+  color: rgba(255, 255, 255, 0.8);
+}
+[data-estilo="audaz"] .poster-pasos {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2.5cqw;
+  font-size: 2.6cqw;
+  line-height: 1.3;
+}
+[data-estilo="audaz"] .poster-pasos li {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.2cqw;
+}
+[data-estilo="audaz"] .poster-num {
+  background: #fff;
+  color: var(--poster-marca);
+}
+/* Todo alineado a la izquierda, también el cierre: una fila centrada
+   debajo de seis bloques que arrancan a la izquierda se lee como un
+   error de maqueta. */
+[data-estilo="audaz"] .poster-cierre {
+  align-items: flex-start;
+}
+[data-estilo="audaz"] .poster-wallets {
+  justify-content: flex-start;
+}
+
+/* ====================================================================
+   3. CLÁSICO — papel crema, serifa y marco fino
+   ====================================================================
+   Tiene que parecer impreso en una imprenta de barrio, no exportado de
+   una compu. De ahí el marco `double` (la doble regla de toda la vida),
+   la serifa del sistema —no hay que descargar ninguna familia, y en
+   papel una serifa del sistema se ve igual de bien— y el versalita
+   espaciado del nombre.
+
+   Alto: el marco come 10 y el padding 10, así que el contenido tiene
+   121.4. Sumado: 9 (5 gaps) + 16.5 + 16.8 + 37 + 11 + 17 + 10.3 = 117.6. */
+.poster-hoja[data-estilo="clasico"] {
+  --poster-papel: #f7f1e3;
+  --poster-tinta: #2f2415;
+  --poster-suave: rgba(47, 36, 21, 0.62);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Times New Roman", serif;
+}
+[data-estilo="clasico"] .poster-cuerpo {
+  justify-content: center;
+  margin: 5cqw;
+  border: 0.55cqw double var(--poster-tinta);
+  padding: 5cqw;
+  gap: 1.8cqw;
+}
+[data-estilo="clasico"] .poster-logo {
+  border: 0.3cqw solid var(--poster-tinta);
+}
+[data-estilo="clasico"] .poster-negocio {
+  font-size: 4cqw;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+[data-estilo="clasico"] .poster-titulo {
+  font-size: 7.5cqw;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+/* La regla bajo el título: el remate de imprenta que separa el titular
+   del cuerpo. */
+[data-estilo="clasico"] .poster-titulo::after {
+  content: "";
+  display: block;
+  width: 14cqw;
+  height: 0.3cqw;
+  margin: 2.4cqw auto 0;
+  background: var(--poster-acento);
+}
+[data-estilo="clasico"] .poster-qr {
+  width: 31cqw;
+  height: 31cqw;
+  padding: 1.8cqw;
+  border-radius: 0;
+  box-shadow: 0 0 0 0.2cqw var(--poster-tinta);
+}
+[data-estilo="clasico"] .poster-escanea {
+  font-size: 3.2cqw;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--poster-suave);
+}
+[data-estilo="clasico"] .poster-premio {
+  border-width: 0.2cqw;
+  border-radius: 0;
+  border-color: var(--poster-tinta);
+  padding: 1.8cqw 4cqw;
+}
+[data-estilo="clasico"] .poster-premio-etiqueta {
+  font-weight: 700;
+  color: var(--poster-suave);
+}
+[data-estilo="clasico"] .poster-premio-nombre {
+  font-size: 4.2cqw;
+  font-weight: 700;
+}
+[data-estilo="clasico"] .poster-pasos {
+  font-size: 3cqw;
+  gap: 1.3cqw;
+}
+[data-estilo="clasico"] .poster-num {
+  width: 4.8cqw;
+  height: 4.8cqw;
+  border-radius: 0;
+  font-size: 2.7cqw;
+}
+[data-estilo="clasico"] .poster-cierre {
+  margin-top: 1cqw;
+}
+
+/* ====================================================================
+   4. VITRINA — la foto arriba, el contenido abajo
+   ====================================================================
+   Para el negocio que tiene una buena foto: la banda del pase ocupa el
+   40% de la hoja y lo demás se acomoda debajo en dos columnas — texto a
+   la izquierda, QR a la derecha. Apilado no entraba: la foto se lleva
+   58cqw de los 141.4.
+
+   Alto: foto 58 + cuerpo 83.4. Dentro del cuerpo, 12 de padding dejan
+   71.4 para: 58.1 (la columna izquierda con sus gaps) + 2 + 6 (el pie). */
+[data-estilo="vitrina"] .poster-foto {
+  height: 58cqw;
+}
+[data-estilo="vitrina"] .poster-cuerpo {
+  display: grid;
+  grid-template-columns: 1fr 36cqw;
+  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-areas:
+    "cabeza  qr"
+    "titulo  qr"
+    "premio  qr"
+    "pasos   pasos"
+    "pie     pie";
+  align-items: start;
+  gap: 2.5cqw 4cqw;
+  padding: 6cqw;
+  text-align: left;
+}
+[data-estilo="vitrina"] .poster-encabezado {
+  grid-area: cabeza;
+  flex-direction: row;
+  align-items: center;
+  gap: 2cqw;
+}
+[data-estilo="vitrina"] .poster-logo {
+  width: 9cqw;
+  height: 9cqw;
+}
+[data-estilo="vitrina"] .poster-negocio {
+  font-size: 3.4cqw;
+}
+[data-estilo="vitrina"] .poster-titulo {
+  grid-area: titulo;
+  font-size: 7cqw;
+  line-height: 1.08;
+}
+[data-estilo="vitrina"] .poster-foco {
+  grid-area: qr;
+  justify-self: end;
+  gap: 1.6cqw;
+}
+[data-estilo="vitrina"] .poster-qr {
+  width: 30cqw;
+  height: 30cqw;
+  padding: 1.5cqw;
+  box-shadow: 0 0 0 0.2cqw rgba(16, 24, 40, 0.12);
+}
+[data-estilo="vitrina"] .poster-escanea {
+  font-size: 2.8cqw;
+  text-align: center;
+  color: var(--poster-suave);
+}
+[data-estilo="vitrina"] .poster-premio {
+  grid-area: premio;
+  justify-self: start;
+  border-radius: 2cqw;
+  padding: 1.8cqw 3.5cqw;
+}
+[data-estilo="vitrina"] .poster-premio-nombre {
+  font-size: 4cqw;
+}
+[data-estilo="vitrina"] .poster-pasos {
+  grid-area: pasos;
+  font-size: 2.9cqw;
+}
+/* El cierre en fila: las insignias a la izquierda y el pie a la
+   derecha. En vertical se comería la única franja que le queda a la
+   columna de texto. */
+[data-estilo="vitrina"] .poster-cierre {
+  grid-area: pie;
+  margin-top: 0;
+  align-self: end;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 3cqw;
+}
+[data-estilo="vitrina"] .poster-pie {
+  text-align: right;
+}
+
+/* ====================================================================
+   5. TICKET — parece un recibo
+   ====================================================================
+   Borde troquelado, tipografía de máquina y separadores punteados: la
+   hoja se lee como el comprobante que el cliente acaba de recibir, que
+   es justo el momento en que uno la mira.
+
+   El troquelado va con `dashed` y no con un recorte en zigzag: el
+   zigzag se hace con `mask`, y las máscaras son lo primero que un
+   driver de impresora resuelve mal — se imprimiría un rectángulo gris.
+
+   Alto: el troquel come 8 y el padding 12, dejando 121.4. Sumado:
+   10 (5 gaps) + 15.1 + 15 + 41.4 + 11 + 16.2 + 10.3 = 119. */
+.poster-hoja[data-estilo="ticket"] {
+  --poster-papel: #fbfaf7;
+  --poster-tinta: #14181f;
+  --poster-suave: rgba(20, 24, 31, 0.6);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono",
+    "Roboto Mono", "Courier New", monospace;
+}
+[data-estilo="ticket"] .poster-cuerpo {
+  justify-content: center;
+  margin: 4cqw;
+  border: 0.4cqw dashed var(--poster-tinta);
+  padding: 6cqw;
+  gap: 2cqw;
+}
+[data-estilo="ticket"] .poster-logo {
+  width: 10cqw;
+  height: 10cqw;
+  border-radius: 0;
+}
+[data-estilo="ticket"] .poster-negocio {
+  font-size: 3.6cqw;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+/* La línea punteada de un recibo: separa el encabezado del detalle. */
+[data-estilo="ticket"] .poster-encabezado::after {
+  content: "";
+  display: block;
+  width: 100%;
+  border-top: 0.25cqw dashed var(--poster-suave);
+  margin-top: 1.5cqw;
+}
+[data-estilo="ticket"] .poster-titulo {
+  font-size: 6.5cqw;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+[data-estilo="ticket"] .poster-qr {
+  width: 34cqw;
+  height: 34cqw;
+  padding: 1.5cqw;
+  border-radius: 0;
+  box-shadow: 0 0 0 0.25cqw var(--poster-tinta);
+}
+[data-estilo="ticket"] .poster-escanea {
+  font-size: 3cqw;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+[data-estilo="ticket"] .poster-premio {
+  border-style: dashed;
+  border-width: 0.3cqw;
+  border-radius: 0;
+  border-color: var(--poster-tinta);
+  padding: 1.8cqw 4cqw;
+}
+[data-estilo="ticket"] .poster-premio-etiqueta {
+  color: var(--poster-suave);
+}
+[data-estilo="ticket"] .poster-premio-nombre {
+  font-size: 4.2cqw;
+  font-weight: 700;
+}
+[data-estilo="ticket"] .poster-pasos {
+  font-size: 2.9cqw;
+  gap: 1.2cqw;
+}
+/* Los números cuadrados y con borde: un círculo de color es lenguaje de
+   app, y acá todo tiene que oler a papel de caja registradora. */
+[data-estilo="ticket"] .poster-num {
+  width: 4.6cqw;
+  height: 4.6cqw;
+  border-radius: 0;
+  border: 0.2cqw solid var(--poster-tinta);
+  background: transparent;
+  color: var(--poster-tinta);
+  font-size: 2.6cqw;
+}
+/* El corte de abajo del recibo: la línea punteada va sobre el cierre
+   entero, así queda igual con el pie prendido o apagado. */
+[data-estilo="ticket"] .poster-cierre {
+  margin-top: 1cqw;
+  border-top: 0.25cqw dashed var(--poster-suave);
+  padding-top: 1.5cqw;
+}
+[data-estilo="ticket"] .poster-pie {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ====================================================================
+   6. PERSONALIZADO — la plantilla que el dueño reescribe
+   ====================================================================
+   No es un sexto layout: `data-estilo` sigue siendo una de las cinco y
+   la hoja se dibuja con ESA. `data-personalizado` solo desanda lo que
+   esa plantilla daba por sentado, porque el dueño puede pedir lo
+   contrario.
+
+   Este bloque va DESPUÉS de los cinco a propósito: empata en
+   especificidad con ellos, y en un empate gana el último. */
+
+/* El minimalista esconde los pasos por diseño; si el dueño los prende,
+   tienen que aparecer. */
+.poster-hoja[data-personalizado][data-estilo="minimalista"] .poster-pasos {
+  display: grid;
+}
+/* Y con los pasos puestos, el QR gigante ya no entra en la hoja. Se
+   achica de base y solo vuelve a crecer si NO hay pasos. Escrito al
+   revés —grande de base, chico si hay pasos— un navegador sin `:has()`
+   se quedaría con la combinación que se sale del papel; así se queda
+   con la que entra, que es el error barato. */
+.poster-hoja[data-personalizado][data-estilo="minimalista"] .poster-cuerpo {
+  gap: 2.5cqw;
+  padding: 7cqw;
+}
+.poster-hoja[data-personalizado][data-estilo="minimalista"] .poster-qr {
+  width: 34cqw;
+  height: 34cqw;
+}
+.poster-hoja[data-personalizado][data-estilo="minimalista"]
+  .poster-cuerpo:not(:has(.poster-pasos))
+  .poster-qr {
+  width: 44cqw;
+  height: 44cqw;
+}
+
+/* La audaz da por sentado que el papel es oscuro: resuelve el premio,
+   el borde del logo y los números con blancos translúcidos. Si el
+   dueño elige papel claro, eso es blanco sobre blanco. Bajo
+   personalizado vuelven los valores neutros, que funcionan con
+   cualquier fondo que elija. */
+.poster-hoja[data-personalizado][data-estilo="audaz"] .poster-num {
+  background: var(--poster-acento);
+  color: #fff;
+}
+.poster-hoja[data-personalizado][data-estilo="audaz"] .poster-premio {
+  border-color: var(--poster-acento);
+  background: transparent;
+}
+.poster-hoja[data-personalizado][data-estilo="audaz"] .poster-premio-etiqueta {
+  color: var(--poster-acento);
+}
+.poster-hoja[data-personalizado][data-estilo="audaz"] .poster-logo {
+  border-color: var(--poster-suave);
+}
+
+/* --- El taller: el formulario al lado de la hoja (solo pantalla) -----
+   Al lado y no arriba: editar un póster es mirar el póster. Con el
+   formulario encima habría que bajar en cada cambio para ver qué pasó,
+   y a la tercera vez nadie mira. */
+.poster-taller {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+  width: min(280mm, 100%);
+}
+.poster-taller .poster-hoja {
+  flex: 1 1 320px;
+  width: auto;
+  max-width: 210mm;
+}
+
+.poster-editor {
+  flex: 1 1 250px;
+  max-width: 330px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 16px;
+}
+.poster-editor-titulo {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.poster-campo,
+.poster-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 0;
+}
+.poster-etiqueta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+}
+.poster-cuenta {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+}
+.poster-ayuda {
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.poster-control {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(10, 18, 38, 0.6);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: #fff;
+  resize: vertical;
+}
+.poster-control:focus-visible {
+  outline: 2px solid #ee7420;
+  outline-offset: 1px;
+}
+
+.poster-check,
+.poster-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.8);
+}
+.poster-color input {
+  width: 34px;
+  height: 24px;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+.poster-guardar {
+  border-radius: 999px;
+  background: #ee7420;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+.poster-guardar:disabled {
+  opacity: 0.45;
+}
+
+.poster-estado {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.poster-estado.es-ok {
+  color: #7ee0a8;
+}
+.poster-estado.es-error {
+  color: #ffb4a2;
 }
 
 /* --- Impresión -------------------------------------------------------
@@ -194,19 +1058,43 @@
   .no-imprimir {
     display: none !important;
   }
-  .poster-pantalla {
+  /* `globals.css` apaga el body entero al imprimir (`body * { visibility:
+     hidden }`). Esa regla nació para la tabla de RSVPs pero alcanza a
+     cualquier página del sitio: sin esta línea el póster sale en blanco. */
+  .poster-pantalla,
+  .poster-pantalla * {
+    visibility: visible;
+  }
+  .poster-pantalla,
+  /* Con el editor escondido, el taller deja de ser dos columnas: si
+     siguiera en flex, la hoja saldría con el ancho que le tocaba al
+     lado del formulario. */
+  .poster-taller {
     min-height: 0;
     padding: 0;
     background: #fff;
     display: block;
+    width: auto;
   }
-  .poster-hoja {
+  .poster-hoja,
+  .poster-taller .poster-hoja {
     width: 210mm;
+    max-width: none;
     height: 297mm;
     aspect-ratio: auto;
     border-radius: 0;
     box-shadow: none;
+    /* Una hoja partida en dos páginas deja la mitad del cartel en un
+       papel aparte, y el segundo sale casi vacío. */
+    break-inside: avoid;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* La sombra que despega el QR en pantalla no existe en papel: la
+     impresora la resuelve como una banda gris alrededor del código, y
+     eso sí le estorba a la cámara. */
+  [data-estilo="minimalista"] .poster-qr,
+  [data-estilo="vitrina"] .poster-qr {
+    box-shadow: none;
   }
 }

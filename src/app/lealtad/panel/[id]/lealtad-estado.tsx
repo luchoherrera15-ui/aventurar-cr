@@ -1,22 +1,16 @@
-import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  fichasDeMiembros,
-  resumenDeLealtad,
-  type MiembroCrudo,
-  type PaseCrudo,
-  type TransaccionCruda,
-} from "@/lib/lealtad/tablero";
 import { estadoDelLimite } from "@/lib/lealtad/planes";
-import { hoyISOCR } from "@/lib/fechas";
+import { cargarLealtad } from "./datos-lealtad";
+import Kpi from "./kpi";
 
 /**
  * El estado del programa: cuánta gente hay, quién está por ganarse algo
  * y quién se está enfriando.
  *
  * Todo se deriva del ledger — acá no se lee ningún contador guardado.
- * Corre con la llave de servicio porque `transacciones_puntos` no le da
- * lectura al negocio (0060): el saldo es del cliente, y el dueño lo ve
- * a través de esta pantalla, no consultando la tabla.
+ * Las consultas viven en `cargarLealtad` (datos-lealtad.ts) y no acá:
+ * el tablero de Inicio muestra los mismos números, y con la consulta
+ * adentro de este componente el mismo render traía dos veces los
+ * miembros, el ledger y los pases del negocio.
  */
 export default async function LealtadEstado({
 
@@ -41,62 +35,16 @@ export default async function LealtadEstado({
     );
   }
 
-  const db = createAdminClient();
-  if (!db) return null;
+  const datos = await cargarLealtad(programaId, meta);
+  if (!datos) return null;
 
-  const { data: miembros } = await db
-    .from("miembros")
-    .select("id, cliente_id, estado, created_at")
-    .eq("programa_id", programaId);
-
-  const ids = (miembros ?? []).map((m) => m.id as string);
-
-  const [{ data: tx }, { data: pases }, { data: perfiles }] = await Promise.all([
-    ids.length
-      ? db
-          .from("transacciones_puntos")
-          .select("miembro_id, puntos, tipo, created_at")
-          .in("miembro_id", ids)
-      : Promise.resolve({ data: [] }),
-    ids.length
-      ? db.from("pases_wallet").select("miembro_id, plataforma").in("miembro_id", ids)
-      : Promise.resolve({ data: [] }),
-    db
-      .from("perfiles")
-      .select("id, nombre")
-      .in(
-        "id",
-        (miembros ?? []).map((m) => m.cliente_id).filter(Boolean) as string[],
-      ),
-  ]);
-
-  const nombres = new Map(
-    ((perfiles ?? []) as { id: string; nombre: string | null }[]).map((p) => [
-      p.id,
-      (p.nombre ?? "").trim() || "Cliente",
-    ]),
-  );
-
-  const hoy = hoyISOCR();
-  const fichas = fichasDeMiembros({
-    miembros: (miembros ?? []) as MiembroCrudo[],
-    transacciones: (tx ?? []) as TransaccionCruda[],
-    pases: (pases ?? []) as PaseCrudo[],
-    nombres,
-    meta,
-    hoy,
-  });
-  const resumen = resumenDeLealtad({
-    fichas,
-    transacciones: (tx ?? []) as TransaccionCruda[],
-    hoy,
-  });
+  const { fichas, resumen } = datos;
   const limite = estadoDelLimite(plan, "clientesActivos", resumen.miembros);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Dato
+        <Kpi
           titulo="Miembros"
           valor={String(resumen.miembros)}
           detalle={
@@ -104,20 +52,19 @@ export default async function LealtadEstado({
               ? `de ${limite.limite.toLocaleString("es-CR")} del plan`
               : "sin tope"
           }
-          alerta={limite.lleno}
-          aviso={limite.cerca && !limite.lleno}
+          tono={limite.lleno ? "alerta" : limite.cerca ? "aviso" : "normal"}
         />
-        <Dato
+        <Kpi
           titulo="Con tarjeta"
           valor={String(resumen.conPase)}
           detalle="la llevan en el teléfono"
         />
-        <Dato
+        <Kpi
           titulo="Sellos (30 días)"
           valor={String(resumen.sellosRecientes)}
           detalle={`${resumen.canjes} canje${resumen.canjes === 1 ? "" : "s"} en total`}
         />
-        <Dato
+        <Kpi
           titulo="Les toca su regalía"
           valor={String(resumen.listosParaCanjear)}
           detalle={
@@ -125,7 +72,7 @@ export default async function LealtadEstado({
               ? `${resumen.enRiesgo} sin venir hace 2 meses`
               : "nadie se está enfriando"
           }
-          aviso={resumen.listosParaCanjear > 0}
+          tono={resumen.listosParaCanjear > 0 ? "aviso" : "normal"}
         />
       </div>
 
@@ -198,36 +145,3 @@ export default async function LealtadEstado({
   );
 }
 
-function Dato({
-  titulo,
-  valor,
-  detalle,
-  alerta,
-  aviso,
-}: {
-  titulo: string;
-  valor: string;
-  detalle: string;
-  alerta?: boolean;
-  aviso?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border px-4 py-3.5 ${
-        alerta
-          ? "border-red-200 bg-red-50"
-          : aviso
-            ? "border-aventurea-sky/30 bg-aventurea-sky/5"
-            : "border-aventurea-line bg-white"
-      }`}
-    >
-      <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-        {titulo}
-      </p>
-      <p className="mt-0.5 text-[24px] font-extrabold tabular-nums text-aventurea-ink">
-        {valor}
-      </p>
-      <p className="text-[11.5px] leading-snug text-aventurea-ink-soft">{detalle}</p>
-    </div>
-  );
-}

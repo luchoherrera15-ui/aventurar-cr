@@ -148,6 +148,30 @@ export const TIPOS_TARJETA_LISTA: readonly DefinicionTipo[] = TIPOS_TARJETA_ID.m
   (id) => TIPOS_TARJETA[id],
 );
 
+/**
+ * Cómo se le dice al saldo de cada tipo, en plural.
+ *
+ * Está acá y no en la pantalla que lo escribe porque ya pasó lo
+ * contrario: el tablero de Inicio traía su propio `modo === "sellos" ?
+ * "sellos" : "puntos"`, o sea que una gift card, un cupón o un evento
+ * salían nombrados como «puntos» en todos sus textos.
+ *
+ * Los cinco tipos que NO acumulan igual tienen palabra: nunca muestran
+ * un contador, pero un texto que los nombre no debe quedar sin nada
+ * que poner. Quien escribe la frase decide si la usa mirando
+ * `acumula`.
+ */
+export const UNIDAD_SALDO: Record<TipoTarjeta, string> = {
+  sellos: "sellos",
+  puntos: "puntos",
+  cashback: "colones",
+  giftcard: "de saldo",
+  cupon: "usos",
+  descuento: "usos",
+  membresia: "usos",
+  evento: "usos",
+};
+
 export function esTipoTarjeta(valor: string | null | undefined): valor is TipoTarjeta {
   return !!valor && (TIPOS_TARJETA_ID as readonly string[]).includes(valor);
 }
@@ -379,6 +403,84 @@ export function validarBeneficio(config: ConfigBeneficio): string | null {
       }
       return null;
     }
+  }
+}
+
+// ── Leer lo que la base devuelve de verdad ─────────────────────────
+
+/**
+ * El `beneficio` (jsonb) de `programa_lealtad`, o null.
+ *
+ * NUNCA lanza y nunca exige, porque el pase se emite igual: la 0135
+ * puede no estar corrida (la fila llega sin el campo), un programa de
+ * antes lo tiene en null, y lo que alguien haya guardado a mano puede
+ * no tener forma de nada. En todos esos casos la tarjeta se dibuja con
+ * lo genérico —feo pero cierto— en vez de dejar al cliente sin pase.
+ *
+ * También se descarta la config que NO es del tipo de la tarjeta: un
+ * cupón con la config de una gift card se dibujaría de una forma y se
+ * canjearía de otra. `cupon` y `descuento` sí se aceptan entre sí:
+ * comparten variante en `ConfigBeneficio`, o sea que son una sola
+ * forma, no dos que se parecen.
+ */
+export function leerBeneficio(valor: unknown, tipo: TipoTarjeta): ConfigBeneficio | null {
+  const crudo = typeof valor === "string" ? intentarJson(valor) : valor;
+  if (!crudo || typeof crudo !== "object" || Array.isArray(crudo)) return null;
+
+  const campos = crudo as Record<string, unknown>;
+  const guardado = typeof campos.tipo === "string" ? campos.tipo : null;
+  if (!esTipoTarjeta(guardado) || familiaDe(guardado) !== familiaDe(tipo)) return null;
+
+  return tieneLaForma(campos, guardado) ? (crudo as ConfigBeneficio) : null;
+}
+
+function intentarJson(texto: string): unknown {
+  try {
+    return JSON.parse(texto);
+  } catch {
+    return null;
+  }
+}
+
+/** Cupón y descuento son la MISMA forma; el resto es cada uno el suyo. */
+function familiaDe(tipo: TipoTarjeta): TipoTarjeta {
+  return tipo === "descuento" ? "cupon" : tipo;
+}
+
+/**
+ * Que estén los campos que la tarjeta va a leer, con su tipo.
+ *
+ * No es `validarBeneficio`: eso juzga las REGLAS del negocio (una
+ * membresía sin beneficios no se vende sola) y rechazaría configs
+ * viejas que igual se pueden dibujar. Acá solo se pregunta si el objeto
+ * tiene la forma, para que leer un campo no reviente la emisión del
+ * pase por un jsonb a medio llenar.
+ */
+function tieneLaForma(c: Record<string, unknown>, tipo: TipoTarjeta): boolean {
+  const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  const txt = (v: unknown) => typeof v === "string";
+
+  switch (tipo) {
+    case "sellos":
+      return num(c.requeridos) && txt(c.recompensa);
+    case "puntos":
+      return txt(c.nombre) && num(c.porMoneda) && num(c.porVisita) && num(c.minimoCanje);
+    case "cupon":
+    case "descuento": {
+      const b = c.beneficio;
+      if (!b || typeof b !== "object") return false;
+      const forma = b as Record<string, unknown>;
+      if (forma.forma === "porcentaje" || forma.forma === "monto") return num(forma.valor);
+      return forma.forma === "gratis" && txt(forma.que);
+    }
+    case "membresia":
+      return txt(c.nivel) && Array.isArray(c.beneficios) && c.beneficios.every(txt);
+    case "giftcard":
+      return num(c.valor) && (c.moneda === "CRC" || c.moneda === "USD");
+    case "evento":
+      return txt(c.fecha) && txt(c.hora) && txt(c.ubicacion);
+    case "cashback":
+      return num(c.porcentaje);
   }
 }
 

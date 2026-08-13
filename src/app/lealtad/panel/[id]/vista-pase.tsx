@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { camposSegunModo, coloresDe, type CamposTarjeta } from "@/lib/wallet/tarjeta";
+import {
+  camposSegunModo,
+  coloresDe,
+  tiraDelPase,
+  type CamposTarjeta,
+  type ConfigPase,
+  type MetaRecompensa,
+  type TiraDelPase,
+} from "@/lib/wallet/tarjeta";
 import { metaDe, tipoDe, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjeta";
 
 /**
@@ -27,6 +35,12 @@ import { metaDe, tipoDe, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjet
  * Apple y Google, no nosotros. Por eso el aviso al pie, que no es
  * humildad decorativa sino la diferencia entre "se ve distinto" y
  * "esto está roto".
+ *
+ * Y la BANDA tampoco se decide acá: qué va en el strip lo dice
+ * `tiraDelPase()`, la misma función que consulta el generador. Esta
+ * pantalla llegó a dibujar la banda y los sellos como dos cosas
+ * separadas, y en Apple son UN SOLO archivo — o sea que prometía un
+ * pase que el teléfono no podía armar.
  */
 
 export type DatosVista = {
@@ -54,28 +68,29 @@ export default function VistaPase({ datos }: { datos: DatosVista }) {
   // terminada. La mitad es la que muestra que la cosa avanza.
   const saldo = datos.saldoEjemplo ?? (meta ? Math.floor(meta / 2) : 0);
 
-  const campos = camposSegunModo({
-    negocioNombre: datos.negocioNombre || "Tu negocio",
-    saldo,
-    meta: meta ? { nombre: nombreDeLaMeta(datos.beneficio), costo_puntos: meta } : null,
-    config: {
-      modo: tipo,
-      pase_color_fondo: datos.colorFondo,
-      pase_color_sello: datos.colorSello,
-      pase_logo_url: datos.logoUrl,
-    },
-    beneficio: datos.beneficio,
-    serialNumber: "EJEMPLO",
-    passTypeIdentifier: "",
-    teamIdentifier: "",
-  });
-
-  const colores = coloresDe({
+  // UNA sola config para todo, igual que en el pase real: los textos,
+  // los colores y el strip salen del mismo dato.
+  const config: ConfigPase = {
     modo: tipo,
     pase_color_fondo: datos.colorFondo,
     pase_color_sello: datos.colorSello,
     pase_logo_url: datos.logoUrl,
+    pase_banner_url: datos.bannerUrl ?? null,
+  };
+  const recompensa: MetaRecompensa = meta
+    ? { nombre: nombreDeLaMeta(datos.beneficio), costo_puntos: meta }
+    : null;
+
+  const campos = camposSegunModo({
+    negocioNombre: datos.negocioNombre || "Tu negocio",
+    saldo,
+    meta: recompensa,
+    config,
+    beneficio: datos.beneficio,
   });
+
+  const colores = coloresDe(config);
+  const tira = tiraDelPase(config, recompensa);
 
   return (
     <div>
@@ -105,7 +120,7 @@ export default function VistaPase({ datos }: { datos: DatosVista }) {
 
       <div className="mt-4">
         {plataforma === "apple" ? (
-          <TarjetaApple datos={datos} campos={campos} colores={colores} tipo={tipo} saldo={saldo} meta={meta} />
+          <TarjetaApple datos={datos} campos={campos} colores={colores} tira={tira} saldo={saldo} />
         ) : (
           <TarjetaGoogle datos={datos} campos={campos} colores={colores} />
         )}
@@ -132,16 +147,14 @@ function TarjetaApple({
   datos,
   campos,
   colores,
-  tipo,
+  tira,
   saldo,
-  meta,
 }: {
   datos: DatosVista;
   campos: CamposTarjeta;
   colores: { fondo: string; sello: string };
-  tipo: string;
+  tira: TiraDelPase;
   saldo: number;
-  meta: number | null;
 }) {
   return (
     <div
@@ -170,29 +183,7 @@ function TarjetaApple({
           </span>
         </div>
 
-        {datos.bannerUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={datos.bannerUrl}
-            alt=""
-            className="mt-3 h-[74px] w-full rounded-lg object-cover"
-          />
-        ) : null}
-
-        {/* Los sellos solo tienen sentido en la tarjeta que acumula de
-            a uno. En puntos o cashback, ese número no son «cosas» que
-            se dibujen. */}
-        {tipo === "sellos" && meta !== null && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {Array.from({ length: Math.min(meta, 20) }, (_, i) => (
-              <span
-                key={i}
-                className="h-5 w-5 rounded-full transition-opacity"
-                style={{ background: colores.sello, opacity: i < saldo ? 1 : 0.24 }}
-              />
-            ))}
-          </div>
-        )}
+        <Tira tira={tira} colores={colores} saldo={saldo} />
 
         <div className="mt-3">
           <span className="block text-[8.5px] uppercase tracking-wider text-white/55">
@@ -217,10 +208,127 @@ function TarjetaApple({
 
       {/* El QR va sobre blanco SIEMPRE: sobre el color de la marca no
           se escanea, y ese es el único trabajo que tiene. */}
-      <div className="mt-4 bg-white px-4 py-3.5">
-        <div className="mx-auto h-[86px] w-[86px] rounded-md bg-[#0a1226]" aria-hidden />
+      <div className="qr-claro mt-4 bg-white px-4 py-3.5">
+        <CodigoDibujado semilla={datos.negocioNombre || "bookea"} lado={86} />
         <p className="mt-1.5 text-center text-[8.5px] text-[#53657f]">Powered by Bookea.lat</p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * EL STRIP: la franja de abajo del encabezado.
+ *
+ * Es una sola imagen y por eso acá es un solo bloque. La foto va de
+ * fondo, el velo oscuro encima —el mismo que pone el generador, si no
+ * los sellos apagados desaparecen sobre una foto clara— y los círculos
+ * arriba de todo. La proporción es la de Apple (375×123): un strip más
+ * alto en la maqueta que en el teléfono le hace creer al negocio que su
+ * foto se va a ver entera.
+ */
+function Tira({
+  tira,
+  colores,
+  saldo,
+}: {
+  tira: TiraDelPase;
+  colores: { fondo: string; sello: string };
+  saldo: number;
+}) {
+  if (tira.tipo === "ninguna") return null;
+
+  return (
+    <div
+      className="relative mt-3 overflow-hidden rounded-lg"
+      style={{ aspectRatio: "375 / 123", background: colores.fondo }}
+    >
+      {tira.banda ? (
+        /* eslint-disable-next-line @next/next/no-img-element -- URL
+           externa del negocio, y acá es una maqueta. */
+        <img src={tira.banda} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : null}
+
+      {tira.tipo === "sellos" && (
+        <>
+          {tira.banda ? (
+            <span aria-hidden className="absolute inset-0" style={{ background: "rgba(0,0,0,.42)" }} />
+          ) : null}
+          <div className="absolute inset-0 flex flex-wrap content-center items-center justify-center gap-1.5 px-3">
+            {Array.from({ length: Math.min(tira.total, 20) }, (_, i) => (
+              <span
+                key={i}
+                className="h-5 w-5 rounded-full transition-opacity"
+                style={{ background: colores.sello, opacity: i < saldo ? 1 : 0.26 }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * EL CÓDIGO DEL PASE, dibujado.
+ *
+ * Era un cuadrado oscuro macizo, y un cuadrado macizo no se lee como
+ * «código»: se lee como una imagen que no cargó. Con los tres ojos de
+ * esquina y módulos adentro el ojo lo reconoce al toque, que es todo
+ * lo que tiene que hacer en una vista previa.
+ *
+ * El patrón sale del nombre del negocio y NO de `Math.random()`: el
+ * servidor y el cliente tienen que pintar lo mismo o React tira
+ * hydration mismatch. De yapa, cada negocio tiene su propio dibujo.
+ */
+function CodigoDibujado({ semilla, lado }: { semilla: string; lado: number }) {
+  const MODULOS = 21; // el tamaño de un QR de verdad (versión 1)
+  const px = lado / MODULOS;
+
+  // FNV-1a: barato, determinista y suficiente para un dibujo.
+  let h = 2166136261;
+  for (let i = 0; i < semilla.length; i++) {
+    h = Math.imul(h ^ semilla.charCodeAt(i), 16777619) >>> 0;
+  }
+
+  const celdas: boolean[] = [];
+  for (let i = 0; i < MODULOS * MODULOS; i++) {
+    const f = Math.floor(i / MODULOS);
+    const c = i % MODULOS;
+    // Los tres ojos: bloque 7×7 con marco y centro, como el estándar.
+    const enOjo = [
+      [0, 0],
+      [0, MODULOS - 7],
+      [MODULOS - 7, 0],
+    ].some(([of, oc]) => {
+      const df = f - of;
+      const dc = c - oc;
+      if (df < 0 || df > 6 || dc < 0 || dc > 6) return false;
+      const borde = df === 0 || df === 6 || dc === 0 || dc === 6;
+      const centro = df >= 2 && df <= 4 && dc >= 2 && dc <= 4;
+      return borde || centro;
+    });
+    const enHueco = [
+      [0, 0],
+      [0, MODULOS - 8],
+      [MODULOS - 8, 0],
+    ].some(([of, oc]) => f - of >= 0 && f - of <= 7 && c - oc >= 0 && c - oc <= 7);
+
+    h = (Math.imul(h, 1103515245) + 12345) >>> 0;
+    celdas.push(enOjo || (!enHueco && (h >>> 16) % 100 < 45));
+  }
+
+  return (
+    <div
+      aria-hidden
+      className="mx-auto grid"
+      style={{ gridTemplateColumns: `repeat(${MODULOS}, ${px}px)`, width: lado }}
+    >
+      {celdas.map((lleno, i) => (
+        <span
+          key={i}
+          style={{ height: px, width: px, background: lleno ? "#0a1226" : "transparent" }}
+        />
+      ))}
     </div>
   );
 }
@@ -267,6 +375,20 @@ function TarjetaGoogle({
         </p>
       </div>
 
+      {/* En Android la banda es el `heroImage` del objeto y va debajo
+          del encabezado, a lo ancho. Acá no se dibujaba nada: el mismo
+          negocio veía su foto en la pestaña de Apple y no en la de
+          Google, sin que hubiera ninguna diferencia real. */}
+      {datos.bannerUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={datos.bannerUrl}
+          alt=""
+          className="w-full object-cover"
+          style={{ aspectRatio: "1032 / 336" }}
+        />
+      ) : null}
+
       <div className="px-4 py-3.5">
         <p className="text-[9px] uppercase tracking-wider text-[#53657f]">
           {campos.detalle.label}
@@ -282,7 +404,9 @@ function TarjetaGoogle({
           </>
         )}
 
-        <div className="mt-3.5 h-[52px] w-full rounded-md bg-[#0a1226]" aria-hidden />
+        <div className="qr-claro mt-3.5 rounded-md bg-white py-1.5">
+          <CodigoDibujado semilla={datos.negocioNombre || "bookea"} lado={52} />
+        </div>
         <p className="mt-1.5 text-center text-[8.5px] text-[#53657f]">Powered by Bookea.lat</p>
       </div>
     </div>

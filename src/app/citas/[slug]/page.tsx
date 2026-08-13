@@ -10,6 +10,7 @@ import EquipoNegocio from "./equipo-negocio";
 import TarjetaReservaSticky from "./tarjeta-reserva-sticky";
 import { DetallesServicioSeccion, ComodidadesSeccion } from "./detalles-seccion";
 import { createAdminClient } from "@/lib/supabase/admin";
+import TarjetaLealtad from "./tarjeta-lealtad";
 import { hoyISOCR } from "@/lib/fechas";
 import {
   CATEGORIA_CITA_LABEL,
@@ -143,6 +144,35 @@ export default async function NegocioCitasPage({
             .not("hora_inicio", "is", null)
         : Promise.resolve({ data: null }),
     ]);
+
+  /* ¿Este negocio tiene programa de lealtad activo?
+   *
+   * Con la llave de servicio y `select *`: el programa no le da lectura
+   * al público (0060), y las columnas nuevas (0134-0136) pueden no
+   * existir todavía — una lista explícita fallaría entera.
+   *
+   * Va aparte de la tanda de arriba a propósito: si `admin` no está
+   * configurado, esto queda en null y la página sigue igual. La tarjeta
+   * de lealtad es un extra; no puede tumbar la ficha del negocio. */
+  const { data: programaLealtad } = admin
+    ? await admin
+        .from("programa_lealtad")
+        .select("*")
+        .eq("rancho_id", negocio.id)
+        .eq("activo", true)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: recompensaLealtad } = admin && programaLealtad
+    ? await admin
+        .from("recompensas")
+        .select("nombre, costo_puntos")
+        .eq("programa_id", programaLealtad.id as string)
+        .eq("activo", true)
+        .order("costo_puntos", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
 
   const items = (itemsData ?? []) as (RanchoItem & {
     duracion_minutos: number | null;
@@ -340,6 +370,27 @@ export default async function NegocioCitasPage({
                 equipo={equipo}
                 citasPorMiembro={citasPorMiembro}
                 agenda={agendaProps}
+              />
+            )}
+
+            {/* El programa de lealtad, si lo tiene. Va acá —después de
+                los servicios y el equipo— porque para entonces la
+                persona ya sabe qué se hace en el local; ofrecerle la
+                tarjeta antes de eso es pedirle que se comprometa con
+                algo que todavía no conoce. */}
+            {programaLealtad && negocio.slug && (
+              <TarjetaLealtad
+                slug={negocio.slug}
+                negocio={negocio.nombre}
+                modo={(programaLealtad.modo as string | null) ?? null}
+                meta={
+                  recompensaLealtad
+                    ? {
+                        nombre: recompensaLealtad.nombre as string,
+                        costo: recompensaLealtad.costo_puntos as number,
+                      }
+                    : null
+                }
               />
             )}
 

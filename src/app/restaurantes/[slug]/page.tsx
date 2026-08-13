@@ -5,17 +5,20 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
-import { IconCloche, IconPin, IconStar, IconWhatsapp } from "@/components/icons";
+import { IconCloche, IconPin, IconStar } from "@/components/icons";
 import { linkGoogleMaps, linkWaze } from "@/app/mi-negocio/types";
 import {
   CATEGORIA_RESTAURANTE_LABEL,
   RANGO_PRECIO_LABEL,
+  agruparMenu,
   normalizarCategoriaRestaurante,
   opcionesDeDetalles,
+  type ItemMenu,
 } from "../tipos";
 import ProveedorActual from "@/components/proveedor-actual";
-import BotonConsultar from "@/components/boton-consultar";
 import VisitasPagina from "@/components/visitas-pagina";
+import AccionesLocal from "./acciones-local";
+import FichaCarta from "./carta";
 
 type Local = {
   id: string;
@@ -24,6 +27,7 @@ type Local = {
   nombre: string;
   categoria: string | null;
   descripcion: string | null;
+  descripcion_larga: string | null;
   provincia: string | null;
   canton: string | null;
   direccion_exacta: string | null;
@@ -35,16 +39,6 @@ type Local = {
   detalles: unknown;
 };
 
-type ItemMenu = {
-  id: string;
-  nombre: string;
-  descripcion: string | null;
-  precio: number | null;
-  unidad: string | null;
-  grupo: string | null;
-  foto_url: string | null;
-};
-
 export async function generateMetadata({
   params,
 }: {
@@ -54,15 +48,26 @@ export async function generateMetadata({
   const supabase = await createClient();
   const { data } = await supabase
     .from("ranchos")
-    .select("nombre, descripcion")
+    .select("nombre, descripcion, foto_url")
     .eq("slug", slug)
     .maybeSingle();
   if (!data) return { title: "Restaurante" };
+  const descripcion =
+    (data.descripcion as string | null) ??
+    `Mirá el menú de ${data.nombre} y reservá tu mesa en Bookea.`;
+  const foto = data.foto_url as string | null;
   return {
     title: data.nombre as string,
-    description:
-      (data.descripcion as string) ??
-      `Mirá el menú de ${data.nombre} y reservá tu mesa en Bookea.`,
+    description: descripcion,
+    // La ficha de un local se comparte por WhatsApp más que por
+    // cualquier otro lado: sin la foto en el Open Graph, el enlace
+    // sale como una línea de texto gris.
+    openGraph: {
+      title: data.nombre as string,
+      description: descripcion,
+      type: "website",
+      images: foto ? [foto] : undefined,
+    },
   };
 }
 
@@ -72,6 +77,13 @@ export async function generateMetadata({
  * por el chat). La reserva de mesa con hora y el pedido llegan en la
  * siguiente entrega; por ahora todo desemboca en el chat, que ya
  * funciona.
+ *
+ * Los datos se leen UNA vez acá y el dibujo lo decide el TEMA que el
+ * local declaró en `detalles.tema_ficha` (ver `TEMAS_FICHA` en
+ * ../tipos): "estandar" es esta misma página de siempre; "carta" es la
+ * versión editorial de ./carta.tsx, para locales que viven de que su
+ * menú se vea caro. La consulta y las reglas son las mismas para los
+ * dos — lo único que cambia es cómo se ve.
  */
 export default async function RestaurantePage({
   params,
@@ -90,7 +102,7 @@ export default async function RestaurantePage({
     supabase
       .from("ranchos")
       .select(
-        "id, owner_id, slug, nombre, categoria, descripcion, provincia, canton, direccion_exacta, foto_url, precio_desde, contacto_whatsapp, latitud, longitud, detalles",
+        "id, owner_id, slug, nombre, categoria, descripcion, descripcion_larga, provincia, canton, direccion_exacta, foto_url, precio_desde, contacto_whatsapp, latitud, longitud, detalles",
       )
       .eq("slug", slug)
       .eq("vertical", "restaurantes")
@@ -119,28 +131,42 @@ export default async function RestaurantePage({
   const items = (itemsData ?? []) as ItemMenu[];
   // El menú se agrupa por secciones ("Entradas", "Fuertes"...); lo que
   // no tenga sección cae en una general al final.
-  const secciones = new Map<string, ItemMenu[]>();
-  for (const it of items) {
-    const g = (it.grupo ?? "").trim() || "Menú";
-    secciones.set(g, [...(secciones.get(g) ?? []), it]);
-  }
+  const secciones = agruparMenu(items);
 
   const categoria = normalizarCategoriaRestaurante(local.categoria);
-  const { aceptaReservaMesa, aceptaPickup, rangoPrecio } = opcionesDeDetalles(
-    local.detalles,
-  );
+  const opciones = opcionesDeDetalles(local.detalles);
+  const calificacion = calif as { promedio: number; total: number } | null;
   const ubicacion = [local.canton, local.provincia].filter(Boolean).join(", ");
   const senas = [local.direccion_exacta, ubicacion].filter(Boolean).join(", ");
   const hrefMaps = linkGoogleMaps(local.latitud, local.longitud, senas);
   const hrefWaze = linkWaze(local.latitud, local.longitud, senas);
 
+  /* La burbuja de chat flotante solo tiene sentido acá si quien mira
+     no es el dueño — nadie se manda una consulta a sí mismo. */
+  const burbujaChat =
+    local.owner_id !== user?.id ? (
+      <ProveedorActual ranchoId={local.id} nombre={local.nombre} />
+    ) : null;
+
+  if (opciones.tema === "carta") {
+    return (
+      <FichaCarta
+        local={local}
+        categoria={categoria}
+        opciones={opciones}
+        secciones={secciones}
+        calificacion={calificacion}
+        ubicacion={ubicacion}
+        hrefMaps={hrefMaps}
+        hrefWaze={hrefWaze}
+        conBurbujaChat={burbujaChat}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-aventurea-cream-2">
-      {/* La burbuja de chat flotante solo tiene sentido acá si quien
-          mira no es el dueño — nadie se manda una consulta a sí mismo. */}
-      {local.owner_id !== user?.id && (
-        <ProveedorActual ranchoId={local.id} nombre={local.nombre} />
-      )}
+      {burbujaChat}
       <SiteHeader breadcrumb="Restaurantes" />
 
       <section className="mx-auto max-w-[900px] px-4 pb-12 pt-4 sm:px-6">
@@ -180,7 +206,9 @@ export default async function RestaurantePage({
               <div>
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-aventurea-navy">
                   {CATEGORIA_RESTAURANTE_LABEL[categoria]}
-                  {rangoPrecio ? ` · ${RANGO_PRECIO_LABEL[rangoPrecio]}` : ""}
+                  {opciones.rangoPrecio
+                    ? ` · ${RANGO_PRECIO_LABEL[opciones.rangoPrecio]}`
+                    : ""}
                 </p>
                 <h1 className="mt-1 text-[26px] font-black leading-tight text-aventurea-ink">
                   {local.nombre}
@@ -193,12 +221,12 @@ export default async function RestaurantePage({
                   </p>
                 )}
               </div>
-              {calif && (
+              {calificacion && (
                 <span className="flex shrink-0 items-center gap-1.5 rounded-xl bg-aventurea-cream-2 px-3 py-1.5 text-[13px] font-bold text-aventurea-ink">
                   <IconStar className="h-4 w-4 text-aventurea-orange" />
-                  {Number(calif.promedio).toFixed(1)}
+                  {Number(calificacion.promedio).toFixed(1)}
                   <span className="font-semibold text-aventurea-ink-soft">
-                    ({calif.total})
+                    ({calificacion.total})
                   </span>
                 </span>
               )}
@@ -211,43 +239,13 @@ export default async function RestaurantePage({
             )}
 
             {/* Qué se puede hacer acá */}
-            <div className="mt-5 flex flex-wrap gap-2.5">
-              {aceptaReservaMesa && (
-                <BotonConsultar
-                  ranchoId={local.id}
-                  nombre={local.nombre}
-                  className="rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2"
-                >
-                  Reservar mesa
-                </BotonConsultar>
-              )}
-              {aceptaPickup && (
-                <BotonConsultar
-                  ranchoId={local.id}
-                  nombre={local.nombre}
-                  className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark"
-                >
-                  Pedir para recoger
-                </BotonConsultar>
-              )}
-              <BotonConsultar
-                ranchoId={local.id}
-                nombre={local.nombre}
-                className="rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
-              >
-                Escribirle al restaurante
-              </BotonConsultar>
-              {local.contacto_whatsapp && (
-                <a
-                  href={`https://wa.me/${local.contacto_whatsapp.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-green"
-                >
-                  <IconWhatsapp className="h-4 w-4 text-aventurea-green" /> WhatsApp
-                </a>
-              )}
-            </div>
+            <AccionesLocal
+              ranchoId={local.id}
+              nombre={local.nombre}
+              whatsapp={local.contacto_whatsapp}
+              opciones={opciones}
+              tema="estandar"
+            />
 
             {(hrefMaps || hrefWaze) && (
               <div className="mt-3 flex flex-wrap gap-2.5 text-[13px] font-bold">
@@ -293,7 +291,7 @@ export default async function RestaurantePage({
             </div>
           ) : (
             <div className="mt-3 space-y-6">
-              {[...secciones.entries()].map(([seccion, platos]) => (
+              {secciones.map(([seccion, platos]) => (
                 <div key={seccion}>
                   <h3 className="text-[13px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange">
                     {seccion}

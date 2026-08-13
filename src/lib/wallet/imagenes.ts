@@ -32,7 +32,50 @@ const FUENTE = join(ASSETS, "Montserrat-var.ttf");
 const TIRA_ANCHO = 375;
 const TIRA_ALTO = 123;
 
+/**
+ * El velo oscuro que va entre la foto del negocio y los sellos.
+ *
+ * Sin él, sobre una foto clara los sellos apagados desaparecen y el
+ * cliente pierde justo el dato que lo hace volver: cuántos le faltan.
+ * Y el negocio sube la foto que quiera —no hay forma de pedirle que sea
+ * oscura—, así que el contraste lo tiene que garantizar el pase.
+ */
+const VELO_SOBRE_LA_BANDA = 0.42;
+
 export type ColoresTarjeta = { fondo: string; sello: string };
+
+/**
+ * La foto del negocio a la medida exacta del strip, SIN deformarla: se
+ * agranda hasta cubrir y se recorta lo que sobra, centrado.
+ *
+ * El `rotate()` sin argumentos aplica la orientación EXIF, y va antes
+ * del resize porque sharp lo exige así. No es un detalle: una foto
+ * tomada con el celular en vertical llega con los píxeles acostados y
+ * la orientación en los metadatos — sin esto sale de lado en el pase.
+ */
+async function recortarACover(imagen: Buffer, ancho: number, alto: number): Promise<Buffer> {
+  return sharp(imagen)
+    .rotate()
+    .resize(ancho, alto, { fit: "cover", position: "centre" })
+    .png()
+    .toBuffer();
+}
+
+/**
+ * La banda sola: la foto del negocio ocupando todo el strip.
+ *
+ * Es lo que se dibuja en los siete tipos que no son sellos, donde no
+ * hay círculos que poner encima.
+ */
+export async function dibujarBanda({
+  imagen,
+  escala,
+}: {
+  imagen: Buffer;
+  escala: 1 | 2 | 3;
+}): Promise<Buffer> {
+  return recortarACover(imagen, TIRA_ANCHO * escala, TIRA_ALTO * escala);
+}
 
 /**
  * Un sello: la imagen del negocio recortada en círculo. El apagado NO
@@ -105,18 +148,26 @@ async function selloRedondo({
 /**
  * La tira completa. Con más de seis sellos se parte en dos filas: diez
  * en una sola quedan tan chicos que no se distingue el logo.
+ *
+ * `banda` es la foto que el negocio subió (0132). Cuando viene, los
+ * sellos se dibujan ENCIMA de ella en vez de sobre el color plano: en
+ * Apple el strip es un solo archivo, así que o se combinan las dos
+ * cosas o el negocio tiene que elegir entre su foto y su progreso.
  */
 export async function dibujarTiraDeSellos({
   total,
   logrados,
   colores,
   imagen,
+  banda,
   escala,
 }: {
   total: number;
   logrados: number;
   colores: ColoresTarjeta;
   imagen: Buffer | null;
+  /** Foto de fondo. null = el color del negocio, como antes de la 0132. */
+  banda: Buffer | null;
   escala: 1 | 2 | 3;
 }): Promise<Buffer> {
   const ancho = TIRA_ANCHO * escala;
@@ -140,6 +191,20 @@ export async function dibujarTiraDeSellos({
   const pasoY = utilY / filas;
 
   const piezas: OverlayOptions[] = [];
+
+  // La foto va primero y el velo en el medio: las dos ocupan el strip
+  // entero, así que se posicionan en 0,0 y no por gravedad.
+  if (banda) {
+    piezas.push({ input: await recortarACover(banda, ancho, alto), left: 0, top: 0 });
+    piezas.push({
+      input: Buffer.from([0, 0, 0, Math.round(255 * VELO_SOBRE_LA_BANDA)]),
+      raw: { width: 1, height: 1, channels: 4 },
+      tile: true,
+      left: 0,
+      top: 0,
+    });
+  }
+
   for (let i = 0; i < total; i++) {
     const fila = Math.floor(i / porFila);
     const col = i % porFila;

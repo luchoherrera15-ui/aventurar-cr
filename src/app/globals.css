@@ -110,6 +110,19 @@
   --navy-elevado: #0b3168;
   --navy-suave: #e9eef6;
 
+  /* ── `--hoja`: el fondo de lo que tapa a lo que pasa por detrás ──
+     Existe para las barras PEGAJOSAS (la de pasos del creador, y lo
+     que venga). El problema que resuelve: `bg-white` se re-mapea
+     dentro de `.lealtad-oscuro` a un blanco al 5%, o sea casi
+     transparente. Eso está bien para una tarjeta —se quiere ver el
+     fondo— y está MAL para una barra fija, donde el formulario se ve
+     desfilando por detrás de los botones y la barra parece rota.
+
+     Un token aparte y no una excepción más en el re-mapeo: «superficie
+     translúcida» y «superficie que tapa» son dos intenciones
+     distintas, y mezclarlas es lo que produjo el bug. */
+  --hoja: #ffffff;
+
   /* ── El naranja y el contraste ───────────────────────────────────
      El naranja de marca NO pasa AA como texto ni con blanco encima:
      da 2.87:1 en los dos casos (AA pide 4.5:1). No es opinión, es
@@ -282,19 +295,207 @@
   }
 }
 
-/* Las columnas del acordeón de tipos (/lealtad). Se anima `flex` —o
-   sea el ancho— y eso SÍ dispara layout, a diferencia del resto del
-   sistema. Es la excepción consciente: un acordeón horizontal es
-   justamente un ancho que cambia, y no hay forma de hacerlo con
-   transform sin deformar el texto de adentro.
+/* ═══════════════════════════════════════════════════════════════════
+   FONDO ORGÁNICO: manchas difuminadas + grano de película
+   ═══════════════════════════════════════════════════════════════════
 
-   Se acota el daño: son ocho elementos, el contenedor tiene ancho
-   fijo, y nada de lo de afuera se mueve. */
-.acordeon-col {
-  transition:
-    flex var(--duracion-card) var(--ease-bookea),
-    background-color var(--duracion-card) var(--ease-bookea),
-    border-color var(--duracion-card) var(--ease-bookea);
+   Tres manchas de color que derivan lentamente detrás de un
+   desenfoque, con una capa de ruido encima. El resultado se mueve como
+   algo vivo en vez de como un degradado quieto.
+
+   Quien lo usa pasa sus tres colores en --c1/--c2/--c3, así cada
+   tarjeta tiene su propia atmósfera sin duplicar una línea de CSS.
+
+   ── DOS DECISIONES DE RENDIMIENTO ────────────────────────────────
+   1. El GRANO es una imagen `data:` y no `filter: url(#id)`. El filtro
+      SVG obliga a tener el `<svg>` en el DOM y a que TODA instancia
+      dependa de ese nodo: si el componente que lo define no se
+      renderiza, las tarjetas se quedan sin grano y nadie entiende por
+      qué. Como imagen, cada tarjeta se basta sola.
+
+   2. Solo se anima `transform`. El `blur` es caro y se queda QUIETO —
+      cambiarlo por fotograma obligaría a re-rasterizar el desenfoque
+      60 veces por segundo. En hover cambia una vez, y con transición.
+   ─────────────────────────────────────────────────────────────────── */
+
+@utility organico {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+
+  /* Las manchas */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -25%;
+    z-index: 0;
+    background:
+      radial-gradient(circle at 25% 25%, var(--c1) 0%, transparent 55%),
+      radial-gradient(circle at 75% 55%, var(--c2) 0%, transparent 55%),
+      radial-gradient(circle at 45% 90%, var(--c3) 0%, transparent 50%);
+    filter: blur(38px) saturate(1.15);
+    animation: deriva-organica 18s ease-in-out infinite;
+    transition: filter var(--duracion-card, 300ms) ease;
+    will-change: transform;
+  }
+
+  /* El grano */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.22;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    transition: opacity var(--duracion-card, 300ms) ease;
+  }
+
+  /* Al pasar el mouse la deriva se acelera y las manchas se definen —
+     la tarjeta "despierta" sin que nada salte de lugar. */
+  &:hover::before {
+    animation-duration: 8s;
+    filter: blur(26px) saturate(1.3);
+  }
+  &:hover::after {
+    opacity: 0.3;
+  }
+
+  /* Todo lo que va adentro, por encima de las dos capas. */
+  & > * {
+    position: relative;
+    z-index: 2;
+  }
+}
+
+@keyframes deriva-organica {
+  0% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  33% {
+    transform: translate(-6%, 5%) scale(1.12);
+  }
+  66% {
+    transform: translate(5%, -6%) scale(0.96);
+  }
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   EL TELÉFONO DIBUJADO
+   ═══════════════════════════════════════════════════════════════════
+
+   Tres animaciones, y las tres son lentas a propósito. Un mockup que
+   se mueve rápido pide atención y compite con el texto que tiene al
+   lado; uno que respira despacio se siente vivo sin distraer.
+
+   Las tres animan solo `transform` y `opacity`: corren en el
+   compositor y no tocan layout. ─────────────────────────────────── */
+
+/* Flota. 10px en 7 segundos — apenas se nota conscientemente, pero la
+   diferencia entre esto y un objeto quieto es la que separa «render»
+   de «producto». */
+@keyframes flota {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.flotante {
+  animation: flota 7s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* El reflejo que cruza el vidrio. Pasa una vez cada 6 s y tarda 2,2 en
+   cruzar: si fuera continuo se leería como un GIF roto. */
+@keyframes cruza-brillo {
+  0% {
+    transform: translateX(-130%) rotate(18deg);
+  }
+  38%,
+  100% {
+    transform: translateX(130%) rotate(18deg);
+  }
+}
+
+.brillo-vidrio::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: linear-gradient(
+    100deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.13) 50%,
+    transparent 58%
+  );
+  animation: cruza-brillo 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Cada sello aparece con un rebote corto. El escalonado lo pone quien
+   lo usa con `animation-delay`, así se ven llenándose de a uno —que es
+   exactamente lo que hace el programa— en vez de aparecer todos. */
+@keyframes entra-sello {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.sello-entra {
+  animation: entra-sello 460ms var(--ease-bookea, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+/* ── Entrada suave de un panel que cambia de contenido ──────────────
+   Para lo que se reemplaza en el sitio (el panel de tipos de pase en
+   /lealtad): en vez de que el contenido nuevo aparezca de golpe, sube
+   unos píxeles mientras se funde.
+
+   El truco está en el ESCALONADO de los hijos directos: el bloque
+   entero moviéndose como una plancha se lee mecánico; con cada hijo
+   entrando 60 ms después del anterior, se lee como algo que se
+   acomoda. Son 40 ms de diferencia que cambian la sensación entera.
+
+   Va con `will-change` y solo anima transform y opacity, así que
+   corre en el compositor y no toca layout. */
+@keyframes entra-suave {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.entra-suave {
+  animation: entra-suave 420ms var(--ease-bookea, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+.entra-suave > * > * {
+  animation: entra-suave 420ms var(--ease-bookea, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+.entra-suave > * > *:nth-child(1) {
+  animation-delay: 60ms;
+}
+.entra-suave > * > *:nth-child(2) {
+  animation-delay: 120ms;
 }
 
 /* Respetar a quien pidió menos movimiento. No se apaga la interfaz: se
@@ -323,6 +524,27 @@
   }
   .esqueleto::after {
     animation: none;
+  }
+  /* El fondo orgánico deja de derivar, pero CONSERVA sus colores: son
+     la identidad de la tarjeta, no decoración. */
+  .organico::before,
+  .organico:hover::before {
+    animation: none;
+  }
+  /* El teléfono deja de flotar y el vidrio de brillar. Los sellos se
+     muestran puestos, sin el rebote de entrada. */
+  .flotante,
+  .brillo-vidrio::before {
+    animation: none;
+  }
+  .sello-entra {
+    animation: none;
+  }
+  /* El panel aparece sin subir ni escalonarse. */
+  .entra-suave,
+  .entra-suave > * > * {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
   }
 }
 
@@ -1052,6 +1274,58 @@ body {
 }
 .lealtad-oscuro .border-aventurea-navy {
   border-color: rgba(157, 180, 255, 0.45);
+}
+
+/* ── LA FAMILIA `bookea-*`, que faltaba entera ─────────────────────
+   El asistente de tarjetas nació en su propia pantalla (/crear, fondo
+   claro) y usa los tokens de la identidad de Lealtad —`bookea-tinta`,
+   `bookea-gris`, `bookea-linea`— en vez de los `aventurea-*` del panel
+   de mi-negocio. Cuando el asistente pasó a vivir DENTRO del panel
+   oscuro, arriba se re-mapeaban los `aventurea-*` y estos no: el
+   resultado fue navy sobre navy, o sea títulos invisibles. Solo se
+   leía la tarjeta seleccionada, que es la única con fondo propio.
+
+   Va acá y no en cada componente por lo mismo que el bloque de arriba:
+   el asistente tiene que seguir viéndose bien en su pantalla clara, y
+   dos juegos de clases condicionales por tema es justo la duplicación
+   que este archivo existe para evitar. */
+/* La versión opaca de `--hoja` para el panel oscuro. Un pelo más claro
+   que el fondo (#0a1226) para que la barra se despegue del contenido
+   sin parecer otro color. */
+.lealtad-oscuro {
+  --hoja: #121d34;
+}
+
+.lealtad-oscuro .text-bookea-tinta {
+  color: #ffffff;
+}
+.lealtad-oscuro .text-bookea-gris {
+  color: rgba(255, 255, 255, 0.62);
+}
+.lealtad-oscuro .border-bookea-linea {
+  border-color: rgba(255, 255, 255, 0.13);
+}
+/* El azul de marca sobre el navy profundo del fondo desaparece igual
+   que el `aventurea-navy`: se aclara para seguir leyéndose. */
+.lealtad-oscuro .text-bookea-azul {
+  color: #9db4ff;
+}
+.lealtad-oscuro .border-bookea-azul {
+  border-color: rgba(157, 180, 255, 0.5);
+}
+.lealtad-oscuro .bg-bookea-azul {
+  background-color: #26386f;
+}
+/* La tarjeta elegida: en claro es un azul muy suave, y acá tiene que
+   destacar SOBRE el fondo, no fundirse con él. */
+.lealtad-oscuro .bg-bookea-azul-suave {
+  background-color: rgba(157, 180, 255, 0.14);
+}
+.lealtad-oscuro .bg-bookea-naranja-suave {
+  background-color: rgba(238, 116, 32, 0.16);
+}
+.lealtad-oscuro .text-bookea-naranja-fuerte {
+  color: #ff9a4d;
 }
 /* Chips y avisos: mismo significado, versión para fondo oscuro. */
 .lealtad-oscuro .bg-aventurea-green-light {

@@ -94,11 +94,13 @@ describe("construirClase / construirObjeto", () => {
       issuerId: ISSUER,
       ranchoId: RANCHO,
       miembroId: MIEMBRO,
+      nombreNegocio: "Rancho Las Torres",
       nombreCliente: "Luis",
       serial: "serial-del-escaner",
       saldo: 5,
-      modo: "sellos",
+      config,
       meta: { nombre: "Tu bebida favorita gratis", costo_puntos: 10 },
+      beneficio: null,
     });
     expect(objeto.classId).toBe(idDeClase(ISSUER, RANCHO));
     expect(objeto.loyaltyPoints).toEqual({ label: "Sellos", balance: { int: 5 } });
@@ -113,11 +115,13 @@ describe("construirClase / construirObjeto", () => {
       issuerId: ISSUER,
       ranchoId: RANCHO,
       miembroId: MIEMBRO,
+      nombreNegocio: "Rancho Las Torres",
       nombreCliente: "Luis",
       serial: "s",
       saldo: 12,
-      modo: "sellos",
+      config,
       meta: { nombre: "Café", costo_puntos: 10 },
+      beneficio: null,
     });
     expect(objeto.textModulesData?.[0].body).toContain("10 de 10");
   });
@@ -127,11 +131,13 @@ describe("construirClase / construirObjeto", () => {
       issuerId: ISSUER,
       ranchoId: RANCHO,
       miembroId: MIEMBRO,
+      nombreNegocio: "Rancho Las Torres",
       nombreCliente: "Luis",
       serial: "s",
       saldo: 240,
-      modo: "puntos",
+      config: { ...config, modo: "puntos" },
       meta: null,
+      beneficio: null,
     });
     expect(objeto.loyaltyPoints.label).toBe("Puntos");
     expect(objeto.textModulesData).toBeUndefined();

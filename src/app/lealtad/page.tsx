@@ -8,9 +8,16 @@ import {
   PLAN_DESTACADO,
   precioDe,
 } from "@/lib/lealtad/planes";
-import HeroTelefono from "./hero-telefono";
 import AcordeonTipos from "./acordeon-tipos";
 import DemoNotificacion from "./demo-notificacion";
+import CarruselNegocios from "./carrusel-negocios";
+import PaquetesCliente from "./paquetes-cliente";
+import TelefonoMockup, { PantallaWallet } from "./telefono-mockup";
+import { FICHAS } from "./contenido-tipos";
+import SeccionCrecimiento from "./seccion-crecimiento";
+import SeccionDashboard from "./seccion-dashboard";
+import PruebaSocial from "./prueba-social";
+import { textoDelContador } from "@/lib/lealtad/contador-negocios";
 
 /**
  * /lealtad — rediseño completo con la misma línea que /invitaciones:
@@ -30,6 +37,19 @@ import DemoNotificacion from "./demo-notificacion";
 const NAVY_PROFUNDO = "#0a1226";
 const NAVY = "#16295e";
 const NARANJA = "#ee7420";
+
+/**
+ * La franja de negocios depende del DIA, y una pagina estatica se
+ * congela en el momento del build: sin esto el numero quedaria
+ * clavado en el de la ultima vez que se desplego.
+ *
+ * Seis horas y no cero: la pagina sigue sirviendose desde el cache
+ * del CDN a todo el mundo, y se regenera sola cuatro veces al dia.
+ * `revalidate = 0` la volveria dinamica y le costaria a CADA
+ * visitante el viaje al servidor — exactamente lo contrario de lo
+ * que se esta corrigiendo en el resto del sitio.
+ */
+export const revalidate = 21600;
 
 export const metadata: Metadata = {
   title: "Lealtad",
@@ -52,6 +72,7 @@ const PAQUETES = PLANES_OFRECIDOS.map((id) => {
     // Ya formateado con su moneda: la landing no decide si un 9.99 son
     // dólares o colones — eso lo sabe el catálogo y nadie más.
     precio: precioDe(def),
+    precioAnual: precioDe(def, "año"),
     esGratis: def.precioMensual === 0,
     incluye: def.capacidades.map((c) => ETIQUETAS_CAPACIDAD[c]),
     destacado: id === PLAN_DESTACADO,
@@ -59,135 +80,33 @@ const PAQUETES = PLANES_OFRECIDOS.map((id) => {
 });
 
 /**
- * Cada categoría con su DEMO: la chip es clickeable y aterriza en
- * /lealtad/demo/[tipo] — la tarjeta de ejemplo de ese negocio, para
- * que el dueño se vea antes de comprar.
+ * Los tres pasos del alta, con lo que de verdad pasa en cada uno.
+ *
+ * `detalle` es el dato concreto —cuánto tarda, qué no hace falta— y no
+ * un adjetivo: «sin diseñador» convence más que «fácil y rápido».
  */
-const NEGOCIOS: { nombre: string; demo: string }[] = [
-  { nombre: "Restaurantes", demo: "restaurantes" },
-  { nombre: "Cafeterías", demo: "cafeterias" },
-  { nombre: "Barberías", demo: "barberias" },
-  { nombre: "Salones de belleza", demo: "salones" },
-  { nombre: "Spas", demo: "spas" },
-  { nombre: "Gimnasios", demo: "gimnasios" },
-  { nombre: "Lavacars", demo: "lavacars" },
-];
-
-/**
- * El catálogo de la familia de pases: cada producto que puede vivir
- * como tarjeta en el Wallet del cliente. La lealtad y los paquetes de
- * membresía (0120) ya existen en la plataforma; el resto es el mapa de
- * lo que la familia ofrece — por eso cada card lleva su categoría de
- * negocio (retención, reactivación…) en vez de un precio.
- */
-const PRODUCTOS_PASE: {
-  titulo: string;
-  texto: string;
-  chip: string;
-  icono: React.ReactNode;
-}[] = [
+const PASOS: { titulo: string; texto: string; detalle: string }[] = [
   {
-    titulo: "Pase de confirmación de cita",
+    titulo: "Armás tu tarjeta",
     texto:
-      "Cada reserva o cita genera su pase con fecha, hora y ubicación. Recordatorios en la pantalla del teléfono, sin que tengás que mover un dedo.",
-    chip: "Citas y reservas",
-    icono: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="3" />
-        <path d="M16 2v4M8 2v4M3 10h18" />
-      </svg>
-    ),
+      "Elegís el tipo (sellos, puntos, cupón…), ponés tus colores y tu logo, y decidís qué se gana. La vas viendo en el teléfono mientras la armás.",
+    detalle: "Cinco pasos · sin diseñador",
   },
   {
-    titulo: "Tarjetas de lealtad digitales",
+    titulo: "La compartís",
     texto:
-      "El clásico «10 sellos y el 11 gratis», pero digital: se sella solo con cada visita, sin cartón que se pierde ni que se olvide traer al cliente.",
-    chip: "Retención",
-    icono: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="5" width="20" height="14" rx="3" />
-        <circle cx="8" cy="12" r="1.4" fill="currentColor" stroke="none" />
-        <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-        <circle cx="16" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      </svg>
-    ),
+      "Imprimís el póster para tu mostrador o mandás el link por WhatsApp. Quien lo abre agrega la tarjeta a su Wallet y queda afiliado solo.",
+    detalle: "QR y link · sin app que instalar",
   },
   {
-    titulo: "Gift cards digitales",
+    titulo: "Sellás y ellos vuelven",
     texto:
-      "Tarjetas de regalo que se compran dentro de Bookea y se guardan directo en el Wallet de quien las recibe, listas para usarse en cualquier visita.",
-    chip: "Nuevo ingreso",
-    icono: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="8" width="18" height="13" rx="2" />
-        <path d="M3 12h18M12 8v13M12 8c-2.5 0-4.5-1.5-4.5-3.2C7.5 3.2 9 2.5 10.2 3c1.5.6 1.8 3 1.8 5zm0 0c2.5 0 4.5-1.5 4.5-3.2 0-1.6-1.5-2.3-2.7-1.8-1.5.6-1.8 3-1.8 5z" />
-      </svg>
-    ),
-  },
-  {
-    titulo: "Paquetes prepagados",
-    texto:
-      "«5 masajes», «10 clases», «manicure x4». El pase muestra el saldo restante y se descuenta solo en cada visita — la caja entra por adelantado.",
-    chip: "Caja anticipada",
-    icono: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
-        <path d="M3 8l9 5 9-5M12 13v8" />
-      </svg>
-    ),
-  },
-  {
-    titulo: "Membresías",
-    texto:
-      "Acceso ilimitado o precio de socio, con la fecha de renovación visible en el pase — como un carnet, pero que nunca se olvida en casa.",
-    chip: "Ingreso recurrente",
-    icono: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="16" rx="3" />
-        <circle cx="9" cy="11" r="2.2" />
-        <path d="M5.5 17c.8-1.8 2-2.6 3.5-2.6s2.7.8 3.5 2.6M15 9h4M15 13h4" />
-      </svg>
-    ),
-  },
-  {
-    titulo: "Pases VIP / prioridad",
-    texto:
-      "Para tus clientes de más valor: otro color, otro diseño, y beneficios reales como prioridad de horario o un descuento fijo.",
-    chip: "Segmentación",
-    icono: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2.5l2.9 5.9 6.6 1-4.7 4.6 1.1 6.5-5.9-3.1-5.9 3.1 1.1-6.5L2.5 9.4l6.6-1z" />
-      </svg>
-    ),
-  },
-  {
-    titulo: "Cupones y promos con vencimiento",
-    texto:
-      "«Hace 30 días no venís — tenés 15% off»: entregado como pase con fecha límite, no como un código que se pierde en un chat.",
-    chip: "Reactivación",
-    icono: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 3 12.2V5a2 2 0 0 1 2-2h7.2a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8z" />
-        <circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" />
-      </svg>
-    ),
+      "En cada visita escaneás su código desde el panel. El sello entra al instante y la tarjeta se actualiza sola en su teléfono.",
+    detalle: "Un escaneo · el saldo lo lleva el sistema",
   },
 ];
 
-/** Un cheque simple, en la línea de invitaciones/card-paquete.tsx. */
-function Check({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-    >
-      <path d="M4 10.5l4 4 8-9" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+
 
 export default function LealtadPage() {
   return (
@@ -206,99 +125,133 @@ export default function LealtadPage() {
       </Link>
 
       {/* ================= HERO ================= */}
-      <section className="relative overflow-hidden pb-14 pt-16 sm:pb-20 sm:pt-20">
+      <section className="relative overflow-hidden pb-16 pt-14 sm:pb-24 sm:pt-20">
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-[30%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.18] blur-[130px]"
+          className="pointer-events-none absolute left-[18%] top-[26%] h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[140px]"
           style={{ background: NARANJA }}
         />
 
-        <div className="relative mx-auto w-[min(1120px,92vw)] text-center">
-          <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
-            Bookea Lealtad
-          </p>
-          {/* El ataque: la promesa es CRECER la clientela — el triple
-              beneficio en el orden en que el dueño lo siente. La
-              animación de al lado lo dibuja: el contador sube y los
-              avisos caen. */}
-          <h1 className="titulo mx-auto mt-5 max-w-[16ch] text-balance text-[clamp(34px,5.8vw,62px)] leading-[1.04]">
-            De una reserva a un cliente frecuente.
-          </h1>
-          <p className="mx-auto mt-4 max-w-[52ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60">
-            Creá experiencias de lealtad que tus clientes pueden guardar en Apple
-            Wallet y Google Wallet. Sin descargar otra aplicación.
-          </p>
-
-          <div className="relative mt-10 sm:mt-12" data-reveal>
-            <HeroTelefono />
-          </div>
-
-          {/* Cómo funciona, en una línea de tres pasos — la versión
-              breve; el detalle vive en las escenas de más abajo. */}
-          <div className="mx-auto mt-10 grid max-w-[760px] gap-3 text-left sm:grid-cols-3">
-            {[
-              ["1", "Ponés el QR en tu mostrador", "El cliente lo escanea una vez y la tarjeta queda en su Wallet."],
-              ["2", "Cada visita suma sola", "Sellos o puntos, con tus reglas — el pase se actualiza al instante."],
-              ["3", "Canjean… y vuelven", "El premio los trae de vuelta, y la tarjeta se los recuerda a diario."],
-            ].map(([n, titulo, texto]) => (
-              <div
-                key={n}
-                data-reveal
-                className="rounded-2xl border border-white/12 p-4"
-                style={{ background: "rgba(255,255,255,.04)" }}
-              >
-                <span
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-extrabold text-white"
-                  style={{ background: NARANJA }}
-                >
-                  {n}
-                </span>
-                <p className="mt-2.5 text-[13.5px] font-extrabold text-white">{titulo}</p>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-white/55">{texto}</p>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-8 flex items-center justify-center gap-2 text-[12.5px] font-bold text-white/45">
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
-              <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-            </svg>
-            y
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
-              <path d="M21.35 11.1h-9.17v2.73h5.24c-.23 1.42-1.63 4.17-5.24 4.17-3.16 0-5.73-2.61-5.73-5.83s2.57-5.83 5.73-5.83c1.8 0 3 .77 3.69 1.43l2.52-2.43C16.83 3.6 14.68 2.7 12.18 2.7c-5.13 0-9.29 4.16-9.29 9.29s4.16 9.29 9.29 9.29c5.36 0 8.92-3.77 8.92-9.08 0-.61-.07-1.08-.15-1.55z" />
-            </svg>
-            Apple Wallet y Google Wallet — el mismo pase, sin apps que instalar
-          </p>
-
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="#precios"
-              className="rounded-full px-7 py-3.5 text-[14.5px] font-bold text-white transition-transform hover:scale-[1.03]"
-              style={{ background: NARANJA }}
-            >
-              Ver precios
-            </Link>
-            <Link
-              href="/lealtad/nuevo"
-              className="rounded-full border border-white/25 px-7 py-3.5 text-[14.5px] font-bold text-white/90 transition-colors hover:border-white/60"
-            >
-              Quiero el programa en mi negocio
-            </Link>
-          </div>
-
-          {/* Para quien YA lo tiene. Sin esto la landing solo habla con
-              el que todavía no compró, y el que ya pagó tiene que
-              adivinar por dónde entra. */}
-          <p className="mt-5 text-[13px] text-white/45">
-            ¿Ya tenés el programa?{" "}
-            <Link
-              href="/lealtad/login"
-              className="font-bold underline transition-colors hover:text-white/80"
+        <div className="relative mx-auto grid w-[min(1180px,92vw)] items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+          {/* ── El texto ──────────────────────────────────────────
+              El ataque es la RETENCIÓN, no la adquisición: traer gente
+              nueva es lo caro y lo que ya intentó con publicidad. Lo
+              que no tiene es una razón para que vuelva. */}
+          <div className="text-center lg:text-left">
+            <p
+              className="text-[12px] font-bold uppercase tracking-[0.22em]"
               style={{ color: NARANJA }}
             >
-              Entrá acá
-            </Link>
-          </p>
+              Bookea Lealtad
+            </p>
+
+            <h1 className="titulo mt-5 text-balance text-[clamp(34px,5.4vw,60px)] leading-[1.03]">
+              Atraé clientes. Convertilos en clientes de verdad.
+            </h1>
+
+            <p className="mx-auto mt-5 max-w-[52ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60 lg:mx-0">
+              Un cliente que vuelve vale más que tres que pasan una vez. Bookea Lealtad
+              le da a cada persona una tarjeta en su teléfono —Apple Wallet y Google
+              Wallet— que le recuerda por qué le conviene volver a tu negocio.
+            </p>
+
+            {/* Tres datos DUROS, no adjetivos: qué se paga, qué hay que
+                instalar, cuánto se tarda. Son las tres objeciones que
+                frenan a un dueño de local antes de leer nada más. */}
+            <ul className="mx-auto mt-7 flex max-w-[52ch] flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] font-bold text-white/65 lg:mx-0 lg:justify-start">
+              {[
+                "Sin apps que instalar",
+                "Sin contratos",
+                "Sin tarjeta de crédito",
+              ].map((t) => (
+                <li key={t} className="flex items-center gap-2">
+                  <span aria-hidden style={{ color: NARANJA }}>
+                    ✓
+                  </span>
+                  {t}
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
+              <Link
+                href="/lealtad/nuevo"
+                className="presionable w-full rounded-full px-8 py-4 text-center text-[15px] font-extrabold sm:w-auto"
+                style={{ background: NARANJA, color: "#0a1226" }}
+              >
+                ¡Obtené tu pase gratis!
+              </Link>
+              <Link
+                href="#precios"
+                className="presionable w-full rounded-full border border-white/25 px-7 py-4 text-center text-[14.5px] font-bold text-white/90 sm:w-auto"
+              >
+                Ver precios
+              </Link>
+            </div>
+
+            {/* ── LA PROMESA DE LOS 10 MINUTOS ──────────────────────
+                Estaba acá abajo en gris al 45%, del mismo tamaño que
+                un pie de página: la objeción más grande del dueño de
+                un local —«esto me va a comer la semana»— contestada
+                en letra que nadie lee.
+
+                Ahora es una línea propia, con el número en naranja.
+                No va en mayúsculas: un hero gritando se lee como
+                anuncio de feria, y el resto del sitio no grita. El
+                énfasis lo dan el tamaño, el color y el aire, que es
+                lo que de verdad frena el ojo. */}
+            <p className="mt-4 text-[14.5px] font-bold leading-snug text-white/75">
+              <span style={{ color: NARANJA }}>En menos de 10 minutos</span> lo tenés
+              listo y configurado.
+            </p>
+
+            {/* Para quien YA lo tiene. Sin esto la landing solo habla
+                con el que todavía no compró, y el que ya pagó tiene que
+                adivinar por dónde entra. */}
+            <p className="mt-6 text-[13px] text-white/40">
+              ¿Ya tenés el programa?{' '}
+              <Link
+                href="/lealtad/login"
+                className="font-bold underline transition-colors hover:text-white/80"
+                style={{ color: NARANJA }}
+              >
+                Entrá acá
+              </Link>
+            </p>
+          </div>
+
+          {/* ── El mockup ───────────────────────────────────────── */}
+          <div className="relative">
+            <TelefonoMockup>
+              {/* La misma ficha que usa el acordeón, no una copia: acá
+                  vivían el color y la foto de la cafetería duplicados,
+                  y ya se habían desincronizado —el hero decía 8/10 y
+                  más abajo la misma tarjeta decía 7/10—. */}
+              <PantallaWallet
+                negocio={FICHAS.sellos.negocio}
+                colores={FICHAS.sellos.colores}
+                arriba={FICHAS.sellos.arriba}
+                valor={FICHAS.sellos.valor}
+                abajo={FICHAS.sellos.abajo}
+                foto={FICHAS.sellos.foto}
+                detalle={FICHAS.sellos.detalle}
+                movimientos={FICHAS.sellos.movimientos}
+                sellos={[7, 10]}
+              />
+            </TelefonoMockup>
+          </div>
+          {/* ── La franja de prueba social ─────────────────────────
+              Va DEBAJO de las dos columnas y no dentro de la del
+              texto: así ocupa el vacío que dejaba el mockup —que es
+              más alto que el texto— en vez de estirar una columna y
+              descuadrar la otra.
+
+              El número vive en UNA constante (arriba de este archivo)
+              y no acá suelto, para que actualizarlo sea un solo
+              cambio y no una búsqueda. */}
+          <div className="lg:col-span-2">
+            <PruebaSocial {...textoDelContador()} />
+          </div>
         </div>
       </section>
 
@@ -327,6 +280,10 @@ export default function LealtadPage() {
         </div>
       </section>
 
+      <SeccionCrecimiento />
+
+      <SeccionDashboard />
+
       {/* ================= LA DEMO DE NOTIFICACIONES ================= */}
       <section className="px-5 py-24 sm:px-8">
         <div className="mx-auto w-[min(1080px,92vw)]">
@@ -353,84 +310,74 @@ export default function LealtadPage() {
         </div>
       </section>
 
-      {/* ================= LA FAMILIA DE PASES ================= */}
+      {/* ================= ASÍ FUNCIONA, EN TRES PASOS ================= */}
+      {/* Va ANTES de todo lo demás a propósito: quien llega no sabe qué
+          es esto. Explicar el mecanismo en tres pasos concretos gana
+          más que otra promesa de marketing. */}
       <section className="px-5 py-24 sm:px-8">
         <div className="mx-auto w-[min(1120px,92vw)]">
-          <div data-reveal className="mx-auto max-w-[56ch] text-center">
+          <div data-reveal className="mx-auto max-w-[52ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
-              Más que sellos
+              Así funciona
             </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
-              Cada producto, un pase en el teléfono
+            <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08]">
+              En diez minutos tenés tu tarjeta andando
             </h2>
-            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
-              Sin apps extra y sin papel: cada tarjeta vive en el Wallet de tu
-              cliente y se actualiza sola cada vez que reserva, compra o
-              visita tu negocio.
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-white/55">
+              Sin diseñador, sin desarrollador y sin que tus clientes instalen nada.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {PRODUCTOS_PASE.map((p, i) => (
-              <div
+          <ol className="mt-14 grid gap-4 md:grid-cols-3">
+            {PASOS.map((p, i) => (
+              <li
                 key={p.titulo}
                 data-reveal
-                className="flex flex-col rounded-3xl border border-white/12 p-6"
+                className="rounded-3xl border border-white/12 p-6"
                 style={
                   {
                     background: "rgba(255,255,255,.04)",
-                    "--reveal-delay": `${(i % 3) * 90}ms`,
+                    "--reveal-delay": `${i * 80}ms`,
                   } as React.CSSProperties
                 }
               >
                 <span
-                  className="flex h-10 w-10 items-center justify-center rounded-xl [&_svg]:h-5 [&_svg]:w-5"
-                  style={{ background: "rgba(238,116,32,.14)", color: NARANJA }}
+                  className="grid h-10 w-10 place-items-center rounded-full text-[15px] font-extrabold"
+                  style={{ background: NARANJA, color: NAVY_PROFUNDO }}
                 >
-                  {p.icono}
+                  {i + 1}
                 </span>
-                <h3 className="mt-4 text-[16.5px] font-extrabold text-white">{p.titulo}</h3>
-                <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-white/55">
-                  {p.texto}
+                <h3 className="mt-4 text-[18px] font-extrabold leading-tight text-white">
+                  {p.titulo}
+                </h3>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-white/60">{p.texto}</p>
+                <p className="mt-4 text-[12px] font-bold" style={{ color: NARANJA }}>
+                  {p.detalle}
                 </p>
-                <span
-                  className="mt-4 self-start rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide"
-                  style={{ background: "rgba(238,116,32,.14)", color: NARANJA }}
-                >
-                  {p.chip}
-                </span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
 
-      {/* ================= LOS DEMOS POR CATEGORÍA ================= */}
-      <section className="px-5 py-16 sm:px-8">
-        <div className="mx-auto w-[min(1120px,92vw)] text-center">
-          <p data-reveal className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
-            Hecho para negocios con clientela que vuelve
-          </p>
-          <h2
-            data-reveal
-            className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(24px,3.6vw,40px)] leading-[1.1]"
-          >
-            Mirá los demos de cada negocio — cómo podría funcionar el tuyo
-          </h2>
-          <p data-reveal className="mx-auto mt-3 max-w-[48ch] text-[14px] leading-relaxed text-white/55">
-            Tocá tu categoría y vé la tarjeta de ejemplo: los sellos, la regalía y
-            cómo se vería en el teléfono de tus clientes.
-          </p>
-          <div data-reveal className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
-            {NEGOCIOS.map((n) => (
-              <Link
-                key={n.demo}
-                href={`/lealtad/demo/${n.demo}`}
-                className="rounded-xl border border-white/15 px-4 py-2 text-[13px] font-bold text-white/80 transition-colors hover:border-[#ee7420] hover:text-white"
-              >
-                {n.nombre} →
-              </Link>
-            ))}
+      {/* ================= LOS NEGOCIOS ================= */}
+      <section className="px-5 py-24 sm:px-8">
+        <div className="mx-auto w-[min(1180px,94vw)]">
+          <div data-reveal className="mx-auto max-w-[52ch] text-center">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+              Hecho para negocios con clientela que vuelve
+            </p>
+            <h2 className="titulo mx-auto mt-4 max-w-[22ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08]">
+              Encontrá el tuyo y mirá cómo le quedaría
+            </h2>
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-white/55">
+              Cada rubro tiene su página: la tarjeta de ejemplo, la mecánica que le
+              sirve y la regalía que sus clientes perseguirían.
+            </p>
+          </div>
+
+          <div data-reveal className="mt-12">
+            <CarruselNegocios />
           </div>
         </div>
       </section>
@@ -451,67 +398,8 @@ export default function LealtadPage() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PAQUETES.map((plan) => (
-              <div
-                key={plan.id}
-                data-reveal
-                className={`flex flex-col rounded-3xl border p-7 ${plan.destacado ? "" : "border-white/12"}`}
-                style={{
-                  background: plan.destacado ? NAVY_PROFUNDO : "rgba(255,255,255,.04)",
-                  borderColor: plan.destacado ? NARANJA : undefined,
-                }}
-              >
-                <p
-                  className="text-[12px] font-extrabold uppercase tracking-wide"
-                  style={{ color: plan.destacado ? NARANJA : "rgba(255,255,255,.55)" }}
-                >
-                  {plan.destacado ? "El más popular" : "Paquete"}
-                </p>
-                <p className="titulo mt-2 text-[36px] leading-none tracking-tight text-white">
-                  {plan.nombre}
-                </p>
-                <p className="mt-2 text-[22px] font-extrabold leading-none text-white">
-                  {plan.precio === null ? (
-                    "A convenir"
-                  ) : plan.esGratis ? (
-                    `${plan.precio} — para probar`
-                  ) : (
-                    <>
-                      {plan.precio}
-                      <span className="text-[13px] font-bold text-white/50"> /mes</span>
-                    </>
-                  )}
-                </p>
-                <p className="mt-1.5 text-[12.5px] text-white/50">
-                  Hasta {plan.limite === null ? "miembros ilimitados" : `${plan.limite.toLocaleString("es-CR")} miembros`}
-                </p>
-
-                <ul className="mt-6 flex flex-1 flex-col gap-2.5">
-                  {plan.incluye.map((item) => (
-                    <li key={item} className="flex items-start gap-2.5 text-[13.5px] leading-relaxed">
-                      <span
-                        className="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full"
-                        style={{ background: "rgba(238,116,32,.18)", color: NARANJA }}
-                      >
-                        <Check className="h-2.5 w-2.5" />
-                      </span>
-                      <span className="text-white/80">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link
-                  href="/lealtad/planes"
-                  className={`mt-7 flex h-11 items-center justify-center rounded-full text-[14px] font-bold transition-transform hover:scale-[1.02] ${
-                    plan.destacado ? "text-white" : "border border-white/25 text-white"
-                  }`}
-                  style={plan.destacado ? { background: NARANJA } : undefined}
-                >
-                  {plan.esGratis ? "Empezar gratis" : `Solicitar ${plan.nombre}`}
-                </Link>
-              </div>
-            ))}
+          <div className="mt-14">
+            <PaquetesCliente paquetes={PAQUETES} />
           </div>
 
           <p className="mt-8 text-center text-[12px] text-white/40">

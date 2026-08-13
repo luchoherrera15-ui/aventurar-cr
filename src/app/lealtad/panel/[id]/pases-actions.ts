@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verificarAccesoRancho } from "@/lib/auth";
+import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
+import { esTipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 
 /**
@@ -33,6 +35,21 @@ export type ProgramaFila = {
   pase_color_fondo: string | null;
   pase_color_sello: string | null;
   pase_logo_url: string | null;
+  /**
+   * El diseño del pase que suma la 0132. TODOS opcionales, y no por
+   * pereza: la migración puede no estar pegada —las pega el dueño a
+   * mano— y entonces la fila llega SIN estos campos. Declararlos
+   * obligatorios haría que TypeScript creyera que siempre están, y la
+   * pantalla leería `undefined` donde promete un booleano.
+   */
+  pase_banner_url?: string | null;
+  pase_codigo_formato?: string | null;
+  pase_texto_reverso?: string | null;
+  pase_mostrar_saldo?: boolean | null;
+  pase_mostrar_progreso?: boolean | null;
+  /** La config propia del tipo (0135, jsonb). La vista previa la
+   *  necesita para dibujar lo mismo que el pase real. */
+  beneficio?: unknown;
   /** Ciclo de vida (0125). null = se deriva de `activo`. Opcional:
    *  tolera bases sin migrar. */
   estado?: string | null;
@@ -58,6 +75,9 @@ export type RecompensaFila = {
   instrucciones?: string | null;
 };
 
+/** Qué código dibuja el pase (0132). Apple sabe leer los dos. */
+export type FormatoCodigo = "qr" | "code128";
+
 export type ProgramaInput = {
   nombre: string;
   modo: ModoPrograma;
@@ -68,10 +88,20 @@ export type ProgramaInput = {
   colorFondo: string;
   colorSello: string;
   logoUrl: string;
+  /** Banda superior: `strip.png` en Apple, `heroImage` en Google. */
+  bannerUrl: string;
+  codigoFormato: FormatoCodigo;
+  /** Reemplaza el texto que el dorso del pase arma solo. "" = el de siempre. */
+  textoReverso: string;
+  mostrarSaldo: boolean;
+  mostrarProgreso: boolean;
   activo: boolean;
 };
 
-const MODOS: readonly ModoPrograma[] = ["sellos", "cashback", "puntos"];
+const FORMATOS_CODIGO: readonly FormatoCodigo[] = ["qr", "code128"];
+/** El mismo tope que el CHECK de la 0132: pasarse solo cambia quién da
+ *  el error, y el de Postgres no está escrito para nadie. */
+const MAX_TEXTO_REVERSO = 500;
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
 /**
@@ -109,7 +139,13 @@ function traducir(mensaje: string, accion: string) {
 function validarPrograma(datos: ProgramaInput) {
   const nombre = datos.nombre.trim();
   if (!nombre || nombre.length > 80) return "El nombre es obligatorio (máximo 80 caracteres).";
-  if (!MODOS.includes(datos.modo)) return "Ese modo no existe.";
+  // LOS OCHO TIPOS, no tres. Acá había una lista propia con 'sellos',
+  // 'cashback' y 'puntos', y eso dejaba a las cinco tarjetas de la 0135
+  // sin poder guardarse: un cupón hecho con el asistente entraba al
+  // editor del diseño, se le cambiaba el color, y al guardar contestaba
+  // «Ese modo no existe» — un mensaje que no se puede ni obedecer,
+  // porque el tipo no se edita desde esta pantalla.
+  if (!esTipoTarjeta(datos.modo)) return "Ese tipo de tarjeta no existe.";
 
   if (!Number.isInteger(datos.puntosPorVisita) || datos.puntosPorVisita < 0) {
     return "Los puntos por visita no pueden ser negativos.";
@@ -127,19 +163,55 @@ function validarPrograma(datos: ProgramaInput) {
   if (!HEX.test(datos.colorFondo)) return "El color de fondo tiene que ser #RRGGBB.";
   if (!HEX.test(datos.colorSello)) return "El color del sello tiene que ser #RRGGBB.";
 
-  const logo = datos.logoUrl.trim();
-  if (logo && !logo.startsWith("https://")) return "El logo tiene que ser una URL https.";
+  if (!FORMATOS_CODIGO.includes(datos.codigoFormato)) {
+    return "Ese formato de código no existe.";
+  }
+  if (datos.textoReverso.trim().length > MAX_TEXTO_REVERSO) {
+    return `El texto del reverso no puede pasar de ${MAX_TEXTO_REVERSO} caracteres.`;
+  }
+  // Las imágenes NO se validan acá: hace falta saber qué tenía guardado
+  // el programa (ver `imagenAjena`), y eso es una consulta.
   return null;
 }
 
 /**
- * Crea o actualiza el programa. `programa_lealtad` tiene
- * `unique(rancho_id)`, así que hay uno solo por negocio: se busca y se
- * decide, en vez de asumir.
+ * ¿Esta imagen se puede guardar en el pase?
+ *
+ * La regla es la misma que en el creador (crear-actions.ts): la URL
+ * tiene que ser de NUESTRO bucket. Una URL ajena en el pase significa
+ * que un tercero decide qué imagen ve el cliente en el teléfono —y
+ * puede cambiarla o borrarla— para siempre, porque el pase ya está
+ * instalado.
+ *
+ * La excepción es la que YA ESTABA guardada. El editor viejo pedía una
+ * «URL https» escrita a mano, así que hay programas en producción con
+ * el logo colgado del dominio de otro. Rechazarla de golpe le rompería
+ * el guardado a un negocio que no tocó la imagen: no podría cambiar ni
+ * un color hasta resubir un logo que él no sabe que está mal. Se deja
+ * pasar tal cual está, y para reemplazarla hay que subir un archivo —
+ * que es el único camino que ofrece la pantalla nueva.
+ */
+function imagenAjena(url: string, anterior: string | null): boolean {
+  const limpia = url.trim();
+  if (!limpia) return false;
+  if (esUrlDeNuestroStorage(limpia, "ranchos-fotos")) return false;
+  return limpia !== (anterior ?? "").trim();
+}
+
+/**
+ * Crea o actualiza el programa.
+ *
+ * `programaId` viene de la pantalla que está editando. Desde la 0134 un
+ * negocio puede tener VARIAS tarjetas (se liberó el `unique(rancho_id)`
+ * de la 0060), así que buscar «el programa del rancho» ya no identifica
+ * a nadie: con dos tarjetas, guardar el diseño de una podía escribirle
+ * a la otra. Se sigue verificando que el id sea de ESTE negocio — viene
+ * del navegador, y eso no autoriza nada.
  */
 export async function guardarPrograma(
   ranchoId: string,
   datos: ProgramaInput,
+  programaId?: string | null,
 ): Promise<{ error?: string; programa?: ProgramaFila }> {
   const invalido = validarPrograma(datos);
   if (invalido) return { error: invalido };
@@ -147,7 +219,24 @@ export async function guardarPrograma(
   const { supabase, ok } = await guard(ranchoId);
   if (!ok) return { error: "Solo el dueño del negocio edita la tarjeta." };
 
-  const fila = {
+  // `select *` y no una lista de columnas: las de la 0132 pueden no
+  // existir todavía y un select explícito fallaría entero.
+  const busqueda = supabase.from("programa_lealtad").select("*").eq("rancho_id", ranchoId);
+  const { data: fila0 } = programaId
+    ? await busqueda.eq("id", programaId).maybeSingle()
+    : await busqueda.limit(1).maybeSingle();
+  const previo = (fila0 ?? null) as ProgramaFila | null;
+
+  if (programaId && !previo) return { error: "Esa tarjeta no es de este negocio." };
+
+  if (imagenAjena(datos.logoUrl, previo?.pase_logo_url ?? null)) {
+    return { error: "El logo no se subió bien — probá de nuevo." };
+  }
+  if (imagenAjena(datos.bannerUrl, previo?.pase_banner_url ?? null)) {
+    return { error: "La banda no se subió bien — probá de nuevo." };
+  }
+
+  const base = {
     nombre: datos.nombre.trim(),
     modo: datos.modo,
     puntos_por_visita: datos.puntosPorVisita,
@@ -157,31 +246,88 @@ export async function guardarPrograma(
     pase_logo_url: datos.logoUrl.trim() || null,
     activo: datos.activo,
   };
+  const fila = {
+    ...base,
+    pase_banner_url: datos.bannerUrl.trim() || null,
+    pase_codigo_formato: datos.codigoFormato,
+    pase_texto_reverso: datos.textoReverso.trim() || null,
+    pase_mostrar_saldo: datos.mostrarSaldo,
+    pase_mostrar_progreso: datos.mostrarProgreso,
+  };
 
-  const { data: existente } = await supabase
-    .from("programa_lealtad")
-    .select("id")
-    .eq("rancho_id", ranchoId)
-    .maybeSingle();
+  const guardarCon = (f: Record<string, unknown>) =>
+    previo
+      ? supabase.from("programa_lealtad").update(f).eq("id", previo.id).select("*").single()
+      : supabase
+          .from("programa_lealtad")
+          .insert({ rancho_id: ranchoId, ...f })
+          .select("*")
+          .single();
 
-  const { data, error } = existente
-    ? await supabase
-        .from("programa_lealtad")
-        .update(fila)
-        .eq("id", existente.id)
-        .select("*")
-        .single()
-    : await supabase
-        .from("programa_lealtad")
-        .insert({ rancho_id: ranchoId, ...fila })
-        .select("*")
-        .single();
+  let { data, error } = await guardarCon(fila);
+
+  // Base sin la 0132: se reintenta con lo que la 0122 sí tiene. El
+  // negocio pierde el diseño nuevo hasta que la migración corra, pero
+  // no pierde el poder cambiar un color — que es lo que pasaba si esto
+  // se dejaba reventar. Va ANTES de `traducir`, porque el mensaje de
+  // PostgREST para una columna que falta ("Could not find …") cae en
+  // `faltaLaTabla` y se traduciría a un consejo equivocado.
+  if (
+    error &&
+    [
+      "pase_banner_url",
+      "pase_codigo_formato",
+      "pase_texto_reverso",
+      "pase_mostrar_saldo",
+      "pase_mostrar_progreso",
+    ].some((c) => error!.message.includes(c))
+  ) {
+    ({ data, error } = await guardarCon(base));
+  }
 
   if (error) return { error: traducir(error.message, "guardar el programa") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);
   return { programa: data as ProgramaFila };
+}
+
+/**
+ * Lo que el editor del diseño necesita saber y no está en la fila del
+ * programa: cómo se llama el negocio (la vista previa escribe ESE
+ * nombre, no el de la tarjeta) y cuántos pases hay ya emitidos.
+ *
+ * Se pregunta acá y no se recibe por props porque el editor cuelga del
+ * contexto compartido, que solo lleva el programa y sus recompensas.
+ * El número importa: cambiar el diseño toca tarjetas que ya están en
+ * teléfonos ajenos, y eso hay que decirlo ANTES de guardar.
+ */
+export async function contextoDeLaTarjeta(
+  ranchoId: string,
+  programaId: string | null,
+): Promise<{ negocioNombre: string; pasesEmitidos: number }> {
+  const { supabase, ok } = await guard(ranchoId);
+  if (!ok) return { negocioNombre: "", pasesEmitidos: 0 };
+
+  const { data: rancho } = await supabase
+    .from("ranchos")
+    .select("nombre")
+    .eq("id", ranchoId)
+    .maybeSingle();
+
+  // `head` = el número, sin traerse las filas. La política de la 0060
+  // ya deja al dueño contar los miembros de su programa.
+  const { count } = programaId
+    ? await supabase
+        .from("miembros")
+        .select("*", { count: "exact", head: true })
+        .eq("programa_id", programaId)
+    : { count: 0 };
+
+  return {
+    negocioNombre: (rancho?.nombre as string | undefined) ?? "",
+    pasesEmitidos: count ?? 0,
+  };
 }
 
 export type RecompensaInput = {

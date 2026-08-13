@@ -704,6 +704,28 @@ function PerfilVista({
           </View>
         </View>
 
+        {/* La entrada al Panel Admin, solo para el equipo de Bookea —
+            espejo del hub /admin de la web, adaptado: la grilla vive
+            en su propia pantalla. */}
+        {perfil?.rol === "admin" && (
+          <Pressable
+            style={styles.tarjetaAdmin}
+            accessibilityRole="button"
+            onPress={() => router.push("/admin" as never)}
+          >
+            <View style={styles.adminIcono}>
+              <Ionicons name="shield-checkmark-outline" size={19} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.adminTitulo}>Panel Admin</Text>
+              <Text style={styles.adminDetalle} numberOfLines={1}>
+                Publicaciones, cuentas, finanzas y más
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color="rgba(255,255,255,0.7)" />
+          </Pressable>
+        )}
+
         {esProveedor && stats && (
           <Pressable style={styles.tarjetaNegocio} onPress={() => router.push("/negocio" as never)}>
             <View style={styles.negocioEncabezado}>
@@ -1076,6 +1098,26 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
     paddingBottom: Spacing.two,
   },
+  // Navy sólido: el admin es sobrio y se distingue de las tarjetas
+  // blancas del perfil sin gritar.
+  tarjetaAdmin: {
+    alignItems: "center",
+    backgroundColor: Colors.navy,
+    borderRadius: 18,
+    flexDirection: "row",
+    gap: Spacing.two + 2,
+    padding: Spacing.three,
+  },
+  adminIcono: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderRadius: 12,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  adminTitulo: { color: "#ffffff", fontFamily: Fonts.extraBold, fontSize: 14.5 },
+  adminDetalle: { color: "rgba(255,255,255,0.72)", fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 1 },
   negocioEncabezado: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   negocioTitulo: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink },
   grid: { flexDirection: "row", gap: Spacing.three },

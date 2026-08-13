@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe } from "@/lib/lealtad/planes";
+import Kpi from "./kpi";
 
 /**
  * La pestaña Métricas: ¿el programa está creciendo o no?
@@ -164,16 +165,20 @@ export default async function MetricasLealtad({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
           titulo="Clientes nuevos (30 días)"
-          valor={d.nuevos30}
-          delta={delta(d.nuevos30, d.nuevosPrev)}
+          valor={String(d.nuevos30)}
+          detalle={delta(d.nuevos30, d.nuevosPrev)}
         />
-        <Kpi titulo="Clientes activos (30 días)" valor={d.activos30} />
+        <Kpi titulo="Clientes activos (30 días)" valor={String(d.activos30)} />
         <Kpi
           titulo="Sellos y puntos dados"
-          valor={d.sellos30}
-          delta={delta(d.sellos30, d.sellosPrev)}
+          valor={String(d.sellos30)}
+          detalle={delta(d.sellos30, d.sellosPrev)}
         />
-        <Kpi titulo="Canjes" valor={d.canjes30} delta={delta(d.canjes30, d.canjesPrev)} />
+        <Kpi
+          titulo="Canjes"
+          valor={String(d.canjes30)}
+          detalle={delta(d.canjes30, d.canjesPrev)}
+        />
       </div>
 
       <div className="rounded-2xl border border-aventurea-line bg-white p-4">
@@ -243,16 +248,4 @@ function delta(actual: number, anterior: number): string | null {
   const pct = Math.round(((actual - anterior) / anterior) * 100);
   if (pct === 0) return "igual que antes";
   return pct > 0 ? `+${pct}% vs 30 días previos` : `${pct}% vs 30 días previos`;
-}
-
-function Kpi({ titulo, valor, delta }: { titulo: string; valor: number; delta?: string | null }) {
-  return (
-    <div className="rounded-2xl border border-aventurea-line bg-white px-4 py-3.5">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-        {titulo}
-      </p>
-      <p className="mt-0.5 text-[22px] font-extrabold tabular-nums text-aventurea-ink">{valor}</p>
-      {delta && <p className="text-[11.5px] leading-snug text-aventurea-ink-soft">{delta}</p>}
-    </div>
-  );
 }

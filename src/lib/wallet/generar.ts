@@ -2,7 +2,13 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { consultarSaldo } from "@/lib/lealtad/motor";
 import { puede } from "@/lib/lealtad/planes";
-import { dibujarIcono, dibujarLogo, dibujarTiraDeSellos } from "./imagenes";
+import {
+  dibujarBanda,
+  dibujarIcono,
+  dibujarLogo,
+  dibujarTiraDeSellos,
+  type ColoresTarjeta,
+} from "./imagenes";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
 
@@ -26,9 +32,10 @@ const SITIO_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat")
 import {
   coloresDe,
   construirPassJson,
-  metaDeSellos,
-  type ConfigPase,
+  tarjetaDesdeFila,
+  tiraDelPase,
   type MetaRecompensa,
+  type TiraDelPase,
 } from "./tarjeta";
 
 /**
@@ -88,14 +95,15 @@ export async function generarPaseDeLealtad({
   if (!programaFila) {
     return { ok: false, motivo: "Este negocio todavía no tiene programa de lealtad." };
   }
-  const programa = programaFila as {
-    id: string;
-    activo: boolean;
-    modo: string | null;
-    pase_color_fondo: string | null;
-    pase_color_sello: string | null;
-    pase_logo_url: string | null;
-  };
+  const programa = programaFila as { id: string; activo: boolean };
+
+  // La apariencia Y el beneficio salen de la fila en un solo lugar
+  // (tarjeta.ts). Antes esto era un casteo a una lista de columnas
+  // escrita a mano que NO incluía `beneficio`: el `select *` la traía y
+  // el casteo la tiraba, así que los cinco tipos de la 0135 llegaban al
+  // teléfono con el texto de degradación —«CUPÓN / Beneficio»— y no
+  // había test que lo viera, porque todos probaban la función pura.
+  const { config, beneficio } = tarjetaDesdeFila(programaFila as Record<string, unknown>);
 
   // ── El miembro: si no lo es, se afilia acá ────────────────────────
   // Pedir la tarjeta ES afiliarse. Obligar a un paso previo solo
@@ -198,12 +206,6 @@ export async function generarPaseDeLealtad({
   const authToken = pase!.auth_token as string;
 
   // ── Las imágenes ──────────────────────────────────────────────────
-  const config: ConfigPase = {
-    modo: programa.modo as ConfigPase["modo"],
-    pase_color_fondo: programa.pase_color_fondo as string | null,
-    pase_color_sello: programa.pase_color_sello as string | null,
-    pase_logo_url: programa.pase_logo_url as string | null,
-  };
   const colores = coloresDe(config);
   const logoNegocio = await bajarImagen(config.pase_logo_url);
 
@@ -211,25 +213,14 @@ export async function generarPaseDeLealtad({
     "icon.png": await dibujarIcono(29),
     "icon@2x.png": await dibujarIcono(58),
     "icon@3x.png": await dibujarIcono(87),
-    "logo.png": await dibujarLogo({ nombre: negocio.nombre, imagen: logoNegocio, ancho: 160, alto: 50 }),
-    "logo@2x.png": await dibujarLogo({ nombre: negocio.nombre, imagen: logoNegocio, ancho: 320, alto: 100 }),
+    ...(await archivosDelLogo(negocio.nombre, logoNegocio)),
+    ...(await archivosDeLaTira({
+      tira: tiraDelPase(config, meta),
+      colores,
+      logo: logoNegocio,
+      saldo,
+    })),
   };
-
-  // La tira de sellos SOLO en modo sellos y con meta: sin ella no hay
-  // "5 de 10" posible, y una tira de círculos sin total no dice nada.
-  const total = metaDeSellos(meta);
-  if ((config.modo ?? "puntos") === "sellos" && total !== null) {
-    for (const escala of [1, 2, 3] as const) {
-      const nombre = escala === 1 ? "strip.png" : `strip@${escala}x.png`;
-      archivos[nombre] = await dibujarTiraDeSellos({
-        total,
-        logrados: Math.min(saldo, total),
-        colores,
-        imagen: logoNegocio,
-        escala,
-      });
-    }
-  }
 
   // El aviso por cercanía lo trae el PLAN (0124), o lo regala un
   // complemento suelto (0123) para una cortesía o una prueba. No
@@ -249,6 +240,8 @@ export async function generarPaseDeLealtad({
     saldo,
     meta,
     config,
+    // Lo que hace que un cupón diga «30% OFF» y no «Beneficio».
+    beneficio,
     serialNumber,
     passTypeIdentifier: credenciales.passTypeIdentifier,
     teamIdentifier: credenciales.teamIdentifier,
@@ -272,10 +265,10 @@ export async function generarPaseDeLealtad({
 }
 
 /**
- * El logo del negocio, si lo configuró. Un fallo bajándolo NO tumba el
- * pase: se cae al nombre en Montserrat, que es peor pero sirve.
+ * Una imagen del negocio, si la configuró. Un fallo bajándola NO tumba
+ * el pase: quien llama se cae a lo de siempre, que es peor pero sirve.
  */
-async function bajarImagen(url: string | null): Promise<Buffer | null> {
+async function bajarImagen(url: string | null | undefined): Promise<Buffer | null> {
   if (!url) return null;
   try {
     const res = await fetch(url);
@@ -283,6 +276,107 @@ async function bajarImagen(url: string | null): Promise<Buffer | null> {
     return Buffer.from(await res.arrayBuffer());
   } catch {
     return null;
+  }
+}
+
+/**
+ * `logo.png` y sus escalas, arriba a la izquierda del pase.
+ *
+ * Bajar el archivo puede fallar (eso lo cubre `bajarImagen`) pero
+ * DIBUJARLO también: un «png» que en realidad es otra cosa, un archivo
+ * cortado a medio subir, un formato que sharp no conoce. Ese error se
+ * escapaba hasta arriba y dejaba al cliente sin tarjeta por una imagen
+ * mala — cuando el negocio que nunca subió logo recibe la suya sin
+ * problema. Acá se cae a ese mismo camino: el nombre en Montserrat.
+ */
+async function archivosDelLogo(
+  nombre: string,
+  imagen: Buffer | null,
+): Promise<Record<string, Buffer>> {
+  const dibujar = async (img: Buffer | null) => ({
+    "logo.png": await dibujarLogo({ nombre, imagen: img, ancho: 160, alto: 50 }),
+    "logo@2x.png": await dibujarLogo({ nombre, imagen: img, ancho: 320, alto: 100 }),
+    "logo@3x.png": await dibujarLogo({ nombre, imagen: img, ancho: 480, alto: 150 }),
+  });
+
+  if (!imagen) return dibujar(null);
+  try {
+    return await dibujar(imagen);
+  } catch (e) {
+    console.warn("[wallet] No se pudo dibujar el logo del negocio:", e);
+    return dibujar(null);
+  }
+}
+
+/**
+ * `strip.png` y sus escalas: la banda del negocio, los sellos, o las
+ * dos cosas en la misma imagen (ver `tiraDelPase`).
+ *
+ * Todo lo que se dibuja con la foto del dueño va envuelto: una imagen
+ * que sharp no puede procesar NO puede dejar sin pase a un cliente que
+ * está en el mostrador. Se degrada en el orden que menos se nota —
+ * sellos sobre la foto → sellos sobre el color → sin strip— y el motivo
+ * queda en los logs, porque «no se ve mi banda» sin rastro es un
+ * misterio y con rastro es un ticket.
+ */
+async function archivosDeLaTira({
+  tira,
+  colores,
+  logo,
+  saldo,
+}: {
+  tira: TiraDelPase;
+  colores: ColoresTarjeta;
+  /** El logo va DENTRO de cada sello, no solo arriba del pase. */
+  logo: Buffer | null;
+  saldo: number;
+}): Promise<Record<string, Buffer>> {
+  if (tira.tipo === "ninguna") return {};
+
+  // La foto se baja UNA vez y se recorta por escala: es la misma imagen
+  // en tres tamaños, no tres descargas.
+  const banda = await bajarImagen(tira.banda);
+
+  const enTresEscalas = async (dibujar: (escala: 1 | 2 | 3) => Promise<Buffer>) => {
+    const salida: Record<string, Buffer> = {};
+    for (const escala of [1, 2, 3] as const) {
+      salida[escala === 1 ? "strip.png" : `strip@${escala}x.png`] = await dibujar(escala);
+    }
+    return salida;
+  };
+
+  if (tira.tipo === "banda") {
+    if (!banda) return {};
+    try {
+      return await enTresEscalas((escala) => dibujarBanda({ imagen: banda, escala }));
+    } catch (e) {
+      console.warn("[wallet] No se pudo dibujar la banda del pase:", e);
+      return {};
+    }
+  }
+
+  const sellos = (fondo: Buffer | null) => (escala: 1 | 2 | 3) =>
+    dibujarTiraDeSellos({
+      total: tira.total,
+      logrados: Math.min(saldo, tira.total),
+      colores,
+      imagen: logo,
+      banda: fondo,
+      escala,
+    });
+
+  if (banda) {
+    try {
+      return await enTresEscalas(sellos(banda));
+    } catch (e) {
+      console.warn("[wallet] La banda no sirvió de fondo de los sellos:", e);
+    }
+  }
+  try {
+    return await enTresEscalas(sellos(null));
+  } catch (e) {
+    console.warn("[wallet] No se pudo dibujar la tira de sellos:", e);
+    return {};
   }
 }
 

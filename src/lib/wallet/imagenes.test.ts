@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import sharp from "sharp";
-import { dibujarIcono, dibujarLogo, dibujarTiraDeSellos } from "./imagenes";
+import sharp, { type OverlayOptions } from "sharp";
+import { dibujarBanda, dibujarIcono, dibujarLogo, dibujarTiraDeSellos } from "./imagenes";
 
 /**
  * La tira de sellos es una IMAGEN generada, no un componente: Apple no
@@ -51,7 +51,7 @@ describe("dibujarTiraDeSellos", () => {
   it("respeta las medidas de Apple en cada escala", async () => {
     for (const [escala, ancho, alto] of [[1, 375, 123], [2, 750, 246], [3, 1125, 369]] as const) {
       const tira = await dibujarTiraDeSellos({
-        total: 10, logrados: 5, colores: COLORES, imagen: null, escala,
+        total: 10, logrados: 5, colores: COLORES, imagen: null, banda: null, escala,
       });
       const m = await sharp(tira).metadata();
       expect([m.width, m.height]).toEqual([ancho, alto]);
@@ -60,7 +60,7 @@ describe("dibujarTiraDeSellos", () => {
 
   it("los sellos no llegan al borde", async () => {
     const tira = await dibujarTiraDeSellos({
-      total: 10, logrados: 5, colores: COLORES, imagen: null, escala: 2,
+      total: 10, logrados: 5, colores: COLORES, imagen: null, banda: null, escala: 2,
     });
     const m = await margenes(tira);
     // Al menos un 5% de aire a cada lado: es lo que salva a los sellos
@@ -73,7 +73,7 @@ describe("dibujarTiraDeSellos", () => {
 
   it("queda centrada: el aire de un lado es igual al del otro", async () => {
     const tira = await dibujarTiraDeSellos({
-      total: 10, logrados: 5, colores: COLORES, imagen: null, escala: 2,
+      total: 10, logrados: 5, colores: COLORES, imagen: null, banda: null, escala: 2,
     });
     const m = await margenes(tira);
     expect(Math.abs(m.izq - m.der)).toBeLessThanOrEqual(2);
@@ -82,7 +82,7 @@ describe("dibujarTiraDeSellos", () => {
 
   it("con seis o menos usa una sola fila", async () => {
     const tira = await dibujarTiraDeSellos({
-      total: 6, logrados: 3, colores: COLORES, imagen: null, escala: 2,
+      total: 6, logrados: 3, colores: COLORES, imagen: null, banda: null, escala: 2,
     });
     const m = await margenes(tira);
     // Una fila de círculos es más ancha que alta.
@@ -92,7 +92,7 @@ describe("dibujarTiraDeSellos", () => {
   it("ninguno encendido y todos encendidos siguen siendo válidos", async () => {
     for (const logrados of [0, 10]) {
       const tira = await dibujarTiraDeSellos({
-        total: 10, logrados, colores: COLORES, imagen: null, escala: 2,
+        total: 10, logrados, colores: COLORES, imagen: null, banda: null, escala: 2,
       });
       const m = await sharp(tira).metadata();
       expect(m.width).toBe(750);
@@ -101,18 +101,139 @@ describe("dibujarTiraDeSellos", () => {
 
   it("una tarjeta de un solo sello no se rompe", async () => {
     const tira = await dibujarTiraDeSellos({
-      total: 1, logrados: 0, colores: COLORES, imagen: null, escala: 2,
+      total: 1, logrados: 0, colores: COLORES, imagen: null, banda: null, escala: 2,
     });
     expect((await sharp(tira).metadata()).width).toBe(750);
   });
 
   it("con muchos sellos siguen entrando sin desbordarse", async () => {
     const tira = await dibujarTiraDeSellos({
-      total: 30, logrados: 12, colores: COLORES, imagen: null, escala: 2,
+      total: 30, logrados: 12, colores: COLORES, imagen: null, banda: null, escala: 2,
     });
     const m = await margenes(tira);
     expect(m.izq).toBeGreaterThan(0);
     expect(m.der).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Una foto de mentira: franjas horizontales de colores planos. Sirve
+ * para saber QUÉ PEDAZO de la imagen sobrevivió al recorte, que es lo
+ * único que distingue un «cover» de un estirón.
+ */
+async function foto(ancho: number, alto: number, franjas: [string, number][]): Promise<Buffer> {
+  const capas: OverlayOptions[] = [];
+  let y = 0;
+  for (const [color, altoFranja] of franjas) {
+    capas.push({
+      input: { create: { width: ancho, height: altoFranja, channels: 4, background: color } },
+      left: 0,
+      top: y,
+    });
+    y += altoFranja;
+  }
+  return sharp({ create: { width: ancho, height: alto, channels: 4, background: "#000000" } })
+    .composite(capas)
+    .png()
+    .toBuffer();
+}
+
+async function pixel(imagen: Buffer, x: number, y: number): Promise<[number, number, number]> {
+  const { data, info } = await sharp(imagen).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const i = (y * info.width + x) * 4;
+  return [data[i], data[i + 1], data[i + 2]];
+}
+
+/** Cuántos píxeles son de ESE color, con tolerancia. */
+async function cuantosDe(imagen: Buffer, [r, g, b]: [number, number, number]): Promise<number> {
+  const { data } = await sharp(imagen).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let n = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (
+      Math.abs(data[i] - r) < 12 &&
+      Math.abs(data[i + 1] - g) < 12 &&
+      Math.abs(data[i + 2] - b) < 12
+    ) {
+      n++;
+    }
+  }
+  return n;
+}
+
+const SELLO_RGB: [number, number, number] = [217, 232, 196]; // #D9E8C4
+
+describe("dibujarBanda", () => {
+  it("respeta las medidas de Apple en cada escala", async () => {
+    const imagen = await foto(800, 800, [["#3366cc", 800]]);
+    for (const [escala, ancho, alto] of [[1, 375, 123], [2, 750, 246], [3, 1125, 369]] as const) {
+      const m = await sharp(await dibujarBanda({ imagen, escala })).metadata();
+      expect([m.width, m.height]).toEqual([ancho, alto]);
+    }
+  });
+
+  it("recorta la foto en vez de estirarla", async () => {
+    // Una foto ALTA (200×1200) con el centro azul y las puntas verdes.
+    // Recortada a lo ancho, solo sobrevive el centro; estirada, el
+    // verde de arriba y abajo entraría igual y la marca saldría
+    // aplastada. Por eso se mira el color, no las medidas.
+    const alta = await foto(200, 1200, [["#22aa44", 500], ["#3366cc", 200], ["#22aa44", 500]]);
+    const banda = await dibujarBanda({ imagen: alta, escala: 1 });
+    expect(await cuantosDe(banda, [34, 170, 68])).toBe(0);
+    expect(await cuantosDe(banda, [51, 102, 204])).toBe(375 * 123);
+  });
+
+  it("toma el centro y no una esquina", async () => {
+    // Ancha (1200×200): se recorta a los lados, y lo que queda es la
+    // franja del medio — no el principio de la foto.
+    const ancha = await sharp(await foto(200, 1200, [["#22aa44", 500], ["#3366cc", 200], ["#22aa44", 500]]))
+      .rotate(90)
+      .png()
+      .toBuffer();
+    const banda = await dibujarBanda({ imagen: ancha, escala: 1 });
+    expect(await cuantosDe(banda, [51, 102, 204])).toBeGreaterThan(0);
+  });
+});
+
+describe("dibujarTiraDeSellos con la banda del negocio", () => {
+  // Blanco puro: sobre este fondo un sello apagado desaparece si no hay
+  // velo, que es justo lo que el velo existe para evitar.
+  const blanca = () => foto(900, 300, [["#ffffff", 300]]);
+
+  it("la foto se ve, el color plano ya no", async () => {
+    const tira = await dibujarTiraDeSellos({
+      total: 10, logrados: 5, colores: COLORES, imagen: null, banda: await blanca(), escala: 2,
+    });
+    const [r, g, b] = await pixel(tira, 2, 2);
+    // Ni el verde del negocio (47,66,48) ni el blanco pelado: es la
+    // foto con el velo encima.
+    expect(r).toBeGreaterThan(100);
+    expect(r).toBeLessThan(230);
+    expect(Math.abs(r - g) + Math.abs(g - b)).toBeLessThan(12);
+  });
+
+  it("los sellos siguen ahí: la foto no se los come", async () => {
+    const banda = await blanca();
+    const conFoto = await dibujarTiraDeSellos({
+      total: 10, logrados: 5, colores: COLORES, imagen: null, banda, escala: 2,
+    });
+    const sinFoto = await dibujarTiraDeSellos({
+      total: 10, logrados: 5, colores: COLORES, imagen: null, banda: null, escala: 2,
+    });
+    const encendidos = await cuantosDe(sinFoto, SELLO_RGB);
+    expect(encendidos).toBeGreaterThan(1000);
+    // Los mismos cinco sellos encendidos, con foto o sin ella.
+    expect(await cuantosDe(conFoto, SELLO_RGB)).toBeGreaterThan(encendidos * 0.95);
+  });
+
+  it("sigue midiendo lo que Apple espera en las tres escalas", async () => {
+    const banda = await blanca();
+    for (const [escala, ancho, alto] of [[1, 375, 123], [2, 750, 246], [3, 1125, 369]] as const) {
+      const tira = await dibujarTiraDeSellos({
+        total: 8, logrados: 3, colores: COLORES, imagen: null, banda, escala,
+      });
+      const m = await sharp(tira).metadata();
+      expect([m.width, m.height]).toEqual([ancho, alto]);
+    }
   });
 });
 

@@ -50,36 +50,41 @@ async function refrescarPases(miembroId: string, saldo: number): Promise<void> {
   const db = createAdminClient();
   if (!db) return;
 
-  const { data } = await db
+  // El espejo de APPLE se escribe de una: el pase se regenera desde el
+  // ledger cada vez que el iPhone lo pide, así que esta columna es solo
+  // para pintar el panel sin tener que sumar.
+  //
+  // El de Google NO se toca acá a propósito. Lo escribe
+  // `refrescarPaseGoogleDeMiembro`, y solo si el PATCH entró de verdad.
+  // Escribirlo también acá devolvería el bug que se acaba de cerrar en
+  // `google.ts`: el panel mostrando un saldo que el Android no tiene.
+  await db
     .from("pases_wallet")
     .update({ saldo_cache: saldo, actualizado_en: new Date().toISOString() })
     .eq("miembro_id", miembroId)
-    .select("plataforma, serial_number");
+    .eq("plataforma", "apple");
 
-  for (const pase of data ?? []) {
-    notificarActualizacionDePase(pase as { plataforma: string; serial_number: string });
-  }
-}
-
-/**
- * Le avisa al teléfono que el pase cambió. Apple manda un aviso vacío y
- * el iPhone responde pidiendo el pase nuevo a nuestro Web Service.
- *
- * Sus fallos no se propagan: los puntos ya están en el ledger, y un
- * push que no sale no puede tumbar la operación que lo originó. Pero SÍ
- * tiene que ejecutarse: una promesa suelta con `void` muere cuando
- * Vercel congela la función al responder — `after` la mantiene viva
- * hasta que el aviso salga.
- *
- * Google Wallet todavía no: su API es otra y `pases_wallet.plataforma`
- * ya distingue las dos para cuando toque.
- */
-function notificarActualizacionDePase(pase: { plataforma: string; serial_number: string }) {
-  if (pase.plataforma !== "apple") return;
+  // ── LAS DOS PLATAFORMAS, NO SOLO APPLE ─────────────────────────
+  // Acá vivía un `notificarActualizacionDePase` que arrancaba con
+  // `if (pase.plataforma !== "apple") return`, y un comentario que ya
+  // era mentira: «Google Wallet todavía no». Sí había —
+  // `refrescarPaseGoogleDeMiembro` hace el PATCH real y
+  // `avisarCambioDePase` ya tiene la rama de Google—, pero ESTE camino
+  // nunca los llamaba.
+  //
+  // Y este camino es el de las CITAS: por acá suma puntos quien asiste
+  // a su cita. O sea que al cliente de iPhone se le actualizaba la
+  // tarjeta sola y al de Android se le quedaba congelada, y solo se
+  // arreglaba si algún día pasaba por el mostrador manual.
+  //
+  // `after` y no `void`: una promesa suelta muere cuando Vercel congela
+  // la función al responder. Los fallos no se propagan — los puntos ya
+  // están en el ledger, y un push que no sale no puede tumbar la
+  // operación que lo originó.
   after(async () => {
     try {
-      const { avisarCambioDePaseporSerial } = await import("@/lib/wallet/servicio");
-      await avisarCambioDePaseporSerial(pase.serial_number);
+      const { avisarCambioDePase } = await import("@/lib/wallet/servicio");
+      await avisarCambioDePase(miembroId);
     } catch (e) {
       console.warn("[wallet] No salió el aviso de pase actualizado:", e);
     }

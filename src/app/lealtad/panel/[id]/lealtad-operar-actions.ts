@@ -1,12 +1,13 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
+import { llaveDeCanje } from "@/lib/lealtad/canje";
+import { minutoISOCR } from "@/lib/fechas";
 import type { PermisoLealtad } from "@/lib/lealtad/permisos";
 
 /**
@@ -96,7 +97,19 @@ export async function acreditarOperacion(
   const { data, error } = await g.db.rpc("acreditar_lealtad", {
     p_miembro_id: miembroId,
     p_monto: monto,
-    p_referencia: referencia?.trim() || `panel:${randomUUID()}`,
+    // Mismo problema y mismo arreglo que en el canje: con `randomUUID()`
+    // el unique del ledger (`transacciones_puntos_referencia_unica`,
+    // 0060:187) no rebotaba el doble toque y el cliente se llevaba dos
+    // sellos por una visita. Se sigue el patrón que el escáner ya usa
+    // bien (`referenciaDelMinuto`, escaner-actions.ts:44): el minuto
+    // adentro de la llave.
+    //
+    // Consecuencia aceptada, la misma del escáner: no se acredita dos
+    // veces al mismo miembro por el mismo monto dentro del mismo minuto.
+    // Para la venta seguida de verdad está el número de factura, que
+    // entra por `referencia` y gana.
+    p_referencia:
+      referencia?.trim() || `panel:${miembroId}:${monto ?? "visita"}:${minutoISOCR()}`,
     p_usuario_id: g.usuarioId,
     p_motivo: monto === null ? "Sello por visita" : "Compra",
   });
@@ -152,16 +165,54 @@ export async function canjearRecompensa(
     recompensaId,
     usuarioId: g.usuarioId,
   });
-  if (!veredicto.ok) return { ok: false, motivo: veredicto.motivo };
+  if (!veredicto.ok) {
+    anotarIntento(g.db, {
+      programaId: veredicto.programaId,
+      miembroId,
+      recompensaId,
+      usuarioId: g.usuarioId,
+      aprobado: false,
+      motivo: veredicto.codigo ?? "reglas",
+    });
+    return { ok: false, motivo: veredicto.motivo };
+  }
 
   const { data, error } = await g.db.rpc("canjear_recompensa", {
     p_miembro_id: miembroId,
     p_recompensa_id: recompensaId,
     p_usuario_id: g.usuarioId,
-    p_referencia: referencia?.trim() || `canje:${randomUUID()}`,
+    // ── LA LLAVE DE IDEMPOTENCIA, POR FIN CONECTADA ──────────────
+    // Acá decía `canje:${randomUUID()}`. Como el azar es distinto en
+    // cada request, el índice único `canjes_referencia_unica` (0125:207)
+    // —que SÍ está pegado en producción— nunca rebotaba nada, y el
+    // `exception when unique_violation` del RPC (0125:517) era código
+    // muerto. Dos toques del botón: dos débitos del ledger, dos filas
+    // en `canjes`, UN premio entregado.
+    //
+    // `llaveDeCanje` existía desde la 0137 con sus 23 pruebas y CERO
+    // llamadores. Ahora dos toques del mismo botón dentro del mismo
+    // minuto producen la MISMA referencia, y el segundo choca contra el
+    // índice y no escribe. Sin migración: la protección ya estaba
+    // pagada, solo no se estaba usando.
+    //
+    // El `referencia` que llega de afuera sigue ganando: es el número
+    // de factura del POS, que identifica el intento mejor que nosotros.
+    p_referencia:
+      referencia?.trim() ||
+      `canje:${llaveDeCanje({ miembroId, recompensaId, ahoraCR: minutoISOCR() })}`,
   });
 
-  if (error) return { ok: false, motivo: traducirRpc(error.message) };
+  if (error) {
+    anotarIntento(g.db, {
+      programaId: veredicto.programaId,
+      miembroId,
+      recompensaId,
+      usuarioId: g.usuarioId,
+      aprobado: false,
+      motivo: "error_rpc",
+    });
+    return { ok: false, motivo: traducirRpc(error.message) };
+  }
 
   const r = data as {
     ok: boolean;
@@ -172,6 +223,21 @@ export async function canjearRecompensa(
     sku?: string | null;
     instrucciones?: string | null;
   };
+
+  // ── ACÁ SE ANOTA LO QUE DE VERDAD PASÓ ──────────────────────────
+  // El RPC revalida bajo lock saldo, stock, límite por cliente y estado
+  // de la membresía. Todos esos rechazos quedaban antes anotados como
+  // «aprobado», porque la constancia se escribía antes de llegar hasta
+  // acá. Ahora el veredicto que se guarda es el final.
+  anotarIntento(g.db, {
+    programaId: veredicto.programaId,
+    miembroId,
+    recompensaId,
+    usuarioId: g.usuarioId,
+    aprobado: r.ok,
+    motivo: r.ok ? null : (r.motivo ?? "rechazado"),
+  });
+
   if (!r.ok) return { ok: false, motivo: r.motivo ?? "No se pudo canjear." };
 
   // Tras el canje sale el evento para el POS. En modo manual queda
@@ -336,7 +402,10 @@ function traducirRpc(mensaje: string) {
 async function revisarReglas(
   db: NonNullable<ReturnType<typeof createAdminClient>>,
   datos: { miembroId: string; recompensaId: string; usuarioId: string | null },
-): Promise<{ ok: true } | { ok: false; motivo: string }> {
+): Promise<
+  | { ok: true; programaId: string | null }
+  | { ok: false; motivo: string; codigo?: string; programaId: string | null }
+> {
   const { autorizarCanje } = await import("@/lib/lealtad/canje");
   const { hoyISOCR } = await import("@/lib/fechas");
 
@@ -346,7 +415,8 @@ async function revisarReglas(
     .select("programa_id")
     .eq("id", datos.miembroId)
     .maybeSingle();
-  if (!miembro) return { ok: true }; // el RPC lo rebota con su propio motivo
+  // El RPC lo rebota con su propio motivo; acá no hay programa que mirar.
+  if (!miembro) return { ok: true, programaId: null };
 
   const programaId = miembro.programa_id as string;
 
@@ -356,7 +426,7 @@ async function revisarReglas(
     db.from("programa_lealtad").select("*").eq("id", programaId).maybeSingle(),
     db.from("recompensas").select("costo_puntos").eq("id", datos.recompensaId).maybeSingle(),
   ]);
-  if (!programa) return { ok: true };
+  if (!programa) return { ok: true, programaId };
 
   // Cuántos canjes lleva este cliente, y cuántos el programa entero.
   const { data: miembrosDelPrograma } = await db
@@ -410,24 +480,55 @@ async function revisarReglas(
     ahoraCR,
   });
 
-  // La constancia sale SIEMPRE, apruebe o rechace, y nunca tumba el
-  // canje: si la 0137 no está corrida, la tabla no existe y esto falla
-  // en silencio. Perder el canje por no poder anotarlo sería peor que
-  // perder la anotación.
+  // ── LA CONSTANCIA YA NO SE ESCRIBE ACÁ ──────────────────────────
+  // Antes se anotaba en este punto con `aprobado: veredicto.ok`, o sea
+  // con el resultado de las reglas de la 0136 y NADA MÁS. El problema:
+  // después de esto todavía corre el RPC, que revalida bajo lock el
+  // saldo, el stock, el límite por cliente y el estado de la membresía
+  // (0125:446-501). Un canje rechazado ahí quedaba anotado como
+  // `aprobado: true`.
+  //
+  // O sea: la tabla que existe justamente para poder explicarle al
+  // cliente «no me lo aceptaron» estaba mintiendo, y en la dirección
+  // más cara — decía que sí cuando fue que no.
+  //
+  // Ahora se devuelve el veredicto y lo anota `canjearRecompensa`
+  // DESPUÉS del RPC, con lo que de verdad pasó.
+  return veredicto.ok
+    ? { ok: true, programaId }
+    : { ok: false, motivo: veredicto.motivo, codigo: veredicto.codigo, programaId };
+}
+
+/**
+ * Deja la constancia del intento — el que entró y el que no.
+ *
+ * Nunca tumba el canje: si la 0137 no está pegada la tabla no existe y
+ * esto falla en silencio. Perder el canje por no poder anotarlo sería
+ * peor que perder la anotación.
+ */
+function anotarIntento(
+  db: NonNullable<ReturnType<typeof createAdminClient>>,
+  datos: {
+    programaId: string | null;
+    miembroId: string;
+    recompensaId: string;
+    usuarioId: string | null;
+    aprobado: boolean;
+    motivo: string | null;
+  },
+) {
   after(async () => {
     try {
       await db.from("intentos_canje").insert({
-        programa_id: programaId,
+        programa_id: datos.programaId,
         miembro_id: datos.miembroId,
         recompensa_id: datos.recompensaId,
         usuario_id: datos.usuarioId,
-        aprobado: veredicto.ok,
-        motivo: veredicto.ok ? null : veredicto.codigo,
+        aprobado: datos.aprobado,
+        motivo: datos.motivo,
       });
     } catch {
       // Sin la 0137 no hay dónde anotar. El canje ya se decidió.
     }
   });
-
-  return veredicto.ok ? { ok: true } : { ok: false, motivo: veredicto.motivo };
 }

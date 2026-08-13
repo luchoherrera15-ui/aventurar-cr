@@ -298,3 +298,36 @@ describe("definicionDe", () => {
     expect(definicionDe("empresa")?.nombre).toBe("Empresa");
   });
 });
+
+describe("el plan sin costo tiene tope de programas", () => {
+  /**
+   * El agujero que esto cierra: el alta automática guardaba
+   * `plan_lealtad: "gratis"` a mano. `gratis` es un plan RETIRADO, y los
+   * retirados llevan SIN_TOPES a propósito. Entonces
+   * `definicionDe(plan).limites.programas` daba null, el tope de
+   * `crear-actions.ts` ni se ejecutaba, y una cuenta gratis podía crear
+   * pases ilimitados.
+   *
+   * La regla del dueño es «el acceso automático solo permite crear UN
+   * pase». Eso no se cumple con un `if` en una pantalla: se cumple si el
+   * plan que se OFRECE sin costo tiene tope. Si mañana alguien agrega un
+   * plan gratis sin límite de programas, este test lo frena.
+   */
+  it("ningún plan ofrecido sin costo puede tener programas ilimitados", () => {
+    const sinCosto = PLANES_OFRECIDOS.map((id) => PLANES[id]).filter(
+      (p) => p.precioMensual === 0,
+    );
+    expect(sinCosto.length).toBeGreaterThan(0);
+    for (const p of sinCosto) {
+      expect(p.limites.programas, `${p.id} no tiene tope de programas`).not.toBeNull();
+    }
+  });
+
+  it("el plan de prueba permite exactamente un programa", () => {
+    expect(PLANES.prueba.limites.programas).toBe(1);
+  });
+
+  it("los retirados conservan SIN_TOPES: no se le quita a quien ya lo tenía", () => {
+    expect(PLANES.gratis.limites.programas).toBeNull();
+  });
+});

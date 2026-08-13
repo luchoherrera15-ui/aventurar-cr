@@ -134,6 +134,26 @@ const nextConfig: NextConfig = {
         source: "/invitacion/:slug",
         destination: "/i/:slug",
       },
+      // ── LA RAÍZ, SIN VIAJE DE IDA Y VUELTA ────────────────────────
+      // Antes era un `redirect` 307 a /eventos. Medido desde Costa
+      // Rica costaba ~340 ms: el navegador pedía `/`, el edge le
+      // contestaba «andá a /eventos», y recién ahí empezaba la
+      // solicitud de verdad. Un rewrite sirve el MISMO contenido en la
+      // primera respuesta, sin el rebote.
+      //
+      // Y la URL se queda en `/`, que es lo que se quiere: era la
+      // dirección más fuerte del sitio y estaba regalando su autoridad.
+      //
+      // OJO — DEUDA CONOCIDA: ahora el mismo contenido vive en `/` y en
+      // `/eventos`. Para Google eso es duplicado si nadie desempata, y
+      // el desempate correcto es un `alternates.canonical` en la página
+      // de eventos. Lo está resolviendo la auditoría de SEO; mientras
+      // tanto el riesgo es bajo porque `/eventos` ya era la única
+      // indexada (la raíz redirigía).
+      {
+        source: "/",
+        destination: "/eventos",
+      },
     ];
   },
   // El directorio vivía en /ranchos-eventos; ahora es /eventos (la
@@ -146,18 +166,15 @@ const nextConfig: NextConfig = {
   // mandados, favoritos guardados) siguen sirviendo.
   async redirects() {
     return [
-      // Entrar a bookea.lat aterriza DIRECTO en el directorio de
-      // eventos (pedido del dueño): la intro animada del home hacía
-      // esperar ~5 segundos a cada visita nueva antes de mostrar nada
-      // reservable. El edge responde esta redirección al instante, sin
-      // invocar servidor. No-permanente a propósito: si algún día la
-      // raíz vuelve a ser un home con contenido, los navegadores no
-      // tendrán cacheado un 308.
-      {
-        source: "/",
-        destination: "/eventos",
-        permanent: false,
-      },
+      // La raíz YA NO REDIRIGE — ahora es un rewrite (ver `rewrites()`
+      // más abajo). Se midió: el 307 costaba ~340 ms desde Costa Rica,
+      // un viaje completo de ida y vuelta a Virginia ANTES de que
+      // empezara a existir el HTML.
+      //
+      // Y de paso recupera la URL más fuerte del sitio. Con la
+      // redirección, `bookea.lat/` no tenía contenido propio y le
+      // pasaba toda su autoridad a `/eventos`: quien buscaba «Bookea»
+      // no encontraba una página que dijera qué es Bookea.
       {
         source: "/ranchos-eventos",
         destination: "/eventos",

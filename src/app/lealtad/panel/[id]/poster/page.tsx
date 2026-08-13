@@ -1,9 +1,19 @@
 import { notFound, redirect } from "next/navigation";
 import { toString as qrATexto } from "qrcode";
 import { verificarAccesoLealtad } from "@/lib/auth";
+import {
+  contenidoDelPoster,
+  estiloDe,
+  etiquetaDeMeta,
+  leerConfigPoster,
+  variablesDePoster,
+} from "@/lib/lealtad/plantillas-poster";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { coloresDe, metaDeSellos, type ConfigPase } from "@/lib/wallet/tarjeta";
 import BotonImprimir from "./boton-imprimir";
+import HojaPoster, { type DatosHoja } from "./hoja-poster";
+import Personalizador from "./personalizador";
+import SelectorEstilo from "./selector-estilo";
 import "./poster.css";
 
 /**
@@ -18,16 +28,49 @@ import "./poster.css";
  *
  * La hoja es A4 vertical: `poster.css` fija el tamaño de página, apaga
  * los márgenes del navegador y esconde todo lo que no sea la hoja.
+ *
+ * ------------------------------------------------------------------
+ * UN SOLO HTML PARA LOS CINCO DISEÑOS
+ * ------------------------------------------------------------------
+ * El estilo elegido sale a `data-estilo` y de ahí lo agarra el CSS.
+ * Cinco plantillas de JSX habrían sido cinco copias del mismo texto:
+ * a la tercera corrección de copy, dos habrían quedado viejas y el
+ * negocio habría impreso la vieja sin enterarse.
+ *
+ * ------------------------------------------------------------------
+ * EL TEXTO SALE DEL TIPO DE TARJETA, NO DE SELLOS
+ * ------------------------------------------------------------------
+ * Esta hoja decía «Sumá sellos con tu teléfono» y «A los N sellos»
+ * para los ocho tipos, incluso para una gift card o una entrada de
+ * evento. Un cartel que promete algo que la tarjeta no hace se paga en
+ * la caja: el cliente lo pide y el negocio queda mal. Todo el copy
+ * viene ahora de `plantillas-poster`.
+ *
+ * ------------------------------------------------------------------
+ * EL SEXTO ESTILO SE EDITA, Y SE GUARDA EN LA 0132
+ * ------------------------------------------------------------------
+ * `poster_config` (jsonb) es la columna que la 0132 dejó justo para
+ * esto. Puede no estar pegada —las migraciones las pega el dueño a
+ * mano—, así que se lee tolerando que no exista: sin columna, el
+ * personalizado arranca de la plantilla y la pantalla avisa que no va
+ * a poder guardar, en vez de fingir que guardó.
  */
 
 export const metadata = { title: "Póster para tu mostrador · Bookea" };
 
 export default async function PosterPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ estilo?: string }>;
 }) {
   const { id } = await params;
+  // El estilo viaja en la URL y no en un estado del cliente: así el
+  // link que el dueño manda al empleado, el botón de imprimir y un F5
+  // dan exactamente la misma hoja.
+  const { estilo: estiloPedido } = await searchParams;
+  const estilo = estiloDe(estiloPedido);
 
   const acceso = await verificarAccesoLealtad(id);
   if (!acceso.user) redirect("/lealtad/login");
@@ -65,10 +108,26 @@ export default async function PosterPage({
     pase_logo_url: (programa?.pase_logo_url as string | null) ?? null,
   };
   const colores = coloresDe(config);
+
   const meta = recompensa
     ? { nombre: recompensa.nombre as string, costo_puntos: recompensa.costo_puntos as number }
     : null;
-  const totalSellos = metaDeSellos(meta) ?? 10;
+  // Sin `?? 10`: inventar una meta que la recompensa no fija es
+  // prometer diez sellos que el canje no va a respetar. Si no hay meta
+  // —o el tipo no promete ninguna— el bloque del premio no se dibuja.
+  const etiquetaMeta = etiquetaDeMeta(config.modo, metaDeSellos(meta));
+
+  // La 0132 agregó estas dos columnas. Si la migración todavía no se
+  // pegó, el `select *` las devuelve `undefined` en vez de fallar: el
+  // banner cae al degradado del color del negocio y el personalizado
+  // arranca de la plantilla. La hoja sale igual.
+  const banner = (programa?.pase_banner_url as string | null | undefined) ?? null;
+  const configPoster = leerConfigPoster(programa?.poster_config, config.modo, colores.sello);
+
+  // `select *` trae la columna aunque valga `{}`; si NO viene, es que la
+  // 0132 no corrió. Se avisa ANTES de que el dueño escriba su póster
+  // entero y descubra al guardar que no había dónde guardarlo.
+  const faltaColumna = !!programa && !("poster_config" in programa);
 
   const SITIO = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
   const url = rancho.slug ? `${SITIO}/tarjeta/${rancho.slug}` : null;
@@ -84,6 +143,16 @@ export default async function PosterPage({
         color: { dark: "#0a1226", light: "#ffffff" },
       })
     : null;
+
+  const paleta = { fondo: colores.fondo, acento: colores.sello };
+  const datos: DatosHoja = {
+    negocio: rancho.nombre as string,
+    logoUrl: config.pase_logo_url,
+    bannerUrl: banner,
+    svgQr: svgQr ?? "",
+    etiquetaMeta,
+    premio: meta ? meta.nombre : null,
+  };
 
   return (
     <main className="poster-pantalla">
@@ -102,60 +171,41 @@ export default async function PosterPage({
       )}
 
       {url && svgQr && (
-        <div className="poster-hoja" style={{ background: colores.fondo }}>
-          <div className="poster-cuerpo">
-            {config.pase_logo_url ? (
-              /* eslint-disable-next-line @next/next/no-img-element -- se
-                 imprime tal cual; next/image no aporta acá. */
-              <img src={config.pase_logo_url} alt="" className="poster-logo" />
-            ) : null}
+        <>
+          <SelectorEstilo
+            ruta={`/lealtad/panel/${id}/poster`}
+            actual={estilo}
+            marca={colores.fondo}
+            acento={colores.sello}
+          />
 
-            <p className="poster-negocio">{rancho.nombre}</p>
-            <h1 className="poster-titulo">
-              Sumá sellos con
-              <br />
-              tu teléfono
-            </h1>
-
-            <div className="poster-qr" dangerouslySetInnerHTML={{ __html: svgQr }} />
-            <p className="poster-escanea">Escaneá el código con la cámara</p>
-
-            {meta && (
-              <div className="poster-premio" style={{ borderColor: colores.sello }}>
-                <span className="poster-premio-etiqueta" style={{ color: colores.sello }}>
-                  A los {totalSellos} sellos
-                </span>
-                <span className="poster-premio-nombre">{meta.nombre}</span>
-              </div>
-            )}
-
-            <ol className="poster-pasos">
-              <li>
-                <span className="poster-num" style={{ background: colores.sello }}>
-                  1
-                </span>
-                Escaneá y agregá la tarjeta a tu teléfono
-              </li>
-              <li>
-                <span className="poster-num" style={{ background: colores.sello }}>
-                  2
-                </span>
-                Mostrala en cada visita y sumá tu sello
-              </li>
-              <li>
-                <span className="poster-num" style={{ background: colores.sello }}>
-                  3
-                </span>
-                Completala y reclamá tu premio
-              </li>
-            </ol>
-
-            <p className="poster-pie">
-              Sin apps que instalar · Apple Wallet y Google Wallet
-              <span className="poster-marca">Powered by Bookea.lat</span>
-            </p>
-          </div>
-        </div>
+          {estilo === "personalizado" ? (
+            <Personalizador
+              ranchoId={id}
+              programaId={(programa?.id as string | undefined) ?? null}
+              tipo={config.modo}
+              inicial={configPoster}
+              colores={paleta}
+              datos={datos}
+              puedeGuardar={acceso.esDueno || acceso.esAdmin}
+              avisoBase={
+                faltaColumna
+                  ? "Tu base todavía no tiene la columna del póster (migración 0132): podés probar el diseño e imprimirlo, pero no se va a poder guardar."
+                  : null
+              }
+            />
+          ) : (
+            <HojaPoster
+              estilo={estilo}
+              // Sin `as`: el ternario ya deja fuera 'personalizado', y
+              // lo que queda ES una plantilla.
+              layout={estilo}
+              contenido={contenidoDelPoster(estilo, config.modo, null)}
+              variables={variablesDePoster(paleta, null)}
+              datos={datos}
+            />
+          )}
+        </>
       )}
     </main>
   );

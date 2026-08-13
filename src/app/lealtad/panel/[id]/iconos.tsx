@@ -47,6 +47,17 @@ export type NombreIcono =
   | "giftcard"
   | "evento"
   | "cashback"
+  // ── Capacidades, para explicar qué hace cada tipo ──
+  | "reloj"
+  | "candado"
+  | "campana"
+  | "repetir"
+  | "tope"
+  | "moneda"
+  | "ubicacion"
+  | "estrella"
+  | "porcentaje"
+  | "personas"
   // ── Chrome ──
   | "menu"
   | "cerrar"
@@ -248,6 +259,74 @@ const TRAZOS: Record<NombreIcono, ReactNode> = {
       <circle cx="12" cy="12" r="9" />
       <path d="M15 9.2A3.4 3.4 0 0 0 12.4 8h-.6a2.3 2.3 0 0 0 0 4.6h.4a2.3 2.3 0 0 1 0 4.6h-.6A3.4 3.4 0 0 1 9 16" />
       <path d="M12 6v1.9M12 16.1V18" />
+    </>
+  ),
+
+  // ── Capacidades ────────────────────────────────────────────────
+  reloj: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5.2l3.2 1.9" />
+    </>
+  ),
+  candado: (
+    <>
+      <rect x="4" y="10.5" width="16" height="10.5" rx="2.4" />
+      <path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9" />
+      <circle cx="12" cy="15.6" r="1.2" />
+    </>
+  ),
+  campana: (
+    <>
+      <path d="M18 8.8a6 6 0 1 0-12 0c0 5.1-2 6.6-2 6.6h16s-2-1.5-2-6.6" />
+      <path d="M13.7 19a2 2 0 0 1-3.4 0" />
+    </>
+  ),
+  repetir: (
+    <>
+      <path d="M3 11.5a7 7 0 0 1 11.9-5L18 9" />
+      <path d="M18 4.5V9h-4.5" />
+      <path d="M21 12.5a7 7 0 0 1-11.9 5L6 15" />
+      <path d="M6 19.5V15h4.5" />
+    </>
+  ),
+  tope: (
+    <>
+      <path d="M4 20V10M10 20V5M16 20v-7M22 20H2" />
+      <path d="M2.5 8h19" strokeDasharray="3 2.4" />
+    </>
+  ),
+  moneda: (
+    <>
+      <ellipse cx="12" cy="6.6" rx="8" ry="3.2" />
+      <path d="M4 6.6v10.8c0 1.8 3.6 3.2 8 3.2s8-1.4 8-3.2V6.6" />
+      <path d="M4 12c0 1.8 3.6 3.2 8 3.2s8-1.4 8-3.2" />
+    </>
+  ),
+  ubicacion: (
+    <>
+      <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+      <circle cx="12" cy="10" r="2.6" />
+    </>
+  ),
+  estrella: (
+    <>
+      <path d="M12 3.2l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17.1 6.6 20l1-6.1L3.2 9.6l6.1-.9z" />
+    </>
+  ),
+  porcentaje: (
+    <>
+      <path d="M19 5 5 19" />
+      <circle cx="7.5" cy="7.5" r="2.6" />
+      <circle cx="16.5" cy="16.5" r="2.6" />
+    </>
+  ),
+  personas: (
+    <>
+      <circle cx="9" cy="8" r="3.4" />
+      <path d="M2.5 20v-1.2A5 5 0 0 1 7.5 14h3a5 5 0 0 1 5 4.8V20" />
+      <path d="M16 5.2a3.4 3.4 0 0 1 0 6.6" />
+      <path d="M18 14.3a5 5 0 0 1 3.5 4.5V20" />
     </>
   ),
 

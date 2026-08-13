@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
 import CreadorTarjeta from "../creador-tarjeta";
 
 /**
@@ -42,13 +41,11 @@ export default async function CrearTarjetaPage({
     .maybeSingle();
   if (!rancho) redirect("/lealtad/panel");
 
-  // La cuenta de la 0134, si ya existe. `maybeSingle` y no `single`:
-  // mientras la migración no esté corrida, la tabla no existe y esto
-  // devuelve null sin romper la pantalla.
-  const admin = createAdminClient();
-  const { data: cuenta } = admin
-    ? await admin.from("cuentas").select("id").eq("rancho_id", id).maybeSingle()
-    : { data: null };
+  // La cuenta de la 0134 ya NO se busca acá. Se buscaba para pasársela
+  // al asistente y que él la devolviera al guardar — un rodeo por el
+  // navegador que abría el agujero: el servidor terminaba confiando en
+  // un `cuenta_id` que había salido de la pantalla. Ahora `crearTarjeta`
+  // la deriva del `ranchoId` que ya verificó.
 
   return (
     <main className="min-h-svh" style={{ background: "var(--grey)" }}>
@@ -70,7 +67,6 @@ export default async function CrearTarjetaPage({
 
         <div className="mt-7">
           <CreadorTarjeta
-            cuentaId={(cuenta?.id as string | undefined) ?? null}
             ranchoId={id}
             negocioNombre={rancho.nombre as string}
           />

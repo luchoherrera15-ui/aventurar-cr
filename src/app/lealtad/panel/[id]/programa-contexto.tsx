@@ -7,6 +7,7 @@ import {
   eliminarRecompensa,
   guardarPrograma,
   guardarRecompensa,
+  type FormatoCodigo,
   type ProgramaFila,
   type ProgramaInput,
   type RecompensaFila,
@@ -38,6 +39,12 @@ export type Borrador = {
   colorFondo: string;
   colorSello: string;
   logoUrl: string;
+  /** Banda de arriba del pase (0132). */
+  bannerUrl: string;
+  codigoFormato: FormatoCodigo;
+  textoReverso: string;
+  mostrarSaldo: boolean;
+  mostrarProgreso: boolean;
   activo: boolean;
 };
 
@@ -55,6 +62,16 @@ function dePrograma(p: ProgramaFila | null): Borrador {
     colorFondo: p?.pase_color_fondo ?? "#002472",
     colorSello: p?.pase_color_sello ?? "#F39200",
     logoUrl: p?.pase_logo_url ?? "",
+    // Los cinco de la 0132 con `??` y no con `||`: la migración puede
+    // no estar pegada y entonces la fila llega SIN el campo. `undefined`
+    // tiene que caer en el valor que reproduce el pase de hoy —los dos
+    // interruptores encendidos y el QR— o el editor arrancaría
+    // apagando cosas que nadie apagó.
+    bannerUrl: p?.pase_banner_url ?? "",
+    codigoFormato: p?.pase_codigo_formato === "code128" ? "code128" : "qr",
+    textoReverso: p?.pase_texto_reverso ?? "",
+    mostrarSaldo: p?.pase_mostrar_saldo ?? true,
+    mostrarProgreso: p?.pase_mostrar_progreso ?? true,
     activo: p?.activo ?? true,
   };
 }
@@ -128,10 +145,18 @@ export function ProveedorPrograma({
       colorFondo: borrador.colorFondo,
       colorSello: borrador.colorSello,
       logoUrl: borrador.logoUrl,
+      bannerUrl: borrador.bannerUrl,
+      codigoFormato: borrador.codigoFormato,
+      textoReverso: borrador.textoReverso,
+      mostrarSaldo: borrador.mostrarSaldo,
+      mostrarProgreso: borrador.mostrarProgreso,
       activo: borrador.activo,
     };
     iniciar(async () => {
-      const res = await guardarPrograma(ranchoId, entrada);
+      // El id va explícito: un negocio puede tener varias tarjetas
+      // (0134) y sin él el servidor tendría que adivinar cuál se está
+      // editando.
+      const res = await guardarPrograma(ranchoId, entrada, programa?.id ?? null);
       if (res.error) setError(res.error);
       else if (res.programa) {
         setPrograma(res.programa);
@@ -198,5 +223,72 @@ export function ProveedorPrograma({
     >
       {children}
     </Contexto.Provider>
+  );
+}
+
+// ── Las piezas que usan LAS DOS secciones ─────────────────────────
+//
+// Viven acá, junto al contexto del que leen, y no en una de las dos
+// secciones. Puestas en «Recompensas», el editor del diseño tendría que
+// importarlas de ahí mientras esa misma sección lo importa a él: un
+// ciclo entre dos módulos cliente para reusar cuatro párrafos. Y
+// copiarlas es peor — el aviso de guardado ya diría dos cosas distintas
+// según en qué sección estés.
+
+export function AvisoError() {
+  const { error } = usePrograma();
+  if (!error) return null;
+  return (
+    <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-[12.5px] font-bold text-red-700">
+      {error}
+    </p>
+  );
+}
+
+export function AvisoGuardado() {
+  const { guardado } = usePrograma();
+  if (!guardado) return null;
+  return (
+    <p
+      role="status"
+      className="rounded-xl bg-aventurea-green-light px-3 py-2 text-[12.5px] font-bold text-aventurea-green"
+    >
+      Guardado. Las tarjetas nuevas ya salen con estos cambios.
+    </p>
+  );
+}
+
+export function BarraGuardar() {
+  const { borrador, cambiar, ocupado, guardar } = usePrograma();
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={guardar}
+        disabled={ocupado}
+        className="presionable rounded-[10px] bg-aventurea-ink px-5 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+      >
+        {ocupado ? "Guardando…" : "Guardar"}
+      </button>
+      <label className="flex items-center gap-2 text-[12.5px] font-bold text-aventurea-ink-soft">
+        <input
+          type="checkbox"
+          checked={borrador.activo}
+          onChange={(e) => cambiar({ activo: e.target.checked })}
+        />
+        Programa activo
+      </label>
+    </div>
+  );
+}
+
+export function NotaCercania() {
+  const { tieneCercania } = usePrograma();
+  return (
+    <p className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+      {tieneCercania
+        ? "Aviso por cercanía activo: la tarjeta aparece sola en la pantalla bloqueada cuando el cliente pasa cerca del local."
+        : "El aviso por cercanía —que la tarjeta salga sola cuando el cliente pasa cerca— es un complemento aparte."}
+    </p>
   );
 }

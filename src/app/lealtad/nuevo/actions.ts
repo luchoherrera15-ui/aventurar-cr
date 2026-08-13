@@ -117,6 +117,7 @@ export async function solicitarAltaConPlan(datos: {
   if (gratis && !datos.personalizado) {
     return crearGratisAlInstante({
       userId: user.id,
+      plan: datos.plan,
       nombre,
       tipo,
       detalle,
@@ -220,6 +221,22 @@ export async function solicitarAltaConPlan(datos: {
  */
 async function crearGratisAlInstante(d: {
   userId: string;
+  /**
+   * EL PLAN QUE LA PERSONA ELIGIÓ, no uno escrito a mano acá.
+   *
+   * Acá decía `"gratis"` fijo, y eso vaciaba el tope del paquete sin que
+   * se notara: `gratis` es un plan RETIRADO, y los retirados llevan
+   * `SIN_TOPES` a propósito —a quien ya lo tenía no se le quita lo que
+   * tenía—. Así que `definicionDe("gratis").limites.programas` daba
+   * `null`, el tope de `crear-actions.ts` ni se ejecutaba, y una cuenta
+   * gratis podía crear pases ilimitados.
+   *
+   * El plan vigente sin costo es `prueba`, con tope de 1 programa. Al
+   * pasar el que eligió la persona, el tope vuelve a ser el que dice el
+   * catálogo — y el día que cambie el catálogo, no hay que acordarse de
+   * venir a tocar esta función.
+   */
+  plan: string;
   nombre: string;
   tipo: string;
   detalle: string;
@@ -249,13 +266,17 @@ async function crearGratisAlInstante(d: {
       estado: "pendiente",
       lealtad_aprobado_en: new Date().toISOString(),
       lealtad_aprobado_por: null, // el sistema
-      plan_lealtad: "gratis",
+      plan_lealtad: d.plan,
     })
     .select("id, slug")
     .single();
   if (eRancho) {
     if (eRancho.message.includes("plan_lealtad")) {
-      return { ok: false, motivo: "Falta correr la migración 0131 en Supabase." };
+      // El CHECK de `ranchos.plan_lealtad` acepta los ids del catálogo
+      // NUEVO recién con la 0133. Sin ella pegada, un alta con `prueba`
+      // rebota acá — y el mensaje tiene que decir cuál falta, no la
+      // 0131, que era la del catálogo viejo.
+      return { ok: false, motivo: "Falta correr la migración 0133 en Supabase." };
     }
     if (eRancho.message.includes("lealtad_aprobado")) {
       return { ok: false, motivo: "Falta correr la migración 0129 en Supabase." };
@@ -303,7 +324,7 @@ async function crearGratisAlInstante(d: {
       activo: true,
       vence_en: null,
       activado_en: new Date().toISOString(),
-      notas: "Plan gratis — creado solo por el creador de cards",
+      notas: `Plan ${d.plan} — creado solo por el creador de cards`,
     },
     { onConflict: "rancho_id,addon" },
   );
@@ -317,7 +338,7 @@ async function crearGratisAlInstante(d: {
     negocio_nombre: d.nombre,
     negocio_vertical: d.tipo,
     negocio_detalle: d.detalle || null,
-    plan: "gratis",
+    plan: d.plan,
     telefono: d.telefono,
     personalizado: false,
     pase_color: d.paseColor,

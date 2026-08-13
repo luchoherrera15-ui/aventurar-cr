@@ -6,6 +6,7 @@ import { verificarAccesoRancho } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import {
   esTipoTarjeta,
   metaDe,
@@ -28,7 +29,25 @@ import {
  */
 
 export type BorradorTarjeta = {
-  cuentaId: string | null;
+  /**
+   * NO HAY `cuentaId` ACÁ, Y ES A PROPÓSITO.
+   *
+   * Lo había, y era el agujero más caro del módulo: viajaba
+   * servidor→cliente→servidor, el guard validaba `ranchoId` y nunca
+   * `cuentaId`, y detrás corría `createAdminClient()` con la RLS fuera
+   * de juego. Con un `cuenta_id` ajeno —uno real, no inventado, así
+   * que la FK no lo frenaba— se podía: leer el plan de otro negocio y
+   * heredar su tope, hacer que el contador de programas diera 0 y
+   * saltarse el límite entero, y sobre todo INSERTAR una tarjeta
+   * dentro de la cuenta de otro.
+   *
+   * Y desde la 0138, `pertenece_a_cuenta(cuenta_id)` es la llave de
+   * lectura de `personas` y `consentimientos_persona`: esa escritura
+   * cruzada se convertía en lectura cruzada de datos personales.
+   *
+   * La cuenta se deriva del `ranchoId` en el servidor. Un dato que el
+   * servidor puede averiguar solo nunca debería pedírselo al navegador.
+   */
   ranchoId: string;
   nombre: string;
   tipo: TipoTarjeta;
@@ -36,6 +55,8 @@ export type BorradorTarjeta = {
   colorFondo: string;
   colorSello: string;
   logoUrl: string;
+  /** La banda de arriba del pase: `strip` en Apple, `heroImage` en Google. */
+  bannerUrl: string;
   reglas: {
     desde: string;
     hasta: string;
@@ -82,9 +103,26 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   if (!HEX.test(datos.colorFondo)) return { ok: false, motivo: "El color de fondo tiene que ser #RRGGBB." };
   if (!HEX.test(datos.colorSello)) return { ok: false, motivo: "El color del acento tiene que ser #RRGGBB." };
 
+  // ── LAS IMÁGENES TIENEN QUE SER NUESTRAS ────────────────────────
+  // Antes alcanzaba con que empezara por `https://`, porque el campo
+  // era una URL que el dueño pegaba a mano. Ahora las sube el
+  // componente directo a nuestro bucket, así que se puede exigir lo
+  // correcto: que la URL SEA de nuestro storage.
+  //
+  // No es formalismo. Una URL ajena en el pase significa que un tercero
+  // decide qué imagen ve el cliente en su teléfono —y puede cambiarla,
+  // o borrarla y dejar el pase roto— para siempre, porque el pase ya
+  // está instalado. `esUrlDeNuestroStorage` valida con `URL` y no con
+  // `startsWith`, que es lo que ya rompió el logo en producción una vez
+  // (una barra de más en la variable de entorno).
   const logo = datos.logoUrl.trim();
-  if (logo && !logo.startsWith("https://")) {
-    return { ok: false, motivo: "El logo tiene que ser una URL https." };
+  if (logo && !esUrlDeNuestroStorage(logo, "ranchos-fotos")) {
+    return { ok: false, motivo: "El logo no se subió bien — probá de nuevo." };
+  }
+
+  const banner = datos.bannerUrl.trim();
+  if (banner && !esUrlDeNuestroStorage(banner, "ranchos-fotos")) {
+    return { ok: false, motivo: "La banda no se subió bien — probá de nuevo." };
   }
 
   // Las fechas tienen que tener sentido entre sí. Al revés, la tarjeta
@@ -106,9 +144,20 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     .eq("id", datos.ranchoId)
     .maybeSingle();
 
+  // LA CUENTA SE DERIVA ACÁ, del rancho que el guard ya verificó que es
+  // de quien llama. `maybeSingle` porque mientras la 0134 no esté
+  // pegada la tabla no existe y esto devuelve null sin romper nada — el
+  // programa nace colgado solo del rancho, como hasta hoy.
+  const { data: cuenta } = await db
+    .from("cuentas")
+    .select("id")
+    .eq("rancho_id", datos.ranchoId)
+    .maybeSingle();
+  const cuentaId = (cuenta?.id as string | undefined) ?? null;
+
   const { plan } = await contextoDeCuenta(
     db,
-    datos.cuentaId ? { cuenta_id: datos.cuentaId } : {},
+    cuentaId ? { cuenta_id: cuentaId } : {},
     { planRancho: (rancho?.plan_lealtad as string | null) ?? null },
   );
 
@@ -118,8 +167,8 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
       .from("programa_lealtad")
       .select("*", { count: "exact", head: true })
       .neq("estado", "archivado");
-    const { count } = datos.cuentaId
-      ? await consulta.eq("cuenta_id", datos.cuentaId)
+    const { count } = cuentaId
+      ? await consulta.eq("cuenta_id", cuentaId)
       : await consulta.eq("rancho_id", datos.ranchoId);
 
     if ((count ?? 0) >= topeProgramas) {
@@ -142,6 +191,7 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     pase_color_fondo: datos.colorFondo,
     pase_color_sello: datos.colorSello,
     pase_logo_url: logo || null,
+    pase_banner_url: banner || null,
     activo: false,
     estado: "borrador",
     // El motor de puntos sigue leyendo estas dos columnas (0060). Se
@@ -162,7 +212,7 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     hora_desde: datos.reglas.horaDesde || null,
     hora_hasta: datos.reglas.horaHasta || null,
   };
-  if (datos.cuentaId) fila.cuenta_id = datos.cuentaId;
+  if (cuentaId) fila.cuenta_id = cuentaId;
 
   const { data, error } = await db
     .from("programa_lealtad")

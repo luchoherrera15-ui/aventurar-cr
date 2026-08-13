@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 /**
  * El pase, de verdad — no una tarjeta genérica con un logo. Calca los
  * detalles que hacen reconocible un pase de Apple Wallet o Google
@@ -60,6 +62,7 @@ export function PaseWallet({
   children,
   colorFondo = "#0a1226",
   serial = "BK · 7734 2201",
+  foto,
 }: {
   /** "apple" imita el pase oscuro y sobrio de Apple Wallet; "google"
    *  el cuerpo claro con banda de color de Google Wallet. */
@@ -73,6 +76,14 @@ export function PaseWallet({
    *  real y no como dos círculos pegados encima. */
   colorFondo?: string;
   serial?: string;
+  /**
+   * La banda del negocio. Es el `strip` de Apple Wallet y el
+   * `heroImage` de Google: existe en el pase de verdad, así que
+   * ponerla acá no es adorno de maqueta — es el pase completo.
+   *
+   * Opcional: sin foto, el pase queda como estaba.
+   */
+  foto?: string;
 }) {
   const esApple = marca === "apple";
   return (
@@ -116,9 +127,36 @@ export function PaseWallet({
         </span>
       </div>
 
+      {/* ── La banda del negocio ────────────────────────────────────
+          Va DEBAJO del encabezado y ENCIMA de los campos, que es donde
+          Apple pone el `strip`. Sobria a propósito: 62px, medio
+          desaturada y con un degradado que la funde con el cuerpo del
+          pase. Una foto a todo color acá compite con el saldo, que es
+          el único dato que el cliente viene a mirar. */}
+      {foto && (
+        <div className="relative mt-3 h-[62px] w-full overflow-hidden">
+          <Image
+            src={foto}
+            alt=""
+            fill
+            sizes="320px"
+            className="object-cover"
+            style={{ filter: esApple ? "saturate(.75) brightness(.62)" : "saturate(.85)" }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: esApple
+                ? "linear-gradient(to bottom, rgba(14,22,56,.35) 0%, rgba(14,22,56,.55) 55%, #0e1638 100%)"
+                : "linear-gradient(to bottom, rgba(244,241,234,0) 40%, #f4f1ea 100%)",
+            }}
+          />
+        </div>
+      )}
+
       {/* Fila de campos, igual que un pase real: etiqueta chiquita
           arriba, valor grande abajo. */}
-      <div className="mt-3 flex items-end justify-between px-4">
+      <div className={`${foto ? "mt-2" : "mt-3"} flex items-end justify-between px-4`}>
         <div>
           <p
             className="text-[8px] font-bold uppercase tracking-[0.14em]"

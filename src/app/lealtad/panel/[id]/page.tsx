@@ -3,19 +3,22 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { definicionDe } from "@/lib/lealtad/planes";
+import { definicionDe, estadoDelLimite } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { hoyISOCR } from "@/lib/fechas";
 import SeccionProgramas, { type ProgramaEnLista } from "./seccion-programas";
-import { estadoDelPrograma } from "@/lib/lealtad/reglas";
+import { estadoVisible, operaAhora } from "@/lib/lealtad/programas";
+import { TIPOS_TARJETA, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
 import { permisosDeFila } from "@/lib/lealtad/permisos";
+import { cargarLealtad } from "./datos-lealtad";
 import ShellLealtad, { type GrupoLealtad } from "./shell-lealtad";
-import InicioLealtad, { type PasoPrimero } from "./inicio-lealtad";
+import InicioLealtad, { type EnlacesInicio, type PasoPrimero } from "./inicio-lealtad";
 import ModoMostrador from "./modo-mostrador";
 import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
 import CompartirTarjeta from "./compartir-tarjeta";
-import { SeccionRecompensas, SeccionTarjeta } from "./pases-panel";
+import { SeccionTarjeta } from "./pases-panel";
+import CreadorTarjeta from "./creador-tarjeta";
 import SeccionPlan from "./seccion-plan";
 import { ProveedorPrograma } from "./programa-contexto";
 import MetricasLealtad from "./metricas";
@@ -145,33 +148,16 @@ export default async function PanelNegocioLealtad({
   // ── Con el complemento: los datos del programa (llave de servicio,
   //    porque un colaborador no puede leer un programa pausado por RLS) ─
   const admin = createAdminClient();
-  const { data: programa } = admin
-    ? await admin.from("programa_lealtad").select("*").eq("rancho_id", id).maybeSingle()
-    : { data: null };
-  const { data: recompensas } = admin && programa
-    ? await admin
-        .from("recompensas")
-        .select("*")
-        .eq("programa_id", (programa as ProgramaFila).id)
-        .order("costo_puntos", { ascending: true })
-    : { data: [] };
 
-  const p = programa as ProgramaFila | null;
-  const lista = (recompensas ?? []) as RecompensaFila[];
-  const meta = lista.find((r) => r.activo) ?? null;
-  const programaActivo = p
-    ? estadoDelPrograma({ estado: p.estado ?? null, activo: p.activo }) === "activo"
-    : false;
-
-  // Cuánta gente se afilió: la última casilla de «Primeros pasos». Se
-  // cuenta con `head` — el número, sin traerse las filas.
-  const { count: totalMiembros } = admin && p
-    ? await admin
-        .from("miembros")
-        .select("*", { count: "exact", head: true })
-        .eq("programa_id", p.id)
-    : { count: 0 };
-  const miembros = totalMiembros ?? 0;
+  // El "ahora" en hora de Costa Rica, resuelto UNA vez en el servidor.
+  // De acá salen los estados «programada» y «vencida»: si cada tarjeta
+  // leyera su propio reloj, una lista larga podría cruzar la medianoche
+  // a la mitad y mostrar dos verdades distintas en la misma pantalla.
+  const ahoraCR = `${hoyISOCR()}T${new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date())}`;
 
   // ── TODAS las tarjetas del negocio ─────────────────────────────
   // Desde la 0134 puede haber varias (el `unique(rancho_id)` se
@@ -204,6 +190,56 @@ export default async function PanelNegocioLealtad({
     colorFondo: (f.pase_color_fondo as string | null) ?? null,
     miembros: miembrosPorPrograma.get(f.id as string) ?? 0,
   }));
+
+  // ── LA TARJETA PRINCIPAL: la que mandan Inicio, Clientes, Métricas
+  //    y el editor del pase ─────────────────────────────────────────
+  // Sale de la lista que ya se trajo, y no de un segundo
+  // `select ... .maybeSingle()`. Ese `maybeSingle` era de cuando había
+  // UNA tarjeta por negocio: desde que la 0134 liberó el
+  // `unique(rancho_id)`, con dos tarjetas devuelve error y `data` en
+  // null — o sea que el negocio que MÁS tiene era el que veía «todavía
+  // no hay programa» en media pantalla.
+  //
+  // Se elige la que está emitiendo pases; si ninguna, la primera que no
+  // esté archivada; y si todas lo están, la primera. Siempre la misma
+  // para todas las secciones: dos criterios distintos mostrarían dos
+  // tarjetas distintas en la misma visita.
+  const principal =
+    programasEnLista.find((f) => operaAhora(f, ahoraCR)) ??
+    programasEnLista.find((f) => estadoVisible(f, ahoraCR) !== "archivado") ??
+    programasEnLista[0] ??
+    null;
+
+  const p = (principal
+    ? (todasLasFilas.find((f) => f.id === principal.id) ?? null)
+    : null) as ProgramaFila | null;
+
+  const { data: recompensas } = admin && p
+    ? await admin
+        .from("recompensas")
+        .select("*")
+        .eq("programa_id", p.id)
+        .order("costo_puntos", { ascending: true })
+    : { data: [] };
+
+  const lista = (recompensas ?? []) as RecompensaFila[];
+  const meta = lista.find((r) => r.activo) ?? null;
+  // «Activo» acá es la pregunta que decide si el QR lleva a algún lado,
+  // así que se responde con `operaAhora`: una tarjeta con estado activo
+  // pero vencida NO emite pases, y decir que sí mandaría a imprimir un
+  // póster con un código que responde «no encontrado».
+  const programaActivo = principal ? operaAhora(principal, ahoraCR) : false;
+
+  // Las archivadas no cuentan como tarjetas que el negocio tenga: para
+  // volver a emitir hay que crear otra, no reanimar la archivada.
+  const vivas = programasEnLista.filter((f) => estadoVisible(f, ahoraCR) !== "archivado");
+  const operan = vivas.filter((f) => operaAhora(f, ahoraCR)).length;
+
+  // Lo que dice el ledger. La misma llamada que hace <LealtadEstado>:
+  // `cargarLealtad` está envuelta en `cache()`, así que las dos
+  // secciones del mismo render comparten una sola consulta.
+  const datosLealtad = await cargarLealtad(p?.id ?? null, meta?.costo_puntos ?? null);
+  const miembros = datosLealtad?.resumen.miembros ?? 0;
 
   // El complemento de cercanía (0123): lo pide el editor de la tarjeta
   // para saber si ofrece el aviso por ubicación.
@@ -261,22 +297,13 @@ export default async function PanelNegocioLealtad({
   // así que resolverlo en UN lugar evita que media pantalla muestre el
   // plan nuevo y la otra media el viejo.
   const { plan } = admin
-    ? await contextoDeCuenta(admin, (programa ?? {}) as Record<string, unknown>, {
+    ? await contextoDeCuenta(admin, (p ?? {}) as Record<string, unknown>, {
         planRancho: rancho.plan_lealtad as string | null,
       })
     : { plan: (rancho.plan_lealtad as string | null) ?? null };
   const def = definicionDe(plan);
   const topeProgramas = def?.limites.programas ?? null;
-
-  // El "ahora" en hora de Costa Rica, resuelto UNA vez en el servidor.
-  // De acá salen los estados «programada» y «vencida»: si cada tarjeta
-  // leyera su propio reloj, una lista larga podría cruzar la medianoche
-  // a la mitad y mostrar dos verdades distintas en la misma pantalla.
-  const ahoraCR = `${hoyISOCR()}T${new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Costa_Rica",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date())}`;
+  const limiteClientes = estadoDelLimite(plan, "clientesActivos", miembros);
 
   const grupos: GrupoLealtad[] = [
     {
@@ -317,8 +344,18 @@ export default async function PanelNegocioLealtad({
   // Un botón que apunta a una sección que quien mira no tiene es un
   // callejón sin salida: el ancla solo se pinta si la sección existe.
   const visibles = new Set(grupos.flatMap((g) => g.items).map((i) => i.id));
-  const irA = (seccion: string, texto: string) =>
-    visibles.has(seccion) ? { texto, href: `#${seccion}` } : null;
+  const ancla = (seccion: string) => (visibles.has(seccion) ? `#${seccion}` : null);
+  const irA = (seccion: string, texto: string) => {
+    const href = ancla(seccion);
+    return href ? { texto, href } : null;
+  };
+
+  // El tipo de la tarjeta principal sale del CATÁLOGO de ocho, con
+  // `tipoDe` para tolerar lo desconocido. Antes se casteaba a mano a
+  // tres valores («sellos» | «puntos» | «cashback»): con un cupón, una
+  // gift card o un evento, esa lista mentía y los textos salían mal.
+  const tipoPrincipal = tipoDe(p?.modo ?? null);
+  const acumula = TIPOS_TARJETA[tipoPrincipal].acumula;
 
   const reglasDan = p ? p.puntos_por_visita > 0 || Number(p.puntos_por_colon) > 0 : false;
   const pasos: PasoPrimero[] = [
@@ -329,11 +366,17 @@ export default async function PanelNegocioLealtad({
       cta: irA("negocio", "Ver los datos"),
     },
     {
-      titulo: "Definí cómo se gana y qué se gana",
-      detalle: meta
-        ? `La meta es ${meta.nombre} a los ${meta.costo_puntos}.`
-        : "Sin una recompensa activa, la tarjeta no promete nada.",
-      listo: !!meta && reglasDan,
+      // La recompensa la pide lo que ACUMULA. Un cupón, un evento o una
+      // membresía llevan su beneficio adentro de la tarjeta: pedirles
+      // una recompensa activa dejaba este paso en rojo para siempre,
+      // sin que faltara nada.
+      titulo: acumula ? "Definí cómo se gana y qué se gana" : "Configurá el beneficio",
+      detalle: acumula
+        ? meta
+          ? `La meta es ${meta.nombre} a los ${meta.costo_puntos}.`
+          : "Sin una recompensa activa, la tarjeta no promete nada."
+        : `Tu ${TIPOS_TARJETA[tipoPrincipal].nombre.toLowerCase()} ya trae su beneficio adentro.`,
+      listo: acumula ? !!meta && reglasDan : !!p,
       cta: irA("recompensas", "Configurar"),
     },
     {
@@ -359,13 +402,39 @@ export default async function PanelNegocioLealtad({
     },
   ];
 
+  // El asistente vive en su propia pantalla (ancho completo para el
+  // formulario más la vista previa), la misma a la que manda la sección
+  // «Tarjetas»: dos caminos distintos para crear lo mismo terminan en
+  // dos experiencias que se desincronizan.
+  const enlaces: EnlacesInicio = {
+    crear: puedeDisenar ? `/lealtad/panel/${id}/crear` : null,
+    recompensas: ancla("recompensas"),
+    tarjeta: ancla("tarjeta"),
+    poster: ancla("poster"),
+    clientes: ancla("clientes"),
+    programas: ancla("programas"),
+    plan: ancla("plan"),
+  };
+
   const contenidos: Record<string, React.ReactNode> = {
     inicio: (
       <InicioLealtad
         nombre={rancho.nombre}
-        modo={(p?.modo ?? "sellos") as "sellos" | "puntos" | "cashback"}
+        tarjeta={
+          principal
+            ? {
+                nombre: principal.nombre,
+                tipo: tipoPrincipal,
+                estado: estadoVisible(principal, ahoraCR),
+              }
+            : null
+        }
+        tarjetas={{ vivas: vivas.length, operan }}
         regalia={meta ? { nombre: meta.nombre, costo: meta.costo_puntos } : null}
+        resumen={datosLealtad?.resumen ?? null}
+        limite={limiteClientes}
         pasos={pasos}
+        enlaces={enlaces}
         accion={
           p && permisos.acreditar ? (
             <BotonEscanear
@@ -536,30 +605,28 @@ export default async function PanelNegocioLealtad({
               </div>
             </Seccion>
           ),
+          // ── RECOMPENSAS = EL ASISTENTE, y nada más ──────────────
+          // Acá vivían dos cosas peleadas: un banner que mandaba al
+          // asistente de cinco pasos, y debajo el formulario viejo
+          // —«Cómo se gana», «Qué se gana»— con sus TRES modos.
+          //
+          // El formulario viejo no era solo redundante, estaba roto:
+          // `MODOS` tiene tres entradas y `ModoPrograma` son ocho, así
+          // que con una tarjeta de cupón o gift card el `.find(...)!`
+          // devolvía `undefined` y la sección entera reventaba con un
+          // TypeError. Y del otro lado, `pases-actions.ts` rechazaba
+          // esos cinco tipos en el SERVIDOR: una tarjeta hecha con el
+          // asistente no se podía volver a guardar desde acá.
+          //
+          // Ofrecer dos caminos para lo mismo, donde uno conoce ocho
+          // tipos y el otro tres, no es dar opciones: es garantizar que
+          // la mitad de la gente entre por el que falla.
           recompensas: (
             <Seccion
               titulo="Recompensas"
-              bajada="Cómo se ganan los sellos y qué se lleva el cliente al completarlos."
+              bajada="Elegí qué clase de tarjeta querés y configurala paso por paso."
             >
-              <Link
-                href={`/lealtad/panel/${id}/crear`}
-                className="flex items-center justify-between rounded-2xl border px-4 py-4 transition-colors hover:border-white/40"
-                style={{ background: "rgba(255,106,0,.09)", borderColor: NARANJA }}
-              >
-                <span>
-                  <span className="block text-[14px] font-extrabold text-white">
-                    Crear una tarjeta
-                  </span>
-                  <span className="block text-[12.5px] text-white/60">
-                    Sellos, puntos, cupón, descuento, membresía, gift card, evento o
-                    cashback — en cinco pasos.
-                  </span>
-                </span>
-                <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: NARANJA }}>
-                  →
-                </span>
-              </Link>
-              <SeccionRecompensas />
+              <CreadorTarjeta ranchoId={id} negocioNombre={rancho.nombre as string} />
             </Seccion>
           ),
           tarjeta: (
