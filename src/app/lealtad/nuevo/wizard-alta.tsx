@@ -457,7 +457,9 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
 
           {pantalla === "paquete" && (
             <Pregunta titulo="Elegí tu paquete">
-              <div className="grid gap-2.5">
+              {/* En rejilla, no en lista: cuatro planes apilados hacían
+                  la pantalla el doble de alta que las demás. */}
+              <div className="grid gap-2 sm:grid-cols-2">
                 {planes.map((p) => (
                   <button
                     key={p.id}
@@ -466,7 +468,7 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
                       setPlan(p.id);
                       avanzar();
                     }}
-                    className={`rounded-xl border p-3.5 text-left transition-colors ${
+                    className={`rounded-xl border p-3 text-left transition-colors ${
                       plan === p.id
                         ? "border-[#ee7420] bg-[#ee7420]/10"
                         : p.destacado
@@ -474,23 +476,23 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
                           : "border-white/15 bg-white/5 hover:bg-white/10"
                     }`}
                   >
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <span className="text-[15px] font-extrabold text-white">{p.nombre}</span>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[14.5px] font-extrabold text-white">{p.nombre}</span>
                       {p.precio !== null && (
-                        <span className="text-[14px] font-extrabold text-white">
+                        <span className="shrink-0 text-[13.5px] font-extrabold text-white">
                           {p.precio === 0 ? "₡0" : `₡${p.precio.toLocaleString("es-CR")}`}
-                          <span className="text-[11px] font-bold text-white/50">
-                            {p.precio === 0 ? " para probar" : " /mes"}
+                          <span className="text-[10.5px] font-bold text-white/50">
+                            {p.precio === 0 ? "" : "/mes"}
                           </span>
                         </span>
                       )}
-                      <span className="text-[11.5px] text-white/50">
-                        {p.limite === null
-                          ? "miembros ilimitados"
-                          : `hasta ${p.limite.toLocaleString("es-CR")} miembros`}
-                      </span>
                     </div>
-                    <p className="mt-1 text-[12px] leading-relaxed text-white/55">
+                    <p className="mt-0.5 text-[11px] font-bold text-white/45">
+                      {p.limite === null
+                        ? "Miembros ilimitados"
+                        : `Hasta ${p.limite.toLocaleString("es-CR")} miembros`}
+                    </p>
+                    <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-snug text-white/55">
                       {p.beneficios.join(" · ")}
                       {p.masBeneficios > 0 ? ` · y ${p.masBeneficios} más` : ""}
                     </p>
@@ -509,7 +511,8 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
               }
             >
               {!esGratis && (
-                <div className="rounded-xl border border-white/15 bg-[#0f1930] p-3.5">
+                <div className="grid gap-3 rounded-xl border border-white/15 bg-[#0f1930] p-3.5 sm:grid-cols-2">
+                  <div>
                   <div className="flex gap-1.5">
                     {(["sinpe", "transferencia"] as const).map((m) => (
                       <button
@@ -544,7 +547,10 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
                     </p>
                   )}
 
-                  <p className="mt-3 text-[12px] font-bold uppercase tracking-wide text-white/50">
+                  </div>
+
+                  <div className="sm:border-l sm:border-white/10 sm:pl-3">
+                  <p className="text-[12px] font-bold uppercase tracking-wide text-white/50">
                     Adjuntá la captura del depósito
                   </p>
                   {comprobanteUrl ? (
@@ -574,6 +580,7 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
                   {errorSubida && (
                     <p className="mt-1 text-[12.5px] font-bold text-red-300">{errorSubida}</p>
                   )}
+                  </div>
                 </div>
               )}
 

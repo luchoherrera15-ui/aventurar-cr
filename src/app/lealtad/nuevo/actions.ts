@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, esPlan } from "@/lib/lealtad/planes";
 import { generarSlugUnico } from "@/lib/slug";
+import { apagarModulosOperativos } from "@/lib/lealtad/solo-lealtad";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 
 /** El plan Gratis no lleva depósito: sin método ni comprobante. */
@@ -263,6 +264,9 @@ async function crearGratisAlInstante(d: {
     return { ok: false, motivo: "No se pudo crear el negocio: " + eRancho.message };
   }
   const ranchoId = rancho.id as string;
+
+  // Nace SOLO para lealtad: sin agenda, catálogo, equipo ni finanzas.
+  await apagarModulosOperativos(admin, ranchoId);
 
   const { data: prog, error: eProg } = await admin
     .from("programa_lealtad")

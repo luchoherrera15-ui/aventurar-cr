@@ -41,37 +41,36 @@ export default async function NuevoNegocioLealtadPage() {
   });
 
   return (
-    <main className="min-h-svh px-5 py-10" style={{ background: NAVY_PROFUNDO }}>
-      <div className="mx-auto w-[min(720px,94vw)]">
-        <header className="flex items-center justify-between">
-          <Link href="/lealtad">
-            <Image
-              src="/logo-bookea-blanco-v3.png"
-              alt="Bookea"
-              width={132}
-              height={33}
-              className="h-[30px] w-auto"
-            />
-          </Link>
-          <Link href="/lealtad" className="text-[12.5px] font-bold text-white/50 hover:text-white">
-            ← Volver
-          </Link>
-        </header>
+    // Centrado vertical y sin scroll: un onboarding de una pregunta por
+    // pantalla no debe hacer scrollear — si la página se estira a lo
+    // alto, el formato pierde justo lo que lo hace ligero.
+    <main
+      className="flex min-h-svh flex-col px-5 py-5 sm:py-6"
+      style={{ background: NAVY_PROFUNDO }}
+    >
+      <header className="mx-auto flex w-[min(1060px,96vw)] shrink-0 items-center justify-between">
+        <Link href="/lealtad">
+          <Image
+            src="/logo-bookea-blanco-v3.png"
+            alt="Bookea"
+            width={110}
+            height={28}
+            className="h-[24px] w-auto"
+          />
+        </Link>
+        <Link href="/lealtad" className="text-[12.5px] font-bold text-white/50 hover:text-white">
+          ← Volver
+        </Link>
+      </header>
 
-        <h1 className="mt-10 text-[26px] font-extrabold leading-tight text-white">
-          Tu programa de lealtad, en cuatro pasos
-        </h1>
-        <p className="mt-2 max-w-[56ch] text-[14px] leading-relaxed text-white/60">
-          Contanos de tu negocio, elegí el paquete y dejá tu depósito. El equipo de
-          Bookea revisa la solicitud: si la acepta, tu negocio y tu programa quedan
-          creados — te avisamos al correo.
-        </p>
-
-        <div className="mt-8">
+      {/* El wizard manda: sin titulón ni párrafo de intro compitiendo con
+          la pregunta de turno — el título de cada pantalla ES el mensaje. */}
+      <div className="mx-auto flex w-[min(1060px,96vw)] flex-1 items-center py-6">
+        <div className="w-full">
           {user ? (
             <WizardAlta planes={planes} pago={datosDePagoBookea()} />
           ) : (
-            <div className="rounded-2xl bg-white p-6">
+            <div className="mx-auto w-[min(520px,94vw)] rounded-2xl bg-white p-6">
               {/* El paso 0: la cuenta. El MISMO login de /cuenta — crea
                   la cuenta con correo y nombre si es nueva, y vuelve
                   exactamente acá para seguir con el negocio. */}

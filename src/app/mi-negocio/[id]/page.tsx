@@ -723,26 +723,34 @@ export default async function RanchoDetallePage({
           })}
         />
 
-        {/* (b) La agenda, entera y con todas sus acciones. */}
-        <section>
-          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Tu agenda
-          </h2>
-          {contenidoAgenda}
-        </section>
+        {/* (b) La agenda, entera y con todas sus acciones — SOLO si el
+            negocio tiene el módulo (0108). Un negocio que existe para
+            su programa de lealtad no toma reservas: mostrarle un
+            calendario vacío y su historial de reservas era ruido puro
+            (y hacía la pantalla larguísima). */}
+        {modulos.has("agenda") && (
+          <>
+            <section>
+              <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                Tu agenda
+              </h2>
+              {contenidoAgenda}
+            </section>
 
-        {/* (c) El histórico con auditoría: quién reservó, a qué hora,
-            con qué correo, cuánto depositó y cuánto queda pendiente. */}
-        <section>
-          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Últimas reservas y su auditoría
-          </h2>
-          <HistoricoReservas
-            items={actividad}
-            onVerComprobante={obtenerUrlComprobanteRancho.bind(null, rancho.id)}
-            onMarcarValidado={marcarDepositoValidadoRancho.bind(null, rancho.id)}
-          />
-        </section>
+            {/* (c) El histórico con auditoría: quién reservó, a qué hora,
+                con qué correo, cuánto depositó y cuánto queda pendiente. */}
+            <section>
+              <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                Últimas reservas y su auditoría
+              </h2>
+              <HistoricoReservas
+                items={actividad}
+                onVerComprobante={obtenerUrlComprobanteRancho.bind(null, rancho.id)}
+                onMarcarValidado={marcarDepositoValidadoRancho.bind(null, rancho.id)}
+              />
+            </section>
+          </>
+        )}
       </div>
     ),
   };

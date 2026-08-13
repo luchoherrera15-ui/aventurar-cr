@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { esPlan } from "@/lib/lealtad/planes";
 import { generarSlugUnico } from "@/lib/slug";
+import { apagarModulosOperativos } from "@/lib/lealtad/solo-lealtad";
 
 /**
  * Asignar el plan de la plataforma de lealtad a un negocio (0124).
@@ -165,6 +166,10 @@ export async function atenderSolicitudLealtad({
         .single();
       if (eRancho) return { error: "No se pudo crear el negocio: " + eRancho.message };
       ranchoId = nuevo.id as string;
+
+      // Nace SOLO para lealtad: sin agenda, catálogo, equipo ni
+      // finanzas — el dueño enciende lo que quiera después.
+      await apagarModulosOperativos(admin, ranchoId);
 
       // EL PROCESO AUTOMÁTICO: si vino del CREADOR (no personalizado),
       // el programa nace FUNCIONANDO con lo que la persona armó —
