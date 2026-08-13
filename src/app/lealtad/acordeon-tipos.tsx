@@ -82,14 +82,30 @@ export default function AcordeonTipos() {
   return (
     <div>
       {/* ── Las ocho pestañas ─────────────────────────────────────
-          Una franja que se desliza en móvil y se acomoda sola en
-          escritorio. Todas legibles: icono Y nombre. */}
+          ANTES SE DESLIZABA, Y ESTABA MAL.
+
+          Era `overflow-x-auto` con la barra de desplazamiento ESCONDIDA
+          (`scrollbar-width:none` y el `::-webkit-scrollbar` en display
+          none). En el teléfono se veían cuatro chips y un borde: cero
+          señal de que hubiera cuatro más. El dueño lo reportó como «queda
+          cortado y no se desliza» — y las dos mitades son ciertas. Sí
+          deslizaba; nada le decía que se podía.
+
+          La salida no es ponerle una flecha ni devolverle la barra: es que
+          NO HAGA FALTA DESLIZAR. Ocho chips cortos entran en dos o tres
+          filas hasta en 320px, y ahí no hay nada que descubrir — las ocho
+          opciones se ven a la vez, que es lo que un selector tiene que
+          hacer.
+
+          De paso se van el `-mx-5 px-5`: ese truco existía solo para que
+          la franja sangrara al borde de la pantalla. Sin deslizamiento no
+          tiene sentido, y era justo el par que desbordaba el viewport. */}
       <div
         role="tablist"
         aria-label="Tipos de pase"
         onKeyDown={alTeclado}
         onMouseLeave={alSalir}
-        className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-2 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:justify-center lg:px-0 [&::-webkit-scrollbar]:hidden"
+        className="flex flex-wrap justify-center gap-2"
       >
         {TIPOS_TARJETA_LISTA.map((tipo, i) => {
           const esta = tipo.id === activo;
@@ -159,7 +175,20 @@ export default function AcordeonTipos() {
             </TelefonoMockup>
           </div>
 
-          <div className="min-w-[280px] flex-1">
+          {/* `min-w` con `min(280px,100%)` y no `280px` a secas.
+              El 280 está para FORZAR EL SALTO: mientras no quepa al
+              lado del teléfono, la columna se baja entera en vez de
+              espicharse a un renglón por palabra.
+
+              Pero un mínimo fijo no se puede achicar cuando ni el
+              contenedor llega a 280 —en 320px la caja del panel da
+              232— y entonces la columna sobresalía 27px, que el
+              `overflow:hidden` de `.organico` recortaba: título y
+              párrafos cortados por la derecha.
+
+              `min(280px,100%)` conserva el salto donde hay lugar y se
+              rinde al ancho del panel donde no lo hay. */}
+          <div className="min-w-[min(280px,100%)] flex-1">
             <h3 className="text-[26px] font-extrabold leading-tight text-white">
               {def.nombre}
             </h3>

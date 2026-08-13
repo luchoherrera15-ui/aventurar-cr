@@ -438,20 +438,25 @@ export async function generarPaseGoogle({
     .maybeSingle();
   if (!miembro) {
     // El tope del plan se cumple igual que en Apple (generar.ts): la
-    // afiliación NUEVA se frena cuando el programa está lleno, y el
-    // plan sale de la CUENTA con el del rancho como respaldo.
+    // afiliación NUEVA se frena cuando el negocio está lleno, y el plan
+    // sale de la CUENTA con el del rancho como respaldo.
+    //
+    // El consumo se cuenta con `personasActivasDe` (0142) y no con un
+    // count por `programa_id`: por cuenta, por persona y solo lo
+    // vigente. Este bloque era un duplicado literal del de `generar.ts`
+    // —los dos con el mismo bug— y ahora los dos llaman a lo mismo.
     const { definicionDe } = await import("@/lib/lealtad/planes");
     const { contextoDeCuenta } = await import("@/lib/lealtad/cuenta");
-    const { plan } = await contextoDeCuenta(db, programaFila as Record<string, unknown>, {
-      planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
-    });
+    const { personasActivasDe } = await import("@/lib/lealtad/cupo");
+    const { plan, cuentaId } = await contextoDeCuenta(
+      db,
+      programaFila as Record<string, unknown>,
+      { planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null },
+    );
     const limite = definicionDe(plan)?.limites.clientesActivos;
     if (limite !== null && limite !== undefined) {
-      const { count } = await db
-        .from("miembros")
-        .select("*", { count: "exact", head: true })
-        .eq("programa_id", programa.id);
-      if ((count ?? 0) >= limite) {
+      const usadas = await personasActivasDe(db, { cuentaId, ranchoId });
+      if (usadas >= limite) {
         return {
           ok: false,
           motivo:

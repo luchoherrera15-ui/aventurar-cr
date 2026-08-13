@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import {
-  ETIQUETAS_CAPACIDAD,
+  etiquetasDeCapacidades,
   PLANES,
   PLANES_OFRECIDOS,
   PLAN_DESTACADO,
@@ -77,7 +77,10 @@ export default async function PlanesLealtadPage({
       precio: precioDe(def),
       esGratis: def.precioMensual === 0,
       enDolares: def.precioMensual !== null && def.precioMensual !== 0,
-      beneficios: def.capacidades.map((c) => ETIQUETAS_CAPACIDAD[c]),
+      // Plan por plan y no `ETIQUETAS_CAPACIDAD` suelto: la viñeta de
+      // los tipos de tarjeta depende del paquete desde el reparto de la
+      // 0142 («Tarjetas de sellos y puntos» ≠ «Los 8 tipos»).
+      beneficios: etiquetasDeCapacidades(def),
       destacado: id === PLAN_DESTACADO,
     };
   });

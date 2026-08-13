@@ -47,7 +47,11 @@ const RAZONES: { icono: Parameters<typeof Icono>[0]["nombre"]; titulo: string; t
 export default function SeccionCrecimiento() {
   return (
     <section className="px-5 py-24 sm:px-8">
-      <div className="mx-auto grid w-[min(1120px,92vw)] items-center gap-14 lg:grid-cols-2">
+      {/* `w-full max-w-…` y no `min(…,92vw)`: la sección ya deja su
+          margen con `px-5`, y un ancho en `vw` lo ignora — en 320px
+          pedía 294px dentro de una caja de 280px. Ver el comentario
+          largo en page.tsx. */}
+      <div className="mx-auto grid w-full max-w-[1120px] items-center gap-14 lg:grid-cols-2">
         {/* ── Los mockups ─────────────────────────────────────── */}
         <div data-reveal className="order-2 lg:order-1">
           <PilaDeTelefonos />
@@ -108,10 +112,16 @@ export default function SeccionCrecimiento() {
  * el aviso que le llega. Escalonados y no lado a lado porque la
  * columna no da el ancho, y superpuestos cuentan una secuencia —
  * primero la tarjeta, después el recordatorio.
+ *
+ * El ancho va en `w-full max-w-` y no en `88vw`: en 320px ese 88vw
+ * daba 281,6px dentro de una columna de 280, o sea que la pila se
+ * apoyaba en 1,6px de suerte. Y los dos teléfonos van ROTADOS, así que
+ * sobresalen unos px de la caja a propósito — ese margen tiene que
+ * sobrar, no faltar.
  */
 function PilaDeTelefonos() {
   return (
-    <div className="relative mx-auto h-[420px] w-[min(360px,88vw)]" aria-hidden>
+    <div className="relative mx-auto h-[420px] w-full max-w-[360px]" aria-hidden>
       {/* El de atrás: la notificación */}
       <div
         className="absolute right-0 top-4 w-[190px] rotate-[5deg] overflow-hidden rounded-[26px] border-4 border-black/60 shadow-2xl"

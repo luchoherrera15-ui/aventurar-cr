@@ -3,8 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verificarAccesoRancho } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
-import { esTipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import { esTipoTarjeta, TIPOS_TARJETA } from "@/lib/lealtad/tipos-tarjeta";
+import { planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
+import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 
 /**
@@ -234,6 +237,48 @@ export async function guardarPrograma(
   }
   if (imagenAjena(datos.bannerUrl, previo?.pase_banner_url ?? null)) {
     return { error: "La banda no se subió bien — probá de nuevo." };
+  }
+
+  // ── EL TIPO, SEGÚN EL PAQUETE (0142) ──────────────────────────────
+  // Esta es la SEGUNDA puerta que escribe `modo`; la primera es el
+  // creador (`crear-actions.ts`), que ya lo comprueba. Sin este check,
+  // una cuenta de Prueba podía crear su tarjeta de sellos y después
+  // cambiarle el `modo` a "evento" desde el editor del diseño: el
+  // reparto de tipos se saltaría entero por la puerta de atrás.
+  //
+  // Solo se frena el CAMBIO, no el guardado. Una tarjeta que YA es de
+  // un tipo que el paquete de hoy no incluye se sigue pudiendo editar:
+  // bajar de paquete no puede dejar a nadie sin poder cambiarle un
+  // color a lo que ya tiene instalado en teléfonos ajenos.
+  const cambiaElTipo = (previo?.modo ?? null) !== datos.modo;
+  const admin = cambiaElTipo ? createAdminClient() : null;
+  if (admin && esTipoTarjeta(datos.modo)) {
+    const { data: fila } = await admin
+      .from("ranchos")
+      .select("plan_lealtad")
+      .eq("id", ranchoId)
+      .maybeSingle();
+    // `maybeSingle` porque sin la 0134 la tabla no existe: ahí el plan
+    // sale del rancho, como salía antes.
+    const { data: cuenta } = await admin
+      .from("cuentas")
+      .select("id")
+      .eq("rancho_id", ranchoId)
+      .maybeSingle();
+    const { plan } = await contextoDeCuenta(
+      admin,
+      cuenta?.id ? { cuenta_id: cuenta.id as string } : {},
+      { planRancho: (fila?.plan_lealtad as string | null) ?? null },
+    );
+    if (!planIncluyeTipo(plan, datos.modo)) {
+      const abre = planQueDesbloquea(datos.modo);
+      const nombreTipo = TIPOS_TARJETA[datos.modo].nombre.toLowerCase();
+      return {
+        error: abre
+          ? `Las tarjetas de ${nombreTipo} vienen con el paquete ${abre.nombre}. Subí de paquete para cambiarla.`
+          : `Tu paquete no incluye las tarjetas de ${nombreTipo}.`,
+      };
+    }
   }
 
   const base = {

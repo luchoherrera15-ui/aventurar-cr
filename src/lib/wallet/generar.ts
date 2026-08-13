@@ -123,18 +123,24 @@ export async function generarPaseDeLealtad({
     //
     // El plan sale de la CUENTA desde la 0134, con el del rancho como
     // respaldo mientras la migración no esté corrida en todos lados.
+    //
+    // Y el CONSUMO también se cuenta por cuenta (0142), con
+    // `personasActivasDe`: contarlo por tarjeta —como se hacía— le
+    // regalaba un cupo entero a cada tarjeta nueva. El mismo llamado
+    // corre en `google.ts`; el bloque estaba copiado literal en los dos
+    // archivos y se arregló en uno solo.
     const { definicionDe } = await import("@/lib/lealtad/planes");
     const { contextoDeCuenta } = await import("@/lib/lealtad/cuenta");
-    const { plan } = await contextoDeCuenta(db, programaFila as Record<string, unknown>, {
-      planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
-    });
+    const { personasActivasDe } = await import("@/lib/lealtad/cupo");
+    const { plan, cuentaId } = await contextoDeCuenta(
+      db,
+      programaFila as Record<string, unknown>,
+      { planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null },
+    );
     const limite = definicionDe(plan)?.limites.clientesActivos;
     if (limite !== null && limite !== undefined) {
-      const { count } = await db
-        .from("miembros")
-        .select("*", { count: "exact", head: true })
-        .eq("programa_id", programa.id);
-      if ((count ?? 0) >= limite) {
+      const usadas = await personasActivasDe(db, { cuentaId, ranchoId });
+      if (usadas >= limite) {
         return {
           ok: false,
           motivo:

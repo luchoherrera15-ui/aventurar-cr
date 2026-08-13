@@ -64,9 +64,11 @@ export default function PlanesCliente({
               borderColor: p.destacado ? "rgba(238,116,32,.5)" : "rgba(255,255,255,.12)",
             }}
           >
+            {/* «El más popular» y no «el más completo»: el destacado es
+                el del medio, y el más completo es el de arriba. */}
             {p.destacado && (
               <span className="mb-2 self-start rounded-full bg-[#ee7420] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                El más completo
+                El más popular
               </span>
             )}
             <h2 className="text-[18px] font-extrabold text-white">{p.nombre}</h2>

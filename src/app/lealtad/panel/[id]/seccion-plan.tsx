@@ -4,8 +4,8 @@ import {
   PLAN_DESTACADO,
   definicionDe,
   estadoDelLimite,
+  etiquetasDeCapacidades,
   precioDe,
-  ETIQUETAS_CAPACIDAD,
   type DefinicionPlan,
 } from "@/lib/lealtad/planes";
 import { Icono } from "./iconos";
@@ -45,6 +45,10 @@ export default function SeccionPlan({
 }) {
   const actual = definicionDe(plan);
   const limite = estadoDelLimite(plan, "clientesActivos", miembros);
+  // +1 por el dueño: `administradores` lo cuenta, y por eso la Prueba
+  // va en 1. El mismo criterio que hace cumplir `equipo-actions.ts`, o
+  // el medidor diría 0/1 mientras la invitación rebota.
+  const limiteEquipo = estadoDelLimite(plan, "administradores", equipo + 1);
 
   return (
     <div className="space-y-5">
@@ -77,14 +81,18 @@ export default function SeccionPlan({
               <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">
                 {actual.descripcion}
               </p>
+              {/* `etiquetasDeCapacidades` y no `ETIQUETAS_CAPACIDAD`
+                  suelto: la viñeta de los tipos depende del paquete
+                  (0142), y la etiqueta estática dice «según tu paquete»
+                  a propósito para que nadie la pinte sola por error. */}
               <ul className="mt-4 space-y-1.5">
-                {actual.capacidades.map((c) => (
-                  <li key={c} className="flex items-start gap-2">
+                {etiquetasDeCapacidades(actual).map((texto) => (
+                  <li key={texto} className="flex items-start gap-2">
                     <span className="mt-[1px] shrink-0 text-aventurea-green">
                       <Icono nombre="listo" className="h-[15px] w-[15px]" />
                     </span>
                     <span className="text-[12.5px] leading-snug text-aventurea-ink-soft">
-                      {ETIQUETAS_CAPACIDAD[c]}
+                      {texto}
                     </span>
                   </li>
                 ))}
@@ -116,8 +124,10 @@ export default function SeccionPlan({
             <Medidor
               icono="equipo"
               etiqueta="Gente de tu equipo"
-              usado={equipo}
-              tope={null}
+              usado={equipo + 1}
+              tope={limiteEquipo.limite}
+              alerta={limiteEquipo.lleno}
+              aviso={limiteEquipo.cerca}
               detalle="Sin tope: sumá a quien necesités en el mostrador."
             />
           </div>
@@ -149,7 +159,10 @@ export default function SeccionPlan({
         {/* Solo los VIGENTES: ofrecerle a alguien un paquete retirado
             es venderle algo que ya no existe. El suyo, si es retirado,
             se sigue viendo arriba en «Tu plan actual». */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        {/* Cuatro columnas porque el catálogo son cuatro paquetes
+            (0141). Con cinco columnas quedaba un hueco al final de la
+            fila que se leía como una tarjeta que no cargó. */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {PLANES_VIGENTES.map((def) => (
             <TarjetaPlan
               key={def.id}
@@ -256,8 +269,9 @@ function TarjetaPlan({
   esActual: boolean;
   ranchoId: string;
 }) {
-  // El más vendible, no el más caro: Growth es el que trae push,
-  // bienvenida y segmentación — el salto que de verdad se nota.
+  // El más vendible, no el más caro. Cuál es lo decide el catálogo
+  // (`PLAN_DESTACADO`), no esta pantalla: si el destacado se escribiera
+  // acá, cambiarlo pediría tocar cada lugar donde se pintan paquetes.
   const recomendado = def.id === PLAN_DESTACADO;
 
   return (
@@ -295,17 +309,28 @@ function TarjetaPlan({
       <p className="mt-2 text-[12px] font-bold text-aventurea-ink">
         {def.limites.clientesActivos === null
           ? "Clientes ilimitados"
-          : `Hasta ${def.limites.clientesActivos} clientes activos`}
+          : `Hasta ${def.limites.clientesActivos.toLocaleString("es-CR")} clientes activos`}
+      </p>
+      {/* Tarjetas y equipo, que desde el reparto de la 0142 son
+          escalones de verdad y no se leían en ningún lado. */}
+      <p className="mt-1 text-[11.5px] text-aventurea-ink-soft">
+        {def.limites.programas === null
+          ? "Tarjetas ilimitadas"
+          : `${def.limites.programas} tarjeta${def.limites.programas === 1 ? "" : "s"}`}
+        {" · "}
+        {def.limites.administradores === null
+          ? "equipo sin tope"
+          : `${def.limites.administradores} en el equipo`}
       </p>
 
       <ul className="mt-3 flex-1 space-y-1.5">
-        {def.capacidades.map((c) => (
-          <li key={c} className="flex items-start gap-1.5">
+        {etiquetasDeCapacidades(def).map((texto) => (
+          <li key={texto} className="flex items-start gap-1.5">
             <span className="mt-[1px] shrink-0 text-aventurea-green">
               <Icono nombre="listo" className="h-[13px] w-[13px]" />
             </span>
             <span className="text-[11.5px] leading-snug text-aventurea-ink-soft">
-              {ETIQUETAS_CAPACIDAD[c]}
+              {texto}
             </span>
           </li>
         ))}

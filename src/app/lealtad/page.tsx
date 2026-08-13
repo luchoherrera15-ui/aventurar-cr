@@ -260,7 +260,26 @@ export default function LealtadPage() {
           generador del pase (src/lib/lealtad/tipos-tarjeta.ts): la
           landing no puede prometer un tipo que el producto no tiene. */}
       <section className="px-5 py-24 sm:px-8">
-        <div className="mx-auto w-[min(1180px,94vw)]">
+        {/* ── POR QUÉ EL ANCHO ES `w-full max-w-…` Y NO `min(…,94vw)` ──
+            Vale para todas las secciones de abajo, que llevan el mismo
+            par `px-5` + contenedor centrado.
+
+            La sección ya reserva su margen con `px-5`. Un ancho en
+            `vw` NO sabe de ese padding: en 320px, `94vw` son 300,8px
+            metidos en una caja de 280px, así que el bloque nacía 20px
+            más ancho que su contenedor.
+
+            Eso reventaba donde algo adentro usa `-mx-5` para sangrar
+            hasta el borde de la pantalla —la fila de pestañas y el
+            carrusel—: ese -20px cancelaba un padding que ya no
+            quedaba, y la franja terminaba 21px afuera del viewport.
+            De ahí el scroll horizontal de TODA la página en 320, 360,
+            390 y 430.
+
+            `w-full max-w-[…]` mide contra el contenedor y no contra
+            la ventana: el margen lo pone `px-5` y las sangrías caen
+            justo en el borde. El tope en px es el mismo de siempre. */}
+        <div className="mx-auto w-full max-w-[1180px]">
           <div data-reveal className="mx-auto max-w-[56ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
               Ocho formas de que vuelvan
@@ -286,7 +305,7 @@ export default function LealtadPage() {
 
       {/* ================= LA DEMO DE NOTIFICACIONES ================= */}
       <section className="px-5 py-24 sm:px-8">
-        <div className="mx-auto w-[min(1080px,92vw)]">
+        <div className="mx-auto w-full max-w-[1080px]">
           <div data-reveal className="mx-auto max-w-[56ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
               Notificaciones
@@ -315,7 +334,7 @@ export default function LealtadPage() {
           es esto. Explicar el mecanismo en tres pasos concretos gana
           más que otra promesa de marketing. */}
       <section className="px-5 py-24 sm:px-8">
-        <div className="mx-auto w-[min(1120px,92vw)]">
+        <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
               Así funciona
@@ -362,7 +381,7 @@ export default function LealtadPage() {
 
       {/* ================= LOS NEGOCIOS ================= */}
       <section className="px-5 py-24 sm:px-8">
-        <div className="mx-auto w-[min(1180px,94vw)]">
+        <div className="mx-auto w-full max-w-[1180px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
               Hecho para negocios con clientela que vuelve
@@ -384,7 +403,7 @@ export default function LealtadPage() {
 
       {/* ================= PAQUETES ================= */}
       <section id="precios" className="scroll-mt-8 px-5 py-24 sm:px-8" style={{ background: NAVY }}>
-        <div className="mx-auto w-[min(1120px,92vw)]">
+        <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
               Paquetes
@@ -411,7 +430,7 @@ export default function LealtadPage() {
 
       {/* ================= CIERRE ================= */}
       <section className="px-5 py-28 text-center sm:px-8">
-        <div data-reveal className="mx-auto w-[min(760px,92vw)]">
+        <div data-reveal className="mx-auto w-full max-w-[760px]">
           <h2 className="titulo text-[clamp(32px,5.6vw,64px)] leading-[1.04]">
             Tu competencia reparte tarjetas de cartón.
             <br />

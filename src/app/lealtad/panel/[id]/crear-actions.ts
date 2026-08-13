@@ -4,13 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verificarAccesoRancho } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { definicionDe } from "@/lib/lealtad/planes";
+import { definicionDe, planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import {
   esTipoTarjeta,
   metaDe,
   validarBeneficio,
+  TIPOS_TARJETA,
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
@@ -135,9 +136,11 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   const db = createAdminClient();
   if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
 
-  // ── 3. El tope del plan ─────────────────────────────────────────
-  // Cuántos programas activos permite el paquete. Se hace cumplir acá
-  // y no solo se pinta: un tope que solo se dibuja es decoración.
+  // ── 3. Los topes del plan ───────────────────────────────────────
+  // Cuántos programas activos permite el paquete, y de QUÉ TIPOS. Se
+  // hacen cumplir acá y no solo se pintan: un tope que solo se dibuja
+  // es decoración — el selector del creador esconde o bloquea lo que
+  // quiera, pero una petición armada a mano no pasa por esa pantalla.
   const { data: rancho } = await db
     .from("ranchos")
     .select("plan_lealtad")
@@ -160,6 +163,21 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     cuentaId ? { cuenta_id: cuentaId } : {},
     { planRancho: (rancho?.plan_lealtad as string | null) ?? null },
   );
+
+  // EL TIPO, SEGÚN EL PAQUETE (0142). La Prueba arma sellos y puntos;
+  // Arranque suma cashback, cupón y descuento; de Impulso para arriba,
+  // los ocho. El mensaje dice CUÁL paquete lo abre: un «no podés» a
+  // secas no se puede ni obedecer.
+  if (!planIncluyeTipo(plan, datos.tipo)) {
+    const abre = planQueDesbloquea(datos.tipo);
+    const nombreTipo = TIPOS_TARJETA[datos.tipo].nombre.toLowerCase();
+    return {
+      ok: false,
+      motivo: abre
+        ? `Las tarjetas de ${nombreTipo} vienen con el paquete ${abre.nombre}. Subí de paquete para armarla.`
+        : `Tu paquete no incluye las tarjetas de ${nombreTipo}.`,
+    };
+  }
 
   const topeProgramas = definicionDe(plan)?.limites.programas ?? null;
   if (topeProgramas !== null) {

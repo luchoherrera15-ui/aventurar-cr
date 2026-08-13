@@ -37,7 +37,10 @@ const ACTIVIDAD: { nombre: string; que: string; hace: string; tipo: "sello" | "c
 export default function SeccionDashboard() {
   return (
     <section className="px-5 py-24 sm:px-8">
-      <div className="mx-auto w-[min(1120px,92vw)]">
+      {/* `w-full max-w-…` y no `min(…,92vw)`: la sección ya deja su
+          margen con `px-5`, y un ancho en `vw` lo ignora. Ver el
+          comentario largo en page.tsx. */}
+      <div className="mx-auto w-full max-w-[1120px]">
         <div data-reveal className="mx-auto max-w-[54ch] text-center">
           <p
             className="text-[12px] font-bold uppercase tracking-[0.22em]"

@@ -84,9 +84,16 @@ const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 export default function CreadorTarjeta({
   ranchoId,
   negocioNombre,
+  plan = null,
 }: {
   ranchoId: string;
   negocioNombre: string;
+  /**
+   * El paquete del negocio. Decide qué tipos de tarjeta se pueden
+   * elegir (0142) — se pinta acá para avisar temprano, y `crearTarjeta`
+   * lo vuelve a comprobar en el servidor, que es lo que manda.
+   */
+  plan?: string | null;
 }) {
   const [paso, setPaso] = useState(0);
   const [verPase, setVerPase] = useState(false);
@@ -193,7 +200,7 @@ export default function CreadorTarjeta({
             data-estado={paso === 0 ? "activo" : "saliendo"}
             hidden={paso !== 0}
           >
-            <SelectorTipo valor={tipo} alElegir={elegirTipo} />
+            <SelectorTipo valor={tipo} alElegir={elegirTipo} plan={plan} />
           </section>
 
           <section

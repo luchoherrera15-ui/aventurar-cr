@@ -38,8 +38,14 @@ export default function TelefonoMockup({
   conBrillo?: boolean;
 }) {
   return (
+    // El `100%` del min NO es decorativo: el `72vw` mide contra la
+    // VENTANA y no sabe del padding que tenga arriba. Dentro del panel
+    // del acordeón —que en 320px deja 232px de caja— el teléfono pedía
+    // 230,4: entraba por 1,6px. Con `100%` se rinde al contenedor
+    // cuando este es el más chico, y hoy no cambia ni un pixel porque
+    // en las dos pantallas donde se usa el `72vw` sigue siendo menor.
     <div
-      className={`flotante relative mx-auto w-[min(268px,72vw)] ${className}`}
+      className={`flotante relative mx-auto w-[min(268px,72vw,100%)] ${className}`}
     >
       {/* El canto metálico */}
       <div

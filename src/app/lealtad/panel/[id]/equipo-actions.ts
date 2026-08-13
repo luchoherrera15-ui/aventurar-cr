@@ -3,16 +3,26 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verificarAccesoLealtad } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { definicionDe } from "@/lib/lealtad/planes";
+import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import type { PermisosLealtad } from "@/lib/lealtad/permisos";
 
 /**
  * El equipo del programa: invitar, ajustar rol y checklist, quitar.
  *
- * TODO va con la sesión del usuario, nunca con la llave de servicio: la
- * base ya sabe quién puede qué (invitar y quitar son del dueño desde la
- * 0116; ajustar rol, desde la 0127, con grant SOLO sobre las columnas
- * rol y permisos_lealtad). El guard de acá corta antes para dar un
- * mensaje decente, pero aunque no existiera, la RLS rechaza igual.
+ * TODA ESCRITURA va con la sesión del usuario, nunca con la llave de
+ * servicio: la base ya sabe quién puede qué (invitar y quitar son del
+ * dueño desde la 0116; ajustar rol, desde la 0127, con grant SOLO sobre
+ * las columnas rol y permisos_lealtad). El guard de acá corta antes
+ * para dar un mensaje decente, pero aunque no existiera, la RLS rechaza
+ * igual.
+ *
+ * La única lectura con llave de servicio es la del PLAN, y es a
+ * propósito: el paquete es dato de producto —vive en `cuentas.plan` /
+ * `ranchos.plan_lealtad`, no en la fila de nadie— y leerlo con la
+ * sesión dependería de que la RLS de `cuentas` (0134) esté corrida. Un
+ * tope que se cae cuando falta una migración no es un tope.
  */
 
 type Resultado = { ok: true; codigo?: string } | { ok: false; motivo: string };
@@ -24,6 +34,62 @@ async function guardDueno(ranchoId: string) {
     return { acceso, error: "El equipo lo maneja el dueño del negocio." };
   }
   return { acceso, error: null };
+}
+
+/**
+ * EL TOPE DE GENTE DEL EQUIPO, HECHO CUMPLIR (0142).
+ *
+ * `limites.administradores` estuvo declarado y sin exigir desde la
+ * 0133: el paquete decía 1 / 3 / 10 y `invitarAlEquipo` invitaba sin
+ * mirar nada. Ahora el reparto lo VENDE como escalón, así que tenía que
+ * ser real — prometer un tope que no existe es justo lo que este módulo
+ * se pasó una etapa limpiando.
+ *
+ * El tope INCLUYE AL DUEÑO: por eso se cuenta `colaboradores + 1`. La
+ * Prueba va en 1, o sea el dueño solo, y esa es la lectura correcta de
+ * «equipo: 1» en la grilla de paquetes.
+ *
+ * Devuelve el motivo si ya no entra nadie más, o null si hay lugar.
+ * Nunca bloquea por no poder averiguar: sin llave de servicio o sin
+ * plan conocido, deja pasar. Cerrarle el equipo a un negocio por un
+ * problema nuestro de configuración sería peor que un colaborador de
+ * más.
+ */
+async function equipoLleno(ranchoId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  if (!admin) return null;
+
+  const { data: rancho } = await admin
+    .from("ranchos")
+    .select("plan_lealtad")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  const { data: cuenta } = await admin
+    .from("cuentas")
+    .select("id")
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+
+  const { plan } = await contextoDeCuenta(
+    admin,
+    cuenta?.id ? { cuenta_id: cuenta.id as string } : {},
+    { planRancho: (rancho?.plan_lealtad as string | null) ?? null },
+  );
+
+  const tope = definicionDe(plan)?.limites.administradores ?? null;
+  if (tope === null) return null;
+
+  const { count } = await admin
+    .from("rancho_colaboradores")
+    .select("*", { count: "exact", head: true })
+    .eq("rancho_id", ranchoId);
+
+  // +1 por el dueño, que no está en `rancho_colaboradores`.
+  if ((count ?? 0) + 1 < tope) return null;
+
+  return tope === 1
+    ? "Tu paquete es para vos solo. Subí de paquete para sumar gente al mostrador."
+    : `Tu paquete permite ${tope} personas en el equipo, contándote a vos. Quitá a alguien o subí de paquete.`;
 }
 
 const MENSAJES: Record<string, string> = {
@@ -39,6 +105,9 @@ export async function invitarAlEquipo(ranchoId: string, email: string): Promise<
 
   const limpio = email.trim().toLowerCase();
   if (!limpio.includes("@")) return { ok: false, motivo: "Ese correo no parece un correo." };
+
+  const lleno = await equipoLleno(ranchoId);
+  if (lleno) return { ok: false, motivo: lleno };
 
   const { data, error: eRpc } = await acceso.supabase.rpc("agregar_colaborador", {
     p_rancho: ranchoId,

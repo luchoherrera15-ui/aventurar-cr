@@ -20,6 +20,8 @@ import CompartirTarjeta from "./compartir-tarjeta";
 import { SeccionTarjeta } from "./pases-panel";
 import CreadorTarjeta from "./creador-tarjeta";
 import SeccionPlan from "./seccion-plan";
+import FacturacionConTarjeta from "./facturacion-tarjeta";
+import { suscripcionDelNegocio } from "@/lib/pagos/puerta-supabase";
 import { ProveedorPrograma } from "./programa-contexto";
 import MetricasLealtad from "./metricas";
 import AuditoriaResumen from "./auditoria-resumen";
@@ -56,10 +58,18 @@ export const metadata = { title: "Programa de lealtad · Bookea" };
 
 export default async function PanelNegocioLealtad({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  // De vuelta de Stripe Checkout: `?pago=listo` o `?pago=cancelado`.
+  // OJO — es un AVISO y nada más: ningún plan se activa por lo que
+  // diga esta URL, que se escribe a mano. Activa el webhook firmado
+  // (src/app/api/stripe/webhook/route.ts) y nadie más.
+  searchParams: Promise<{ pago?: string }>;
 }) {
   const { id } = await params;
+  const { pago } = await searchParams;
+  const avisoPago = pago === "listo" || pago === "cancelado" ? pago : null;
 
   const acceso = await verificarAccesoLealtad(id);
   if (!acceso.user) redirect("/lealtad/login");
@@ -296,12 +306,18 @@ export default async function PanelNegocioLealtad({
   // Toda la pantalla —topes, capacidades, medidores— cuelga de acá,
   // así que resolverlo en UN lugar evita que media pantalla muestre el
   // plan nuevo y la otra media el viejo.
-  const { plan } = admin
+  const { plan, cuentaId } = admin
     ? await contextoDeCuenta(admin, (p ?? {}) as Record<string, unknown>, {
         planRancho: rancho.plan_lealtad as string | null,
       })
-    : { plan: (rancho.plan_lealtad as string | null) ?? null };
+    : { plan: (rancho.plan_lealtad as string | null) ?? null, cuentaId: null };
   const def = definicionDe(plan);
+
+  // La suscripción con tarjeta (0143), si la hay. Solo la carga quien
+  // ve la sección Plan — y devuelve null sin la migración corrida, así
+  // que el panel sigue funcionando igual mientras el dueño la pega.
+  const suscripcion =
+    admin && puedeDisenar ? await suscripcionDelNegocio(admin, { ranchoId: id, cuentaId }) : null;
   const topeProgramas = def?.limites.programas ?? null;
   const limiteClientes = estadoDelLimite(plan, "clientesActivos", miembros);
 
@@ -626,7 +642,11 @@ export default async function PanelNegocioLealtad({
               titulo="Recompensas"
               bajada="Elegí qué clase de tarjeta querés y configurala paso por paso."
             >
-              <CreadorTarjeta ranchoId={id} negocioNombre={rancho.nombre as string} />
+              <CreadorTarjeta
+                ranchoId={id}
+                negocioNombre={rancho.nombre as string}
+                plan={plan}
+              />
             </Seccion>
           ),
           tarjeta: (
@@ -642,6 +662,15 @@ export default async function PanelNegocioLealtad({
               titulo="Plan y facturación"
               bajada="Qué incluye tu paquete, cuánto llevás consumido y qué gana si subís."
             >
+              {/* El cobro con tarjeta (0143) va ARRIBA del catálogo:
+                  quien entra a esta sección con la suscripción morosa
+                  o cancelada tiene que ver eso antes que la grilla de
+                  paquetes. Sin llaves de Stripe no dibuja nada. */}
+              <FacturacionConTarjeta
+                ranchoId={id}
+                suscripcion={suscripcion}
+                aviso={avisoPago}
+              />
               <SeccionPlan
                 ranchoId={id}
                 plan={plan}

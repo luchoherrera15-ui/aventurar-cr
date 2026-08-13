@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import CreadorTarjeta from "../creador-tarjeta";
 
 /**
@@ -36,10 +38,25 @@ export default async function CrearTarjetaPage({
 
   const { data: rancho } = await acceso.supabase
     .from("ranchos")
-    .select("nombre")
+    .select("nombre, plan_lealtad")
     .eq("id", id)
     .maybeSingle();
   if (!rancho) redirect("/lealtad/panel");
+
+  // EL PAQUETE, para saber qué tipos de tarjeta se pueden elegir (0142).
+  // Se resuelve igual que en `crear-actions.ts` —cuenta primero, rancho
+  // de respaldo— para que la pantalla muestre exactamente lo que el
+  // servidor va a aceptar. Dos criterios distintos serían un dueño
+  // eligiendo un tipo que después le rebota.
+  const admin = createAdminClient();
+  const { data: cuenta } = admin
+    ? await admin.from("cuentas").select("id").eq("rancho_id", id).maybeSingle()
+    : { data: null };
+  const { plan } = admin
+    ? await contextoDeCuenta(admin, cuenta?.id ? { cuenta_id: cuenta.id as string } : {}, {
+        planRancho: (rancho.plan_lealtad as string | null) ?? null,
+      })
+    : { plan: (rancho.plan_lealtad as string | null) ?? null };
 
   // La cuenta de la 0134 ya NO se busca acá. Se buscaba para pasársela
   // al asistente y que él la devolviera al guardar — un rodeo por el
@@ -69,6 +86,7 @@ export default async function CrearTarjetaPage({
           <CreadorTarjeta
             ranchoId={id}
             negocioNombre={rancho.nombre as string}
+            plan={plan}
           />
         </div>
       </div>

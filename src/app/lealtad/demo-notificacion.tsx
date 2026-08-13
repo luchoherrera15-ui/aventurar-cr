@@ -173,11 +173,18 @@ export default function DemoNotificacion() {
   );
 }
 
-/** Pantalla bloqueada de iPhone: hora grande y la notificación abajo. */
+/**
+ * Pantalla bloqueada de iPhone: hora grande y la notificación abajo.
+ *
+ * El ancho va con `min(240px,100%)` y no con `240px` a secas: en una
+ * pantalla de 320px la caja que las contiene deja 238px, y un ancho
+ * fijo de 240 las sacaba 2px de su tarjeta. No llegaba a mover la
+ * página, pero las dejaba descentradas contra el borde.
+ */
 function PantallaApple({ texto }: { texto: string }) {
   return (
     <div
-      className="mx-auto w-[240px] overflow-hidden rounded-[30px] border-4 border-black/70 shadow-2xl"
+      className="mx-auto w-[min(240px,100%)] overflow-hidden rounded-[30px] border-4 border-black/70 shadow-2xl"
       style={{
         background:
           "linear-gradient(165deg, #1b2a4d 0%, #0e1730 55%, #0a1226 100%)",
@@ -217,7 +224,7 @@ function PantallaApple({ texto }: { texto: string }) {
 function PantallaGoogle({ texto }: { texto: string }) {
   return (
     <div
-      className="mx-auto w-[240px] overflow-hidden rounded-[26px] border-4 border-black/70 shadow-2xl"
+      className="mx-auto w-[min(240px,100%)] overflow-hidden rounded-[26px] border-4 border-black/70 shadow-2xl"
       style={{
         background: "linear-gradient(170deg, #22304f 0%, #101a33 60%, #0a1226 100%)",
       }}

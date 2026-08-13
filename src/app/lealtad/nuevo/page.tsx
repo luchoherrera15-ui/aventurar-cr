@@ -3,7 +3,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { datosDePagoBookea } from "@/lib/pagos-bookea";
 import {
-  ETIQUETAS_CAPACIDAD,
+  etiquetasDeCapacidades,
   PLANES,
   PLANES_OFRECIDOS,
   PLAN_DESTACADO,
@@ -42,7 +42,9 @@ export default async function NuevoNegocioLealtadPage() {
       precio: precioDe(def),
       esGratis: def.precioMensual === 0,
       enDolares: def.precioMensual !== null && def.precioMensual !== 0,
-      beneficios: def.capacidades.slice(0, 4).map((c) => ETIQUETAS_CAPACIDAD[c]),
+      // La viñeta de los tipos cambia por paquete desde el reparto de
+      // la 0142, así que se arma plan por plan.
+      beneficios: etiquetasDeCapacidades(def).slice(0, 4),
       masBeneficios: Math.max(0, def.capacidades.length - 4),
       destacado: id === PLAN_DESTACADO,
     };
