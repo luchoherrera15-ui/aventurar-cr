@@ -15,6 +15,123 @@ const TIPO_CLS: Record<string, string> = {
   ajuste: "bg-aventurea-cream-2 text-aventurea-ink-soft",
 };
 
+/** Una fila del libro, ya resuelta en el servidor (nombres incluidos). */
+export type FilaLibro = {
+  transaccionId: string;
+  miembroId: string;
+  nombre: string;
+  tipo: string;
+  puntos: number;
+  motivo: string;
+  saldoPosterior: number | null;
+  esReversion: boolean;
+  porQuien: string | null;
+  fecha: string;
+  /** YYYY-MM-DD (hora CR), para el filtro por fechas. */
+  fechaISO: string;
+};
+
+/**
+ * El libro con sus controles: buscar por nombre (cliente u operador),
+ * acotar por fechas, y el contador de clientes del programa siempre a
+ * la vista. Todo filtra en memoria — el servidor ya mandó las filas.
+ */
+export function ActividadFiltrable({
+  ranchoId,
+  filas,
+  totalMiembros,
+}: {
+  ranchoId: string;
+  filas: FilaLibro[];
+  totalMiembros: number;
+}) {
+  const [busqueda, setBusqueda] = useState("");
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+
+  const texto = busqueda.trim().toLowerCase();
+  const visibles = filas.filter((f) => {
+    if (texto && !f.nombre.toLowerCase().includes(texto) && !(f.porQuien ?? "sistema").toLowerCase().includes(texto)) {
+      return false;
+    }
+    if (desde && f.fechaISO < desde) return false;
+    if (hasta && f.fechaISO > hasta) return false;
+    return true;
+  });
+
+  const campo =
+    "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2 text-[12.5px] text-aventurea-ink placeholder:text-zinc-500";
+
+  return (
+    <div>
+      {/* El contador y los filtros, en una sola línea de control. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-aventurea-cream-2 px-3 py-1.5 text-[12px] font-bold text-aventurea-ink">
+          👥 {totalMiembros} cliente{totalMiembros === 1 ? "" : "s"} en el programa
+        </span>
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por cliente o colaborador…"
+          className={`${campo} min-w-[190px] flex-1`}
+        />
+        <label className="flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink-soft">
+          De
+          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={campo} />
+        </label>
+        <label className="flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink-soft">
+          a
+          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={campo} />
+        </label>
+        {(texto || desde || hasta) && (
+          <button
+            type="button"
+            onClick={() => {
+              setBusqueda("");
+              setDesde("");
+              setHasta("");
+            }}
+            className="text-[12px] font-bold text-aventurea-ink-soft underline"
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
+        {visibles.length === 0 ? (
+          <p className="px-4 py-8 text-center text-[13px] text-aventurea-ink-soft">
+            Ningún movimiento coincide con el filtro.
+          </p>
+        ) : (
+          visibles.map((f, i) => (
+            <FilaActividad
+              key={f.transaccionId}
+              ranchoId={ranchoId}
+              transaccionId={f.transaccionId}
+              miembroId={f.miembroId}
+              nombre={f.nombre}
+              tipo={f.tipo}
+              puntos={f.puntos}
+              motivo={f.motivo}
+              saldoPosterior={f.saldoPosterior}
+              esReversion={f.esReversion}
+              porQuien={f.porQuien}
+              fecha={f.fecha}
+              primera={i === 0}
+            />
+          ))
+        )}
+        <p className="border-t border-aventurea-line px-4 py-2.5 text-[11.5px] text-aventurea-ink-soft">
+          {visibles.length} de los últimos {filas.length} movimientos. El libro nunca se
+          edita: los errores se corrigen con el movimiento contrario, y las dos versiones
+          quedan a la vista.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function FilaActividad({
   ranchoId,
   transaccionId,

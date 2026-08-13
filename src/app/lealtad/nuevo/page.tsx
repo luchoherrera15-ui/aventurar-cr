@@ -1,127 +1,87 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { crearNegocioLealtad } from "./actions";
+import { datosDePagoBookea } from "@/lib/pagos-bookea";
+import { ETIQUETAS_CAPACIDAD, PLANES, PLANES_ID } from "@/lib/lealtad/planes";
+import FormularioAuth from "@/app/cuenta/formulario-auth";
+import WizardAlta, { type PlanWizard } from "./wizard-alta";
 
 /**
- * Alta "solo lealtad": el negocio que quiere su tarjeta de sellos SIN
- * publicarse en el marketplace. Dos campos y listo — el resto (colores,
- * recompensas, reglas) se configura adentro.
+ * El alta COMPLETA en un solo camino (0130): cuenta → negocio (con
+ * «otro» como tipo) → paquete → depósito con comprobante → solicitud.
+ * El negocio NO se crea acá: nace cuando Bookea acepta la solicitud —
+ * si se rechaza, no queda nada.
+ *
+ * Sin sesión, el primer paso es el formulario de siempre (correo, y
+ * nombre solo si el correo es nuevo): crea la cuenta y vuelve
+ * exactamente acá.
  */
 
-export const metadata = {
-  title: "Creá tu programa · Lealtad Bookea",
-};
-
 const NAVY_PROFUNDO = "#0a1226";
-const NARANJA = "#ee7420";
 
-const TIPOS = [
-  { id: "citas", label: "Citas y servicios", detalle: "salón, barbería, spa, consultorio…" },
-  { id: "restaurantes", label: "Comida y bebida", detalle: "café, restaurante, soda, bar…" },
-  { id: "eventos", label: "Eventos", detalle: "lugares, catering, animación…" },
-  { id: "hospedajes", label: "Hospedaje", detalle: "hotel, cabina, casa…" },
-];
+export const metadata = { title: "Tu programa de lealtad · Bookea" };
 
-export default async function NuevoNegocioLealtadPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+export default async function NuevoNegocioLealtadPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/lealtad/login");
 
-  const { error } = await searchParams;
+  const planes: PlanWizard[] = PLANES_ID.map((id) => {
+    const def = PLANES[id];
+    return {
+      id,
+      nombre: def.nombre,
+      limite: def.limiteMiembros,
+      precio: def.precioMensual,
+      beneficios: def.capacidades.slice(0, 4).map((c) => ETIQUETAS_CAPACIDAD[c]),
+      masBeneficios: Math.max(0, def.capacidades.length - 4),
+      destacado: id === "enterprise",
+    };
+  });
 
   return (
-    <main
-      className="flex min-h-svh items-center justify-center px-5 py-12"
-      style={{ background: NAVY_PROFUNDO }}
-    >
-      <div className="w-full max-w-md">
-        <div
-          className="rounded-2xl border p-8"
-          style={{ background: "rgba(255,255,255,.04)", borderColor: "rgba(255,255,255,.12)" }}
-        >
-          <p
-            className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] before:block before:h-[1.5px] before:w-[18px]"
-            style={{ color: NARANJA }}
-          >
-            Programa de lealtad
-          </p>
-          <h1 className="mt-2.5 text-xl font-bold text-white">Creá tu programa</h1>
-          <p className="mt-1.5 text-sm text-white/60">
-            No hace falta publicarte en Bookea ni recibir reservas: tu negocio puede
-            existir SOLO para su tarjeta de sellos. Dos datos y adentro.
-          </p>
+    <main className="min-h-svh px-5 py-10" style={{ background: NAVY_PROFUNDO }}>
+      <div className="mx-auto w-[min(720px,94vw)]">
+        <header className="flex items-center justify-between">
+          <Link href="/lealtad">
+            <Image
+              src="/logo-bookea-blanco-v3.png"
+              alt="Bookea"
+              width={132}
+              height={33}
+              className="h-[30px] w-auto"
+            />
+          </Link>
+          <Link href="/lealtad" className="text-[12.5px] font-bold text-white/50 hover:text-white">
+            ← Volver
+          </Link>
+        </header>
 
-          {error && (
-            <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
-              {error === "nombre"
-                ? "Poné el nombre del negocio (máximo 80 caracteres)."
-                : "No se pudo crear. Probá de nuevo."}
-            </p>
-          )}
+        <h1 className="mt-10 text-[26px] font-extrabold leading-tight text-white">
+          Tu programa de lealtad, en cuatro pasos
+        </h1>
+        <p className="mt-2 max-w-[56ch] text-[14px] leading-relaxed text-white/60">
+          Contanos de tu negocio, elegí el paquete y dejá tu depósito. El equipo de
+          Bookea revisa la solicitud: si la acepta, tu negocio y tu programa quedan
+          creados — te avisamos al correo.
+        </p>
 
-          <form action={crearNegocioLealtad} className="mt-5 space-y-4">
-            <div>
-              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-white/70">
-                Nombre del negocio
-              </label>
-              <input
-                name="nombre"
-                required
-                maxLength={80}
-                placeholder="Café La Esquina"
-                className="w-full rounded-[10px] border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-white/35"
+        <div className="mt-8">
+          {user ? (
+            <WizardAlta planes={planes} pago={datosDePagoBookea()} />
+          ) : (
+            <div className="rounded-2xl bg-white p-6">
+              {/* El paso 0: la cuenta. El MISMO login de /cuenta — crea
+                  la cuenta con correo y nombre si es nueva, y vuelve
+                  exactamente acá para seguir con el negocio. */}
+              <FormularioAuth
+                destino="/lealtad/nuevo"
+                intro="Primero tu cuenta: escribí tu correo — si ya tenés cuenta entrás directo, y si es tu primera vez te la creamos ahí mismo, solo hace falta tu nombre. Después seguís con tu negocio."
               />
             </div>
-
-            <div>
-              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-white/70">
-                ¿Qué tipo de negocio es?
-              </label>
-              <div className="grid gap-2">
-                {TIPOS.map((t, i) => (
-                  <label
-                    key={t.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-3.5 py-2.5 has-[:checked]:border-[#ee7420] has-[:checked]:bg-white/[0.09]"
-                  >
-                    <input
-                      type="radio"
-                      name="vertical"
-                      value={t.id}
-                      defaultChecked={i === 0}
-                      className="accent-[#ee7420]"
-                    />
-                    <span>
-                      <span className="block text-[13.5px] font-bold text-white">{t.label}</span>
-                      <span className="block text-[11.5px] text-white/50">{t.detalle}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-full px-7 py-3 text-[14.5px] font-bold text-white transition-transform hover:scale-[1.02]"
-              style={{ background: NARANJA }}
-            >
-              Crear mi programa
-            </button>
-          </form>
+          )}
         </div>
-
-        <p className="mt-5 text-center text-[12px] text-white/40">
-          ¿Ya tenés un negocio en Bookea?{" "}
-          <Link href="/lealtad/entrar" className="font-bold underline" style={{ color: NARANJA }}>
-            Entrá a su programa
-          </Link>
-        </p>
       </div>
     </main>
   );

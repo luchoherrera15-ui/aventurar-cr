@@ -81,6 +81,18 @@ export default async function PanelLealtadPage() {
     ).values(),
   ];
 
+  // Las solicitudes de ALTA pendientes (0130): el negocio todavía no
+  // existe, pero la persona necesita ver que su trámite está vivo.
+  // Tolerante a bases sin migrar: un error deja la lista vacía.
+  const { data: altasData } = await supabase
+    .from("solicitudes_lealtad")
+    .select("*")
+    .eq("solicitante_id", user.id)
+    .eq("estado", "pendiente")
+    .is("rancho_id", null);
+  const altasPendientes = ((altasData ?? []) as { id: string; negocio_nombre?: string | null; plan: string }[])
+    .filter((a) => a.negocio_nombre);
+
   const admin = createAdminClient();
   const negocios: TarjetaNegocio[] = [];
 
@@ -160,6 +172,34 @@ export default async function PanelLealtadPage() {
         </p>
 
         <div className="mt-7 grid gap-4 sm:grid-cols-2">
+          {/* Los trámites de alta esperando a Bookea: el negocio aún no
+              existe, pero el dueño ve que su solicitud está viva. */}
+          {altasPendientes.map((a) => (
+            <div
+              key={a.id}
+              className="rounded-2xl border border-dashed p-5"
+              style={{ background: "rgba(255,255,255,.03)", borderColor: "rgba(255,255,255,.2)" }}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="min-w-0 flex-1 truncate text-[16.5px] font-bold text-white/85">
+                  {a.negocio_nombre}
+                </h2>
+                <span
+                  className="rounded-full px-2.5 py-0.5 text-[10.5px] font-bold"
+                  style={{ background: "rgba(238,116,32,.18)", color: NARANJA }}
+                >
+                  {definicionDe(a.plan)?.nombre ?? a.plan}
+                </span>
+              </div>
+              <p className="mt-1.5 text-[12.5px] text-white/50">
+                Solicitud en revisión — recibimos tu depósito y te avisamos al correo al
+                crear el negocio.
+              </p>
+              <p className="mt-4 rounded-xl border border-dashed border-white/25 px-4 py-3 text-center text-[12.5px] font-bold text-white/50">
+                ⏳ Esperando a Bookea
+              </p>
+            </div>
+          ))}
           {negocios.map((n) => (
             <div
               key={n.id}

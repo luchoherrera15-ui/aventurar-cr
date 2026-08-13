@@ -134,7 +134,8 @@ export default async function AdminComplementosPage() {
   // y correo (perfiles guarda los dos).
   const filasSolicitud = (solicitudesRes.data ?? []) as {
     id: string;
-    rancho_id: string;
+    /** null = solicitud de ALTA (0130): el negocio se crea al aprobar. */
+    rancho_id: string | null;
     solicitante_id: string;
     plan: string;
     telefono: string | null;
@@ -143,6 +144,9 @@ export default async function AdminComplementosPage() {
     /** 0128; ausentes si esa migración no corrió. */
     metodo_pago?: string | null;
     comprobante_url?: string | null;
+    /** 0130. */
+    negocio_nombre?: string | null;
+    negocio_vertical?: string | null;
   }[];
   const idsSolicitantes = [...new Set(filasSolicitud.map((s) => s.solicitante_id))];
   const { data: perfilesSol } = idsSolicitantes.length
@@ -166,7 +170,11 @@ export default async function AdminComplementosPage() {
   const solicitudes: SolicitudPendiente[] = filasSolicitud.map((s) => ({
     id: s.id,
     ranchoId: s.rancho_id,
-    negocio: nombreRancho.get(s.rancho_id) ?? "(negocio)",
+    negocio: s.rancho_id
+      ? (nombreRancho.get(s.rancho_id) ?? "(negocio)")
+      : (s.negocio_nombre ?? "(negocio nuevo)"),
+    esAlta: !s.rancho_id,
+    tipoNegocio: s.negocio_vertical ?? null,
     plan: s.plan,
     solicitante: (perfilDe.get(s.solicitante_id)?.nombre ?? "").trim() || "(sin nombre)",
     correo: perfilDe.get(s.solicitante_id)?.email ?? "—",

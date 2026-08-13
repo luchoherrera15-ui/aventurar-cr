@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { esPlan } from "@/lib/lealtad/planes";
+import { generarSlugUnico } from "@/lib/slug";
 
 /**
  * Asignar el plan de la plataforma de lealtad a un negocio (0124).
@@ -109,7 +110,7 @@ export async function atenderSolicitudLealtad({
 }: {
   solicitudId: string;
   aprobar: boolean;
-}): Promise<{ error?: string }> {
+}): Promise<{ error?: string; ranchoId?: string }> {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
 
@@ -118,7 +119,7 @@ export async function atenderSolicitudLealtad({
 
   const { data: solicitud } = await admin
     .from("solicitudes_lealtad")
-    .select("id, rancho_id, plan, estado")
+    .select("*")
     .eq("id", solicitudId)
     .maybeSingle();
   if (!solicitud) return { error: "Esa solicitud no existe." };
@@ -128,16 +129,53 @@ export async function atenderSolicitudLealtad({
     data: { user },
   } = await supabase.auth.getUser();
 
+  // El rancho destino: el existente (upgrade) o, en un ALTA (0130),
+  // el que se CREA acá mismo — aceptar ES crear; rechazar no crea nada.
+  let ranchoId = solicitud.rancho_id as string | null;
+
   if (aprobar) {
+    if (!ranchoId) {
+      const nombre = ((solicitud.negocio_nombre as string | null) ?? "").trim();
+      if (!nombre) return { error: "La solicitud de alta no trae nombre de negocio." };
+
+      // 'otro' no es una vertical real: el rancho nace como 'citas'
+      // (no se publica en ningún directorio, así que solo es el eje
+      // operativo); la respuesta original queda en la solicitud.
+      const verticalCruda = (solicitud.negocio_vertical as string | null) ?? "otro";
+      const vertical = ["citas", "eventos", "hospedajes", "restaurantes"].includes(verticalCruda)
+        ? verticalCruda
+        : "citas";
+
+      const slug = await generarSlugUnico(admin, nombre);
+      const { data: nuevo, error: eRancho } = await admin
+        .from("ranchos")
+        .insert({
+          owner_id: solicitud.solicitante_id,
+          nombre,
+          slug,
+          vertical,
+          categoria: "otros",
+          estado: "pendiente",
+          // Aprobar el alta ES la aprobación de lealtad (0129): no
+          // tendría sentido volver a ponerlo en hold recién nacido.
+          lealtad_aprobado_en: new Date().toISOString(),
+          lealtad_aprobado_por: user?.id ?? null,
+        })
+        .select("id")
+        .single();
+      if (eRancho) return { error: "No se pudo crear el negocio: " + eRancho.message };
+      ranchoId = nuevo.id as string;
+    }
+
     const { error: ePlan } = await admin
       .from("ranchos")
       .update({ plan_lealtad: solicitud.plan })
-      .eq("id", solicitud.rancho_id);
+      .eq("id", ranchoId);
     if (ePlan) return { error: "No se pudo asignar el plan: " + ePlan.message };
 
     const { error: eAddon } = await admin.from("addons_negocio").upsert(
       {
-        rancho_id: solicitud.rancho_id,
+        rancho_id: ranchoId,
         addon: "lealtad",
         activo: true,
         // Si el complemento existía VENCIDO, `activo: true` solo no
@@ -156,6 +194,9 @@ export async function atenderSolicitudLealtad({
     .from("solicitudes_lealtad")
     .update({
       estado: aprobar ? "atendida" : "rechazada",
+      // El alta aprobada queda apuntando al rancho que creó: el
+      // registro cierra el círculo solicitud → negocio.
+      ...(aprobar && !solicitud.rancho_id && ranchoId ? { rancho_id: ranchoId } : {}),
       atendida_por: user?.id ?? null,
       atendida_en: new Date().toISOString(),
     })
@@ -163,6 +204,7 @@ export async function atenderSolicitudLealtad({
   if (eSol) return { error: "Quedó activado pero la solicitud no se marcó: " + eSol.message };
 
   revalidatePath("/admin/complementos");
-  revalidatePath(`/lealtad/panel/${solicitud.rancho_id}`);
-  return {};
+  if (ranchoId) revalidatePath(`/lealtad/panel/${ranchoId}`);
+  revalidatePath("/lealtad/panel");
+  return { ranchoId: ranchoId ?? undefined };
 }

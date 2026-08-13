@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import FilaActividad, { CanjePendientePos } from "./lealtad-secciones-cliente";
+import { ActividadFiltrable, CanjePendientePos } from "./lealtad-secciones-cliente";
 
 /**
  * Las secciones de consulta del programa: Actividad (el ledger en
@@ -68,7 +68,7 @@ export async function ActividadLealtad({
     )
     .in("miembro_id", ids)
     .order("created_at", { ascending: false })
-    .limit(60);
+    .limit(200);
 
   const filas = tx ?? [];
   if (filas.length === 0) return <Vacio texto="Todavía no hay movimientos." />;
@@ -88,32 +88,36 @@ export async function ActividadLealtad({
     ]),
   );
 
+  // Los datos planos para el cliente: él filtra (nombre, fechas) sin
+  // volver a consultar nada.
+  const filasParaFiltrar = filas.map((t) => ({
+    transaccionId: t.id as string,
+    miembroId: t.miembro_id as string,
+    nombre: nombres.get(t.miembro_id as string) ?? "Cliente",
+    tipo: t.tipo as string,
+    puntos: t.puntos as number,
+    motivo: (t.motivo as string) ?? "",
+    saldoPosterior: t.saldo_posterior as number | null,
+    esReversion: t.reversion_de !== null,
+    porQuien: t.usuario_id
+      ? (nombreOperador.get(t.usuario_id as string) ?? "Colaborador")
+      : null,
+    fecha: FECHA.format(new Date(t.created_at as string)),
+    // YYYY-MM-DD en hora de Costa Rica, para el filtro por fechas.
+    fechaISO: new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Costa_Rica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(t.created_at as string)),
+  }));
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
-      {filas.map((t, i) => (
-        <FilaActividad
-          key={t.id as string}
-          ranchoId={ranchoId}
-          transaccionId={t.id as string}
-          miembroId={t.miembro_id as string}
-          nombre={nombres.get(t.miembro_id as string) ?? "Cliente"}
-          tipo={t.tipo as string}
-          puntos={t.puntos as number}
-          motivo={(t.motivo as string) ?? ""}
-          saldoPosterior={t.saldo_posterior as number | null}
-          esReversion={t.reversion_de !== null}
-          porQuien={
-            t.usuario_id ? (nombreOperador.get(t.usuario_id as string) ?? "Colaborador") : null
-          }
-          fecha={FECHA.format(new Date(t.created_at as string))}
-          primera={i === 0}
-        />
-      ))}
-      <p className="border-t border-aventurea-line px-4 py-2.5 text-[11.5px] text-aventurea-ink-soft">
-        Los últimos 60 movimientos. El libro nunca se edita: los errores se corrigen con el
-        movimiento contrario, y las dos versiones quedan a la vista.
-      </p>
-    </div>
+    <ActividadFiltrable
+      ranchoId={ranchoId}
+      filas={filasParaFiltrar}
+      totalMiembros={nombres.size}
+    />
   );
 }
 

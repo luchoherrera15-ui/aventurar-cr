@@ -11,8 +11,11 @@ import { atenderSolicitudLealtad } from "./plan-actions";
 
 export type SolicitudPendiente = {
   id: string;
-  ranchoId: string;
+  /** null = ALTA (0130): el negocio se crea al aprobar. */
+  ranchoId: string | null;
   negocio: string;
+  esAlta: boolean;
+  tipoNegocio: string | null;
   plan: string;
   solicitante: string;
   correo: string;
@@ -56,25 +59,35 @@ function Fila({
   const [error, setError] = useState<string | null>(null);
   const [ocupado, iniciar] = useTransition();
 
-  const [aprobada, setAprobada] = useState(false);
+  // El id del negocio tras aprobar: en un ALTA no existe hasta que la
+  // acción lo crea y lo devuelve.
+  const [aprobadaCon, setAprobadaCon] = useState<string | null>(null);
 
   function atender(aprobar: boolean) {
-    if (!aprobar && !confirm(`¿Rechazar la solicitud de ${s.negocio}?`)) return;
+    if (
+      !aprobar &&
+      !confirm(
+        s.esAlta
+          ? `¿Rechazar el alta de ${s.negocio}? No se crea nada.`
+          : `¿Rechazar la solicitud de ${s.negocio}?`,
+      )
+    )
+      return;
     iniciar(async () => {
       const res = await atenderSolicitudLealtad({ solicitudId: s.id, aprobar });
       if (res.error) setError(res.error);
-      else if (aprobar) setAprobada(true); // se deja a la vista: el paso que sigue es configurar
+      else if (aprobar) setAprobadaCon(res.ranchoId ?? s.ranchoId ?? null);
       else alResolver();
     });
   }
 
-  if (aprobada) {
+  if (aprobadaCon) {
     return (
       <div className={`px-4 py-3 ${primera ? "" : "border-t border-aventurea-line"}`}>
         <p className="text-[13px] font-bold text-aventurea-green">
-          {s.negocio} activado con el plan {s.plan}.{" "}
+          {s.negocio} {s.esAlta ? "creado y activado" : "activado"} con el plan {s.plan}.{" "}
           <a
-            href={`/admin/lealtad/${s.ranchoId}`}
+            href={`/admin/lealtad/${aprobadaCon}`}
             className="text-aventurea-ink underline"
           >
             Configurar su programa →
@@ -90,6 +103,11 @@ function Fila({
         <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-aventurea-ink">
           {s.negocio}
         </span>
+        {s.esAlta && (
+          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10.5px] font-bold uppercase text-amber-800">
+            Negocio nuevo{s.tipoNegocio ? ` · ${s.tipoNegocio}` : ""}
+          </span>
+        )}
         <span className="rounded-full bg-aventurea-cream-2 px-2.5 py-0.5 text-[11px] font-bold uppercase text-aventurea-ink">
           {s.plan}
         </span>
@@ -100,7 +118,7 @@ function Fila({
           disabled={ocupado}
           className="rounded-[10px] bg-aventurea-navy px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-40"
         >
-          Aprobar y activar
+          {s.esAlta ? "Aceptar y crear el negocio" : "Aprobar y activar"}
         </button>
         <button
           type="button"
