@@ -72,7 +72,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     id: "basico",
     nombre: "Básico",
     limiteMiembros: 500,
-    precioMensual: null,
+    precioMensual: 9_900,
     // Lo mínimo que hace útil una tarjeta: existe, acumula y se canjea.
     // Sin push, sin cercanía y sin segmentación — que es justo lo que
     // hace que valga la pena subir de plan.
@@ -82,7 +82,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     id: "estandar",
     nombre: "Estándar",
     limiteMiembros: 2500,
-    precioMensual: null,
+    precioMensual: 14_900,
     capacidades: [
       "wallet",
       "notificaciones",
@@ -95,7 +95,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     id: "enterprise",
     nombre: "Enterprise",
     limiteMiembros: 5000,
-    precioMensual: null,
+    precioMensual: 24_900,
     capacidades: [
       "wallet",
       "notificaciones",
