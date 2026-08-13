@@ -3,7 +3,12 @@
 import { verificarAccesoRancho } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sitioBase, stripeDelEntorno } from "@/lib/pagos/stripe";
-import { esPeriodo, esPlanConCobro, precioDePlan } from "@/lib/pagos/precios";
+import { esPeriodo, esPlanConCobro } from "@/lib/pagos/precios";
+import {
+  abrirCheckoutDeSuscripcion,
+  SIN_STRIPE,
+  type ResultadoPago,
+} from "@/lib/pagos/checkout";
 import { suscripcionDelNegocio } from "@/lib/pagos/puerta-supabase";
 
 /**
@@ -34,10 +39,6 @@ import { suscripcionDelNegocio } from "@/lib/pagos/puerta-supabase";
  * internacionales y la LLC cobra desde Estados Unidos: el SINPE no es
  * un respaldo temporal, es la mitad del negocio.
  */
-
-export type ResultadoPago = { ok: true; url: string } | { ok: false; motivo: string };
-
-const SIN_STRIPE = "El pago con tarjeta no está disponible por ahora — podés pagar por SINPE.";
 
 /**
  * Abre Stripe Checkout para un paquete.
@@ -71,10 +72,6 @@ export async function iniciarPagoConTarjeta(datos: {
   if (!acceso.user) return { ok: false, motivo: "Iniciá sesión para pagar." };
   if (!acceso.ok) return { ok: false, motivo: "Solo el dueño del negocio puede pagar el paquete." };
 
-  const stripe = stripeDelEntorno();
-  const precio = precioDePlan(datos.plan, datos.periodo);
-  if (!stripe || !precio) return { ok: false, motivo: SIN_STRIPE };
-
   // La cuenta (0134) y el cliente de Stripe que este negocio ya tenga.
   // Reusar el `customer` importa: sin esto, cada compra crearía un
   // cliente nuevo en Stripe y el mismo negocio terminaría con tres
@@ -94,49 +91,24 @@ export async function iniciarPagoConTarjeta(datos: {
     clienteStripe = previa?.clienteStripe || null;
   }
 
-  // Lo que viaja a Stripe para poder devolver el cobro a su negocio.
-  // Va en la SESIÓN y también en la SUSCRIPCIÓN: los eventos
-  // `customer.subscription.*` no llevan `client_reference_id`, así que
-  // sin `subscription_data.metadata` una renovación llegaría sin decir
-  // de quién es.
-  const marca: Record<string, string> = {
-    rancho_id: datos.ranchoId,
+  // La sesión la arma `abrirCheckoutDeSuscripcion`, que es la misma que
+  // usa /lealtad/planes: dos sesiones de cobro armadas por separado se
+  // desincronizan, y la diferencia se ve en la factura de un cliente.
+  //
+  // Sin `solicitudId`: acá el negocio EXISTE, y este cobro es del
+  // negocio. El alta —cobrar antes de que el negocio exista— solo pasa
+  // en la página de paquetes.
+  return abrirCheckoutDeSuscripcion({
     plan: datos.plan,
     periodo: datos.periodo,
-  };
-  if (cuentaId) marca.cuenta_id = cuentaId;
-
-  const volverA = `${sitioBase()}/lealtad/panel/${datos.ranchoId}`;
-
-  try {
-    const sesion = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      line_items: [{ price: precio, quantity: 1 }],
-      client_reference_id: datos.ranchoId,
-      // Cliente existente si lo hay; si no, se le precarga el correo
-      // para que no lo escriba de nuevo.
-      ...(clienteStripe
-        ? { customer: clienteStripe }
-        : { customer_email: acceso.user.email ?? undefined }),
-      metadata: marca,
-      subscription_data: { metadata: marca },
-      allow_promotion_codes: true,
-      locale: "es-419",
-      // La página de éxito NO activa nada: solo dice que el pago entró
-      // y que el plan aparece en cuanto Stripe lo confirme.
-      success_url: `${volverA}?pago=listo#plan`,
-      cancel_url: `${volverA}?pago=cancelado#plan`,
-    });
-
-    if (!sesion.url) return { ok: false, motivo: "Stripe no devolvió la página de pago." };
-    return { ok: true, url: sesion.url };
-  } catch (e) {
-    console.error("[stripe] No se pudo crear la sesión de Checkout:", e);
-    return {
-      ok: false,
-      motivo: "No se pudo abrir el pago con tarjeta. Probá de nuevo o pagá por SINPE.",
-    };
-  }
+    correo: acceso.user.email ?? null,
+    clienteStripe,
+    ranchoId: datos.ranchoId,
+    cuentaId,
+    solicitudId: null,
+    volverA: `/lealtad/panel/${datos.ranchoId}`,
+    ancla: "plan",
+  });
 }
 
 /**

@@ -3,6 +3,7 @@ import { DIAS_CORTO, MESES_CORTO, fechaISOLocal, horaBonita, sumarMinutosHora } 
 import {
   adelantoCobrado,
   aFecha,
+  esReservaViva,
   saldoPendiente,
   totalEvento,
   type ReservaFinanzas,
@@ -153,14 +154,28 @@ export function avisosDe(reservas: ReservaPanel[], hoy = new Date()): Avisos {
   let vencidoMonto = 0;
 
   for (const r of reservas) {
+    // Quién "sigue vivo" lo decide `esReservaViva` (lib/finanzas), que
+    // es la copia exacta del sitio: confirmada O PENDIENTE. Esta
+    // función tenía su propio criterio a mano en los dos avisos, y los
+    // dos estaban mal:
+    //
+    // - El de adelantos miraba solo 'confirmada', así que un
+    //   comprobante subido en una reserva que todavía espera respuesta
+    //   NO aparecía en el teléfono aunque sí en la web. Es justo la
+    //   plata que el aviso existe para atrapar.
+    // - El de vencidos sumaba las 'cumplida' (que el canon no cuenta) y
+    //   se perdía las 'pendiente' (que sí) — y como la pantalla de
+    //   Finanzas del app sí usa el canon, la misma app mostraba DOS
+    //   montos de "vencido" distintos para el mismo negocio.
+    const viva = esReservaViva(r);
+
     const deposito = Number(r.deposito_monto ?? 0);
-    if (r.estado === "confirmada" && !r.deposito_validado && deposito > 0) {
+    if (viva && !r.deposito_validado && deposito > 0) {
       validarConteo += 1;
       validarMonto += deposito;
     }
     // Vencido = el evento ya pasó y el saldo sigue abierto. Solo cuenta
     // en las que siguen vivas: una rechazada o cancelada no debe nada.
-    const viva = r.estado === "confirmada" || r.estado === "cumplida";
     if (viva && r.fecha < hoyISO) {
       const saldo = saldoPendiente(r);
       if (saldo > 0) {

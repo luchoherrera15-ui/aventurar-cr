@@ -51,6 +51,24 @@ import {
 } from "@/lib/types";
 
 const MINUTOS_HOLD = 10;
+
+// Límites contra el acaparamiento, GEMELOS de los de la web
+// (src/app/eventos/reserva-actions.ts): cuántos intentos de reserva
+// puede hacer un mismo aparato en 10 minutos, y cuántas fechas puede
+// tener tomadas al mismo tiempo. Sin el segundo, un solo teléfono
+// podía bloquear fechas de N negocios a la vez y dejarles la agenda
+// muerta gratis.
+//
+// Acá el "quién" no es una IP sino el id del aparato
+// (obtenerIdDispositivo): en móvil la IP la pone la operadora y es
+// compartida por media ciudad, así que topar por IP castigaría a
+// inocentes. La columna sigue llamándose `creado_por_ip` porque es la
+// misma que usa la web — es el identificador de la conexión, no
+// literalmente una IP.
+const MAX_INTENTOS_POR_VENTANA = 20;
+const VENTANA_INTENTOS_MINUTOS = 10;
+const MAX_HOLDS_ACTIVOS_POR_IP = 2;
+
 const CEDULA_REGEX = /^[0-9-]{7,14}$/;
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const WHATSAPP_REGEX = /^[0-9+\s-]{8,16}$/;
@@ -223,6 +241,25 @@ export default function ReservarScreen() {
     deviceIdRef.current = deviceId;
 
     const nowIso = new Date().toISOString();
+
+    // Tope de intentos por ventana, igual que la web: sin esto,
+    // alguien podía escribirle directo a la base y probar fechas sin
+    // freno.
+    const { data: puedeIntentar } = await supabase.rpc("registrar_intento_reserva", {
+      p_ip: deviceId,
+      p_max_intentos: MAX_INTENTOS_POR_VENTANA,
+      p_ventana_minutos: VENTANA_INTENTOS_MINUTOS,
+    });
+    if (puedeIntentar === false) {
+      setErrorHold(
+        "Hiciste demasiados intentos de reserva en poco tiempo. Esperá unos minutos e intentá de nuevo.",
+      );
+      setCargando(false);
+      return;
+    }
+
+    // Libera holds vencidos de esta fecha (de este rancho) antes de
+    // intentar tomarla.
     await supabase
       .from("reservas")
       .delete()
@@ -230,6 +267,46 @@ export default function ReservarScreen() {
       .eq("fecha", fecha)
       .eq("estado", "temporal")
       .lt("expira_en", nowIso);
+
+    // Elegir otro día de este mismo negocio REEMPLAZA el bloqueo
+    // anterior en vez de sumar uno. La pantalla ya libera el suyo al
+    // desmontarse, pero si el app se cerró de golpe el hold viejo sigue
+    // vivo hasta 10 minutos, y sin esto la persona chocaba contra el
+    // tope de abajo por su propio hold huérfano.
+    //
+    // Va por RPC y no por `delete` directo: la política de borrado solo
+    // permite eliminar holds YA VENCIDOS, así que un delete sobre uno
+    // activo no borraba nada y la fecha quedaba tomada los 10 minutos
+    // completos. La función además comprueba que el hold lo haya creado
+    // este mismo aparato, así nadie suelta el de otra persona.
+    const { data: propios } = await supabase
+      .from("reservas")
+      .select("id")
+      .eq("estado", "temporal")
+      .eq("creado_por_ip", deviceId)
+      .eq("rancho_id", id)
+      .gt("expira_en", nowIso);
+
+    for (const propio of (propios ?? []) as { id: string }[]) {
+      await supabase.rpc("liberar_hold_temporal", { p_id: propio.id, p_ip: deviceId });
+    }
+
+    // Tope de fechas tomadas al mismo tiempo por el mismo aparato —
+    // evita que se "acaparen" fechas de varios negocios a la vez.
+    const { count: activosPorAparato } = await supabase
+      .from("reservas")
+      .select("id", { count: "exact", head: true })
+      .eq("estado", "temporal")
+      .eq("creado_por_ip", deviceId)
+      .gt("expira_en", nowIso);
+
+    if ((activosPorAparato ?? 0) >= MAX_HOLDS_ACTIVOS_POR_IP) {
+      setErrorHold(
+        "Tenés fechas bloqueadas en otros lugares. Completá esas reservas o esperá a que se liberen antes de elegir otra.",
+      );
+      setCargando(false);
+      return;
+    }
 
     const expira = new Date(Date.now() + MINUTOS_HOLD * 60 * 1000).toISOString();
     const { data: hold, error } = await supabase

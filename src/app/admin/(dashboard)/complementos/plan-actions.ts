@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { esPlan } from "@/lib/lealtad/planes";
-import { generarSlugUnico } from "@/lib/slug";
-import { apagarModulosOperativos } from "@/lib/lealtad/solo-lealtad";
+import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
 
 /**
  * Asignar el plan de la plataforma de lealtad a un negocio (0124).
@@ -136,75 +135,17 @@ export async function atenderSolicitudLealtad({
 
   if (aprobar) {
     if (!ranchoId) {
-      const nombre = ((solicitud.negocio_nombre as string | null) ?? "").trim();
-      if (!nombre) return { error: "La solicitud de alta no trae nombre de negocio." };
-
-      // 'otro' no es una vertical real: el rancho nace como 'citas'
-      // (no se publica en ningún directorio, así que solo es el eje
-      // operativo); la respuesta original queda en la solicitud.
-      const verticalCruda = (solicitud.negocio_vertical as string | null) ?? "otro";
-      const vertical = ["citas", "eventos", "hospedajes", "restaurantes"].includes(verticalCruda)
-        ? verticalCruda
-        : "citas";
-
-      const slug = await generarSlugUnico(admin, nombre);
-      const { data: nuevo, error: eRancho } = await admin
-        .from("ranchos")
-        .insert({
-          owner_id: solicitud.solicitante_id,
-          nombre,
-          slug,
-          vertical,
-          categoria: "otros",
-          estado: "pendiente",
-          // Aprobar el alta ES la aprobación de lealtad (0129): no
-          // tendría sentido volver a ponerlo en hold recién nacido.
-          lealtad_aprobado_en: new Date().toISOString(),
-          lealtad_aprobado_por: user?.id ?? null,
-        })
-        .select("id")
-        .single();
-      if (eRancho) return { error: "No se pudo crear el negocio: " + eRancho.message };
-      ranchoId = nuevo.id as string;
-
-      // Nace SOLO para lealtad: sin agenda, catálogo, equipo ni
-      // finanzas — el dueño enciende lo que quiera después.
-      await apagarModulosOperativos(admin, ranchoId);
-
-      // EL PROCESO AUTOMÁTICO: si vino del CREADOR (no personalizado),
-      // el programa nace FUNCIONANDO con lo que la persona armó —
-      // color, regalía y meta. Un fallo acá no tumba la aprobación
-      // (el negocio ya existe): queda al log y se configura a mano.
-      const regalia = (solicitud.regalia as string | null) ?? null;
-      const metaSellos = (solicitud.meta_sellos as number | null) ?? null;
-      if (!solicitud.personalizado && regalia && metaSellos) {
-        const { data: prog, error: eProg } = await admin
-          .from("programa_lealtad")
-          .insert({
-            rancho_id: ranchoId,
-            nombre: "Programa de lealtad",
-            modo: "sellos",
-            puntos_por_visita: 1,
-            puntos_por_colon: 0,
-            activo: true,
-            estado: "activo",
-            pase_color_fondo: (solicitud.pase_color as string | null) ?? null,
-            pase_logo_url: (solicitud.pase_logo_url as string | null) ?? null,
-          })
-          .select("id")
-          .single();
-        if (eProg || !prog) {
-          console.error("[alta] El programa no se pudo auto-crear:", eProg?.message);
-        } else {
-          const { error: eRec } = await admin.from("recompensas").insert({
-            programa_id: prog.id,
-            nombre: regalia,
-            costo_puntos: metaSellos,
-            activo: true,
-          });
-          if (eRec) console.error("[alta] La recompensa no se pudo auto-crear:", eRec.message);
-        }
-      }
+      // El alta la arma `crearNegocioDesdeSolicitud`, que es la MISMA
+      // función que usa el webhook de Stripe cuando el cobro con tarjeta
+      // entra sin negocio (src/lib/pagos/puerta-supabase.ts). Dos
+      // caminos que crean negocios se desincronizan; uno solo, no.
+      const alta = await crearNegocioDesdeSolicitud(admin, solicitud, {
+        aprobadoPor: user?.id ?? null,
+        // El plan se escribe abajo, junto con el caso del upgrade.
+        plan: null,
+      });
+      if (!alta.ok) return { error: alta.motivo };
+      ranchoId = alta.ranchoId;
     }
 
     const { error: ePlan } = await admin

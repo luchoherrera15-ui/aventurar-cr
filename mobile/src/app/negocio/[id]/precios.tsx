@@ -245,10 +245,18 @@ function armarPorPersona(d: PorPersonaDraft): {
     };
   }
   const ultimoEscalon = Math.max(...escalones.map((e) => e.hasta));
-  if (maxPersonas !== null && maxPersonas < ultimoEscalon) {
+  // `<=`, no `<` — igual que la web (src/lib/precios.ts). Los escalones
+  // cubren HASTA `ultimoEscalon`; de ahí para arriba cotiza la tarifa
+  // por persona. Con el tope EN el último escalón, todo grupo que
+  // llegaría a esa tarifa ya está por encima del tope, así que
+  // `calcularBaseLugar` devuelve null y el lugar dice "consultar" para
+  // siempre: la tarifa por persona queda muerta y el dueño no entiende
+  // por qué su lugar dejó de cotizar. La web lo rechaza al guardar; el
+  // app lo dejaba pasar.
+  if (maxPersonas !== null && maxPersonas <= ultimoEscalon) {
     return {
       config: null,
-      problema: `El tope (${maxPersonas} personas) no puede quedar por debajo del último escalón (${ultimoEscalon}): ese escalón nunca se cobraría.`,
+      problema: `Revisá el tope de personas (${maxPersonas}): tiene que ser mayor que el último escalón (${ultimoEscalon}).`,
     };
   }
 
@@ -282,6 +290,17 @@ function armarPorPersona(d: PorPersonaDraft): {
       };
     }
     dicTramos.push({ invitados, tarifa: tarifaTramo });
+  }
+  // Al menos un ancla, igual que la web. Sin anclas,
+  // `tarifaPorTramos([], n)` devuelve null y `calcularBaseLugar` cae a
+  // `pp.tarifa` — la tarifa del resto del año. O sea: un grupo grande
+  // en DICIEMBRE pagaría precio de temporada baja, en el mes más caro,
+  // y nadie se entera porque no hay error en ningún lado.
+  if (dicTramos.length === 0) {
+    return {
+      config: null,
+      problema: "Agregá al menos un ancla a la tarifa deslizante de diciembre.",
+    };
   }
   const config = parsearPrecioPorPersona({
     escalones,

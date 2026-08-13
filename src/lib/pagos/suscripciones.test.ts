@@ -24,6 +24,8 @@ const ENTORNO: Entorno = {
 
 const RANCHO = "11111111-1111-1111-1111-111111111111";
 const CUENTA = "22222222-2222-2222-2222-222222222222";
+const SOLICITUD = "33333333-3333-3333-3333-333333333333";
+const RANCHO_NUEVO = "44444444-4444-4444-4444-444444444444";
 
 /** Una suscripción como la devuelve la API de Stripe. */
 function suscripcionStripe(extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -46,12 +48,18 @@ type Registro = {
   planes: { ranchoId: string | null; cuentaId: string | null; plan: string }[];
   avisos: { asunto: string; detalle: string }[];
   lecturas: string[];
+  /** Cada alta que se pidió crear, para poder contar las creaciones. */
+  altas: { solicitudId: string; plan: string }[];
+  /** Los negocios que la base «tiene» creados, por solicitud. */
+  negociosCreados: Map<string, string>;
 };
 
 function puertaFalsa(opciones: {
   enStripe?: Record<string, unknown> | null;
   /** null = la suscripción no tiene dueño por ningún lado. */
   dueno?: { ranchoId: string | null; cuentaId: string | null } | null;
+  /** false = el alta no se puede crear (la solicitud no existe, etc.). */
+  altaPosible?: boolean;
   registro?: Registro;
 }): { puerta: Puerta; registro: Registro } {
   const registro: Registro = opciones.registro ?? {
@@ -60,6 +68,8 @@ function puertaFalsa(opciones: {
     planes: [],
     avisos: [],
     lecturas: [],
+    altas: [],
+    negociosCreados: new Map(),
   };
 
   const dueno =
@@ -82,7 +92,21 @@ function puertaFalsa(opciones: {
     },
     async guardarSuscripcion(d) {
       registro.guardadas.push(d);
+      // Un alta ya creó su negocio: el dueño de esa suscripción es ESE
+      // negocio, no el de las pruebas del camino normal.
+      if (d.ranchoId === RANCHO_NUEVO) return { ranchoId: RANCHO_NUEVO, cuentaId: null };
       return dueno;
+    },
+
+    async crearNegocioDeSolicitud({ solicitudId, plan }) {
+      registro.altas.push({ solicitudId, plan });
+      if (opciones.altaPosible === false) return null;
+      // IDEMPOTENTE, igual que la implementación de verdad: la segunda
+      // llamada devuelve el negocio que creó la primera, no uno nuevo.
+      const yaEsta = registro.negociosCreados.get(solicitudId);
+      if (yaEsta) return { ranchoId: yaEsta, cuentaId: null };
+      registro.negociosCreados.set(solicitudId, RANCHO_NUEVO);
+      return { ranchoId: RANCHO_NUEVO, cuentaId: null };
     },
     async aplicarPlan(d) {
       registro.planes.push(d);
@@ -169,6 +193,189 @@ describe("checkout.session.completed · el pago que entra", () => {
   });
 });
 
+// ── EL PAGO DE ALGUIEN QUE TODAVÍA NO TIENE NEGOCIO ───────────────────
+
+/**
+ * Es el caso de /lealtad/planes: la persona llegó de la landing, no
+ * tiene nada en Bookea y paga con tarjeta. Lo único que existe antes
+ * del cobro es una solicitud de ALTA sin rancho (0130); el negocio nace
+ * acá, con el evento firmado en la mano.
+ */
+const SESION_ALTA = {
+  id: "cs_alta",
+  mode: "subscription",
+  subscription: "sub_1",
+  // Lo que ve el panel de Stripe. NO es un rancho, y por eso viaja
+  // también `solicitud_id`: sin eso, el motor lo leería como negocio.
+  client_reference_id: SOLICITUD,
+  metadata: { solicitud_id: SOLICITUD, plan: "impulso", periodo: "mensual" },
+};
+
+/** La suscripción que Stripe devuelve para ese cobro: sin rancho. */
+function suscripcionDeAlta(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return suscripcionStripe({ metadata: { solicitud_id: SOLICITUD }, ...extra });
+}
+
+describe("un cobro sin negocio: el negocio se crea DESPUÉS del pago", () => {
+  it("crea el negocio, guarda la suscripción a su nombre y le activa el paquete", async () => {
+    const { puerta, registro } = puertaFalsa({ enStripe: suscripcionDeAlta() });
+
+    const r = await procesarEventoStripe(
+      evento("checkout.session.completed", SESION_ALTA),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toEqual({
+      tipo: "guardado",
+      suscripcion: "sub_1",
+      plan: "impulso",
+      estado: "activa",
+      activado: true,
+      creado: true,
+    });
+    // El negocio nació de la solicitud, con el paquete que el PRECIO
+    // dice — no el que decía la metadata del navegador.
+    expect(registro.altas).toEqual([{ solicitudId: SOLICITUD, plan: "impulso" }]);
+    expect(registro.guardadas[0].ranchoId).toBe(RANCHO_NUEVO);
+    expect(registro.guardadas[0].solicitudId).toBe(SOLICITUD);
+    expect(registro.planes).toEqual([
+      { ranchoId: RANCHO_NUEVO, cuentaId: null, plan: "impulso" },
+    ]);
+  });
+
+  it("el `client_reference_id` del alta NO se lee como negocio", async () => {
+    // Es el id de una SOLICITUD. Tomarlo por un rancho escribiría el
+    // paquete en un id que no es de ningún negocio — o en el de otro.
+    const { puerta, registro } = puertaFalsa({ enStripe: suscripcionDeAlta() });
+    await procesarEventoStripe(
+      evento("checkout.session.completed", SESION_ALTA),
+      puerta,
+      ENTORNO,
+    );
+    expect(registro.planes.some((p) => p.ranchoId === SOLICITUD)).toBe(false);
+  });
+
+  it("dos eventos del mismo cobro crean UN solo negocio", async () => {
+    // `checkout.session.completed` y `customer.subscription.created`
+    // llegan casi juntos y los dos traen el mismo `solicitud_id`. Son
+    // eventos DISTINTOS, así que la idempotencia por evento no los
+    // frena: los frena que crear el alta sea idempotente.
+    const { puerta, registro } = puertaFalsa({ enStripe: suscripcionDeAlta() });
+
+    await procesarEventoStripe(
+      evento("checkout.session.completed", SESION_ALTA, "evt_checkout"),
+      puerta,
+      ENTORNO,
+    );
+    await procesarEventoStripe(
+      evento("customer.subscription.created", suscripcionDeAlta(), "evt_sub"),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(registro.negociosCreados.size).toBe(1);
+    expect(registro.planes.every((p) => p.ranchoId === RANCHO_NUEVO)).toBe(true);
+  });
+
+  it("si el cobro NO quedó al día, no se crea ningún negocio", async () => {
+    // La tarjeta que se quedó a medias en el 3-D Secure. Si después se
+    // completa, Stripe manda otro evento y ahí sí nace.
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionDeAlta({ status: "incomplete" }),
+    });
+
+    const r = await procesarEventoStripe(
+      evento("checkout.session.completed", SESION_ALTA),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toEqual({
+      tipo: "alta_sin_resolver",
+      solicitud: SOLICITUD,
+      motivo: "no_da_derecho",
+    });
+    expect(registro.altas).toEqual([]);
+    expect(registro.guardadas).toEqual([]);
+    expect(registro.planes).toEqual([]);
+    expect(registro.avisos.length).toBe(1);
+  });
+
+  it("un precio que no está mapeado no crea nada, y se avisa", async () => {
+    // Sin saber qué paquete se pagó, el negocio nacería sin topes.
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionDeAlta({
+        items: { data: [{ price: { id: "price_que_nadie_configuro" } }] },
+      }),
+    });
+
+    const r = await procesarEventoStripe(
+      evento("checkout.session.completed", SESION_ALTA),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toEqual({ tipo: "alta_sin_resolver", solicitud: SOLICITUD, motivo: "sin_plan" });
+    expect(registro.altas).toEqual([]);
+    expect(registro.planes).toEqual([]);
+    expect(registro.avisos[0].detalle).toContain("price_que_nadie_configuro");
+  });
+
+  it("si el negocio no se pudo crear, se avisa Y NO se activa nada", async () => {
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionDeAlta(),
+      altaPosible: false,
+    });
+
+    const r = await procesarEventoStripe(
+      evento("checkout.session.completed", SESION_ALTA),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toEqual({ tipo: "alta_sin_resolver", solicitud: SOLICITUD, motivo: "no_se_pudo" });
+    expect(registro.planes).toEqual([]);
+    // El correo tiene que decir que el cobro ENTRÓ: es lo único que
+    // convierte esto en una tarea de alguien.
+    expect(registro.avisos[0].detalle).toContain("A MANO");
+  });
+
+  it("un cobro CON negocio nunca pasa por el alta", async () => {
+    const { puerta, registro } = puertaFalsa({});
+    await procesarEventoStripe(
+      evento("checkout.session.completed", SESION_OK),
+      puerta,
+      ENTORNO,
+    );
+    expect(registro.altas).toEqual([]);
+  });
+
+  it("la renovación de un alta ya creada no vuelve a crear el negocio", async () => {
+    // La suscripción sigue llevando `solicitud_id` en su metadata para
+    // siempre, pero ya tiene rancho guardado: el motor no debe tocar
+    // nada del alta.
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionDeAlta({
+        metadata: { solicitud_id: SOLICITUD, rancho_id: RANCHO },
+      }),
+    });
+
+    await procesarEventoStripe(
+      evento(
+        "customer.subscription.updated",
+        suscripcionDeAlta({ metadata: { solicitud_id: SOLICITUD, rancho_id: RANCHO } }),
+        "evt_renovacion",
+      ),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(registro.altas).toEqual([]);
+    expect(registro.planes).toEqual([{ ranchoId: RANCHO, cuentaId: CUENTA, plan: "impulso" }]);
+  });
+});
+
 // ── IDEMPOTENCIA ──────────────────────────────────────────────────────
 
 describe("el mismo evento dos veces se procesa UNA", () => {
@@ -206,6 +413,8 @@ describe("el mismo evento dos veces se procesa UNA", () => {
       planes: [],
       avisos: [],
       lecturas: [],
+      altas: [],
+      negociosCreados: new Map(),
     };
     const { puerta } = puertaFalsa({ registro });
     const r = await procesarEventoStripe(

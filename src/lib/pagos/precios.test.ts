@@ -153,6 +153,17 @@ describe("SIN NINGUNA LLAVE CONFIGURADA — el SINPE tiene que seguir", () => {
     // se siguen mostrando y se siguen pidiendo por SINPE.
     expect(PLANES_CON_COBRO.length).toBe(3);
   });
+
+  it("/lealtad/planes no le pasa NI UN período a ningún paquete", () => {
+    // Es lo que apaga el bloque de tarjeta de la página de paquetes:
+    // `periodosConTarjeta` llega vacío para los cuatro y la pantalla
+    // queda exactamente como era antes de Stripe — solo SINPE, sin
+    // botones muertos.
+    const porPlan = new Map(planesConPrecio(vacio).map((p) => [p.plan, p.periodos]));
+    for (const plan of PLANES_CON_COBRO) {
+      expect(porPlan.get(plan) ?? []).toEqual([]);
+    }
+  });
 });
 
 describe("qué paquetes muestran botón de tarjeta", () => {

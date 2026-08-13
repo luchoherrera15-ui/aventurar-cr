@@ -9,16 +9,26 @@ import {
   precioDe,
 } from "@/lib/lealtad/planes";
 import { datosDePagoBookea } from "@/lib/pagos-bookea";
+import { planesConPrecio } from "@/lib/pagos/precios";
 import PlanesCliente, { type TarjetaPlan } from "./planes-cliente";
 import type { NegocioElegible } from "./formulario-solicitud";
 
 /**
  * Los paquetes del programa de lealtad — donde empieza la compra.
  *
- * El negocio NO se activa solo: elige paquete, deja la solicitud
- * (0126), a Bookea le llega el correo con los datos, y el equipo lo
- * genera desde /admin/complementos. Por eso no hay botón "pagar":
- * hay botón "solicitar".
+ * Hay DOS caminos para comprar, y la diferencia se dice en pantalla:
+ *
+ *  · CON TARJETA (Stripe): el paquete queda activo al instante, sin que
+ *    nadie revise nada. Si la persona todavía no tiene negocio en
+ *    Bookea, el negocio se crea solo cuando el cobro se confirma.
+ *  · POR SINPE o transferencia: deposita, adjunta la captura, deja la
+ *    solicitud (0126/0130) y el equipo la atiende desde
+ *    /admin/complementos. Es el camino de siempre y no se toca: muchas
+ *    tarjetas costarricenses vienen bloqueadas para compras
+ *    internacionales y la LLC cobra desde Estados Unidos.
+ *
+ * Sin llaves de Stripe configuradas, `planesConPrecio()` devuelve vacío
+ * y esta pantalla se ve y funciona EXACTAMENTE como antes: solo SINPE.
  *
  * Llegan acá desde el dashboard de lealtad (negocio sin activar), del
  * banner "mejorá tu paquete" (upgrade — por eso los negocios YA activos
@@ -32,9 +42,9 @@ export const metadata = { title: "Paquetes · Lealtad Bookea" };
 export default async function PlanesLealtadPage({
   searchParams,
 }: {
-  searchParams: Promise<{ negocio?: string }>;
+  searchParams: Promise<{ negocio?: string; pago?: string }>;
 }) {
-  const { negocio } = await searchParams;
+  const { negocio, pago } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -85,6 +95,15 @@ export default async function PlanesLealtadPage({
     };
   });
 
+  // Qué se puede cobrar con tarjeta HOY en este servidor. Un paquete sin
+  // su variable STRIPE_PRICE_… puesta no muestra botón, en vez de
+  // mostrar uno que lleva a un error. Lista vacía = no hay Stripe y la
+  // pantalla queda como siempre.
+  const conTarjeta = planesConPrecio().map(({ plan, periodos }) => ({
+    plan,
+    periodos: [...periodos] as string[],
+  }));
+
   return (
     <main className="min-h-svh px-5 py-10" style={{ background: NAVY_PROFUNDO }}>
       <div className="mx-auto w-full max-w-[1040px]">
@@ -112,9 +131,32 @@ export default async function PlanesLealtadPage({
           Elegí el paquete de tu programa
         </h1>
         <p className="mt-2 max-w-[560px] text-[14px] leading-relaxed text-white/60">
-          Dejás la solicitud y el equipo de Bookea genera el programa y la tarjeta por vos —
-          con tus colores, tu logo y tu regalía, bien hecho desde el día uno.
+          {conTarjeta.length > 0
+            ? "Pagás con tarjeta y tu programa queda activo al instante. Si preferís SINPE, depositás y el equipo de Bookea te lo deja andando."
+            : "Dejás la solicitud y el equipo de Bookea genera el programa y la tarjeta por vos — con tus colores, tu logo y tu regalía, bien hecho desde el día uno."}
         </p>
+
+        {/* ── De vuelta de Stripe ────────────────────────────────────
+            «En unos segundos» y no «listo»: el paquete lo confirma el
+            webhook con un evento firmado, no esta página —que se abre
+            escribiendo la URL—. Decir que ya está y que después no
+            aparezca es peor que pedir diez segundos. */}
+        {pago === "listo" && (
+          <p className="mt-6 rounded-2xl bg-emerald-500/15 px-4 py-3.5 text-[13.5px] font-bold leading-relaxed text-emerald-200">
+            Recibimos tu pago. Tu programa queda listo en unos segundos, apenas Stripe lo
+            confirme — te llega un correo y lo vas a ver en{" "}
+            <Link href="/lealtad/panel" className="underline">
+              Mis negocios
+            </Link>
+            .
+          </p>
+        )}
+        {pago === "cancelado" && (
+          <p className="mt-6 rounded-2xl bg-white/10 px-4 py-3.5 text-[13.5px] font-bold leading-relaxed text-white/80">
+            No se cobró nada: se cerró el pago antes de terminar. Podés volver a intentarlo o
+            pagar por SINPE.
+          </p>
+        )}
 
         <div className="mt-8">
           <PlanesCliente
@@ -123,6 +165,7 @@ export default async function PlanesLealtadPage({
             negocioInicial={negocio ?? null}
             conSesion={!!user}
             pago={datosDePagoBookea()}
+            conTarjeta={conTarjeta}
           />
         </div>
 

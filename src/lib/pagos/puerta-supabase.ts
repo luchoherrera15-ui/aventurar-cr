@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
+import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
 import { stripeDelEntorno } from "./stripe";
 import type { DatosSuscripcion, Puerta } from "./suscripciones";
 
@@ -94,6 +95,10 @@ export function puertaSupabase(): Puerta | null {
       return guardarSuscripcionEn(db, datos);
     },
 
+    async crearNegocioDeSolicitud({ solicitudId, plan }) {
+      return crearNegocioDeSolicitudEn(db, solicitudId, plan);
+    },
+
     async aplicarPlan({ ranchoId, cuentaId, plan }) {
       await aplicarPlanEn(db, { ranchoId, cuentaId, plan });
     },
@@ -177,6 +182,125 @@ async function guardarSuscripcionEn(
   if (error) throw new Error(`No se pudo guardar la suscripción: ${error.message}`);
 
   return { ranchoId, cuentaId };
+}
+
+/**
+ * EL ALTA PAGADA: la solicitud sin rancho (0130) se vuelve un negocio.
+ *
+ * ------------------------------------------------------------------
+ * LA RESERVA ES ATÓMICA, Y NO ES UN LUJO
+ * ------------------------------------------------------------------
+ * `checkout.session.completed` y `customer.subscription.created` llegan
+ * casi juntos y los dos traen el mismo `solicitud_id`. Un «leo el
+ * estado y después lo cambio» tiene una ventana entre la pregunta y la
+ * respuesta por la que pasan los dos, y el resultado serían DOS
+ * negocios para la misma persona, con dos slugs y dos paneles.
+ *
+ * Así que lo primero es un UPDATE CONDICIONAL —`where estado =
+ * 'pendiente'`— que Postgres resuelve con un lock de fila: gana uno
+ * solo. El que pierde no crea nada; relee la fila y devuelve el negocio
+ * que creó el otro. Misma doctrina que `llaveDeCanje` en el mostrador
+ * (0137) y que el índice único de `eventos_stripe`.
+ *
+ * ------------------------------------------------------------------
+ * Y SI ALGO FALLA DESPUÉS DE RESERVAR, SE DEVUELVE A LA COLA
+ * ------------------------------------------------------------------
+ * Una solicitud marcada «atendida» SIN negocio es el peor estado
+ * posible: el reintento de Stripe rebotaría contra la reserva, el
+ * negocio no existiría, y el cobro quedaría cobrado y sin activar para
+ * siempre. Por eso cualquier salida que no termine en negocio la
+ * devuelve a `pendiente`.
+ */
+async function crearNegocioDeSolicitudEn(
+  db: Admin,
+  solicitudId: string,
+  plan: string,
+): Promise<{ ranchoId: string; cuentaId: string | null } | null> {
+  const { data: reservadas, error } = await db
+    .from("solicitudes_lealtad")
+    .update({ estado: "atendida", atendida_en: new Date().toISOString() })
+    // `atendida_por` queda en null: la atendió el sistema, igual que en
+    // el alta gratis. Un registro sin autor es un rumor; con null como
+    // autor conocido, no.
+    .eq("id", solicitudId)
+    .eq("estado", "pendiente")
+    .select("*");
+
+  if (error) throw new Error(`No se pudo reservar la solicitud ${solicitudId}: ${error.message}`);
+
+  const solicitud = (reservadas ?? [])[0] as Record<string, unknown> | undefined;
+
+  // No la reservamos: o la tomó el otro evento, o ya estaba atendida, o
+  // la rechazaron. Lo que vale es si terminó con negocio.
+  if (!solicitud) {
+    const { data: previa } = await db
+      .from("solicitudes_lealtad")
+      .select("rancho_id")
+      .eq("id", solicitudId)
+      .maybeSingle();
+    const ranchoId = (previa?.rancho_id as string | null) ?? null;
+    return ranchoId ? { ranchoId, cuentaId: null } : null;
+  }
+
+  // Una solicitud de UPGRADE (ya trae negocio) no crea nada: se activa
+  // sobre el que ya existe.
+  const yaTiene = (solicitud.rancho_id as string | null) ?? null;
+  if (yaTiene) return { ranchoId: yaTiene, cuentaId: null };
+
+  try {
+    // La MISMA función que usa /admin/complementos al aceptar un alta.
+    const alta = await crearNegocioDesdeSolicitud(db, solicitud, {
+      aprobadoPor: null, // el sistema: lo aprobó el cobro
+      plan,
+    });
+
+    if (!alta.ok) {
+      // Un problema de datos, no de red: reintentar mil veces daría
+      // mil veces lo mismo. Vuelve a la cola y una persona lo mira.
+      console.error("[stripe] El alta pagada no se pudo crear:", alta.motivo);
+      await devolverALaCola(db, solicitudId);
+      return null;
+    }
+
+    // El círculo se cierra: la solicitud queda apuntando al negocio que
+    // creó, igual que cuando la aprueba un admin. Un fallo acá no
+    // deshace nada —el negocio existe y el plan se le escribe igual—
+    // pero deja la solicitud sin decir qué creó, y eso hay que verlo.
+    const { error: eEnlace } = await db
+      .from("solicitudes_lealtad")
+      .update({ rancho_id: alta.ranchoId })
+      .eq("id", solicitudId);
+    if (eEnlace) {
+      console.error(
+        `[stripe] El negocio ${alta.ranchoId} nació de la solicitud ${solicitudId} pero la ` +
+          `fila no quedó enlazada: ${eEnlace.message}. Enlazarla a mano.`,
+      );
+    }
+
+    // `cuentaId` en null a propósito: un rancho recién creado no tiene
+    // fila en `cuentas` (la 0134 fue un backfill, no un trigger), y si
+    // algún día la tiene, `guardarSuscripcionEn` la busca sola por
+    // rancho.
+    return { ranchoId: alta.ranchoId, cuentaId: null };
+  } catch (e) {
+    await devolverALaCola(db, solicitudId);
+    throw e;
+  }
+}
+
+/** Deshace la reserva: el reintento de Stripe tiene que poder entrar. */
+async function devolverALaCola(db: Admin, solicitudId: string): Promise<void> {
+  const { error } = await db
+    .from("solicitudes_lealtad")
+    .update({ estado: "pendiente", atendida_en: null })
+    .eq("id", solicitudId)
+    .is("rancho_id", null);
+  if (error) {
+    console.error(
+      `[stripe] La solicitud ${solicitudId} quedó ATENDIDA sin negocio y no se pudo ` +
+        `devolver a la cola: ${error.message}. Hay que atenderla a mano.`,
+    );
+  }
 }
 
 /**

@@ -18,7 +18,31 @@ import { horaAMinutos, minutosAHora, type HorarioSemana } from "./citas";
  * - Asignación servicio↔recurso (servicios_recurso): sin filas, el
  *   servicio lo dan todos; con filas, solo esos.
  * - "Cualquier profesional": la unión de los espacios de los recursos.
+ * - CONCURRENCIA (0109): un recurso puede aceptar más de una reserva a
+ *   la vez (`equipo_rancho.cupo_simultaneo`) y una fila ocupada puede
+ *   declararse exclusiva (`disponibilidad_citas.exclusiva`).
  */
+
+/**
+ * La concurrencia de un recurso, normalizada. `null` = 1 = exclusivo.
+ *
+ * Gemela de `normalizarCupo` en src/lib/reservas/tipo-reserva.ts de
+ * /web. Vive acá suelta porque el app no tiene (todavía) el módulo de
+ * tipo_reserva completo y esto es lo único de él que el motor usa.
+ *
+ * Se normaliza ACÁ, en el borde, y nunca en la comparación: en
+ * JavaScript `2 >= null` es `2 >= 0` (siempre cierto, o sea que el
+ * recurso no tendría ningún espacio libre) y `2 >= undefined` es NaN
+ * (siempre falso, o sea que dejaría de detectar choques). Las filas
+ * llegan de Supabase con casts, así que TypeScript no atrapa ninguno
+ * de los dos.
+ *
+ * El tope de 100 espeja el CHECK de la base (0109): un Infinity que se
+ * cuele por acá dejaría la agenda sin tope.
+ */
+export function normalizarCupo(valor: unknown): number {
+  return Math.min(100, Math.max(1, Math.trunc(Number(valor)) || 1));
+}
 
 /** Un rango laboral dentro de un día, en minutos desde medianoche. */
 export type Rango = { inicio: number; fin: number };
@@ -32,6 +56,15 @@ export type RecursoDisponibilidad = {
    * la web y el RPC): claves SOLO para los días con filas.
    */
   horario: Partial<Record<string, { abre: string; cierra: string }[]>> | null;
+  /**
+   * Cuántas RESERVAS caben a la vez en este recurso
+   * (`equipo_rancho.cupo_simultaneo`, 0109). null/ausente = 1 =
+   * exclusivo, que es todo lo que existía antes.
+   *
+   * No confundir con `equipo_rancho.capacidad`, que son PERSONAS que
+   * caben (el tamaño de una mesa) y que ningún motor lee.
+   */
+  cupoSimultaneo?: number | null;
 };
 
 export type BloqueoDisponibilidad = {
@@ -50,6 +83,19 @@ export type CitaExistente = {
   duracionMinutos: number;
   /** El buffer del servicio de ESA cita (0 si no se conoce). */
   bufferMinutos?: number;
+  /**
+   * ¿Esta fila tapa la franja ENTERA, sin importar el cupo del
+   * recurso? (`disponibilidad_citas.exclusiva`, 0109 — es true para
+   * las reservas en estado 'bloqueada': los compromisos que el sync
+   * trae del calendario del dueño, 0072.)
+   *
+   * Ausente = true a propósito. Con cupo 1 da lo mismo (cualquier
+   * solape tapa la franja igual), y con cupo mayor el lado
+   * conservador es el correcto: preferimos no ofrecer una hora antes
+   * que dejar que un cliente reserve encima de la cita médica del
+   * dueño porque la vista todavía no tenía la columna.
+   */
+  exclusiva?: boolean;
 };
 
 export type ParametrosDisponibilidad = {
@@ -160,6 +206,23 @@ function seSolapan(a: Rango, b: Rango): boolean {
   return a.inicio < b.fin && b.inicio < a.fin;
 }
 
+/**
+ * Agrupa las filas de horarios_recurso en el objeto que espera
+ * RecursoDisponibilidad: claves SOLO para los días con filas — un día
+ * sin filas queda `undefined` y hereda el horario del negocio (misma
+ * convención que el RPC crear_cita en la 0081).
+ */
+export function agruparHorarioRecurso(
+  filas: { dow: number; abre: string; cierra: string }[],
+): RecursoDisponibilidad["horario"] {
+  if (filas.length === 0) return null;
+  const horario: NonNullable<RecursoDisponibilidad["horario"]> = {};
+  for (const f of filas) {
+    (horario[String(f.dow)] ??= []).push({ abre: f.abre.slice(0, 5), cierra: f.cierra.slice(0, 5) });
+  }
+  return horario;
+}
+
 /** Los rangos laborales del recurso ese día, con herencia del negocio. */
 export function rangosDelDia(
   recurso: RecursoDisponibilidad | null,
@@ -179,10 +242,25 @@ export function rangosDelDia(
   return [{ inicio: horaAMinutos(negocio.abre), fin: horaAMinutos(negocio.cierra) }];
 }
 
+/** Un rango ya tomado, y si tapa la franja entera por sí solo. */
+type RangoOcupado = Rango & { exclusiva: boolean };
+
 /**
  * Los espacios libres de UN recurso: dentro de sus rangos laborales,
  * sin chocar con sus citas (cada una ocupa duración + buffer), ni con
  * sus bloqueos, ni con los del negocio entero.
+ *
+ * CONCURRENCIA (0109): `cupo` es cuántas reservas caben a la vez en el
+ * recurso. Con cupo 1 — todo lo que existía antes — `choques.length >= 1`
+ * es exactamente el `ocupados.some(...)` de siempre, así que el
+ * veredicto no cambia para ningún negocio que no haya configurado nada.
+ *
+ * Lo que se cuenta son las reservas que TOCAN la franja pedida, que es
+ * una cota superior de la concurrencia real en un instante: con cupo 2,
+ * una de 09:00-09:30 y otra de 10:30-11:00 hacen que una de 09:15-10:45
+ * vea dos choques y se rechace, aunque en ningún momento haya tres
+ * encima. Sub-vende, nunca sobre-vende — es la dirección segura, y con
+ * cupo 1 es indistinguible.
  */
 function espaciosDeRecurso({
   rangos,
@@ -192,14 +270,16 @@ function espaciosDeRecurso({
   ocupados,
   bloqueados,
   desdeMinutos,
+  cupo,
 }: {
   rangos: Rango[];
   duracion: number;
   buffer: number;
   intervalo: number;
-  ocupados: Rango[];
+  ocupados: RangoOcupado[];
   bloqueados: Rango[];
   desdeMinutos: number;
+  cupo: number;
 }): number[] {
   const libres: number[] = [];
   for (const rango of rangos) {
@@ -210,7 +290,11 @@ function espaciosDeRecurso({
       // atención), pero nunca encima de otra cita.
       const ocupa: Rango = { inicio: t, fin: t + duracion + buffer };
       const atiende: Rango = { inicio: t, fin: t + duracion };
-      if (ocupados.some((o) => seSolapan(o, ocupa))) continue;
+      const choques = ocupados.filter((o) => seSolapan(o, ocupa));
+      // Un bloqueo del calendario del dueño tapa la franja entera,
+      // tenga el recurso el cupo que tenga.
+      if (choques.some((o) => o.exclusiva)) continue;
+      if (choques.length >= cupo) continue;
       if (bloqueados.some((b) => seSolapan(b, atiende))) continue;
       libres.push(t);
     }
@@ -256,9 +340,14 @@ export function calcularDisponibilidad(params: ParametrosDisponibilidad): Dispon
     .filter((b): b is { miembroId: string | null; rango: Rango } => b.rango !== null);
   const bloqueosNegocio = bloqueosDia.filter((b) => b.miembroId === null).map((b) => b.rango);
 
-  const citaARango = (c: CitaExistente): Rango => {
+  const citaARango = (c: CitaExistente): RangoOcupado => {
     const inicio = horaAMinutos(c.horaInicio.slice(0, 5));
-    return { inicio, fin: inicio + c.duracionMinutos + (c.bufferMinutos ?? 0) };
+    return {
+      inicio,
+      fin: inicio + c.duracionMinutos + (c.bufferMinutos ?? 0),
+      // Sin dato, se asume exclusiva: ver el comentario de CitaExistente.
+      exclusiva: c.exclusiva ?? true,
+    };
   };
 
   const porRecurso: Record<string, string[]> = {};
@@ -288,6 +377,10 @@ export function calcularDisponibilidad(params: ParametrosDisponibilidad): Dispon
       ocupados,
       bloqueados,
       desdeMinutos,
+      // Sin recurso (el negocio como recurso único) el cupo es 1: la
+      // concurrencia se declara por recurso, y un negocio sin equipo
+      // no tiene dónde ponerla.
+      cupo: recurso ? normalizarCupo(recurso.cupoSimultaneo) : 1,
     }).map(minutosAHora);
   }
 

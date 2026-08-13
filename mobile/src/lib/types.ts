@@ -276,6 +276,13 @@ export type Rancho = {
   descripcion_larga: string | null;
   categoria: Categoria;
   subcategoria: string | null;
+  /**
+   * A qué vertical pertenece el negocio (eventos, citas, hospedajes,
+   * restaurantes). Ya venía en COLUMNAS_FICHA pero faltaba en el tipo,
+   * así que ninguna pantalla podía leerla sin que TypeScript la
+   * frenara — por eso los términos por defecto se elegían a ciegas.
+   */
+  vertical: string | null;
   terminos: string[];
   monto_minimo: number | null;
   instagram: string | null;
@@ -500,11 +507,45 @@ export const AMENIDAD_LABEL: Record<string, string> = Object.fromEntries(
   AMENIDADES_GRUPOS.flatMap((g) => g.items.map((i) => [i.id, i.label])),
 );
 
-/** Mismos términos por defecto que /web (mi-negocio/types.tsx). */
+/**
+ * Mismos términos por defecto que /web (mi-negocio/types.tsx).
+ *
+ * El texto cambia según `vertical`: Citas se agenda por horario
+ * (no-show, anticipación de cancelación, tardanza) en vez de por
+ * evento con instalaciones e invitados. Hospedajes y Restaurantes
+ * todavía no tienen su propio set — caen al de Eventos (mismo
+ * comportamiento de siempre) hasta que se les escriba el suyo.
+ *
+ * Esto NO es copy: es el contrato que queda guardado en
+ * `ranchos.terminos` y que el cliente acepta al reservar. Un negocio
+ * de citas publicado desde el app venía guardando el contrato de
+ * eventos, que habla de instalaciones e invitados que no existen.
+ */
 export function terminosPorDefecto(
   depositoReserva: number,
   montoMinimo: number | null,
+  vertical: string = "eventos",
 ): string[] {
+  if (vertical === "citas") {
+    const base = [
+      `El depósito para agendar la cita es de ₡${Number(depositoReserva || 0).toLocaleString("es-CR")}. Si el comprobante muestra un monto menor, la cita no queda confirmada y el depósito no se reembolsa.`,
+      "El depósito no se reembolsa si el cliente no llega a la hora acordada.",
+      "Las cancelaciones con menos de 24 horas de anticipación pierden el depósito, igual que un no presentarse. Avisar con más tiempo evita esta condición.",
+      "Llegar tarde a la cita puede acortar el tiempo del servicio o requerir reagendarla, según la disponibilidad del negocio.",
+      "El número de cédula se pide únicamente para identificar a quien reserva en caso de algún inconveniente durante la cita (Ley 8968 de protección de datos). Solo lo ve el negocio y el equipo de Bookea — nunca se hace público.",
+    ];
+
+    if (montoMinimo && montoMinimo > 0) {
+      base.splice(
+        1,
+        0,
+        `El monto mínimo de contratación es de ₡${Number(montoMinimo).toLocaleString("es-CR")}. Por debajo de ese monto no se toman reservas.`,
+      );
+    }
+
+    return base;
+  }
+
   const base = [
     `El depósito de reserva es de ₡${Number(depositoReserva || 0).toLocaleString("es-CR")}. Si el comprobante muestra un monto menor, la reserva no será válida y el dinero no se reembolsa.`,
     "El depósito de reserva no es reembolsable en caso de cancelación por parte del cliente.",

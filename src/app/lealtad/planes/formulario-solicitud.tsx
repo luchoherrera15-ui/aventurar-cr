@@ -4,17 +4,37 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
+import { definicionDe, mesesDeAhorroAnual, precioDe } from "@/lib/lealtad/planes";
 import { solicitarPlanLealtad } from "./actions";
+import { iniciarPagoDelPaquete } from "./pago-actions";
 
 /**
- * El paso final de la compra: elegido el paquete, se confirma el
- * negocio, se hace el DEPÓSITO (SINPE o transferencia — los datos
- * están acá mismo), se adjunta la captura y recién ahí sale la
- * solicitud. Sin comprobante no hay botón: nadie inicia el programa
- * sin haber pagado.
+ * El paso final de la compra, con SUS DOS CAMINOS.
  *
- * El comprobante va al mismo bucket `comprobantes` que ya usan las
- * invitaciones y las reservas — un solo lugar donde buscar depósitos.
+ *  1. CON TARJETA. Un botón, Stripe Checkout, y el paquete queda activo
+ *     al instante — sin que nadie revise nada. Si la persona todavía no
+ *     tiene negocio en Bookea, escribe el nombre acá y el negocio se
+ *     crea solo cuando el cobro se confirma.
+ *
+ *  2. POR SINPE O TRANSFERENCIA. El de siempre: deposita, adjunta la
+ *     captura y el equipo de Bookea lo revisa. Sin comprobante no hay
+ *     botón — nadie inicia el programa sin haber pagado. El comprobante
+ *     va al mismo bucket `comprobantes` que ya usan las invitaciones y
+ *     las reservas: un solo lugar donde buscar depósitos.
+ *
+ * ------------------------------------------------------------------
+ * POR QUÉ ESTÁN LOS DOS, Y POR QUÉ SE DICE LA DIFERENCIA
+ * ------------------------------------------------------------------
+ * El SINPE no es un respaldo temporal: muchas tarjetas costarricenses
+ * vienen bloqueadas para compras internacionales y la LLC cobra desde
+ * Estados Unidos, así que para buena parte de la clientela es el único
+ * camino que funciona. Y la diferencia —al instante contra lo revisa el
+ * equipo— se escribe en pantalla porque es la razón para elegir uno u
+ * otro.
+ *
+ * Si el servidor no tiene llaves de Stripe, `periodosConTarjeta` llega
+ * vacío, el bloque de tarjeta no se dibuja y esta pantalla es
+ * exactamente la que era antes: solo SINPE.
  */
 
 export type NegocioElegible = { id: string; nombre: string };
@@ -33,6 +53,7 @@ export default function FormularioSolicitud({
   negocios,
   negocioInicial,
   pago,
+  periodosConTarjeta,
   alCerrar,
 }: {
   plan: string;
@@ -46,6 +67,11 @@ export default function FormularioSolicitud({
   negocios: NegocioElegible[];
   negocioInicial: string | null;
   pago: DatosPago;
+  /**
+   * Los períodos que este paquete se puede pagar con tarjeta. Vacío =
+   * no hay Stripe configurado y el único camino es el depósito.
+   */
+  periodosConTarjeta: string[];
   alCerrar: () => void;
 }) {
   const [negocioId, setNegocioId] = useState(
@@ -53,6 +79,9 @@ export default function FormularioSolicitud({
       ? negocioInicial
       : (negocios[0]?.id ?? ""),
   );
+  const [nombreNuevo, setNombreNuevo] = useState("");
+  const [errorTarjeta, setErrorTarjeta] = useState("");
+  const [pagando, iniciarPago] = useTransition();
   const [metodo, setMetodo] = useState<"sinpe" | "transferencia">("sinpe");
   const [comprobanteUrl, setComprobanteUrl] = useState("");
   const [subiendo, setSubiendo] = useState(false);
@@ -98,6 +127,30 @@ export default function FormularioSolicitud({
     });
   }
 
+  /**
+   * Al Checkout de Stripe. Este botón NO activa nada: le pide una URL
+   * al servidor y manda el navegador ahí. Quién puede pagar, para qué
+   * negocio y a qué precio se resuelve del otro lado —una petición
+   * armada a mano no pasa por esta pantalla— y el paquete lo escribe el
+   * webhook recién cuando Stripe confirma el cobro.
+   *
+   * `window.location.assign` y no `router.push`: Checkout es un sitio
+   * ajeno y el router de Next solo navega dentro de la app.
+   */
+  function pagarConTarjeta(periodo: string) {
+    setErrorTarjeta("");
+    iniciarPago(async () => {
+      const r = await iniciarPagoDelPaquete({
+        plan,
+        periodo,
+        ranchoId: negocios.length > 0 ? negocioId : "",
+        nombreNegocio: nombreNuevo,
+      });
+      if (r.ok) window.location.assign(r.url);
+      else setErrorTarjeta(r.motivo);
+    });
+  }
+
   if (estado === "enviada") {
     return (
       <div className="rounded-2xl bg-white/10 p-5 text-center">
@@ -114,15 +167,126 @@ export default function FormularioSolicitud({
   const campo =
     "rounded-[10px] border border-white/20 bg-[#131c36] px-3 py-2.5 text-[13.5px] font-normal normal-case tracking-normal text-white placeholder:text-white/30";
 
+  // El paquete gratis nunca pasa por Stripe (se activa solo), y sin
+  // llaves configuradas la lista llega vacía.
+  const hayTarjeta = !esGratis && periodosConTarjeta.length > 0;
+  const def = definicionDe(plan);
+  // Para pagar con tarjeta hace falta saber PARA QUÉ negocio: el que ya
+  // tiene, o el nombre del que se va a crear.
+  const listoParaPagar = negocios.length > 0 ? !!negocioId : nombreNuevo.trim().length > 0;
+
   return (
     <div className="rounded-2xl bg-white/10 p-5">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[14px] font-extrabold text-white">Solicitar el plan {planNombre}</p>
+        <p className="text-[14px] font-extrabold text-white">
+          {hayTarjeta ? `Llevar el plan ${planNombre}` : `Solicitar el plan ${planNombre}`}
+        </p>
         <button type="button" onClick={alCerrar} className="text-[12px] font-bold text-white/50 hover:text-white">
           Cancelar
         </button>
       </div>
 
+      {/* Para cuál negocio — arriba de todo y COMPARTIDO por los dos
+          caminos: es la misma pregunta, y repetirla una vez por forma
+          de pago dejaría dos selectores capaces de decir cosas
+          distintas. */}
+      {negocios.length > 1 && (
+        <label className={`${etiqueta} mt-3`}>
+          Para cuál negocio
+          <select
+            value={negocioId}
+            onChange={(e) => setNegocioId(e.target.value)}
+            className={campo}
+          >
+            {negocios.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {negocios.length === 1 && (
+        <p className="mt-2 text-[12.5px] text-white/60">
+          Para <strong className="text-white">{negocios[0].nombre}</strong>
+        </p>
+      )}
+
+      {/* ── 1. CON TARJETA: queda activo al instante ─────────────────
+          Va PRIMERO porque es el único camino que no depende de que
+          alguien revise un depósito. Debajo sigue el SINPE de siempre,
+          intacto. */}
+      {hayTarjeta && (
+        <div className="mt-3 rounded-xl border border-[#ee7420]/40 bg-[#ee7420]/10 p-3.5">
+          <p className="text-[13px] font-extrabold text-white">
+            Pagar con tarjeta — queda activo al instante
+          </p>
+          <p className="mt-1 text-[12px] leading-snug text-white/65">
+            Se cobra solo cada período y lo cancelás cuando querás, desde tu panel. Nadie
+            tiene que revisar nada.
+          </p>
+
+          {/* Sin negocio todavía: se pide el nombre y nada más. El
+              negocio NO se crea acá — nace cuando Stripe confirma el
+              cobro, así que un pago que se abandona no deja nada. */}
+          {negocios.length === 0 && (
+            <label className={`${etiqueta} mt-3`}>
+              ¿Cómo se llama tu negocio?
+              <input
+                value={nombreNuevo}
+                onChange={(e) => setNombreNuevo(e.target.value)}
+                placeholder="Barbería Silencio"
+                maxLength={80}
+                className={campo}
+              />
+              <span className="text-[11px] font-normal normal-case tracking-normal text-white/45">
+                Lo creamos por vos apenas entre el pago — sin publicarte en el marketplace.
+              </span>
+            </label>
+          )}
+
+          <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+            {periodosConTarjeta.map((periodo, i) => (
+              <button
+                key={periodo}
+                type="button"
+                disabled={pagando || !listoParaPagar}
+                onClick={() => pagarConTarjeta(periodo)}
+                className={`rounded-xl px-4 py-3 text-[13px] font-extrabold disabled:opacity-40 ${
+                  i === 0
+                    ? "bg-[#ee7420] text-white hover:brightness-110"
+                    : "border border-white/25 text-white"
+                }`}
+              >
+                {pagando ? "Abriendo…" : etiquetaDePeriodo(periodo, def, precio)}
+              </button>
+            ))}
+          </div>
+
+          {errorTarjeta && (
+            <p className="mt-2 text-[12.5px] font-bold text-red-300">{errorTarjeta}</p>
+          )}
+        </div>
+      )}
+
+      {hayTarjeta && (
+        <div className="my-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-white/15" />
+          <span className="text-[11px] font-bold uppercase tracking-wide text-white/40">
+            o pagá por SINPE
+          </span>
+          <span className="h-px flex-1 bg-white/15" />
+        </div>
+      )}
+
+      {hayTarjeta && (
+        <p className="text-[12.5px] leading-snug text-white/65">
+          Si tu tarjeta no acepta compras internacionales —le pasa a muchas tarjetas de acá—
+          depositá y el equipo de Bookea te deja el programa andando.
+        </p>
+      )}
+
+      {/* ── 2. POR SINPE O TRANSFERENCIA: lo revisa el equipo ─────── */}
       {negocios.length === 0 ? (
         <p className="mt-2 text-[12.5px] text-white/60">
           Todavía no administrás ningún negocio en Bookea.{" "}
@@ -133,24 +297,6 @@ export default function FormularioSolicitud({
         </p>
       ) : (
         <div className="mt-3 grid gap-2.5">
-          {negocios.length > 1 && (
-            <label className={etiqueta}>
-              Para cuál negocio
-              <select value={negocioId} onChange={(e) => setNegocioId(e.target.value)} className={campo}>
-                {negocios.map((n) => (
-                  <option key={n.id} value={n.id}>
-                    {n.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {negocios.length === 1 && (
-            <p className="text-[12.5px] text-white/60">
-              Para <strong className="text-white">{negocios[0].nombre}</strong>
-            </p>
-          )}
-
           {/* ── El depósito: primero se paga, después se solicita.
                  El plan Gratis se salta este paso entero. ── */}
           {esGratis ? (
@@ -284,5 +430,31 @@ export default function FormularioSolicitud({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Lo que dice cada botón de tarjeta.
+ *
+ * El «2 meses gratis» sale de `mesesDeAhorroAnual`, o sea de los
+ * precios del catálogo, y no de un texto escrito a mano que se
+ * desincroniza el día que cambie uno. Sin definición del paquete —que
+ * no debería pasar— cae a algo neutro en vez de mostrar un precio en
+ * blanco.
+ */
+function etiquetaDePeriodo(
+  periodo: string,
+  def: ReturnType<typeof definicionDe>,
+  precioMensual: string | null,
+): string {
+  if (periodo !== "anual") {
+    return precioMensual ? `Pagar ${precioMensual} por mes` : "Pagar por mes";
+  }
+  if (!def) return "Pagar el año";
+  const anual = precioDe(def, "año");
+  const ahorro = mesesDeAhorroAnual(def);
+  return (
+    `Pagar el año${anual ? ` — ${anual}` : ""}` +
+    (ahorro > 0 ? ` (${ahorro} meses gratis)` : "")
   );
 }

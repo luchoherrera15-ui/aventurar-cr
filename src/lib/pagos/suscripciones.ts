@@ -41,6 +41,28 @@ import {
  *    registro de un cobro real es peor que no activarlo.
  *
  * ------------------------------------------------------------------
+ * EL COBRO DE ALGUIEN QUE TODAVÍA NO TIENE NEGOCIO
+ * ------------------------------------------------------------------
+ * En /lealtad/planes compra gente que no tiene nada en Bookea. Ahí el
+ * cobro no puede traer un `rancho_id` —el negocio no existe— y trae en
+ * cambio un `solicitud_id`: la fila de `solicitudes_lealtad` SIN rancho
+ * que el servidor dejó antes de mandar a pagar (una solicitud de ALTA,
+ * la misma forma de la 0130).
+ *
+ * COBRAR PRIMERO, CREAR DESPUÉS. El negocio nace acá, con el cobro ya
+ * confirmado, y nunca antes: un rancho creado al abrir Checkout sería,
+ * en la mayoría de los casos, basura —el checkout abandonado es la
+ * norma— con su slug tomado, su panel accesible y su aprobación de
+ * lealtad puesta. Es exactamente el problema que la 0130 resolvió
+ * cuando dio vuelta el flujo viejo («el rancho se creaba primero y
+ * quedaba en hold»).
+ *
+ * Y el negocio se crea SOLO si el cobro da derecho al plan: una
+ * suscripción que quedó `incomplete` no crea nada, avisa, y la
+ * solicitud sigue en la cola de /admin/complementos como cualquier
+ * otra.
+ *
+ * ------------------------------------------------------------------
  * LO QUE ESTE MOTOR NO HACE: DEGRADAR
  * ------------------------------------------------------------------
  * Ni una cancelación ni una mora le bajan el plan al negocio. Se
@@ -56,6 +78,11 @@ import {
 export type DatosSuscripcion = {
   ranchoId: string | null;
   cuentaId: string | null;
+  /**
+   * La solicitud de ALTA que espera este cobro, cuando el negocio
+   * todavía no existe. Solo la ponen las sesiones de /lealtad/planes.
+   */
+  solicitudId: string | null;
   clienteStripe: string;
   suscripcionStripe: string;
   precioStripe: string | null;
@@ -92,6 +119,22 @@ export type Puerta = {
   guardarSuscripcion(
     d: DatosSuscripcion,
   ): Promise<{ ranchoId: string | null; cuentaId: string | null } | null>;
+  /**
+   * EL ALTA PAGADA: convierte la solicitud sin rancho (0130) en un
+   * negocio de verdad y devuelve a quién quedó atribuido el cobro.
+   *
+   * Tiene que ser IDEMPOTENTE: `checkout.session.completed` y
+   * `customer.subscription.created` llegan casi juntos y los dos traen
+   * el mismo `solicitud_id`. Si esto creara un negocio por llamada, la
+   * persona terminaría con dos.
+   *
+   * null = no se pudo (la solicitud no existe, ya la rechazaron, o le
+   * falta un dato). El motor avisa y no activa nada.
+   */
+  crearNegocioDeSolicitud(d: {
+    solicitudId: string;
+    plan: PlanId;
+  }): Promise<{ ranchoId: string; cuentaId: string | null } | null>;
   /** Escribe el plan en el negocio (ranchos.plan_lealtad + cuentas.plan). */
   aplicarPlan(d: {
     ranchoId: string | null;
@@ -113,6 +156,16 @@ export type ResultadoEvento =
   | { tipo: "sin_suscripcion"; evento: string }
   | { tipo: "sin_dueno"; suscripcion: string }
   | { tipo: "sin_mapeo"; suscripcion: string; precio: string | null }
+  /**
+   * Un cobro de alguien SIN negocio que no se pudo convertir en negocio.
+   * La solicitud queda en la cola y el equipo la resuelve a mano — el
+   * cobro no se pierde: el evento entero está en `eventos_stripe`.
+   */
+  | {
+      tipo: "alta_sin_resolver";
+      solicitud: string;
+      motivo: "sin_plan" | "no_da_derecho" | "no_se_pudo";
+    }
   | {
       tipo: "guardado";
       suscripcion: string;
@@ -120,6 +173,8 @@ export type ResultadoEvento =
       estado: EstadoSuscripcion;
       /** true = se le escribió el plan al negocio. */
       activado: boolean;
+      /** true = este evento CREÓ el negocio (un alta pagada con tarjeta). */
+      creado?: true;
     };
 
 /**
@@ -216,6 +271,7 @@ export function datosDeSuscripcion(
   extra: {
     ranchoId?: string | null;
     cuentaId?: string | null;
+    solicitudId?: string | null;
     /** Para `customer.subscription.deleted`, donde el estado es un hecho. */
     estadoForzado?: EstadoSuscripcion;
   } = {},
@@ -234,6 +290,10 @@ export function datosDeSuscripcion(
   return {
     ranchoId: extra.ranchoId ?? texto(meta.rancho_id),
     cuentaId: extra.cuentaId ?? texto(meta.cuenta_id),
+    // La copia en `subscription_data.metadata` es la que hace que un
+    // `customer.subscription.created` que llegue ANTES que el checkout
+    // —o en vez del checkout— sepa igual que esto es un alta.
+    solicitudId: extra.solicitudId ?? texto(meta.solicitud_id),
     clienteStripe,
     suscripcionStripe,
     precioStripe,
@@ -303,13 +363,25 @@ async function despachar(
       }
 
       const meta = objeto(objetoDelEvento.metadata) ?? {};
+      // `solicitud_id` MANDA sobre todo lo demás: si está, esta sesión
+      // es un ALTA (el negocio no existe todavía) y el
+      // `client_reference_id` lleva la SOLICITUD, no un negocio.
+      // Leerlo como rancho activaría el plan en un id que no es de
+      // ningún rancho — o, peor, en el de otro.
+      const solicitudId = texto(meta.solicitud_id);
       // `client_reference_id` lo pone el servidor al crear la sesión
-      // (ver suscripcion-actions.ts) después de comprobar que quien
-      // paga es dueño del negocio. Nunca lo escribe el navegador.
-      const ranchoId = texto(objetoDelEvento.client_reference_id) ?? texto(meta.rancho_id);
+      // (ver checkout.ts) después de comprobar que quien paga es dueño
+      // del negocio. Nunca lo escribe el navegador.
+      const ranchoId = solicitudId
+        ? texto(meta.rancho_id)
+        : (texto(objetoDelEvento.client_reference_id) ?? texto(meta.rancho_id));
       const cuentaId = texto(meta.cuenta_id);
 
-      return aplicarDesdeStripe(evento, suscripcionId, puerta, env, { ranchoId, cuentaId });
+      return aplicarDesdeStripe(evento, suscripcionId, puerta, env, {
+        ranchoId,
+        cuentaId,
+        solicitudId,
+      });
     }
 
     case "customer.subscription.created":
@@ -381,7 +453,7 @@ async function aplicarDesdeStripe(
   suscripcionId: string,
   puerta: Puerta,
   env: Entorno,
-  extra: { ranchoId?: string | null; cuentaId?: string | null },
+  extra: { ranchoId?: string | null; cuentaId?: string | null; solicitudId?: string | null },
 ): Promise<ResultadoEvento> {
   const sub = await puerta.leerSuscripcion(suscripcionId);
   if (!sub) {
@@ -401,16 +473,20 @@ async function guardarYActivar(
   datos: DatosSuscripcion,
   puerta: Puerta,
 ): Promise<ResultadoEvento> {
-  const dueno = await puerta.guardarSuscripcion(datos);
+  const alta = await resolverAlta(datos, puerta);
+  if ("corte" in alta) return alta.corte;
+  const { datos: d, creado } = alta;
+
+  const dueno = await puerta.guardarSuscripcion(d);
 
   if (!dueno) {
     await puerta.avisar({
       asunto: "Stripe: hay un cobro sin negocio al que atribuirlo",
       detalle:
-        `La suscripción ${datos.suscripcionStripe} (cliente ${datos.clienteStripe}) no dice ` +
+        `La suscripción ${d.suscripcionStripe} (cliente ${d.clienteStripe}) no dice ` +
         "de qué negocio es: ni `client_reference_id` ni metadata. Hay que atarla a mano.",
     });
-    return { tipo: "sin_dueno", suscripcion: datos.suscripcionStripe };
+    return { tipo: "sin_dueno", suscripcion: d.suscripcionStripe };
   }
 
   // ── El price_id que no conocemos ───────────────────────────────────
@@ -418,35 +494,105 @@ async function guardarYActivar(
   // crea un precio nuevo en Stripe y todavía no puso su variable, o
   // cuando el servidor corre con las llaves de prueba y el cobro entró
   // por las de producción.
-  if (!datos.plan) {
+  if (!d.plan) {
     await puerta.avisar({
       asunto: "Stripe: cobro con un precio que Bookea no reconoce",
       detalle:
-        `La suscripción ${datos.suscripcionStripe} se cobra con el precio ` +
-        `${datos.precioStripe ?? "(sin precio)"}, que no está en ninguna variable ` +
+        `La suscripción ${d.suscripcionStripe} se cobra con el precio ` +
+        `${d.precioStripe ?? "(sin precio)"}, que no está en ninguna variable ` +
         "STRIPE_PRICE_<PLAN>_<MENSUAL|ANUAL>. Quedó registrada SIN activar el plan.",
     });
     return {
       tipo: "sin_mapeo",
-      suscripcion: datos.suscripcionStripe,
-      precio: datos.precioStripe,
+      suscripcion: d.suscripcionStripe,
+      precio: d.precioStripe,
     };
   }
 
-  const activar = daDerechoAlPlan(datos.estado);
+  const activar = daDerechoAlPlan(d.estado);
   if (activar) {
     await puerta.aplicarPlan({
       ranchoId: dueno.ranchoId,
       cuentaId: dueno.cuentaId,
-      plan: datos.plan,
+      plan: d.plan,
     });
   }
 
   return {
     tipo: "guardado",
-    suscripcion: datos.suscripcionStripe,
-    plan: datos.plan,
-    estado: datos.estado,
+    suscripcion: d.suscripcionStripe,
+    plan: d.plan,
+    estado: d.estado,
     activado: activar,
+    // Solo cuando el negocio nació con este evento. Ausente en el caso
+    // normal para que el resultado siga siendo el de siempre.
+    ...(creado ? { creado: true as const } : {}),
+  };
+}
+
+/**
+ * EL ALTA: el cobro entró y el negocio todavía no existe.
+ *
+ * Devuelve los mismos datos con el negocio ya puesto, o un `corte` con
+ * el resultado final cuando no corresponde crear nada. Es la única
+ * parte del motor que ESCRIBE algo fuera de `suscripciones`, y por eso
+ * está separada: se lee de un vistazo qué tiene que pasar para que un
+ * negocio nazca de un cobro.
+ */
+async function resolverAlta(
+  datos: DatosSuscripcion,
+  puerta: Puerta,
+): Promise<{ datos: DatosSuscripcion; creado: boolean } | { corte: ResultadoEvento }> {
+  // Con negocio (o con cuenta) no hay nada que crear: es el camino
+  // normal, el del panel.
+  if (datos.ranchoId || datos.cuentaId || !datos.solicitudId) {
+    return { datos, creado: false };
+  }
+
+  const solicitud = datos.solicitudId;
+
+  // Sin saber QUÉ paquete se pagó no se puede crear el negocio: nacería
+  // sin plan, o sea sin topes. Se avisa y la solicitud sigue en la cola.
+  if (!datos.plan) {
+    await puerta.avisar({
+      asunto: "Stripe: alta pagada con un precio que Bookea no reconoce",
+      detalle:
+        `El cobro de la suscripción ${datos.suscripcionStripe} corresponde a la solicitud ` +
+        `${solicitud}, pero el precio ${datos.precioStripe ?? "(sin precio)"} no está en ` +
+        "ninguna variable STRIPE_PRICE_<PLAN>_<MENSUAL|ANUAL>. El negocio NO se creó: " +
+        "poné la variable y volvé a mandar el evento desde el panel de Stripe.",
+    });
+    return { corte: { tipo: "alta_sin_resolver", solicitud, motivo: "sin_plan" } };
+  }
+
+  // Y solo si el cobro DA DERECHO. Una suscripción `incomplete` —la
+  // tarjeta que quedó a medias en el 3-D Secure— no crea ningún
+  // negocio: si después se completa, Stripe manda otro evento y ahí sí.
+  if (!daDerechoAlPlan(datos.estado)) {
+    await puerta.avisar({
+      asunto: "Stripe: un alta pagó pero la suscripción no quedó al día",
+      detalle:
+        `La solicitud ${solicitud} pagó la suscripción ${datos.suscripcionStripe}, que quedó ` +
+        `en estado «${datos.estado}». El negocio NO se creó y la solicitud sigue pendiente ` +
+        "en /admin/complementos.",
+    });
+    return { corte: { tipo: "alta_sin_resolver", solicitud, motivo: "no_da_derecho" } };
+  }
+
+  const nuevo = await puerta.crearNegocioDeSolicitud({ solicitudId: solicitud, plan: datos.plan });
+  if (!nuevo) {
+    await puerta.avisar({
+      asunto: "Stripe: se cobró un alta y el negocio no se pudo crear",
+      detalle:
+        `La solicitud ${solicitud} pagó la suscripción ${datos.suscripcionStripe} (cliente ` +
+        `${datos.clienteStripe}) y el negocio NO se creó. HAY QUE ATENDERLO A MANO: el cobro ` +
+        "entró. El evento completo quedó guardado en `eventos_stripe`.",
+    });
+    return { corte: { tipo: "alta_sin_resolver", solicitud, motivo: "no_se_pudo" } };
+  }
+
+  return {
+    datos: { ...datos, ranchoId: nuevo.ranchoId, cuentaId: nuevo.cuentaId ?? datos.cuentaId },
+    creado: true,
   };
 }

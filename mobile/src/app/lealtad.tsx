@@ -1,75 +1,64 @@
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import { Colors, Fonts, Radios, Sombras, Spacing } from "@/constants/theme";
+import {
+  CATALOGO_RESPALDO,
+  catalogoInicial,
+  refrescarCatalogo,
+  type CatalogoConOrigen,
+  type PlanLealtad,
+} from "@/lib/planes-lealtad";
 
 /**
  * Bookea Lealtad en el app — espejo de /lealtad en la web. Es una
  * landing de venta B2B: le explica al dueño de un negocio qué es el
  * programa de clientes frecuentes, cómo funciona y cuánto cuesta.
  *
- * Antes esto abría el navegador desde la portada. Vive nativo porque
- * es una pantalla de venta y el salto al navegador la partía en dos:
- * el CTA ("quiero el programa") termina en /negocio/nuevo, que es una
- * pantalla del app — mandar a la persona afuera para devolverla
- * adentro perdía a la mitad en el camino.
- *
  * El bento de la web (bloques de color con esquinas redondas sobre
  * lienzo crema) se traduce a una columna de bloques: en un teléfono
- * las tres columnas de precios son tres tarjetas apiladas, y el
- * destacado se distingue por color, no por posición.
+ * los cuatro paquetes son cuatro tarjetas apiladas, y el destacado se
+ * distingue por color, no por posición.
  *
- * Si cambian los planes o los precios en la web, cambiarlos acá: son
- * dos proyectos npm independientes, en paridad a mano.
+ * ------------------------------------------------------------------
+ * LOS PRECIOS NO ESTÁN ACÁ, Y ESO ES EL PUNTO
+ * ------------------------------------------------------------------
+ * Acá vivía el catálogo escrito a mano, con un comentario que pedía
+ * mantenerlo al día contra la web. No se mantuvo: esta pantalla llegó
+ * a ofrecer un plan gratis PERMANENTE de 50 clientes (son 25, y son 14
+ * días), «Lealtad» a ₡12 900 (es Arranque, y son $12) y un paquete
+ * «Pro» a ₡24 900 que la web retiró hace dos catálogos. Tres precios
+ * falsos publicados en una tienda de aplicaciones.
+ *
+ * Ahora los paquetes se bajan de `GET /api/lealtad/planes`
+ * (`lib/planes-lealtad.ts`), que los saca de la única fuente de verdad
+ * —`src/lib/lealtad/planes.ts` de la web— y los deja cacheados. Un
+ * precio nuevo llega con un deploy del sitio, sin esperar la revisión
+ * de la App Store.
+ *
+ * ------------------------------------------------------------------
+ * POR QUÉ EL CTA SE VA AL NAVEGADOR
+ * ------------------------------------------------------------------
+ * Antes los dos botones mandaban a `/negocio/nuevo`, que NO puede
+ * abrir un programa de lealtad: ofrece eventos, citas y hospedajes, y
+ * no tiene ni paquete ni depósito. O sea que la pantalla vendía y
+ * después no dejaba comprar.
+ *
+ * El alta de verdad es `/lealtad/nuevo` en el sitio, y es un camino
+ * completo por sí solo: si no hay sesión crea la cuenta ahí mismo,
+ * después el negocio, el paquete y el depósito con comprobante.
+ * Rehacerlo nativo sería rehacer un flujo de PAGO de una suscripción
+ * digital dentro del app, que es justo lo que este proyecto ya decidió
+ * no hacer para las invitaciones (ver `lib/paquetes-invitaciones.ts`).
  */
 
-type Plan = {
-  nombre: string;
-  precio: string;
-  detalle: string;
-  incluye: string[];
-  destacado?: boolean;
-};
+const RUTA_ALTA = "/lealtad/nuevo";
+const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
-const PLANES: Plan[] = [
-  {
-    nombre: "Para empezar",
-    precio: "Gratis",
-    detalle: "Probalo con tus clientes de siempre",
-    incluye: [
-      "Tarjeta digital de sellos",
-      "Hasta 50 clientes afiliados",
-      "1 recompensa activa",
-      "Canje con QR en el local",
-    ],
-  },
-  {
-    nombre: "Lealtad",
-    precio: "₡12 900",
-    detalle: "por mes · precio de lanzamiento",
-    incluye: [
-      "Clientes y sellos ilimitados",
-      "Tarjeta en Apple Wallet y Google Wallet",
-      "Puntos por visita o por monto",
-      "Catálogo de recompensas ilimitado",
-      "El pase se actualiza solo al sumar puntos",
-    ],
-    destacado: true,
-  },
-  {
-    nombre: "Pro",
-    precio: "₡24 900",
-    detalle: "por mes · para multi-sucursal",
-    incluye: [
-      "Todo lo del plan Lealtad",
-      "Varias sucursales, un solo programa",
-      "Paquetes de membresía de pago",
-      "Reportes de visitas y canjes",
-      "Acompañamiento para arrancar",
-    ],
-  },
-];
+/** Cuántas viñetas se ven antes del «ver todo», igual que en la web. */
+const VISIBLES = 4;
 
 const PASOS: { paso: string; titulo: string; texto: string }[] = [
   {
@@ -108,10 +97,32 @@ const SELLOS_LLENOS = 7;
 const SELLOS_TOTAL = 10;
 
 export default function LealtadScreen() {
-  const router = useRouter();
+  // Arranca con el respaldo del bundle para que la sección de paquetes
+  // nunca se vea vacía ni salte de alto cuando llega la red.
+  const [datos, setDatos] = useState<CatalogoConOrigen>({
+    catalogo: CATALOGO_RESPALDO,
+    origen: "respaldo",
+  });
+
+  useEffect(() => {
+    let vigente = true;
+    void (async () => {
+      // Primero lo que ya está en el teléfono (instantáneo), después
+      // lo del sitio. Si la red no contesta, se queda lo primero.
+      const guardado = await catalogoInicial();
+      if (vigente) setDatos(guardado);
+      const fresco = await refrescarCatalogo();
+      if (vigente && fresco) setDatos({ catalogo: fresco, origen: "red" });
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  const { catalogo, origen } = datos;
 
   function empezar() {
-    router.push("/negocio/nuevo" as never);
+    void WebBrowser.openBrowserAsync(`${SITIO_URL}${RUTA_ALTA}`);
   }
 
   return (
@@ -166,8 +177,15 @@ export default function LealtadScreen() {
               </Text>
             </Text>
           </View>
+          {/* Acá abajo, en la nota de precios, esta pantalla decía que
+              los pases «están en fase de habilitación — los primeros
+              negocios en afiliarse los estrenan». Era falso y además se
+              contradecía con esta misma línea: Wallet está en
+              producción hace meses (src/lib/wallet, /api/pases,
+              /api/pases-google y /api/wallet/v1 en la web). Se sacó, y
+              lo que queda lo dice en presente, como la landing. */}
           <Text style={styles.bloqueNaranjaPie}>
-            La tarjeta vive en Apple Wallet y Google Wallet
+            Funciona en Apple Wallet y Google Wallet — sin apps que instalar
           </Text>
         </View>
 
@@ -213,77 +231,38 @@ export default function LealtadScreen() {
           </View>
         </View>
 
-        {/* ---------- Precios ---------- */}
+        {/* ---------- Paquetes ---------- */}
+        {/* El rótulo y el título son los de la web (/lealtad, sección
+            «Paquetes»). Antes decían «Precios de lanzamiento» y «Menos
+            que un combo al mes»: lo primero dejó de ser cierto hace dos
+            catálogos, y lo segundo nunca lo fue para los paquetes de
+            arriba. */}
         <View style={styles.precios}>
-          <Text style={styles.rotuloAccent}>Precios de lanzamiento</Text>
-          <Text style={styles.tituloSeccion}>Menos que un combo al mes</Text>
+          <Text style={styles.rotuloAccent}>Paquetes</Text>
+          <Text style={styles.tituloSeccion}>Elegí el tamaño de tu programa</Text>
           <Text style={styles.subtituloSeccion}>
-            Sin contratos ni permanencia mínima. Y si además tomás reservas con
-            Bookea, todo vive en el mismo panel.
+            Dejás la solicitud con tu depósito y el equipo de Bookea genera el
+            programa y la tarjeta por vos — con tus colores, tu logo y tu
+            regalía. Sin contratos ni permanencia mínima.
           </Text>
 
           <View style={styles.planes}>
-            {PLANES.map((plan) => (
-              <View
-                key={plan.nombre}
-                style={[styles.plan, plan.destacado && styles.planDestacado]}
-              >
-                <Text style={[styles.planNombre, plan.destacado && styles.planNombreDestacado]}>
-                  {plan.nombre}
-                </Text>
-                <Text style={[styles.planPrecio, plan.destacado && styles.planTextoClaro]}>
-                  {plan.precio}
-                </Text>
-                <Text style={[styles.planDetalle, plan.destacado && styles.planDetalleDestacado]}>
-                  {plan.detalle}
-                </Text>
-
-                <View style={styles.planLista}>
-                  {plan.incluye.map((item) => (
-                    <View key={item} style={styles.planFila}>
-                      <View
-                        style={[
-                          styles.planCheck,
-                          plan.destacado && styles.planCheckDestacado,
-                        ]}
-                      >
-                        <Ionicons
-                          name="checkmark"
-                          size={10}
-                          color={plan.destacado ? Colors.accent : Colors.green}
-                        />
-                      </View>
-                      <Text
-                        style={[styles.planItem, plan.destacado && styles.planTextoClaro]}
-                      >
-                        {item}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                <Pressable
-                  style={[styles.planBoton, plan.destacado && styles.planBotonDestacado]}
-                  onPress={empezar}
-                >
-                  <Text
-                    style={[
-                      styles.planBotonTexto,
-                      plan.destacado && styles.planBotonTextoDestacado,
-                    ]}
-                  >
-                    Empezar con{" "}
-                    {plan.nombre === "Para empezar" ? "el plan gratis" : plan.nombre}
-                  </Text>
-                </Pressable>
-              </View>
+            {catalogo.planes.map((plan) => (
+              <TarjetaPlan key={plan.id} plan={plan} onEmpezar={empezar} />
             ))}
           </View>
 
-          <Text style={styles.notaPie}>
-            Los pases de Apple Wallet y Google Wallet están en fase de
-            habilitación — los primeros negocios en afiliarse los estrenan.
-          </Text>
+          <Text style={styles.notaPie}>{catalogo.notaPago}</Text>
+
+          {/* El único caso en que los números de arriba podrían estar
+              viejos: instalación nueva, sin red y sin nada guardado.
+              Se dice, en vez de hacerlos pasar por los de hoy. */}
+          {origen === "respaldo" && (
+            <Text style={styles.notaSinRed}>
+              Sin conexión: estos paquetes son los que traía esta versión del
+              app. Confirmalos en bookea.lat/lealtad.
+            </Text>
+          )}
         </View>
 
         {/* ---------- Cierre ---------- */}
@@ -302,6 +281,100 @@ export default function LealtadScreen() {
           </Pressable>
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * Un paquete del catálogo.
+ *
+ * Todo lo que pinta viene del endpoint YA ESCRITO —el precio con su
+ * moneda, la línea del anual, el cupo de clientes, las viñetas—: esta
+ * pantalla no formatea un solo número. Es a propósito. En cuanto acá
+ * se decidiera cómo se escribe un monto, habría dos lugares donde un
+ * precio puede quedar mal escrito, y uno de los dos vive dentro de un
+ * bundle que solo cambia con una versión nueva del app.
+ *
+ * Muestra CUATRO viñetas y esconde el resto detrás de «ver todo», igual
+ * que `paquetes-cliente.tsx` en la web: con las diez de Ilimitado
+ * abiertas ninguna tarjeta se puede comparar con la de al lado.
+ */
+function TarjetaPlan({ plan, onEmpezar }: { plan: PlanLealtad; onEmpezar: () => void }) {
+  const [abierto, setAbierto] = useState(false);
+
+  // Con UNA sola de más no se corta: un «ver todo (+1)» que ahorra una
+  // línea es más ruido que la línea que esconde.
+  const corta = plan.incluye.length > VISIBLES + 1;
+  const ocultas = corta ? plan.incluye.length - VISIBLES : 0;
+  const lista = corta && !abierto ? plan.incluye.slice(0, VISIBLES) : plan.incluye;
+
+  return (
+    <View style={[styles.plan, plan.destacado && styles.planDestacado]}>
+      {plan.destacado && <Text style={styles.planCinta}>El más popular</Text>}
+
+      <Text style={[styles.planNombre, plan.destacado && styles.planNombreDestacado]}>
+        {plan.nombre}
+      </Text>
+
+      <Text style={[styles.planPrecio, plan.destacado && styles.planTextoClaro]}>
+        {plan.precio ?? "A convenir"}
+        {plan.precio !== null && !plan.esGratis && (
+          <Text style={[styles.planPorMes, plan.destacado && styles.planDetalleDestacado]}>
+            /mes
+          </Text>
+        )}
+      </Text>
+
+      <Text style={[styles.planDetalle, plan.destacado && styles.planDetalleDestacado]}>
+        {plan.notaPrecio}
+      </Text>
+
+      {/* El cupo de clientes va destacado y aparte de las viñetas: es
+          el número por el que se elige un paquete. */}
+      <View style={[styles.planCupo, plan.destacado && styles.planCupoDestacado]}>
+        <Text style={[styles.planCupoTexto, plan.destacado && styles.planTextoClaro]}>
+          {plan.etiquetaClientes}
+        </Text>
+      </View>
+
+      <View style={styles.planLista}>
+        {lista.map((item) => (
+          <View key={item} style={styles.planFila}>
+            <View style={[styles.planCheck, plan.destacado && styles.planCheckDestacado]}>
+              <Ionicons
+                name="checkmark"
+                size={10}
+                color={plan.destacado ? Colors.accent : Colors.green}
+              />
+            </View>
+            <Text style={[styles.planItem, plan.destacado && styles.planTextoClaro]}>
+              {item}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {ocultas > 0 && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setAbierto((v) => !v)}
+          style={styles.planVerTodo}
+        >
+          <Text style={[styles.planVerTodoTexto, plan.destacado && styles.planDetalleDestacado]}>
+            {abierto ? "Ver menos" : `Ver todo (+${ocultas})`}
+          </Text>
+        </Pressable>
+      )}
+
+      <Pressable
+        accessibilityRole="button"
+        style={[styles.planBoton, plan.destacado && styles.planBotonDestacado]}
+        onPress={onEmpezar}
+      >
+        <Text style={[styles.planBotonTexto, plan.destacado && styles.planBotonTextoDestacado]}>
+          {plan.esGratis ? "Empezar gratis" : plan.precio === null ? "Hablemos" : "Solicitarlo"}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -554,6 +627,14 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   planNombreDestacado: { color: Colors.accent },
+  planCinta: {
+    color: Colors.accent,
+    fontFamily: Fonts.extraBold,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
   planPrecio: {
     color: Colors.ink,
     fontFamily: Fonts.extraBold,
@@ -561,7 +642,24 @@ const styles = StyleSheet.create({
     letterSpacing: -0.9,
     marginTop: 4,
   },
+  planPorMes: { fontFamily: Fonts.bold, fontSize: 12.5 },
   planDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12 },
+  planCupo: {
+    backgroundColor: Colors.blueLight,
+    borderRadius: 8,
+    marginTop: Spacing.two,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  planCupoDestacado: { backgroundColor: "rgba(255,255,255,0.1)" },
+  planCupoTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12 },
+  planVerTodo: { alignSelf: "flex-start", marginTop: Spacing.two, paddingVertical: 4 },
+  planVerTodoTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.bold,
+    fontSize: 12,
+    textDecorationLine: "underline",
+  },
   planDetalleDestacado: { color: "rgba(255,255,255,0.7)" },
   planTextoClaro: { color: "#ffffff" },
   planLista: { gap: Spacing.two, marginTop: Spacing.three },
@@ -600,6 +698,14 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     lineHeight: 17,
     marginTop: Spacing.three,
+    textAlign: "center",
+  },
+  notaSinRed: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.bold,
+    fontSize: 11.5,
+    lineHeight: 17,
+    marginTop: Spacing.two,
     textAlign: "center",
   },
 

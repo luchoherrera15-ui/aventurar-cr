@@ -1,0 +1,424 @@
+import { describe, expect, it } from "vitest";
+import {
+  agruparHorarioRecurso,
+  calcularDisponibilidad,
+  diaDeSemana,
+  instanteEnZona,
+  rangosDelDia,
+  type ParametrosDisponibilidad,
+} from "./disponibilidad";
+
+/**
+ * PORTADO de src/lib/agenda/disponibilidad.test.ts de /web, tal cual.
+ *
+ * El motor de disponibilidad del app es un gemelo A MANO del de la web
+ * (no se puede importar: son dos proyectos npm distintos), y sin estas
+ * pruebas nada avisaba cuando los gemelos se separaban. Ya pasó: el app
+ * se quedó en una versión anterior a la 0109 y ofrecía menos horas que
+ * la web en los negocios con más de un cupo por recurso.
+ *
+ * Si agregás un caso acá, agregalo también allá.
+ *
+ * El motor es puro: acá se prueba con un negocio de mentira. El
+ * 2026-08-03 es lunes (dow 1); la zona es la de Costa Rica (UTC-6
+ * fijo, sin horario de verano).
+ */
+
+const LUNES = "2026-08-03";
+const ZONA = "America/Costa_Rica";
+
+function base(extra: Partial<ParametrosDisponibilidad> = {}): ParametrosDisponibilidad {
+  return {
+    fecha: LUNES,
+    zonaHoraria: ZONA,
+    // El negocio abre lunes de 9 a 12.
+    horarioNegocio: { "1": { abre: "09:00", cierra: "12:00" } },
+    recursos: [],
+    duracionMinutos: 60,
+    citas: [],
+    bloqueos: [],
+    ...extra,
+  };
+}
+
+describe("diaDeSemana e instanteEnZona", () => {
+  it("calcula el día de la semana sin depender de la zona del sistema", () => {
+    expect(diaDeSemana("2026-08-03")).toBe(1); // lunes
+    expect(diaDeSemana("2026-08-02")).toBe(0); // domingo
+  });
+
+  it("traduce un instante UTC a la hora de Costa Rica (UTC-6)", () => {
+    // 15:30Z = 09:30 en CR.
+    expect(instanteEnZona("2026-08-03T15:30:00Z", ZONA)).toEqual({
+      fecha: "2026-08-03",
+      minutos: 9 * 60 + 30,
+    });
+  });
+
+  /**
+   * El caso que rompía la agenda en producción: de 6 de la tarde en
+   * adelante, en Costa Rica ya es "mañana" para un reloj en UTC. Leer
+   * el reloj del aparato corría la tira de días un día entero y
+   * pintaba el negocio como cerrado. Por eso todo lo que se muestre
+   * parte del instante y de la zona DEL NEGOCIO.
+   */
+  it("a las 8 de la noche en CR el reloj UTC ya está en el día siguiente", () => {
+    // 2026-08-04T02:00Z: en UTC es martes 4; en CR, lunes 3 a las 20:00.
+    expect(instanteEnZona("2026-08-04T02:00:00Z", ZONA)).toEqual({
+      fecha: "2026-08-03",
+      minutos: 20 * 60,
+    });
+    expect(diaDeSemana(instanteEnZona("2026-08-04T02:00:00Z", ZONA).fecha)).toBe(1); // lunes
+  });
+});
+
+describe("horario y herencia", () => {
+  it("sin equipo, ofrece el horario del negocio cada 30 min", () => {
+    const r = calcularDisponibilidad(base());
+    // 9:00–12:00 con servicio de 60: el último arranque es 11:00.
+    expect(r.cualquiera).toEqual(["09:00", "09:30", "10:00", "10:30", "11:00"]);
+  });
+
+  it("un recurso sin horario propio hereda el del negocio", () => {
+    const r = calcularDisponibilidad(base({ recursos: [{ id: "ana", horario: null }] }));
+    expect(r.porRecurso.ana).toContain("09:00");
+    expect(r.porRecurso.ana).toContain("11:00");
+  });
+
+  it("el horario propio del recurso manda sobre el del negocio", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [
+          // Ana trabaja el lunes solo de 10 a 11 (aunque el negocio
+          // abra de 9 a 12).
+          { id: "ana", horario: { "1": [{ abre: "10:00", cierra: "11:00" }] } },
+        ],
+      }),
+    );
+    expect(r.porRecurso.ana).toEqual(["10:00"]);
+  });
+
+  it("soporta horario partido (mañana y tarde)", () => {
+    const r = calcularDisponibilidad(
+      base({
+        duracionMinutos: 30,
+        recursos: [
+          {
+            id: "ana",
+            horario: {
+              "1": [
+                { abre: "09:00", cierra: "10:00" },
+                { abre: "15:00", cierra: "16:00" },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    expect(r.porRecurso.ana).toEqual(["09:00", "09:30", "15:00", "15:30"]);
+  });
+
+  it("un día con horario propio vacío = ese día no trabaja", () => {
+    const r = calcularDisponibilidad(base({ recursos: [{ id: "ana", horario: { "1": [] } }] }));
+    expect(r.porRecurso.ana).toEqual([]);
+  });
+});
+
+describe("citas existentes y buffers", () => {
+  it("una cita ocupa su duración: ese espacio no se ofrece", () => {
+    const r = calcularDisponibilidad(
+      base({
+        duracionMinutos: 30,
+        citas: [{ miembroId: null, horaInicio: "10:00:00", duracionMinutos: 60 }],
+      }),
+    );
+    expect(r.cualquiera).not.toContain("10:00");
+    expect(r.cualquiera).not.toContain("10:30");
+    expect(r.cualquiera).toContain("09:30");
+    expect(r.cualquiera).toContain("11:00");
+  });
+
+  it("el buffer de la cita existente también bloquea", () => {
+    const r = calcularDisponibilidad(
+      base({
+        duracionMinutos: 30,
+        citas: [
+          // 10:00–10:30 + 30 de limpieza: hasta las 11:00 nada.
+          { miembroId: null, horaInicio: "10:00", duracionMinutos: 30, bufferMinutos: 30 },
+        ],
+      }),
+    );
+    expect(r.cualquiera).not.toContain("10:30");
+    expect(r.cualquiera).toContain("11:00");
+  });
+
+  it("el buffer del servicio consultado impide pegarse a la siguiente cita", () => {
+    const r = calcularDisponibilidad(
+      base({
+        duracionMinutos: 30,
+        bufferMinutos: 30,
+        citas: [{ miembroId: null, horaInicio: "10:00", duracionMinutos: 60 }],
+      }),
+    );
+    // 09:30 + 30 de servicio + 30 de buffer invade la cita de las 10.
+    expect(r.cualquiera).not.toContain("09:30");
+    expect(r.cualquiera).toContain("09:00");
+  });
+
+  it("las citas de una persona no estorban a la otra, y 'cualquiera' es la unión", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [
+          { id: "ana", horario: null },
+          { id: "beto", horario: null },
+        ],
+        citas: [{ miembroId: "ana", horaInicio: "09:00", duracionMinutos: 180 }],
+      }),
+    );
+    expect(r.porRecurso.ana).toEqual([]);
+    expect(r.porRecurso.beto).toContain("09:00");
+    expect(r.cualquiera).toContain("09:00");
+  });
+});
+
+describe("bloqueos", () => {
+  it("un bloqueo del negocio entero frena a todo el equipo", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [
+          { id: "ana", horario: null },
+          { id: "beto", horario: null },
+        ],
+        bloqueos: [
+          // 15:00Z–18:00Z = 09:00–12:00 CR: el día entero del negocio.
+          { miembroId: null, inicio: "2026-08-03T15:00:00Z", fin: "2026-08-03T18:00:00Z" },
+        ],
+      }),
+    );
+    expect(r.cualquiera).toEqual([]);
+  });
+
+  it("un bloqueo por recurso frena solo a ese recurso", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [
+          { id: "ana", horario: null },
+          { id: "beto", horario: null },
+        ],
+        bloqueos: [
+          { miembroId: "ana", inicio: "2026-08-03T15:00:00Z", fin: "2026-08-03T18:00:00Z" },
+        ],
+      }),
+    );
+    expect(r.porRecurso.ana).toEqual([]);
+    expect(r.porRecurso.beto?.length).toBeGreaterThan(0);
+  });
+
+  it("unas vacaciones de varios días cubren el día consultado completo", () => {
+    const r = calcularDisponibilidad(
+      base({
+        bloqueos: [
+          { miembroId: null, inicio: "2026-08-01T06:00:00Z", fin: "2026-08-10T06:00:00Z" },
+        ],
+      }),
+    );
+    expect(r.cualquiera).toEqual([]);
+  });
+
+  it("un bloqueo de otro día no afecta", () => {
+    const r = calcularDisponibilidad(
+      base({
+        bloqueos: [
+          { miembroId: null, inicio: "2026-08-04T15:00:00Z", fin: "2026-08-04T18:00:00Z" },
+        ],
+      }),
+    );
+    expect(r.cualquiera.length).toBeGreaterThan(0);
+  });
+});
+
+describe("cierre, intervalo y hoy", () => {
+  it("no ofrece espacios donde el servicio no cabe antes del cierre", () => {
+    const r = calcularDisponibilidad(base({ duracionMinutos: 120 }));
+    // 9:00–12:00 con 120 min: el último arranque posible es 10:00.
+    expect(r.cualquiera).toEqual(["09:00", "09:30", "10:00"]);
+  });
+
+  it("respeta un intervalo distinto (cada 15 min)", () => {
+    const r = calcularDisponibilidad(base({ duracionMinutos: 30, intervaloMinutos: 15 }));
+    expect(r.cualquiera).toContain("09:15");
+    expect(r.cualquiera).toContain("09:45");
+  });
+
+  it("hoy no ofrece horas que ya pasaron en la zona del negocio", () => {
+    const r = calcularDisponibilidad(
+      // 16:05Z = 10:05 CR: las 9, 9:30 y 10:00 ya pasaron.
+      base({ ahora: new Date("2026-08-03T16:05:00Z") }),
+    );
+    expect(r.cualquiera).toEqual(["10:30", "11:00"]);
+  });
+
+  it("una fecha ya pasada no ofrece nada", () => {
+    const r = calcularDisponibilidad(base({ ahora: new Date("2026-08-04T12:00:00Z") }));
+    expect(r.cualquiera).toEqual([]);
+  });
+});
+
+/**
+ * Anticipación mínima del servicio (0118). El motor no la inventa: la
+ * hace cumplir crear_cita en el servidor. Acá solo se corre el corte
+ * para no OFRECER un espacio que el RPC iba a rechazar.
+ */
+describe("anticipación mínima", () => {
+  it("sin anticipación se comporta igual que antes", () => {
+    const r = calcularDisponibilidad(
+      // 14:05Z = 8:05 CR, antes de abrir: el día entero está libre.
+      base({ ahora: new Date("2026-08-03T14:05:00Z"), anticipacionMinHoras: 0 }),
+    );
+    expect(r.cualquiera).toEqual(["09:00", "09:30", "10:00", "10:30", "11:00"]);
+  });
+
+  it("corre el corte las horas que pida el servicio", () => {
+    const r = calcularDisponibilidad(
+      // 8:05 CR + 2 h de anticipación = no antes de las 10:05.
+      base({ ahora: new Date("2026-08-03T14:05:00Z"), anticipacionMinHoras: 2 }),
+    );
+    expect(r.cualquiera).toEqual(["10:30", "11:00"]);
+  });
+
+  it("deja el día sin espacios si el margen se lo come entero", () => {
+    const r = calcularDisponibilidad(
+      base({ ahora: new Date("2026-08-03T14:05:00Z"), anticipacionMinHoras: 6 }),
+    );
+    expect(r.cualquiera).toEqual([]);
+  });
+
+  it("el margen cruza la medianoche y sigue mordiendo el día siguiente", () => {
+    // Lunes 8:05 CR + 26 h cae el martes a las 10:05, así que el
+    // martes solo quedan las 10:30 y las 11:00.
+    const r = calcularDisponibilidad(
+      base({
+        fecha: "2026-08-04", // martes
+        horarioNegocio: { "2": { abre: "09:00", cierra: "12:00" } },
+        ahora: new Date("2026-08-03T14:05:00Z"),
+        anticipacionMinHoras: 26,
+      }),
+    );
+    expect(r.cualquiera).toEqual(["10:30", "11:00"]);
+  });
+
+  it("un día lo bastante lejos no lo toca el margen", () => {
+    const r = calcularDisponibilidad(
+      base({
+        fecha: "2026-08-10", // lunes siguiente
+        ahora: new Date("2026-08-03T14:05:00Z"),
+        anticipacionMinHoras: 26,
+      }),
+    );
+    expect(r.cualquiera).toEqual(["09:00", "09:30", "10:00", "10:30", "11:00"]);
+  });
+});
+
+/**
+ * La convención de herencia que comparten el motor, el armado de las
+ * filas de horarios_recurso y el RPC crear_cita (migración 0081):
+ * clave presente = ese día MANDA el horario propio (aunque esté
+ * vacío); clave ausente = hereda el del negocio.
+ */
+describe("agruparHorarioRecurso y rangosDelDia", () => {
+  it("sin filas devuelve null: el recurso hereda todo el horario del negocio", () => {
+    expect(agruparHorarioRecurso([])).toBeNull();
+  });
+
+  it("agrupa por día y recorta los segundos de las horas de Postgres", () => {
+    const h = agruparHorarioRecurso([
+      { dow: 1, abre: "09:00:00", cierra: "12:00:00" },
+      { dow: 1, abre: "14:00:00", cierra: "18:00:00" },
+      { dow: 3, abre: "08:00:00", cierra: "16:00:00" },
+    ]);
+    expect(h).toEqual({
+      "1": [
+        { abre: "09:00", cierra: "12:00" },
+        { abre: "14:00", cierra: "18:00" },
+      ],
+      "3": [{ abre: "08:00", cierra: "16:00" }],
+    });
+  });
+
+  it("un día con filas manda; un día sin filas hereda al negocio", () => {
+    const negocio = { "1": { abre: "09:00", cierra: "12:00" } };
+    const recurso = {
+      id: "r1",
+      horario: agruparHorarioRecurso([{ dow: 1, abre: "14:00:00", cierra: "18:00:00" }]),
+    };
+    // Lunes (dow 1): tiene filas propias → mandan las suyas.
+    expect(rangosDelDia(recurso, 1, negocio)).toEqual([{ inicio: 840, fin: 1080 }]);
+    // Martes (dow 2): sin filas propias → hereda (y el negocio cierra).
+    expect(rangosDelDia(recurso, 2, negocio)).toEqual([]);
+  });
+
+  it("sin recurso, rige el horario del negocio", () => {
+    const negocio = { "1": { abre: "09:00", cierra: "12:00" } };
+    expect(rangosDelDia(null, 1, negocio)).toEqual([{ inicio: 540, fin: 720 }]);
+    expect(rangosDelDia(null, 2, negocio)).toEqual([]);
+  });
+});
+
+/**
+ * El caso que el RPC crear_cita también contempla (0081): un negocio
+ * SIN equipo activo es un recurso único y choca contra TODAS sus
+ * citas — incluidas las que quedaron con el miembro_id de alguien que
+ * después se desactivó.
+ */
+describe("negocio sin equipo como recurso único", () => {
+  it("una cita con miembro_id sigue bloqueando cuando ya no hay equipo", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [],
+        citas: [{ miembroId: "quien-se-fue", horaInicio: "09:00:00", duracionMinutos: 60 }],
+      }),
+    );
+    expect(r.cualquiera).not.toContain("09:00");
+    expect(r.cualquiera).toContain("10:00");
+  });
+});
+
+/**
+ * Los compromisos que el sync .ics trae del calendario del dueño
+ * (migración 0072) entran como citas SIN miembro: son del negocio
+ * entero y tienen que tapar la franja de TODO el equipo. El RPC
+ * crear_cita (0081) aplica la misma regla en franja_chocada.
+ */
+describe("citas del negocio entero (sin miembro)", () => {
+  it("una cita sin miembro tapa esa hora para todo el equipo", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [
+          { id: "ana", horario: null },
+          { id: "bea", horario: null },
+        ],
+        citas: [{ miembroId: null, horaInicio: "10:00:00", duracionMinutos: 60 }],
+      }),
+    );
+    expect(r.porRecurso.ana).not.toContain("10:00");
+    expect(r.porRecurso.bea).not.toContain("10:00");
+    expect(r.cualquiera).not.toContain("10:00");
+    // Y no tapa de más: las 9 siguen libres para las dos.
+    expect(r.porRecurso.ana).toContain("09:00");
+    expect(r.porRecurso.bea).toContain("09:00");
+  });
+
+  it("la cita de una persona sigue sin estorbarle a la otra", () => {
+    const r = calcularDisponibilidad(
+      base({
+        recursos: [
+          { id: "ana", horario: null },
+          { id: "bea", horario: null },
+        ],
+        citas: [{ miembroId: "ana", horaInicio: "10:00:00", duracionMinutos: 60 }],
+      }),
+    );
+    expect(r.porRecurso.ana).not.toContain("10:00");
+    expect(r.porRecurso.bea).toContain("10:00");
+  });
+});

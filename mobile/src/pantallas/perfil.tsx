@@ -518,6 +518,8 @@ type StatsPerfil = {
   negocios: number;
   vecesContratado: number;
   calificacion: number | null;
+  /** true = alguno de sus negocios tiene el programa de lealtad. */
+  lealtadActiva: boolean;
 };
 
 function PerfilVista({
@@ -590,18 +592,31 @@ function PerfilVista({
       const negocioIds = (negociosRes.data ?? []).map((r) => r.id as string);
       let vecesContratado = 0;
       let calificacion: number | null = null;
+      let lealtadActiva = false;
       if (negocioIds.length > 0) {
-        const [{ count: contratadoCount }, { data: califs }] = await Promise.all([
-          supabase
-            .from("reservas")
-            .select("id", { count: "exact", head: true })
-            .in("rancho_id", negocioIds)
-            .eq("estado", "confirmada"),
-          supabase
-            .from("calificaciones_rancho")
-            .select("promedio, total")
-            .in("rancho_id", negocioIds),
-        ]);
+        const [{ count: contratadoCount }, { data: califs }, { data: conLealtad }] =
+          await Promise.all([
+            supabase
+              .from("reservas")
+              .select("id", { count: "exact", head: true })
+              .in("rancho_id", negocioIds)
+              .eq("estado", "confirmada"),
+            supabase
+              .from("calificaciones_rancho")
+              .select("promedio, total")
+              .in("rancho_id", negocioIds),
+            // ¿Alguno tiene el programa contratado? Con uno alcanza: la
+            // tarjeta lleva al panel y ahí se elige cuál. Es la MISMA
+            // consulta que hace /cuenta en la web (`cuenta/page.tsx`),
+            // para que las dos decidan igual.
+            supabase
+              .from("addons_negocio")
+              .select("rancho_id")
+              .in("rancho_id", negocioIds)
+              .eq("addon", "lealtad")
+              .eq("activo", true)
+              .limit(1),
+          ]);
         vecesContratado = contratadoCount ?? 0;
         const filas = (califs ?? []) as { promedio: number; total: number }[];
         const totalResenas = filas.reduce((acc, c) => acc + c.total, 0);
@@ -609,6 +624,7 @@ function PerfilVista({
           totalResenas > 0
             ? filas.reduce((acc, c) => acc + c.promedio * c.total, 0) / totalResenas
             : null;
+        lealtadActiva = (conLealtad ?? []).length > 0;
       }
 
       if (!vigente) return;
@@ -619,6 +635,7 @@ function PerfilVista({
         negocios: negocioIds.length,
         vecesContratado,
         calificacion,
+        lealtadActiva,
       });
     })();
     return () => {
@@ -748,9 +765,26 @@ function PerfilVista({
           </Pressable>
         )}
 
+        {/* ── DE QUÉ LADO VA LEALTAD ────────────────────────────────
+            Estaba en el modo CLIENTE, y ahí no le servía a nadie:
+            /lealtad es una landing de venta B2B —«quiero el programa
+            en MI negocio»— puesta enfrente de alguien que entró a ver
+            sus reservas.
+
+            No se reemplazó por «tus tarjetas» porque esa pantalla no
+            existe ni debería: la tarjeta del cliente vive en Apple
+            Wallet y Google Wallet, que es literalmente lo que el
+            producto promete («sin apps que instalar»). Una lista de
+            tarjetas dentro de Bookea sería una segunda cartera peor
+            que la del sistema operativo, contradiciendo la venta.
+
+            Ahora vive en MODO NEGOCIO, igual que en la web
+            (`cuenta/tablero-modos.tsx`), y con el mismo desvío: quien
+            YA tiene el programa entra a su panel; quien no, a la
+            pantalla que se lo explica. */}
         {!modoNegocio ? (
           <>
-            {/* MODO NORMAL: Invitaciones, Lealtad y Sitio web */}
+            {/* MODO NORMAL: Invitaciones y Sitio web */}
             <View style={styles.grid}>
               <TarjetaAccion
                 icono="mail-outline"
@@ -758,14 +792,6 @@ function PerfilVista({
                 detalle="Tus eventos y fotos"
                 onPress={() => router.push("/invitaciones" as never)}
               />
-              <TarjetaAccion
-                icono="ribbon-outline"
-                titulo="Lealtad"
-                detalle="Clientes que vuelven"
-                onPress={() => router.push("/lealtad" as never)}
-              />
-            </View>
-            <View style={styles.grid}>
               <TarjetaAccion
                 icono="globe-outline"
                 titulo="Sitio web"
@@ -776,7 +802,7 @@ function PerfilVista({
           </>
         ) : (
           <>
-            {/* MODO NEGOCIO: Mis publicaciones, Finanzas y Chat */}
+            {/* MODO NEGOCIO: Mis publicaciones, Finanzas y Lealtad */}
             <View style={styles.grid}>
               <TarjetaAccion
                 icono="storefront-outline"
@@ -790,6 +816,25 @@ function PerfilVista({
                 titulo="Finanzas"
                 detalle="Ingresos y pagos"
                 onPress={() => router.push("/negocio" as never)}
+              />
+            </View>
+            <View style={styles.grid}>
+              {/* Sale SIEMPRE, tenga o no el programa: si solo se viera
+                  una vez contratado, nadie se enteraría de que existe.
+                  Con programa abre el panel en el navegador —el panel
+                  de lealtad no tiene versión nativa todavía— y sin
+                  programa se queda adentro, en la pantalla de venta. */}
+              <TarjetaAccion
+                icono="ribbon-outline"
+                titulo="Programa de lealtad"
+                detalle={
+                  stats?.lealtadActiva ? "Sellos, puntos y pases" : "Clientes que vuelven"
+                }
+                onPress={() =>
+                  stats?.lealtadActiva
+                    ? WebBrowser.openBrowserAsync(`${SITIO_URL}/lealtad/entrar`)
+                    : router.push("/lealtad" as never)
+                }
               />
             </View>
           </>

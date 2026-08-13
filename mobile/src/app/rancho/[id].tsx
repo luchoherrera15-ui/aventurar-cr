@@ -180,7 +180,14 @@ export default function RanchoDetalleScreen() {
   const terminos =
     rancho.terminos && rancho.terminos.length > 0
       ? rancho.terminos
-      : terminosPorDefecto(rancho.deposito_reserva ?? 25000, rancho.monto_minimo);
+      : // La vertical manda: esta ficha no filtra por vertical, así que
+        // un negocio de citas caía en el contrato de eventos (daños a
+        // las instalaciones, tipo de evento, invitados) en vez del suyo.
+        terminosPorDefecto(
+          rancho.deposito_reserva ?? 25000,
+          rancho.monto_minimo,
+          rancho.vertical ?? "eventos",
+        );
 
   // No tiene sentido chatear con tu propio negocio — mismo check que
   // el fix de `rancho-portal.tsx` en la web (comparar owner_id, nunca

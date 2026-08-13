@@ -117,6 +117,12 @@ exista.
 
 ## 7. La prueba de punta a punta
 
+Hay **dos** lugares donde se cobra con tarjeta, y conviene probar los
+dos: el panel de un negocio que ya tiene el módulo, y la página de
+paquetes, que es donde compra el cliente nuevo.
+
+### 7.1 El que YA tiene el módulo (upgrade)
+
 1. Con las llaves de **test**, entrar a `/lealtad/panel/<negocio>`,
    sección **Plan y facturación**, y tocar «Pagar».
 2. Pagar con la tarjeta de prueba `4242 4242 4242 4242`, cualquier
@@ -127,9 +133,25 @@ exista.
    figurar con respuesta **200**.
 5. Recargar el panel: el paquete tiene que ser el nuevo.
 
-Si el paso 4 muestra **400**, el signing secret no coincide. Si muestra
-**500**, falta la migración o falla la base — el detalle está en los
-logs de Vercel.
+### 7.2 El que TODAVÍA NO TIENE NADA (el caso que más importa)
+
+1. Con una cuenta sin ningún negocio, entrar a `/lealtad/planes`,
+   elegir un paquete de pago y tocar «Llevar este plan».
+2. Escribir el nombre del negocio en «¿Cómo se llama tu negocio?» y
+   tocar «Pagar … por mes».
+3. Pagar con `4242 4242 4242 4242`.
+4. Al volver, la página dice que el pago entró y que el programa queda
+   listo en unos segundos.
+5. Entrar a `/lealtad/panel`: el negocio tiene que estar ahí, con su
+   paquete y con el módulo encendido.
+
+**Y la prueba que de verdad importa**: cerrar el Checkout SIN pagar (paso
+3) y comprobar que en `/lealtad/panel` **no aparece ningún negocio**. El
+negocio se crea con el cobro confirmado, nunca antes.
+
+Si el paso 4 de 7.1 muestra **400**, el signing secret no coincide. Si
+muestra **500**, falta la migración o falla la base — el detalle está en
+los logs de Vercel.
 
 ---
 
@@ -154,6 +176,37 @@ logs de Vercel.
   cliente en el mostrador. La baja la decide una persona desde
   `/admin/complementos`.
 
-Archivos: `src/lib/pagos/` (precios, cliente, motor del webhook),
-`src/app/api/stripe/webhook/route.ts` (el endpoint),
-`src/app/lealtad/panel/[id]/suscripcion-actions.ts` (Checkout y Portal).
+### El cobro de alguien que todavía no tiene negocio
+
+Es el caso de `/lealtad/planes`, y el orden es **cobrar primero, crear
+después**:
+
+1. La persona elige paquete y escribe el nombre de su negocio.
+2. El servidor deja una **solicitud de alta** (`solicitudes_lealtad`
+   sin rancho — la forma de la 0130), firmada con su id de usuario, y
+   manda su id a Stripe en `metadata.solicitud_id`.
+3. **El negocio no existe todavía.** Si el pago se abandona, no queda
+   ningún rancho: solo una solicitud pendiente, que es exactamente lo
+   que ya pasa con el SINPE.
+4. Cuando llega el evento firmado y la suscripción está al día, el
+   webhook crea el negocio con la misma función que usa el botón
+   «Aceptar» de `/admin/complementos`
+   (`src/lib/lealtad/alta-desde-solicitud.ts`), le escribe el paquete y
+   enciende el complemento.
+
+La solicitud se **reserva con un UPDATE condicional** antes de crear
+nada, porque `checkout.session.completed` y
+`customer.subscription.created` llegan casi juntos con el mismo
+`solicitud_id`: sin esa reserva, la persona terminaría con dos negocios.
+
+> Mientras el cobro está en curso, la solicitud aparece en
+> `/admin/complementos` con el texto **«PAGO CON TARJETA EN CURSO — no
+> aprobar a mano»**. Aprobarla desde ahí regalaría el paquete que la
+> persona está justo pagando.
+
+Archivos: `src/lib/pagos/` (precios, cliente, Checkout, motor del
+webhook), `src/app/api/stripe/webhook/route.ts` (el endpoint),
+`src/app/lealtad/panel/[id]/suscripcion-actions.ts` (upgrade y Portal),
+`src/app/lealtad/planes/pago-actions.ts` (la compra del cliente nuevo),
+`src/lib/lealtad/alta-desde-solicitud.ts` (la solicitud se vuelve
+negocio).

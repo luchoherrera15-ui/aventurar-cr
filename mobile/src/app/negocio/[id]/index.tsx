@@ -126,10 +126,37 @@ export default function PanelNegocioScreen() {
     setRefrescando(false);
   }
 
-  /** Aprobar o rechazar una reserva que espera respuesta. */
+  /**
+   * Aprobar o rechazar una reserva que espera respuesta.
+   *
+   * Gemelo de `confirmarReserva` / `cancelarReserva` de la web
+   * (src/app/mi-negocio/[id]/agenda-actions.ts): mismos DOS filtros y
+   * la misma marca de tiempo al cancelar.
+   *
+   * - `.eq("rancho_id")` va SOBRE la RLS, no en su lugar: el id sale
+   *   de la pantalla, así que la pertenencia se exige también en la
+   *   ESCRITURA y no queda solo en manos de la política.
+   * - El filtro por estado PREVIO evita que un doble toque reviva una
+   *   reserva ya rechazada.
+   */
   async function cambiarEstado(reserva: ReservaPanel, estado: "confirmada" | "rechazada") {
     setOcupado(reserva.id);
-    const { error } = await supabase.from("reservas").update({ estado }).eq("id", reserva.id);
+    const cambio = supabase
+      .from("reservas")
+      .update(
+        estado === "confirmada"
+          ? { estado }
+          : // Cancelar deja constancia de CUÁNDO: sin `cancelada_en`
+            // no hay forma de saber en qué semana se cayó la reserva.
+            { estado, cancelada_en: new Date().toISOString() },
+      )
+      .eq("id", reserva.id)
+      .eq("rancho_id", id);
+    const { data, error } =
+      estado === "confirmada"
+        ? await cambio.eq("estado", "pendiente").select("id")
+        : // Solo lo que todavía ocupa el día.
+          await cambio.in("estado", ["pendiente", "confirmada", "bloqueada"]).select("id");
     setOcupado(null);
 
     if (error) {
@@ -139,6 +166,15 @@ export default function PanelNegocioScreen() {
           ? "Ya hay otra reserva confirmada para esa misma fecha."
           : error.message,
       );
+      return;
+    }
+    // Cero filas tocadas: el estado previo ya no era el que esta
+    // pantalla creía (otro dispositivo la movió, o fue un doble
+    // toque). Se recarga en vez de pintar un estado que la base no
+    // tiene.
+    if ((data ?? []).length === 0) {
+      Alert.alert("No se pudo", "Esa reserva ya había cambiado de estado.");
+      await cargar();
       return;
     }
     setReservas((prev) => (prev ?? []).map((r) => (r.id === reserva.id ? { ...r, estado } : r)));
@@ -169,10 +205,15 @@ export default function PanelNegocioScreen() {
         text: "Quitar",
         onPress: async () => {
           setOcupado(reserva.id);
+          // Los mismos dos filtros que `cambiarEstado`: pertenencia en
+          // la escritura, y solo desde 'confirmada' — así un toque
+          // repetido no devuelve a "por aceptar" algo ya rechazado.
           const { error } = await supabase
             .from("reservas")
             .update({ estado: "pendiente" })
-            .eq("id", reserva.id);
+            .eq("id", reserva.id)
+            .eq("rancho_id", id)
+            .eq("estado", "confirmada");
           setOcupado(null);
           if (!error) {
             setReservas((prev) =>

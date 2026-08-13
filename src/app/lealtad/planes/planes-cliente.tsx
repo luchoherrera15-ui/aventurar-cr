@@ -42,15 +42,25 @@ export default function PlanesCliente({
   negocioInicial,
   conSesion,
   pago,
+  conTarjeta,
 }: {
   planes: TarjetaPlan[];
   negocios: NegocioElegible[];
   negocioInicial: string | null;
   conSesion: boolean;
   pago: DatosPago;
+  /**
+   * Qué paquetes se pueden pagar con tarjeta y con qué períodos. Lo
+   * calcula el servidor leyendo las variables STRIPE_PRICE_… — lista
+   * vacía = no hay Stripe y esta pantalla es la de siempre, solo SINPE.
+   */
+  conTarjeta: { plan: string; periodos: string[] }[];
 }) {
   const [elegido, setElegido] = useState<string | null>(null);
   const plan = planes.find((p) => p.id === elegido) ?? null;
+  const periodosConTarjeta = plan
+    ? (conTarjeta.find((c) => c.plan === plan.id)?.periodos ?? [])
+    : [];
 
   return (
     <div>
@@ -113,7 +123,9 @@ export default function PlanesCliente({
                   ? "Elegido ↓"
                   : p.esGratis
                     ? "Empezar gratis"
-                    : "Solicitar este plan"}
+                    : conTarjeta.some((c) => c.plan === p.id)
+                      ? "Llevar este plan"
+                      : "Solicitar este plan"}
               </button>
             ) : (
               <Link
@@ -139,6 +151,7 @@ export default function PlanesCliente({
             negocios={negocios}
             negocioInicial={negocioInicial}
             pago={pago}
+            periodosConTarjeta={periodosConTarjeta}
             alCerrar={() => setElegido(null)}
           />
         </div>
