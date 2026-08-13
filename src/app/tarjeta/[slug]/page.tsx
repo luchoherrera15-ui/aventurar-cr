@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
 import { coloresDe, metaDeSellos, type ConfigPase } from "@/lib/wallet/tarjeta";
+import { credencialesGoogleDelEntorno } from "@/lib/wallet/google";
 
 /**
  * LA PUERTA DEL CLIENTE: acá es donde alguien consigue su tarjeta de
@@ -134,10 +135,26 @@ export default async function TarjetaPublicaPage({
             >
                Agregar a Apple Wallet
             </a>
-            <p className="mt-3 text-[12px] text-white/40">
-              Abrilo desde tu iPhone para que Wallet lo agregue directo. Google Wallet
-              llega pronto.
-            </p>
+            {credencialesGoogleDelEntorno() ? (
+              <>
+                {/* Android: el endpoint redirige al link de guardado
+                    firmado y Google Wallet abre con la tarjeta lista. */}
+                <a
+                  href={`/api/pases-google/${negocio.id}`}
+                  className="mt-3 inline-block w-full rounded-full border border-white/30 px-7 py-3.5 text-[15px] font-bold text-white transition-transform hover:scale-[1.02]"
+                >
+                  Guardar en Google Wallet
+                </a>
+                <p className="mt-3 text-[12px] text-white/40">
+                  iPhone o Android: la tarjeta vive en tu teléfono y se actualiza sola.
+                </p>
+              </>
+            ) : (
+              <p className="mt-3 text-[12px] text-white/40">
+                Abrilo desde tu iPhone para que Wallet lo agregue directo. Google Wallet
+                llega pronto.
+              </p>
+            )}
           </>
         ) : (
           <div className="mt-6 rounded-2xl bg-white p-6 text-left">

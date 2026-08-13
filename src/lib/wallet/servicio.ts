@@ -107,11 +107,25 @@ export async function avisarCambioDePase(miembroId: string): Promise<void> {
 
   const { data: pases } = await db
     .from("pases_wallet")
-    .select("serial_number")
-    .eq("miembro_id", miembroId)
-    .eq("plataforma", "apple");
+    .select("serial_number, plataforma")
+    .eq("miembro_id", miembroId);
 
-  await avisarSeriales((pases ?? []).map((p) => p.serial_number as string));
+  const filas = pases ?? [];
+
+  await avisarSeriales(
+    filas.filter((p) => p.plataforma === "apple").map((p) => p.serial_number as string),
+  );
+
+  // Google no tiene push propio: el PATCH del objeto ES la
+  // actualización, y los teléfonos se enteran solos. Nunca lanza.
+  if (filas.some((p) => p.plataforma === "google")) {
+    try {
+      const { refrescarPaseGoogleDeMiembro } = await import("./google");
+      await refrescarPaseGoogleDeMiembro(miembroId);
+    } catch (e) {
+      console.warn("[wallet] No se pudo refrescar el pase de Google:", e);
+    }
+  }
 }
 
 /** Igual que la anterior, pero cuando ya se tiene el serial a mano. */
