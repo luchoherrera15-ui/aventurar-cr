@@ -65,6 +65,7 @@ export default async function PlanesLealtadPage({
       id,
       nombre: def.nombre,
       limite: def.limiteMiembros,
+      precio: def.precioMensual,
       beneficios: def.capacidades.map((c) => ETIQUETAS_CAPACIDAD[c]),
       destacado: id === "enterprise",
     };

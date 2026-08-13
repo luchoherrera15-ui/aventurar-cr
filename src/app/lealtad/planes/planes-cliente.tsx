@@ -21,6 +21,8 @@ export type TarjetaPlan = {
   id: string;
   nombre: string;
   limite: number | null;
+  /** Colones por mes; null = sin precio publicado todavía. */
+  precio: number | null;
   beneficios: string[];
   destacado: boolean;
 };
@@ -59,6 +61,12 @@ export default function PlanesCliente({
               </span>
             )}
             <h2 className="text-[18px] font-extrabold text-white">{p.nombre}</h2>
+            {p.precio !== null && (
+              <p className="mt-1 text-[26px] font-extrabold leading-none text-white">
+                ₡{p.precio.toLocaleString("es-CR")}
+                <span className="text-[13px] font-bold text-white/50"> /mes</span>
+              </p>
+            )}
             <p className="mt-0.5 text-[12.5px] text-white/55">
               Hasta {p.limite === null ? "miembros ilimitados" : `${p.limite.toLocaleString("es-CR")} miembros`}
             </p>
@@ -104,6 +112,7 @@ export default function PlanesCliente({
             key={plan.id}
             plan={plan.id}
             planNombre={plan.nombre}
+            precio={plan.precio}
             negocios={negocios}
             negocioInicial={negocioInicial}
             pago={pago}

@@ -53,6 +53,12 @@ export type DefinicionPlan = {
   nombre: string;
   /** Tope de miembros. null = sin tope. */
   limiteMiembros: number | null;
+  /**
+   * Colones por mes. null = todavía sin definir por el dueño de la
+   * plataforma: las pantallas simplemente no muestran precio (nunca se
+   * inventa una cifra que después haya que cobrar).
+   */
+  precioMensual: number | null;
   capacidades: readonly Capacidad[];
 };
 
@@ -66,6 +72,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     id: "basico",
     nombre: "Básico",
     limiteMiembros: 500,
+    precioMensual: null,
     // Lo mínimo que hace útil una tarjeta: existe, acumula y se canjea.
     // Sin push, sin cercanía y sin segmentación — que es justo lo que
     // hace que valga la pena subir de plan.
@@ -75,6 +82,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     id: "estandar",
     nombre: "Estándar",
     limiteMiembros: 2500,
+    precioMensual: null,
     capacidades: [
       "wallet",
       "notificaciones",
@@ -87,6 +95,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     id: "enterprise",
     nombre: "Enterprise",
     limiteMiembros: 5000,
+    precioMensual: null,
     capacidades: [
       "wallet",
       "notificaciones",

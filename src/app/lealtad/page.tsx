@@ -47,6 +47,7 @@ const PAQUETES = PLANES_ID.map((id) => {
     id,
     nombre: def.nombre,
     limite: def.limiteMiembros,
+    precio: def.precioMensual,
     incluye: def.capacidades.map((c) => ETIQUETAS_CAPACIDAD[c]),
     destacado: id === "enterprise",
   };
@@ -470,6 +471,12 @@ export default function LealtadPage() {
                 <p className="titulo mt-2 text-[36px] leading-none tracking-tight text-white">
                   {plan.nombre}
                 </p>
+                {plan.precio !== null && (
+                  <p className="mt-2 text-[22px] font-extrabold leading-none text-white">
+                    ₡{plan.precio.toLocaleString("es-CR")}
+                    <span className="text-[13px] font-bold text-white/50"> /mes</span>
+                  </p>
+                )}
                 <p className="mt-1.5 text-[12.5px] text-white/50">
                   Hasta {plan.limite === null ? "miembros ilimitados" : `${plan.limite.toLocaleString("es-CR")} miembros`}
                 </p>

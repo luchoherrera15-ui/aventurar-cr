@@ -27,6 +27,7 @@ export type DatosPago = {
 export default function FormularioSolicitud({
   plan,
   planNombre,
+  precio,
   negocios,
   negocioInicial,
   pago,
@@ -34,6 +35,8 @@ export default function FormularioSolicitud({
 }: {
   plan: string;
   planNombre: string;
+  /** Colones del primer mes; null = todavía sin precio publicado. */
+  precio: number | null;
   negocios: NegocioElegible[];
   negocioInicial: string | null;
   pago: DatosPago;
@@ -146,6 +149,9 @@ export default function FormularioSolicitud({
           <div className="rounded-xl border border-white/15 bg-[#0f1930] p-3.5">
             <p className="text-[12px] font-bold uppercase tracking-wide text-white/50">
               1 · Hacé el depósito
+              {precio !== null && (
+                <span className="text-white"> de ₡{precio.toLocaleString("es-CR")} (primer mes)</span>
+              )}
             </p>
             <div className="mt-2 flex gap-1.5">
               {(["sinpe", "transferencia"] as const).map((m) => (
