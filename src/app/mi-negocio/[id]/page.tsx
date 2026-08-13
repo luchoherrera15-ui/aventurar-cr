@@ -1282,16 +1282,14 @@ export default async function RanchoDetallePage({
       ? [{ ...tabCatalogo, grupo: "gestion" as const }]
       : []),
     ...(modulos.has("pagos") ? [{ ...tabFinanzas, grupo: "finanzas" as const }] : []),
-    // Lealtad ya NO vive acá: tiene su propia interfaz en
-    // /lealtad/panel/[id] (dashboard navy, tabs, roles y auditoría).
-    // Este ítem es solo la puerta — con `href`, como "Citas".
-    {
-      id: "pases",
-      label: "Lealtad",
-      href: `/lealtad/panel/${rancho.id}`,
-      icon: <IconSparkles />,
-      grupo: "gestion" as const,
-    } satisfies Tab,
+    // Lealtad NO aparece acá, y es a propósito: es un producto aparte,
+    // con su propia cuenta (0134), su propio plan y su propia puerta en
+    // /lealtad. Un negocio puede tener Lealtad sin estar en el
+    // marketplace, y al revés.
+    //
+    // El atajo que había acá contradecía eso: hacía ver a Lealtad como
+    // una pestaña más de la ficha del marketplace, y colaba el id del
+    // RANCHO en una URL que ya no es la fuente de verdad.
     { ...(esVerticalCitas ? tabConfig : tabConfigEventos), grupo: "config" },
   ];
 

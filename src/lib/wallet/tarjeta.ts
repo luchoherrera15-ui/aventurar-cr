@@ -6,7 +6,18 @@
  * pasa los datos ya leídos, y esto decide qué dice la tarjeta.
  */
 
-export type ModoPrograma = "sellos" | "cashback" | "puntos";
+import type { ConfigBeneficio, TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+
+/**
+ * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
+ * eran tres formas de presentar el mismo saldo (0121); hoy son ocho
+ * tipos de tarjeta distintos y el catálogo vive en
+ * `src/lib/lealtad/tipos-tarjeta.ts`.
+ *
+ * Se mantiene el alias en vez de renombrar 14 archivos de una sentada,
+ * pero es UN solo tipo: no hay dos listas que se puedan separar.
+ */
+export type ModoPrograma = TipoTarjeta;
 
 /** Lo que la 0121/0122 guardan por negocio. */
 export type ConfigPase = {
@@ -37,6 +48,12 @@ export type DatosTarjeta = {
   authToken?: string | null;
   /** Base del Web Service, sin el `/v1`. Apple se lo agrega. */
   webServiceUrl?: string | null;
+  /**
+   * La configuración propia del tipo (0135). Opcional: un programa
+   * guardado antes de la 0135 no la tiene, y la tarjeta se sigue
+   * dibujando con lo genérico en vez de quedar en blanco.
+   */
+  beneficio?: ConfigBeneficio | null;
 };
 
 /** Navy de Bookea, para el negocio que no eligió colores. */
@@ -100,6 +117,65 @@ export function camposSegunModo(datos: DatosTarjeta): CamposTarjeta {
       encabezado: { label: "SALDO", value: `₡${datos.saldo.toLocaleString("es-CR")}` },
       detalle: { label: "ACUMULADO", value: "Se descuenta en tu próxima compra" },
       regalia: datos.meta ? { label: "CANJEÁ POR", value: datos.meta.nombre } : null,
+    };
+  }
+
+  // ── Los cinco tipos de la 0135 ────────────────────────────────────
+  // Sin esto caerían en la rama genérica de abajo y un cupón mostraría
+  // «PUNTOS 0» en el teléfono del cliente: la tarjeta diría algo que
+  // no tiene nada que ver con lo que el negocio prometió.
+  const b = datos.beneficio;
+
+  if (modo === "cupon" || modo === "descuento") {
+    const texto =
+      b && (b.tipo === "cupon" || b.tipo === "descuento") ? textoDeBeneficio(b) : "Beneficio";
+    return {
+      encabezado: { label: modo === "cupon" ? "CUPÓN" : "DESCUENTO", value: texto },
+      detalle: { label: "CÓMO SE USA", value: "Presentá esta tarjeta al pagar" },
+      regalia: null,
+    };
+  }
+
+  if (modo === "membresia") {
+    const nivel = b?.tipo === "membresia" && b.nivel.trim() ? b.nivel : "Socio";
+    return {
+      encabezado: { label: "MEMBRESÍA", value: nivel },
+      detalle: {
+        label: "BENEFICIOS",
+        value:
+          b?.tipo === "membresia" && b.beneficios.length > 0
+            ? b.beneficios.join(" · ")
+            : "Presentá tu carnet en cada visita",
+      },
+      regalia: null,
+    };
+  }
+
+  if (modo === "giftcard") {
+    // El saldo de una gift card es el que QUEDA, y sale del ledger
+    // igual que cualquier otro: se carga al emitirla y se descuenta en
+    // cada canje. No hay un segundo número que se pueda desincronizar.
+    const moneda = b?.tipo === "giftcard" && b.moneda === "USD" ? "$" : "₡";
+    return {
+      encabezado: {
+        label: "SALDO",
+        value: `${moneda}${datos.saldo.toLocaleString("es-CR")}`,
+      },
+      detalle: { label: "GIFT CARD", value: "Se descuenta de tu saldo en cada uso" },
+      regalia: null,
+    };
+  }
+
+  if (modo === "evento") {
+    const cuando =
+      b?.tipo === "evento" && b.fecha ? `${b.fecha}${b.hora ? ` · ${b.hora}` : ""}` : "Por confirmar";
+    return {
+      encabezado: { label: "ENTRADA", value: cuando },
+      detalle: {
+        label: "DÓNDE",
+        value: b?.tipo === "evento" && b.ubicacion.trim() ? b.ubicacion : datos.negocioNombre,
+      },
+      regalia: null,
     };
   }
 
@@ -185,6 +261,14 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
   }
 
   return pass;
+}
+
+/** «30% OFF», «₡5.000 de descuento», «Postre gratis». */
+function textoDeBeneficio(b: Extract<ConfigBeneficio, { tipo: "cupon" | "descuento" }>): string {
+  const v = b.beneficio;
+  if (v.forma === "porcentaje") return `${v.valor}% OFF`;
+  if (v.forma === "monto") return `₡${v.valor.toLocaleString("es-CR")} de descuento`;
+  return `${v.que} gratis`;
 }
 
 function textoDeAyuda(datos: DatosTarjeta): string {

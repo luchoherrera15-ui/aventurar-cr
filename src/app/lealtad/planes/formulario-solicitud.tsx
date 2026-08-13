@@ -28,6 +28,8 @@ export default function FormularioSolicitud({
   plan,
   planNombre,
   precio,
+  esGratis,
+  enDolares,
   negocios,
   negocioInicial,
   pago,
@@ -35,8 +37,12 @@ export default function FormularioSolicitud({
 }: {
   plan: string;
   planNombre: string;
-  /** Colones del primer mes; null = todavía sin precio publicado. */
-  precio: number | null;
+  /** Ya formateado con su moneda por `precioDe()`. null = a convenir. */
+  precio: string | null;
+  /** El plan no lleva depósito. */
+  esGratis: boolean;
+  /** true = el precio está en dólares y el SINPE se hace en colones. */
+  enDolares: boolean;
   negocios: NegocioElegible[];
   negocioInicial: string | null;
   pago: DatosPago;
@@ -147,7 +153,7 @@ export default function FormularioSolicitud({
 
           {/* ── El depósito: primero se paga, después se solicita.
                  El plan Gratis se salta este paso entero. ── */}
-          {precio === 0 ? (
+          {esGratis ? (
             <p className="rounded-xl border border-white/15 bg-[#0f1930] px-3.5 py-3 text-[13px] text-white/70">
               Plan gratis — sin depósito. Hasta 5 miembros para probar el programa.
             </p>
@@ -156,9 +162,18 @@ export default function FormularioSolicitud({
             <p className="text-[12px] font-bold uppercase tracking-wide text-white/50">
               1 · Hacé el depósito
               {precio !== null && (
-                <span className="text-white"> de ₡{precio.toLocaleString("es-CR")} (primer mes)</span>
+                <span className="text-white"> de {precio} (primer mes)</span>
               )}
             </p>
+            {/* El precio está en dólares pero el SINPE se hace en
+                colones: decirlo acá evita el depósito por un monto
+                equivocado y el ida y vuelta para corregirlo. */}
+            {enDolares && precio !== null && (
+              <p className="mt-1.5 text-[12px] leading-snug text-amber-300">
+                El SINPE se hace en colones: escribinos y te confirmamos el monto exacto
+                al tipo de cambio del día.
+              </p>
+            )}
             <div className="mt-2 flex gap-1.5">
               {(["sinpe", "transferencia"] as const).map((m) => (
                 <button
@@ -253,14 +268,12 @@ export default function FormularioSolicitud({
           <button
             type="button"
             onClick={enviar}
-            disabled={
-              ocupado || subiendo || !negocioId || (precio !== 0 && !comprobanteUrl)
-            }
+            disabled={ocupado || subiendo || !negocioId || (!esGratis && !comprobanteUrl)}
             className="rounded-xl bg-[#ee7420] px-5 py-3 text-[13.5px] font-extrabold text-white disabled:opacity-40"
           >
             {ocupado
               ? "Enviando…"
-              : precio === 0 || comprobanteUrl
+              : esGratis || comprobanteUrl
                 ? "Enviar la solicitud"
                 : "Adjuntá el comprobante para enviar"}
           </button>

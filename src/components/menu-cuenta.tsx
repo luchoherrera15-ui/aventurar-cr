@@ -9,15 +9,7 @@ import {
   suscribirChatPanel,
 } from "@/lib/chat-panel";
 import { IconChatBubble, IconMenu, IconUserCircle } from "./icons";
-
-/**
- * Primer nombre + primer apellido: "Luis Herrera Ovares" → "LH" (no
- * "LO" — el segundo apellido no cuenta). Un solo nombre → su inicial.
- */
-function iniciales(nombre: string): string {
-  const partes = nombre.trim().split(/\s+/);
-  return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase();
-}
+import { iniciales } from "@/lib/iniciales";
 
 /**
  * Píldora de hamburguesa + avatar del header — abre un menú, no navega

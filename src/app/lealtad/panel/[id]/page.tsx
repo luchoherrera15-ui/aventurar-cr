@@ -3,14 +3,21 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { definicionDe, ETIQUETAS_CAPACIDAD } from "@/lib/lealtad/planes";
+import { definicionDe } from "@/lib/lealtad/planes";
+import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+import { hoyISOCR } from "@/lib/fechas";
+import SeccionProgramas, { type ProgramaEnLista } from "./seccion-programas";
 import { estadoDelPrograma } from "@/lib/lealtad/reglas";
 import { permisosDeFila } from "@/lib/lealtad/permisos";
-import TabsLealtad, { type PestanaLealtad } from "./tabs-lealtad";
+import ShellLealtad, { type GrupoLealtad } from "./shell-lealtad";
+import InicioLealtad, { type PasoPrimero } from "./inicio-lealtad";
+import ModoMostrador from "./modo-mostrador";
 import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
 import CompartirTarjeta from "./compartir-tarjeta";
-import PasesPanel from "./pases-panel";
+import { SeccionRecompensas, SeccionTarjeta } from "./pases-panel";
+import SeccionPlan from "./seccion-plan";
+import { ProveedorPrograma } from "./programa-contexto";
 import MetricasLealtad from "./metricas";
 import AuditoriaResumen from "./auditoria-resumen";
 import EquipoLealtad, { type MiembroEquipo } from "./equipo-cliente";
@@ -18,17 +25,25 @@ import { ActividadLealtad, IntegracionesLealtad, WalletLealtad } from "./lealtad
 import type { ProgramaFila, RecompensaFila } from "./pases-actions";
 
 /**
- * LA interfaz del programa de lealtad de un negocio — la que reemplaza
- * a la pestaña de /mi-negocio.
+ * LA interfaz del programa de lealtad de un negocio.
  *
- * Shell navy (la marca de lealtad) con el contenido en paneles claros.
- * Las pestañas las decide el permiso de quien mira (0127):
+ * Menú lateral con las secciones agrupadas (el shell vive en
+ * shell-lealtad.tsx), tema navy de la marca de lealtad, y el contenido
+ * en tarjetas translúcidas que el bloque .lealtad-oscuro de globals.css
+ * re-mapea desde los componentes del panel claro.
  *
- *   General        → todos los que entran (estado, QR, escáner, plan)
- *   Auditoría      → permiso `auditoria` (quién hizo qué y cuándo)
- *   Métricas       → permiso `auditoria` (crecimiento y proyecciones)
- *   Equipo         → el dueño (roles y checklist por colaborador)
- *   Configuración  → SOLO Bookea (el negocio solicita, Bookea genera)
+ * QUÉ VE CADA QUIEN lo decide el servidor, acá, y no el navegador
+ * (0127). El shell solo pinta la lista de secciones que le llega:
+ *
+ *   Inicio · Clientes · Póster · Mi perfil  → todos los que entran
+ *   Actividad · Métricas                    → permiso `auditoria`
+ *   Equipo · Negocio · Recompensas ·
+ *   Tarjeta digital · Plan                  → el dueño (y Bookea)
+ *   Modo mostrador                          → permiso `acreditar`
+ *
+ * «Recompensas» y «Tarjeta digital» editan la misma fila, así que van
+ * envueltas en <ProveedorPrograma>: un solo borrador para las dos, o
+ * guardar en una revierte lo que se guardó en la otra.
  */
 
 const NAVY_PROFUNDO = "#0a1226";
@@ -66,20 +81,14 @@ export default async function PanelNegocioLealtad({
     "lealtad_aprobado_en" in rancho && rancho.lealtad_aprobado_en === null && !acceso.esAdmin;
   if (enRevision) {
     return (
-      <Cascaron nombre={rancho.nombre} plan={null}>
-        <Papel>
-          <div className="py-6 text-center sm:py-10">
-            <p className="text-[15px] font-extrabold text-aventurea-ink">
-              Tu negocio está en revisión
-            </p>
-            <p className="mx-auto mt-2 max-w-[440px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-              El equipo de Bookea revisa cada negocio nuevo antes de habilitarle el
-              programa de lealtad. Te avisamos al correo apenas quede aprobado — de ahí
-              elegís tu paquete y dejás la solicitud.
-            </p>
-          </div>
-        </Papel>
-      </Cascaron>
+      <Antesala nombre={rancho.nombre}>
+        <p className="text-[15px] font-extrabold text-white">Tu negocio está en revisión</p>
+        <p className="mx-auto mt-2 max-w-[440px] text-[13.5px] leading-relaxed text-white/60">
+          El equipo de Bookea revisa cada negocio nuevo antes de habilitarle el programa de
+          lealtad. Te avisamos al correo apenas quede aprobado — de ahí elegís tu paquete y
+          dejás la solicitud.
+        </p>
+      </Antesala>
     );
   }
 
@@ -99,43 +108,37 @@ export default async function PanelNegocioLealtad({
       .maybeSingle();
 
     return (
-      <Cascaron nombre={rancho.nombre} plan={null}>
-        {/* Papel y no la tarjeta clara vieja: el tema oscuro pinta la
-            tinta de blanco, y blanco sobre crema era texto invisible. */}
-        <Papel>
-          <div className="py-6 text-center sm:py-10">
-            {solicitud ? (
-              <>
-                <p className="text-[15px] font-extrabold text-aventurea-ink">
-                  Tu solicitud del plan {definicionDe(solicitud.plan as string)?.nombre ?? ""} está
-                  en revisión
-                </p>
-                <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                  El equipo de Bookea la está armando para que quede bien. Te avisamos al correo
-                  cuando el programa esté activo.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-[15px] font-extrabold text-aventurea-ink">
-                  Este negocio todavía no tiene el programa de lealtad
-                </p>
-                <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                  Elegí tu paquete y dejá la solicitud: el equipo de Bookea genera el programa y
-                  la tarjeta por vos, y te avisa cuando esté listo.
-                </p>
-                <Link
-                  href={`/lealtad/planes?negocio=${id}`}
-                  className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold text-white"
-                  style={{ background: NARANJA }}
-                >
-                  Ver los paquetes →
-                </Link>
-              </>
-            )}
-          </div>
-        </Papel>
-      </Cascaron>
+      <Antesala nombre={rancho.nombre}>
+        {solicitud ? (
+          <>
+            <p className="text-[15px] font-extrabold text-white">
+              Tu solicitud del plan {definicionDe(solicitud.plan as string)?.nombre ?? ""} está en
+              revisión
+            </p>
+            <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-white/60">
+              El equipo de Bookea la está armando para que quede bien. Te avisamos al correo
+              cuando el programa esté activo.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[15px] font-extrabold text-white">
+              Este negocio todavía no tiene el programa de lealtad
+            </p>
+            <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-white/60">
+              Elegí tu paquete y dejá la solicitud: el equipo de Bookea genera el programa y la
+              tarjeta por vos, y te avisa cuando esté listo.
+            </p>
+            <Link
+              href={`/lealtad/planes?negocio=${id}`}
+              className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold text-white"
+              style={{ background: NARANJA }}
+            >
+              Ver los paquetes →
+            </Link>
+          </>
+        )}
+      </Antesala>
     );
   }
 
@@ -160,12 +163,64 @@ export default async function PanelNegocioLealtad({
     ? estadoDelPrograma({ estado: p.estado ?? null, activo: p.activo }) === "activo"
     : false;
 
+  // Cuánta gente se afilió: la última casilla de «Primeros pasos». Se
+  // cuenta con `head` — el número, sin traerse las filas.
+  const { count: totalMiembros } = admin && p
+    ? await admin
+        .from("miembros")
+        .select("*", { count: "exact", head: true })
+        .eq("programa_id", p.id)
+    : { count: 0 };
+  const miembros = totalMiembros ?? 0;
+
+  // ── TODAS las tarjetas del negocio ─────────────────────────────
+  // Desde la 0134 puede haber varias (el `unique(rancho_id)` se
+  // liberó). `select *` porque las columnas de las 0134/0135/0136
+  // pueden no existir todavía y una lista explícita fallaría entera.
+  const { data: filasProgramas } = admin
+    ? await admin.from("programa_lealtad").select("*").eq("rancho_id", id)
+    : { data: [] };
+
+  const todasLasFilas = (filasProgramas ?? []) as Record<string, unknown>[];
+
+  // Los miembros de cada una, en UNA consulta y no una por tarjeta.
+  const idsProgramas = todasLasFilas.map((f) => f.id as string);
+  const { data: filasMiembros } = admin && idsProgramas.length
+    ? await admin.from("miembros").select("programa_id").in("programa_id", idsProgramas)
+    : { data: [] };
+  const miembrosPorPrograma = new Map<string, number>();
+  for (const m of (filasMiembros ?? []) as { programa_id: string }[]) {
+    miembrosPorPrograma.set(m.programa_id, (miembrosPorPrograma.get(m.programa_id) ?? 0) + 1);
+  }
+
+  const programasEnLista: ProgramaEnLista[] = todasLasFilas.map((f) => ({
+    id: f.id as string,
+    nombre: (f.nombre as string) ?? "Tarjeta",
+    modo: (f.modo as string | null) ?? null,
+    estado: (f.estado as string | null) ?? null,
+    activo: !!f.activo,
+    vigente_desde: (f.vigente_desde as string | null) ?? null,
+    vigente_hasta: (f.vigente_hasta as string | null) ?? null,
+    colorFondo: (f.pase_color_fondo as string | null) ?? null,
+    miembros: miembrosPorPrograma.get(f.id as string) ?? 0,
+  }));
+
   // El complemento de cercanía (0123): lo pide el editor de la tarjeta
   // para saber si ofrece el aviso por ubicación.
   const { data: cercania } = await acceso.supabase.rpc("tiene_addon", {
     p_rancho_id: id,
     p_addon: "pases_cercania",
   });
+
+  // Quién está mirando: el nombre sale de `perfiles`, nunca de la
+  // metadata que el cliente puede escribir.
+  const { data: perfil } = await acceso.supabase
+    .from("perfiles")
+    .select("nombre")
+    .eq("id", acceso.user.id)
+    .maybeSingle();
+  const nombreUsuario =
+    ((perfil?.nombre as string | null) ?? "").trim() || (acceso.user.email ?? "Tu cuenta");
 
   // ── El equipo (solo lo carga quien lo puede editar) ─────────────────
   let equipo: MiembroEquipo[] = [];
@@ -192,147 +247,390 @@ export default async function PanelNegocioLealtad({
     }));
   }
 
-  // ── Las pestañas según el permiso ───────────────────────────────────
-  // «Tarjeta» es del DUEÑO: colores, logo y recompensas se editan sin
-  // pedirle permiso a nadie (antes vivía solo en /admin). Los
-  // colaboradores no la ven — su checklist gobierna la operación
-  // diaria, no la identidad de la marca.
+  // ── Las secciones según el permiso ──────────────────────────────────
+  // «Negocio», «Recompensas», «Tarjeta digital» y «Plan» son del DUEÑO:
+  // colores, logo, regalías y paquete se tocan sin pedirle permiso a
+  // nadie. Los colaboradores no las ven — su checklist gobierna la
+  // operación diaria, no la identidad ni la plata de la marca.
   const puedeDisenar = acceso.esDueno || acceso.esAdmin;
-  const pestanas: PestanaLealtad[] = [
-    { id: "general", etiqueta: "General" },
-    ...(puedeDisenar ? [{ id: "tarjeta", etiqueta: "Tarjeta" }] : []),
-    ...(permisos.auditoria
-      ? [
-          { id: "auditoria", etiqueta: "Auditoría" },
-          { id: "metricas", etiqueta: "Métricas" },
-        ]
-      : []),
-    ...(puedeEquipo ? [{ id: "equipo", etiqueta: "Equipo" }] : []),
+  const slug = rancho.slug as string | null;
+
+  // El plan sale de la CUENTA desde la 0134 (`cuentas.plan`), con el
+  // del rancho como respaldo mientras la migración no esté corrida.
+  // Toda la pantalla —topes, capacidades, medidores— cuelga de acá,
+  // así que resolverlo en UN lugar evita que media pantalla muestre el
+  // plan nuevo y la otra media el viejo.
+  const { plan } = admin
+    ? await contextoDeCuenta(admin, (programa ?? {}) as Record<string, unknown>, {
+        planRancho: rancho.plan_lealtad as string | null,
+      })
+    : { plan: (rancho.plan_lealtad as string | null) ?? null };
+  const def = definicionDe(plan);
+  const topeProgramas = def?.limites.programas ?? null;
+
+  // El "ahora" en hora de Costa Rica, resuelto UNA vez en el servidor.
+  // De acá salen los estados «programada» y «vencida»: si cada tarjeta
+  // leyera su propio reloj, una lista larga podría cruzar la medianoche
+  // a la mitad y mostrar dos verdades distintas en la misma pantalla.
+  const ahoraCR = `${hoyISOCR()}T${new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date())}`;
+
+  const grupos: GrupoLealtad[] = [
+    {
+      titulo: "Principal",
+      items: [
+        { id: "inicio", etiqueta: "Inicio", icono: "inicio" as const },
+        { id: "programas", etiqueta: "Tarjetas", icono: "tarjeta" as const },
+        { id: "clientes", etiqueta: "Clientes", icono: "clientes" as const },
+        ...(permisos.auditoria
+          ? [
+              { id: "actividad", etiqueta: "Actividad", icono: "actividad" as const },
+              { id: "metricas", etiqueta: "Métricas", icono: "metricas" as const },
+            ]
+          : []),
+        ...(puedeEquipo ? [{ id: "equipo", etiqueta: "Equipo", icono: "equipo" as const }] : []),
+      ],
+    },
+    {
+      titulo: "Configuración",
+      items: [
+        ...(puedeDisenar
+          ? [
+              { id: "negocio", etiqueta: "Negocio", icono: "negocio" as const },
+              { id: "recompensas", etiqueta: "Recompensas", icono: "recompensas" as const },
+              { id: "tarjeta", etiqueta: "Tarjeta digital", icono: "tarjeta" as const },
+            ]
+          : []),
+        { id: "poster", etiqueta: "Póster y QR", icono: "poster" as const },
+        ...(puedeDisenar ? [{ id: "plan", etiqueta: "Plan y facturación", icono: "plan" as const }] : []),
+      ],
+    },
+    {
+      titulo: "Cuenta",
+      items: [{ id: "perfil", etiqueta: "Mi perfil", icono: "perfil" as const }],
+    },
+  ];
+
+  // Un botón que apunta a una sección que quien mira no tiene es un
+  // callejón sin salida: el ancla solo se pinta si la sección existe.
+  const visibles = new Set(grupos.flatMap((g) => g.items).map((i) => i.id));
+  const irA = (seccion: string, texto: string) =>
+    visibles.has(seccion) ? { texto, href: `#${seccion}` } : null;
+
+  const reglasDan = p ? p.puntos_por_visita > 0 || Number(p.puntos_por_colon) > 0 : false;
+  const pasos: PasoPrimero[] = [
+    {
+      titulo: "Tu negocio está creado",
+      detalle: `${rancho.nombre} ya existe en Bookea con su programa de lealtad.`,
+      listo: true,
+      cta: irA("negocio", "Ver los datos"),
+    },
+    {
+      titulo: "Definí cómo se gana y qué se gana",
+      detalle: meta
+        ? `La meta es ${meta.nombre} a los ${meta.costo_puntos}.`
+        : "Sin una recompensa activa, la tarjeta no promete nada.",
+      listo: !!meta && reglasDan,
+      cta: irA("recompensas", "Configurar"),
+    },
+    {
+      // "Listo" = el QR EXISTE y lleva a algún lado (programa activo y
+      // página publicada). Si el programa está pausado o el negocio no
+      // tiene slug, el póster imprimiría un código que responde "no
+      // encontrado" — eso no es un paso cumplido.
+      titulo: "Publicá tu tarjeta y tu QR",
+      detalle: programaActivo && slug
+        ? "Ya funciona: imprimí el póster y pegalo en la caja para que se afilien solos."
+        : "Con el programa activo y tu página publicada, el QR queda listo para imprimir.",
+      listo: programaActivo && !!slug,
+      cta: irA("poster", "Imprimir el póster"),
+    },
+    {
+      titulo: "Conseguí tu primer cliente",
+      detalle:
+        miembros > 0
+          ? `Ya llevás ${miembros} ${miembros === 1 ? "afiliado" : "afiliados"}.`
+          : "Nadie se ha afiliado todavía. El QR y el link son el camino.",
+      listo: miembros > 0,
+      cta: irA("clientes", "Ver clientes"),
+    },
   ];
 
   const contenidos: Record<string, React.ReactNode> = {
-    general: (
-      <Papel>
-        <BannerPlan plan={rancho.plan_lealtad as string | null} ranchoId={id} />
-        {p ? (
-          <>
-            <div className="mt-4">
-              <LealtadEstado
-                programaId={p.id}
-                plan={rancho.plan_lealtad as string | null}
-                meta={meta?.costo_puntos ?? null}
-              />
-            </div>
-            {permisos.acreditar && (
-              <div className="mt-4">
-                <BotonEscanear
-                  ranchoId={id}
-                  pideMonto={(p.modo ?? "puntos") !== "sellos"}
-                  recompensa={
-                    meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
-                  }
-                />
-              </div>
-            )}
-            <div className="mt-4">
-              <CompartirTarjeta slug={rancho.slug as string | null} programaActivo={programaActivo} />
-            </div>
-            {/* El póster del mostrador: lo imprime el negocio solo. */}
-            <Link
-              href={`/lealtad/panel/${id}/poster`}
-              className="mt-3 flex items-center justify-between rounded-2xl border border-aventurea-line bg-white px-4 py-3.5 transition-colors hover:border-aventurea-navy"
-            >
-              <span>
-                <span className="block text-[13.5px] font-bold text-aventurea-ink">
-                  🖨️ Imprimir el póster para tu mostrador
-                </span>
-                <span className="block text-[12px] text-aventurea-ink-soft">
-                  Hoja lista para pegar en la caja, con tu QR y tu regalía.
-                </span>
-              </span>
-              <span aria-hidden className="text-aventurea-ink-soft">
-                →
-              </span>
-            </Link>
-          </>
-        ) : (
-          <p className="mt-4 rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
-            Tu plan está activo y el equipo de Bookea está armando el programa y la tarjeta.
-            Te avisamos al correo cuando esté listo.
-          </p>
-        )}
-      </Papel>
-    ),
-    ...(puedeDisenar
-      ? {
-          tarjeta: (
-            <Papel>
-              <PasesPanel
-                ranchoId={id}
-                programaInicial={p}
-                recompensasIniciales={lista}
-                tieneCercania={cercania === true}
-              />
-            </Papel>
-          ),
+    inicio: (
+      <InicioLealtad
+        nombre={rancho.nombre}
+        modo={(p?.modo ?? "sellos") as "sellos" | "puntos" | "cashback"}
+        regalia={meta ? { nombre: meta.nombre, costo: meta.costo_puntos } : null}
+        pasos={pasos}
+        accion={
+          p && permisos.acreditar ? (
+            <BotonEscanear
+              ranchoId={id}
+              pideMonto={(p.modo ?? "puntos") !== "sellos"}
+              recompensa={
+                meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
+              }
+            />
+          ) : null
         }
-      : {}),
+      />
+    ),
+
+    programas: (
+      <Seccion
+        titulo="Tarjetas"
+        bajada="Todos los programas de tu negocio, con su estado y su gente."
+      >
+        <SeccionProgramas
+          ranchoId={id}
+          programas={programasEnLista}
+          ahoraCR={ahoraCR}
+          puedeCrear={puedeDisenar}
+          topeAlcanzado={topeProgramas !== null && programasEnLista.length >= topeProgramas}
+          topePlan={topeProgramas}
+        />
+      </Seccion>
+    ),
+
+    clientes: (
+      <Seccion
+        titulo="Clientes"
+        bajada="Quién se afilió, cuánto lleva cada quien y a quién le toca su regalía."
+      >
+        {p ? (
+          <LealtadEstado programaId={p.id} plan={plan} meta={meta?.costo_puntos ?? null} />
+        ) : (
+          <Vacio texto="Tu plan está activo y el equipo de Bookea está armando el programa y la tarjeta. Te avisamos al correo cuando esté listo." />
+        )}
+      </Seccion>
+    ),
+
+    poster: (
+      <Seccion
+        titulo="Póster y QR"
+        bajada="Con esto tus clientes consiguen la tarjeta: el código para el mostrador y el link para mandar."
+      >
+        <Link
+          href={`/lealtad/panel/${id}/poster`}
+          className="flex items-center justify-between rounded-2xl border px-4 py-4 transition-colors hover:border-white/40"
+          style={{ background: "rgba(238,116,32,.09)", borderColor: NARANJA }}
+        >
+          <span>
+            <span className="block text-[14px] font-extrabold text-white">
+              Diseñá e imprimí tu póster
+            </span>
+            <span className="block text-[12.5px] text-white/60">
+              Hoja A4 lista para pegar en la caja, con tu QR, tus colores y tu regalía.
+            </span>
+          </span>
+          <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: NARANJA }}>
+            →
+          </span>
+        </Link>
+        <CompartirTarjeta slug={slug} programaActivo={programaActivo} />
+      </Seccion>
+    ),
+
+    perfil: (
+      <Seccion titulo="Mi perfil" bajada="Tu cuenta de Bookea — la misma para todo el sistema.">
+        <div className="rounded-2xl border border-aventurea-line bg-white p-5">
+          <p className="text-[15px] font-extrabold text-aventurea-ink">{nombreUsuario}</p>
+          <p className="mt-0.5 text-[13px] text-aventurea-ink-soft">{acceso.user.email}</p>
+          <p className="mt-3 text-[12.5px] text-aventurea-ink-soft">
+            En {rancho.nombre} sos{" "}
+            <strong>
+              {acceso.esAdmin ? "administrador de Bookea" : acceso.esDueno ? "el dueño" : "colaborador"}
+            </strong>
+            .
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/cuenta"
+              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink"
+            >
+              Tu cuenta en Bookea →
+            </Link>
+            <Link
+              href="/lealtad/panel"
+              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink"
+            >
+              Cambiar de negocio →
+            </Link>
+          </div>
+        </div>
+      </Seccion>
+    ),
+
     ...(permisos.auditoria
       ? {
-          auditoria: (
-            <Papel>
-              <Titulo>Quién hizo qué — últimos 30 días</Titulo>
+          actividad: (
+            <Seccion
+              titulo="Actividad"
+              bajada="Quién hizo qué y cuándo. Todo movimiento queda escrito; nada se borra."
+            >
+              <Rotulo>Quién hizo qué — últimos 30 días</Rotulo>
               <AuditoriaResumen programaId={p?.id ?? null} />
-              <Titulo className="mt-6">El libro, movimiento por movimiento</Titulo>
+              <Rotulo className="mt-6">El libro, movimiento por movimiento</Rotulo>
               <ActividadLealtad ranchoId={id} programaId={p?.id ?? null} />
-              <Titulo className="mt-6">Canjes por pasar a la caja</Titulo>
+              <Rotulo className="mt-6">Canjes por pasar a la caja</Rotulo>
               <IntegracionesLealtad ranchoId={id} programaId={p?.id ?? null} />
-            </Papel>
+            </Seccion>
           ),
           metricas: (
-            <Papel>
-              <MetricasLealtad programaId={p?.id ?? null} plan={rancho.plan_lealtad as string | null} />
-              <Titulo className="mt-6">Estado de las tarjetas</Titulo>
+            <Seccion
+              titulo="Métricas"
+              bajada="¿Está creciendo el programa? Los últimos 30 días contra los 30 anteriores."
+            >
+              <MetricasLealtad programaId={p?.id ?? null} plan={plan} />
+              <Rotulo className="mt-6">Estado de las tarjetas</Rotulo>
               <WalletLealtad programaId={p?.id ?? null} />
-            </Papel>
+            </Seccion>
           ),
         }
       : {}),
+
     ...(puedeEquipo
       ? {
           equipo: (
-            <Papel>
+            <Seccion
+              titulo="Equipo"
+              bajada="Quién puede dar sellos, canjear, revertir y ver la auditoría."
+            >
               <EquipoLealtad ranchoId={id} equipo={equipo} />
-            </Papel>
+            </Seccion>
+          ),
+        }
+      : {}),
+
+    ...(puedeDisenar
+      ? {
+          negocio: (
+            <Seccion
+              titulo="Negocio"
+              bajada="Los datos con los que tu cliente te reconoce en la tarjeta y en la página."
+            >
+              <div className="rounded-2xl border border-aventurea-line bg-white p-5">
+                <Campo etiqueta="Nombre" valor={rancho.nombre} />
+                <Campo etiqueta="Dirección de tu tarjeta" valor={slug ? `/tarjeta/${slug}` : "Sin publicar"} />
+                <Campo etiqueta="Plan de lealtad" valor={def ? def.nombre : "Sin plan"} />
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={`/mi-negocio/${id}`}
+                    className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink"
+                  >
+                    Editar en tu panel de negocio →
+                  </Link>
+                  {slug && (
+                    <Link
+                      href={`/tarjeta/${slug}`}
+                      className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink"
+                    >
+                      Ver la tarjeta del cliente →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </Seccion>
+          ),
+          recompensas: (
+            <Seccion
+              titulo="Recompensas"
+              bajada="Cómo se ganan los sellos y qué se lleva el cliente al completarlos."
+            >
+              <Link
+                href={`/lealtad/panel/${id}/crear`}
+                className="flex items-center justify-between rounded-2xl border px-4 py-4 transition-colors hover:border-white/40"
+                style={{ background: "rgba(255,106,0,.09)", borderColor: NARANJA }}
+              >
+                <span>
+                  <span className="block text-[14px] font-extrabold text-white">
+                    Crear una tarjeta
+                  </span>
+                  <span className="block text-[12.5px] text-white/60">
+                    Sellos, puntos, cupón, descuento, membresía, gift card, evento o
+                    cashback — en cinco pasos.
+                  </span>
+                </span>
+                <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: NARANJA }}>
+                  →
+                </span>
+              </Link>
+              <SeccionRecompensas />
+            </Seccion>
+          ),
+          tarjeta: (
+            <Seccion
+              titulo="Tarjeta digital"
+              bajada="Cómo se ve el pase que tu cliente guarda en el Wallet del teléfono."
+            >
+              <SeccionTarjeta />
+            </Seccion>
+          ),
+          plan: (
+            <Seccion
+              titulo="Plan y facturación"
+              bajada="Qué incluye tu paquete, cuánto llevás consumido y qué gana si subís."
+            >
+              <SeccionPlan
+                ranchoId={id}
+                plan={plan}
+                miembros={miembros}
+                equipo={equipo.length}
+              />
+            </Seccion>
           ),
         }
       : {}),
   };
 
   return (
-    <Cascaron nombre={rancho.nombre} plan={rancho.plan_lealtad as string | null}>
-      <TabsLealtad pestanas={pestanas} contenidos={contenidos} />
-    </Cascaron>
+    <ProveedorPrograma
+      ranchoId={id}
+      programaInicial={p}
+      recompensasIniciales={lista}
+      tieneCercania={cercania === true}
+    >
+      <ShellLealtad
+        negocio={{ nombre: rancho.nombre, plan: def ? `Plan ${def.nombre}` : null }}
+        usuario={{ nombre: nombreUsuario, email: acceso.user.email ?? "" }}
+        grupos={grupos}
+        contenidos={contenidos}
+        mostrador={
+          p && permisos.acreditar ? (
+            <ModoMostrador
+              ranchoId={id}
+              pideMonto={(p.modo ?? "puntos") !== "sellos"}
+              recompensa={
+                meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
+              }
+            />
+          ) : undefined
+        }
+      />
+    </ProveedorPrograma>
   );
 }
 
-// ── Piezas del shell ──────────────────────────────────────────────────
+// ── Piezas ────────────────────────────────────────────────────────────
 
-function Cascaron({
-  nombre,
-  plan,
-  children,
-}: {
-  nombre: string;
-  plan: string | null;
-  children: React.ReactNode;
-}) {
-  const def = definicionDe(plan);
+/**
+ * La pantalla de los negocios que todavía no tienen nada que
+ * administrar (en revisión, o sin el complemento). No lleva menú
+ * lateral a propósito: no hay a dónde navegar.
+ */
+function Antesala({ nombre, children }: { nombre: string; children: React.ReactNode }) {
   return (
     <main className="lealtad-oscuro min-h-svh px-5 py-8" style={{ background: NAVY_PROFUNDO }}>
-      <div className="mx-auto w-full max-w-[1040px]">
+      <div className="mx-auto w-full max-w-[720px]">
         <header className="flex items-center justify-between">
-          <Link href="/lealtad/panel" className="text-[12.5px] font-bold text-white/50 hover:text-white">
+          <Link
+            href="/lealtad/panel"
+            className="text-[12.5px] font-bold text-white/50 hover:text-white"
+          >
             ← Mis negocios
           </Link>
           <Link href="/lealtad">
@@ -346,94 +644,66 @@ function Cascaron({
           </Link>
         </header>
 
-        <div className="mt-6 flex flex-wrap items-center gap-2.5">
-          <h1 className="min-w-0 flex-1 truncate text-[24px] font-extrabold text-white">
-            {nombre}
-          </h1>
-          <span
-            className="rounded-full px-3 py-1 text-[11px] font-bold"
-            style={
-              def
-                ? { background: "rgba(238,116,32,.18)", color: NARANJA }
-                : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.5)" }
-            }
-          >
-            {def ? `Plan ${def.nombre}` : "Sin plan"}
-          </span>
-        </div>
+        <h1 className="mt-6 text-[24px] font-extrabold text-white">{nombre}</h1>
 
-        <div className="mt-5">{children}</div>
+        <div
+          className="mt-5 rounded-3xl border px-5 py-10 text-center"
+          style={{ background: "rgba(255,255,255,.035)", borderColor: "rgba(255,255,255,.09)" }}
+        >
+          {children}
+        </div>
       </div>
     </main>
   );
 }
 
-/**
- * El contenedor de cada pestaña: azul con opacidad sobre el navy (el
- * dueño vetó los paneles claros). Las cards internas se re-mapean con
- * el tema .lealtad-oscuro de globals.css.
- */
-function Papel({ children }: { children: React.ReactNode }) {
+function Seccion({
+  titulo,
+  bajada,
+  children,
+}: {
+  titulo: string;
+  bajada: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div
-      className="rounded-3xl border p-4 sm:p-6"
-      style={{ background: "rgba(255,255,255,.03)", borderColor: "rgba(255,255,255,.08)" }}
-    >
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-[21px] font-extrabold leading-tight text-white sm:text-[23px]">
+          {titulo}
+        </h2>
+        <p className="mt-1 text-[13.5px] text-white/55">{bajada}</p>
+      </div>
       {children}
     </div>
   );
 }
 
-function Titulo({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Rotulo({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <h2 className={`mb-3 text-[13px] font-extrabold uppercase tracking-wide text-aventurea-ink ${className}`}>
+    <h3
+      className={`mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45 ${className}`}
+    >
       {children}
-    </h2>
+    </h3>
   );
 }
 
-/**
- * "Tenés el plan X, incluye esto; si querés más, mejorá el paquete" —
- * lo que el dueño ve apenas entra, como pidió el producto.
- */
-function BannerPlan({ plan, ranchoId }: { plan: string | null; ranchoId: string }) {
-  const def = definicionDe(plan);
-  if (!def) {
-    return (
-      <div className="rounded-2xl border border-aventurea-line bg-white px-4 py-3.5">
-        <p className="text-[13.5px] font-bold text-aventurea-ink">
-          Tu programa está activo sin plan asignado.
-        </p>
-        <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-          Elegí un paquete para fijar tu tope de miembros y tus beneficios.{" "}
-          <Link href={`/lealtad/planes?negocio=${ranchoId}`} className="font-bold underline">
-            Ver los paquetes
-          </Link>
-        </p>
-      </div>
-    );
-  }
-
-  const esTope = def.id === "enterprise";
+function Vacio({ texto }: { texto: string }) {
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-white px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p className="text-[13.5px] font-bold text-aventurea-ink">
-          Tenés el plan {def.nombre} — hasta{" "}
-          {def.limiteMiembros === null ? "miembros ilimitados" : `${def.limiteMiembros} miembros`}.
-        </p>
-        {!esTope && (
-          <Link
-            href={`/lealtad/planes?negocio=${ranchoId}`}
-            className="text-[12.5px] font-bold text-aventurea-orange-dark underline"
-          >
-            ¿Querés más? Mejorá tu paquete →
-          </Link>
-        )}
-      </div>
-      <p className="mt-1 text-[12px] leading-relaxed text-aventurea-ink-soft">
-        Incluye: {def.capacidades.map((c) => ETIQUETAS_CAPACIDAD[c].toLowerCase()).join(" · ")}.
+    <p className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
+      {texto}
+    </p>
+  );
+}
+
+function Campo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <div className="border-b border-aventurea-line py-2.5 first:pt-0 last:border-b-0">
+      <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+        {etiqueta}
       </p>
+      <p className="mt-0.5 text-[13.5px] font-bold text-aventurea-ink">{valor}</p>
     </div>
   );
 }

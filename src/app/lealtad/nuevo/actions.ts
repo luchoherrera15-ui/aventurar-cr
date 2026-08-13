@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, esPlan } from "@/lib/lealtad/planes";
 import { generarSlugUnico } from "@/lib/slug";
 import { apagarModulosOperativos } from "@/lib/lealtad/solo-lealtad";
+import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 
 /** El plan Gratis no lleva depósito: sin método ni comprobante. */
@@ -86,8 +87,7 @@ export async function solicitarAltaConPlan(datos: {
     }
     // El logo es opcional, pero si viene tiene que ser de NUESTRO
     // storage — no una URL cualquiera que después sirva la tarjeta.
-    const bucketPublico = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/comprobantes/`;
-    if (datos.paseLogoUrl && !datos.paseLogoUrl.startsWith(bucketPublico)) {
+    if (datos.paseLogoUrl && !esUrlDeNuestroStorage(datos.paseLogoUrl, "comprobantes")) {
       return { ok: false, motivo: "El logo no se subió bien — probá de nuevo." };
     }
   }
@@ -97,8 +97,7 @@ export async function solicitarAltaConPlan(datos: {
     if (datos.metodoPago !== "sinpe" && datos.metodoPago !== "transferencia") {
       return { ok: false, motivo: "Elegí cómo pagaste: SINPE o transferencia." };
     }
-    const bucketComprobantes = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/comprobantes/`;
-    if (!datos.comprobanteUrl.startsWith(bucketComprobantes)) {
+    if (!esUrlDeNuestroStorage(datos.comprobanteUrl, "comprobantes")) {
       return { ok: false, motivo: "Adjuntá la captura del depósito para enviar la solicitud." };
     }
   }

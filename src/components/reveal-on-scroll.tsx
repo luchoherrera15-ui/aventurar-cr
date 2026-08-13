@@ -52,36 +52,75 @@ export default function RevealOnScroll() {
 
     const tarde = performance.now() > TARDE_MS;
 
+    const revelar = (el: Element) => {
+      el.classList.remove("por-revelar");
+      el.classList.add("is-revealed");
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            entry.target.classList.remove("por-revelar");
-            entry.target.classList.add("is-revealed");
+            revelar(entry.target);
             observer.unobserve(entry.target);
           }
         }
       },
-      { rootMargin: "0px 0px -10% 0px", threshold: 0.1 },
+      // `threshold: 0` — basta con que asome UN PÍXEL.
+      //
+      // Estaba en 0.1, y ahí está el bug de las secciones en blanco:
+      // el umbral es el 10% DEL ELEMENTO, no de la pantalla. Con el
+      // recorte de abajo, el área visible de la raíz es 0.9 de la
+      // altura del viewport, así que un elemento más alto que ~9
+      // pantallas NUNCA llega al 10% — y se queda invisible para
+      // siempre, por mucho que uno scrollee.
+      //
+      // Con 0 no hay altura que se salve: cualquier cosa que asome, se
+      // revela. Y el margen POSITIVO de abajo la revela un poco antes
+      // de entrar, así nadie ve el fundido empezar.
+      { rootMargin: "0px 0px 120px 0px", threshold: 0 },
     );
 
     const preparar = () => {
+      const candidatos = document.querySelectorAll<HTMLElement>(
+        "[data-reveal]:not(.is-revealed):not(.por-revelar)",
+      );
+      // Salida temprana ANTES de medir nada: sin candidatos no hay
+      // layout que forzar. Importa porque esto corre en cada mutación
+      // del DOM — y en una página con un campo de texto, eso es una
+      // vez por tecla.
+      if (candidatos.length === 0) return;
+
       const alto = window.innerHeight;
-      document
-        .querySelectorAll<HTMLElement>("[data-reveal]:not(.is-revealed):not(.por-revelar)")
-        .forEach((el) => {
-          // Lo que ya se ve (o casi) se da por revelado sin tocarlo:
-          // esconderlo ahora sería un parpadeo, no una animación.
-          if (tarde || el.getBoundingClientRect().top < alto * MARGEN_PLIEGUE) {
-            marcarVisto(el);
-            return;
-          }
-          el.classList.add("por-revelar");
-          observer.observe(el);
-        });
+      candidatos.forEach((el) => {
+        // Lo que ya se ve (o casi) se da por revelado sin tocarlo:
+        // esconderlo ahora sería un parpadeo, no una animación.
+        if (tarde || el.getBoundingClientRect().top < alto * MARGEN_PLIEGUE) {
+          marcarVisto(el);
+          return;
+        }
+        el.classList.add("por-revelar");
+        observer.observe(el);
+      });
     };
 
     preparar();
+
+    /**
+     * LA RED DE SEGURIDAD.
+     *
+     * Esto esconde contenido y confía en que el observer lo devuelva.
+     * Si por lo que sea no lo devuelve —un umbral mal calculado, un
+     * elemento con `display` raro, un navegador con su propia idea del
+     * `rootMargin`— la persona se queda mirando secciones en blanco y
+     * no tiene forma de arreglarlo.
+     *
+     * Pasados 2 segundos, lo que siga escondido se muestra sin más. Se
+     * pierde la animación de esos elementos; no se pierde la página.
+     */
+    const red = window.setTimeout(() => {
+      document.querySelectorAll(".por-revelar").forEach(revelar);
+    }, 2000);
 
     // Las mutaciones llegan de a ráfagas (cada render de React dispara
     // varias). `preparar` mide posiciones, o sea que fuerza layout: se
@@ -98,6 +137,7 @@ export default function RevealOnScroll() {
 
     return () => {
       if (pendiente) cancelAnimationFrame(pendiente);
+      window.clearTimeout(red);
       observer.disconnect();
       mutationObserver.disconnect();
     };

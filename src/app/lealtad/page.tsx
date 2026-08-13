@@ -4,9 +4,13 @@ import RevealOnScroll from "@/components/reveal-on-scroll";
 import {
   ETIQUETAS_CAPACIDAD,
   PLANES as PLANES_REALES,
-  PLANES_ID,
+  PLANES_OFRECIDOS,
+  PLAN_DESTACADO,
+  precioDe,
 } from "@/lib/lealtad/planes";
 import HeroTelefono from "./hero-telefono";
+import AcordeonTipos from "./acordeon-tipos";
+import DemoNotificacion from "./demo-notificacion";
 
 /**
  * /lealtad — rediseño completo con la misma línea que /invitaciones:
@@ -39,15 +43,18 @@ export const metadata: Metadata = {
  * Antes acá vivía una lista inventada con otros nombres y precios —
  * la landing prometía una cosa y la plataforma vendía otra.
  */
-const PAQUETES = PLANES_ID.map((id) => {
+const PAQUETES = PLANES_OFRECIDOS.map((id) => {
   const def = PLANES_REALES[id];
   return {
     id,
     nombre: def.nombre,
-    limite: def.limiteMiembros,
-    precio: def.precioMensual,
+    limite: def.limites.clientesActivos,
+    // Ya formateado con su moneda: la landing no decide si un 9.99 son
+    // dólares o colones — eso lo sabe el catálogo y nadie más.
+    precio: precioDe(def),
+    esGratis: def.precioMensual === 0,
     incluye: def.capacidades.map((c) => ETIQUETAS_CAPACIDAD[c]),
-    destacado: id === "enterprise",
+    destacado: id === PLAN_DESTACADO,
   };
 });
 
@@ -215,11 +222,11 @@ export default function LealtadPage() {
               animación de al lado lo dibuja: el contador sube y los
               avisos caen. */}
           <h1 className="titulo mx-auto mt-5 max-w-[16ch] text-balance text-[clamp(34px,5.8vw,62px)] leading-[1.04]">
-            Más clientes. Más visitas. Más ventas.
+            De una reserva a un cliente frecuente.
           </h1>
           <p className="mx-auto mt-4 max-w-[52ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60">
-            El programa de lealtad que vive en el teléfono: tus clientes
-            acumulan sellos, vuelven más seguido — y te traen al siguiente.
+            Creá experiencias de lealtad que tus clientes pueden guardar en Apple
+            Wallet y Google Wallet. Sin descargar otra aplicación.
           </p>
 
           <div className="relative mt-10 sm:mt-12" data-reveal>
@@ -292,6 +299,57 @@ export default function LealtadPage() {
               Entrá acá
             </Link>
           </p>
+        </div>
+      </section>
+
+      {/* ================= LOS OCHO TIPOS ================= */}
+      {/* El acordeón sale del MISMO catálogo que el creador y el
+          generador del pase (src/lib/lealtad/tipos-tarjeta.ts): la
+          landing no puede prometer un tipo que el producto no tiene. */}
+      <section className="px-5 py-24 sm:px-8">
+        <div className="mx-auto w-[min(1180px,94vw)]">
+          <div data-reveal className="mx-auto max-w-[56ch] text-center">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+              Ocho formas de que vuelvan
+            </p>
+            <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
+              Elegí qué guardan en el teléfono
+            </h2>
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
+              Sellos, puntos, cupones, descuentos, membresías, gift cards, entradas y
+              cashback. Cada uno vive en el Wallet y se actualiza solo.
+            </p>
+          </div>
+
+          <div data-reveal className="mt-12">
+            <AcordeonTipos />
+          </div>
+        </div>
+      </section>
+
+      {/* ================= LA DEMO DE NOTIFICACIONES ================= */}
+      <section className="px-5 py-24 sm:px-8">
+        <div className="mx-auto w-[min(1080px,92vw)]">
+          <div data-reveal className="mx-auto max-w-[56ch] text-center">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+              Notificaciones
+            </p>
+            <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(30px,5vw,54px)] leading-[1.06]">
+              Previsualizá la notificación antes de enviarla.
+            </h2>
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
+              Escribila con las variables de cada cliente y mirá cómo le llega. Esto es una
+              demostración: no manda nada ni guarda nada.
+            </p>
+          </div>
+
+          <div
+            data-reveal
+            className="mt-12 rounded-3xl border border-white/12 p-5 sm:p-8"
+            style={{ background: "rgba(255,255,255,.035)" }}
+          >
+            <DemoNotificacion />
+          </div>
         </div>
       </section>
 
@@ -408,23 +466,23 @@ export default function LealtadPage() {
                   className="text-[12px] font-extrabold uppercase tracking-wide"
                   style={{ color: plan.destacado ? NARANJA : "rgba(255,255,255,.55)" }}
                 >
-                  {plan.destacado ? "El más completo" : "Paquete"}
+                  {plan.destacado ? "El más popular" : "Paquete"}
                 </p>
                 <p className="titulo mt-2 text-[36px] leading-none tracking-tight text-white">
                   {plan.nombre}
                 </p>
-                {plan.precio !== null && (
-                  <p className="mt-2 text-[22px] font-extrabold leading-none text-white">
-                    {plan.precio === 0 ? (
-                      "₡0 — para probar"
-                    ) : (
-                      <>
-                        ₡{plan.precio.toLocaleString("es-CR")}
-                        <span className="text-[13px] font-bold text-white/50"> /mes</span>
-                      </>
-                    )}
-                  </p>
-                )}
+                <p className="mt-2 text-[22px] font-extrabold leading-none text-white">
+                  {plan.precio === null ? (
+                    "A convenir"
+                  ) : plan.esGratis ? (
+                    `${plan.precio} — para probar`
+                  ) : (
+                    <>
+                      {plan.precio}
+                      <span className="text-[13px] font-bold text-white/50"> /mes</span>
+                    </>
+                  )}
+                </p>
                 <p className="mt-1.5 text-[12.5px] text-white/50">
                   Hasta {plan.limite === null ? "miembros ilimitados" : `${plan.limite.toLocaleString("es-CR")} miembros`}
                 </p>
@@ -450,7 +508,7 @@ export default function LealtadPage() {
                   }`}
                   style={plan.destacado ? { background: NARANJA } : undefined}
                 >
-                  {plan.precio === 0 ? "Empezar gratis" : `Solicitar ${plan.nombre}`}
+                  {plan.esGratis ? "Empezar gratis" : `Solicitar ${plan.nombre}`}
                 </Link>
               </div>
             ))}

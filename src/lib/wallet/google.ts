@@ -280,15 +280,26 @@ export async function generarPaseGoogle({
     .maybeSingle();
   if (!negocio) return { ok: false, motivo: "Ese negocio no existe." };
 
-  const { data: programa } = await db
+  // `select *`, igual que en Apple (generar.ts): desde la 0134 el
+  // programa cuelga de una CUENTA, y pedir `cuenta_id` explícitamente
+  // rompería la consulta entera mientras la migración no esté corrida.
+  const { data: programaFila } = await db
     .from("programa_lealtad")
-    .select("id, activo, modo, pase_color_fondo, pase_color_sello, pase_logo_url")
+    .select("*")
     .eq("rancho_id", ranchoId)
     .eq("activo", true)
     .maybeSingle();
-  if (!programa) {
+  if (!programaFila) {
     return { ok: false, motivo: "Este negocio todavía no tiene programa de lealtad." };
   }
+  const programa = programaFila as {
+    id: string;
+    activo: boolean;
+    modo: string | null;
+    pase_color_fondo: string | null;
+    pase_color_sello: string | null;
+    pase_logo_url: string | null;
+  };
 
   // Afiliación implícita, igual que en Apple: pedir la tarjeta ES unirse.
   let { data: miembro } = await db
@@ -299,11 +310,14 @@ export async function generarPaseGoogle({
     .maybeSingle();
   if (!miembro) {
     // El tope del plan se cumple igual que en Apple (generar.ts): la
-    // afiliación NUEVA se frena cuando el programa está lleno.
+    // afiliación NUEVA se frena cuando el programa está lleno, y el
+    // plan sale de la CUENTA con el del rancho como respaldo.
     const { definicionDe } = await import("@/lib/lealtad/planes");
-    const limite = definicionDe(
-      (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
-    )?.limiteMiembros;
+    const { contextoDeCuenta } = await import("@/lib/lealtad/cuenta");
+    const { plan } = await contextoDeCuenta(db, programaFila as Record<string, unknown>, {
+      planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
+    });
+    const limite = definicionDe(plan)?.limites.clientesActivos;
     if (limite !== null && limite !== undefined) {
       const { count } = await db
         .from("miembros")

@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { definicionDe, esPlan } from "@/lib/lealtad/planes";
 import { createClient } from "@/lib/supabase/server";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
+import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 
 /**
  * Dejar la solicitud de un paquete de lealtad (0126).
@@ -37,8 +38,7 @@ export async function solicitarPlanLealtad(
     if (metodoPago !== "sinpe" && metodoPago !== "transferencia") {
       return { ok: false, motivo: "Elegí cómo pagaste: SINPE o transferencia." };
     }
-    const bucketComprobantes = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/comprobantes/`;
-    if (!comprobanteUrl.startsWith(bucketComprobantes)) {
+    if (!esUrlDeNuestroStorage(comprobanteUrl, "comprobantes")) {
       return { ok: false, motivo: "Adjuntá la captura del depósito para enviar la solicitud." };
     }
   }

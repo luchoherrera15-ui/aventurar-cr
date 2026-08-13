@@ -405,7 +405,7 @@ function PlanDeLealtad({ negocio }: { negocio: NegocioConAddons }) {
   const [error, setError] = useState<string | null>(null);
   const [pendiente, iniciar] = useTransition();
 
-  const limite = estadoDelLimite(plan, negocio.miembros);
+  const limite = estadoDelLimite(plan, "clientesActivos", negocio.miembros);
 
   function cambiar(nuevo: string) {
     const valor = nuevo || null;
@@ -441,10 +441,16 @@ function PlanDeLealtad({ negocio }: { negocio: NegocioConAddons }) {
           className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[13px] font-bold text-aventurea-ink"
         >
           <option value="">Sin plan</option>
+          {/* Los retirados siguen en la lista para poder DEJAR a un
+              negocio en el suyo sin moverlo de plan sin querer: el
+              selector muestra el valor guardado tal cual, marcado. */}
           {PLANES_ID.map((id) => (
             <option key={id} value={id}>
-              {PLANES[id].nombre} · hasta{" "}
-              {PLANES[id].limiteMiembros?.toLocaleString("es-CR")} miembros
+              {PLANES[id].nombre}
+              {PLANES[id].vigente ? "" : " (retirado)"} ·{" "}
+              {PLANES[id].limites.clientesActivos === null
+                ? "clientes ilimitados"
+                : `hasta ${PLANES[id].limites.clientesActivos?.toLocaleString("es-CR")} clientes`}
             </option>
           ))}
         </select>

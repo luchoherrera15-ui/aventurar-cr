@@ -91,7 +91,7 @@ export default async function LealtadEstado({
     transacciones: (tx ?? []) as TransaccionCruda[],
     hoy,
   });
-  const limite = estadoDelLimite(plan, resumen.miembros);
+  const limite = estadoDelLimite(plan, "clientesActivos", resumen.miembros);
 
   return (
     <div className="space-y-4">

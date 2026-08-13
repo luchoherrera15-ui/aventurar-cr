@@ -139,6 +139,21 @@ export async function canjearRecompensa(
   const g = await guardYMiembro(ranchoId, miembroId, "canjear");
   if (!g.ok) return g;
 
+  // ── Las reglas de la tarjeta (0136), ANTES del RPC ──────────────
+  // El RPC de la 0125 revalida saldo, stock y límites bajo lock, pero
+  // no sabe nada de vigencia, días ni horarios: son de la 0136 y son
+  // posteriores. Se comprueban acá, con el estado real de la base — no
+  // mirando el pase, que es un dibujo del que se puede sacar captura.
+  //
+  // Un rechazo queda registrado con su motivo: el canje que NO procede
+  // es justo el que hay que poder explicar después.
+  const veredicto = await revisarReglas(g.db, {
+    miembroId,
+    recompensaId,
+    usuarioId: g.usuarioId,
+  });
+  if (!veredicto.ok) return { ok: false, motivo: veredicto.motivo };
+
   const { data, error } = await g.db.rpc("canjear_recompensa", {
     p_miembro_id: miembroId,
     p_recompensa_id: recompensaId,
@@ -305,4 +320,114 @@ function traducirRpc(mensaje: string) {
     return "Falta correr la migración 0125 en Supabase.";
   }
   return "No se pudo completar: " + mensaje;
+}
+
+/**
+ * Comprueba las reglas de la tarjeta (0136) y DEJA CONSTANCIA.
+ *
+ * Se llama antes del RPC de canje. El RPC resuelve la carrera por el
+ * saldo bajo lock; esto resuelve si la tarjeta puede canjearse hoy, a
+ * esta hora, y si a este cliente le queda alguno.
+ *
+ * Tolerante a la base sin migrar: si `programa_lealtad` todavía no
+ * tiene las columnas de reglas, no hay reglas que romper y el canje
+ * sigue su curso como antes de la 0136.
+ */
+async function revisarReglas(
+  db: NonNullable<ReturnType<typeof createAdminClient>>,
+  datos: { miembroId: string; recompensaId: string; usuarioId: string | null },
+): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  const { autorizarCanje } = await import("@/lib/lealtad/canje");
+  const { hoyISOCR } = await import("@/lib/fechas");
+
+  // El miembro, su programa y el costo de lo que quiere canjear.
+  const { data: miembro } = await db
+    .from("miembros")
+    .select("programa_id")
+    .eq("id", datos.miembroId)
+    .maybeSingle();
+  if (!miembro) return { ok: true }; // el RPC lo rebota con su propio motivo
+
+  const programaId = miembro.programa_id as string;
+
+  // `select *`: las columnas de la 0136 pueden no existir todavía, y
+  // una lista explícita fallaría entera.
+  const [{ data: programa }, { data: recompensa }] = await Promise.all([
+    db.from("programa_lealtad").select("*").eq("id", programaId).maybeSingle(),
+    db.from("recompensas").select("costo_puntos").eq("id", datos.recompensaId).maybeSingle(),
+  ]);
+  if (!programa) return { ok: true };
+
+  // Cuántos canjes lleva este cliente, y cuántos el programa entero.
+  const { data: miembrosDelPrograma } = await db
+    .from("miembros")
+    .select("id")
+    .eq("programa_id", programaId);
+  const idsMiembros = ((miembrosDelPrograma ?? []) as { id: string }[]).map((m) => m.id);
+
+  const [{ count: delCliente }, { count: totales }] = await Promise.all([
+    db
+      .from("canjes")
+      .select("*", { count: "exact", head: true })
+      .eq("miembro_id", datos.miembroId)
+      .neq("estado", "anulado"),
+    idsMiembros.length
+      ? db
+          .from("canjes")
+          .select("*", { count: "exact", head: true })
+          .in("miembro_id", idsMiembros)
+          .neq("estado", "anulado")
+      : Promise.resolve({ count: 0 }),
+  ]);
+
+  const ahoraCR = `${hoyISOCR()}T${new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date())}`;
+
+  const fila = programa as Record<string, unknown>;
+  const veredicto = autorizarCanje({
+    programa: {
+      estado: (fila.estado as string | null) ?? null,
+      activo: !!fila.activo,
+      vigente_desde: (fila.vigente_desde as string | null) ?? null,
+      vigente_hasta: (fila.vigente_hasta as string | null) ?? null,
+      uso_unico: !!fila.uso_unico,
+      max_por_cliente: (fila.max_por_cliente as number | null) ?? null,
+      max_global: (fila.max_global as number | null) ?? null,
+      dias_permitidos: (fila.dias_permitidos as number[] | null) ?? null,
+      hora_desde: (fila.hora_desde as string | null) ?? null,
+      hora_hasta: (fila.hora_hasta as string | null) ?? null,
+    },
+    // El saldo lo revalida el RPC bajo lock: acá se le pasa el costo
+    // como saldo para que ESA comprobación no rechace nada de más. La
+    // autoridad sobre el saldo es una sola, y es el RPC.
+    saldo: (recompensa?.costo_puntos as number) ?? 0,
+    costo: (recompensa?.costo_puntos as number) ?? 0,
+    canjesDelCliente: delCliente ?? 0,
+    canjesTotales: totales ?? 0,
+    ahoraCR,
+  });
+
+  // La constancia sale SIEMPRE, apruebe o rechace, y nunca tumba el
+  // canje: si la 0137 no está corrida, la tabla no existe y esto falla
+  // en silencio. Perder el canje por no poder anotarlo sería peor que
+  // perder la anotación.
+  after(async () => {
+    try {
+      await db.from("intentos_canje").insert({
+        programa_id: programaId,
+        miembro_id: datos.miembroId,
+        recompensa_id: datos.recompensaId,
+        usuario_id: datos.usuarioId,
+        aprobado: veredicto.ok,
+        motivo: veredicto.ok ? null : veredicto.codigo,
+      });
+    } catch {
+      // Sin la 0137 no hay dónde anotar. El canje ya se decidió.
+    }
+  });
+
+  return veredicto.ok ? { ok: true } : { ok: false, motivo: veredicto.motivo };
 }

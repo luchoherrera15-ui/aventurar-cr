@@ -1,7 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { ETIQUETAS_CAPACIDAD, PLANES, PLANES_ID } from "@/lib/lealtad/planes";
+import {
+  ETIQUETAS_CAPACIDAD,
+  PLANES,
+  PLANES_OFRECIDOS,
+  PLAN_DESTACADO,
+  precioDe,
+} from "@/lib/lealtad/planes";
 import { datosDePagoBookea } from "@/lib/pagos-bookea";
 import PlanesCliente, { type TarjetaPlan } from "./planes-cliente";
 import type { NegocioElegible } from "./formulario-solicitud";
@@ -62,15 +68,17 @@ export default async function PlanesLealtadPage({
     ];
   }
 
-  const planes: TarjetaPlan[] = PLANES_ID.map((id) => {
+  const planes: TarjetaPlan[] = PLANES_OFRECIDOS.map((id) => {
     const def = PLANES[id];
     return {
       id,
       nombre: def.nombre,
-      limite: def.limiteMiembros,
-      precio: def.precioMensual,
+      limite: def.limites.clientesActivos,
+      precio: precioDe(def),
+      esGratis: def.precioMensual === 0,
+      enDolares: def.precioMensual !== null && def.precioMensual !== 0,
       beneficios: def.capacidades.map((c) => ETIQUETAS_CAPACIDAD[c]),
-      destacado: id === "enterprise",
+      destacado: id === PLAN_DESTACADO,
     };
   });
 

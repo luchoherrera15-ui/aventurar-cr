@@ -116,7 +116,7 @@ async function calcularMetricas(
   }).length;
 
   const totalMiembros = (miembros ?? []).length;
-  const limite = definicionDe(plan)?.limiteMiembros ?? null;
+  const limite = definicionDe(plan)?.limites.clientesActivos ?? null;
 
   // A este ritmo (promedio de las últimas 4 semanas), en un mes hay:
   const ritmoSemanal = semanas.slice(-4).reduce((s, x) => s + x.nuevos, 0) / 4;

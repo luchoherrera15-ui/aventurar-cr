@@ -21,8 +21,17 @@ export type TarjetaPlan = {
   id: string;
   nombre: string;
   limite: number | null;
-  /** Colones por mes; null = sin precio publicado todavía. */
-  precio: number | null;
+  /**
+   * Ya formateado con su símbolo por `precioDe()`. String y no número
+   * a propósito: el catálogo tiene planes en dólares y planes viejos
+   * en colones (0133), y una pantalla que reciba `9.99` no tiene cómo
+   * saber cuál es — pintaría «₡9,99».
+   * null = a convenir.
+   */
+  precio: string | null;
+  esGratis: boolean;
+  /** El precio va en dólares pero el depósito SINPE se hace en colones. */
+  enDolares: boolean;
   beneficios: string[];
   destacado: boolean;
 };
@@ -61,18 +70,18 @@ export default function PlanesCliente({
               </span>
             )}
             <h2 className="text-[18px] font-extrabold text-white">{p.nombre}</h2>
-            {p.precio !== null && (
-              <p className="mt-1 text-[26px] font-extrabold leading-none text-white">
-                {p.precio === 0 ? (
-                  "Gratis"
-                ) : (
-                  <>
-                    ₡{p.precio.toLocaleString("es-CR")}
-                    <span className="text-[13px] font-bold text-white/50"> /mes</span>
-                  </>
-                )}
-              </p>
-            )}
+            <p className="mt-1 text-[26px] font-extrabold leading-none text-white">
+              {p.precio === null ? (
+                "A convenir"
+              ) : p.esGratis ? (
+                "Gratis"
+              ) : (
+                <>
+                  {p.precio}
+                  <span className="text-[13px] font-bold text-white/50"> /mes</span>
+                </>
+              )}
+            </p>
             <p className="mt-0.5 text-[12.5px] text-white/55">
               Hasta {p.limite === null ? "miembros ilimitados" : `${p.limite.toLocaleString("es-CR")} miembros`}
             </p>
@@ -100,7 +109,7 @@ export default function PlanesCliente({
               >
                 {elegido === p.id
                   ? "Elegido ↓"
-                  : p.precio === 0
+                  : p.esGratis
                     ? "Empezar gratis"
                     : "Solicitar este plan"}
               </button>
@@ -123,6 +132,8 @@ export default function PlanesCliente({
             plan={plan.id}
             planNombre={plan.nombre}
             precio={plan.precio}
+            esGratis={plan.esGratis}
+            enDolares={plan.enDolares}
             negocios={negocios}
             negocioInicial={negocioInicial}
             pago={pago}

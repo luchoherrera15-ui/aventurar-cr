@@ -22,7 +22,11 @@ export type PlanWizard = {
   id: string;
   nombre: string;
   limite: number | null;
-  precio: number | null;
+  /** Ya formateado con su moneda por `precioDe()`. null = a convenir. */
+  precio: string | null;
+  esGratis: boolean;
+  /** El precio va en dólares pero el SINPE se hace en colones. */
+  enDolares: boolean;
   beneficios: string[];
   masBeneficios: number;
   destacado: boolean;
@@ -96,7 +100,7 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
       : ["nombre", "tipo", "descripcion", "paquete", "pago"];
   const pantalla = pantallas[Math.min(indice, pantallas.length - 1)];
   const planElegido = planes.find((p) => p.id === plan) ?? null;
-  const esGratis = planElegido?.precio === 0;
+  const esGratis = planElegido?.esGratis === true;
 
   function avanzar() {
     setIndice((i) => Math.min(i + 1, pantallas.length - 1));
@@ -478,14 +482,12 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
                   >
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-[14.5px] font-extrabold text-white">{p.nombre}</span>
-                      {p.precio !== null && (
-                        <span className="shrink-0 text-[13.5px] font-extrabold text-white">
-                          {p.precio === 0 ? "₡0" : `₡${p.precio.toLocaleString("es-CR")}`}
-                          <span className="text-[10.5px] font-bold text-white/50">
-                            {p.precio === 0 ? "" : "/mes"}
-                          </span>
+                      <span className="shrink-0 text-[13.5px] font-extrabold text-white">
+                        {p.precio ?? "A convenir"}
+                        <span className="text-[10.5px] font-bold text-white/50">
+                          {p.precio === null || p.esGratis ? "" : "/mes"}
                         </span>
-                      )}
+                      </span>
                     </div>
                     <p className="mt-0.5 text-[11px] font-bold text-white/45">
                       {p.limite === null
@@ -507,9 +509,20 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
               titulo={
                 esGratis
                   ? "Listo — el plan Gratis no lleva depósito"
-                  : `Depositá ₡${(planElegido.precio ?? 0).toLocaleString("es-CR")} (primer mes)`
+                  : planElegido.precio === null
+                    ? "Coordinemos tu paquete"
+                    : `Depositá ${planElegido.precio} (primer mes)`
               }
             >
+              {/* El precio está en dólares y el SINPE se hace en
+                  colones: decirlo antes evita el depósito por el monto
+                  equivocado. */}
+              {!esGratis && planElegido.enDolares && (
+                <p className="mb-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3.5 py-2.5 text-[12px] leading-snug text-amber-200">
+                  El SINPE se hace en colones: escribinos y te confirmamos el monto exacto al
+                  tipo de cambio del día.
+                </p>
+              )}
               {!esGratis && (
                 <div className="grid gap-3 rounded-xl border border-white/15 bg-[#0f1930] p-3.5 sm:grid-cols-2">
                   <div>

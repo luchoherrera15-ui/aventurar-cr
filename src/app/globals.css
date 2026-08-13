@@ -31,12 +31,16 @@
    animarlo. Si el JS tarda, falla o no corre, la página se ve igual —
    solo se pierde la animación, que es exactamente lo que debe pasar. */
 [data-reveal] {
-  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  transition:
+    opacity var(--duracion-revelado, 420ms) var(--ease-bookea, ease-out),
+    transform var(--duracion-revelado, 420ms) var(--ease-bookea, ease-out);
+  /* El escalonado: quien revela una lista pone --reveal-delay por
+     elemento (índice × 50–80 ms). Ver el componente <Revelar>. */
   transition-delay: var(--reveal-delay, 0ms);
 }
 [data-reveal].por-revelar {
   opacity: 0;
-  transform: translateY(22px);
+  transform: translateY(20px);
 }
 [data-reveal].is-revealed {
   opacity: 1;
@@ -48,6 +52,277 @@
     opacity: 1;
     transform: none;
     transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FUNDACIÓN DE INTERACCIÓN Y MOVIMIENTO
+   ═══════════════════════════════════════════════════════════════════
+
+   Las piezas que TODA pantalla de Bookea reusa: elevar al pasar el
+   mouse, hundir al presionar, un anillo de foco visible, esqueletos de
+   carga y la transición entre pasos de un asistente.
+
+   Son utilidades de CSS y no componentes de React a propósito: se
+   aplican con una clase a cualquier etiqueta —un <a>, un <button>, un
+   <div>, una card de servidor— sin arrastrar JavaScript al cliente ni
+   obligar a envolver nada.
+
+   Todo anima SOLO transform, opacity, color y sombra: nada que dispare
+   layout. Y todo se apaga entero con prefers-reduced-motion, al final
+   del bloque. ─────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════
+   IDENTIDAD DE LEALTAD (.lealtad)
+   ═══════════════════════════════════════════════════════════════════
+
+   Lealtad tiene su propia identidad de marca, y SOLO Lealtad: el resto
+   de Bookea (marketplace, mi-negocio, invitaciones) conserva la suya
+   sin que se le toque un archivo.
+
+   Cómo funciona, y por qué así:
+
+   Todo el sistema de color del repo son alias de siete variables
+   (`--navy`, `--orange`, `--muted`…). Re-declarándolas dentro de
+   `.lealtad`, CADA componente que ya usa `bg-aventurea-navy` o
+   `text-aventurea-ink-soft` toma la paleta de Lealtad al entrar en
+   este contenedor — sin duplicar un componente, sin un prop `variante`
+   y sin tocar el JSX de nada que ya funcione.
+
+   La alternativa era clonar los componentes con clases nuevas. Eso es
+   exactamente la duplicación que el proyecto prohíbe, y garantiza que
+   dentro de un mes las dos copias se hayan separado.
+
+   El contenedor lo pone `src/app/lealtad/layout.tsx`, que además
+   carga Montserrat.  ─────────────────────────────────────────────── */
+.lealtad {
+  --navy: #062653; /* Azul principal    */
+  --orange: #ff6a00; /* Naranja de acción */
+  --muted: #53657f; /* Gris descriptor   */
+  --grey: #f5f7fa; /* Fondo claro       */
+  --bg: #ffffff;
+  --text: #10203a; /* Tinta: el azul llevado a texto, no un negro suelto */
+  --line: #dfe5ee;
+
+  /* Fondos oscuros derivados del azul de marca. El logotipo va en su
+     versión inversa solo sobre estos, que son planos y uniformes. */
+  --navy-profundo: #041a3a;
+  --navy-elevado: #0b3168;
+  --navy-suave: #e9eef6;
+
+  /* ── El naranja y el contraste ───────────────────────────────────
+     El naranja de marca NO pasa AA como texto ni con blanco encima:
+     da 2.87:1 en los dos casos (AA pide 4.5:1). No es opinión, es
+     medición — y la accesibilidad es requisito del módulo.
+
+     Lo que sí pasa:
+       · azul #062653 sobre naranja ....... 5.19:1  ✅ botón de acción
+       · --orange-fuerte sobre blanco ..... 6.22:1  ✅ texto y enlaces
+       · blanco sobre --orange-fuerte ..... 6.22:1  ✅ botón alternativo
+       · gris #53657F sobre blanco ........ 5.94:1  ✅ texto secundario
+       · azul sobre blanco ................ 14.89:1 ✅ títulos
+
+     Regla: el naranja de marca es RELLENO con letra AZUL. Para naranja
+     como TEXTO —o relleno con letra blanca— se usa --orange-fuerte.
+     Así el color de marca queda intacto y lo que cambia es con qué se
+     empareja. */
+  --orange-fuerte: #a83f00;
+  --orange-suave: #fff1e6;
+
+  font-family: var(--font-montserrat), var(--font-figtree), system-ui, sans-serif;
+  color: var(--text);
+}
+
+/* Foco visible en todo lo enfocable DENTRO de Lealtad. Va sobre
+   :focus-visible y no :focus para que el anillo salga al navegar con
+   teclado y no al hacer clic con el mouse.
+
+   Scopeado a propósito: agregarlo global cambiaría el foco de todo el
+   sitio, que está fuera del alcance de este módulo. */
+.lealtad :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+/* Sobre fondo oscuro el anillo azul desaparece: se invierte. */
+.lealtad .sobre-oscuro :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible,
+.lealtad.sobre-oscuro :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline-color: #ffffff;
+}
+
+/* Levantar al pasar el mouse. El límite es 3 px y 1.015 de escala: más
+   que eso se siente un juguete, y el borde de la card empieza a
+   pelearse con la sombra. */
+@utility elevar {
+  transition:
+    transform var(--duracion-card) var(--ease-bookea),
+    box-shadow var(--duracion-card) var(--ease-bookea),
+    border-color var(--duracion-card) var(--ease-bookea);
+  will-change: transform;
+
+  &:hover {
+    transform: translateY(-3px) scale(1.015);
+    box-shadow: var(--shadow-elevado);
+  }
+  /* Se hunde al presionar aunque sea una card: la respuesta táctil
+     inmediata es lo que hace que se sienta un producto y no una web. */
+  &:active {
+    transform: translateY(-1px) scale(0.995);
+    transition-duration: var(--duracion-micro);
+  }
+}
+
+/* Para botones y controles: sin desplazamiento vertical, solo el
+   hundido. Usar en cualquier cosa en la que se hace clic. */
+@utility presionable {
+  transition:
+    transform var(--duracion-micro) var(--ease-bookea),
+    background-color var(--duracion-micro) var(--ease-bookea),
+    border-color var(--duracion-micro) var(--ease-bookea),
+    box-shadow var(--duracion-micro) var(--ease-bookea);
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+}
+
+/* ── Esqueletos de carga ────────────────────────────────────────────
+   Un barrido de luz, no un pulso de opacidad: el pulso hace latir la
+   página entera y cansa. El barrido corre con transform sobre un
+   pseudo-elemento, así que no repinta el layout.
+
+   La forma la pone quien lo usa (ver `src/app/esqueleto.tsx`): el
+   esqueleto tiene que CALCAR la página que está por llegar, o produce
+   el salto que venía a evitar. */
+@utility esqueleto {
+  position: relative;
+  overflow: hidden;
+  background-color: color-mix(in srgb, var(--navy) 7%, transparent);
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--bg) 65%, transparent),
+      transparent
+    );
+    animation: barrido-esqueleto 1.4s infinite;
+  }
+}
+
+@keyframes barrido-esqueleto {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ── Transición entre pasos ─────────────────────────────────────────
+   Para asistentes (alta de negocio, configuración del programa): el
+   paso que entra aparece desde un costado, sin animar `height` ni
+   mover lo de abajo.
+
+   `.pasos` apila los pasos en la MISMA celda de un grid de 1×1, así el
+   contenedor mide siempre lo que mide el paso más alto y no hay salto
+   al cambiar. Es la alternativa a animar altura. */
+@utility pasos {
+  display: grid;
+  grid-template-areas: "paso";
+
+  & > * {
+    grid-area: paso;
+  }
+}
+
+@utility paso {
+  transition:
+    opacity var(--duracion-card) var(--ease-bookea),
+    transform var(--duracion-card) var(--ease-bookea);
+
+  &[data-estado="saliendo"] {
+    opacity: 0;
+    transform: translateX(-12px);
+    pointer-events: none;
+  }
+  &[data-estado="entrando"] {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  &[data-estado="activo"] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Expandir y contraer ────────────────────────────────────────────
+   Sin animar `height`: se usa grid-template-rows de 0fr a 1fr, que el
+   navegador sí interpola y que no obliga a medir el contenido ni a
+   fijar un max-height inventado.
+
+   El hijo directo necesita `min-height: 0` y overflow hidden, o se
+   desborda mientras cierra. */
+@utility desplegable {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duracion-card) var(--ease-bookea);
+
+  & > * {
+    min-height: 0;
+    overflow: hidden;
+  }
+  &[data-abierto="true"] {
+    grid-template-rows: 1fr;
+  }
+}
+
+/* Las columnas del acordeón de tipos (/lealtad). Se anima `flex` —o
+   sea el ancho— y eso SÍ dispara layout, a diferencia del resto del
+   sistema. Es la excepción consciente: un acordeón horizontal es
+   justamente un ancho que cambia, y no hay forma de hacerlo con
+   transform sin deformar el texto de adentro.
+
+   Se acota el daño: son ocho elementos, el contenedor tiene ancho
+   fijo, y nada de lo de afuera se mueve. */
+.acordeon-col {
+  transition:
+    flex var(--duracion-card) var(--ease-bookea),
+    background-color var(--duracion-card) var(--ease-bookea),
+    border-color var(--duracion-card) var(--ease-bookea);
+}
+
+/* Respetar a quien pidió menos movimiento. No se apaga la interfaz: se
+   apagan los DESPLAZAMIENTOS. Los cambios de color y el anillo de foco
+   siguen, porque son información, no decoración. */
+@media (prefers-reduced-motion: reduce) {
+  .elevar,
+  .presionable,
+  .paso,
+  .desplegable,
+  .acordeon-col {
+    transition-duration: 1ms !important;
+  }
+  /* El carrusel deja de deslizarse solo: el salto es instantáneo. */
+  .snap-x {
+    scroll-behavior: auto !important;
+  }
+  .elevar:hover,
+  .elevar:active,
+  .presionable:active {
+    transform: none;
+  }
+  .paso[data-estado="entrando"],
+  .paso[data-estado="saliendo"] {
+    transform: none;
+  }
+  .esqueleto::after {
+    animation: none;
   }
 }
 
@@ -119,12 +394,50 @@
   --radius-2xl: 14px;
   --radius-3xl: 18px;
   --radius-4xl: 24px;
+
+  /* ── MOVIMIENTO ──────────────────────────────────────────────────
+     Las tres duraciones y la curva del sistema, como tokens y no como
+     números sueltos en cada archivo: así una animación nueva hereda
+     el ritmo del resto en vez de inventarse el suyo.
+
+     La curva es la misma para todo (arranca rápido, frena suave): un
+     sistema con cinco easings distintos se siente descoordinado. */
+  --ease-bookea: cubic-bezier(0.22, 1, 0.36, 1);
+  --duracion-micro: 200ms; /* hover, press, focus, chips        */
+  --duracion-card: 300ms; /* cards, acordeones, pasos          */
+  --duracion-revelado: 420ms; /* entrada de secciones al hacer scroll */
+
+  /* ── ELEVACIÓN ───────────────────────────────────────────────────
+     Tres niveles y se acabó. Todas son sombras del AZUL de marca con
+     alfa, no grises: una sombra gris sobre un fondo azulado se ve
+     sucia. `--sombra-foco` es el anillo de foco, que es elevación
+     conceptualmente aunque no proyecte. */
+  --shadow-plano: 0 1px 2px color-mix(in srgb, var(--navy) 7%, transparent);
+  --shadow-elevado: 0 6px 20px -6px color-mix(in srgb, var(--navy) 18%, transparent);
+  --shadow-flotante: 0 18px 40px -12px color-mix(in srgb, var(--navy) 26%, transparent);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-figtree);
+
+  /* Nombres de marca para los tokens. Apuntan a las MISMAS variables
+     de siempre, así que fuera de Lealtad valen exactamente lo de
+     antes; dentro de `.lealtad` esas variables se re-declaran y estos
+     alias siguen al scope solos. Un nombre, dos identidades, cero
+     componentes duplicados. */
+  --color-bookea-azul: var(--navy);
+  --color-bookea-azul-profundo: var(--navy-profundo, #0a1226);
+  --color-bookea-azul-elevado: var(--navy-elevado, #16295e);
+  --color-bookea-azul-suave: var(--navy-suave, #e9eef6);
+  --color-bookea-naranja: var(--orange);
+  --color-bookea-naranja-fuerte: var(--orange-fuerte, #a83f00);
+  --color-bookea-naranja-suave: var(--orange-suave, #fff1e6);
+  --color-bookea-gris: var(--muted);
+  --color-bookea-fondo: var(--grey);
+  --color-bookea-linea: var(--line);
+  --color-bookea-tinta: var(--text);
 
   /* Alias de los tokens de arriba — mismos nombres de siempre
      (orange, navy, cream...) para no reescribir cada archivo, pero

@@ -162,3 +162,134 @@ describe("construirPassJson", () => {
     expect(cash.storeCard.backFields[0].value).toContain("saldo");
   });
 });
+
+/**
+ * LOS CINCO TIPOS DE LA 0135.
+ *
+ * Antes de esto, un programa de tipo 'cupon' caía en la rama genérica
+ * y el pase decía «PUNTOS 0» en el teléfono del cliente: la tarjeta
+ * mostraba algo que no tenía nada que ver con lo que el negocio
+ * prometió. Eso es lo que se protege acá.
+ */
+describe("los tipos de la 0135", () => {
+  it("un cupón muestra el beneficio, no un saldo", () => {
+    const c = camposSegunModo(
+      datos({
+        config: { modo: "cupon", pase_color_fondo: null, pase_color_sello: null, pase_logo_url: null },
+        beneficio: {
+          tipo: "cupon",
+          beneficio: { forma: "porcentaje", valor: 30 },
+          compraMinima: 0,
+          descuentoMaximo: null,
+          usosPorCliente: 1,
+        },
+      }),
+    );
+    expect(c.encabezado.value).toBe("30% OFF");
+    expect(c.encabezado.label).toBe("CUPÓN");
+    // Lo que NO debe pasar nunca:
+    expect(c.encabezado.label).not.toBe("PUNTOS");
+    expect(c.regalia).toBeNull();
+  });
+
+  it("un descuento por monto y uno de producto gratis se leen bien", () => {
+    const conBeneficio = (forma: "monto" | "gratis") =>
+      camposSegunModo(
+        datos({
+          config: { modo: "descuento", pase_color_fondo: null, pase_color_sello: null, pase_logo_url: null },
+          beneficio: {
+            tipo: "descuento",
+            beneficio:
+              forma === "monto"
+                ? { forma: "monto", valor: 5000 }
+                : { forma: "gratis", que: "Postre" },
+            compraMinima: 0,
+            descuentoMaximo: null,
+            usosPorCliente: 1,
+          },
+        }),
+      ).encabezado.value;
+    // es-CR separa los miles con espacio DURO (U+00A0): comparar
+    // contra un espacio normal falla aunque el número esté bien.
+    expect(conBeneficio("monto")).toContain((5000).toLocaleString("es-CR"));
+    expect(conBeneficio("gratis")).toBe("Postre gratis");
+  });
+
+  it("una membresía muestra el nivel y sus beneficios", () => {
+    const c = camposSegunModo(
+      datos({
+        config: { modo: "membresia", pase_color_fondo: null, pase_color_sello: null, pase_logo_url: null },
+        beneficio: {
+          tipo: "membresia",
+          nivel: "Gold",
+          beneficios: ["10% siempre", "Prioridad de horario"],
+          vigenciaMeses: 12,
+          renovacionAutomatica: false,
+        },
+      }),
+    );
+    expect(c.encabezado.value).toBe("Gold");
+    expect(c.detalle.value).toContain("10% siempre");
+  });
+
+  it("una gift card muestra el saldo que QUEDA, con su moneda", () => {
+    const c = camposSegunModo(
+      datos({
+        saldo: 7500,
+        config: { modo: "giftcard", pase_color_fondo: null, pase_color_sello: null, pase_logo_url: null },
+        beneficio: { tipo: "giftcard", valor: 10000, moneda: "CRC", canjeParcial: true, transferible: true },
+      }),
+    );
+    expect(c.encabezado.value).toContain((7500).toLocaleString("es-CR"));
+    expect(c.encabezado.value.startsWith("₡")).toBe(true);
+  });
+
+  it("un evento muestra cuándo y dónde", () => {
+    const c = camposSegunModo(
+      datos({
+        config: { modo: "evento", pase_color_fondo: null, pase_color_sello: null, pase_logo_url: null },
+        beneficio: {
+          tipo: "evento",
+          fecha: "2026-09-01",
+          hora: "19:00",
+          ubicacion: "Rancho Las Torres",
+          capacidad: 100,
+        },
+      }),
+    );
+    expect(c.encabezado.value).toContain("2026-09-01");
+    expect(c.encabezado.value).toContain("19:00");
+    expect(c.detalle.value).toBe("Rancho Las Torres");
+  });
+
+  it("sin la config del beneficio NO queda en blanco: se degrada", () => {
+    // Un programa guardado antes de la 0135 no tiene `beneficio`. El
+    // pase se sigue emitiendo con algo razonable en vez de romperse.
+    for (const modo of ["cupon", "membresia", "giftcard", "evento"] as const) {
+      const c = camposSegunModo(
+        datos({
+          beneficio: null,
+          config: { modo, pase_color_fondo: null, pase_color_sello: null, pase_logo_url: null },
+        }),
+      );
+      expect(c.encabezado.value.trim()).not.toBe("");
+      expect(c.detalle.value.trim()).not.toBe("");
+    }
+  });
+
+  it("el pase completo se arma para los ocho tipos, sin excepción", () => {
+    for (const modo of [
+      "sellos", "puntos", "cashback", "cupon",
+      "descuento", "membresia", "giftcard", "evento",
+    ] as const) {
+      const pass = construirPassJson(
+        datos({
+          config: { modo, pase_color_fondo: "#062653", pase_color_sello: "#FF6A00", pase_logo_url: null },
+        }),
+      );
+      const tarjeta = pass.storeCard as { headerFields: { value: string }[] };
+      expect(tarjeta.headerFields[0].value.trim()).not.toBe("");
+      expect(pass.serialNumber).toBe("PM-0001");
+    }
+  });
+});

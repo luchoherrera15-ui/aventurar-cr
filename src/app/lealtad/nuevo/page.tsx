@@ -2,7 +2,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { datosDePagoBookea } from "@/lib/pagos-bookea";
-import { ETIQUETAS_CAPACIDAD, PLANES, PLANES_ID } from "@/lib/lealtad/planes";
+import {
+  ETIQUETAS_CAPACIDAD,
+  PLANES,
+  PLANES_OFRECIDOS,
+  PLAN_DESTACADO,
+  precioDe,
+} from "@/lib/lealtad/planes";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
 import WizardAlta, { type PlanWizard } from "./wizard-alta";
 
@@ -27,16 +33,18 @@ export default async function NuevoNegocioLealtadPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const planes: PlanWizard[] = PLANES_ID.map((id) => {
+  const planes: PlanWizard[] = PLANES_OFRECIDOS.map((id) => {
     const def = PLANES[id];
     return {
       id,
       nombre: def.nombre,
-      limite: def.limiteMiembros,
-      precio: def.precioMensual,
+      limite: def.limites.clientesActivos,
+      precio: precioDe(def),
+      esGratis: def.precioMensual === 0,
+      enDolares: def.precioMensual !== null && def.precioMensual !== 0,
       beneficios: def.capacidades.slice(0, 4).map((c) => ETIQUETAS_CAPACIDAD[c]),
       masBeneficios: Math.max(0, def.capacidades.length - 4),
-      destacado: id === "enterprise",
+      destacado: id === PLAN_DESTACADO,
     };
   });
 

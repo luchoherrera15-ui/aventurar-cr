@@ -183,22 +183,17 @@ export default async function AdminFinanzasPage({
       solicitantesLealtad.set(p.id, (p.nombre ?? "").trim());
     }
   }
-  for (const s of filasLealtad) {
-    const def = definicionDe(s.plan);
-    if (!def?.precioMensual) continue; // sin precio no hay monto que cuadrar
-    cobros.push({
-      id: `lealtad-${s.id}`,
-      fuente: "lealtad",
-      concepto: nombrePorRancho[s.rancho_id] ?? "(negocio)",
-      cliente: solicitantesLealtad.get(s.solicitante_id) ?? "",
-      paquete: `Plan ${def.nombre}`,
-      metodo: s.metodo_pago as Cobro["metodo"],
-      monto: def.precioMensual,
-      fecha: String(s.created_at ?? "").slice(0, 10),
-      confirmado: s.estado === "atendida",
-      comprobanteUrl: s.comprobante_url ?? null,
-    });
-  }
+  // Este panel cuadra COLONES, y los planes de Lealtad están tarifados
+  // en DÓLARES (0133): el depósito SINPE se hace por un monto que fija
+  // el tipo de cambio del día, que no está en el sistema. Sumar 9 a un
+  // total en colones daría una cifra que parece plata y no lo es.
+  //
+  // Así que los depósitos de Lealtad se cuentan pero no se suman, y se
+  // AVISA abajo: un total al que le faltan cobros sin decirlo se lee
+  // como una caída de ventas que no ocurrió.
+  const cobrosEnDolares = filasLealtad.filter(
+    (s) => definicionDe(s.plan)?.precioMensual, // sin precio no hay monto que cuadrar
+  ).length;
 
   cobros.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 
@@ -213,6 +208,18 @@ export default async function AdminFinanzasPage({
         alquileres, lo que entra por invitaciones digitales y, más adelante,
         los paquetes de promoción.
       </p>
+
+      {cobrosEnDolares > 0 && (
+        <p className="mb-6 rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+          <strong>
+            {cobrosEnDolares} {cobrosEnDolares === 1 ? "depósito" : "depósitos"} de lealtad
+          </strong>{" "}
+          {cobrosEnDolares === 1 ? "quedó" : "quedaron"} fuera de estos totales:{" "}
+          {cobrosEnDolares === 1 ? "corresponde" : "corresponden"} a planes tarifados en
+          dólares y este panel cuadra colones. Para sumarlos hay que fijar el tipo de cambio
+          con el que se cobra el SINPE.
+        </p>
+      )}
 
       <FinanzasTabs
         inicial={esTabFinanzas(tab) ? tab : "alquileres"}
