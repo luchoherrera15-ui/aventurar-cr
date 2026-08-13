@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
+import { estadoAlCrear } from "./estado-inicial";
 import {
   esTipoTarjeta,
   metaDe,
@@ -181,26 +182,52 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
 
   const topeProgramas = definicionDe(plan)?.limites.programas ?? null;
   if (topeProgramas !== null) {
+    // Se piden los NOMBRES y no solo el conteo: un «llegaste al tope»
+    // sin decir qué lo ocupa es un callejón sin salida. Le pasó al
+    // dueño con una tarjeta en borrador que ninguna pantalla mostraba.
     const consulta = db
       .from("programa_lealtad")
-      .select("*", { count: "exact", head: true })
+      .select("id, nombre, estado")
       .neq("estado", "archivado");
-    const { count } = cuentaId
+    const { data: ocupan } = cuentaId
       ? await consulta.eq("cuenta_id", cuentaId)
       : await consulta.eq("rancho_id", datos.ranchoId);
 
-    if ((count ?? 0) >= topeProgramas) {
+    const existentes = ocupan ?? [];
+    if (existentes.length >= topeProgramas) {
+      const nombres = existentes
+        .map((p) => `«${p.nombre as string}»${p.estado === "borrador" ? " (en borrador)" : ""}`)
+        .join(", ");
       return {
         ok: false,
-        motivo: `Tu paquete permite ${topeProgramas} programa${topeProgramas === 1 ? "" : "s"}. Archivá uno o subí de paquete para crear otro.`,
+        motivo:
+          `Tu paquete permite ${topeProgramas} tarjeta${topeProgramas === 1 ? "" : "s"} y ya ` +
+          `${existentes.length === 1 ? "tenés" : "tenés"} ${nombres}. ` +
+          `Archivá esa desde Recompensas → Estado del programa, o subí de paquete para tener más.`,
       };
     }
   }
 
   // ── 4. Guardar ──────────────────────────────────────────────────
-  // Nace en BORRADOR a propósito: publicar es una decisión aparte, y
-  // una tarjeta que se activa sola al crearse empieza a emitir pases
-  // antes de que nadie la haya mirado dos veces.
+  // NACE ACTIVA. Antes nacía en borrador «porque publicar es una
+  // decisión aparte», y eso rompía el producto entero de la peor
+  // manera: en silencio y diciendo lo contrario.
+  //
+  // El asistente termina en un paso que dice «Revisar — una última
+  // mirada antes de publicar», el botón dice «Publicar tarjeta»,
+  // mientras guarda dice «Publicando…» y la pantalla de éxito dice
+  // «quedó publicada». Cuatro veces. Y la fila quedaba en `borrador`
+  // con `activo: false`.
+  //
+  // Consecuencias reales, verificadas contra producción: la tarjeta no
+  // emitía UN SOLO pase, así que el dueño reportó «no se ve la imagen
+  // en el pase» cuando lo que no había era pase. Y al intentar de nuevo
+  // se topaba con el límite de tarjetas del paquete, porque ese
+  // borrador invisible ya ocupaba el cupo — sin ninguna pantalla que le
+  // dijera que existía.
+  //
+  // La cautela de «que nadie publique sin mirarla dos veces» ya la
+  // cumple el paso de Revisar. Un botón que promete publicar, publica.
   const fila: Record<string, unknown> = {
     rancho_id: datos.ranchoId,
     nombre,
@@ -210,8 +237,7 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     pase_color_sello: datos.colorSello,
     pase_logo_url: logo || null,
     pase_banner_url: banner || null,
-    activo: false,
-    estado: "borrador",
+    ...estadoAlCrear(),
     // El motor de puntos sigue leyendo estas dos columnas (0060). Se
     // derivan del beneficio en vez de pedirlas aparte: dos números
     // para lo mismo se separan en cuanto alguien cambia uno.
@@ -259,7 +285,9 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
         pase_color_fondo: datos.colorFondo,
         pase_color_sello: datos.colorSello,
         pase_logo_url: logo || null,
-        activo: false,
+        // Activa también acá: en una base sin la columna `estado`, este
+        // booleano es lo ÚNICO que decide si la tarjeta opera.
+        activo: true,
         puntos_por_visita: fila.puntos_por_visita,
         puntos_por_colon: fila.puntos_por_colon,
       })
