@@ -52,6 +52,49 @@ export async function asignarPlanLealtad({
 }
 
 /**
+ * Aprobar un negocio nuevo para el mundo de lealtad (0129): hasta este
+ * clic, el negocio está EN HOLD — sin panel y sin poder solicitar plan.
+ * Va con la llave de servicio porque el trigger
+ * `ranchos_proteger_aprobacion_lealtad` rechaza a cualquier sesión que
+ * no sea admin; el `requireAdmin` de acá pone el mensaje decente antes.
+ */
+export async function aprobarNegocioLealtad({
+  ranchoId,
+}: {
+  ranchoId: string;
+}): Promise<{ error?: string }> {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  const admin = createAdminClient();
+  if (!admin) return { error: FALTA_SERVICE_KEY };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await admin
+    .from("ranchos")
+    .update({
+      lealtad_aprobado_en: new Date().toISOString(),
+      lealtad_aprobado_por: user?.id ?? null,
+    })
+    .eq("id", ranchoId);
+
+  if (error) {
+    if (error.message.includes("lealtad_aprobado")) {
+      return { error: "Falta correr la migración 0129 en Supabase." };
+    }
+    return { error: "No se pudo aprobar: " + error.message };
+  }
+
+  revalidatePath("/admin/complementos");
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
+  revalidatePath("/lealtad/panel");
+  return {};
+}
+
+/**
  * Atender una solicitud de plan (0126) con UN botón: aprobar asigna el
  * plan pedido, enciende el complemento `lealtad` y marca la solicitud —
  * las tres cosas que antes había que acordarse de hacer por separado.

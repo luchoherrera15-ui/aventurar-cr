@@ -7,6 +7,7 @@ import ComplementosPanel, {
   type NegocioConAddons,
 } from "./complementos-panel";
 import SolicitudesPanel, { type SolicitudPendiente } from "./solicitudes-panel";
+import NegociosRevisionPanel, { type NegocioEnRevision } from "./negocios-revision-panel";
 
 /**
  * Complementos: qué tiene contratado cada negocio, a quién se le venció
@@ -31,10 +32,9 @@ export default async function AdminComplementosPage() {
   }
 
   const [ranchosRes, addonsRes, programasRes, miembrosRes, solicitudesRes] = await Promise.all([
-    admin
-      .from("ranchos")
-      .select("id, nombre, slug, vertical, estado, plan_lealtad")
-      .order("nombre"),
+    // `select *`: lealtad_aprobado_en es de la 0129 y puede faltar —
+    // con un select explícito la página entera se caería.
+    admin.from("ranchos").select("*").order("nombre"),
     admin.from("addons_negocio").select("rancho_id, addon, activo, vence_en, notas, activado_en"),
     // El programa de lealtad de cada negocio, para poder contar sus
     // miembros contra el tope del plan.
@@ -90,6 +90,45 @@ export default async function AdminComplementosPage() {
       planLealtad: r.plan_lealtad ?? null,
       miembros: miembrosPorPrograma.get(programaDeRancho.get(r.id) ?? "") ?? 0,
     }));
+
+  // La bandeja de negocios EN REVISIÓN (0129): creados pero sin el
+  // visto bueno. Si la columna no existe todavía, no hay bandeja.
+  type FilaRanchoAdmin = {
+    id: string;
+    nombre: string;
+    vertical: string | null;
+    owner_id: string;
+    created_at?: string | null;
+    lealtad_aprobado_en?: string | null;
+  };
+  const filasRancho = (ranchosRes.data ?? []) as FilaRanchoAdmin[];
+  const enRevision = filasRancho.filter(
+    (r) => "lealtad_aprobado_en" in r && r.lealtad_aprobado_en === null,
+  );
+  const duenosRevision = [...new Set(enRevision.map((r) => r.owner_id))];
+  const { data: perfilesDuenos } = duenosRevision.length
+    ? await admin.from("perfiles").select("id, nombre, email").in("id", duenosRevision)
+    : { data: [] };
+  const duenoDe = new Map(
+    ((perfilesDuenos ?? []) as { id: string; nombre: string | null; email: string | null }[]).map(
+      (p) => [p.id, p],
+    ),
+  );
+  const FECHA_REV = new Intl.DateTimeFormat("es-CR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Costa_Rica",
+  });
+  const negociosEnRevision: NegocioEnRevision[] = enRevision.map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    vertical: r.vertical,
+    creador: (duenoDe.get(r.owner_id)?.nombre ?? "").trim() || "(sin nombre)",
+    correo: duenoDe.get(r.owner_id)?.email ?? "—",
+    fecha: r.created_at ? FECHA_REV.format(new Date(r.created_at)) : "—",
+  }));
 
   // La bandeja de solicitudes, con el solicitante ya resuelto a nombre
   // y correo (perfiles guarda los dos).
@@ -161,6 +200,7 @@ export default async function AdminComplementosPage() {
         </p>
       )}
 
+      <NegociosRevisionPanel negocios={negociosEnRevision} />
       <SolicitudesPanel solicitudes={solicitudes} />
       <ComplementosPanel negocios={negocios} seccion={seccion} />
     </div>

@@ -40,21 +40,24 @@ export default async function PlanesLealtadPage({
   // servicio: si no puede verlos, no puede pedir por ellos.
   let negocios: NegocioElegible[] = [];
   if (user) {
+    // `select *`: lealtad_aprobado_en es de la 0129 y puede no existir.
     const [{ data: propios }, { data: colaboraciones }] = await Promise.all([
-      supabase.from("ranchos").select("id, nombre").eq("owner_id", user.id),
+      supabase.from("ranchos").select("*").eq("owner_id", user.id),
       supabase.from("rancho_colaboradores").select("rancho_id").eq("usuario_id", user.id),
     ]);
     const idsColab = ((colaboraciones ?? []) as { rancho_id: string }[]).map((c) => c.rancho_id);
     const { data: colaborados } = idsColab.length
-      ? await supabase.from("ranchos").select("id, nombre").in("id", idsColab)
+      ? await supabase.from("ranchos").select("*").in("id", idsColab)
       : { data: [] };
 
+    type Fila = { id: string; nombre: string; lealtad_aprobado_en?: string | null };
     negocios = [
       ...new Map(
-        [
-          ...((propios ?? []) as NegocioElegible[]),
-          ...((colaborados ?? []) as NegocioElegible[]),
-        ].map((n) => [n.id, n] as const),
+        [...((propios ?? []) as Fila[]), ...((colaborados ?? []) as Fila[])]
+          // Un negocio en revisión (0129) no puede solicitar plan: ni
+          // siquiera aparece en el selector — la acción lo re-verifica.
+          .filter((n) => !("lealtad_aprobado_en" in n) || n.lealtad_aprobado_en !== null)
+          .map((n) => [n.id, { id: n.id, nombre: n.nombre }] as const),
       ).values(),
     ];
   }

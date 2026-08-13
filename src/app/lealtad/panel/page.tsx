@@ -39,6 +39,8 @@ type TarjetaNegocio = {
   /** null = sin programa creado todavía. */
   estadoPrograma: string | null;
   miembros: number;
+  /** 0129: creado pero sin aprobar por Bookea — todo en pausa. */
+  enRevision: boolean;
 };
 
 export default async function PanelLealtadPage() {
@@ -51,21 +53,26 @@ export default async function PanelLealtadPage() {
   // Los negocios que administra, con la SESIÓN del usuario: la RLS
   // decide qué filas le tocan. La llave de servicio entra después,
   // solo para los agregados que el dueño no puede leer directo.
+  // `select *`: lealtad_aprobado_en (0129) puede no existir todavía y
+  // un select explícito reventaría la página entera.
   const [{ data: propios }, { data: colaboraciones }] = await Promise.all([
-    supabase.from("ranchos").select("id, nombre, slug, plan_lealtad").eq("owner_id", user.id),
+    supabase.from("ranchos").select("*").eq("owner_id", user.id),
     supabase.from("rancho_colaboradores").select("rancho_id").eq("usuario_id", user.id),
   ]);
 
   const idsColab = ((colaboraciones ?? []) as { rancho_id: string }[]).map((c) => c.rancho_id);
   const { data: colaborados } = idsColab.length
-    ? await supabase
-        .from("ranchos")
-        .select("id, nombre, slug, plan_lealtad")
-        .in("id", idsColab)
+    ? await supabase.from("ranchos").select("*").in("id", idsColab)
     : { data: [] };
 
   // Dueño y colaborador del mismo negocio a la vez = una sola tarjeta.
-  type FilaRancho = { id: string; nombre: string; slug: string | null; plan_lealtad: string | null };
+  type FilaRancho = {
+    id: string;
+    nombre: string;
+    slug: string | null;
+    plan_lealtad: string | null;
+    lealtad_aprobado_en?: string | null;
+  };
   const base = [
     ...new Map(
       [...((propios ?? []) as FilaRancho[]), ...((colaborados ?? []) as FilaRancho[])].map(
@@ -123,6 +130,7 @@ export default async function PanelLealtadPage() {
       addonActivo,
       estadoPrograma,
       miembros,
+      enRevision: "lealtad_aprobado_en" in r && r.lealtad_aprobado_en === null,
     });
   }
 
@@ -175,20 +183,27 @@ export default async function PanelLealtadPage() {
               </div>
 
               <p className="mt-1.5 text-[12.5px] text-white/50">
-                {n.estadoPrograma === "activo"
-                  ? `Programa activo · ${n.miembros} miembro${n.miembros === 1 ? "" : "s"}`
-                  : n.estadoPrograma
-                    ? `Programa en ${n.estadoPrograma}`
-                    : n.addonActivo
-                      ? "Sin programa configurado todavía"
-                      : "Lealtad sin activar"}
+                {n.enRevision
+                  ? "En revisión de Bookea — te avisamos al aprobarlo"
+                  : n.estadoPrograma === "activo"
+                    ? `Programa activo · ${n.miembros} miembro${n.miembros === 1 ? "" : "s"}`
+                    : n.estadoPrograma
+                      ? `Programa en ${n.estadoPrograma}`
+                      : n.addonActivo
+                        ? "Sin programa configurado todavía"
+                        : "Lealtad sin activar"}
               </p>
 
               {/* El menú de productos del negocio. Hoy: solo lealtad.
                   Los próximos se agregan a ESTA fila. Sin el addon, el
-                  botón lleva a los paquetes — ahí empieza la compra. */}
+                  botón lleva a los paquetes — ahí empieza la compra. En
+                  revisión (0129): sin botones — todo espera al admin. */}
               <div className="mt-4 grid gap-2">
-                {n.addonActivo ? (
+                {n.enRevision ? (
+                  <p className="rounded-xl border border-dashed border-white/25 px-4 py-3 text-center text-[12.5px] font-bold text-white/50">
+                    ⏳ Esperando aprobación
+                  </p>
+                ) : n.addonActivo ? (
                   <Link
                     href={`/lealtad/panel/${n.id}`}
                     className="flex items-center justify-between rounded-xl px-4 py-3 text-[13.5px] font-bold text-white transition-transform hover:scale-[1.01]"

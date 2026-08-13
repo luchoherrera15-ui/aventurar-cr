@@ -49,12 +49,38 @@ export default async function PanelNegocioLealtad({
 
   // El negocio, con la sesión: la RLS de la 0116 ya deja leerlo al
   // dueño y al colaborador (aunque esté pendiente, invisible al público).
+  // `select *` a propósito: lealtad_aprobado_en es de la 0129 y un
+  // select explícito reventaría en una base sin migrar.
   const { data: rancho } = await acceso.supabase
     .from("ranchos")
-    .select("id, nombre, slug, plan_lealtad")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (!rancho) redirect("/lealtad/panel");
+
+  // ── En revisión (0129): creado pero sin aprobar por Bookea ──────────
+  // Si la columna no existe todavía, el negocio se trata como aprobado
+  // — el comportamiento de antes de la migración.
+  const enRevision =
+    "lealtad_aprobado_en" in rancho && rancho.lealtad_aprobado_en === null && !acceso.esAdmin;
+  if (enRevision) {
+    return (
+      <Cascaron nombre={rancho.nombre} plan={null}>
+        <Papel>
+          <div className="py-6 text-center sm:py-10">
+            <p className="text-[15px] font-extrabold text-aventurea-ink">
+              Tu negocio está en revisión
+            </p>
+            <p className="mx-auto mt-2 max-w-[440px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+              El equipo de Bookea revisa cada negocio nuevo antes de habilitarle el
+              programa de lealtad. Te avisamos al correo apenas quede aprobado — de ahí
+              elegís tu paquete y dejás la solicitud.
+            </p>
+          </div>
+        </Papel>
+      </Cascaron>
+    );
+  }
 
   const { data: tieneAddon } = await acceso.supabase.rpc("tiene_addon", {
     p_rancho_id: id,
@@ -73,37 +99,41 @@ export default async function PanelNegocioLealtad({
 
     return (
       <Cascaron nombre={rancho.nombre} plan={null}>
-        <div className="rounded-3xl bg-[#f7f5f0] p-6 text-center sm:p-10">
-          {solicitud ? (
-            <>
-              <p className="text-[15px] font-extrabold text-aventurea-ink">
-                Tu solicitud del plan {definicionDe(solicitud.plan as string)?.nombre ?? ""} está
-                en revisión
-              </p>
-              <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                El equipo de Bookea la está armando para que quede bien. Te avisamos al correo
-                cuando el programa esté activo.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-[15px] font-extrabold text-aventurea-ink">
-                Este negocio todavía no tiene el programa de lealtad
-              </p>
-              <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                Elegí tu paquete y dejá la solicitud: el equipo de Bookea genera el programa y
-                la tarjeta por vos, y te avisa cuando esté listo.
-              </p>
-              <Link
-                href={`/lealtad/planes?negocio=${id}`}
-                className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold text-white"
-                style={{ background: NARANJA }}
-              >
-                Ver los paquetes →
-              </Link>
-            </>
-          )}
-        </div>
+        {/* Papel y no la tarjeta clara vieja: el tema oscuro pinta la
+            tinta de blanco, y blanco sobre crema era texto invisible. */}
+        <Papel>
+          <div className="py-6 text-center sm:py-10">
+            {solicitud ? (
+              <>
+                <p className="text-[15px] font-extrabold text-aventurea-ink">
+                  Tu solicitud del plan {definicionDe(solicitud.plan as string)?.nombre ?? ""} está
+                  en revisión
+                </p>
+                <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                  El equipo de Bookea la está armando para que quede bien. Te avisamos al correo
+                  cuando el programa esté activo.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[15px] font-extrabold text-aventurea-ink">
+                  Este negocio todavía no tiene el programa de lealtad
+                </p>
+                <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                  Elegí tu paquete y dejá la solicitud: el equipo de Bookea genera el programa y
+                  la tarjeta por vos, y te avisa cuando esté listo.
+                </p>
+                <Link
+                  href={`/lealtad/planes?negocio=${id}`}
+                  className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold text-white"
+                  style={{ background: NARANJA }}
+                >
+                  Ver los paquetes →
+                </Link>
+              </>
+            )}
+          </div>
+        </Papel>
       </Cascaron>
     );
   }

@@ -1,8 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generarSlugUnico } from "@/lib/slug";
+import { avisarAAdministradores } from "@/lib/correo/administradores";
 
 /**
  * El alta "solo lealtad": un negocio que existe para su programa de
@@ -65,7 +67,39 @@ export async function crearNegocioLealtad(formData: FormData): Promise<void> {
     redirect("/lealtad/nuevo?error=guardar");
   }
 
-  // Derecho a elegir su paquete: el negocio se creó exactamente para
-  // eso, y la solicitud es el paso que sigue — no una pantalla vacía.
-  redirect(`/lealtad/planes?negocio=${data.id}`);
+  // Desde la 0129 el negocio nace EN REVISIÓN para lealtad
+  // (lealtad_aprobado_en null es el default de la columna): nadie
+  // avanza a solicitar plan hasta que un administrador lo apruebe.
+  // El aviso sale después de responder; la fila es la fuente de verdad.
+  const { data: perfil } = await supabase
+    .from("perfiles")
+    .select("nombre")
+    .eq("id", user.id)
+    .maybeSingle();
+  const quien = ((perfil?.nombre as string | null) ?? "").trim() || "(sin nombre)";
+  const correo = user.email ?? "(sin correo)";
+
+  after(() =>
+    avisarAAdministradores({
+      subject: `HAY UN NEGOCIO NUEVO EN REVISIÓN (Lealtad) — ${nombre}`,
+      html: `
+        <p><b>${escapar(nombre)}</b> (${escapar(vertical)}) lo creó ${escapar(quien)}
+        · ${escapar(correo)}.</p>
+        <p>Se aprueba desde
+        <a href="https://www.bookea.lat/admin/complementos">el panel de complementos</a> —
+        hasta entonces no puede solicitar plan.</p>
+      `,
+    }),
+  );
+
+  // Su panel le explica el estado: "en revisión, te avisamos".
+  redirect(`/lealtad/panel/${data.id}`);
+}
+
+function escapar(texto: string): string {
+  return texto
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }

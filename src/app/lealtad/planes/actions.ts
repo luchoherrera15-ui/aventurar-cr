@@ -46,6 +46,24 @@ export async function solicitarPlanLealtad(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, motivo: "Iniciá sesión para solicitar el plan." };
 
+  // Un negocio en revisión (0129) no solicita nada: primero lo aprueba
+  // un administrador. `select *` tolera bases sin la migración.
+  const { data: ranchoRevision } = await supabase
+    .from("ranchos")
+    .select("*")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  if (
+    ranchoRevision &&
+    "lealtad_aprobado_en" in ranchoRevision &&
+    ranchoRevision.lealtad_aprobado_en === null
+  ) {
+    return {
+      ok: false,
+      motivo: "Tu negocio está en revisión por Bookea — te avisamos al aprobarlo y ahí podés solicitar el plan.",
+    };
+  }
+
   const tel = telefono.trim().slice(0, 30);
   const msj = mensaje.trim().slice(0, 500);
 
