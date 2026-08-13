@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { notificarCitaConfirmada } from "@/lib/notificaciones-cita";
 import { leerCuentasDeCobro } from "@/lib/ranchos-publicos";
 
@@ -69,7 +70,14 @@ export async function crearCita(
   } catch {
     // El aviso queda pendiente; la cita existe igual.
   }
-  const cuentas = await leerCuentasDeCobro(supabase, input.ranchoId);
+  // Cliente de servicio: agendar una cita no pide cuenta, así que
+  // `supabase` acá es el rol anónimo y desde la 0140 ese rol no lee las
+  // columnas de cobro. Lo que habilita verlas no es el rol: es que la
+  // cita ya quedó creada unas líneas más arriba.
+  const cuentas = await leerCuentasDeCobro(
+    createAdminClient() ?? supabase,
+    input.ranchoId,
+  );
   return {
     error: null,
     reservaId,

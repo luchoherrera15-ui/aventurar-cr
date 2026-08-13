@@ -39,6 +39,7 @@ import {
   type Provincia,
   type Rancho,
 } from "@/lib/types";
+import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
 
 type Calificacion = { promedio: number; total: number };
 
@@ -167,9 +168,12 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
   const cargar = useCallback(async () => {
     setError(null);
     const [{ data, error }, { data: califData }] = await Promise.all([
+      // Lista explícita, nunca `*`: el directorio se carga sin sesión y
+      // `*` bajaba también el SINPE y la cuenta bancaria de CADA
+      // proveedor del país. Ver lib/ranchos-publicos.ts.
       supabase
         .from("ranchos")
-        .select("*")
+        .select(COLUMNAS_CARD)
         .eq("estado", "aprobado")
         .order("created_at", { ascending: false }),
       // Calificación real, igual que las tarjetas de la web: sin
@@ -192,7 +196,10 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
     // a la app en su propia fase. Se filtra en JS para que la pantalla
     // siga viva aunque la migración no se haya corrido.
     setRanchos(
-      ((data ?? []) as (Fila & { vertical?: string })[])
+      // `as unknown as` porque COLUMNAS_CARD se arma concatenando: no es
+      // un literal, así que supabase-js no puede inferir la forma de la
+      // fila (mismo casteo que hace /eventos en la web).
+      ((data ?? []) as unknown as (Fila & { vertical?: string })[])
         .filter((r) => (r.vertical ?? "eventos") === "eventos")
         .sort(
           (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),

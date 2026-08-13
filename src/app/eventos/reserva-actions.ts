@@ -50,7 +50,14 @@ async function obtenerIp() {
  */
 export async function crearReservaTemporal(ranchoId: string, fecha: string) {
   const supabase = await createClient();
-  const cuentasPromesa = leerCuentasDeCobro(supabase, ranchoId);
+  // Con el cliente de servicio a propósito: acá se reserva SIN cuenta
+  // (se crea en silencio al completar), así que el `supabase` de esta
+  // acción es el rol anónimo — y desde la 0140 ese rol ya no puede leer
+  // las cuentas de cobro. Sin esto, el paso "Cómo pagar" se quedaba sin
+  // ningún método y nadie podía depositar. El permiso acá no lo da el
+  // rol sino el hold: la persona acaba de tomar esta fecha, con tope de
+  // intentos por IP.
+  const cuentasPromesa = leerCuentasDeCobro(createAdminClient() ?? supabase, ranchoId);
   const ip = await obtenerIp();
   const nowIso = new Date().toISOString();
   const expiraEn = new Date(Date.now() + MINUTOS_HOLD * 60 * 1000).toISOString();

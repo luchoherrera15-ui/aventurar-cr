@@ -54,7 +54,7 @@ function num(v: string): number | null {
 export default function CobrosNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, cargando: cargandoAuth } = useAuth();
 
   const [rancho, setRancho] = useState<Rancho | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -84,6 +84,12 @@ export default function CobrosNegocioScreen() {
   const [anticipacion, setAnticipacion] = useState("");
 
   const cargar = useCallback(async () => {
+    // Sin sesión no se pide: esta pantalla lee las columnas de cobro de
+    // la propia fila, y desde la 0140 esas columnas solo existen para
+    // un rol autenticado. En el arranque en frío la sesión se restaura
+    // de AsyncStorage medio segundo después de montar; sin esta guarda
+    // la consulta salía como anónima y el formulario quedaba vacío.
+    if (!session) return;
     const { data } = await supabase.from("ranchos").select("*").eq("id", id).maybeSingle();
     if (!data) return;
     const r = data as Rancho;
@@ -108,7 +114,7 @@ export default function CobrosNegocioScreen() {
     setTarifaDia(leer("tarifa_dia"));
     setCostoTraslado(leer("costo_traslado"));
     setAnticipacion(leer("anticipacion_dias"));
-  }, [id]);
+  }, [id, session]);
 
   useFocusEffect(
     useCallback(() => {
@@ -169,6 +175,16 @@ export default function CobrosNegocioScreen() {
       return;
     }
     setMensaje("Guardado. Tu página pública ya muestra los cambios.");
+  }
+
+  // Al arrancar en frío la sesión todavía se está restaurando: sin
+  // esperarla, el dueño rebotaba a /cuenta aunque tuviera cuenta.
+  if (cargandoAuth) {
+    return (
+      <View style={styles.centro}>
+        <ActivityIndicator color={Colors.accent} />
+      </View>
+    );
   }
 
   if (!session) {

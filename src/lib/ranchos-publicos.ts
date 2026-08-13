@@ -1,7 +1,26 @@
 import type { Rancho } from "@/app/mi-negocio/types";
-import type { createClient } from "@/lib/supabase/server";
 
-type ClienteSupabase = Awaited<ReturnType<typeof createClient>>;
+/**
+ * Lo mínimo que `leerCuentasDeCobro` le pide a un cliente de Supabase.
+ * Es estructural a propósito: así la misma función sirve con el cliente
+ * de la sesión y con el de servicio (createAdminClient), sin que este
+ * módulo —que también lo importan componentes "use client"— tenga que
+ * importar el código de ninguno de los dos.
+ */
+type LectorDeCuentas = { from(tabla: string): unknown };
+
+/** El pedacito del constructor de consultas que se usa acá. Va aparte
+ *  —y `from` devuelve `unknown`— porque describir el builder completo
+ *  hacía que TypeScript comparara los dos clientes hasta agotarse
+ *  ("Type instantiation is excessively deep"). */
+type ConsultaDeFila = {
+  select(columnas: string): {
+    eq(
+      columna: string,
+      valor: string,
+    ): { maybeSingle(): PromiseLike<{ data: unknown }> };
+  };
+};
 
 /**
  * ============================================================
@@ -172,17 +191,28 @@ export const SIN_CUENTAS: CuentasCobro = {
  *
  * Nunca desde una pantalla que se le sirva a un anónimo.
  *
+ * ⚠️ QUÉ CLIENTE PASARLE. Desde la migración 0140 el rol anónimo ya no
+ * tiene permiso sobre estas seis columnas, así que un `db` sin sesión
+ * devuelve SIN_CUENTAS y la persona se queda sin saber a dónde
+ * transferir. Reservar en Eventos y en Citas se puede hacer SIN cuenta
+ * (la cuenta se crea en silencio después), o sea que esos dos caminos
+ * tienen que pasarle el cliente de servicio:
+ *
+ *     leerCuentasDeCobro(createAdminClient() ?? supabase, ranchoId)
+ *
+ * Eso salta la RLS, y por eso el gate no es el rol sino lo que la
+ * persona ya hizo: tener el hold de esa fecha, o la cita ya creada.
+ *
  * No tira: si la consulta falla, devuelve SIN_CUENTAS. Quien la llama
  * está en medio de una reserva y no puede quedarse sin ella por un
  * tropiezo de red al pedir un dato accesorio.
  */
 export async function leerCuentasDeCobro(
-  db: ClienteSupabase,
+  db: LectorDeCuentas,
   ranchoId: string,
 ): Promise<CuentasCobro> {
   try {
-    const { data } = await db
-      .from("ranchos")
+    const { data } = await (db.from("ranchos") as ConsultaDeFila)
       .select(COLUMNAS_COBRO)
       .eq("id", ranchoId)
       .maybeSingle();

@@ -38,9 +38,9 @@ import {
   type CalificacionRancho,
   type DiaDisponibilidad,
   type PromocionDia,
-  type Rancho,
   type Resena,
 } from "@/lib/types";
+import { COLUMNAS_FICHA, type RanchoPublico } from "@/lib/ranchos-publicos";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
@@ -54,7 +54,7 @@ export default function RanchoDetalleScreen() {
   // El calendario vive en un modal con velo, como el #reservar de la web.
   const [modalFechas, setModalFechas] = useState(false);
   const [fotoActiva, setFotoActiva] = useState(0);
-  const [rancho, setRancho] = useState<Rancho | null>(null);
+  const [rancho, setRancho] = useState<RanchoPublico | null>(null);
   const [disponibilidad, setDisponibilidad] = useState<Record<string, DiaDisponibilidad>>({});
   const [promociones, setPromociones] = useState<PromocionDia[]>([]);
   const [calificacion, setCalificacion] = useState<CalificacionRancho | null>(null);
@@ -63,9 +63,12 @@ export default function RanchoDetalleScreen() {
 
   const cargar = useCallback(async () => {
     setError(null);
+    // Lista explícita, nunca `*`: esta ficha se la sirve la app a
+    // cualquiera sin sesión, y `*` bajaba también el SINPE y la cuenta
+    // bancaria del proveedor. Ver lib/ranchos-publicos.ts.
     const { data, error } = await supabase
       .from("ranchos")
-      .select("*")
+      .select(COLUMNAS_FICHA)
       .eq("id", id)
       .eq("estado", "aprobado")
       .maybeSingle();
@@ -74,7 +77,7 @@ export default function RanchoDetalleScreen() {
       setError("No encontramos esta publicación.");
       return;
     }
-    const fila = data as Rancho;
+    const fila = data as unknown as RanchoPublico;
     setRancho(fila);
 
     // Calificación y reseñas reales — mismas fuentes que el portal web.

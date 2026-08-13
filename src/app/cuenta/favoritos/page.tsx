@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
+import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
 import type { Rancho } from "../../mi-negocio/types";
 
 export const metadata: Metadata = {
@@ -23,9 +24,13 @@ export default async function CuentaFavoritosPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/cuenta");
 
+  // La lista explícita también cuenta cuando `ranchos` viene embebido:
+  // con `ranchos(*)` la fila entera —cuentas de cobro incluidas— viajaba
+  // hasta RanchoCard, que es un componente cliente, y React la serializa
+  // dentro del HTML. Ver src/lib/ranchos-publicos.ts.
   const { data: favoritosData } = await supabase
     .from("favoritos")
-    .select("ranchos(*)")
+    .select(`ranchos(${COLUMNAS_CARD})`)
     .eq("cliente_id", user.id);
 
   // Los favoritos mezclan negocios de cualquier vertical (Eventos,

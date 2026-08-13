@@ -70,7 +70,7 @@ type CupoDia = { eventos: number; porItem: Record<string, number> };
 export default function ReservarServicioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, cargando: cargandoAuth } = useAuth();
 
   const [rancho, setRancho] = useState<Rancho | null>(null);
   const [items, setItems] = useState<RanchoItem[]>([]);
@@ -161,9 +161,14 @@ export default function ReservarServicioScreen() {
   }, [id]);
 
   useEffect(() => {
+    // Sin sesión no se pide nada: reservar requiere cuenta, y la fila
+    // del negocio se lee con los datos de cobro adentro — eso solo se
+    // baja autenticado (la 0140 se los quita al rol anónimo). Al volver
+    // del login esto corre solo, porque `session` está en las deps.
+    if (cargandoAuth || !session) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial al montar, sin librería de data-fetching en este proyecto
     cargar();
-  }, [cargar]);
+  }, [cargar, session, cargandoAuth]);
 
   // ---------- Cotizador según cómo cobra el proveedor ----------
   const config = useMemo(
@@ -497,6 +502,36 @@ export default function ReservarServicioScreen() {
   }
 
   // ---------- Pantallas de estado ----------
+  // El aviso de sesión va PRIMERO y sin depender de la fila: sin
+  // cuenta no se pide el negocio (ver el efecto de arriba), así que
+  // `rancho` es null y el orden viejo mostraba "No encontramos esta
+  // publicación" en vez del botón de iniciar sesión.
+  if (cargandoAuth) {
+    return (
+      <View style={styles.centro}>
+        <ActivityIndicator color={Colors.accent} />
+      </View>
+    );
+  }
+
+  if (!session) {
+    return (
+      <View style={styles.contenedor}>
+        <BarraSuperior titulo="Reservar" subtitulo={rancho?.nombre} />
+        <View style={styles.centro}>
+          <Text style={styles.tituloEstado}>Iniciá sesión para reservar</Text>
+          <Text style={styles.textoEstado}>
+            Tu reserva queda ligada a tu cuenta: ahí ves el estado, el chat con
+            el proveedor y tu historial.
+          </Text>
+          <Pressable style={styles.botonPrimario} onPress={() => router.push("/cuenta")}>
+            <Text style={styles.botonPrimarioTexto}>Iniciar sesión</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   if (cargando) {
     return (
       <View style={styles.centro}>
@@ -512,24 +547,6 @@ export default function ReservarServicioScreen() {
         <Pressable style={styles.botonSecundario} onPress={() => router.back()}>
           <Text style={styles.botonSecundarioTexto}>Volver</Text>
         </Pressable>
-      </View>
-    );
-  }
-
-  if (!session) {
-    return (
-      <View style={styles.contenedor}>
-        <BarraSuperior titulo="Reservar" subtitulo={rancho.nombre} />
-        <View style={styles.centro}>
-          <Text style={styles.tituloEstado}>Iniciá sesión para reservar</Text>
-          <Text style={styles.textoEstado}>
-            Tu reserva queda ligada a tu cuenta: ahí ves el estado, el chat con
-            el proveedor y tu historial.
-          </Text>
-          <Pressable style={styles.botonPrimario} onPress={() => router.push("/cuenta")}>
-            <Text style={styles.botonPrimarioTexto}>Iniciar sesión</Text>
-          </Pressable>
-        </View>
       </View>
     );
   }

@@ -13,6 +13,7 @@ import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import BarraSuperior from "@/components/barra-superior";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import { cargarTiersPorTemporada, type FilaPrecioTier } from "@/lib/precio-tiers";
 import {
   calcularBaseLugar,
@@ -332,6 +333,7 @@ type Seccion = "tarifas" | "descuentos";
 
 export default function PreciosNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
 
   const [nombre, setNombre] = useState<string | null>(null);
   const [esLugar, setEsLugar] = useState(false);
@@ -366,6 +368,11 @@ export default function PreciosNegocioScreen() {
 
   const cargar = useCallback(async () => {
     if (!id) return;
+    // Sin sesión no se pide: el `*` de abajo incluye las columnas de
+    // cobro y desde la 0140 el rol anónimo no las tiene, así que una
+    // consulta disparada antes de que se restaure la sesión (arranque
+    // en frío) devolvería error y dejaría el editor en blanco.
+    if (!session) return;
     const [ranchoRes, tiersPorTemporada, serviciosRes, codigosRes, promosRes] = await Promise.all([
       // `*` a propósito: los campos de diciembre los agrega la 0099 y
       // pedirlos por nombre rompería la pantalla entera en una base sin
@@ -439,7 +446,7 @@ export default function PreciosNegocioScreen() {
       })),
     );
     setCargado(true);
-  }, [id]);
+  }, [id, session]);
 
   useFocusEffect(
     useCallback(() => {
