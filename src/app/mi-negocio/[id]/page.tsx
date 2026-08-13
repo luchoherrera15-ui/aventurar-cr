@@ -1298,7 +1298,10 @@ export default async function RanchoDetallePage({
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
   return (
-    <main className="mx-auto max-w-[1280px] px-5 py-10">
+    // Sin max-width: el panel usa el navegador completo, como el
+    // dashboard de admin — el menú horizontal ya no compite por el
+    // ancho, y las tablas y el calendario lo aprovechan.
+    <main className="w-full px-5 py-8 lg:px-8">
       <Link
         href="/mi-negocio"
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"

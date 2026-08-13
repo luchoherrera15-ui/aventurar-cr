@@ -16,7 +16,7 @@ import { Bloque } from "../../esqueleto";
  */
 export default function CargandoPanelNegocio() {
   return (
-    <main className="mx-auto max-w-[1280px] px-5 py-10">
+    <main className="w-full px-5 py-8 lg:px-8">
       <Bloque className="h-4 w-[190px]" />
 
       <div className="mt-4 overflow-hidden rounded-3xl border border-aventurea-line bg-aventurea-surface p-5 shadow-sm sm:p-7">
