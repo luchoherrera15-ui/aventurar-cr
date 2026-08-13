@@ -288,7 +288,7 @@ function Cascaron({
   const def = definicionDe(plan);
   return (
     <main className="lealtad-oscuro min-h-svh px-5 py-8" style={{ background: NAVY_PROFUNDO }}>
-      <div className="mx-auto w-[min(1040px,94vw)]">
+      <div className="mx-auto w-full max-w-[1040px]">
         <header className="flex items-center justify-between">
           <Link href="/lealtad/panel" className="text-[12.5px] font-bold text-white/50 hover:text-white">
             ← Mis negocios

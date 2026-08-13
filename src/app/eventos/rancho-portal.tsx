@@ -368,7 +368,9 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
   return (
     <div
-      className={`min-h-screen bg-aventurea-cream-2 ${esLugar ? "pb-16 lg:pb-0" : ""}`}
+      // pb-28: la barra fija mide 69px y `pb-16` (64px) la dejaba
+      // pisando el pie de página.
+      className={`min-h-screen bg-aventurea-cream-2 ${esLugar ? "pb-28 lg:pb-0" : ""}`}
     >
       <RevealOnScroll />
       {/* La burbuja de chat flotante pasa a abrir el chat con ESTE
@@ -639,7 +641,10 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
       {/* Barra fija de reserva en celular — siempre a un toque. */}
       {esLugar && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-aventurea-line bg-aventurea-surface px-5 py-3 shadow-[0_-4px_16px_rgba(16,26,44,0.08)] lg:hidden">
+        // El padding inferior respeta el área segura del iPhone: sin
+        // esto, el indicador de inicio quedaba ENCIMA del botón «Ver
+        // fechas», que es el CTA principal de la página.
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-aventurea-line bg-aventurea-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_16px_rgba(16,26,44,0.08)] lg:hidden">
           <div>
             <p className="text-[11px] text-aventurea-ink-soft">Desde</p>
             <p className="text-[16px] font-bold leading-tight text-aventurea-ink">

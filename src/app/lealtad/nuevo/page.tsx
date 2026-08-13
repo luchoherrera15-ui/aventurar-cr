@@ -48,7 +48,7 @@ export default async function NuevoNegocioLealtadPage() {
       className="flex min-h-svh flex-col px-5 py-5 sm:py-6"
       style={{ background: NAVY_PROFUNDO }}
     >
-      <header className="mx-auto flex w-[min(1060px,96vw)] shrink-0 items-center justify-between">
+      <header className="mx-auto flex w-full max-w-[1060px] shrink-0 items-center justify-between">
         <Link href="/lealtad">
           <Image
             src="/logo-bookea-blanco-v3.png"
@@ -65,7 +65,7 @@ export default async function NuevoNegocioLealtadPage() {
 
       {/* El wizard manda: sin titulón ni párrafo de intro compitiendo con
           la pregunta de turno — el título de cada pantalla ES el mensaje. */}
-      <div className="mx-auto flex w-[min(1060px,96vw)] flex-1 items-center py-6">
+      <div className="mx-auto flex w-full max-w-[1060px] flex-1 items-center py-6">
         <div className="w-full">
           {user ? (
             <WizardAlta planes={planes} pago={datosDePagoBookea()} />

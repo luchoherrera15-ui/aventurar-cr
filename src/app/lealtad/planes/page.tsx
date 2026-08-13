@@ -76,7 +76,7 @@ export default async function PlanesLealtadPage({
 
   return (
     <main className="min-h-svh px-5 py-10" style={{ background: NAVY_PROFUNDO }}>
-      <div className="mx-auto w-[min(1040px,94vw)]">
+      <div className="mx-auto w-full max-w-[1040px]">
         <header className="flex items-center justify-between">
           <Link href="/lealtad">
             <Image

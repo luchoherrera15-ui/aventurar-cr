@@ -60,7 +60,10 @@ export default function HeroTelefono() {
     >
       {/* El contador que sube: la promesa del titular en un número. */}
       <div
-        className="absolute -left-10 top-2 z-10 hidden w-[168px] rounded-2xl border p-3.5 text-left md:block lg:-left-40"
+        // Solo desde lg: entre 768 y 1023px los desplazamientos aún son
+        // chicos y esta tarjeta se montaba ENCIMA del teléfono, tapando
+        // justo la animación que vende la landing.
+        className="absolute top-2 z-10 hidden w-[168px] rounded-2xl border p-3.5 text-left lg:-left-40 lg:block"
         style={{ background: "rgba(10,18,38,.92)", borderColor: "rgba(255,255,255,.14)" }}
       >
         <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-white/45">
@@ -83,7 +86,7 @@ export default function HeroTelefono() {
       </div>
 
       {/* Los avisos cayendo a la derecha, uno por tercio del ciclo. */}
-      <div className="absolute -right-12 bottom-10 z-10 hidden w-[220px] flex-col gap-2 text-left md:flex lg:-right-48">
+      <div className="absolute bottom-10 z-10 hidden w-[220px] flex-col gap-2 text-left lg:-right-48 lg:flex">
         {AVISOS.map((a, i) => (
           <div
             key={a.texto}

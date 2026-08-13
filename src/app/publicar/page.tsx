@@ -110,7 +110,7 @@ export default function PublicarPage() {
           className="pointer-events-none absolute left-1/2 top-[22%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[130px]"
           style={{ background: NARANJA }}
         />
-        <div className="relative mx-auto w-[min(1080px,92vw)] text-center">
+        <div className="relative mx-auto w-full max-w-[1080px] text-center">
           <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
             Bookea para negocios
           </p>
@@ -152,7 +152,7 @@ export default function PublicarPage() {
 
       {/* ================= QUÉ TIPO DE NEGOCIO ================= */}
       <section className="px-5 py-20 sm:px-8">
-        <div className="mx-auto w-[min(1080px,92vw)]">
+        <div className="mx-auto w-full max-w-[1080px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
               Para quién es
@@ -205,7 +205,7 @@ export default function PublicarPage() {
           className="pointer-events-none absolute -left-32 top-1/4 h-[420px] w-[420px] rounded-full opacity-[0.14] blur-[110px]"
           style={{ background: "#3b7fc4" }}
         />
-        <div className="relative mx-auto w-[min(1120px,92vw)]">
+        <div className="relative mx-auto w-full max-w-[1120px]">
           <div className="grid items-center gap-14 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
             <div data-reveal>
               <p className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: "#7fb1e8" }}>
@@ -255,7 +255,7 @@ export default function PublicarPage() {
 
       {/* ================= PRODUCTO: EVENTOS ================= */}
       <section className="px-5 py-20 sm:px-8 sm:py-24">
-        <div className="mx-auto w-[min(1120px,92vw)]">
+        <div className="mx-auto w-full max-w-[1120px]">
           <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
             <div data-reveal className="order-2 lg:order-1">
               <EscenaEventos />
@@ -305,7 +305,7 @@ export default function PublicarPage() {
 
       {/* ================= HOSPEDAJES + APP (muy pronto) ================= */}
       <section className="px-5 py-20 sm:px-8" style={{ background: NAVY }}>
-        <div className="mx-auto grid w-[min(1120px,92vw)] gap-4 lg:grid-cols-2">
+        <div className="mx-auto grid w-full max-w-[1120px] gap-4 lg:grid-cols-2">
           <div data-reveal className="rounded-3xl border border-white/12 p-8 sm:p-10">
             <p className="flex flex-wrap items-center gap-2 text-[12px] font-bold uppercase tracking-[0.2em]" style={{ color: "#8aa0d6" }}>
               <IconHouse className="h-3.5 w-3.5" /> Hospedajes
@@ -365,7 +365,7 @@ export default function PublicarPage() {
 
       {/* ================= TODO INCLUIDO ================= */}
       <section className="px-5 py-20 sm:px-8">
-        <div className="mx-auto w-[min(1080px,92vw)]">
+        <div className="mx-auto w-full max-w-[1080px]">
           <div data-reveal className="mx-auto max-w-[54ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
               Todo incluido
@@ -392,7 +392,7 @@ export default function PublicarPage() {
 
       {/* ================= FAQ ================= */}
       <section className="px-5 py-20 sm:px-8" style={{ background: NAVY }}>
-        <div className="mx-auto w-[min(1080px,92vw)]">
+        <div className="mx-auto w-full max-w-[1080px]">
           <div className="grid gap-10 lg:grid-cols-[0.7fr_1.3fr] lg:gap-14">
             <div data-reveal>
               <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
@@ -432,7 +432,7 @@ export default function PublicarPage() {
 
       {/* ================= CIERRE ================= */}
       <section className="px-5 py-28 text-center sm:px-8">
-        <div data-reveal className="mx-auto w-[min(760px,92vw)]">
+        <div data-reveal className="mx-auto w-full max-w-[760px]">
           <h2 className="titulo text-[clamp(32px,5.6vw,64px)] leading-[1.04]">
             Empezá a recibir reservas hoy.
           </h2>

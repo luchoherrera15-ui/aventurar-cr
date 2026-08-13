@@ -122,12 +122,15 @@ export default function DetalleNegocio({
         {visibles.map((f) => (
           <div
             key={f.clave}
-            className="grid grid-cols-[110px_1fr_auto] items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-aventurea-cream-2/50 sm:grid-cols-[150px_1fr_170px]"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-aventurea-cream-2/50 sm:grid-cols-[150px_1fr_170px]"
           >
             <span className="truncate text-[12px] capitalize text-aventurea-ink-soft">
               {f.etiqueta}
             </span>
-            <div className="h-2 overflow-hidden rounded-full bg-aventurea-cream-2">
+            {/* La barra desaparece en móvil: con tres columnas la fila
+                pedía más de los ~298px disponibles y sacaba scroll
+                horizontal a toda la página. */}
+            <div className="hidden h-2 overflow-hidden rounded-full bg-aventurea-cream-2 sm:block">
               <div
                 className="h-full rounded-full bg-aventurea-navy transition-[width]"
                 style={{ width: `${Math.max(f.ingreso > 0 ? 3 : 0, (f.ingreso / maxIngreso) * 100)}%` }}
@@ -135,7 +138,7 @@ export default function DetalleNegocio({
             </div>
             <span className="whitespace-nowrap text-right text-[12px] tabular-nums text-aventurea-ink">
               <strong>{fmt(f.ingreso)}</strong>
-              <span className="ml-2 text-aventurea-ink-soft">
+              <span className="ml-2 hidden text-aventurea-ink-soft sm:inline">
                 {f.reservas > 0 ? `${f.reservas} res · ${f.personas} pers` : "—"}
               </span>
             </span>

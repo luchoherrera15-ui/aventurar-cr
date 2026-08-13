@@ -148,7 +148,7 @@ export default async function PanelLealtadPage() {
 
   return (
     <main className="min-h-svh px-5 py-10" style={{ background: NAVY_PROFUNDO }}>
-      <div className="mx-auto w-[min(960px,94vw)]">
+      <div className="mx-auto w-full max-w-[960px]">
         {/* Chrome mínimo del dashboard: el logo vuelve a la landing, y
             la cuenta general queda a un link — sin duplicar menús. */}
         <header className="flex items-center justify-between">

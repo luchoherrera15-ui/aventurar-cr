@@ -650,7 +650,9 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
       </div>
 
       {/* ── La tarjeta formándose en vivo ── */}
-      <div className="lg:sticky lg:top-6">
+      {/* Tope de ancho salvo en lg: debajo de 1024px la columna es una
+          fila entera y la tarjeta se inflaba a 737px (sellos de 136px). */}
+      <div className="mx-auto w-full max-w-[320px] lg:mx-0 lg:max-w-none lg:sticky lg:top-6">
         <p className="mb-2 text-center text-[10.5px] font-bold uppercase tracking-[0.16em] text-white/40">
           Tu tarjeta, en vivo
         </p>

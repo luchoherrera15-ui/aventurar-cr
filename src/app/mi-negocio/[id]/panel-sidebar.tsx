@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
 
@@ -96,18 +96,34 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
     (t, i) => conSeparadores && !!t.grupo && i > 0 && t.grupo !== tabs[i - 1]?.grupo,
   );
 
+  // La barra arranca en scrollLeft 0 y en móvil solo caben dos ítems:
+  // quien entra por «Editar perfil» (?tab=config, el último) veía la
+  // barra como si no hubiera pasado nada. Se centra la sección activa.
+  const refActivo = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    refActivo.current?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [activo, pathname]);
+
   return (
     <div>
       {/* La barra: navy, pegajosa arriba, y con scroll horizontal
           cuando el menú no cabe. `-mx-1 px-1` deja respirar el anillo
           de foco del primer y último ítem al recorrerla con teclado. */}
+      {/* El envoltorio pegajoso lleva el fondo crema: sin él, al
+          scrollear el contenido se asomaba por las esquinas
+          redondeadas de la barra. */}
+      <div className="sticky top-16 z-20 mb-5 bg-aventurea-cream py-2">
+      {/* La máscara solo desde sm: en móvil desvanecía justo el ítem
+          activo cuando quedaba pegado a un borde. */}
       <nav
         aria-label="Secciones del panel"
-        className="sticky top-[76px] z-20 mb-5 flex snap-x items-center gap-1 overflow-x-auto rounded-2xl bg-aventurea-navy p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex snap-x items-center gap-1 overflow-x-auto rounded-2xl bg-aventurea-navy p-1 shadow-sm [scrollbar-width:none] sm:gap-1 sm:p-1.5 sm:[mask-image:linear-gradient(to_right,transparent,black_14px,black_calc(100%-14px),transparent)] [&::-webkit-scrollbar]:hidden"
       >
         {tabs.map((t, i) => {
           const activa = esActivo(t);
-          const cls = `flex shrink-0 snap-start items-center gap-2 rounded-xl px-3.5 py-2.5 text-[13.5px] font-bold transition-colors ${
+          // Más compacto en móvil: con el padding de escritorio caben
+          // dos ítems y medio y la barra se siente atascada.
+          const cls = `flex shrink-0 snap-start items-center gap-1.5 rounded-xl px-3 py-2 text-[12.5px] font-bold transition-colors sm:gap-2 sm:px-3.5 sm:py-2.5 sm:text-[13.5px] ${
             activa
               ? "bg-white text-aventurea-navy shadow-sm"
               : "text-white/65 hover:bg-white/10 hover:text-white"
@@ -132,12 +148,16 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
 
           return (
             <Fragment key={t.id}>
+              {activa && <div ref={refActivo} className="sr-only" aria-hidden />}
               {conSeparador[i] && (
+                // El nombre del grupo solo desde sm: en móvil cada
+                // palabra robaba el ancho de un ítem entero; queda la
+                // línea divisoria, que ya separa igual.
                 <span
-                  className="shrink-0 self-stretch border-l border-white/15 pl-2.5 pr-1 text-[9.5px] font-bold uppercase leading-[2.6] tracking-[0.14em] text-white/30"
+                  className="mx-0.5 shrink-0 self-stretch border-l border-white/15 text-[9.5px] font-bold uppercase leading-[2.6] tracking-[0.14em] text-white/30 sm:mx-0 sm:pl-2.5 sm:pr-1"
                   aria-hidden
                 >
-                  {GRUPO_LABEL[t.grupo as GrupoId]}
+                  <span className="hidden sm:inline">{GRUPO_LABEL[t.grupo as GrupoId]}</span>
                 </span>
               )}
               {t.href ? (
@@ -153,6 +173,7 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
           );
         })}
       </nav>
+      </div>
 
       {/* Contenido a todo el ancho — mismo truco de `hidden` de
           siempre: nunca se pierde un formulario a medio llenar al

@@ -120,7 +120,7 @@ export default function InvitacionesLanding() {
           style={{ background: "#ee7420" }}
         />
 
-        <div className="relative mx-auto w-[min(1120px,92vw)] text-center">
+        <div className="relative mx-auto w-full max-w-[1120px] text-center">
           <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#ee7420]">
             Invitaciones digitales
           </p>
@@ -171,7 +171,7 @@ export default function InvitacionesLanding() {
 
       {/* ================= EJEMPLOS REALES ================= */}
       <section id="ejemplos" className="scroll-mt-8 px-5 py-24 sm:px-8">
-        <div className="mx-auto w-[min(1120px,92vw)]">
+        <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#ee7420]">
               Ejemplos
@@ -234,7 +234,7 @@ export default function InvitacionesLanding() {
 
       {/* ================= PAQUETES ================= */}
       <section id="paquetes" className="scroll-mt-8 px-5 py-24 sm:px-8">
-        <div className="mx-auto w-[min(1120px,92vw)]">
+        <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#ee7420]">
               Precios
@@ -256,7 +256,7 @@ export default function InvitacionesLanding() {
 
       {/* ================= CIERRE ================= */}
       <section className="px-5 py-28 text-center sm:px-8" style={{ background: NAVY }}>
-        <div data-reveal className="mx-auto w-[min(760px,92vw)]">
+        <div data-reveal className="mx-auto w-full max-w-[760px]">
           <h2 className="titulo text-[clamp(32px,5.6vw,64px)] leading-[1.04]">
             Dejá de perseguir invitados por WhatsApp.
           </h2>

@@ -547,7 +547,7 @@ export default function InvitacionesPanel({
         </div>
       ) : (
         <>
-          <div className="mb-4 flex justify-end gap-2">
+          <div className="mb-4 flex flex-wrap justify-end gap-2">
             <button
               type="button"
               onClick={() => router.push("/cuenta/invitaciones-crear")}

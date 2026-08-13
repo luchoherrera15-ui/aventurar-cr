@@ -53,7 +53,7 @@ export type ResumenDia = {
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 const inputCls =
-  "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink";
+  "w-full sm:w-auto rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink";
 
 /**
  * Costa Rica es UTC-6 todo el año (no hay horario de verano), así que
@@ -636,7 +636,7 @@ function Kpi({
       }`}
     >
       <div
-        className={`text-2xl font-bold leading-tight tabular-nums ${
+        className={`break-all text-xl font-bold leading-tight tabular-nums sm:text-2xl ${
           alerta ? "text-aventurea-orange-dark" : "text-aventurea-ink"
         }`}
       >

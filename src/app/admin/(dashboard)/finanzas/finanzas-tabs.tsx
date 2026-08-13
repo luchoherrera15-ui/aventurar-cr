@@ -70,7 +70,9 @@ export default function FinanzasTabs({
               aria-selected={seleccionada}
               aria-controls={`panel-${t.id}`}
               onClick={() => setActiva(t.id)}
-              className={`flex-1 rounded-xl px-4 py-2.5 text-left transition-colors ${
+              // basis-full en móvil: tres pestañas a ~100px partían el
+              // hint en siete líneas de 11.5px.
+              className={`basis-full rounded-xl px-4 py-2.5 text-left transition-colors sm:flex-1 sm:basis-0 ${
                 seleccionada
                   ? "bg-aventurea-navy text-white"
                   : "text-aventurea-ink-soft hover:bg-aventurea-cream-2 hover:text-aventurea-ink"
@@ -78,7 +80,7 @@ export default function FinanzasTabs({
             >
               <span className="block text-[13.5px] font-bold">{t.label}</span>
               <span
-                className={`mt-0.5 block text-[11.5px] ${
+                className={`mt-0.5 hidden text-[11.5px] sm:block ${
                   seleccionada ? "text-white/70" : "text-aventurea-ink-soft"
                 }`}
               >

@@ -186,7 +186,9 @@ export default function FilaActividad({
         >
           {esReversion ? "reversión" : tipo}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-aventurea-ink">
+        {/* Ancho completo en móvil: con siete elementos en la fila, el
+            nombre quedaba en ~19px («M…»). */}
+        <span className="w-full min-w-0 truncate text-[13px] font-bold text-aventurea-ink sm:w-auto sm:flex-1">
           {nombre}
         </span>
         <span

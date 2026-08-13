@@ -470,8 +470,11 @@ export default function ReservasTable({
       )}
 
       {variante !== "cards" && (
-      <div className="hidden overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm sm:block">
-        <table className="w-full border-collapse">
+      // overflow-x-auto, no hidden: con nueve columnas la tabla pide
+      // ~1000px y en tablet quedaba RECORTADA sin barra — la columna de
+      // acciones (aprobar/rechazar) era inalcanzable.
+      <div className="hidden overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-sm sm:block">
+        <table className="w-full min-w-[1000px] border-collapse">
           <thead>
             <tr className="bg-aventurea-cream-2/60">
               {[

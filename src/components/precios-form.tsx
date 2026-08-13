@@ -119,7 +119,10 @@ function EditorRangos({
   return (
     <div>
       {rangos.length > 0 ? (
-        <table className="mt-4 w-full border-collapse">
+        // Scroll horizontal: la tabla pide ~520px y en un teléfono hay
+        // ~306px — sin esto desbordaba la PÁGINA entera.
+        <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[520px] border-collapse">
           <thead>
             <tr>
               {["Desde (invitados)", "Hasta (invitados)", "Precio (₡)", ""].map(
@@ -186,6 +189,7 @@ function EditorRangos({
             ))}
           </tbody>
         </table>
+        </div>
       ) : (
         vacio && (
           <p className="mt-4 rounded-lg border border-dashed border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[12px] text-aventurea-ink-soft">
@@ -1093,7 +1097,8 @@ export default function PreciosForm({
                 última queda plana.
               </p>
 
-              <table className="mt-3 w-full max-w-md border-collapse">
+              <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[420px] max-w-md border-collapse">
                 <thead>
                   <tr>
                     {["Invitados", "Tarifa por persona (₡)", ""].map((h) => (
@@ -1158,6 +1163,7 @@ export default function PreciosForm({
                   ))}
                 </tbody>
               </table>
+              </div>
 
               <button
                 type="button"
@@ -1193,7 +1199,10 @@ export default function PreciosForm({
           servicio solo aparece cuando los invitados no superan ese número.
         </p>
 
-        <table className="mt-4 w-full border-collapse">
+        {/* Envuelta en scroll horizontal: la tabla pide ~530px y en un
+            teléfono hay ~306px — sin esto desbordaba la PÁGINA entera. */}
+        <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[520px] border-collapse">
           <thead>
             <tr>
               {["Servicio", "Precio (₡)", "Máx. invitados", "Activo", ""].map(
@@ -1277,6 +1286,7 @@ export default function PreciosForm({
             ))}
           </tbody>
         </table>
+        </div>
 
         <button
           type="button"

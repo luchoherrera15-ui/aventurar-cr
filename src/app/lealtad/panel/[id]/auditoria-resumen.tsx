@@ -91,9 +91,15 @@ export default async function AuditoriaResumen({ programaId }: { programaId: str
     );
   }
 
+  // UNA sola plantilla de columnas para la cabecera y las filas: con
+  // `auto` cada fila resolvía su propio ancho y los encabezados no
+  // caían nunca sobre sus datos. El min-w + scroll evita que en móvil
+  // se aplaste el nombre.
+  const COLS = "grid-cols-[minmax(0,1fr)_44px_60px_92px]";
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
-      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 border-b border-aventurea-line bg-aventurea-cream-2 px-4 py-2">
+    <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white">
+      <div className={`grid ${COLS} min-w-[420px] items-center gap-x-4 border-b border-aventurea-line bg-aventurea-cream-2 px-4 py-2`}>
         <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
           Operador (30 días)
         </span>
@@ -110,7 +116,7 @@ export default async function AuditoriaResumen({ programaId }: { programaId: str
       {filas.map((f) => (
         <div
           key={f.id ?? "sistema"}
-          className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 border-b border-aventurea-line px-4 py-2.5 last:border-b-0"
+          className={`grid ${COLS} min-w-[420px] items-center gap-x-4 border-b border-aventurea-line px-4 py-2.5 last:border-b-0`}
         >
           <span className="truncate text-[13px] font-bold text-aventurea-ink">{f.nombre}</span>
           <span className="text-[13px] tabular-nums text-aventurea-ink">{f.acreditados}</span>

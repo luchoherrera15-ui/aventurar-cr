@@ -133,7 +133,7 @@ export default function CostosPanel({ datos }: { datos: DatosCostos }) {
               role="tab"
               aria-selected={sel}
               onClick={() => setActiva(t.id)}
-              className={`flex-1 rounded-xl px-4 py-2.5 text-left transition-colors ${
+              className={`basis-full rounded-xl px-4 py-2.5 text-left transition-colors sm:flex-1 sm:basis-0 ${
                 sel
                   ? "bg-aventurea-navy text-white"
                   : "text-aventurea-ink-soft hover:bg-aventurea-cream-2 hover:text-aventurea-ink"
@@ -141,7 +141,7 @@ export default function CostosPanel({ datos }: { datos: DatosCostos }) {
             >
               <span className="block text-[13.5px] font-bold">{t.label}</span>
               <span
-                className={`mt-0.5 block text-[11.5px] ${
+                className={`mt-0.5 hidden text-[11.5px] sm:block ${
                   sel ? "text-white/70" : "text-aventurea-ink-soft"
                 }`}
               >

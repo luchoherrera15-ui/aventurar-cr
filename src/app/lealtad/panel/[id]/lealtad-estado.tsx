@@ -150,7 +150,10 @@ export default async function LealtadEstado({
                 i > 0 ? "border-t border-aventurea-line" : ""
               } ${f.puedeCanjear ? "bg-aventurea-green-light/40" : ""}`}
             >
-              <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-aventurea-ink">
+              {/* En móvil el nombre toma su propia línea: compitiendo
+                  con el saldo, el chip y la fecha quedaba en ~60px y se
+                  leía «Mar…» — el dato más importante de la fila. */}
+              <span className="w-full min-w-0 truncate text-[13.5px] font-bold text-aventurea-ink sm:w-auto sm:flex-1">
                 {f.nombre}
                 {f.conPase && (
                   <span className="ml-2 rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">

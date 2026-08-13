@@ -31,7 +31,10 @@ export default async function SiteHeader({
   return (
     <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-surface/90 backdrop-blur-sm">
       <div
-        className={`mx-auto flex ${ancho} flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 py-3 sm:px-6 lg:px-10`}
+        // Altura FIJA de 64px: media docena de barras `sticky` de abajo
+        // adivinaban esta altura con `top-14` (56px) y quedaban metidas
+        // 7px debajo del header. Con h-16 el offset es exacto: top-16.
+        className={`mx-auto flex h-16 ${ancho} items-center justify-between gap-x-4 px-4 sm:px-6 lg:px-10`}
       >
         {/* El logo lleva al home (la portada de las tres verticales) —
             antes iba directo a /eventos porque / era solo un redirect. */}

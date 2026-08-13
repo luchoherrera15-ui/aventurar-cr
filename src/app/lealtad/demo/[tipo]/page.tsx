@@ -195,7 +195,7 @@ export default async function DemoCategoriaPage({
 
   return (
     <main className="min-h-svh px-5 py-10" style={{ background: NAVY_PROFUNDO }}>
-      <div className="mx-auto w-[min(980px,94vw)]">
+      <div className="mx-auto w-full max-w-[980px]">
         <header className="flex items-center justify-between">
           <Link href="/lealtad" className="text-[12.5px] font-bold text-white/50 hover:text-white">
             ← Volver

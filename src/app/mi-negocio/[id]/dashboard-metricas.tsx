@@ -183,14 +183,17 @@ export default function DashboardMetricas({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+      {/* Dos columnas en móvil: con tres, cada tarjeta quedaba en 87px
+          útiles y «₡12.500.000» se cortaba (un monto no tiene dónde
+          partirse). */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
         {principales.map((card, i) => (
           <Dato key={card.titulo} {...card} piel={PIELES[i % PIELES.length]} />
         ))}
       </div>
 
       {abierto && (
-        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
           {secundarias.map((card, i) => (
             <Dato key={card.titulo} {...card} piel={PIELES[(i + 1) % PIELES.length]} />
           ))}

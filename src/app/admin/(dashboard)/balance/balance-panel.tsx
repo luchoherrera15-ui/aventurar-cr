@@ -313,7 +313,9 @@ export default function BalancePanel({
             <select
               value={ranchoFiltro}
               onChange={(e) => setRanchoFiltro(e.target.value)}
-              className="rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink"
+              // Un select toma el ancho de su opción más larga: con
+              // nombres de negocio largos desbordaba la pantalla.
+              className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13px] text-aventurea-ink sm:w-auto sm:max-w-[280px]"
             >
               <option value="todos">Todos los negocios</option>
               {ranchos.map((r) => (
@@ -824,7 +826,9 @@ function KpiCard({
             </span>
           )}
         </div>
-        <div className="mt-3 text-2xl font-bold leading-tight tabular-nums text-white">
+        {/* En 390px la tarjeta tiene ~123px de contenido y «₡12.450.000»
+            a 24px mide ~158px SIN punto de corte: se salía. */}
+        <div className="mt-3 break-all text-xl font-bold leading-tight tabular-nums text-white sm:text-2xl">
           {value}
         </div>
         <div className="mt-1 text-[11px] font-bold uppercase tracking-wide text-white/70">
@@ -853,7 +857,7 @@ function KpiCard({
           {delta.texto}
         </span>
       </div>
-      <div className="mt-3 text-2xl font-bold leading-tight tabular-nums text-aventurea-ink">
+      <div className="mt-3 break-all text-xl font-bold leading-tight tabular-nums text-aventurea-ink sm:text-2xl">
         {value}
       </div>
       <div className="mt-1 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">

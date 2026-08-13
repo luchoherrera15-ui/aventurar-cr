@@ -51,7 +51,10 @@ const PASOS = [
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    // overflow-x-clip: el mapa decorativo mide 560px y en un teléfono
+    // de 390px se salía 85px por la derecha, haciendo que TODA la
+    // portada se deslizara de lado. /eventos y /hospedajes ya lo tenían.
+    <div className="flex min-h-screen flex-col overflow-x-clip bg-white">
       <RevealOnScroll />
       <SiteHeader />
 
@@ -64,7 +67,7 @@ export default function Home() {
               Decorativo puro — detrás del contenido y sin tocar el
               flujo del texto. */}
           <MapaLatam
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 text-aventurea-navy sm:h-[680px] sm:w-[680px]"
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[min(560px,92vw)] w-[min(560px,92vw)] -translate-x-1/2 -translate-y-1/2 text-aventurea-navy sm:h-[680px] sm:w-[680px]"
           />
 
           {/* z-10: el mapa es `absolute` y, sin esto, se pintaría

@@ -336,7 +336,10 @@ export default function Directorio({
           pantalla, no solo del contenedor): antes su fondo terminaba
           donde terminaba el contenedor y se veía como una franja
           cortada sobre el degradado. */}
-      <div className="sticky top-14 z-30 mx-[calc(50%-50vw)] bg-aventurea-cream-2/90 px-[calc(50vw-50%+1.5rem)] pt-3 backdrop-blur-sm lg:px-[calc(50vw-50%+2.5rem)]">
+      {/* top-16 = la altura real del header (antes top-14 dejaba el
+          buscador 7px debajo). Y el padding baja a 1rem en móvil para
+          alinear con las tarjetas y darle aire al campo de texto. */}
+      <div className="sticky top-16 z-30 mx-[calc(50%-50vw)] bg-aventurea-cream-2/90 px-[calc(50vw-50%+1rem)] pt-3 backdrop-blur-sm lg:px-[calc(50vw-50%+2.5rem)]">
       {/* La lupa única: se escribe lo que se busca — un nombre, una
           zona o una fecha ("3 de agosto", "este viernes") — y el resto
           de filtros vive en el botón de al lado. Reemplaza al buscador

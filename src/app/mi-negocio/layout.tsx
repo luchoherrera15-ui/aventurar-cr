@@ -84,24 +84,29 @@ export default async function MiRanchoLayout({
   return (
     <div className="min-h-screen bg-aventurea-cream">
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-5 px-7 py-3.5">
-          <Link href="/eventos" className="flex items-center gap-2">
+        {/* Altura FIJA (h-16 = 64px + borde): la barra de secciones del
+            panel se pega justo debajo con `top-16`, y sin una altura
+            determinista ese offset era adivinanza — a 390px el header
+            envolvía en dos líneas y se comía la barra. */}
+        <div className="mx-auto flex h-16 max-w-[1080px] items-center justify-between gap-4 px-5 sm:px-7">
+          <Link href="/eventos" className="flex min-w-0 items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- el
                 logo oficial es un PNG estático: next/image no aporta
                 nada acá. */}
             <img src="/logo-bookea-v3.png" alt="Bookear" className="h-7 w-auto shrink-0" />
-            <span className="text-zinc-300">/</span>
-            <span className="text-[13px] font-light text-aventurea-ink-soft">
+            <span className="hidden text-zinc-300 sm:inline">/</span>
+            <span className="hidden text-[13px] font-light text-aventurea-ink-soft sm:inline">
               Publicá tu negocio
             </span>
           </Link>
-          <div className="flex items-center gap-3.5">
+          <div className="flex shrink-0 items-center gap-3.5">
             {notificaciones !== null && <NotificacionesBell items={notificaciones} />}
             <Link
               href="/eventos"
-              className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
+              className="whitespace-nowrap text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
             >
-              ← Volver al inicio
+              ← <span className="hidden sm:inline">Volver al inicio</span>
+              <span className="sm:hidden">Inicio</span>
             </Link>
           </div>
         </div>

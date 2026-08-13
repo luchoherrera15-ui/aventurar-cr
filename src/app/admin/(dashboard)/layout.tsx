@@ -33,7 +33,7 @@ export default async function DashboardLayout({
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/95 backdrop-blur-sm">
         {/* Sin max-width: el panel administrativo usa el navegador
             entero — pantallas anchas = más tabla a la vista. */}
-        <div className="flex w-full flex-wrap items-center justify-between gap-x-5 gap-y-2 px-6 py-3.5 lg:px-10">
+        <div className="mx-auto flex w-full max-w-[2200px] flex-wrap items-center justify-between gap-x-5 gap-y-2 px-6 py-3.5 lg:px-10">
           <Link href="/admin" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- el
                 logo oficial es un PNG estático: next/image no aporta
@@ -56,12 +56,15 @@ export default async function DashboardLayout({
           </form>
         </div>
         <div className="border-t border-aventurea-line/60">
-          <div className="w-full px-6 py-2 lg:px-10">
+          <div className="mx-auto w-full max-w-[2200px] px-6 py-2 lg:px-10">
             <VerticalSwitcher actual={seccion} />
           </div>
         </div>
       </header>
-      <div className="w-full px-6 py-8 lg:px-10">{children}</div>
+      {/* Ancho completo hasta 2200px: sin techo, en un monitor 4K las
+          tablas se estiraban con 300px de aire entre columnas y los
+          párrafos quedaban en una sola línea de 2400px. */}
+      <div className="mx-auto w-full max-w-[2200px] px-6 py-8 lg:px-10">{children}</div>
     </div>
   );
 }
