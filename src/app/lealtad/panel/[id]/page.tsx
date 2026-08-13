@@ -10,6 +10,7 @@ import TabsLealtad, { type PestanaLealtad } from "./tabs-lealtad";
 import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
 import CompartirTarjeta from "./compartir-tarjeta";
+import PasesPanel from "./pases-panel";
 import MetricasLealtad from "./metricas";
 import AuditoriaResumen from "./auditoria-resumen";
 import EquipoLealtad, { type MiembroEquipo } from "./equipo-cliente";
@@ -159,6 +160,13 @@ export default async function PanelNegocioLealtad({
     ? estadoDelPrograma({ estado: p.estado ?? null, activo: p.activo }) === "activo"
     : false;
 
+  // El complemento de cercanía (0123): lo pide el editor de la tarjeta
+  // para saber si ofrece el aviso por ubicación.
+  const { data: cercania } = await acceso.supabase.rpc("tiene_addon", {
+    p_rancho_id: id,
+    p_addon: "pases_cercania",
+  });
+
   // ── El equipo (solo lo carga quien lo puede editar) ─────────────────
   let equipo: MiembroEquipo[] = [];
   const puedeEquipo = acceso.esDueno || acceso.esAdmin;
@@ -185,11 +193,14 @@ export default async function PanelNegocioLealtad({
   }
 
   // ── Las pestañas según el permiso ───────────────────────────────────
-  // Configurar el programa NO está acá ni para el admin: nadie genera
-  // sus pases desde la interfaz del negocio — el editor vive en
-  // /admin/lealtad/[id], dentro del sitio de administración.
+  // «Tarjeta» es del DUEÑO: colores, logo y recompensas se editan sin
+  // pedirle permiso a nadie (antes vivía solo en /admin). Los
+  // colaboradores no la ven — su checklist gobierna la operación
+  // diaria, no la identidad de la marca.
+  const puedeDisenar = acceso.esDueno || acceso.esAdmin;
   const pestanas: PestanaLealtad[] = [
     { id: "general", etiqueta: "General" },
+    ...(puedeDisenar ? [{ id: "tarjeta", etiqueta: "Tarjeta" }] : []),
     ...(permisos.auditoria
       ? [
           { id: "auditoria", etiqueta: "Auditoría" },
@@ -226,6 +237,23 @@ export default async function PanelNegocioLealtad({
             <div className="mt-4">
               <CompartirTarjeta slug={rancho.slug as string | null} programaActivo={programaActivo} />
             </div>
+            {/* El póster del mostrador: lo imprime el negocio solo. */}
+            <Link
+              href={`/lealtad/panel/${id}/poster`}
+              className="mt-3 flex items-center justify-between rounded-2xl border border-aventurea-line bg-white px-4 py-3.5 transition-colors hover:border-aventurea-navy"
+            >
+              <span>
+                <span className="block text-[13.5px] font-bold text-aventurea-ink">
+                  🖨️ Imprimir el póster para tu mostrador
+                </span>
+                <span className="block text-[12px] text-aventurea-ink-soft">
+                  Hoja lista para pegar en la caja, con tu QR y tu regalía.
+                </span>
+              </span>
+              <span aria-hidden className="text-aventurea-ink-soft">
+                →
+              </span>
+            </Link>
           </>
         ) : (
           <p className="mt-4 rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
@@ -235,6 +263,20 @@ export default async function PanelNegocioLealtad({
         )}
       </Papel>
     ),
+    ...(puedeDisenar
+      ? {
+          tarjeta: (
+            <Papel>
+              <PasesPanel
+                ranchoId={id}
+                programaInicial={p}
+                recompensasIniciales={lista}
+                tieneCercania={cercania === true}
+              />
+            </Papel>
+          ),
+        }
+      : {}),
     ...(permisos.auditoria
       ? {
           auditoria: (

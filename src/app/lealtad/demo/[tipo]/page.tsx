@@ -5,13 +5,16 @@ import { notFound } from "next/navigation";
 import { PaseWallet } from "@/app/lealtad/pase-wallet";
 
 /**
- * LA HOJA DE DEMO POR CATEGORÍA: el dueño de una barbería (o soda, o
+ * LA HOJA DE DEMO POR CATEGORÍA: el dueño de una barbería (o lavacar, o
  * spa…) toca su chip en la landing y se ve — SU tipo de negocio, con
  * una tarjeta de ejemplo, las reglas típicas y la regalía que sus
  * clientes perseguirían. Vender con el producto puesto, no con
  * promesas genéricas.
  *
- * Todo estático: ocho configuraciones y una sola plantilla.
+ * Cada demo declara su MODO, que son los tres que el motor soporta de
+ * verdad (0121): sellos, cashback (% de vuelta) y puntos. Así el dueño
+ * de un restaurante ve plata devuelta y el de una cafetería ve sellos —
+ * no la misma maqueta con otro nombre.
  */
 
 const NAVY_PROFUNDO = "#0a1226";
@@ -20,10 +23,14 @@ const NARANJA = "#ee7420";
 type Demo = {
   categoria: string;
   negocio: string;
+  modo: "sellos" | "cashback" | "puntos";
   etiquetaCampo: string;
   valor: string;
-  total: number;
-  logrados: number;
+  /** Solo en modo sellos. */
+  total?: number;
+  logrados?: number;
+  /** Solo en cashback/puntos: la línea grande de la tarjeta. */
+  detalle?: string;
   regla: string;
   regalia: string;
   pasos: [string, string, string];
@@ -33,21 +40,24 @@ const DEMOS: Record<string, Demo> = {
   restaurantes: {
     categoria: "Restaurantes",
     negocio: "Restaurante Doña Flor",
-    etiquetaCampo: "Sellos",
-    valor: "7/10",
-    total: 10,
-    logrados: 7,
-    regla: "1 sello por visita (o por monto, si preferís)",
-    regalia: "Postre de la casa gratis al completar 10",
+    // El caso de % de vuelto: la cuenta varía mucho de mesa a mesa, así
+    // que premiar por MONTO es más justo que por visita.
+    modo: "cashback",
+    etiquetaCampo: "Tu saldo",
+    valor: "₡4.250",
+    detalle: "5% de cada cuenta vuelve a tu tarjeta",
+    regla: "5% de vuelta sobre lo que gastan (vos elegís el porcentaje)",
+    regalia: "El saldo se usa como plata en su próxima visita",
     pasos: [
-      "El comensal escanea el QR de la mesa o del mostrador una sola vez.",
-      "Cada visita suma su sello sola — el mesero solo escanea la tarjeta.",
-      "A la décima, el postre es gratis: y esa mesa vuelve con amigos.",
+      "El comensal escanea el QR de la mesa una sola vez.",
+      "Al pagar, el 5% de la cuenta entra a su tarjeta al instante.",
+      "Vuelve a gastarlo con vos: la plata solo vale en tu restaurante.",
     ],
   },
   cafeterias: {
     categoria: "Cafeterías",
     negocio: "Café La Esquina",
+    modo: "sellos",
     etiquetaCampo: "Sellos",
     valor: "8/10",
     total: 10,
@@ -60,24 +70,10 @@ const DEMOS: Record<string, Demo> = {
       "El café gratis lo trae de vuelta mañana — y su tarjeta se lo recuerda.",
     ],
   },
-  sodas: {
-    categoria: "Sodas",
-    negocio: "Soda La Negrita",
-    etiquetaCampo: "Sellos",
-    valor: "5/8",
-    total: 8,
-    logrados: 5,
-    regla: "1 sello por casado",
-    regalia: "El casado N.º 9 gratis",
-    pasos: [
-      "El cliente de todos los días por fin tiene su premio por serlo.",
-      "La caja escanea la tarjeta al cobrar: dos segundos.",
-      "Ocho casados después, el gratis — y la costumbre queda sellada.",
-    ],
-  },
   barberias: {
     categoria: "Barberías",
     negocio: "Barbería El Patio",
+    modo: "sellos",
     etiquetaCampo: "Cortes",
     valor: "4/6",
     total: 6,
@@ -93,6 +89,7 @@ const DEMOS: Record<string, Demo> = {
   salones: {
     categoria: "Salones de belleza",
     negocio: "Salón Karla",
+    modo: "sellos",
     etiquetaCampo: "Visitas",
     valor: "6/8",
     total: 8,
@@ -108,12 +105,12 @@ const DEMOS: Record<string, Demo> = {
   spas: {
     categoria: "Spas",
     negocio: "Spa Serena",
+    modo: "puntos",
     etiquetaCampo: "Puntos",
-    valor: "3 400",
-    total: 10,
-    logrados: 6,
+    valor: "3.400",
+    detalle: "1 punto por cada ₡100 · masaje a los 5.000",
     regla: "1 punto por cada ₡100 en tratamientos",
-    regalia: "Masaje de 30 min al llegar a 5 000",
+    regalia: "Masaje de 30 min al llegar a 5.000 puntos",
     pasos: [
       "Acá conviene puntos por monto: los tratamientos varían de precio.",
       "Cada visita suma según lo que gastó — la tarjeta lleva la cuenta.",
@@ -123,6 +120,7 @@ const DEMOS: Record<string, Demo> = {
   gimnasios: {
     categoria: "Gimnasios",
     negocio: "Gimnasio Fuerza",
+    modo: "sellos",
     etiquetaCampo: "Check-ins",
     valor: "9/12",
     total: 12,
@@ -138,6 +136,7 @@ const DEMOS: Record<string, Demo> = {
   lavacars: {
     categoria: "Lavacars",
     negocio: "Lavacar El Rayo",
+    modo: "sellos",
     etiquetaCampo: "Lavados",
     valor: "4/6",
     total: 6,
@@ -151,6 +150,23 @@ const DEMOS: Record<string, Demo> = {
     ],
   },
 };
+
+/** Lo que además puede vivir en la misma tarjeta del cliente. */
+const TAMBIEN = [
+  {
+    titulo: "Gift cards digitales",
+    texto:
+      "Tu cliente compra una tarjeta de regalo y le llega al Wallet a quien la recibe, lista para usarse.",
+  },
+  {
+    titulo: "Paquetes prepagados",
+    texto: "«5 lavados», «10 clases»: cobrás por adelantado y el pase descuenta solo.",
+  },
+  {
+    titulo: "Cupones con vencimiento",
+    texto: "«Hace 30 días no venís, tenés 15% off» — con fecha límite, no perdido en un chat.",
+  },
+];
 
 export function generateStaticParams() {
   return Object.keys(DEMOS).map((tipo) => ({ tipo }));
@@ -191,7 +207,8 @@ export default async function DemoCategoriaPage({
   const demo = DEMOS[tipo];
   if (!demo) notFound();
 
-  const columnas = demo.total > 10 ? 6 : 5;
+  const total = demo.total ?? 0;
+  const columnas = total > 10 ? 6 : 5;
 
   return (
     <main className="min-h-svh px-5 py-10" style={{ background: NAVY_PROFUNDO }}>
@@ -221,7 +238,9 @@ export default async function DemoCategoriaPage({
               Demo · {demo.categoria}
             </span>
             <h1 className="titulo mt-4 text-[clamp(28px,4.5vw,44px)] leading-[1.08] text-white">
-              Así podría funcionar en tu {demo.categoria.toLowerCase().replace(/s$/, "")}
+              {demo.modo === "cashback"
+                ? "Devolveles un % de lo que gastan"
+                : `Así podría funcionar en tu ${demo.categoria.toLowerCase().replace(/s$/, "")}`}
             </h1>
             <p className="mt-3 max-w-[46ch] text-[14.5px] leading-relaxed text-white/60">
               <strong className="text-white">{demo.negocio}</strong> no existe — es el
@@ -234,7 +253,9 @@ export default async function DemoCategoriaPage({
                 <p className="mt-0.5 text-[13.5px] font-bold text-white">{demo.regla}</p>
               </div>
               <div className="rounded-xl border border-white/12 px-4 py-3" style={{ background: "rgba(255,255,255,.04)" }}>
-                <p className="text-[10.5px] font-bold uppercase tracking-wide text-white/45">La regalía</p>
+                <p className="text-[10.5px] font-bold uppercase tracking-wide text-white/45">
+                  {demo.modo === "cashback" ? "Qué gana tu cliente" : "La regalía"}
+                </p>
                 <p className="mt-0.5 text-[13.5px] font-bold text-white">{demo.regalia}</p>
               </div>
             </div>
@@ -271,7 +292,7 @@ export default async function DemoCategoriaPage({
           </div>
 
           {/* ── La tarjeta de ejemplo ── */}
-          <div className="mx-auto w-[min(340px,88vw)]">
+          <div className="mx-auto w-full max-w-[340px]">
             <PaseWallet
               marca="apple"
               negocio={demo.negocio}
@@ -280,24 +301,33 @@ export default async function DemoCategoriaPage({
               colorFondo={NAVY_PROFUNDO}
               serial="BK · DEMO 0000"
             >
-              <div
-                className="grid gap-2 pb-1"
-                style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}
-              >
-                {Array.from({ length: demo.total }, (_, i) => (
-                  <span
-                    key={i}
-                    className="flex aspect-square items-center justify-center rounded-full text-white"
-                    style={
-                      i < demo.logrados
-                        ? { background: NARANJA }
-                        : { border: "2px dashed rgba(255,255,255,.3)" }
-                    }
-                  >
-                    {i < demo.logrados && <Check className="h-3 w-3" />}
-                  </span>
-                ))}
-              </div>
+              {demo.modo === "sellos" ? (
+                <div
+                  className="grid gap-2 pb-1"
+                  style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}
+                >
+                  {Array.from({ length: total }, (_, i) => (
+                    <span
+                      key={i}
+                      className="flex aspect-square items-center justify-center rounded-full text-white"
+                      style={
+                        i < (demo.logrados ?? 0)
+                          ? { background: NARANJA }
+                          : { border: "2px dashed rgba(255,255,255,.3)" }
+                      }
+                    >
+                      {i < (demo.logrados ?? 0) && <Check className="h-3 w-3" />}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                /* Cashback y puntos no tienen sellos que dibujar: lo que
+                   importa es el saldo y qué se hace con él. */
+                <div className="pb-1">
+                  <p className="text-[26px] font-extrabold leading-none text-white">{demo.valor}</p>
+                  <p className="mt-1.5 text-[11.5px] leading-snug text-white/70">{demo.detalle}</p>
+                </div>
+              )}
             </PaseWallet>
             <p className="mt-3 text-center text-[11.5px] text-white/40">
               Apple Wallet y Google Wallet — se actualiza sola en cada visita.
@@ -305,8 +335,27 @@ export default async function DemoCategoriaPage({
           </div>
         </div>
 
+        {/* ── Lo que además cabe en la misma tarjeta ── */}
+        <div className="mt-14 border-t border-white/10 pt-8">
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">
+            Y en la misma tarjeta también podés dar
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {TAMBIEN.map((t) => (
+              <div
+                key={t.titulo}
+                className="rounded-2xl border border-white/12 p-4"
+                style={{ background: "rgba(255,255,255,.04)" }}
+              >
+                <p className="text-[13.5px] font-extrabold text-white">{t.titulo}</p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-white/55">{t.texto}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* ── Los otros demos ── */}
-        <div className="mt-14 border-t border-white/10 pt-8 text-center">
+        <div className="mt-10 border-t border-white/10 pt-8 text-center">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">
             Mirá otro tipo de negocio
           </p>

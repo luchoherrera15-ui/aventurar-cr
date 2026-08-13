@@ -59,7 +59,6 @@ const PAQUETES = PLANES_ID.map((id) => {
 const NEGOCIOS: { nombre: string; demo: string }[] = [
   { nombre: "Restaurantes", demo: "restaurantes" },
   { nombre: "Cafeterías", demo: "cafeterias" },
-  { nombre: "Sodas", demo: "sodas" },
   { nombre: "Barberías", demo: "barberias" },
   { nombre: "Salones de belleza", demo: "salones" },
   { nombre: "Spas", demo: "spas" },

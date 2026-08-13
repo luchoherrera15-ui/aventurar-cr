@@ -74,10 +74,22 @@ export type ProgramaInput = {
 const MODOS: readonly ModoPrograma[] = ["sellos", "cashback", "puntos"];
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
+/**
+ * EL DUEÑO edita su propia tarjeta.
+ *
+ * Esto arrancó reservado al admin de plataforma («solo Bookea genera
+ * los pases») y cambió a pedido: la competencia deja al negocio tocar
+ * colores, logo y recompensas cuando quiera, y esperar a que alguien
+ * conteste un correo para cambiar una regalía es fricción sin premio.
+ *
+ * `verificarAccesoRancho` ya resuelve dueño-o-admin; los colaboradores
+ * NO entran acá — su checklist (0127) gobierna la operación diaria, no
+ * la identidad de la marca.
+ */
 async function guard(ranchoId: string) {
-  const { supabase, user, ok, esAdmin } = await verificarAccesoRancho(ranchoId);
+  const { supabase, user, ok } = await verificarAccesoRancho(ranchoId);
   if (!user) redirect("/lealtad/login");
-  return { supabase, ok: ok && esAdmin };
+  return { supabase, ok };
 }
 
 function faltaLaTabla(mensaje: string) {
@@ -133,7 +145,7 @@ export async function guardarPrograma(
   if (invalido) return { error: invalido };
 
   const { supabase, ok } = await guard(ranchoId);
-  if (!ok) return { error: "La configuración del programa la hace el equipo de Bookea." };
+  if (!ok) return { error: "Solo el dueño del negocio edita la tarjeta." };
 
   const fila = {
     nombre: datos.nombre.trim(),
@@ -265,7 +277,7 @@ export async function guardarRecompensa(
   if (invalido) return { error: invalido };
 
   const { supabase, ok } = await guard(ranchoId);
-  if (!ok) return { error: "La configuración del programa la hace el equipo de Bookea." };
+  if (!ok) return { error: "Solo el dueño del negocio edita la tarjeta." };
 
   // El programa tiene que ser DE ESTE negocio: `recompensas` cuelga del
   // programa y no lleva rancho_id propio, así que sin esta comprobación
@@ -337,7 +349,7 @@ export async function eliminarRecompensa(
   recompensaId: string,
 ): Promise<{ error?: string }> {
   const { supabase, ok } = await guard(ranchoId);
-  if (!ok) return { error: "La configuración del programa la hace el equipo de Bookea." };
+  if (!ok) return { error: "Solo el dueño del negocio edita la tarjeta." };
 
   const { data: programa } = await supabase
     .from("programa_lealtad")
@@ -388,7 +400,7 @@ export async function cambiarEstadoPrograma(
   }
 
   const { supabase, ok } = await guard(ranchoId);
-  if (!ok) return { error: "La configuración del programa la hace el equipo de Bookea." };
+  if (!ok) return { error: "Solo el dueño del negocio edita la tarjeta." };
 
   const { data: programa } = await supabase
     .from("programa_lealtad")
