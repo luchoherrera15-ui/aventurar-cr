@@ -169,10 +169,15 @@ export default async function PlanesLealtadPage({
           />
         </div>
 
+        {/* Ya NO dice «crealo primero»: desde acá se compra sin tener
+            negocio, con tarjeta o con SINPE. Lo que sigue ofreciendo
+            /lealtad/nuevo es OTRA cosa —elegir color, logo, regalía y
+            meta de sellos en el mismo trámite—, así que queda como
+            alternativa y no como requisito. */}
         <p className="mt-8 text-center text-[12px] text-white/35">
-          ¿Todavía no tenés el negocio en Bookea?{" "}
+          ¿Preferís armar la tarjeta de una vez?{" "}
           <Link href="/lealtad/nuevo" className="font-bold underline">
-            Crealo en dos campos
+            Elegí color, logo y regalía acá
           </Link>{" "}
           — sin publicarte en el marketplace.
         </p>

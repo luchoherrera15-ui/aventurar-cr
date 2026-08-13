@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
@@ -21,6 +20,15 @@ import { iniciarPagoDelPaquete } from "./pago-actions";
  *     botón — nadie inicia el programa sin haber pagado. El comprobante
  *     va al mismo bucket `comprobantes` que ya usan las invitaciones y
  *     las reservas: un solo lugar donde buscar depósitos.
+ *
+ *     Y TAMBIÉN SIN NEGOCIO PREVIO. Lealtad no exige tener nada
+ *     registrado en /citas, hospedajes ni eventos. Eso ya valía para la
+ *     tarjeta; el depósito mandaba a crear el negocio primero en
+ *     /lealtad/nuevo. O sea que la misma pantalla dejaba comprar en frío
+ *     con Visa y no con SINPE — y el SINPE es el que de verdad usa buena
+ *     parte de la clientela. Ahora los dos caminos preguntan lo mismo
+ *     (`listoParaPagar`) y el negocio nace igual de tarde: con el cobro
+ *     confirmado o con la solicitud aceptada.
  *
  * ------------------------------------------------------------------
  * POR QUÉ ESTÁN LOS DOS, Y POR QUÉ SE DICE LA DIFERENCIA
@@ -115,14 +123,15 @@ export default function FormularioSolicitud({
 
   function enviar() {
     iniciar(async () => {
-      const res = await solicitarPlanLealtad(
-        negocioId,
+      const res = await solicitarPlanLealtad({
+        ranchoId: negocios.length > 0 ? negocioId : "",
+        nombreNegocio: nombreNuevo,
         plan,
         telefono,
         mensaje,
-        metodo,
+        metodoPago: metodo,
         comprobanteUrl,
-      );
+      });
       setEstado(res.ok ? "enviada" : res.motivo);
     });
   }
@@ -171,8 +180,10 @@ export default function FormularioSolicitud({
   // llaves configuradas la lista llega vacía.
   const hayTarjeta = !esGratis && periodosConTarjeta.length > 0;
   const def = definicionDe(plan);
-  // Para pagar con tarjeta hace falta saber PARA QUÉ negocio: el que ya
-  // tiene, o el nombre del que se va a crear.
+  // Para comprar hace falta saber PARA QUÉ negocio: el que ya tiene, o
+  // el nombre del que se va a crear. Vale igual para la tarjeta y para
+  // el depósito — es la misma pregunta, y por eso es una sola condición
+  // y no una por forma de pago.
   const listoParaPagar = negocios.length > 0 ? !!negocioId : nombreNuevo.trim().length > 0;
 
   return (
@@ -212,6 +223,30 @@ export default function FormularioSolicitud({
         </p>
       )}
 
+      {/* Sin negocio todavía: se pide el nombre y nada más.
+          COMPARTIDO por los dos caminos de pago, igual que el selector
+          de arriba. Antes vivía dentro del bloque de tarjeta, y esa era
+          justo la incoherencia: la misma pantalla dejaba comprar sin
+          negocio con Visa y mandaba a crearlo primero con SINPE — que
+          es el medio que de verdad usa buena parte de la clientela.
+          El negocio NO se crea acá; nace cuando entra el cobro (tarjeta)
+          o cuando un admin acepta la solicitud (depósito). */}
+      {negocios.length === 0 && (
+        <label className={`${etiqueta} mt-3`}>
+          ¿Cómo se llama tu negocio?
+          <input
+            value={nombreNuevo}
+            onChange={(e) => setNombreNuevo(e.target.value)}
+            placeholder="Barbería Silencio"
+            maxLength={80}
+            className={campo}
+          />
+          <span className="text-[11px] font-normal normal-case tracking-normal text-white/45">
+            Lo creamos por vos — sin publicarte en el marketplace.
+          </span>
+        </label>
+      )}
+
       {/* ── 1. CON TARJETA: queda activo al instante ─────────────────
           Va PRIMERO porque es el único camino que no depende de que
           alguien revise un depósito. Debajo sigue el SINPE de siempre,
@@ -225,25 +260,6 @@ export default function FormularioSolicitud({
             Se cobra solo cada período y lo cancelás cuando querás, desde tu panel. Nadie
             tiene que revisar nada.
           </p>
-
-          {/* Sin negocio todavía: se pide el nombre y nada más. El
-              negocio NO se crea acá — nace cuando Stripe confirma el
-              cobro, así que un pago que se abandona no deja nada. */}
-          {negocios.length === 0 && (
-            <label className={`${etiqueta} mt-3`}>
-              ¿Cómo se llama tu negocio?
-              <input
-                value={nombreNuevo}
-                onChange={(e) => setNombreNuevo(e.target.value)}
-                placeholder="Barbería Silencio"
-                maxLength={80}
-                className={campo}
-              />
-              <span className="text-[11px] font-normal normal-case tracking-normal text-white/45">
-                Lo creamos por vos apenas entre el pago — sin publicarte en el marketplace.
-              </span>
-            </label>
-          )}
 
           <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
             {periodosConTarjeta.map((periodo, i) => (
@@ -286,17 +302,11 @@ export default function FormularioSolicitud({
         </p>
       )}
 
-      {/* ── 2. POR SINPE O TRANSFERENCIA: lo revisa el equipo ─────── */}
-      {negocios.length === 0 ? (
-        <p className="mt-2 text-[12.5px] text-white/60">
-          Todavía no administrás ningún negocio en Bookea.{" "}
-          <Link href="/lealtad/nuevo" className="font-bold underline">
-            Crealo primero
-          </Link>{" "}
-          — dos campos, sin publicarte en el marketplace — y volvés acá a solicitar el plan.
-        </p>
-      ) : (
-        <div className="mt-3 grid gap-2.5">
+      {/* ── 2. POR SINPE O TRANSFERENCIA: lo revisa el equipo ───────
+          Se dibuja SIEMPRE, con negocio o sin él. Lo que decide si se
+          puede enviar es `listoParaPagar`, no si la persona ya tiene
+          algo registrado en Bookea. */}
+      <div className="mt-3 grid gap-2.5">
           {/* ── El depósito: primero se paga, después se solicita.
                  El plan Gratis se salta este paso entero. ── */}
           {esGratis ? (
@@ -414,21 +424,22 @@ export default function FormularioSolicitud({
           <button
             type="button"
             onClick={enviar}
-            disabled={ocupado || subiendo || !negocioId || (!esGratis && !comprobanteUrl)}
+            disabled={ocupado || subiendo || !listoParaPagar || (!esGratis && !comprobanteUrl)}
             className="rounded-xl bg-[#ee7420] px-5 py-3 text-[13.5px] font-extrabold text-white disabled:opacity-40"
           >
             {ocupado
               ? "Enviando…"
-              : esGratis || comprobanteUrl
-                ? "Enviar la solicitud"
-                : "Adjuntá el comprobante para enviar"}
+              : !listoParaPagar
+                ? "Escribí el nombre de tu negocio"
+                : esGratis || comprobanteUrl
+                  ? "Enviar la solicitud"
+                  : "Adjuntá el comprobante para enviar"}
           </button>
 
           {estado !== "editando" && (
             <p className="text-[12.5px] font-bold text-red-300">{estado}</p>
           )}
         </div>
-      )}
     </div>
   );
 }
