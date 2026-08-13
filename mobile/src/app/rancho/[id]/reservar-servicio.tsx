@@ -9,18 +9,12 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
-import { decode as decodeBase64 } from "base64-arraybuffer";
-import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
-import { comprimirImagen } from "@/lib/comprimir-imagen";
 import BarraSuperior from "@/components/barra-superior";
 import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
-import { pedirCorreosDeReserva } from "@/lib/notificaciones";
 import {
   agruparPorSeccion,
   cupoRestante,
@@ -36,7 +30,14 @@ import {
   totalCotizacion,
 } from "@/lib/cotizador-servicio";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
-import { CATALOGO_LABEL, fmtColones, type Rancho, type RanchoItem } from "@/lib/types";
+import {
+  CATALOGO_LABEL,
+  enConfiguracion,
+  fmtColones,
+  type RanchoItem,
+} from "@/lib/types";
+import { COLUMNAS_FICHA, type RanchoPublico } from "@/lib/ranchos-publicos";
+import { fechaLarga } from "@/lib/agenda-negocio";
 
 const DOW = ["D", "L", "M", "M", "J", "V", "S"];
 const MESES = [
@@ -57,22 +58,35 @@ function sumarDiasISO(fechaIso: string, dias: number) {
 type CupoDia = { eventos: number; porItem: Record<string, number> };
 
 /**
- * Reserva nativa de servicios (photobooth, catering, barras...) — el
- * mismo flujo que /web: calendario con los días llenos bloqueados,
- * cotizador según cómo cobra el proveedor, carrito del catálogo con
- * inventario por fecha, depósito con comprobante y la reserva creada
- * por la función crear_reserva_servicio (los precios los relee la
- * base; el teléfono solo dice qué ítems y cuántos).
+ * ============================================================
+ * Armá tu pedido y CONSULTÁ — proveedores de eventos
+ * ============================================================
  *
- * Antes esta pantalla no existía: los servicios abrían la web en un
- * navegador embebido.
+ * Photobooth, catering, barras, decoración, DJs. La pantalla conserva
+ * lo que servía —calendario, cotizador según cómo cobra el proveedor y
+ * carrito del catálogo con su inventario por fecha— y perdió todo lo
+ * que apartaba algo:
+ *
+ *  · el depósito y el comprobante (subir la foto del SINPE),
+ *  · el hold sobre la fecha,
+ *  · la llamada a `crear_reserva_servicio`, que creaba la fila en
+ *    `reservas` y con ella tapaba el día y el inventario.
+ *
+ * Ahora todo lo armado se manda como PRIMER MENSAJE del chat con el
+ * proveedor: fecha, hora, servicio cotizado y pedido, escrito. No se
+ * reserva ni se aparta nada — el proveedor confirma por chat. La
+ * agenda por horas de la ficha (`components/agenda-eventos.tsx`) es el
+ * camino corto para lo mismo; esta pantalla es el largo, con precios.
+ *
+ * Los LUGARES no pasan por acá: ellos siguen con su calendario por día,
+ * su depósito y su SINPE en `rancho/[id]/reservar.tsx`.
  */
 export default function ReservarServicioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { session, cargando: cargandoAuth } = useAuth();
 
-  const [rancho, setRancho] = useState<Rancho | null>(null);
+  const [rancho, setRancho] = useState<RanchoPublico | null>(null);
   const [items, setItems] = useState<RanchoItem[]>([]);
   const [disponibilidad, setDisponibilidad] = useState<Record<string, CupoDia>>({});
   const [cargando, setCargando] = useState(true);
@@ -99,13 +113,11 @@ export default function ReservarServicioScreen() {
   const [tipoEvento, setTipoEvento] = useState("");
   const [notas, setNotas] = useState("");
 
-  const [metodoPago, setMetodoPago] = useState<"sinpe" | "transferencia">("sinpe");
-  const [comprobanteUri, setComprobanteUri] = useState<string | null>(null);
-  const [subiendo, setSubiendo] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
-  const [reservaId, setReservaId] = useState<string | null>(null);
+  /** El hilo donde quedó escrita la consulta. */
+  const [conversacionId, setConversacionId] = useState<string | null>(null);
   const [abriendoChat, setAbriendoChat] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -117,7 +129,10 @@ export default function ReservarServicioScreen() {
     const hasta = iso(hoy.getFullYear() + 1, hoy.getMonth(), hoy.getDate());
 
     const [ranchoRes, itemsRes, dispRes, dispItemsRes] = await Promise.all([
-      supabase.from("ranchos").select("*").eq("id", id).maybeSingle(),
+      // Lista explícita, nunca `*`: sin depósito ya no hay nada que
+      // cobrar acá, así que esta pantalla dejó de necesitar el SINPE y
+      // la cuenta bancaria del proveedor. Ver lib/ranchos-publicos.ts.
+      supabase.from("ranchos").select(COLUMNAS_FICHA).eq("id", id).maybeSingle(),
       supabase
         .from("rancho_items")
         .select("*")
@@ -139,12 +154,22 @@ export default function ReservarServicioScreen() {
         .lte("fecha", hasta),
     ]);
 
-    if (!ranchoRes.data) {
+    const fila = ranchoRes.data as unknown as RanchoPublico | null;
+    if (!fila) {
       setErrorCarga("No encontramos esta publicación.");
       setCargando(false);
       return;
     }
-    setRancho(ranchoRes.data as Rancho);
+    // EN PAUSA: el dueño frenó su publicación mientras la termina de
+    // armar. El sitio ya lo respetaba; acá se colaban pedidos igual.
+    if (enConfiguracion(fila.detalles) && session?.user.id !== fila.owner_id) {
+      setErrorCarga(
+        `${fila.nombre} está terminando de armar su página y todavía no recibe consultas.`,
+      );
+      setCargando(false);
+      return;
+    }
+    setRancho(fila);
     setItems((itemsRes.data ?? []) as RanchoItem[]);
 
     const acc: Record<string, CupoDia> = {};
@@ -158,13 +183,12 @@ export default function ReservarServicioScreen() {
     }
     setDisponibilidad(acc);
     setCargando(false);
-  }, [id]);
+  }, [id, session]);
 
   useEffect(() => {
-    // Sin sesión no se pide nada: reservar requiere cuenta, y la fila
-    // del negocio se lee con los datos de cobro adentro — eso solo se
-    // baja autenticado (la 0140 se los quita al rol anónimo). Al volver
-    // del login esto corre solo, porque `session` está en las deps.
+    // Sin sesión no se pide nada: mandar la consulta necesita cuenta
+    // (el mensaje lleva autor). Al volver del login esto corre solo,
+    // porque `session` está en las deps.
     if (cargandoAuth || !session) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial al montar, sin librería de data-fetching en este proyecto
     cargar();
@@ -226,18 +250,17 @@ export default function ReservarServicioScreen() {
   const horaInicio = horaValida ? hora.trim() : null;
   const duracionHoras = duracionServicio(config, seleccion);
 
-  // Mínimos del negocio: se avisan acá y la base los hace cumplir.
+  // Mínimos del negocio: se avisan acá para que la consulta salga con
+  // un pedido que el proveedor pueda tomar.
   const montoMinimo = Number(rancho?.monto_minimo) || 0;
   const minimoPedido = (() => {
     const n = Number(rancho?.detalles?.minimo_pedido);
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
   })();
 
-  // ---------- Depósito ----------
-  const tieneSinpe = !!rancho?.sinpe_numero;
-  const tieneCuenta = !!rancho?.cuenta_numero;
-  const deposito = rancho?.deposito_reserva ?? 0;
-  const pagoActivo = deposito > 0 && (tieneSinpe || tieneCuenta);
+  // Acá vivía el depósito: monto, SINPE/transferencia y comprobante.
+  // Se retiró entero — un proveedor de eventos no aparta nada por
+  // adelantado, la consulta se resuelve por chat.
 
   // ---------- Calendario ----------
   const hoy = useMemo(() => new Date(), []);
@@ -285,14 +308,6 @@ export default function ReservarServicioScreen() {
     });
   }
 
-  async function elegirComprobante() {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-    });
-    if (!res.canceled && res.assets[0]) setComprobanteUri(res.assets[0].uri);
-  }
-
   async function chatearConProveedor() {
     if (abriendoChat) return;
     if (!session) {
@@ -305,10 +320,20 @@ export default function ReservarServicioScreen() {
     if (convId) router.push(`/mensajes/hilo/${convId}` as never);
   }
 
-  const listoParaEnviar =
-    !!fecha && (!pagoActivo || !!comprobanteUri) && !enviando && !subiendo;
+  const listoParaEnviar = !!fecha && !enviando;
 
-  async function enviarReserva() {
+  /**
+   * Manda todo lo armado como PRIMER MENSAJE del chat. No crea reserva,
+   * no aparta la fecha, no toca el inventario: eso es exactamente lo
+   * que se retiró. El proveedor lee la consulta y contesta.
+   *
+   * El resumen se arma con los precios del catálogo que el cliente
+   * acaba de ver en pantalla — antes venía de `reservas.detalle_pedido`,
+   * o sea de la base, porque había plata de por medio. Acá no la hay:
+   * es un estimado para arrancar la conversación, y el proveedor lo
+   * confirma o lo corrige.
+   */
+  async function enviarConsulta() {
     if (!rancho || !fecha) return;
     if (!session) {
       router.push("/cuenta");
@@ -318,186 +343,84 @@ export default function ReservarServicioScreen() {
     setErrorEnvio(null);
 
     try {
-      // 1. El comprobante primero (si el proveedor cobra depósito).
-      let comprobantePath: string | null = null;
-      if (pagoActivo && comprobanteUri) {
-        setSubiendo(true);
-        // Mismo criterio que la web: 1920px / JPEG 0.82 antes de tocar la red.
-        const comprimida = await comprimirImagen(comprobanteUri);
-        const base64 = await FileSystem.readAsStringAsync(comprimida, {
-          encoding: "base64",
-        });
-        const extension = comprimida.split(".").pop()?.toLowerCase() || "jpg";
-        // eslint-disable-next-line react-hooks/purity -- corre dentro del handler de envío, no en el render; el timestamp evita colisiones de nombre en el bucket
-        comprobantePath = `servicios/${rancho.id}/${Date.now()}-comprobante.${extension}`;
-        const { error: uploadError } = await supabase.storage
-          .from("comprobantes")
-          .upload(comprobantePath, decodeBase64(base64), {
-            contentType: `image/${extension === "jpg" ? "jpeg" : extension}`,
-          });
-        setSubiendo(false);
-        if (uploadError) {
-          setErrorEnvio("No se pudo subir el comprobante: " + uploadError.message);
-          setEnviando(false);
-          return;
-        }
-      }
-
-      // 2. La reserva con su pedido, en una sola operación del lado de
-      // la base — los precios los relee ella, el teléfono solo manda
-      // qué ítems y cuántos.
-      const pedido = Object.keys(cantidades).map((itemId) => ({
-        item_id: itemId,
-        cantidad: cantidades[itemId],
-      }));
-
-      const { data: perfil } = await supabase
-        .from("perfiles")
-        .select("nombre")
-        .eq("id", session.user.id)
-        .maybeSingle();
-
-      // Las elecciones incluidas no suman al precio: van como texto
-      // en las notas, para que el proveedor arme el menú del cliente.
-      const nombresElegidos = items
-        .filter((i) => elegidos[i.id])
-        .map((i) => i.nombre);
-      const notasCompletas = [
-        notas.trim(),
-        nombresElegidos.length > 0
-          ? `Elecciones incluidas en la tarifa (sin costo): ${nombresElegidos.join(", ")}.`
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-      const invitadosNum = invitados ? parseInt(invitados, 10) : null;
-      const paramsBase = {
-        p_rancho_id: rancho.id,
-        p_fecha: fecha,
-        p_pedido: pedido,
-        p_tipo_evento: tipoEvento.trim() || null,
-        p_invitados: invitadosNum && invitadosNum > 0 ? invitadosNum : null,
-        p_notas: notasCompletas || null,
-        p_nombre: perfil?.nombre || session.user.email,
-        p_correo: session.user.email,
-        p_whatsapp: null,
-        p_total_servicio: totalBase,
-        p_metodo_pago: pagoActivo && comprobantePath ? metodoPago : null,
-        p_deposito_comprobante_url: comprobantePath,
-        p_terminos_aceptados: false,
-      };
-
-      // Primero con los parámetros nuevos (hora, duración, rango —
-      // 0067); si la base tiene la firma vieja (PGRST202), se
-      // reintenta sin ellos y la reserva sale igual.
-      let { data: nuevaId, error } = await supabase.rpc("crear_reserva_servicio", {
-        ...paramsBase,
-        p_hora_inicio: horaInicio,
-        p_duracion_horas: duracionHoras,
-        p_fecha_fin: fechaFin,
-      });
-      if (error && error.code === "PGRST202") {
-        ({ data: nuevaId, error } = await supabase.rpc(
-          "crear_reserva_servicio",
-          paramsBase,
-        ));
-      }
-
-      if (error || !nuevaId) {
-        // Los mensajes de la función ya vienen redactados para mostrar.
-        setErrorEnvio(error?.message || "No se pudo enviar la reserva.");
+      const convId = await abrirHiloConsulta(rancho.id, session.user.id);
+      if (!convId) {
+        setErrorEnvio("No se pudo abrir el chat con este proveedor. Probá de nuevo.");
         setEnviando(false);
         return;
       }
 
-      const idReserva = nuevaId as string;
-      setReservaId(idReserva);
+      // Las elecciones incluidas no suman al precio: van como texto,
+      // para que el proveedor arme el menú del cliente.
+      const nombresElegidos = items
+        .filter((i) => elegidos[i.id])
+        .map((i) => i.nombre);
+      const invitadosNum = invitados ? parseInt(invitados, 10) : null;
+      const lineasPedido = items
+        .filter((i) => (cantidades[i.id] ?? 0) > 0)
+        .map(
+          (i) =>
+            `• ${cantidades[i.id]}× ${i.nombre}` +
+            (i.precio !== null
+              ? ` (${fmtColones(i.precio)}${i.unidad ? ` ${i.unidad}` : ""})`
+              : " (a cotizar)"),
+        );
 
-      // 3. El chat con el resumen del pedido — igual que /web. Si algo
-      // acá falla, la reserva ya quedó guardada igual.
-      try {
-        const { data: conversacion } = await supabase
-          .from("conversaciones")
-          .insert({ reserva_id: idReserva })
-          .select("id")
-          .maybeSingle();
-        if (conversacion) {
-          const { data: creada } = await supabase
-            .from("reservas")
-            .select("detalle_pedido")
-            .eq("id", idReserva)
-            .maybeSingle();
-          const detalle = creada?.detalle_pedido as
-            | { items: { nombre: string; precio: number | null; unidad: string | null; cantidad: number }[]; total_estimado: number | null }
-            | null;
+      const partes: string[] = [
+        `Hola, quiero consultar disponibilidad para el ${fechaLarga(fecha)}.`,
+      ];
+      if (horaInicio) partes.push(`Hora del evento: ${horaInicio}.`);
+      if (duracionHoras) {
+        partes.push(`Duración: ${duracionHoras} hora${duracionHoras === 1 ? "" : "s"}.`);
+      }
+      if (fechaFin) partes.push(`Alquiler del ${fecha} al ${fechaFin}.`);
+      if (tipoEvento.trim()) partes.push(`Tipo de evento: ${tipoEvento.trim()}.`);
+      if (invitadosNum && invitadosNum > 0) partes.push(`Invitados: ${invitadosNum}.`);
+      if (paqueteBaseSel) {
+        partes.push(`Paquete elegido: ${paqueteBaseSel.nombre} — sustituye la tarifa base.`);
+      }
+      if (nombresElegidos.length > 0) {
+        partes.push(
+          `Elecciones incluidas en la tarifa (sin costo): ${nombresElegidos.join(", ")}.`,
+        );
+      }
+      if (lineasBase.length > 0) {
+        partes.push(
+          "Servicio cotizado:\n" +
+            lineasBase.map((l) => `• ${l.etiqueta}: ${fmtColones(l.monto)}`).join("\n") +
+            `\nEstimado del servicio: ${fmtColones(totalBase)}.`,
+        );
+      }
+      if (lineasPedido.length > 0) {
+        partes.push("Pedido:\n" + lineasPedido.join("\n"));
+      }
+      if (totalGeneral > 0) {
+        partes.push(
+          `Total estimado${totalBase > 0 && resumenPedido.total > 0 ? " (servicio + pedido)" : ""}: ${fmtColones(totalGeneral)}.`,
+        );
+      }
+      if (notas.trim()) partes.push(`Notas: ${notas.trim()}`);
+      partes.push(
+        "Todavía no hay nada reservado: quedo pendiente de que me confirmés disponibilidad y precio.",
+      );
 
-          const partes: string[] = [
-            pagoActivo && comprobantePath
-              ? `Reserva agendada para el ${fecha} — depósito de ${fmtColones(deposito)} enviado por ${metodoPago === "transferencia" ? "transferencia" : "SINPE"}, comprobante adjunto en tu panel.`
-              : `Solicitud de reserva para el ${fecha}.`,
-          ];
-          if (horaInicio) partes.push(`Hora del evento: ${horaInicio}.`);
-          if (fechaFin) partes.push(`Alquiler del ${fecha} al ${fechaFin}.`);
-          if (tipoEvento.trim()) partes.push(`Tipo de evento: ${tipoEvento.trim()}.`);
-          if (invitadosNum && invitadosNum > 0) partes.push(`Invitados: ${invitadosNum}.`);
-          if (paqueteBaseSel) {
-            partes.push(
-              `Paquete elegido: ${paqueteBaseSel.nombre} — sustituye la tarifa base.`,
-            );
-          }
-          if (nombresElegidos.length > 0) {
-            partes.push(
-              `Elecciones incluidas en la tarifa (sin costo): ${nombresElegidos.join(", ")}.`,
-            );
-          }
-          if (lineasBase.length > 0) {
-            partes.push(
-              "Servicio cotizado:\n" +
-                lineasBase.map((l) => `• ${l.etiqueta}: ${fmtColones(l.monto)}`).join("\n") +
-                `\nEstimado del servicio: ${fmtColones(totalBase)}.`,
-            );
-          }
-          if (detalle && detalle.items.length > 0) {
-            partes.push(
-              "Pedido:\n" +
-                detalle.items
-                  .map(
-                    (l) =>
-                      `• ${l.cantidad}× ${l.nombre}` +
-                      (l.precio !== null
-                        ? ` (${fmtColones(l.precio)}${l.unidad ? ` ${l.unidad}` : ""})`
-                        : " (a cotizar)"),
-                  )
-                  .join("\n"),
-            );
-            if (detalle.total_estimado !== null) {
-              partes.push(
-                `Total estimado${totalBase > 0 ? " (servicio + pedido)" : ""}: ${fmtColones(totalBase + detalle.total_estimado)}.`,
-              );
-            }
-          }
-          if (notas.trim()) partes.push(`Notas: ${notas.trim()}`);
-
-          await supabase.from("mensajes").insert({
-            conversacion_id: conversacion.id,
-            autor_id: session.user.id,
-            texto: partes.join("\n").slice(0, 2000),
-          });
-        }
-      } catch {
-        // El chat es un plus: la reserva ya está guardada.
+      const { error: errorMensaje } = await supabase.from("mensajes").insert({
+        conversacion_id: convId,
+        autor_id: session.user.id,
+        texto: partes.join("\n").slice(0, 2000),
+      });
+      if (errorMensaje) {
+        setErrorEnvio("No se pudo mandar la consulta: " + errorMensaje.message);
+        setEnviando(false);
+        return;
       }
 
+      setConversacionId(convId);
       setConfirmado(true);
-
-      // Los correos los manda la web (Resend vive en el servidor).
-      void pedirCorreosDeReserva(idReserva);
     } catch (e) {
-      setErrorEnvio(e instanceof Error ? e.message : "No se pudo enviar la reserva.");
+      setErrorEnvio(e instanceof Error ? e.message : "No se pudo mandar la consulta.");
     } finally {
       setEnviando(false);
-      setSubiendo(false);
     }
   }
 
@@ -517,12 +440,12 @@ export default function ReservarServicioScreen() {
   if (!session) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo="Reservar" subtitulo={rancho?.nombre} />
+        <BarraSuperior titulo="Consultar" subtitulo={rancho?.nombre} />
         <View style={styles.centro}>
-          <Text style={styles.tituloEstado}>Iniciá sesión para reservar</Text>
+          <Text style={styles.tituloEstado}>Iniciá sesión para consultar</Text>
           <Text style={styles.textoEstado}>
-            Tu reserva queda ligada a tu cuenta: ahí ves el estado, el chat con
-            el proveedor y tu historial.
+            Tu consulta queda en un chat ligado a tu cuenta: ahí seguís la
+            conversación con el proveedor y tu historial.
           </Text>
           <Pressable style={styles.botonPrimario} onPress={() => router.push("/cuenta")}>
             <Text style={styles.botonPrimarioTexto}>Iniciar sesión</Text>
@@ -554,24 +477,24 @@ export default function ReservarServicioScreen() {
   if (confirmado) {
     return (
       <View style={styles.contenedor}>
-        <BarraSuperior titulo="Reserva enviada" subtitulo={rancho.nombre} />
+        <BarraSuperior titulo="Consulta enviada" subtitulo={rancho.nombre} />
         <View style={styles.centro}>
           <Text style={styles.check}>✓</Text>
-          <Text style={styles.tituloEstado}>¡Tu reserva quedó registrada!</Text>
+          <Text style={styles.tituloEstado}>¡Tu consulta ya está en el chat!</Text>
           <Text style={styles.textoEstado}>
-            {rancho.nombre} la revisa y te confirma. Te llegará un correo a{" "}
-            {session.user.email}, y el chat quedó abierto con tu pedido ya
-            detallado.
+            {rancho.nombre} la lee y te contesta por ahí mismo. Tu fecha,
+            tu horario y tu pedido quedaron escritos — todavía no hay nada
+            reservado: el proveedor confirma la disponibilidad y el precio.
           </Text>
           {/* Acá iba la venta cruzada de la invitación digital. Salió
               del app: es contenido digital y ofrecerlo adentro obliga a
               compra in-app (guía 3.1.1 de Apple). Vive en bookea.lat. */}
-          {reservaId && (
+          {conversacionId && (
             <Pressable
               style={styles.botonPrimario}
-              onPress={() => router.replace(`/mensajes/${reservaId}` as never)}
+              onPress={() => router.replace(`/mensajes/hilo/${conversacionId}` as never)}
             >
-              <Text style={styles.botonPrimarioTexto}>Ver el chat de mi reserva</Text>
+              <Text style={styles.botonPrimarioTexto}>Ver el chat</Text>
             </Pressable>
           )}
           <Pressable style={styles.botonSecundario} onPress={() => router.back()}>
@@ -587,13 +510,12 @@ export default function ReservarServicioScreen() {
   let paso = 1;
   const numServicio = pasoServicio ? ++paso : 0;
   const numPedido = items.length > 0 ? ++paso : 0;
-  const numPago = pagoActivo ? ++paso : 0;
   const numDatos = ++paso;
 
   return (
     <View style={styles.contenedor}>
       <BarraSuperior
-        titulo="Reservar"
+        titulo="Consultar"
         subtitulo={rancho.nombre}
         accion={{
           icono: "chatbubble-ellipses-outline",
@@ -980,75 +902,11 @@ export default function ReservarServicioScreen() {
           </View>
         )}
 
-        {/* ---------- Depósito ---------- */}
-        {pagoActivo && (
-          <View style={styles.bloque}>
-            <Text style={styles.etiqueta}>{numPago} · Pagá el depósito para agendar</Text>
-            <Text style={styles.textoNormal}>
-              Este proveedor pide un depósito de{" "}
-              <Text style={styles.negrita}>{fmtColones(deposito)}</Text>. Hacé el
-              pago y subí el comprobante — tu reserva queda en aprobación hasta
-              que lo confirme.
-            </Text>
-            {tieneSinpe && tieneCuenta && (
-              <View style={styles.chipsFila}>
-                {(["sinpe", "transferencia"] as const).map((m) => (
-                  <Pressable
-                    key={m}
-                    onPress={() => setMetodoPago(m)}
-                    style={[styles.chip, metodoPago === m && styles.chipActivo]}
-                  >
-                    <Text
-                      style={[styles.chipTexto, metodoPago === m && styles.chipTextoActivo]}
-                    >
-                      {m === "sinpe" ? "SINPE Móvil" : "Transferencia"}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-            <Pressable
-              onPress={async () => {
-                const dato =
-                  metodoPago === "sinpe" && tieneSinpe
-                    ? rancho.sinpe_numero!
-                    : rancho.cuenta_numero!;
-                await Clipboard.setStringAsync(dato);
-              }}
-              style={styles.cuentaCaja}
-            >
-              {metodoPago === "sinpe" && tieneSinpe ? (
-                <>
-                  <Text style={styles.cuentaTexto}>
-                    SINPE Móvil: <Text style={styles.negrita}>{rancho.sinpe_numero}</Text>
-                  </Text>
-                  {rancho.sinpe_titular && (
-                    <Text style={styles.ayuda}>A nombre de {rancho.sinpe_titular}</Text>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Text style={styles.cuentaTexto}>
-                    {rancho.cuenta_banco ? `${rancho.cuenta_banco} · ` : ""}
-                    <Text style={styles.negrita}>{rancho.cuenta_numero}</Text>
-                  </Text>
-                  {rancho.cuenta_titular && (
-                    <Text style={styles.ayuda}>A nombre de {rancho.cuenta_titular}</Text>
-                  )}
-                </>
-              )}
-              <Text style={styles.copiarPista}>Tocá para copiar</Text>
-            </Pressable>
-            <Pressable style={styles.botonSecundario} onPress={elegirComprobante}>
-              <Text style={styles.botonSecundarioTexto}>
-                {comprobanteUri ? "Cambiar comprobante" : "Subir comprobante del depósito"}
-              </Text>
-            </Pressable>
-            {comprobanteUri && (
-              <Text style={styles.comprobanteOk}>✓ Comprobante listo para enviar</Text>
-            )}
-          </View>
-        )}
+        {/* Acá iba el bloque del depósito: monto, SINPE o transferencia
+            con el número para copiar, y la foto del comprobante. Se
+            retiró completo — un proveedor de eventos no cobra por
+            adelantado desde el app; el precio se acuerda por chat. Los
+            LUGARES lo conservan tal cual en rancho/[id]/reservar.tsx. */}
 
         {/* ---------- Datos del evento ---------- */}
         <View style={styles.bloque}>
@@ -1088,8 +946,8 @@ export default function ReservarServicioScreen() {
             />
             <Text style={styles.ayuda}>
               {hora.trim() && !horaValida
-                ? "Escribila como HH:MM (ej. 15:00) para que quede guardada."
-                : "Le ayuda al proveedor a cuidar su agenda y evitar choques de horario ese día."}
+                ? "Escribila como HH:MM (ej. 15:00) para que quede clara en el chat."
+                : "Le ayuda al proveedor a decirte de una si tiene esa franja libre. En su página también podés tocar una hora directamente."}
             </Text>
           </View>
           {esAlquiler && config.modalidad !== "por_dia" && (
@@ -1097,8 +955,8 @@ export default function ReservarServicioScreen() {
               label="¿Cuántos días necesitás el alquiler? (opcional)"
               ayuda={
                 fechaFin
-                  ? `Del ${fecha} al ${fechaFin} — el inventario queda apartado todos esos días.`
-                  : "Si tu alquiler es de varios días (ej. de viernes a domingo), el inventario se aparta todo el rango."
+                  ? `Del ${fecha} al ${fechaFin} — así queda escrito en tu consulta.`
+                  : "Si tu alquiler es de varios días (ej. de viernes a domingo), decilo acá."
               }
               valor={dias}
               sufijo={dias === 1 ? "día" : "días"}
@@ -1124,7 +982,7 @@ export default function ReservarServicioScreen() {
           <Text style={styles.aviso}>
             Este negocio toma pedidos desde {fmtColones(montoMinimo)}. Tu pedido
             va en {fmtColones(totalGeneral)} — agregale{" "}
-            {fmtColones(montoMinimo - totalGeneral)} más para poder reservar.
+            {fmtColones(montoMinimo - totalGeneral)} más antes de consultarle.
           </Text>
         )}
         {minimoPedido !== null &&
@@ -1140,7 +998,7 @@ export default function ReservarServicioScreen() {
 
         <Pressable
           disabled={!listoParaEnviar}
-          onPress={enviarReserva}
+          onPress={enviarConsulta}
           style={[styles.botonPrimario, !listoParaEnviar && { opacity: 0.5 }]}
         >
           <Text style={styles.botonPrimarioTexto}>
@@ -1148,16 +1006,13 @@ export default function ReservarServicioScreen() {
               ? "Enviando..."
               : !fecha
                 ? "Elegí una fecha para continuar"
-                : pagoActivo && !comprobanteUri
-                  ? "Subí el comprobante para reservar"
-                  : pagoActivo
-                    ? "Reservar y pagar el depósito"
-                    : "Reservar mi fecha"}
+                : "Mandarle mi consulta al proveedor"}
           </Text>
         </Pressable>
         <Text style={styles.ayuda}>
-          Tu reserva queda en aprobación del proveedor, con tu pedido ya
-          detallado. Si tenés dudas, el chat queda abierto.
+          Todo esto se manda como primer mensaje del chat. No se reserva ni se
+          aparta nada: {rancho.nombre} te confirma la disponibilidad y el
+          precio por ahí mismo.
         </Text>
         <View style={{ height: Spacing.six }} />
       </ScrollView>
@@ -1476,26 +1331,9 @@ const styles = StyleSheet.create({
   totalBannerTexto: { color: "#ffffff", fontSize: 14, fontFamily: Fonts.bold },
   totalBannerMonto: { color: "#ffffff", fontSize: 16, fontFamily: Fonts.bold },
 
-  chipsFila: { flexDirection: "row", gap: 8 },
-  chip: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  chipActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  chipTexto: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.inkSoft },
-  chipTextoActivo: { color: "#ffffff" },
-  cuentaCaja: {
-    backgroundColor: Colors.cream2,
-    borderRadius: 12,
-    padding: Spacing.three,
-    gap: 2,
-  },
-  cuentaTexto: { fontSize: 13.5, color: Colors.ink, fontFamily: Fonts.regular },
-  copiarPista: { fontSize: 11, color: Colors.inkSoft, fontFamily: Fonts.medium, marginTop: 4 },
-  comprobanteOk: { fontSize: 12.5, fontFamily: Fonts.bold, color: Colors.green },
+  // Acá vivían los estilos del bloque de depósito (chips de SINPE /
+  // transferencia, la caja con el número de cuenta y el "comprobante
+  // listo"). Se fueron con él.
 
   botonPrimario: {
     backgroundColor: Colors.navy,

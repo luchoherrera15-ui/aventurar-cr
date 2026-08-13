@@ -309,6 +309,10 @@ export type Rancho = {
   /** Cuántos eventos atiende por día (migración 0049). null = sin tope;
    *  los Lugares quedan en 1 — el salón se alquila entero. */
   eventos_por_dia?: number | null;
+  /** Zona IANA con la que se calcula su agenda por horas (0055).
+   *  Opcional: una base sin la columna simplemente no la trae y los
+   *  motores caen en America/Costa_Rica. */
+  zona_horaria?: string | null;
   sinpe_numero: string | null;
   sinpe_titular: string | null;
   cuenta_banco: string | null;
@@ -664,6 +668,30 @@ export type DetallePedido = {
   }[];
   total_estimado: number | null;
 };
+
+/**
+ * ¿La publicación está EN CONFIGURACIÓN? El dueño la puso en pausa: se
+ * sigue viendo en el directorio, pero no se puede abrir ni reservar
+ * porque todavía la está terminando de armar (fotos, precios,
+ * horarios) y no quiere que le entren reservas a medias.
+ *
+ * ESPEJO de `enConfiguracion` en src/app/mi-negocio/types.tsx de la web.
+ * La bandera vive en `detalles` (jsonb libre por negocio), así que no
+ * hace falta migrar la base para frenar una publicación.
+ *
+ * Distinto de `estado`: una publicación 'pendiente' todavía no la
+ * aprobó el equipo y NO aparece en el directorio; esta ya está
+ * aprobada y visible, solo que en pausa por decisión del dueño.
+ *
+ * El app no la respetaba: un negocio en pausa se seguía abriendo desde
+ * el teléfono y recibía reservas igual, mientras el sitio web sí lo
+ * frenaba.
+ */
+export function enConfiguracion(
+  detalles: Record<string, unknown> | null | undefined,
+): boolean {
+  return detalles?.en_configuracion === true;
+}
 
 /** Cómo se llama el catálogo según el rubro — "Menú" para comida, etc. */
 export const CATALOGO_LABEL: Record<Categoria, string> = {

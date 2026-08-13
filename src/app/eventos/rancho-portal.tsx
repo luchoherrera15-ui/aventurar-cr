@@ -21,18 +21,19 @@ import {
   type PromocionDia,
   type RanchoItem,
 } from "@/app/mi-negocio/types";
-import {
-  leerCuentasDeCobro,
-  SIN_CUENTAS,
-  type RanchoPublico,
-} from "@/lib/ranchos-publicos";
+import type { RanchoPublico } from "@/lib/ranchos-publicos";
 import type {
   DiaDisponibilidad,
   PrecioTier,
   ServicioAdicional,
 } from "./tipos-lugar";
-import { disponibilidadServicio, type CupoDia } from "@/lib/disponibilidad";
-import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
+// El cargador de la agenda "pro" (0061) no sabe qué es un vertical:
+// recibe un ranchoId y devuelve horarios por recurso, bloqueos y
+// asignaciones. Un proveedor de eventos no tiene módulo de Equipo, así
+// que de los tres solo le llegan BLOQUEOS con algo adentro — pero se
+// reusa entero para que el día que Eventos tenga equipo funcione solo.
+import { cargarAgendaPro, type AgendaPro } from "@/app/citas/agenda-pro";
+import { TZ_CR } from "@/lib/fechas";
 import {
   AmenidadesSeccion,
   CierreSeccion,
@@ -42,7 +43,7 @@ import {
   ResumenSeccion,
   type Resena,
 } from "./[id]/portal-secciones";
-import ReservaServicio from "./[id]/reserva-servicio";
+import AgendaConsulta from "./[id]/agenda-consulta";
 import MenuServicio from "./[id]/menu-servicio";
 import ProveedorActual from "@/components/proveedor-actual";
 import SiteFooter from "@/components/site-footer";
@@ -73,7 +74,8 @@ type DatosPortal = {
   servicios: ServicioAdicional[];
   promociones: PromocionDia[];
   itemsCatalogo: RanchoItem[];
-  disponibilidadServicioPorDia: Record<string, CupoDia>;
+  /** La agenda por horas de un Servicio. null para un Lugar. */
+  agenda: AgendaPro | null;
 };
 
 const DATOS_PORTAL_VACIO: DatosPortal = {
@@ -83,7 +85,7 @@ const DATOS_PORTAL_VACIO: DatosPortal = {
   servicios: [],
   promociones: [],
   itemsCatalogo: [],
-  disponibilidadServicioPorDia: {},
+  agenda: null,
 };
 
 /** Los datos del calendario de un Lugar: cuatro consultas, una tanda. */
@@ -153,16 +155,22 @@ async function datosDeLugar(
 }
 
 /**
- * El catálogo (menú/paquetes) de un Servicio: es lo que el cliente elige
- * al armar su reserva. La disponibilidad dice qué días ya están llenos y
- * cuánto queda de cada paquete por fecha.
+ * El catálogo (menú/paquetes) de un Servicio, que es lo que el cliente
+ * elige al armar su consulta, y la agenda POR HORAS con la que se le
+ * ofrecen espacios libres.
+ *
+ * DESAPARECIÓ la disponibilidad por DÍA (`disponibilidadServicio`, dos
+ * consultas de un año entero): era el cupo del flujo viejo, donde una
+ * consulta creaba una reserva y llenaba el día. Hoy un proveedor de
+ * eventos trabaja por horas —el DJ hace la fiesta infantil de las 3 y
+ * la boda de las 9 el mismo sábado— y las franjas que ya tiene
+ * tomadas se piden del día elegido, no de los próximos 365.
  */
 async function datosDeServicio(
   supabase: Awaited<ReturnType<typeof createClient>>,
   ranchoId: string,
 ): Promise<DatosPortal> {
-  const hoy = hoyISOCR();
-  const [itemsRes, dispServicio] = await Promise.all([
+  const [itemsRes, agenda] = await Promise.all([
     supabase
       .from("rancho_items")
       .select("*")
@@ -170,12 +178,12 @@ async function datosDeServicio(
       .eq("activo", true)
       .order("orden", { ascending: true })
       .order("created_at", { ascending: true }),
-    disponibilidadServicio(supabase, ranchoId, hoy, sumarDiasISO(hoy, 365)),
+    cargarAgendaPro(supabase, ranchoId),
   ]);
   return {
     ...DATOS_PORTAL_VACIO,
     itemsCatalogo: (itemsRes.data ?? []) as RanchoItem[],
-    disponibilidadServicioPorDia: dispServicio,
+    agenda,
   };
 }
 
@@ -238,7 +246,7 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
     servicios,
     promociones,
     itemsCatalogo,
-    disponibilidadServicioPorDia,
+    agenda,
   } = datos;
 
   // El dueño (o un admin ayudándolo) ve un acceso directo a modificar
@@ -257,26 +265,22 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
     }
   }
 
-  /* Los datos de cobro NO vienen con la fila del negocio: la ficha es
-   * pública y todo lo que entre acá con la fila termina, tarde o
-   * temprano, dentro del HTML que ve Googlebot (ver el comentario
-   * grande de @/lib/ranchos-publicos).
+  /* Los datos de cobro (SINPE, cuenta bancaria) YA NO SE PIDEN EN ESTA
+   * PÁGINA. Antes se leían para los Servicios, porque su formulario
+   * cobraba el depósito y pedía el comprobante en el mismo envío; el
+   * gate era "tener sesión", que es flojo — abrir cuenta es gratis — y
+   * quedaba anotado como pendiente en su propio comentario.
    *
-   * Un LUGAR ya no los necesita en esta página: el calendario los
-   * recibe recién cuando la persona toma su fecha, en la respuesta de
-   * `crearReservaTemporal` — o sea, cuando tiene un hold a su nombre en
-   * ESTE negocio. Por eso acá se piden solo para los SERVICIOS, que no
-   * tienen hold: su formulario pide pagar el depósito y subir el
-   * comprobante en el mismo envío, así que las cuentas tienen que estar
-   * puestas antes de que la persona empiece.
+   * El flujo por horas no cobra nada: tocar un espacio libre abre el
+   * chat, no una reserva. Sin depósito no hay a dónde transferir, así
+   * que la consulta entera se retiró — y con ella, un camino por el
+   * que los datos bancarios del proveedor podían terminar dentro del
+   * HTML de una ficha pública (ver el comentario grande de
+   * @/lib/ranchos-publicos: eso ya nos mordió dos veces).
    *
-   * Consulta APARTE y solo con sesión: sin sesión el formulario de
-   * servicio ni siquiera se monta (abajo se muestra "Iniciá sesión para
-   * reservar"), así que un anónimo nunca dispara este viaje a la base.
-   * Es un gate más flojo que el del hold — abrir cuenta es gratis — y
-   * queda anotado como tal en el informe. */
-  const cuentas =
-    !esLugar && user ? await leerCuentasDeCobro(supabase, rancho.id) : SIN_CUENTAS;
+   * Los LUGARES no se tocan: ellos reciben las cuentas recién cuando la
+   * persona toma su fecha, en la respuesta de `crearReservaTemporal`,
+   * o sea con el hold ya a su nombre. */
 
   // En configuración: el dueño todavía la está armando y no quiere que
   // le entren reservas a medias. La página no se abre para nadie más —
@@ -489,7 +493,9 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
               href="#reservar"
               className="inline-flex items-center gap-2 rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
             >
-              {esLugar ? "Reservar mi fecha" : "Reservar fecha"}
+              {/* Un Servicio no reserva: consulta. El CTA no puede
+                  prometer una reserva que del otro lado es un chat. */}
+              {esLugar ? "Reservar mi fecha" : "Ver disponibilidad"}
             </a>
             {/* Las consultas van por la burbuja de chat flotante —
                 acá solo queda el camino directo a reservar. */}
@@ -706,66 +712,51 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
         <section className="border-t border-aventurea-line bg-aventurea-cream-2/40 py-14">
           <div className="mx-auto max-w-[680px] px-7 text-center">
             <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
-              Reservá con {rancho.nombre}
+              Consultá con {rancho.nombre}
             </p>
             <h2 className="titulo mt-2 text-[26px] text-aventurea-ink sm:text-[30px]">
               ¿Listo para tu evento?
             </h2>
+            {/* Sin depósito y sin "queda en aprobación": esta banda
+                describe lo que de verdad pasa al tocar el botón —
+                arranca un chat con tu fecha y tu hora adentro. */}
             <p className="mx-auto mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
               {itemsCatalogo.length > 0
-                ? `Elegí la fecha, armá tu pedido con el ${etiquetaCatalogo.toLowerCase()} y pagá el depósito — queda en aprobación del proveedor, sin tener que chatear.`
-                : "Elegí la fecha y contanos qué necesitás — tu reserva queda en aprobación del proveedor."}
+                ? `Elegí el día y la hora, armá tu pedido con el ${etiquetaCatalogo.toLowerCase()} y te ponemos en el chat con ${rancho.nombre} — todo escrito, sin apartar nada ni pagar nada.`
+                : `Elegí el día y la hora, contanos qué necesitás y te ponemos en el chat con ${rancho.nombre} — sin apartar nada ni pagar nada.`}
             </p>
             <a
               href="#reservar"
               className="mt-6 inline-flex items-center justify-center rounded-xl bg-aventurea-sky px-8 py-3.5 text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-aventurea-sky-dark"
             >
-              ¡Reservar tu espacio!
+              Ver disponibilidad
             </a>
           </div>
         </section>
       )}
 
-      {/* La agenda, en su hoja aparte — se abre con cualquier enlace a
-          #reservar y se cierra sin perder la página. */}
+      {/* La agenda POR HORAS, en su hoja aparte — se abre con cualquier
+          enlace a #reservar y se cierra sin perder la página.
+
+          Ya no hay puerta de "iniciá sesión": tocar un espacio libre
+          abre el CHAT, no una reserva, y el chat acepta a quien no
+          tiene cuenta (el panel abre una sesión anónima al vuelo). El
+          cartel viejo dejaba afuera justo a quien recién descubre el
+          negocio, que es el que más ganas tiene de preguntar. */}
       {!esLugar && (
         <ReservaModal nombreRancho={rancho.nombre}>
-          {user ? (
-            <ReservaServicio
-              ranchoId={rancho.id}
-              items={itemsCatalogo}
-              anticipacionDias={anticipacionDias}
-              etiquetaCatalogo={etiquetaCatalogo}
-              detalles={rancho.detalles ?? null}
-              depositoReserva={rancho.deposito_reserva ?? 0}
-              sinpeNumero={cuentas.sinpeNumero}
-              sinpeTitular={cuentas.sinpeTitular}
-              cuentaBanco={cuentas.cuentaBanco}
-              cuentaNumero={cuentas.cuentaNumero}
-              cuentaTitular={cuentas.cuentaTitular}
-              cuentaTipo={cuentas.cuentaTipo}
-              disponibilidad={disponibilidadServicioPorDia}
-              eventosPorDia={rancho.eventos_por_dia ?? null}
-              montoMinimo={rancho.monto_minimo ?? null}
-              categoria={rancho.categoria}
-            />
-          ) : (
-            <div className="p-2 text-center">
-              <h3 className="titulo text-[20px] text-aventurea-ink">
-                Iniciá sesión para reservar
-              </h3>
-              <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                Tu reserva queda ligada a tu cuenta: ahí ves el estado, el chat
-                con {rancho.nombre} y tu historial.
-              </p>
-              <Link
-                href="/cuenta"
-                className="mt-4 inline-flex items-center justify-center rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
-              >
-                Iniciar sesión
-              </Link>
-            </div>
-          )}
+          <AgendaConsulta
+            ranchoId={rancho.id}
+            nombreNegocio={rancho.nombre}
+            items={itemsCatalogo}
+            etiquetaCatalogo={etiquetaCatalogo}
+            detalles={rancho.detalles ?? null}
+            anticipacionDias={anticipacionDias}
+            zonaHoraria={rancho.zona_horaria || TZ_CR}
+            bloqueos={agenda?.bloqueos ?? []}
+            categoria={rancho.categoria}
+            montoMinimo={rancho.monto_minimo ?? null}
+          />
         </ReservaModal>
       )}
 

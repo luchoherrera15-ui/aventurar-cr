@@ -28,6 +28,7 @@ import {
   type HorarioSemana,
 } from "@/lib/citas";
 import { instanteEnZona } from "@/lib/disponibilidad";
+import { esCitas as esVerticalCitas } from "@/lib/agenda-negocio";
 
 /**
  * La vertical de Citas desde el teléfono — la pantalla que en la web
@@ -164,6 +165,12 @@ export default function CitasNegocioScreen() {
   const [nombre, setNombre] = useState<string | null>(null);
   const [cargado, setCargado] = useState(false);
   const [seccion, setSeccion] = useState<Seccion>("equipo");
+  /**
+   * ¿Es de la vertical de Citas? Esta pantalla la comparten ahora los
+   * proveedores de eventos (equipo, horario y bloqueos les sirven
+   * igual), pero las giftcards no: son un producto de barbería y spa.
+   */
+  const [verticalCitas, setVerticalCitas] = useState(true);
 
   const [equipo, setEquipo] = useState<Miembro[]>([]);
   const [horario, setHorario] = useState<HorarioSemana>({});
@@ -210,7 +217,7 @@ export default function CitasNegocioScreen() {
     const [ranchoRes, equipoRes, giftRes, itemsRes, bloqueosRes] = await Promise.all([
       supabase
         .from("ranchos")
-        .select("nombre, detalles, zona_horaria")
+        .select("nombre, detalles, zona_horaria, vertical, categoria")
         .eq("id", id)
         .maybeSingle(),
       supabase
@@ -223,14 +230,17 @@ export default function CitasNegocioScreen() {
         .select("id, codigo, monto, saldo, comprador_nombre, beneficiario_nombre, estado")
         .eq("rancho_id", id)
         .order("created_at", { ascending: false }),
-      // Solo los servicios de cita (con duración) entran al reparto de
-      // quién da qué.
+      // Solo lo que tiene DURACIÓN entra al reparto de quién da qué:
+      // sin duración no hay franja que asignarle a nadie. Citas la
+      // guarda en minutos y los proveedores de eventos en horas (un DJ
+      // toca 4), así que valen las dos — antes solo contaban los
+      // minutos y a un proveedor de eventos la lista le salía vacía.
       supabase
         .from("rancho_items")
         .select("id, nombre")
         .eq("rancho_id", id)
         .eq("activo", true)
-        .not("duracion_minutos", "is", null)
+        .or("duracion_minutos.not.is.null,duracion_horas.not.is.null")
         .order("orden"),
       supabase
         .from("bloqueos_agenda")
@@ -260,6 +270,13 @@ export default function CitasNegocioScreen() {
     ]);
 
     setNombre((ranchoRes.data?.nombre as string) ?? null);
+    // Las giftcards son de la vertical de Citas: un DJ no las vende.
+    setVerticalCitas(
+      esVerticalCitas({
+        vertical: (ranchoRes.data?.vertical as string | null) ?? null,
+        categoria: (ranchoRes.data?.categoria as string | null) ?? null,
+      }),
+    );
     const d = (ranchoRes.data?.detalles ?? {}) as Record<string, unknown>;
     setDetalles(d);
     setHorario(horarioDeDetalles(d) ?? {});
@@ -655,7 +672,7 @@ export default function CitasNegocioScreen() {
           [
             { id: "equipo" as const, label: "Equipo" },
             { id: "horario" as const, label: "Horario" },
-            { id: "giftcards" as const, label: "Giftcards" },
+            ...(verticalCitas ? [{ id: "giftcards" as const, label: "Giftcards" }] : []),
             { id: "bloqueos" as const, label: "Bloqueos" },
           ]
         ).map((p) => (

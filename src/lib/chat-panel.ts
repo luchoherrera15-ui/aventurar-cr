@@ -11,7 +11,21 @@
 
 /** El negocio con el que abrir el hilo directo (lo pide un botón
  *  "Consultar"). */
-export type NegocioPedido = { ranchoId: string; nombre: string };
+export type NegocioPedido = {
+  ranchoId: string;
+  nombre: string;
+  /**
+   * Texto que se manda como PRIMER MENSAJE al abrir el hilo, antes de
+   * mostrarlo. Lo usa la agenda por horas de los proveedores de
+   * eventos: tocar un espacio libre no reserva nada, abre el chat con
+   * la fecha, la hora y el pedido ya escritos.
+   *
+   * Se manda UNA vez por pedido (cada toque del botón sube `pedido`),
+   * así que reabrir el panel no lo repite. La columna
+   * `mensajes.texto` admite hasta 2000 caracteres.
+   */
+  primerMensaje?: string;
+};
 
 export type EstadoChatPanel = {
   abierto: boolean;

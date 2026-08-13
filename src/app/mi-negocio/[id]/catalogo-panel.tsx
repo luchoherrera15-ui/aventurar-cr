@@ -9,6 +9,7 @@ import CategoriasPanel from "./categorias-panel";
 import type { CategoriaNegocio } from "./categorias-actions";
 import { etiquetaDuracion } from "@/lib/catalogo";
 import { etiquetaMinutos } from "@/app/citas/tipos";
+import { usaAgendaPorHoras } from "@/lib/business/modulos";
 import {
   actualizarItemCatalogo,
   crearItemCatalogo,
@@ -170,20 +171,34 @@ export default function CatalogoPanel({
   initialItems,
   etiqueta,
   vertical = "eventos",
+  categoria = null,
   eleccionesIniciales = {},
   categoriasIniciales = [],
 }: {
   ranchoId: string;
   initialItems: RanchoItem[];
   etiqueta: string;
-  /** Vertical del negocio: en "citas" la duración se edita en minutos. */
+  /** Vertical del negocio: decide qué campos son suyos y cuáles no. */
   vertical?: string;
+  /** Categoría del marketplace: junto con la vertical decide si el
+   *  negocio agenda por horas (un DJ) o por fecha entera (un rancho). */
+  categoria?: string | null;
   /** Sección → N incluidos en la tarifa (detalles.elecciones_incluidas). */
   eleccionesIniciales?: Record<string, number>;
   /** Orden explícito de las secciones (categorias_negocio, 0119). Vacío
    *  = todavía no ordenó ninguna, que es como funcionaba antes. */
   categoriasIniciales?: CategoriaNegocio[];
 }) {
+  // DOS preguntas distintas que antes eran una sola bandera:
+  //
+  //   agendaPorHoras  cómo se agenda — duración en minutos, limpieza
+  //                   después, modalidad y política de reserva. La
+  //                   contestan igual una barbería y un pintacaritas.
+  //   esCitas         de qué vertical del marketplace es. Lo que cuelga
+  //                   de acá (el paquete que sustituye la tarifa base,
+  //                   el "elegí N sin costo") es de EVENTOS y no tiene
+  //                   nada que ver con la forma de agendar.
+  const agendaPorHoras = usaAgendaPorHoras(vertical, categoria);
   const esCitas = vertical === "citas";
   const [items, setItems] = useState(
     [...initialItems].sort((a, b) => a.orden - b.orden),
@@ -460,7 +475,12 @@ export default function CatalogoPanel({
         </select>
       </div>
 
-      {esCitas ? (
+      {/* Todo lo que sigue es de un negocio que agenda POR HORAS: la
+          franja que ocupa en la agenda, quién la atiende y desde/hasta
+          cuándo se puede reservar. Vale igual para una barbería que
+          para un DJ — lo que cambia no es la vertical, es la forma de
+          agendar. */}
+      {agendaPorHoras && (
         <>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -629,7 +649,14 @@ export default function CatalogoPanel({
           </p>
         </div>
         </>
-      ) : (
+      )}
+
+      {/* Las HORAS incluidas son otra cosa que los minutos de arriba, y
+          por eso conviven en un proveedor de eventos: esto es lo que se
+          cotiza (y la base para cobrar la hora extra de un paquete),
+          mientras que los minutos son lo que el servicio ocupa en la
+          agenda. Citas no las usa: ahí todo se mide en minutos. */}
+      {!esCitas && (
         <div>
           <label className={labelCls}>Horas que incluye (opcional)</label>
           <input
@@ -641,6 +668,12 @@ export default function CatalogoPanel({
             placeholder="Ej. 5"
             className={inputCls}
           />
+          {agendaPorHoras && (
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+              Esto es lo que le cotizás al cliente. Los minutos de arriba son
+              otra cosa: cuánto te ocupa el espacio en tu agenda.
+            </p>
+          )}
         </div>
       )}
       <div>
@@ -807,19 +840,22 @@ export default function CatalogoPanel({
                   <p className="mt-0.5 text-[13px] font-bold text-aventurea-navy">
                     {fmtColones(item.precio)}
                     {item.precio !== null && item.unidad ? ` ${item.unidad}` : ""}
-                    {esCitas
-                      ? item.duracion_minutos !== null && (
-                          <span className="font-normal text-aventurea-ink-soft">
-                            {" "}
-                            · {etiquetaMinutos(item.duracion_minutos)}
-                          </span>
-                        )
-                      : etiquetaDuracion(item.duracion_horas) && (
-                          <span className="font-normal text-aventurea-ink-soft">
-                            {" "}
-                            · {etiquetaDuracion(item.duracion_horas)}
-                          </span>
-                        )}
+                    {/* Un proveedor de eventos puede tener las dos: los
+                        minutos que ocupa en la agenda y las horas que
+                        le cotiza al cliente. Se muestran las que
+                        tenga. */}
+                    {agendaPorHoras && item.duracion_minutos !== null && (
+                      <span className="font-normal text-aventurea-ink-soft">
+                        {" "}
+                        · {etiquetaMinutos(item.duracion_minutos)}
+                      </span>
+                    )}
+                    {!esCitas && etiquetaDuracion(item.duracion_horas) && (
+                      <span className="font-normal text-aventurea-ink-soft">
+                        {" "}
+                        · {etiquetaDuracion(item.duracion_horas)}
+                      </span>
+                    )}
                     {item.capacidad_dia !== null && (
                       <span className="font-normal text-aventurea-ink-soft">
                         {" "}
@@ -904,10 +940,10 @@ export default function CatalogoPanel({
         </div>
       )}
 
-      {/* El orden de las secciones (0119). Solo Citas por ahora: el
-          catálogo de Eventos sigue ordenándose por el orden de sus
-          ítems, que es como funcionó siempre. */}
-      {esCitas && (
+      {/* El orden de las secciones (0119). Lo ve quien arma su catálogo
+          como una lista de servicios; un LUGAR sigue ordenando por el
+          orden de sus ítems, que es como funcionó siempre. */}
+      {agendaPorHoras && (
         <CategoriasPanel
           ranchoId={ranchoId}
           iniciales={categoriasIniciales}

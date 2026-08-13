@@ -8,7 +8,7 @@ import TituloPantalla from "@/components/titulo-pantalla";
 import TarjetaNegocio from "@/components/tarjeta-negocio";
 import { Vacio } from "@/components/ui";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
-import { CATEGORIA_LABEL, SUBCATEGORIAS, fmtColones } from "@/lib/types";
+import { CATEGORIA_LABEL, SUBCATEGORIAS, enConfiguracion, fmtColones } from "@/lib/types";
 import { type Fila } from "@/pantallas/explorar";
 
 /**
@@ -27,8 +27,10 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
     let vigente = true;
     supabase
       .from("favoritos")
+      // `detalles` trae `en_configuracion`: un favorito que el dueño
+      // puso en pausa se marca y no se abre, igual que en el directorio.
       .select(
-        "ranchos(id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url)",
+        "ranchos(id, nombre, categoria, subcategoria, provincia, canton, precio_desde, foto_url, detalles)",
       )
       .eq("cliente_id", session.user.id)
       .then(({ data }) => {
@@ -128,6 +130,7 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
                 ubicacion={[item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"}
                 precio={item.precio_desde !== null ? fmtColones(item.precio_desde) : null}
                 cta="Reservar"
+                pausado={enConfiguracion(item.detalles)}
                 favorito
                 onToggleFavorito={() => quitar(item.id)}
                 onPress={() => router.push(`/rancho/${item.id}`)}

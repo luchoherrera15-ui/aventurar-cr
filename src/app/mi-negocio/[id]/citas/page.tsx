@@ -6,6 +6,7 @@ import { fmtColones } from "@/lib/finanzas";
 import { horarioDeDetalles } from "@/app/citas/tipos";
 import { agruparClientes, type ReservaCliente } from "@/lib/crm-citas";
 import { cargarContextoNegocio } from "@/lib/business/contexto";
+import { usaAgendaPorHoras } from "@/lib/business/modulos";
 import SeccionPlegable from "@/components/seccion-plegable";
 import MembresiasPanel from "./membresias-panel";
 import type { MembresiaFila, PlanFila } from "./membresias-actions";
@@ -80,8 +81,14 @@ export default async function CitasConfigPage({
     .maybeSingle();
   if (rancho.owner_id !== user.id && perfil?.rol !== "admin") notFound();
 
-  // Esta pantalla es solo de la vertical de citas.
-  if (rancho.vertical !== "citas") redirect(`/mi-negocio/${id}`);
+  // Esta pantalla es la agenda del día de TODO negocio que agende por
+  // horas — la vertical de Citas y los proveedores de eventos, que
+  // trabajan igual (un DJ toca a las 3 p.m. y a las 9 p.m.). Un LUGAR
+  // no entra: su fecha se alquila entera y su agenda es el calendario
+  // por día del panel.
+  if (!usaAgendaPorHoras(rancho.vertical, rancho.categoria)) {
+    redirect(`/mi-negocio/${id}`);
+  }
 
   const hoy = hoyISOCR();
   const zona = rancho.zona_horaria || "America/Costa_Rica";
@@ -219,6 +226,14 @@ export default async function CitasConfigPage({
 
   const clientes = agruparClientes((crmRes.data ?? []) as ReservaCliente[], hoy);
 
+  // La misma pantalla, dos vocabularios: una barbería agenda CITAS y un
+  // proveedor de eventos agenda RESERVAS (nadie llama "cita" a tocar en
+  // una boda). Se decide por la vertical y no por el tipo derivado para
+  // que en Citas el texto sea siempre el de siempre.
+  const esVerticalCitas = rancho.vertical === "citas";
+  const tituloAgenda = esVerticalCitas ? "Citas" : "Agenda del día";
+  const loQueEntra = esVerticalCitas ? "citas" : "reservas";
+
   // Si la tabla aún no existe (migración 0059 sin correr) se muestra
   // el aviso dentro de su sección, sin tumbar el resto del panel.
   const giftcards = (giftcardsRes.data ?? []) as Giftcard[];
@@ -237,11 +252,11 @@ export default async function CitasConfigPage({
         ← Volver al panel de {rancho.nombre}
       </Link>
 
-      <h1 className="mt-4 text-[22px] font-bold text-aventurea-ink">Citas</h1>
+      <h1 className="mt-4 text-[22px] font-bold text-aventurea-ink">{tituloAgenda}</h1>
       <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
-        Las citas de tu página entran solas acá. Agendá walk-ins, movélas,
-        cancelálas y marcá quién vino — todo desde esta pantalla. El equipo,
-        horarios y demás se configuran en{" "}
+        Las {loQueEntra} de tu página entran solas acá. Agendá a mano lo que te
+        entre por teléfono, movélas, cancelálas y marcá quién vino — todo desde
+        esta pantalla. El equipo, horarios y demás se configuran en{" "}
         <Link
           href={`/mi-negocio/${rancho.id}?tab=config`}
           className="font-bold text-aventurea-navy underline"

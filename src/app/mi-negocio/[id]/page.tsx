@@ -108,7 +108,7 @@ import { sumarDiasISO } from "@/lib/fechas";
 // tiene el menú y qué números muestra el tablero — antes eso era un
 // `vertical === 'citas' ? A : B` cableado más abajo.
 import { contextoDesdeDatos } from "@/lib/business/contexto";
-import { definicionTipo } from "@/lib/business/modulos";
+import { definicionTipo, usaAgendaPorHoras } from "@/lib/business/modulos";
 import { widgetsDashboard } from "@/lib/business/widgets";
 import ModulosPanel from "./modulos-panel";
 
@@ -436,15 +436,22 @@ export default async function RanchoDetallePage({
   // (/mi-negocio/[id]/citas) y configura todo lo demás acá, en la
   // pestaña Configuración.
   const esVerticalCitas = rancho.vertical === "citas";
+  // Y no es la única que trabaja así: un proveedor de eventos agenda
+  // por horas y por servicios igual que una barbería (un DJ hace una
+  // fiesta infantil a las 3 p.m. y una boda a las 9 p.m. el mismo
+  // día). Lo que sigue a esta bandera es de la FORMA DE AGENDAR, no de
+  // la vertical — la regla vive en un solo lugar, `usaAgendaPorHoras`.
+  const agendaPorHoras = usaAgendaPorHoras(rancho.vertical, rancho.categoria);
 
-  // Lo que la pestaña Configuración de CITAS necesita: el equipo (con
-  // horario propio y servicios por persona), los bloqueos vigentes y el
-  // horario semanal. Solo se consulta para esta vertical.
-  let equipoCitas: MiembroEquipo[] = [];
-  const horariosPorMiembroCitas: Record<string, RangoHorarioMiembro[]> = {};
-  let asignacionesCitas: { item_id: string; miembro_id: string }[] = [];
-  let bloqueosCitas: BloqueoAgenda[] = [];
-  if (esVerticalCitas) {
+  // Lo que necesita la Configuración de un negocio que agenda por
+  // horas: el equipo (con horario propio y servicios por persona), los
+  // bloqueos vigentes y el horario semanal. A un LUGAR no se le
+  // consulta: alquila la fecha entera y no tiene a quién asignarle qué.
+  let equipoAgenda: MiembroEquipo[] = [];
+  const horariosPorMiembro: Record<string, RangoHorarioMiembro[]> = {};
+  let asignacionesServicios: { item_id: string; miembro_id: string }[] = [];
+  let bloqueosVigentes: BloqueoAgenda[] = [];
+  if (agendaPorHoras) {
     const [equipoRes, horariosRes, asignacionesRes, bloqueosRes] = await Promise.all([
       supabase
         .from("equipo_rancho")
@@ -467,24 +474,24 @@ export default async function RanchoDetallePage({
         .gte("fin", `${sumarDiasISO(hoyISOCR(), -1)}T00:00:00-06:00`)
         .order("inicio", { ascending: true }),
     ]);
-    equipoCitas = (equipoRes.data ?? []) as MiembroEquipo[];
+    equipoAgenda = (equipoRes.data ?? []) as MiembroEquipo[];
     for (const h of (horariosRes.data ?? []) as unknown as {
       miembro_id: string;
       dow: number;
       abre: string;
       cierra: string;
     }[]) {
-      (horariosPorMiembroCitas[h.miembro_id] ??= []).push({
+      (horariosPorMiembro[h.miembro_id] ??= []).push({
         dow: h.dow,
         abre: String(h.abre).slice(0, 5),
         cierra: String(h.cierra).slice(0, 5),
       });
     }
-    asignacionesCitas = ((asignacionesRes.data ?? []) as unknown as {
+    asignacionesServicios = ((asignacionesRes.data ?? []) as unknown as {
       item_id: string;
       miembro_id: string;
     }[]).map((a) => ({ item_id: a.item_id, miembro_id: a.miembro_id }));
-    bloqueosCitas = (bloqueosRes.data ?? []) as BloqueoAgenda[];
+    bloqueosVigentes = (bloqueosRes.data ?? []) as BloqueoAgenda[];
   }
 
   // El calendario de ocupados muestra todo lo activo (no solo lo
@@ -785,6 +792,7 @@ export default async function RanchoDetallePage({
               initialItems={(itemsRes.data ?? []) as RanchoItem[]}
               etiqueta={etiquetaCatalogo}
               vertical={(data as { vertical?: string }).vertical ?? "eventos"}
+              categoria={rancho.categoria}
               eleccionesIniciales={leerEleccionesIncluidas(rancho.detalles)}
               categoriasIniciales={(categoriasRes.data ?? []) as CategoriaNegocio[]}
             />
@@ -856,6 +864,76 @@ export default async function RanchoDetallePage({
     </SeccionPlegable>
   );
 
+  // Datos que ya no son "de citas": los usan las secciones de agenda
+  // por horas de acá abajo, que ahora montan las DOS pestañas de
+  // Configuración. Por eso se declaran antes que ellas.
+  const zonaNegocio = (datosCrudos.zona_horaria as string) || "America/Costa_Rica";
+  const brutoDepositoCitas = datosCrudos.deposito_citas;
+  const depositoCitas =
+    typeof brutoDepositoCitas === "number" || typeof brutoDepositoCitas === "string"
+      ? Number(brutoDepositoCitas)
+      : null;
+  const serviciosConDuracion = ((itemsRes.data ?? []) as RanchoItem[])
+    .filter((s) => s.duracion_minutos !== null && s.activo)
+    .map((s) => ({ id: s.id, nombre: s.nombre }));
+
+  /**
+   * Las tres secciones de TODO negocio que agenda por horas: con quién
+   * se agenda, dentro de qué horario y cuándo no. Se declaran una sola
+   * vez y las montan las dos pestañas de Configuración — antes vivían
+   * cableadas dentro de la de Citas y un proveedor de eventos no tenía
+   * cómo llegar a ellas, aunque las tablas y sus políticas nunca
+   * supieron de verticales.
+   */
+  const seccionesAgendaPorHoras = (
+    <>
+      {/* El equipo es un módulo: quien trabaja solo lo apaga y deja de
+          ver esta sección. */}
+      {modulos.has("equipo") && (
+        <SeccionPlegable
+          marco={false}
+          abierta={seccion === "colaboradores"}
+          titulo="Mis colaboradores"
+          descripcion="Las personas que atienden (y también espacios como cabinas o camillas). Cada quien puede tener su propio horario y sus propios servicios."
+          resumen={equipoAgenda.length > 0 ? `${equipoAgenda.length} en el equipo` : undefined}
+        >
+          <EquipoPanel
+            ranchoId={rancho.id}
+            initialEquipo={equipoAgenda}
+            serviciosCita={serviciosConDuracion}
+            asignaciones={asignacionesServicios}
+            horarios={horariosPorMiembro}
+          />
+        </SeccionPlegable>
+      )}
+
+      <SeccionPlegable
+        marco={false}
+        abierta={seccion === "horario"}
+        titulo="Horario semanal"
+        // Sin la palabra "citas": la misma sección la lee ahora un DJ.
+        descripcion="Qué días abrís y de qué hora a qué hora. Fuera de este horario no se puede agendar nada (salvo que alguien tenga horario propio)."
+      >
+        <HorarioForm ranchoId={rancho.id} initialHorario={horarioDeDetalles(rancho.detalles)} />
+      </SeccionPlegable>
+
+      <SeccionPlegable
+        marco={false}
+        abierta={seccion === "bloqueos"}
+        titulo="Bloqueos y ausencias"
+        descripcion="Vacaciones, feriados propios o días que no se trabaja — del negocio entero o de una sola persona."
+        resumen={bloqueosVigentes.length > 0 ? `${bloqueosVigentes.length} vigentes` : undefined}
+      >
+        <BloqueosPanel
+          ranchoId={rancho.id}
+          zona={zonaNegocio}
+          equipo={equipoAgenda.map((m) => ({ id: m.id, nombre: m.nombre, activo: m.activo }))}
+          initialBloqueos={bloqueosVigentes}
+        />
+      </SeccionPlegable>
+    </>
+  );
+
   const seccionesConfigEventos = (
     <>
       <SeccionPlegable
@@ -868,6 +946,11 @@ export default async function RanchoDetallePage({
       </SeccionPlegable>
 
       {seccionBookeaBusiness}
+
+      {/* Un proveedor que agenda por horas configura acá lo mismo que
+          una barbería. Un LUGAR no las ve: su fecha se alquila entera y
+          lo suyo son los bloques de alquiler de más abajo. */}
+      {agendaPorHoras && seccionesAgendaPorHoras}
 
       {/* Con depósito + cuentas configuradas, el negocio de servicio
           pasa de recibir "solicitudes" a reservas agendadas con pago
@@ -1077,16 +1160,6 @@ export default async function RanchoDetallePage({
   // plegables CERRADAS (pedido del dueño: resumir, que nada se haga
   // enorme). El sidebar de citas queda en 4 ítems: Inicio, Citas (la
   // agenda del día), Finanzas y esto.
-  const zonaCitas = (datosCrudos.zona_horaria as string) || "America/Costa_Rica";
-  const brutoDepositoCitas = datosCrudos.deposito_citas;
-  const depositoCitas =
-    typeof brutoDepositoCitas === "number" || typeof brutoDepositoCitas === "string"
-      ? Number(brutoDepositoCitas)
-      : null;
-  const serviciosCita = ((itemsRes.data ?? []) as RanchoItem[])
-    .filter((s) => s.duracion_minutos !== null && s.activo)
-    .map((s) => ({ id: s.id, nombre: s.nombre }));
-
   const tabConfig: Tab = {
     id: "config",
     label: "Configuración",
@@ -1111,55 +1184,15 @@ export default async function RanchoDetallePage({
           titulo="Mis productos"
           descripcion="Los servicios que ofrecés, con su duración y su precio — es lo que el cliente elige al reservar su cita."
           resumen={
-            serviciosCita.length > 0 ? `${serviciosCita.length} activos` : undefined
+            serviciosConDuracion.length > 0
+              ? `${serviciosConDuracion.length} activos`
+              : undefined
           }
         >
           {contenidoCatalogo}
         </SeccionPlegable>
 
-        {/* El equipo es un módulo: un profesional que trabaja solo lo
-            apaga y deja de ver esta sección. */}
-        {modulos.has("equipo") && (
-          <SeccionPlegable
-            marco={false}
-            abierta={seccion === "colaboradores"}
-            titulo="Mis colaboradores"
-            descripcion="Las personas que atienden (y también espacios como cabinas o camillas). Cada quien puede tener su propio horario y sus propios servicios."
-            resumen={equipoCitas.length > 0 ? `${equipoCitas.length} en el equipo` : undefined}
-          >
-            <EquipoPanel
-              ranchoId={rancho.id}
-              initialEquipo={equipoCitas}
-              serviciosCita={serviciosCita}
-              asignaciones={asignacionesCitas}
-              horarios={horariosPorMiembroCitas}
-            />
-          </SeccionPlegable>
-        )}
-
-        <SeccionPlegable
-          marco={false}
-          abierta={seccion === "horario"}
-          titulo="Horario semanal"
-          descripcion="Qué días abrís y de qué hora a qué hora. Las citas solo se pueden reservar dentro de este horario (salvo que alguien tenga horario propio)."
-        >
-          <HorarioForm ranchoId={rancho.id} initialHorario={horarioDeDetalles(rancho.detalles)} />
-        </SeccionPlegable>
-
-        <SeccionPlegable
-          marco={false}
-          abierta={seccion === "bloqueos"}
-          titulo="Bloqueos y ausencias"
-          descripcion="Vacaciones, feriados propios o días que no se trabaja — del negocio entero o de una sola persona."
-          resumen={bloqueosCitas.length > 0 ? `${bloqueosCitas.length} vigentes` : undefined}
-        >
-          <BloqueosPanel
-            ranchoId={rancho.id}
-            zona={zonaCitas}
-            equipo={equipoCitas.map((m) => ({ id: m.id, nombre: m.nombre, activo: m.activo }))}
-            initialBloqueos={bloqueosCitas}
-          />
-        </SeccionPlegable>
+        {seccionesAgendaPorHoras}
 
         <SeccionPlegable
           marco={false}
@@ -1265,13 +1298,15 @@ export default async function RanchoDetallePage({
   // cuando hay de qué agrupar.
   const tabs: Tab[] = [
     { ...tabInicio, grupo: "agenda" },
-    // La agenda del día vive en su propia ruta y hoy solo existe para
-    // la vertical de citas.
-    ...(esVerticalCitas && modulos.has("agenda")
+    // La agenda del día vive en su propia ruta (/citas) y la ve todo
+    // negocio que agende por horas: la pantalla nunca fue de la
+    // vertical, es de la forma de agendar. Manda el módulo — quien
+    // apaga Agenda no la ve, aunque trabaje por horas.
+    ...(agendaPorHoras && modulos.has("agenda")
       ? [
           {
             id: "citas",
-            label: "Citas",
+            label: esVerticalCitas ? "Citas" : "Agenda del día",
             href: `/mi-negocio/${rancho.id}/citas`,
             icon: <IconClock />,
             grupo: "agenda",

@@ -26,7 +26,8 @@ import {
 } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
-import { fmtColones } from "@/lib/types";
+import { enConfiguracion, fmtColones } from "@/lib/types";
+import { agendaPorHoras, tocarHoraAbreChat } from "@/lib/agenda-negocio";
 import {
   CATEGORIA_CITA_LABEL,
   DIAS_SEMANA_LABEL,
@@ -41,12 +42,14 @@ type Negocio = {
   id: string;
   nombre: string;
   categoria: string | null;
+  /** Puede llegar "eventos": esta mini-página ya no es solo de Citas. */
+  vertical: string | null;
   descripcion: string | null;
   provincia: string | null;
   canton: string | null;
   direccion_exacta: string | null;
   foto_url: string | null;
-  detalles: unknown;
+  detalles: Record<string, unknown> | null;
 };
 
 type Servicio = {
@@ -94,13 +97,17 @@ export default function NegocioCitasScreen() {
 
   const cargar = useCallback(async () => {
     const [n, i, e, c, r, sec] = await Promise.all([
+      // Ya no se filtra `.eq("vertical", "citas")` en la consulta: esta
+      // mini-página sirve a cualquier negocio que trabaje POR HORAS, y
+      // un proveedor de eventos también lo hace. El corte se hace abajo
+      // con el helper, así el día que aparezca otra vertical por horas
+      // no hay que volver a tocar el `select`.
       supabase
         .from("ranchos")
         .select(
-          "id, nombre, categoria, descripcion, provincia, canton, direccion_exacta, foto_url, detalles",
+          "id, nombre, categoria, vertical, descripcion, provincia, canton, direccion_exacta, foto_url, detalles",
         )
         .eq("id", id)
-        .eq("vertical", "citas")
         .eq("estado", "aprobado")
         .maybeSingle(),
       supabase
@@ -135,7 +142,12 @@ export default function NegocioCitasScreen() {
         .eq("rancho_id", id)
         .order("orden", { ascending: true }),
     ]);
-    setNegocio((n.data ?? null) as Negocio | null);
+    const fila = (n.data ?? null) as Negocio | null;
+    // Un Lugar, un restaurante o un hospedaje no se ven acá: su página
+    // es otra. Y una publicación en pausa no se abre para nadie.
+    setNegocio(
+      fila && agendaPorHoras(fila) && !enConfiguracion(fila.detalles) ? fila : null,
+    );
     setItems((i.data ?? []) as Servicio[]);
     setEquipo((e.data ?? []) as Miembro[]);
     setCalif((c.data ?? null) as { promedio: number; total: number } | null);
@@ -219,6 +231,14 @@ export default function NegocioCitasScreen() {
   })();
 
   const irAReservar = (servicioId?: string, miembroId?: string) => {
+    // Un proveedor de eventos NO reserva la hora: su ficha de Eventos
+    // es la que tiene la agenda que abre el chat. Mandarlo al flujo de
+    // `crear_cita` le apartaría una franja, que es justo lo que la
+    // regla de producto prohíbe.
+    if (tocarHoraAbreChat(negocio)) {
+      router.push(`/rancho/${negocio.id}` as never);
+      return;
+    }
     const params = new URLSearchParams();
     if (servicioId) params.set("servicio", servicioId);
     if (miembroId) params.set("miembro", miembroId);

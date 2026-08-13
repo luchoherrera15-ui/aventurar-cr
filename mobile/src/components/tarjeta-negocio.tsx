@@ -33,6 +33,7 @@ export default function TarjetaNegocio({
   tonoCta = "reservar",
   distintivos,
   demo = false,
+  pausado = false,
   ancho = "completo",
   favorito,
   onToggleFavorito,
@@ -56,6 +57,13 @@ export default function TarjetaNegocio({
   /** Etiquetas de lo que se puede hacer acá ("Reservá mesa"). */
   distintivos?: string[];
   demo?: boolean;
+  /**
+   * En pausa (`detalles.en_configuracion`): el dueño todavía la está
+   * armando. Se sigue viendo en el directorio pero NO se abre — igual
+   * que en la web, donde la card queda sin link. Antes el teléfono la
+   * abría igual y le entraban reservas a medias.
+   */
+  pausado?: boolean;
   ancho?: "riel" | "completo";
   favorito?: boolean;
   onToggleFavorito?: () => void;
@@ -67,10 +75,13 @@ export default function TarjetaNegocio({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={nombre}
+      accessibilityState={{ disabled: pausado }}
+      disabled={pausado}
       onPress={onPress}
       style={({ pressed }) => [
         styles.tarjeta,
         esRiel && { width: ANCHO_RIEL },
+        pausado && { opacity: 0.62 },
         pressed && { opacity: 0.92 },
       ]}
     >
@@ -94,6 +105,11 @@ export default function TarjetaNegocio({
         </View>
 
         <View style={styles.esquinaDerecha}>
+          {pausado && (
+            <View style={styles.pausado}>
+              <Text style={styles.pausadoTexto}>En configuración</Text>
+            </View>
+          )}
           {demo && (
             <View style={styles.demo}>
               <Text style={styles.demoTexto}>Demo</Text>
@@ -169,10 +185,10 @@ export default function TarjetaNegocio({
           <Text
             style={[
               styles.cta,
-              { color: tonoCta === "navy" ? Colors.navy : Colors.accent },
+              { color: pausado ? Colors.inkMuted : tonoCta === "navy" ? Colors.navy : Colors.accent },
             ]}
           >
-            {cta} →
+            {pausado ? "En configuración" : `${cta} →`}
           </Text>
         </View>
       </View>
@@ -227,6 +243,19 @@ const styles = StyleSheet.create({
   },
   demoTexto: {
     color: "#1c1c1c",
+    fontFamily: Fonts.extraBold,
+    fontSize: 9,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+  },
+  pausado: {
+    backgroundColor: Colors.navy,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  pausadoTexto: {
+    color: "#ffffff",
     fontFamily: Fonts.extraBold,
     fontSize: 9,
     letterSpacing: 0.9,

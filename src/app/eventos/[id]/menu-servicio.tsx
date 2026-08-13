@@ -163,7 +163,7 @@ export default function MenuServicio({
         </h2>
         <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
           Todo se arma a la medida de tu evento. Elegí lo que te guste y
-          cotizalo al reservar tu fecha.
+          cotizalo al consultar tu fecha.
         </p>
 
         <div className="mt-9 flex flex-col gap-11">

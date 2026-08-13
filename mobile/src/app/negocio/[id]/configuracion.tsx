@@ -12,6 +12,11 @@ import {
   TIPO_NEGOCIO_LABEL,
   type ContextoNegocio,
 } from "@/lib/business";
+import {
+  agendaPorHoras,
+  esCitas as esVerticalCitas,
+  esLugarPorDia,
+} from "@/lib/agenda-negocio";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 
 /**
@@ -71,8 +76,13 @@ export default function ConfiguracionNegocioScreen() {
     }, [id, session]),
   );
 
-  const esCitas = vertical === "citas";
-  const esLugar = categoria === "lugares";
+  const esCitas = esVerticalCitas({ vertical, categoria });
+  const esLugar = esLugarPorDia({ categoria });
+  // Todo lo que trabaja por franjas de horas: Citas y los proveedores
+  // de eventos. Los dos necesitan lo mismo del panel —quién atiende, a
+  // qué horas y qué días están tapados—, aunque después uno reserve la
+  // hora y el otro solo la consulte por chat.
+  const porHoras = agendaPorHoras({ vertical, categoria });
 
   const tuPagina: Entrada[] = [
     {
@@ -119,13 +129,21 @@ export default function ConfiguracionNegocioScreen() {
       titulo: "Sincronizar calendario",
       detalle: "Traer tu Google o Apple Calendar como bloqueos de agenda.",
     },
-    ...(esCitas
+    // Antes esto era solo de Citas, y por eso un DJ o un animador no
+    // tenía dónde decir a qué horas trabaja ni marcar un sábado
+    // ocupado: su página lo mostraba disponible siempre. Ahora entra
+    // todo el que trabaja por horas.
+    ...(porHoras
       ? [
           {
             ruta: `/negocio/${id}/citas`,
             icono: "people-circle-outline",
-            titulo: "Equipo, horario y giftcards",
-            detalle: "Quién atiende, a qué horas abrís, vacaciones y giftcards.",
+            titulo: esCitas
+              ? "Equipo, horario y giftcards"
+              : "Equipo, horario y días ocupados",
+            detalle: esCitas
+              ? "Quién atiende, a qué horas abrís, vacaciones y giftcards."
+              : "Quién trabaja con vos, a qué horas atendés y qué fechas ya tenés tomadas.",
           } satisfies Entrada,
         ]
       : []),

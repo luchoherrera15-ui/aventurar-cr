@@ -8,6 +8,7 @@ import {
   resolverModulos,
   tipoNegocioEfectivo,
   tiposDeVertical,
+  usaAgendaPorHoras,
   type ModuloId,
 } from "./modulos";
 import { palabraReserva, widgetsDashboard } from "./widgets";
@@ -44,7 +45,49 @@ describe("tipoNegocioEfectivo", () => {
   });
 });
 
-describe("el menú de un negocio que ya existía no cambia", () => {
+describe("usaAgendaPorHoras", () => {
+  it("toda la vertical de Citas agenda por horas", () => {
+    for (const categoria of ["barberia", "belleza", "unas", "spa", "consultorio", "otros"]) {
+      expect(usaAgendaPorHoras("citas", categoria), categoria).toBe(true);
+    }
+  });
+
+  it("los proveedores de eventos también: un DJ toca a las 3 y a las 9", () => {
+    for (const categoria of [
+      "alimentacion",
+      "animacion",
+      "organizacion",
+      "decoracion",
+      "otros",
+    ]) {
+      expect(usaAgendaPorHoras("eventos", categoria), categoria).toBe(true);
+    }
+  });
+
+  it("los LUGARES no: su fecha se alquila entera", () => {
+    expect(usaAgendaPorHoras("eventos", "lugares")).toBe(false);
+    // Ni siquiera cuando la vertical llega en null (fila vieja sin
+    // migrar): lo que manda para un lugar es su categoría.
+    expect(usaAgendaPorHoras(null, "lugares")).toBe(false);
+    expect(usaAgendaPorHoras(undefined, "lugares")).toBe(false);
+  });
+
+  it("la frontera es la misma que parte eventos_lugar de eventos_proveedor", () => {
+    for (const categoria of ["lugares", "alimentacion", "animacion", "otros", "loquesea"]) {
+      const esProveedor =
+        tipoNegocioEfectivo("eventos", categoria, null) === "eventos_proveedor";
+      expect(usaAgendaPorHoras("eventos", categoria), categoria).toBe(esProveedor);
+    }
+  });
+
+  it("Hospedajes y Restaurantes quedan fuera hasta que se decida su panel", () => {
+    expect(usaAgendaPorHoras("hospedajes", "casa")).toBe(false);
+    expect(usaAgendaPorHoras("restaurantes", "pizza")).toBe(false);
+    expect(usaAgendaPorHoras("vertical_futura", "x")).toBe(false);
+  });
+});
+
+describe("el menú de un negocio que ya existía no pierde nada", () => {
   /**
    * La regla VIEJA, tal cual estaba cableada en page.tsx antes de la
    * Fase 1: `esVerticalCitas ? [...] : [...]`.
@@ -62,11 +105,24 @@ describe("el menú de un negocio que ya existía no cambia", () => {
     const modulos = resolverModulos({ tipo });
     return [
       "inicio",
-      ...(vertical === "citas" && modulos.has("agenda") ? ["citas"] : []),
+      ...(usaAgendaPorHoras(vertical, categoria) && modulos.has("agenda") ? ["citas"] : []),
       ...(vertical !== "citas" && modulos.has("servicios") ? ["catalogo"] : []),
       ...(modulos.has("pagos") ? ["finanzas"] : []),
       "config",
     ];
+  }
+
+  /**
+   * Lo ÚNICO que cambió: el proveedor de eventos gana la pantalla de
+   * agenda del día que antes solo veía Citas. Nadie PIERDE un ítem —
+   * que es lo que este bloque cuida desde la Fase 1.
+   */
+  function menuEsperado(vertical: string, categoria: string): string[] {
+    const viejo = menuViejo(vertical, categoria);
+    if (usaAgendaPorHoras(vertical, categoria) && !viejo.includes("citas")) {
+      viejo.splice(1, 0, "citas");
+    }
+    return viejo;
   }
 
   const CASOS: [string, string][] = [
@@ -89,16 +145,44 @@ describe("el menú de un negocio que ya existía no cambia", () => {
   ];
 
   for (const [vertical, categoria] of CASOS) {
-    it(`${vertical}/${categoria} ve exactamente el mismo menú`, () => {
-      expect(menuNuevo(vertical, categoria)).toEqual(menuViejo(vertical, categoria));
+    it(`${vertical}/${categoria} conserva todo su menú`, () => {
+      expect(menuNuevo(vertical, categoria)).toEqual(menuEsperado(vertical, categoria));
     });
   }
+
+  it("citas y los lugares de eventos ven EXACTAMENTE el menú de antes", () => {
+    for (const [vertical, categoria] of CASOS) {
+      if (vertical === "citas" || !usaAgendaPorHoras(vertical, categoria)) {
+        expect(menuNuevo(vertical, categoria), `${vertical}/${categoria}`).toEqual(
+          menuViejo(vertical, categoria),
+        );
+      }
+    }
+  });
+
+  it("un proveedor de eventos suma la agenda del día, y un lugar no", () => {
+    expect(menuNuevo("eventos", "animacion")).toContain("citas");
+    expect(menuNuevo("eventos", "lugares")).not.toContain("citas");
+  });
 });
 
 describe("resolverModulos", () => {
   it("sin filas guardadas usa el default del tipo", () => {
     const activos = resolverModulos({ tipo: "barberia" });
     expect([...activos].sort()).toEqual(modulosPorDefecto("barberia").sort());
+  });
+
+  it("un proveedor de eventos trae Equipo; un lugar no", () => {
+    // Quien agenda por horas necesita decir quién atiende y cuándo. El
+    // lugar alquila el salón entero: no tiene a quién asignarle nada.
+    expect(modulosPorDefecto("eventos_proveedor")).toContain("equipo" as ModuloId);
+    expect(modulosPorDefecto("eventos_lugar")).not.toContain("equipo" as ModuloId);
+    expect(resolverModulos({ tipo: "eventos_proveedor" }).has("equipo")).toBe(true);
+    // Y se puede apagar, como cualquier módulo: el pintacaritas que
+    // trabaja solo no ve la sección.
+    expect(
+      resolverModulos({ tipo: "eventos_proveedor", overrides: { equipo: false } }).has("equipo"),
+    ).toBe(false);
   });
 
   it("una fila apagada quita el módulo", () => {

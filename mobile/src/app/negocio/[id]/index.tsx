@@ -23,6 +23,7 @@ import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import { fechaISOLocal } from "@/lib/citas";
 import { saldoPendiente } from "@/lib/finanzas";
+import { esCitas as esVerticalCitas, esLugarPorDia } from "@/lib/agenda-negocio";
 import {
   avisosDe,
   diasDeAgenda,
@@ -318,7 +319,12 @@ export default function PanelNegocioScreen() {
     ? pendientes
     : pendientes.slice(0, POR_ACEPTAR_VISIBLE);
 
-  const mostrarCatalogo = vertical === "citas" || (categoria !== null && categoria !== "lugares");
+  // Un Lugar no tiene catálogo propio (sus extras van en Precios);
+  // todo el resto sí — Citas lo llama "Servicios" y Eventos "Catálogo".
+  // Mientras la fila no cargó, `categoria` es null y no se muestra.
+  const mostrarCatalogo =
+    esVerticalCitas({ vertical, categoria }) ||
+    (categoria !== null && !esLugarPorDia({ categoria }));
 
   if (reservas === null) {
     return (
@@ -502,7 +508,7 @@ export default function PanelNegocioScreen() {
         negocioId={id}
         activa="inicio"
         mostrarCatalogo={mostrarCatalogo}
-        etiquetaCatalogo={vertical === "citas" ? "Servicios" : "Catálogo"}
+        etiquetaCatalogo={esVerticalCitas({ vertical, categoria }) ? "Servicios" : "Catálogo"}
       />
     </View>
   );

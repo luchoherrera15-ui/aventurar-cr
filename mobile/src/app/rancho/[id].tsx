@@ -20,6 +20,7 @@ import { abrirHiloConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import CalendarioMensual from "@/components/calendario-mensual";
+import AgendaEventos from "@/components/agenda-eventos";
 import SeccionEncabezado from "@/components/seccion-encabezado";
 import TarjetaVisitas from "@/components/tarjeta-visitas";
 import { BotonFlotante, FilaFlotante } from "@/components/boton-flotante";
@@ -30,6 +31,7 @@ import {
   CATEGORIA_LABEL,
   SUBCATEGORIA_LABEL,
   UNIDAD_PRECIO_LABEL,
+  enConfiguracion,
   etiquetaHorario,
   fmtColones,
   linkGoogleMaps,
@@ -41,6 +43,7 @@ import {
   type Resena,
 } from "@/lib/types";
 import { COLUMNAS_FICHA, type RanchoPublico } from "@/lib/ranchos-publicos";
+import { esLugarPorDia, esProveedorDeEventos } from "@/lib/agenda-negocio";
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
 
@@ -158,7 +161,35 @@ export default function RanchoDetalleScreen() {
     );
   }
 
-  const esLugar = rancho.categoria === "lugares";
+  // No tiene sentido chatear con tu propio negocio — mismo check que
+  // el fix de `rancho-portal.tsx` en la web (comparar owner_id, nunca
+  // un rol de admin: eso ocultaría el chat a un admin en un negocio
+  // ajeno, que sí debe poder chatear). Se calcula acá arriba porque el
+  // aviso de "en configuración" también lo necesita.
+  const esPropioDueno = !!session && session.user.id === rancho.owner_id;
+
+  // EN PAUSA: el dueño todavía la está armando y no quiere que le
+  // entren reservas a medias. El sitio web ya lo respetaba; el teléfono
+  // no, y se le seguían colando reservas. Él sí la ve, para revisar
+  // cómo va quedando.
+  if (enConfiguracion(rancho.detalles) && !esPropioDueno) {
+    return (
+      <View style={styles.centro}>
+        <Vacio
+          icono="construct-outline"
+          titulo={`${rancho.nombre} está terminando de armar su página`}
+          texto="Todavía no está disponible para reservar. Apenas termine de configurarla vas a poder ver sus fotos, sus precios y agendar tu fecha desde acá."
+          accion={{ texto: "Ver otros negocios", onPress: () => router.back() }}
+        />
+      </View>
+    );
+  }
+
+  const esLugar = esLugarPorDia(rancho);
+  // Todo lo que no es un Lugar dentro de Eventos: DJs, animadores,
+  // pintacaritas, decoración, alimentación, organización. Trabajan por
+  // HORAS y por servicios, y su hora no se reserva: se consulta.
+  const esProveedor = esProveedorDeEventos(rancho);
   const ubicacion = [rancho.provincia, rancho.direccion_exacta || rancho.canton]
     .filter(Boolean)
     .join(", ");
@@ -188,12 +219,6 @@ export default function RanchoDetalleScreen() {
           rancho.monto_minimo,
           rancho.vertical ?? "eventos",
         );
-
-  // No tiene sentido chatear con tu propio negocio — mismo check que
-  // el fix de `rancho-portal.tsx` en la web (comparar owner_id, nunca
-  // un rol de admin: eso ocultaría el chat a un admin en un negocio
-  // ajeno, que sí debe poder chatear).
-  const esPropioDueno = !!session && session.user.id === rancho.owner_id;
 
   // Abre (o retoma) el hilo de consulta con este negocio — el mismo
   // mecanismo que /mensajes/consulta/[ranchoId] en la web.
@@ -386,12 +411,37 @@ export default function RanchoDetalleScreen() {
           </View>
         )}
 
-        {/* ---------- Reservar (servicios): flujo nativo — calendario,
-             catálogo con inventario por fecha y depósito, igual que /web. ---------- */}
-        {!esLugar && (
+        {/* ---------- Agenda por HORAS del proveedor de eventos ----------
+             Un DJ toca a las 3 p. m. en una fiesta infantil y a las 9 en
+             una boda el mismo sábado: su agenda se mide en horas, como
+             la de Citas. Pero tocar un espacio libre NO reserva ni
+             aparta nada — abre el chat con la fecha, la hora y el
+             servicio ya escritos. ---------- */}
+        {esProveedor && (
+          <View style={styles.seccion}>
+            <SeccionEncabezado kicker="Disponibilidad" titulo="Consultá tu fecha y hora" />
+            <AgendaEventos
+              ranchoId={rancho.id}
+              nombreNegocio={rancho.nombre}
+              detalles={rancho.detalles}
+              zonaHoraria={rancho.zona_horaria}
+              onArmarPedido={() =>
+                router.push({
+                  pathname: "/rancho/[id]/reservar-servicio" as never,
+                  params: { id: rancho.id },
+                } as never)
+              }
+            />
+          </View>
+        )}
+
+        {/* Las verticales que caen acá sin ser ni Lugar ni proveedor de
+            eventos (Hospedajes usa esta misma ficha) siguen con el
+            camino de siempre al armador de pedido. */}
+        {!esLugar && !esProveedor && (
           <View style={styles.seccion}>
             <Boton
-              texto="Reservar fecha y armar pedido"
+              texto="Armá tu pedido y consultá"
               icono="calendar-outline"
               onPress={() =>
                 router.push({
@@ -401,8 +451,8 @@ export default function RanchoDetalleScreen() {
               }
             />
             <Text style={styles.hint}>
-              Elegís la fecha, armás tu reserva con el catálogo y pagás el
-              depósito — sin salir de la app.
+              Elegís la fecha, armás tu pedido con el catálogo y te queda el
+              chat abierto con el proveedor.
             </Text>
           </View>
         )}

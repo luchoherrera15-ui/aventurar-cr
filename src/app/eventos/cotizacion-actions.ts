@@ -1,5 +1,25 @@
 ﻿"use server";
 
+/**
+ * ⚠️ RETIRADO — YA NADIE LLAMA ESTA ACCIÓN.
+ *
+ * Era el envío del formulario de reserva de un SERVICIO de Eventos:
+ * creaba la reserva con su pedido, cobraba el depósito contra un
+ * comprobante subido y abría el chat de esa reserva. Desde que los
+ * proveedores de eventos pasaron a agenda POR HORAS en modo consulta
+ * (src/app/eventos/[id]/agenda-consulta.tsx) no hay reserva que crear:
+ * tocar un espacio libre abre el chat, punto.
+ *
+ * Queda en el árbol porque borrar archivos se consulta antes con el
+ * dueño; su único lector vivo es `reserva-servicio.tsx`, que está
+ * retirado igual. Lo que SÍ sigue vivo de acá es el ARMADOR DEL
+ * RESUMEN (partes[]), reciclado en `armarPrimerMensaje`
+ * (src/app/eventos/agenda-consulta.ts).
+ *
+ * NO volver a colgarla de un botón: `crear_reserva_servicio` sigue
+ * apartando cupo del día, que es justo lo que este cambio eliminó.
+ */
+
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { DetallePedido } from "@/app/mi-negocio/types";

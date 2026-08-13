@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { EVENTO_CERRAR_MODAL } from "./agenda-consulta";
 
 /**
  * El calendario de reserva desplegado en grande: ya no ocupa la
@@ -36,6 +37,17 @@ export default function ReservaModal({
       history.replaceState(null, "", window.location.pathname + window.location.search);
     }
   }, []);
+
+  // Lo que hay adentro puede pedir que se cierre solo: la agenda de un
+  // proveedor de eventos abre el chat (z-50) y este modal (z-[100]) lo
+  // taparía. Es un evento del navegador y no una prop porque los hijos
+  // los arma el servidor y no se les puede pasar un callback.
+  useEffect(() => {
+    // Cierra igual que la ✕ —limpiando el hash— para que el mismo
+    // botón "Ver disponibilidad" vuelva a abrirlo después.
+    window.addEventListener(EVENTO_CERRAR_MODAL, cerrar);
+    return () => window.removeEventListener(EVENTO_CERRAR_MODAL, cerrar);
+  }, [cerrar]);
 
   // Con el modal abierto, la página de atrás no scrollea.
   useEffect(() => {

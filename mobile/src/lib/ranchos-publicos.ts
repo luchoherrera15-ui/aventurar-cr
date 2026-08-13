@@ -37,11 +37,18 @@ export const COLUMNAS_COBRO =
  * explorar.tsx). `created_at` y `estado` van porque la consulta ordena
  * y filtra por ellos, y en Postgres ordenar por una columna también
  * pide permiso de lectura sobre ella.
+ *
+ * `detalles` va desde que se arregló la pausa: ahí vive
+ * `en_configuracion`, la bandera con la que el dueño frena su
+ * publicación mientras la termina de armar. Sin ella, la tarjeta no
+ * tenía cómo saber que el negocio está en pausa y el teléfono lo
+ * seguía abriendo — y cobrando — cuando el sitio web ya no lo hacía.
+ * (Es una columna que el rol anónimo ya lee: viene en COLUMNAS_FICHA.)
  */
 export const COLUMNAS_CARD =
   "id, slug, nombre, categoria, subcategoria, vertical, provincia, canton, " +
   "capacidad_min, capacidad_max, precio_desde, unidad_precio, foto_url, " +
-  "estado, destacado_orden, created_at";
+  "detalles, estado, destacado_orden, created_at";
 
 /**
  * Lo que pinta la ficha pública de un negocio de Eventos
@@ -51,6 +58,10 @@ export const COLUMNAS_CARD =
  *
  * `owner_id` SÍ va: la burbuja de chat lo necesita para abrir el hilo
  * con el proveedor, y no es un dato sensible (es un uuid de auth).
+ *
+ * `zona_horaria` va desde que los proveedores de eventos (todo lo que
+ * no es un Lugar) trabajan por horas: la agenda de la ficha se calcula
+ * en la zona del NEGOCIO, no en la del teléfono.
  */
 export const COLUMNAS_FICHA =
   "id, owner_id, slug, nombre, descripcion, descripcion_larga, categoria, " +
@@ -58,8 +69,8 @@ export const COLUMNAS_FICHA =
   "latitud, longitud, foto_url, foto_presentacion, fotos, amenidades, " +
   "detalles, terminos, monto_minimo, capacidad_min, capacidad_max, " +
   "precio_desde, unidad_precio, deposito_reserva, horarios_bloques, " +
-  "eventos_por_dia, destacado_orden, created_at, instagram, facebook, " +
-  "tiktok, sitio_web, contacto_whatsapp";
+  "eventos_por_dia, zona_horaria, destacado_orden, created_at, instagram, " +
+  "facebook, tiktok, sitio_web, contacto_whatsapp";
 
 /**
  * La fila de `ranchos` tal como la ve el público: la misma de siempre

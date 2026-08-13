@@ -30,7 +30,8 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { pedirCorreosDeCita } from "@/lib/notificaciones";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
-import { fmtColones } from "@/lib/types";
+import { enConfiguracion, fmtColones } from "@/lib/types";
+import { esCitas as esVerticalCitas, tocarHoraAbreChat } from "@/lib/agenda-negocio";
 import {
   DIAS_CORTO,
   MESES_CORTO,
@@ -175,11 +176,13 @@ export default function ReservarCitaScreen() {
 
   const cargar = useCallback(async () => {
     const [n, i, e] = await Promise.all([
+      // Sin `.eq("vertical", "citas")` en la consulta: el corte se hace
+      // abajo con el helper, para poder distinguir "no es de acá" de
+      // "es un proveedor de eventos, que va por otro camino".
       supabase
         .from("ranchos")
-        .select("id, nombre, foto_url, detalles, zona_horaria")
+        .select("id, nombre, foto_url, detalles, zona_horaria, vertical, categoria")
         .eq("id", id)
-        .eq("vertical", "citas")
         .eq("estado", "aprobado")
         .maybeSingle(),
       cargarServicios(id),
@@ -190,6 +193,33 @@ export default function ReservarCitaScreen() {
         .eq("activo", true)
         .order("orden", { ascending: true }),
     ]);
+
+    const fila = (n.data ?? null) as {
+      nombre?: string;
+      foto_url?: string | null;
+      detalles?: Record<string, unknown> | null;
+      zona_horaria?: string | null;
+      vertical?: string | null;
+      categoria?: string | null;
+    } | null;
+
+    // ESTA PANTALLA RESERVA DE VERDAD: llama a `crear_cita`, que aparta
+    // la franja. Un proveedor de eventos no aparta nada — su hora se
+    // consulta por chat — así que si alguien llega acá por un enlace
+    // viejo se lo manda a su ficha, donde está la agenda que abre el
+    // chat. Y una publicación en pausa no recibe citas de nadie.
+    if (fila && tocarHoraAbreChat(fila)) {
+      router.replace(`/rancho/${id}` as never);
+      return;
+    }
+    // Lo que no es de Citas (un Lugar, un restaurante, un hospedaje) y
+    // lo que está en pausa caen en el "ya no está disponible" de
+    // siempre — es lo que hacía el `.eq("vertical", "citas")`.
+    if (!fila || !esVerticalCitas(fila) || enConfiguracion(fila.detalles)) {
+      setNombreNegocio(null);
+      setCargando(false);
+      return;
+    }
 
     const horarioCargado = horarioDeDetalles(n.data?.detalles);
     const listaItems = (i.data ?? []) as Servicio[];
@@ -267,7 +297,7 @@ export default function ReservarCitaScreen() {
     // barrido de días era la forma segura de que las dos versiones se
     // fueran separando.
     setCargando(false);
-  }, [id, servicioParam, miembroParam]);
+  }, [id, servicioParam, miembroParam, router]);
 
   useEffect(() => {
     if (cargandoAuth || !session) return;

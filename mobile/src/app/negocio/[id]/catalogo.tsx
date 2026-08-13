@@ -20,6 +20,7 @@ import BarraSuperior from "@/components/barra-superior";
 import PanelNav, { ALTO_PANEL_NAV } from "@/components/panel-nav";
 import { useAuth } from "@/lib/auth-context";
 import { etiquetaDuracion } from "@/lib/catalogo";
+import { agendaPorHoras, esCitas as esVerticalCitas } from "@/lib/agenda-negocio";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   CATALOGO_LABEL,
@@ -231,6 +232,17 @@ export default function CatalogoNegocioScreen() {
     }, [cargar]),
   );
 
+  // Mismo corte que el panel web: en Citas el servicio se mide en
+  // MINUTOS y declara modalidad, cupo por sesión y política de reserva
+  // — reglas que el RPC crear_cita hace cumplir de verdad.
+  const esCitas = esVerticalCitas({ vertical, categoria });
+  // Un proveedor de eventos (DJ, animador, pintacaritas) también
+  // necesita decir cuánto dura lo suyo: su ficha ahora dibuja una
+  // agenda por horas y sin duración no hay franjas que ofrecer. Él lo
+  // declara en HORAS, que es como piensa un evento, y el motor lo pasa
+  // a minutos (ver `minutosDeServicio` en lib/agenda-negocio.ts).
+  const porHoras = agendaPorHoras({ vertical, categoria });
+
   function aFila(b: Borrador) {
     // Igual que en la web: el cupo por sesión solo existe si el
     // servicio es grupal, así lo guardado es siempre lo que se ve.
@@ -284,6 +296,16 @@ export default function CatalogoNegocioScreen() {
     const buffer = num(b.bufferMin);
     if (buffer !== null && (!Number.isInteger(buffer) || buffer < 0 || buffer > 240)) {
       return "El tiempo de limpieza debe estar entre 0 y 240 minutos.";
+    }
+    // En un proveedor de eventos las horas SÍ mueven la agenda: con
+    // ellas se calculan las franjas que su ficha ofrece. El tope de 24
+    // es el día: un alquiler de varios días se pide por fecha, no
+    // estirando la duración de una franja.
+    if (porHoras && !esCitas) {
+      const horas = num(b.duracionHoras);
+      if (horas !== null && (horas <= 0 || horas > 24)) {
+        return "Las horas que dura el servicio deben estar entre 0 y 24.";
+      }
     }
     const cupoMin = num(b.cupoMinSesion);
     const cupoMax = num(b.cupoMaxSesion);
@@ -475,9 +497,6 @@ export default function CatalogoNegocioScreen() {
   }
 
   const etiqueta = CATALOGO_LABEL[categoria];
-  // Mismo corte que el panel web: en Citas el servicio se mide en
-  // minutos y declara su modalidad; en Eventos nada de esto aparece.
-  const esCitas = vertical === "citas";
 
   return (
     <View style={styles.contenedor}>
@@ -516,6 +535,7 @@ export default function CatalogoNegocioScreen() {
                 ocupado={ocupado}
                 textoBoton="Guardar cambios"
                 esCitas={esCitas}
+                porHoras={porHoras}
                 onGuardar={guardar}
                 onCancelar={() => {
                   setEditando(null);
@@ -583,6 +603,7 @@ export default function CatalogoNegocioScreen() {
               ocupado={ocupado}
               textoBoton="Agregar"
               esCitas={esCitas}
+              porHoras={porHoras}
               onGuardar={guardar}
               onCancelar={() => {
                 setEditando(null);
@@ -649,6 +670,7 @@ function Formulario({
   ocupado,
   textoBoton,
   esCitas,
+  porHoras,
   onGuardar,
   onCancelar,
 }: {
@@ -660,6 +682,12 @@ function Formulario({
   textoBoton: string;
   /** Vertical de Citas: duración en minutos, modalidad y cupo. */
   esCitas: boolean;
+  /**
+   * El negocio trabaja su agenda por HORAS (Citas o un proveedor de
+   * eventos). Lo que separa a los dos es la unidad: Citas mide en
+   * minutos y Eventos en horas, así que cada uno tiene su campo.
+   */
+  porHoras: boolean;
   onGuardar: () => void;
   onCancelar: () => void;
 }) {
@@ -886,8 +914,34 @@ function Formulario({
         </>
       )}
 
+      {/* Un proveedor de eventos que NO es un Lugar: su ficha dibuja
+          una agenda por horas, así que estas dos cifras deciden qué
+          franjas se le ofrecen al cliente. El armado/desarme es el
+          mismo `buffer_min` que la limpieza de una cita — el motor no
+          distingue, y para un DJ es cargar y desmontar el equipo. */}
+      {porHoras && !esCitas && (
+        <View style={styles.dosColumnas}>
+          <Campo
+            label="Horas que dura"
+            valor={borrador.duracionHoras}
+            onCambiar={set("duracionHoras")}
+            placeholder="4"
+            numerico
+            mitad
+          />
+          <Campo
+            label="Armado y desarme (min)"
+            valor={borrador.bufferMin}
+            onCambiar={set("bufferMin")}
+            placeholder="0"
+            numerico
+            mitad
+          />
+        </View>
+      )}
+
       <View style={styles.dosColumnas}>
-        {!esCitas && (
+        {!esCitas && !porHoras && (
           <Campo
             label="Horas que incluye"
             valor={borrador.duracionHoras}

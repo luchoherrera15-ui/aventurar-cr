@@ -17,6 +17,7 @@ import {
   leerChatPanel,
   leerChatPanelServidor,
   suscribirChatPanel,
+  type NegocioPedido,
 } from "@/lib/chat-panel";
 import {
   categorizarConversacion,
@@ -408,9 +409,16 @@ export default function ChatFlotante() {
     [cargar, cargarLista],
   );
 
-  /** Abre (o crea) el hilo de consulta con el negocio de esta página. */
+  /**
+   * Abre (o crea) el hilo de consulta con el negocio de esta página.
+   *
+   * `primerMensaje` es lo que trae la agenda por horas de Eventos: el
+   * resumen de la fecha, la hora y el pedido que la persona armó. Se
+   * inserta ANTES de abrir el hilo para que el chat se pinte ya con el
+   * mensaje adentro y el proveedor lo vea con su badge de "nuevo".
+   */
   const abrirConsultaProveedor = useCallback(
-    async (ranchoId: string, nombre: string) => {
+    async ({ ranchoId, nombre, primerMensaje }: NegocioPedido) => {
       const supabase = createClient();
       const {
         data: { user },
@@ -449,7 +457,21 @@ export default function ChatFlotante() {
         }
       }
 
-      if (conversacionId) await abrirHilo(conversacionId, nombre);
+      if (!conversacionId) return;
+
+      const texto = primerMensaje?.trim();
+      if (texto) {
+        // Un mensaje que no entra no puede tumbar la apertura del hilo:
+        // en el peor caso la persona llega al chat en blanco y escribe
+        // ella, que es exactamente lo que pasaba antes de la agenda.
+        await supabase.from("mensajes").insert({
+          conversacion_id: conversacionId,
+          autor_id: user.id,
+          texto: texto.slice(0, 2000),
+        });
+      }
+
+      await abrirHilo(conversacionId, nombre);
     },
     [abrirHilo],
   );
@@ -488,7 +510,7 @@ export default function ChatFlotante() {
         return;
       }
       if (destino) {
-        await abrirConsultaProveedor(destino.ranchoId, destino.nombre);
+        await abrirConsultaProveedor(destino);
       } else {
         await cargarLista();
       }
@@ -917,7 +939,7 @@ function VistaExplorar({
 }: {
   termino: string;
   onCambiarTermino: (t: string) => void;
-  onAbrirNegocio: (ranchoId: string, nombre: string) => Promise<void>;
+  onAbrirNegocio: (negocio: NegocioPedido) => Promise<void>;
 }) {
   const [resultados, setResultados] = useState<NegocioExplorar[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -982,7 +1004,7 @@ function VistaExplorar({
                   type="button"
                   onClick={async () => {
                     setAbriendo(r.id);
-                    await onAbrirNegocio(r.id, r.nombre);
+                    await onAbrirNegocio({ ranchoId: r.id, nombre: r.nombre });
                     setAbriendo(null);
                   }}
                   disabled={abriendo !== null}

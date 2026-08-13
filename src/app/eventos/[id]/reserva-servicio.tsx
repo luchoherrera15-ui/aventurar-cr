@@ -1,5 +1,22 @@
 "use client";
 
+/**
+ * ⚠️ RETIRADO — YA NADIE MONTA ESTE COMPONENTE.
+ *
+ * Era la reserva en línea de un SERVICIO de Eventos: calendario por
+ * DÍA, cotizador, catálogo, depósito por SINPE/transferencia y subida
+ * del comprobante. Lo reemplazó `agenda-consulta.tsx`, que ofrece
+ * espacios POR HORAS y, al tocar uno, abre el CHAT con la fecha, la
+ * hora y el pedido — sin reservar, sin cobrar y sin pedir cuenta.
+ *
+ * Del formulario viejo sobrevivió el COTIZADOR (los steppers de horas
+ * y días, el paquete base, invitados y notas), que se llevó tal cual
+ * al componente nuevo. Todo el aparato de depósito se fue.
+ *
+ * Queda en el árbol porque borrar archivos se consulta antes con el
+ * dueño. No volver a montarlo.
+ */
+
 import { useMemo, useState, useActionState } from "react";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { solicitarCotizacion, type CotizacionState } from "../cotizacion-actions";

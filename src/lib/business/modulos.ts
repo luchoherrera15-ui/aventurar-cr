@@ -363,12 +363,17 @@ export const TIPOS_NEGOCIO = [
     verticales: ["eventos"],
     modulos: ["agenda", "clientes", "pagos", "reportes"],
   },
+  // Con `equipo`: un proveedor de eventos trabaja por horas igual que
+  // una barbería (ver `usaAgendaPorHoras`), y sin el equipo no puede
+  // decir quién atiende cada cosa ni qué horario tiene cada quien —
+  // que es justo lo que hace falta para agendar dos fiestas el mismo
+  // día. Es el único default que cambió desde la Fase 1.
   {
     id: "eventos_proveedor",
     label: "Proveedor de eventos",
     familia: "eventos",
     verticales: ["eventos"],
-    modulos: ["agenda", "clientes", "servicios", "pagos", "reportes"],
+    modulos: ["agenda", "clientes", "servicios", "equipo", "pagos", "reportes"],
   },
   {
     id: "hospedaje",
@@ -458,6 +463,41 @@ export function tipoNegocioEfectivo(
     default:
       return categoria === "lugares" ? "eventos_lugar" : "eventos_proveedor";
   }
+}
+
+/**
+ * ¿Este negocio agenda POR HORAS y POR SERVICIOS (como una barbería), o
+ * por FECHA ENTERA (como un rancho de fiestas)?
+ *
+ * La misma pregunta la hacen seis lugares del panel del dueño: si el
+ * catálogo pide duración en minutos y limpieza después, si hay horario
+ * semanal, colaboradores y bloqueos, y si existe la pantalla de agenda
+ * del día. Cada uno la contestaba con `vertical === 'citas'`, y eso
+ * dejaba afuera a los proveedores de eventos: un DJ hace una fiesta
+ * infantil a las 3 p.m. y una boda a las 9 p.m. el mismo día — necesita
+ * exactamente lo mismo que una barbería.
+ *
+ * La frontera es LA MISMA que separa `eventos_lugar` de
+ * `eventos_proveedor` acá arriba, y por eso se deriva de ahí en vez de
+ * repetir `categoria !== 'lugares'` seis veces: un lugar se alquila por
+ * fecha completa, con depósito y calendario por día, y esa es su forma
+ * de trabajar — no una limitación que haya que emparejar.
+ *
+ * No mira `tipo_negocio` a propósito: cómo se agenda lo decide dónde se
+ * publica el negocio, y un lugar sigue siendo un lugar aunque elija
+ * otro tipo de panel. Hospedajes y Restaurantes quedan afuera también a
+ * propósito — no es que la regla no les calce, es que su panel todavía
+ * no se diseñó, y cambiárselo de rebote desde acá sería una decisión de
+ * producto escondida adentro de un helper.
+ */
+export function usaAgendaPorHoras(
+  vertical: string | null | undefined,
+  categoria: string | null | undefined,
+): boolean {
+  const donde = vertical ?? "eventos";
+  if (donde === "citas") return true;
+  if (donde !== "eventos") return false;
+  return tipoNegocioEfectivo(donde, categoria, null) === "eventos_proveedor";
 }
 
 /** Los módulos encendidos si el negocio no opinó nada. */

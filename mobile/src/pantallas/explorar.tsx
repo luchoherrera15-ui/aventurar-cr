@@ -34,6 +34,7 @@ import {
   CATEGORIAS,
   PROVINCIAS,
   SUBCATEGORIAS,
+  enConfiguracion,
   fmtColones,
   type Categoria,
   type Provincia,
@@ -72,6 +73,9 @@ export type Fila = Pick<
   /** Opcional: los filtros de invitados lo usan si viene en el select;
    * favoritos.tsx no lo trae y la tarjeta no lo necesita. */
   capacidad_max?: number | null;
+  /** Opcional por lo mismo: acá vive `en_configuracion`, la pausa que
+   * el dueño le pone a su publicación. Ver `enConfiguracion`. */
+  detalles?: Record<string, unknown> | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- el pager pasa `activa` a todas las pestañas; Explorar no la necesita (carga al montar y con pull-refresh)
@@ -350,6 +354,8 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
         ubicacion={[item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"}
         precio={item.precio_desde !== null ? fmtColones(item.precio_desde) : null}
         cta={item.categoria === "lugares" ? "Reservar fecha" : "Reservar"}
+        // En pausa: se ve, no se abre — igual que la card de la web.
+        pausado={enConfiguracion(item.detalles)}
         favorito={favoritos.has(item.id)}
         onToggleFavorito={() => alternarFavorito(item.id)}
         onPress={() => router.push(`/rancho/${item.id}`)}
