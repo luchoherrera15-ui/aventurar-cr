@@ -2,6 +2,8 @@ import { createSign } from "node:crypto";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { consultarSaldo } from "@/lib/lealtad/motor";
+import { emisoraDeFilasCrudas } from "./programa-principal";
+import { minutoISOCR } from "@/lib/fechas";
 import {
   camposSegunModo,
   coloresDe,
@@ -414,26 +416,34 @@ export async function generarPaseGoogle({
   // `select *`, igual que en Apple (generar.ts): desde la 0134 el
   // programa cuelga de una CUENTA, y pedir `cuenta_id` explícitamente
   // rompería la consulta entera mientras la migración no esté corrida.
-  const { data: programaFila } = await db
+  //
+  // Y sin `.maybeSingle()`, también igual que en Apple: la 0134 quitó el
+  // `unique(rancho_id)`, así que con dos tarjetas la consulta fallaba y
+  // ningún Android podía guardar su pase. Cuál emite lo decide
+  // `emisoraDeFilasCrudas`, la misma elección de todas las pantallas.
+  const { data: filasPrograma } = await db
     .from("programa_lealtad")
     .select("*")
-    .eq("rancho_id", ranchoId)
-    .eq("activo", true)
-    .maybeSingle();
+    .eq("rancho_id", ranchoId);
+
+  const programaFila = emisoraDeFilasCrudas(
+    (filasPrograma ?? []) as Record<string, unknown>[],
+    minutoISOCR(),
+  );
   if (!programaFila) {
     return { ok: false, motivo: "Este negocio todavía no tiene programa de lealtad." };
   }
-  const programa = programaFila as { id: string; activo: boolean };
+  const programaId = programaFila.id as string;
   // Apariencia y beneficio de la fila, con el MISMO lector que Apple
   // (tarjeta.ts). Antes cada plataforma casteaba la fila a su propia
   // lista de columnas escrita a mano y ninguna incluía `beneficio`.
-  const { config, beneficio } = tarjetaDesdeFila(programaFila as Record<string, unknown>);
+  const { config, beneficio } = tarjetaDesdeFila(programaFila);
 
   // Afiliación implícita, igual que en Apple: pedir la tarjeta ES unirse.
   let { data: miembro } = await db
     .from("miembros")
     .select("id, estado")
-    .eq("programa_id", programa.id)
+    .eq("programa_id", programaId)
     .eq("cliente_id", clienteId)
     .maybeSingle();
   if (!miembro) {
@@ -448,11 +458,9 @@ export async function generarPaseGoogle({
     const { definicionDe } = await import("@/lib/lealtad/planes");
     const { contextoDeCuenta } = await import("@/lib/lealtad/cuenta");
     const { personasActivasDe } = await import("@/lib/lealtad/cupo");
-    const { plan, cuentaId } = await contextoDeCuenta(
-      db,
-      programaFila as Record<string, unknown>,
-      { planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null },
-    );
+    const { plan, cuentaId } = await contextoDeCuenta(db, programaFila, {
+      planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
+    });
     const limite = definicionDe(plan)?.limites.clientesActivos;
     if (limite !== null && limite !== undefined) {
       const usadas = await personasActivasDe(db, { cuentaId, ranchoId });
@@ -467,7 +475,7 @@ export async function generarPaseGoogle({
 
     const { data: nuevo, error } = await db
       .from("miembros")
-      .insert({ programa_id: programa.id, cliente_id: clienteId, estado: "activa" })
+      .insert({ programa_id: programaId, cliente_id: clienteId, estado: "activa" })
       .select("id, estado")
       .single();
     if (error) return { ok: false, motivo: "No se pudo afiliar: " + error.message };
@@ -504,7 +512,7 @@ export async function generarPaseGoogle({
   const { data: recompensa } = await db
     .from("recompensas")
     .select("nombre, costo_puntos")
-    .eq("programa_id", programa.id)
+    .eq("programa_id", programaId)
     .eq("activo", true)
     .order("costo_puntos", { ascending: true })
     .limit(1)

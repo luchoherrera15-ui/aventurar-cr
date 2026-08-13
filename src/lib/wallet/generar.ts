@@ -9,6 +9,9 @@ import {
   dibujarTiraDeSellos,
   type ColoresTarjeta,
 } from "./imagenes";
+import { describirEscalon, escalonesDeLaTira, primeroQueSalga } from "./escalones-tira";
+import { emisoraDeFilasCrudas } from "./programa-principal";
+import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
 
@@ -86,16 +89,25 @@ export async function generarPaseDeLealtad({
   // fallar la consulta entera mientras la migración no esté corrida —
   // con el síntoma "este negocio no tiene programa", que manda a mirar
   // justo donde no está el problema.
-  const { data: programaFila } = await db
+  //
+  // Y sin `.maybeSingle()`: la 0134 también quitó el `unique(rancho_id)`,
+  // así que un negocio con dos tarjetas hacía que `maybeSingle` fallara
+  // y NADIE pudiera agregar su pase. Cuál de las varias emite lo decide
+  // `emisoraDeFilasCrudas`, la misma elección que muestra el panel y la
+  // misma que sirve la página pública del QR.
+  const { data: filasPrograma } = await db
     .from("programa_lealtad")
     .select("*")
-    .eq("rancho_id", ranchoId)
-    .eq("activo", true)
-    .maybeSingle();
+    .eq("rancho_id", ranchoId);
+
+  const programaFila = emisoraDeFilasCrudas(
+    (filasPrograma ?? []) as Record<string, unknown>[],
+    minutoISOCR(ahora),
+  );
   if (!programaFila) {
     return { ok: false, motivo: "Este negocio todavía no tiene programa de lealtad." };
   }
-  const programa = programaFila as { id: string; activo: boolean };
+  const programaId = programaFila.id as string;
 
   // La apariencia Y el beneficio salen de la fila en un solo lugar
   // (tarjeta.ts). Antes esto era un casteo a una lista de columnas
@@ -103,7 +115,7 @@ export async function generarPaseDeLealtad({
   // el casteo la tiraba, así que los cinco tipos de la 0135 llegaban al
   // teléfono con el texto de degradación —«CUPÓN / Beneficio»— y no
   // había test que lo viera, porque todos probaban la función pura.
-  const { config, beneficio } = tarjetaDesdeFila(programaFila as Record<string, unknown>);
+  const { config, beneficio } = tarjetaDesdeFila(programaFila);
 
   // ── El miembro: si no lo es, se afilia acá ────────────────────────
   // Pedir la tarjeta ES afiliarse. Obligar a un paso previo solo
@@ -111,7 +123,7 @@ export async function generarPaseDeLealtad({
   let { data: miembro } = await db
     .from("miembros")
     .select("id, estado")
-    .eq("programa_id", programa.id)
+    .eq("programa_id", programaId)
     .eq("cliente_id", clienteId)
     .maybeSingle();
 
@@ -132,11 +144,9 @@ export async function generarPaseDeLealtad({
     const { definicionDe } = await import("@/lib/lealtad/planes");
     const { contextoDeCuenta } = await import("@/lib/lealtad/cuenta");
     const { personasActivasDe } = await import("@/lib/lealtad/cupo");
-    const { plan, cuentaId } = await contextoDeCuenta(
-      db,
-      programaFila as Record<string, unknown>,
-      { planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null },
-    );
+    const { plan, cuentaId } = await contextoDeCuenta(db, programaFila, {
+      planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
+    });
     const limite = definicionDe(plan)?.limites.clientesActivos;
     if (limite !== null && limite !== undefined) {
       const usadas = await personasActivasDe(db, { cuentaId, ranchoId });
@@ -151,7 +161,7 @@ export async function generarPaseDeLealtad({
 
     const { data: nuevo, error } = await db
       .from("miembros")
-      .insert({ programa_id: programa.id, cliente_id: clienteId, estado: "activa" })
+      .insert({ programa_id: programaId, cliente_id: clienteId, estado: "activa" })
       .select("id, estado")
       .single();
     if (error) return { ok: false, motivo: "No se pudo afiliar: " + error.message };
@@ -170,7 +180,7 @@ export async function generarPaseDeLealtad({
   const { data: recompensa } = await db
     .from("recompensas")
     .select("nombre, costo_puntos")
-    .eq("programa_id", programa.id)
+    .eq("programa_id", programaId)
     .eq("activo", true)
     .order("costo_puntos", { ascending: true })
     .limit(1)
@@ -318,12 +328,19 @@ async function archivosDelLogo(
  * `strip.png` y sus escalas: la banda del negocio, los sellos, o las
  * dos cosas en la misma imagen (ver `tiraDelPase`).
  *
- * Todo lo que se dibuja con la foto del dueño va envuelto: una imagen
+ * Todo lo que se dibuja con imágenes del dueño va envuelto: una imagen
  * que sharp no puede procesar NO puede dejar sin pase a un cliente que
- * está en el mostrador. Se degrada en el orden que menos se nota —
- * sellos sobre la foto → sellos sobre el color → sin strip— y el motivo
+ * está en el mostrador. Se degrada en el orden que menos se nota
+ * (la escalera vive en `escalones-tira.ts`) y el motivo de cada intento
  * queda en los logs, porque «no se ve mi banda» sin rastro es un
  * misterio y con rastro es un ticket.
+ *
+ * EL ESCALÓN QUE FALTABA ERA «SIN EL LOGO». La escalera vieja
+ * reintentaba quitando la banda y volvía a pasar EL MISMO logo — que es
+ * justo lo que revienta cuando la marca es blanca sobre transparente y
+ * se subió aplastada contra un fondo blanco: `trim()` responde «Image is
+ * entirely blank». Fallaba dos veces por la misma causa y el pase salía
+ * sin `strip.png`: sin sellos, sin banda, sin nada.
  */
 async function archivosDeLaTira({
   tira,
@@ -361,29 +378,27 @@ async function archivosDeLaTira({
     }
   }
 
-  const sellos = (fondo: Buffer | null) => (escala: 1 | 2 | 3) =>
-    dibujarTiraDeSellos({
-      total: tira.total,
-      logrados: Math.min(saldo, tira.total),
-      colores,
-      imagen: logo,
-      banda: fondo,
-      escala,
-    });
+  const escalones = escalonesDeLaTira({ hayBanda: !!banda, hayLogo: !!logo });
 
-  if (banda) {
-    try {
-      return await enTresEscalas(sellos(banda));
-    } catch (e) {
-      console.warn("[wallet] La banda no sirvió de fondo de los sellos:", e);
-    }
-  }
-  try {
-    return await enTresEscalas(sellos(null));
-  } catch (e) {
-    console.warn("[wallet] No se pudo dibujar la tira de sellos:", e);
-    return {};
-  }
+  const dibujada = await primeroQueSalga(
+    escalones,
+    (escalon) =>
+      enTresEscalas((escala) =>
+        dibujarTiraDeSellos({
+          total: tira.total,
+          logrados: Math.min(saldo, tira.total),
+          colores,
+          // Lo que cambia en cada escalón: el escalón final saca el logo
+          // de los sellos, que es la pieza que suele fallar.
+          imagen: escalon.logo ? logo : null,
+          banda: escalon.banda ? banda : null,
+          escala,
+        }),
+      ),
+    (escalon, e) => console.warn(`[wallet] No se pudieron dibujar ${describirEscalon(escalon)}:`, e),
+  );
+
+  return dibujada ?? {};
 }
 
 function coordenadasDe(negocio: Record<string, unknown>) {

@@ -5,9 +5,11 @@ import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, estadoDelLimite } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
-import { hoyISOCR } from "@/lib/fechas";
+import { minutoISOCR } from "@/lib/fechas";
 import SeccionProgramas, { type ProgramaEnLista } from "./seccion-programas";
 import { estadoVisible, operaAhora } from "@/lib/lealtad/programas";
+import { elegirPrograma } from "@/lib/wallet/programa-principal";
+import { cupoLleno, lasQueOcupanCupo } from "./cupo-tarjetas";
 import { TIPOS_TARJETA, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
 import { permisosDeFila } from "@/lib/lealtad/permisos";
 import { cargarLealtad } from "./datos-lealtad";
@@ -17,12 +19,12 @@ import ModoMostrador from "./modo-mostrador";
 import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
 import CompartirTarjeta from "./compartir-tarjeta";
-import { SeccionTarjeta } from "./pases-panel";
+import { BloqueEstado, SeccionTarjeta } from "./pases-panel";
 import CreadorTarjeta from "./creador-tarjeta";
 import SeccionPlan from "./seccion-plan";
 import FacturacionConTarjeta from "./facturacion-tarjeta";
 import { suscripcionDelNegocio } from "@/lib/pagos/puerta-supabase";
-import { ProveedorPrograma } from "./programa-contexto";
+import { AvisoError, ProveedorPrograma } from "./programa-contexto";
 import MetricasLealtad from "./metricas";
 import AuditoriaResumen from "./auditoria-resumen";
 import EquipoLealtad, { type MiembroEquipo } from "./equipo-cliente";
@@ -163,11 +165,12 @@ export default async function PanelNegocioLealtad({
   // De acá salen los estados «programada» y «vencida»: si cada tarjeta
   // leyera su propio reloj, una lista larga podría cruzar la medianoche
   // a la mitad y mostrar dos verdades distintas en la misma pantalla.
-  const ahoraCR = `${hoyISOCR()}T${new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Costa_Rica",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date())}`;
+  //
+  // `minutoISOCR` y no un Intl armado acá: la página pública del QR y
+  // los dos generadores de pases usan ese mismo minuto para decidir qué
+  // tarjeta manda, y dos formas de escribir la misma hora es la manera
+  // de que un día no coincidan.
+  const ahoraCR = minutoISOCR();
 
   // ── TODAS las tarjetas del negocio ─────────────────────────────
   // Desde la 0134 puede haber varias (el `unique(rancho_id)` se
@@ -214,11 +217,11 @@ export default async function PanelNegocioLealtad({
   // esté archivada; y si todas lo están, la primera. Siempre la misma
   // para todas las secciones: dos criterios distintos mostrarían dos
   // tarjetas distintas en la misma visita.
-  const principal =
-    programasEnLista.find((f) => operaAhora(f, ahoraCR)) ??
-    programasEnLista.find((f) => estadoVisible(f, ahoraCR) !== "archivado") ??
-    programasEnLista[0] ??
-    null;
+  //
+  // Y la elección NO vive acá: la comparte con la página pública del QR
+  // y con los dos generadores de pases (`elegirPrograma`), para que el
+  // dueño configure exactamente la tarjeta que su cliente recibe.
+  const principal = elegirPrograma(programasEnLista, ahoraCR);
 
   const p = (principal
     ? (todasLasFilas.find((f) => f.id === principal.id) ?? null)
@@ -241,8 +244,9 @@ export default async function PanelNegocioLealtad({
   const programaActivo = principal ? operaAhora(principal, ahoraCR) : false;
 
   // Las archivadas no cuentan como tarjetas que el negocio tenga: para
-  // volver a emitir hay que crear otra, no reanimar la archivada.
-  const vivas = programasEnLista.filter((f) => estadoVisible(f, ahoraCR) !== "archivado");
+  // volver a emitir hay que crear otra, no reanimar la archivada. El
+  // MISMO criterio que aplica el servidor al crear (`cupo-tarjetas.ts`).
+  const vivas = lasQueOcupanCupo(programasEnLista, ahoraCR);
   const operan = vivas.filter((f) => operaAhora(f, ahoraCR)).length;
 
   // Lo que dice el ledger. La misma llamada que hace <LealtadEstado>:
@@ -475,7 +479,10 @@ export default async function PanelNegocioLealtad({
           programas={programasEnLista}
           ahoraCR={ahoraCR}
           puedeCrear={puedeDisenar}
-          topeAlcanzado={topeProgramas !== null && programasEnLista.length >= topeProgramas}
+          // Cuenta las VIVAS, no todas: contando las archivadas, archivar
+          // no liberaba nada y el aviso mandaba a hacer algo que no
+          // servía. Es la misma cuenta que hace el servidor al crear.
+          topeAlcanzado={cupoLleno({ ocupadas: vivas.length, tope: topeProgramas })}
           topePlan={topeProgramas}
         />
       </Seccion>
@@ -647,6 +654,18 @@ export default async function PanelNegocioLealtad({
                 negocioNombre={rancho.nombre as string}
                 plan={plan}
               />
+              {/* El ciclo de vida de la tarjeta que manda. Va ACÁ porque
+                  es acá donde el creador manda a la gente cuando el
+                  paquete llegó al tope («archivá una desde Recompensas →
+                  Estado del programa»): al quedar solo el asistente en
+                  esta sección, ese bloque se había caído del panel del
+                  negocio y el aviso apuntaba a un lugar que no existía. */}
+              {p && (
+                <>
+                  <AvisoError />
+                  <BloqueEstado />
+                </>
+              )}
             </Seccion>
           ),
           tarjeta: (

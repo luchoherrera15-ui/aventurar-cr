@@ -13,7 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
-import { abrirHiloConsulta } from "@/lib/consulta";
+import { abrirHiloConsulta, mandarPrimerMensajeConsulta } from "@/lib/consulta";
 import { useAuth } from "@/lib/auth-context";
 import {
   agruparPorSeccion,
@@ -404,13 +404,16 @@ export default function ReservarServicioScreen() {
         "Todavía no hay nada reservado: quedo pendiente de que me confirmés disponibilidad y precio.",
       );
 
-      const { error: errorMensaje } = await supabase.from("mensajes").insert({
-        conversacion_id: convId,
-        autor_id: session.user.id,
-        texto: partes.join("\n").slice(0, 2000),
+      // El helper manda el mensaje Y le pide al servidor que avise al
+      // proveedor (push y correo): sin ese pedido, el insert va directo
+      // a Supabase y nadie se entera de la consulta.
+      const { error: errorMensaje } = await mandarPrimerMensajeConsulta({
+        conversacionId: convId,
+        autorId: session.user.id,
+        texto: partes.join("\n"),
       });
       if (errorMensaje) {
-        setErrorEnvio("No se pudo mandar la consulta: " + errorMensaje.message);
+        setErrorEnvio("No se pudo mandar la consulta: " + errorMensaje);
         setEnviando(false);
         return;
       }

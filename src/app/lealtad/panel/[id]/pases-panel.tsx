@@ -406,8 +406,17 @@ function BloqueQueSeGana() {
   );
 }
 
-/** El ciclo de vida del programa (0125). */
-function BloqueEstado() {
+/**
+ * El ciclo de vida del programa (0125).
+ *
+ * Se exporta porque el panel del negocio lo monta SUELTO, en su sección
+ * «Recompensas»: cuando el creador rechaza una tarjeta por el tope del
+ * paquete, el aviso dice «archivá una desde Recompensas → Estado del
+ * programa» — y durante un tiempo ese bloque no estaba en ninguna
+ * sección del panel, así que la única salida que se le ofrecía al dueño
+ * no existía en su pantalla.
+ */
+export function BloqueEstado() {
   const { programa, ocupado, cambiarEstado } = usePrograma();
   if (!programa) return null;
 

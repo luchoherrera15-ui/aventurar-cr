@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
-import { coloresDe, metaDeSellos, type ConfigPase } from "@/lib/wallet/tarjeta";
+import { coloresDe, metaDeSellos, tarjetaDesdeFila } from "@/lib/wallet/tarjeta";
+import { emisoraDeFilasCrudas } from "@/lib/wallet/programa-principal";
 import { credencialesGoogleDelEntorno } from "@/lib/wallet/google";
+import { minutoISOCR } from "@/lib/fechas";
 
 /**
  * LA PUERTA DEL CLIENTE: acá es donde alguien consigue su tarjeta de
@@ -35,27 +37,38 @@ export default async function TarjetaPublicaPage({
     .maybeSingle();
   if (!negocio) notFound();
 
-  const { data: programa } = await admin
+  // TODAS las tarjetas del negocio, y de ahí la que emite.
+  //
+  // Acá había un `.maybeSingle()`, de cuando la base garantizaba UNA
+  // tarjeta por negocio. Desde que la 0134 quitó ese `unique(rancho_id)`,
+  // con dos tarjetas `maybeSingle` devuelve error y `data` en null: esta
+  // página respondía «no encontrado» y el QR IMPRESO del mostrador
+  // dejaba de funcionar — justo en el negocio que más había armado.
+  //
+  // `emisoraDeFilasCrudas` es la misma elección que hace el panel del
+  // negocio y la que usa el generador del pase: el dueño configura la
+  // tarjeta que su cliente termina recibiendo, y no una hermana suya.
+  // `select *` porque las columnas de las 0134/0135/0136 pueden no
+  // existir todavía y una lista explícita fallaría entera.
+  const { data: filas } = await admin
     .from("programa_lealtad")
-    .select(
-      "id, nombre, activo, estado, modo, pase_color_fondo, pase_color_sello, pase_logo_url",
-    )
-    .eq("rancho_id", negocio.id)
-    .maybeSingle();
+    .select("*")
+    .eq("rancho_id", negocio.id);
 
-  // Solo un programa OPERANDO reparte tarjetas. Pausado o borrador →
-  // la página no existe para el público, igual que antes de crearla.
-  const estado =
-    (programa?.estado as string | null) ??
-    (programa?.activo ? "activo" : "pausado");
-  if (!programa || estado !== "activo") notFound();
+  // Solo una tarjeta OPERANDO reparte pases. Pausada, en borrador,
+  // programada o vencida → la página no existe para el público, igual
+  // que antes de crearla.
+  const programa = emisoraDeFilasCrudas(
+    (filas ?? []) as Record<string, unknown>[],
+    minutoISOCR(),
+  );
+  if (!programa) notFound();
 
-  const config: ConfigPase = {
-    modo: (programa.modo as ConfigPase["modo"]) ?? null,
-    pase_color_fondo: programa.pase_color_fondo as string | null,
-    pase_color_sello: programa.pase_color_sello as string | null,
-    pase_logo_url: programa.pase_logo_url as string | null,
-  };
+  const programaId = programa.id as string;
+  // El MISMO lector que usa el pase (tarjeta.ts): si esta pantalla
+  // leyera los colores por su cuenta, prometería una tarjeta y el
+  // teléfono mostraría otra.
+  const { config } = tarjetaDesdeFila(programa);
   const colores = coloresDe(config);
 
   // La regalía que promete: la recompensa activa más barata, igual que
@@ -63,7 +76,7 @@ export default async function TarjetaPublicaPage({
   const { data: recompensa } = await admin
     .from("recompensas")
     .select("nombre, costo_puntos")
-    .eq("programa_id", programa.id)
+    .eq("programa_id", programaId)
     .eq("activo", true)
     .order("costo_puntos", { ascending: true })
     .limit(1)

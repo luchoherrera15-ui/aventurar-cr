@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { estadoDelPrograma } from "@/lib/lealtad/reglas";
 import { definicionDe } from "@/lib/lealtad/planes";
 import { estadoDeAddon } from "@/lib/addons";
+import { elegirDeFilasCrudas } from "@/lib/wallet/programa-principal";
+import { minutoISOCR } from "@/lib/fechas";
 
 /**
  * EL DASHBOARD DE LEALTAD: a donde aterriza quien entra por
@@ -102,24 +104,31 @@ export default async function PanelLealtadPage() {
     let miembros = 0;
 
     if (admin) {
-      const [{ data: addon }, { data: programa }] = await Promise.all([
+      // El programa se pide SIN `.maybeSingle()` y con `select *`: desde
+      // que la 0134 quitó el `unique(rancho_id)` un negocio puede tener
+      // varias tarjetas, y `maybeSingle` devolvía error y null — o sea
+      // que esta lista mostraba «sin programa» justo en el negocio que
+      // más había armado. Cuál representa al negocio lo decide
+      // `elegirDeFilasCrudas`, la misma elección que hace su panel.
+      const [{ data: addon }, { data: filasPrograma }] = await Promise.all([
         admin
           .from("addons_negocio")
           .select("activo, vence_en")
           .eq("rancho_id", r.id)
           .eq("addon", "lealtad")
           .maybeSingle(),
-        admin
-          .from("programa_lealtad")
-          .select("id, estado, activo")
-          .eq("rancho_id", r.id)
-          .maybeSingle(),
+        admin.from("programa_lealtad").select("*").eq("rancho_id", r.id),
       ]);
 
       addonActivo =
         estadoDeAddon(
           addon as { activo: boolean; vence_en: string | null } | null,
         ) === "activo";
+
+      const programa = elegirDeFilasCrudas(
+        (filasPrograma ?? []) as Record<string, unknown>[],
+        minutoISOCR(),
+      );
 
       if (programa) {
         estadoPrograma = estadoDelPrograma({

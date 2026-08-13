@@ -45,8 +45,25 @@ const BUCKET = "ranchos-fotos";
  *   banner → el `strip` de Apple es 375×123pt (1125×369 @3x).
  */
 export const PRESETS = {
-  logo: { ladoMax: 512, calidad: 0.9, relacion: "1 / 1", ayuda: "Cuadrado se ve mejor" },
-  banner: { ladoMax: 1200, calidad: 0.85, relacion: "3 / 1", ayuda: "Apaisada, tipo banner" },
+  logo: {
+    ladoMax: 512,
+    calidad: 0.9,
+    relacion: "1 / 1",
+    ayuda: "Cuadrado, y con fondo transparente se ve mejor",
+    // Un logo se guarda PNG si trae transparencia. Aplastarlo contra
+    // blanco deja blanco-sobre-blanco a toda marca hecha para fondo
+    // oscuro —y el pase de Wallet es navy—, que es lo que reventaba el
+    // recorte de sharp al generar el pase. Ver `comprimir-imagen.ts`.
+    conservarAlfa: true,
+  },
+  banner: {
+    ladoMax: 1200,
+    calidad: 0.85,
+    relacion: "3 / 1",
+    ayuda: "Apaisada, tipo banner",
+    // Una banda es una foto: JPEG sobre blanco, como el resto del sitio.
+    conservarAlfa: false,
+  },
 } as const;
 
 export type DestinoImagen = keyof typeof PRESETS;
@@ -88,6 +105,7 @@ export default function SubirImagen({
       const liviano = await comprimirImagen(archivo, {
         ladoMax: preset.ladoMax,
         calidad: preset.calidad,
+        conservarAlfa: preset.conservarAlfa,
       });
 
       if (liviano.size > MAX_MB * 1024 * 1024) {

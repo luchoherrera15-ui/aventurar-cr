@@ -159,7 +159,13 @@ export default function WizardAlta({ planes, pago }: { planes: PlanWizard[]; pag
     }
     setSubiendoLogo(true);
     const supabase = createClient();
-    const liviano = await comprimirImagen(archivo);
+    // `conservarAlfa` — un logo NO es una foto. Sin esto se aplasta
+    // contra un fondo blanco y se guarda JPEG opaco, y entonces un logo
+    // blanco (lo normal en marcas hechas para fondo oscuro, y el pase es
+    // navy) queda blanco sobre blanco: desaparece dentro del sello y de
+    // paso tumba la tira entera del pase. La otra puerta de subida ya lo
+    // hace; esta se había quedado atrás.
+    const liviano = await comprimirImagen(archivo, { conservarAlfa: true });
     const ext = liviano.name.split(".").pop()?.toLowerCase() || "png";
     const path = `logos-negocio/alta-${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from("comprobantes").upload(path, liviano);

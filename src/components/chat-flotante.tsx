@@ -72,6 +72,24 @@ type FilaWidget = {
   categoria: CategoriaChat;
 };
 
+/**
+ * "Avisale al otro participante de este mensaje" — el mismo endpoint
+ * que llama la app móvil (mobile/src/lib/notificaciones.ts). Hace falta
+ * porque el primer mensaje de una consulta se inserta desde el
+ * navegador, sin pasar por la acción de servidor que normalmente
+ * dispara el aviso.
+ *
+ * Nunca lanza y nunca se espera: el mensaje ya quedó guardado, y el
+ * push y el correo son un plus encima de eso.
+ */
+async function pedirAvisoDeMensaje(mensajeId: string) {
+  try {
+    await fetch(`/api/mensajes/${mensajeId}/aviso`, { method: "POST" });
+  } catch (e) {
+    console.warn("[mensajes] No se pudo pedir el aviso del mensaje:", e);
+  }
+}
+
 type HiloAbierto = {
   conversacionId: string;
   titulo: string;
@@ -464,11 +482,21 @@ export default function ChatFlotante() {
         // Un mensaje que no entra no puede tumbar la apertura del hilo:
         // en el peor caso la persona llega al chat en blanco y escribe
         // ella, que es exactamente lo que pasaba antes de la agenda.
-        await supabase.from("mensajes").insert({
-          conversacion_id: conversacionId,
-          autor_id: user.id,
-          texto: texto.slice(0, 2000),
-        });
+        const { data: creado } = await supabase
+          .from("mensajes")
+          .insert({
+            conversacion_id: conversacionId,
+            autor_id: user.id,
+            texto: texto.slice(0, 2000),
+          })
+          .select("id")
+          .maybeSingle();
+        // Este insert va DIRECTO a Supabase (no pasa por la acción de
+        // servidor), así que sin este pedido nadie le avisa al
+        // proveedor: ni push ni correo. Es el mismo endpoint que usa la
+        // app móvil — no lee el cuerpo, saca el destinatario de la
+        // conversación y avisa una sola vez por mensaje.
+        if (creado?.id) void pedirAvisoDeMensaje(creado.id as string);
       }
 
       await abrirHilo(conversacionId, nombre);

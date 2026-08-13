@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { tarjetaDesdeFila, tiraDelPase, type MetaRecompensa } from "./tarjeta";
 import { construirObjeto, contenidoDelObjeto } from "./google";
+import {
+  describirEscalon,
+  escalonesDeLaTira,
+  primeroQueSalga,
+  type EscalonTira,
+} from "./escalones-tira";
 import { TIPOS_TARJETA_ID, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 
 /**
@@ -218,5 +224,140 @@ describe("la banda en Google Wallet", () => {
     const sinFoto = objetoDeLaFila(fila("sellos", { pase_banner_url: null }));
     expect(conFoto.loyaltyPoints).toEqual(sinFoto.loyaltyPoints);
     expect(conFoto.textModulesData).toEqual(sinFoto.textModulesData);
+  });
+});
+
+// ── Cuando dibujar la tira FALLA ─────────────────────────────────────
+//
+// Lo de arriba decide QUÉ se dibuja. Esto decide qué pasa cuando sharp
+// no puede dibujarlo, que es el bug que dejó pases sin `strip.png`:
+// la escalera reintentaba quitando la banda y volvía a pasar el MISMO
+// logo —blanco sobre blanco después de comprimirse contra un fondo
+// blanco—, así que fallaba dos veces por la misma causa y el cliente
+// abría su tarjeta sin sellos, sin banda y sin nada.
+
+describe("la escalera de degradación de la tira", () => {
+  it("con banda y logo son tres escalones, y el último no lleva logo", () => {
+    expect(escalonesDeLaTira({ hayBanda: true, hayLogo: true })).toEqual([
+      { banda: true, logo: true },
+      { banda: false, logo: true },
+      { banda: false, logo: false },
+    ]);
+  });
+
+  it("sin logo no se inventa un escalón «sin logo» repetido", () => {
+    expect(escalonesDeLaTira({ hayBanda: true, hayLogo: false })).toEqual([
+      { banda: true, logo: false },
+      { banda: false, logo: false },
+    ]);
+  });
+
+  it("sin banda se arranca por el color", () => {
+    expect(escalonesDeLaTira({ hayBanda: false, hayLogo: true })).toEqual([
+      { banda: false, logo: true },
+      { banda: false, logo: false },
+    ]);
+  });
+
+  it("sin nada, un solo intento posible", () => {
+    expect(escalonesDeLaTira({ hayBanda: false, hayLogo: false })).toEqual([
+      { banda: false, logo: false },
+    ]);
+  });
+
+  it("nunca ofrece un escalón imposible", () => {
+    for (const hayBanda of [true, false]) {
+      for (const hayLogo of [true, false]) {
+        for (const e of escalonesDeLaTira({ hayBanda, hayLogo })) {
+          expect(e.banda && !hayBanda).toBe(false);
+          expect(e.logo && !hayLogo).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("cada escalón se cuenta distinto en los logs", () => {
+    const dichos = escalonesDeLaTira({ hayBanda: true, hayLogo: true }).map(describirEscalon);
+    expect(new Set(dichos).size).toBe(3);
+  });
+});
+
+describe("bajar la escalera hasta que algo salga", () => {
+  /** Un dibujante de mentira: falla según lo que traiga el escalón. */
+  function dibujante(falla: (e: EscalonTira) => boolean) {
+    const intentos: EscalonTira[] = [];
+    const dibujar = async (e: EscalonTira) => {
+      intentos.push(e);
+      if (falla(e)) throw new Error("Image is entirely blank");
+      return { "strip.png": `banda=${e.banda} logo=${e.logo}` };
+    };
+    return { intentos, dibujar };
+  }
+
+  it("si el primero sale, no se prueba nada más", async () => {
+    const { intentos, dibujar } = dibujante(() => false);
+    const salida = await primeroQueSalga(
+      escalonesDeLaTira({ hayBanda: true, hayLogo: true }),
+      dibujar,
+    );
+    expect(salida).toEqual({ "strip.png": "banda=true logo=true" });
+    expect(intentos).toHaveLength(1);
+  });
+
+  it("EL BUG: con el logo reventado, la tira igual sale — sin logo", async () => {
+    // Un logo blanco sobre transparente aplastado contra blanco hace que
+    // `trim()` responda «Image is entirely blank». Falla con banda y
+    // falla sin banda, porque el problema nunca fue la banda.
+    const { intentos, dibujar } = dibujante((e) => e.logo);
+    const salida = await primeroQueSalga(
+      escalonesDeLaTira({ hayBanda: true, hayLogo: true }),
+      dibujar,
+    );
+    expect(intentos).toHaveLength(3);
+    expect(intentos[2]).toEqual({ banda: false, logo: false });
+    // Lo que importa: HAY strip. Antes acá se devolvía {} y el pase
+    // llegaba al teléfono sin la tira entera.
+    expect(salida).toEqual({ "strip.png": "banda=false logo=false" });
+  });
+
+  it("sin banda y con el logo reventado, también termina en sellos pelados", async () => {
+    const { intentos, dibujar } = dibujante((e) => e.logo);
+    const salida = await primeroQueSalga(
+      escalonesDeLaTira({ hayBanda: false, hayLogo: true }),
+      dibujar,
+    );
+    expect(intentos).toHaveLength(2);
+    expect(salida).toEqual({ "strip.png": "banda=false logo=false" });
+  });
+
+  it("si solo falla la banda, se conserva el logo en los sellos", async () => {
+    const { dibujar } = dibujante((e) => e.banda);
+    const salida = await primeroQueSalga(
+      escalonesDeLaTira({ hayBanda: true, hayLogo: true }),
+      dibujar,
+    );
+    expect(salida).toEqual({ "strip.png": "banda=false logo=true" });
+  });
+
+  it("si falla TODO, null — y quien llama se queda sin strip, no sin pase", async () => {
+    const { intentos, dibujar } = dibujante(() => true);
+    const salida = await primeroQueSalga(
+      escalonesDeLaTira({ hayBanda: true, hayLogo: true }),
+      dibujar,
+    );
+    expect(intentos).toHaveLength(3);
+    expect(salida).toBeNull();
+  });
+
+  it("cada fallo se cuenta con el escalón que lo produjo", async () => {
+    const vistos: string[] = [];
+    const { dibujar } = dibujante((e) => e.logo);
+    await primeroQueSalga(escalonesDeLaTira({ hayBanda: true, hayLogo: true }), dibujar, (e, err) =>
+      vistos.push(`${describirEscalon(e)}: ${(err as Error).message}`),
+    );
+    expect(vistos).toEqual([
+      "los sellos con el logo, sobre la banda: Image is entirely blank",
+      "los sellos con el logo, sobre el color: Image is entirely blank",
+    ]);
   });
 });

@@ -1,6 +1,7 @@
 /**
  * Redimensiona una imagen en el navegador (canvas) a un lado máximo y
- * la reencoda como JPEG — una foto de celular de varios MB queda en
+ * la reencoda como JPEG —o como PNG, si se pide conservar el alfa y la
+ * imagen lo usa— para que una foto de celular de varios MB quede en
  * unos cientos de KB antes de tocar la red. Mismo criterio en toda la
  * plataforma (álbum digital, galería de negocio, equipo, catálogo,
  * invitaciones, comprobantes de pago): nace acá, en el álbum digital
@@ -46,9 +47,50 @@ export const FOTO_DE_VITRINA = { ladoMax: 2560, calidad: 0.9 } as const;
  */
 const YA_LIVIANA_BYTES = 300 * 1024;
 
+/**
+ * ¿Queda algún píxel translúcido?
+ *
+ * Se pregunta sobre el canvas YA dibujado, no sobre el archivo: es la
+ * única forma de saberlo sin decodificar el PNG a mano. Si el navegador
+ * no deja leerlo, se responde que sí — para un logo, el lado seguro es
+ * conservar el alfa.
+ */
+function tieneTransparencia(ctx: CanvasRenderingContext2D, ancho: number, alto: number): boolean {
+  try {
+    const { data } = ctx.getImageData(0, 0, ancho, alto);
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 255) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export async function comprimirImagen(
   archivo: File,
-  opts: { ladoMax?: number; calidad?: number } = {},
+  opts: {
+    ladoMax?: number;
+    calidad?: number;
+    /**
+     * UN LOGO ES UNA MARCA, NO UNA FOTO.
+     *
+     * Con esto en true, una imagen con transparencia se guarda PNG con
+     * su alfa intacto en vez de JPEG aplastado contra un fondo blanco.
+     *
+     * No es una preferencia estética: el pase de Wallet tiene fondo
+     * navy, así que la mitad de las marcas suben su logo BLANCO sobre
+     * transparente. Aplastado contra blanco queda blanco sobre blanco, y
+     * `sharp(...).trim()` —que el generador usa para quitarle el margen
+     * al logo— responde «Image is entirely blank» y revienta. El cliente
+     * terminaba con un pase sin logo y, hasta que se arregló la escalera
+     * de degradación, sin la tira de sellos entera.
+     *
+     * Se queda en false para las fotos y las bandas, donde el JPEG sí
+     * corresponde: una foto no tiene alfa y en PNG pesaría de más.
+     */
+    conservarAlfa?: boolean;
+  } = {},
 ): Promise<File> {
   // No es una imagen rasterizable (SVG incluido: es vectorial, canvas
   // lo destruiría) — se sube tal cual.
@@ -82,27 +124,40 @@ export async function comprimirImagen(
     canvas.height = alto;
     const ctx = canvas.getContext("2d");
     if (!ctx) return archivo;
+
+    const conservarAlfa = opts.conservarAlfa === true;
+
     // El JPEG no tiene canal alfa: lo transparente de un PNG salía
     // NEGRO al encodear (el canvas nace con píxeles transparentes y
     // toBlob los aplasta a 0,0,0). Pintar el fondo blanco antes de
-    // dibujar es lo que espera cualquiera que sube un logo o un flyer
+    // dibujar es lo que espera cualquiera que sube una foto o un flyer
     // con fondo recortado.
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, ancho, alto);
+    //
+    // Con `conservarAlfa` NO se pinta: la transparencia se decide
+    // mirando el resultado. Si la imagen igual es opaca —una foto—, el
+    // canvas queda idéntico al de siempre y sale JPEG como siempre.
+    if (!conservarAlfa) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, ancho, alto);
+    }
     ctx.drawImage(img, 0, 0, ancho, alto);
 
+    const alfa = conservarAlfa && tieneTransparencia(ctx, ancho, alto);
+    const tipo = alfa ? "image/png" : "image/jpeg";
+
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", calidad),
+      canvas.toBlob(resolve, tipo, calidad),
     );
     if (!blob) return archivo;
 
     // Red de seguridad: un PNG chico de pocos colores puede salir MÁS
-    // pesado como JPEG. Si pasó eso y encima no hubo que achicar la
-    // imagen, gana el original.
+    // pesado como JPEG (y un PNG re-encodeado, más pesado que el que
+    // vino). Si pasó eso y encima no hubo que achicar la imagen, gana el
+    // original — que además conserva su alfa, si lo tenía.
     if (escala === 1 && blob.size >= archivo.size) return archivo;
 
-    const nombre = archivo.name.replace(/\.[^./]+$/, "") + ".jpg";
-    return new File([blob], nombre, { type: "image/jpeg" });
+    const nombre = archivo.name.replace(/\.[^./]+$/, "") + (alfa ? ".png" : ".jpg");
+    return new File([blob], nombre, { type: tipo });
   } catch {
     return archivo;
   } finally {

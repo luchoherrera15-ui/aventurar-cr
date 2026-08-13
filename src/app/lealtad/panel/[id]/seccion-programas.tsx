@@ -86,7 +86,7 @@ export default function SeccionProgramas({
         </p>
         <p className="mx-auto mt-1.5 max-w-[420px] text-[13.5px] leading-relaxed text-white/55">
           Creá la primera y tus clientes van a poder llevarla en el teléfono. Se arma en
-          cinco pasos y nace en borrador — nada se publica sin que vos lo digas.
+          cinco pasos, con una última mirada antes de publicarla.
         </p>
         {puedeCrear ? (
           <Link
@@ -120,7 +120,8 @@ export default function SeccionProgramas({
             </p>
             <p className="mt-1 text-[12.5px] leading-relaxed text-white/60">
               Las que ya tenés siguen funcionando y sus clientes no pierden nada. Para crear
-              otra, archivá una o subí de paquete.
+              otra, archivá una desde <strong className="font-bold">Recompensas → Estado del
+              programa</strong> —el cupo se libera al instante— o subí de paquete.
             </p>
             <Link
               href={`/lealtad/planes?negocio=${ranchoId}`}

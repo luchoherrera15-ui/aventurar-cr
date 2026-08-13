@@ -968,6 +968,97 @@ export function plantillaCitaNuevaProveedor({
   });
 }
 
+/** Tope del mensaje que se copia adentro del correo (la columna admite
+ *  2000, pero un correo con la novela entera no lo lee nadie). */
+const LARGO_MENSAJE_EN_CORREO = 1500;
+
+/**
+ * Mensaje nuevo del chat — el aviso que reemplaza al correo de "reserva
+ * nueva" para los proveedores de servicios de eventos, que desde el
+ * cambio a agenda por consulta ya no reciben reservas sino hilos de
+ * chat.
+ *
+ * Sale UNA vez por conversación abierta (o después de mucho silencio):
+ * el criterio vive en src/lib/correo/aviso-mensaje.ts. Es
+ * transaccional — el trabajo entrando al negocio —, así que no lleva
+ * link de baja, igual que el aviso de reserva nueva.
+ */
+export function plantillaMensajeNuevo({
+  nombreDestinatario,
+  nombreNegocio,
+  nombreQuienEscribe,
+  textoMensaje,
+  urlHilo,
+  paraProveedor,
+  esPrimerMensaje,
+}: {
+  nombreDestinatario: string;
+  nombreNegocio: string;
+  /** Quién escribió — "Un cliente" cuando la consulta es anónima. */
+  nombreQuienEscribe: string;
+  textoMensaje: string;
+  /** El link directo AL HILO, no a la bandeja. */
+  urlHilo: string;
+  /** true = le llega al dueño del negocio; false = al cliente. */
+  paraProveedor: boolean;
+  esPrimerMensaje: boolean;
+}) {
+  const destinatario = escaparHtml(nombreDestinatario);
+  const negocio = escaparHtml(nombreNegocio);
+  const quien = escaparHtml(nombreQuienEscribe);
+  const recortado =
+    textoMensaje.length > LARGO_MENSAJE_EN_CORREO
+      ? `${textoMensaje.slice(0, LARGO_MENSAJE_EN_CORREO).trimEnd()}…`
+      : textoMensaje;
+  // Escapar PRIMERO y recién después los saltos de línea: al revés, los
+  // <br> que se acaban de poner se escaparían a sí mismos. El resumen
+  // que arma la agenda viene en varias líneas y se lee así.
+  const cuerpoMensaje = escaparHtml(recortado).replace(/\n/g, "<br />");
+
+  const intro = paraProveedor
+    ? `<strong style="color:#101a2c;">${quien}</strong> ${
+        esPrimerMensaje ? "te escribió una consulta" : "te escribió"
+      } por el chat de <strong style="color:#101a2c;">${negocio}</strong>.
+       Contestale desde acá — en este tipo de servicio, el que responde primero
+       se queda con el cliente.`
+    : `<strong style="color:#101a2c;">${negocio}</strong> te escribió por el chat
+       de Bookea. Podés seguir la conversación desde el mismo hilo.`;
+
+  return layout({
+    kicker: paraProveedor
+      ? esPrimerMensaje
+        ? "Consulta nueva"
+        : "Mensaje nuevo"
+      : "Te escribieron",
+    cuerpoHtml: `
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+        Hola ${destinatario},
+      </div>
+      <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
+        ${intro}
+      </p>
+
+      <div style="background:#f6f7f9;border:1px solid #e2e4ea;border-left:3px solid #ee7420;border-radius:12px;padding:16px 18px;margin:22px 0;color:#101a2c;font-size:14px;line-height:1.65;">
+        ${cuerpoMensaje}
+      </div>
+
+      <div style="padding:6px 0 4px;">
+        <a href="${urlHilo}" style="display:inline-block;background:#16295e;color:#ffffff;text-decoration:none;font-size:13.5px;font-weight:700;padding:12px 22px;border-radius:10px;">
+          ${paraProveedor ? "Responder la consulta" : "Abrir el chat"}
+        </a>
+      </div>
+
+      <p style="margin:18px 0 4px;color:#5b6472;font-size:13px;line-height:1.6;">
+        Este aviso sale cuando se abre una conversación —o cuando vuelve a
+        moverse después de un buen rato—, no por cada mensaje.
+      </p>
+    `,
+    pie: paraProveedor
+      ? "Recibís este correo porque administrás un negocio publicado en Bookea."
+      : "Recibiste este correo porque tenés una conversación abierta en Bookea.",
+  });
+}
+
 /**
  * Campaña de correo del admin (novedades, anuncios): título grande en
  * la tarjeta navy, el mensaje en la tarjeta blanca y CTA opcional.

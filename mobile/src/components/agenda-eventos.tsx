@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { abrirHiloConsulta } from "@/lib/consulta";
+import { abrirHiloConsulta, mandarPrimerMensajeConsulta } from "@/lib/consulta";
 import { Aviso, Casilla, Micro, Opcion, RejillaHoras } from "@/components/ui";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
@@ -294,10 +294,13 @@ export default function AgendaEventos({
     });
 
     // Si el insert falla, el hilo igual quedó abierto: es mejor llevar a
-    // la persona al chat vacío que dejarla tocando un botón muerto.
-    await supabase.from("mensajes").insert({
-      conversacion_id: convId,
-      autor_id: session.user.id,
+    // la persona al chat vacío que dejarla tocando un botón muerto. El
+    // helper también le pide al servidor que avise al proveedor (push y
+    // correo): sin eso, la consulta se queda esperando en un chat que
+    // nadie abre.
+    await mandarPrimerMensajeConsulta({
+      conversacionId: convId,
+      autorId: session.user.id,
       texto,
     });
 

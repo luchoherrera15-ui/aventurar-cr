@@ -7,7 +7,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
+import { minutoISOCR } from "@/lib/fechas";
 import { estadoAlCrear } from "./estado-inicial";
+import { cupoLleno, lasQueOcupanCupo, tarjetaDelCupo } from "./cupo-tarjetas";
 import {
   esTipoTarjeta,
   metaDe,
@@ -185,25 +187,35 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     // Se piden los NOMBRES y no solo el conteo: un «llegaste al tope»
     // sin decir qué lo ocupa es un callejón sin salida. Le pasó al
     // dueño con una tarjeta en borrador que ninguna pantalla mostraba.
-    const consulta = db
-      .from("programa_lealtad")
-      .select("id, nombre, estado")
-      .neq("estado", "archivado");
+    //
+    // `select *` y el filtro EN CÓDIGO, no un `.neq("estado", ...)`:
+    //   · el criterio tiene que ser LITERALMENTE el mismo que pinta el
+    //     panel (`cupo-tarjetas.ts`), o archivar no libera lo que el
+    //     aviso promete que libera;
+    //   · en SQL, `estado <> 'archivado'` también descarta las filas con
+    //     `estado` NULL —las anteriores a la 0125—, que están vivas;
+    //   · y una lista de columnas explícita se rompe entera contra una
+    //     base que va una migración atrás.
+    const consulta = db.from("programa_lealtad").select("*");
     const { data: ocupan } = cuentaId
       ? await consulta.eq("cuenta_id", cuentaId)
       : await consulta.eq("rancho_id", datos.ranchoId);
 
-    const existentes = ocupan ?? [];
-    if (existentes.length >= topeProgramas) {
+    const ahoraCR = minutoISOCR();
+    const existentes = lasQueOcupanCupo(
+      ((ocupan ?? []) as Record<string, unknown>[]).map(tarjetaDelCupo),
+      ahoraCR,
+    );
+    if (cupoLleno({ ocupadas: existentes.length, tope: topeProgramas })) {
       const nombres = existentes
-        .map((p) => `«${p.nombre as string}»${p.estado === "borrador" ? " (en borrador)" : ""}`)
+        .map((p) => `«${p.nombre}»${p.estado === "borrador" ? " (en borrador)" : ""}`)
         .join(", ");
       return {
         ok: false,
         motivo:
           `Tu paquete permite ${topeProgramas} tarjeta${topeProgramas === 1 ? "" : "s"} y ya ` +
-          `${existentes.length === 1 ? "tenés" : "tenés"} ${nombres}. ` +
-          `Archivá esa desde Recompensas → Estado del programa, o subí de paquete para tener más.`,
+          `tenés ${nombres}. ` +
+          `Archivá una desde Recompensas → Estado del programa, o subí de paquete para tener más.`,
       };
     }
   }

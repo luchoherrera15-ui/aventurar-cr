@@ -10,6 +10,8 @@ import {
 } from "@/lib/lealtad/plantillas-poster";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { coloresDe, metaDeSellos, type ConfigPase } from "@/lib/wallet/tarjeta";
+import { elegirDeFilasCrudas } from "@/lib/wallet/programa-principal";
+import { minutoISOCR } from "@/lib/fechas";
 import BotonImprimir from "./boton-imprimir";
 import HojaPoster, { type DatosHoja } from "./hoja-poster";
 import Personalizador from "./personalizador";
@@ -85,10 +87,22 @@ export default async function PosterPage({
 
   // Con la llave de servicio: el programa puede estar pausado y la RLS
   // no se lo mostraría a un colaborador.
+  //
+  // Y sin `.maybeSingle()`: desde que la 0134 quitó el
+  // `unique(rancho_id)`, un negocio con dos tarjetas hacía que la
+  // consulta devolviera error y `data` en null — el póster salía con los
+  // colores por defecto y sin la regalía, que es justo lo que se
+  // imprime y se pega en la caja. Cuál manda lo decide `elegirPrograma`,
+  // la misma elección del panel y de la página del QR: la hoja impresa
+  // muestra la tarjeta que el cliente va a recibir.
   const db = createAdminClient();
-  const { data: programa } = db
-    ? await db.from("programa_lealtad").select("*").eq("rancho_id", id).maybeSingle()
-    : { data: null };
+  const { data: filasPrograma } = db
+    ? await db.from("programa_lealtad").select("*").eq("rancho_id", id)
+    : { data: [] };
+  const programa = elegirDeFilasCrudas(
+    (filasPrograma ?? []) as Record<string, unknown>[],
+    minutoISOCR(),
+  );
 
   const { data: recompensa } = db && programa
     ? await db
