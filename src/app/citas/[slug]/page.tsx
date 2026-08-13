@@ -18,7 +18,13 @@ import {
   normalizarCategoriaCita,
 } from "../tipos";
 import { cargarAgendaPro } from "../agenda-pro";
-import { linkGoogleMaps, type Rancho, type RanchoItem } from "@/app/mi-negocio/types";
+import { linkGoogleMaps, type RanchoItem } from "@/app/mi-negocio/types";
+import {
+  COLUMNAS_CITAS,
+  COLUMNAS_CITAS_JOVENES,
+  pedirFila,
+  type RanchoPublico,
+} from "@/lib/ranchos-publicos";
 import ProveedorActual from "@/components/proveedor-actual";
 import BotonConsultar from "@/components/boton-consultar";
 import VisitasPagina from "@/components/visitas-pagina";
@@ -52,29 +58,32 @@ export default async function NegocioCitasPage({
   //
   // Por slug (la URL bonita) y si no, por id — para negocios recién
   // creados que aún no tienen slug.
-  const [sesion, negocioRes] = await Promise.all([
-    supabase.auth.getUser(),
+  //
+  // Lista explícita y no `select("*")`: con `*` esta consulta traía
+  // `sinpe_numero` y `sinpe_titular`, y de acá pasaban a `agendaProps`,
+  // que va a tres componentes `"use client"` — o sea que el SINPE del
+  // negocio quedaba escrito en el HTML público de su ficha (ver el
+  // comentario grande de @/lib/ranchos-publicos).
+  const buscarPor = (campo: "slug" | "id", valor: string) => (columnas: string) =>
     supabase
       .from("ranchos")
-      .select("*")
-      .eq("slug", slug)
+      .select(columnas)
+      .eq(campo, valor)
       .eq("vertical", "citas")
       .eq("estado", "aprobado")
-      .maybeSingle(),
+      .maybeSingle();
+
+  const [sesion, filaPorSlug] = await Promise.all([
+    supabase.auth.getUser(),
+    pedirFila(buscarPor("slug", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES),
   ]);
   const user = sesion.data.user;
-  let { data } = negocioRes;
+  let data = filaPorSlug;
   if (!data && /^[0-9a-f-]{36}$/.test(slug)) {
-    ({ data } = await supabase
-      .from("ranchos")
-      .select("*")
-      .eq("id", slug)
-      .eq("vertical", "citas")
-      .eq("estado", "aprobado")
-      .maybeSingle());
+    data = await pedirFila(buscarPor("id", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES);
   }
 
-  const negocio = data as unknown as (Rancho & { vertical: string }) | null;
+  const negocio = data as unknown as (RanchoPublico & { vertical: string }) | null;
   if (!negocio) notFound();
 
   // Los contadores del negocio (citas agendadas, clientes atendidos y
@@ -230,17 +239,17 @@ export default async function NegocioCitasPage({
     agendaPro: {
       zonaHoraria: negocio.zona_horaria ?? "America/Costa_Rica",
       ...agendaPro,
-      // Depósito para asegurar la cita (0095) + la cuenta SINPE para
-      // las instrucciones. Con la base sin migrar quedan undefined →
-      // sin depósito, el flujo de siempre.
+      // Depósito para asegurar la cita (0095). Con la base sin migrar
+      // queda undefined → sin depósito, el flujo de siempre.
+      //
+      // La cuenta SINPE ya NO viaja acá: estas props se serializan en
+      // el HTML público. Las instrucciones del depósito se muestran
+      // después de agendar, con lo que devuelve `crearCita` — o sea
+      // solo a quien tiene la cita hecha en este negocio.
       deposito: (() => {
         const bruto = (negocio as Record<string, unknown>).deposito_citas;
         return typeof bruto === "number" || typeof bruto === "string" ? Number(bruto) : null;
       })(),
-      sinpe: {
-        numero: ((negocio as Record<string, unknown>).sinpe_numero as string | null) ?? null,
-        titular: ((negocio as Record<string, unknown>).sinpe_titular as string | null) ?? null,
-      },
     },
     sesionActiva: !!user,
     nombreInicial: perfil?.nombre ?? "",

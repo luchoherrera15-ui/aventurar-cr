@@ -19,9 +19,13 @@ import {
   terminosPorDefecto,
   type Categoria,
   type PromocionDia,
-  type Rancho,
   type RanchoItem,
 } from "@/app/mi-negocio/types";
+import {
+  leerCuentasDeCobro,
+  SIN_CUENTAS,
+  type RanchoPublico,
+} from "@/lib/ranchos-publicos";
 import type {
   DiaDisponibilidad,
   PrecioTier,
@@ -175,7 +179,7 @@ async function datosDeServicio(
   };
 }
 
-export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
+export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }) {
   const supabase = await createClient();
 
   // Esta página solo se renderiza para negocios de la vertical Eventos
@@ -252,6 +256,27 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
       puedeModificar = perfil?.rol === "admin";
     }
   }
+
+  /* Los datos de cobro NO vienen con la fila del negocio: la ficha es
+   * pública y todo lo que entre acá con la fila termina, tarde o
+   * temprano, dentro del HTML que ve Googlebot (ver el comentario
+   * grande de @/lib/ranchos-publicos).
+   *
+   * Un LUGAR ya no los necesita en esta página: el calendario los
+   * recibe recién cuando la persona toma su fecha, en la respuesta de
+   * `crearReservaTemporal` — o sea, cuando tiene un hold a su nombre en
+   * ESTE negocio. Por eso acá se piden solo para los SERVICIOS, que no
+   * tienen hold: su formulario pide pagar el depósito y subir el
+   * comprobante en el mismo envío, así que las cuentas tienen que estar
+   * puestas antes de que la persona empiece.
+   *
+   * Consulta APARTE y solo con sesión: sin sesión el formulario de
+   * servicio ni siquiera se monta (abajo se muestra "Iniciá sesión para
+   * reservar"), así que un anónimo nunca dispara este viaje a la base.
+   * Es un gate más flojo que el del hold — abrir cuenta es gratis — y
+   * queda anotado como tal en el informe. */
+  const cuentas =
+    !esLugar && user ? await leerCuentasDeCobro(supabase, rancho.id) : SIN_CUENTAS;
 
   // En configuración: el dueño todavía la está armando y no quiere que
   // le entren reservas a medias. La página no se abre para nadie más —
@@ -360,11 +385,12 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
 
   // La config de la modalidad por_persona (0103), tal cual del jsonb.
   // La columna puede no existir todavía en la base (la migración la pega
-  // el dueño a mano): como las páginas cargan la fila con select("*"),
-  // sin columna esto llega undefined y queda en null — el calendario la
-  // valida con parsearPrecioPorPersona y cotiza como siempre.
+  // el dueño a mano): las páginas la piden dentro de las columnas
+  // JÓVENES y reintentan sin ellas si la base todavía no las tiene, así
+  // que sin columna esto llega undefined y queda en null — el
+  // calendario la valida con parsearPrecioPorPersona y cotiza igual.
   const precioPorPersonaCrudo =
-    (rancho as Rancho & { precio_por_persona?: unknown }).precio_por_persona ?? null;
+    (rancho as RanchoPublico & { precio_por_persona?: unknown }).precio_por_persona ?? null;
 
   return (
     <div
@@ -628,12 +654,6 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
           horarios={rancho.horarios_bloques ?? []}
           capacidadMax={rancho.capacidad_max}
           compacto
-          sinpeNumero={rancho.sinpe_numero}
-          sinpeTitular={rancho.sinpe_titular}
-          cuentaBanco={rancho.cuenta_banco}
-          cuentaNumero={rancho.cuenta_numero}
-          cuentaTitular={rancho.cuenta_titular}
-          cuentaTipo={rancho.cuenta_tipo}
           descripcion={rancho.descripcion}
         />
         </ReservaModal>
@@ -718,12 +738,12 @@ export default async function RanchoPortal({ rancho }: { rancho: Rancho }) {
               etiquetaCatalogo={etiquetaCatalogo}
               detalles={rancho.detalles ?? null}
               depositoReserva={rancho.deposito_reserva ?? 0}
-              sinpeNumero={rancho.sinpe_numero}
-              sinpeTitular={rancho.sinpe_titular}
-              cuentaBanco={rancho.cuenta_banco}
-              cuentaNumero={rancho.cuenta_numero}
-              cuentaTitular={rancho.cuenta_titular}
-              cuentaTipo={rancho.cuenta_tipo}
+              sinpeNumero={cuentas.sinpeNumero}
+              sinpeTitular={cuentas.sinpeTitular}
+              cuentaBanco={cuentas.cuentaBanco}
+              cuentaNumero={cuentas.cuentaNumero}
+              cuentaTitular={cuentas.cuentaTitular}
+              cuentaTipo={cuentas.cuentaTipo}
               disponibilidad={disponibilidadServicioPorDia}
               eventosPorDia={rancho.eventos_por_dia ?? null}
               montoMinimo={rancho.monto_minimo ?? null}

@@ -12,7 +12,6 @@ import Planificador from "@/components/planificador/planificador-lazy";
 import { EsqueletoFiltros, EsqueletoGrilla } from "../esqueleto";
 import { normalizarCategoria } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
-
 /**
  * Las ÚNICAS columnas que las tarjetas del directorio leen (verificado
  * campo por campo contra rancho-card.tsx, rancho-card-grande.tsx,
@@ -31,11 +30,12 @@ import type { Rancho } from "../mi-negocio/types";
  *    ahorro va al triple en el HTML.
  *
  * Si se agrega un campo a una tarjeta, hay que sumarlo acá.
+ *
+ * La lista se mudó a @/lib/ranchos-publicos —donde vive también el
+ * mismo criterio aplicado a las FICHAS individuales, que arrastraban la
+ * fuga que este comentario ya describía— y /hospedajes usa la misma.
  */
-const COLUMNAS_CARD =
-  "id, slug, nombre, descripcion, categoria, subcategoria, provincia, canton, " +
-  "capacidad_min, capacidad_max, precio_desde, unidad_precio, foto_url, fotos, " +
-  "detalles, destacado_orden, created_at, vertical";
+import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
 
 /**
  * El armazón de /eventos: todo lo que se puede pintar SIN esperar a la

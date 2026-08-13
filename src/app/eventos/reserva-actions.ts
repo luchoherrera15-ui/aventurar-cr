@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notificarReservaCompletada } from "@/lib/notificaciones-reserva";
+import { leerCuentasDeCobro, SIN_CUENTAS } from "@/lib/ranchos-publicos";
 import type { HorarioBloque } from "./tipos-lugar";
 
 const MINUTOS_HOLD = 10;
@@ -29,8 +30,27 @@ async function obtenerIp() {
   return h.get("x-real-ip") ?? "desconocida";
 }
 
+/**
+ * Toma una fecha por 10 minutos y, si sale, devuelve JUNTO con el hold
+ * los datos de cobro del negocio.
+ *
+ * Que vengan de acá y no de la página es lo que cierra la fuga: la
+ * ficha de un lugar es pública y cualquier dato que le pase al
+ * calendario (que es `"use client"`) queda escrito en el HTML, a la
+ * vista de Googlebot y de cualquier anónimo con un `curl`. En cambio
+ * esta respuesta solo la recibe quien acaba de tomar una fecha de ESTE
+ * negocio: tiene el hold a su nombre, verificado por IP, y los topes de
+ * acá arriba (2 fechas tomadas a la vez, 20 intentos cada 10 minutos)
+ * hacen que raspar las cuentas de todos los proveedores deje de ser
+ * gratis. No alcanza con tener cuenta — hay que estar reservando.
+ *
+ * Las cuentas se piden en paralelo con los controles anti-bot: si el
+ * hold sale, ya están listas y el paso "Cómo pagar" no espera otro
+ * viaje a la base.
+ */
 export async function crearReservaTemporal(ranchoId: string, fecha: string) {
   const supabase = await createClient();
+  const cuentasPromesa = leerCuentasDeCobro(supabase, ranchoId);
   const ip = await obtenerIp();
   const nowIso = new Date().toISOString();
   const expiraEn = new Date(Date.now() + MINUTOS_HOLD * 60 * 1000).toISOString();
@@ -45,6 +65,7 @@ export async function crearReservaTemporal(ranchoId: string, fecha: string) {
     return {
       id: null,
       expiraEn: null,
+      cuentas: SIN_CUENTAS,
       error:
         "Hiciste demasiados intentos de reserva en poco tiempo. Esperá unos minutos e intentá de nuevo.",
     };
@@ -89,6 +110,7 @@ export async function crearReservaTemporal(ranchoId: string, fecha: string) {
     return {
       id: null,
       expiraEn: null,
+      cuentas: SIN_CUENTAS,
       error:
         "Tenés fechas bloqueadas en otros lugares. Completá esas reservas o esperá a que se liberen antes de elegir otra.",
     };
@@ -112,15 +134,17 @@ export async function crearReservaTemporal(ranchoId: string, fecha: string) {
       return {
         id: null,
         expiraEn: null,
+        cuentas: SIN_CUENTAS,
         error:
           "Justo ahora otra persona reservó temporalmente esta fecha. Esperá unos minutos o elegí otro día.",
       };
     }
-    return { id: null, expiraEn: null, error: error.message };
+    return { id: null, expiraEn: null, cuentas: SIN_CUENTAS, error: error.message };
   }
   return {
     id: data.id as string,
     expiraEn: data.expira_en as string,
+    cuentas: await cuentasPromesa,
     error: null,
   };
 }

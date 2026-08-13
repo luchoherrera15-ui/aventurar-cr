@@ -5,6 +5,7 @@ import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
 import type { Rancho } from "@/app/mi-negocio/types";
+import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
 
 export const metadata = {
   title: "Booking Hospedajes — Bookea",
@@ -36,16 +37,22 @@ export default async function HospedajesPage() {
     { data: califData },
   ] = await Promise.all([
     supabase.auth.getUser(),
+    // Las mismas columnas que /eventos, y por el mismo motivo: con
+    // `select("*")` este directorio le servía a cualquier anónimo el
+    // SINPE y la cuenta bancaria de TODOS los hospedajes de la lista,
+    // no de uno (ver el comentario grande de @/lib/ranchos-publicos).
     supabase
       .from("ranchos")
-      .select("*")
+      .select(COLUMNAS_CARD)
       .eq("vertical", "hospedajes")
       .eq("estado", "aprobado")
       .order("destacado_orden", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false }),
     supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
   ]);
-  const hospedajes = (ranchosData ?? []) as Rancho[];
+  // Mismo cast (y mismo motivo) que /eventos: la tarjeta pide el tipo
+  // `Rancho` completo pero solo lee las columnas de COLUMNAS_CARD.
+  const hospedajes = (ranchosData ?? []) as unknown as Rancho[];
 
   const favoritosRes = user
     ? await supabase.from("favoritos").select("rancho_id").eq("cliente_id", user.id)

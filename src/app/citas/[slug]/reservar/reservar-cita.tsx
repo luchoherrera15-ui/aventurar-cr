@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fmtColones } from "@/lib/finanzas";
 import { IconCalendarLine, IconClock, IconPin, IconStar } from "@/components/icons";
 import BotonConsultar from "@/components/boton-consultar";
-import { crearCita } from "../../actions";
+import { crearCita, type SinpeDelNegocio } from "../../actions";
 import { apuntarseListaEspera } from "../../lista-espera-actions";
 import { etiquetaMinutos, horaBonita, type HorarioSemana } from "../../tipos";
 import { seccionesEnOrden } from "@/lib/catalogo";
@@ -66,8 +66,10 @@ export type DatosAgendaPro = {
   serviciosRecurso: ServicioRecurso[];
   /** Depósito para asegurar la cita (0095); null/ausente = sin depósito. */
   deposito?: number | null;
-  /** Cuenta SINPE del negocio para las instrucciones del depósito. */
-  sinpe?: { numero: string | null; titular: string | null } | null;
+  /* La cuenta SINPE NO va acá: estas props se serializan dentro del
+     HTML público de la ficha del negocio, así que el número quedaba a
+     la vista de cualquier anónimo (ver @/lib/ranchos-publicos). Llega
+     en la respuesta de `crearCita`, cuando la cita ya está hecha. */
 };
 
 /** Sin horario configurado, el negocio "abre" 8–18 todos los días —
@@ -132,7 +134,6 @@ export default function ReservarCita({
   miembroInicial = null,
   resumen,
   deposito = null,
-  sinpe = null,
   onVolverServicios,
 }: {
   ranchoId: string;
@@ -161,8 +162,6 @@ export default function ReservarCita({
   /** Depósito para asegurar la cita (ranchos.deposito_citas, 0095).
    * null o 0 = sin depósito, el flujo de siempre. */
   deposito?: number | null;
-  /** La cuenta SINPE del negocio, para las instrucciones del depósito. */
-  sinpe?: { numero: string | null; titular: string | null } | null;
   /** En el modal: vuelve a la lista de servicios (lo cierra). Sin esto,
    * la miga "Servicios" navega a la página del negocio. */
   onVolverServicios?: () => void;
@@ -193,6 +192,10 @@ export default function ReservarCita({
   const [notas, setNotas] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null); // reservaId
+  // A qué SINPE depositar. Llega con la cita ya creada, no con la
+  // página: la ficha del negocio es pública y lo que entra por props
+  // termina escrito en su HTML.
+  const [sinpe, setSinpe] = useState<SinpeDelNegocio | null>(null);
   const [pending, startTransition] = useTransition();
   // Lista de espera (0095): "avisame si se libera un espacio ese día".
   const [espera, setEspera] = useState<"nada" | "guardando" | "listo">("nada");
@@ -424,6 +427,7 @@ export default function ReservarCita({
           data: { nombre: nombre.trim(), whatsapp: telefono.trim() },
         });
       }
+      setSinpe(res.sinpe);
       setExito(res.reservaId);
     });
   }

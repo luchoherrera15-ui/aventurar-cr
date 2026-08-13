@@ -5,6 +5,11 @@ import SiteHeader from "@/components/site-header";
 import ReservarCita from "./reservar-cita";
 import { horarioDeDetalles } from "../../tipos";
 import { cargarAgendaPro } from "../../agenda-pro";
+import {
+  COLUMNAS_CITAS,
+  COLUMNAS_CITAS_JOVENES,
+  pedirFila,
+} from "@/lib/ranchos-publicos";
 
 const CAMPOS_SERVICIO = "id, nombre, precio, duracion_minutos, buffer_min, grupo";
 /** Política de reserva (0118). Las pega el dueño a mano en el SQL
@@ -49,23 +54,35 @@ export default async function ReservarCitaPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let { data } = await supabase
-    .from("ranchos")
-    .select("*")
-    .eq("slug", slug)
-    .eq("vertical", "citas")
-    .eq("estado", "aprobado")
-    .maybeSingle();
-  if (!data && /^[0-9a-f-]{36}$/.test(slug)) {
-    ({ data } = await supabase
+  // Lista explícita y no `select("*")`: esta pantalla es pública (se
+  // puede llegar por link directo desde un correo) y con `*` el SINPE
+  // del negocio terminaba escrito en su HTML — ver el comentario grande
+  // de @/lib/ranchos-publicos.
+  const buscarPor = (campo: "slug" | "id", valor: string) => (columnas: string) =>
+    supabase
       .from("ranchos")
-      .select("*")
-      .eq("id", slug)
+      .select(columnas)
+      .eq(campo, valor)
       .eq("vertical", "citas")
       .eq("estado", "aprobado")
-      .maybeSingle());
+      .maybeSingle();
+
+  let fila = await pedirFila(buscarPor("slug", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES);
+  if (!fila && /^[0-9a-f-]{36}$/.test(slug)) {
+    fila = await pedirFila(buscarPor("id", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES);
   }
-  if (!data) notFound();
+  if (!fila) notFound();
+  const data = fila as {
+    id: string;
+    slug: string | null;
+    nombre: string;
+    detalles: Record<string, unknown> | null;
+    zona_horaria: string | null;
+    foto_url: string | null;
+    canton: string | null;
+    provincia: string | null;
+    deposito_citas?: number | string | null;
+  };
 
   const [
     { data: itemsData },
@@ -140,10 +157,6 @@ export default async function ReservarCitaPage({
                 ? Number(data.deposito_citas)
                 : null
             }
-            sinpe={{
-              numero: (data.sinpe_numero as string | null) ?? null,
-              titular: (data.sinpe_titular as string | null) ?? null,
-            }}
             resumen={{
               fotoUrl: data.foto_url,
               promedio: calif?.promedio ?? null,

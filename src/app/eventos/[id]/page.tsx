@@ -1,9 +1,15 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { normalizarCategoria, type Rancho } from "@/app/mi-negocio/types";
+import { normalizarCategoria } from "@/app/mi-negocio/types";
 import RanchoPortal from "../rancho-portal";
 import EsqueletoPortal from "../esqueleto-portal";
+import {
+  COLUMNAS_PORTAL,
+  COLUMNAS_PORTAL_JOVENES,
+  pedirFila,
+  type RanchoPublico,
+} from "@/lib/ranchos-publicos";
 
 /**
  * Enlace legado (bookea.lat/eventos/<uuid>): sigue
@@ -19,20 +25,29 @@ export default async function RanchoPortalPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("ranchos")
-    .select("*")
-    .eq("id", id)
-    .eq("estado", "aprobado")
-    .maybeSingle();
+  // La misma lista explícita que /[slug] — sin los datos de cobro del
+  // proveedor, que con `select("*")` terminaban en el HTML público
+  // (ver @/lib/ranchos-publicos).
+  const data = await pedirFila(
+    (columnas) =>
+      supabase
+        .from("ranchos")
+        .select(columnas)
+        .eq("id", id)
+        .eq("estado", "aprobado")
+        .maybeSingle(),
+    COLUMNAS_PORTAL,
+    COLUMNAS_PORTAL_JOVENES,
+  );
 
   if (!data) notFound();
 
   // Se normaliza la categoría al leer: una fila que todavía no pasó por
   // la migración de taxonomía sigue mostrándose bien.
+  const fila = data as unknown as RanchoPublico;
   const rancho = {
-    ...(data as Rancho),
-    categoria: normalizarCategoria((data as Rancho).categoria),
+    ...fila,
+    categoria: normalizarCategoria(fila.categoria),
   };
 
   if (rancho.slug) {

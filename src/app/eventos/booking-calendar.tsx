@@ -21,6 +21,7 @@ import {
   crearReservaTemporal,
 } from "./reserva-actions";
 import OfertaInvitacionCard from "@/components/oferta-invitacion-card";
+import { SIN_CUENTAS, type CuentasCobro } from "@/lib/ranchos-publicos";
 import type { DiaDisponibilidad, PrecioTier, ServicioAdicional } from "./tipos-lugar";
 import { terminosPorDefecto } from "@/app/mi-negocio/types";
 import type { PromocionDia } from "@/app/mi-negocio/types";
@@ -104,12 +105,6 @@ export default function BookingCalendar({
   horarios = [],
   compacto = false,
   descripcion = null,
-  sinpeNumero = null,
-  sinpeTitular = null,
-  cuentaBanco = null,
-  cuentaNumero = null,
-  cuentaTitular = null,
-  cuentaTipo = null,
   capacidadMax = null,
 }: {
   ranchoId: string;
@@ -148,13 +143,12 @@ export default function BookingCalendar({
    *  descripción arriba); solo el título de sección y el calendario. */
   compacto?: boolean;
   descripcion?: string | null;
-  /** Datos de cobro del proveedor; vacío = esa forma de pago no se ofrece. */
-  sinpeNumero?: string | null;
-  sinpeTitular?: string | null;
-  cuentaBanco?: string | null;
-  cuentaNumero?: string | null;
-  cuentaTitular?: string | null;
-  cuentaTipo?: string | null;
+  /* Los datos de cobro del proveedor NO son props a propósito: esta
+     página es pública y cualquier prop de un componente cliente termina
+     escrita en el HTML, servida a Googlebot y a cualquier anónimo (ver
+     @/lib/ranchos-publicos). Llegan más abajo, en la respuesta de
+     `crearReservaTemporal`, o sea recién cuando esta persona tiene una
+     fecha tomada en este negocio. */
   /** El lugar no acepta grupos más grandes que esto (capacidad_max). */
   capacidadMax?: number | null;
 }) {
@@ -203,6 +197,9 @@ export default function BookingCalendar({
   const [holdError, setHoldError] = useState<string | null>(null);
   const [holdVencido, setHoldVencido] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  // A qué SINPE / cuenta hay que transferirle. Vienen con el hold, no
+  // con la página: sin fecha tomada no hay cuentas que mostrar.
+  const [cuentas, setCuentas] = useState<CuentasCobro>(SIN_CUENTAS);
 
   const [invitados, setInvitados] = useState(() =>
     invitadosSugeridos ? String(invitadosSugeridos) : "",
@@ -522,12 +519,16 @@ export default function BookingCalendar({
   const whatsappValido = WHATSAPP_REGEX.test(whatsapp.trim());
 
   // Solo se ofrece la forma de pago que el proveedor realmente configuró.
+  // Las cuentas llegan con el hold, así que esta lista está vacía hasta
+  // que la persona elige su fecha — y para entonces el paso "Cómo pagar"
+  // todavía no existe en pantalla.
   const metodosReales = useMemo(() => {
     const metodos: { value: "sinpe" | "transferencia"; label: string }[] = [];
-    if (sinpeNumero) metodos.push({ value: "sinpe", label: "SINPE Móvil" });
-    if (cuentaNumero) metodos.push({ value: "transferencia", label: "Transferencia bancaria" });
+    if (cuentas.sinpeNumero) metodos.push({ value: "sinpe", label: "SINPE Móvil" });
+    if (cuentas.cuentaNumero)
+      metodos.push({ value: "transferencia", label: "Transferencia bancaria" });
     return metodos;
-  }, [sinpeNumero, cuentaNumero]);
+  }, [cuentas]);
 
   // "Tarjeta" se muestra siempre como vista previa de lo que vendría —
   // no procesa nada todavía, así que nunca cuenta para poder enviar.
@@ -621,6 +622,7 @@ export default function BookingCalendar({
     aplicarPrefill();
     setHoldId(null);
     setHoldExpiraEn(null);
+    setCuentas(SIN_CUENTAS);
     setHoldCreando(true);
 
     const res = await crearReservaTemporal(ranchoId, fecha);
@@ -633,6 +635,9 @@ export default function BookingCalendar({
 
     setHoldId(res.id);
     setHoldExpiraEn(res.expiraEn);
+    // Los datos de cobro viajan con el hold: quien tiene la fecha
+    // tomada es quien tiene que poder pagarla.
+    setCuentas(res.cuentas);
     setHoldFecha(fecha);
     setDias((prev) => {
       const dia = prev[fecha] ?? { confirmada: false, pendientes: 0, temporales: 0 };
@@ -657,6 +662,7 @@ export default function BookingCalendar({
     setSelectedDate(null);
     setHoldId(null);
     setHoldExpiraEn(null);
+    setCuentas(SIN_CUENTAS);
     setHoldVencido(false);
     setHoldError(null);
     setConfirmado(false);
@@ -1608,29 +1614,29 @@ export default function BookingCalendar({
                         ))}
                       </select>
 
-                      {metodoPago === "sinpe" && sinpeNumero && (
+                      {metodoPago === "sinpe" && cuentas.sinpeNumero && (
                         <div className="mt-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
-                          <CampoCopiable etiqueta="Número SINPE" valor={sinpeNumero} />
-                          {sinpeTitular && (
-                            <CampoCopiable etiqueta="A nombre de" valor={sinpeTitular} />
+                          <CampoCopiable etiqueta="Número SINPE" valor={cuentas.sinpeNumero} />
+                          {cuentas.sinpeTitular && (
+                            <CampoCopiable etiqueta="A nombre de" valor={cuentas.sinpeTitular} />
                           )}
                         </div>
                       )}
 
-                      {metodoPago === "transferencia" && cuentaNumero && (
+                      {metodoPago === "transferencia" && cuentas.cuentaNumero && (
                         <div className="mt-2.5 flex flex-col gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
-                          {cuentaBanco && (
-                            <CampoCopiable etiqueta="Banco" valor={cuentaBanco} />
+                          {cuentas.cuentaBanco && (
+                            <CampoCopiable etiqueta="Banco" valor={cuentas.cuentaBanco} />
                           )}
-                          <CampoCopiable etiqueta="Cuenta / IBAN" valor={cuentaNumero} />
-                          {cuentaTipo && (
+                          <CampoCopiable etiqueta="Cuenta / IBAN" valor={cuentas.cuentaNumero} />
+                          {cuentas.cuentaTipo && (
                             <CampoCopiable
                               etiqueta="Tipo"
-                              valor={cuentaTipo === "ahorro" ? "Ahorro" : "Corriente"}
+                              valor={cuentas.cuentaTipo === "ahorro" ? "Ahorro" : "Corriente"}
                             />
                           )}
-                          {cuentaTitular && (
-                            <CampoCopiable etiqueta="A nombre de" valor={cuentaTitular} />
+                          {cuentas.cuentaTitular && (
+                            <CampoCopiable etiqueta="A nombre de" valor={cuentas.cuentaTitular} />
                           )}
                         </div>
                       )}

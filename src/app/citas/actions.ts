@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { notificarCitaConfirmada } from "@/lib/notificaciones-cita";
+import { leerCuentasDeCobro } from "@/lib/ranchos-publicos";
 
 export type CrearCitaInput = {
   ranchoId: string;
@@ -14,6 +15,9 @@ export type CrearCitaInput = {
   notas: string;
 };
 
+/** La cuenta SINPE del negocio, para las instrucciones del depósito. */
+export type SinpeDelNegocio = { numero: string | null; titular: string | null };
+
 /**
  * Crea la cita llamando al RPC (que valida horario, resuelve el
  * profesional y confirma al instante) y dispara los avisos. La cita
@@ -22,10 +26,20 @@ export type CrearCitaInput = {
  * Los avisos (correo + push) viven en src/lib/notificaciones-cita.ts,
  * compartidos con /api/citas/[id]/confirmacion — el camino de la app
  * móvil, que llama al RPC directo porque no tiene servidor propio.
+ *
+ * Devuelve además el SINPE del negocio, que la pantalla muestra en la
+ * confirmación ("aseguralo con tu depósito"). Viaja acá y no en las
+ * props de la ficha porque esa ficha es pública: cualquier dato que le
+ * pase a un componente `"use client"` queda escrito en el HTML, servido
+ * a Googlebot y a cualquier anónimo (ver @/lib/ranchos-publicos). Acá
+ * lo recibe únicamente quien acaba de agendar en ese negocio, con
+ * sesión iniciada y con la cita a su nombre.
  */
 export async function crearCita(
   input: CrearCitaInput,
-): Promise<{ error: string } | { error: null; reservaId: string }> {
+): Promise<
+  { error: string } | { error: null; reservaId: string; sinpe: SinpeDelNegocio }
+> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -55,5 +69,10 @@ export async function crearCita(
   } catch {
     // El aviso queda pendiente; la cita existe igual.
   }
-  return { error: null, reservaId };
+  const cuentas = await leerCuentasDeCobro(supabase, input.ranchoId);
+  return {
+    error: null,
+    reservaId,
+    sinpe: { numero: cuentas.sinpeNumero, titular: cuentas.sinpeTitular },
+  };
 }
