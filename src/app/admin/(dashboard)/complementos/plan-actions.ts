@@ -165,6 +165,41 @@ export async function atenderSolicitudLealtad({
         .single();
       if (eRancho) return { error: "No se pudo crear el negocio: " + eRancho.message };
       ranchoId = nuevo.id as string;
+
+      // EL PROCESO AUTOMÁTICO: si vino del CREADOR (no personalizado),
+      // el programa nace FUNCIONANDO con lo que la persona armó —
+      // color, regalía y meta. Un fallo acá no tumba la aprobación
+      // (el negocio ya existe): queda al log y se configura a mano.
+      const regalia = (solicitud.regalia as string | null) ?? null;
+      const metaSellos = (solicitud.meta_sellos as number | null) ?? null;
+      if (!solicitud.personalizado && regalia && metaSellos) {
+        const { data: prog, error: eProg } = await admin
+          .from("programa_lealtad")
+          .insert({
+            rancho_id: ranchoId,
+            nombre: "Programa de lealtad",
+            modo: "sellos",
+            puntos_por_visita: 1,
+            puntos_por_colon: 0,
+            activo: true,
+            estado: "activo",
+            pase_color_fondo: (solicitud.pase_color as string | null) ?? null,
+            pase_logo_url: (solicitud.pase_logo_url as string | null) ?? null,
+          })
+          .select("id")
+          .single();
+        if (eProg || !prog) {
+          console.error("[alta] El programa no se pudo auto-crear:", eProg?.message);
+        } else {
+          const { error: eRec } = await admin.from("recompensas").insert({
+            programa_id: prog.id,
+            nombre: regalia,
+            costo_puntos: metaSellos,
+            activo: true,
+          });
+          if (eRec) console.error("[alta] La recompensa no se pudo auto-crear:", eRec.message);
+        }
+      }
     }
 
     const { error: ePlan } = await admin

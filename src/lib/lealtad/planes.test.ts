@@ -34,14 +34,18 @@ describe("los planes crecen", () => {
     }
   });
 
-  it("el tope de miembros sube con el plan", () => {
-    expect(PLANES.basico.limiteMiembros).toBe(500);
-    expect(PLANES.estandar.limiteMiembros).toBe(2500);
-    expect(PLANES.enterprise.limiteMiembros).toBe(5000);
-    for (let i = 1; i < PLANES_ID.length; i++) {
-      expect(PLANES[PLANES_ID[i - 1]].limiteMiembros!).toBeLessThan(
-        PLANES[PLANES_ID[i]].limiteMiembros!,
-      );
+  it("solo el Gratis tiene tope; pagar ES quitarse el límite", () => {
+    // Decisión de producto (2026-08): los planes pagos son ilimitados.
+    expect(PLANES.gratis.limiteMiembros).toBe(5);
+    expect(PLANES.basico.limiteMiembros).toBeNull();
+    expect(PLANES.estandar.limiteMiembros).toBeNull();
+    expect(PLANES.enterprise.limiteMiembros).toBeNull();
+    // Y ningún plan pago puede ser MÁS restrictivo que el gratis: un
+    // tope null nunca aparece antes que uno con número.
+    let vistoIlimitado = false;
+    for (const id of PLANES_ID) {
+      if (PLANES[id].limiteMiembros === null) vistoIlimitado = true;
+      else expect(vistoIlimitado).toBe(false);
     }
   });
 });
@@ -97,27 +101,31 @@ describe("puede", () => {
 });
 
 describe("estadoDelLimite", () => {
-  it("cuenta lo que queda", () => {
-    const e = estadoDelLimite("basico", 120);
-    expect(e).toMatchObject({ limite: 500, disponibles: 380, lleno: false, cerca: false });
-  });
-
-  it("avisa ANTES de toparse, al 90%", () => {
-    expect(estadoDelLimite("basico", 449).cerca).toBe(false);
-    expect(estadoDelLimite("basico", 450).cerca).toBe(true);
-    // Enterarse cuando ya no entra nadie es enterarse tarde.
-    expect(estadoDelLimite("basico", 450).lleno).toBe(false);
+  // El único plan con tope real es el Gratis (5): los pagos son
+  // ilimitados desde 2026-08.
+  it("cuenta lo que queda del Gratis", () => {
+    const e = estadoDelLimite("gratis", 3);
+    expect(e).toMatchObject({ limite: 5, disponibles: 2, lleno: false });
   });
 
   it("marca lleno justo en el tope, no después", () => {
-    expect(estadoDelLimite("estandar", 2499).lleno).toBe(false);
-    expect(estadoDelLimite("estandar", 2500).lleno).toBe(true);
+    expect(estadoDelLimite("gratis", 4).lleno).toBe(false);
+    expect(estadoDelLimite("gratis", 5).lleno).toBe(true);
   });
 
   it("pasado el tope no muestra disponibles negativos", () => {
-    const e = estadoDelLimite("basico", 800);
+    const e = estadoDelLimite("gratis", 8);
     expect(e.disponibles).toBe(0);
     expect(e.lleno).toBe(true);
+  });
+
+  it("los planes pagos no tienen tope: nunca llenos, nunca cerca", () => {
+    for (const plan of ["basico", "estandar", "enterprise"] as const) {
+      const e = estadoDelLimite(plan, 999_999);
+      expect(e.limite).toBeNull();
+      expect(e.lleno).toBe(false);
+      expect(e.cerca).toBe(false);
+    }
   });
 
   it("sin plan no hay tope declarado", () => {

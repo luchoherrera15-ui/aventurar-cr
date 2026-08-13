@@ -41,6 +41,23 @@ begin
     alter table solicitudes_lealtad add column negocio_detalle text
       check (negocio_detalle is null or char_length(negocio_detalle) <= 80);
 
+    -- Lo que el onboarding pregunta para que ACEPTAR deje un programa
+    -- FUNCIONANDO (no una cáscara por configurar): el color de la
+    -- tarjeta, la regalía y cuántos sellos cuesta ganarla.
+    alter table solicitudes_lealtad add column pase_color text
+      check (pase_color is null or pase_color ~ '^#[0-9a-fA-F]{6}$');
+    alter table solicitudes_lealtad add column pase_logo_url text
+      check (pase_logo_url is null or pase_logo_url like 'https://%');
+    alter table solicitudes_lealtad add column regalia text
+      check (regalia is null or char_length(regalia) between 1 and 120);
+    alter table solicitudes_lealtad add column meta_sellos integer
+      check (meta_sellos is null or (meta_sellos between 1 and 100));
+
+    -- «Crear personalizado»: en vez del creador, la persona describe lo
+    -- que sueña y la solicitud queda EN ESPERA para que el equipo la
+    -- diseñe a mano — al aprobar NO se auto-crea el programa.
+    alter table solicitudes_lealtad add column personalizado boolean not null default false;
+
     -- Una fila es de UPGRADE (con rancho) o de ALTA (con nombre):
     -- nunca ninguna de las dos.
     alter table solicitudes_lealtad add constraint solicitudes_alta_coherente
@@ -54,6 +71,16 @@ comment on column solicitudes_lealtad.negocio_vertical is
   'El tipo elegido en el alta, incluida la opción «otro» (el rancho se crea con una vertical válida).';
 comment on column solicitudes_lealtad.negocio_detalle is
   'Si eligieron «otro»: qué negocio es, en sus palabras.';
+comment on column solicitudes_lealtad.pase_color is
+  'Color de fondo elegido en el onboarding — al aprobar se vuelve el color real de la tarjeta.';
+comment on column solicitudes_lealtad.pase_logo_url is
+  'El logo subido en el onboarding — al aprobar se vuelve el logo real de la tarjeta.';
+comment on column solicitudes_lealtad.regalia is
+  'La recompensa prometida («café gratis») — al aprobar se crea como la recompensa activa.';
+comment on column solicitudes_lealtad.meta_sellos is
+  'Cuántos sellos cuesta la regalía — el costo_puntos de esa recompensa.';
+comment on column solicitudes_lealtad.personalizado is
+  'true = pidió diseño personalizado: queda en espera y el equipo lo arma a mano (mensaje trae su descripción).';
 
 -- El que pide un ALTA todavía no gestiona ningún rancho: política
 -- propia. Sigue naciendo pendiente y a su propio nombre.

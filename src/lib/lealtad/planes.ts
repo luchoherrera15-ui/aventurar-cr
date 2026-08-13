@@ -85,7 +85,10 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
   basico: {
     id: "basico",
     nombre: "Básico",
-    limiteMiembros: 500,
+    // TODOS los planes pagos son ilimitados (decisión de producto,
+    // 2026-08): el único tope real es el del Gratis — pagar es
+    // exactamente quitarse el límite.
+    limiteMiembros: null,
     precioMensual: 9_900,
     // Lo mínimo que hace útil una tarjeta: existe, acumula y se canjea.
     // Sin push, sin cercanía y sin segmentación — que es justo lo que
@@ -95,7 +98,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
   estandar: {
     id: "estandar",
     nombre: "Estándar",
-    limiteMiembros: 2500,
+    limiteMiembros: null,
     precioMensual: 14_900,
     capacidades: [
       "wallet",
@@ -108,7 +111,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
   enterprise: {
     id: "enterprise",
     nombre: "Enterprise",
-    limiteMiembros: 5000,
+    limiteMiembros: null,
     precioMensual: 24_900,
     capacidades: [
       "wallet",

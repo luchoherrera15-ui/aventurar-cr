@@ -39,7 +39,16 @@ export async function solicitarAltaConPlan(datos: {
   metodoPago: string;
   comprobanteUrl: string;
   telefono: string;
-  mensaje: string;
+  /** true = «Crear personalizado»: queda en espera, el equipo diseña. */
+  personalizado: boolean;
+  /** La descripción del diseño soñado (solo personalizado). */
+  descripcion: string;
+  /** Lo del CREADOR (solo cuando NO es personalizado): */
+  paseColor: string;
+  /** El logo subido (opcional, "" = sin logo). */
+  paseLogoUrl: string;
+  regalia: string;
+  metaSellos: number;
 }): Promise<Resultado> {
   const nombre = datos.nombreNegocio.trim();
   if (!nombre || nombre.length > 80) {
@@ -51,6 +60,28 @@ export async function solicitarAltaConPlan(datos: {
     return { ok: false, motivo: "Contanos qué negocio es." };
   }
   if (!esPlan(datos.plan)) return { ok: false, motivo: "Ese paquete no existe." };
+
+  const descripcion = datos.descripcion.trim().slice(0, 500);
+  const regalia = datos.regalia.trim().slice(0, 120);
+  if (datos.personalizado) {
+    if (descripcion.length < 5) {
+      return { ok: false, motivo: "Contanos cómo soñás la tarjeta (unas palabras alcanzan)." };
+    }
+  } else {
+    if (!/^#[0-9a-fA-F]{6}$/.test(datos.paseColor)) {
+      return { ok: false, motivo: "Elegí el color de tu tarjeta." };
+    }
+    if (!regalia) return { ok: false, motivo: "Contanos qué regalía vas a dar." };
+    if (!Number.isInteger(datos.metaSellos) || datos.metaSellos < 1 || datos.metaSellos > 100) {
+      return { ok: false, motivo: "La meta de sellos tiene que estar entre 1 y 100." };
+    }
+    // El logo es opcional, pero si viene tiene que ser de NUESTRO
+    // storage — no una URL cualquiera que después sirva la tarjeta.
+    const bucketPublico = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/comprobantes/`;
+    if (datos.paseLogoUrl && !datos.paseLogoUrl.startsWith(bucketPublico)) {
+      return { ok: false, motivo: "El logo no se subió bien — probá de nuevo." };
+    }
+  }
 
   const gratis = esGratis(datos.plan);
   if (!gratis) {
@@ -79,7 +110,14 @@ export async function solicitarAltaConPlan(datos: {
     metodo_pago: gratis ? null : datos.metodoPago,
     comprobante_url: gratis ? null : datos.comprobanteUrl,
     telefono: datos.telefono.trim().slice(0, 30) || null,
-    mensaje: datos.mensaje.trim().slice(0, 500) || null,
+    personalizado: datos.personalizado,
+    // El personalizado viaja como texto libre; el creador, como datos
+    // que la aprobación convierte en programa funcionando.
+    mensaje: datos.personalizado ? descripcion : null,
+    pase_color: datos.personalizado ? null : datos.paseColor,
+    pase_logo_url: datos.personalizado ? null : datos.paseLogoUrl || null,
+    regalia: datos.personalizado ? null : regalia,
+    meta_sellos: datos.personalizado ? null : datos.metaSellos,
   });
 
   if (error) {
@@ -112,13 +150,18 @@ export async function solicitarAltaConPlan(datos: {
 
   after(() =>
     avisarAAdministradores({
-      subject: `HAY UNA SOLICITUD DEL PASE DE LEALTAD — negocio NUEVO: ${nombre}`,
+      subject: `HAY UNA SOLICITUD DEL PASE DE LEALTAD — negocio NUEVO${datos.personalizado ? " (PERSONALIZADO)" : ""}: ${nombre}`,
       html: `
         <h2 style="margin:0 0 12px">Alta de negocio + plan de lealtad</h2>
         <table style="border-collapse:collapse;font-size:14px">
           <tr><td style="padding:4px 12px 4px 0"><b>Negocio (a crear)</b></td><td>${escapar(nombre)}</td></tr>
           <tr><td style="padding:4px 12px 4px 0"><b>Tipo</b></td><td>${escapar(tipo)}${detalle ? ` — ${escapar(detalle)}` : ""}</td></tr>
           <tr><td style="padding:4px 12px 4px 0"><b>Paquete</b></td><td>${escapar(planNombre)}${gratis ? " (gratis, sin depósito)" : ""}</td></tr>
+          ${
+            datos.personalizado
+              ? `<tr><td style="padding:4px 12px 4px 0"><b>Diseño</b></td><td><b>PERSONALIZADO, en espera</b> — «${escapar(descripcion)}»</td></tr>`
+              : `<tr><td style="padding:4px 12px 4px 0"><b>Tarjeta</b></td><td>color ${escapar(datos.paseColor)} · regalía «${escapar(regalia)}» · ${datos.metaSellos} sellos — al aceptar queda FUNCIONANDO sola</td></tr>`
+          }
           <tr><td style="padding:4px 12px 4px 0"><b>Solicitante</b></td><td>${escapar(quien)} · ${escapar(correo)}</td></tr>
           <tr><td style="padding:4px 12px 4px 0"><b>Teléfono</b></td><td>${escapar(datos.telefono.trim() || "—")}</td></tr>
           ${

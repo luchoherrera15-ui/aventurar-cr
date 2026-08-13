@@ -15,6 +15,8 @@ export type SolicitudPendiente = {
   ranchoId: string | null;
   negocio: string;
   esAlta: boolean;
+  /** Pidió diseño personalizado: al aprobar NO se auto-crea el programa. */
+  personalizado: boolean;
   tipoNegocio: string | null;
   plan: string;
   solicitante: string;
@@ -86,12 +88,18 @@ function Fila({
       <div className={`px-4 py-3 ${primera ? "" : "border-t border-aventurea-line"}`}>
         <p className="text-[13px] font-bold text-aventurea-green">
           {s.negocio} {s.esAlta ? "creado y activado" : "activado"} con el plan {s.plan}.{" "}
-          <a
-            href={`/admin/lealtad/${aprobadaCon}`}
-            className="text-aventurea-ink underline"
-          >
-            Configurar su programa →
-          </a>
+          {s.esAlta && !s.personalizado ? (
+            <>
+              El programa nació FUNCIONANDO con lo del creador.{" "}
+              <a href={`/admin/lealtad/${aprobadaCon}`} className="text-aventurea-ink underline">
+                Afinarlo →
+              </a>
+            </>
+          ) : (
+            <a href={`/admin/lealtad/${aprobadaCon}`} className="text-aventurea-ink underline">
+              {s.personalizado ? "Armale su diseño personalizado →" : "Configurar su programa →"}
+            </a>
+          )}
         </p>
       </div>
     );
@@ -106,6 +114,11 @@ function Fila({
         {s.esAlta && (
           <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10.5px] font-bold uppercase text-amber-800">
             Negocio nuevo{s.tipoNegocio ? ` · ${s.tipoNegocio}` : ""}
+          </span>
+        )}
+        {s.personalizado && (
+          <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-[10.5px] font-bold uppercase text-purple-800">
+            ✨ Personalizada
           </span>
         )}
         <span className="rounded-full bg-aventurea-cream-2 px-2.5 py-0.5 text-[11px] font-bold uppercase text-aventurea-ink">
