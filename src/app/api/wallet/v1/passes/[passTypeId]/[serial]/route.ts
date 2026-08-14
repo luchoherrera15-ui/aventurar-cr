@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { autenticarPase } from "@/lib/wallet/servicio";
 import { generarPaseDeLealtad } from "@/lib/wallet/generar";
@@ -10,7 +10,28 @@ import { generarPaseDeLealtad } from "@/lib/wallet/generar";
  * Es el mismo generador del endpoint público, pero la identidad NO sale
  * de una sesión: sale del `auth_token` del propio pase. Acá no hay
  * usuario logueado, el que llama es iOS.
+ *
+ * Que esta ruta se llame ES la prueba de que el aviso push llegó y se
+ * procesó del lado del teléfono — Apple no da otro recibo de entrega
+ * (0151). Por eso, después de servir el pase, se deja el rastro en
+ * `pases_wallet.ultima_descarga_en`: nunca antes de responder, nunca
+ * bloqueando la respuesta — el .pkpass tiene que salir aunque este
+ * registro falle.
  */
+
+/** Deja el rastro de "el teléfono vino a buscar el pase". Nunca lanza. */
+async function marcarDescarga(serial: string): Promise<void> {
+  try {
+    const db = createAdminClient();
+    if (!db) return;
+    await db
+      .from("pases_wallet")
+      .update({ ultima_descarga_en: new Date().toISOString() })
+      .eq("serial_number", serial);
+  } catch (e) {
+    console.warn("[wallet] No se pudo marcar la descarga del pase:", e);
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +81,8 @@ export async function GET(
   });
 
   if (!resultado.ok) return new NextResponse(null, { status: 500 });
+
+  after(() => marcarDescarga(serial));
 
   return new NextResponse(new Uint8Array(resultado.pkpass), {
     headers: {
