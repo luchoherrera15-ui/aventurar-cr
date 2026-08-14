@@ -848,3 +848,63 @@ export async function refrescarPaseGoogleDeMiembro(
     return { ok: false, motivo: e instanceof Error ? e.message : "Google Wallet no respondió." };
   }
 }
+
+/**
+ * EL AVISO DE MARKETING (0152), del lado de Google.
+ *
+ * A diferencia del saldo —que se REESCRIBE con un PATCH del objeto
+ * entero— un mensaje se AGREGA: Google tiene un endpoint propio para
+ * esto (`loyaltyObject.addMessage`) que empuja el aviso al teléfono del
+ * cliente sin tocar el resto del objeto. Es el mecanismo nativo, no un
+ * campo de texto más: es lo que hace que el cliente reciba una
+ * notificación de verdad, igual que el `changeMessage` de Apple.
+ *
+ * `id` en el mensaje evita que el mismo aviso se duplique si esto se
+ * reintenta — Google lo trata como el mismo mensaje si el id coincide.
+ */
+export async function enviarMensajeGoogle(
+  miembroId: string,
+  mensaje: string,
+): Promise<ResultadoRefresco> {
+  try {
+    const cred = credencialesGoogleDelEntorno();
+    if (!cred) return { ok: false, motivo: "Google Wallet no está configurado en este servidor." };
+
+    const db = createAdminClient();
+    if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+    const { data: pase } = await db
+      .from("pases_wallet")
+      .select("serial_number")
+      .eq("miembro_id", miembroId)
+      .eq("plataforma", "google")
+      .eq("activo", true)
+      .maybeSingle();
+    if (!pase) return { ok: true }; // sin pase de Android, nada que avisar
+
+    const res = await llamarApi(
+      cred,
+      "POST",
+      `/loyaltyObject/${idDeObjeto(cred.issuerId, miembroId)}/addMessage`,
+      {
+        message: {
+          header: "Bookea",
+          body: mensaje,
+          // Un id NUEVO por minuto: el mismo texto mandado dos veces en
+          // dos ocasiones distintas son dos avisos reales, no uno
+          // duplicado — pero un reintento inmediato del MISMO envío cae
+          // en el mismo minuto y Google lo desduplica solo.
+          id: `promo-${new Date().toISOString().slice(0, 16)}`,
+          messageType: "TEXT",
+        },
+      },
+    );
+
+    if (res.status >= 300 && res.status !== 404) {
+      return { ok: false, motivo: `Google respondió ${res.status} al agregar el mensaje.` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: e instanceof Error ? e.message : "Google Wallet no respondió." };
+  }
+}

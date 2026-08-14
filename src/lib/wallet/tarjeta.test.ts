@@ -296,3 +296,37 @@ describe("los tipos de la 0135", () => {
     }
   });
 });
+
+describe("el mensaje promocional (0152)", () => {
+  type Reverso = { key: string; label: string; value: string; changeMessage?: string };
+
+  function backFields(pass: Record<string, unknown>): Reverso[] {
+    return (pass.storeCard as { backFields: Reverso[] }).backFields;
+  }
+
+  it("sin mensaje, el pase sale exactamente igual que siempre — sin el campo", () => {
+    const pass = construirPassJson(datos());
+    expect(backFields(pass).some((f) => f.key === "promo")).toBe(false);
+  });
+
+  it("con mensaje, agrega el campo del reverso con changeMessage", () => {
+    const pass = construirPassJson(datos({ mensajePromocional: "MIÉRCOLES MATCHAS 2X1" }));
+    const promo = backFields(pass).find((f) => f.key === "promo");
+    expect(promo).toBeDefined();
+    expect(promo?.value).toBe("MIÉRCOLES MATCHAS 2X1");
+    // Sin changeMessage, Apple no muestra ningún aviso en pantalla
+    // bloqueada — es la mitad del punto de este campo.
+    expect(promo?.changeMessage).toBe("%@");
+  });
+
+  it("un mensaje en blanco es lo mismo que no mandar ninguno", () => {
+    const pass = construirPassJson(datos({ mensajePromocional: "   " }));
+    expect(backFields(pass).some((f) => f.key === "promo")).toBe(false);
+  });
+
+  it("no le pisa ningún campo que ya existía — bookea y como siguen ahí", () => {
+    const pass = construirPassJson(datos({ mensajePromocional: "2X1 los miércoles" }));
+    const claves = backFields(pass).map((f) => f.key);
+    expect(claves).toEqual(expect.arrayContaining(["como", "bookea", "promo"]));
+  });
+});

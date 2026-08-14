@@ -334,6 +334,13 @@ export async function generarPaseDeLealtad({
     beneficio,
     // Los sellos siguen a la vista; cambian dos textos. Ver `DatosDelTexto`.
     pausado,
+    // El aviso de marketing (0152). `select *` ya la trae si la 0152
+    // está pegada; si no, la columna no existe en la fila y esto queda
+    // en null — el pase sale igual que siempre, sin el campo nuevo.
+    mensajePromocional:
+      typeof (programaFila as Record<string, unknown>).mensaje_promocional === "string"
+        ? ((programaFila as Record<string, unknown>).mensaje_promocional as string)
+        : null,
     serialNumber,
     passTypeIdentifier: credenciales.passTypeIdentifier,
     teamIdentifier: credenciales.teamIdentifier,

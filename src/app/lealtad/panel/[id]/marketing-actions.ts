@@ -3,6 +3,7 @@
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { probarAvisoDePase, type DiagnosticoAviso } from "@/lib/wallet/servicio";
+import { enviarMensajePromocional } from "@/lib/wallet/mensaje-promocional";
 
 /**
  * MARKETING — la lista de pases con quién los tiene, y el botón para
@@ -181,4 +182,43 @@ export async function enviarAvisoDePrueba(
 
   const diagnostico = await probarAvisoDePase(miembroId);
   return { ok: true, datos: diagnostico };
+}
+
+const TOPE_MENSAJE = 120;
+
+/**
+ * "MIÉRCOLES MATCHAS 2X1" — el mensaje real, a todos los que tienen el
+ * pase. Verifica tenencia del programa igual que las de arriba, y de
+ * paso corta un mensaje absurdamente largo: el campo del reverso de
+ * Apple tiene un ancho fijo, y un párrafo entero ahí se corta feo.
+ */
+export async function enviarNotificacionPromocional(
+  ranchoId: string,
+  programaId: string,
+  mensaje: string,
+): Promise<Resultado<{ googleEnviados: number; googleFallidos: number }>> {
+  const acceso = await accesoDeNegocio(ranchoId);
+  if (!acceso.ok) return { ok: false, motivo: acceso.motivo };
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  const { data: programa } = await db
+    .from("programa_lealtad")
+    .select("rancho_id")
+    .eq("id", programaId)
+    .maybeSingle();
+  if (!programa || programa.rancho_id !== ranchoId) {
+    return { ok: false, motivo: "Esa tarjeta no es de este negocio." };
+  }
+
+  const limpio = mensaje.trim().slice(0, TOPE_MENSAJE);
+  if (limpio.length < 3) return { ok: false, motivo: "Escribí el mensaje que querés mandar." };
+
+  const resultado = await enviarMensajePromocional(programaId, limpio);
+  if (!resultado.ok) return { ok: false, motivo: resultado.motivo };
+  return {
+    ok: true,
+    datos: { googleEnviados: resultado.googleEnviados, googleFallidos: resultado.googleFallidos },
+  };
 }

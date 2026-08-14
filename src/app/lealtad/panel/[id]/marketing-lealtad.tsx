@@ -1,4 +1,5 @@
 import { listarPasesDelPrograma } from "./marketing-actions";
+import MarketingMensaje from "./marketing-mensaje";
 import TablaMarketing from "./marketing-tabla";
 
 /**
@@ -28,7 +29,7 @@ export default async function MarketingLealtad({
         Marketing
       </h2>
       <p className="mt-1 text-[13.5px] text-white/55">
-        Probá el aviso de cambio contra el pase de un cliente real y mirá qué contestó
+        Mandale un aviso a todos tus clientes, o probá el de uno solo y mirá qué contestó
         Apple o Google — sin esperar a que alguien escanee.
       </p>
     </div>
@@ -50,6 +51,7 @@ export default async function MarketingLealtad({
   return (
     <div className="space-y-4">
       {titulo}
+      <MarketingMensaje ranchoId={ranchoId} programaId={programaId} />
       {!resultado.ok ? (
         <p className="rounded-2xl border border-red-400/30 bg-red-500/10 p-5 text-[13px] font-bold text-red-200">
           {resultado.motivo}
@@ -59,7 +61,12 @@ export default async function MarketingLealtad({
           Todavía nadie tiene el pase instalado — no hay a quién avisarle.
         </p>
       ) : (
-        <TablaMarketing ranchoId={ranchoId} filas={resultado.datos} />
+        <>
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45">
+            Probar un pase específico
+          </p>
+          <TablaMarketing ranchoId={ranchoId} filas={resultado.datos} />
+        </>
       )}
     </div>
   );

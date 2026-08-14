@@ -104,6 +104,16 @@ export type DatosDelTexto = {
    * BASE (`autorizarCanje`), nunca contra lo que diga el dibujo.
    */
   pausado?: boolean;
+  /**
+   * EL AVISO ACTIVO (0152), ej. «MIÉRCOLES MATCHAS 2X1».
+   *
+   * `null`/vacío = sin aviso: el pase sale exactamente igual que
+   * siempre, sin este campo. Solo cuando hay texto se agrega un campo
+   * nuevo del reverso CON `changeMessage` — es lo que hace que Apple le
+   * muestre al cliente un aviso en la pantalla bloqueada cuando el
+   * VALOR cambia de un envío al siguiente.
+   */
+  mensajePromocional?: string | null;
 };
 
 export type DatosTarjeta = DatosDelTexto & {
@@ -442,6 +452,22 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
               label: "Cómo funciona",
               value: textoDeAyuda(datos),
             },
+        // El aviso de marketing (0152): SOLO si el negocio mandó uno.
+        // `changeMessage` es lo que hace aparecer el aviso en la
+        // pantalla bloqueada — Apple lo dispara cuando el VALOR de este
+        // campo cambia entre una regeneración del pase y la siguiente,
+        // así que cada mensaje nuevo (aunque sea sobre el mismo campo)
+        // vuelve a avisar. `%@` es el propio texto del mensaje.
+        ...(datos.mensajePromocional?.trim()
+          ? [
+              {
+                key: "promo",
+                label: "Promoción",
+                value: datos.mensajePromocional.trim(),
+                changeMessage: "%@",
+              },
+            ]
+          : []),
         { key: "bookea", label: "Powered by", value: "Bookea.lat" },
       ],
     },
