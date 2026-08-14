@@ -19,9 +19,12 @@ import { actualizarPerfil } from "./actions";
 export default function EditarPerfil({
   nombreActual,
   telefonoActual,
+  variante = "claro",
 }: {
   nombreActual: string;
   telefonoActual: string;
+  /** "oscuro" = el botón vive sobre la tarjeta navy del sidebar. */
+  variante?: "claro" | "oscuro";
 }) {
   const [abierto, setAbierto] = useState(false);
   // Para devolverle el foco a este botón al cerrar el modal — si no,
@@ -40,7 +43,11 @@ export default function EditarPerfil({
         ref={botonDisparador}
         type="button"
         onClick={() => setAbierto(true)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-aventurea-line bg-aventurea-surface px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
+        className={
+          variante === "oscuro"
+            ? "inline-flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+            : "inline-flex items-center gap-1.5 rounded-xl border border-aventurea-line bg-aventurea-surface px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
+        }
       >
         <span aria-hidden="true">
           <IconEdit className="h-[14px] w-[14px]" />
