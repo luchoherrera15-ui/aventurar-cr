@@ -22,8 +22,13 @@ import { tipoDe, leerBeneficio } from "@/lib/lealtad/tipos-tarjeta";
  * nuevo a nadie.
  */
 
-/** El correo de este miembro, sea por cuenta (perfiles) o por alta con QR (personas). */
-async function correoDelMiembro(
+/**
+ * El correo de este miembro, sea por cuenta (perfiles) o por alta con QR
+ * (personas). Se exporta: bienvenida-al-plan.ts lo reusa tal cual — dos
+ * formas de resolver el mismo correo se desincronizan el día que alguien
+ * cambie una y no la otra.
+ */
+export async function correoDelMiembro(
   db: NonNullable<ReturnType<typeof createAdminClient>>,
   miembroId: string,
 ): Promise<string | null> {

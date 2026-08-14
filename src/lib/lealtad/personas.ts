@@ -408,7 +408,14 @@ export function mensajeDeFalloDeAlta(error: { message?: string; code?: string } 
 
 export type ResultadoAlta =
   /** Persona, vínculo, consentimiento y membresía, todo listo. */
-  | { estado: "listo"; personaId: string; miembroId: string | null; token: string }
+  | {
+      estado: "listo";
+      personaId: string;
+      miembroId: string | null;
+      /** true = esta membresía se creó recién (0138: `miembro_nuevo`), no un re-escaneo de quien ya era miembro — es la señal para el correo de bienvenida, que no puede salir en cada visita. */
+      miembroNuevo: boolean;
+      token: string;
+    }
   /**
    * El contacto ya es de alguien PROTEGIDO (tiene cuenta, un contacto
    * probado, o sellos juntados) y quien pide no trae prueba. No se
@@ -428,6 +435,7 @@ export async function altaPorQr(
     planRancho,
     nombreNegocio,
     contacto,
+    nombre,
     acepta,
     personaProbada,
     sesion,
@@ -440,6 +448,8 @@ export async function altaPorQr(
     planRancho: string | null;
     nombreNegocio: string;
     contacto: Contacto;
+    /** Opcional a propósito (y opcional en el llamador): pedirlo como obligatorio le suma fricción al alta parado en la caja. Si la persona ya existía con nombre, el pase la saluda igual aunque venga vacío o ausente acá. */
+    nombre?: string | null;
     acepta: boolean;
     /**
      * La persona de la cookie de `sesiones_persona`, tal cual viene.
@@ -531,9 +541,7 @@ export async function altaPorQr(
     p_programa: programaId,
     p_correo: contacto.correo,
     p_telefono: contacto.telefono,
-    // El nombre NO se pide: son dos campos y son dos. Si la persona ya
-    // existía con nombre, el pase la saluda igual.
-    p_nombre: null,
+    p_nombre: nombre ?? null,
     p_consentimientos: cuerpoDeConsentimientos({ nombreNegocio, acepta }),
     p_persona_probada: probada,
     p_cliente_id: clienteId,
@@ -547,6 +555,7 @@ export async function altaPorQr(
     estado?: string;
     persona_id?: string;
     miembro_id?: string | null;
+    miembro_nuevo?: boolean;
     canal_sugerido?: string;
   };
 
@@ -576,6 +585,7 @@ export async function altaPorQr(
     estado: "listo",
     personaId,
     miembroId: typeof salida.miembro_id === "string" ? salida.miembro_id : null,
+    miembroNuevo: salida.miembro_nuevo === true,
     token,
   };
 }

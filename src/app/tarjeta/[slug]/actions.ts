@@ -2,6 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { minutoISOCR } from "@/lib/fechas";
@@ -107,12 +108,15 @@ export async function afiliarPorQr(
     jar.get(NOMBRE_COOKIE_PERSONA)?.value ?? null,
   );
 
+  const nombre = String(datos.get("nombre") ?? "").trim().slice(0, 60) || null;
+
   const resultado = await altaPorQr(db, {
     programa,
     ranchoId: negocio.id as string,
     planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
     nombreNegocio: (negocio.nombre as string) ?? "",
     contacto: revision.contacto,
+    nombre,
     acepta: datos.get("promos") === "si",
     personaProbada,
     sesion: { clienteId: user?.id ?? null, correo: user?.email ?? null },
@@ -142,6 +146,23 @@ export async function afiliarPorQr(
   }
 
   if (resultado.estado === "error") return { error: resultado.mensaje };
+
+  // El correo de bienvenida — SOLO en un alta genuinamente nueva
+  // (`miembroNuevo`, del `miembro_nuevo` que calcula la propia 0138), no
+  // en cada re-escaneo de quien ya es miembro. `after`: no puede frenar
+  // el redirect de acá abajo, y una promesa suelta muere apenas Vercel
+  // congela la función al responder.
+  if (resultado.miembroNuevo && resultado.miembroId) {
+    const miembroId = resultado.miembroId;
+    after(async () => {
+      try {
+        const { avisarBienvenidaAlPlan } = await import("@/lib/correo/bienvenida-al-plan");
+        await avisarBienvenidaAlPlan(miembroId);
+      } catch (e) {
+        console.warn("[correo] No salió la bienvenida al plan:", e);
+      }
+    });
+  }
 
   // La cookie httpOnly con el token de `sesiones_persona` (0138): es lo
   // que hace que la próxima vez la tarjeta ya esté ahí, sin escribir

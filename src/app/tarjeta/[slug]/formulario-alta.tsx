@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { afiliarPorQr, type EstadoAlta } from "./actions";
 
 /**
- * DOS CAMPOS Y LISTO.
+ * TRES CAMPOS, DOS OBLIGATORIOS.
  *
  * ------------------------------------------------------------------
  * LO QUE HABÍA ACÁ ANTES
@@ -17,10 +17,20 @@ import { afiliarPorQr, type EstadoAlta } from "./actions";
  * instalar" arriba de un formulario que mandaba al correo.
  *
  * ------------------------------------------------------------------
- * POR QUÉ EL WHATSAPP VA PRIMERO
+ * EL NOMBRE ES OPCIONAL A PROPÓSITO
+ * ------------------------------------------------------------------
+ * Pedido del dueño: personaliza el pase y el correo de bienvenida
+ * ("¡Bienvenido, Juan!" en vez de un saludo genérico). Pero obligarlo
+ * reintroduce la fricción que el resto de esta pantalla existe para
+ * evitar — así que queda como el primer campo, sin `required`. Si la
+ * persona ya existía con nombre (otro negocio, otra vez), el RPC lo
+ * conserva y esto no lo pisa con vacío.
+ *
+ * ------------------------------------------------------------------
+ * POR QUÉ EL WHATSAPP VA ANTES QUE EL CORREO
  * ------------------------------------------------------------------
  * Es el dato que la gente se sabe de memoria y el que el negocio de
- * verdad usa para escribirle. El correo va segundo porque es el que más
+ * verdad usa para escribirle. El correo va después porque es el que más
  * se equivoca y el que más cuesta tipear en un teléfono.
  *
  * El texto del consentimiento llega por PROP desde el servidor y no se
@@ -51,6 +61,21 @@ export default function FormularioAlta({
   return (
     <form action={enviar} className="flex flex-col gap-3.5 text-left">
       <input type="hidden" name="slug" value={slug} />
+
+      <div>
+        <label className={labelCls} htmlFor="nombre">
+          Tu nombre (opcional)
+        </label>
+        <input
+          id="nombre"
+          name="nombre"
+          type="text"
+          autoComplete="name"
+          maxLength={60}
+          placeholder="¿Cómo te llamás?"
+          className={inputCls}
+        />
+      </div>
 
       <div>
         <label className={labelCls} htmlFor="whatsapp">

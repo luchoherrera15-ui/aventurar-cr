@@ -278,14 +278,14 @@ export default async function TarjetaPublicaPage({
           />
           <p className="mt-4 text-center text-[12px] text-white/40">
             <Link href={`/tarjeta/${negocio.slug}`} className="font-bold underline">
-              ← Volver a los dos campos
+              ← Volver al formulario
             </Link>
           </p>
         </div>
       ) : (
         <div className="mt-6 rounded-2xl bg-white p-6">
           <p className="mb-4 text-left text-[13px] leading-relaxed text-aventurea-ink-soft">
-            Dejanos dos datos y la tarjeta es tuya. Si ya tenías una con este
+            Dejanos tu contacto y la tarjeta es tuya. Si ya tenías una con este
             negocio, la recuperás con todos tus sellos.
           </p>
           <FormularioAlta
