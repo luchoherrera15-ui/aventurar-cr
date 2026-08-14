@@ -138,7 +138,12 @@ create or replace function public.fijar_pin_colaborador(
 returns void
 language plpgsql
 security definer
-set search_path = public
+-- `crypt()`/`gen_salt()` viven en el esquema `extensions` en Supabase
+-- (pgcrypto viene preinstalado ahí, no en `public`) — con
+-- `search_path = public` a secas la función no los encuentra y
+-- revienta con "function crypt(text, text) does not exist" (mismo
+-- diagnóstico que corrige la 0148 para `pin_valido`).
+set search_path = public, extensions
 as $$
 begin
   -- Solo quien gestiona el negocio reparte PINes. Sin esto, un
@@ -169,7 +174,12 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+-- `crypt()`/`gen_salt()` viven en el esquema `extensions` en Supabase
+-- (pgcrypto viene preinstalado ahí, no en `public`) — con
+-- `search_path = public` a secas la función no los encuentra y
+-- revienta con "function crypt(text, text) does not exist" (mismo
+-- diagnóstico que corrige la 0148 para `pin_valido`).
+set search_path = public, extensions
 as $$
   select exists (
     select 1 from rancho_colaboradores c
