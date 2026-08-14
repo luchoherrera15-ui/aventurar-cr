@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+import { hiloAbiertoDeAyuda } from "@/lib/lealtad/ayuda-hilo";
 import { estadoDelPrograma } from "@/lib/lealtad/reglas";
 import { configPorDefecto, leerBeneficio, tipoDe, TIPOS_TARJETA } from "@/lib/lealtad/tipos-tarjeta";
 import { ProveedorPrograma } from "../../programa-contexto";
@@ -124,6 +125,11 @@ export default async function EditarTarjetaPage({
       })
     : { plan: (rancho.plan_lealtad as string | null) ?? null };
 
+  // EL HILO DE AYUDA (0149), si ya hay uno abierto: el bloque del
+  // editor abre mostrando la conversación en vez de un formulario en
+  // blanco que haría creer que el pedido nunca se mandó.
+  const ayuda = admin ? await hiloAbiertoDeAyuda(admin, id) : null;
+
   const tipo = tipoDe(programa.modo);
   const estado = estadoDelPrograma({ estado: programa.estado ?? null, activo: programa.activo });
 
@@ -210,6 +216,7 @@ export default async function EditarTarjetaPage({
               beneficioInicial={beneficio}
               reglasIniciales={reglas}
               metaActual={metaActual}
+              ayudaInicial={ayuda}
             />
           </ProveedorPrograma>
         </div>

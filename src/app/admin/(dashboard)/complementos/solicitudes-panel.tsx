@@ -95,9 +95,21 @@ function Fila({
                 Afinarlo →
               </a>
             </>
+          ) : s.personalizado ? (
+            // Lo que escribió al pedir el personalizado ya no se queda
+            // acá: se convirtió en el primer mensaje de su hilo de
+            // ayuda con el diseño (0149), que sale en la bandeja de
+            // arriba y que el dueño ve desde su creador.
+            <>
+              Su pedido de diseño quedó abierto arriba, en «Piden ayuda con el diseño» —
+              contestale ahí.{" "}
+              <a href={`/admin/lealtad/${aprobadaCon}`} className="text-aventurea-ink underline">
+                Ver su programa →
+              </a>
+            </>
           ) : (
             <a href={`/admin/lealtad/${aprobadaCon}`} className="text-aventurea-ink underline">
-              {s.personalizado ? "Armale su diseño personalizado →" : "Configurar su programa →"}
+              Configurar su programa →
             </a>
           )}
         </p>

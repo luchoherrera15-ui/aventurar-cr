@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+import { hiloAbiertoDeAyuda } from "@/lib/lealtad/ayuda-hilo";
 import CreadorTarjeta from "../creador-tarjeta";
 
 /**
@@ -58,6 +59,12 @@ export default async function CrearTarjetaPage({
       })
     : { plan: (rancho.plan_lealtad as string | null) ?? null };
 
+  // EL HILO DE AYUDA (0149), si ya hay uno abierto. Se trae acá y no se
+  // pide desde el navegador para que el bloque abra mostrando la
+  // conversación de una: recargar la página no puede hacer parecer que
+  // el pedido nunca se mandó.
+  const ayuda = admin ? await hiloAbiertoDeAyuda(admin, id) : null;
+
   // La cuenta de la 0134 ya NO se busca acá. Se buscaba para pasársela
   // al asistente y que él la devolviera al guardar — un rodeo por el
   // navegador que abría el agujero: el servidor terminaba confiando en
@@ -95,6 +102,7 @@ export default async function CrearTarjetaPage({
             ranchoId={id}
             negocioNombre={rancho.nombre as string}
             plan={plan}
+            ayudaInicial={ayuda}
           />
         </div>
       </div>

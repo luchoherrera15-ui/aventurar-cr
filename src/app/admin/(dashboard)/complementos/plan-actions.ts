@@ -6,6 +6,7 @@ import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { esPlan } from "@/lib/lealtad/planes";
 import { finDePrueba } from "@/lib/lealtad/prueba";
 import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
+import { abrirHiloDeAyudaDesdeAlta } from "@/lib/lealtad/ayuda-hilo";
 
 /**
  * Asignar el plan de la plataforma de lealtad a un negocio (0124).
@@ -189,6 +190,29 @@ export async function atenderSolicitudLealtad({
       { onConflict: "rancho_id,addon" },
     );
     if (eAddon) return { error: "El plan quedó, pero el complemento no: " + eAddon.message };
+
+    // ── «CREAR PERSONALIZADO»: QUE LA CONVERSACIÓN SIGA (0149) ──────
+    // Hasta acá, aprobar un alta personalizada creaba el negocio y
+    // dejaba lo que la persona había escrito enterrado en esta fila,
+    // ya marcada como atendida: el equipo no tenía dónde contestarle y
+    // ella no tenía dónde leer la respuesta. Ahora ese texto se
+    // convierte en el primer mensaje de su hilo de ayuda con el diseño,
+    // que es el mismo bloque que ve cualquier otro dueño en el creador.
+    //
+    // No reemplaza el camino del alta —ese sigue igual— lo continúa.
+    if (solicitud.personalizado === true && ranchoId) {
+      const nombre =
+        ((solicitud.negocio_nombre as string | null) ?? "").trim() ||
+        ((await admin.from("ranchos").select("nombre").eq("id", ranchoId).maybeSingle()).data
+          ?.nombre as string | null) ||
+        "";
+      await abrirHiloDeAyudaDesdeAlta(admin, {
+        ranchoId,
+        solicitanteId: solicitud.solicitante_id as string,
+        negocioNombre: nombre,
+        pedido: (solicitud.mensaje as string | null) ?? "",
+      });
+    }
   }
 
   const { error: eSol } = await admin

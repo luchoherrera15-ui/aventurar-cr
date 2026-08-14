@@ -8,6 +8,8 @@ import ComplementosPanel, {
 } from "./complementos-panel";
 import SolicitudesPanel, { type SolicitudPendiente } from "./solicitudes-panel";
 import NegociosRevisionPanel, { type NegocioEnRevision } from "./negocios-revision-panel";
+import AyudaPanel, { type HiloConNegocio } from "./ayuda-panel";
+import { hilosAbiertosDeAyuda } from "@/lib/lealtad/ayuda-hilo";
 
 /**
  * Complementos: qué tiene contratado cada negocio, a quién se le venció
@@ -191,6 +193,15 @@ export default async function AdminComplementosPage() {
     fecha: FECHA_SOL.format(new Date(s.created_at)),
   }));
 
+  // Los pedidos de AYUDA CON EL DISEÑO (0149), sin cerrar. El nombre
+  // del negocio se resuelve con el mapa que ya se armó arriba: la
+  // lectura no vuelve a consultar `ranchos`. Si la migración no corrió,
+  // `hilosAbiertosDeAyuda` devuelve [] y la bandeja no se muestra.
+  const hilosAyuda: HiloConNegocio[] = (await hilosAbiertosDeAyuda(admin)).map((h) => ({
+    ...h,
+    negocio: nombreRancho.get(h.ranchoId) ?? "(negocio)",
+  }));
+
   // Los contadores se calculan sobre lo que se ve, no sobre la tabla
   // entera: si el conmutador está en "Citas", los números son de Citas.
   let activos = 0;
@@ -216,6 +227,7 @@ export default async function AdminComplementosPage() {
 
       <NegociosRevisionPanel negocios={negociosEnRevision} />
       <SolicitudesPanel solicitudes={solicitudes} />
+      <AyudaPanel hilos={hilosAyuda} />
       <ComplementosPanel negocios={negocios} seccion={seccion} />
     </div>
   );

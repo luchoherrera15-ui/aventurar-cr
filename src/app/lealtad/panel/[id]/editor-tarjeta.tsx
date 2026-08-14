@@ -6,6 +6,7 @@ import {
   configPorDefecto,
   metaDe,
   TIPOS_TARJETA,
+  tipoDe,
   validarBeneficio,
   type ConfigBeneficio,
   type TipoTarjeta,
@@ -20,6 +21,8 @@ import VistaPase from "./vista-pase";
 import { BloqueEstado } from "./pases-panel";
 import { BloqueDiseno } from "./seccion-tarjeta-digital";
 import { AvisoError, AvisoGuardado, BarraGuardar, NotaCercania, usePrograma } from "./programa-contexto";
+import AyudaDeDiseno from "./ayuda-diseno";
+import type { HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
 import { guardarBeneficio } from "./pases-actions";
 
 /**
@@ -71,6 +74,7 @@ export default function EditorTarjeta({
   beneficioInicial,
   reglasIniciales,
   metaActual,
+  ayudaInicial = null,
 }: {
   ranchoId: string;
   programaId: string;
@@ -87,8 +91,11 @@ export default function EditorTarjeta({
    * que el cliente ve en el teléfono.
    */
   metaActual: number | null;
+  /** El hilo de ayuda con el equipo, si ya hay uno abierto (0149). */
+  ayudaInicial?: HiloAyuda | null;
 }) {
   const [pestana, setPestana] = useState<Pestana>("beneficio");
+  const { borrador } = usePrograma();
 
   const editable = puedeEditarse(situacion);
 
@@ -175,6 +182,27 @@ export default function EditorTarjeta({
           </Link>
         </div>
       )}
+
+      {/* ── La salida cuando no le gusta cómo quedó ────────────────
+          Fuera de las pestañas a propósito: se ve desde las cuatro. El
+          dueño que no está conforme con su tarjeta no llega ahí por un
+          camino en particular, y una puerta que solo existe en una
+          pestaña es una puerta que no está.
+
+          Lo visual sale del BORRADOR compartido y no de la fila
+          guardada: si acaba de mover los colores y todavía no guardó,
+          lo que no le gusta es lo que está viendo. */}
+      <AyudaDeDiseno
+        ranchoId={ranchoId}
+        programaId={programaId}
+        hiloInicial={ayudaInicial}
+        tipo={tipoDe(borrador.modo)}
+        colorFondo={borrador.colorFondo}
+        colorSello={borrador.colorSello}
+        iconoSello={borrador.iconoSello}
+        tieneLogo={borrador.logoUrl.trim().length > 0}
+        tieneBanda={borrador.bannerUrl.trim().length > 0}
+      />
     </div>
   );
 }

@@ -19,6 +19,8 @@ import CampoColor from "@/components/campo-color";
 import PlantillasColor from "./plantillas-color";
 import SelectorIconoSello from "./selector-icono-sello";
 import VistaPase from "./vista-pase";
+import AyudaDeDiseno from "./ayuda-diseno";
+import type { HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
 import { crearTarjeta, type BorradorTarjeta } from "./crear-actions";
 
 /**
@@ -71,6 +73,7 @@ export default function CreadorTarjeta({
   ranchoId,
   negocioNombre,
   plan = null,
+  ayudaInicial = null,
 }: {
   ranchoId: string;
   negocioNombre: string;
@@ -80,6 +83,8 @@ export default function CreadorTarjeta({
    * lo vuelve a comprobar en el servidor, que es lo que manda.
    */
   plan?: string | null;
+  /** El hilo de ayuda con el equipo, si ya hay uno abierto (0149). */
+  ayudaInicial?: HiloAyuda | null;
 }) {
   const [paso, setPaso] = useState(0);
   const [verPase, setVerPase] = useState(false);
@@ -346,6 +351,27 @@ export default function CreadorTarjeta({
               </p>
             )}
           </section>
+        </div>
+
+        {/* ── La salida cuando no le gusta cómo va quedando ──────
+            Va acá abajo y en TODOS los pasos, no escondida en el de
+            diseño: el momento en que alguien se da cuenta de que no le
+            gusta no tiene por qué coincidir con el paso donde eligió
+            los colores, y una puerta que hay que buscar no es una
+            puerta. Manda lo que tiene en pantalla AHORA — que es lo
+            único que existe, porque todavía no se guardó nada. */}
+        <div className="mt-6">
+          <AyudaDeDiseno
+            ranchoId={ranchoId}
+            programaId={null}
+            hiloInicial={ayudaInicial}
+            tipo={tipo}
+            colorFondo={colorFondo}
+            colorSello={colorSello}
+            iconoSello={tipo === "sellos" ? iconoSello : null}
+            tieneLogo={logoUrl.trim().length > 0}
+            tieneBanda={bannerUrl.trim().length > 0}
+          />
         </div>
 
         {/* ── Barra de navegación ────────────────────────────────
