@@ -11,7 +11,8 @@ import {
 } from "./imagenes";
 import { describirEscalon, escalonesDeLaTira, primeroQueSalga } from "./escalones-tira";
 import { logoDentroDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import { emisoraDeFilasCrudas } from "./programa-principal";
+import { elegirDeFilasCrudas, emisoraDeFilasCrudas, resumenDeFila } from "./programa-principal";
+import { estadoVisible } from "@/lib/lealtad/programas";
 import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
@@ -101,10 +102,28 @@ export async function generarPaseDeLealtad({
     .select("*")
     .eq("rancho_id", ranchoId);
 
-  const programaFila = emisoraDeFilasCrudas(
-    (filasPrograma ?? []) as Record<string, unknown>[],
-    minutoISOCR(ahora),
-  );
+  const ahoraCR = minutoISOCR(ahora);
+  const filas = (filasPrograma ?? []) as Record<string, unknown>[];
+
+  // ── EL PROGRAMA EN PAUSA TAMBIÉN TIENE QUE PODER EMITIR ───────────
+  // `emisoraDeFilasCrudas` devuelve null cuando la tarjeta no opera, y
+  // eso está bien para el que se quiere afiliar. Pero acá entra TAMBIÉN
+  // el iPhone de alguien que ya tiene su pase: después del push, iOS
+  // pide el pase actualizado a /api/wallet/v1/passes/… y esa ruta llama
+  // a esta función. Con null devolvía 500, el teléfono se quedaba con
+  // el pase viejo, y el aviso de la pausa no llegaba NUNCA — el corte
+  // sería mudo justo del lado del cliente.
+  //
+  // Así que si no hay emisora pero la tarjeta principal está PAUSADA,
+  // se emite igual, marcada. Solo `pausado`: una archivada, una vencida
+  // o un borrador siguen sin entregar nada, porque ninguna de esas
+  // vuelve sola.
+  const emisora = emisoraDeFilasCrudas(filas, ahoraCR);
+  const principal = emisora ?? elegirDeFilasCrudas(filas, ahoraCR);
+  const pausado =
+    !emisora && !!principal && estadoVisible(resumenDeFila(principal), ahoraCR) === "pausado";
+
+  const programaFila = emisora ?? (pausado ? principal : null);
   if (!programaFila) {
     return { ok: false, motivo: "Este negocio todavía no tiene programa de lealtad." };
   }
@@ -129,6 +148,16 @@ export async function generarPaseDeLealtad({
     .maybeSingle();
 
   if (!miembro) {
+    // EN PAUSA NO SE AFILIA A NADIE NUEVO. El pase con el aviso es para
+    // el que YA tiene su tarjeta; entregarle una a alguien que llega
+    // hoy sería darle una tarjeta que nace sin poder sellar.
+    if (pausado) {
+      return {
+        ok: false,
+        motivo: "Este programa está en pausa por ahora — preguntá en el local.",
+      };
+    }
+
     // EL TOPE DEL PLAN SE CUMPLE ACÁ, no solo se pinta: sin este
     // check, la Prueba (25 clientes) afiliaría al 26 igual y el tope
     // sería decorativo. Los miembros existentes no se tocan — solo se
@@ -262,6 +291,8 @@ export async function generarPaseDeLealtad({
     config,
     // Lo que hace que un cupón diga «30% OFF» y no «Beneficio».
     beneficio,
+    // Los sellos siguen a la vista; cambian dos textos. Ver `DatosDelTexto`.
+    pausado,
     serialNumber,
     passTypeIdentifier: credenciales.passTypeIdentifier,
     teamIdentifier: credenciales.teamIdentifier,

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   definicionDe,
   esPlan,
+  esPlanOfrecido,
+  esPlanSinCosto,
   estadoDelLimite,
   etiquetaTiposDe,
   etiquetasDeCapacidades,
@@ -33,6 +35,79 @@ describe("esPlan", () => {
     // Nombres del catálogo viejo que nunca existieron en la base.
     expect(esPlan("starter")).toBe(false);
     expect(esPlan("growth")).toBe(false);
+  });
+});
+
+describe("UN PAQUETE RETIRADO NO SE PUEDE ELEGIR, PERO SE SIGUE RESPETANDO", () => {
+  /**
+   * Las dos mitades de la misma regla, y hay que probar LAS DOS: quitar
+   * cualquiera de ellas rompe algo caro.
+   *
+   * El agujero que esto cierra: las altas validaban con `esPlan`, que
+   * incluye los retirados a propósito. Una petición armada a mano con
+   * `plan: "gratis"` pasaba, y `gratis` lleva `SIN_TOPES` — o sea
+   * tarjetas ilimitadas, equipo ilimitado y los ocho tipos de tarjeta
+   * (incluidos los que solo trae el paquete de $42), sin pagar nada.
+   *
+   * Pero cerrarlo con `PLANES_ID = solo los vigentes` habría sido peor:
+   * `definicionDe('basico')` daría null, y con plan null TODOS los topes
+   * quedan null. Retirar mal un plan no lo apaga: lo vuelve infinito.
+   */
+  it("ningún retirado se puede ELEGIR", () => {
+    for (const id of PLANES_RETIRADOS) {
+      expect(esPlanOfrecido(id), `${id} no se puede elegir`).toBe(false);
+      expect(esPlanSinCosto(id), `${id} no puede saltarse el depósito`).toBe(false);
+    }
+    // El caso puntual de la auditoría: `gratis` cuesta $0 y lleva
+    // SIN_TOPES. Es el que abría el camino instantáneo sin comprobante.
+    expect(PLANES.gratis.precioMensual).toBe(0);
+    expect(PLANES.gratis.limites.programas).toBeNull();
+    expect(esPlanOfrecido("gratis")).toBe(false);
+    expect(esPlanSinCosto("gratis")).toBe(false);
+  });
+
+  it("pero el que ya lo TIENE conserva todo, exactamente igual", () => {
+    for (const id of PLANES_RETIRADOS) {
+      // Sigue resolviendo: nombre, capacidades, topes y tipos.
+      expect(esPlan(id), `${id} sigue siendo un valor válido de la base`).toBe(true);
+      expect(definicionDe(id), `${id} sigue teniendo definición`).not.toBeNull();
+      expect(tiposDelPlan(id)).toHaveLength(TIPOS_TARJETA_ID.length);
+    }
+    expect(puede("basico", "wallet")).toBe(true);
+    expect(puede("empresa", "marca_blanca")).toBe(true);
+    expect(estadoDelLimite("gratis", "programas", 500).lleno).toBe(false);
+  });
+
+  it("los cuatro ofrecidos SÍ se pueden elegir", () => {
+    for (const id of PLANES_OFRECIDOS) {
+      expect(esPlanOfrecido(id), `${id} se ofrece`).toBe(true);
+    }
+    expect(esPlanOfrecido(null)).toBe(false);
+    expect(esPlanOfrecido("premium")).toBe(false);
+  });
+
+  it("`vigente` y `PLANES_OFRECIDOS` dicen lo MISMO", () => {
+    // `esPlanOfrecido` decide con `vigente`; media pantalla decide con
+    // `PLANES_OFRECIDOS`. El día que las dos listas discrepen, un
+    // paquete se podría elegir sin aparecer en ninguna grilla (o al
+    // revés). Una sola verdad, comprobada acá.
+    for (const id of PLANES_ID) {
+      expect(
+        PLANES[id].vigente,
+        `${id}: «vigente» y PLANES_OFRECIDOS no coinciden`,
+      ).toBe((PLANES_OFRECIDOS as readonly string[]).includes(id));
+    }
+  });
+
+  it("el único paquete sin costo que se puede elegir es una PRUEBA", () => {
+    // Un paquete que se contrata sin pagar y que no vence es un regalo
+    // permanente. Si mañana alguien agrega uno así, este test lo frena
+    // antes de que se cree el primer negocio.
+    const sinCosto = PLANES_OFRECIDOS.filter((id) => esPlanSinCosto(id));
+    expect(sinCosto).toEqual(["prueba"]);
+    for (const id of sinCosto) {
+      expect(PLANES[id].diasPrueba, `${id} no tiene fecha de corte`).toBeGreaterThan(0);
+    }
   });
 });
 

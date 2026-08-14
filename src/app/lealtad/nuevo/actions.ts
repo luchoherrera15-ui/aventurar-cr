@@ -3,16 +3,12 @@
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { definicionDe, esPlan } from "@/lib/lealtad/planes";
+import { definicionDe, esPlanOfrecido, esPlanSinCosto } from "@/lib/lealtad/planes";
+import { finDePrueba } from "@/lib/lealtad/prueba";
 import { generarSlugUnico } from "@/lib/slug";
 import { apagarModulosOperativos } from "@/lib/lealtad/solo-lealtad";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
-
-/** El plan Gratis no lleva depósito: sin método ni comprobante. */
-function esGratis(plan: string): boolean {
-  return definicionDe(plan)?.precioMensual === 0;
-}
 
 /**
  * La solicitud de ALTA (0130): acá el negocio NO se crea — se PIDE.
@@ -69,7 +65,14 @@ export async function solicitarAltaConPlan(datos: {
   if (tipo === "otro" && !detalle) {
     return { ok: false, motivo: "Contanos qué negocio es." };
   }
-  if (!esPlan(datos.plan)) return { ok: false, motivo: "Ese paquete no existe." };
+  // Contra los OFRECIDOS, no contra todos los que la base acepta.
+  // `esPlan` incluye los RETIRADOS —tiene que incluirlos, para que las
+  // cuentas que ya los tienen sigan resolviendo—, así que validando con
+  // él una petición armada a mano con `plan: "gratis"` entraba por acá
+  // y se llevaba `SIN_TOPES`: tarjetas y equipo ilimitados y los ocho
+  // tipos de tarjeta, gratis y para siempre. Elegir es distinto de
+  // tener: acá se elige.
+  if (!esPlanOfrecido(datos.plan)) return { ok: false, motivo: "Ese paquete no existe." };
 
   const descripcion = datos.descripcion.trim().slice(0, 500);
   const regalia = datos.regalia.trim().slice(0, 120);
@@ -92,7 +95,11 @@ export async function solicitarAltaConPlan(datos: {
     }
   }
 
-  const gratis = esGratis(datos.plan);
+  // Sin costo = sin depósito que verificar. Se pregunta por el catálogo
+  // y no por `precioMensual === 0` suelto: el paquete RETIRADO `gratis`
+  // también vale $0, y esa comparación floja era la segunda mitad del
+  // agujero de arriba.
+  const gratis = esPlanSinCosto(datos.plan);
   if (!gratis) {
     if (datos.metodoPago !== "sinpe" && datos.metodoPago !== "transferencia") {
       return { ok: false, motivo: "Elegí cómo pagaste: SINPE o transferencia." };
@@ -317,14 +324,29 @@ async function crearGratisAlInstante(d: {
 
   // El complemento que gobierna el módulo (0077): sin él, el panel
   // muestra "sin activar" aunque todo lo demás exista.
+  //
+  // ── Y ACÁ SE ESCRIBE EL FINAL DE LA PRUEBA ──────────────────────
+  // Antes iba `vence_en: null` fijo, y `null` en `tiene_addon()`
+  // significa PARA SIEMPRE: el catálogo prometía 14 días, la landing
+  // los pintaba, y el negocio operaba gratis sin fecha de corte hasta
+  // que alguien lo notara a mano.
+  //
+  // El corte se escribe UNA vez, acá, y de ahí en adelante lo hace
+  // cumplir la base —`and (a.vence_en is null or a.vence_en > now())`—
+  // sin ningún proceso nuestro de por medio. Un paquete de PAGO sigue
+  // dando `null`, que para él es lo correcto: no vence por tiempo.
+  const ahora = new Date();
+  const corte = finDePrueba(d.plan, ahora);
   const { error: eAddon } = await admin.from("addons_negocio").upsert(
     {
       rancho_id: ranchoId,
       addon: "lealtad",
       activo: true,
-      vence_en: null,
-      activado_en: new Date().toISOString(),
-      notas: `Plan ${d.plan} — creado solo por el creador de cards`,
+      vence_en: corte,
+      activado_en: ahora.toISOString(),
+      notas: corte
+        ? `Plan ${d.plan} — prueba del creador de cards, vence ${corte.slice(0, 10)}`
+        : `Plan ${d.plan} — creado solo por el creador de cards`,
     },
     { onConflict: "rancho_id,addon" },
   );
@@ -357,6 +379,13 @@ async function crearGratisAlInstante(d: {
         <p><b>${escapar(d.nombre)}</b> (${escapar(d.tipo)}${d.detalle ? ` — ${escapar(d.detalle)}` : ""})
         se creó SOLO con el plan Gratis: programa activo, regalía
         «${escapar(d.regalia)}» a ${d.metaSellos} sellos. Dueño: ${escapar(d.correo)}.</p>
+        ${
+          corte
+            ? `<p>La prueba <b>vence el ${escapar(corte.slice(0, 10))}</b>: ese día el
+               complemento se apaga solo (lo hace la base, no un cron) y el panel le
+               explica cómo seguir. Se le avisa por correo unos días antes.</p>`
+            : ""
+        }
         <p>No hay nada que aprobar — es informativo.
         <a href="https://www.bookea.lat/admin/lealtad/${ranchoId}">Ver su programa</a>.</p>
       `,

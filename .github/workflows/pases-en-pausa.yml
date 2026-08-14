@@ -1,0 +1,41 @@
+name: Aviso de pausa en los pases
+
+# Le cambia el texto a los pases que la gente ya tiene instalados cuando
+# el programa de un negocio se pausa por falta de pago (0146/0147), y se
+# lo devuelve a la normalidad cuando el negocio renueva.
+#
+# Vive acá y no en vercel.json por lo mismo que el recordatorio horario:
+# Vercel Hobby solo permite crons DIARIOS y rechaza el deploy entero si
+# vercel.json trae uno más frecuente, sin dejar rastro en la lista de
+# deployments.
+#
+# CADA 10 MINUTOS. Cada corrida atiende hasta 200 pases (8 tandas de 25,
+# con 1,5 s entre tandas), o sea ~1.200 por hora: el negocio más grande
+# de hoy —1.150 miembros— queda avisado entero en una hora. Lo que no
+# entra en una corrida lo toma la siguiente, porque el trabajo es
+# reanudable: no lleva cursor, pregunta cuáles siguen con el texto que
+# no les corresponde.
+#
+# Correrlo de más no molesta: es idempotente. Con todo al día no manda
+# ni un push y contesta en una consulta.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+# Dos corridas simultáneas no duplicarían avisos (la bandera se reclama
+# con un update condicional), pero tampoco aportan: si una se demora,
+# la siguiente espera en vez de pisarla.
+concurrency:
+  group: pases-en-pausa
+  cancel-in-progress: false
+
+jobs:
+  llamar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a /api/lealtad/pases-en-pausa
+        run: |
+          curl -sf --max-time 90 -X GET \
+            "https://www.bookea.lat/api/lealtad/pases-en-pausa" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

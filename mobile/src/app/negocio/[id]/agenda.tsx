@@ -211,10 +211,21 @@ function deISO(iso: string): Date {
  * Aviso a la web de que la cita quedó cumplida, para que otorgue los
  * puntos de lealtad (eso vive en el servidor). Nunca lanza ni bloquea:
  * la cita ya quedó marcada en la base antes de llamar acá.
+ *
+ * VA FIRMADO con el access_token de la sesión. Del otro lado hay una
+ * escritura al ledger de lealtad con la llave de servicio, y sin el
+ * token el endpoint la aceptaba de cualquiera: el servidor ahora exige
+ * que quien pide los puntos sea el mismo que puede marcar la cita
+ * (dueño, admin o encargado). Es el mismo header que este archivo ya le
+ * manda a /api/citas/lista-espera.
  */
-async function avisarCitaCumplida(reservaId: string) {
+async function avisarCitaCumplida(reservaId: string, token: string | undefined) {
+  if (!token) return;
   try {
-    await fetch(`${SITIO_URL}/api/citas/${reservaId}/asistencia`, { method: "POST" });
+    await fetch(`${SITIO_URL}/api/citas/${reservaId}/asistencia`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    });
   } catch {
     // Sin drama: los puntos se pueden otorgar después desde el panel web.
   }
@@ -418,7 +429,7 @@ export default function AgendaNegocioScreen() {
     }
     if (asistencia === "cumplida") {
       // Los puntos de lealtad los otorga la web; no se espera la respuesta.
-      void avisarCitaCumplida(cita.id);
+      void avisarCitaCumplida(cita.id, session?.access_token);
     }
     await cargar();
     if (asistencia === "no_asistio") {

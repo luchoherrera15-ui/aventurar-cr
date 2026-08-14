@@ -144,12 +144,14 @@ const nextConfig: NextConfig = {
       // Y la URL se queda en `/`, que es lo que se quiere: era la
       // dirección más fuerte del sitio y estaba regalando su autoridad.
       //
-      // OJO — DEUDA CONOCIDA: ahora el mismo contenido vive en `/` y en
-      // `/eventos`. Para Google eso es duplicado si nadie desempata, y
-      // el desempate correcto es un `alternates.canonical` en la página
-      // de eventos. Lo está resolviendo la auditoría de SEO; mientras
-      // tanto el riesgo es bajo porque `/eventos` ya era la única
-      // indexada (la raíz redirigía).
+      // EL DUPLICADO YA ESTÁ DESEMPATADO. El mismo contenido vive en
+      // `/` y en `/eventos`, y las dos siguen respondiendo 200 (hay
+      // enlaces vivos a las dos, así que no vuelve ningún redirect).
+      // Quien manda es `/`: las dos respuestas traen
+      // `<link rel="canonical" href="https://www.bookea.lat/">`, izado
+      // al `<head>` desde el componente compartido — el porqué de la
+      // decisión y el porqué de la técnica están escritos en
+      // src/app/eventos/page.tsx, arriba de `CANONICO_DIRECTORIO`.
       //
       // OJO 2 — HOY ESTE REWRITE NO DISPARA, Y ESTÁ BIEN ASÍ. Los
       // rewrites escritos como ARREGLO son `afterFiles`: se revisan

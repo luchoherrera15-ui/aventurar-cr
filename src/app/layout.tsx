@@ -10,6 +10,7 @@ import "./globals.css";
 // pide después de la hidratación — Next no permite `ssr:false` escrito
 // directo en un Server Component, por eso el envoltorio.
 import ChatFlotante from "@/components/chat-flotante-lazy";
+import { SITIO } from "@/lib/sitio";
 
 const figtree = Figtree({
   variable: "--font-figtree",
@@ -23,7 +24,15 @@ export const metadata: Metadata = {
   // salga con ese dominio aunque la página se haya servido desde otro
   // host apuntado al mismo proyecto — si no, lo que se comparte por
   // WhatsApp queda con el dominio por el que entró esa persona.
-  metadataBase: new URL("https://www.bookea.lat"),
+  //
+  // Sale de @/lib/sitio para que el canónico del directorio, el sitemap
+  // y el robots.txt no puedan quedar diciendo otro host que este.
+  //
+  // OJO: `alternates.canonical` NO va acá. La metadata de un layout la
+  // heredan todas las rutas de abajo, así que un canónico puesto en
+  // este objeto canonizaría /citas, /hospedajes y cada ficha de negocio
+  // a la misma dirección. Cada página declara la suya.
+  metadataBase: new URL(SITIO),
   // Genérico a propósito: Bookea no es solo eventos — también vienen
   // hospedajes y escapadas. La geografía sí se queda (posiciona), la
   // intención de "evento" no. Las páginas internas anteponen lo suyo
@@ -48,7 +57,7 @@ export const metadata: Metadata = {
       "Espacios, servicios y experiencias en un solo lugar. Compará opciones reales y reservá directo.",
     locale: "es_CR",
     siteName: "Bookea",
-    url: "https://www.bookea.lat",
+    url: SITIO,
   },
 };
 

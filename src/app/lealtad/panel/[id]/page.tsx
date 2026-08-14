@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, estadoDelLimite } from "@/lib/lealtad/planes";
+import { estadoDePrueba } from "@/lib/lealtad/prueba";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { minutoISOCR } from "@/lib/fechas";
 import SeccionProgramas, { type ProgramaEnLista } from "./seccion-programas";
@@ -122,9 +123,54 @@ export default async function PanelNegocioLealtad({
       .eq("estado", "pendiente")
       .maybeSingle();
 
+    // ¿O es que se le TERMINÓ LA PRUEBA? No es lo mismo que «todavía no
+    // tiene el programa»: este negocio lo tuvo, lo armó, tiene clientes
+    // con sellos adentro, y lo que necesita leer es qué pasó y qué
+    // conserva — no un texto de bienvenida que lo deje pensando que
+    // perdió todo. La fila se lee con la llave de servicio porque la
+    // política de `addons_negocio` (0077) solo se la muestra al dueño, y
+    // a esta pantalla también entran los colaboradores.
+    const dbAddon = createAdminClient();
+    const { data: filaAddon } = dbAddon
+      ? await dbAddon
+          .from("addons_negocio")
+          .select("activo, vence_en")
+          .eq("rancho_id", id)
+          .eq("addon", "lealtad")
+          .maybeSingle()
+      : { data: null };
+    const prueba = estadoDePrueba({
+      plan: (rancho.plan_lealtad as string | null) ?? null,
+      venceEn: (filaAddon?.vence_en as string | null) ?? null,
+    });
+    const pruebaTerminada = prueba.vencida && !!filaAddon?.activo;
+
     return (
       <Antesala nombre={rancho.nombre}>
-        {solicitud ? (
+        {pruebaTerminada ? (
+          <>
+            <p className="text-[15px] font-extrabold text-white">
+              Se terminaron tus 14 días de prueba
+            </p>
+            <p className="mx-auto mt-2 max-w-[460px] text-[13.5px] leading-relaxed text-white/60">
+              Tu programa quedó <b className="text-white/80">en pausa</b>: por ahora no se
+              pueden dar sellos, canjear premios ni emitir tarjetas nuevas.
+            </p>
+            <p className="mx-auto mt-3 max-w-[460px] rounded-2xl px-4 py-3 text-[13px] leading-relaxed font-bold text-white"
+              style={{ background: "rgba(238,116,32,.16)" }}>
+              No se borró nada. Tus clientes, sus sellos y los pases que ya tienen en el
+              teléfono siguen exactamente como estaban — elegí un paquete y todo vuelve tal
+              cual lo dejaste.
+            </p>
+            <Link
+              href={`/lealtad/planes?negocio=${id}`}
+              className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold text-white"
+              style={{ background: NARANJA }}
+            >
+              Elegir mi paquete →
+            </Link>
+          </>
+        ) : solicitud ? (
           <>
             <p className="text-[15px] font-extrabold text-white">
               Tu solicitud del plan {definicionDe(solicitud.plan as string)?.nombre ?? ""} está en
@@ -322,6 +368,26 @@ export default async function PanelNegocioLealtad({
   // que el panel sigue funcionando igual mientras el dueño la pega.
   const suscripcion =
     admin && puedeDisenar ? await suscripcionDelNegocio(admin, { ranchoId: id, cuentaId }) : null;
+
+  // La cuenta regresiva de la prueba. Se pinta EN EL PANEL y no solo en
+  // un correo a propósito: el correo se pierde, se filtra o se lee
+  // tarde, y el panel es el lugar donde el dueño ya está mirando su
+  // programa. Con la fecha a la vista, que la prueba se termine deja de
+  // ser una sorpresa aunque el aviso por correo nunca haya salido.
+  const { data: filaAddonPlan } =
+    admin && puedeDisenar
+      ? await admin
+          .from("addons_negocio")
+          .select("vence_en")
+          .eq("rancho_id", id)
+          .eq("addon", "lealtad")
+          .maybeSingle()
+      : { data: null };
+  const prueba = estadoDePrueba({
+    plan,
+    venceEn: (filaAddonPlan?.vence_en as string | null) ?? null,
+  });
+
   const topeProgramas = def?.limites.programas ?? null;
   const limiteClientes = estadoDelLimite(plan, "clientesActivos", miembros);
 
@@ -695,6 +761,7 @@ export default async function PanelNegocioLealtad({
                 plan={plan}
                 miembros={miembros}
                 equipo={equipo.length}
+                prueba={prueba}
               />
             </Seccion>
           ),

@@ -779,6 +779,57 @@ export function esPlan(valor: string | null): valor is PlanId {
   return valor !== null && (PLANES_ID as readonly string[]).includes(valor);
 }
 
+/**
+ * ¿Este paquete se puede ELEGIR hoy?
+ *
+ * ------------------------------------------------------------------
+ * LA DIFERENCIA CON `esPlan` NO ES COSMÉTICA: ES LA PUERTA
+ * ------------------------------------------------------------------
+ * `esPlan` contesta «¿la base puede tener esto GUARDADO?», y por eso
+ * incluye los retirados — tiene que incluirlos, o las cuentas que ya
+ * los tienen se quedarían sin plan. Esta contesta otra cosa: «¿alguien
+ * puede PEDIR esto ahora?».
+ *
+ * Validar un alta con `esPlan` fue un agujero real. El formulario solo
+ * ofrece los cuatro vigentes, pero una petición armada a mano con
+ * `plan: "gratis"` pasaba la validación, y `gratis` lleva `SIN_TOPES` a
+ * propósito (a quien ya lo tenía no se le quita nada). O sea que ELEGIR
+ * un paquete retirado regalaba tarjetas ilimitadas, equipo ilimitado y
+ * los ocho tipos —incluidos los que solo trae el de $42— sin pagar un
+ * colón. El descuido más caro de este archivo salía de confundir «lo
+ * que la base acepta» con «lo que se vende».
+ *
+ * Lo que esta función NO toca: `definicionDe`, `puede`,
+ * `estadoDelLimite` y `tiposDelPlan` siguen resolviendo con `esPlan`, o
+ * sea que un negocio con «Básico» sigue funcionando exactamente igual.
+ * Lo único que se corta es elegir uno NUEVO.
+ *
+ * Se decide con `vigente` y no con `PLANES_OFRECIDOS.includes` para que
+ * haya UNA sola verdad: el día que un paquete se retire alcanza con
+ * poner `vigente: false` y esta puerta se cierra sola. (Hay una prueba
+ * que exige que las dos listas digan lo mismo.)
+ */
+export function esPlanOfrecido(valor: string | null): valor is PlanId {
+  return esPlan(valor) && PLANES[valor].vigente;
+}
+
+/**
+ * ¿Este paquete se contrata SIN PAGAR nada?
+ *
+ * Es la pregunta que decide si un alta salta el depósito y se crea al
+ * instante, así que tiene que ser más estricta que «precioMensual === 0»:
+ * el paquete RETIRADO `gratis` también cuesta $0, y con esa comparación
+ * suelta el camino automático le creaba a cualquiera un negocio con
+ * `plan_lealtad: 'gratis'`, o sea sin un solo tope.
+ *
+ * Hoy el único que contesta que sí es `prueba` — y por eso VENCE
+ * (ver `finDePrueba` en ./prueba.ts). Un plan sin costo que no vence no
+ * es una prueba: es un regalo permanente.
+ */
+export function esPlanSinCosto(plan: string | null): boolean {
+  return esPlanOfrecido(plan) && PLANES[plan].precioMensual === 0;
+}
+
 export function definicionDe(plan: string | null): DefinicionPlan | null {
   return esPlan(plan) ? PLANES[plan] : null;
 }

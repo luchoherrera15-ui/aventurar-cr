@@ -8,6 +8,7 @@ import {
   leerAgendaDeTexto,
   MAX_FOTOS,
   type ImagenAgenda,
+  type NegocioAgenda,
   type ResultadoLectura,
 } from "@/lib/ia/leer-agenda";
 import type { VerticalAgenda } from "@/lib/agenda/importar-agenda";
@@ -65,12 +66,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No encontramos tu publicación." }, { status: 403 });
   }
 
+  // La CATEGORÍA viaja junto con la vertical porque dentro de Eventos
+  // decide si el negocio agenda por fecha (un lugar) o por horas (un
+  // proveedor), y de eso depende qué se le pide leer al modelo.
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("vertical")
+    .select("vertical, categoria")
     .eq("id", ranchoId)
     .maybeSingle();
-  const vertical = (((rancho?.vertical as string) || "eventos") as VerticalAgenda);
+  const negocio: NegocioAgenda = {
+    vertical: ((rancho?.vertical as string) || "eventos") as VerticalAgenda,
+    categoria: (rancho?.categoria as string | null) ?? null,
+  };
 
   // 2. ¿Tiene el add-on? (con la llave de servicio, no con la sesión)
   const admin = createAdminClient();
@@ -120,7 +127,7 @@ export async function POST(request: Request) {
       if (texto.trim().length < 10) {
         return NextResponse.json({ error: "Pegá el texto de la agenda." }, { status: 400 });
       }
-      resultado = await leerAgendaDeTexto(texto, vertical, hoy, {
+      resultado = await leerAgendaDeTexto(texto, negocio, hoy, {
         ranchoId,
         usuarioId: user.id,
       });
@@ -161,7 +168,7 @@ export async function POST(request: Request) {
         fotos.push({ mediaType, datos });
       }
 
-      resultado = await leerAgendaDeFotos(fotos, vertical, hoy, contexto, {
+      resultado = await leerAgendaDeFotos(fotos, negocio, hoy, contexto, {
         ranchoId,
         usuarioId: user.id,
       });

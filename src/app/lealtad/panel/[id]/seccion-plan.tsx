@@ -8,6 +8,8 @@ import {
   precioDe,
   type DefinicionPlan,
 } from "@/lib/lealtad/planes";
+import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
+import { fechaISOCR, fechaLargaCR } from "@/lib/fechas";
 import { Icono } from "./iconos";
 
 /**
@@ -36,12 +38,20 @@ export default function SeccionPlan({
   plan,
   miembros,
   equipo,
+  prueba,
 }: {
   ranchoId: string;
   plan: string | null;
   miembros: number;
   /** Colaboradores dados de alta, sin contar al dueño. */
   equipo: number;
+  /**
+   * En qué punto de la prueba de 14 días está. Se pinta acá y no solo
+   * en un correo porque el correo se pierde y el panel es donde el
+   * dueño ya está mirando: con la fecha a la vista, el corte deja de
+   * ser una sorpresa. `esPrueba: false` = no hay nada que contar.
+   */
+  prueba: EstadoPrueba;
 }) {
   const actual = definicionDe(plan);
   const limite = estadoDelLimite(plan, "clientesActivos", miembros);
@@ -50,8 +60,33 @@ export default function SeccionPlan({
   // el medidor diría 0/1 mientras la invitación rebota.
   const limiteEquipo = estadoDelLimite(plan, "administradores", equipo + 1);
 
+  // La cuenta regresiva, escrita UNA vez: el mismo texto que usa el
+  // correo del aviso, para que las dos superficies nunca digan números
+  // distintos.
+  const restante = textoRestante(prueba);
+  const cortaHoy = prueba.esPrueba && !prueba.vencida && (prueba.diasRestantes ?? 99) <= 3;
+
   return (
     <div className="space-y-5">
+      {/* ── La prueba y su fecha de corte ───────────────────────── */}
+      {prueba.esPrueba && prueba.venceEn && (
+        <div
+          className="rounded-2xl px-5 py-4"
+          style={{
+            background: cortaHoy ? "rgba(238,116,32,.16)" : "rgba(255,255,255,.06)",
+            border: `1px solid ${cortaHoy ? NARANJA : "rgba(255,255,255,.14)"}`,
+          }}
+        >
+          <p className="text-[14.5px] font-extrabold text-aventurea-ink">{restante}</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            Tu prueba se termina el{" "}
+            <b>{fechaLargaCR(fechaISOCR(new Date(prueba.venceEn)))}</b>. Ese día el programa
+            queda en pausa hasta que elijas un paquete —{" "}
+            <b>no se borra nada</b>: tus clientes, sus sellos y sus pases quedan tal cual.
+          </p>
+        </div>
+      )}
+
       {/* ── Tu plan + el consumo ────────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

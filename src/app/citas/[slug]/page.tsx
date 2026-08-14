@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -28,6 +30,12 @@ import {
 import ProveedorActual from "@/components/proveedor-actual";
 import BotonConsultar from "@/components/boton-consultar";
 import VisitasPagina from "@/components/visitas-pagina";
+import {
+  datosEstructuradosNegocio,
+  jsonLdSeguro,
+  metadataNegocio,
+  type NegocioSeo,
+} from "@/lib/seo-negocio";
 
 type Miembro = {
   id: string;
@@ -37,6 +45,83 @@ type Miembro = {
 };
 
 type Resena = { calificacion: number; comentario: string | null; created_at: string };
+
+type NegocioCitas = RanchoPublico & { vertical: string };
+
+/**
+ * El negocio, UNA sola vez por visita.
+ *
+ * `generateMetadata` y la página corren por separado: sin `cache()`
+ * esto serían dos consultas bloqueantes (o cuatro, contando el
+ * reintento por id) para leer la misma fila. `cache()` de React
+ * deduplica por render — mismo patrón que /a/[slug] y /[slug].
+ *
+ * Por slug (la URL bonita) y si no, por id — para negocios recién
+ * creados que aún no tienen slug.
+ *
+ * Lista explícita y no `select("*")`: con `*` esta consulta traía
+ * `sinpe_numero` y `sinpe_titular`, y de acá pasaban a `agendaProps`,
+ * que va a tres componentes `"use client"` — o sea que el SINPE del
+ * negocio quedaba escrito en el HTML público de su ficha (ver el
+ * comentario grande de @/lib/ranchos-publicos).
+ */
+const cargarNegocio = cache(async (slug: string): Promise<NegocioCitas | null> => {
+  const supabase = await createClient();
+  const buscarPor = (campo: "slug" | "id", valor: string) => (columnas: string) =>
+    supabase
+      .from("ranchos")
+      .select(columnas)
+      .eq(campo, valor)
+      .eq("vertical", "citas")
+      .eq("estado", "aprobado")
+      .maybeSingle();
+
+  let data = await pedirFila(buscarPor("slug", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES);
+  if (!data && /^[0-9a-f-]{36}$/.test(slug)) {
+    data = await pedirFila(buscarPor("id", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES);
+  }
+  return (data as unknown as NegocioCitas | null) ?? null;
+});
+
+/** Lo que necesita el presentador de metadata, sacado de la fila pública. */
+function paraCompartir(negocio: NegocioCitas, slug: string): NegocioSeo {
+  const categoria = normalizarCategoriaCita(negocio.categoria);
+  return {
+    nombre: negocio.nombre,
+    ruta: `/citas/${negocio.slug ?? slug}`,
+    categoriaLabel: CATEGORIA_CITA_LABEL[categoria] ?? null,
+    descripcion: negocio.descripcion ?? null,
+    provincia: negocio.provincia ?? null,
+    canton: negocio.canton ?? null,
+    direccionExacta: negocio.direccion_exacta ?? null,
+    latitud: negocio.latitud ?? null,
+    longitud: negocio.longitud ?? null,
+    fotos: [negocio.foto_url, ...(negocio.fotos ?? [])].filter(
+      (f): f is string => typeof f === "string" && f.trim().length > 0,
+    ),
+    // Un negocio de citas no publica "precio desde" en la ficha: su
+    // precio vive en cada servicio del catálogo. No se inventa uno.
+    precioDesde: null,
+    unidadPrecio: null,
+    telefono: null,
+    redes: [],
+  };
+}
+
+/**
+ * Sin esto, la ficha de una barbería se compartía por WhatsApp sin foto
+ * y con el título genérico del sitio.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const negocio = await cargarNegocio(slug);
+  if (!negocio) return {};
+  return metadataNegocio(paraCompartir(negocio, slug));
+}
 
 /**
  * La mini-página de un negocio de citas — su "sitio" dentro de Bookea
@@ -54,36 +139,15 @@ export default async function NegocioCitasPage({
 
   // La sesión y el negocio, juntos: antes `auth.getUser()` esperaba sola
   // antes de que arrancara siquiera la consulta del negocio. No depende
-  // una de la otra.
-  //
-  // Por slug (la URL bonita) y si no, por id — para negocios recién
-  // creados que aún no tienen slug.
-  //
-  // Lista explícita y no `select("*")`: con `*` esta consulta traía
-  // `sinpe_numero` y `sinpe_titular`, y de acá pasaban a `agendaProps`,
-  // que va a tres componentes `"use client"` — o sea que el SINPE del
-  // negocio quedaba escrito en el HTML público de su ficha (ver el
-  // comentario grande de @/lib/ranchos-publicos).
-  const buscarPor = (campo: "slug" | "id", valor: string) => (columnas: string) =>
-    supabase
-      .from("ranchos")
-      .select(columnas)
-      .eq(campo, valor)
-      .eq("vertical", "citas")
-      .eq("estado", "aprobado")
-      .maybeSingle();
-
-  const [sesion, filaPorSlug] = await Promise.all([
+  // una de la otra. La del negocio es la MISMA que ya pidió
+  // `generateMetadata` — `cargarNegocio` está cacheada, así que si esa
+  // ya volvió, acá no hay viaje.
+  const [sesion, negocio] = await Promise.all([
     supabase.auth.getUser(),
-    pedirFila(buscarPor("slug", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES),
+    cargarNegocio(slug),
   ]);
   const user = sesion.data.user;
-  let data = filaPorSlug;
-  if (!data && /^[0-9a-f-]{36}$/.test(slug)) {
-    data = await pedirFila(buscarPor("id", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES);
-  }
 
-  const negocio = data as unknown as (RanchoPublico & { vertical: string }) | null;
   if (!negocio) notFound();
 
   // Los contadores del negocio (citas agendadas, clientes atendidos y
@@ -265,6 +329,15 @@ export default async function NegocioCitasPage({
 
   return (
     <div className="min-h-screen bg-[linear-gradient(175deg,#ffffff_0%,#f5f8fd_38%,#e9f0fb_100%)]">
+      {/* Datos estructurados del negocio: dirección y demás, para que
+          Google no muestre la ficha como texto pelado. Sale de la MISMA
+          fila ya leída — cero consultas extra. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLdSeguro(datosEstructuradosNegocio(paraCompartir(negocio, slug))),
+        }}
+      />
       {/* La burbuja de chat flotante solo tiene sentido acá si quien
           mira no es el dueño — nadie se manda una consulta a sí mismo. */}
       {negocio.owner_id !== user?.id && (

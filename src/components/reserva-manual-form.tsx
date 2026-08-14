@@ -9,6 +9,8 @@ const labelCls =
 
 export type ReservaManualInput = {
   fecha: string;
+  horaInicio: string;
+  horaFin: string;
   nombre: string;
   tipo_evento: string;
   invitados: string;
@@ -21,6 +23,8 @@ export type ReservaManualInput = {
 
 const VACIO: ReservaManualInput = {
   fecha: "",
+  horaInicio: "",
+  horaFin: "",
   nombre: "",
   tipo_evento: "",
   invitados: "",
@@ -36,16 +40,26 @@ const VACIO: ReservaManualInput = {
  * queda confirmada de una vez, sin depósito ni comprobante en línea.
  * Los montos sí se piden: sin eso, la reserva no cuenta para nada en
  * el panel de Finanzas y el control económico del negocio queda cojo.
+ *
+ * Y la HORA se pide a quien trabaja por horas (`pideHora`, que sale de
+ * `ocupaFranjaHoraria` en el servidor). No es un campo cosmético: sin
+ * `hora_inicio` la reserva no entra en `disponibilidad_citas` y la
+ * agenda pública del proveedor le sigue ofreciendo esa fecha al
+ * siguiente cliente. A un lugar de alquiler no se le muestra: alquila
+ * la fecha entera y su horario es texto libre.
  */
 export default function ReservaManualForm({
   capacidadMax,
   onCrear,
   fechaFija,
   onCancelar,
+  pideHora = false,
 }: {
   capacidadMax: number | null;
   onCrear: (input: {
     fecha: string;
+    horaInicio: string | null;
+    horaFin: string | null;
     nombre: string;
     tipo_evento: string;
     invitados: number | null;
@@ -62,6 +76,9 @@ export default function ReservaManualForm({
   /** Solo aplica junto con `fechaFija`: acá no hay botón propio de
    *  colapsar, así que "Cerrar" delega en quien lo incrusta. */
   onCancelar?: () => void;
+  /** El negocio agenda por FRANJAS (proveedor de eventos, citas,
+   *  restaurante): la hora de inicio es obligatoria. */
+  pideHora?: boolean;
 }) {
   const [datos, setDatos] = useState(fechaFija ? { ...VACIO, fecha: fechaFija } : VACIO);
   const [pending, startTransition] = useTransition();
@@ -84,6 +101,14 @@ export default function ReservaManualForm({
     }
     if (!datos.nombre.trim()) {
       setError("Escribí el nombre de quien reserva.");
+      return;
+    }
+    // El servidor lo vuelve a comprobar (resolverHorarioReserva); esto
+    // es para no hacerle dar el viaje al dueño.
+    if (pideHora && !datos.horaInicio.trim()) {
+      setError(
+        "Poné la hora de inicio: tu agenda se reserva por horas y sin ella esta fecha no le tapa ninguna hora a los clientes.",
+      );
       return;
     }
     // Los invitados son obligatorios: sin ellos la reserva no cuenta
@@ -119,6 +144,10 @@ export default function ReservaManualForm({
     startTransition(async () => {
       const res = await onCrear({
         fecha: datos.fecha,
+        // Un lugar de alquiler nunca ve estos campos: manda null y su
+        // reserva se guarda exactamente como siempre.
+        horaInicio: pideHora ? datos.horaInicio.trim() || null : null,
+        horaFin: pideHora ? datos.horaFin.trim() || null : null,
         nombre: datos.nombre.trim(),
         tipo_evento: datos.tipo_evento.trim(),
         invitados: invitadosNum,
@@ -180,6 +209,35 @@ export default function ReservaManualForm({
             className={`${inputCls} ${fechaFija ? "opacity-70" : ""}`}
           />
         </div>
+        {/* La hora, solo para quien trabaja por horas. Sin ella la
+            reserva no le tapa la franja a nadie en la agenda pública. */}
+        {pideHora && (
+          <>
+            <div>
+              <label className={labelCls}>Hora de inicio *</label>
+              <input
+                type="time"
+                required
+                value={datos.horaInicio}
+                onChange={(e) => set("horaInicio", e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Hora de cierre</label>
+              <input
+                type="time"
+                value={datos.horaFin}
+                onChange={(e) => set("horaFin", e.target.value)}
+                className={inputCls}
+              />
+              <p className="mt-1 text-[11.5px] leading-snug text-aventurea-ink-soft">
+                Si la dejás en blanco se toma el mismo bloque que asume tu
+                agenda pública.
+              </p>
+            </div>
+          </>
+        )}
         <div>
           <label className={labelCls}>Nombre de quien reserva</label>
           <input

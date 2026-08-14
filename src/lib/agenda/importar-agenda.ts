@@ -6,11 +6,13 @@
  * Claude, o de un bloqueo importado de Google) y las normaliza,
  * valida y convierte en filas de `reservas`.
  *
- * Cada vertical tiene su forma de ocupar la agenda, y por eso la
+ * Cada negocio tiene su forma de ocupar la agenda, y por eso la
  * misma fila se materializa distinto:
  *
- *   eventos      → el día completo. `horario_bloque` (texto libre) +
- *                  `duracion_horas`. Cupo: `eventos_por_dia`.
+ *   eventos/lugares → el día completo. `horario_bloque` (texto libre)
+ *                  + `duracion_horas`. Cupo: `eventos_por_dia`.
+ *   eventos/proveedor → una franja, igual que una cita (ver
+ *                  `ocupaFranjaHoraria` acá abajo).
  *   hospedajes   → un rango de días: `fecha` → `fecha_fin`.
  *   citas        → una franja: `hora_inicio` + `duracion_minutos`
  *                  (+ `miembro_id` si hay equipo).
@@ -21,7 +23,62 @@
  * propone, la pantalla deja corregir, y recién ahí se inserta.
  */
 
+import { usaAgendaPorHoras } from "@/lib/business/modulos";
+import { DURACION_SUPUESTA_MINUTOS } from "@/app/eventos/agenda-consulta";
+
 export type VerticalAgenda = "eventos" | "citas" | "hospedajes" | "restaurantes";
+
+/**
+ * ¿Una fila de este negocio ocupa una FRANJA (hora de inicio +
+ * duración) o el DÍA entero?
+ *
+ * Es LA pregunta del importador, y hasta hoy se contestaba en cuatro
+ * lugares con `vertical === "citas" || vertical === "restaurantes"`.
+ * Eso dejaba afuera a los proveedores de eventos —el DJ, el animador,
+ * el pintacaritas— que desde la agenda por horas (ver
+ * `usaAgendaPorHoras` y src/app/eventos/agenda-consulta.ts) trabajan
+ * exactamente como una barbería.
+ *
+ * Y no era un detalle cosmético: una reserva sin `hora_inicio` NO
+ * aparece en la vista `disponibilidad_citas` (la 0055 y todas sus
+ * sucesoras hasta la 0109 filtran con `hora_inicio is not null`), que
+ * es de donde la agenda pública del proveedor saca las franjas
+ * tomadas. O sea que el bloqueo importado se veía en el panel del
+ * dueño y NO le tapaba una sola hora al cliente: doble reserva en
+ * silencio.
+ *
+ * `usaAgendaPorHoras` es el discriminador oficial y de ahí sale la
+ * respuesta; lo único que se le suma es Restaurantes, que ese helper
+ * deja afuera a propósito (su panel todavía no se diseñó, ver el
+ * comentario en modulos.ts) pero que en el importador SIEMPRE fue por
+ * hora — una mesa se reserva a las 8, no "el jueves".
+ */
+export function ocupaFranjaHoraria(
+  vertical: string | null | undefined,
+  categoria: string | null | undefined,
+): boolean {
+  if (vertical === "restaurantes") return true;
+  return usaAgendaPorHoras(vertical, categoria);
+}
+
+/**
+ * Cuánto dura una fila sin hora de cierre anotada.
+ *
+ * Una cita dura lo de siempre (60 min). Un servicio de eventos usa el
+ * mismo bloque que asume su propia agenda pública cuando nada dice
+ * cuánto dura — si acá se pusiera una hora, el bloque importado taparía
+ * la mitad de lo que de verdad ocupa.
+ *
+ * Exportada porque la reserva que el dueño carga A MANO desde el
+ * calendario del panel tiene exactamente el mismo problema y tiene que
+ * asumir exactamente lo mismo (ver `resolverHorarioReserva` en
+ * ./reserva-manual). Dos puertas a la misma tabla no pueden suponer
+ * bloques distintos. Acepta `string` a secas para que quien la llame no
+ * tenga que castear la columna `ranchos.vertical`, que es anulable.
+ */
+export function duracionPorDefecto(vertical: string | null | undefined): number {
+  return (vertical ?? "eventos") === "eventos" ? DURACION_SUPUESTA_MINUTOS : 60;
+}
 
 /** Una línea de la agenda, tal como queda en la tabla de revisión. */
 export type FilaAgenda = {
@@ -145,13 +202,22 @@ export function validarFila(fila: FilaAgenda, negocio: ConfigNegocio): Resultado
     errores.push("La hora de cierre no es válida (HH:MM).");
   }
 
-  // --- Lo que cada vertical necesita sí o sí ---
-  if (negocio.vertical === "citas" || negocio.vertical === "restaurantes") {
+  // --- Lo que cada negocio necesita sí o sí ---
+  //
+  // La hora es OBLIGATORIA en todo negocio que agende por franjas, y en
+  // un proveedor de eventos también: sin ella la fila se guarda igual
+  // pero no entra en `disponibilidad_citas`, así que su agenda pública
+  // le sigue ofreciendo esa hora al siguiente cliente. Es mejor
+  // rechazar la fila acá —la pantalla de revisión la deja corregir en
+  // el acto— que guardar un bloqueo que no bloquea.
+  if (ocupaFranjaHoraria(negocio.vertical, negocio.categoria)) {
     if (!fila.horaInicio) {
       errores.push(
         negocio.vertical === "citas"
           ? "Una cita necesita hora de inicio."
-          : "Una reserva de mesa necesita hora.",
+          : negocio.vertical === "restaurantes"
+            ? "Una reserva de mesa necesita hora."
+            : "Poné la hora de inicio: tu agenda se reserva por horas y sin ella esta fecha no le tapa ninguna hora a los clientes.",
       );
     }
   }
@@ -214,7 +280,7 @@ export function detectarChoques(
 ): Map<string, string> {
   const problemas = new Map<string, string>();
 
-  if (negocio.vertical === "citas" || negocio.vertical === "restaurantes") {
+  if (ocupaFranjaHoraria(negocio.vertical, negocio.categoria)) {
     // Choque por franja horaria dentro del mismo día.
     const porDia = new Map<string, FilaAgenda[]>();
     for (const f of filas) {
@@ -239,7 +305,11 @@ export function detectarChoques(
         }
       }
     }
-    return problemas;
+    // Citas y restaurantes no tienen cupo por día: ahí termina. Un
+    // proveedor de eventos sí puede haber declarado uno
+    // (`eventos_por_dia`) y sigue valiendo, así que cae al bloque de
+    // abajo además del choque por franja.
+    if (negocio.vertical !== "eventos") return problemas;
   }
 
   if (negocio.vertical === "hospedajes") {
@@ -269,6 +339,10 @@ export function detectarChoques(
   for (const [, delDia] of porDia) {
     if (delDia.length <= cupo) continue;
     for (const sobrante of delDia.slice(cupo)) {
+      // Sin pisar el mensaje del choque por franja: al proveedor de
+      // eventos le sirve más saber CON QUIÉN se traslapa que enterarse
+      // de que llegó al tope del día.
+      if (problemas.has(sobrante.id)) continue;
       problemas.set(
         sobrante.id,
         cupo === 1
@@ -327,19 +401,31 @@ export function aFilaReserva(
     return base;
   }
 
-  if (negocio.vertical === "citas" || negocio.vertical === "restaurantes") {
+  const horas =
+    fila.horaInicio && fila.horaFin ? duracionHoras(fila.horaInicio, fila.horaFin) : null;
+
+  if (ocupaFranjaHoraria(negocio.vertical, negocio.categoria)) {
+    // `hora_inicio` es lo único que hace que esta fila EXISTA para
+    // `disponibilidad_citas` — sin ella el bloqueo no tapa nada (ver
+    // `ocupaFranjaHoraria`). `validarFila` ya garantiza que venga.
     base.hora_inicio = fila.horaInicio;
-    const horas =
-      fila.horaInicio && fila.horaFin ? duracionHoras(fila.horaInicio, fila.horaFin) : null;
-    // Sin hora de cierre anotada, una cita dura lo de siempre: 60 min.
-    base.duracion_minutos = horas != null ? Math.round(horas * 60) : 60;
+    base.duracion_minutos =
+      horas != null ? Math.round(horas * 60) : duracionPorDefecto(negocio.vertical);
+    // Un proveedor de eventos ADEMÁS conserva el texto del bloque: el
+    // panel, los correos y el feed .ics vienen leyendo `horario_bloque`
+    // desde siempre, y quitárselo cambiaría cómo se ve su agenda.
+    if (negocio.vertical === "eventos" && fila.horaInicio && fila.horaFin) {
+      base.horario_bloque = etiquetaHorario(fila.horaInicio, fila.horaFin);
+      base.duracion_horas = horas;
+    }
     return base;
   }
 
-  // Eventos: el día es del cliente; la franja se guarda como texto.
+  // Lugares para eventos: el día entero es del cliente y la franja se
+  // guarda como texto — se alquila por fecha, no por hora.
   if (fila.horaInicio && fila.horaFin) {
     base.horario_bloque = etiquetaHorario(fila.horaInicio, fila.horaFin);
-    base.duracion_horas = duracionHoras(fila.horaInicio, fila.horaFin);
+    base.duracion_horas = horas;
   }
   return base;
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { after } from "next/server";
-import { definicionDe, esPlan } from "@/lib/lealtad/planes";
+import { esPlanOfrecido, esPlanSinCosto } from "@/lib/lealtad/planes";
 import { createClient } from "@/lib/supabase/server";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
@@ -50,7 +50,12 @@ export async function solicitarPlanLealtad(datos: {
   comprobanteUrl: string;
 }): Promise<Resultado> {
   const { ranchoId, plan, telefono, mensaje, metodoPago, comprobanteUrl } = datos;
-  if (!esPlan(plan)) return { ok: false, motivo: "Ese paquete no existe." };
+  // Los OFRECIDOS, no todos los que la base acepta: la MISMA puerta que
+  // /lealtad/nuevo. `esPlan` deja pasar los retirados —y tiene que
+  // dejarlos, para que quien ya los tiene siga funcionando—, así que
+  // usarlo acá dejaba pedir «gratis» o «empresa» a mano y quedar con
+  // `SIN_TOPES` en cuanto un admin aprobara la solicitud sin mirar.
+  if (!esPlanOfrecido(plan)) return { ok: false, motivo: "Ese paquete no existe." };
 
   // Alta en frío: no hay negocio todavía y el nombre lo escribió la
   // persona. El largo se valida acá Y en la base (check de la 0130):
@@ -62,10 +67,14 @@ export async function solicitarPlanLealtad(datos: {
     return { ok: false, motivo: "Escribí cómo se llama tu negocio." };
   }
 
-  // El plan Gratis no lleva depósito; los demás sí, y el link tiene
+  // El plan sin costo no lleva depósito; los demás sí, y el link tiene
   // que ser del NUESTRO bucket de comprobantes, no una URL cualquiera
   // que después abra un admin confiado desde el correo.
-  const gratis = definicionDe(plan)?.precioMensual === 0;
+  //
+  // `esPlanSinCosto` y no `precioMensual === 0`: el paquete retirado
+  // `gratis` también cuesta $0 y con la comparación suelta se saltaba
+  // el comprobante.
+  const gratis = esPlanSinCosto(plan);
   if (!gratis) {
     if (metodoPago !== "sinpe" && metodoPago !== "transferencia") {
       return { ok: false, motivo: "Elegí cómo pagaste: SINPE o transferencia." };

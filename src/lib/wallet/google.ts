@@ -9,9 +9,12 @@ import {
   coloresDe,
   metaDeSellos,
   tarjetaDesdeFila,
+  textoDePausa,
   type ConfigPase,
   type MetaRecompensa,
 } from "./tarjeta";
+import { estadoVisible } from "@/lib/lealtad/programas";
+import { resumenDeFila } from "./programa-principal";
 import {
   tipoDe,
   TIPOS_HEREDADOS,
@@ -223,21 +226,54 @@ export function contenidoDelObjeto({
   config,
   meta,
   beneficio,
+  pausado,
 }: {
   negocioNombre: string;
   saldo: number;
   config: ConfigPase;
   meta: MetaRecompensa;
   beneficio: ConfigBeneficio | null;
+  /**
+   * EL PROGRAMA ESTÁ EN PAUSA — y este parámetro tiene TRES valores, no
+   * dos, porque el PATCH de Google no borra lo que no se nombra:
+   *
+   *   · `undefined` — nadie preguntó por la pausa. Sale exactamente el
+   *     objeto de siempre, con `textModulesData` ausente cuando no hay
+   *     módulos. Es lo que usa la CREACIÓN del pase (`construirObjeto`)
+   *     y lo que mantiene el objeto byte por byte igual que antes.
+   *   · `true` — se antepone el módulo de la pausa.
+   *   · `false` — se manda `textModulesData` SIEMPRE, aunque vaya
+   *     vacío. Esto es la vuelta: omitir el campo dejaría el módulo de
+   *     la pausa pegado en el objeto para siempre, y un pase que se
+   *     queda diciendo «en pausa» después de que el negocio renovó
+   *     convierte el corte en una trampa.
+   *
+   * Lo manda el refresco (`refrescarPaseGoogleDeMiembro`), que sabe el
+   * estado real del programa y siempre pasa un booleano.
+   */
+  pausado?: boolean;
 }): {
   loyaltyPoints: { label: string; balance: { int: number } | { string: string } };
   textModulesData?: ModuloDeTexto[];
   heroImage?: ImagenGoogle;
 } {
   const tipo = tipoDe(config.modo);
+  // A PROPÓSITO sin `pausado`: el saldo, el cupón del 30% y el «5 de
+  // 10» se siguen leyendo igual estando en pausa —los sellos quedan a
+  // la vista, que es la decisión— y la pausa entra como un módulo
+  // aparte. Pasárselo acá duplicaría el aviso: saldría en el módulo de
+  // la pausa Y otra vez en el del beneficio.
   const campos = camposSegunModo({ negocioNombre, saldo, meta, config, beneficio });
 
   const modulos: ModuloDeTexto[] = [];
+  // Primero, para que sea lo primero que se lee en la tarjeta.
+  if (pausado === true) {
+    modulos.push({
+      id: "pausa",
+      header: "Programa en pausa",
+      body: textoDePausa(negocioNombre, tipo),
+    });
+  }
   if (TIPOS_HEREDADOS.includes(tipo)) {
     // La meta de un programa de los viejos vive en `recompensas`: es el
     // «5 de 10» de toda la vida y se deja intacto.
@@ -298,7 +334,11 @@ export function contenidoDelObjeto({
       // `balance` acepta int o string, y acá el string ES el beneficio.
       balance: TIPOS_TARJETA[tipo].acumula ? { int: saldo } : { string: campos.encabezado.value },
     },
-    ...(modulos.length > 0 ? { textModulesData: modulos } : {}),
+    // Ver el comentario de `pausado`: con un booleano explícito el
+    // campo VIAJA SIEMPRE (es la única forma de que el PATCH borre el
+    // módulo de la pausa); sin él, se calla cuando no hay módulos, que
+    // es el objeto de siempre.
+    ...(modulos.length > 0 || pausado !== undefined ? { textModulesData: modulos } : {}),
     ...(banda ? { heroImage: imagenGoogle(banda, `Banda de ${negocioNombre}`) } : {}),
   };
 }
@@ -586,16 +626,36 @@ export async function generarPaseGoogle({
 }
 
 /**
+ * Cómo le fue al refresco. Existe para el trabajo por tandas
+ * (`src/lib/wallet/aviso-de-pausa.ts`), que necesita saber si a ESTE
+ * pase le entró el cambio para no marcarlo como avisado si no entró.
+ *
+ * `ok: true` incluye el caso «no había nada que refrescar» (el miembro
+ * no tiene pase de Android, o su objeto nunca se creó): no es un fallo
+ * y reintentarlo cada diez minutos para siempre no arregla nada.
+ */
+export type ResultadoRefresco = { ok: true } | { ok: false; motivo: string };
+
+/**
  * Refresca el saldo del pase de Google de un miembro (tras acreditar,
  * canjear o revertir). Google avisa a los teléfonos solo — esto es el
  * equivalente entero del push de Apple. Nunca lanza: el ledger ya
  * quedó bien y es lo que manda.
+ *
+ * El valor de vuelta lo IGNORAN los llamadores de siempre (el
+ * mostrador); lo mira solo el trabajo por tandas.
  */
-export async function refrescarPaseGoogleDeMiembro(miembroId: string): Promise<void> {
+export async function refrescarPaseGoogleDeMiembro(
+  miembroId: string,
+): Promise<ResultadoRefresco> {
   try {
     const cred = credencialesGoogleDelEntorno();
     const db = createAdminClient();
-    if (!cred || !db) return;
+    // Sin llaves de Google no es un fallo del pase, es un servidor sin
+    // configurar: se dice y no se revienta (el trabajo por tandas ni
+    // siquiera llega acá, se salta la plataforma entera).
+    if (!cred) return { ok: false, motivo: "Google Wallet no está configurado en este servidor." };
+    if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
 
     const { data: pase } = await db
       .from("pases_wallet")
@@ -603,14 +663,14 @@ export async function refrescarPaseGoogleDeMiembro(miembroId: string): Promise<v
       .eq("miembro_id", miembroId)
       .eq("plataforma", "google")
       .maybeSingle();
-    if (!pase) return; // sin pase de Android no hay nada que refrescar
+    if (!pase) return { ok: true }; // sin pase de Android no hay nada que refrescar
 
     const { data: miembro } = await db
       .from("miembros")
       .select("id, programa_id")
       .eq("id", miembroId)
       .maybeSingle();
-    if (!miembro) return;
+    if (!miembro) return { ok: false, motivo: "El miembro no existe." };
 
     // `select *` y no `modo, beneficio`: la 0135 puede no estar
     // corrida y pedir la columna por nombre haría fallar la consulta
@@ -650,12 +710,18 @@ export async function refrescarPaseGoogleDeMiembro(miembroId: string): Promise<v
 
     // El MISMO armado que usa la creación: el PATCH no puede decir algo
     // distinto de lo que el pase decía al nacer.
+    //
+    // Con UNA diferencia, que es todo el punto del corte: acá se sabe
+    // el estado del programa, así que el parche lleva la pausa (o la
+    // saca). El booleano va SIEMPRE explícito —nunca `undefined`— para
+    // que la vuelta borre el módulo que puso la ida.
     const parche = contenidoDelObjeto({
       negocioNombre: nombreNegocio,
       saldo,
       config,
       meta,
       beneficio,
+      pausado: estadoVisible(resumenDeFila(programa), minutoISOCR()) === "pausado",
     });
 
     const res = await llamarApi(
@@ -691,7 +757,16 @@ export async function refrescarPaseGoogleDeMiembro(miembroId: string): Promise<v
         .eq("miembro_id", miembroId)
         .eq("plataforma", "google");
     }
+
+    // 404 = el objeto nunca se creó (fila huérfana). No hay nada que
+    // reintentar: se da por atendido para que el trabajo por tandas no
+    // se quede dando vueltas sobre el mismo pase cada diez minutos.
+    if (res.status >= 300 && res.status !== 404) {
+      return { ok: false, motivo: `Google respondió ${res.status} al parchar el objeto.` };
+    }
+    return { ok: true };
   } catch (e) {
     console.warn("[google-wallet] No se pudo refrescar el pase:", e);
+    return { ok: false, motivo: e instanceof Error ? e.message : "Google Wallet no respondió." };
   }
 }

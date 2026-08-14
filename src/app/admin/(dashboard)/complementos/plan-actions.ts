@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { esPlan } from "@/lib/lealtad/planes";
+import { finDePrueba } from "@/lib/lealtad/prueba";
 import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
 
 /**
@@ -29,6 +30,16 @@ export async function asignarPlanLealtad({
   const { ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
 
+  // ACÁ SÍ VA `esPlan` (todos, retirados incluidos) Y NO `esPlanOfrecido`.
+  //
+  // Las puertas del cliente —/lealtad/nuevo y /lealtad/planes— validan
+  // contra los OFRECIDOS: nadie puede ELEGIRSE un paquete retirado y
+  // llevarse `SIN_TOPES`. Esta es otra cosa: es la mesa de control de
+  // Bookea, detrás de `requireAdmin`, y es el único lugar donde se
+  // puede corregir a mano la fila de un negocio que YA tiene «Básico»
+  // o «Empresa» — si acá solo entraran los cuatro vigentes, arreglar
+  // un dato de esas cuentas obligaría a degradarlas, que es justo lo
+  // que la separación ofrecidos/retirados existe para impedir.
   if (plan !== null && !esPlan(plan)) return { error: "Ese plan no existe." };
 
   const admin = createAdminClient();
@@ -154,17 +165,26 @@ export async function atenderSolicitudLealtad({
       .eq("id", ranchoId);
     if (ePlan) return { error: "No se pudo asignar el plan: " + ePlan.message };
 
+    // Si el complemento existía VENCIDO, `activo: true` solo no alcanza
+    // — `estadoDeAddon` lo seguiría dando por muerto. Aprobar es empezar
+    // de nuevo, con fecha fresca.
+    //
+    // Y el vencimiento sale del PAQUETE, no de un `null` fijo: aprobar
+    // una solicitud de «Prueba» a mano le daba 14 días prometidos y cero
+    // días de corte, o sea el mismo agujero que tenía el alta automática
+    // pero por la puerta del admin. Un paquete de pago sigue dando
+    // `null` — no vence por tiempo.
+    const corte = finDePrueba(solicitud.plan as string | null);
     const { error: eAddon } = await admin.from("addons_negocio").upsert(
       {
         rancho_id: ranchoId,
         addon: "lealtad",
         activo: true,
-        // Si el complemento existía VENCIDO, `activo: true` solo no
-        // alcanza — estadoDeAddon lo seguiría dando por muerto. Aprobar
-        // es empezar de nuevo: sin vencimiento y con fecha fresca.
-        vence_en: null,
+        vence_en: corte,
         activado_en: new Date().toISOString(),
-        notas: `Solicitud aprobada (plan ${solicitud.plan})`,
+        notas: corte
+          ? `Solicitud aprobada (plan ${solicitud.plan}) — prueba hasta ${corte.slice(0, 10)}`
+          : `Solicitud aprobada (plan ${solicitud.plan})`,
       },
       { onConflict: "rancho_id,addon" },
     );

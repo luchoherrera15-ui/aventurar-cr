@@ -68,7 +68,7 @@ import SincronizarCalendario from "@/components/sincronizar-calendario";
 import AgendasExternas, { type AgendaExternaFila } from "@/components/agendas-externas";
 import ReservaManualForm from "@/components/reserva-manual-form";
 import ImportarAgenda from "@/components/importar-agenda";
-import type { VerticalAgenda } from "@/lib/agenda/importar-agenda";
+import { ocupaFranjaHoraria, type VerticalAgenda } from "@/lib/agenda/importar-agenda";
 import { puedeUsarAgendaIA } from "./importar-agenda-actions";
 import { hoyISOCR } from "@/lib/fechas";
 import { leerEleccionesIncluidas } from "@/lib/catalogo";
@@ -442,6 +442,12 @@ export default async function RanchoDetallePage({
   // día). Lo que sigue a esta bandera es de la FORMA DE AGENDAR, no de
   // la vertical — la regla vive en un solo lugar, `usaAgendaPorHoras`.
   const agendaPorHoras = usaAgendaPorHoras(rancho.vertical, rancho.categoria);
+  // Y la MISMA pregunta, del lado de la reserva que se carga a mano:
+  // ¿esta fila ocupa una franja (y entonces necesita `hora_inicio` o no
+  // le tapa nada a la agenda pública) o el día entero? Es el helper del
+  // importador —`usaAgendaPorHoras` + Restaurantes—, no una condición
+  // nueva; el servidor lo vuelve a resolver por su cuenta.
+  const pideHoraReserva = ocupaFranjaHoraria(rancho.vertical, rancho.categoria);
 
   // Lo que necesita la Configuración de un negocio que agenda por
   // horas: el equipo (con horario propio y servicios por persona), los
@@ -516,6 +522,7 @@ export default async function RanchoDetallePage({
       montoTotal: r.monto_total ?? null,
       depositoMonto: r.deposito_monto ?? null,
       horarioBloque: r.horario_bloque ?? null,
+      horaInicio: r.hora_inicio ?? null,
     }));
 
   // Los avisos cortos de la barra de arriba: lo que no se resuelve con
@@ -594,6 +601,7 @@ export default async function RanchoDetallePage({
           onMover={esVerticalCitas ? undefined : moverReservaFecha.bind(null, rancho.id)}
           onCrear={esVerticalCitas ? undefined : crearReservaManual.bind(null, rancho.id)}
           capacidadMax={esLugar ? rancho.capacidad_max : null}
+          pideHora={pideHoraReserva}
         />
         {esVerticalCitas && (
           <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
@@ -665,6 +673,7 @@ export default async function RanchoDetallePage({
             <ReservaManualForm
               capacidadMax={esLugar ? rancho.capacidad_max : null}
               onCrear={crearReservaManual.bind(null, rancho.id)}
+              pideHora={pideHoraReserva}
             />
           )}
           {/* A mano es gratis; leer las fotos con IA es el complemento

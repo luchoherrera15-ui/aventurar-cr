@@ -4,15 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { verificarAccesoOperativo } from "@/lib/auth";
 import { notificarReservaAprobada } from "@/lib/notificaciones-reserva";
+import { resolverHorarioReserva } from "@/lib/agenda/reserva-manual";
 
 async function verificarDueno(ranchoId: string) {
   const { supabase, user, ok } = await verificarAccesoOperativo(ranchoId);
   if (!user) redirect("/mi-negocio/login");
   if (!ok) return { supabase, rancho: null };
 
+  // `vertical` va acá porque de ella (más la categoría) sale si este
+  // negocio agenda por FRANJAS o por FECHA ENTERA, y eso decide si la
+  // reserva manual necesita hora — ver `resolverHorarioReserva`.
   const { data: rancho } = await supabase
     .from("ranchos")
-    .select("id, categoria, capacidad_max, eventos_por_dia")
+    .select("id, vertical, categoria, capacidad_max, eventos_por_dia")
     .eq("id", ranchoId)
     .maybeSingle();
 
@@ -23,6 +27,16 @@ const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export type ReservaManualInput = {
   fecha: string;
+  /**
+   * "HH:MM". OBLIGATORIA en todo negocio que agende por franjas (un
+   * proveedor de eventos, una cita, una mesa): sin ella la reserva no
+   * entra en `disponibilidad_citas` y la agenda pública sigue
+   * ofreciendo esa hora. Un lugar de alquiler la manda en null y no se
+   * usa para nada — ver `resolverHorarioReserva`.
+   */
+  horaInicio: string | null;
+  /** "HH:MM" de cierre. Opcional: sin ella se asume el bloque por defecto. */
+  horaFin: string | null;
   nombre: string;
   tipo_evento: string;
   invitados: number | null;
@@ -47,6 +61,14 @@ export type ReservaManualInput = {
  * Los montos son obligatorios (salvo el adelanto): sin monto_total la
  * reserva queda invisible para el panel de Finanzas, que es lo que hace
  * el control económico de la plataforma.
+ *
+ * Y la HORA es obligatoria en todo negocio que agende por franjas. Sin
+ * `hora_inicio` la fila no existe para `disponibilidad_citas`, así que
+ * el DJ apuntaba "sábado, boda de los García", lo veía en su panel, y
+ * su agenda pública le seguía ofreciendo ese sábado al siguiente
+ * cliente. Quién agenda por franjas y qué se guarda lo decide
+ * `resolverHorarioReserva`, compartido con el importador de agenda —
+ * las dos puertas a esta tabla no pueden suponer cosas distintas.
  */
 export async function crearReservaManual(ranchoId: string, input: ReservaManualInput) {
   const { supabase, rancho } = await verificarDueno(ranchoId);
@@ -57,6 +79,15 @@ export async function crearReservaManual(ranchoId: string, input: ReservaManualI
   }
   const nombre = input.nombre.trim().slice(0, 120);
   if (!nombre) return { error: "Escribí el nombre de quien reserva." };
+
+  // En el SERVIDOR, no solo en la pantalla: el formulario ya pide la
+  // hora a quien la necesita, pero esta acción se puede llamar desde
+  // cualquier lado.
+  const horario = resolverHorarioReserva(
+    { vertical: rancho.vertical as string | null, categoria: rancho.categoria as string | null },
+    { horaInicio: input.horaInicio, horaFin: input.horaFin },
+  );
+  if (horario.error) return { error: horario.error };
 
   // Los invitados son obligatorios también acá, no solo en el
   // formulario: sin ellos la reserva no cuenta para la ocupación del
@@ -128,6 +159,9 @@ export async function crearReservaManual(ranchoId: string, input: ReservaManualI
       deposito_pagado_en: input.depositoRecibido ? ahoraIso : null,
       evento_pagado: input.eventoPagado,
       saldo_pagado_en: input.eventoPagado ? ahoraIso : null,
+      // Vacío para un lugar de alquiler (se alquila la fecha entera):
+      // su fila sale idéntica a la de siempre.
+      ...horario.campos,
     })
     .select("id")
     .single();

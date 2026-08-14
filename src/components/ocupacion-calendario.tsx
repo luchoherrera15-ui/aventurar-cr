@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { hoyISOCR } from "@/lib/fechas";
+import { formatearHora } from "@/lib/agenda/importar-agenda";
 import ReservaManualForm from "./reserva-manual-form";
 
 const MESES = [
@@ -38,6 +39,9 @@ export type DiaOcupado = {
   montoTotal?: number | null;
   depositoMonto?: number | null;
   horarioBloque?: string | null;
+  /** "HH:MM[:SS]" — lo que de verdad le tapa la franja a la agenda
+   *  pública. Un lugar de alquiler no lo lleva. */
+  horaInicio?: string | null;
 };
 
 /** Lo que acepta `actualizarReservaManual` (la fecha no se toca acá). */
@@ -54,6 +58,10 @@ export type ReservaEditable = {
 /** Lo que acepta `crearReservaManual`. */
 export type ReservaNueva = {
   fecha: string;
+  /** "HH:MM" — obligatoria donde se agenda por franjas (ver `pideHora`). */
+  horaInicio: string | null;
+  /** "HH:MM" de cierre; opcional. */
+  horaFin: string | null;
   nombre: string;
   tipo_evento: string;
   invitados: number | null;
@@ -92,6 +100,7 @@ export default function OcupacionCalendario({
   onMover,
   onCrear,
   capacidadMax = null,
+  pideHora = false,
 }: {
   dias: DiaOcupado[];
   onConfirmar?: (reservaId: string) => Promise<Resultado>;
@@ -103,6 +112,10 @@ export default function OcupacionCalendario({
    *  del calendario — la fecha ya viene puesta, es la que se clickeó. */
   onCrear?: (datos: ReservaNueva) => Promise<Resultado>;
   capacidadMax?: number | null;
+  /** El negocio agenda por FRANJAS (un proveedor de eventos, una mesa):
+   *  la reserva que se carga desde acá necesita hora de inicio o no le
+   *  tapa la franja a nadie en la agenda pública. */
+  pideHora?: boolean;
 }) {
   const hoy = hoyISOCR();
   const [y0, m0] = hoy.split("-").map(Number);
@@ -306,6 +319,7 @@ export default function OcupacionCalendario({
                   capacidadMax={capacidadMax}
                   onCrear={onCrear}
                   fechaFija={seleccion}
+                  pideHora={pideHora}
                   onCancelar={() => setAgregando(false)}
                 />
               </div>
@@ -368,7 +382,11 @@ function FilaReserva({
   const detalle = [
     reserva.tipo_evento,
     reserva.invitados ? `${reserva.invitados} personas` : null,
-    reserva.horarioBloque,
+    // El texto del bloque manda si lo hay; si no, la hora de inicio
+    // suelta — una reserva por franja sin hora de cierre igual tiene
+    // que verse a qué hora es.
+    reserva.horarioBloque ??
+      (reserva.horaInicio ? formatearHora(reserva.horaInicio.slice(0, 5)) : null),
     colones(reserva.montoTotal ?? null),
   ]
     .filter(Boolean)

@@ -13,6 +13,7 @@ import {
 import { agruparClientes, esReincidente } from "@/lib/crm-citas";
 import { enviarPush } from "@/lib/push";
 import { sincronizarAgendaExterna } from "@/lib/agenda/importar-ics";
+import { avisarPruebasPorVencer } from "@/lib/lealtad/avisos-prueba";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { horaBonita } from "@/app/citas/tipos";
 import { fmtColones, saldoPendiente, type ReservaFinanzas } from "@/lib/finanzas";
@@ -40,6 +41,9 @@ import { fmtColones, saldoPendiente, type ReservaFinanzas } from "@/lib/finanzas
  *     CTA a su panel (avisos_agenda, un aviso por día como máximo).
  *     Avisar, no auto-marcar: no_asistio tiene consecuencias (lealtad).
  *  6. Refresco de agendas externas conectadas.
+ *  7. Pruebas de Lealtad por vencer: aviso al dueño unos días ANTES
+ *     del corte. No apaga nada — el corte lo hace cumplir la base con
+ *     `addons_negocio.vence_en`; esto es solo la cortesía de avisar.
  *
  * Corre con la service key (el cron no tiene sesión de usuario). Si
  * falta la key o la de Resend, responde explicando qué falta en vez
@@ -490,6 +494,18 @@ export async function GET(request: Request) {
     }
   }
 
+  // 7. La prueba de 14 días del módulo de Lealtad que está por
+  // terminarse: aviso al dueño ANTES del corte, nunca el día después.
+  //
+  // OJO CON LO QUE ESTE PASO **NO** HACE: no apaga nada. El corte lo
+  // hace cumplir la base sola (`addons_negocio.vence_en` +
+  // `tiene_addon()`), así que si esta corrida no sale, la prueba
+  // termina igual el día que le toca — lo único que se pierde es la
+  // cortesía de avisar. Por eso vive colgado del cron que ya existía y
+  // no estrena uno propio: un cron más es una pieza más que se puede
+  // caer en silencio, y no hacía falta ninguna.
+  const { avisados: pruebasAvisadas } = await avisarPruebasPorVencer(admin);
+
   return NextResponse.json({
     fecha: manana,
     reservas: reservas.length,
@@ -499,5 +515,6 @@ export async function GET(request: Request) {
     cobrosAvisados,
     avisosAgendaEnviados,
     agendasSincronizadas,
+    pruebasAvisadas,
   });
 }

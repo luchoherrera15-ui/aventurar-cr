@@ -24,7 +24,7 @@ import { modeloDe } from "./config-ia";
 import { calcularCosto, MODELOS, type ModeloIA } from "./modelos";
 import { registrarDesdeUsage, registrarFalloIA } from "./registrar-uso";
 import type { FilaAgenda, FilaCruda, VerticalAgenda } from "@/lib/agenda/importar-agenda";
-import { normalizarFila } from "@/lib/agenda/importar-agenda";
+import { normalizarFila, ocupaFranjaHoraria } from "@/lib/agenda/importar-agenda";
 
 /** Con qué se lee si el panel todavía no configuró nada o la base no responde. */
 const MODELO_POR_DEFECTO: ModeloIA = "claude-opus-5";
@@ -39,6 +39,17 @@ export type ImagenAgenda = {
   mediaType: string;
   /** base64 sin el prefijo data:. */
   datos: string;
+};
+
+/**
+ * Para quién se lee la agenda. Van los DOS ejes y no solo la vertical:
+ * dentro de Eventos, un LUGAR se alquila por fecha y un PROVEEDOR se
+ * contrata por horas, y al modelo hay que decírselo o transcribe la
+ * agenda de un DJ como si fuera la de un rancho.
+ */
+export type NegocioAgenda = {
+  vertical: VerticalAgenda;
+  categoria: string | null;
 };
 
 /**
@@ -163,7 +174,7 @@ const ESQUEMA_SALIDA = {
 
 const QUE_OCUPA: Record<VerticalAgenda, string> = {
   eventos:
-    "Este negocio alquila su espacio o presta un servicio por evento: cada renglón toma un DÍA completo y suele traer cantidad de invitados, un rango de horas y un monto.",
+    "Este negocio alquila su ESPACIO para eventos: cada renglón toma un DÍA completo y suele traer cantidad de invitados, un rango de horas y un monto.",
   citas:
     "Este negocio atiende por cita: cada renglón es una FRANJA HORARIA de un día (hora de inicio y a veces de cierre), normalmente de una sola persona.",
   hospedajes:
@@ -172,10 +183,26 @@ const QUE_OCUPA: Record<VerticalAgenda, string> = {
     "Este negocio reserva mesas: cada renglón es una hora de un día con cantidad de comensales.",
 };
 
-function systemPrompt(vertical: VerticalAgenda, hoy: string): string {
+/**
+ * Un PROVEEDOR de eventos (DJ, animación, catering, decoración) no
+ * trabaja por día: hace una fiesta infantil a las 3 p. m. y una boda a
+ * las 9 p. m. el mismo sábado. La hora no es un adorno de la fila — sin
+ * ella la reserva no entra en `disponibilidad_citas` y el importador la
+ * rechaza (ver `ocupaFranjaHoraria`), así que acá se le pide al modelo
+ * que la busque de verdad en vez de rendirse con un null.
+ */
+const QUE_OCUPA_PROVEEDOR =
+  "Este negocio presta un SERVICIO POR HORAS en eventos (música, animación, comida, decoración): cada renglón es una FRANJA HORARIA de un día, y el mismo día puede tener varios servicios seguidos. LA HORA DE INICIO ES EL DATO MÁS IMPORTANTE de cada renglón: buscala en la columna de horas, en el texto del renglón ('a las 3', '3pm', '15h', 'de 3 a 7') o en la nota del margen antes de darla por perdida.";
+
+function systemPrompt(vertical: VerticalAgenda, categoria: string | null, hoy: string): string {
+  const queOcupa =
+    vertical === "eventos" && ocupaFranjaHoraria(vertical, categoria)
+      ? QUE_OCUPA_PROVEEDOR
+      : QUE_OCUPA[vertical];
+
   return `Transcribís agendas de reservas costarricenses a datos estructurados. La agenda puede venir escrita a mano, en un cuaderno, en un Excel exportado o en mensajes sueltos.
 
-${QUE_OCUPA[vertical]}
+${queOcupa}
 
 Reglas de lectura:
 
@@ -238,7 +265,7 @@ function motivoDelError(e: unknown): string {
 
 async function pedirLectura(
   contenido: ContenidoUsuario,
-  vertical: VerticalAgenda,
+  negocio: NegocioAgenda,
   hoy: string,
   opciones: OpcionesLectura = {},
 ): Promise<ResultadoLectura> {
@@ -263,7 +290,7 @@ async function pedirLectura(
     model: modelo,
     // Nunca pedir más de lo que el modelo puede responder de una vez.
     max_tokens: Math.min(MAX_TOKENS, info.salidaMaxima),
-    system: systemPrompt(vertical, hoy),
+    system: systemPrompt(negocio.vertical, negocio.categoria, hoy),
     output_config: salida,
     messages: [{ role: "user", content: contenido }],
   };
@@ -422,7 +449,7 @@ async function pedirLectura(
 /** Interpreta texto pegado (add-on: es IA igual que la foto). */
 export async function leerAgendaDeTexto(
   texto: string,
-  vertical: VerticalAgenda,
+  negocio: NegocioAgenda,
   hoy: string,
   opciones: OpcionesLectura = {},
 ): Promise<ResultadoLectura> {
@@ -433,7 +460,7 @@ export async function leerAgendaDeTexto(
         text: `Transcribí esta agenda a filas estructuradas:\n\n<agenda>\n${texto.slice(0, 60000)}\n</agenda>`,
       },
     ],
-    vertical,
+    negocio,
     hoy,
     opciones,
   );
@@ -442,7 +469,7 @@ export async function leerAgendaDeTexto(
 /** Lee fotos de la agenda (el add-on pago propiamente dicho). */
 export async function leerAgendaDeFotos(
   imagenes: ImagenAgenda[],
-  vertical: VerticalAgenda,
+  negocio: NegocioAgenda,
   hoy: string,
   contexto?: string,
   opciones: OpcionesLectura = {},
@@ -472,5 +499,5 @@ export async function leerAgendaDeFotos(
       : "Transcribí estas páginas de la agenda a filas estructuradas.",
   });
 
-  return pedirLectura(contenido, vertical, hoy, opciones);
+  return pedirLectura(contenido, negocio, hoy, opciones);
 }

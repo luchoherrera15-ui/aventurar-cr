@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
+import { ocupaFranjaHoraria } from "./importar-agenda";
 
 /**
  * Importación de agendas externas (Google/Apple Calendar → Bookea).
@@ -7,8 +8,10 @@ import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
  * El proveedor pega la dirección .ics privada de su calendario;
  * `sincronizarAgendaExterna` la descarga, la parsea y materializa cada
  * compromiso como una reserva `bloqueada` (origen 'sync') del negocio:
- * desde la 0072 esas filas tapan el día en eventos/hospedajes y la
- * franja horaria en citas. Cada sincronización reconcilia contra el
+ * desde la 0072 esas filas tapan el día en lugares/hospedajes y la
+ * franja horaria en todo lo que se agenda por horas (citas,
+ * restaurantes y —desde este arreglo— los proveedores de eventos).
+ * Cada sincronización reconcilia contra el
  * feed: lo nuevo se inserta, lo cambiado se actualiza y lo que ya no
  * está (evento borrado o movido) se elimina — el uid externo
  * (`sync_uid`) es la llave.
@@ -349,6 +352,52 @@ export function parsearIcs(ics: string, desde: string, hasta: string): EventoImp
 }
 
 // ------------------------------------------------------------------
+// De ocurrencias a filas deseadas
+// ------------------------------------------------------------------
+
+/**
+ * Qué filas debería tener la base para estas ocurrencias, indexadas por
+ * el `sync_uid` que las identifica.
+ *
+ * `porFranja` es la respuesta de `ocupaFranjaHoraria`. Cuando es true,
+ * un compromiso de DÍA COMPLETO tiene que tapar TODOS los espacios de
+ * ese día: se materializa como 00:00 + 1440, y uno por día si abarca
+ * varios. No es cosmético — `disponibilidad_citas` filtra con
+ * `hora_inicio is not null`, así que una fila sin hora es invisible
+ * para la agenda pública y el bloqueo no bloquearía nada.
+ *
+ * Puro a propósito: acá vivía la única regla del sync que dependía de
+ * qué clase de negocio es, y estaba escrita como `vertical === "citas"`
+ * en medio de una función que habla con Supabase, o sea sin forma de
+ * probarla.
+ */
+export function filasDeseadas(
+  eventos: EventoImportado[],
+  porFranja: boolean,
+): Map<string, EventoImportado> {
+  const filas = new Map<string, EventoImportado>();
+  for (const e of eventos) {
+    if (porFranja && e.horaInicio === null) {
+      const fin = e.fechaFin ?? e.fecha;
+      for (let f = e.fecha; f <= fin && filas.size < MAX_EVENTOS; f = sumarDiasISO(f, 1)) {
+        const uid = `${e.uid}#d${f.replace(/-/g, "")}`;
+        filas.set(uid, {
+          ...e,
+          uid,
+          fecha: f,
+          fechaFin: null,
+          horaInicio: "00:00",
+          duracionMinutos: 1440,
+        });
+      }
+    } else if (filas.size < MAX_EVENTOS) {
+      filas.set(e.uid, e);
+    }
+  }
+  return filas;
+}
+
+// ------------------------------------------------------------------
 // Reconciliación contra la base
 // ------------------------------------------------------------------
 
@@ -362,7 +411,11 @@ export async function sincronizarAgendaExterna(agendaId: string): Promise<Result
 
   const { data: agenda } = await admin
     .from("agendas_externas")
-    .select("id, rancho_id, url, ultima_sync, eventos_importados, ranchos(vertical)")
+    // `categoria` no es decorativa: con ella se sabe si el negocio de
+    // eventos es un LUGAR (se alquila por fecha) o un PROVEEDOR (se
+    // contrata por horas), y de eso depende cómo se materializa cada
+    // compromiso — ver `ocupaFranjaHoraria`.
+    .select("id, rancho_id, url, ultima_sync, eventos_importados, ranchos(vertical, categoria)")
     .eq("id", agendaId)
     .maybeSingle();
   if (!agenda) return { ok: false, error: "Agenda no encontrada." };
@@ -373,7 +426,7 @@ export async function sincronizarAgendaExterna(agendaId: string): Promise<Result
     url: string;
     ultima_sync: string | null;
     eventos_importados: number;
-    ranchos: { vertical: string | null } | null;
+    ranchos: { vertical: string | null; categoria: string | null } | null;
   };
 
   if (
@@ -416,28 +469,10 @@ export async function sincronizarAgendaExterna(agendaId: string): Promise<Result
   const hoy = hoyISOCR();
   const eventos = parsearIcs(texto, sumarDiasISO(hoy, -DIAS_ATRAS), sumarDiasISO(hoy, DIAS_ADELANTE));
 
-  // En citas, un compromiso de día completo debe tapar TODOS los
-  // espacios: se materializa como 00:00 + 1440 (y por día si abarca
-  // varios), porque disponibilidad_citas choca por franja, no por día.
-  const esCitas = fila.ranchos?.vertical === "citas";
-  const filasDeseadas = new Map<string, EventoImportado>();
-  for (const e of eventos) {
-    if (esCitas && e.horaInicio === null) {
-      const fin = e.fechaFin ?? e.fecha;
-      for (let f = e.fecha; f <= fin && filasDeseadas.size < MAX_EVENTOS; f = sumarDiasISO(f, 1)) {
-        filasDeseadas.set(`${e.uid}#d${f.replace(/-/g, "")}`, {
-          ...e,
-          uid: `${e.uid}#d${f.replace(/-/g, "")}`,
-          fecha: f,
-          fechaFin: null,
-          horaInicio: "00:00",
-          duracionMinutos: 1440,
-        });
-      }
-    } else if (filasDeseadas.size < MAX_EVENTOS) {
-      filasDeseadas.set(e.uid, e);
-    }
-  }
+  const deseadas = filasDeseadas(
+    eventos,
+    ocupaFranjaHoraria(fila.ranchos?.vertical, fila.ranchos?.categoria),
+  );
 
   // 3. Reconciliar contra lo ya importado de ESTA agenda.
   const { data: actualesData, error: errorActuales } = await admin
@@ -461,7 +496,7 @@ export async function sincronizarAgendaExterna(agendaId: string): Promise<Result
   const inserciones: Record<string, unknown>[] = [];
   const actualizaciones: { id: string; cambios: Record<string, unknown> }[] = [];
 
-  for (const [uid, e] of filasDeseadas) {
+  for (const [uid, e] of deseadas) {
     const existente = actualPorUid.get(uid);
     if (!existente) {
       inserciones.push({
@@ -499,7 +534,7 @@ export async function sincronizarAgendaExterna(agendaId: string): Promise<Result
       });
     }
   }
-  const sobrantes = actuales.filter((a) => !filasDeseadas.has(a.sync_uid)).map((a) => a.id);
+  const sobrantes = actuales.filter((a) => !deseadas.has(a.sync_uid)).map((a) => a.id);
 
   if (inserciones.length > 0) {
     const { error } = await admin.from("reservas").insert(inserciones);
@@ -517,9 +552,9 @@ export async function sincronizarAgendaExterna(agendaId: string): Promise<Result
     .update({
       ultima_sync: new Date().toISOString(),
       ultimo_error: null,
-      eventos_importados: filasDeseadas.size,
+      eventos_importados: deseadas.size,
     })
     .eq("id", agendaId);
 
-  return { ok: true, importados: filasDeseadas.size };
+  return { ok: true, importados: deseadas.size };
 }

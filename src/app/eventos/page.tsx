@@ -36,6 +36,7 @@ import type { Rancho } from "../mi-negocio/types";
  * fuga que este comentario ya describía— y /hospedajes usa la misma.
  */
 import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
+import { urlSitio } from "@/lib/sitio";
 
 /**
  * El armazón de /eventos: todo lo que se puede pintar SIN esperar a la
@@ -54,11 +55,93 @@ import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
  * producción local: con el `loading.tsx` puesto,
  * `/eventos/<uuid inexistente>` daba 200; así da 404.
  */
+/**
+ * ============================================================
+ * LA DIRECCIÓN OFICIAL DE ESTE CONTENIDO ES `/`
+ * ============================================================
+ *
+ * Desde que la raíz dejó de redirigir (ver `rewrites()` en
+ * next.config.ts: el 307 costaba ~340 ms desde Costa Rica), el MISMO
+ * directorio responde 200 en dos direcciones: `bookea.lat/` y
+ * `bookea.lat/eventos`. Para un buscador eso es contenido duplicado y
+ * alguien tiene que desempatar.
+ *
+ * Gana `/`, y no por costumbre:
+ *
+ *  · Es la que la gente escribe, comparte y enlaza desde afuera. Toda
+ *    la autoridad de dominio entra por ahí.
+ *  · `/` no es una portada de marca que enlaza al directorio: ES el
+ *    directorio (src/app/page.tsx renderiza este mismo componente).
+ *    No hay dos contenidos que separar — hay uno con dos direcciones.
+ *  · Matar el redirect ya se hizo justamente para que la raíz dejara
+ *    de regalar su autoridad. Canonizar hacia `/eventos` la volvería a
+ *    regalar por otra puerta, y de paso dejaría a quien busca "Bookea"
+ *    aterrizando en una URL de sección.
+ *
+ * CUÁNDO SE REVIERTE: el día que `/` tenga contenido PROPIO (una
+ * portada multi-vertical de verdad, con eventos/citas/hospedajes como
+ * secciones). Ahí `/eventos` pasa a ser una página distinta, con su
+ * propio canónico a sí misma, y esta etiqueta se borra.
+ *
+ * POR QUÉ LA ETIQUETA VA ACÁ, EN EL JSX, Y NO EN `export const
+ * metadata`: la Metadata API se resuelve por RUTA. `src/app/page.tsx`
+ * monta este componente, no esta ruta, así que un `alternates.canonical`
+ * declarado en este archivo cubriría `/eventos` y dejaría `/` sin
+ * etiqueta. Rendido como elemento, React lo iza al `<head>` de las DOS
+ * respuestas, con el mismo valor, que es exactamente la promesa que un
+ * canónico tiene que hacer. (Ponerlo en el layout raíz no sirve: la
+ * metadata de un layout la heredan TODAS las rutas de abajo, y /citas,
+ * /hospedajes y cada ficha terminarían canonizadas a `/`.)
+ */
+const CANONICO_DIRECTORIO = urlSitio("/");
+
+/**
+ * Quién es Bookea, en el idioma que leen los buscadores.
+ *
+ * Va en ESTE componente y no en el layout raíz por la misma razón que
+ * el canónico: acá es la portada del sitio (`/` monta este componente),
+ * y la recomendación de Google es declarar la organización UNA vez, en
+ * la portada — no repetida en cada pantalla del panel.
+ *
+ * Deliberadamente corto: nombre, dirección oficial, logo y el idioma
+ * del sitio. Los datos que no se pueden sostener (teléfono, dirección
+ * física, redes) no se inventan: un dato estructurado que no calza con
+ * lo que dice la página vale menos que ninguno.
+ */
+const DATOS_ORGANIZACION = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${CANONICO_DIRECTORIO}#organizacion`,
+      name: "Bookea",
+      url: CANONICO_DIRECTORIO,
+      logo: urlSitio("/logo-bookea-v3.png"),
+      areaServed: { "@type": "Country", name: "Costa Rica" },
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${CANONICO_DIRECTORIO}#sitio`,
+      name: "Bookea",
+      url: CANONICO_DIRECTORIO,
+      inLanguage: "es-CR",
+      publisher: { "@id": `${CANONICO_DIRECTORIO}#organizacion` },
+    },
+  ],
+};
+
 export default function EventosPage() {
   return (
     // El lienzo crema de la línea bento (/lealtad): los bloques de
     // color se recortan encima.
     <div className="min-h-screen overflow-x-clip bg-aventurea-cream-2">
+      <link rel="canonical" href={CANONICO_DIRECTORIO} />
+      <script
+        type="application/ld+json"
+        // JSON serializado por nosotros, sin nada que venga de la base:
+        // no hay entrada de usuario que escapar acá.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(DATOS_ORGANIZACION) }}
+      />
       <SiteHeader breadcrumb="Eventos" />
 
       <section className="pb-16 pt-4">

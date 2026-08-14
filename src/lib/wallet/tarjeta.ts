@@ -85,6 +85,25 @@ export type DatosDelTexto = {
    * un pase tiene que decir qué beneficio lleva, aunque sea ninguno.
    */
   beneficio: ConfigBeneficio | null;
+  /**
+   * El programa está PAUSADO: no sella y no canjea.
+   *
+   * Opcional y falsy por defecto, y eso es la mitad del diseño: un pase
+   * de un programa que opera con normalidad tiene que salir BYTE POR
+   * BYTE igual que antes de que existiera esta bandera
+   * (`pausa.test.ts` lo fija con un digest). Solo cuando llega `true`
+   * cambian DOS textos que ya existían —la línea de estado del frente y
+   * el campo «Cómo funciona» del reverso—: no se agrega ni se quita un
+   * solo campo del pase.
+   *
+   * Lo que NO cambia estando en pausa, por decisión explícita: el
+   * saldo, la tira de sellos y la regalía siguen a la vista. El pase es
+   * la tarjeta del CLIENTE con SUS sellos, no la licencia del negocio;
+   * vaciarla castigaría a doscientas personas por una factura ajena. Y
+   * tampoco hace falta para negar nada: el canje se rechaza contra la
+   * BASE (`autorizarCanje`), nunca contra lo que diga el dibujo.
+   */
+  pausado?: boolean;
 };
 
 export type DatosTarjeta = DatosDelTexto & {
@@ -213,12 +232,74 @@ export type CamposTarjeta = {
   regalia: { label: string; value: string } | null;
 };
 
+// ── EL PROGRAMA EN PAUSA ─────────────────────────────────────────────
+
+/**
+ * CÓMO SE LE CUENTA LA PAUSA A UNA PERSONA.
+ *
+ * Esto lo lee alguien que fue a cortarse el pelo y abrió su Wallet
+ * porque el del mostrador no le dio el sello. No sabe —ni tiene por
+ * qué— que existe una suscripción, ni una factura, ni Stripe. Así que
+ * acá no entra una sola palabra de adentro: se dice qué pasa con SU
+ * tarjeta y nada más.
+ *
+ * Las dos cosas que tiene que entender, en este orden:
+ *   1. lo suyo NO se perdió;
+ *   2. por ahora no se suma, y esto se va a arreglar.
+ *
+ * El sustantivo cambia con el tipo de tarjeta porque «tus sellos» en
+ * una gift card es sencillamente falso. Es un Record COMPLETO sobre
+ * `TipoTarjeta` a propósito: el día que se agregue un noveno tipo, esto
+ * no compila hasta que alguien decida cómo se le habla a ese cliente.
+ */
+const QUE_SE_GUARDA: Record<TipoTarjeta, string> = {
+  sellos: "Tus sellos quedan guardados; por ahora no se suman.",
+  puntos: "Tus puntos quedan guardados; por ahora no se suman.",
+  cashback: "Tu saldo queda guardado; por ahora no se usa.",
+  giftcard: "Tu saldo queda guardado; por ahora no se usa.",
+  cupon: "Tu tarjeta queda guardada; por ahora no se usa.",
+  descuento: "Tu tarjeta queda guardada; por ahora no se usa.",
+  membresia: "Tu carnet queda guardado; por ahora no se usa.",
+  evento: "Tu entrada queda guardada; por ahora no se usa.",
+};
+
+/** La línea de estado del frente cuando el programa está en pausa. */
+export function avisoDePausa(tipo: TipoTarjeta): { label: string; value: string } {
+  return { label: "EN PAUSA", value: QUE_SE_GUARDA[tipo] };
+}
+
+/**
+ * El texto largo del reverso. Se comparte con Google (allá va como
+ * módulo de texto) para que el iPhone y el Android de dos clientes del
+ * mismo negocio digan exactamente lo mismo.
+ */
+export function textoDePausa(negocioNombre: string, tipo: TipoTarjeta): string {
+  const quien = negocioNombre.trim() || "El negocio";
+  return (
+    `${quien} pausó su programa por un tiempo. Tu tarjeta queda tal cual: ` +
+    `no se pierde nada de lo que ya juntaste. Mientras dure la pausa no se suma ` +
+    `ni se canjea nada. Cuando el programa vuelva, seguís donde ibas — ` +
+    `consultá en el local. (${QUE_SE_GUARDA[tipo]})`
+  );
+}
+
 /**
  * Qué dice la tarjeta según el modo. Los tres guardan el MISMO dato —
  * un saldo de puntos— y solo cambia cómo se lee: 5 puede ser "5
  * sellos", "₡5" o "5 puntos" según lo que el negocio prometió.
+ *
+ * En pausa se reemplaza UNA línea —la de estado, la que promete «te
+ * faltan 3 sellos»— y se deja todo lo demás intacto. Esa línea es
+ * justamente la que estaría mintiendo: no faltan 3 sellos, no se puede
+ * sumar ninguno.
  */
 export function camposSegunModo(datos: DatosDelTexto): CamposTarjeta {
+  const campos = camposDelTipo(datos);
+  if (!datos.pausado) return campos;
+  return { ...campos, detalle: avisoDePausa(tipoDe(datos.config.modo)) };
+}
+
+function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
   const modo = tipoDe(datos.config.modo);
   const meta = metaDeSellos(datos.meta);
 
@@ -345,11 +426,22 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
       secondaryFields: [{ key: "detalle", ...campos.detalle }],
       auxiliaryFields: campos.regalia ? [{ key: "regalia", ...campos.regalia }] : [],
       backFields: [
-        {
-          key: "como",
-          label: "Cómo funciona",
-          value: textoDeAyuda(datos),
-        },
+        // El reverso es donde el cliente busca cuando duda, así que en
+        // pausa es acá donde va la explicación entera. Se reusa el
+        // MISMO campo (`como`) en vez de agregar uno nuevo: el pase
+        // conserva su forma exacta y el que ya lo tenía instalado ve
+        // cambiar un texto, no aparecer una sección.
+        datos.pausado
+          ? {
+              key: "como",
+              label: "Este programa está en pausa",
+              value: textoDePausa(datos.negocioNombre, tipoDe(datos.config.modo)),
+            }
+          : {
+              key: "como",
+              label: "Cómo funciona",
+              value: textoDeAyuda(datos),
+            },
         { key: "bookea", label: "Powered by", value: "Bookea.lat" },
       ],
     },

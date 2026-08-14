@@ -12,6 +12,7 @@ import {
   detectarChoques,
   filaVacia,
   nombreDia,
+  ocupaFranjaHoraria,
   validarFila,
   type ConfigNegocio,
   type FilaAgenda,
@@ -82,7 +83,12 @@ export default function ImportarAgenda({
     });
   }
 
-  const esCitas = negocio.vertical === "citas" || negocio.vertical === "restaurantes";
+  // La columna de la hora se rotula por CÓMO OCUPA la fila la agenda,
+  // no por la vertical: a un proveedor de eventos la hora también le es
+  // obligatoria (sin ella la fila no entra en `disponibilidad_citas`),
+  // así que su columna dice "Hora" y no "Desde" — que sonaba a que era
+  // el arranque opcional de un bloque de texto.
+  const porFranja = ocupaFranjaHoraria(negocio.vertical, negocio.categoria);
   const esHospedaje = negocio.vertical === "hospedajes";
 
   // Validación en vivo: el dueño ve qué le falta antes de guardar.
@@ -426,7 +432,7 @@ export default function ImportarAgenda({
                   {esHospedaje && <th className="px-3 py-2 font-bold">Salida</th>}
                   <th className="px-3 py-2 font-bold">Cliente</th>
                   <th className="px-3 py-2 font-bold">Pers.</th>
-                  <th className="px-3 py-2 font-bold">{esCitas ? "Hora" : "Desde"}</th>
+                  <th className="px-3 py-2 font-bold">{porFranja ? "Hora *" : "Desde"}</th>
                   <th className="px-3 py-2 font-bold">Hasta</th>
                   <th className="px-3 py-2 font-bold">Monto</th>
                   <th className="px-3 py-2 font-bold">Adelanto</th>

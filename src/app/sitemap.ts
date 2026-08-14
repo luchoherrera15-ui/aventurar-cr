@@ -1,0 +1,123 @@
+import type { MetadataRoute } from "next";
+import { createAnonClient } from "@/lib/supabase/server";
+import { urlSitio } from "@/lib/sitio";
+
+/**
+ * ============================================================
+ * EL MAPA DEL SITIO
+ * ============================================================
+ *
+ * Lo que un buscador tiene que encontrar: las secciones públicas y la
+ * ficha de cada negocio aprobado. Antes de esto no existía ninguno, y
+ * las fichas solo se descubrían navegando el directorio — que carga
+ * sus cards detrás de un `<Suspense>`.
+ *
+ * DOS REGLAS QUE NO SE PUEDEN ROMPER ACÁ:
+ *
+ * 1. SOLO URLs CANÓNICAS. `/eventos` sirve el mismo directorio que `/`
+ *    y su `<link rel="canonical">` apunta a `/` (ver el comentario
+ *    grande en eventos/page.tsx), así que va `/` y NO `/eventos`:
+ *    listar una URL que se declara duplicada de otra es mandarle al
+ *    buscador dos señales opuestas.
+ *
+ * 2. SOLO URLs QUE RESPONDEN 200. Un negocio de Citas vive en
+ *    `/citas/{slug}` y uno de Restaurantes en `/restaurantes/{slug}`;
+ *    `/{slug}` los REDIRIGE (ver src/app/[slug]/page.tsx). Se lista el
+ *    destino, no el rebote.
+ *
+ * Es un Route Handler cacheado: `createAnonClient` no toca cookies, así
+ * que esto se genera una vez por hora y no en cada visita de un robot.
+ */
+
+/** Una hora: el directorio no cambia tan seguido como para pagar más. */
+export const revalidate = 3600;
+
+/**
+ * Tope de fichas. El formato admite 50.000 por archivo; con este techo
+ * ni se acerca, y si algún día lo alcanza hay que partir el mapa con
+ * `generateSitemaps` en vez de dejar que se corte en silencio.
+ */
+const MAX_FICHAS = 5000;
+
+/**
+ * Las secciones fijas. `/booking` queda AFUERA a propósito: hoy es una
+ * página de "muy pronto" (PaginaMantenimiento) y no hay nada que
+ * indexar todavía.
+ */
+const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekly" | "monthly" }[] =
+  [
+    // La raíz ES el directorio de Eventos. Prioridad 1 sin discusión.
+    { ruta: "/", prioridad: 1, frecuencia: "daily" },
+    { ruta: "/citas", prioridad: 0.9, frecuencia: "daily" },
+    { ruta: "/hospedajes", prioridad: 0.8, frecuencia: "weekly" },
+    { ruta: "/restaurantes", prioridad: 0.8, frecuencia: "weekly" },
+    { ruta: "/lealtad", prioridad: 0.7, frecuencia: "weekly" },
+    { ruta: "/invitaciones", prioridad: 0.7, frecuencia: "weekly" },
+    { ruta: "/publicar", prioridad: 0.6, frecuencia: "monthly" },
+    { ruta: "/terminos", prioridad: 0.2, frecuencia: "monthly" },
+    { ruta: "/privacidad", prioridad: 0.2, frecuencia: "monthly" },
+    { ruta: "/politicas", prioridad: 0.2, frecuencia: "monthly" },
+  ];
+
+/** Dónde vive públicamente la ficha de un negocio, según su vertical. */
+function rutaDeFicha(vertical: string | null, slug: string): string {
+  switch (vertical) {
+    case "citas":
+      return `/citas/${slug}`;
+    case "restaurantes":
+      return `/restaurantes/${slug}`;
+    default:
+      // Eventos y Hospedajes usan la URL corta de la raíz.
+      return `/${slug}`;
+  }
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const ahora = new Date();
+
+  const secciones: MetadataRoute.Sitemap = SECCIONES.map((s) => ({
+    url: urlSitio(s.ruta),
+    lastModified: ahora,
+    changeFrequency: s.frecuencia,
+    priority: s.prioridad,
+  }));
+
+  // Si Supabase no contesta, el mapa sale igual con las secciones: un
+  // sitemap incompleto es infinitamente mejor que un 500 que le enseña
+  // a Googlebot a no volver.
+  let fichas: MetadataRoute.Sitemap = [];
+  try {
+    const supabase = createAnonClient();
+    const { data } = await supabase
+      .from("ranchos")
+      .select("slug, vertical, created_at")
+      .eq("estado", "aprobado")
+      .not("slug", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(MAX_FICHAS);
+
+    const filas = (data ?? []) as {
+      slug: string | null;
+      vertical: string | null;
+      created_at: string | null;
+    }[];
+
+    fichas = filas
+      .filter((f): f is { slug: string; vertical: string | null; created_at: string | null } =>
+        Boolean(f.slug),
+      )
+      .map((f) => ({
+        url: urlSitio(rutaDeFicha(f.vertical, f.slug)),
+        // `ranchos` no tiene columna de última modificación; la fecha de
+        // alta es lo más honesto que se puede decir sin inventar un
+        // "modificado hoy" que ningún robot volvería a creer.
+        lastModified: f.created_at ? new Date(f.created_at) : ahora,
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      }));
+  } catch {
+    fichas = [];
+  }
+
+  return [...secciones, ...fichas];
+}
