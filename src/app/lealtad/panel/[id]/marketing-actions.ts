@@ -28,10 +28,17 @@ export type PaseMarketing = {
   plataforma: Plataforma;
   saldoCache: number;
   actualizadoEn: string | null;
-  /** Apple: ¿el teléfono ya vino a buscar el último cambio (0151)?
-   *  Google no tiene ese mecanismo — el PATCH ya deja el objeto al día
-   *  del lado de Google, así que siempre cuenta como confirmado. */
-  confirmadoEnTelefono: boolean;
+  /**
+   * SOLO tiene sentido para Apple: ¿el teléfono ya vino a buscar el
+   * último cambio (0151)? `null` en Google, A PROPÓSITO — Google no
+   * tiene ningún mecanismo que nos avise cuando un teléfono real mira
+   * o descarga el pase. Un PATCH exitoso a la API de Google solo dice
+   * "el objeto en los servidores de Google quedó al día"; no dice que
+   * exista un teléfono que lo tenga instalado. Antes esto ponía
+   * `true` siempre para Google, que era mentira: el panel decía
+   * "confirmado" de un pase que puede no estar en ningún lado.
+   */
+  confirmadoEnTelefono: boolean | null;
 };
 
 export type FilaMarketing = {
@@ -134,7 +141,7 @@ export async function listarPasesDelPrograma(
           actualizadoEn: p.actualizado_en,
           confirmadoEnTelefono:
             p.plataforma === "google"
-              ? true
+              ? null // sin mecanismo posible de confirmación — ver el comentario del tipo
               : p.actualizado_en !== null &&
                 p.ultima_descarga_en !== null &&
                 p.ultima_descarga_en >= p.actualizado_en,

@@ -50,7 +50,9 @@ function FilaCliente({
   const [resultado, setResultado] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const faltaConfirmar = fila.pases.some((p) => !p.confirmadoEnTelefono);
+  // Solo Apple tiene un "todavía no confirmó" real — Google (null) no
+  // es un pendiente, es un "no hay forma de saberlo" permanente.
+  const faltaConfirmar = fila.pases.some((p) => p.confirmadoEnTelefono === false);
 
   function probar() {
     setError(null);
@@ -79,24 +81,37 @@ function FilaCliente({
         </span>
 
         <span className="flex flex-wrap items-center gap-1.5">
-          {fila.pases.map((p) => (
-            <span
-              key={p.plataforma}
-              className="rounded-lg px-2.5 py-1 text-[11px] font-bold"
-              style={{
-                background: p.confirmadoEnTelefono ? "rgba(52,199,89,.15)" : "rgba(238,116,32,.15)",
-                color: p.confirmadoEnTelefono ? "#34c759" : NARANJA,
-              }}
-              title={
-                p.confirmadoEnTelefono
-                  ? "El teléfono ya confirmó el último cambio"
-                  : "Todavía no hay confirmación de que el teléfono lo haya recibido"
-              }
-            >
-              {ETIQUETA_PLATAFORMA[p.plataforma]} · {p.saldoCache}
-              {p.confirmadoEnTelefono ? " ✓" : " ⏳"}
-            </span>
-          ))}
+          {fila.pases.map((p) => {
+            // Tres estados, no dos: `null` (Google) no es "todavía
+            // pendiente" — es "acá no hay forma de saber si el teléfono
+            // lo recibió". Mostrarlo como ⏳ prometería una confirmación
+            // que nunca va a llegar.
+            const estilo =
+              p.confirmadoEnTelefono === true
+                ? { background: "rgba(52,199,89,.15)", color: "#34c759" }
+                : p.confirmadoEnTelefono === false
+                  ? { background: "rgba(238,116,32,.15)", color: NARANJA }
+                  : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.55)" };
+            const titulo =
+              p.confirmadoEnTelefono === true
+                ? "El teléfono ya confirmó el último cambio"
+                : p.confirmadoEnTelefono === false
+                  ? "Todavía no hay confirmación de que el teléfono lo haya recibido"
+                  : "Google no avisa cuando un teléfono real ve el pase: esto solo confirma que nuestro servidor le mandó el cambio a Google, no que ya esté en un teléfono";
+            const marca =
+              p.confirmadoEnTelefono === true ? " ✓" : p.confirmadoEnTelefono === false ? " ⏳" : " ·";
+            return (
+              <span
+                key={p.plataforma}
+                className="rounded-lg px-2.5 py-1 text-[11px] font-bold"
+                style={estilo}
+                title={titulo}
+              >
+                {ETIQUETA_PLATAFORMA[p.plataforma]} · {p.saldoCache}
+                {marca}
+              </span>
+            );
+          })}
         </span>
 
         <button
@@ -131,7 +146,8 @@ function FilaCliente({
           ))}
           <p className="text-[11px] text-white/40">
             Esto confirma que Apple/Google lo aceptó para entregarlo — no que ya está en
-            el teléfono. Volvé a mirar esta fila en un minuto: si el ✓ aparece, llegó.
+            el teléfono. En Apple, volvé a mirar esta fila en un minuto: si el ✓ aparece,
+            llegó. En Google no hay ✓ posible: ahí solo sabemos que se lo mandamos.
           </p>
         </div>
       )}

@@ -63,6 +63,7 @@ const TESTIGOS = [
   ["0149", "tabla", "ayuda_diseno", null, "ayuda con el diseño"],
   ["0150", "columna", "pases_wallet", "diseno_pendiente", "aviso de cambio de diseño"],
   ["0151", "columna", "pases_wallet", "ultima_descarga_en", "confirmación de entrega en el teléfono"],
+  ["0152", "columna", "programa_lealtad", "mensaje_promocional", "mensaje promocional del pase"],
 ];
 
 console.log("\n  MIG   OBJETO                                 ESTADO");
