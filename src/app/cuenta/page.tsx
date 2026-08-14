@@ -51,6 +51,7 @@ export default async function CuentaPage() {
     { data: negociosData },
     { count: resenasCount },
     { data: invitacionesData },
+    { count: misLealtadesCount },
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle(),
     supabase
@@ -75,6 +76,13 @@ export default async function CuentaPage() {
       .select("reserva_id", { count: "exact", head: true })
       .eq("cliente_id", user.id),
     supabase.from("invitaciones").select("id").eq("cliente_id", user.id),
+    // Programas de OTROS negocios donde es cliente afiliado — la
+    // tarjeta "Mi lealtad", el respaldo web del pase.
+    supabase
+      .from("miembros")
+      .select("id", { count: "exact", head: true })
+      .eq("cliente_id", user.id)
+      .eq("estado", "activa"),
   ]);
 
   const reservas = (reservasData ?? []) as { id: string; fecha: string; estado: string }[];
@@ -249,6 +257,7 @@ export default async function CuentaPage() {
           activas={activas}
           historial={historial}
           favoritosCount={favoritosCount ?? 0}
+          misLealtadesCount={misLealtadesCount ?? 0}
         />
 
         <form action={cerrarSesionCuenta} className="mt-8 text-center">

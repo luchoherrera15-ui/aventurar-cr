@@ -7,6 +7,7 @@ import {
   IconChartBars,
   IconFrame,
   IconHeart,
+  IconStar,
   IconStore,
 } from "@/components/icons";
 
@@ -23,6 +24,8 @@ interface TableroModosProps {
   activas: number;
   historial: number;
   favoritosCount: number;
+  /** Programas de lealtad (de OTROS negocios) a los que está afiliado como cliente. */
+  misLealtadesCount: number;
 }
 
 /**
@@ -92,6 +95,7 @@ export default function TableroModos({
   activas,
   historial,
   favoritosCount,
+  misLealtadesCount,
 }: TableroModosProps) {
   const [modoNegocio, setModoNegocio] = useState(false);
 
@@ -147,6 +151,23 @@ export default function TableroModos({
             icono={<IconHeart className="h-28 w-28" />}
             titulo="Tus favoritos"
             detalle={favoritosCount === 1 ? "1 favorito" : `${favoritosCount} favoritos`}
+          />
+          {/* El respaldo web del pase: si el Wallet tarda en
+              actualizarse, acá el sello está siempre al día — se lee
+              de la base en cada visita. Sale SIEMPRE, tenga o no
+              tarjetas: es lo único que le avisa a alguien sin ninguna
+              afiliación todavía que esta pantalla existe. */}
+          <TarjetaAcceso
+            href="/cuenta/lealtad"
+            icono={<IconStar className="h-28 w-28" />}
+            titulo="Mi lealtad"
+            detalle={
+              misLealtadesCount === 0
+                ? "Tus sellos y puntos, cuando te afiliés a un negocio"
+                : misLealtadesCount === 1
+                  ? "1 tarjeta — mirá tus sellos"
+                  : `${misLealtadesCount} tarjetas — mirá tus sellos`
+            }
           />
         </>
       ) : (

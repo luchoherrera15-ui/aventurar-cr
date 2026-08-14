@@ -46,7 +46,11 @@ export async function consultarSaldo(miembroId: string): Promise<number | null> 
  * avisa a las plataformas que el pase cambió. Nunca lanza: si el
  * espejo falla, el ledger ya quedó bien y es lo que manda.
  */
-async function refrescarPases(miembroId: string, saldo: number): Promise<void> {
+async function refrescarPases(
+  miembroId: string,
+  saldo: number,
+  tipo: "ganado" | "canjeado" | "ajuste",
+): Promise<void> {
   const db = createAdminClient();
   if (!db) return;
 
@@ -89,6 +93,20 @@ async function refrescarPases(miembroId: string, saldo: number): Promise<void> {
       console.warn("[wallet] No salió el aviso de pase actualizado:", e);
     }
   });
+
+  // El respaldo por correo — SOLO cuando de verdad se ganó algo. Un
+  // canje o un ajuste hacia abajo no son "se acreditó tu sello": sería
+  // un correo mintiéndole al cliente justo cuando gastó lo que tenía.
+  if (tipo === "ganado") {
+    after(async () => {
+      try {
+        const { avisarSelloPorCorreo } = await import("@/lib/correo/sello-acreditado");
+        await avisarSelloPorCorreo(miembroId, saldo);
+      } catch (e) {
+        console.warn("[correo] No salió el respaldo de sello acreditado:", e);
+      }
+    });
+  }
 }
 
 /**
@@ -145,6 +163,6 @@ export async function otorgarPuntos({
   }
 
   const saldo = (await consultarSaldo(miembroId)) ?? puntos;
-  await refrescarPases(miembroId, saldo);
+  await refrescarPases(miembroId, saldo, tipo);
   return { ok: true, otorgado: true, saldo };
 }
