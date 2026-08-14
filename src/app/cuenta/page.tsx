@@ -1,11 +1,16 @@
 ﻿import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import SiteHeader from "@/components/site-header";
 import FormularioAuth from "./formulario-auth";
 import { cerrarSesionCuenta } from "./actions";
 import { hoyISOCR } from "@/lib/fechas";
-import TableroModos from "./tablero-modos";
+import { iniciales } from "@/lib/iniciales";
+import { categoriaLabel } from "@/lib/categorias-vertical";
+import { consultarSaldo } from "@/lib/lealtad/motor";
+import { tipoDe, metaDe, leerBeneficio } from "@/lib/lealtad/tipos-tarjeta";
+import TableroModos, { type ProximaExperiencia, type LealtadPrincipal } from "./tablero-modos";
 
 /** Lo mínimo de cada publicación para el resumen del tablero. */
 type NegocioResumen = { id: string; estado: string };
@@ -82,7 +87,7 @@ export default async function CuentaPage({
     supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle(),
     supabase
       .from("reservas")
-      .select("id, fecha, estado")
+      .select("id, fecha, estado, ranchos(nombre, foto_url, categoria, slug, vertical)")
       .eq("cliente_id", user.id)
       .in("estado", [
         "pendiente",
@@ -91,7 +96,8 @@ export default async function CuentaPage({
         "cumplida",
         "no_asistio",
         "cancelada",
-      ]),
+      ])
+      .order("fecha", { ascending: true }),
     supabase
       .from("favoritos")
       .select("rancho_id", { count: "exact", head: true })
@@ -111,7 +117,15 @@ export default async function CuentaPage({
       .eq("estado", "activa"),
   ]);
 
-  const reservas = (reservasData ?? []) as { id: string; fecha: string; estado: string }[];
+  type RanchoResumenReserva = {
+    nombre: string;
+    foto_url: string | null;
+    categoria: string;
+    slug: string | null;
+    vertical: string | null;
+  };
+  type ReservaResumen = { id: string; fecha: string; estado: string; ranchos: RanchoResumenReserva | null };
+  const reservas = (reservasData ?? []) as unknown as ReservaResumen[];
   const propios = (negociosData ?? []) as NegocioResumen[];
 
   // Los negocios donde alguien la sumó como colaboradora (0116) cuentan
@@ -166,11 +180,41 @@ export default async function CuentaPage({
   // Mismo criterio que /cuenta/reservas: los estados finales van al
   // historial aunque la fecha sea hoy.
   const FINALES = new Set(["rechazada", "cumplida", "no_asistio", "cancelada"]);
-  const reservasHechas = reservas.filter(
-    (r) => r.estado !== "rechazada" && r.estado !== "cancelada",
-  ).length;
   const activas = reservas.filter((r) => !FINALES.has(r.estado) && r.fecha >= hoy).length;
   const historial = reservas.length - activas;
+
+  // "Tu próxima experiencia": la más cercana entre las activas, no una
+  // consulta aparte — ya se trajeron todas con su negocio embebido.
+  //
+  // NO se exige que `ranchos` haya resuelto: un negocio borrado deja
+  // `rancho_id` en null (ON DELETE SET NULL) pero la reserva sigue
+  // activa y sigue contando en "activas" más abajo — exigir el join acá
+  // la haría desaparecer de esta card sin desaparecer de ese número.
+  // Mismo respaldo que ya usa reservas-tabs.tsx: "Proveedor" cuando no
+  // hay nombre.
+  //
+  // Desempate por fecha: si dos reservas caen el mismo día, se prefiere
+  // la confirmada sobre la pendiente — una reserva pendiente todavía
+  // puede rechazarse, así que no es la mejor candidata a "lo próximo".
+  const PRIORIDAD_ESTADO: Record<string, number> = { confirmada: 0, pendiente: 1 };
+  const proximaCandidata = reservas
+    .filter((r) => !FINALES.has(r.estado) && r.fecha >= hoy)
+    .sort((a, b) => {
+      if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1;
+      return (PRIORIDAD_ESTADO[a.estado] ?? 2) - (PRIORIDAD_ESTADO[b.estado] ?? 2);
+    })[0];
+  const proximaExperiencia: ProximaExperiencia = proximaCandidata
+    ? {
+        id: proximaCandidata.id,
+        fecha: proximaCandidata.fecha,
+        negocioNombre: proximaCandidata.ranchos?.nombre ?? "Proveedor",
+        fotoUrl: proximaCandidata.ranchos?.foto_url ?? null,
+        categoriaTexto: proximaCandidata.ranchos
+          ? categoriaLabel(proximaCandidata.ranchos.vertical ?? "eventos", proximaCandidata.ranchos.categoria)
+          : "",
+        slug: proximaCandidata.ranchos?.slug ?? null,
+      }
+    : null;
 
   const cookieStore = await cookies();
   const visto = (seccion: string) => desdeISO(cookieStore.get(`visto_${seccion}`)?.value);
@@ -220,88 +264,90 @@ export default async function CuentaPage({
     .filter((r) => r.asistira)
     .reduce((acc, r) => acc + 1 + (r.acompanantes ?? 0), 0);
 
-  const inicial = (perfil?.nombre || user.email || "?").trim().charAt(0).toUpperCase();
+  // Crudo (puede venir vacío) para precargar el modal de edición, y por
+  // separado el de mostrar (con el "Tu cuenta" de respaldo) — mezclarlos
+  // en un solo string hacía que alguien que de verdad se llame "Tu
+  // cuenta" viera el campo Nombre vacío al abrir "Editar perfil".
+  const nombreCrudo = (perfil?.nombre || "").trim();
+  const nombreVisible = nombreCrudo || "Tu cuenta";
+  const inicialesAvatar = iniciales(nombreCrudo || user.email || "?");
+
+  // El teléfono nunca vivió en `perfiles` — es metadata de auth desde
+  // que existe (formulario-codigo-acceso.tsx, auth/callback/route.ts),
+  // así que no hace falta ninguna consulta extra para leerlo.
+  const metaUsuario = user.user_metadata as Record<string, unknown>;
+  const telefono = typeof metaUsuario.whatsapp === "string" ? metaUsuario.whatsapp : "";
+
+  // La tarjeta de lealtad de este cliente, SOLO cuando tiene exactamente
+  // una — con 0 no hay nada que mostrar y con varias no cabe un solo
+  // progreso (ver la nota en tablero-modos.tsx). Usa el cliente admin
+  // porque el programa y el negocio son de OTRO dueño: la RLS de
+  // `programa_lealtad` no deja leerlos como cliente afiliado (mismo
+  // motivo por el que /cuenta/lealtad/page.tsx ya usa el admin acá).
+  let lealtadPrincipal: LealtadPrincipal = null;
+  if ((misLealtadesCount ?? 0) === 1) {
+    const admin = createAdminClient();
+    if (admin) {
+      const { data: miembro } = await admin
+        .from("miembros")
+        .select("id, programa_id")
+        .eq("cliente_id", user.id)
+        .eq("estado", "activa")
+        .limit(1)
+        .maybeSingle();
+      if (miembro) {
+        const { data: programa } = await admin
+          .from("programa_lealtad")
+          .select("modo, rancho_id, beneficio")
+          .eq("id", miembro.programa_id as string)
+          .maybeSingle();
+        if (programa) {
+          const { data: negocio } = await admin
+            .from("ranchos")
+            .select("nombre")
+            .eq("id", programa.rancho_id as string)
+            .maybeSingle();
+          const tipo = tipoDe(programa.modo as string | null);
+          const beneficio = leerBeneficio(programa.beneficio, tipo);
+          const saldo = (await consultarSaldo(miembro.id as string)) ?? 0;
+          lealtadPrincipal = {
+            negocioNombre: ((negocio?.nombre as string | null) ?? "").trim() || "Tu negocio",
+            tipo,
+            saldo,
+            meta: beneficio ? metaDe(beneficio) : null,
+          };
+        }
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-aventurea-cream">
       <SiteHeader breadcrumb="Tu cuenta" />
 
-      <section className="mx-auto max-w-[720px] px-6 py-8">
-        {/* Identidad en una sola tarjeta horizontal: avatar con el aro
-            naranja, nombre + correo + rol a la izquierda y los números
-            a la derecha (abajo en móvil). Compacta a propósito. */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface px-5 py-4 shadow-[0_10px_30px_-18px_rgba(16,26,44,0.35)] sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex min-w-0 flex-1 items-center gap-3.5">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[3px] border-aventurea-sky bg-aventurea-navy text-[22px] font-extrabold text-white">
-              {inicial}
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-[15.5px] font-extrabold text-aventurea-ink">
-                  {perfil?.nombre || "Tu cuenta"}
-                </p>
-                <span
-                  className={`shrink-0 rounded-lg px-2 py-0.5 text-[10.5px] font-bold ${
-                    tieneNegocio
-                      ? "bg-aventurea-sky/10 text-aventurea-orange"
-                      : "bg-aventurea-navy/10 text-aventurea-navy"
-                  }`}
-                >
-                  {tieneNegocio ? "Proveedor" : "Cliente"}
-                </span>
-              </div>
-              <p className="truncate text-[12.5px] font-medium text-aventurea-ink-soft">
-                {user.email}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center border-t border-aventurea-line pt-3 sm:min-w-[220px] sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-            <Stat valor={String(reservasHechas)} etiqueta={reservasHechas === 1 ? "reserva" : "reservas"} />
-            <span className="h-7 w-px bg-aventurea-line" />
-            <Stat
-              valor={String(resenasCount ?? 0)}
-              etiqueta={(resenasCount ?? 0) === 1 ? "reseña" : "reseñas"}
-            />
-            <span className="h-7 w-px bg-aventurea-line" />
-            <Stat
-              valor={String(favoritosCount ?? 0)}
-              etiqueta={(favoritosCount ?? 0) === 1 ? "favorito" : "favoritos"}
-            />
-          </div>
-        </div>
-
-        {/* El tablero con toggle de modo */}
-        <TableroModos
-          tieneNegocio={tieneNegocio}
-          reservasNuevasNegocio={reservasNuevasNegocio}
-          vecesContratado={vecesContratado}
-          negociosLength={negocios.length}
-          lealtadActiva={lealtadActiva}
-          confirmacionesNuevas={confirmacionesNuevas}
-          invitacionIds={invitacionIds}
-          personasConfirmadas={personasConfirmadas}
-          activas={activas}
-          historial={historial}
-          favoritosCount={favoritosCount ?? 0}
-          misLealtadesCount={misLealtadesCount ?? 0}
-        />
-
-        <form action={cerrarSesionCuenta} className="mt-8 text-center">
-          <button type="submit" className="text-[13.5px] font-bold text-red-600 hover:underline">
-            Cerrar sesión
-          </button>
-        </form>
-      </section>
-    </div>
-  );
-}
-
-/** Un número del perfil con su etiqueta, en una fila de tercios. */
-function Stat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
-  return (
-    <div className="flex-1 text-center">
-      <p className="text-[19px] font-extrabold leading-tight text-aventurea-ink">{valor}</p>
-      <p className="text-[11px] font-semibold text-aventurea-ink-soft">{etiqueta}</p>
+      <TableroModos
+        nombre={nombreVisible}
+        nombreCrudo={nombreCrudo}
+        inicialesAvatar={inicialesAvatar}
+        correo={user.email ?? ""}
+        telefono={telefono}
+        tieneNegocio={tieneNegocio}
+        resenasCount={resenasCount ?? 0}
+        reservasNuevasNegocio={reservasNuevasNegocio}
+        vecesContratado={vecesContratado}
+        negociosLength={negocios.length}
+        lealtadActiva={lealtadActiva}
+        confirmacionesNuevas={confirmacionesNuevas}
+        invitacionIds={invitacionIds}
+        personasConfirmadas={personasConfirmadas}
+        activas={activas}
+        historial={historial}
+        favoritosCount={favoritosCount ?? 0}
+        misLealtadesCount={misLealtadesCount ?? 0}
+        lealtadPrincipal={lealtadPrincipal}
+        proximaExperiencia={proximaExperiencia}
+        cerrarSesion={cerrarSesionCuenta}
+      />
     </div>
   );
 }
