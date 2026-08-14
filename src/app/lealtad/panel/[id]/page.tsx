@@ -20,6 +20,7 @@ import InicioLealtad, { type EnlacesInicio, type PasoPrimero } from "./inicio-le
 import ModoMostrador from "./modo-mostrador";
 import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
+import MarketingLealtad from "./marketing-lealtad";
 import CompartirTarjeta from "./compartir-tarjeta";
 import { BloqueEstado, SeccionTarjeta } from "./pases-panel";
 import EditorRecompensas from "./editor-recompensas";
@@ -406,6 +407,7 @@ export default async function PanelNegocioLealtad({
             ]
           : []),
         ...(puedeEquipo ? [{ id: "equipo", etiqueta: "Equipo", icono: "equipo" as const }] : []),
+        ...(puedeDisenar ? [{ id: "marketing", etiqueta: "Marketing", icono: "campana" as const }] : []),
       ],
     },
     {
@@ -579,6 +581,8 @@ export default async function PanelNegocioLealtad({
         )}
       </Seccion>
     ),
+
+    marketing: <MarketingLealtad ranchoId={id} programaId={p?.id ?? null} />,
 
     poster: (
       <Seccion
