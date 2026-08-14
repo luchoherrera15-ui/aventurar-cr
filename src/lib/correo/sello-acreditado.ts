@@ -116,7 +116,10 @@ export async function avisarSelloPorCorreo(miembroId: string, saldo: number): Pr
 
     await enviarCorreo({
       to: correo,
-      subject: `¡Sello acreditado en ${negocioNombre}!`,
+      // Genérico y no "¡Sello acreditado!": este mismo correo lo manda
+      // un programa de puntos o de cashback, donde hablar de "sello" es
+      // sencillamente falso.
+      subject: `¡Tu tarjeta de ${negocioNombre} se actualizó!`,
       html: `
         <h2 style="margin:0 0 12px;font-size:20px">✓ ¡Listo! Ya se sumó</h2>
         <p style="margin:0 0 4px;font-size:14px;color:#555">${escaparHtml(campos.encabezado.label)}</p>

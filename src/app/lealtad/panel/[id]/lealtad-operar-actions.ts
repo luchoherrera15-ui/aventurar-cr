@@ -129,18 +129,36 @@ export async function acreditarOperacion(
   if (!r.otorgado && r.motivo !== "ya-otorgado") {
     return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo dar el sello.") };
   }
+  const yaEstaba = r.motivo === "ya-otorgado";
 
   // El aviso al teléfono nunca frena la operación (los puntos ya
   // están), pero un `void` suelto muere cuando Vercel congela la
   // función al responder: `after` lo mantiene vivo.
   after(() => avisarCambioDePase(miembroId));
+
+  // El respaldo por correo — este camino (acreditar desde el panel, sin
+  // escanear) tenía el MISMO hueco que el escáner: acredita directo
+  // contra `acreditar_lealtad` y nunca pasaba por `motor.ts`, que es
+  // donde vive `avisarSelloPorCorreo`. Ver el comentario largo en
+  // escaner-actions.ts — es el mismo bug, portado acá.
+  if (!yaEstaba) {
+    after(async () => {
+      try {
+        const { avisarSelloPorCorreo } = await import("@/lib/correo/sello-acreditado");
+        await avisarSelloPorCorreo(miembroId, r.saldo ?? 0);
+      } catch (e) {
+        console.warn("[correo] No salió el respaldo de sello acreditado:", e);
+      }
+    });
+  }
+
   revalidatePath(`/lealtad/panel/${ranchoId}`);
 
   return {
     ok: true,
     puntos: r.puntos ?? 0,
     saldo: r.saldo ?? 0,
-    yaEstaba: r.motivo === "ya-otorgado",
+    yaEstaba,
   };
 }
 

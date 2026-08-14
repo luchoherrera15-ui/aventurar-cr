@@ -204,6 +204,28 @@ export async function sumarSelloEscaneado(
   // están), pero SÍ tiene que ejecutarse: un `void` suelto muere cuando
   // Vercel congela la función al responder. `after` la mantiene viva.
   after(() => avisarCambioDePase(miembro.id));
+
+  // El respaldo por correo — HASTA AHORA ESTE CAMINO (el escáner) NO
+  // LO MANDABA. `motor.ts` sí lo tiene, pero el escáner desde la 0125
+  // acredita por su cuenta contra `acreditar_lealtad` y nunca pasa por
+  // ahí: el aviso al Wallet se acordó de portar, este no. Resultado real
+  // (reportado por el dueño, con su propia tarjeta): el sello sale bien
+  // en la base, el push a veces no llega, y el correo — el respaldo que
+  // se armó justamente para ese caso — tampoco salía nunca desde acá.
+  //
+  // Sin correo si `yaEstaba`: un reescaneo por señal mala no otorgó
+  // nada nuevo, y avisar "¡se acreditó tu sello!" ahí sería mentira.
+  if (!yaEstaba) {
+    after(async () => {
+      try {
+        const { avisarSelloPorCorreo } = await import("@/lib/correo/sello-acreditado");
+        await avisarSelloPorCorreo(miembro.id, r.saldo ?? 0);
+      } catch (e) {
+        console.warn("[correo] No salió el respaldo de sello acreditado:", e);
+      }
+    });
+  }
+
   revalidatePath(`/lealtad/panel/${ranchoId}`);
 
   return {
