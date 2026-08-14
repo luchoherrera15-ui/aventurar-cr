@@ -17,6 +17,7 @@ import { FICHAS } from "./contenido-tipos";
 import SeccionCrecimiento from "./seccion-crecimiento";
 import SeccionDashboard from "./seccion-dashboard";
 import PruebaSocial from "./prueba-social";
+import BurbujaContacto from "./burbuja-contacto";
 import { textoDelContador } from "@/lib/lealtad/contador-negocios";
 
 /**
@@ -131,6 +132,21 @@ export default function LealtadPage() {
       >
         <span aria-hidden>←</span> Volver
       </Link>
+
+      {/* La misma puerta que "¿Ya tenés el programa? Entrá acá" de más
+          abajo, pero a un toque desde cualquier punto del scroll: quien
+          ya tiene cuenta no debería tener que buscarla entre el resto
+          del contenido de venta. */}
+      <Link
+        href="/lealtad/login"
+        className="fixed right-4 top-4 z-50 flex items-center gap-1.5 rounded-full border px-4 py-2 text-[13px] font-bold text-white/85 backdrop-blur transition-colors hover:text-white"
+        style={{ background: "rgba(10,18,38,.75)", borderColor: "rgba(255,255,255,.22)" }}
+      >
+        Entrar
+        <span aria-hidden>→</span>
+      </Link>
+
+      <BurbujaContacto />
 
       {/* ================= HERO ================= */}
       <section className="relative overflow-hidden pb-16 pt-14 sm:pb-24 sm:pt-20">
