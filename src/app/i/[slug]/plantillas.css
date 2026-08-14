@@ -222,7 +222,7 @@
    (display:none) y apagaba TODAS las animaciones inv2-*: en una máquina
    con los efectos de Windows apagados la invitación no movía ni un
    pétalo. El resto del sitio sí sigue respetando la señal (globals.css,
-   reel.css, home.css y @/lib/use-movimiento-reducido).
+   reel.css, intro.css y @/lib/use-movimiento-reducido).
 
    Lo de abajo es la otra cara de esa decisión: dos reglas de globals.css
    que SÍ atienden la señal (las entradas [data-reveal] y la card del

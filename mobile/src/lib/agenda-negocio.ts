@@ -184,7 +184,8 @@ export function fechaLarga(fechaIso: string): string {
  * pura y probada, en vez de a mano en cada pantalla: tiene que decir la
  * fecha, la hora y el servicio, y tiene que dejar clarísimo que NO hay
  * nada reservado ni apartado. Espeja el resumen que
- * src/app/eventos/cotizacion-actions.ts arma en la web.
+ * src/app/eventos/agenda-consulta.ts arma en la web: si cambia el texto
+ * de un lado, tiene que cambiar del otro.
  */
 export function mensajePrimeraConsulta(datos: {
   /** "sábado 12 de julio" — ya formateado por la pantalla. */

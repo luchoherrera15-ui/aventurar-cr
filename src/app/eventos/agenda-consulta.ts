@@ -250,8 +250,11 @@ const TOPE_MENSAJE = 2000;
  * mismo orden en que se armó (fecha y hora primero, el dinero después)
  * y sin una sola palabra de "reserva".
  *
- * Recicla el armador de `cotizacion-actions.ts` (el del flujo viejo con
- * depósito), cambiando el pedido por fecha + hora + servicio + duración.
+ * Heredó su forma del armador de resumen del flujo viejo —el que creaba
+ * una reserva con depósito, retirado cuando los proveedores de servicio
+ * pasaron a agenda por horas—, cambiando el pedido por fecha + hora +
+ * servicio + duración. Aquel archivo ya no existe; esta es la única
+ * implementación.
  */
 export function armarPrimerMensaje(d: DatosPrimerMensaje): string {
   const partes: string[] = [];
