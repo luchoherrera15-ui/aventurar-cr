@@ -1,4 +1,5 @@
 ﻿import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import FormularioAuth from "./formulario-auth";
@@ -27,7 +28,18 @@ function desdeISO(marcaCookie: string | undefined): string {
  * `visto_{seccion}` que estampa /cuenta/ir/{seccion}). Los detalles
  * viven en las páginas de cada sección — acá solo el resumen.
  */
-export default async function CuentaPage() {
+export default async function CuentaPage({
+  searchParams,
+}: {
+  // `volver=lealtad`: quien viene de la vitrina /lealtad como dueño de
+  // negocio no debería ver el tablero genérico — entra derecho a su
+  // panel. `/lealtad/entrar` YA sabe resolver "cero/uno/varios negocios
+  // con programa" (ver ese archivo); acá solo se reusa.
+  searchParams: Promise<{ volver?: string }>;
+}) {
+  const { volver } = await searchParams;
+  const destinoLealtad = volver === "lealtad" ? "/lealtad/entrar" : null;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -38,11 +50,25 @@ export default async function CuentaPage() {
       <div className="min-h-screen bg-aventurea-cream">
         <SiteHeader breadcrumb="Tu cuenta" />
         <section className="mx-auto max-w-[720px] px-6 py-14">
-          <FormularioAuth />
+          <FormularioAuth
+            destino={destinoLealtad ?? undefined}
+            {...(destinoLealtad
+              ? {
+                  titulo: "Entrá a tu programa de lealtad",
+                  intro:
+                    "Con el correo de tu negocio. Si ya tenés cuenta entrás directo; si es tu primera vez, te la creamos ahí mismo.",
+                }
+              : {})}
+          />
         </section>
       </div>
     );
   }
+
+  // Ya tenía sesión (venía de un click en "Entrar" en /lealtad estando
+  // logueado, o de una guarda interna del panel): directo al panel, sin
+  // mostrarle primero el tablero de cliente.
+  if (destinoLealtad) redirect(destinoLealtad);
 
   const [
     { data: perfil },

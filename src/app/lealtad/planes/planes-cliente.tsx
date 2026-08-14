@@ -129,7 +129,7 @@ export default function PlanesCliente({
               </button>
             ) : (
               <Link
-                href="/lealtad/login"
+                href="/cuenta?volver=lealtad"
                 className="mt-4 rounded-xl bg-[#ee7420] px-4 py-3 text-center text-[13.5px] font-extrabold text-white"
               >
                 Entrá para solicitarlo

@@ -138,7 +138,7 @@ export default function LealtadPage() {
           ya tiene cuenta no debería tener que buscarla entre el resto
           del contenido de venta. */}
       <Link
-        href="/lealtad/login"
+        href="/cuenta?volver=lealtad"
         className="fixed right-4 top-4 z-50 flex items-center gap-1.5 rounded-full border px-4 py-2 text-[13px] font-bold text-white/85 backdrop-blur transition-colors hover:text-white"
         style={{ background: "rgba(10,18,38,.75)", borderColor: "rgba(255,255,255,.22)" }}
       >
@@ -235,7 +235,7 @@ export default function LealtadPage() {
             <p className="mt-6 text-[13px] text-white/40">
               ¿Ya tenés el programa?{' '}
               <Link
-                href="/lealtad/login"
+                href="/cuenta?volver=lealtad"
                 className="font-bold underline transition-colors hover:text-white/80"
                 style={{ color: NARANJA }}
               >
