@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sharp, { type OverlayOptions } from "sharp";
 import { dibujarBanda, dibujarIcono, dibujarLogo, dibujarTiraDeSellos } from "./imagenes";
+import { ICONOS_SELLO_ID } from "@/lib/lealtad/iconos-sello";
 
 /**
  * La tira de sellos es una IMAGEN generada, no un componente: Apple no
@@ -234,6 +235,127 @@ describe("dibujarTiraDeSellos con la banda del negocio", () => {
       const m = await sharp(tira).metadata();
       expect([m.width, m.height]).toEqual([ancho, alto]);
     }
+  });
+});
+
+describe("dibujarTiraDeSellos con un icono elegido (0145)", () => {
+  /**
+   * El icono reemplaza al LOGO dentro del sello. Lo que se comprueba
+   * acá es lo que se ve en el teléfono: que el ganado esté LLENO, que el
+   * que falta esté en CONTORNO, y —sobre todo— que el negocio que no
+   * eligió icono siga recibiendo exactamente la misma imagen de antes.
+   */
+  it("sin icono, la tira es byte por byte la de siempre", async () => {
+    // El parámetro es opcional: esta es la garantía de que agregarlo no
+    // le movió un pixel a nadie. Si algún día el dibujo cambia, este
+    // test se pone rojo antes que un cliente.
+    const comun = { total: 10, logrados: 5, colores: COLORES, imagen: null, banda: null } as const;
+    const sinParametro = await dibujarTiraDeSellos({ ...comun, escala: 2 });
+    const conNull = await dibujarTiraDeSellos({ ...comun, escala: 2, icono: null });
+    expect(conNull.equals(sinParametro)).toBe(true);
+  });
+
+  it("sigue midiendo lo que Apple espera en las tres escalas", async () => {
+    for (const [escala, ancho, alto] of [[1, 375, 123], [2, 750, 246], [3, 1125, 369]] as const) {
+      const tira = await dibujarTiraDeSellos({
+        total: 10, logrados: 5, colores: COLORES, imagen: null, banda: null, escala, icono: "cafe",
+      });
+      const m = await sharp(tira).metadata();
+      expect([m.width, m.height]).toEqual([ancho, alto]);
+    }
+  });
+
+  it("los sellos tampoco llegan al borde", async () => {
+    const tira = await dibujarTiraDeSellos({
+      total: 10, logrados: 5, colores: COLORES, imagen: null, banda: null, escala: 2, icono: "tijera",
+    });
+    const m = await margenes(tira);
+    expect(m.izq).toBeGreaterThan(m.ancho * 0.05);
+    expect(m.der).toBeGreaterThan(m.ancho * 0.05);
+    expect(m.arriba).toBeGreaterThan(m.alto * 0.05);
+    expect(m.abajo).toBeGreaterThan(m.alto * 0.05);
+  });
+
+  it("el ganado es un disco LLENO y el que falta es un aro: se distinguen sin contar", async () => {
+    const conTodos = await dibujarTiraDeSellos({
+      total: 10, logrados: 10, colores: COLORES, imagen: null, banda: null, escala: 2, icono: "cafe",
+    });
+    const conNinguno = await dibujarTiraDeSellos({
+      total: 10, logrados: 0, colores: COLORES, imagen: null, banda: null, escala: 2, icono: "cafe",
+    });
+    const llenos = await cuantosDe(conTodos, SELLO_RGB);
+    const vacios = await cuantosDe(conNinguno, SELLO_RGB);
+    // Los dos pintan con el color del acento —el aro también— pero un
+    // disco macizo tiene MUCHO más de ese color que un contorno. Si
+    // alguien cambiara el vacío por un disco tenue, esto se cae.
+    expect(llenos).toBeGreaterThan(2000);
+    expect(vacios).toBeGreaterThan(200);
+    expect(vacios).toBeLessThan(llenos * 0.5);
+  });
+
+  it("la mitad llenos queda entre los dos extremos", async () => {
+    const mitad = await dibujarTiraDeSellos({
+      total: 10, logrados: 5, colores: COLORES, imagen: null, banda: null, escala: 2, icono: "cafe",
+    });
+    const todos = await dibujarTiraDeSellos({
+      total: 10, logrados: 10, colores: COLORES, imagen: null, banda: null, escala: 2, icono: "cafe",
+    });
+    const ninguno = await dibujarTiraDeSellos({
+      total: 10, logrados: 0, colores: COLORES, imagen: null, banda: null, escala: 2, icono: "cafe",
+    });
+    const n = await cuantosDe(mitad, SELLO_RGB);
+    expect(n).toBeGreaterThan(await cuantosDe(ninguno, SELLO_RGB));
+    expect(n).toBeLessThan(await cuantosDe(todos, SELLO_RGB));
+  });
+
+  it("el icono MANDA sobre el logo: con los dos, el sello es el icono", async () => {
+    // El logo blanco sobre blanco es justo el que revienta a sharp
+    // (`trim()` dice «Image is entirely blank»). Con icono ni se toca.
+    const logoBlanco = await foto(300, 300, [["#ffffff", 300]]);
+    const conIcono = await dibujarTiraDeSellos({
+      total: 8, logrados: 4, colores: COLORES, imagen: logoBlanco, banda: null, escala: 2, icono: "flor",
+    });
+    const soloIcono = await dibujarTiraDeSellos({
+      total: 8, logrados: 4, colores: COLORES, imagen: null, banda: null, escala: 2, icono: "flor",
+    });
+    expect(conIcono.equals(soloIcono)).toBe(true);
+  });
+
+  it("los doce se dibujan sin romperse, encendidos y apagados", async () => {
+    for (const icono of ICONOS_SELLO_ID) {
+      const tira = await dibujarTiraDeSellos({
+        total: 4, logrados: 2, colores: COLORES, imagen: null, banda: null, escala: 1, icono,
+      });
+      const m = await sharp(tira).metadata();
+      expect([m.width, m.height]).toEqual([375, 123]);
+    }
+  });
+
+  it("sobre la foto del negocio se siguen viendo", async () => {
+    const blanca = await foto(900, 300, [["#ffffff", 300]]);
+    const tira = await dibujarTiraDeSellos({
+      total: 10, logrados: 5, colores: COLORES, imagen: null, banda: blanca, escala: 2, icono: "cafe",
+    });
+    // El velo va abajo y los sellos encima: el acento tiene que
+    // sobrevivir a la foto clara.
+    expect(await cuantosDe(tira, SELLO_RGB)).toBeGreaterThan(500);
+  });
+
+  it("un color roto no se cuela dentro del SVG del sello", async () => {
+    // El color del acento sale de una columna de texto y acá se
+    // concatena en MARKUP. Con una comilla adentro el SVG quedaría mal
+    // formado y el pase entero se caería; se usa el color de respaldo y
+    // la tira sale igual.
+    const tira = await dibujarTiraDeSellos({
+      total: 6,
+      logrados: 3,
+      colores: { fondo: "#2F4230", sello: '#D9E8C4"/><script/>' },
+      imagen: null,
+      banda: null,
+      escala: 1,
+      icono: "cafe",
+    });
+    expect((await sharp(tira).metadata()).width).toBe(375);
   });
 });
 

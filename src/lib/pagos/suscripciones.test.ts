@@ -42,6 +42,44 @@ function suscripcionStripe(extra: Record<string, unknown> = {}): Record<string, 
   };
 }
 
+/**
+ * Un programa de lealtad como lo ve la base: los cuatro estados
+ * guardados de la 0125 más la marca de la 0146.
+ */
+type ProgramaFalso = {
+  id: string;
+  /** null = una fila de la 0060: su estado se deriva de `activo`. */
+  estado: "borrador" | "activo" | "pausado" | "archivado" | null;
+  activo: boolean;
+  pausadoPorCobro: boolean;
+};
+
+/**
+ * ¿Este programa opera? La MISMA regla que `estadoDelPrograma`
+ * (reglas.ts), que el `coalesce` del RPC de la 0125 y que el filtro
+ * `OPERANDO` de la puerta de verdad. Mirando solo `estado = 'activo'`
+ * se dejarían operando justo los programas más viejos —los que tienen
+ * `estado` en null— que son los que más miembros tienen.
+ */
+function opera(p: ProgramaFalso): boolean {
+  return p.estado === "activo" || (p.estado === null && p.activo);
+}
+
+/**
+ * LO QUE NUNCA SE PUEDE PERDER.
+ *
+ * No es decoración del test: es el contrato. Son los clientes del
+ * negocio —sus tarjetas, sus sellos, su historial— y el corte por falta
+ * de pago no puede tocarlos ni uno. Se guardan acá para poder afirmar
+ * «después del corte esto sigue idéntico» en vez de suponerlo.
+ */
+const INTOCABLES = {
+  miembros: ["mie_1", "mie_2", "mie_3"],
+  sellos: 47,
+  pases: ["pase_1", "pase_2", "pase_3"],
+  movimientos: ["tx_1", "tx_2", "tx_3", "tx_4"],
+};
+
 type Registro = {
   eventos: Map<string, boolean>;
   guardadas: DatosSuscripcion[];
@@ -52,7 +90,29 @@ type Registro = {
   altas: { solicitudId: string; plan: string }[];
   /** Los negocios que la base «tiene» creados, por solicitud. */
   negociosCreados: Map<string, string>;
+  /** El estado del módulo de lealtad, que el interruptor mueve. */
+  programas: ProgramaFalso[];
+  /** Copia viva de lo intocable: si algo la modifica, el test lo ve. */
+  base: typeof INTOCABLES;
+  /** Los correos que le llegaron al DUEÑO (no al equipo de Bookea). */
+  avisosAlDueno: { clase: string; plan: string | null; hasta: string | null }[];
+  /** Cuántas veces se pidió el aviso previo (una sola tiene que salir). */
+  avisosPreviosReclamados: number;
 };
+
+function programasPorDefecto(): ProgramaFalso[] {
+  return [
+    { id: "p_operando", estado: "activo", activo: true, pausadoPorCobro: false },
+    // El de la 0060: sin `estado`, solo el booleano. También opera, y
+    // olvidarlo dejaría operando justo a los programas más viejos.
+    { id: "p_viejo", estado: null, activo: true, pausadoPorCobro: false },
+    // Los que el DUEÑO decidió. El corte no los toca y la vuelta
+    // tampoco: esa decisión no la puede pisar un cobro.
+    { id: "p_pausado_por_el_dueno", estado: "pausado", activo: false, pausadoPorCobro: false },
+    { id: "p_borrador", estado: "borrador", activo: false, pausadoPorCobro: false },
+    { id: "p_archivado", estado: "archivado", activo: false, pausadoPorCobro: false },
+  ];
+}
 
 function puertaFalsa(opciones: {
   enStripe?: Record<string, unknown> | null;
@@ -60,6 +120,13 @@ function puertaFalsa(opciones: {
   dueno?: { ranchoId: string | null; cuentaId: string | null } | null;
   /** false = el alta no se puede crear (la solicitud no existe, etc.). */
   altaPosible?: boolean;
+  /**
+   * true = el negocio sigue pago por otra vía (SINPE, u otra
+   * suscripción de Stripe activa): no se apaga.
+   */
+  sigueCubierto?: boolean;
+  /** false = falta la migración 0146 y NO se puede pausar. */
+  puedeMarcarLaPausa?: boolean;
   registro?: Registro;
 }): { puerta: Puerta; registro: Registro } {
   const registro: Registro = opciones.registro ?? {
@@ -70,6 +137,10 @@ function puertaFalsa(opciones: {
     lecturas: [],
     altas: [],
     negociosCreados: new Map(),
+    programas: programasPorDefecto(),
+    base: structuredClone(INTOCABLES),
+    avisosAlDueno: [],
+    avisosPreviosReclamados: 0,
   };
 
   const dueno =
@@ -114,9 +185,61 @@ function puertaFalsa(opciones: {
     async avisar(a) {
       registro.avisos.push(a);
     },
+
+    // ── El interruptor ───────────────────────────────────────────────
+    async sigueCubierto() {
+      return opciones.sigueCubierto === true;
+    },
+
+    async pausarPrograma() {
+      // Sin la columna de la 0146 no se pausa NADA: una pausa que
+      // después no se sabe deshacer deja al negocio apagado para
+      // siempre. Es la misma decisión que toma la puerta de verdad.
+      if (opciones.puedeMarcarLaPausa === false) return { pausados: 0, aplicado: false };
+
+      let pausados = 0;
+      for (const p of registro.programas) {
+        // Solo lo que está OPERANDO.
+        if (!opera(p)) continue;
+        p.estado = "pausado";
+        p.activo = false;
+        p.pausadoPorCobro = true;
+        pausados++;
+      }
+      return { pausados, aplicado: true };
+    },
+
+    async reanudarPrograma() {
+      if (opciones.puedeMarcarLaPausa === false) return { reanudados: 0, aplicado: false };
+
+      let reanudados = 0;
+      for (const p of registro.programas) {
+        if (!p.pausadoPorCobro) continue;
+        p.estado = "activo";
+        p.activo = true;
+        p.pausadoPorCobro = false;
+        reanudados++;
+      }
+      return { reanudados, aplicado: true };
+    },
+
+    async reclamarAvisoPrevio() {
+      // El update condicional de la puerta de verdad: gana el primero.
+      registro.avisosPreviosReclamados++;
+      return registro.avisosPreviosReclamados === 1;
+    },
+
+    async avisarAlDueno({ clase, plan, hasta }) {
+      registro.avisosAlDueno.push({ clase, plan, hasta });
+    },
   };
 
   return { puerta, registro };
+}
+
+/** Los programas que están operando ahora mismo, por id. */
+function operando(registro: Registro): string[] {
+  return registro.programas.filter(opera).map((p) => p.id);
 }
 
 function evento(tipo: string, objeto: Record<string, unknown>, id = "evt_1"): EventoEntrante {
@@ -415,6 +538,10 @@ describe("el mismo evento dos veces se procesa UNA", () => {
       lecturas: [],
       altas: [],
       negociosCreados: new Map(),
+      programas: programasPorDefecto(),
+      base: structuredClone(INTOCABLES),
+      avisosAlDueno: [],
+      avisosPreviosReclamados: 0,
     };
     const { puerta } = puertaFalsa({ registro });
     const r = await procesarEventoStripe(
@@ -617,6 +744,367 @@ describe("invoice.payment_failed", () => {
     expect(r).toEqual({ tipo: "sin_suscripcion", evento: "invoice.payment_failed" });
     expect(registro.guardadas).toEqual([]);
     expect(registro.avisos.length).toBe(1);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// EL INTERRUPTOR: se apaga al terminar el mes, y vuelve al renovar
+// ══════════════════════════════════════════════════════════════════════
+
+/** La suscripción cancelada el día 3, con el período pago hasta el 30. */
+const HASTA_EL_30 = Math.floor(Date.UTC(2026, 7, 30, 12, 0, 0) / 1000);
+
+function canceladaElDia3(): Record<string, unknown> {
+  return suscripcionStripe({
+    // Stripe NO la pone en `canceled` al cancelar: la deja activa con
+    // la bandera. Ese es todo el mecanismo del «hasta el 30».
+    status: "active",
+    cancel_at_period_end: true,
+    current_period_end: HASTA_EL_30,
+  });
+}
+
+describe("cancelar el día 3 con el mes pagado hasta el 30", () => {
+  it("NO apaga nada: el negocio opera hasta que termine lo que pagó", async () => {
+    const { puerta, registro } = puertaFalsa({ enStripe: canceladaElDia3() });
+
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.updated", canceladaElDia3(), "evt_cancela"),
+      puerta,
+      ENTORNO,
+    );
+
+    // Sigue operando, con su paquete escrito como cualquier mes.
+    expect(r).toMatchObject({ estado: "activa", activado: true });
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+    expect(registro.planes).toEqual([{ ranchoId: RANCHO, cuentaId: CUENTA, plan: "impulso" }]);
+  });
+
+  it("le avisa al dueño la FECHA exacta en que se apaga", async () => {
+    const { puerta, registro } = puertaFalsa({ enStripe: canceladaElDia3() });
+    await procesarEventoStripe(
+      evento("customer.subscription.updated", canceladaElDia3(), "evt_cancela"),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(registro.avisosAlDueno).toEqual([
+      {
+        clase: "corte_programado",
+        plan: "impulso",
+        hasta: new Date(HASTA_EL_30 * 1000).toISOString(),
+      },
+    ]);
+  });
+
+  it("ese aviso sale UNA sola vez, aunque Stripe mande varios eventos", async () => {
+    // La idempotencia por `stripe_event_id` no lo frena: Stripe manda
+    // varios `updated` distintos con la bandera puesta.
+    const { puerta, registro } = puertaFalsa({ enStripe: canceladaElDia3() });
+    await procesarEventoStripe(
+      evento("customer.subscription.updated", canceladaElDia3(), "evt_a"),
+      puerta,
+      ENTORNO,
+    );
+    await procesarEventoStripe(
+      evento("customer.subscription.updated", canceladaElDia3(), "evt_b"),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(registro.avisosAlDueno.length).toBe(1);
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+  });
+});
+
+describe("al corte: se PAUSA, y no se borra nada", () => {
+  it("pausa lo que estaba operando y le avisa al dueño", async () => {
+    const { puerta, registro } = puertaFalsa({});
+
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.deleted", suscripcionStripe({ status: "canceled" })),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toMatchObject({
+      estado: "cancelada",
+      activado: false,
+      corte: { hizo: "pausado", programas: 2 },
+    });
+    expect(operando(registro)).toEqual([]);
+    expect(registro.avisosAlDueno.map((a) => a.clase)).toEqual(["programa_pausado"]);
+  });
+
+  it("NO borra miembros, sellos, pases ni movimientos", async () => {
+    // Son los clientes del negocio, no nuestros. Y el dueño puede
+    // renovar mañana: lo que se borre hoy no vuelve nunca.
+    const { puerta, registro } = puertaFalsa({});
+    await procesarEventoStripe(
+      evento("customer.subscription.deleted", suscripcionStripe({ status: "canceled" })),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(registro.base).toEqual(INTOCABLES);
+  });
+
+  it("el paquete NO se baja: el cupo queda intacto para cuando vuelva", async () => {
+    const { puerta, registro } = puertaFalsa({});
+    await procesarEventoStripe(
+      evento("customer.subscription.deleted", suscripcionStripe({ status: "canceled" })),
+      puerta,
+      ENTORNO,
+    );
+    expect(registro.planes).toEqual([]);
+  });
+
+  it("no toca lo que el DUEÑO pausó, archivó o dejó en borrador", async () => {
+    const { puerta, registro } = puertaFalsa({});
+    await procesarEventoStripe(
+      evento("customer.subscription.deleted", suscripcionStripe({ status: "canceled" })),
+      puerta,
+      ENTORNO,
+    );
+
+    const suyo = registro.programas.find((p) => p.id === "p_pausado_por_el_dueno");
+    expect(suyo).toMatchObject({ estado: "pausado", pausadoPorCobro: false });
+    expect(registro.programas.find((p) => p.id === "p_borrador")?.estado).toBe("borrador");
+    expect(registro.programas.find((p) => p.id === "p_archivado")?.estado).toBe("archivado");
+  });
+
+  it("`unpaid` también apaga: Stripe agotó los reintentos", async () => {
+    // No es el primer rebote —eso es `past_due` y no apaga nada—: es
+    // semanas después, con el período pagado terminado hace rato. Si
+    // esto no cortara, el que dejó de pagar operaría gratis para
+    // siempre, porque Stripe no manda ningún evento más.
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionStripe({ status: "unpaid" }),
+    });
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.updated", suscripcionStripe({ status: "unpaid" })),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toMatchObject({ corte: { hizo: "pausado", programas: 2 } });
+    expect(operando(registro)).toEqual([]);
+    expect(registro.base).toEqual(INTOCABLES);
+  });
+
+  it("sin la migración 0146 NO se apaga nada, y el equipo se entera", async () => {
+    // Pausar sin poder marcar QUIÉN pausó deja al negocio apagado sin
+    // vuelta posible: la reanudación levantaría también lo que el dueño
+    // pausó a mano. Se prefiere un mes de más operando.
+    const { puerta, registro } = puertaFalsa({ puedeMarcarLaPausa: false });
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.deleted", suscripcionStripe({ status: "canceled" })),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toMatchObject({ corte: { hizo: "no_se_pudo" } });
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+    // Al dueño no se le miente diciéndole que quedó en pausa.
+    expect(registro.avisosAlDueno).toEqual([]);
+    expect(registro.avisos.some((a) => a.detalle.includes("0146"))).toBe(true);
+  });
+});
+
+describe("renovar: vuelve a operar con su paquete", () => {
+  it("la vuelta es exacta — y solo levanta lo que el corte apagó", async () => {
+    // La simetría es la mitad del diseño: si esto no funcionara,
+    // cancelar sería una trampa.
+    const registro: Registro = {
+      eventos: new Map(),
+      guardadas: [],
+      planes: [],
+      avisos: [],
+      lecturas: [],
+      altas: [],
+      negociosCreados: new Map(),
+      programas: programasPorDefecto(),
+      base: structuredClone(INTOCABLES),
+      avisosAlDueno: [],
+      avisosPreviosReclamados: 0,
+    };
+
+    // 1. El corte.
+    const corte = puertaFalsa({ registro });
+    await procesarEventoStripe(
+      evento("customer.subscription.deleted", suscripcionStripe({ status: "canceled" }), "evt_fin"),
+      corte.puerta,
+      ENTORNO,
+    );
+    expect(operando(registro)).toEqual([]);
+
+    // 2. Renuevan: paga otra vez y Stripe la vuelve a poner activa.
+    const vuelta = puertaFalsa({ registro });
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.updated", suscripcionStripe(), "evt_renueva"),
+      vuelta.puerta,
+      ENTORNO,
+    );
+
+    expect(r).toMatchObject({
+      estado: "activa",
+      activado: true,
+      corte: { hizo: "reanudado", programas: 2 },
+    });
+    // Vuelve TODO lo que operaba, incluido el programa viejo sin estado.
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+    // Y con su paquete.
+    expect(registro.planes).toEqual([{ ranchoId: RANCHO, cuentaId: CUENTA, plan: "impulso" }]);
+    // Lo que el dueño pausó a mano NO resucita por haber pagado.
+    expect(registro.programas.find((p) => p.id === "p_pausado_por_el_dueno")?.estado).toBe(
+      "pausado",
+    );
+    expect(registro.base).toEqual(INTOCABLES);
+    expect(registro.avisosAlDueno.map((a) => a.clase)).toEqual([
+      "programa_pausado",
+      "programa_reanudado",
+    ]);
+  });
+
+  it("una renovación normal (sin corte previo) no manda ningún correo", async () => {
+    const { puerta, registro } = puertaFalsa({});
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.updated", suscripcionStripe(), "evt_mes"),
+      puerta,
+      ENTORNO,
+    );
+    expect(r).not.toHaveProperty("corte");
+    expect(registro.avisosAlDueno).toEqual([]);
+  });
+});
+
+describe("el pago que rebota NO es una cancelación", () => {
+  it("`invoice.payment_failed` avisa al dueño y NO apaga nada", async () => {
+    // Una tarjeta vencida es un accidente. Stripe reintenta durante
+    // días; apagar en el primer rebote es la forma más rápida de
+    // perder un cliente que sí quería pagar.
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionStripe({ status: "past_due" }),
+    });
+
+    const r = await procesarEventoStripe(
+      evento("invoice.payment_failed", { id: "in_1", subscription: "sub_1" }),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toMatchObject({ estado: "morosa", corte: { hizo: "aviso_mora" } });
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+    expect(registro.avisosAlDueno.map((a) => a.clase)).toEqual(["cobro_fallido"]);
+    expect(registro.base).toEqual(INTOCABLES);
+  });
+
+  it("el `updated` a past_due que llega junto NO duplica el correo", async () => {
+    // Stripe manda los dos eventos por el mismo hecho. El aviso sale
+    // solo del que significa «acaba de rebotar un cobro».
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionStripe({ status: "past_due" }),
+    });
+    await procesarEventoStripe(
+      evento("customer.subscription.updated", suscripcionStripe({ status: "past_due" })),
+      puerta,
+      ENTORNO,
+    );
+    expect(registro.avisosAlDueno).toEqual([]);
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+  });
+
+  it("una suscripción que quedó `incomplete` tampoco apaga", async () => {
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionStripe({ status: "incomplete" }),
+    });
+    await procesarEventoStripe(
+      evento("customer.subscription.updated", suscripcionStripe({ status: "incomplete" })),
+      puerta,
+      ENTORNO,
+    );
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+  });
+});
+
+describe("el negocio que paga por SINPE no se apaga JAMÁS", () => {
+  it("una cancelación de Stripe no toca un negocio que paga por depósito", async () => {
+    // Es lo único que cobra dinero de verdad hoy, y esa gente no tiene
+    // —ni va a tener— suscripción de Stripe: muchas tarjetas
+    // costarricenses vienen bloqueadas para compras internacionales.
+    // El caso real es el MIXTO: probó con tarjeta, la canceló, y hoy
+    // paga por SINPE.
+    const { puerta, registro } = puertaFalsa({ sigueCubierto: true });
+
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.deleted", suscripcionStripe({ status: "canceled" })),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toMatchObject({ corte: { hizo: "protegido", motivo: "cancelada" } });
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+    // Y NO se le manda ningún correo de corte: para él no pasó nada.
+    expect(registro.avisosAlDueno).toEqual([]);
+    // El rastro queda internamente, para el equipo.
+    expect(registro.avisos.some((a) => a.detalle.includes("SINPE"))).toBe(true);
+    expect(registro.base).toEqual(INTOCABLES);
+  });
+
+  it("tampoco lo apaga un `unpaid`", async () => {
+    const { puerta, registro } = puertaFalsa({
+      sigueCubierto: true,
+      enStripe: suscripcionStripe({ status: "unpaid" }),
+    });
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.updated", suscripcionStripe({ status: "unpaid" })),
+      puerta,
+      ENTORNO,
+    );
+    expect(r).toMatchObject({ corte: { hizo: "protegido", motivo: "incobrable" } });
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+  });
+});
+
+describe("lo que nunca activó nada no puede apagar nada", () => {
+  it("un Checkout ABANDONADO no apaga al negocio que ya estaba pago", async () => {
+    // El caso: un negocio al día abre Checkout para SUBIR de paquete y
+    // se arrepiente. Stripe crea una suscripción `incomplete` y a las
+    // 23 horas la archiva como `incomplete_expired`. Esa suscripción
+    // nunca le dio el paquete a nadie — tratarla como un final apagaría
+    // a un negocio que está pagando.
+    const { puerta, registro } = puertaFalsa({
+      enStripe: suscripcionStripe({ status: "incomplete_expired" }),
+    });
+
+    const r = await procesarEventoStripe(
+      evento(
+        "customer.subscription.updated",
+        suscripcionStripe({ status: "incomplete_expired" }),
+      ),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).not.toHaveProperty("corte");
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
+    expect(registro.avisosAlDueno).toEqual([]);
+  });
+
+  it("el que CAMBIÓ de paquete no se apaga cuando muere la suscripción vieja", async () => {
+    // Subir de plan deja la vieja cancelada y una nueva activa, y los
+    // eventos de Stripe pueden llegar desordenados: el `deleted` de la
+    // vieja puede aterrizar después de que la nueva ya activó todo.
+    const { puerta, registro } = puertaFalsa({ sigueCubierto: true });
+
+    const r = await procesarEventoStripe(
+      evento("customer.subscription.deleted", suscripcionStripe({ status: "canceled" })),
+      puerta,
+      ENTORNO,
+    );
+
+    expect(r).toMatchObject({ corte: { hizo: "protegido", motivo: "cancelada" } });
+    expect(operando(registro)).toEqual(["p_operando", "p_viejo"]);
   });
 });
 

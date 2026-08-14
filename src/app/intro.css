@@ -1,0 +1,143 @@
+/* ==================================================================
+   LA BIENVENIDA DE BOOKEA — hoja propia de `/`, como reel.css en
+   /invitaciones: ninguna otra página del sitio la descarga.
+
+   El logo, una barra que se llena en 2 segundos, y adentro: el
+   directorio de Eventos, que ya estaba abajo desde el primer byte.
+
+   TODA la coreografía es CSS. El JavaScript solo sirve para saltarla
+   (portada-intro.tsx). Eso tiene tres consecuencias que importan:
+
+   1. La bienvenida SE ACABA a los 2 segundos aunque el bundle nunca
+      cargue. Nadie queda encerrado detrás de un velo por un error de
+      red.
+   2. La barra no se puede desincronizar del velo: los mueve el mismo
+      reloj. (Antes eran un `setTimeout` y una animación CSS por
+      separado, y bastaba tocar un número para que la barra terminara
+      llena mirando al vacío.)
+   3. No retrasa nada. Mientras el velo cubre, el directorio de atrás
+      ya se está pintando y sus datos ya vienen en camino.
+
+   El velo SE MUESTRA SOLO si `intro-visita.ts` marcó el <html> con
+   `data-intro` — o sea, primera visita del dispositivo y sin
+   movimiento reducido. Si no, este archivo no pinta absolutamente
+   nada.
+   ================================================================== */
+
+/* Por defecto NO HAY VELO. Y como sin `data-intro` el elemento no
+   genera caja, el navegador ni siquiera pide el PNG del logo: quien ya
+   vio la bienvenida no paga un solo byte por ella. Por eso el logo va
+   como `background-image` y no como <img>, que se descargaría igual. */
+.intro-velo {
+  display: none;
+}
+
+:root[data-intro] .intro-velo {
+  position: fixed;
+  inset: 0;
+  /* Por encima de todo lo del sitio (el chat flotante vive en z-50). */
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.25rem;
+  background: #fff;
+  /* 2000 ms enteros de marca + 320 ms de desvanecido = 2320 ms.
+     `both` deja el último fotograma pegado: al terminar queda
+     `visibility: hidden`, así que el velo no vuelve nunca ni sigue
+     tapando clics. Si se toca este número, tocar también
+     DURACION_INTRO_MS en intro-visita.ts. */
+  animation: intro-velo-sale 2320ms linear both;
+}
+
+@keyframes intro-velo-sale {
+  0%,
+  86.2% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* El logo oficial, el master de /public (el mismo que usan los correos
+   y la app): esta es la única pantalla del sitio donde se ve grande.
+   `aspect-ratio` con las medidas reales del archivo para que reserve
+   su espacio antes de bajarlo y nada salte cuando llega. */
+:root[data-intro] .intro-marca {
+  width: min(62vw, 300px);
+  aspect-ratio: 1251 / 309;
+  background: center / contain no-repeat url("/logo-bookea-v3.png");
+  animation: intro-marca-entra 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes intro-marca-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+:root[data-intro] .intro-barra {
+  overflow: hidden;
+  width: 10rem;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-aventurea-line);
+}
+
+/* Crece con `width` y no con `transform`: es una barra de 3px y con
+   scaleX los extremos redondeados se estirarían deformes. La curva
+   arranca rápido y afloja al final — se siente veloz sin llegar antes
+   de tiempo. */
+:root[data-intro] .intro-barra-relleno {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-aventurea-orange);
+  animation: intro-barra-llena 2000ms cubic-bezier(0.25, 0.6, 0.3, 1) both;
+}
+
+@keyframes intro-barra-llena {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* ---------- Saltarla ----------
+   Un toque o una tecla y `portada-intro.tsx` le pone `data-intro-fin`
+   al <html>. Especificidad (0,4,0) contra la (0,3,0) de la regla de
+   arriba: gana sin necesidad de !important. */
+:root[data-intro][data-intro-fin] .intro-velo {
+  animation: intro-velo-corta 200ms linear both;
+}
+
+@keyframes intro-velo-corta {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* ---------- Movimiento reducido ----------
+   `intro-visita.ts` ya ni siquiera pone el atributo en este caso, así
+   que esta regla es el cinturón además de los tirantes: si el atributo
+   llegara puesto de cualquier otra forma, acá no hay ninguna animación
+   que ver. Va de última y con la misma especificidad que la regla que
+   muestra el velo, así que gana por orden. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-intro] .intro-velo {
+    display: none;
+  }
+}

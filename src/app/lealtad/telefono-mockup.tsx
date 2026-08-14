@@ -25,6 +25,8 @@
  *     «esto tiene una superficie brillante».
  */
 
+import type { TernaColor } from "@/lib/lealtad/paletas";
+
 const NARANJA = "#ee7420";
 
 export default function TelefonoMockup({
@@ -128,7 +130,8 @@ export function PantallaWallet({
   movimientos,
 }: {
   negocio: string;
-  colores: [string, string, string];
+  /** La terna de `src/lib/lealtad/paletas.ts`: fondo, medio, acento. */
+  colores: TernaColor;
   arriba: string;
   valor: string;
   abajo: string;

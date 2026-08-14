@@ -274,6 +274,22 @@ export function contenidoDelObjeto({
   // borra del objeto ya creado; se queda con la última que tuvo.
   const banda = config.pase_banner_url ?? null;
 
+  // ── EL ICONO DEL SELLO (0145) EN ANDROID ──────────────────────────
+  // Viaja hasta acá dentro de `config` —la misma que lee Apple— y acá
+  // se queda, a propósito.
+  //
+  // Android no tiene la tira: el LoyaltyObject dibuja el saldo como un
+  // número y sus únicas dos ranuras de imagen son `programLogo` (la
+  // marca del negocio) y `heroImage` (su foto). Poner el icono en
+  // cualquiera de las dos sería taparle al negocio su propia identidad
+  // para mostrar un dibujo genérico.
+  //
+  // Y no se genera una imagen de sellos como en Apple porque haría
+  // falta una URL pública que Google pueda bajar: si esa URL falla una
+  // vez, Google RECHAZA EL OBJETO ENTERO y el cliente se queda sin
+  // pase. Un adorno no vale ese riesgo. El progreso, que es el dato que
+  // importa, ya va en `loyaltyPoints` y en el módulo de texto.
+
   return {
     loyaltyPoints: {
       label: ETIQUETA_SALDO[tipo],

@@ -150,6 +150,21 @@ const nextConfig: NextConfig = {
       // de eventos. Lo está resolviendo la auditoría de SEO; mientras
       // tanto el riesgo es bajo porque `/eventos` ya era la única
       // indexada (la raíz redirigía).
+      //
+      // OJO 2 — HOY ESTE REWRITE NO DISPARA, Y ESTÁ BIEN ASÍ. Los
+      // rewrites escritos como ARREGLO son `afterFiles`: se revisan
+      // DESPUÉS del sistema de archivos (ver el orden en
+      // node_modules/next/dist/docs/01-app/03-api-reference/05-config/
+      // 01-next-config-js/rewrites.md). Como `src/app/page.tsx` existe,
+      // la raíz la resuelve esa página — que renderiza el directorio de
+      // Eventos ella misma, con la bienvenida de marca encima. El
+      // rewrite se deja como red de seguridad: si ese archivo se borra
+      // algún día, `/` sigue sirviendo Eventos sin rebote.
+      //
+      // (Este detalle costó caro: cuando la raíz pasó de `redirect` a
+      // `rewrite`, `page.tsx` volvió a ganar y con él revivió una intro
+      // que se había eliminado a propósito. Antes de mover algo acá,
+      // comprobar QUÉ responde `/` de verdad, no qué dice la config.)
       {
         source: "/",
         destination: "/eventos",

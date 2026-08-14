@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
+import { esIconoSello, iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import { minutoISOCR } from "@/lib/fechas";
 import { estadoAlCrear } from "./estado-inicial";
 import { cupoLleno, lasQueOcupanCupo, tarjetaDelCupo } from "./cupo-tarjetas";
@@ -58,6 +59,8 @@ export type BorradorTarjeta = {
   beneficio: ConfigBeneficio;
   colorFondo: string;
   colorSello: string;
+  /** El dibujo de cada sello (0145). null = el logo del negocio. */
+  iconoSello: IconoSello | null;
   logoUrl: string;
   /** La banda de arriba del pase: `strip` en Apple, `heroImage` en Google. */
   bannerUrl: string;
@@ -106,6 +109,17 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   // nadie sabe por qué (mismo criterio que la 0122).
   if (!HEX.test(datos.colorFondo)) return { ok: false, motivo: "El color de fondo tiene que ser #RRGGBB." };
   if (!HEX.test(datos.colorSello)) return { ok: false, motivo: "El color del acento tiene que ser #RRGGBB." };
+
+  // ── EL ICONO DEL SELLO (0145) ───────────────────────────────────
+  // Un id fuera del catálogo se RECHAZA en vez de guardarse: la columna
+  // tiene su CHECK, pero un error del que el usuario se entera acá dice
+  // qué pasó, y el de Postgres no está escrito para nadie. Y en un tipo
+  // que no es sellos el icono no se rechaza —no es culpa de nadie— se
+  // descarta, porque no hay círculos donde dibujarlo.
+  if (datos.iconoSello !== null && !esIconoSello(datos.iconoSello)) {
+    return { ok: false, motivo: "Ese icono de sello no existe." };
+  }
+  const icono = iconoDelSello({ tipo: datos.tipo, icono: datos.iconoSello });
 
   // ── LAS IMÁGENES TIENEN QUE SER NUESTRAS ────────────────────────
   // Antes alcanzaba con que empezara por `https://`, porque el campo
@@ -247,6 +261,7 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     beneficio: datos.beneficio,
     pase_color_fondo: datos.colorFondo,
     pase_color_sello: datos.colorSello,
+    pase_sello_icono: icono,
     pase_logo_url: logo || null,
     pase_banner_url: banner || null,
     ...estadoAlCrear(),
@@ -277,12 +292,14 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     .single();
 
   if (error) {
-    // La 0134 agrega `cuenta_id`, la 0135 `beneficio` y la 0136 las
-    // reglas. Si todavía no se corrieron, se reintenta sin ellas para
-    // que el creador siga sirviendo — el programa queda con lo que la
-    // base sí sabe guardar, y el resto entra cuando la migración corra.
+    // La 0134 agrega `cuenta_id`, la 0135 `beneficio`, la 0136 las
+    // reglas y la 0145 el icono del sello. Si todavía no se corrieron,
+    // se reintenta sin ellas para que el creador siga sirviendo — el
+    // programa queda con lo que la base sí sabe guardar, y el resto
+    // entra cuando la migración corra. Sin la 0145, la tarjeta se crea
+    // igual y el sello sale como hasta hoy: con el logo adentro.
     const faltaColumna =
-      /beneficio|cuenta_id|estado|vigente_|uso_unico|max_por_cliente|max_global|dias_permitidos|hora_/.test(
+      /beneficio|cuenta_id|estado|vigente_|uso_unico|max_por_cliente|max_global|dias_permitidos|hora_|pase_sello_icono/.test(
         error.message,
       );
     if (!faltaColumna) {

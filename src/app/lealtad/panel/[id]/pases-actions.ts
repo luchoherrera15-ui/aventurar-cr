@@ -6,6 +6,7 @@ import { verificarAccesoRancho } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { esTipoTarjeta, TIPOS_TARJETA } from "@/lib/lealtad/tipos-tarjeta";
+import { esIconoSello, iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import { planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
@@ -46,6 +47,8 @@ export type ProgramaFila = {
    * pantalla leería `undefined` donde promete un booleano.
    */
   pase_banner_url?: string | null;
+  /** El icono de cada sello (0145). Opcional por lo mismo. */
+  pase_sello_icono?: string | null;
   pase_codigo_formato?: string | null;
   pase_texto_reverso?: string | null;
   pase_mostrar_saldo?: boolean | null;
@@ -93,6 +96,8 @@ export type ProgramaInput = {
   logoUrl: string;
   /** Banda superior: `strip.png` en Apple, `heroImage` en Google. */
   bannerUrl: string;
+  /** El dibujo de cada sello (0145). null = el logo del negocio. */
+  iconoSello: IconoSello | null;
   codigoFormato: FormatoCodigo;
   /** Reemplaza el texto que el dorso del pase arma solo. "" = el de siempre. */
   textoReverso: string;
@@ -168,6 +173,12 @@ function validarPrograma(datos: ProgramaInput) {
 
   if (!FORMATOS_CODIGO.includes(datos.codigoFormato)) {
     return "Ese formato de código no existe.";
+  }
+  // Mismo criterio que el creador: un id fuera del catálogo se rechaza
+  // acá, con un mensaje en español, antes de que lo rechace el CHECK de
+  // la 0145 con uno que nadie puede leer.
+  if (datos.iconoSello !== null && !esIconoSello(datos.iconoSello)) {
+    return "Ese icono de sello no existe.";
   }
   if (datos.textoReverso.trim().length > MAX_TEXTO_REVERSO) {
     return `El texto del reverso no puede pasar de ${MAX_TEXTO_REVERSO} caracteres.`;
@@ -294,6 +305,9 @@ export async function guardarPrograma(
   const fila = {
     ...base,
     pase_banner_url: datos.bannerUrl.trim() || null,
+    // Solo las de sellos llevan icono: cambiar el tipo a «cupón» lo
+    // borra en vez de dejarlo colgado esperando a que alguien lo dibuje.
+    pase_sello_icono: iconoDelSello({ tipo: datos.modo, icono: datos.iconoSello }),
     pase_codigo_formato: datos.codigoFormato,
     pase_texto_reverso: datos.textoReverso.trim() || null,
     pase_mostrar_saldo: datos.mostrarSaldo,
@@ -311,7 +325,8 @@ export async function guardarPrograma(
 
   let { data, error } = await guardarCon(fila);
 
-  // Base sin la 0132: se reintenta con lo que la 0122 sí tiene. El
+  // Base sin la 0132 (o sin la 0145): se reintenta con lo que la 0122
+  // sí tiene. El
   // negocio pierde el diseño nuevo hasta que la migración corra, pero
   // no pierde el poder cambiar un color — que es lo que pasaba si esto
   // se dejaba reventar. Va ANTES de `traducir`, porque el mensaje de
@@ -321,6 +336,7 @@ export async function guardarPrograma(
     error &&
     [
       "pase_banner_url",
+      "pase_sello_icono",
       "pase_codigo_formato",
       "pase_texto_reverso",
       "pase_mostrar_saldo",

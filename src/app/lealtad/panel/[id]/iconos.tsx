@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { ICONOS_SELLO, type IconoSello } from "@/lib/lealtad/iconos-sello";
 
 /**
  * El juego de iconos del panel de lealtad — dibujados a mano, sin
@@ -66,6 +67,24 @@ export type NombreIcono =
   | "adelante"
   | "mas";
 
+/**
+ * Los trazos de un icono de sello, como nodos de React.
+ *
+ * El dibujo NO vive acá: vive en `src/lib/lealtad/iconos-sello.ts`,
+ * porque el mismo icono lo tiene que pintar sharp adentro de
+ * `strip.png` — y un dibujo escrito dos veces se separa igual que un
+ * color escrito dos veces. Acá solo se convierte el `d` en `<path>`.
+ */
+function trazosDelSello(nombre: IconoSello): ReactNode {
+  return (
+    <>
+      {ICONOS_SELLO[nombre].trazos.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </>
+  );
+}
+
 const TRAZOS: Record<NombreIcono, ReactNode> = {
   inicio: (
     <>
@@ -112,15 +131,7 @@ const TRAZOS: Record<NombreIcono, ReactNode> = {
       <path d="M9 11h.01M15 11h.01" />
     </>
   ),
-  recompensas: (
-    <>
-      <rect x="2.5" y="8" width="19" height="4.5" rx="1.2" />
-      <path d="M4.5 12.5V21h15v-8.5" />
-      <path d="M12 8v13" />
-      <path d="M12 8S9.8 3 7.8 4.3 8.9 8 12 8Z" />
-      <path d="M12 8s2.2-5 4.2-3.7S15.1 8 12 8Z" />
-    </>
-  ),
+  recompensas: trazosDelSello("regalo"),
   tarjeta: (
     <>
       <rect x="2" y="5" width="20" height="14" rx="2.6" />
@@ -173,15 +184,7 @@ const TRAZOS: Record<NombreIcono, ReactNode> = {
       <path d="M9 11h4" />
     </>
   ),
-  regalo: (
-    <>
-      <rect x="2.5" y="8" width="19" height="4.5" rx="1.2" />
-      <path d="M4.5 12.5V21h15v-8.5" />
-      <path d="M12 8v13" />
-      <path d="M12 8S9.8 3 7.8 4.3 8.9 8 12 8Z" />
-      <path d="M12 8s2.2-5 4.2-3.7S15.1 8 12 8Z" />
-    </>
-  ),
+  regalo: trazosDelSello("regalo"),
   escanear: (
     <>
       <path d="M3 7.5V5.5A2.5 2.5 0 0 1 5.5 3h2" />
@@ -309,11 +312,7 @@ const TRAZOS: Record<NombreIcono, ReactNode> = {
       <circle cx="12" cy="10" r="2.6" />
     </>
   ),
-  estrella: (
-    <>
-      <path d="M12 3.2l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17.1 6.6 20l1-6.1L3.2 9.6l6.1-.9z" />
-    </>
-  ),
+  estrella: trazosDelSello("estrella"),
   porcentaje: (
     <>
       <path d="M19 5 5 19" />
@@ -383,5 +382,82 @@ export function Icono({
     >
       {TRAZOS[nombre]}
     </svg>
+  );
+}
+
+/** El dibujo suelto de un icono de sello, sin el círculo. */
+export function IconoDeSello({
+  nombre,
+  className = "h-[18px] w-[18px]",
+  style,
+}: {
+  nombre: IconoSello;
+  className?: string;
+  /** Para los tamaños que salen de una cuenta y no de una clase. */
+  style?: CSSProperties;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={style}
+      aria-hidden
+    >
+      {trazosDelSello(nombre)}
+    </svg>
+  );
+}
+
+/**
+ * UN SELLO, tal como se ve en el pase: el círculo con el icono adentro.
+ *
+ * LLENO el que ya se ganó, CONTORNO el que falta — que es lo que se lee
+ * de un vistazo en el teléfono, sin contar. Es la misma decisión que
+ * toma `dibujarTiraDeSellos` del lado del servidor; acá se dibuja con
+ * CSS porque es una maqueta, pero el resultado tiene que coincidir o la
+ * vista previa promete un pase distinto del que llega.
+ *
+ * Sin icono no se usa este componente: ahí el sello sigue siendo el
+ * círculo macizo de siempre, con el logo del negocio adentro.
+ */
+export function SelloConIcono({
+  icono,
+  encendido,
+  colorFondo,
+  colorSello,
+  lado,
+}: {
+  icono: IconoSello;
+  encendido: boolean;
+  /** El fondo del pase: es lo que se ve a través del icono en el sello lleno. */
+  colorFondo: string;
+  /** El acento: el color del sello. */
+  colorSello: string;
+  /** Diámetro en píxeles. */
+  lado: number;
+}) {
+  return (
+    <span
+      aria-hidden
+      className="grid shrink-0 place-items-center rounded-full transition-colors"
+      style={{
+        height: lado,
+        width: lado,
+        background: encendido ? colorSello : "transparent",
+        border: encendido ? undefined : `${Math.max(1, lado * 0.055)}px solid ${colorSello}`,
+        color: encendido ? colorFondo : colorSello,
+      }}
+    >
+      <IconoDeSello
+        nombre={icono}
+        className=""
+        style={{ height: lado * 0.58, width: lado * 0.58 }}
+      />
+    </span>
   );
 }

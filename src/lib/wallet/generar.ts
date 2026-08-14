@@ -10,6 +10,7 @@ import {
   type ColoresTarjeta,
 } from "./imagenes";
 import { describirEscalon, escalonesDeLaTira, primeroQueSalga } from "./escalones-tira";
+import { logoDentroDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import { emisoraDeFilasCrudas } from "./programa-principal";
 import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
@@ -235,6 +236,9 @@ export async function generarPaseDeLealtad({
       colores,
       logo: logoNegocio,
       saldo,
+      // El icono del sello (0145). Sin él —que es el caso de todo lo
+      // emitido hasta hoy— la tira se dibuja igual que siempre.
+      icono: config.pase_sello_icono ?? null,
     })),
   };
 
@@ -347,12 +351,15 @@ async function archivosDeLaTira({
   colores,
   logo,
   saldo,
+  icono,
 }: {
   tira: TiraDelPase;
   colores: ColoresTarjeta;
   /** El logo va DENTRO de cada sello, no solo arriba del pase. */
   logo: Buffer | null;
   saldo: number;
+  /** El icono elegido (0145). Cuando hay, reemplaza al logo del sello. */
+  icono: IconoSello | null;
 }): Promise<Record<string, Buffer>> {
   if (tira.tipo === "ninguna") return {};
 
@@ -378,7 +385,14 @@ async function archivosDeLaTira({
     }
   }
 
-  const escalones = escalonesDeLaTira({ hayBanda: !!banda, hayLogo: !!logo });
+  // Con un icono elegido no hay logo dentro del sello, así que la
+  // escalera no ofrece el escalón «sin el logo»: sería un reintento
+  // idéntico al anterior. La regla vive en `logoDentroDelSello` para
+  // que sea la MISMA en el dibujo y en la degradación.
+  const escalones = escalonesDeLaTira({
+    hayBanda: !!banda,
+    hayLogo: logoDentroDelSello({ hayLogo: !!logo, icono }),
+  });
 
   const dibujada = await primeroQueSalga(
     escalones,
@@ -393,6 +407,7 @@ async function archivosDeLaTira({
           imagen: escalon.logo ? logo : null,
           banda: escalon.banda ? banda : null,
           escala,
+          icono,
         }),
       ),
     (escalon, e) => console.warn(`[wallet] No se pudieron dibujar ${describirEscalon(escalon)}:`, e),

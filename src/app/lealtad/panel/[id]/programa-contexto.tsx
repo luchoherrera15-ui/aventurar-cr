@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useTransition, type ReactNode } from "react";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
+import { iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import {
   cambiarEstadoPrograma,
   eliminarRecompensa,
@@ -41,6 +42,8 @@ export type Borrador = {
   logoUrl: string;
   /** Banda de arriba del pase (0132). */
   bannerUrl: string;
+  /** El dibujo de cada sello (0145). null = el logo del negocio. */
+  iconoSello: IconoSello | null;
   codigoFormato: FormatoCodigo;
   textoReverso: string;
   mostrarSaldo: boolean;
@@ -68,6 +71,9 @@ function dePrograma(p: ProgramaFila | null): Borrador {
     // interruptores encendidos y el QR— o el editor arrancaría
     // apagando cosas que nadie apagó.
     bannerUrl: p?.pase_banner_url ?? "",
+    // Por el filtro compartido: sin la 0145 la fila llega sin la
+    // columna y esto es null, que es el sello de siempre.
+    iconoSello: iconoDelSello({ tipo: p?.modo, icono: p?.pase_sello_icono }),
     codigoFormato: p?.pase_codigo_formato === "code128" ? "code128" : "qr",
     textoReverso: p?.pase_texto_reverso ?? "",
     mostrarSaldo: p?.pase_mostrar_saldo ?? true,
@@ -146,6 +152,7 @@ export function ProveedorPrograma({
       colorSello: borrador.colorSello,
       logoUrl: borrador.logoUrl,
       bannerUrl: borrador.bannerUrl,
+      iconoSello: borrador.iconoSello,
       codigoFormato: borrador.codigoFormato,
       textoReverso: borrador.textoReverso,
       mostrarSaldo: borrador.mostrarSaldo,

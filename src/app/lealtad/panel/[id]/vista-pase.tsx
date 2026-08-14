@@ -11,6 +11,8 @@ import {
   type TiraDelPase,
 } from "@/lib/wallet/tarjeta";
 import { metaDe, tipoDe, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjeta";
+import { iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import { SelloConIcono } from "./iconos";
 
 /**
  * LA VISTA PREVIA DEL PASE, en vivo.
@@ -53,6 +55,8 @@ export type DatosVista = {
   logoUrl: string | null;
   /** Banda superior: `strip.png` en Apple, `heroImage` en Google. */
   bannerUrl?: string | null;
+  /** El icono de cada sello (0145). null = el logo, como siempre. */
+  iconoSello?: IconoSello | null;
   /** Saldo de ejemplo. Por defecto, la mitad de la meta. */
   saldoEjemplo?: number;
 };
@@ -76,6 +80,10 @@ export default function VistaPase({ datos }: { datos: DatosVista }) {
     pase_color_sello: datos.colorSello,
     pase_logo_url: datos.logoUrl,
     pase_banner_url: datos.bannerUrl ?? null,
+    // Por el MISMO filtro que el pase real: elegir un icono y después
+    // cambiar el tipo a «cupón» no puede dejar la vista previa
+    // dibujando sellos con dibujo mientras el teléfono no los tiene.
+    pase_sello_icono: iconoDelSello({ tipo, icono: datos.iconoSello }),
   };
   const recompensa: MetaRecompensa = meta
     ? { nombre: nombreDeLaMeta(datos.beneficio), costo_puntos: meta }
@@ -120,7 +128,14 @@ export default function VistaPase({ datos }: { datos: DatosVista }) {
 
       <div className="mt-4">
         {plataforma === "apple" ? (
-          <TarjetaApple datos={datos} campos={campos} colores={colores} tira={tira} saldo={saldo} />
+          <TarjetaApple
+            datos={datos}
+            campos={campos}
+            colores={colores}
+            tira={tira}
+            saldo={saldo}
+            icono={config.pase_sello_icono ?? null}
+          />
         ) : (
           <TarjetaGoogle datos={datos} campos={campos} colores={colores} />
         )}
@@ -149,12 +164,15 @@ function TarjetaApple({
   colores,
   tira,
   saldo,
+  icono,
 }: {
   datos: DatosVista;
   campos: CamposTarjeta;
   colores: { fondo: string; sello: string };
   tira: TiraDelPase;
   saldo: number;
+  /** El icono del sello, ya filtrado por tipo. */
+  icono: IconoSello | null;
 }) {
   return (
     <div
@@ -183,7 +201,7 @@ function TarjetaApple({
           </span>
         </div>
 
-        <Tira tira={tira} colores={colores} saldo={saldo} />
+        <Tira tira={tira} colores={colores} saldo={saldo} icono={icono} />
 
         <div className="mt-3">
           <span className="block text-[8.5px] uppercase tracking-wider text-white/55">
@@ -230,10 +248,13 @@ function Tira({
   tira,
   colores,
   saldo,
+  icono,
 }: {
   tira: TiraDelPase;
   colores: { fondo: string; sello: string };
   saldo: number;
+  /** El icono del sello (0145). null = el círculo liso de siempre. */
+  icono: IconoSello | null;
 }) {
   if (tira.tipo === "ninguna") return null;
 
@@ -254,13 +275,26 @@ function Tira({
             <span aria-hidden className="absolute inset-0" style={{ background: "rgba(0,0,0,.42)" }} />
           ) : null}
           <div className="absolute inset-0 flex flex-wrap content-center items-center justify-center gap-1.5 px-3">
-            {Array.from({ length: Math.min(tira.total, 20) }, (_, i) => (
-              <span
-                key={i}
-                className="h-5 w-5 rounded-full transition-opacity"
-                style={{ background: colores.sello, opacity: i < saldo ? 1 : 0.26 }}
-              />
-            ))}
+            {Array.from({ length: Math.min(tira.total, 20) }, (_, i) =>
+              icono ? (
+                // Con icono: LLENO el ganado, CONTORNO el que falta —
+                // lo mismo que dibuja `dibujarTiraDeSellos` en el pase.
+                <SelloConIcono
+                  key={i}
+                  icono={icono}
+                  encendido={i < saldo}
+                  colorFondo={colores.fondo}
+                  colorSello={colores.sello}
+                  lado={20}
+                />
+              ) : (
+                <span
+                  key={i}
+                  className="h-5 w-5 rounded-full transition-opacity"
+                  style={{ background: colores.sello, opacity: i < saldo ? 1 : 0.26 }}
+                />
+              ),
+            )}
           </div>
         </>
       )}

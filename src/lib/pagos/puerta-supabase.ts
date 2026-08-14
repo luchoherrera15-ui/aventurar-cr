@@ -1,9 +1,18 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
+import {
+  plantillaCobroFallido,
+  plantillaCorteProgramado,
+  plantillaProgramaPausado,
+  plantillaProgramaReanudado,
+} from "@/lib/correo/suscripcion";
+import { enviarCorreo } from "@/lib/email";
+import { fechaISOCR, fechaLargaCR } from "@/lib/fechas";
 import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
+import { PLANES, type PlanId } from "@/lib/lealtad/planes";
 import { stripeDelEntorno } from "./stripe";
-import type { DatosSuscripcion, Puerta } from "./suscripciones";
+import type { ClaseDeAviso, DatosSuscripcion, Dueno, Puerta } from "./suscripciones";
 
 /**
  * La «puerta» del motor del webhook, implementada contra Supabase y
@@ -30,6 +39,36 @@ function faltaLaTabla(error: { code?: string; message?: string } | null): boolea
     /relation .* does not exist|schema cache/i.test(error.message ?? "")
   );
 }
+
+/**
+ * «Esa COLUMNA no existe» — o sea, falta correr la 0146.
+ *
+ * Se distingue de `faltaLaTabla` porque la consecuencia es otra: sin la
+ * tabla el webhook no puede ni anotar el evento y corta; sin la columna
+ * puede hacer todo menos apagar, y apagar sin poder desapagar es peor
+ * que no apagar.
+ */
+function faltaLaColumna(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    /column .* does not exist|could not find the .* column/i.test(error.message ?? "")
+  );
+}
+
+/**
+ * El filtro de «este programa está OPERANDO ahora mismo», en el
+ * lenguaje de PostgREST.
+ *
+ * Tiene dos ramas porque la 0125 dejó `estado` anulable: las filas
+ * viejas (las de la 0060) tienen `estado` en null y su estado se deriva
+ * del booleano `activo`. Es la misma regla que `estadoDelPrograma` en
+ * reglas.ts y que el `coalesce` del RPC de acumulación — mirando solo
+ * `estado = 'activo'` se dejarían operando justamente los programas más
+ * antiguos, que son los que más miembros tienen.
+ */
+const OPERANDO = "estado.eq.activo,and(estado.is.null,activo.eq.true)";
 
 export function puertaSupabase(): Puerta | null {
   const db = createAdminClient();
@@ -116,7 +155,481 @@ export function puertaSupabase(): Puerta | null {
             y en el <a href="https://dashboard.stripe.com">panel de Stripe</a>.</p>`,
       });
     },
+
+    // ── El interruptor ────────────────────────────────────────────────
+
+    async sigueCubierto({ exceptoSuscripcion, ...quien }) {
+      return (
+        (await pagaPorFueraEn(db, quien)) ||
+        (await tieneOtraSuscripcionViva(db, quien, exceptoSuscripcion))
+      );
+    },
+
+    async pausarPrograma({ suscripcionStripe, plan, ...quien }) {
+      const r = await pausarProgramasEn(db, quien);
+      if (r.aplicado) await marcarCorte(db, suscripcionStripe, plan);
+      return r;
+    },
+
+    async reanudarPrograma({ suscripcionStripe, ...quien }) {
+      const r = await reanudarProgramasEn(db, quien);
+      if (r.reanudados > 0) await marcarCorte(db, suscripcionStripe, null, true);
+      return r;
+    },
+
+    async reclamarAvisoPrevio({ suscripcionStripe }) {
+      return reclamarAvisoPrevioEn(db, suscripcionStripe);
+    },
+
+    async avisarAlDueno(aviso) {
+      await avisarAlDuenoEn(db, aviso);
+    },
   };
+}
+
+// ── ¿PAGA POR FUERA DE STRIPE? ───────────────────────────────────────
+
+/**
+ * El negocio que paga por SINPE o transferencia, que NO se apaga nunca
+ * por un evento de Stripe.
+ *
+ * El SINPE con comprobante (0126 + 0128 + 0130) es lo único que cobra
+ * dinero de verdad hoy, y esa gente no tiene suscripción de Stripe —
+ * muchas tarjetas costarricenses vienen bloqueadas para compras
+ * internacionales, y la LLC cobra desde Estados Unidos.
+ *
+ * En el caso normal ni se rozan: sin suscripción de Stripe no llega
+ * ningún evento y no hay nada que apagar. Lo que esto cubre es el caso
+ * MIXTO —el que probó con tarjeta, la canceló, y hoy paga por
+ * depósito—, donde el evento de Stripe apagaría un programa que está
+ * pago al día. Por eso la pregunta es explícita.
+ *
+ * Se mira `solicitudes_lealtad`, que es donde vive el comprobante:
+ * una solicitud ATENDIDA con `metodo_pago` de depósito es, literal, un
+ * pago aceptado a mano por un administrador.
+ *
+ * ANTE LA DUDA, PROTEGE. Si la consulta falla se devuelve `true`: no
+ * apagar de más es un error que se arregla con un clic, y apagar de
+ * menos un negocio que pagó es una llamada furiosa y un cliente que se
+ * va.
+ */
+async function pagaPorFueraEn(db: Admin, quien: Dueno): Promise<boolean> {
+  const ranchoIds = await ranchosDe(db, quien);
+  if (ranchoIds.length === 0) return false;
+
+  const { data, error } = await db
+    .from("solicitudes_lealtad")
+    .select("id")
+    .in("rancho_id", ranchoIds)
+    .eq("estado", "atendida")
+    .in("metodo_pago", ["sinpe", "transferencia"])
+    .limit(1);
+
+  if (error) {
+    // `metodo_pago` la agregó la 0128: si esa migración no está, no se
+    // puede distinguir y se protege.
+    if (faltaLaTabla(error) || faltaLaColumna(error)) return true;
+    console.error("[stripe] No se pudo comprobar si el negocio paga por SINPE:", error.message);
+    return true;
+  }
+
+  return (data ?? []).length > 0;
+}
+
+/**
+ * ¿El negocio tiene OTRA suscripción de Stripe viva?
+ *
+ * El caso real: subir de paquete deja la suscripción vieja cancelada y
+ * una nueva activa. Los eventos de Stripe pueden llegar desordenados,
+ * así que el `deleted` de la vieja puede aterrizar DESPUÉS de que la
+ * nueva ya activó todo — y apagaría a un negocio que acaba de pagar
+ * más plata que antes.
+ *
+ * Se excluye la suscripción del evento a propósito: para cuando esto
+ * corre, esa fila ya se guardó con su estado nuevo (`cancelada`), así
+ * que preguntar por «alguna activa» sin excluirla igual funcionaría —
+ * pero excluirla deja la intención escrita y no depende del orden en
+ * que se escribió.
+ *
+ * ANTE LA DUDA, PROTEGE: si la consulta falla se devuelve `true`. Es la
+ * misma regla que en el SINPE — apagar de menos se arregla con un clic,
+ * apagar de más es un cliente que se va.
+ */
+async function tieneOtraSuscripcionViva(
+  db: Admin,
+  quien: Dueno,
+  exceptoSuscripcion: string,
+): Promise<boolean> {
+  const filtro = await filtroDeDueno(db, quien);
+  if (!filtro) return false;
+
+  const { data, error } = await db
+    .from("suscripciones")
+    .select("stripe_subscription_id")
+    .in(filtro.columna, filtro.valores)
+    .neq("stripe_subscription_id", exceptoSuscripcion)
+    // Los dos estados que dan derecho al plan (`daDerechoAlPlan`).
+    .in("estado", ["activa", "en_prueba"])
+    .limit(1);
+
+  if (error) {
+    if (faltaLaTabla(error)) return false;
+    console.error("[stripe] No se pudo buscar otra suscripción viva:", error.message);
+    return true;
+  }
+
+  return (data ?? []).length > 0;
+}
+
+// ── PAUSAR Y REANUDAR ────────────────────────────────────────────────
+
+/**
+ * EL CORTE: se pausa lo que está operando, y NADA MÁS.
+ *
+ * Lo que NO hace, y es la mitad del diseño: no borra un solo miembro,
+ * ni un sello, ni un pase, ni un movimiento. `pausado` es exactamente
+ * el estado del botón «Pausar» del panel —el que promete «conserva
+ * todo»— y desde la 0125 el mostrador ya lo respeta: `autorizarCanje`
+ * rechaza el canje y el RPC de acumulación no otorga puntos. O sea que
+ * apagar es cambiar UN campo, no tocar los datos de nadie.
+ *
+ * Y solo lo que estaba OPERANDO: un borrador sigue borrador, una
+ * archivada sigue archivada, y la que el dueño pausó él sigue pausada
+ * sin la marca —para que la vuelta no se la lleve puesta.
+ */
+async function pausarProgramasEn(
+  db: Admin,
+  quien: Dueno,
+): Promise<{ pausados: number; aplicado: boolean }> {
+  const filtro = await filtroDeDueno(db, quien);
+  if (!filtro) return { pausados: 0, aplicado: true };
+
+  const { data, error } = await db
+    .from("programa_lealtad")
+    .update({ estado: "pausado", activo: false, pausado_por_cobro: true })
+    .in(filtro.columna, filtro.valores)
+    .or(OPERANDO)
+    .select("id");
+
+  if (error) {
+    if (faltaLaColumna(error) || faltaLaTabla(error)) {
+      // NO se pausa nada. Sin la columna, la vuelta al renovar tendría
+      // que reactivar «todo lo pausado» y se llevaría por delante la
+      // promoción que el dueño pausó a mano. Un negocio apagado que no
+      // sabemos volver a prender es peor que uno que sigue operando un
+      // mes de más: el motor avisa al equipo y alguien corre la 0146.
+      console.error(
+        "[stripe] No se pausó ningún programa: falta la migración 0146 " +
+          "(programa_lealtad.pausado_por_cobro).",
+      );
+      return { pausados: 0, aplicado: false };
+    }
+    throw new Error(`No se pudo pausar el programa: ${error.message}`);
+  }
+
+  return { pausados: (data ?? []).length, aplicado: true };
+}
+
+/**
+ * LA VUELTA: se reactiva SOLO lo que este corte pausó.
+ *
+ * La simetría no es elegancia: si la vuelta no funcionara, cancelar
+ * sería una trampa. Por eso el filtro es `pausado_por_cobro` y no «lo
+ * que esté pausado» — la promoción que el dueño pausó a mano el mes
+ * pasado porque se le acabó el producto NO puede reaparecer sola
+ * porque pagó una factura.
+ */
+async function reanudarProgramasEn(
+  db: Admin,
+  quien: Dueno,
+): Promise<{ reanudados: number; aplicado: boolean }> {
+  const filtro = await filtroDeDueno(db, quien);
+  if (!filtro) return { reanudados: 0, aplicado: true };
+
+  // `estado: 'activo'` explícito aunque la fila viniera con `estado` en
+  // null (una de la 0060): no se pierde nada —null significaba
+  // exactamente «mirá el booleano», y el booleano queda en true— y
+  // deja la fila diciendo lo mismo por los dos lados.
+  const { data, error } = await db
+    .from("programa_lealtad")
+    .update({ estado: "activo", activo: true, pausado_por_cobro: false })
+    .in(filtro.columna, filtro.valores)
+    .eq("pausado_por_cobro", true)
+    .select("id");
+
+  if (error) {
+    if (faltaLaColumna(error) || faltaLaTabla(error)) {
+      // Sin la columna tampoco se pausó nunca nada, así que no hay
+      // nada que devolver: no es un problema, es coherencia.
+      return { reanudados: 0, aplicado: false };
+    }
+    throw new Error(`No se pudo reanudar el programa: ${error.message}`);
+  }
+
+  return { reanudados: (data ?? []).length, aplicado: true };
+}
+
+/**
+ * Deja escrito en la suscripción desde cuándo está cortada y con qué
+ * paquete se apagó (0146).
+ *
+ * Es CONTABILIDAD, no una decisión: nada del interruptor lee estas
+ * columnas para decidir nada —lo que manda siempre es lo que dice
+ * Stripe— y por eso un fallo acá solo se registra. Sirven para
+ * responder «¿desde cuándo está apagado?» sin abrir el panel de Stripe
+ * y para poder contar después cuántos negocios se recuperaron.
+ */
+async function marcarCorte(
+  db: Admin,
+  suscripcionStripe: string,
+  plan: PlanId | null,
+  reanudando = false,
+): Promise<void> {
+  const { error } = await db
+    .from("suscripciones")
+    .update(
+      reanudando
+        ? { cortada_en: null, plan_al_cortar: null }
+        : { cortada_en: new Date().toISOString(), plan_al_cortar: plan },
+    )
+    .eq("stripe_subscription_id", suscripcionStripe);
+
+  // Sin la 0146 no existen las columnas y no pasa nada: el programa ya
+  // quedó pausado (o reanudado), que es lo que le importa al negocio.
+  if (error && !faltaLaColumna(error) && !faltaLaTabla(error)) {
+    console.error("[stripe] No se pudo marcar el corte en la suscripción:", error.message);
+  }
+}
+
+/**
+ * Con qué filtrar las tablas que cuelgan de un negocio
+ * (`programa_lealtad`, `suscripciones`): las dos tienen `rancho_id` y
+ * `cuenta_id`.
+ *
+ * Un programa cuelga de un rancho (0060) o de una cuenta (0134), y hay
+ * negocios de las dos épocas. Se prefiere el rancho porque es la
+ * columna que todas las filas tienen; la cuenta es el camino de los
+ * negocios de Lealtad sin marketplace.
+ */
+async function filtroDeDueno(
+  db: Admin,
+  quien: Dueno,
+): Promise<{ columna: "rancho_id" | "cuenta_id"; valores: string[] } | null> {
+  const ranchoIds = await ranchosDe(db, quien);
+  if (ranchoIds.length > 0) return { columna: "rancho_id", valores: ranchoIds };
+  if (quien.cuentaId) return { columna: "cuenta_id", valores: [quien.cuentaId] };
+  return null;
+}
+
+/**
+ * Los ranchos de este dueño: el suyo, más el que cuelgue de su cuenta.
+ * Una cuenta puede tener rancho (`cuentas.rancho_id`, la costura de la
+ * 0134) y el evento de Stripe puede traer solo uno de los dos.
+ */
+async function ranchosDe(db: Admin, quien: Dueno): Promise<string[]> {
+  const ids = new Set<string>();
+  if (quien.ranchoId) ids.add(quien.ranchoId);
+
+  if (quien.cuentaId) {
+    const { data } = await db
+      .from("cuentas")
+      .select("rancho_id")
+      .eq("id", quien.cuentaId)
+      .maybeSingle();
+    const deLaCuenta = (data?.rancho_id as string | null) ?? null;
+    if (deLaCuenta) ids.add(deLaCuenta);
+  }
+
+  return [...ids];
+}
+
+// ── EL AVISO PREVIO, UNA SOLA VEZ ────────────────────────────────────
+
+/**
+ * Reclama el aviso previo con un UPDATE CONDICIONAL, no con un «¿ya
+ * se mandó? entonces no lo mando».
+ *
+ * Es la misma doctrina del alta pagada y del canje (0137): la pregunta
+ * seguida de la escritura tiene una ventana por la que pasan las dos
+ * entregas simultáneas, y el dueño recibe dos correos idénticos. El
+ * update condicional lo resuelve el motor con un lock de fila.
+ *
+ * Sin la columna (0146 sin correr) devuelve true: un correo repetido
+ * molesta; no avisarle a nadie que su programa se apaga es perder al
+ * cliente, que es exactamente lo que este aviso viene a evitar.
+ */
+async function reclamarAvisoPrevioEn(db: Admin, suscripcionStripe: string): Promise<boolean> {
+  const { data, error } = await db
+    .from("suscripciones")
+    .update({ aviso_previo_en: new Date().toISOString() })
+    .eq("stripe_subscription_id", suscripcionStripe)
+    .is("aviso_previo_en", null)
+    .select("id");
+
+  if (error) {
+    if (faltaLaColumna(error)) return true;
+    if (faltaLaTabla(error)) return false;
+    console.error("[stripe] No se pudo reclamar el aviso previo:", error.message);
+    return false;
+  }
+
+  return (data ?? []).length > 0;
+}
+
+// ── EL CORREO AL DUEÑO ───────────────────────────────────────────────
+
+/**
+ * El aviso al dueño del negocio (no al equipo de Bookea).
+ *
+ * Vive en la puerta y no en el motor porque el motor decide QUÉ decir
+ * y esto sabe A QUIÉN: el correo del dueño, el nombre del negocio y si
+ * ese buzón todavía recibe.
+ *
+ * Nunca lanza. Un correo que no sale no puede hacer que Stripe
+ * reintente un evento que ya movió el estado — el reintento volvería a
+ * pausar (idempotente, no molesta) pero también volvería a mandar el
+ * correo, y ahí sí se duplica.
+ */
+async function avisarAlDuenoEn(
+  db: Admin,
+  aviso: Dueno & { clase: ClaseDeAviso; plan: PlanId | null; hasta: string | null },
+): Promise<void> {
+  try {
+    const quien = await duenoDelNegocio(db, aviso);
+    if (!quien) {
+      console.warn(`[stripe] Sin correo del dueño: no salió el aviso «${aviso.clase}».`);
+      return;
+    }
+
+    // Rebotes duros y quejas de spam (0082): a ese buzón no se le
+    // escribe más, ni siquiera algo transaccional. Insistirle quema la
+    // reputación del dominio entero y se lleva puestos los correos de
+    // todos los demás negocios.
+    const { data: supresion, error: eSupresion } = await db
+      .from("supresiones_correo")
+      .select("correo")
+      .eq("correo", quien.correo)
+      .maybeSingle();
+    if (eSupresion) {
+      console.warn("[stripe] No se pudo leer supresiones_correo:", eSupresion.message);
+    }
+    if (supresion) {
+      console.warn(`[stripe] El correo del dueño está suprimido: no sale «${aviso.clase}».`);
+      return;
+    }
+
+    const datos = {
+      nombreNegocio: quien.nombreNegocio,
+      ranchoId: quien.ranchoId,
+      nombrePlan: aviso.plan ? PLANES[aviso.plan].nombre : null,
+      hasta: fechaParaPersona(aviso.hasta),
+    };
+
+    const { asunto, html } = correoDeClase(aviso.clase, datos, quien.nombreNegocio);
+    await enviarCorreo({ to: quien.correo, subject: asunto, html });
+  } catch (e) {
+    console.error(`[stripe] No se pudo avisar al dueño («${aviso.clase}»):`, e);
+  }
+}
+
+type DuenoResuelto = {
+  correo: string;
+  nombreNegocio: string;
+  ranchoId: string | null;
+};
+
+/** El correo del dueño y el nombre del negocio, por rancho o por cuenta. */
+async function duenoDelNegocio(db: Admin, quien: Dueno): Promise<DuenoResuelto | null> {
+  let ownerId: string | null = null;
+  let nombreNegocio = "tu negocio";
+  let ranchoId: string | null = quien.ranchoId ?? null;
+
+  if (quien.ranchoId) {
+    const { data } = await db
+      .from("ranchos")
+      .select("nombre, owner_id")
+      .eq("id", quien.ranchoId)
+      .maybeSingle();
+    ownerId = (data?.owner_id as string | null) ?? null;
+    nombreNegocio = ((data?.nombre as string | null) ?? "").trim() || nombreNegocio;
+  }
+
+  if (!ownerId && quien.cuentaId) {
+    const { data } = await db
+      .from("cuentas")
+      .select("nombre, owner_id, rancho_id")
+      .eq("id", quien.cuentaId)
+      .maybeSingle();
+    ownerId = (data?.owner_id as string | null) ?? null;
+    nombreNegocio = ((data?.nombre as string | null) ?? "").trim() || nombreNegocio;
+    ranchoId = ranchoId ?? ((data?.rancho_id as string | null) ?? null);
+  }
+
+  if (!ownerId) return null;
+
+  const { data: perfil } = await db
+    .from("perfiles")
+    .select("email")
+    .eq("id", ownerId)
+    .maybeSingle();
+
+  const correo = ((perfil?.email as string | null) ?? "").trim().toLowerCase();
+  // Mismo criterio de validez que el CHECK de la 0082.
+  if (correo.indexOf("@") <= 0 || /\s/.test(correo)) return null;
+
+  return { correo, nombreNegocio, ranchoId };
+}
+
+/** El asunto y el HTML de cada clase de aviso. */
+function correoDeClase(
+  clase: ClaseDeAviso,
+  datos: {
+    nombreNegocio: string;
+    ranchoId: string | null;
+    nombrePlan: string | null;
+    hasta: string | null;
+  },
+  nombreNegocio: string,
+): { asunto: string; html: string } {
+  switch (clase) {
+    case "corte_programado":
+      return {
+        asunto: datos.hasta
+          ? `${nombreNegocio}: tu programa de lealtad funciona hasta el ${datos.hasta}`
+          : `${nombreNegocio}: cancelaste tu suscripción de lealtad`,
+        html: plantillaCorteProgramado(datos),
+      };
+    case "programa_pausado":
+      return {
+        asunto: `${nombreNegocio}: tu programa de lealtad quedó en pausa`,
+        html: plantillaProgramaPausado({ ...datos, motivo: "cancelada" }),
+      };
+    case "programa_reanudado":
+      return {
+        asunto: `${nombreNegocio}: tu programa de lealtad volvió a funcionar`,
+        html: plantillaProgramaReanudado(datos),
+      };
+    case "cobro_fallido":
+      return {
+        asunto: `${nombreNegocio}: no pudimos cobrar tu suscripción`,
+        html: plantillaCobroFallido(datos),
+      };
+  }
+}
+
+/**
+ * El ISO que manda Stripe → «Domingo 30 de agosto de 2026».
+ *
+ * Pasa por `fechaISOCR` primero para que el día sea el día EN COSTA
+ * RICA: un `periodo_fin` a las 23:30 del 30 en UTC es todavía el 30 acá
+ * (UTC-6), pero uno a las 03:00 del 31 en UTC también — y sin la
+ * conversión, el correo diría «hasta el 31» un día de más.
+ */
+function fechaParaPersona(iso: string | null): string | null {
+  if (!iso) return null;
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return null;
+  return fechaLargaCR(fechaISOCR(t));
 }
 
 /**

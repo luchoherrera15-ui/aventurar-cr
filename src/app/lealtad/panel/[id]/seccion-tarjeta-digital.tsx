@@ -11,6 +11,8 @@ import {
   type ConfigBeneficio,
 } from "@/lib/lealtad/tipos-tarjeta";
 import { Interruptor } from "./paso-beneficio";
+import PlantillasColor from "./plantillas-color";
+import SelectorIconoSello from "./selector-icono-sello";
 import {
   AvisoError,
   AvisoGuardado,
@@ -61,23 +63,20 @@ import VistaPase from "./vista-pase";
  * avisar temprano; una petición armada a mano no pasa por este archivo.
  */
 
-// ── Temas ─────────────────────────────────────────────────────────
+// ── Las plantillas ────────────────────────────────────────────────
 //
-// Los ocho tienen fondo OSCURO a propósito: Apple pinta el texto del
-// pase de blanco fijo (`foregroundColor: rgb(255,255,255)` en
-// construirPassJson), así que un fondo claro no es cuestión de gusto —
-// es una tarjeta que no se lee. Un tema es un toque y no se equivoca;
-// las ruedas de abajo son para el que ya tiene su marca definida.
-const TEMAS: { nombre: string; fondo: string; acento: string }[] = [
-  { nombre: "Navy Bookea", fondo: "#062653", acento: "#ff6a00" },
-  { nombre: "Grafito", fondo: "#14161a", acento: "#f2c230" },
-  { nombre: "Café tostado", fondo: "#3b2317", acento: "#d9a05b" },
-  { nombre: "Selva", fondo: "#0f3d2e", acento: "#46d39a" },
-  { nombre: "Vino", fondo: "#5a1220", acento: "#e8b4b8" },
-  { nombre: "Mar", fondo: "#073b4c", acento: "#06d6a0" },
-  { nombre: "Noche violeta", fondo: "#2e1065", acento: "#c4b5fd" },
-  { nombre: "Terracota", fondo: "#7a2e12", acento: "#f4a261" },
-];
+// Acá había una lista PROPIA de ocho temas, escrita a mano. O sea que
+// el módulo tenía tres juegos de colores: los de la página pública, los
+// de esta pantalla y los que el creador no ofrecía. Tres listas que
+// nadie podía mantener iguales, y el dueño lo notaba: elegía un color
+// en un lado y no lo encontraba en el otro.
+//
+// Ahora las ocho salen de `src/lib/lealtad/paletas.ts`, las MISMAS que
+// muestra la landing y las mismas que ofrece el creador. Todas con
+// fondo oscuro, y eso no es gusto: Apple pinta el texto del pase de
+// blanco fijo (`foregroundColor: rgb(255,255,255)` en
+// construirPassJson), así que un fondo claro no es una tarjeta fea, es
+// una tarjeta que no se lee.
 
 /** WCAG AA para texto normal. Debajo de esto el pase no se lee. */
 const CONTRASTE_TEXTO = 4.5;
@@ -161,46 +160,16 @@ export function BloqueDiseno() {
         <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
           <h3 className={tituloCls}>Colores</h3>
           <p className={ayudaCls}>
-            Elegí un tema y ya está — todos se leen bien en el teléfono. Si tenés los
-            colores de tu marca, cambialos abajo.
+            Elegí una plantilla y ya está — todas se leen bien en el teléfono, y son las
+            mismas que ves en la página. Si tenés los colores de tu marca, cambialos abajo.
           </p>
 
-          <div
-            className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4"
-            role="group"
-            aria-label="Temas de color"
-          >
-            {TEMAS.map((t) => {
-              const puesto =
-                borrador.colorFondo.toLowerCase() === t.fondo &&
-                borrador.colorSello.toLowerCase() === t.acento;
-              return (
-                <button
-                  key={t.nombre}
-                  type="button"
-                  aria-pressed={puesto}
-                  onClick={() => cambiar({ colorFondo: t.fondo, colorSello: t.acento })}
-                  className={`presionable overflow-hidden rounded-xl border text-left ${
-                    puesto ? "border-aventurea-navy" : "border-aventurea-line"
-                  }`}
-                >
-                  <span
-                    aria-hidden
-                    className="flex h-11 items-center gap-1.5 px-3"
-                    style={{ background: t.fondo }}
-                  >
-                    <span
-                      className="h-4 w-4 rounded-full"
-                      style={{ background: t.acento }}
-                    />
-                    <span className="h-1.5 w-8 rounded-full bg-white/70" />
-                  </span>
-                  <span className="block px-3 py-2 text-[11.5px] font-bold text-aventurea-ink">
-                    {t.nombre}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="mt-4">
+            <PlantillasColor
+              colorFondo={borrador.colorFondo}
+              colorSello={borrador.colorSello}
+              alElegir={({ fondo, sello }) => cambiar({ colorFondo: fondo, colorSello: sello })}
+            />
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -242,6 +211,33 @@ export function BloqueDiseno() {
             </p>
           )}
         </div>
+
+        {/* ── El icono del sello (0145) ─────────────────────────────
+            Solo en sellos: es el único tipo con círculos que llenar.
+            Va acá, junto a los colores, porque es la misma decisión —
+            cómo se ve el sello— y no otra pantalla. */}
+        {esSellos && (
+          <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+            <h3 className={tituloCls}>Icono del sello</h3>
+            <p className={ayudaCls}>
+              Qué se dibuja adentro de cada círculo. Se llena cuando el cliente gana el
+              sello y queda en contorno el que le falta — así se ve cuánto le queda de un
+              vistazo, sin contar.
+            </p>
+            <div className="mt-4">
+              <SelectorIconoSello
+                valor={borrador.iconoSello}
+                alElegir={(icono) => cambiar({ iconoSello: icono })}
+                colorFondo={borrador.colorFondo}
+                colorSello={borrador.colorSello}
+              />
+            </div>
+            <p className={ayudaCls}>
+              Con «Mi logo» va tu logo adentro del círculo, como hasta ahora. Si tu logo es
+              blanco o tiene el nombre escrito, un icono se ve mucho mejor a ese tamaño.
+            </p>
+          </div>
+        )}
 
         {/* ── Imágenes ─────────────────────────────────────────── */}
         <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
@@ -378,6 +374,7 @@ export function BloqueDiseno() {
             beneficio: beneficioDeLaVista(programa, borrador.modo, meta),
             colorFondo: borrador.colorFondo,
             colorSello: borrador.colorSello,
+            iconoSello: borrador.iconoSello,
             logoUrl: borrador.logoUrl || null,
             bannerUrl: borrador.bannerUrl || null,
           }}

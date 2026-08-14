@@ -1,4 +1,5 @@
 import type { TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import { PALETAS, type TernaColor } from "@/lib/lealtad/paletas";
 import type { NombreIcono } from "@/app/lealtad/panel/[id]/iconos";
 
 /**
@@ -31,7 +32,14 @@ export type FichaTipo = {
   puede: Capacidad[];
   /** El negocio de ejemplo del pase. */
   negocio: string;
-  colores: [string, string, string];
+  /**
+   * La paleta del tipo. NO se escribe acá: sale de
+   * `src/lib/lealtad/paletas.ts`, que es la misma lista que el creador
+   * ofrece como plantillas de un toque. Con los hexadecimales copiados
+   * en los dos lados, el dueño elegía «ese café» en la landing y le
+   * salía otro al armar la tarjeta.
+   */
+  colores: TernaColor;
   foto: string;
   arriba: string;
   valor: string;
@@ -84,7 +92,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       ...COMUNES,
     ],
     negocio: "Café La Esquina",
-    colores: ["#4a2f1d", "#8a5a33", "#c98f4e"],
+    colores: PALETAS.sellos.colores,
     foto: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=520&q=70",
     arriba: "SELLOS",
     valor: "7/10",
@@ -128,7 +136,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       ...COMUNES,
     ],
     negocio: "Súper La Cosecha",
-    colores: ["#123528", "#1f6b4a", "#3fae74"],
+    colores: PALETAS.puntos.colores,
     foto: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=520&q=70",
     arriba: "PUNTOS",
     valor: "340",
@@ -172,7 +180,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       ...COMUNES,
     ],
     negocio: "Pizzería Nápoli",
-    colores: ["#5c1717", "#a8321f", "#e0713a"],
+    colores: PALETAS.cupon.colores,
     foto: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=520&q=70",
     arriba: "CUPÓN",
     valor: "2x1",
@@ -216,7 +224,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       ...COMUNES,
     ],
     negocio: "Silence Barber Shop",
-    colores: ["#16161c", "#3a3a48", "#6f6f82"],
+    colores: PALETAS.descuento.colores,
     foto: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=520&q=70",
     arriba: "DESCUENTO",
     valor: "30% OFF",
@@ -260,7 +268,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       ...COMUNES,
     ],
     negocio: "Gimnasio Titán",
-    colores: ["#16233d", "#2c4a80", "#5b86c9"],
+    colores: PALETAS.membresia.colores,
     foto: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=520&q=70",
     arriba: "MEMBRESÍA",
     valor: "Gold",
@@ -304,7 +312,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       ...COMUNES,
     ],
     negocio: "Spa Serenity",
-    colores: ["#2c1c3d", "#5b3a7a", "#9b6fc4"],
+    colores: PALETAS.giftcard.colores,
     foto: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=520&q=70",
     arriba: "SALDO",
     valor: "₡15 000",
@@ -348,7 +356,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       ...COMUNES,
     ],
     negocio: "Rancho Las Torres",
-    colores: ["#0d2c33", "#1c6b73", "#38a9a4"],
+    colores: PALETAS.evento.colores,
     foto: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=520&q=70",
     arriba: "ENTRADA",
     valor: "20 set · 7 pm",
@@ -392,7 +400,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       ...COMUNES,
     ],
     negocio: "Lavacar El Rayo",
-    colores: ["#0b2540", "#155285", "#2f8ccc"],
+    colores: PALETAS.cashback.colores,
     foto: "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&w=520&q=70",
     arriba: "SALDO",
     valor: "₡3 400",

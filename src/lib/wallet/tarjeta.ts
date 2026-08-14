@@ -12,6 +12,7 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
+import { iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -41,6 +42,17 @@ export type ConfigPase = {
    * compilador no es la red de seguridad acá, el test sí.
    */
   pase_banner_url?: string | null;
+  /**
+   * El icono que va dentro de cada sello (0145). `null` = el
+   * comportamiento de siempre, que es el LOGO del negocio adentro del
+   * círculo.
+   *
+   * Opcional por la misma razón que la banda: hay pantallas que arman
+   * un `ConfigPase` para otra cosa, y sobre todo la migración puede no
+   * estar pegada —las pega el dueño a mano— y entonces la fila llega
+   * sin la columna.
+   */
+  pase_sello_icono?: IconoSello | null;
 };
 
 /** La recompensa activa más barata: es la META de la tarjeta. */
@@ -125,6 +137,11 @@ export function tarjetaDesdeFila(fila: Record<string, unknown>): {
       // vista previa la dibujaba, y el generador nunca leía la columna.
       // El dueño veía su foto en la pantalla y no en el teléfono.
       pase_banner_url: texto(fila.pase_banner_url),
+      // El icono del sello (0145) pasa por el MISMO filtro que usan el
+      // creador y el editor: si no está en el catálogo, o si la tarjeta
+      // no es de sellos, no hay icono. Así una fila rara no llega nunca
+      // hasta el dibujo.
+      pase_sello_icono: iconoDelSello({ tipo: fila.modo, icono: fila.pase_sello_icono }),
     },
     beneficio: leerBeneficio(fila.beneficio, modo),
   };

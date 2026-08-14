@@ -1,4 +1,5 @@
 import type { PlanId } from "@/lib/lealtad/planes";
+import { decidirPorCobro, motivoDeCorte, type MotivoDeCorte } from "./corte";
 import {
   daDerechoAlPlan,
   estadoDesdeStripe,
@@ -70,6 +71,29 @@ import {
  * Bajar de `ilimitado` a `prueba` automáticamente recorta el cupo de
  * 1.150 clientes a 25 en el mismo segundo, y el primero en enterarse
  * sería el cliente que no puede agregar su tarjeta en el mostrador.
+ *
+ * ------------------------------------------------------------------
+ * LO QUE SÍ HACE: EL INTERRUPTOR
+ * ------------------------------------------------------------------
+ * Degradar y APAGAR no son lo mismo, y por eso conviven.
+ *
+ * Cuando el período pagado se termina de verdad, el programa deja de
+ * OPERAR: se pausa. El paquete —y con él el cupo, y con el cupo los
+ * miembros— se queda intacto, esperando. Es exactamente el estado
+ * `pausado` que el panel ya ofrece con el botón «Pausar», el que
+ * promete «conserva todo», y esa promesa acá se cumple al pie de la
+ * letra: **jamás se borra un miembro, un sello, un pase ni un
+ * movimiento**. Son los clientes del negocio, no nuestros, y el dueño
+ * puede renovar mañana.
+ *
+ * La simetría es la mitad del diseño: si la vuelta no funcionara,
+ * cancelar sería una trampa. Al renovar, `reanudarPrograma` levanta
+ * SOLO lo que este corte pausó —nunca lo que el dueño pausó él— y el
+ * paquete vuelve a escribirse con el precio que Stripe cobra.
+ *
+ * El criterio de CUÁNDO se apaga vive aparte, en `corte.ts`, y es
+ * lógica pura: el corte al final del período, la mora que avisa en vez
+ * de apagar, y el negocio que paga por SINPE y no se apaga nunca.
  */
 
 // ── Lo que el motor necesita del mundo ───────────────────────────────
@@ -90,10 +114,34 @@ export type DatosSuscripcion = {
   plan: PlanId | null;
   periodo: Periodo;
   estado: EstadoSuscripcion;
+  /**
+   * El `status` CRUDO de Stripe (`active`, `past_due`, `unpaid`…).
+   *
+   * Se guarda además del `estado` normalizado porque los cuatro
+   * estados de la base COLAPSAN distinciones que el interruptor
+   * necesita: `past_due` y `unpaid` son los dos `morosa`, y son
+   * justamente «avisale» y «apagalo». No va a ninguna columna: existe
+   * para que `decidirPorCobro` pueda mirar el original.
+   */
+  statusStripe: string | null;
   periodoInicio: string | null;
   periodoFin: string | null;
   cancelaAlFinal: boolean;
 };
+
+/** De quién es una suscripción, ya resuelto contra la base. */
+export type Dueno = { ranchoId: string | null; cuentaId: string | null };
+
+/** Qué clase de aviso le llega al DUEÑO del negocio (no al equipo). */
+export type ClaseDeAviso =
+  /** «Tu programa funciona hasta el 30» — apenas se programa la baja. */
+  | "corte_programado"
+  /** «Tu programa quedó en pausa» — en el momento del corte. */
+  | "programa_pausado"
+  /** «Tu programa volvió a funcionar» — al renovar. */
+  | "programa_reanudado"
+  /** «No pudimos cobrar» — y el programa SIGUE funcionando. */
+  | "cobro_fallido";
 
 export type Puerta = {
   /**
@@ -142,6 +190,58 @@ export type Puerta = {
     plan: PlanId;
   }): Promise<void>;
   avisar(a: { asunto: string; detalle: string }): Promise<void>;
+
+  // ── El interruptor ─────────────────────────────────────────────────
+
+  /**
+   * ¿Este negocio sigue pago por otra vía, aunque ESTA suscripción se
+   * haya terminado? Son dos casos y los dos son reales:
+   *   · un depósito por SINPE o transferencia vigente (0128);
+   *   · OTRA suscripción de Stripe activa — el que cambió de paquete
+   *     deja la vieja cancelada y una nueva corriendo.
+   *
+   * true = no se apaga nada.
+   *
+   * Solo se pregunta cuando el corte está sobre la mesa: es una
+   * consulta más, y en el 99% de los eventos (renovaciones al día) no
+   * hace falta.
+   */
+  sigueCubierto(d: Dueno & { exceptoSuscripcion: string }): Promise<boolean>;
+
+  /**
+   * PAUSA lo que esté operando. No borra NADA: ni un miembro, ni un
+   * sello, ni un pase, ni un movimiento.
+   *
+   * `aplicado: false` = no se pudo dejar constancia de que la pausa la
+   * puso el cobro (falta la migración 0146), y entonces NO se pausa
+   * nada: una pausa que después no se sabe deshacer convierte cancelar
+   * en una trampa. Ver puerta-supabase.ts.
+   */
+  pausarPrograma(
+    d: Dueno & { suscripcionStripe: string; plan: PlanId | null },
+  ): Promise<{ pausados: number; aplicado: boolean }>;
+
+  /**
+   * La vuelta: reactiva SOLO lo que el corte pausó. Lo que el dueño
+   * pausó él —o dejó en borrador, o archivó— se queda como está: esa
+   * decisión no la puede pisar un cobro.
+   */
+  reanudarPrograma(
+    d: Dueno & { suscripcionStripe: string },
+  ): Promise<{ reanudados: number; aplicado: boolean }>;
+
+  /**
+   * Reclama el aviso previo de esta suscripción. true = mandalo;
+   * false = ya se mandó antes.
+   *
+   * Hace falta porque Stripe manda varios `customer.subscription.updated`
+   * con `cancel_at_period_end` en true, y la idempotencia por
+   * `stripe_event_id` no los frena: son eventos DISTINTOS.
+   */
+  reclamarAvisoPrevio(d: { suscripcionStripe: string }): Promise<boolean>;
+
+  /** El correo al DUEÑO del negocio. Nunca lanza. */
+  avisarAlDueno(a: Dueno & { clase: ClaseDeAviso; plan: PlanId | null; hasta: string | null }): Promise<void>;
 };
 
 export type EventoEntrante = {
@@ -175,7 +275,26 @@ export type ResultadoEvento =
       activado: boolean;
       /** true = este evento CREÓ el negocio (un alta pagada con tarjeta). */
       creado?: true;
+      /**
+       * Qué hizo el interruptor. Ausente cuando no hizo nada, que es
+       * el caso normal (una renovación al día no apaga ni prende).
+       */
+      corte?: EfectoDelCorte;
     };
+
+/** Lo que el interruptor terminó haciendo con el programa. */
+export type EfectoDelCorte =
+  | { hizo: "nada" }
+  /** Se le contó al dueño en qué fecha se apaga. */
+  | { hizo: "aviso_previo" }
+  /** Se le avisó que el cobro rebotó — y el programa sigue operando. */
+  | { hizo: "aviso_mora" }
+  | { hizo: "pausado"; programas: number }
+  | { hizo: "reanudado"; programas: number }
+  /** Correspondía apagar pero el negocio paga por SINPE. */
+  | { hizo: "protegido"; motivo: MotivoDeCorte }
+  /** Falta la migración 0146: no se pausó nada, y alguien tiene que verlo. */
+  | { hizo: "no_se_pudo" };
 
 /**
  * Los eventos que este motor entiende.
@@ -186,6 +305,34 @@ export type ResultadoEvento =
  * Los demás eventos de la cuenta se responden 200 y se ignoran — un
  * webhook que devuelve error por un evento que no le interesa termina
  * deshabilitado por Stripe.
+ *
+ * ------------------------------------------------------------------
+ * QUÉ EVENTO HACE QUÉ, CON EL INTERRUPTOR
+ * ------------------------------------------------------------------
+ *   · checkout.session.completed   → activa (y REANUDA si estaba cortado)
+ *   · customer.subscription.created→ ídem
+ *   · customer.subscription.updated→ el que lleva casi todo el trabajo:
+ *       activa, reanuda, manda el AVISO PREVIO cuando aparece
+ *       `cancel_at_period_end`, y CORTA si el status ya es terminal.
+ *   · customer.subscription.deleted→ CORTA. Stripe lo manda cuando el
+ *       período pagado se terminó de verdad, no cuando el cliente
+ *       cancela: por eso el corte cae solo en la fecha correcta.
+ *   · invoice.payment_failed       → AVISA y NO apaga.
+ *
+ * ------------------------------------------------------------------
+ * LOS QUE NO SE ATIENDEN, Y POR QUÉ
+ * ------------------------------------------------------------------
+ *   · `invoice.paid` / `invoice.payment_succeeded` — la renovación ya
+ *     llega por `customer.subscription.updated`, que además trae el
+ *     precio y el período. Atender los dos duplicaría el correo de
+ *     «tu programa volvió» sin agregar un solo caso nuevo.
+ *   · `invoice.upcoming` — sería el candidato natural para el «faltan
+ *     tres días», pero Stripe NO genera factura próxima para una
+ *     suscripción marcada para cancelarse: para el caso que importa,
+ *     ese evento no llega nunca. El aviso previo sale en cuanto se
+ *     conoce la fecha, que es semanas antes.
+ *   · `customer.subscription.paused` / `.resumed` — el `status` ya
+ *     viaja en el `updated` que Stripe manda junto con ellos.
  */
 export const EVENTOS_ATENDIDOS = [
   "checkout.session.completed",
@@ -274,6 +421,12 @@ export function datosDeSuscripcion(
     solicitudId?: string | null;
     /** Para `customer.subscription.deleted`, donde el estado es un hecho. */
     estadoForzado?: EstadoSuscripcion;
+    /**
+     * El status CRUDO forzado, por el mismo motivo. Van los dos y no
+     * uno derivado del otro: `estadoDesdeStripe` no tiene vuelta —
+     * `morosa` no dice si venía de `past_due` o de `unpaid`.
+     */
+    statusForzado?: string;
   } = {},
   env: Entorno = process.env,
 ): DatosSuscripcion | null {
@@ -286,6 +439,7 @@ export function datosDeSuscripcion(
   const mapeo = planDePrecio(precioStripe, env);
 
   const meta = objeto(sub.metadata) ?? {};
+  const statusStripe = extra.statusForzado ?? texto(sub.status);
 
   return {
     ranchoId: extra.ranchoId ?? texto(meta.rancho_id),
@@ -301,7 +455,8 @@ export function datosDeSuscripcion(
     // Sin mapeo no se inventa nada raro: `mensual` es el default de la
     // columna y solo se usa para mostrar.
     periodo: mapeo?.periodo ?? "mensual",
-    estado: extra.estadoForzado ?? estadoDesdeStripe(texto(sub.status)),
+    estado: extra.estadoForzado ?? estadoDesdeStripe(statusStripe),
+    statusStripe,
     periodoInicio: fechaDeUnix(sub.current_period_start ?? item?.current_period_start),
     periodoFin: fechaDeUnix(sub.current_period_end ?? item?.current_period_end),
     cancelaAlFinal: sub.cancel_at_period_end === true,
@@ -394,24 +549,46 @@ async function despachar(
     case "customer.subscription.deleted": {
       // El estado se FUERZA: `deleted` es un hecho, no algo a deducir
       // del `status` que venga en el objeto.
-      const datos = datosDeSuscripcion(objetoDelEvento, { estadoForzado: "cancelada" }, env);
+      //
+      // ESTE ES EL MOMENTO DEL CORTE, y por eso llega solo en la fecha
+      // correcta: Stripe manda `deleted` cuando el período pagado se
+      // TERMINÓ, no cuando el cliente apretó «cancelar». El que canceló
+      // el día 3 con el mes pagado hasta el 30 recibe este evento el
+      // 30 — nosotros no calculamos ninguna fecha.
+      const datos = datosDeSuscripcion(
+        objetoDelEvento,
+        { estadoForzado: "cancelada", statusForzado: "canceled" },
+        env,
+      );
       if (!datos) return { tipo: "sin_suscripcion", evento: evento.type };
 
       const dueno = await puerta.guardarSuscripcion(datos);
+      if (!dueno) {
+        await puerta.avisar({
+          asunto: "Stripe: se canceló una suscripción sin negocio al que atribuirla",
+          detalle:
+            `Suscripción ${datos.suscripcionStripe} (plan ${datos.plan ?? "sin mapear"}) ` +
+            "cancelada, pero no dice de qué negocio es. No se apagó nada.",
+        });
+        return { tipo: "sin_dueno", suscripcion: datos.suscripcionStripe };
+      }
+
+      const corte = await aplicarVeredicto(datos, dueno, puerta, {});
       await puerta.avisar({
         asunto: "Stripe: se canceló una suscripción de Lealtad",
         detalle:
           `Suscripción ${datos.suscripcionStripe} (plan ${datos.plan ?? "sin mapear"}) cancelada. ` +
-          `Negocio ${dueno?.ranchoId ?? datos.ranchoId ?? "—"}. ` +
-          "El plan NO se bajó solo: si corresponde bajarlo, se hace desde /admin/complementos.",
+          `Negocio ${dueno.ranchoId ?? datos.ranchoId ?? "—"}. ` +
+          `${describirCorte(corte)} El paquete NO se bajó: el programa queda PAUSADO ` +
+          "(conserva miembros, sellos, pases y movimientos) y vuelve solo al renovar.",
       });
-      if (!dueno) return { tipo: "sin_dueno", suscripcion: datos.suscripcionStripe };
       return {
         tipo: "guardado",
         suscripcion: datos.suscripcionStripe,
         plan: datos.plan ?? "prueba",
         estado: "cancelada",
         activado: false,
+        ...(corte.hizo === "nada" ? {} : { corte }),
       };
     }
 
@@ -424,12 +601,21 @@ async function despachar(
         });
         return { tipo: "sin_suscripcion", evento: evento.type };
       }
-      const resultado = await aplicarDesdeStripe(evento, suscripcionId, puerta, env, {});
+      // `avisarMora`: el correo al dueño sale de ACÁ y no del veredicto,
+      // aunque el veredicto también vea la mora. Stripe manda los dos
+      // eventos por el mismo hecho —`invoice.payment_failed` y un
+      // `customer.subscription.updated` a `past_due`— y avisando en los
+      // dos, al dueño le llegarían dos correos idénticos por un solo
+      // rebote de tarjeta.
+      const resultado = await aplicarDesdeStripe(evento, suscripcionId, puerta, env, {}, {
+        avisarMora: true,
+      });
       await puerta.avisar({
         asunto: "Stripe: falló el cobro de una suscripción de Lealtad",
         detalle:
-          `Suscripción ${suscripcionId}. Stripe reintenta solo. El plan NO se bajó: ` +
-          "si el cobro no entra, la baja se decide desde /admin/complementos.",
+          `Suscripción ${suscripcionId}. Stripe reintenta solo durante días. NO se apagó ` +
+          "nada: un rebote de tarjeta es un accidente, no una cancelación. Si el cobro " +
+          "nunca entra, Stripe cierra la suscripción y ahí sí se pausa el programa.",
       });
       return resultado;
     }
@@ -454,6 +640,7 @@ async function aplicarDesdeStripe(
   puerta: Puerta,
   env: Entorno,
   extra: { ranchoId?: string | null; cuentaId?: string | null; solicitudId?: string | null },
+  opciones: OpcionesDeAviso = {},
 ): Promise<ResultadoEvento> {
   const sub = await puerta.leerSuscripcion(suscripcionId);
   if (!sub) {
@@ -466,12 +653,19 @@ async function aplicarDesdeStripe(
 
   const datos = datosDeSuscripcion(sub, extra, env);
   if (!datos) return { tipo: "sin_suscripcion", evento: evento.type };
-  return guardarYActivar(datos, puerta);
+  return guardarYActivar(datos, puerta, opciones);
 }
+
+/** Qué correos de más corresponde mandar, según de qué evento venimos. */
+type OpcionesDeAviso = {
+  /** Solo `invoice.payment_failed`: avisale al dueño que rebotó. */
+  avisarMora?: boolean;
+};
 
 async function guardarYActivar(
   datos: DatosSuscripcion,
   puerta: Puerta,
+  opciones: OpcionesDeAviso = {},
 ): Promise<ResultadoEvento> {
   const alta = await resolverAlta(datos, puerta);
   if ("corte" in alta) return alta.corte;
@@ -488,6 +682,26 @@ async function guardarYActivar(
     });
     return { tipo: "sin_dueno", suscripcion: d.suscripcionStripe };
   }
+
+  // ── El paquete ─────────────────────────────────────────────────────
+  // Primero el plan y después el interruptor: si las dos cosas pasan en
+  // el mismo evento (una renovación que además reanuda), el correo de
+  // «tu programa volvió» sale con el paquete ya escrito.
+  const activar = daDerechoAlPlan(d.estado);
+  if (d.plan && activar) {
+    await puerta.aplicarPlan({
+      ranchoId: dueno.ranchoId,
+      cuentaId: dueno.cuentaId,
+      plan: d.plan,
+    });
+  }
+
+  // ── El interruptor ─────────────────────────────────────────────────
+  // Va ANTES del corte por precio sin mapear a propósito: apagar (o
+  // volver a prender) no necesita saber qué paquete se cobraba. Una
+  // suscripción cancelada apaga el programa aunque su price_id nos sea
+  // desconocido — que es justo cuando más falta hace que apague.
+  const efecto = await aplicarVeredicto(d, dueno, puerta, opciones);
 
   // ── El price_id que no conocemos ───────────────────────────────────
   // Queda GUARDADO (arriba) pero no activa nada. Pasa cuando el dueño
@@ -509,15 +723,6 @@ async function guardarYActivar(
     };
   }
 
-  const activar = daDerechoAlPlan(d.estado);
-  if (activar) {
-    await puerta.aplicarPlan({
-      ranchoId: dueno.ranchoId,
-      cuentaId: dueno.cuentaId,
-      plan: d.plan,
-    });
-  }
-
   return {
     tipo: "guardado",
     suscripcion: d.suscripcionStripe,
@@ -527,7 +732,154 @@ async function guardarYActivar(
     // Solo cuando el negocio nació con este evento. Ausente en el caso
     // normal para que el resultado siga siendo el de siempre.
     ...(creado ? { creado: true as const } : {}),
+    // Ídem: ausente cuando el interruptor no movió nada, que es lo que
+    // pasa en la enorme mayoría de los eventos.
+    ...(efecto.hizo === "nada" ? {} : { corte: efecto }),
   };
+}
+
+/**
+ * EL INTERRUPTOR: apagar, prender, o avisar.
+ *
+ * `corte.ts` decide QUÉ corresponde; esto lo ejecuta. La separación es
+ * la misma de siempre —el criterio se prueba solo, la plomería queda
+ * afuera— y acá se ve entero en veinte renglones qué le puede pasar a
+ * un negocio por un evento de cobro.
+ *
+ * Lo único que NUNCA pasa: borrar algo. La pausa es reversible por
+ * construcción.
+ */
+async function aplicarVeredicto(
+  d: DatosSuscripcion,
+  dueno: Dueno,
+  puerta: Puerta,
+  opciones: OpcionesDeAviso,
+): Promise<EfectoDelCorte> {
+  // La cobertura solo se consulta cuando el corte está sobre la mesa:
+  // es una consulta más contra la base y en una renovación al día no
+  // aporta nada.
+  const sigueCubierto = motivoDeCorte(d.statusStripe)
+    ? await puerta.sigueCubierto({ ...dueno, exceptoSuscripcion: d.suscripcionStripe })
+    : false;
+
+  const veredicto = decidirPorCobro({
+    statusStripe: d.statusStripe,
+    cancelaAlFinal: d.cancelaAlFinal,
+    sigueCubierto,
+  });
+
+  switch (veredicto.estado) {
+    case "opera": {
+      // LA VUELTA. Se intenta siempre, no solo cuando sabemos que hubo
+      // corte: la única forma de saberlo es preguntándole a la base, y
+      // preguntar cuesta lo mismo que reactivar cero filas.
+      const vuelta = await puerta.reanudarPrograma({
+        ...dueno,
+        suscripcionStripe: d.suscripcionStripe,
+      });
+      if (vuelta.reanudados > 0) {
+        await puerta.avisarAlDueno({
+          ...dueno,
+          clase: "programa_reanudado",
+          plan: d.plan,
+          hasta: d.periodoFin,
+        });
+        return { hizo: "reanudado", programas: vuelta.reanudados };
+      }
+
+      // EL AVISO PREVIO. `cancel_at_period_end` es lo más cerca que
+      // Stripe deja estar del «faltan unos días»: se sabe la fecha
+      // exacta del corte, normalmente con semanas de anticipación.
+      if (veredicto.avisoPrevio && (await puerta.reclamarAvisoPrevio(d))) {
+        await puerta.avisarAlDueno({
+          ...dueno,
+          clase: "corte_programado",
+          plan: d.plan,
+          hasta: d.periodoFin,
+        });
+        return { hizo: "aviso_previo" };
+      }
+      return { hizo: "nada" };
+    }
+
+    case "en_mora": {
+      // NO SE APAGA NADA, y esto es deliberado: ver el punto 2 del
+      // encabezado de corte.ts. Stripe reintenta durante semanas.
+      if (opciones.avisarMora) {
+        await puerta.avisarAlDueno({
+          ...dueno,
+          clase: "cobro_fallido",
+          plan: d.plan,
+          hasta: d.periodoFin,
+        });
+        return { hizo: "aviso_mora" };
+      }
+      return { hizo: "nada" };
+    }
+
+    case "corta": {
+      const pausa = await puerta.pausarPrograma({
+        ...dueno,
+        suscripcionStripe: d.suscripcionStripe,
+        plan: d.plan,
+      });
+      if (!pausa.aplicado) {
+        // No se pudo dejar constancia de que la pausa la puso el cobro,
+        // así que no se pausó nada — una pausa que no se sabe deshacer
+        // deja al negocio apagado para siempre. Alguien lo tiene que
+        // ver: es la migración 0146 sin correr.
+        await puerta.avisar({
+          asunto: "Stripe: no se pudo apagar un programa vencido",
+          detalle:
+            `La suscripción ${d.suscripcionStripe} terminó (${veredicto.motivo}) y el programa ` +
+            `del negocio ${dueno.ranchoId ?? dueno.cuentaId ?? "—"} NO se pausó: falta correr ` +
+            "la migración 0146 (`programa_lealtad.pausado_por_cobro`). Sin esa columna, " +
+            "reanudar al renovar reactivaría también lo que el dueño pausó a mano, así que " +
+            "se prefiere no apagar. Corré la 0146 y reenviá el evento desde el panel de Stripe.",
+        });
+        return { hizo: "no_se_pudo" };
+      }
+      await puerta.avisarAlDueno({
+        ...dueno,
+        clase: "programa_pausado",
+        plan: d.plan,
+        hasta: d.periodoFin,
+      });
+      return { hizo: "pausado", programas: pausa.pausados };
+    }
+
+    case "protegido": {
+      // El negocio sigue pago por otro lado (SINPE, o la suscripción
+      // nueva de un cambio de paquete). No se apaga nada, y tampoco se
+      // le manda ningún correo: para él no cambió nada. El aviso es
+      // interno, para que quede el rastro.
+      await puerta.avisar({
+        asunto: "Stripe: una suscripción terminó y el negocio sigue cubierto",
+        detalle:
+          `La suscripción ${d.suscripcionStripe} terminó (${veredicto.motivo}) y NO se apagó ` +
+          `nada: el negocio ${dueno.ranchoId ?? dueno.cuentaId ?? "—"} sigue pago por otra vía ` +
+          "—un depósito por SINPE o transferencia vigente, u otra suscripción de Stripe " +
+          "activa (el que cambió de paquete).",
+      });
+      return { hizo: "protegido", motivo: veredicto.motivo };
+    }
+  }
+}
+
+/** Una línea para el correo interno: qué terminó pasando. */
+function describirCorte(corte: EfectoDelCorte): string {
+  switch (corte.hizo) {
+    case "pausado":
+      return `Se pausaron ${corte.programas} programa(s).`;
+    case "reanudado":
+      return `Se reanudaron ${corte.programas} programa(s).`;
+    case "protegido":
+      return "NO se apagó: el negocio paga por fuera de Stripe.";
+    case "no_se_pudo":
+      return "NO se pudo apagar (falta la migración 0146).";
+    default:
+      return "No hubo nada que apagar.";
+  }
 }
 
 /**

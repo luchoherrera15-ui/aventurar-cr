@@ -110,7 +110,15 @@ const PASOS: { titulo: string; texto: string; detalle: string }[] = [
 
 export default function LealtadPage() {
   return (
-    <main className="min-h-svh" style={{ background: NAVY_PROFUNDO, color: "#ffffff" }}>
+    // `data-tema="oscuro"` declara que esta pantalla es oscura a
+    // propósito (ver globals.css). Con eso el navegador pinta lo suyo
+    // —barras de scroll, cursor de texto, el textarea de la demo de
+    // notificaciones— en esquema oscuro y deja de verse pegado encima.
+    <main
+      data-tema="oscuro"
+      className="min-h-svh"
+      style={{ background: NAVY_PROFUNDO, color: "#ffffff" }}
+    >
       <RevealOnScroll />
 
       {/* La landing no tiene header (inmersiva a propósito): esta

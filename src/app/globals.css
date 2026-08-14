@@ -563,6 +563,13 @@
  * modo oscuro forzado de navegadores in-app (WhatsApp, Instagram...):
  * sin esto, el texto oscuro quedaba sobre un fondo que el navegador
  * oscurecía solo, e ilegible.
+ *
+ * OJO: la defensa DE VERDAD contra ese modo oscuro forzado es el
+ * `color-scheme: only light` de acá abajo — le dice al navegador que
+ * esta página no tiene tema oscuro que ofrecer, y con eso alcanza. El
+ * bloque `@media (prefers-color-scheme: dark)` es el cinturón además
+ * de los tirantes, y tiene que quedarse en el LIENZO. Por qué, en el
+ * comentario largo que está sobre la regla.
  */
 :root {
   color-scheme: only light;
@@ -586,13 +593,73 @@
     --grey: #f6f6f6;
     --bg: #ffffff;
   }
+  /* ── SOLO EL LIENZO. NUNCA UN CONTENEDOR. ───────────────────────────
+     Acá decía `html, body, header, main, section`, y ese `!important`
+     hacía invisible TODA la zona de Lealtad —y siete pantallas más— a
+     cualquiera que tenga el sistema operativo en modo oscuro.
+
+     El mecanismo, que conviene entender para no volver a pisarlo:
+
+     En la cascada de CSS, una declaración `!important` de la hoja de
+     estilos gana sobre el atributo `style` en línea (el `style=` solo
+     le gana a lo NORMAL de la hoja, no a lo importante — CSS Cascade
+     nivel 4, orden de origen y prioridad). O sea que esto:
+
+         <main style="background:#0a1226">     ← lo que pide la página
+         main { background-color:#fff !important }  ← lo que ganaba
+
+     terminaba en un `main` BLANCO. Y como todas esas pantallas pintan
+     texto blanco y tarjetas `rgba(255,255,255,.055)` encima —que es lo
+     correcto sobre un fondo navy— el resultado era blanco sobre
+     blanco: la página cargaba entera y no se veía NADA.
+
+     No es un problema de Safari ni de la versión del navegador: Chrome
+     y Safari respetan igual el modo oscuro del sistema, y en una Mac
+     está encendido mucho más seguido que en Windows. De ahí el reporte
+     «desde una Mac no se ve nada» con el mismo commit funcionando en
+     Windows.
+
+     Por qué alcanza con `html, body`: en las páginas claras, `header`,
+     `main` y `section` son transparentes y ya mostraban el blanco del
+     `body` — sacarlos de la lista no cambia un pixel. En las páginas
+     oscuras son justo los elementos que declaran su propio fondo. La
+     regla protege el lienzo, que es lo único que le hacía falta.
+
+     REGLA PARA EL FUTURO: ninguna regla global puede pisar con
+     `!important` el fondo de un contenedor. Una pantalla oscura nueva
+     no debería tener que enterarse de que este bloque existe — y con
+     esta versión, no se entera. Lo que sí puede declarar es
+     `data-tema="oscuro"` (ver abajo), que es opcional y solo acomoda
+     los controles nativos. */
   html,
-  body,
-  header,
-  main,
-  section {
+  body {
     background-color: #fff !important;
   }
+}
+
+/* ── `data-tema="oscuro"`: ESTA ZONA ES OSCURA A PROPÓSITO ───────────
+   El marcador con el que una pantalla declara su intención, en vez de
+   que el resto del sistema tenga que adivinarla a partir del color que
+   trae en línea.
+
+   Hoy hace UNA cosa —`color-scheme: dark`, que le dice al navegador
+   que pinte lo que dibuja él y no la hoja de estilos: las barras de
+   scroll, el cursor de texto, los checkbox, los selectores de fecha y
+   el autocompletado. Sobre un fondo navy, un `<input>` en esquema
+   claro sale con fondo blanco y look de página ajena; con esto queda
+   integrado sin que nadie le ponga colores a mano.
+
+   Y hace una segunda cosa, más importante, que no se ve en el CSS: es
+   el lugar donde buscar cuando haya que tratar distinto a las zonas
+   oscuras. Antes eso se resolvía con una lista de excepciones por
+   etiqueta (`header, main, section`) que se desactualizaba sola y que
+   ya nos costó el producto entero invisible; una zona que se declara
+   es una zona que no hay que recordar.
+
+   Es OPCIONAL: el arreglo de arriba ya no pisa el fondo de nadie, así
+   que una pantalla oscura se ve bien con o sin este atributo. */
+[data-tema="oscuro"] {
+  color-scheme: dark;
 }
 
 /*
@@ -1312,6 +1379,15 @@ body {
 }
 .lealtad-oscuro .border-bookea-azul {
   border-color: rgba(157, 180, 255, 0.5);
+}
+/* El anillo de «esto es lo que elegiste» —las plantillas de color y los
+   iconos del sello— corre la misma suerte que el borde: el azul de
+   marca sobre el navy profundo no se ve, y la opción elegida quedaba
+   sin ninguna marca. Se aclara acá, en el token, y no con un color a
+   mano en el componente: el mismo botón vive en la pantalla clara de
+   /crear y ahí el azul de marca está perfecto. */
+.lealtad-oscuro .ring-bookea-azul {
+  --tw-ring-color: rgba(157, 180, 255, 0.75);
 }
 .lealtad-oscuro .bg-bookea-azul {
   background-color: #26386f;

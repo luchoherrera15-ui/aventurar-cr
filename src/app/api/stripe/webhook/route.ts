@@ -81,11 +81,21 @@ export async function POST(request: Request) {
   }
 
   // Los avisos por correo se van a `after()`: el motor los pide y sigue
-  // sin esperarlos.
+  // sin esperarlos. Van los DOS —el interno al equipo y el que le llega
+  // al dueño del negocio— porque los dos terminan en una llamada a
+  // Resend, que es lo único lento de todo esto.
+  //
+  // Y perder uno no cambia el estado de nada: cuando el correo del
+  // dueño sale, el programa YA quedó pausado (o reanudado) en la base.
+  // Al revés sí sería un problema: bloquear la respuesta a Stripe
+  // mientras se manda un correo hace que Stripe reintente el evento.
   const puerta: Puerta = {
     ...base,
     avisar: async (a) => {
       after(() => base.avisar(a));
+    },
+    avisarAlDueno: async (a) => {
+      after(() => base.avisarAlDueno(a));
     },
   };
 

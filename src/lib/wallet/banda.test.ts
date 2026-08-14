@@ -122,6 +122,49 @@ describe("la banda sale de la fila y llega a la config", () => {
   });
 });
 
+describe("el icono del sello sale de la fila y llega a la config (0145)", () => {
+  it("la columna se lee, igual que la banda y el logo", () => {
+    const f = fila("sellos", { pase_sello_icono: "cafe" });
+    expect(tarjetaDesdeFila(f).config.pase_sello_icono).toBe("cafe");
+  });
+
+  it("la 0145 sin correr: la fila llega sin la columna y el pase sale como hoy", () => {
+    // Es el caso de TODO lo que hay en producción mientras el dueño no
+    // pegue la migración. Sin icono, el sello es el logo de siempre.
+    for (const tipo of TIPOS_TARJETA_ID) {
+      const sinColumna = fila(tipo);
+      expect(tarjetaDesdeFila(sinColumna).config.pase_sello_icono).toBeNull();
+      expect(() => tiraDeLaFila(sinColumna)).not.toThrow();
+    }
+  });
+
+  it("un icono que no está en el catálogo no llega al dibujo", () => {
+    for (const basura of ["pizza", "", "  ", "CAFE", 42, {}, [], true, null]) {
+      expect(tarjetaDesdeFila(fila("sellos", { pase_sello_icono: basura })).config.pase_sello_icono)
+        .toBeNull();
+    }
+  });
+
+  it("una tarjeta que no es de sellos nunca lleva icono", () => {
+    // Aunque la columna traiga uno: cambiar el tipo de la tarjeta no
+    // puede dejar un dibujo colgado esperando círculos que no existen.
+    for (const tipo of SIN_SELLOS) {
+      expect(tarjetaDesdeFila(fila(tipo, { pase_sello_icono: "cafe" })).config.pase_sello_icono)
+        .toBeNull();
+    }
+  });
+
+  it("no le cambia nada al pase de Google", () => {
+    // Android no dibuja la tira: el icono viaja en la config y ahí se
+    // queda. Lo que este test cuida es que no la ROMPA.
+    const conIcono = objetoDeLaFila(fila("sellos", { pase_sello_icono: "cafe" }));
+    const sinIcono = objetoDeLaFila(fila("sellos"));
+    expect(conIcono).toEqual(sinIcono);
+    expect(parcheDeLaFila(fila("sellos", { pase_sello_icono: "cafe" })))
+      .toEqual(parcheDeLaFila(fila("sellos")));
+  });
+});
+
 // ── La matriz: el strip de Apple es UN SOLO archivo ──────────────────
 //
 // En Apple la banda y la tira de sellos NO son dos ranuras: las dos son

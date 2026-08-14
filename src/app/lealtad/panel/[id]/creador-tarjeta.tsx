@@ -8,11 +8,15 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
+import { coloresDePaleta, PALETAS, paletaDeLosColores } from "@/lib/lealtad/paletas";
+import type { IconoSello } from "@/lib/lealtad/iconos-sello";
 import { Icono } from "./iconos";
 import SelectorTipo from "./selector-tipo";
 import PasoBeneficio, { Interruptor } from "./paso-beneficio";
 import SubirImagen from "@/components/subir-imagen";
 import CampoColor from "@/components/campo-color";
+import PlantillasColor from "./plantillas-color";
+import SelectorIconoSello from "./selector-icono-sello";
 import VistaPase from "./vista-pase";
 import { crearTarjeta, type BorradorTarjeta } from "./crear-actions";
 
@@ -104,8 +108,12 @@ export default function CreadorTarjeta({
   const [tipo, setTipo] = useState<TipoTarjeta>("sellos");
   const [beneficio, setBeneficio] = useState<ConfigBeneficio>(configPorDefecto("sellos"));
   const [nombre, setNombre] = useState("");
-  const [colorFondo, setColorFondo] = useState("#062653");
-  const [colorSello, setColorSello] = useState("#FF6A00");
+  // Arranca en la plantilla DEL TIPO, no en el navy de Bookea: es la
+  // paleta que el dueño vio en la página cuando eligió «sellos», y
+  // llegar al paso de diseño con esa ya puesta es la mitad del arreglo.
+  const [colorFondo, setColorFondo] = useState(coloresDePaleta(PALETAS.sellos).fondo);
+  const [colorSello, setColorSello] = useState(coloresDePaleta(PALETAS.sellos).sello);
+  const [iconoSello, setIconoSello] = useState<IconoSello | null>(null);
   const [logoUrl, setLogoUrl] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
   const [reglas, setReglas] = useState<Reglas>(REGLAS_VACIAS);
@@ -116,6 +124,14 @@ export default function CreadorTarjeta({
   function elegirTipo(nuevo: TipoTarjeta) {
     setTipo(nuevo);
     setBeneficio(configPorDefecto(nuevo));
+    // Los colores siguen al tipo SOLO si todavía son los de una
+    // plantilla. Si el dueño ya afinó una rueda, volver atrás a cambiar
+    // el tipo no puede pisarle el color que eligió a mano.
+    if (paletaDeLosColores(colorFondo, colorSello)) {
+      const c = coloresDePaleta(PALETAS[nuevo]);
+      setColorFondo(c.fondo);
+      setColorSello(c.sello);
+    }
     setError(null);
   }
 
@@ -132,6 +148,10 @@ export default function CreadorTarjeta({
       beneficio,
       colorFondo,
       colorSello,
+      // Solo las de sellos llevan icono. El servidor lo vuelve a
+      // comprobar: acá se limpia para no mandar basura, no para
+      // autorizar nada.
+      iconoSello: tipo === "sellos" ? iconoSello : null,
       logoUrl: logoUrl.trim(),
       bannerUrl: bannerUrl.trim(),
       reglas,
@@ -221,10 +241,53 @@ export default function CreadorTarjeta({
                   className={campo}
                 />
               </div>
+              {/* ── Los colores ─────────────────────────────────────
+                  Primero las plantillas, DESPUÉS las ruedas. Las ocho
+                  son las mismas que la página pública muestra tipo por
+                  tipo, y la del tipo elegido viene puesta: el dueño
+                  llega acá y su tarjeta ya se parece a la que vio.
+
+                  Las ruedas no desaparecen —el que tiene los colores de
+                  su marca los quiere tal cual— pero quedan abajo,
+                  porque dos ruedas sueltas producen tarjetas
+                  ilegibles cuando el que elige no es diseñador. */}
+              <div>
+                <span className={etiqueta}>Plantillas</span>
+                <PlantillasColor
+                  colorFondo={colorFondo}
+                  colorSello={colorSello}
+                  alElegir={({ fondo, sello }) => {
+                    setColorFondo(fondo);
+                    setColorSello(sello);
+                  }}
+                />
+                <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+                  Las mismas que ves en la página. Todas se leen bien en el teléfono.
+                </p>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <CampoColor id="c-fondo" etiqueta="Color de fondo" valor={colorFondo} alCambiar={setColorFondo} />
                 <CampoColor id="c-sello" etiqueta="Color del acento" valor={colorSello} alCambiar={setColorSello} />
               </div>
+
+              {/* ── El icono del sello (0145) ───────────────────────
+                  Solo en sellos: es lo único que tiene círculos que
+                  llenar. En una gift card no habría dónde dibujarlo. */}
+              {tipo === "sellos" && (
+                <div>
+                  <span className={etiqueta}>Icono del sello</span>
+                  <SelectorIconoSello
+                    valor={iconoSello}
+                    alElegir={setIconoSello}
+                    colorFondo={colorFondo}
+                    colorSello={colorSello}
+                  />
+                  <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
+                    Se llena cuando el cliente gana el sello y queda en contorno el que le
+                    falta. Con «Mi logo» va tu logo adentro del círculo, como hasta ahora.
+                  </p>
+                </div>
+              )}
               {/* Acá se pedía «Logo (URL https)», o sea que el dueño de
                   una barbería tenía que subir su logo a algún lado,
                   encontrar el link DIRECTO y comprobar que fuera https.
@@ -372,6 +435,7 @@ export default function CreadorTarjeta({
               beneficio,
               colorFondo,
               colorSello,
+              iconoSello,
               logoUrl: logoUrl.trim() || null,
               bannerUrl: bannerUrl.trim() || null,
             }}
@@ -394,8 +458,9 @@ export default function CreadorTarjeta({
                 beneficio,
                 colorFondo,
                 colorSello,
+                iconoSello,
                 logoUrl: logoUrl.trim() || null,
-              bannerUrl: bannerUrl.trim() || null,
+                bannerUrl: bannerUrl.trim() || null,
               }}
             />
             <button
