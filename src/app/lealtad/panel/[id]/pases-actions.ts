@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { verificarAccesoRancho } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
@@ -19,7 +20,27 @@ import { planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { pideRecompensa, puedeCambiarTipo, puedeEditarse } from "@/lib/lealtad/editable";
 import { esColumnaAusente, traducirError, type ErrorBase } from "@/lib/lealtad/errores-base";
+import { avisarCambioDeDiseno } from "@/lib/wallet/aviso-de-diseno";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
+
+/**
+ * AVISARLE A LOS PASES YA INSTALADOS QUE LA TARJETA CAMBIÓ (0150).
+ *
+ * El dueño reportó que ni los sellos ni las ediciones de la tarjeta
+ * llegaban al teléfono. Lo primero ya avisaba (`avisarCambioDePase` en
+ * cada acreditación — ver lealtad-operar-actions.ts y escaner-actions.ts);
+ * esto era lo que faltaba: guardar un color, un icono, la meta de
+ * sellos o las reglas no tocaba un solo pase ya en un Wallet ajeno.
+ *
+ * Va por `after()` a propósito, igual que en el resto del módulo: el
+ * dueño está mirando la pantalla esperando «Guardado», y avisarle a
+ * cada pase instalado es una llamada de red por pase (a Apple o a
+ * Google). `avisarCambioDeDiseno` hace el trabajo pesado por tandas
+ * (aviso-de-diseno.ts) y nunca lanza.
+ */
+function avisarEdicionDeTarjeta(programaId: string): void {
+  after(() => avisarCambioDeDiseno(programaId));
+}
 
 /**
  * La configuración del programa de lealtad y su tarjeta de Wallet
@@ -369,9 +390,17 @@ export async function guardarPrograma(
 
   if (error) return { error: traducir(error, "guardar el programa") };
 
+  // Colores, logo, banda, icono del sello, si se ve el saldo o el
+  // progreso: todo esto es lo que Apple y Google DIBUJAN. Un pase ya
+  // instalado se queda con el diseño viejo hasta que alguien avise.
+  // `avisarEdicionDeTarjeta` no hace nada si `previo` es null (una
+  // tarjeta recién creada no tiene pases todavía que avisar).
+  const programaGuardado = data as ProgramaFila;
+  if (previo) avisarEdicionDeTarjeta(programaGuardado.id);
+
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);
-  return { programa: data as ProgramaFila };
+  return { programa: programaGuardado };
 }
 
 // ── EDITAR LA TARJETA QUE YA EXISTE ────────────────────────────────
@@ -664,6 +693,12 @@ export async function guardarBeneficio(
 
   const fallaMeta = await sincronizarMetaDeSellos(supabase, programaId, datos.beneficio);
   if (fallaMeta) return { error: fallaMeta };
+
+  // El beneficio y las reglas son justo lo que promete la tarjeta: la
+  // meta de sellos, el % del cupón, el valor de la gift card, la
+  // vigencia. Cambiar esto sin avisar deja a un pase ya instalado
+  // mostrando una promesa vieja.
+  avisarEdicionDeTarjeta(programaId);
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/lealtad/panel/${ranchoId}/editar/${programaId}`);

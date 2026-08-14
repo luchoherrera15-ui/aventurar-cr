@@ -133,7 +133,8 @@ export const MAX_POR_CORRIDA = 200;
 /** Cuántos ids de programa entran en un `in (…)`. */
 export const PROGRAMAS_POR_CONSULTA = 50;
 
-type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
+/** El cliente de servicio, exportado: `aviso-de-diseno.ts` firma igual. */
+export type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
 export type ResumenPausa = {
   /** Programas encontrados en pausa. */
@@ -304,8 +305,16 @@ type Recorrido = {
   fallados: Set<string>;
 };
 
-/** Un pase, con lo mínimo para avisarle. */
-type PaseParaAvisar = {
+/**
+ * Un pase, con lo mínimo para avisarle.
+ *
+ * Exportado: `aviso-de-diseno.ts` (0150) recorre la MISMA forma de fila
+ * —id, serial, plataforma, miembro— para un aviso distinto (un cambio
+ * de diseño en vez de una pausa), y la lectura de la fila cruda de
+ * Supabase es idéntica en los dos. Dos estructuras iguales con dos
+ * nombres son el primer paso hacia que se desincronicen.
+ */
+export type PaseParaAvisar = {
   id: string;
   serialNumber: string;
   plataforma: Plataforma;
@@ -383,8 +392,13 @@ async function recorrer(r: Recorrido): Promise<void> {
   }
 }
 
-/** La fila cruda de Supabase → lo que este módulo necesita. */
-function leerPases(filas: unknown[]): PaseParaAvisar[] {
+/**
+ * La fila cruda de Supabase → lo que este módulo necesita.
+ *
+ * Exportada por la misma razón que `PaseParaAvisar`: `aviso-de-diseno.ts`
+ * lee `pases_wallet` con el mismo `select("id, serial_number, plataforma, miembro_id, …")`.
+ */
+export function leerPases(filas: unknown[]): PaseParaAvisar[] {
   const pases: PaseParaAvisar[] = [];
   for (const cruda of filas) {
     if (typeof cruda !== "object" || cruda === null) continue;
@@ -517,8 +531,12 @@ async function devolver(r: Recorrido, fallidos: { id: string; motivo: string }[]
  * `avisarPaseActualizado` abre una sola conexión HTTP/2 y la reusa para
  * todos. Veinticinco conexiones para veinticinco pases sería trabajo
  * regalado.
+ *
+ * Exportada: es el ÚNICO pedazo de este archivo que habla HTTP/2 con
+ * Apple, y `aviso-de-diseno.ts` (0150) necesita exactamente esto — nada
+ * de lo de arriba, que es la lógica de PAUSA — para su propia tanda.
  */
-async function entregarApple(
+export async function entregarApple(
   db: Admin,
   pases: PaseParaAvisar[],
 ): Promise<{ ok: true } | { ok: false; motivo: string }> {

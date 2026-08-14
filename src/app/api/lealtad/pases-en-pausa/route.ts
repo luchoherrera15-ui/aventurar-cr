@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { autorizarCron } from "@/lib/cron-auth";
 import { sincronizarAvisoDePausa } from "@/lib/wallet/aviso-de-pausa";
+import { sincronizarAvisoDeDiseno } from "@/lib/wallet/aviso-de-diseno";
 
 /**
  * EL BARRIDO QUE LE CAMBIA EL TEXTO A LOS PASES YA INSTALADOS.
@@ -26,21 +27,40 @@ import { sincronizarAvisoDePausa } from "@/lib/wallet/aviso-de-pausa";
  * programa pausado y se lo saca a los de un programa que volvió. Si la
  * vuelta no funcionara, el corte sería una trampa.
  *
+ * ------------------------------------------------------------------
+ * DESDE LA 0150 TAMBIÉN BARRE EL DISEÑO PENDIENTE
+ * ------------------------------------------------------------------
+ * Cuando el dueño edita el diseño o las reglas de su tarjeta
+ * (`/lealtad/panel/[id]/editar/[programaId]`), el guardado dispara una
+ * corrida inmediata por `after()` para que su propio pase de prueba se
+ * vea al toque — pero si el programa tiene más pases que una tanda, lo
+ * que sobra queda con `pases_wallet.diseno_pendiente = true` esperando.
+ * Es EL MISMO problema de volumen que la pausa (una llamada de red por
+ * pase) y por eso se resuelve con el mismo cron en vez de uno aparte:
+ * misma cadencia, mismo secreto, un archivo menos que revisar.
+ *
  * Responde 200 aunque no haya podido hacer nada (sin certificados de
- * Apple, sin llaves de Google, sin la migración 0147): el motivo viaja
- * en `nota` y en los logs. Un cron que devuelve error cada diez minutos
- * por una variable que falta se vuelve ruido que nadie mira.
+ * Apple, sin llaves de Google, sin la migración 0147/0150): el motivo
+ * viaja en `nota` y en los logs. Un cron que devuelve error cada diez
+ * minutos por una variable que falta se vuelve ruido que nadie mira.
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Habla con Apple y con Google en serie, con pausas entre tandas.
+// Habla con Apple y con Google en serie DENTRO de cada corrida, con
+// pausas entre tandas — pero las dos corridas (pausa y diseño, desde la
+// 0150) van en PARALELO con `Promise.all`: son conexiones y tablas
+// independientes, y cada una es como mucho ~200 pases en tandas de 25
+// con 1,5s entre tandas (~12s de espera), lejos del techo de 60s.
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const noAutorizado = autorizarCron(request);
   if (noAutorizado) return noAutorizado;
 
-  const resumen = await sincronizarAvisoDePausa();
-  return NextResponse.json(resumen);
+  const [pausa, diseno] = await Promise.all([
+    sincronizarAvisoDePausa(),
+    sincronizarAvisoDeDiseno(),
+  ]);
+  return NextResponse.json({ pausa, diseno });
 }
