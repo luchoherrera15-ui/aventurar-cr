@@ -5,10 +5,20 @@ import { revalidatePath } from "next/cache";
 import { verificarAccesoRancho } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
-import { esTipoTarjeta, TIPOS_TARJETA } from "@/lib/lealtad/tipos-tarjeta";
+import {
+  esTipoTarjeta,
+  metaDe,
+  tipoDe,
+  TIPOS_TARJETA,
+  validarBeneficio,
+  type ConfigBeneficio,
+  type TipoTarjeta,
+} from "@/lib/lealtad/tipos-tarjeta";
 import { esIconoSello, iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import { planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+import { pideRecompensa, puedeCambiarTipo, puedeEditarse } from "@/lib/lealtad/editable";
+import { esColumnaAusente, traducirError, type ErrorBase } from "@/lib/lealtad/errores-base";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 
 /**
@@ -130,18 +140,18 @@ async function guard(ranchoId: string) {
   return { supabase, ok };
 }
 
-function faltaLaTabla(mensaje: string) {
-  if (!/programa_lealtad|recompensas/.test(mensaje)) return false;
-  return (
-    mensaje.includes("does not exist") ||
-    mensaje.includes("schema cache") ||
-    mensaje.includes("Could not find")
-  );
-}
-
-function traducir(mensaje: string, accion: string) {
-  if (faltaLaTabla(mensaje)) return "Faltan migraciones de lealtad en Supabase (0060/0121/0122).";
-  return `No se pudo ${accion}: ${mensaje}`;
+/**
+ * Cómo se lee un error de la base, y cuándo se degrada.
+ *
+ * La clasificación vive en `src/lib/lealtad/errores-base.ts` para poder
+ * probarla sin Supabase. Acá se usa, y el motivo por el que se sacó de
+ * este archivo está escrito allá: distinguir «esa columna no existe»
+ * de «ese valor viola un CHECK» era la diferencia entre reintentar sin
+ * las columnas nuevas —correcto— y tirar a la basura la banda, el
+ * icono y los textos del dueño para después decirle «Guardado».
+ */
+function traducir(error: ErrorBase, accion: string) {
+  return traducirError(error, accion);
 }
 
 function validarPrograma(datos: ProgramaInput) {
@@ -326,31 +336,343 @@ export async function guardarPrograma(
   let { data, error } = await guardarCon(fila);
 
   // Base sin la 0132 (o sin la 0145): se reintenta con lo que la 0122
-  // sí tiene. El
-  // negocio pierde el diseño nuevo hasta que la migración corra, pero
-  // no pierde el poder cambiar un color — que es lo que pasaba si esto
-  // se dejaba reventar. Va ANTES de `traducir`, porque el mensaje de
-  // PostgREST para una columna que falta ("Could not find …") cae en
-  // `faltaLaTabla` y se traduciría a un consejo equivocado.
-  if (
-    error &&
-    [
-      "pase_banner_url",
-      "pase_sello_icono",
-      "pase_codigo_formato",
-      "pase_texto_reverso",
-      "pase_mostrar_saldo",
-      "pase_mostrar_progreso",
-    ].some((c) => error!.message.includes(c))
-  ) {
+  // sí tiene. El negocio pierde el diseño nuevo hasta que la migración
+  // corra, pero no pierde el poder cambiar un color — que es lo que
+  // pasaba si esto se dejaba reventar.
+  //
+  // ------------------------------------------------------------------
+  // POR QUÉ SE PREGUNTA POR EL CÓDIGO Y NO POR EL TEXTO
+  // ------------------------------------------------------------------
+  // Esto miraba si el mensaje MENCIONABA alguna de estas columnas. Y
+  // los CHECK que las cuidan llevan el nombre de la columna adentro
+  // (`programa_lealtad_pase_sello_icono_check`), así que un valor
+  // RECHAZADO por la base entraba por acá: se reintentaba sin la banda,
+  // sin el icono y sin los textos, el reintento pasaba, y la pantalla
+  // contestaba «Guardado» después de descartar en silencio lo que el
+  // dueño acababa de elegir.
+  //
+  // `esColumnaAusente` separa las dos cosas por el CÓDIGO del error
+  // (PGRST204/42703 = falta la columna; 23514 = CHECK violado), que es
+  // lo único que no se confunde. Un CHECK violado ya no degrada: cae
+  // abajo, en `traducir`, y sale en español diciendo qué corregir.
+  const COLUMNAS_NUEVAS = [
+    "pase_banner_url",
+    "pase_sello_icono",
+    "pase_codigo_formato",
+    "pase_texto_reverso",
+    "pase_mostrar_saldo",
+    "pase_mostrar_progreso",
+  ];
+  if (error && esColumnaAusente(error, COLUMNAS_NUEVAS)) {
     ({ data, error } = await guardarCon(base));
   }
 
-  if (error) return { error: traducir(error.message, "guardar el programa") };
+  if (error) return { error: traducir(error, "guardar el programa") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);
   return { programa: data as ProgramaFila };
+}
+
+// ── EDITAR LA TARJETA QUE YA EXISTE ────────────────────────────────
+//
+// El asistente promete «podés cambiar todo después». Hasta acá era
+// mentira: `guardarPrograma` escribe el diseño y las reglas de puntos,
+// pero NUNCA escribió `beneficio` ni una sola columna de la 0136. O
+// sea que la meta de sellos, el porcentaje del cupón, el valor de la
+// gift card, la fecha del evento, los vencimientos, los días y horas
+// permitidas y los topes de canje se elegían UNA vez, en el asistente,
+// y eran para siempre.
+//
+// Esta es la puerta que faltaba. Escribe lo mismo que escribe el
+// creador (`crear-actions.ts`) y con las mismas validaciones —las de
+// `validarBeneficio`, que es la función compartida— más un candado que
+// el creador no necesita: el TIPO no se cambia con gente adentro.
+
+export type ReglasTarjeta = {
+  desde: string;
+  hasta: string;
+  usoUnico: boolean;
+  maxPorCliente: number | null;
+  maxGlobal: number | null;
+  /** 0 = domingo. Vacío = todos los días. */
+  dias: number[];
+  horaDesde: string;
+  horaHasta: string;
+};
+
+export type EdicionTarjeta = {
+  nombre: string;
+  tipo: TipoTarjeta;
+  beneficio: ConfigBeneficio;
+  reglas: ReglasTarjeta;
+};
+
+/**
+ * Los dos números de la 0060 que lee el motor de puntos, DERIVADOS del
+ * beneficio y no pedidos aparte: dos campos para lo mismo se separan
+ * el día que alguien cambia uno.
+ *
+ * El cashback merece su línea. El creador le pone `puntos_por_colon: 0`
+ * a todo lo que no es «puntos», así que una tarjeta de cashback del 5%
+ * se llamaba cashback y no devolvía un cinco: el motor no tenía de
+ * dónde sacar el porcentaje. Un 5% ES 0.05 puntos por colón, que es
+ * exactamente lo que ese motor sabe hacer.
+ */
+function puntosDelBeneficio(
+  b: ConfigBeneficio,
+  previo: { visita: number; colon: number },
+  cambiaElTipo: boolean,
+): { visita: number; colon: number } {
+  if (b.tipo === "puntos") return { visita: b.porVisita, colon: b.porMoneda };
+  if (b.tipo === "cashback") return { visita: 0, colon: b.porcentaje / 100 };
+
+  // Los otros seis NO llevan la tasa adentro de su config. El creador
+  // les pone 1 por visita y ya, pero una tarjeta de sellos puede estar
+  // dando 2 —se configura desde el panel de Bookea— y pisarle un 1 al
+  // guardar el beneficio sería cambiarle la regla al negocio sin que
+  // nadie lo pida. Se conserva lo que la fila ya tenía.
+  //
+  // Salvo que el TIPO haya cambiado: ahí lo de antes describía otra
+  // clase de tarjeta (un 0.05 por colón de cashback no significa nada
+  // en un cupón) y se arranca con lo de fábrica.
+  if (cambiaElTipo) return { visita: 1, colon: 0 };
+  const sirve = previo.visita > 0 || previo.colon > 0;
+  return sirve ? previo : { visita: 1, colon: 0 };
+}
+
+/**
+ * La META de una tarjeta de sellos vive en la RECOMPENSA, no en el
+ * jsonb: el pase real la saca de la recompensa activa más barata
+ * (`metaDeSellos` en wallet/tarjeta.ts). Por eso cambiar «Café gratis a
+ * los 10» por «Corte gratis a los 8» tiene que mover las dos cosas — si
+ * solo se guardara el jsonb, el dueño vería el 8 en el panel y el
+ * cliente seguiría viendo «5 de 10» en el teléfono.
+ *
+ * Solo sellos. En los otros siete tipos las recompensas son del dueño y
+ * se editan en su propia sección: pisarle el nombre de una regalía con
+ * un texto genérico sería peor que no sincronizar nada.
+ *
+ * Si falla, el resto ya se guardó: se devuelve el motivo para poder
+ * decirlo, no para deshacer lo que sí quedó bien.
+ */
+async function sincronizarMetaDeSellos(
+  supabase: Awaited<ReturnType<typeof guard>>["supabase"],
+  programaId: string,
+  beneficio: ConfigBeneficio,
+): Promise<string | null> {
+  if (beneficio.tipo !== "sellos") return null;
+  const meta = metaDe(beneficio);
+  const nombre = beneficio.recompensa.trim();
+  if (meta === null || !nombre) return null;
+
+  const costo = Math.max(1, Math.round(meta));
+
+  const { data: actuales } = await supabase
+    .from("recompensas")
+    .select("id")
+    .eq("programa_id", programaId)
+    .eq("activo", true)
+    .order("costo_puntos", { ascending: true })
+    .limit(1);
+
+  const vigente = (actuales ?? [])[0] as { id: string } | undefined;
+
+  const { error } = vigente
+    ? await supabase
+        .from("recompensas")
+        .update({ nombre, costo_puntos: costo })
+        .eq("id", vigente.id)
+        .eq("programa_id", programaId)
+    : await supabase
+        .from("recompensas")
+        .insert({ programa_id: programaId, nombre, costo_puntos: costo, activo: true });
+
+  return error ? traducir(error, "guardar la regalía") : null;
+}
+
+/** Las recompensas del programa, como las quiere la pantalla. */
+async function recompensasDe(
+  supabase: Awaited<ReturnType<typeof guard>>["supabase"],
+  programaId: string,
+): Promise<RecompensaFila[]> {
+  const { data } = await supabase
+    .from("recompensas")
+    .select("*")
+    .eq("programa_id", programaId)
+    .order("costo_puntos", { ascending: true });
+  return (data ?? []) as RecompensaFila[];
+}
+
+/**
+ * Guarda el beneficio, las reglas y (si se puede) el tipo.
+ *
+ * Lo que NO se puede se dice ANTES en la pantalla y se vuelve a
+ * comprobar acá con el mismo criterio (`src/lib/lealtad/editable.ts`):
+ * dos criterios distintos son un candado que se abre por un lado.
+ */
+export async function guardarBeneficio(
+  ranchoId: string,
+  programaId: string,
+  datos: EdicionTarjeta,
+): Promise<{ error?: string; programa?: ProgramaFila; recompensas?: RecompensaFila[] }> {
+  const { supabase, ok } = await guard(ranchoId);
+  if (!ok) return { error: "Solo el dueño del negocio edita la tarjeta." };
+
+  const nombre = datos.nombre.trim();
+  if (!nombre || nombre.length > 80) {
+    return { error: "El nombre es obligatorio (máximo 80 caracteres)." };
+  }
+  if (!esTipoTarjeta(datos.tipo)) return { error: "Ese tipo de tarjeta no existe." };
+
+  // El beneficio tiene que ser DEL tipo que se está guardando. Sin este
+  // control se podría dejar una tarjeta de sellos con la config de una
+  // gift card: el pase se dibujaría de una forma y el canje se
+  // resolvería de otra. (Mismo par que valida el creador; `descuento`
+  // comparte forma con `cupon`.)
+  const esperado: string = datos.tipo === "descuento" ? "descuento" : datos.tipo;
+  if (datos.beneficio?.tipo !== esperado) {
+    return { error: "La configuración no corresponde a ese tipo de tarjeta." };
+  }
+  const invalido = validarBeneficio(datos.beneficio);
+  if (invalido) return { error: invalido };
+
+  const { desde, hasta } = datos.reglas;
+  if (desde && hasta && hasta < desde) {
+    return { error: "La fecha de vencimiento no puede ser anterior a la de inicio." };
+  }
+
+  // La tarjeta tiene que ser de ESTE negocio: el id viene del
+  // navegador y eso no autoriza nada. `select *` porque las columnas de
+  // la 0135/0136 pueden no existir todavía.
+  const { data: fila0 } = await supabase
+    .from("programa_lealtad")
+    .select("*")
+    .eq("id", programaId)
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+  const previo = (fila0 ?? null) as ProgramaFila | null;
+  if (!previo) return { error: "Esa tarjeta no es de este negocio." };
+
+  const { estadoDelPrograma } = await import("@/lib/lealtad/reglas");
+  const estado = estadoDelPrograma({ estado: previo.estado ?? null, activo: previo.activo });
+
+  // Cuánta gente hay adentro. Es el dato del que cuelga el candado del
+  // tipo, y lo cuenta el SERVIDOR: el navegador podría mandar cero.
+  const { count } = await supabase
+    .from("miembros")
+    .select("*", { count: "exact", head: true })
+    .eq("programa_id", programaId);
+  const miembros = count ?? 0;
+
+  const situacion = { miembros, estado, tipo: tipoDe(previo.modo) };
+
+  const editable = puedeEditarse(situacion);
+  if (!editable.puede) return { error: editable.motivo };
+
+  const cambiaElTipo = tipoDe(previo.modo) !== datos.tipo;
+  if (cambiaElTipo) {
+    const cambio = puedeCambiarTipo(situacion);
+    if (!cambio.puede) return { error: cambio.motivo };
+
+    // Y el paquete, igual que en el creador y que en `guardarPrograma`:
+    // sin esto, una cuenta de Prueba armaba su tarjeta de sellos y le
+    // cambiaba el tipo a «evento» desde acá.
+    const admin = createAdminClient();
+    if (admin) {
+      const { data: rancho } = await admin
+        .from("ranchos")
+        .select("plan_lealtad")
+        .eq("id", ranchoId)
+        .maybeSingle();
+      const { data: cuenta } = await admin
+        .from("cuentas")
+        .select("id")
+        .eq("rancho_id", ranchoId)
+        .maybeSingle();
+      const { plan } = await contextoDeCuenta(
+        admin,
+        cuenta?.id ? { cuenta_id: cuenta.id as string } : {},
+        { planRancho: (rancho?.plan_lealtad as string | null) ?? null },
+      );
+      if (!planIncluyeTipo(plan, datos.tipo)) {
+        const abre = planQueDesbloquea(datos.tipo);
+        const nombreTipo = TIPOS_TARJETA[datos.tipo].nombre.toLowerCase();
+        return {
+          error: abre
+            ? `Las tarjetas de ${nombreTipo} vienen con el paquete ${abre.nombre}. Subí de paquete para cambiarla.`
+            : `Tu paquete no incluye las tarjetas de ${nombreTipo}.`,
+        };
+      }
+    }
+  }
+
+  const puntos = puntosDelBeneficio(
+    datos.beneficio,
+    { visita: previo.puntos_por_visita, colon: Number(previo.puntos_por_colon) },
+    cambiaElTipo,
+  );
+  const base = {
+    nombre,
+    modo: datos.tipo,
+    puntos_por_visita: puntos.visita,
+    puntos_por_colon: puntos.colon,
+  };
+  const fila = {
+    ...base,
+    beneficio: datos.beneficio,
+    // Las reglas van en columnas y no en el jsonb porque las lee el
+    // motor que autoriza un canje: una regla que decide si algo procede
+    // no puede vivir donde nadie la valida.
+    vigente_desde: desde || null,
+    vigente_hasta: hasta || null,
+    uso_unico: datos.reglas.usoUnico,
+    max_por_cliente: datos.reglas.maxPorCliente,
+    max_global: datos.reglas.maxGlobal,
+    dias_permitidos: datos.reglas.dias.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6),
+    hora_desde: datos.reglas.horaDesde || null,
+    hora_hasta: datos.reglas.horaHasta || null,
+  };
+
+  const guardarCon = (f: Record<string, unknown>) =>
+    supabase.from("programa_lealtad").update(f).eq("id", programaId).select("*").single();
+
+  let { data, error } = await guardarCon(fila);
+
+  // Base sin la 0135/0136: se guarda al menos el nombre, el tipo y los
+  // puntos. Por CÓDIGO y no por texto — los CHECK de esas migraciones
+  // llevan el nombre de la columna adentro, y degradar por un valor
+  // rechazado sería tirar el beneficio y contestar «Guardado».
+  if (
+    error &&
+    esColumnaAusente(error, [
+      "beneficio",
+      "vigente_desde",
+      "vigente_hasta",
+      "uso_unico",
+      "max_por_cliente",
+      "max_global",
+      "dias_permitidos",
+      "hora_desde",
+      "hora_hasta",
+    ])
+  ) {
+    ({ data, error } = await guardarCon(base));
+  }
+
+  if (error) return { error: traducir(error, "guardar la tarjeta") };
+
+  const fallaMeta = await sincronizarMetaDeSellos(supabase, programaId, datos.beneficio);
+  if (fallaMeta) return { error: fallaMeta };
+
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
+  revalidatePath(`/lealtad/panel/${ranchoId}/editar/${programaId}`);
+  revalidatePath(`/admin/lealtad/${ranchoId}`);
+  // Las recompensas vuelven con la fila porque el guardado pudo mover
+  // la meta: sin esto, la pestaña de regalías seguiría mostrando «Café
+  // gratis a los 10» un segundo después de que el dueño lo cambió a
+  // «Corte gratis a los 8».
+  return { programa: data as ProgramaFila, recompensas: await recompensasDe(supabase, programaId) };
 }
 
 /**
@@ -528,12 +850,13 @@ export async function guardarRecompensa(
   let { data, error } = await guardarCon(fila);
 
   // Base sin la 0125: se reintenta con las columnas de la 0060 nada
-  // más, para que la recompensa básica se pueda seguir editando.
+  // más, para que la recompensa básica se pueda seguir editando. Igual
+  // que arriba: por CÓDIGO y no por texto, porque `recompensas_detalle_check`
+  // menciona `tipo` y un descuento del 150% se estaba guardando «bien»
+  // con el tipo tirado a la basura.
   if (
     error &&
-    ["tipo", "stock_total", "limite_por_cliente", "sku", "instrucciones"].some((c) =>
-      error!.message.includes(c),
-    )
+    esColumnaAusente(error, ["tipo", "stock_total", "limite_por_cliente", "sku", "instrucciones"])
   ) {
     ({ data, error } = await guardarCon({
       nombre: fila.nombre,
@@ -543,7 +866,7 @@ export async function guardarRecompensa(
     }));
   }
 
-  if (error) return { error: traducir(error.message, "guardar la recompensa") };
+  if (error) return { error: traducir(error, "guardar la recompensa") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);
@@ -572,7 +895,7 @@ export async function eliminarRecompensa(
     .eq("id", recompensaId)
     .eq("programa_id", programaId);
 
-  if (error) return { error: traducir(error.message, "eliminar la recompensa") };
+  if (error) return { error: traducir(error, "eliminar la recompensa") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);
@@ -648,6 +971,14 @@ export async function cambiarEstadoPrograma(
       puntos_por_visita: p.puntos_por_visita,
       puntos_por_colon: Number(p.puntos_por_colon),
       recompensasActivas: (recompensas ?? []).length,
+      // ── PAUSAR YA NO ES IRREVERSIBLE ──────────────────────────────
+      // La recompensa solo se le pide a quien la usa: sellos y puntos.
+      // Un cupón, un descuento, una membresía, un evento o un cashback
+      // nunca nacen con una sembrada —su beneficio va adentro de la
+      // tarjeta— así que exigírsela dejaba a esos cinco tipos pausados
+      // PARA SIEMPRE, con un mensaje («agregá una recompensa activa»)
+      // que el dueño no tenía cómo obedecer.
+      pideRecompensa: pideRecompensa(tipoDe(p.modo)),
     });
     if (!veredicto.puede) return { error: veredicto.motivo };
   }
@@ -659,8 +990,11 @@ export async function cambiarEstadoPrograma(
     .select("*")
     .single();
 
-  // Base sin la 0125: al menos el booleano viejo queda coherente.
-  if (error && error.message.includes("estado")) {
+  // Base sin la 0125: al menos el booleano viejo queda coherente. Por
+  // CÓDIGO y no por texto: `programa_lealtad_estado_check` lleva la
+  // palabra «estado» adentro, así que un estado inválido se guardaba
+  // como un cambio de `activo` a secas y la pantalla lo daba por bueno.
+  if (error && esColumnaAusente(error, ["estado"])) {
     ({ data, error } = await supabase
       .from("programa_lealtad")
       .update({ activo: estadoNuevo === "activo" })
@@ -669,7 +1003,7 @@ export async function cambiarEstadoPrograma(
       .single());
   }
 
-  if (error) return { error: traducir(error.message, "cambiar el estado") };
+  if (error) return { error: traducir(error, "cambiar el estado") };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);

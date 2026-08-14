@@ -96,8 +96,32 @@ type ContextoPrograma = {
   ocupado: boolean;
   guardar: () => void;
   agregarRecompensa: (datos: RecompensaInput) => void;
+  /**
+   * CORREGIR una recompensa que ya existe.
+   *
+   * Faltaba, y con ella faltaba media promesa del producto: el dueño
+   * podía agregar «Corte gratis a los 8» y borrar «Café gratis a los
+   * 10», pero no cambiar el 10 por un 8 — o sea que para subir un
+   * precio había que borrar la regalía y volverla a escribir. La server
+   * action ya sabía hacerlo (`guardarRecompensa` acepta un id); lo que
+   * no existía era quién se lo pidiera.
+   */
+  editarRecompensa: (id: string, datos: RecompensaInput) => void;
   borrarRecompensa: (id: string) => void;
   cambiarEstado: (estado: string) => void;
+  /**
+   * Re-sincroniza la fila después de que OTRA pantalla la guardó.
+   *
+   * El editor por tarjeta guarda el beneficio, las reglas y a veces el
+   * tipo con su propia acción. Sin esto, el borrador compartido seguiría
+   * con el nombre y el modo viejos, y el siguiente «Guardar» del diseño
+   * revertiría lo que se acababa de guardar — exactamente el bug que
+   * este contexto existe para evitar.
+   *
+   * Se mezcla en vez de re-sembrar entero: lo que el dueño esté
+   * escribiendo en el editor del diseño no se pierde.
+   */
+  sincronizarPrograma: (fila: ProgramaFila, recompensas?: RecompensaFila[]) => void;
 };
 
 const Contexto = createContext<ContextoPrograma | null>(null);
@@ -189,6 +213,39 @@ export function ProveedorPrograma({
     });
   }
 
+  function editarRecompensa(id: string, datos: RecompensaInput) {
+    if (!programa) return;
+    setError(null);
+    iniciar(async () => {
+      const res = await guardarRecompensa(ranchoId, programa.id, datos, id);
+      if (res.error) setError(res.error);
+      else if (res.recompensa) {
+        setRecompensas((prev) =>
+          prev
+            .map((r) => (r.id === id ? res.recompensa! : r))
+            .sort((a, b) => a.costo_puntos - b.costo_puntos),
+        );
+      }
+    });
+  }
+
+  function sincronizarPrograma(fila: ProgramaFila, lista?: RecompensaFila[]) {
+    setPrograma(fila);
+    // Guardar el beneficio de una tarjeta de sellos MUEVE la recompensa
+    // que hace de meta. Si la lista no se refrescara, la pestaña de
+    // regalías seguiría mostrando la vieja hasta recargar la página.
+    if (lista) setRecompensas([...lista].sort((a, b) => a.costo_puntos - b.costo_puntos));
+    setBorrador((prev) => ({
+      ...prev,
+      nombre: fila.nombre,
+      modo: fila.modo ?? prev.modo,
+      // El icono pasa por el filtro compartido: si el tipo dejó de ser
+      // «sellos», no quedan círculos donde dibujarlo y el icono se cae
+      // solo en vez de viajar colgado hasta el próximo guardado.
+      iconoSello: iconoDelSello({ tipo: fila.modo, icono: prev.iconoSello }),
+    }));
+  }
+
   function borrarRecompensa(id: string) {
     if (!programa) return;
     setError(null);
@@ -224,8 +281,10 @@ export function ProveedorPrograma({
         ocupado,
         guardar,
         agregarRecompensa,
+        editarRecompensa,
         borrarRecompensa,
         cambiarEstado,
+        sincronizarPrograma,
       }}
     >
       {children}

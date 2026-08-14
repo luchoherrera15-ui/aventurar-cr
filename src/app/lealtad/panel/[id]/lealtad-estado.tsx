@@ -1,6 +1,11 @@
 import { estadoDelLimite } from "@/lib/lealtad/planes";
+import { verificarAccesoLealtad } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { pideMontoElTipo } from "@/lib/lealtad/mostrador";
 import { cargarLealtad } from "./datos-lealtad";
 import Kpi from "./kpi";
+import { ListaClientes, type ClienteEnLista } from "./atencion-manual";
 
 /**
  * El estado del programa: cuánta gente hay, quién está por ganarse algo
@@ -11,6 +16,21 @@ import Kpi from "./kpi";
  * el tablero de Inicio muestra los mismos números, y con la consulta
  * adentro de este componente el mismo render traía dos veces los
  * miembros, el ledger y los pases del negocio.
+ *
+ * ------------------------------------------------------------------
+ * LA LISTA DEJÓ DE SER UN CUADRO Y PASÓ A SER UN MOSTRADOR
+ * ------------------------------------------------------------------
+ * Era de SOLO LECTURA: se veía quién podía canjear y no había forma de
+ * canjearle. Junto con un modo mostrador que solo escaneaba, eso
+ * significaba que el cliente sin teléfono no se podía atender de
+ * NINGUNA manera.
+ *
+ * Ahora cada renglón trae sus botones (<ListaClientes>). El negocio, el
+ * permiso y la recompensa se DERIVAN acá del `programaId` en vez de
+ * pedírselos a quien monta el componente: así la sección Clientes queda
+ * completa sin que ninguna otra pantalla tenga que cambiar, y el
+ * permiso lo resuelve el servidor —nunca el navegador— igual que en el
+ * resto del módulo.
  */
 export default async function LealtadEstado({
 
@@ -40,6 +60,61 @@ export default async function LealtadEstado({
 
   const { fichas, resumen } = datos;
   const limite = estadoDelLimite(plan, "clientesActivos", resumen.miembros);
+
+  // ── De qué negocio es esta tarjeta, y quién está mirando ────────
+  // La llave de servicio: un colaborador no puede leer por RLS un
+  // programa pausado, y esta sección la ve también él.
+  const db = createAdminClient();
+  const { data: programa } = db
+    ? await db
+        .from("programa_lealtad")
+        .select("rancho_id, modo")
+        .eq("id", programaId)
+        .maybeSingle()
+    : { data: null };
+
+  const ranchoId = (programa?.rancho_id as string | undefined) ?? null;
+  const tipo = tipoDe((programa?.modo as string | null) ?? null);
+
+  const acceso = ranchoId ? await verificarAccesoLealtad(ranchoId) : null;
+  const permisos = {
+    acreditar: !!acceso?.ok && acceso.permisos.acreditar,
+    canjear: !!acceso?.ok && acceso.permisos.canjear,
+    revertir: !!acceso?.ok && acceso.permisos.revertir,
+  };
+
+  // La recompensa que se entrega desde acá es la MISMA que ofrece el
+  // escáner: la activa más barata (0121). Un segundo criterio haría que
+  // el mostrador y esta lista entregaran cosas distintas.
+  const { data: premios } = db
+    ? await db
+        .from("recompensas")
+        .select("id, nombre, costo_puntos")
+        .eq("programa_id", programaId)
+        .eq("activo", true)
+        .order("costo_puntos", { ascending: true })
+        .limit(1)
+    : { data: [] };
+  const premio = ((premios ?? []) as { id: string; nombre: string; costo_puntos: number }[])[0];
+  const recompensa = premio
+    ? { id: premio.id, nombre: premio.nombre, costo: premio.costo_puntos }
+    : null;
+
+  // El monto solo se pide donde CAMBIA lo que se otorga. En una tarjeta
+  // de sellos o en un cupón es una pregunta sin consecuencia que el
+  // empleado tiene que ignorar con un cliente enfrente.
+  const pideMonto = pideMontoElTipo(tipo);
+
+  // Al navegador va lo justo: `FichaMiembro` trae `clienteId`, que es
+  // el id de auth de la persona y no hace falta para dar un sello.
+  const clientes: ClienteEnLista[] = fichas.slice(0, 50).map((f) => ({
+    miembroId: f.miembroId,
+    nombre: f.nombre,
+    saldo: f.saldo,
+    estado: f.estado,
+    conPase: f.conPase,
+    diasSinVenir: f.diasSinVenir,
+  }));
 
   return (
     <div className="space-y-4">
@@ -88,60 +163,24 @@ export default async function LealtadEstado({
           Nadie se ha afiliado todavía. El cliente se afilia solo al agregar su tarjeta al
           Wallet desde tu página.
         </p>
+      ) : !ranchoId ? (
+        // Sin negocio resuelto no se puede autorizar nada, así que no se
+        // ofrece: un botón que siempre va a fallar es peor que no tenerlo.
+        <p className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
+          No se pudo leer el negocio de esta tarjeta. Recargá la página.
+        </p>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
-          {fichas.slice(0, 50).map((f, i) => (
-            <div
-              key={f.miembroId}
-              className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${
-                i > 0 ? "border-t border-aventurea-line" : ""
-              } ${f.puedeCanjear ? "bg-aventurea-green-light/40" : ""}`}
-            >
-              {/* En móvil el nombre toma su propia línea: compitiendo
-                  con el saldo, el chip y la fecha quedaba en ~60px y se
-                  leía «Mar…» — el dato más importante de la fila. */}
-              <span className="w-full min-w-0 truncate text-[13.5px] font-bold text-aventurea-ink sm:w-auto sm:flex-1">
-                {f.nombre}
-                {f.conPase && (
-                  <span className="ml-2 rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
-                    en Wallet
-                  </span>
-                )}
-              </span>
-
-              <span className="text-[12.5px] font-bold text-aventurea-ink">
-                {meta === null ? `${f.saldo} pts` : `${f.saldo} de ${meta}`}
-              </span>
-
-              <span
-                className={`text-[12px] ${
-                  f.puedeCanjear ? "font-bold text-aventurea-green" : "text-aventurea-ink-soft"
-                }`}
-              >
-                {f.puedeCanjear
-                  ? "puede canjear"
-                  : f.faltan !== null
-                    ? `faltan ${f.faltan}`
-                    : ""}
-              </span>
-
-              <span className="text-[12px] text-aventurea-ink-soft">
-                {f.diasSinVenir === null
-                  ? "recién afiliado"
-                  : f.diasSinVenir === 0
-                    ? "vino hoy"
-                    : `hace ${f.diasSinVenir} día${f.diasSinVenir === 1 ? "" : "s"}`}
-              </span>
-            </div>
-          ))}
-          {fichas.length > 50 && (
-            <p className="border-t border-aventurea-line px-4 py-2.5 text-[12px] text-aventurea-ink-soft">
-              Se muestran los 50 con más saldo, de {fichas.length}.
-            </p>
-          )}
-        </div>
+        <ListaClientes
+          ranchoId={ranchoId}
+          clientes={clientes}
+          total={fichas.length}
+          tipo={tipo}
+          meta={meta}
+          recompensa={recompensa}
+          permisos={permisos}
+          pideMonto={pideMonto}
+        />
       )}
     </div>
   );
 }
-

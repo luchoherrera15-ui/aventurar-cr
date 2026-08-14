@@ -8,14 +8,18 @@ import { definicionDe, planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { esIconoSello, iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import { minutoISOCR } from "@/lib/fechas";
+import { hoyISOCR, minutoISOCR } from "@/lib/fechas";
+import { acumulacionDe, recompensaInicial, traducirErrorDeBase } from "@/lib/lealtad/mostrador";
+import { esColumnaAusente } from "@/lib/lealtad/errores-base";
+import { elegirPrograma, resumenDeFila } from "@/lib/wallet/programa-principal";
 import { estadoAlCrear } from "./estado-inicial";
 import { cupoLleno, lasQueOcupanCupo, tarjetaDelCupo } from "./cupo-tarjetas";
 import {
   esTipoTarjeta,
-  metaDe,
+  leerBeneficio,
   validarBeneficio,
   TIPOS_TARJETA,
+  tipoDe,
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
@@ -79,6 +83,30 @@ export type BorradorTarjeta = {
 type Resultado = { ok: true; programaId: string } | { ok: false; motivo: string };
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
+
+/**
+ * Las columnas que la tarjeta puede perder si la base va atrás.
+ *
+ * Es la lista EXACTA de lo que el reintento de abajo deja de escribir:
+ * pedir más de lo que se degrada haría que un `PGRST204` de otra
+ * columna disparara un reintento que guarda de menos.
+ */
+const COLUMNAS_DEGRADABLES = [
+  "beneficio",
+  "cuenta_id",
+  "estado",
+  "pase_banner_url",
+  "pase_sello_icono",
+  "compra_minima",
+  "vigente_desde",
+  "vigente_hasta",
+  "uso_unico",
+  "max_por_cliente",
+  "max_global",
+  "dias_permitidos",
+  "hora_desde",
+  "hora_hasta",
+] as const;
 
 export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   // ── 1. Quién ────────────────────────────────────────────────────
@@ -224,12 +252,23 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
       const nombres = existentes
         .map((p) => `«${p.nombre}»${p.estado === "borrador" ? " (en borrador)" : ""}`)
         .join(", ");
+      // EL CAMINO QUE ESTE MENSAJE MANDA A HACER TIENE QUE EXISTIR.
+      // Decía «Archivá una desde Recompensas → Estado del programa», y
+      // ese camino ya no existe: cada tarjeta se abre desde «Tarjetas» y
+      // se archiva desde su propia sección Estado. Un aviso que manda a
+      // una pantalla que no está deja al dueño sin salida — con el cupo
+      // lleno y sin forma de liberarlo.
+      //
+      // La frase es la MISMA que pinta el aviso de tope en la lista
+      // (`seccion-programas.tsx`): dos textos distintos para el mismo
+      // trámite mandan a dos lugares y uno de los dos siempre está viejo.
       return {
         ok: false,
         motivo:
           `Tu paquete permite ${topeProgramas} tarjeta${topeProgramas === 1 ? "" : "s"} y ya ` +
           `tenés ${nombres}. ` +
-          `Archivá una desde Recompensas → Estado del programa, o subí de paquete para tener más.`,
+          `Abrí desde Tarjetas la que ya no usás y archivala desde Estado —el cupo se libera ` +
+          `al instante—, o subí de paquete para tener más.`,
       };
     }
   }
@@ -254,6 +293,8 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   //
   // La cautela de «que nadie publique sin mirarla dos veces» ya la
   // cumple el paso de Revisar. Un botón que promete publicar, publica.
+  const acumula = acumulacionDe(datos.beneficio);
+
   const fila: Record<string, unknown> = {
     rancho_id: datos.ranchoId,
     nombre,
@@ -265,11 +306,25 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     pase_logo_url: logo || null,
     pase_banner_url: banner || null,
     ...estadoAlCrear(),
-    // El motor de puntos sigue leyendo estas dos columnas (0060). Se
-    // derivan del beneficio en vez de pedirlas aparte: dos números
-    // para lo mismo se separan en cuanto alguien cambia uno.
-    puntos_por_visita: datos.beneficio.tipo === "puntos" ? datos.beneficio.porVisita : 1,
-    puntos_por_colon: datos.beneficio.tipo === "puntos" ? datos.beneficio.porMoneda : 0,
+    // ── LO QUE LA TARJETA ACUMULA ───────────────────────────────
+    // El motor (`acreditar_lealtad`, 0125) calcula
+    // `puntos_por_visita + floor(puntos_por_colon × monto)` y NO mira
+    // el jsonb del beneficio: estas dos columnas son lo ÚNICO que
+    // decide cuánto recibe el cliente.
+    //
+    // Acá decía `tipo === "puntos" ? ... : 1` y `: 0`. O sea que una
+    // tarjeta creada como «Cashback 5%» —que el asistente le confirma
+    // al dueño como «5% de vuelta»— acreditaba 1 punto por visita y 0%
+    // de la compra: el cliente no recibía su devolución NUNCA. Y una
+    // gift card de ₡10.000 sumaba 1 por visita, o sea diez mil visitas
+    // para llenarla.
+    //
+    // La derivación vive en `acumulacionDe` (mostrador.ts) y la comparte
+    // con el editor: dos derivaciones para las mismas dos columnas se
+    // separan el día que alguien toca una.
+    puntos_por_visita: acumula.porVisita,
+    puntos_por_colon: acumula.porColon,
+    compra_minima: acumula.compraMinima,
     // Las reglas (0136). Van en columnas y no en el jsonb del
     // beneficio porque las lee el motor que autoriza un canje: una
     // regla que decide si algo procede no puede vivir donde nadie la
@@ -292,18 +347,35 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     .single();
 
   if (error) {
-    // La 0134 agrega `cuenta_id`, la 0135 `beneficio`, la 0136 las
-    // reglas y la 0145 el icono del sello. Si todavía no se corrieron,
-    // se reintenta sin ellas para que el creador siga sirviendo — el
-    // programa queda con lo que la base sí sabe guardar, y el resto
-    // entra cuando la migración corra. Sin la 0145, la tarjeta se crea
-    // igual y el sello sale como hasta hoy: con el logo adentro.
-    const faltaColumna =
-      /beneficio|cuenta_id|estado|vigente_|uso_unico|max_por_cliente|max_global|dias_permitidos|hora_|pase_sello_icono/.test(
-        error.message,
-      );
+    // La 0125 agrega `compra_minima`, la 0134 `cuenta_id`, la 0135
+    // `beneficio`, la 0136 las reglas y la 0145 el icono del sello. Si
+    // todavía no se corrieron, se reintenta sin ellas para que el
+    // creador siga sirviendo — el programa queda con lo que la base sí
+    // sabe guardar, y el resto entra cuando la migración corra. Sin la
+    // 0145, la tarjeta se crea igual y el sello sale como hasta hoy:
+    // con el logo adentro.
+    //
+    // ── SE DECIDE POR CÓDIGO, NO POR EL TEXTO ────────────────────
+    // Acá había un regex sobre `error.message` con los nombres de las
+    // columnas. Desde la 0132/0145 esos nombres también aparecen en los
+    // nombres de los CHECK que las cuidan
+    // (`programa_lealtad_pase_sello_icono_check`), así que un valor
+    // RECHAZADO por un CHECK se leía como «esa columna no existe», se
+    // reintentaba sin ella, el reintento entraba… y la tarjeta nacía
+    // sin la banda, sin el icono y sin las reglas que el dueño acababa
+    // de elegir, diciéndole que se había creado bien.
+    //
+    // `esColumnaAusente` (errores-base.ts) mira el CÓDIGO: PGRST204 y
+    // 42703 son «no existe la columna»; 23514 es «existe y el valor no
+    // pasa su CHECK», y ese NUNCA se degrada.
+    const faltaColumna = esColumnaAusente(error, COLUMNAS_DEGRADABLES);
     if (!faltaColumna) {
-      return { ok: false, motivo: "No se pudo crear la tarjeta: " + error.message };
+      // El texto de Postgres («null value in column "x" violates
+      // not-null constraint») no está escrito para el dueño de una
+      // barbería. `traducirErrorDeBase` deja pasar NUESTROS mensajes
+      // —los `raise exception` de las 0129/0146/0148, que sí están
+      // escritos para él— y registra el resto en el servidor.
+      return { ok: false, motivo: traducirErrorDeBase(error, "crear la tarjeta") };
     }
     const { data: reintento, error: error2 } = await db
       .from("programa_lealtad")
@@ -322,49 +394,178 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
       })
       .select("id")
       .single();
-    if (error2) return { ok: false, motivo: "No se pudo crear la tarjeta: " + error2.message };
-    await sembrarRecompensa(db, reintento.id as string, datos);
+    if (error2) return { ok: false, motivo: traducirErrorDeBase(error2, "crear la tarjeta") };
+    await sembrarRecompensa(db, reintento.id as string, datos.beneficio);
     revalidatePath(`/lealtad/panel/${datos.ranchoId}`);
     return { ok: true, programaId: reintento.id as string };
   }
 
-  await sembrarRecompensa(db, data.id as string, datos);
+  await sembrarRecompensa(db, data.id as string, datos.beneficio);
   revalidatePath(`/lealtad/panel/${datos.ranchoId}`);
   return { ok: true, programaId: data.id as string };
 }
 
 /**
- * La recompensa que hace de META de la tarjeta.
+ * LA RECOMPENSA CON LA QUE NACE LA TARJETA — los OCHO tipos, no tres.
  *
- * La meta de un pase de sellos («5 de 10») sale de la recompensa
- * activa más barata (0121) y NO de una columna propia. Por eso una
- * tarjeta acumulativa nace con su recompensa creada: sin ella el pase
- * mostraría el saldo pelado y no prometería nada.
+ * La meta de un pase («5 de 10») sale de la recompensa activa más
+ * barata (0121) y NO de una columna propia. Y el botón de canje del
+ * mostrador tampoco se puede dibujar sin una fila en `recompensas`:
+ * `meta` llega null y no hay nada que ofrecer.
+ *
+ * ------------------------------------------------------------------
+ * LO QUE ESTABA ROTO
+ * ------------------------------------------------------------------
+ * Acá vivía un `metaDe(beneficio); if (meta === null) return;`. `metaDe`
+ * solo responde para sellos, puntos y gift card, así que las tarjetas
+ * de CUPÓN, DESCUENTO, MEMBRESÍA, EVENTO y CASHBACK —cinco de los
+ * ocho— nacían sin nada canjeable. Escanear un cupón de un solo uso le
+ * acreditaba 1 punto, cada vez, y la pantalla decía «¡Sello sumado!».
+ *
+ * Qué significa canjear en cada tipo se decide en un solo lugar
+ * (`recompensaInicial`, src/lib/lealtad/mostrador.ts) y está probado
+ * caso por caso; acá solo se guarda lo que esa función resuelve.
  *
  * Si falla, la tarjeta igual quedó creada: el dueño puede agregar la
- * recompensa a mano desde el panel. Perder el programa entero por esto
- * sería peor.
+ * recompensa a mano desde Recompensas, o tocar «Configurar el
+ * beneficio» en el mostrador. Perder el programa entero por esto sería
+ * peor.
  */
 async function sembrarRecompensa(
   db: NonNullable<ReturnType<typeof createAdminClient>>,
   programaId: string,
-  datos: BorradorTarjeta,
+  beneficio: ConfigBeneficio,
 ) {
-  const meta = metaDe(datos.beneficio);
-  if (meta === null) return;
+  const receta = recompensaInicial(beneficio);
+  if (!receta) return;
 
-  const nombre =
-    datos.beneficio.tipo === "sellos"
-      ? datos.beneficio.recompensa.trim()
-      : datos.beneficio.tipo === "giftcard"
-        ? "Saldo de regalo"
-        : "Tu regalía";
-  if (!nombre) return;
+  // La vigencia de una membresía se cuenta desde HOY en hora de Costa
+  // Rica: con UTC, una tarjeta creada a las 7 de la noche nacería
+  // vigente desde mañana.
+  const vence =
+    receta.vigenciaMeses === null ? null : sumarMesesISO(hoyISOCR(), receta.vigenciaMeses);
 
+  const fila: Record<string, unknown> = {
+    programa_id: programaId,
+    nombre: receta.nombre,
+    costo_puntos: receta.costo,
+    activo: true,
+    tipo: receta.tipo,
+    valor: receta.valor,
+    instrucciones: receta.instrucciones,
+    limite_por_cliente: receta.limitePorCliente,
+    stock_total: receta.stockTotal,
+    vigencia_hasta: vence,
+  };
+
+  const { error } = await db.from("recompensas").insert(fila);
+  if (!error) return;
+
+  // Las columnas ricas son de la 0125. Sin ella, la recompensa entra
+  // igual con lo que la base sí sabe guardar: mejor una tarjeta
+  // canjeable sin instrucciones que una que no se puede canjear.
+  console.warn("[lealtad] recompensa con detalle rechazada, se reintenta simple:", error.message);
   await db.from("recompensas").insert({
     programa_id: programaId,
-    nombre,
-    costo_puntos: Math.max(1, Math.round(meta)),
+    nombre: receta.nombre,
+    costo_puntos: receta.costo,
     activo: true,
   });
+}
+
+/** Suma meses a un "YYYY-MM-DD" sin pasar por zonas horarias. */
+function sumarMesesISO(iso: string, meses: number): string {
+  const [a, m, d] = iso.split("-").map(Number);
+  // Día 0 del mes siguiente = último día del mes destino: así el 31 de
+  // enero + 1 mes da el 28/29 de febrero y no el 3 de marzo.
+  const ultimo = new Date(Date.UTC(a, m - 1 + meses + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(a, m - 1 + meses, Math.min(d, ultimo)))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/**
+ * REPARAR una tarjeta que nació sin nada canjeable.
+ *
+ * Las tarjetas de los cinco tipos que `sembrarRecompensa` se saltaba ya
+ * están creadas en producción y siguen sin recompensa: arreglar el
+ * sembrado no las alcanza hacia atrás. Esto las alcanza.
+ *
+ * Se llama desde el mostrador, que es donde el problema se nota (no
+ * aparece el botón de canje), y NO hace nada si la tarjeta ya tiene una
+ * recompensa activa: no es un botón que reescriba lo que el dueño
+ * configuró, es uno que llena lo que quedó vacío.
+ *
+ * Solo el dueño: crear el premio de la tarjeta es configuración, no
+ * operación de mostrador.
+ */
+export async function sembrarBeneficioFaltante(
+  ranchoId: string,
+): Promise<{ ok: true; nombre: string } | { ok: false; motivo: string }> {
+  const { user, ok } = await verificarAccesoRancho(ranchoId);
+  if (!user) redirect("/lealtad/login");
+  if (!ok) {
+    return {
+      ok: false,
+      motivo: "Esto lo configura el dueño del negocio — pedíselo y en un minuto queda.",
+    };
+  }
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  // LA MISMA tarjeta que el panel y el pase: `elegirPrograma`. Con un
+  // criterio propio acá se le sembraría el premio a una tarjeta y el
+  // mostrador seguiría mirando la otra.
+  const { data: filas } = await db
+    .from("programa_lealtad")
+    .select("*")
+    .eq("rancho_id", ranchoId);
+  const todas = (filas ?? []) as Record<string, unknown>[];
+  const elegida = elegirPrograma(todas.map(resumenDeFila), minutoISOCR());
+  const fila = elegida ? (todas.find((f) => f.id === elegida.id) ?? null) : null;
+  if (!fila) return { ok: false, motivo: "Este negocio todavía no tiene ninguna tarjeta." };
+  const programaId = fila.id as string;
+
+  const { data: yaHay } = await db
+    .from("recompensas")
+    .select("id")
+    .eq("programa_id", programaId)
+    .eq("activo", true)
+    .limit(1);
+  if ((yaHay ?? []).length > 0) {
+    return { ok: false, motivo: "Esta tarjeta ya tiene su premio configurado." };
+  }
+
+  const beneficio = leerBeneficio(fila.beneficio, tipoDe(fila.modo as string | null));
+  if (!beneficio) {
+    return {
+      ok: false,
+      motivo:
+        "Esta tarjeta no guardó la configuración de su beneficio. Armá el premio a mano en Recompensas.",
+    };
+  }
+
+  const receta = recompensaInicial(beneficio);
+  if (!receta) {
+    return {
+      ok: false,
+      motivo: "Falta decir qué se gana con esta tarjeta. Completalo en Recompensas.",
+    };
+  }
+
+  await sembrarRecompensa(db, programaId, beneficio);
+
+  const { data: quedo } = await db
+    .from("recompensas")
+    .select("id")
+    .eq("programa_id", programaId)
+    .eq("activo", true)
+    .limit(1);
+  if (!(quedo ?? []).length) {
+    return { ok: false, motivo: "No se pudo crear el premio. Probá desde Recompensas." };
+  }
+
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
+  return { ok: true, nombre: receta.nombre };
 }

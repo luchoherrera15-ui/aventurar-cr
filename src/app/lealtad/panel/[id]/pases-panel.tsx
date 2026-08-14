@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 import type { ProgramaFila, RecompensaFila, TipoRecompensa } from "./pases-actions";
 import { estadoDelPrograma } from "@/lib/lealtad/reglas";
+import { TIPOS_TARJETA, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
 import {
   AvisoError,
   AvisoGuardado,
@@ -143,19 +144,11 @@ export default function PasesPanel({
 
 // ── Las dos secciones del panel del negocio ───────────────────────
 
-/** Cómo se gana, qué se gana y en qué estado está el programa. */
-export function SeccionRecompensas() {
-  return (
-    <div className="space-y-5">
-      <AvisoError />
-      <AvisoGuardado />
-      <BloqueComoSeGana />
-      <BloqueQueSeGana />
-      <BloqueEstado />
-      <BarraGuardar />
-    </div>
-  );
-}
+// Acá vivía `SeccionRecompensas`, el montaje que el panel del negocio
+// usaba para su sección homónima. Ya no: esa sección la arma
+// `editor-recompensas.tsx`, que conoce los ocho tipos y sabe EDITAR una
+// regalía en vez de solo agregar y borrar. Este archivo quedó para lo
+// que siempre fue, la pantalla única del panel de Bookea.
 
 // ── Los bloques ───────────────────────────────────────────────────
 
@@ -172,7 +165,18 @@ function EscanerDelPanel() {
 
 function BloqueComoSeGana() {
   const { borrador, cambiar } = usePrograma();
-  const modoActual = MODOS.find((m) => m.id === borrador.modo)!;
+  // ── LOS OTROS CINCO TIPOS NO SE TOCAN DESDE ACÁ ────────────────────
+  // `MODOS` son tres y `ModoPrograma` son ocho desde la 0135. Esto era
+  // un `.find(...)!` que con un cupón, un descuento, una membresía, un
+  // evento o una gift card devolvía `undefined` y reventaba la pantalla
+  // entera con un TypeError al leer `.ayuda`.
+  //
+  // Y ofrecer los tres botones tampoco servía: tocar cualquiera le
+  // cambiaría el TIPO a una tarjeta que ya tiene gente adentro, que es
+  // exactamente lo que el candado de `editable.ts` existe para impedir.
+  // Se muestra el tipo y se manda a la pantalla que sabe editarlo.
+  const modoActual = MODOS.find((m) => m.id === borrador.modo) ?? null;
+  const tipo = TIPOS_TARJETA[tipoDe(borrador.modo)];
 
   return (
     <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
@@ -180,23 +184,37 @@ function BloqueComoSeGana() {
 
       <div className="mt-4">
         <label className={labelCls}>Modo de la tarjeta</label>
-        <div className="flex flex-wrap gap-2">
-          {MODOS.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => cambiar({ modo: m.id })}
-              className={`rounded-xl border px-3 py-2 text-[12.5px] font-bold ${
-                borrador.modo === m.id
-                  ? "border-aventurea-navy bg-aventurea-navy text-white"
-                  : "border-aventurea-line bg-white text-aventurea-ink-soft"
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <p className={ayudaCls}>{modoActual.ayuda}</p>
+        {modoActual ? (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {MODOS.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => cambiar({ modo: m.id })}
+                  className={`rounded-xl border px-3 py-2 text-[12.5px] font-bold ${
+                    borrador.modo === m.id
+                      ? "border-aventurea-navy bg-aventurea-navy text-white"
+                      : "border-aventurea-line bg-white text-aventurea-ink-soft"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <p className={ayudaCls}>{modoActual.ayuda}</p>
+          </>
+        ) : (
+          <>
+            <p className="rounded-xl border border-aventurea-line bg-white px-3 py-2.5 text-[13px] font-bold text-aventurea-ink">
+              {tipo.nombre}
+            </p>
+            <p className={ayudaCls}>
+              {tipo.descripcion} Su beneficio y sus reglas se editan desde la pantalla de la
+              tarjeta, en el panel del negocio.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

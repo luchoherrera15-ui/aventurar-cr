@@ -7,6 +7,7 @@ import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
 import { llaveDeCanje } from "@/lib/lealtad/canje";
+import { traducirErrorDeBase, traducirMotivo } from "@/lib/lealtad/mostrador";
 import { minutoISOCR } from "@/lib/fechas";
 import type { PermisoLealtad } from "@/lib/lealtad/permisos";
 
@@ -40,7 +41,12 @@ async function guardYMiembro(
   miembroId: string,
   permiso: PermisoLealtad,
 ): Promise<
-  | { ok: true; db: NonNullable<ReturnType<typeof createAdminClient>>; usuarioId: string }
+  | {
+      ok: true;
+      db: NonNullable<ReturnType<typeof createAdminClient>>;
+      usuarioId: string;
+      programaId: string;
+    }
   | { ok: false; motivo: string }
 > {
   const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
@@ -68,7 +74,10 @@ async function guardYMiembro(
     return { ok: false, motivo: "Esa membresía es de otro negocio." };
   }
 
-  return { ok: true, db, usuarioId: user.id };
+  // El programa sale de acá y no se vuelve a consultar: quien recibe
+  // esto ya sabe a qué tarjeta pertenece el miembro, que es lo que hace
+  // falta para comprobar que la recompensa también sea de ella.
+  return { ok: true, db, usuarioId: user.id, programaId: miembro.programa_id as string };
 }
 
 /**
@@ -114,11 +123,11 @@ export async function acreditarOperacion(
     p_motivo: monto === null ? "Sello por visita" : "Compra",
   });
 
-  if (error) return { ok: false, motivo: traducirRpc(error.message) };
+  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "dar el sello") };
 
   const r = data as { otorgado: boolean; puntos?: number; saldo?: number; motivo?: string };
   if (!r.otorgado && r.motivo !== "ya-otorgado") {
-    return { ok: false, motivo: r.motivo ?? "No se pudo acreditar." };
+    return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo dar el sello.") };
   }
 
   // El aviso al teléfono nunca frena la operación (los puntos ya
@@ -151,6 +160,28 @@ export async function canjearRecompensa(
 > {
   const g = await guardYMiembro(ranchoId, miembroId, "canjear");
   if (!g.ok) return g;
+
+  // ── LA RECOMPENSA TAMBIÉN TIENE QUE SER DE ESTA TARJETA ─────────
+  // `recompensaId` llega del navegador, o sea de fuera, y de acá para
+  // abajo todo corre con la LLAVE DE SERVICIO: sin este filtro se
+  // leían y se anotaban filas de la recompensa de otro negocio.
+  //
+  // El débito real ya lo frenaba la base —el RPC compara
+  // `v_rec.programa_id <> v_miembro.programa_id` (0125:461)— así que
+  // esto no era plata que se fuera. Lo que faltaba era la capa de
+  // afuera: `revisarReglas` leía el costo de una recompensa ajena y
+  // `anotarIntento` escribía su id en la auditoría de este negocio.
+  //
+  // MISMO MENSAJE para «no existe» y «es de otro negocio», igual que el
+  // RPC: no se delata qué recompensas existen fuera de acá.
+  const { data: duena } = await g.db
+    .from("recompensas")
+    .select("programa_id")
+    .eq("id", recompensaId)
+    .maybeSingle();
+  if (!duena || duena.programa_id !== g.programaId) {
+    return { ok: false, motivo: "Ese premio no es de esta tarjeta." };
+  }
 
   // ── Las reglas de la tarjeta (0136), ANTES del RPC ──────────────
   // El RPC de la 0125 revalida saldo, stock y límites bajo lock, pero
@@ -211,7 +242,7 @@ export async function canjearRecompensa(
       aprobado: false,
       motivo: "error_rpc",
     });
-    return { ok: false, motivo: traducirRpc(error.message) };
+    return { ok: false, motivo: traducirErrorDeBase(error, "entregar el premio") };
   }
 
   const r = data as {
@@ -238,7 +269,12 @@ export async function canjearRecompensa(
     motivo: r.ok ? null : (r.motivo ?? "rechazado"),
   });
 
-  if (!r.ok) return { ok: false, motivo: r.motivo ?? "No se pudo canjear." };
+  // ── «ya-canjeado» NO SE LEE EN VOZ ALTA ─────────────────────────
+  // Acá salía `r.motivo` tal cual, y el segundo toque del botón hacía
+  // que el empleado leyera «ya-canjeado» delante del cliente. El RPC
+  // devuelve frases en español para casi todo, pero ese motivo (y
+  // `ya-otorgado` del otro RPC) son códigos de máquina.
+  if (!r.ok) return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo entregar el premio.") };
 
   // Tras el canje sale el evento para el POS. En modo manual queda
   // 'pendiente' hasta que el personal lo marque; si algún día hay un
@@ -312,9 +348,9 @@ export async function revertirMovimiento(
     p_motivo: limpio,
   });
 
-  if (error) return { ok: false, motivo: traducirRpc(error.message) };
+  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "revertir el movimiento") };
   const r = data as { ok: boolean; motivo?: string; saldo?: number };
-  if (!r.ok) return { ok: false, motivo: r.motivo ?? "No se pudo revertir." };
+  if (!r.ok) return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo revertir.") };
 
   after(() => avisarCambioDePase(miembroId));
   revalidatePath(`/lealtad/panel/${ranchoId}`);
@@ -340,7 +376,9 @@ export async function cambiarEstadoMiembro(
   if (!g.ok) return g;
 
   const { error } = await g.db.from("miembros").update({ estado }).eq("id", miembroId);
-  if (error) return { ok: false, motivo: "No se pudo cambiar: " + error.message };
+  if (error) {
+    return { ok: false, motivo: traducirErrorDeBase(error, "cambiar el estado del cliente") };
+  }
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { ok: true };
@@ -373,19 +411,143 @@ export async function marcarCanjeEnPos(
     .select("id")
     .maybeSingle();
 
-  if (error) return { ok: false, motivo: "No se pudo marcar: " + error.message };
+  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "marcarlo en la caja") };
   if (!data) return { ok: false, motivo: "Ese canje ya estaba marcado (o no existe)." };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { ok: true };
 }
 
-/** Los errores de RPC que merecen mensaje propio. */
-function traducirRpc(mensaje: string) {
-  if (/acreditar_lealtad|canjear_recompensa|revertir_movimiento/.test(mensaje)) {
-    return "Falta correr la migración 0125 en Supabase.";
+// ── ATENDER A MANO: el cliente sin teléfono ───────────────────────
+
+export type MiembroAtendible = {
+  miembroId: string;
+  nombre: string;
+  saldo: number;
+  estado: string;
+  conPase: boolean;
+};
+
+/**
+ * Buscar a un cliente por nombre para atenderlo SIN escanear.
+ *
+ * ------------------------------------------------------------------
+ * POR QUÉ EXISTE
+ * ------------------------------------------------------------------
+ * El modo mostrador era el escáner y nada más, y la lista de Clientes
+ * era de solo lectura. O sea: el cliente que llega sin smartphone, o
+ * con el teléfono descargado, o con la tarjeta todavía sin agregar al
+ * Wallet, hoy NO SE PODÍA ATENDER — se le decía «volvé con la tarjeta».
+ *
+ * `acreditarOperacion` ya estaba escrita, con su llave de idempotencia
+ * y sus permisos, y no la llamaba nadie. Esto es su puerta.
+ *
+ * ------------------------------------------------------------------
+ * QUÉ SE DEVUELVE Y QUÉ NO
+ * ------------------------------------------------------------------
+ * Solo el nombre y el saldo, y solo de ESTE negocio. Ni correo, ni
+ * teléfono, ni `cliente_id`: para dar un sello no hace falta nada de
+ * eso, y lo que no se manda al navegador no se puede filtrar.
+ *
+ * Exige el permiso `acreditar`: quien no puede dar sellos tampoco
+ * necesita la lista de clientes del negocio en su teléfono.
+ */
+export async function buscarClientesDelPrograma(
+  ranchoId: string,
+  texto: string,
+): Promise<Resultado<{ clientes: MiembroAtendible[] }>> {
+  const busqueda = texto.trim();
+  if (busqueda.length < 2) {
+    return { ok: false, motivo: "Escribí al menos dos letras del nombre." };
   }
-  return "No se pudo completar: " + mensaje;
+
+  const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
+  if (!user) redirect("/lealtad/login");
+  if (!ok) return { ok: false, motivo: "No tenés acceso a este negocio." };
+  if (!permisos.acreditar) return { ok: false, motivo: SIN_PERMISO.acreditar };
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  // Los programas del negocio primero: el filtro por tenencia va en la
+  // consulta, no después. Así ningún nombre de otro negocio llega a
+  // materializarse en memoria.
+  const { data: programas } = await db
+    .from("programa_lealtad")
+    .select("id")
+    .eq("rancho_id", ranchoId);
+  const idsProgramas = ((programas ?? []) as { id: string }[]).map((p) => p.id);
+  if (!idsProgramas.length) return { ok: true, clientes: [] };
+
+  const { data: miembros, error } = await db
+    .from("miembros")
+    .select("id, cliente_id, estado")
+    .in("programa_id", idsProgramas);
+  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "buscar al cliente") };
+
+  const filas = (miembros ?? []) as { id: string; cliente_id: string | null; estado: string }[];
+  const idsClientes = filas.map((m) => m.cliente_id).filter(Boolean) as string[];
+  if (!idsClientes.length) return { ok: true, clientes: [] };
+
+  // El nombre sale de `perfiles` y NUNCA de la metadata del cliente
+  // (que el propio cliente puede escribir).
+  //
+  // El filtro por texto se hace ACÁ y no con `ilike` en la consulta por
+  // dos razones: `ilike` metería los `%` y `_` que el empleado teclee
+  // dentro del patrón, y sobre todo `ilike` NO ignora las tildes — en un
+  // mostrador nadie escribe «Hernández» con tilde, y «hernandez` no
+  // encontraría a nadie. Es la misma cantidad de filas que ya trae el
+  // tablero del panel (datos-lealtad.ts) para el mismo negocio.
+  const { data: perfiles } = await db
+    .from("perfiles")
+    .select("id, nombre")
+    .in("id", idsClientes);
+
+  const aguja = normalizar(busqueda);
+  const nombres = new Map(
+    ((perfiles ?? []) as { id: string; nombre: string | null }[])
+      .filter((p) => normalizar(p.nombre ?? "").includes(aguja))
+      .map((p) => [p.id, (p.nombre ?? "").trim() || "Cliente"]),
+  );
+  if (!nombres.size) return { ok: true, clientes: [] };
+
+  const candidatos = filas.filter((m) => m.cliente_id && nombres.has(m.cliente_id)).slice(0, 20);
+  const idsMiembros = candidatos.map((m) => m.id);
+
+  const [{ data: tx }, { data: pases }] = await Promise.all([
+    db.from("transacciones_puntos").select("miembro_id, puntos").in("miembro_id", idsMiembros),
+    db.from("pases_wallet").select("miembro_id").in("miembro_id", idsMiembros),
+  ]);
+
+  // El saldo SIEMPRE se suma del ledger, nunca se lee de un contador:
+  // es el mismo criterio que el resto del módulo (tablero.ts, motor.ts).
+  const saldos = new Map<string, number>();
+  for (const t of (tx ?? []) as { miembro_id: string; puntos: number }[]) {
+    saldos.set(t.miembro_id, (saldos.get(t.miembro_id) ?? 0) + t.puntos);
+  }
+  const conPase = new Set(((pases ?? []) as { miembro_id: string }[]).map((p) => p.miembro_id));
+
+  return {
+    ok: true,
+    clientes: candidatos
+      .map((m) => ({
+        miembroId: m.id,
+        nombre: nombres.get(m.cliente_id as string) ?? "Cliente",
+        saldo: saldos.get(m.id) ?? 0,
+        estado: m.estado,
+        conPase: conPase.has(m.id),
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+  };
+}
+
+/** Sin tildes y en minúscula: en un mostrador nadie escribe «Hernández». */
+function normalizar(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 /**

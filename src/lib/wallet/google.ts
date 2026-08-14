@@ -16,6 +16,13 @@ import {
 import { estadoVisible } from "@/lib/lealtad/programas";
 import { resumenDeFila } from "./programa-principal";
 import {
+  buscarMiembroDelPase,
+  filaDeAfiliacion,
+  type CodigoFalloPase,
+  type IdentidadDelPase,
+  type MiembroDelPase,
+} from "./identidad";
+import {
   tipoDe,
   TIPOS_HEREDADOS,
   TIPOS_TARJETA,
@@ -441,33 +448,46 @@ async function asegurarRecurso(
 
 // ── Lo que usa el resto de la app ─────────────────────────────────────
 
-export type ResultadoPaseGoogle = { ok: true; url: string } | { ok: false; motivo: string };
+export type ResultadoPaseGoogle =
+  | { ok: true; url: string }
+  | { ok: false; codigo: CodigoFalloPase; motivo: string };
 
 /**
  * Genera (o refresca) el pase de Google de un cliente y devuelve el
  * link "Guardar en Google Wallet". Espejo de generarPaseDeLealtad:
  * auto-afilia al bajarlo, serial estable, y la identidad la verificó
- * quien llama con la sesión.
+ * quien llama —con la sesión de Bookea o con la cookie de la persona
+ * (0138), porque desde el alta por QR hay tarjeta sin cuenta.
  */
 export async function generarPaseGoogle({
   ranchoId,
   clienteId,
-}: {
-  ranchoId: string;
-  clienteId: string;
-}): Promise<ResultadoPaseGoogle> {
+  personaId,
+}: IdentidadDelPase & { ranchoId: string }): Promise<ResultadoPaseGoogle> {
+  if (!personaId && !clienteId) {
+    return { ok: false, codigo: "sin_identidad", motivo: "No sabemos de quién es esta tarjeta." };
+  }
+
   const cred = credencialesGoogleDelEntorno();
-  if (!cred) return { ok: false, motivo: "Google Wallet no está configurado en este servidor." };
+  if (!cred) {
+    return {
+      ok: false,
+      codigo: "sin_credenciales",
+      motivo: "Google Wallet no está configurado en este servidor.",
+    };
+  }
 
   const db = createAdminClient();
-  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+  if (!db) return { ok: false, codigo: "sin_conexion", motivo: "No hay conexión de servicio." };
 
   const { data: negocio } = await db
     .from("ranchos")
     .select("id, nombre, plan_lealtad")
     .eq("id", ranchoId)
     .maybeSingle();
-  if (!negocio) return { ok: false, motivo: "Ese negocio no existe." };
+  if (!negocio) {
+    return { ok: false, codigo: "negocio_desconocido", motivo: "Ese negocio no existe." };
+  }
 
   // `select *`, igual que en Apple (generar.ts): desde la 0134 el
   // programa cuelga de una CUENTA, y pedir `cuenta_id` explícitamente
@@ -487,7 +507,11 @@ export async function generarPaseGoogle({
     minutoISOCR(),
   );
   if (!programaFila) {
-    return { ok: false, motivo: "Este negocio todavía no tiene programa de lealtad." };
+    return {
+      ok: false,
+      codigo: "sin_programa",
+      motivo: "Este negocio todavía no tiene programa de lealtad.",
+    };
   }
   const programaId = programaFila.id as string;
   // Apariencia y beneficio de la fila, con el MISMO lector que Apple
@@ -496,12 +520,13 @@ export async function generarPaseGoogle({
   const { config, beneficio } = tarjetaDesdeFila(programaFila);
 
   // Afiliación implícita, igual que en Apple: pedir la tarjeta ES unirse.
-  let { data: miembro } = await db
-    .from("miembros")
-    .select("id, estado")
-    .eq("programa_id", programaId)
-    .eq("cliente_id", clienteId)
-    .maybeSingle();
+  //
+  // Y la búsqueda por PERSONA primero, igual que en Apple: quien se
+  // afilió por el póster tiene `cliente_id` en null y buscándolo por
+  // cuenta no aparecía nunca. `buscarMiembroDelPase` es el mismo de
+  // `generar.ts` — el bloque estaba copiado literal en los dos archivos
+  // y por eso los dos tenían el mismo bug del cupo (0142).
+  let miembro = await buscarMiembroDelPase(db, programaId, { personaId, clienteId });
   if (!miembro) {
     // El tope del plan se cumple igual que en Apple (generar.ts): la
     // afiliación NUEVA se frena cuando el negocio está lleno, y el plan
@@ -523,6 +548,7 @@ export async function generarPaseGoogle({
       if (usadas >= limite) {
         return {
           ok: false,
+          codigo: "lleno",
           motivo:
             "El programa de este negocio está lleno por ahora — preguntá en el local.",
         };
@@ -531,26 +557,36 @@ export async function generarPaseGoogle({
 
     const { data: nuevo, error } = await db
       .from("miembros")
-      .insert({ programa_id: programaId, cliente_id: clienteId, estado: "activa" })
-      .select("id, estado")
+      .insert(filaDeAfiliacion(programaId, { personaId, clienteId }))
+      .select("id, estado, cliente_id")
       .single();
-    if (error) return { ok: false, motivo: "No se pudo afiliar: " + error.message };
-    miembro = nuevo;
+    if (error) {
+      return { ok: false, codigo: "error", motivo: "No se pudo afiliar: " + error.message };
+    }
+    miembro = nuevo as MiembroDelPase;
   }
-  if (miembro!.estado === "cancelada") return { ok: false, motivo: "Esta membresía está cancelada." };
+  if (miembro.estado === "cancelada") {
+    return { ok: false, codigo: "cancelada", motivo: "Esta membresía está cancelada." };
+  }
+
+  // La costura con la cuenta, igual que en Apple: quien se afilió por el
+  // póster y hoy vuelve logueado gana el `cliente_id` que le faltaba.
+  if (clienteId && !miembro.cliente_id) {
+    await db.from("miembros").update({ cliente_id: clienteId }).eq("id", miembro.id);
+  }
 
   // Un pase por miembro y plataforma, con serial estable (el QR).
   let { data: pase } = await db
     .from("pases_wallet")
     .select("serial_number")
-    .eq("miembro_id", miembro!.id)
+    .eq("miembro_id", miembro.id)
     .eq("plataforma", "google")
     .maybeSingle();
   if (!pase) {
     const { data: nuevo, error } = await db
       .from("pases_wallet")
       .insert({
-        miembro_id: miembro!.id,
+        miembro_id: miembro.id,
         plataforma: "google",
         serial_number: randomUUID(),
         // Google no autentica con esto (no hay web service propio),
@@ -560,11 +596,13 @@ export async function generarPaseGoogle({
       })
       .select("serial_number")
       .single();
-    if (error) return { ok: false, motivo: "No se pudo crear el pase: " + error.message };
+    if (error) {
+      return { ok: false, codigo: "error", motivo: "No se pudo crear el pase: " + error.message };
+    }
     pase = nuevo;
   }
 
-  const saldo = (await consultarSaldo(miembro!.id)) ?? 0;
+  const saldo = (await consultarSaldo(miembro.id)) ?? 0;
   const { data: recompensa } = await db
     .from("recompensas")
     .select("nombre, costo_puntos")
@@ -574,11 +612,13 @@ export async function generarPaseGoogle({
     .limit(1)
     .maybeSingle();
 
-  const { data: perfil } = await db
-    .from("perfiles")
-    .select("nombre")
-    .eq("id", clienteId)
-    .maybeSingle();
+  // Cómo saluda el pase. Google lo muestra en la tarjeta, así que no
+  // puede quedar vacío: primero el perfil de la cuenta, después el
+  // nombre de la persona (0138) —que puede venir de otro negocio donde
+  // sí lo dejó— y de último "Cliente". Sin la segunda, todo el que
+  // entró por el póster —que no da su nombre, son dos campos— saldría
+  // como "Cliente" aunque Bookea sepa cómo se llama.
+  const nombreCliente = await nombreDeQuienLlega(db, { clienteId, personaId });
 
   try {
     await asegurarRecurso(
@@ -592,9 +632,9 @@ export async function generarPaseGoogle({
       construirObjeto({
         issuerId: cred.issuerId,
         ranchoId,
-        miembroId: miembro!.id,
+        miembroId: miembro.id,
         nombreNegocio: negocio.nombre,
-        nombreCliente: ((perfil?.nombre as string | null) ?? "").trim() || "Cliente",
+        nombreCliente,
         serial: pase!.serial_number as string,
         saldo,
         // La config ENTERA: de acá sale también la banda del negocio.
@@ -607,7 +647,11 @@ export async function generarPaseGoogle({
       }),
     );
   } catch (e) {
-    return { ok: false, motivo: e instanceof Error ? e.message : "Google Wallet no respondió." };
+    return {
+      ok: false,
+      codigo: "error",
+      motivo: e instanceof Error ? e.message : "Google Wallet no respondió.",
+    };
   }
 
   const ahora = Math.floor(Date.now() / 1000);
@@ -617,12 +661,46 @@ export async function generarPaseGoogle({
       aud: "google",
       typ: "savetowallet",
       iat: ahora,
-      payload: { loyaltyObjects: [{ id: idDeObjeto(cred.issuerId, miembro!.id) }] },
+      payload: { loyaltyObjects: [{ id: idDeObjeto(cred.issuerId, miembro.id) }] },
     },
     cred.privateKey,
   );
 
   return { ok: true, url: `https://pay.google.com/gp/v/save/${jwt}` };
+}
+
+/**
+ * Con qué nombre saluda el pase de Google.
+ *
+ * Ninguna de las dos consultas puede tumbar el pase: si `perfiles` no
+ * tiene fila o `personas` todavía no existe (base sin la 0138), se cae
+ * al saludo genérico y la tarjeta se entrega igual.
+ */
+async function nombreDeQuienLlega(
+  db: NonNullable<ReturnType<typeof createAdminClient>>,
+  quien: IdentidadDelPase,
+): Promise<string> {
+  if (quien.clienteId) {
+    const { data } = await db
+      .from("perfiles")
+      .select("nombre")
+      .eq("id", quien.clienteId)
+      .maybeSingle();
+    const nombre = ((data?.nombre as string | null) ?? "").trim();
+    if (nombre) return nombre;
+  }
+
+  if (quien.personaId) {
+    const { data } = await db
+      .from("personas")
+      .select("nombre")
+      .eq("id", quien.personaId)
+      .maybeSingle();
+    const nombre = ((data?.nombre as string | null) ?? "").trim();
+    if (nombre) return nombre;
+  }
+
+  return "Cliente";
 }
 
 /**

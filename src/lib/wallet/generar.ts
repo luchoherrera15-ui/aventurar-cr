@@ -16,6 +16,13 @@ import { estadoVisible } from "@/lib/lealtad/programas";
 import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
+import {
+  buscarMiembroDelPase,
+  filaDeAfiliacion,
+  type CodigoFalloPase,
+  type IdentidadDelPase,
+  type MiembroDelPase,
+} from "./identidad";
 
 /**
  * Base pública del sitio; Apple le agrega `/v1/...` por su cuenta.
@@ -58,25 +65,38 @@ import {
 
 export type ResultadoPase =
   | { ok: true; pkpass: Buffer; serialNumber: string }
-  | { ok: false; motivo: string };
+  | { ok: false; codigo: CodigoFalloPase; motivo: string };
 
 export async function generarPaseDeLealtad({
   ranchoId,
   clienteId,
+  personaId,
   ahora,
-}: {
+}: IdentidadDelPase & {
   ranchoId: string;
-  /** Ya verificado por quien llama contra la sesión. */
-  clienteId: string;
   ahora: Date;
 }): Promise<ResultadoPase> {
+  if (!personaId && !clienteId) {
+    return {
+      ok: false,
+      codigo: "sin_identidad",
+      motivo: "No sabemos de quién es esta tarjeta.",
+    };
+  }
+
   const credenciales = credencialesDelEntorno();
   if (!credenciales) {
-    return { ok: false, motivo: "El pase de Wallet no está configurado en este servidor." };
+    return {
+      ok: false,
+      codigo: "sin_credenciales",
+      motivo: "El pase de Wallet no está configurado en este servidor.",
+    };
   }
 
   const db = createAdminClient();
-  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+  if (!db) {
+    return { ok: false, codigo: "sin_conexion", motivo: "No hay conexión de servicio." };
+  }
 
   // ── El negocio y su programa ──────────────────────────────────────
   const { data: negocio } = await db
@@ -84,7 +104,9 @@ export async function generarPaseDeLealtad({
     .select("id, nombre, latitud, longitud, plan_lealtad")
     .eq("id", ranchoId)
     .maybeSingle();
-  if (!negocio) return { ok: false, motivo: "Ese negocio no existe." };
+  if (!negocio) {
+    return { ok: false, codigo: "negocio_desconocido", motivo: "Ese negocio no existe." };
+  }
 
   // `select *` y no una lista de columnas: desde la 0134 el programa
   // cuelga de una CUENTA, y pedir `cuenta_id` explícitamente haría
@@ -125,7 +147,11 @@ export async function generarPaseDeLealtad({
 
   const programaFila = emisora ?? (pausado ? principal : null);
   if (!programaFila) {
-    return { ok: false, motivo: "Este negocio todavía no tiene programa de lealtad." };
+    return {
+      ok: false,
+      codigo: "sin_programa",
+      motivo: "Este negocio todavía no tiene programa de lealtad.",
+    };
   }
   const programaId = programaFila.id as string;
 
@@ -140,12 +166,14 @@ export async function generarPaseDeLealtad({
   // ── El miembro: si no lo es, se afilia acá ────────────────────────
   // Pedir la tarjeta ES afiliarse. Obligar a un paso previo solo
   // agrega una pantalla donde la gente se cae.
-  let { data: miembro } = await db
-    .from("miembros")
-    .select("id, estado")
-    .eq("programa_id", programaId)
-    .eq("cliente_id", clienteId)
-    .maybeSingle();
+  //
+  // Se busca POR PERSONA cuando la hay (0138) y por cuenta si no. Buscar
+  // solo por `cliente_id` dejaba fuera a quien se afilió por el póster
+  // sin abrir cuenta: su membresía tiene `cliente_id` en null, la
+  // consulta no la encontraba, y el insert siguiente chocaba contra el
+  // único `(programa_id, persona_id)` — o peor, con una base a medio
+  // migrar, le abría una segunda membresía a la misma señora.
+  let miembro = await buscarMiembroDelPase(db, programaId, { personaId, clienteId });
 
   if (!miembro) {
     // EN PAUSA NO SE AFILIA A NADIE NUEVO. El pase con el aviso es para
@@ -154,6 +182,7 @@ export async function generarPaseDeLealtad({
     if (pausado) {
       return {
         ok: false,
+        codigo: "pausado",
         motivo: "Este programa está en pausa por ahora — preguntá en el local.",
       };
     }
@@ -183,6 +212,7 @@ export async function generarPaseDeLealtad({
       if (usadas >= limite) {
         return {
           ok: false,
+          codigo: "lleno",
           motivo:
             "El programa de este negocio está lleno por ahora — preguntá en el local.",
         };
@@ -191,19 +221,28 @@ export async function generarPaseDeLealtad({
 
     const { data: nuevo, error } = await db
       .from("miembros")
-      .insert({ programa_id: programaId, cliente_id: clienteId, estado: "activa" })
-      .select("id, estado")
+      .insert(filaDeAfiliacion(programaId, { personaId, clienteId }))
+      .select("id, estado, cliente_id")
       .single();
-    if (error) return { ok: false, motivo: "No se pudo afiliar: " + error.message };
-    miembro = nuevo;
+    if (error) {
+      return { ok: false, codigo: "error", motivo: "No se pudo afiliar: " + error.message };
+    }
+    miembro = nuevo as MiembroDelPase;
   }
 
-  if (miembro!.estado === "cancelada") {
-    return { ok: false, motivo: "Esta membresía está cancelada." };
+  if (miembro.estado === "cancelada") {
+    return { ok: false, codigo: "cancelada", motivo: "Esta membresía está cancelada." };
+  }
+
+  // La costura con la cuenta, cuando alguien que se afilió por el póster
+  // vuelve ya logueado: la membresía era de la persona y ahora además
+  // tiene sesión. No se pisa nunca un `cliente_id` que ya esté puesto.
+  if (clienteId && !miembro.cliente_id) {
+    await db.from("miembros").update({ cliente_id: clienteId }).eq("id", miembro.id);
   }
 
   // ── El saldo y la meta ────────────────────────────────────────────
-  const saldo = (await consultarSaldo(miembro!.id)) ?? 0;
+  const saldo = (await consultarSaldo(miembro.id)) ?? 0;
 
   // La recompensa activa MÁS BARATA es la próxima meta: es lo que el
   // cliente puede alcanzar primero, y de ahí sale el "5 de 10".
@@ -227,7 +266,7 @@ export async function generarPaseDeLealtad({
   let { data: pase } = await db
     .from("pases_wallet")
     .select("serial_number, auth_token")
-    .eq("miembro_id", miembro!.id)
+    .eq("miembro_id", miembro.id)
     .eq("plataforma", "apple")
     .maybeSingle();
 
@@ -235,7 +274,7 @@ export async function generarPaseDeLealtad({
     const { data: nuevo, error } = await db
       .from("pases_wallet")
       .insert({
-        miembro_id: miembro!.id,
+        miembro_id: miembro.id,
         plataforma: "apple",
         serial_number: randomUUID(),
         // Con esto Apple se autentica al pedir el pase actualizado.
@@ -244,7 +283,9 @@ export async function generarPaseDeLealtad({
       })
       .select("serial_number, auth_token")
       .single();
-    if (error) return { ok: false, motivo: "No se pudo crear el pase: " + error.message };
+    if (error) {
+      return { ok: false, codigo: "error", motivo: "No se pudo crear el pase: " + error.message };
+    }
     pase = nuevo;
   }
 
@@ -310,8 +351,13 @@ export async function generarPaseDeLealtad({
     return { ok: true, pkpass, serialNumber };
   } catch (e) {
     // El caso típico es el certificado vencido, y su mensaje ya viene
-    // en español con la fecha.
-    return { ok: false, motivo: e instanceof Error ? e.message : "No se pudo firmar el pase." };
+    // en español con la fecha. No es "error" cualquiera: es un servidor
+    // que hoy no puede firmar, y la pantalla lo dice con esas palabras.
+    return {
+      ok: false,
+      codigo: "sin_credenciales",
+      motivo: e instanceof Error ? e.message : "No se pudo firmar el pase.",
+    };
   }
 }
 

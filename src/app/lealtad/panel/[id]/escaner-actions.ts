@@ -6,6 +6,8 @@ import { after } from "next/server";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
+import { traducirErrorDeBase, traducirMotivo } from "@/lib/lealtad/mostrador";
+import { TIPOS_TARJETA, tipoDe, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 
 /**
  * Sumar una visita/compra escaneando la tarjeta del cliente.
@@ -24,32 +26,87 @@ export type ResultadoEscaneo =
   | {
       ok: true;
       cliente: string;
+      /** Lo que ENTRÓ en este escaneo. 0 cuando `yaEstaba`. */
       puntos: number;
       saldo: number;
+      /**
+       * NO SE ACREDITÓ NADA: esta lectura ya había entrado antes.
+       *
+       * `ok: true` significa «la operación se resolvió», no «se sumó».
+       * Quien pinte esto TIENE que separar los dos casos: el dueño
+       * escaneó de más, vio «¡Sello sumado!» cada vez, el saldo se quedó
+       * clavado y reportó que el sistema no entrega los sellos.
+       */
       yaEstaba: boolean;
       /** Para que el panel pueda ofrecer el canje sin volver a escanear. */
       miembroId: string;
+      /**
+       * EL TIPO DE LA TARJETA QUE SE ACABA DE LEER.
+       *
+       * Viaja en el resultado y NO como prop del componente a propósito:
+       * el escáner vive dentro del modo mostrador y del botón de Inicio,
+       * y los dos reciben sus props de `page.tsx`. Con el tipo acá, el
+       * mostrador dice «Cupón de Marta — vigente» en vez de «¡Sello
+       * sumado a Marta!» sin que ninguna pantalla tenga que pasárselo —
+       * y si un día un negocio tiene dos tarjetas de tipos distintos, el
+       * texto sigue siendo el de la que se leyó.
+       */
+      tipo: TipoTarjeta;
     }
   | { ok: false; motivo: string };
 
 /**
- * La cámara lee el QR unas diez veces por segundo. El cliente para el
- * bucle al primer acierto, pero eso es cortesía: la garantía es esta
- * referencia con el MINUTO adentro — el unique del ledger rebota el
- * segundo intento del mismo minuto.
+ * LA LLAVE DE IDEMPOTENCIA DEL ESCANEO — el respaldo, no la principal.
  *
- * Consecuencia aceptada: no se le dan dos sellos al mismo cliente
- * dentro del mismo minuto por escaneo. Para eso está el botón manual.
+ * La cámara lee el QR unas diez veces por segundo. El cliente para el
+ * bucle al primer acierto, pero eso es cortesía: esta referencia con el
+ * MINUTO adentro es lo que rebota el segundo intento.
+ *
+ * ------------------------------------------------------------------
+ * POR QUÉ DEJÓ DE SER LA PRINCIPAL
+ * ------------------------------------------------------------------
+ * El minuto es de CALENDARIO, no una ventana que corre. Eso hace que la
+ * protección caiga justo al revés de como uno la imagina:
+ *
+ *   · dos escaneos a las 14:28:01 y 14:28:59 —cincuenta y ocho segundos
+ *     aparte, o sea DOS VENTAS DE VERDAD en un café con fila— se
+ *     colapsan en uno y el segundo sello no existe;
+ *   · dos escaneos a las 14:28:59 y 14:29:01 —dos segundos aparte, o
+ *     sea el doble toque que esto venía a evitar— caen en minutos
+ *     distintos y pasan los dos.
+ *
+ * Verificado en producción: el ledger del dueño tenía exactamente dos
+ * movimientos, 14:28 y 14:29, después de escanear muchas más veces.
+ *
+ * Ahora la llave principal la manda el mostrador: un identificador POR
+ * INTENTO, que se reusa si el intento hay que repetirlo (se cortó la
+ * señal) y se renueva cuando el sello entró. Con eso, un reintento del
+ * mismo escaneo no suma dos veces y dos ventas seguidas sí suman dos.
+ *
+ * Esto queda como respaldo para quien todavía no manda intento — la app
+ * móvil, sin ir más lejos—: sin llave, dos peticiones idénticas
+ * duplicarían el sello, y eso es peor que perder uno.
  */
 function referenciaDelMinuto(serial: string, ahora: Date) {
   return `escaneo:${serial}:${ahora.toISOString().slice(0, 16)}`;
 }
+
+/** Un intento del mostrador: letras, números y guiones (un uuid entra). */
+const INTENTO_VALIDO = /^[A-Za-z0-9_-]{8,64}$/;
 
 export async function sumarSelloEscaneado(
   ranchoId: string,
   serialNumber: string,
   /** Colones enteros de la compra; null = visita sin monto (sellos). */
   monto: number | null = null,
+  /**
+   * Identificador del INTENTO de escaneo, lo genera el mostrador.
+   *
+   * Mismo intento (un reintento por señal mala) = misma llave = un solo
+   * sello. Intento nuevo (el empleado volvió a escanear a propósito) =
+   * llave nueva = sello nuevo. Sin él se cae al minuto de calendario.
+   */
+  intentoId?: string,
 ): Promise<ResultadoEscaneo> {
   const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
   if (!user) redirect("/lealtad/login");
@@ -90,32 +147,50 @@ export async function sumarSelloEscaneado(
   // tarjeta de otro local sumaría puntos acá.
   const { data: programa } = await db
     .from("programa_lealtad")
-    .select("rancho_id")
+    .select("rancho_id, modo")
     .eq("id", miembro.programa_id)
     .maybeSingle();
   if (!programa || programa.rancho_id !== ranchoId) {
     return { ok: false, motivo: "Esa tarjeta es de otro negocio." };
   }
 
+  // `tipoDe` tolera lo desconocido y cae a 'puntos', igual que en el
+  // resto del módulo: un `modo` que este código no conoce no puede
+  // dejar al cliente sin su sello.
+  const tipo = tipoDe(programa.modo as string | null);
+  const acumula = TIPOS_TARJETA[tipo].acumula;
+
+  // El intento manda; el minuto es el respaldo. Un `intentoId` con
+  // forma rara se descarta en vez de usarse: una llave que el navegador
+  // arme mal no puede convertirse en «cada escaneo es único».
+  const intento = (intentoId ?? "").trim();
+  const referencia =
+    intento && INTENTO_VALIDO.test(intento)
+      ? `escaneo:${serial}:${intento}`
+      : referenciaDelMinuto(serial, new Date());
+
   const { data, error } = await db.rpc("acreditar_lealtad", {
     p_miembro_id: miembro.id,
     p_monto: monto,
-    p_referencia: referenciaDelMinuto(serial, new Date()),
+    p_referencia: referencia,
     p_usuario_id: user.id,
-    p_motivo: monto === null ? "Sello por visita (escaneo)" : "Compra (escaneo)",
+    // EL MOTIVO QUEDA EN EL LEDGER PARA SIEMPRE, así que dice lo que de
+    // verdad pasó. En una tarjeta que no acumula, este movimiento no es
+    // un sello: es el derecho de uso que entra al presentarla y que el
+    // canje consume en el mismo acto (ver mostrador.ts).
+    p_motivo: !acumula
+      ? "Tarjeta presentada (escaneo)"
+      : monto === null
+        ? "Sello por visita (escaneo)"
+        : "Compra (escaneo)",
   });
 
-  if (error) {
-    if (error.message.includes("acreditar_lealtad")) {
-      return { ok: false, motivo: "Falta correr la migración 0125 en Supabase." };
-    }
-    return { ok: false, motivo: "No se pudo registrar: " + error.message };
-  }
+  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "registrar el sello") };
 
   const r = data as { otorgado: boolean; puntos?: number; saldo?: number; motivo?: string };
   const yaEstaba = !r.otorgado && r.motivo === "ya-otorgado";
   if (!r.otorgado && !yaEstaba) {
-    return { ok: false, motivo: r.motivo ?? "No se pudo registrar." };
+    return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo registrar.") };
   }
 
   const { data: perfil } = await db
@@ -138,5 +213,6 @@ export async function sumarSelloEscaneado(
     saldo: r.saldo ?? 0,
     yaEstaba,
     miembroId: miembro.id,
+    tipo,
   };
 }

@@ -10,7 +10,6 @@ import {
   tipoDe,
   type ConfigBeneficio,
 } from "@/lib/lealtad/tipos-tarjeta";
-import { Interruptor } from "./paso-beneficio";
 import PlantillasColor from "./plantillas-color";
 import SelectorIconoSello from "./selector-icono-sello";
 import {
@@ -20,12 +19,7 @@ import {
   NotaCercania,
   usePrograma,
 } from "./programa-contexto";
-import {
-  contextoDeLaTarjeta,
-  type FormatoCodigo,
-  type ProgramaFila,
-  type RecompensaFila,
-} from "./pases-actions";
+import { contextoDeLaTarjeta, type ProgramaFila, type RecompensaFila } from "./pases-actions";
 import VistaPase from "./vista-pase";
 
 /**
@@ -88,17 +82,8 @@ const CONTRASTE_TEXTO = 4.5;
  */
 const CONTRASTE_SELLO = 2.2;
 
-const FORMATOS: { id: FormatoCodigo; label: string }[] = [
-  { id: "qr", label: "Código QR" },
-  { id: "code128", label: "Código de barras" },
-];
-
-const MAX_REVERSO = 500;
-
 const tituloCls = "text-[15px] font-bold text-aventurea-ink";
 const ayudaCls = "mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft";
-const etiquetaCls =
-  "mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-bookea-gris";
 
 /**
  * La sección completa, tal como la monta el panel del negocio.
@@ -271,84 +256,32 @@ export function BloqueDiseno() {
           </div>
         </div>
 
-        {/* ── Qué muestra el pase (0132) ───────────────────────── */}
-        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-          <h3 className={tituloCls}>Qué muestra el pase</h3>
-          <p className={ayudaCls}>
-            Lo que el cliente ve al abrir la tarjeta, y lo que lee el mostrador al
-            escanearla.
-          </p>
+        {/* ── ACÁ VIVÍA «QUÉ MUESTRA EL PASE», Y ERA DECORACIÓN ─────
+            Cuatro controles —código QR/barras, texto del reverso,
+            mostrar saldo, mostrar progreso— se guardaban en sus cuatro
+            columnas de la 0132 y NINGÚN generador los leía. Ni el
+            `pass.json` de Apple ni el objeto de Google los miran: el
+            pase salía siempre con QR, con el reverso que arma Bookea y
+            con los dos campos a la vista, dijera lo que dijera el panel.
 
-          <div className="mt-4 space-y-3">
-            <Interruptor
-              id="t-saldo"
-              titulo="Mostrar el saldo"
-              detalle="El número grande de arriba: «5/10», «₡3.400», «340 puntos»."
-              activo={borrador.mostrarSaldo}
-              alCambiar={(v) => cambiar({ mostrarSaldo: v })}
-            />
-            <Interruptor
-              id="t-progreso"
-              titulo="Mostrar el progreso"
-              detalle="La tira de sellos y el «te faltan 3 para tu regalía»."
-              activo={borrador.mostrarProgreso}
-              alCambiar={(v) => cambiar({ mostrarProgreso: v })}
-            />
-          </div>
+            El más caro era el del código: el texto de ayuda advertía
+            «con código de barras vas a necesitar la lectora de tu caja»
+            — un negocio que eligiera barras podía salir a comprar una
+            lectora por una consecuencia que no existía, porque el pase
+            seguía trayendo el QR.
 
-          <div className="mt-4">
-            <span className={etiquetaCls} id="t-formato-label">
-              Código de la tarjeta
-            </span>
-            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="t-formato-label">
-              {FORMATOS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  aria-pressed={borrador.codigoFormato === f.id}
-                  onClick={() => cambiar({ codigoFormato: f.id })}
-                  className={`presionable rounded-xl border px-3.5 py-2 text-[12.5px] font-bold ${
-                    borrador.codigoFormato === f.id
-                      ? "border-aventurea-navy bg-aventurea-navy text-white"
-                      : "border-aventurea-line bg-white text-aventurea-ink-soft"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            {/* El escáner del panel lee QR (jsQR). Elegir barras no
-                está mal —hay cajas con lectora— pero deja al mostrador
-                acreditando a mano, y eso se avisa ANTES, no después. */}
-            <p className={ayudaCls}>
-              {borrador.codigoFormato === "qr"
-                ? "El QR es el que lee el escáner de Bookea desde el celular."
-                : "Ojo: el escáner de Bookea lee QR. Con código de barras vas a necesitar la lectora de tu caja, o acreditar a mano."}
-            </p>
-          </div>
+            Se sacan en vez de dejarse marcados: un control apagado con
+            una nota igual invita a tocarlo. Los valores YA guardados no
+            se pierden ni se pisan —el borrador los sigue mandando tal
+            como estaban— así que el día que los generadores los lean,
+            el control vuelve y encuentra lo que el dueño había elegido.
 
-          <div className="mt-4">
-            <label className={etiquetaCls} htmlFor="t-reverso">
-              Texto del reverso (opcional)
-            </label>
-            <textarea
-              id="t-reverso"
-              value={borrador.textoReverso}
-              onChange={(e) => cambiar({ textoReverso: e.target.value })}
-              maxLength={MAX_REVERSO}
-              rows={3}
-              placeholder="Ej. Válida en nuestro local de Escazú. Presentala antes de pagar."
-              className="w-full rounded-xl border border-bookea-linea bg-white px-3 py-2.5 text-[13.5px] leading-relaxed text-bookea-tinta placeholder:text-bookea-gris/70"
-            />
-            <p className={ayudaCls}>
-              Se ve al dar vuelta la tarjeta, que es donde el cliente busca cuando duda.
-              Vacío = lo escribe Bookea según tu tipo de tarjeta.{" "}
-              <span className="whitespace-nowrap">
-                {borrador.textoReverso.length}/{MAX_REVERSO}
-              </span>
-            </p>
-          </div>
-        </div>
+            Lo que falta cablear, para quien lo tome: `pase_codigo_formato`
+            en `construirPassJson` (barcode.format) y en el objeto de
+            Google; `pase_texto_reverso` en `textoDeAyuda`; y
+            `pase_mostrar_saldo` / `pase_mostrar_progreso` en
+            `camposSegunModo` y en `tiraDeLaFila`. Todo eso vive en
+            src/lib/wallet/, que no es territorio de este cambio. */}
 
         {/* Cambiar el diseño no toca solo a las tarjetas nuevas: las
             que ya están instaladas se redibujan cuando el teléfono las

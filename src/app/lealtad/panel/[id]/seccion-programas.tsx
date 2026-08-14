@@ -120,8 +120,9 @@ export default function SeccionProgramas({
             </p>
             <p className="mt-1 text-[12.5px] leading-relaxed text-white/60">
               Las que ya tenés siguen funcionando y sus clientes no pierden nada. Para crear
-              otra, archivá una desde <strong className="font-bold">Recompensas → Estado del
-              programa</strong> —el cupo se libera al instante— o subí de paquete.
+              otra, abrí la que ya no usás en la lista de abajo y archivala desde{" "}
+              <strong className="font-bold">Estado</strong> —el cupo se libera al instante—
+              o subí de paquete.
             </p>
             <Link
               href={`/lealtad/planes?negocio=${ranchoId}`}
@@ -224,8 +225,13 @@ function TarjetaDeLista({
         : { background: "rgba(255,255,255,.09)", color: "rgba(255,255,255,.55)" };
 
   return (
+    // ── CADA TARJETA A **SU** EDITOR ────────────────────────────────
+    // Esto apuntaba a `#tarjeta`, la sección del panel — que cuelga de
+    // la tarjeta PRINCIPAL. O sea que con dos tarjetas, tocar la B
+    // abría la A, y el dueño editaba la que no quería sin que nada se
+    // lo dijera. Ahora el id viaja en la ruta.
     <Link
-      href={`/lealtad/panel/${ranchoId}#tarjeta`}
+      href={`/lealtad/panel/${ranchoId}/editar/${programa.id}`}
       className="elevar flex h-full items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4"
     >
       <span

@@ -154,6 +154,48 @@ describe("puedeActivarse — la validación antes de activar", () => {
       puedeActivarse({ puntos_por_visita: 1, puntos_por_colon: 0, recompensasActivas: 1 }),
     ).toEqual({ puede: true });
   });
+
+  // ── El callejón sin salida de los seis tipos sin recompensa ──────
+  // Un cupón, un descuento, una membresía, un evento o un cashback
+  // nunca nacen con una recompensa sembrada: su beneficio va adentro
+  // de la tarjeta. Con la exigencia puesta para todos, pausar uno de
+  // esos programas lo dejaba pausado PARA SIEMPRE — el dueño recibía
+  // «agregá una recompensa activa» sin tener dónde agregarla.
+  it("al que NO pide recompensa se lo deja activar sin ninguna", () => {
+    expect(
+      puedeActivarse({
+        puntos_por_visita: 1,
+        puntos_por_colon: 0,
+        recompensasActivas: 0,
+        pideRecompensa: false,
+      }),
+    ).toEqual({ puede: true });
+  });
+
+  it("pero seguir sin otorgar nada lo frena igual", () => {
+    const r = puedeActivarse({
+      puntos_por_visita: 0,
+      puntos_por_colon: 0,
+      recompensasActivas: 0,
+      pideRecompensa: false,
+    });
+    expect(r.puede).toBe(false);
+  });
+
+  it("pedirla explícitamente da el mismo veredicto que no decir nada", () => {
+    const sinDecir = puedeActivarse({
+      puntos_por_visita: 1,
+      puntos_por_colon: 0,
+      recompensasActivas: 0,
+    });
+    const pidiendo = puedeActivarse({
+      puntos_por_visita: 1,
+      puntos_por_colon: 0,
+      recompensasActivas: 0,
+      pideRecompensa: true,
+    });
+    expect(pidiendo).toEqual(sinDecir);
+  });
 });
 
 describe("transicionValida — el ciclo de vida", () => {

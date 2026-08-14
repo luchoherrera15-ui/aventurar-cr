@@ -65,6 +65,18 @@ export default function ShellLealtad({
   const [activa, setActiva] = useState(primera);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [enMostrador, setEnMostrador] = useState(false);
+  const [pidiendoSalida, setPidiendoSalida] = useState(false);
+
+  function entrarAlMostrador() {
+    setMenuAbierto(false);
+    setPidiendoSalida(false);
+    setEnMostrador(true);
+  }
+
+  function salirDelMostrador() {
+    setPidiendoSalida(false);
+    setEnMostrador(false);
+  }
 
   // El hash manda. Se lee en un efecto y no en el estado inicial para
   // que el HTML del servidor y el del cliente coincidan en el primer
@@ -97,9 +109,11 @@ export default function ShellLealtad({
 
   return (
     <div className="lealtad-oscuro min-h-svh" style={{ background: NAVY_PROFUNDO }}>
-      <div className="lg:grid lg:grid-cols-[254px_minmax(0,1fr)]">
+      {/* EN MODO MOSTRADOR NO HAY COLUMNA DE MENÚ. Ver el comentario del
+          <aside>: el menú no se esconde con CSS, no se monta. */}
+      <div className={enMostrador ? "" : "lg:grid lg:grid-cols-[254px_minmax(0,1fr)]"}>
         {/* ── Fondo que cierra el cajón en móvil ─────────────────── */}
-        {menuAbierto && (
+        {menuAbierto && !enMostrador && (
           <button
             type="button"
             aria-label="Cerrar el menú"
@@ -108,7 +122,25 @@ export default function ShellLealtad({
           />
         )}
 
-        {/* ── Menú lateral ───────────────────────────────────────── */}
+        {/* ── Menú lateral ───────────────────────────────────────────
+            NO SE MONTA EN MODO MOSTRADOR, y eso es el arreglo.
+
+            El comentario del modo mostrador prometía «sin menú de
+            configuración a un clic de distancia», pero el menú seguía
+            montado y clickeable: el contenido se escondía con `hidden` y
+            la barra lateral no. Un toque en «Recompensas» y el empleado
+            estaba en la pantalla donde se archiva el programa.
+
+            Esconderlo con CSS no habría alcanzado: un enlace escondido
+            con `opacity` o `-translate-x-full` sigue recibiendo el
+            teclado y el lector de pantalla. Se desmonta.
+
+            Esto NO es un candado — quien tenga el teléfono puede tocar
+            «Salir» (con confirmación) o recargar la página. Es lo que
+            evita el resbalón, que es lo que de verdad pasa en una caja.
+            El candado de verdad es el PIN de la 0137/0148, que va
+            aparte. */}
+        {!enMostrador && (
         <aside
           className={`fixed inset-y-0 left-0 z-50 flex w-[268px] flex-col overflow-y-auto border-r transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-svh lg:w-auto lg:translate-x-0 ${
             menuAbierto ? "translate-x-0" : "-translate-x-full"
@@ -202,6 +234,7 @@ export default function ShellLealtad({
             </Link>
           </div>
         </aside>
+        )}
 
         {/* ── Columna del contenido ──────────────────────────────── */}
         <div className="min-w-0">
@@ -212,32 +245,40 @@ export default function ShellLealtad({
               borderColor: "rgba(255,255,255,.08)",
             }}
           >
-            <button
-              type="button"
-              onClick={() => setMenuAbierto(true)}
-              className="shrink-0 rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
-              aria-label="Abrir el menú"
-            >
-              <Icono nombre="menu" className="h-5 w-5" />
-            </button>
+            {!enMostrador && (
+              <button
+                type="button"
+                onClick={() => setMenuAbierto(true)}
+                className="shrink-0 rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
+                aria-label="Abrir el menú"
+              >
+                <Icono nombre="menu" className="h-5 w-5" />
+              </button>
+            )}
 
             <p className="min-w-0 flex-1 truncate text-[14px] font-extrabold text-white">
-              {enMostrador ? "Modo mostrador" : (actual?.etiqueta ?? "Panel")}
+              {enMostrador ? `Modo mostrador · ${negocio.nombre}` : (actual?.etiqueta ?? "Panel")}
             </p>
 
             {/* Modo mostrador: el equivalente nuestro del "Staff Mode".
                 Deja la pantalla en el escáner y nada más — es lo que se
                 le pasa al empleado en la caja. Solo aparece si quien
-                mira puede acreditar. */}
-            {mostrador && (
+                mira puede acreditar.
+
+                ENTRAR es un toque; SALIR pide confirmación. Era un
+                interruptor en las dos direcciones, y el interruptor está
+                justo donde el pulgar agarra el teléfono: un roce y el
+                empleado quedaba en el panel completo sin haber querido
+                ir a ningún lado. */}
+            {mostrador && !enMostrador && (
               <label className="flex shrink-0 cursor-pointer items-center gap-2">
                 <span className="hidden text-[12px] font-bold text-white/60 sm:block">
                   Modo mostrador
                 </span>
                 <input
                   type="checkbox"
-                  checked={enMostrador}
-                  onChange={(e) => setEnMostrador(e.target.checked)}
+                  checked={false}
+                  onChange={entrarAlMostrador}
                   className="peer sr-only"
                 />
                 {/* El interruptor se pinta con el estado de React y no
@@ -247,35 +288,71 @@ export default function ShellLealtad({
                 <span
                   aria-hidden
                   className="relative h-[22px] w-[40px] rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-white/50"
-                  style={{ background: enMostrador ? NARANJA : "rgba(255,255,255,.15)" }}
+                  style={{ background: "rgba(255,255,255,.15)" }}
                 >
-                  <span
-                    className={`absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-white transition-transform ${
-                      enMostrador ? "translate-x-[18px]" : ""
-                    }`}
-                  />
+                  <span className="absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-white transition-transform" />
                 </span>
               </label>
             )}
 
-            <Link
-              href="/cuenta"
-              title={usuario.email}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full border text-[11.5px] font-extrabold text-white/80 hover:text-white"
-              style={{ borderColor: "rgba(255,255,255,.18)", background: "rgba(255,255,255,.06)" }}
-            >
-              {iniciales(usuario.nombre) || "?"}
-            </Link>
+            {enMostrador ? (
+              pidiendoSalida ? (
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="hidden text-[12px] font-bold text-white/70 sm:block">
+                    ¿Salir?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={salirDelMostrador}
+                    className="rounded-lg px-3 py-1.5 text-[12px] font-extrabold text-white"
+                    style={{ background: NARANJA }}
+                  >
+                    Sí, salir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPidiendoSalida(false)}
+                    className="rounded-lg border px-3 py-1.5 text-[12px] font-bold text-white/70"
+                    style={{ borderColor: "rgba(255,255,255,.2)" }}
+                  >
+                    No
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPidiendoSalida(true)}
+                  className="shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-bold text-white/70 hover:text-white"
+                  style={{ borderColor: "rgba(255,255,255,.2)" }}
+                >
+                  Salir
+                </button>
+              )
+            ) : (
+              <>
+                <Link
+                  href="/cuenta"
+                  title={usuario.email}
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full border text-[11.5px] font-extrabold text-white/80 hover:text-white"
+                  style={{
+                    borderColor: "rgba(255,255,255,.18)",
+                    background: "rgba(255,255,255,.06)",
+                  }}
+                >
+                  {iniciales(usuario.nombre) || "?"}
+                </Link>
 
-            <Link href="/lealtad" className="hidden shrink-0 sm:block">
-              <Image
-                src="/logo-bookea-blanco-v3.png"
-                alt="Bookea"
-                width={92}
-                height={23}
-                className="h-[19px] w-auto opacity-70"
-              />
-            </Link>
+                <Link href="/lealtad" className="hidden shrink-0 sm:block">
+                  <Image
+                    src="/logo-bookea-blanco-v3.png"
+                    alt="Bookea"
+                    width={92}
+                    height={23}
+                    className="h-[19px] w-auto opacity-70"
+                  />
+                </Link>
+              </>
+            )}
           </header>
 
           <main className="px-4 py-6 sm:px-6 sm:py-8">
@@ -286,14 +363,49 @@ export default function ShellLealtad({
               {mostrador && enMostrador && (
                 <section>
                   {mostrador}
-                  <button
-                    type="button"
-                    onClick={() => setEnMostrador(false)}
-                    className="mt-4 w-full rounded-2xl border px-5 py-3 text-[13px] font-bold text-white/70 hover:text-white"
-                    style={{ borderColor: "rgba(255,255,255,.16)" }}
-                  >
-                    Salir del modo mostrador
-                  </button>
+                  {/* El botón de abajo también confirma: es el mismo
+                      estado que el «Salir» de la barra, así que tocar
+                      uno u otro pregunta lo mismo. */}
+                  {pidiendoSalida ? (
+                    <div
+                      className="mt-4 rounded-2xl border px-5 py-4 text-center"
+                      style={{ borderColor: "rgba(255,255,255,.16)" }}
+                    >
+                      <p className="text-[13px] font-bold text-white">
+                        ¿Salir del modo mostrador?
+                      </p>
+                      <p className="mt-1 text-[12.5px] text-white/55">
+                        Se vuelve al panel completo, con la configuración del programa.
+                      </p>
+                      <div className="mt-3 flex flex-wrap justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={salirDelMostrador}
+                          className="rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-white"
+                          style={{ background: NARANJA }}
+                        >
+                          Sí, salir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPidiendoSalida(false)}
+                          className="rounded-xl border px-5 py-2.5 text-[13px] font-bold text-white/70"
+                          style={{ borderColor: "rgba(255,255,255,.2)" }}
+                        >
+                          Seguir acá
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPidiendoSalida(true)}
+                      className="mt-4 w-full rounded-2xl border px-5 py-3 text-[13px] font-bold text-white/70 hover:text-white"
+                      style={{ borderColor: "rgba(255,255,255,.16)" }}
+                    >
+                      Salir del modo mostrador
+                    </button>
+                  )}
                 </section>
               )}
 

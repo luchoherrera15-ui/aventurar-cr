@@ -27,19 +27,35 @@ export async function GET(
   const db = createAdminClient();
   if (!db) return new NextResponse(null, { status: 500 });
 
-  // El pase pertenece a un miembro, y de ahí sale su cuenta. Se
+  // El pase pertenece a un miembro, y de ahí sale su identidad. Se
   // regenera con esos datos, no con los de quien pide.
+  //
+  // `select *` y no una lista de columnas: `persona_id` es de la 0138 y
+  // pedirla por nombre haría fallar la consulta entera en una base que
+  // todavía no la corrió — con el síntoma "el pase no se refresca", que
+  // no se ve en ningún lado hasta que un cliente reclama sus sellos.
   const { data: miembro } = await db
     .from("miembros")
-    .select("cliente_id")
+    .select("*")
     .eq("id", pase.miembroId)
     .maybeSingle();
 
-  if (!miembro?.cliente_id) return new NextResponse(null, { status: 404 });
+  const fila = (miembro ?? {}) as Record<string, unknown>;
+  const clienteId = typeof fila.cliente_id === "string" ? fila.cliente_id : null;
+  const personaId = typeof fila.persona_id === "string" ? fila.persona_id : null;
+
+  // ANTES ACÁ HABÍA `if (!miembro?.cliente_id) return 404`, y era el
+  // cabo suelto del alta por QR: quien se afilió con su WhatsApp y su
+  // correo tiene la membresía a nombre de su PERSONA y `cliente_id` en
+  // null. Su iPhone pedía el pase actualizado, se llevaba un 404, y el
+  // sello que le acababan de poner en el mostrador no aparecía nunca —
+  // sin un error visible en ningún lado, ni para él ni para el negocio.
+  if (!personaId && !clienteId) return new NextResponse(null, { status: 404 });
 
   const resultado = await generarPaseDeLealtad({
     ranchoId: pase.ranchoId,
-    clienteId: miembro.cliente_id as string,
+    personaId,
+    clienteId,
     ahora: new Date(),
   });
 

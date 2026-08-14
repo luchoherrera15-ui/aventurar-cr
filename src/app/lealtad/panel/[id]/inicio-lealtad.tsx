@@ -370,9 +370,13 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
           </p>
         )}
 
+        {/* Decía «nace en borrador: nada se publica sin que vos lo
+            digas», y era mentira desde que `estadoAlCrear()` devuelve
+            activo. La cautela la cumple el paso de Revisar, no un
+            estado escondido — y eso es lo que dice ahora. */}
         <p className="mx-auto mt-4 max-w-[440px] text-[12px] leading-relaxed text-white/45">
-          Se arma en cinco pasos —tipo, diseño, beneficio, reglas y una última mirada— y
-          nace en borrador: nada se publica sin que vos lo digas.
+          Se arma en cinco pasos —tipo, diseño, beneficio, reglas y una última mirada— y al
+          confirmar queda publicada: empieza a emitir pases de una.
         </p>
       </div>
 
@@ -394,7 +398,9 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
           Qué tener a mano antes de empezar
         </h3>
         <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-          Nada es obligatorio para arrancar: todo se puede cambiar después.
+          Nada es obligatorio para arrancar: el logo, los colores, la regalía y las reglas se
+          cambian cuando querás. Lo único que queda fijo es el tipo de tarjeta, y recién
+          cuando tengas el primer cliente adentro.
         </p>
         <div className="mt-3">
           <Flujo tarjetas={aMano} columnas={3} conFlecha={false} />

@@ -12,6 +12,7 @@ import { estadoVisible, operaAhora } from "@/lib/lealtad/programas";
 import { elegirPrograma } from "@/lib/wallet/programa-principal";
 import { cupoLleno, lasQueOcupanCupo } from "./cupo-tarjetas";
 import { TIPOS_TARJETA, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { pideMontoElTipo } from "@/lib/lealtad/mostrador";
 import { permisosDeFila } from "@/lib/lealtad/permisos";
 import { cargarLealtad } from "./datos-lealtad";
 import ShellLealtad, { type GrupoLealtad } from "./shell-lealtad";
@@ -21,11 +22,11 @@ import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
 import CompartirTarjeta from "./compartir-tarjeta";
 import { BloqueEstado, SeccionTarjeta } from "./pases-panel";
-import CreadorTarjeta from "./creador-tarjeta";
+import EditorRecompensas from "./editor-recompensas";
 import SeccionPlan from "./seccion-plan";
 import FacturacionConTarjeta from "./facturacion-tarjeta";
 import { suscripcionDelNegocio } from "@/lib/pagos/puerta-supabase";
-import { AvisoError, ProveedorPrograma } from "./programa-contexto";
+import { AvisoError, AvisoGuardado, ProveedorPrograma } from "./programa-contexto";
 import MetricasLealtad from "./metricas";
 import AuditoriaResumen from "./auditoria-resumen";
 import EquipoLealtad, { type MiembroEquipo } from "./equipo-cliente";
@@ -463,7 +464,16 @@ export default async function PanelNegocioLealtad({
           : "Sin una recompensa activa, la tarjeta no promete nada."
         : `Tu ${TIPOS_TARJETA[tipoPrincipal].nombre.toLowerCase()} ya trae su beneficio adentro.`,
       listo: acumula ? !!meta && reglasDan : !!p,
-      cta: irA("recompensas", "Configurar"),
+      // Al editor DE ESA TARJETA, no a la sección. Los cinco tipos que
+      // llevan el beneficio adentro (cupón, descuento, membresía,
+      // evento, gift card) no se configuran en «Recompensas»: mandarlos
+      // ahí era mandarlos a una pantalla que les dice que no hay nada
+      // que hacer. Sin tarjeta todavía, el paso lleva al asistente.
+      cta: !puedeDisenar
+        ? null
+        : p
+          ? { texto: "Configurar", href: `/lealtad/panel/${id}/editar/${p.id}` }
+          : { texto: "Crear la tarjeta", href: `/lealtad/panel/${id}/crear` },
     },
     {
       // "Listo" = el QR EXISTE y lleva a algún lado (programa activo y
@@ -525,7 +535,10 @@ export default async function PanelNegocioLealtad({
           p && permisos.acreditar ? (
             <BotonEscanear
               ranchoId={id}
-              pideMonto={(p.modo ?? "puntos") !== "sellos"}
+              // Mismo criterio que el mostrador — ver el comentario de
+              // más abajo. Las dos puertas al escáner tienen que
+              // preguntar lo mismo.
+              pideMonto={pideMontoElTipo(tipoPrincipal)}
               recompensa={
                 meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
               }
@@ -694,43 +707,63 @@ export default async function PanelNegocioLealtad({
               </div>
             </Seccion>
           ),
-          // ── RECOMPENSAS = EL ASISTENTE, y nada más ──────────────
-          // Acá vivían dos cosas peleadas: un banner que mandaba al
-          // asistente de cinco pasos, y debajo el formulario viejo
-          // —«Cómo se gana», «Qué se gana»— con sus TRES modos.
+          // ── RECOMPENSAS = LAS REGALÍAS, no un asistente ─────────
+          // Acá vivía el CREADOR de tarjetas entero. O sea que el dueño
+          // que entraba a cambiar «Café gratis a los 10» por «Corte
+          // gratis a los 8» se encontraba con un formulario de cinco
+          // pasos para armar OTRA tarjeta — y si su paquete estaba en el
+          // tope, el asistente ni siquiera lo dejaba terminar. La
+          // regalía que ya tenía no se podía tocar desde ninguna
+          // pantalla del panel del negocio.
           //
-          // El formulario viejo no era solo redundante, estaba roto:
-          // `MODOS` tiene tres entradas y `ModoPrograma` son ocho, así
-          // que con una tarjeta de cupón o gift card el `.find(...)!`
-          // devolvía `undefined` y la sección entera reventaba con un
-          // TypeError. Y del otro lado, `pases-actions.ts` rechazaba
-          // esos cinco tipos en el SERVIDOR: una tarjeta hecha con el
-          // asistente no se podía volver a guardar desde acá.
-          //
-          // Ofrecer dos caminos para lo mismo, donde uno conoce ocho
-          // tipos y el otro tres, no es dar opciones: es garantizar que
-          // la mitad de la gente entre por el que falla.
+          // Antes de eso vivía el formulario viejo, que conocía TRES
+          // modos de ocho y reventaba con un cupón o una gift card. Los
+          // dos se fueron: acá se editan las regalías de la tarjeta que
+          // manda, y la tarjeta se crea (o se corrige entera) desde su
+          // propia pantalla, que es donde el tope del paquete y el
+          // candado del tipo se hacen cumplir.
           recompensas: (
             <Seccion
               titulo="Recompensas"
-              bajada="Elegí qué clase de tarjeta querés y configurala paso por paso."
+              bajada="Qué se lleva tu cliente, cuánto le cuesta y cuál es la meta de la tarjeta."
             >
-              <CreadorTarjeta
-                ranchoId={id}
-                negocioNombre={rancho.nombre as string}
-                plan={plan}
-              />
-              {/* El ciclo de vida de la tarjeta que manda. Va ACÁ porque
-                  es acá donde el creador manda a la gente cuando el
-                  paquete llegó al tope («archivá una desde Recompensas →
-                  Estado del programa»): al quedar solo el asistente en
-                  esta sección, ese bloque se había caído del panel del
-                  negocio y el aviso apuntaba a un lugar que no existía. */}
-              {p && (
+              {p ? (
                 <>
                   <AvisoError />
+                  <AvisoGuardado />
+                  {/* Con varias tarjetas, esta sección edita la que
+                      manda. Decirlo es la diferencia entre editar la
+                      que uno quiere y editar la que el sistema eligió. */}
+                  {vivas.length > 1 && (
+                    <p className="rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3 text-[12.5px] leading-relaxed text-white/65">
+                      Estás viendo las regalías de{" "}
+                      <strong className="font-bold text-white">{principal?.nombre}</strong>, la
+                      tarjeta que está emitiendo pases. Las otras {vivas.length - 1} se editan
+                      desde <strong className="font-bold text-white">Tarjetas</strong>.
+                    </p>
+                  )}
+                  <EditorRecompensas />
                   <BloqueEstado />
+                  <Link
+                    href={`/lealtad/panel/${id}/editar/${p.id}`}
+                    className="flex items-center justify-between rounded-2xl border px-4 py-3.5 transition-colors hover:border-white/40"
+                    style={{ background: "rgba(238,116,32,.09)", borderColor: NARANJA }}
+                  >
+                    <span>
+                      <span className="block text-[13.5px] font-extrabold text-white">
+                        Cambiar el beneficio, las reglas o el tipo
+                      </span>
+                      <span className="block text-[12px] text-white/60">
+                        La meta, los vencimientos, los días permitidos y los topes de canje.
+                      </span>
+                    </span>
+                    <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: NARANJA }}>
+                      →
+                    </span>
+                  </Link>
                 </>
+              ) : (
+                <Vacio texto="Todavía no tenés ninguna tarjeta. Creá la primera desde «Tarjetas» y sus regalías se editan acá." />
               )}
             </Seccion>
           ),
@@ -739,6 +772,18 @@ export default async function PanelNegocioLealtad({
               titulo="Tarjeta digital"
               bajada="Cómo se ve el pase que tu cliente guarda en el Wallet del teléfono."
             >
+              {/* Esta sección edita la tarjeta que MANDA. Con varias, la
+                  que no manda se toca desde su propia pantalla — decirlo
+                  acá evita que alguien cambie el color de la que no era
+                  y crea que el editor no funciona. */}
+              {vivas.length > 1 && (
+                <p className="rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3 text-[12.5px] leading-relaxed text-white/65">
+                  Estás diseñando{" "}
+                  <strong className="font-bold text-white">{principal?.nombre}</strong>. Para
+                  cambiarle los colores a otra de tus tarjetas, abrila desde{" "}
+                  <strong className="font-bold text-white">Tarjetas</strong>.
+                </p>
+              )}
               <SeccionTarjeta />
             </Seccion>
           ),
@@ -785,7 +830,16 @@ export default async function PanelNegocioLealtad({
           p && permisos.acreditar ? (
             <ModoMostrador
               ranchoId={id}
-              pideMonto={(p.modo ?? "puntos") !== "sellos"}
+              // `pideMontoElTipo` y no «todo lo que no sea sellos»: esa
+              // condición le pedía el monto de la compra a un cupón, a
+              // una entrada de evento y a un carnet de socio, donde el
+              // número no cambia absolutamente nada — y el empleado, con
+              // el cliente enfrente, se queda mirando un campo que no
+              // sabe qué poner. Solo puntos, cashback y gift card
+              // dependen de cuánto se gastó.
+              pideMonto={pideMontoElTipo(tipoPrincipal)}
+              tipo={p.modo ?? null}
+              permisos={permisos}
               recompensa={
                 meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
               }
