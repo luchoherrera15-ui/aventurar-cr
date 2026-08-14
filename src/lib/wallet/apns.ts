@@ -82,6 +82,14 @@ export async function avisarPaseActualizado(
   return { ok: true, enviados, caducados };
 }
 
+/**
+ * Cuánto tiempo REINTENTA Apple si el teléfono no está disponible en el
+ * instante del envío. Seis horas: de sobra para que el aparato vuelva a
+ * tener señal o salga del modo de bajo consumo sin acumular una cola
+ * eterna de avisos viejos.
+ */
+const VENTANA_DE_REINTENTO_SEGUNDOS = 6 * 60 * 60;
+
 function enviarUno(
   cliente: ReturnType<typeof connect>,
   token: string,
@@ -96,6 +104,15 @@ function enviarUno(
       // cuando le convenga en vez de despertar la pantalla.
       "apns-push-type": "background",
       "apns-priority": "5",
+      // SIN esto, Apple entrega UNA vez y si el teléfono no está
+      // disponible en ese instante preciso (sin señal, bloqueado, en
+      // bajo consumo) lo descarta para siempre — nunca reintenta, y
+      // acá no queda ningún rastro de que pasó: el aviso sale con 200
+      // ("lo acepté") y el teléfono simplemente nunca se entera. Con
+      // un vencimiento en el futuro, Apple lo GUARDA y reintenta la
+      // entrega dentro de esa ventana en vez de tirarlo al primer
+      // intento fallido.
+      "apns-expiration": String(Math.floor(Date.now() / 1000) + VENTANA_DE_REINTENTO_SEGUNDOS),
       "content-type": "application/json",
     });
 
