@@ -54,18 +54,29 @@ const TESTIGOS = [
   ["0137", "tabla", "intentos_canje", null, "canje seguro"],
   ["0138", "tabla", "personas", null, "identidad raíz"],
   ["0138", "columna", "miembros", "persona_id", "miembro sin cuenta"],
+  ["0143", "tabla", "suscripciones", null, "suscripciones Stripe"],
+  ["0143", "tabla", "eventos_stripe", null, "webhooks de Stripe procesados"],
+  ["0145", "columna", "programa_lealtad", "pase_sello_icono", "icono del sello"],
+  ["0146", "columna", "programa_lealtad", "pausado_por_cobro", "corte al terminar el mes"],
+  ["0146", "columna", "suscripciones", "cortada_en", "corte al terminar el mes"],
+  ["0147", "columna", "pases_wallet", "pase_en_pausa", "aviso de pausa en el pase"],
+  ["0149", "tabla", "ayuda_diseno", null, "ayuda con el diseño"],
+  ["0150", "columna", "pases_wallet", "diseno_pendiente", "aviso de cambio de diseño"],
 ];
 
 console.log("\n  MIG   OBJETO                                 ESTADO");
 console.log("  ────  ─────────────────────────────────────  ──────────");
 
 const faltan = new Set();
+const rotos = new Set();
 
 for (const [mig, clase, tabla, columna, glosa] of TESTIGOS) {
-  const { error } = await db
-    .from(tabla)
-    .select(columna ?? "*", { count: "exact", head: true })
-    .limit(1);
+  // SIN `head: true`: una respuesta HEAD no lleva cuerpo (así lo manda
+  // PostgREST), así que un error ahí llega con `message: ""` y sin
+  // `code` — un "roto" fantasma que en realidad era una columna
+  // ausente de toda la vida. `.limit(1)` sin head cuesta lo mismo que
+  // importa acá (una fila) y siempre trae el error completo.
+  const { error } = await db.from(tabla).select(columna ?? "*").limit(1);
 
   // PGRST205 = no existe la tabla. 42703 / PGRST204 = no existe la columna.
   const ausente =
@@ -76,7 +87,8 @@ for (const [mig, clase, tabla, columna, glosa] of TESTIGOS) {
   const etiqueta = `${nombre}  (${glosa})`.padEnd(38);
 
   if (roto) {
-    console.log(`  ${mig}  ${etiqueta}  ⚠️  ${error.code}`);
+    console.log(`  ${mig}  ${etiqueta}  ⚠️  ${error.code ?? "error sin código"}: ${error.message}`);
+    rotos.add(mig);
   } else if (ausente) {
     console.log(`  ${mig}  ${etiqueta}  ❌ FALTA`);
     faltan.add(mig);
@@ -86,9 +98,15 @@ for (const [mig, clase, tabla, columna, glosa] of TESTIGOS) {
 }
 
 console.log("");
-if (faltan.size === 0) {
+if (faltan.size === 0 && rotos.size === 0) {
   console.log("  Todo lo que el código espera está en la base.\n");
 } else {
-  console.log(`  FALTAN: ${[...faltan].sort().join(", ")}`);
-  console.log("  Pegalas en ese orden. Y antes de la 0138, corré supabase/PRE-VUELO-0138.sql\n");
+  if (faltan.size > 0) {
+    console.log(`  FALTAN: ${[...faltan].sort().join(", ")}`);
+    console.log("  Pegalas en ese orden. Y antes de la 0138, corré supabase/PRE-VUELO-0138.sql");
+  }
+  if (rotos.size > 0) {
+    console.log(`  ROTAS (error que no es "no existe" — mirá el mensaje arriba): ${[...rotos].sort().join(", ")}`);
+  }
+  console.log("");
 }
