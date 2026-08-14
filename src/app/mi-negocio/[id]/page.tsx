@@ -1339,86 +1339,84 @@ export default async function RanchoDetallePage({
 
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
-  return (
-    // El ancho de siempre: probamos el panel a pantalla completa y con
-    // el menú ya horizontal quedaba demasiado estirado — las líneas de
-    // texto se volvían incómodas de leer.
-    <main className="mx-auto max-w-[1280px] px-5 py-10">
+  // La identidad ahora vive DENTRO de la columna navy del sidebar (mismo
+  // lenguaje visual que /cuenta), así que se arma acá como nodo en vez
+  // de tarjeta propia — PanelSidebar la envuelve y la pega arriba del
+  // menú. Colores para navy: blanco/blanco-suave en vez de
+  // aventurea-ink, borde blanco/15 en vez de aventurea-line.
+  const identidad = (
+    <>
+      <div className="flex items-start gap-3">
+        <div
+          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-cover bg-center"
+          style={
+            rancho.foto_url
+              ? { backgroundImage: `url(${rancho.foto_url})` }
+              : { backgroundImage: CATEGORIA_GRADIENTE[categoriaParaIcono] }
+          }
+        >
+          {!rancho.foto_url && (
+            <span className="text-white opacity-90 [&_svg]:h-6 [&_svg]:w-6">
+              {CATEGORIA_ICONO[categoriaParaIcono]}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 pt-0.5">
+          <h1 className="truncate text-[15px] font-extrabold leading-tight text-white">
+            {rancho.nombre}
+          </h1>
+          <p className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-white/65">
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
+            {ESTADO_LABEL[rancho.estado]}
+          </p>
+          <p className="mt-1 truncate text-[10.5px] font-bold uppercase tracking-wide text-aventurea-orange">
+            {categoriaLabelMostrado}
+            {ubicacion ? ` · ${ubicacion}` : ""}
+          </p>
+        </div>
+      </div>
+
+      {rancho.estado === "aprobado" && (
+        <Link
+          href={urlPublica}
+          className="mt-3 block truncate text-[11.5px] font-bold text-white/60 hover:text-white hover:underline"
+        >
+          Ver mi página{rancho.slug ? ` · /${rancho.slug}` : ""} →
+        </Link>
+      )}
+
       <Link
-        href="/mi-negocio"
-        className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+        href="?tab=config&seccion=perfil"
+        className="mt-3 flex w-full items-center justify-center rounded-xl bg-white/10 px-3.5 py-2.5 text-center text-[12.5px] font-bold text-white transition-colors hover:bg-white/20"
       >
-        ← Todas tus publicaciones
+        Editar perfil y fotos
       </Link>
+    </>
+  );
 
-      {/* El tablero: identidad del negocio, lo que hay que atender, cómo
-          va el mes y la agenda, todo en un mismo panel. */}
-      <div className="mt-4 overflow-hidden rounded-3xl border border-aventurea-line bg-aventurea-surface p-5 shadow-sm sm:p-7">
-        <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <div
-            className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-aventurea-line bg-cover bg-center"
-            style={
-              rancho.foto_url
-                ? { backgroundImage: `url(${rancho.foto_url})` }
-                : { backgroundImage: CATEGORIA_GRADIENTE[categoriaParaIcono] }
-            }
-          >
-            {!rancho.foto_url && (
-              <span className="text-white opacity-90 [&_svg]:h-7 [&_svg]:w-7">
-                {CATEGORIA_ICONO[categoriaParaIcono]}
-              </span>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-              <h1 className="text-[19px] font-bold leading-tight text-aventurea-ink">
-                {rancho.nombre}
-              </h1>
-              <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink-soft">
-                <span className={`h-2 w-2 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
-                {ESTADO_LABEL[rancho.estado]}
-              </span>
-            </div>
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-aventurea-ink-soft">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
-                {categoriaLabelMostrado}
-              </span>
-              {ubicacion && <span className="truncate">{ubicacion}</span>}
-              {rancho.estado === "aprobado" && (
-                <Link
-                  href={urlPublica}
-                  className="font-bold text-aventurea-navy underline-offset-2 hover:underline"
-                >
-                  Ver mi página{rancho.slug ? ` · /${rancho.slug}` : ""} →
-                </Link>
-              )}
-            </p>
-          </div>
-
-          <Link
-            href="?tab=config&seccion=perfil"
-            // En teléfono el botón se lleva su propia línea: compartiendo
-            // fila, dejaba el nombre del negocio partido en tres.
-            className="w-full shrink-0 rounded-xl bg-aventurea-sky px-5 py-2.5 text-center text-[13.5px] font-bold text-white shadow-sm hover:bg-aventurea-sky-dark sm:w-auto"
-          >
-            Editar perfil y fotos
-          </Link>
-        </header>
-
-        {rancho.estado === "pendiente" && (
-          <p className="mt-4 rounded-[10px] bg-aventurea-sky/15 p-3 text-[13px] leading-relaxed text-aventurea-orange">
-            Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
-            directorio.
-          </p>
-        )}
-        {rancho.estado === "rechazado" && (
-          <p className="mt-4 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
-            Tu publicación no fue aprobada todavía. Escribinos si querés más información.
-          </p>
-        )}
-
-        <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-zinc-500">
+  // Los avisos de estado y los datos de un vistazo (capacidad, precio,
+  // WhatsApp) necesitan el ancho completo de la columna de contenido —
+  // en los 224px de la columna navy ese texto se apretaría feo. Van
+  // arriba del todo del contenido, antes de la pestaña activa.
+  const hayDatos =
+    (esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null)) ||
+    rancho.precio_desde !== null ||
+    !!rancho.contacto_whatsapp;
+  const encabezado = (
+    <>
+      {rancho.estado === "pendiente" && (
+        <p className="mb-4 rounded-[10px] bg-aventurea-sky/15 p-3 text-[13px] leading-relaxed text-aventurea-orange">
+          Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
+          directorio.
+        </p>
+      )}
+      {rancho.estado === "rechazado" && (
+        <p className="mb-4 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
+          Tu publicación no fue aprobada todavía. Escribinos si querés más información.
+        </p>
+      )}
+      {hayDatos && (
+        <p className="mb-5 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-zinc-500">
           {esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null) && (
             <span>
               Capacidad{" "}
@@ -1439,11 +1437,24 @@ export default async function RanchoDetallePage({
             </span>
           )}
         </p>
+      )}
+    </>
+  );
 
-      </div>
+  return (
+    // El ancho de siempre: probamos el panel a pantalla completa y con
+    // el menú ya horizontal quedaba demasiado estirado — las líneas de
+    // texto se volvían incómodas de leer.
+    <main className="mx-auto max-w-[1280px] px-5 py-10">
+      <Link
+        href="/mi-negocio"
+        className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+      >
+        ← Todas tus publicaciones
+      </Link>
 
-      <div className="mt-7">
-        <PanelSidebar tabs={tabs} defaultTab="inicio" />
+      <div className="mt-4">
+        <PanelSidebar tabs={tabs} defaultTab="inicio" identidad={identidad} encabezado={encabezado} />
       </div>
     </main>
   );

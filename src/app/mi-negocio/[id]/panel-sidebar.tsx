@@ -50,8 +50,28 @@ function resolverTab(param: string | null, tabs: Tab[]): string | null {
  * botón con la sección activa despliega el mismo menú justo debajo,
  * como el selector de categorías del chat flotante (no un panel de
  * pantalla completa).
+ *
+ * `identidad` y `encabezado` migran este panel al mismo lenguaje visual
+ * que /cuenta (sidebar navy con degradé, identidad+nav en una sola
+ * tarjeta): `identidad` va DENTRO de la columna navy, arriba del menú
+ * — antes vivía como su propia tarjeta blanca separada, en
+ * `[id]/page.tsx`. Los avisos de estado (pendiente/rechazado) y la fila
+ * de datos (capacidad, precio, WhatsApp) no la acompañaron: en una
+ * columna de 224px ese texto se apretaría feo, así que quedan en
+ * `encabezado`, arriba del contenido de la pestaña — donde ya hay
+ * ancho de sobra.
  */
-export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaultTab: string }) {
+export default function PanelSidebar({
+  tabs,
+  defaultTab,
+  identidad,
+  encabezado,
+}: {
+  tabs: Tab[];
+  defaultTab: string;
+  identidad?: ReactNode;
+  encabezado?: ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -148,52 +168,62 @@ export default function PanelSidebar({ tabs, defaultTab }: { tabs: Tab[]; defaul
 
   return (
     <div className="lg:grid lg:grid-cols-[224px_1fr] lg:items-start lg:gap-8">
-      {/* Desktop: columna fija */}
-      {/* top-20 (80px): el header del panel ahora mide 64px fijos, así
-          que el offset deja de ser una adivinanza. */}
-      <aside className="sticky top-20 hidden shrink-0 rounded-3xl bg-aventurea-navy p-3 lg:block">
-        {itemsNav(() => {})}
-      </aside>
-
-      {/* Mobile: botón con la sección activa que despliega el menú
-          justo debajo — mismo patrón que el selector de categorías
-          del chat, no un panel de pantalla completa. */}
-      <div className="relative mb-4 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setSelectorAbierto((v) => !v)}
-          aria-expanded={selectorAbierto}
-          className="flex w-full items-center justify-between gap-2 rounded-2xl border border-aventurea-line bg-aventurea-navy px-4 py-3 text-[14px] font-bold text-white shadow-sm"
-        >
-          <span className="flex items-center gap-2 truncate">
-            {seccionActiva?.icon && (
-              <span className="shrink-0 [&_svg]:h-[17px] [&_svg]:w-[17px]">{seccionActiva.icon}</span>
-            )}
-            <span className="truncate">{seccionActiva?.label}</span>
-          </span>
-          <IconChevronDown
-            className={`h-4 w-4 shrink-0 transition-transform ${selectorAbierto ? "rotate-180" : ""}`}
-          />
-        </button>
-
-        {selectorAbierto && (
-          <>
-            <button
-              type="button"
-              aria-label="Cerrar menú"
-              onClick={() => setSelectorAbierto(false)}
-              className="fixed inset-0 z-10 cursor-default"
-            />
-            <div className="absolute left-0 right-0 top-full z-20 mt-1.5 rounded-2xl bg-aventurea-navy p-3 shadow-2xl">
-              {itemsNav(() => setSelectorAbierto(false))}
-            </div>
-          </>
+      {/* top-20 (80px): el header del panel mide 64px fijos, así que el
+          offset deja de ser una adivinanza. Envuelve identidad+nav para
+          que las dos suban pegadas al hacer scroll, como un solo bloque. */}
+      <div className="lg:sticky lg:top-20">
+        {identidad && (
+          <div className="mb-3 rounded-3xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-4 text-white shadow-lg">
+            {identidad}
+          </div>
         )}
+
+        {/* Desktop: columna fija */}
+        <aside className="hidden shrink-0 rounded-3xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-3 lg:block">
+          {itemsNav(() => {})}
+        </aside>
+
+        {/* Mobile: botón con la sección activa que despliega el menú
+            justo debajo — mismo patrón que el selector de categorías
+            del chat, no un panel de pantalla completa. */}
+        <div className="relative mb-4 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSelectorAbierto((v) => !v)}
+            aria-expanded={selectorAbierto}
+            className="flex w-full items-center justify-between gap-2 rounded-2xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy px-4 py-3 text-[14px] font-bold text-white shadow-sm"
+          >
+            <span className="flex items-center gap-2 truncate">
+              {seccionActiva?.icon && (
+                <span className="shrink-0 [&_svg]:h-[17px] [&_svg]:w-[17px]">{seccionActiva.icon}</span>
+              )}
+              <span className="truncate">{seccionActiva?.label}</span>
+            </span>
+            <IconChevronDown
+              className={`h-4 w-4 shrink-0 transition-transform ${selectorAbierto ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {selectorAbierto && (
+            <>
+              <button
+                type="button"
+                aria-label="Cerrar menú"
+                onClick={() => setSelectorAbierto(false)}
+                className="fixed inset-0 z-10 cursor-default"
+              />
+              <div className="absolute left-0 right-0 top-full z-20 mt-1.5 rounded-2xl bg-aventurea-navy p-3 shadow-2xl">
+                {itemsNav(() => setSelectorAbierto(false))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Contenido — mismo truco de `hidden` de siempre: nunca se
           pierde un formulario a medio llenar al cambiar de sección. */}
       <div className="min-w-0">
+        {encabezado}
         {tabs
           .filter((t) => !t.href)
           .map((t) => (
