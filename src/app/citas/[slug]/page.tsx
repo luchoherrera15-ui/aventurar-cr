@@ -1,16 +1,20 @@
 import { cache } from "react";
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
-import { IconChatBubble, IconClock, IconPin, IconStar } from "@/components/icons";
-import AgendaNegocio from "./agenda-negocio";
-import EquipoNegocio from "./equipo-negocio";
+import { IconChatBubble } from "@/components/icons";
+import BusinessGallery from "./business-gallery";
+import BusinessHeader from "./business-header";
+import BusinessBadges from "./business-badges";
+import ProfileNavigation from "./profile-navigation";
+import PerfilInteractivo from "./perfil-interactivo";
+import LocationSection from "./location-section";
+import BusinessInfoSection from "./business-info-section";
+import { DetallesServicioSeccion } from "./detalles-seccion";
 import TarjetaReservaSticky from "./tarjeta-reserva-sticky";
-import { DetallesServicioSeccion, ComodidadesSeccion } from "./detalles-seccion";
 import { createAdminClient } from "@/lib/supabase/admin";
 import TarjetaLealtad from "./tarjeta-lealtad";
 import { hoyISOCR } from "@/lib/fechas";
@@ -36,6 +40,13 @@ import {
   metadataNegocio,
   type NegocioSeo,
 } from "@/lib/seo-negocio";
+import {
+  armarBadges,
+  armarFotosGaleria,
+  distribucionDeResenas,
+  estadoAperturaDe,
+} from "./perfil-datos";
+import type { ProfesionalPerfil, ResenaPerfil, ResumenResenas, SeccionPerfil } from "./perfil-tipos";
 
 type Miembro = {
   id: string;
@@ -44,7 +55,16 @@ type Miembro = {
   foto_url: string | null;
 };
 
-type Resena = { calificacion: number; comentario: string | null; created_at: string };
+/** Fila cruda de `resenas`, con el servicio y el profesional resueltos
+ *  vía el embed a `reservas`/`reserva_items` (ver comentario más abajo). */
+type ResenaFila = {
+  id: string;
+  calificacion: number;
+  comentario: string | null;
+  created_at: string;
+  cliente_id: string;
+  reservas: { miembro_id: string | null; reserva_items: { nombre: string }[] } | null;
+};
 
 type NegocioCitas = RanchoPublico & { vertical: string };
 
@@ -125,9 +145,12 @@ export async function generateMetadata({
 
 /**
  * La mini-página de un negocio de citas — su "sitio" dentro de Bookea
- * (bookea.lat/citas/unaskathy): servicios con precio y duración,
- * equipo con fotos, reseñas, horario y ubicación. Todo desemboca en
- * el flujo de reserva, sin salir de acá.
+ * (bookea.lat/citas/unaskathy): galería, servicios con precio y
+ * duración, equipo con fotos y reseñas propias, portafolio de
+ * trabajos, reseñas con distribución por nota, horario y ubicación.
+ * Todo desemboca en el flujo de reserva, sin salir de acá — el panel
+ * sticky de la derecha en escritorio y la barra fija + hoja inferior
+ * en móvil.
  */
 export default async function NegocioCitasPage({
   params,
@@ -150,10 +173,11 @@ export default async function NegocioCitasPage({
 
   if (!negocio) notFound();
 
-  // Los contadores del negocio (citas agendadas, clientes atendidos y
-  // citas por persona del equipo) salen con la service key: la
-  // política de reservas solo deja ver las propias, y acá se exponen
-  // únicamente números agregados — nunca datos de nadie.
+  // Los contadores del negocio, las reseñas con su servicio/profesional
+  // resuelto y los favoritos salen con la service key: la política de
+  // `reservas`/`reserva_items` solo deja ver las propias, y acá se
+  // exponen únicamente números agregados y nombres — nunca datos de
+  // contacto de nadie.
   const admin = createAdminClient();
 
   /* Todo lo que falta, en UNA tanda.
@@ -169,10 +193,8 @@ export default async function NegocioCitasPage({
     { data: seccionesData },
     { data: equipoData },
     { data: califData },
-    { data: resenasData },
     { data: perfil },
     agendaPro,
-    { data: filasCitas },
   ] = await Promise.all([
       supabase
         .from("rancho_items")
@@ -198,25 +220,73 @@ export default async function NegocioCitasPage({
         .select("promedio, total")
         .eq("rancho_id", negocio.id)
         .maybeSingle(),
-      supabase
-        .from("resenas")
-        .select("calificacion, comentario, created_at")
-        .eq("rancho_id", negocio.id)
-        .order("created_at", { ascending: false })
-        .limit(4),
       user
         ? supabase.from("perfiles").select("nombre").eq("id", user.id).maybeSingle()
         : Promise.resolve({ data: null }),
       cargarAgendaPro(supabase, negocio.id),
-      admin
-        ? admin
-            .from("reservas")
-            .select("cliente_id, correo, fecha, miembro_id")
-            .eq("rancho_id", negocio.id)
-            .eq("estado", "confirmada")
-            .not("hora_inicio", "is", null)
-        : Promise.resolve({ data: null }),
     ]);
+
+  /* Segunda tanda: todo lo que necesita la service key, en paralelo
+   * entre sí (son tablas y consultas independientes).
+   *
+   * Las reseñas van con el embed a `reservas`/`reserva_items` para
+   * saber CON QUÉ servicio y CON QUIÉN se atendió cada una — sin eso,
+   * ReviewsList no tiene "Balayage · con Laura" que mostrar. El nombre
+   * del servicio sale de `reserva_items.nombre`, guardado al momento
+   * de reservar: no hace falta unirlo con el catálogo actual, así que
+   * una reseña sigue siendo legible aunque el servicio se haya
+   * renombrado o borrado después.
+   *
+   * Tope de 200: exacto para prácticamente cualquier negocio real hoy.
+   * Si algún día un negocio pasa las 200 reseñas, la distribución por
+   * estrella (que sale de este mismo lote) empieza a ser una
+   * aproximación sobre las más recientes en vez del total exacto — el
+   * promedio grande no, ese sale de `calificaciones_rancho`, que sí
+   * cuenta la población completa. */
+  const [{ data: filasCitas }, { data: resenasCrudas }, { data: favData }] = await Promise.all([
+    admin
+      ? admin
+          .from("reservas")
+          .select("cliente_id, correo, fecha, miembro_id")
+          .eq("rancho_id", negocio.id)
+          .eq("estado", "confirmada")
+          .not("hora_inicio", "is", null)
+      : Promise.resolve({ data: null }),
+    admin
+      ? admin
+          .from("resenas")
+          .select("id, calificacion, comentario, created_at, cliente_id, reservas(miembro_id, reserva_items(nombre))")
+          .eq("rancho_id", negocio.id)
+          .order("created_at", { ascending: false })
+          .limit(200)
+      : // Sin llave de servicio: se pierde el servicio/profesional de
+        // cada reseña (esa parte necesita leer `reservas`, restringida
+        // a quien la hizo), pero las reseñas en sí siguen siendo
+        // públicas — mejor mostrarlas sin atribución que no mostrarlas.
+        supabase
+          .from("resenas")
+          .select("id, calificacion, comentario, created_at, cliente_id")
+          .eq("rancho_id", negocio.id)
+          .order("created_at", { ascending: false })
+          .limit(200),
+    user && admin
+      ? admin
+          .from("favoritos")
+          .select("rancho_id")
+          .eq("cliente_id", user.id)
+          .eq("rancho_id", negocio.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  // Quién escribió cada reseña. Consulta aparte porque depende de los
+  // `cliente_id` recién leídos — mismo patrón de dos pasos que ya usa
+  // `quienEscribe` en la ayuda de diseño de Lealtad.
+  const clienteIds = [...new Set(((resenasCrudas ?? []) as { cliente_id: string }[]).map((r) => r.cliente_id))];
+  const { data: perfilesReviewers } =
+    clienteIds.length > 0 && admin
+      ? await admin.from("perfiles").select("id, nombre").in("id", clienteIds)
+      : { data: null };
 
   /* ¿Este negocio tiene programa de lealtad activo?
    *
@@ -224,7 +294,7 @@ export default async function NegocioCitasPage({
    * al público (0060), y las columnas nuevas (0134-0136) pueden no
    * existir todavía — una lista explícita fallaría entera.
    *
-   * Va aparte de la tanda de arriba a propósito: si `admin` no está
+   * Va aparte de las tandas de arriba a propósito: si `admin` no está
    * configurado, esto queda en null y la página sigue igual. La tarjeta
    * de lealtad es un extra; no puede tumbar la ficha del negocio. */
   const { data: programaLealtad } = admin
@@ -253,17 +323,15 @@ export default async function NegocioCitasPage({
   })[];
   const equipo = (equipoData ?? []) as Miembro[];
   const calif = califData as { promedio: number; total: number } | null;
-  const resenas = (resenasData ?? []) as Resena[];
   const horario = horarioDeDetalles(negocio.detalles);
   const categoria = normalizarCategoriaCita(negocio.categoria);
   const ubicacion = [negocio.canton, negocio.provincia].filter(Boolean).join(", ");
   const rutaBase = `/citas/${negocio.slug ?? negocio.id}`;
+  const zonaHoraria = negocio.zona_horaria ?? "America/Costa_Rica";
 
   // Los números agregados de arriba, ya contados (la consulta viajó en
   // la tanda anterior).
-  let citasTotales = 0;
-  let clientesAtendidos = 0;
-  const citasPorMiembro: Record<string, number> = {};
+  let citasPorMiembro: Record<string, number> = {};
   {
     const hoy = hoyISOCR();
     const filas = (filasCitas ?? []) as {
@@ -272,26 +340,103 @@ export default async function NegocioCitasPage({
       fecha: string;
       miembro_id: string | null;
     }[];
-    citasTotales = filas.length;
     const atendidas = filas.filter((f) => f.fecha < hoy);
-    clientesAtendidos = new Set(
-      atendidas.map((f) => f.cliente_id ?? f.correo).filter(Boolean),
-    ).size;
+    const porMiembro: Record<string, number> = {};
     for (const f of atendidas) {
-      if (f.miembro_id) {
-        citasPorMiembro[f.miembro_id] = (citasPorMiembro[f.miembro_id] ?? 0) + 1;
-      }
+      if (f.miembro_id) porMiembro[f.miembro_id] = (porMiembro[f.miembro_id] ?? 0) + 1;
     }
+    citasPorMiembro = porMiembro;
   }
 
-  const resumen = {
-    fotoUrl: negocio.foto_url,
+  // Reseñas con quién las escribió, sobre qué servicio y con quién se
+  // atendió — la forma que pide ReviewsList/ReviewsSummary.
+  const nombrePerfil = new Map(
+    ((perfilesReviewers ?? []) as { id: string; nombre: string | null }[]).map((p) => [
+      p.id,
+      (p.nombre ?? "").trim() || "Cliente de Bookea",
+    ]),
+  );
+  const nombreMiembro = new Map(equipo.map((m) => [m.id, m.nombre]));
+  const resenasCrudasTipadas = (resenasCrudas ?? []) as unknown as ResenaFila[];
+  const resenasPerfil: ResenaPerfil[] = resenasCrudasTipadas.map((r) => {
+    const miembroId = r.reservas?.miembro_id ?? null;
+    return {
+      id: r.id,
+      calificacion: r.calificacion,
+      comentario: r.comentario,
+      fecha: r.created_at,
+      clienteNombre: nombrePerfil.get(r.cliente_id) ?? "Cliente de Bookea",
+      servicioNombre: r.reservas?.reserva_items?.[0]?.nombre ?? null,
+      profesionalNombre: miembroId ? (nombreMiembro.get(miembroId) ?? null) : null,
+      reservaVerificada: true,
+    };
+  });
+  const resumenResenas: ResumenResenas = {
     promedio: calif?.promedio ?? null,
-    totalResenas: calif?.total ?? null,
-    ubicacion: ubicacion || null,
+    total: calif?.total ?? 0,
+    distribucion: distribucionDeResenas(resenasCrudasTipadas.map((r) => r.calificacion)),
   };
-  // Un solo paquete de props para las tres puertas de la agenda
-  // (servicios, tarjeta sticky y perfil del equipo).
+
+  // El equipo, con su propia nota (de sus reseñas atribuidas) y sus
+  // servicios principales (de qué le asignó el dueño en servicios↔recurso).
+  const nombreServicio = new Map(items.map((i) => [i.id, i.nombre]));
+  const serviciosPorMiembro = new Map<string, string[]>();
+  for (const sr of agendaPro.serviciosRecurso ?? []) {
+    const nombre = nombreServicio.get(sr.item_id);
+    if (!nombre) continue;
+    const lista = serviciosPorMiembro.get(sr.miembro_id) ?? [];
+    if (!lista.includes(nombre)) lista.push(nombre);
+    serviciosPorMiembro.set(sr.miembro_id, lista);
+  }
+  const calificacionesPorMiembro = new Map<string, number[]>();
+  for (const r of resenasCrudasTipadas) {
+    const miembroId = r.reservas?.miembro_id;
+    if (!miembroId) continue;
+    const lista = calificacionesPorMiembro.get(miembroId) ?? [];
+    lista.push(r.calificacion);
+    calificacionesPorMiembro.set(miembroId, lista);
+  }
+  const profesionales: ProfesionalPerfil[] = equipo.map((m) => {
+    const calificaciones = calificacionesPorMiembro.get(m.id) ?? [];
+    return {
+      id: m.id,
+      nombre: m.nombre,
+      rol: m.rol,
+      foto_url: m.foto_url,
+      promedio:
+        calificaciones.length > 0
+          ? calificaciones.reduce((a, b) => a + b, 0) / calificaciones.length
+          : null,
+      totalResenas: calificaciones.length,
+      serviciosPrincipales: (serviciosPorMiembro.get(m.id) ?? []).slice(0, 4),
+      citasAtendidas: citasPorMiembro[m.id] ?? 0,
+    };
+  });
+
+  const badges = armarBadges(negocio.amenidades ?? []);
+  const fotosGaleria = armarFotosGaleria(negocio.foto_url, negocio.fotos, negocio.nombre);
+  // El portafolio, HOY, son las mismas fotos del negocio menos la de
+  // portada (esa ya lidera la galería de arriba — repetirla ahí abajo
+  // sería la misma foto dos veces en la misma pantalla). Con una sola
+  // foto en total, no hay nada distinto que mostrar como portafolio:
+  // PortfolioGallery recibe [] y la sección entera desaparece, tal
+  // como pide el dueño del producto para "sin portafolio".
+  const fotosPortfolio = fotosGaleria.length > 1
+    ? fotosGaleria.slice(1).map((f) => ({ ...f, servicioNombre: null, profesionalNombre: null }))
+    : [];
+  const estadoApertura = estadoAperturaDe(horario, zonaHoraria);
+  const favoritoInicial = favData !== null;
+
+  const secciones: SeccionPerfil[] = [
+    "servicios",
+    ...(profesionales.length > 0 ? (["equipo"] as const) : []),
+    ...(fotosPortfolio.length > 0 ? (["portfolio"] as const) : []),
+    "resenas",
+    "informacion",
+  ];
+
+  // Un solo paquete de props para el panel sticky y el bloque
+  // interactivo (servicios, equipo, la reserva de móvil).
   const agendaProps = {
     ranchoId: negocio.id,
     rutaBase,
@@ -301,7 +446,7 @@ export default async function NegocioCitasPage({
     equipo,
     horario,
     agendaPro: {
-      zonaHoraria: negocio.zona_horaria ?? "America/Costa_Rica",
+      zonaHoraria,
       ...agendaPro,
       // Depósito para asegurar la cita (0095). Con la base sin migrar
       // queda undefined → sin depósito, el flujo de siempre.
@@ -317,7 +462,12 @@ export default async function NegocioCitasPage({
     },
     sesionActiva: !!user,
     nombreInicial: perfil?.nombre ?? "",
-    resumen,
+    resumen: {
+      fotoUrl: negocio.foto_url,
+      promedio: calif?.promedio ?? null,
+      totalResenas: calif?.total ?? null,
+      ubicacion: ubicacion || null,
+    },
   };
   const comoLlegar = linkGoogleMaps(
     negocio.latitud,
@@ -328,7 +478,7 @@ export default async function NegocioCitasPage({
   );
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(175deg,#ffffff_0%,#f5f8fd_38%,#e9f0fb_100%)]">
+    <div className="min-h-screen bg-[linear-gradient(175deg,#ffffff_0%,#f5f8fd_38%,#e9f0fb_100%)] pb-[84px] lg:pb-0">
       {/* Datos estructurados del negocio: dirección y demás, para que
           Google no muestre la ficha como texto pelado. Sale de la MISMA
           fila ya leída — cero consultas extra. */}
@@ -345,7 +495,7 @@ export default async function NegocioCitasPage({
       )}
       <SiteHeader breadcrumb="Citas y Reservas" />
 
-      <section className="mx-auto max-w-[1000px] px-6 py-8">
+      <section className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 sm:py-8">
         <Link href="/citas" className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy">
           ← Todos los negocios
         </Link>
@@ -355,111 +505,67 @@ export default async function NegocioCitasPage({
             menos que ningún número. */}
         <VisitasPagina ranchoId={negocio.id} className="mt-3" />
 
-        {/* ---------- Presentación ---------- */}
-        <div className="mt-4 overflow-hidden rounded-3xl border border-aventurea-line bg-white shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)]">
-          <div className="grid md:grid-cols-[1.1fr_1fr]">
-            <div className="relative aspect-[16/10] bg-aventurea-blue-light md:aspect-auto md:min-h-[300px]">
-              {negocio.foto_url ? (
-                <Image
-                  src={negocio.foto_url}
-                  alt={negocio.nombre}
-                  fill
-                  priority
-                  sizes="(max-width: 768px) 100vw, 55vw"
-                  className="object-cover"
-                />
-              ) : (
-                <span className="absolute inset-0 flex items-center justify-center text-aventurea-navy">
-                  <IconClock className="h-14 w-14" />
-                </span>
-              )}
-            </div>
-            <div className="flex flex-col p-6 sm:p-7">
-              <span className="w-fit rounded-lg bg-aventurea-blue-light px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy">
-                {CATEGORIA_CITA_LABEL[categoria]}
-              </span>
-              <h1 className="mt-2.5 text-[clamp(24px,3vw,32px)] font-black leading-tight tracking-[-0.6px] text-aventurea-ink">
-                {negocio.nombre}
-              </h1>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-aventurea-ink-soft">
-                {calif && calif.total > 0 && (
-                  <span className="flex items-center gap-1 font-bold text-aventurea-ink">
-                    <IconStar className="h-4 w-4 text-aventurea-orange" />
-                    {calif.promedio.toFixed(1)}
-                    <span className="font-semibold text-aventurea-ink-soft">
-                      ({calif.total} {calif.total === 1 ? "reseña" : "reseñas"})
-                    </span>
-                  </span>
-                )}
-                {ubicacion && (
-                  <span className="flex items-center gap-1.5">
-                    <IconPin className="h-3.5 w-3.5 text-aventurea-navy" /> {ubicacion}
-                  </span>
-                )}
-              </div>
-              {/* Los números que dan confianza: cuánto se mueve el
-                  negocio dentro de Bookea. */}
-              {(citasTotales > 0 || clientesAtendidos > 0) && (
-                <div className="mt-3 flex flex-wrap gap-2.5">
-                  <span className="rounded-xl bg-[#f4f7fd] px-3.5 py-2 text-[12px] font-semibold text-aventurea-ink-soft">
-                    <strong className="mr-1 text-[14px] font-extrabold text-aventurea-ink">
-                      {citasTotales}
-                    </strong>
-                    cita{citasTotales === 1 ? "" : "s"} agendada{citasTotales === 1 ? "" : "s"}
-                  </span>
-                  <span className="rounded-xl bg-[#f4f7fd] px-3.5 py-2 text-[12px] font-semibold text-aventurea-ink-soft">
-                    <strong className="mr-1 text-[14px] font-extrabold text-aventurea-ink">
-                      {clientesAtendidos}
-                    </strong>
-                    cliente{clientesAtendidos === 1 ? "" : "s"} atendido{clientesAtendidos === 1 ? "" : "s"}
-                  </span>
-                </div>
-              )}
-              {negocio.descripcion && (
-                <p className="mt-3 text-[14px] leading-relaxed text-aventurea-ink-soft">
-                  {negocio.descripcion}
-                </p>
-              )}
-              <div className="mt-auto flex flex-wrap gap-2.5 pt-5">
-                <a
-                  href="#servicios"
-                  className="rounded-xl bg-aventurea-sky px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-sky-dark"
-                >
-                  Reservar una cita
-                </a>
-                <BotonConsultar
-                  ranchoId={negocio.id}
-                  nombre={negocio.nombre}
-                  className="flex items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-3 text-[14px] font-bold text-aventurea-ink hover:border-aventurea-navy"
-                >
-                  <IconChatBubble className="h-4 w-4 text-aventurea-navy" /> Consultar
-                </BotonConsultar>
-              </div>
-            </div>
-          </div>
+        {/* ---------- Galería ---------- */}
+        <div className="mt-4">
+          <BusinessGallery fotos={fotosGaleria} nombreNegocio={negocio.nombre} />
         </div>
 
-        {/* ---------- Contenido + la tarjeta que acompaña el scroll ----------
-            El horario y la dirección ya no son secciones sueltas: viven
-            en la tarjeta sticky de la derecha, que sigue el scroll con
-            "Reservar ahora" siempre a la vista (patrón Fresha). */}
-        <div className="grid items-start gap-8 lg:grid-cols-[1fr_300px]">
-          <div className="min-w-0">
-            <AgendaNegocio {...agendaProps} />
+        {/* ---------- Encabezado ---------- */}
+        <div className="mt-5">
+          <BusinessHeader
+            nombre={negocio.nombre}
+            categoriaLabel={CATEGORIA_CITA_LABEL[categoria]}
+            promedio={calif?.promedio ?? null}
+            totalResenas={calif?.total ?? 0}
+            ubicacion={ubicacion || null}
+            distanciaKm={null}
+            estadoApertura={estadoApertura}
+            ranchoId={negocio.id}
+            favoritoInicial={favoritoInicial}
+            sesionActiva={!!user}
+            descripcion={negocio.descripcion}
+          />
+        </div>
 
-            {equipo.length > 0 && (
-              <EquipoNegocio
-                equipo={equipo}
-                citasPorMiembro={citasPorMiembro}
-                agenda={agendaProps}
-              />
-            )}
+        {badges.length > 0 && (
+          <div className="mt-4">
+            <BusinessBadges badges={badges} />
+          </div>
+        )}
+
+        {negocio.owner_id !== user?.id && (
+          <div className="mt-3">
+            <BotonConsultar
+              ranchoId={negocio.id}
+              nombre={negocio.nombre}
+              className="flex w-fit items-center gap-2 rounded-xl border border-aventurea-line bg-white px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy"
+            >
+              <IconChatBubble className="h-4 w-4 text-aventurea-navy" /> ¿Dudas? Consultar por chat
+            </BotonConsultar>
+          </div>
+        )}
+
+        <ProfileNavigation secciones={secciones} />
+
+        {/* ---------- Contenido + el panel que acompaña el scroll ----------
+            El horario y la dirección viven en la tarjeta sticky de la
+            derecha (patrón Fresha) además de su propia sección abajo del
+            todo, con el detalle completo. */}
+        <div className="mt-2 grid items-start gap-8 lg:grid-cols-[1fr_300px]">
+          <div className="min-w-0">
+            <PerfilInteractivo
+              agenda={agendaProps}
+              profesionales={profesionales}
+              resumenResenas={resumenResenas}
+              resenas={resenasPerfil}
+              fotosPortfolio={fotosPortfolio}
+            />
 
             {/* El programa de lealtad, si lo tiene. Va acá —después de
-                los servicios y el equipo— porque para entonces la
-                persona ya sabe qué se hace en el local; ofrecerle la
-                tarjeta antes de eso es pedirle que se comprometa con
-                algo que todavía no conoce. */}
+                los servicios, el equipo y el portafolio— porque para
+                entonces la persona ya sabe qué se hace en el local;
+                ofrecerle la tarjeta antes de eso es pedirle que se
+                comprometa con algo que todavía no conoce. */}
             {programaLealtad && negocio.slug && (
               <TarjetaLealtad
                 slug={negocio.slug}
@@ -476,37 +582,24 @@ export default async function NegocioCitasPage({
               />
             )}
 
-            <DetallesServicioSeccion
-              categoria={categoria}
-              detalles={negocio.detalles ?? {}}
-            />
-            <ComodidadesSeccion amenidades={negocio.amenidades ?? []} />
-
-            {/* ---------- Reseñas ---------- */}
-            <div className="mt-9">
-              <h2 className="text-[19px] font-extrabold tracking-[-0.3px] text-aventurea-ink">Reseñas</h2>
-              {resenas.length === 0 ? (
-                <p className="mt-3 rounded-2xl border border-aventurea-line bg-white p-5 text-[13px] text-aventurea-ink-soft">
-                  Todavía no hay reseñas — sé la primera persona en atenderse acá.
-                </p>
-              ) : (
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {resenas.map((r, i) => (
-                    <div key={i} className="rounded-2xl border border-aventurea-line bg-white p-4">
-                      <span className="flex items-center gap-0.5 text-aventurea-orange">
-                        {Array.from({ length: r.calificacion }, (_, j) => (
-                          <IconStar key={j} className="h-3.5 w-3.5" />
-                        ))}
-                      </span>
-                      {r.comentario && (
-                        <p className="mt-1.5 text-[13px] leading-relaxed text-aventurea-ink">
-                          “{r.comentario}”
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div id="informacion" className="scroll-mt-24">
+              <LocationSection
+                direccion={negocio.direccion_exacta}
+                ubicacion={ubicacion || null}
+                comoLlegarHref={comoLlegar}
+                latitud={negocio.latitud}
+                longitud={negocio.longitud}
+              />
+              <BusinessInfoSection
+                horario={horario}
+                comodidades={badges}
+                politicaCancelacion={null}
+                zonaHoraria={zonaHoraria}
+              />
+              <DetallesServicioSeccion
+                categoria={categoria}
+                detalles={negocio.detalles ?? {}}
+              />
             </div>
           </div>
 
