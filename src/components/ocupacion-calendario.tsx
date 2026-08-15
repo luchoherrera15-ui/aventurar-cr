@@ -165,7 +165,7 @@ export default function OcupacionCalendario({
   return (
     <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-6">
       <div className="flex items-center justify-between">
-        <span className="text-[15px] font-bold capitalize text-aventurea-ink">
+        <span className="titulo text-[16px] capitalize text-aventurea-navy sm:text-[18px]">
           {MESES[viewMonth]} {viewYear}
         </span>
         <div className="flex gap-2">

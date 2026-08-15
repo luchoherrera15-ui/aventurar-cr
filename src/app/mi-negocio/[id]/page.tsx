@@ -621,9 +621,7 @@ export default async function RanchoDetallePage({
             es lo que se mira todos los días. El historial completo, con
             la auditoría de cada reserva, va más abajo. */}
         <div>
-          <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Próximas reservas
-          </h3>
+          <h3 className="titulo mb-3.5 text-[15px] text-aventurea-navy">Próximas reservas</h3>
           <ProximasReservasCards eventos={agenda} />
         </div>
 
@@ -727,17 +725,20 @@ export default async function RanchoDetallePage({
           )}
         </BarraAvisos>
 
-        <DashboardMetricas
-          metricas={metricas}
-          widgets={widgetsDashboard({
-            tipo: negocio.tipo,
-            modulos,
-            // La ocupación por día solo dice algo donde una fecha se
-            // reserva entera (Lugares); en una barbería el mismo día
-            // tiene veinte espacios.
-            ocupacionDisponible: metricas.ocupacionProximos30 !== null,
-          })}
-        />
+        <div>
+          <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">Tu negocio en números</h2>
+          <DashboardMetricas
+            metricas={metricas}
+            widgets={widgetsDashboard({
+              tipo: negocio.tipo,
+              modulos,
+              // La ocupación por día solo dice algo donde una fecha se
+              // reserva entera (Lugares); en una barbería el mismo día
+              // tiene veinte espacios.
+              ocupacionDisponible: metricas.ocupacionProximos30 !== null,
+            })}
+          />
+        </div>
 
         {/* (b) La agenda, entera y con todas sus acciones — SOLO si el
             negocio tiene el módulo (0108). Un negocio que existe para
@@ -747,16 +748,14 @@ export default async function RanchoDetallePage({
         {modulos.has("agenda") && (
           <>
             <section>
-              <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Tu agenda
-              </h2>
+              <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">Tu agenda</h2>
               {contenidoAgenda}
             </section>
 
             {/* (c) El histórico con auditoría: quién reservó, a qué hora,
                 con qué correo, cuánto depositó y cuánto queda pendiente. */}
             <section>
-              <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+              <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">
                 Últimas reservas y su auditoría
               </h2>
               <HistoricoReservas

@@ -337,7 +337,7 @@ export default function HistoricoReservas({
               setVisibles(PASO);
             }}
             placeholder="Buscar por nombre o correo…"
-            className="h-11 w-full rounded-xl border border-aventurea-line bg-aventurea-surface pl-9 pr-3 text-[13.5px] text-aventurea-ink outline-none placeholder:text-aventurea-ink-soft focus:border-aventurea-navy"
+            className="h-11 w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 pl-9 pr-3 text-[13.5px] text-aventurea-ink outline-none placeholder:text-zinc-500 focus:border-aventurea-navy"
           />
         </label>
         <label className="shrink-0">
@@ -348,7 +348,7 @@ export default function HistoricoReservas({
               setEstado(e.target.value);
               setVisibles(PASO);
             }}
-            className="h-11 w-full rounded-xl border border-aventurea-line bg-aventurea-surface px-3 text-[13.5px] font-bold text-aventurea-ink outline-none focus:border-aventurea-navy sm:w-auto"
+            className="h-11 w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 text-[13.5px] font-bold text-aventurea-ink outline-none focus:border-aventurea-navy sm:w-auto"
           >
             <option value="todos">Todos los estados</option>
             {estadosPresentes.map((e) => (

@@ -46,50 +46,45 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-      {proximas.map((e, i) => {
+      {proximas.map((e) => {
         const esHoy = e.fecha === hoy;
         const esManana = e.fecha === manana;
-        // Pieles suaves alternadas (mismas del tablero de métricas):
-        // azul suave y celeste, con la marca de agua en su propio tono.
-        const pielCard =
-          i % 2 === 0
-            ? "border-aventurea-navy/10 bg-aventurea-blue-light"
-            : "border-aventurea-sky/30 bg-aventurea-sky/20";
-        const pielMarca =
-          i % 2 === 0 ? "text-aventurea-navy/10" : "text-aventurea-sky-dark/20";
+        const monto = fmtColones(e.monto_total);
         return (
           <div
             key={e.id}
-            className={`relative min-w-0 overflow-hidden rounded-xl border px-3 py-2.5 ${pielCard}`}
+            className="group relative flex items-start gap-2.5 overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-3 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] transition-shadow hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)] sm:block sm:p-4"
           >
             <span
-              aria-hidden
-              className={`pointer-events-none absolute -right-2.5 -top-3 rotate-[14deg] ${pielMarca}`}
-            >
-              <IconCalendarLine className="h-16 w-16" />
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-6 -right-4 hidden h-20 w-20 rounded-full bg-aventurea-sky/10 sm:block"
+            />
+
+            <span className="relative z-10 flex w-full items-center gap-2.5 sm:mb-3 sm:items-start sm:gap-0">
+              <span
+                aria-hidden="true"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-sky/10 text-aventurea-sky"
+              >
+                <IconCalendarLine className="h-4 w-4" />
+              </span>
+              <span
+                className={`ml-auto shrink-0 rounded-lg px-2 py-0.5 text-[9.5px] font-extrabold sm:ml-0 sm:absolute sm:right-4 sm:top-4 ${ESTADO_CLS[e.estado] ?? "bg-aventurea-cream-2 text-aventurea-ink-soft"}`}
+              >
+                {ESTADO_LABEL[e.estado] ?? e.estado}
+              </span>
             </span>
-            <div className="relative z-10">
-              <p className="truncate text-[10px] font-bold uppercase tracking-wide text-aventurea-orange">
-                {esHoy ? "Hoy" : esManana ? "Mañana" : fechaCorta(e.fecha)}
-              </p>
-              <p className="mt-0.5 truncate text-[12.5px] font-bold text-aventurea-ink">
+
+            <span className="relative z-10 mt-1.5 block min-w-0 flex-1 sm:mt-0">
+              <span className="block truncate text-[12.5px] font-extrabold text-aventurea-ink sm:text-[14px]">
                 {e.nombre ?? "Sin nombre"}
-              </p>
-              <div className="mt-1.5 flex items-center justify-between gap-1.5">
-                {e.monto_total !== null ? (
-                  <span className="truncate text-[11.5px] font-bold text-aventurea-ink">
-                    {fmtColones(e.monto_total)}
-                  </span>
-                ) : (
-                  <span />
-                )}
-                <span
-                  className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9.5px] font-bold ${ESTADO_CLS[e.estado] ?? "bg-aventurea-cream-2 text-aventurea-ink-soft"}`}
-                >
-                  {ESTADO_LABEL[e.estado] ?? e.estado}
+              </span>
+              <span className="mt-0.5 block truncate text-[11px] font-medium text-aventurea-ink-soft sm:mt-1">
+                <span className="font-bold uppercase tracking-wide text-aventurea-orange">
+                  {esHoy ? "Hoy" : esManana ? "Mañana" : fechaCorta(e.fecha)}
                 </span>
-              </div>
-            </div>
+                {monto ? <span className="text-aventurea-ink"> · {monto}</span> : null}
+              </span>
+            </span>
           </div>
         );
       })}

@@ -106,7 +106,7 @@ export default function SolicitudesPendientes({
 
   return (
     <section className="rounded-2xl border border-aventurea-sky/40 bg-aventurea-sky/5 p-4 sm:p-5">
-      <h2 className="flex items-center gap-2 text-[15px] font-bold text-aventurea-ink">
+      <h2 className="titulo flex items-center gap-2 text-[18px] text-aventurea-navy">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-sky text-white">
           <IconBell className="h-4 w-4" />
         </span>

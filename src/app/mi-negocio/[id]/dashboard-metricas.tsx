@@ -19,23 +19,6 @@ function fmtFechaCorta(iso: string) {
   return new Date(y, m - 1, d).toLocaleDateString("es-CR", { day: "numeric", month: "short" });
 }
 
-/** Las dos pieles suaves del tablero, alternadas por posición: azul
- *  suave y celeste. Un mar de tarjetas blancas idénticas cansaba la
- *  vista — el tinte le da aire y la marca de agua toma el tono de su
- *  propia piel en vez de ser siempre navy sobre blanco. */
-const PIELES = [
-  {
-    card: "border-aventurea-navy/10 bg-aventurea-blue-light",
-    marca: "text-aventurea-navy/10",
-  },
-  // sky/20 y no sky-light: los tokens *-light azules son casi el mismo
-  // color (#e8f0f9 vs #e8f2fb) y la alternancia no se notaba.
-  {
-    card: "border-aventurea-sky/30 bg-aventurea-sky/20",
-    marca: "text-aventurea-sky-dark/20",
-  },
-] as const;
-
 type Card = {
   titulo: string;
   valor: string;
@@ -97,33 +80,31 @@ function contenidoWidget(id: WidgetId, m: Metricas): Omit<Card, "titulo"> | null
   }
 }
 
-/** Un número del tablero, con su ícono de marca de agua sangrando por
- *  la esquina (el overflow-hidden lo recorta). El naranja marca lo que
- *  es plata (ingresos, lo que falta cobrar), el resto queda neutro. */
-function Dato({
-  titulo,
-  valor,
-  detalle,
-  icono,
-  plata = false,
-  piel,
-}: Card & { piel: (typeof PIELES)[number] }) {
+/** Un número del tablero, con la misma piel de tarjeta que ya se usa en
+ *  /cuenta: círculo de ícono chico con fondo aventurea-sky/10 y, atrás,
+ *  un círculo decorativo grande sangrando por la esquina (el
+ *  overflow-hidden lo recorta). El dato es lo más grande y visible de
+ *  la tarjeta; el naranja marca lo que es plata (ingresos, lo que falta
+ *  cobrar), el resto queda neutro. */
+function Dato({ titulo, valor, detalle, icono, plata = false }: Card) {
   return (
-    <div
-      className={`relative min-w-0 overflow-hidden rounded-2xl border px-3 py-2.5 sm:px-3.5 sm:py-3 ${piel.card}`}
-    >
+    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface px-3 py-2.5 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] sm:px-3.5 sm:py-3">
       <span
-        aria-hidden
-        className={`pointer-events-none absolute -right-2.5 -top-3 rotate-[14deg] ${piel.marca} [&_svg]:h-16 [&_svg]:w-16`}
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-7 -right-5 hidden h-24 w-24 rounded-full bg-aventurea-sky/10 sm:block"
+      />
+      <span
+        aria-hidden="true"
+        className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-sky/10 text-[15px] text-aventurea-sky sm:h-9 sm:w-9 sm:text-[17px]"
       >
         {icono}
       </span>
-      <div className="relative z-10">
-        <p className="text-[9.5px] font-bold uppercase leading-tight tracking-wide text-aventurea-navy/60 sm:text-[10px]">
+      <div className="relative z-10 mt-2 min-w-0">
+        <p className="truncate text-[9.5px] font-bold uppercase leading-tight tracking-wide text-aventurea-navy/60 sm:text-[10px]">
           {titulo}
         </p>
         <p
-          className={`mt-0.5 text-[13.5px] font-bold leading-tight sm:text-[17px] ${plata ? "text-aventurea-orange" : "text-aventurea-ink"}`}
+          className={`mt-0.5 truncate text-[15px] font-extrabold leading-tight sm:text-[19px] ${plata ? "text-aventurea-orange" : "text-aventurea-ink"}`}
         >
           {valor}
         </p>
@@ -187,15 +168,15 @@ export default function DashboardMetricas({
           útiles y «₡12.500.000» se cortaba (un monto no tiene dónde
           partirse). */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
-        {principales.map((card, i) => (
-          <Dato key={card.titulo} {...card} piel={PIELES[i % PIELES.length]} />
+        {principales.map((card) => (
+          <Dato key={card.titulo} {...card} />
         ))}
       </div>
 
       {abierto && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
-          {secundarias.map((card, i) => (
-            <Dato key={card.titulo} {...card} piel={PIELES[(i + 1) % PIELES.length]} />
+          {secundarias.map((card) => (
+            <Dato key={card.titulo} {...card} />
           ))}
         </div>
       )}
