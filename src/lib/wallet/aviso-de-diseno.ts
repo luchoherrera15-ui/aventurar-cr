@@ -364,17 +364,26 @@ async function devolver(db: Admin, fallidos: { id: string; motivo: string }[]): 
  * Se llama SIEMPRE desde `after()` (Next.js): nunca debe demorar la
  * respuesta «Guardado» que el dueño está esperando en pantalla.
  */
-export async function avisarCambioDeDiseno(programaId: string): Promise<void> {
+/**
+ * Devuelve el resumen real (avisados/fallidos) en vez de `void` — antes
+ * se perdía acá mismo y la UI del mensaje promocional (marketing-mensaje.tsx)
+ * terminaba mostrando "ya salió" de forma incondicional, sin importar si
+ * Apple estaba mal configurado o si `entregarApple` había fallado.
+ * `null` = no se intentó nada (sin llaves, sin pases instalados, o el
+ * marcado falló) — la UI lo trata como "no hay nada que reportar de Apple".
+ */
+export async function avisarCambioDeDiseno(programaId: string): Promise<ResumenDiseno | null> {
   const db = createAdminClient();
-  if (!db) return;
+  if (!db) return null;
 
   const marcado = await marcarDisenoPendiente(db, programaId);
   if (!marcado.ok) {
     console.warn(`[diseno-pase] No se pudo marcar el programa ${programaId}: ${marcado.motivo}`);
-    return;
+    return null;
   }
-  if (marcado.marcados === 0) return; // sin pases instalados, nada que avisar
+  if (marcado.marcados === 0) return null; // sin pases instalados, nada que avisar
 
   const resumen = await sincronizarAvisoDeDiseno({ db, maxPorCorrida: TAMANO_TANDA * 2 });
   if (resumen.nota) console.warn(`[diseno-pase] ${resumen.nota}`);
+  return resumen;
 }

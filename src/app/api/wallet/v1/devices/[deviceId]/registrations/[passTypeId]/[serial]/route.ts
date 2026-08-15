@@ -58,7 +58,13 @@ export async function POST(pedido: Request, { params }: Contexto) {
     { onConflict: "device_library_id,serial_number" },
   );
 
-  if (error) return new NextResponse(null, { status: 500 });
+  if (error) {
+    // Este archivo no tenía ni un solo console.* — un upsert que falla
+    // acá se traducía en "el pase nunca se actualiza solo" sin ningún
+    // rastro más allá del status HTTP en los logs de invocación.
+    console.error(`[wallet][apple][registration] upsert falló para serial ${serial}:`, error.message);
+    return new NextResponse(null, { status: 500 });
+  }
 
   // 201 = alta nueva, 200 = ya estaba. Apple distingue los dos y con el
   // código equivocado reintenta el registro cada vez que abre el pase.

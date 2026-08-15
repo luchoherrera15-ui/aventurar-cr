@@ -37,11 +37,19 @@ export default function MarketingMensaje({
         return;
       }
       setMensaje("");
+      const { apple, googleEnviados, googleFallidos } = res.datos;
+      const parteApple = apple
+        ? apple.fallidos === 0
+          ? `En Apple: salió para ${apple.avisados} pase${apple.avisados === 1 ? "" : "s"}.`
+          : `En Apple: ${apple.avisados} de ${apple.avisados + apple.fallidos} pase${apple.avisados + apple.fallidos === 1 ? "" : "s"}.`
+        : null;
+      const parteGoogle =
+        googleEnviados + googleFallidos > 0
+          ? `En Google: ${googleEnviados} de ${googleEnviados + googleFallidos} entregado${googleEnviados === 1 ? "" : "s"}.`
+          : null;
       setResultado(
-        `Enviado. En Apple, el aviso ya salió para tus clientes con el pase instalado.` +
-          (res.datos.googleEnviados + res.datos.googleFallidos > 0
-            ? ` En Google: ${res.datos.googleEnviados} de ${res.datos.googleEnviados + res.datos.googleFallidos} entregado${res.datos.googleEnviados === 1 ? "" : "s"}.`
-            : ""),
+        [parteApple, parteGoogle].filter(Boolean).join(" ") ||
+          "Guardado — todavía no hay ningún pase instalado para avisar.",
       );
     });
   }

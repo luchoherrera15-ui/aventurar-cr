@@ -34,7 +34,14 @@ const PAUSA_ENTRE_TANDAS_MS = 1200;
 const MAX_POR_CORRIDA_GOOGLE = 300;
 
 export type ResultadoMensajePromocional =
-  | { ok: true; guardado: true; googleEnviados: number; googleFallidos: number }
+  | {
+      ok: true;
+      guardado: true;
+      googleEnviados: number;
+      googleFallidos: number;
+      /** null = no había pases de Apple instalados (no es un fallo, no hay nada que reportar). */
+      apple: { avisados: number; fallidos: number } | null;
+    }
   | { ok: false; motivo: string };
 
 /**
@@ -67,8 +74,9 @@ export async function enviarMensajePromocional(
   // ── Apple: el mismo camino que un cambio de diseño ─────────────────
   // Marca diseno_pendiente para todos los pases del programa y dispara
   // una corrida inmediata (hasta TAMANO_TANDA*2 pases, ver 0150). Nunca
-  // lanza — si algo falla ahí, ya quedó registrado en su propio log.
-  await avisarCambioDeDiseno(programaId);
+  // lanza — si algo falla ahí, ya quedó registrado en su propio log —
+  // pero el RESUMEN sí se recoge acá para que la UI deje de asumir éxito.
+  const resumenApple = await avisarCambioDeDiseno(programaId);
 
   // ── Google: el mensaje nativo, uno por cliente ─────────────────────
   const { data: miembros } = await db
@@ -105,5 +113,11 @@ export async function enviarMensajePromocional(
     }
   }
 
-  return { ok: true, guardado: true, googleEnviados, googleFallidos };
+  return {
+    ok: true,
+    guardado: true,
+    googleEnviados,
+    googleFallidos,
+    apple: resumenApple ? { avisados: resumenApple.avisados, fallidos: resumenApple.fallidos } : null,
+  };
 }

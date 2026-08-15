@@ -895,7 +895,13 @@ export async function enviarMensajeGoogle(
           // duplicado — pero un reintento inmediato del MISMO envío cae
           // en el mismo minuto y Google lo desduplica solo.
           id: `promo-${new Date().toISOString().slice(0, 16)}`,
-          messageType: "TEXT",
+          // "TEXT" solo agrega el mensaje al reverso del pase — NO
+          // dispara la notificación push (documentado por Google:
+          // "Trigger Push Notifications"). Con "TEXT" la API igual
+          // devolvía 200 y el panel decía "enviado", pero nadie veía
+          // nada en el teléfono. Este es el bug real detrás de
+          // "mandamos una promo y no llega".
+          messageType: "TEXT_AND_NOTIFY",
         },
       },
     );

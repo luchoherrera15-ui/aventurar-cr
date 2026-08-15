@@ -108,7 +108,12 @@ export async function avisarCambioDePase(miembroId: string): Promise<void> {
   const { data: pases } = await db
     .from("pases_wallet")
     .select("serial_number, plataforma")
-    .eq("miembro_id", miembroId);
+    .eq("miembro_id", miembroId)
+    // Sin esto, un pase de una persona fusionada (activo=false, 0138)
+    // seguía intentando avisos para siempre — probarAvisoDePase ya
+    // filtraba así, este camino automático se había quedado sin el
+    // mismo filtro.
+    .eq("activo", true);
 
   const filas = pases ?? [];
 
@@ -237,7 +242,16 @@ async function avisarSeriales(seriales: string[]): Promise<void> {
       .in("serial_number", seriales);
 
     const tokens = [...new Set((registros ?? []).map((r) => r.push_token as string))];
-    if (tokens.length === 0) return;
+    if (tokens.length === 0) {
+      // Sin esto, "el teléfono nunca se registró" y "no había nada que
+      // avisar" eran indistinguibles en los logs — justo la pregunta
+      // que hace falta responder cuando alguien reporta que un pase no
+      // se actualiza solo.
+      console.warn(
+        `[wallet][apns] Sin push_token registrado para ${seriales.length} serial(es) — el teléfono nunca llamó al endpoint de registro (o el .pkpass instalado apunta a un webServiceUrl viejo/roto).`,
+      );
+      return;
+    }
 
     const { avisarPaseActualizado } = await import("./apns");
     const res = await avisarPaseActualizado(tokens);

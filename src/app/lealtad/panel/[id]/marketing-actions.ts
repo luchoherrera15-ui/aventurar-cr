@@ -69,6 +69,21 @@ export async function listarPasesDelPrograma(
   const db = createAdminClient();
   if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
 
+  // `programaId` llega del navegador: sin este chequeo, cualquier dueño
+  // con lealtad podía pedir la lista de miembros de OTRO negocio con
+  // solo adivinar/leer su programaId (programa_lealtad es legible por
+  // `anon`) — mismo patrón que ya cubren enviarAvisoDePrueba y
+  // enviarNotificacionPromocional acá abajo, que este endpoint se había
+  // quedado sin él.
+  const { data: programa } = await db
+    .from("programa_lealtad")
+    .select("rancho_id")
+    .eq("id", programaId)
+    .maybeSingle();
+  if (!programa || programa.rancho_id !== ranchoId) {
+    return { ok: false, motivo: "Esa tarjeta no es de este negocio." };
+  }
+
   const { data: miembrosData, error } = await db
     .from("miembros")
     .select("id, cliente_id, persona_id")
@@ -203,7 +218,13 @@ export async function enviarNotificacionPromocional(
   ranchoId: string,
   programaId: string,
   mensaje: string,
-): Promise<Resultado<{ googleEnviados: number; googleFallidos: number }>> {
+): Promise<
+  Resultado<{
+    googleEnviados: number;
+    googleFallidos: number;
+    apple: { avisados: number; fallidos: number } | null;
+  }>
+> {
   const acceso = await accesoDeNegocio(ranchoId);
   if (!acceso.ok) return { ok: false, motivo: acceso.motivo };
 
@@ -226,6 +247,10 @@ export async function enviarNotificacionPromocional(
   if (!resultado.ok) return { ok: false, motivo: resultado.motivo };
   return {
     ok: true,
-    datos: { googleEnviados: resultado.googleEnviados, googleFallidos: resultado.googleFallidos },
+    datos: {
+      googleEnviados: resultado.googleEnviados,
+      googleFallidos: resultado.googleFallidos,
+      apple: resultado.apple,
+    },
   };
 }
