@@ -183,7 +183,7 @@ export default async function RestaurantePage({
         <VisitasPagina ranchoId={local.id} className="mt-3" />
 
         {/* La portada */}
-        <div className="mt-3 overflow-hidden rounded-2xl border border-aventurea-line bg-white">
+        <div className="mt-3 overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
           <div className="relative aspect-[16/7] bg-aventurea-blue-light">
             {local.foto_url ? (
               <Image
@@ -210,7 +210,7 @@ export default async function RestaurantePage({
                     ? ` · ${RANGO_PRECIO_LABEL[opciones.rangoPrecio]}`
                     : ""}
                 </p>
-                <h1 className="mt-1 text-[26px] font-black leading-tight text-aventurea-ink">
+                <h1 className="titulo mt-1 text-[26px] text-aventurea-ink">
                   {local.nombre}
                 </h1>
                 {ubicacion && (
@@ -276,12 +276,10 @@ export default async function RestaurantePage({
 
         {/* El menú */}
         <div className="mt-5">
-          <h2 className="text-[19px] font-extrabold tracking-tight text-aventurea-ink">
-            Menú
-          </h2>
+          <h2 className="titulo text-[18px] text-aventurea-navy">Menú</h2>
 
           {items.length === 0 ? (
-            <div className="mt-3 rounded-2xl border border-dashed border-aventurea-line bg-white p-8 text-center">
+            <div className="mt-3 rounded-2xl border border-dashed border-aventurea-line bg-aventurea-surface p-8 text-center">
               <p className="text-[14px] font-bold text-aventurea-ink">
                 Este restaurante todavía no publicó su menú
               </p>
@@ -300,7 +298,7 @@ export default async function RestaurantePage({
                     {platos.map((p) => (
                       <div
                         key={p.id}
-                        className="flex items-start gap-3.5 rounded-2xl border border-aventurea-line bg-white p-3.5"
+                        className="flex items-start gap-3.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-3.5"
                       >
                         {p.foto_url && (
                           <Image

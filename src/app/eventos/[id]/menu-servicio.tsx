@@ -158,7 +158,7 @@ export default function MenuServicio({
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           {etiqueta} de {nombreRancho}
         </p>
-        <h2 className="titulo mt-2 text-[26px] text-aventurea-ink sm:text-[30px]">
+        <h2 className="titulo mt-2 text-[26px] text-aventurea-navy sm:text-[30px]">
           Lo que servimos
         </h2>
         <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">

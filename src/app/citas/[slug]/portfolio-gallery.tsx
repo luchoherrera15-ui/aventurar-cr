@@ -52,7 +52,7 @@ export default function PortfolioGallery({ fotos }: Props) {
 
   return (
     <div className="mt-9">
-      <h2 className="text-[19px] font-extrabold tracking-[-0.3px] text-aventurea-ink">
+      <h2 className="titulo text-[18px] text-aventurea-navy">
         Portafolio
       </h2>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

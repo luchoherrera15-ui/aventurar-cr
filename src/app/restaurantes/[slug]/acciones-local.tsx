@@ -31,9 +31,9 @@ const ESTILOS: Record<
     segundo:
       "rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-aventurea-sky-dark",
     contorno:
-      "rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy",
+      "rounded-xl border border-aventurea-line bg-aventurea-surface px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy",
     whatsapp:
-      "flex items-center gap-2 rounded-xl border border-aventurea-line bg-white px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-green",
+      "flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface px-5 py-2.5 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-green",
   },
   carta: {
     principal:

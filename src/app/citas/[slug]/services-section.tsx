@@ -45,12 +45,12 @@ export default function ServicesSection({
 
   return (
     <div id="servicios" className="mt-8 scroll-mt-24">
-      <h2 className="text-[19px] font-extrabold tracking-[-0.3px] text-aventurea-ink">
+      <h2 className="titulo text-[18px] text-aventurea-navy">
         Servicios
       </h2>
 
       {items.length === 0 ? (
-        <p className="mt-3 rounded-2xl border border-aventurea-line bg-white p-6 text-[13.5px] text-aventurea-ink-soft">
+        <p className="mt-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 text-[13.5px] text-aventurea-ink-soft">
           Este negocio todavía no publicó sus servicios — consultale por el chat.
         </p>
       ) : (

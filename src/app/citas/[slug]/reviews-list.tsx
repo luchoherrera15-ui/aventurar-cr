@@ -112,7 +112,7 @@ export default function ReviewsList({ resenas }: { resenas: ResenaPerfil[] }) {
         {mostradas.map((r) => (
           <article
             key={r.id}
-            className="rounded-2xl border border-aventurea-line bg-white p-4"
+            className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4"
           >
             <div className="flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-blue-light text-[12.5px] font-extrabold text-aventurea-navy">

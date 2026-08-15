@@ -67,7 +67,7 @@ export default function ProfileNavigation({
   return (
     <nav
       aria-label="Secciones del perfil"
-      className="sticky top-16 z-30 mt-6 rounded-2xl border border-aventurea-line bg-white/95 shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)] backdrop-blur-sm"
+      className="sticky top-16 z-30 mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface/95 shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)] backdrop-blur-sm"
     >
       <div className="flex gap-1 overflow-x-auto p-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {secciones.map((id) => (

@@ -23,7 +23,7 @@ export default function ServiceCard({
   onReservar: (servicioId: string | null, miembroId: string | null) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-aventurea-line bg-white p-4 transition-colors hover:border-aventurea-navy sm:p-5">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy sm:p-5">
       <div className="min-w-0 flex-1">
         <p className="text-[14.5px] font-bold text-aventurea-ink">{servicio.nombre}</p>
         {servicio.descripcion && (

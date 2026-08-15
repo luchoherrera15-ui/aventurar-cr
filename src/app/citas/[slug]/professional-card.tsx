@@ -21,7 +21,7 @@ export default function ProfessionalCard({ profesional, onReservar }: Props) {
     profesional;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)]">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)]">
       <div className="relative aspect-[4/3] w-full bg-aventurea-blue-light">
         {foto_url ? (
           <Image

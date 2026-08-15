@@ -35,14 +35,14 @@ export function DetallesServicioSeccion({
 
   return (
     <div className="mt-9">
-      <h2 className="text-[19px] font-extrabold tracking-[-0.3px] text-aventurea-ink">
+      <h2 className="titulo text-[18px] text-aventurea-navy">
         Detalles del servicio
       </h2>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {grupos.map((g) => (
           <div
             key={g.titulo}
-            className="rounded-2xl border border-aventurea-line bg-white p-4"
+            className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4"
           >
             <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-aventurea-ink-soft">
               {g.titulo}
@@ -89,7 +89,7 @@ export function ComodidadesSeccion({ amenidades }: { amenidades: string[] }) {
 
   return (
     <div className="mt-9">
-      <h2 className="text-[19px] font-extrabold tracking-[-0.3px] text-aventurea-ink">
+      <h2 className="titulo text-[18px] text-aventurea-navy">
         Comodidades del local
       </h2>
       <div className="mt-3 flex flex-wrap gap-2.5">

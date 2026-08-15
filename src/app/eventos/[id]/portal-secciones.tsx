@@ -46,7 +46,7 @@ export function PresentacionSeccion({
         <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky after:block after:h-[1.5px] after:w-5 after:bg-aventurea-sky">
           {eyebrow}
         </p>
-        <h2 className="titulo mt-3 text-[26px] text-aventurea-ink">{titulo}</h2>
+        <h2 className="titulo mt-3 text-[26px] text-aventurea-navy">{titulo}</h2>
         <p className="mx-auto mt-5 max-w-[62ch] whitespace-pre-line text-[14.5px] leading-relaxed text-aventurea-ink-soft">
           {texto}
         </p>
@@ -106,12 +106,16 @@ export function ResumenSeccion({
             key={d.titulo}
             data-reveal
             style={{ "--reveal-delay": `${i * 80}ms` } as React.CSSProperties}
-            className="flex items-center gap-3.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_1px_2px_rgba(16,26,44,0.04)] transition-shadow hover:shadow-[0_8px_20px_-8px_rgba(16,26,44,0.15)]"
+            className="relative flex items-center gap-3.5 overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] transition-shadow hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)]"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-sky/10 text-aventurea-orange [&_svg]:h-5 [&_svg]:w-5">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-7 -right-5 hidden h-24 w-24 rounded-full bg-aventurea-sky/10 sm:block"
+            />
+            <span className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aventurea-sky/10 text-aventurea-orange [&_svg]:h-5 [&_svg]:w-5">
               {d.icono}
             </span>
-            <div className="min-w-0">
+            <div className="relative z-10 min-w-0">
               <h3 className="text-[15px] font-bold text-aventurea-ink">
                 {d.titulo}
               </h3>
@@ -158,7 +162,7 @@ export function AmenidadesSeccion({
       <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
         Lo que incluye
       </p>
-      <h2 className={`titulo mt-2 text-aventurea-ink ${enColumna ? "text-[20px]" : "text-[28px]"}`}>
+      <h2 className={`titulo mt-2 text-aventurea-navy ${enColumna ? "text-[20px]" : "text-[28px]"}`}>
         Amenidades del lugar
       </h2>
 
@@ -212,7 +216,7 @@ export function DetallesSeccion({
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           El servicio
         </p>
-        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
+        <h2 className="titulo mt-2 text-[28px] text-aventurea-navy">
           Detalles y cobertura
         </h2>
 
@@ -222,7 +226,7 @@ export function DetallesSeccion({
               key={g.titulo}
               data-reveal
               style={{ "--reveal-delay": `${gi * 90}ms` } as React.CSSProperties}
-              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_1px_2px_rgba(16,26,44,0.04)]"
+              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)]"
             >
               <h3 className="mb-3 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                 {g.titulo}
@@ -285,7 +289,7 @@ export function ResenasSeccion({
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Reseñas
         </p>
-        <h2 className="titulo mt-2 flex items-center gap-2.5 text-[28px] text-aventurea-ink">
+        <h2 className="titulo mt-2 flex items-center gap-2.5 text-[28px] text-aventurea-navy">
           <IconStar className="h-5 w-5" />
           {promedio !== null ? promedio.toFixed(2).replace(".", ",") : "—"}
           <span className="text-[16px] font-normal text-aventurea-ink-soft">
@@ -297,7 +301,7 @@ export function ResenasSeccion({
           {resenas.map((r) => (
             <div
               key={r.id}
-              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5"
+              className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)]"
             >
               <div className="flex items-center gap-1" aria-label={`${r.calificacion} de 5`}>
                 {Array.from({ length: 5 }, (_, i) => (
@@ -588,7 +592,7 @@ export function MapaSeccion({
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Ubicación
         </p>
-        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">A dónde vas</h2>
+        <h2 className="titulo mt-2 text-[28px] text-aventurea-navy">A dónde vas</h2>
         {ubicacion && (
           <p className="mt-1.5 flex items-center gap-1.5 text-[13.5px] text-aventurea-ink-soft">
             <IconPin className="h-3.5 w-3.5 shrink-0" />
@@ -674,7 +678,7 @@ export function ContactoSeccion({
         <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Contacto
         </p>
-        <h2 className="titulo mt-2 text-[28px] text-aventurea-ink">
+        <h2 className="titulo mt-2 text-[28px] text-aventurea-navy">
           Hablá con {nombre}
         </h2>
 

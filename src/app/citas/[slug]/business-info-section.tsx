@@ -3,7 +3,7 @@ import { diaDeSemana, instanteEnZona } from "@/lib/agenda/disponibilidad";
 import { DIAS_SEMANA_LABEL, horaBonita, type HorarioSemana } from "../tipos";
 import type { BadgeNegocio } from "./perfil-tipos";
 
-const TITULO = "text-[19px] font-extrabold tracking-[-0.3px] text-aventurea-ink";
+const TITULO = "titulo text-[18px] text-aventurea-navy";
 
 /**
  * Horario semanal, comodidades y política de cancelación — la
@@ -32,7 +32,7 @@ export default function BusinessInfoSection({
       {horario && (
         <div className="mt-9">
           <h2 className={TITULO}>Horario</h2>
-          <div className="mt-3 rounded-2xl border border-aventurea-line bg-white p-4 sm:p-5">
+          <div className="mt-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 sm:p-5">
             <div className="flex flex-col divide-y divide-[#eef2f9]">
               {DIAS_SEMANA_LABEL.map((dia, i) => {
                 const d = horario[String(i)];
@@ -87,7 +87,7 @@ export default function BusinessInfoSection({
 
       <div className="mt-9">
         <h2 className={TITULO}>Política de cancelación</h2>
-        <p className="mt-3 rounded-2xl border border-aventurea-line bg-white p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
+        <p className="mt-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
           {politicaCancelacion ??
             "Consultá la política de cancelación directamente con el negocio."}
         </p>

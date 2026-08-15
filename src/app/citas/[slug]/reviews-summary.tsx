@@ -13,7 +13,7 @@ export default function ReviewsSummary({ resumen }: { resumen: ResumenResenas })
 
   if (total === 0 || promedio === null) {
     return (
-      <div className="rounded-2xl border border-aventurea-line bg-white p-5">
+      <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
         <p className="text-[13px] text-aventurea-ink-soft">
           Este negocio todavía no tiene reseñas.
         </p>
@@ -22,7 +22,7 @@ export default function ReviewsSummary({ resumen }: { resumen: ResumenResenas })
   }
 
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-white p-5 sm:p-6">
+    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-center gap-6">
         {/* La nota grande. */}
         <div className="flex flex-col items-start">

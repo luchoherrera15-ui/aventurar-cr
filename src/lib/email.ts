@@ -119,7 +119,7 @@ function layout({
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;border:1px solid #e2e4ea;">
           <tr>
             <td style="background:#16295e;padding:22px 30px;border-radius:14px 14px 0 0;">
-              <div style="color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.01em;">
+              <div style="color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.025em;">
                 BOOKEAR<span style="color:#f6a05e;">CR</span>
               </div>
               <div style="color:#b7c6dc;font-size:11px;letter-spacing:0.06em;margin-top:3px;">
@@ -196,7 +196,7 @@ export function layoutBento({
               <div style="color:#ee7420;font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;">
                 &#10022; ${kicker}
               </div>
-              <div style="color:#ffffff;font-size:27px;line-height:1.15;font-weight:800;letter-spacing:-0.02em;margin-top:14px;">
+              <div style="color:#ffffff;font-size:27px;line-height:1.05;font-weight:800;letter-spacing:-0.025em;margin-top:14px;">
                 ${titulo}
               </div>
               ${introHtml ? `<div style="color:#c7d2e6;font-size:14px;line-height:1.65;margin-top:12px;">${introHtml}</div>` : ""}
@@ -273,7 +273,7 @@ export function layoutBento({
 /** Una celda de dato grande (estilo tarjeta de stats de /publicar). */
 function statBento(valor: string, etiqueta: string) {
   return `<td width="50%" style="padding:12px 14px;vertical-align:top;">
-    <div style="font-size:20px;font-weight:800;color:#101a2c;letter-spacing:-0.02em;line-height:1.2;">${valor}</div>
+    <div style="font-size:20px;font-weight:800;color:#101a2c;letter-spacing:-0.025em;line-height:1.2;">${valor}</div>
     <div style="font-size:11.5px;color:#585858;margin-top:4px;line-height:1.5;">${etiqueta}</div>
   </td>`;
 }
@@ -354,8 +354,8 @@ function filaDato(etiqueta: string, valorHtml: string) {
       <td style="padding:13px 0;border-bottom:1px solid #e2e4ea;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8a93a3;">${etiqueta}</td>
-            <td style="font-size:15px;font-weight:700;color:#101a2c;text-align:right;">${valorHtml}</td>
+            <td style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#8a93a3;">${etiqueta}</td>
+            <td style="font-size:15px;font-weight:800;color:#101a2c;text-align:right;">${valorHtml}</td>
           </tr>
         </table>
       </td>
@@ -519,7 +519,7 @@ export function plantillaReservaNuevaProveedor({
   return layout({
     kicker: "Nueva reserva",
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.025em;line-height:1.05;">
         Hola ${proveedor},
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
@@ -584,7 +584,7 @@ export function plantillaPedirResena({
   return layout({
     kicker: "¿Cómo te fue?",
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.025em;line-height:1.05;">
         Hola ${nombre},
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
@@ -629,7 +629,7 @@ export function plantillaFindeLibre({
   return layout({
     kicker: "Fecha libre este finde",
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.025em;line-height:1.05;">
         Hola ${nombre},
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
@@ -684,7 +684,7 @@ export function plantillaRecordatorioEvento({
   return layout({
     kicker: "Tu evento es mañana",
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.025em;line-height:1.05;">
         Hola ${nombre},
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
@@ -792,7 +792,7 @@ export function plantillaRecordatorioCita({
   return layout({
     kicker: "Tu cita es mañana",
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.025em;line-height:1.05;">
         Hola ${nombre},
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
@@ -863,7 +863,7 @@ export function plantillaCitaConfirmada({
   return layout({
     kicker: "Cita confirmada",
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.025em;line-height:1.05;">
         ¡Tu cita quedó confirmada!
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
@@ -938,7 +938,7 @@ export function plantillaCitaNuevaProveedor({
   return layout({
     kicker: "Cita nueva",
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.025em;line-height:1.05;">
         Tenés una cita nueva
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">
@@ -1031,7 +1031,7 @@ export function plantillaMensajeNuevo({
         : "Mensaje nuevo"
       : "Te escribieron",
     cuerpoHtml: `
-      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.01em;">
+      <div style="font-size:22px;font-weight:800;color:#101a2c;margin:16px 0 14px;letter-spacing:-0.025em;line-height:1.05;">
         Hola ${destinatario},
       </div>
       <p style="margin:0 0 16px;color:#5b6472;font-size:14.5px;line-height:1.65;">

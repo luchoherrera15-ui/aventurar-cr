@@ -49,7 +49,7 @@ export default function AmenidadesLista({
         {grupos.map((g) => (
           <div
             key={g.titulo}
-            className="rounded-2xl border border-aventurea-line bg-white p-5"
+            className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)]"
           >
             <div className="flex items-baseline justify-between gap-2 border-b border-aventurea-line pb-2.5">
               <h3 className="text-[11.5px] font-extrabold uppercase tracking-[0.13em] text-aventurea-navy">

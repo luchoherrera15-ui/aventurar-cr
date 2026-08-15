@@ -1,6 +1,6 @@
 import { IconPin } from "@/components/icons";
 
-const TITULO = "text-[19px] font-extrabold tracking-[-0.3px] text-aventurea-ink";
+const TITULO = "titulo text-[18px] text-aventurea-navy";
 
 /**
  * La sección de ubicación del perfil público.
@@ -38,7 +38,7 @@ export default function LocationSection({
   return (
     <div className="mt-9">
       <h2 className={TITULO}>Ubicación</h2>
-      <div className="mt-3 overflow-hidden rounded-3xl border border-aventurea-line bg-white shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)]">
+      <div className="mt-3 overflow-hidden rounded-3xl border border-aventurea-line bg-aventurea-surface shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)]">
         {/* Placeholder del mapa — ver comentario del componente. */}
         <div
           className="relative flex h-[160px] items-center justify-center bg-[linear-gradient(160deg,#eef3fb_0%,#e2ecfa_100%)] sm:h-[190px]"

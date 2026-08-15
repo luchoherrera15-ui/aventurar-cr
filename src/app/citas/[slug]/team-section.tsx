@@ -18,7 +18,7 @@ export default function TeamSection({ equipo, onReservar }: Props) {
 
   return (
     <div className="mt-9">
-      <h2 className="text-[19px] font-extrabold tracking-[-0.3px] text-aventurea-ink">
+      <h2 className="titulo text-[18px] text-aventurea-navy">
         El equipo
       </h2>
       <div className="mt-3 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

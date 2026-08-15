@@ -94,7 +94,7 @@ export default function BusinessHeader({
   const descripcionLarga = (descripcion?.length ?? 0) > LARGO_DESCRIPCION_CORTA;
 
   return (
-    <div className="rounded-3xl border border-aventurea-line bg-white p-6 shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)] sm:p-7">
+    <div className="rounded-3xl border border-aventurea-line bg-aventurea-surface p-6 shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)] sm:p-7">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="inline-block w-fit rounded-lg bg-aventurea-blue-light px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy">

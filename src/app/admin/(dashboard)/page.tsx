@@ -40,7 +40,7 @@ export default async function AdminHubPage() {
       <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
         Panel Admin{seccion !== "todas" ? ` · ${SECCION_LABEL[seccion]}` : ""}
       </p>
-      <h1 className="mt-1 text-2xl font-bold text-aventurea-ink">
+      <h1 className="titulo mt-1 text-2xl text-aventurea-ink">
         ¿Qué querés gestionar?
       </h1>
       <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
@@ -167,9 +167,14 @@ function HubCard({
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-aventurea-navy/40 hover:shadow-md"
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] transition-all duration-200 hover:-translate-y-0.5 hover:border-aventurea-navy/40 hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)]"
     >
-      <div className="flex items-center gap-2.5">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-7 -right-5 hidden h-24 w-24 rounded-full bg-aventurea-sky/10 sm:block"
+      />
+
+      <div className="relative z-10 flex items-center gap-2.5">
         {/* Navy, no naranja: el admin es sobrio; el naranja queda solo
             para las alertas de pendientes. */}
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-[18px] [&_svg]:w-[18px]">
@@ -185,12 +190,12 @@ function HubCard({
         )}
       </div>
 
-      <p className="mb-3 mt-2.5 line-clamp-2 text-[12px] leading-snug text-aventurea-ink-soft">
+      <p className="relative z-10 mb-3 mt-2.5 line-clamp-2 text-[12px] leading-snug text-aventurea-ink-soft">
         {descripcion}
       </p>
 
       {/* mt-auto deja el pie alineado entre cards aunque el texto varíe. */}
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-aventurea-line pt-2.5">
+      <div className="relative z-10 mt-auto flex items-center justify-between gap-2 border-t border-aventurea-line pt-2.5">
         <span className="min-w-0 truncate text-[11px] font-bold text-aventurea-ink-soft">
           {stat ?? "Entrar"}
         </span>

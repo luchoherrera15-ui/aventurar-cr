@@ -293,7 +293,7 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
           <span className="rounded-lg bg-aventurea-navy px-3.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wide text-white">
             En configuración
           </span>
-          <h1 className="titulo mt-5 text-[28px] text-aventurea-ink sm:text-[34px]">
+          <h1 className="titulo mt-5 text-[28px] text-aventurea-navy sm:text-[34px]">
             {rancho.nombre} está terminando de armar su página
           </h1>
           <p className="mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
@@ -453,7 +453,7 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
                 ? SUBCATEGORIA_LABEL[rancho.subcategoria]
                 : CATEGORIA_LABEL[categoriaEventos]}
             </p>
-            <h1 className="titulo mt-1 text-[26px] text-aventurea-ink sm:text-[32px]">
+            <h1 className="titulo mt-1 text-[26px] text-aventurea-navy sm:text-[32px]">
               {rancho.nombre}
             </h1>
             {/* La línea de confianza, como en Airbnb: ★ nota · reseñas ·
@@ -714,7 +714,7 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
             <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
               Consultá con {rancho.nombre}
             </p>
-            <h2 className="titulo mt-2 text-[26px] text-aventurea-ink sm:text-[30px]">
+            <h2 className="titulo mt-2 text-[26px] text-aventurea-navy sm:text-[30px]">
               ¿Listo para tu evento?
             </h2>
             {/* Sin depósito y sin "queda en aprobación": esta banda
@@ -826,7 +826,7 @@ function TituloSeccion({
       <p className="flex items-center gap-2 text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-aventurea-orange before:block before:h-px before:w-5 before:bg-aventurea-sky">
         {kicker}
       </p>
-      <h2 className="titulo mt-1.5 text-[20px] text-aventurea-ink">{children}</h2>
+      <h2 className="titulo mt-1.5 text-[20px] text-aventurea-navy">{children}</h2>
     </>
   );
 }
