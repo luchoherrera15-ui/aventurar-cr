@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parsearPrecioPorPersona } from "@/lib/precio-lugar";
 import {
   IconChartBars,
@@ -163,12 +164,19 @@ export default async function RanchoDetallePage({
    * ninguna necesitaba esperar a la anterior. Van juntas.
    *
    * Sobre seguridad: disparar estas consultas ANTES de comprobar que la
-   * publicación es suya no abre nada. Todas van con la sesión de quien
-   * mira, o sea que la RLS de la base decide qué filas devuelve; la
-   * comprobación de abajo (`owner_id`/rol admin) sigue siendo la
-   * segunda barrera y sigue cortando con notFound() antes de renderizar
-   * una sola línea.
+   * publicación es suya no abre nada — la comprobación de abajo
+   * (`owner_id`/rol admin/colaborador) sigue siendo la barrera real y
+   * sigue cortando con notFound() antes de renderizar una sola línea.
+   * La de `ranchos` en particular NO va con la sesión de quien mira: la
+   * política RLS que deja ver un rancho publicado es a propósito ancha
+   * (cualquiera con o sin cuenta necesita poder ver la ficha pública),
+   * así que nunca protegió las columnas de cobro (sinpe_numero,
+   * cuenta_numero…) — eso lo hacía únicamente el permiso de columna de
+   * la tabla, y `authenticated` lo tenía completo hasta la 0155. Leer
+   * acá con la llave de servicio no abre nada nuevo (el check de abajo
+   * ya es la puerta real) y deja de depender de ese permiso ancho.
    */
+  const admin = createAdminClient();
   const [
     { data },
     { data: perfil },
@@ -189,7 +197,7 @@ export default async function RanchoDetallePage({
     contratadoRes,
     modulosRes,
   ] = await Promise.all([
-    supabase.from("ranchos").select("*").eq("id", id).maybeSingle(),
+    (admin ?? supabase).from("ranchos").select("*").eq("id", id).maybeSingle(),
     // El dueño entra siempre; un admin también puede entrar a modificar
     // la publicación en nombre del proveedor (por ejemplo cuando pide
     // ayuda desde el botón "Modificar tu página" del portal público).
