@@ -29,6 +29,16 @@ const ESTADO_CLASE: Record<string, string> = {
   no_asistio: "border-red-200 bg-red-50 text-red-700",
 };
 
+/** El punto de color de la pastilla — mismo criterio que `ESTADO_CLASE`. */
+const ESTADO_PUNTO: Record<string, string> = {
+  pendiente: "bg-aventurea-sky",
+  confirmada: "bg-aventurea-green",
+  rechazada: "bg-zinc-400",
+  cancelada: "bg-zinc-400",
+  cumplida: "bg-aventurea-green",
+  no_asistio: "bg-red-600",
+};
+
 const ORIGEN_LABEL: Record<string, string> = {
   web: "Página web",
   movil: "App móvil",
@@ -97,8 +107,12 @@ function fmtHora(iso: string) {
 function Pastilla({ estado }: { estado: string }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-lg border px-2 py-0.5 text-[11px] font-bold ${estadoClase(estado)}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2 py-0.5 text-[11px] font-bold ${estadoClase(estado)}`}
     >
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[estado] ?? "bg-zinc-400"}`}
+      />
       {estadoLabel(estado)}
     </span>
   );

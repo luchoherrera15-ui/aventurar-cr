@@ -1402,8 +1402,53 @@ export default async function RanchoDetallePage({
     (esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null)) ||
     rancho.precio_desde !== null ||
     !!rancho.contacto_whatsapp;
+  // El titular grande que faltaba: antes de esto, el panel pasaba
+  // directo de la columna navy al contenido de la pestaña, sin un lugar
+  // propio que dijera "estás administrando ESTE negocio, hoy". La fecha
+  // usa el mismo formato y zona horaria que ya fija el eyebrow de
+  // /cuenta (Intl con timeZone explícito: sin eso el "hoy" se corre un
+  // día para quien mira pasada la medianoche en Costa Rica pero no en
+  // UTC).
+  const hoyLargo = new Intl.DateTimeFormat("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "America/Costa_Rica",
+  }).format(new Date());
   const encabezado = (
     <>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-orange">
+            {hoyLargo.charAt(0).toUpperCase() + hoyLargo.slice(1)}
+          </p>
+          <h1 className="max-w-[42ch] text-[26px] font-extrabold leading-[1.1] tracking-tight text-aventurea-navy sm:text-[32px]">
+            El control de {rancho.nombre}, en un solo lugar.
+          </h1>
+          <p className="mt-1.5 max-w-[60ch] text-[13.5px] text-aventurea-ink-soft">
+            {modulos.has("agenda")
+              ? "Priorizá lo pendiente, conciliá depósitos y mantené la agenda al día."
+              : "Todo lo que necesitás para administrar tu negocio, en un solo lugar."}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          {rancho.estado === "aprobado" && (
+            <Link
+              href={urlPublica}
+              className="flex h-10 items-center rounded-xl border border-aventurea-line px-4 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy"
+            >
+              Ver página
+            </Link>
+          )}
+          <Link
+            href="?tab=config&seccion=perfil"
+            className="flex h-10 items-center rounded-xl bg-aventurea-navy px-4 text-[13px] font-bold text-white hover:brightness-110"
+          >
+            Editar negocio
+          </Link>
+        </div>
+      </div>
+
       {rancho.estado === "pendiente" && (
         <p className="mb-4 rounded-[10px] bg-aventurea-sky/15 p-3 text-[13px] leading-relaxed text-aventurea-orange">
           Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
