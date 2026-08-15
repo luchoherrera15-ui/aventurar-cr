@@ -90,13 +90,32 @@ export async function solicitarPlanLealtad(datos: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, motivo: "Iniciá sesión para solicitar el plan." };
 
-  // Un negocio en revisión (0129) no solicita nada: primero lo aprueba
-  // un administrador. `select *` tolera bases sin la migración.
-  //
   // Solo aplica cuando HAY negocio: en un alta en frío no hay nada que
   // revisar todavía, y consultar `ranchos` con un id vacío ni siquiera
   // es una consulta válida.
   if (!esAlta) {
+    // Lealtad se separó por completo del resto del sitio (14 ago 2026):
+    // un negocio de Citas/Eventos/Restaurantes que TODAVÍA no tiene
+    // programa no puede pedirlo acá — eso es lo que mezclaba negocios
+    // reales del directorio con pases (el caso de Rancho Las Torres).
+    // Si YA tiene programa (nació aislado, o es un caso viejo de antes
+    // de este cambio), esto es exactamente el upgrade que este archivo
+    // sí tiene que dejar pasar.
+    const { data: yaTienePrograma } = await supabase
+      .from("programa_lealtad")
+      .select("id")
+      .eq("rancho_id", ranchoId)
+      .maybeSingle();
+    if (!yaTienePrograma) {
+      return {
+        ok: false,
+        motivo:
+          "Ese negocio todavía no tiene programa de lealtad. Lealtad ahora nace siempre en un negocio aparte — escribí un nombre nuevo y arrancá desde cero.",
+      };
+    }
+
+    // Un negocio en revisión (0129) no solicita nada: primero lo aprueba
+    // un administrador. `select *` tolera bases sin la migración.
     const { data: ranchoRevision } = await supabase
       .from("ranchos")
       .select("*")

@@ -110,6 +110,23 @@ export async function iniciarPagoDelPaquete(datos: {
       return { ok: false, motivo: "Solo el dueño del negocio puede pagar el paquete." };
     }
 
+    // Lealtad se separó por completo del resto del sitio (14 ago 2026):
+    // un negocio que TODAVÍA no tiene programa no puede comprarlo acá
+    // encima de sí mismo — eso mezclaba negocios reales del directorio
+    // con pases. Si YA tiene programa, esto es el upgrade que sí debe
+    // seguir funcionando.
+    const { data: yaTienePrograma } = await supabase
+      .from("programa_lealtad")
+      .select("id")
+      .eq("rancho_id", datos.ranchoId)
+      .maybeSingle();
+    if (!yaTienePrograma) {
+      return {
+        ok: false,
+        motivo: "Ese negocio todavía no tiene programa de lealtad — lealtad nace siempre en un negocio aparte.",
+      };
+    }
+
     // Un negocio en revisión (0129) no compra nada todavía. La pantalla
     // ya los filtra del selector; esto lo vuelve a comprobar acá, que es
     // donde no se puede saltar.

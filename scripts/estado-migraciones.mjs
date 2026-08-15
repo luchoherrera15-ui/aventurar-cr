@@ -54,6 +54,13 @@ const TESTIGOS = [
   ["0137", "tabla", "intentos_canje", null, "canje seguro"],
   ["0138", "tabla", "personas", null, "identidad raíz"],
   ["0138", "columna", "miembros", "persona_id", "miembro sin cuenta"],
+  // Esta NO estaba antes, y por eso la 0138 pasó por "completa" durante
+  // días con este pedazo roto de verdad: un `do $$ ... $$` de la
+  // sección 12 (clientes_negocio) se revertía solo si CUALQUIER
+  // sentencia adentro fallaba, sin tumbar el resto del archivo — así
+  // que las otras 21 piezas de la 0138 quedaban bien y esta, silenciosa.
+  // Ver la 0153, que la completa.
+  ["0138", "columna", "clientes_negocio", "persona_id", "CRM enlazado a la identidad global"],
   ["0143", "tabla", "suscripciones", null, "suscripciones Stripe"],
   ["0143", "tabla", "eventos_stripe", null, "webhooks de Stripe procesados"],
   ["0145", "columna", "programa_lealtad", "pase_sello_icono", "icono del sello"],

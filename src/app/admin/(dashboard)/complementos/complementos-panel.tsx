@@ -304,6 +304,11 @@ export default function ComplementosPanel({
                 const k = clave(negocio.id, def.id);
                 const vence = fechaCorta(fila?.vence_en ?? null);
                 const dias = diasPara(fila?.vence_en ?? null);
+                // Lealtad se separó del resto del sitio (14 ago 2026): ya
+                // no se activa acá — nace aislado desde /lealtad/planes.
+                // Esta tarjeta se queda solo para poder VER un caso viejo
+                // (como Rancho Las Torres) y quitarlo si hace falta.
+                const esLealtad = def.id === "lealtad";
 
                 return (
                   <div
@@ -340,47 +345,73 @@ export default function ComplementosPanel({
                       </p>
                     )}
 
-                    <select
-                      value={duracion[k] ?? "1"}
-                      onChange={(e) =>
-                        setDuracion((prev) => ({ ...prev, [k]: e.target.value }))
-                      }
-                      className="mt-2.5 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink"
-                    >
-                      {DURACIONES.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.label}
-                        </option>
-                      ))}
-                    </select>
-
-                    <input
-                      value={nota[k] ?? ""}
-                      onChange={(e) => setNota((prev) => ({ ...prev, [k]: e.target.value }))}
-                      placeholder="Nota (ej. pagó SINPE 2/8)"
-                      className="mt-2 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink placeholder:text-zinc-400"
-                    />
-
-                    <div className="mt-2.5 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => activar(negocio, def.id)}
-                        disabled={pendiente}
-                        className="flex-1 rounded-lg bg-aventurea-navy px-3 py-2 text-[12.5px] font-bold text-white disabled:opacity-40"
-                      >
-                        {estado === "apagado" ? "Activar" : "Renovar"}
-                      </button>
-                      {estado !== "apagado" && (
-                        <button
-                          type="button"
-                          onClick={() => quitar(negocio, def.id)}
-                          disabled={pendiente}
-                          className="rounded-lg border border-aventurea-line bg-white px-3 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-40"
+                    {esLealtad ? (
+                      <>
+                        <p className="mt-2.5 text-[11.5px] leading-snug text-aventurea-ink-soft">
+                          {estado === "apagado" ? (
+                            <>Ya no se activa acá — cada negocio de lealtad nace aparte desde /lealtad/planes.</>
+                          ) : (
+                            <>Caso de antes de separar lealtad del resto del sitio. Se puede quitar, pero ya no se renueva desde acá.</>
+                          )}
+                        </p>
+                        {estado !== "apagado" && (
+                          <div className="mt-2.5">
+                            <button
+                              type="button"
+                              onClick={() => quitar(negocio, def.id)}
+                              disabled={pendiente}
+                              className="w-full rounded-lg border border-aventurea-line bg-white px-3 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-40"
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <select
+                          value={duracion[k] ?? "1"}
+                          onChange={(e) =>
+                            setDuracion((prev) => ({ ...prev, [k]: e.target.value }))
+                          }
+                          className="mt-2.5 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink"
                         >
-                          Quitar
-                        </button>
-                      )}
-                    </div>
+                          {DURACIONES.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <input
+                          value={nota[k] ?? ""}
+                          onChange={(e) => setNota((prev) => ({ ...prev, [k]: e.target.value }))}
+                          placeholder="Nota (ej. pagó SINPE 2/8)"
+                          className="mt-2 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink placeholder:text-zinc-400"
+                        />
+
+                        <div className="mt-2.5 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => activar(negocio, def.id)}
+                            disabled={pendiente}
+                            className="flex-1 rounded-lg bg-aventurea-navy px-3 py-2 text-[12.5px] font-bold text-white disabled:opacity-40"
+                          >
+                            {estado === "apagado" ? "Activar" : "Renovar"}
+                          </button>
+                          {estado !== "apagado" && (
+                            <button
+                              type="button"
+                              onClick={() => quitar(negocio, def.id)}
+                              disabled={pendiente}
+                              className="rounded-lg border border-aventurea-line bg-white px-3 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-40"
+                            >
+                              Quitar
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}

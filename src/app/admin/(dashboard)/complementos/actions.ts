@@ -44,6 +44,21 @@ export async function activarAddon({
   if (!ok) return { error: "No tenés permiso para esto." };
 
   if (!esAddon(addon)) return { error: "Ese complemento no existe." };
+
+  // Lealtad se separó por completo del resto del sitio (14 ago 2026):
+  // un negocio de Citas/Eventos/Restaurantes ya no puede activar pases
+  // desde acá — eso mezclaba un negocio real del directorio con el
+  // servicio de lealtad, que ahora nace SIEMPRE aislado (sin agenda,
+  // catálogo ni finanzas) desde /lealtad/planes. `desactivarAddon` de
+  // abajo SÍ sigue permitido: sirve para deshacer los casos mezclados
+  // que ya existían antes de este cambio.
+  if (addon === "lealtad") {
+    return {
+      error:
+        "Lealtad ya no se activa acá. Cada negocio de lealtad nace por su cuenta desde /lealtad/planes — nunca sobre un negocio que ya está en el directorio.",
+    };
+  }
+
   if (meses !== null && (!Number.isFinite(meses) || meses < 1 || meses > 60)) {
     return { error: "Esa duración no es válida." };
   }

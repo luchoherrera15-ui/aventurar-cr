@@ -67,7 +67,7 @@ export default async function PlanesLealtadPage({
       : { data: [] };
 
     type Fila = { id: string; nombre: string; lealtad_aprobado_en?: string | null };
-    negocios = [
+    const candidatos = [
       ...new Map(
         [...((propios ?? []) as Fila[]), ...((colaborados ?? []) as Fila[])]
           // Un negocio en revisión (0129) no puede solicitar plan: ni
@@ -76,6 +76,28 @@ export default async function PlanesLealtadPage({
           .map((n) => [n.id, { id: n.id, nombre: n.nombre }] as const),
       ).values(),
     ];
+
+    // Lealtad se separó por completo del resto del sitio (14 ago 2026):
+    // acá solo aparecen negocios que YA TIENEN programa (el upgrade que
+    // el banner "mejorá tu paquete" promete). Un negocio de Citas,
+    // Eventos o Restaurantes que nunca tuvo lealtad ya NO se ofrece acá
+    // — eso era lo que mezclaba negocios reales del directorio con
+    // pases (el caso de Rancho Las Torres). Para arrancar de cero, el
+    // camino es el nombre nuevo (alta en frío), más abajo en esta misma
+    // pantalla.
+    if (candidatos.length) {
+      const { data: conPrograma } = await supabase
+        .from("programa_lealtad")
+        .select("rancho_id")
+        .in(
+          "rancho_id",
+          candidatos.map((n) => n.id),
+        );
+      const idsConPrograma = new Set(
+        ((conPrograma ?? []) as { rancho_id: string }[]).map((p) => p.rancho_id),
+      );
+      negocios = candidatos.filter((n) => idsConPrograma.has(n.id));
+    }
   }
 
   const planes: TarjetaPlan[] = PLANES_OFRECIDOS.map((id) => {
