@@ -11,6 +11,7 @@ import {
   asignarCliente,
   crearAlbum,
   guardarInvitacion,
+  medirPesoInvitacion,
   type DatosInvitacion,
 } from "./actions";
 
@@ -162,22 +163,46 @@ export default function InvitacionesPanel({
   const [error, setError] = useState<string | null>(null);
   const [copiada, setCopiada] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [peso, setPeso] = useState<{
+    slug: string;
+    totalKB: number;
+    htmlKB: number;
+    imagenes: { url: string; kb: number }[];
+  } | null>(null);
+  const [pesoError, setPesoError] = useState<string | null>(null);
+  const [midiendoPeso, startMedicion] = useTransition();
 
   function abrirNueva() {
     setForm(FORM_VACIO);
     setError(null);
+    setPeso(null);
+    setPesoError(null);
     setAbierta("nueva");
   }
 
   function abrirEdicion(i: InvitacionAdmin) {
     setForm(deFila(i));
     setError(null);
+    setPeso(null);
+    setPesoError(null);
     setAbierta(i.id);
   }
 
   function cerrar() {
     setAbierta(null);
     setError(null);
+  }
+
+  function medirPeso(slug: string) {
+    setPesoError(null);
+    startMedicion(async () => {
+      const res = await medirPesoInvitacion(slug);
+      if (res.error || res.totalKB === null || res.htmlKB === null) {
+        setPesoError(res.error ?? "No se pudo medir.");
+        return;
+      }
+      setPeso({ slug, totalKB: res.totalKB, htmlKB: res.htmlKB, imagenes: res.imagenes });
+    });
   }
 
   function campo<K extends keyof Formulario>(k: K, v: Formulario[K]) {
@@ -522,6 +547,42 @@ export default function InvitacionesPanel({
               </select>
             </div>
           </div>
+
+          {/* Peso de la página pública: solo tiene sentido para una
+              invitación que ya existe en vivo — una "nueva" todavía no
+              tiene link que medir. */}
+          {abierta !== "nueva" && (
+            <div className="mt-4 rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className={labelCls + " mb-0"}>Peso de la página pública</p>
+                <button
+                  type="button"
+                  disabled={midiendoPeso}
+                  onClick={() => medirPeso(form.slug)}
+                  className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-navy disabled:opacity-50"
+                >
+                  {midiendoPeso ? "Midiendo…" : "Medir /i/" + form.slug}
+                </button>
+              </div>
+              {pesoError && <p className="mt-2 text-[12.5px] text-red-700">{pesoError}</p>}
+              {peso && peso.slug === form.slug && (
+                <p className="mt-2 text-[13px] text-aventurea-ink">
+                  <strong>{peso.totalKB} KB</strong> en total — {peso.htmlKB} KB de página
+                  {peso.imagenes.length > 0 && (
+                    <>
+                      {" "}
+                      + {peso.imagenes.reduce((s, im) => s + im.kb, 0)} KB en{" "}
+                      {peso.imagenes.length} imagen{peso.imagenes.length === 1 ? "" : "es"}
+                    </>
+                  )}
+                  <span className="block text-[11.5px] text-aventurea-ink-soft">
+                    No incluye el código del sitio (JS/CSS): eso se descarga una sola vez y es
+                    igual para todas.
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
 
           {error && (
             <p className="mt-4 rounded-xl bg-red-50 p-3.5 text-[13px] text-red-700">{error}</p>

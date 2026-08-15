@@ -652,6 +652,95 @@ export async function urlComprobantePedido(path: string) {
   return { url: data.signedUrl, error: null };
 }
 
+/**
+ * Cuánto pesa la página pública de una invitación (`/i/{slug}`): el
+ * HTML que sirve el servidor, más las imágenes que carga (portada y
+ * cualquier `<img>` del HTML personalizado). Deliberadamente NO suma el
+ * bundle de JS/CSS del sitio: es el mismo para las 20+ invitaciones (se
+ * cachea una sola vez en el teléfono del invitado), así que no es "el
+ * peso de ESTA invitación" — sumarlo haría que todas se vean casi
+ * iguales y escondería la diferencia real, que es la foto de portada.
+ *
+ * Las imágenes de Next (`<Image>`) se sirven por `/_next/image?...`, no
+ * por la URL original — por eso se resuelven las rutas relativas contra
+ * el propio sitio antes de pedir el tamaño: así se mide lo que el
+ * navegador de verdad descarga, ya optimizado.
+ */
+export async function medirPesoInvitacion(
+  slug: string,
+): Promise<{
+  error: string | null;
+  totalKB: number | null;
+  htmlKB: number | null;
+  imagenes: { url: string; kb: number }[];
+}> {
+  const { ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto.", totalKB: null, htmlKB: null, imagenes: [] };
+
+  const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
+  const url = `${sitio}/i/${slug}`;
+
+  let html: string;
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      return {
+        error: `La página respondió ${res.status} — revisá que el link esté activo.`,
+        totalKB: null,
+        htmlKB: null,
+        imagenes: [],
+      };
+    }
+    html = await res.text();
+  } catch (e) {
+    return {
+      error: "No se pudo cargar la página: " + (e instanceof Error ? e.message : String(e)),
+      totalKB: null,
+      htmlKB: null,
+      imagenes: [],
+    };
+  }
+
+  const htmlBytes = Buffer.byteLength(html, "utf8");
+
+  // `src="..."` (img, source) y `url(...)` (fondos inline) — solo lo
+  // que huele a imagen, para no salir a medir un script o una fuente.
+  const crudos = new Set<string>();
+  for (const m of html.matchAll(/\bsrc=["']([^"']+)["']/g)) crudos.add(m[1]);
+  for (const m of html.matchAll(/url\((?:['"])?([^'")]+)(?:['"])?\)/g)) crudos.add(m[1]);
+
+  const esImagen = (u: string) =>
+    /\.(png|jpe?g|webp|gif|avif|svg)(\?|$)/i.test(u) || u.includes("/_next/image");
+
+  const absolutas = new Set<string>();
+  for (const u of crudos) {
+    if (!esImagen(u)) continue;
+    if (u.startsWith("http://") || u.startsWith("https://")) absolutas.add(u);
+    else if (u.startsWith("/")) absolutas.add(`${sitio}${u}`);
+  }
+
+  const imagenes: { url: string; kb: number }[] = [];
+  // Tope de 15: esta pantalla es informativa, no un rastreador — de
+  // sobra para portada + lo que traiga un HTML personalizado.
+  for (const u of [...absolutas].slice(0, 15)) {
+    try {
+      const r = await fetch(u, { method: "HEAD", cache: "no-store" });
+      const len = r.headers.get("content-length");
+      if (len) imagenes.push({ url: u, kb: Math.round(Number(len) / 1024) });
+    } catch {
+      // Una imagen que no responde no frena la medición del resto.
+    }
+  }
+
+  const totalBytes = htmlBytes + imagenes.reduce((s, i) => s + i.kb * 1024, 0);
+  return {
+    error: null,
+    totalKB: Math.round(totalBytes / 1024),
+    htmlKB: Math.round(htmlBytes / 1024),
+    imagenes,
+  };
+}
+
 /** Archiva (o reactiva) un álbum: el link /a/… deja de ser público. */
 export async function archivarAlbum(id: string, archivar: boolean) {
   const { ok } = await requireAdmin();
