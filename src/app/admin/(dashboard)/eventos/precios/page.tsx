@@ -1,4 +1,5 @@
 ﻿import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parsearPrecioPorPersona } from "@/lib/precio-lugar";
 import PreciosForm from "@/components/precios-form";
 import DescuentosForm from "@/components/descuentos-form";
@@ -38,8 +39,12 @@ export default async function PreciosPage({
 
   // A propósito `*` y no la lista de columnas: los precios de diciembre
   // (0099) o el por-persona (0103) pueden no existir todavía en la
-  // base, y pedirlos por nombre haría fallar la consulta entera.
-  const consulta = supabase.from("ranchos").select("*");
+  // base, y pedirlos por nombre haría fallar la consulta entera. Con la
+  // llave de servicio: esta pantalla ya es solo-admin (el gate vive en
+  // el layout), y desde la 0155 `authenticated` no tiene permiso de
+  // tabla completa sobre `ranchos` — Postgres no deja `select("*")`
+  // con permiso por columna.
+  const consulta = (createAdminClient() ?? supabase).from("ranchos").select("*");
   const { data: rancho } = await (ranchoParam
     ? consulta.eq("id", ranchoParam).maybeSingle()
     : consulta.eq("nombre", NOMBRE_RANCHO_BOOKEAR).maybeSingle());

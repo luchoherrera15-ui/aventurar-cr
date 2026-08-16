@@ -3,6 +3,7 @@
 import { after } from "next/server";
 import { esPlanOfrecido, esPlanSinCosto } from "@/lib/lealtad/planes";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 
@@ -115,8 +116,12 @@ export async function solicitarPlanLealtad(datos: {
     }
 
     // Un negocio en revisión (0129) no solicita nada: primero lo aprueba
-    // un administrador. `select *` tolera bases sin la migración.
-    const { data: ranchoRevision } = await supabase
+    // un administrador. `select *` tolera bases sin la migración. Con
+    // la llave de servicio: `esAlta`/el resto de esta función ya
+    // comprobaron que el que pide gestiona `ranchoId` — esto solo
+    // necesita poder pedir `*` sin lista de columnas a mano (desde la
+    // 0155, `authenticated` no tiene permiso de tabla completa).
+    const { data: ranchoRevision } = await (createAdminClient() ?? supabase)
       .from("ranchos")
       .select("*")
       .eq("id", ranchoId)

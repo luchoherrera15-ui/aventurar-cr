@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import RanchosTable, { type RanchoConDueno } from "./ranchos-table";
 import type { Rancho } from "@/app/mi-negocio/types";
 import { perteneceASeccion, type SeccionAdmin } from "../vertical";
@@ -17,8 +18,15 @@ export default async function AdminRanchosPage() {
   const supabase = await createClient();
   const seccion = await seccionActiva();
 
+  // Con la llave de servicio: esta pantalla es solo-admin (el gate vive
+  // en el layout), y desde la 0155 `authenticated` no tiene permiso de
+  // tabla completa sobre `ranchos` — Postgres no deja `select("*")` con
+  // permiso por columna.
   const [ranchosRes, perfilesRes] = await Promise.all([
-    supabase.from("ranchos").select("*").order("created_at", { ascending: false }),
+    (createAdminClient() ?? supabase)
+      .from("ranchos")
+      .select("*")
+      .order("created_at", { ascending: false }),
     supabase.from("perfiles").select("id, email"),
   ]);
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR, fmtFechaCorta, sumarDiasISO } from "@/lib/fechas";
 import { fmtColones } from "@/lib/finanzas";
 import { horarioDeDetalles } from "@/app/citas/tipos";
@@ -65,7 +66,12 @@ export default async function CitasConfigPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/mi-negocio/login");
 
-  const { data: rancho } = await supabase
+  // Con la llave de servicio: el control de acceso real es el chequeo
+  // de `owner_id`/admin de acá abajo (con `notFound()` si no pasa), no
+  // esta lectura — que solo necesita poder pedir `*` sin lista de
+  // columnas a mano (desde la 0155, `authenticated` no tiene permiso
+  // de tabla completa sobre `ranchos`).
+  const { data: rancho } = await (createAdminClient() ?? supabase)
     .from("ranchos")
     .select("*")
     .eq("id", id)

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   etiquetasDeCapacidades,
   PLANES,
@@ -52,18 +53,24 @@ export default async function PlanesLealtadPage({
   } = await supabase.auth.getUser();
 
   // Los negocios del que mira (propios + donde colabora), para el
-  // selector del formulario. Con la RLS de siempre — sin llave de
-  // servicio: si no puede verlos, no puede pedir por ellos.
+  // selector del formulario. El filtro real de seguridad es
+  // `owner_id`/colaborador, calculado acá mismo — la llave de servicio
+  // (desde la 0155) es solo para poder pedir `*` sobre `ranchos` sin
+  // mantener una lista de columnas a mano (`authenticated` ya no tiene
+  // permiso de tabla completa, y Postgres no deja `select("*")` con
+  // permiso por columna). Nunca se le muestra nada de otro negocio: la
+  // consulta sigue acotada a `owner_id`/`idsColab` de este usuario.
   let negocios: NegocioElegible[] = [];
   if (user) {
+    const db = createAdminClient() ?? supabase;
     // `select *`: lealtad_aprobado_en es de la 0129 y puede no existir.
     const [{ data: propios }, { data: colaboraciones }] = await Promise.all([
-      supabase.from("ranchos").select("*").eq("owner_id", user.id),
+      db.from("ranchos").select("*").eq("owner_id", user.id),
       supabase.from("rancho_colaboradores").select("rancho_id").eq("usuario_id", user.id),
     ]);
     const idsColab = ((colaboraciones ?? []) as { rancho_id: string }[]).map((c) => c.rancho_id);
     const { data: colaborados } = idsColab.length
-      ? await supabase.from("ranchos").select("*").in("id", idsColab)
+      ? await db.from("ranchos").select("*").in("id", idsColab)
       : { data: [] };
 
     type Fila = { id: string; nombre: string; lealtad_aprobado_en?: string | null };

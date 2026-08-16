@@ -52,19 +52,25 @@ export default async function PanelLealtadPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/lealtad/login");
 
-  // Los negocios que administra, con la SESIÓN del usuario: la RLS
-  // decide qué filas le tocan. La llave de servicio entra después,
-  // solo para los agregados que el dueño no puede leer directo.
+  // Los negocios que administra: el filtro real de seguridad es
+  // `owner_id`/colaborador, calculado acá mismo. La llave de servicio
+  // (desde la 0155) es solo para poder pedir `*` sobre `ranchos` sin
+  // mantener una lista de columnas a mano — `authenticated` ya no
+  // tiene permiso de tabla completa, y Postgres no deja `select("*")`
+  // con permiso por columna. Se adelanta acá (antes se creaba más
+  // abajo) para reusarla en esta consulta también.
   // `select *`: lealtad_aprobado_en (0129) puede no existir todavía y
   // un select explícito reventaría la página entera.
+  const admin = createAdminClient();
+  const db = admin ?? supabase;
   const [{ data: propios }, { data: colaboraciones }] = await Promise.all([
-    supabase.from("ranchos").select("*").eq("owner_id", user.id),
+    db.from("ranchos").select("*").eq("owner_id", user.id),
     supabase.from("rancho_colaboradores").select("rancho_id").eq("usuario_id", user.id),
   ]);
 
   const idsColab = ((colaboraciones ?? []) as { rancho_id: string }[]).map((c) => c.rancho_id);
   const { data: colaborados } = idsColab.length
-    ? await supabase.from("ranchos").select("*").in("id", idsColab)
+    ? await db.from("ranchos").select("*").in("id", idsColab)
     : { data: [] };
 
   // Dueño y colaborador del mismo negocio a la vez = una sola tarjeta.
@@ -95,7 +101,6 @@ export default async function PanelLealtadPage() {
   const altasPendientes = ((altasData ?? []) as { id: string; negocio_nombre?: string | null; plan: string }[])
     .filter((a) => a.negocio_nombre);
 
-  const admin = createAdminClient();
   const negocios: TarjetaNegocio[] = [];
 
   for (const r of base) {

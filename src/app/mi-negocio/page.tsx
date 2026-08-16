@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logoutDueno } from "./actions";
 import { IconPlus } from "@/components/icons";
 import RevealOnScroll from "@/components/reveal-on-scroll";
@@ -53,8 +54,20 @@ export default async function MiRanchoHubPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/mi-negocio/login");
 
+  // Con la llave de servicio a propósito: desde la 0155, `authenticated`
+  // ya no tiene permiso de tabla completa en `ranchos` (las 6 columnas
+  // de cobro se le sacaron), y Postgres no deja hacer `select("*")`
+  // cuando el permiso es por columna — pide TODAS o ninguna, no las que
+  // sí tiene. Acá no hace falta ver el SINPE de nadie; usar la llave de
+  // servicio es solo para poder seguir pidiendo `*` sin mantener una
+  // lista de columnas a mano que se desactualiza cada vez que se agrega
+  // un campo (la 0155 tiene ese mismo comentario). El filtro real de
+  // seguridad sigue siendo `owner_id`/colaborador, calculado acá abajo.
+  const admin = createAdminClient();
+  const db = admin ?? supabase;
+
   // Los propios...
-  const { data } = await supabase
+  const { data } = await db
     .from("ranchos")
     .select("*")
     .eq("owner_id", user.id)
@@ -75,7 +88,7 @@ export default async function MiRanchoHubPage() {
 
   let colaborados: Rancho[] = [];
   if (idsColaborados.length > 0) {
-    const { data: extra } = await supabase
+    const { data: extra } = await db
       .from("ranchos")
       .select("*")
       .in("id", idsColaborados)

@@ -129,8 +129,11 @@ export async function iniciarPagoDelPaquete(datos: {
 
     // Un negocio en revisión (0129) no compra nada todavía. La pantalla
     // ya los filtra del selector; esto lo vuelve a comprobar acá, que es
-    // donde no se puede saltar.
-    const { data: rancho } = await supabase
+    // donde no se puede saltar. Con la llave de servicio: `verificarAccesoRancho`
+    // de arriba ya es el chequeo de seguridad real — esto solo necesita
+    // poder pedir `*` sin mantener una lista de columnas a mano (desde
+    // la 0155, `authenticated` no tiene permiso de tabla completa).
+    const { data: rancho } = await (createAdminClient() ?? supabase)
       .from("ranchos")
       .select("*")
       .eq("id", datos.ranchoId)

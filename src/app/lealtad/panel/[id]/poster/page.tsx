@@ -78,7 +78,11 @@ export default async function PosterPage({
   if (!acceso.user) redirect("/lealtad/login");
   if (!acceso.ok) redirect("/lealtad/panel");
 
-  const { data: rancho } = await acceso.supabase
+  // `verificarAccesoLealtad` ya es el chequeo de seguridad real; con la
+  // llave de servicio acá solo para poder pedir `*` sin lista de
+  // columnas a mano (`authenticated` no tiene permiso de tabla completa
+  // sobre `ranchos` desde la 0155).
+  const { data: rancho } = await (createAdminClient() ?? acceso.supabase)
     .from("ranchos")
     .select("*")
     .eq("id", id)

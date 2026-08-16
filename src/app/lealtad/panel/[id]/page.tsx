@@ -81,11 +81,14 @@ export default async function PanelNegocioLealtad({
   if (!acceso.ok) redirect("/lealtad/panel");
   const { permisos } = acceso;
 
-  // El negocio, con la sesión: la RLS de la 0116 ya deja leerlo al
-  // dueño y al colaborador (aunque esté pendiente, invisible al público).
-  // `select *` a propósito: lealtad_aprobado_en es de la 0129 y un
-  // select explícito reventaría en una base sin migrar.
-  const { data: rancho } = await acceso.supabase
+  // El negocio. `verificarAccesoLealtad` de arriba ya es el chequeo de
+  // seguridad real (dueño/colaborador/admin, con redirect si no pasa);
+  // esta lectura va con la llave de servicio solo para poder pedir `*`
+  // sin lista de columnas a mano — `authenticated` ya no tiene permiso
+  // de tabla completa sobre `ranchos` (0155), y `select *` es a
+  // propósito porque lealtad_aprobado_en (0129) puede no existir
+  // todavía en la base.
+  const { data: rancho } = await (createAdminClient() ?? acceso.supabase)
     .from("ranchos")
     .select("*")
     .eq("id", id)
