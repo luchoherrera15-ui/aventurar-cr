@@ -1,5 +1,6 @@
 import { createSign } from "node:crypto";
 import { randomBytes, randomUUID } from "node:crypto";
+import { diagnosticarBase64 } from "./config/base64";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { consultarSaldo } from "@/lib/lealtad/motor";
 import { emisoraDeFilasCrudas } from "./programa-principal";
@@ -63,11 +64,18 @@ export type CredencialesGoogle = {
 };
 
 export function credencialesGoogleDelEntorno(): CredencialesGoogle | null {
-  const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID;
+  const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID?.trim();
   const b64 = process.env.GOOGLE_WALLET_SA_KEY_B64;
   if (!issuerId || !b64) return null;
+
+  // Decodificador robusto (config/base64.ts): tolera espacios, comillas
+  // y \r accidentales antes de intentar parsear el JSON. Antes esto era
+  // Buffer.from directo, que los ignora en silencio.
+  const diag = diagnosticarBase64(b64);
+  if (!diag.ok) return null;
+
   try {
-    const json = JSON.parse(Buffer.from(b64, "base64").toString("utf8")) as {
+    const json = JSON.parse(diag.decodificado.toString("utf8")) as {
       client_email?: string;
       private_key?: string;
     };

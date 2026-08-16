@@ -16,6 +16,7 @@ import { estadoVisible } from "@/lib/lealtad/programas";
 import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
+import { calcularTokenHmac, versionHmacVigente } from "./config/auth-token";
 import {
   buscarMiembroDelPase,
   filaDeAfiliacion,
@@ -265,23 +266,63 @@ export async function generarPaseDeLealtad({
   // nueva en vez de refrescar la que el cliente ya tiene.
   let { data: pase } = await db
     .from("pases_wallet")
-    .select("serial_number, auth_token")
+    .select("serial_number, auth_token, auth_token_version")
     .eq("miembro_id", miembro.id)
     .eq("plataforma", "apple")
     .maybeSingle();
 
   if (!pase) {
+    const serialNuevo = randomUUID();
+    // Wallet V2 (Fase 2B): si hay un secreto HMAC configurado
+    // (APPLE_PASS_AUTH_SECRET_V1...), el pase NUEVO nace con
+    // auth_token_version >= 1 y `auth_token` en null — el token se
+    // recalcula al vuelo, nunca se guarda (ver config/auth-token.ts).
+    // Sin ese secreto configurado (el caso de hoy, en producción, a
+    // propósito — nadie generó ni publicó ese secreto todavía), el
+    // pase sigue naciendo exactamente como siempre: token aleatorio
+    // guardado en claro, version 0. El día que se configure el
+    // secreto, los pases NUEVOS empiezan a usarlo solos; ninguno de
+    // los ya emitidos cambia de token.
+    const versionHmac = versionHmacVigente();
+
+    // Fase 2C: si NO hay ningún secreto configurado, el fallback a
+    // legacy de arriba es intencional y no cambia. Pero si SÍ hay una
+    // versión vigente (el sistema ya decidió usar HMAC) y por lo que
+    // sea no se puede calcular el token de esa versión —credenciales de
+    // Apple rotas a mitad de camino, por ejemplo— el pase NO se crea
+    // en silencio con un token legacy más débil: falla, visible, para
+    // que quien opera lo note en vez de emitir una tarjeta con menos
+    // seguridad de la que el propio sistema ya eligió tener.
+    let authTokenNuevo: string | null;
+    let authTokenVersionNuevo: number;
+    if (versionHmac) {
+      const passTypeIdentifier = credencialesDelEntorno()?.passTypeIdentifier ?? null;
+      const tokenHmac = passTypeIdentifier ? calcularTokenHmac(versionHmac, passTypeIdentifier, serialNuevo) : null;
+      if (!tokenHmac) {
+        return {
+          ok: false,
+          codigo: "error",
+          motivo: "No se pudo emitir el pase: hay un secreto HMAC vigente pero no se pudo calcular el token (revisar credenciales de Apple).",
+        };
+      }
+      authTokenNuevo = null;
+      authTokenVersionNuevo = versionHmac;
+    } else {
+      authTokenNuevo = randomBytes(32).toString("hex");
+      authTokenVersionNuevo = 0;
+    }
+
     const { data: nuevo, error } = await db
       .from("pases_wallet")
       .insert({
         miembro_id: miembro.id,
         plataforma: "apple",
-        serial_number: randomUUID(),
-        // Con esto Apple se autentica al pedir el pase actualizado.
-        auth_token: randomBytes(32).toString("hex"),
+        serial_number: serialNuevo,
+        auth_token: authTokenNuevo,
+        auth_token_version: authTokenVersionNuevo,
         saldo_cache: saldo,
       })
-      .select("serial_number, auth_token")
+      .select("serial_number, auth_token, auth_token_version")
       .single();
     if (error) {
       return { ok: false, codigo: "error", motivo: "No se pudo crear el pase: " + error.message };
@@ -290,7 +331,16 @@ export async function generarPaseDeLealtad({
   }
 
   const serialNumber = pase!.serial_number as string;
-  const authToken = pase!.auth_token as string;
+  // El token HMAC (version >= 1) NUNCA se guardó — se recalcula acá
+  // con los mismos datos deterministas, así que da exactamente el
+  // mismo valor que autenticarPase() va a esperar más tarde. Para
+  // version 0 (legacy, el 100% de los pases reales hoy) es
+  // simplemente el valor guardado, como siempre fue.
+  const version = (pase!.auth_token_version as number | null) ?? 0;
+  const authToken =
+    version === 0
+      ? (pase!.auth_token as string)
+      : (calcularTokenHmac(version, credencialesDelEntorno()?.passTypeIdentifier ?? "", serialNumber) ?? "");
 
   // ── Las imágenes ──────────────────────────────────────────────────
   const colores = coloresDe(config);

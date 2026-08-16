@@ -16,6 +16,14 @@ const eslintConfig = defineConfig([
     // eslint-disable que acá sobra, y no tiene sentido corregir un
     // archivo que se reescribe solo en cada build.
     "mobile/.expo/**",
+    // Generado por el CLI de Supabase en cada `supabase start`/`db
+    // reset` (secretos de los contenedores locales, snapshots) — no es
+    // código del repo, ya está en supabase/.gitignore, y se reescribe
+    // solo. Fase 2C (Wallet V2): antes de esto, `npm run lint` fallaba
+    // con 154 errores de un archivo generado acá adentro
+    // (supabase_edge_runtime, un `index.ts` minificado de terceros),
+    // sin que nada de `src/` estuviera involucrado.
+    "supabase/.temp/**",
   ]),
   // El guion bajo adelante ya se usa en el código para decir "esto no se
   // usa y es a propósito" (_e en un catch, _estado en un destructuring).

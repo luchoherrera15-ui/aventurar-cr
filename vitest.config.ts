@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // El alias "@/..." del tsconfig, para que los tests importen igual
 // que el resto del código.
@@ -17,6 +17,14 @@ export default defineConfig({
   // se le pone `pool: "forks"` a ESE archivo, no a toda la suite.
   test: {
     pool: "threads",
+    // supabase/tests-integracion/** necesita un Postgres local real
+    // (npx supabase start) — no son parte de `npm test`, que no debe
+    // depender de nada externo. Corren aparte con
+    // `npm run test:wallet-v2-local` (vitest.integration.config.ts).
+    // Se parte de los excludes DEFAULT de vitest (configDefaults) y
+    // solo se agrega el nuevo — reemplazar el array a mano arriesga
+    // perder node_modules/dist/etc. si vitest cambia sus defaults.
+    exclude: [...configDefaults.exclude, "supabase/tests-integracion/**"],
   },
   resolve: {
     alias: {

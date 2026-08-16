@@ -295,27 +295,45 @@ async function crearGratisAlInstante(d: {
   // Nace SOLO para lealtad: sin agenda, catálogo, equipo ni finanzas.
   await apagarModulosOperativos(admin, ranchoId);
 
-  const { data: prog, error: eProg } = await admin
-    .from("programa_lealtad")
-    .insert({
-      rancho_id: ranchoId,
+  // Wallet V2 (Fase 2B): la identidad (cuenta + equipo + programa) se
+  // resuelve en UNA sola llamada atómica — ver
+  // supabase/migrations/0156_wallet_v2_alta_cuenta_lealtad.sql. El
+  // límite de programas sale del catálogo real (planes.ts), nunca
+  // hardcodeado acá: si el día de mañana el plan Prueba permitiera 2,
+  // este llamado no necesita tocarse.
+  const limitePrograma = definicionDe(d.plan)?.limites.programas ?? null;
+  const { data: altaRaw, error: eAlta } = await admin.rpc("alta_cuenta_lealtad", {
+    p_owner_id: d.userId,
+    p_rancho_id: ranchoId,
+    p_limite_programas: limitePrograma,
+    p_programa: {
       nombre: "Programa de lealtad",
       modo: "sellos",
+      plan: d.plan,
       puntos_por_visita: 1,
       puntos_por_colon: 0,
       activo: true,
       estado: "activo",
       pase_color_fondo: d.paseColor,
       pase_logo_url: d.paseLogoUrl,
-    })
-    .select("id")
-    .single();
-  if (eProg || !prog) {
-    return { ok: false, motivo: "El negocio se creó pero el programa no: " + (eProg?.message ?? "") };
+    },
+  });
+  const alta = altaRaw as {
+    ok: boolean;
+    motivo: string;
+    cuenta_id?: string;
+    programa_id?: string;
+  } | null;
+  if (eAlta || !alta?.ok || !alta.programa_id) {
+    return {
+      ok: false,
+      motivo: "El negocio se creó pero el programa no: " + (eAlta?.message ?? alta?.motivo ?? "sin detalle"),
+    };
   }
+  const programaId = alta.programa_id;
 
   const { error: eRec } = await admin.from("recompensas").insert({
-    programa_id: prog.id,
+    programa_id: programaId,
     nombre: d.regalia,
     costo_puntos: d.metaSellos,
     activo: true,

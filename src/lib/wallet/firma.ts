@@ -1,4 +1,5 @@
 import forge from "node-forge";
+import { diagnosticarBase64 } from "./config/base64";
 
 /**
  * Firma de un pase de Apple Wallet.
@@ -38,20 +39,28 @@ export function credencialesDelEntorno(): CredencialesPase | null {
   const cert = process.env.APPLE_PASS_CERT_B64;
   const llave = process.env.APPLE_PASS_KEY_B64;
   const wwdr = process.env.APPLE_WWDR_CERT_B64;
-  const passTypeIdentifier = process.env.APPLE_PASS_TYPE_ID;
-  const teamIdentifier = process.env.APPLE_TEAM_ID;
+  const passTypeIdentifier = process.env.APPLE_PASS_TYPE_ID?.trim();
+  const teamIdentifier = process.env.APPLE_TEAM_ID?.trim();
 
   if (!cert || !llave || !wwdr || !passTypeIdentifier || !teamIdentifier) return null;
 
-  const desdeBase64 = (v: string) => Buffer.from(v, "base64").toString("utf8");
-
-  return {
-    certificado: desdeBase64(cert),
-    llave: desdeBase64(llave),
-    wwdr: desdeBase64(wwdr),
-    passTypeIdentifier,
-    teamIdentifier,
+  // El decodificador robusto (config/base64.ts) tolera espacios,
+  // comillas y \r accidentales que el `.env.local` de un desarrollador
+  // puede traer — antes esto se decodificaba con Buffer.from directo,
+  // que los ignora en silencio y a veces produce un PEM roto sin decir
+  // por qué. Si algo no decodifica limpio, se trata como "sin
+  // credenciales" (null) en vez de intentar firmar con un PEM inválido.
+  const desdeBase64 = (v: string): string | null => {
+    const diag = diagnosticarBase64(v);
+    return diag.ok ? diag.decodificado.toString("utf8") : null;
   };
+
+  const certificado = desdeBase64(cert);
+  const llavePem = desdeBase64(llave);
+  const wwdrPem = desdeBase64(wwdr);
+  if (!certificado || !llavePem || !wwdrPem) return null;
+
+  return { certificado, llave: llavePem, wwdr: wwdrPem, passTypeIdentifier, teamIdentifier };
 }
 
 /**

@@ -1,5 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { credencialesDelEntorno } from "./firma";
+import { verificarTokenApple } from "./config/auth-token";
 
 /**
  * Piezas compartidas del Web Service de Apple Wallet.
@@ -65,11 +67,22 @@ export async function autenticarPase(
 
   const { data: pase } = await db
     .from("pases_wallet")
-    .select("serial_number, auth_token, miembro_id")
+    .select("serial_number, auth_token, auth_token_version, miembro_id")
     .eq("serial_number", serialNumber)
     .maybeSingle();
+  if (!pase) return null;
 
-  if (!pase || !igualSeguro(token, pase.auth_token as string)) return null;
+  const version = (pase.auth_token_version as number | null) ?? 0;
+  const autenticado =
+    version === 0
+      ? !!pase.auth_token && igualSeguro(token, pase.auth_token as string)
+      : verificarTokenApple(token, {
+          passTypeIdentifier: credencialesDelEntorno()?.passTypeIdentifier ?? "",
+          serialNumber: pase.serial_number as string,
+          version,
+          tokenLegacyGuardado: null,
+        });
+  if (!autenticado) return null;
 
   const { data: miembro } = await db
     .from("miembros")

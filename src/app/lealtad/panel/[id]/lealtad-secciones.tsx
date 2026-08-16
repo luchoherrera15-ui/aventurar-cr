@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ActividadFiltrable, CanjePendientePos } from "./lealtad-secciones-cliente";
+import { hayCredencialesApple } from "@/lib/wallet/config/apple";
+import { hayCredencialesGoogle } from "@/lib/wallet/config/google";
 
 /**
  * Las secciones de consulta del programa: Actividad (el ledger en
@@ -151,14 +153,18 @@ export async function WalletLealtad({ programaId }: { programaId: string | null 
     .sort()
     .at(-1);
 
-  const credencialesOk = !!(
-    process.env.APPLE_PASS_CERT_B64 &&
-    process.env.APPLE_PASS_KEY_B64 &&
-    process.env.APPLE_WWDR_CERT_B64
-  );
+  // Las 5 variables de Apple y las 2 de Google — antes acá solo se
+  // miraban 3 de las 5 de Apple y ninguna de Google, así que este
+  // indicador podía decir "OK" con la configuración incompleta (Fase 0,
+  // docs/wallet-v2/auditoria-inicial.md, sección 6). Las funciones que
+  // usa ahora son las MISMAS que usa `npm run wallet:doctor`: un solo
+  // lugar decide qué cuenta como "configurado", no dos que se puedan
+  // desincronizar.
+  const appleOk = hayCredencialesApple();
+  const googleOk = hayCredencialesGoogle();
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <Dato titulo="Pases emitidos" valor={String(emitidos)} />
       <Dato
         titulo="Con actualización automática"
@@ -171,9 +177,15 @@ export async function WalletLealtad({ programaId }: { programaId: string | null 
       />
       <Dato
         titulo="Credenciales de Apple"
-        valor={credencialesOk ? "OK" : "Faltan"}
-        detalle={credencialesOk ? "certificado cargado en el servidor" : "revisar variables APPLE_*"}
-        alerta={!credencialesOk}
+        valor={appleOk ? "OK" : "Faltan"}
+        detalle={appleOk ? "certificado cargado en el servidor" : "revisar variables APPLE_*"}
+        alerta={!appleOk}
+      />
+      <Dato
+        titulo="Credenciales de Google"
+        valor={googleOk ? "OK" : "Faltan"}
+        detalle={googleOk ? "cuenta de servicio cargada en el servidor" : "revisar variables GOOGLE_WALLET_*"}
+        alerta={!googleOk}
       />
     </div>
   );
