@@ -1,0 +1,135 @@
+/* --- Animación del Mockup 1 (/lealtad) -----------------------------
+   Mismo mecanismo que escena-sellos.css: un solo cuento en loop, cero
+   JavaScript, keyframes en porcentaje de una sola línea de tiempo.
+   Prefijo propio (`mp-`) para no chocar con `sello-` ni con ninguna
+   otra escena. El cuento: la tarjeta está en 6 de 10, llega una
+   visita, el séptimo sello aparece con un "pop" y el pase avisa con
+   una notificación — y todo vuelve a empezar. */
+
+@keyframes mp-scan {
+  0%,
+  46% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  50%,
+  58% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  63%,
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes mp-ping {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+/* El séptimo sello: vacío, pop a lleno, se queda, se apaga. */
+@keyframes mp-pop {
+  0%,
+  58% {
+    opacity: 0.18;
+    transform: scale(0.75);
+  }
+  64% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  68%,
+  88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  95%,
+  100% {
+    opacity: 0.18;
+    transform: scale(0.75);
+  }
+}
+
+/* El "+1" que flota junto al sello nuevo. */
+@keyframes mp-badge {
+  0%,
+  60% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.85);
+  }
+  66%,
+  82% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.9);
+  }
+}
+
+/* La notificación: entra desde arriba de la pantalla, se queda, sale. */
+@keyframes mp-banner {
+  0%,
+  62% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  68%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+.mp-anim-scan {
+  animation: mp-scan var(--mp-dur, 9s) ease-in-out infinite both;
+}
+.mp-anim-ping {
+  animation: mp-ping 1.3s ease-out infinite;
+}
+.mp-anim-pop {
+  animation: mp-pop var(--mp-dur, 9s) cubic-bezier(0.34, 1.56, 0.64, 1) infinite both;
+}
+.mp-anim-badge {
+  animation: mp-badge var(--mp-dur, 9s) ease-out infinite both;
+}
+.mp-anim-banner {
+  animation: mp-banner var(--mp-dur, 9s) ease-out infinite both;
+}
+
+/* Con movimiento reducido la escena queda quieta en el momento más
+   vistoso: el séptimo sello ya puesto y la notificación ya visible.
+   El indicador de escaneo y el "+1", que solo tienen sentido en
+   movimiento, quedan ocultos del todo. */
+@media (prefers-reduced-motion: reduce) {
+  .mp-anim-scan,
+  .mp-anim-ping,
+  .mp-anim-badge {
+    display: none;
+  }
+  .mp-anim-pop {
+    animation: none;
+    opacity: 1;
+    transform: scale(1);
+  }
+  .mp-anim-banner {
+    animation: none;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
