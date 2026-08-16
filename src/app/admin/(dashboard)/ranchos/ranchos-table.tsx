@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   borrarRancho,
   moverDestacado,
@@ -285,7 +286,15 @@ export default function RanchosTable({
                   )}
                 </td>
                 <td className="px-4 py-3.5">
-                  <div className="font-bold text-aventurea-ink">{r.nombre}</div>
+                  {/* El nombre abre el panel de gestión del negocio: la
+                      página /mi-negocio/[id] ya deja entrar al admin
+                      (misma puerta que "Modificar tu página"). */}
+                  <Link
+                    href={`/mi-negocio/${r.id}`}
+                    className="font-bold text-aventurea-ink underline-offset-2 hover:text-aventurea-navy hover:underline"
+                  >
+                    {r.nombre}
+                  </Link>
                   {r.contacto_whatsapp && (
                     <div className="text-xs text-zinc-500">
                       {r.contacto_whatsapp}
@@ -326,6 +335,20 @@ export default function RanchosTable({
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="flex flex-wrap gap-1.5">
+                    <Link
+                      href={`/mi-negocio/${r.id}`}
+                      className="flex h-[30px] items-center rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-navy hover:border-aventurea-navy"
+                    >
+                      Administrar
+                    </Link>
+                    {r.estado === "aprobado" && (
+                      <Link
+                        href={r.slug ? `/${r.slug}` : `/eventos/${r.id}`}
+                        className="flex h-[30px] items-center rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
+                      >
+                        Ver página
+                      </Link>
+                    )}
                     {r.estado !== "aprobado" && (
                       <button
                         disabled={pending}
