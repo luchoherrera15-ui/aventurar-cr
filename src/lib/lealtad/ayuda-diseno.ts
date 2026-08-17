@@ -1,4 +1,4 @@
-import { ICONOS_SELLO, type IconoSello } from "./iconos-sello";
+import { ICONOS_SELLO, SELLO_PROPIO, esIconoSello, type SelloElegido } from "./iconos-sello";
 import { paletaDeLosColores } from "./paletas";
 import { TIPOS_TARJETA, type TipoTarjeta } from "./tipos-tarjeta";
 
@@ -69,8 +69,11 @@ export type ContextoDiseno = {
   tipo: TipoTarjeta;
   colorFondo: string;
   colorSello: string;
-  /** El dibujo del sello (0145). null = va el logo del negocio adentro. */
-  iconoSello: IconoSello | null;
+  /**
+   * El dibujo del sello (0145). null = va el logo del negocio adentro;
+   * 'propio' = subió su propio ícono (0174).
+   */
+  iconoSello: SelloElegido | null;
   tieneLogo: boolean;
   tieneBanda: boolean;
 };
@@ -116,11 +119,16 @@ export function armarContextoDeDiseno(c: ContextoDiseno): string {
   // El icono solo existe en sellos: es el único tipo con círculos que
   // llenar. Ponerlo en una gift card sería inventar un dato.
   if (c.tipo === "sellos") {
-    partes.push(
-      `Icono del sello: ${
-        c.iconoSello ? ICONOS_SELLO[c.iconoSello].nombre : "el logo del negocio"
-      }`,
-    );
+    // El ícono propio se nombra COMO TAL: es el caso donde el equipo
+    // más suele tener algo que decir (una foto metida en un círculo de
+    // 30 píxeles), y confundirlo con «el logo del negocio» mandaría a
+    // mirar justo el archivo equivocado.
+    const dibujo = esIconoSello(c.iconoSello)
+      ? ICONOS_SELLO[c.iconoSello].nombre
+      : c.iconoSello === SELLO_PROPIO
+        ? "un ícono propio que subió el negocio"
+        : "el logo del negocio";
+    partes.push(`Icono del sello: ${dibujo}`);
   }
 
   // Sin logo la tarjeta escribe el nombre, y sin banda el pase queda

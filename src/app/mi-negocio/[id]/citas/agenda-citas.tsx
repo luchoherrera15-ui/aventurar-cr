@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { etiquetaMinutos, horaBonita, minutosAHora, type HorarioSemana } from "@/app/citas/tipos";
@@ -25,13 +25,38 @@ import {
 } from "./actions";
 import { registrarPagoFinal, revertirPagoFinal } from "../finanzas/actions";
 import type { Vocabulario } from "@/lib/business/identidad";
+import { IconChevronLeft, IconChevronRight, IconX } from "@/components/icons";
+import { Card, CardVacia, ContextoFila, FilaPanel, PildoraEstado } from "@/components/panel/piezas";
+import {
+  ACCION_ACENTO,
+  BOTON_ICONO,
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  CUERPO_SUAVE,
+  ESTADO_AVISO,
+  ESTADO_MARCA,
+  EYEBROW,
+  RADIO_PILDORA,
+  RADIO_TILE,
+  ROTULO_CAMPO,
+  SUPERFICIE_HUNDIDA,
+  SUPERFICIE_ACENTO,
+  TITULO_CARD,
+  type EstadoPanel,
+} from "@/components/panel/sistema";
 
-const inputCls =
-  "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink";
-const labelCls =
-  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
-const btnChico =
-  "h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40";
+const inputCls = CAMPO_PANEL;
+const labelCls = `mb-1.5 block ${ROTULO_CAMPO}`;
+/**
+ * La acción chica de una fila (32px): los mismos tokens que
+ * `BOTON_PANEL` del sistema, en el tamaño que pide una lista densa —
+ * en el detalle de una cita hay hasta cinco acciones seguidas y con
+ * botones de 40px la fila se parte en tres renglones. Si aparece una
+ * tercera pantalla que la necesite, esto sube a `panel/sistema.ts`.
+ */
+const btnChicoBase =
+  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-bold transition-colors disabled:opacity-40";
+const btnChico = `${btnChicoBase} border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy`;
 
 /** Una cita del día tal como se lee de reservas (solo lo que se muestra). */
 export type CitaDia = {
@@ -64,36 +89,98 @@ export type CitaDia = {
   monto_cobrado_final: number | null;
 };
 
-const ESTADO_LABEL: Record<CitaDia["estado"], string> = {
-  confirmada: "Confirmada",
-  pendiente: "Pendiente",
-  rechazada: "Cancelada",
-  bloqueada: "Bloqueada",
-  cumplida: "Vino",
-  no_asistio: "No vino",
-  cancelada: "Cancelada",
+/**
+ * LOS SIETE ESTADOS DE UNA CITA, mapeados a los CINCO del panel
+ * (`components/panel/sistema`), que son los que ya tienen el contraste
+ * medido. Un mapa y no siete pieles sueltas: así una cita confirmada se
+ * ve igual en la lista, en la grilla, en el detalle y en la leyenda.
+ *
+ * Antes cada estado traía su propio color con alfa
+ * (`bg-aventurea-green/15`, `bg-aventurea-navy/10`): el mismo estado se
+ * veía distinto según sobre qué cayera y su contraste no se podía medir
+ * una sola vez.
+ *
+ * Qué cambia de significado —y por qué—:
+ *  · «Confirmada» pasa a INFO (azul). Es una cita que todavía no
+ *    ocurrió: el verde se reserva para lo que YA se cumplió.
+ *  · «Vino» es el ÉXITO: es el único desenlace bueno de verdad.
+ *  · «Cancelada» sale del rojo y pasa a NEUTRO. Cancelar no es un error
+ *    del negocio y no ocupa la agenda; el rojo queda para «No vino»,
+ *    que sí es plata perdida.
+ *
+ * `glifo`: EL ESTADO NO SE COMUNICA SOLO CON EL COLOR. Cada uno lleva
+ * su símbolo, y el símbolo es lo que queda visible cuando la píldora se
+ * queda sin ancho en el teléfono — quien no distingue el verde del
+ * ámbar lee igual «✓✓» contra «!».
+ */
+const ESTADO_CITA: Record<
+  CitaDia["estado"],
+  { label: string; estado: EstadoPanel; glifo: string }
+> = {
+  pendiente: { label: "Pendiente", estado: "aviso", glifo: "!" },
+  confirmada: { label: "Confirmada", estado: "info", glifo: "✓" },
+  cumplida: { label: "Vino", estado: "exito", glifo: "✓✓" },
+  no_asistio: { label: "No vino", estado: "alerta", glifo: "✕" },
+  rechazada: { label: "Cancelada", estado: "neutro", glifo: "–" },
+  cancelada: { label: "Cancelada", estado: "neutro", glifo: "–" },
+  bloqueada: { label: "Bloqueada", estado: "neutro", glifo: "▪" },
 };
 
-const ESTADO_BADGE: Record<CitaDia["estado"], string> = {
-  confirmada: "bg-aventurea-green/15 text-aventurea-green",
-  pendiente: "bg-aventurea-sky/15 text-aventurea-orange",
-  rechazada: "bg-red-50 text-red-700",
-  bloqueada: "bg-aventurea-cream-2 text-zinc-500",
-  cumplida: "bg-aventurea-navy/10 text-aventurea-navy",
-  no_asistio: "bg-red-50 text-red-700",
-  cancelada: "bg-red-50 text-red-700",
+/**
+ * El relleno del bloque en la grilla por persona: son los MISMOS cinco
+ * rellenos tenues de `ESTADO_PILDORA`, pero sin su letra — acá encima
+ * va la tinta fuerte (15,35:1 sobre el verde, 17,45:1 sobre el ámbar,
+ * 15,74:1 sobre el azul, 16,54:1 sobre el rojo, 16,74:1 sobre el gris),
+ * porque un bloque de 11px con el nombre de alguien tiene que leerse de
+ * un vistazo desde el otro lado del mostrador. El estado lo dice la
+ * barrita de la izquierda y el glifo, no el color de la letra.
+ */
+const BLOQUE_FONDO: Record<EstadoPanel, string> = {
+  exito: "bg-aventurea-green-light",
+  aviso: "bg-amber-50",
+  info: "bg-aventurea-blue-light",
+  neutro: "bg-aventurea-cream-2",
+  alerta: "bg-red-50",
 };
 
-/** Piel del bloque en la vista por persona. */
-const ESTADO_BLOQUE: Record<CitaDia["estado"], string> = {
-  confirmada: "border-aventurea-green/40 bg-aventurea-green/10",
-  pendiente: "border-aventurea-sky/50 bg-aventurea-sky/10",
-  rechazada: "border-red-200 bg-red-50 opacity-60",
-  bloqueada: "border-aventurea-line bg-aventurea-cream-2",
-  cumplida: "border-aventurea-navy/30 bg-aventurea-navy/10",
-  no_asistio: "border-red-300 bg-red-50",
-  cancelada: "border-red-200 bg-red-50 opacity-60",
-};
+/**
+ * El rayado de "acá no se trabaja" de la grilla. Dos tokens SÓLIDOS
+ * (`--grey` de fondo, `--line` en las rayas), no los `rgba(24,28,38,…)`
+ * de antes: un alfa encima de un bloque de cita se veía de otro color
+ * que encima de la columna vacía, y su contraste no se podía medir una
+ * sola vez. Es textura decorativa —la información también la dan la
+ * leyenda y el hecho de que esa zona no acepte clics—, así que lo que
+ * se mide es la separación de superficies: gris sobre la columna
+ * blanca, 1,08:1, la misma que usa toda tarjeta del panel contra su
+ * lienzo.
+ */
+const RAYADO_CERRADO =
+  "repeating-linear-gradient(45deg, var(--line) 0, var(--line) 1px, transparent 1px, transparent 9px)";
+
+/**
+ * La píldora de estado de una cita, con su glifo por delante.
+ *
+ * `denso`: en una fila de 390px el texto «Confirmada» se come el nombre
+ * de quien viene, así que ahí se esconde y queda el símbolo — que sigue
+ * siendo una FORMA, no un color. El texto no desaparece del árbol de
+ * accesibilidad (`sr-only`), así que un lector de pantalla lo lee
+ * entero igual.
+ */
+function EstadoCita({
+  estado,
+  denso = false,
+}: {
+  estado: CitaDia["estado"];
+  denso?: boolean;
+}) {
+  const e = ESTADO_CITA[estado];
+  return (
+    <PildoraEstado estado={e.estado}>
+      <span aria-hidden="true">{e.glifo}</span>
+      <span className={denso ? "sm:ml-1 max-sm:sr-only" : "ml-1"}>{e.label}</span>
+    </PildoraEstado>
+  );
+}
 
 /**
  * Alto fijo del encabezado de cada columna en la vista por persona
@@ -532,6 +619,13 @@ export default function AgendaCitas({
   // ---------- Vista por persona (columnas estilo Fresha) ----------
 
   const conAgenda = citas.filter((c) => OCUPAN.has(c.estado));
+  // Los estados que DE VERDAD aparecen en el día que se está mirando —
+  // es lo que pinta la leyenda de la grilla. Se recorren en el orden
+  // del catálogo (no en el de las citas) para que la leyenda no baile
+  // de posición al cambiar de día.
+  const estadosDelDia = (Object.keys(ESTADO_CITA) as CitaDia["estado"][]).filter((e) =>
+    conAgenda.some((c) => c.estado === e),
+  );
   // Los bloqueos del negocio entero se pintan en TODAS las columnas —
   // no ameritan una columna "Sin asignar" propia.
   const haySinAsignar = conAgenda.some((c) => c.miembro_id === null);
@@ -637,11 +731,7 @@ export default function AgendaCitas({
   const pillsEstado = (cita: CitaDia) => {
     const esTerminalAlterno = ["rechazada", "cancelada", "no_asistio"].includes(cita.estado);
     if (esTerminalAlterno) {
-      return (
-        <span className={`rounded-full px-3 py-1 text-[12px] font-bold ${ESTADO_BADGE[cita.estado]}`}>
-          {ESTADO_LABEL[cita.estado]}
-        </span>
-      );
+      return <EstadoCita estado={cita.estado} />;
     }
     const indiceActual = PASOS_ESTADO.indexOf(cita.estado);
     return (
@@ -649,20 +739,24 @@ export default function AgendaCitas({
         {PASOS_ESTADO.map((paso, i) => {
           const esActual = i === indiceActual;
           const yaPaso = i < indiceActual;
+          // El paso que todavía no llegó se pinta con marco punteado y
+          // el gris de texto (7,11:1) en vez del `text-zinc-400` de
+          // antes, que sobre blanco daba 2,56:1 — o sea, ilegible.
+          if (!esActual && !yaPaso) {
+            return (
+              <span
+                key={paso}
+                className={`inline-flex items-center ${RADIO_PILDORA} border border-dashed border-aventurea-line px-2 py-1 text-[11px] font-extrabold uppercase leading-none tracking-wide text-aventurea-ink-soft`}
+              >
+                {ESTADO_CITA[paso].label}
+              </span>
+            );
+          }
           return (
-            <span
-              key={paso}
-              className={`rounded-full px-3 py-1 text-[12px] font-bold ${
-                esActual
-                  ? ESTADO_BADGE[paso]
-                  : yaPaso
-                    ? "bg-aventurea-green/10 text-aventurea-green"
-                    : "bg-aventurea-cream-2 text-zinc-400"
-              }`}
-            >
-              {yaPaso && "✓ "}
-              {ESTADO_LABEL[paso]}
-            </span>
+            <PildoraEstado key={paso} estado={yaPaso ? "exito" : ESTADO_CITA[paso].estado}>
+              <span aria-hidden="true">{yaPaso ? "✓" : ESTADO_CITA[paso].glifo}</span>
+              <span className="ml-1">{ESTADO_CITA[paso].label}</span>
+            </PildoraEstado>
           );
         })}
       </div>
@@ -673,8 +767,10 @@ export default function AgendaCitas({
     if (cita.estado === "bloqueada") return null;
     if (cita.evento_pagado) {
       return (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-aventurea-green/30 bg-aventurea-green/10 px-3.5 py-2.5">
-          <span className="text-[13px] font-bold text-aventurea-green">
+        <div
+          className={`flex flex-wrap items-center justify-between gap-2 ${RADIO_TILE} px-3.5 py-2.5 text-[13px] font-bold ${ESTADO_AVISO.exito}`}
+        >
+          <span>
             ✓ Cobrado ·{" "}
             {fmtColones(Number(cita.monto_cobrado_final ?? cita.monto_total ?? 0))}
           </span>
@@ -682,7 +778,7 @@ export default function AgendaCitas({
             type="button"
             disabled={pending}
             onClick={() => deshacerCobro(cita)}
-            className="text-[12px] font-bold text-aventurea-ink-soft underline hover:text-aventurea-ink disabled:opacity-40"
+            className="text-[12px] font-bold underline hover:no-underline disabled:opacity-40"
           >
             Deshacer
           </button>
@@ -705,14 +801,10 @@ export default function AgendaCitas({
             name="monto"
             min={0}
             defaultValue={cita.monto_total ?? ""}
-            className={`${inputCls} w-full`}
+            className={inputCls}
           />
         </div>
-        <button
-          type="submit"
-          disabled={pending}
-          className="h-[42px] rounded-xl bg-aventurea-green px-4 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-60"
-        >
+        <button type="submit" disabled={pending} className={BOTON_PANEL_PRIMARIO}>
           Marcar como cobrado
         </button>
       </form>
@@ -720,19 +812,22 @@ export default function AgendaCitas({
   };
 
   const detalle = (cita: CitaDia) => (
-    <div className="flex flex-col gap-3.5">
+    <div className="flex flex-col gap-4">
+      {/* El titular del detalle: qué es, cuánto vale y cuándo. El monto
+          va en la tinta fuerte y NO en verde: el verde es un estado
+          («se cobró»), no la etiqueta de todo lo que sea plata. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-[17px] font-bold leading-tight text-aventurea-ink">
             {cita.tipo_evento ?? (cita.estado === "bloqueada" ? "Franja bloqueada" : "Servicio")}
           </p>
           {cita.monto_total !== null && (
-            <p className="mt-0.5 text-[15px] font-extrabold text-aventurea-green">
+            <p className="mt-1 text-[16px] font-extrabold tabular-nums tracking-[-0.02em] text-aventurea-ink">
               {fmtColones(Number(cita.monto_total))}
             </p>
           )}
         </div>
-        <p className="shrink-0 text-right text-[12.5px] text-aventurea-ink-soft">
+        <p className={`shrink-0 text-right ${CUERPO_SUAVE}`}>
           {horaBonita(cita.hora_inicio.slice(0, 5))}
           {cita.duracion_minutos && ` · ${etiquetaMinutos(cita.duracion_minutos)}`}
         </p>
@@ -748,29 +843,21 @@ export default function AgendaCitas({
       )}
 
       {cita.estado !== "bloqueada" && (
-        <div className="rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3">
-          <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            {persona.Singular}
-          </p>
+        <div className={`${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-3`}>
+          <p className={ROTULO_CAMPO}>{persona.Singular}</p>
           <p className="mt-0.5 text-[14px] font-bold text-aventurea-ink">
             {cita.nombre ?? persona.Singular}
           </p>
           {(cita.contacto || cita.whatsapp || cita.correo) && (
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2.5 flex flex-wrap gap-2">
               {cita.contacto && (
-                <a
-                  href={`tel:${cita.contacto}`}
-                  className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-navy"
-                >
-                  📞 Teléfono
+                <a href={`tel:${cita.contacto}`} className={btnChico}>
+                  Llamar
                 </a>
               )}
               {cita.correo && (
-                <a
-                  href={`mailto:${cita.correo}`}
-                  className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12px] font-bold text-aventurea-ink hover:border-aventurea-navy"
-                >
-                  ✉ Email
+                <a href={`mailto:${cita.correo}`} className={btnChico}>
+                  Escribirle
                 </a>
               )}
               {cita.whatsapp && (
@@ -778,7 +865,7 @@ export default function AgendaCitas({
                   href={`https://wa.me/${cita.whatsapp.replace(/\D/g, "")}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12px] font-bold text-aventurea-green hover:border-aventurea-green"
+                  className={btnChico}
                 >
                   WhatsApp
                 </a>
@@ -789,53 +876,56 @@ export default function AgendaCitas({
       )}
 
       <div>
-        <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Estado
-        </p>
+        <p className={`mb-2 ${ROTULO_CAMPO}`}>Estado</p>
         {pillsEstado(cita)}
       </div>
 
       <div>
-        <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Cobro
-        </p>
+        <p className={`mb-2 ${ROTULO_CAMPO}`}>Cobro</p>
         {seccionCobro(cita)}
       </div>
 
       {cita.notas && (
-        <p className="text-[12.5px] text-aventurea-ink-soft">📝 {cita.notas}</p>
+        <p className={`${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-3 text-[12.5px] leading-relaxed text-aventurea-ink`}>
+          {cita.notas}
+        </p>
       )}
       {cita.origen === "sync" && (
-        <p className="text-[12px] text-aventurea-ink-soft">Viene de tu calendario externo.</p>
+        <p className={CUERPO_SUAVE}>Viene de tu calendario externo.</p>
       )}
 
       {cita.estado !== "bloqueada" && (
         <div className="flex flex-wrap gap-1.5">
           {esPasadoOHoy && ["confirmada", "cumplida", "no_asistio"].includes(cita.estado) && (
             <>
+              {/* Marcar asistencia: la acción ELEGIDA se queda rellena
+                  con el color de su estado y la otra queda como botón
+                  normal. Antes la de «Vino» era verde sobre blanco
+                  (5,32:1) y la de «No vino» roja: dos colores fuertes
+                  compitiendo antes de que el dueño decidiera nada. */}
               <button
                 type="button"
                 disabled={pending || cita.estado === "cumplida"}
                 onClick={() => marcar(cita, "cumplida")}
-                className={`h-[30px] rounded-lg px-3 text-xs font-bold disabled:opacity-40 ${
+                className={
                   cita.estado === "cumplida"
-                    ? "bg-aventurea-navy text-white"
-                    : "border border-aventurea-green/50 bg-white text-aventurea-green hover:bg-aventurea-green/10"
-                }`}
+                    ? `${btnChicoBase} border-transparent bg-aventurea-green-light text-aventurea-green`
+                    : btnChico
+                }
               >
-                ✓ Vino
+                <span aria-hidden="true">✓</span> Vino
               </button>
               <button
                 type="button"
                 disabled={pending || cita.estado === "no_asistio"}
                 onClick={() => marcar(cita, "no_asistio")}
-                className={`h-[30px] rounded-lg px-3 text-xs font-bold disabled:opacity-40 ${
+                className={
                   cita.estado === "no_asistio"
-                    ? "bg-red-600 text-white"
-                    : "border border-red-300 bg-white text-red-700 hover:bg-red-50"
-                }`}
+                    ? `${btnChicoBase} border-transparent bg-red-50 text-red-700`
+                    : btnChico
+                }
               >
-                ✕ No vino
+                <span aria-hidden="true">✕</span> No vino
               </button>
             </>
           )}
@@ -851,15 +941,20 @@ export default function AgendaCitas({
               >
                 Reprogramar
               </button>
+              {/* Cancelar pide segundo clic. El primer estado es un
+                  botón normal con la letra roja (6,47:1 sobre blanco);
+                  solo el «¿confirmar?» se rellena de rojo con letra
+                  blanca (4,83:1 sobre red-600), que es cuando de verdad
+                  hay que frenar a alguien. */}
               <button
                 type="button"
                 disabled={pending}
                 onClick={() => cancelar(cita)}
-                className={`h-[30px] rounded-lg px-2.5 text-xs font-bold disabled:opacity-40 ${
+                className={
                   cancelando === cita.id
-                    ? "bg-red-600 text-white"
-                    : "border border-aventurea-line bg-aventurea-cream-2 text-red-700 hover:border-red-300"
-                }`}
+                    ? `${btnChicoBase} border-transparent bg-red-600 text-white`
+                    : `${btnChicoBase} border-aventurea-line bg-aventurea-surface text-red-700 hover:border-red-600`
+                }
               >
                 {cancelando === cita.id
                   ? "¿Confirmar cancelación?"
@@ -871,7 +966,7 @@ export default function AgendaCitas({
       )}
 
       {reprogramando === cita.id && (
-        <div className="flex flex-col gap-2 rounded-xl border border-aventurea-line bg-white p-3">
+        <div className={`flex flex-col gap-3 ${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-3`}>
           <div className="flex flex-wrap items-end gap-2">
             <div>
               <label className={labelCls}>Nueva fecha</label>
@@ -914,13 +1009,13 @@ export default function AgendaCitas({
               type="button"
               disabled={pending || !destino.hora}
               onClick={() => reprogramar(cita.id, false)}
-              className="h-[42px] rounded-xl bg-aventurea-sky px-4 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
+              className={BOTON_PANEL_PRIMARIO}
             >
               Mover
             </button>
           </div>
           {avisosMover.length > 0 && (
-            <div className="rounded-xl border border-aventurea-sky/40 bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
+            <div className={`${RADIO_TILE} p-3 text-[12.5px] leading-relaxed ${ESTADO_AVISO.aviso}`}>
               <p className="font-bold">Ojo antes de mover:</p>
               <ul className="mt-1 list-disc pl-4">
                 {avisosMover.map((a) => (
@@ -931,7 +1026,7 @@ export default function AgendaCitas({
                 type="button"
                 disabled={pending}
                 onClick={() => reprogramar(cita.id, true)}
-                className="mt-2 rounded-lg bg-aventurea-navy px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
+                className={`mt-2.5 ${btnChico}`}
               >
                 Mover igual
               </button>
@@ -942,58 +1037,112 @@ export default function AgendaCitas({
     </div>
   );
 
-  const tarjetaCita = (cita: CitaDia) => (
-    <div key={cita.id} className="border-b border-aventurea-line px-4 py-3 last:border-none">
-      <button
-        type="button"
-        onClick={() => setSeleccionada(seleccionada === cita.id ? null : cita.id)}
-        className="flex w-full flex-wrap items-center gap-x-4 gap-y-1.5 text-left"
-      >
-        <div className="w-[92px] shrink-0">
-          <p className="text-[14px] font-bold text-aventurea-ink">
-            {horaBonita(cita.hora_inicio.slice(0, 5))}
-          </p>
-          <p className="text-[11.5px] text-zinc-500">
-            {etiquetaMinutos(cita.duracion_minutos ?? 30)}
-          </p>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[13.5px] font-bold text-aventurea-ink">
-            {cita.tipo_evento ?? (cita.estado === "bloqueada" ? "Franja bloqueada" : "Servicio")}
-          </p>
-          <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
+  /**
+   * LA FILA DE LA LISTA — la fila canónica del panel (`FilaPanel`):
+   * hora y duración a la izquierda, la barrita del estado, qué es y con
+   * quién, y la píldora a la derecha. Es la MISMA fila que usan el
+   * histórico, las giftcards y la lista de espera; lo único propio de
+   * acá es que se puede tocar para abrir el detalle.
+   */
+  const tarjetaCita = (cita: CitaDia, ultima: boolean) => (
+    <button
+      key={cita.id}
+      type="button"
+      onClick={() => setSeleccionada(seleccionada === cita.id ? null : cita.id)}
+      className="block w-full rounded-xl text-left transition-colors hover:bg-aventurea-cream-2"
+    >
+      <FilaPanel
+        separador={!ultima}
+        contexto={
+          <ContextoFila
+            fuerte={horaBonita(cita.hora_inicio.slice(0, 5))}
+            suave={etiquetaMinutos(cita.duracion_minutos ?? 30)}
+          />
+        }
+        marca={ESTADO_CITA[cita.estado].estado}
+        titulo={cita.tipo_evento ?? (cita.estado === "bloqueada" ? "Franja bloqueada" : "Servicio")}
+        detalle={
+          <>
             {cita.nombre ?? (cita.estado === "bloqueada" ? "—" : persona.Singular)}
             {cita.miembro_id && (
               <>
-                {" "}
-                · con{" "}
+                {" · con "}
                 <span className="font-bold text-aventurea-navy">
                   {nombreMiembro.get(cita.miembro_id) ?? "alguien que ya no está en el equipo"}
                 </span>
               </>
             )}
-          </p>
-        </div>
-        <span
-          className={`shrink-0 rounded-lg px-3 py-1 text-[11.5px] font-bold ${ESTADO_BADGE[cita.estado] ?? "bg-aventurea-cream-2 text-zinc-500"}`}
-        >
-          {ESTADO_LABEL[cita.estado] ?? cita.estado}
-        </span>
-      </button>
-    </div>
+          </>
+        }
+        derecha={<EstadoCita estado={cita.estado} denso />}
+      />
+    </button>
   );
 
+  // El día que se está mirando, escrito largo — es el TÍTULO de la
+  // tarjeta y cambia con la tira de días, así que no repite el kicker
+  // de la pantalla (que siempre habla de hoy). Mismo criterio que el
+  // encabezado: mediodía UTC + zona fija, o la fecha se corre un día
+  // para quien mira de noche.
+  const diaLargo = new Intl.DateTimeFormat("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${fecha}T12:00:00Z`));
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1">
+    /* LA AGENDA ES UNA TARJETA DEL PANEL (`.card` de la maqueta):
+       kicker + título a la izquierda, el selector de vista pegado al
+       borde derecho. Antes era una pila de controles sueltos sobre el
+       fondo de la página, y por eso la pantalla se leía como un
+       formulario largo y no como el mostrador del negocio. */
+    <Card
+      eyebrow={esHoy ? "Agenda de hoy" : "Agenda del día"}
+      titulo={diaLargo}
+      accion={
+        <div className={`flex ${RADIO_TILE} border border-aventurea-line p-0.5`}>
+          {(
+            [
+              ["personas", "Equipo"],
+              ["persona", "Una persona"],
+              ["lista", "Lista"],
+            ] as const
+          ).map(([valor, etiqueta]) => (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => setVista(valor)}
+              aria-pressed={vista === valor}
+              // La vista elegida lleva el acento del tipo de negocio
+              // (relleno sólido + su letra, ≥5,18:1 en los ocho
+              // acentos del catálogo).
+              style={vista === valor ? (ACCION_ACENTO as CSSProperties) : undefined}
+              className={`h-8 rounded-lg px-2.5 text-[12px] font-bold transition-colors ${
+                vista === valor ? "" : "text-aventurea-ink-soft hover:text-aventurea-ink"
+              }`}
+            >
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        {/* LA TIRA DE DÍAS (`.date-strip` de la maqueta): una superficie
+            hundida con las flechas de semana en las puntas y los siete
+            días repartiéndose el ancho. A 390px cada día queda en ~45px
+            —por encima del mínimo táctil— sin scroll horizontal. */}
+        <div
+          className={`grid grid-cols-[36px_repeat(7,minmax(0,1fr))_36px] items-center gap-0.5 sm:gap-1 ${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-1`}
+        >
           <button
             type="button"
             onClick={() => cargar(sumarDiasISO(fecha, -7))}
             aria-label="Semana anterior"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+            className={BOTON_ICONO}
           >
-            ‹
+            <IconChevronLeft className="h-4 w-4" />
           </button>
           {Array.from({ length: 7 }, (_, i) => sumarDiasISO(lunesDeSemana(fecha), i)).map((diaIso) => {
             const dow = new Date(
@@ -1008,26 +1157,28 @@ export default function AgendaCitas({
                 key={diaIso}
                 type="button"
                 onClick={() => cargar(diaIso)}
+                aria-pressed={esSel}
                 // El día elegido y el "hoy" llevan el acento del tipo:
-                // sólido el seleccionado, tenue el de hoy.
+                // sólido el seleccionado, tenue el de hoy. Se fue el
+                // `opacity-80` del día de la semana: era un alfa
+                // decidiendo cuánto se lee un texto.
                 style={
                   esSel
-                    ? {
-                        backgroundColor: "var(--acento-solido)",
-                        color: "var(--acento-sobre)",
-                      }
+                    ? (ACCION_ACENTO as CSSProperties)
                     : esHoyChip
-                      ? { backgroundColor: "var(--acento-suave)", color: "var(--acento)" }
+                      ? ({ ...SUPERFICIE_ACENTO, color: "var(--acento)" } as CSSProperties)
                       : undefined
                 }
-                className={`flex w-10 shrink-0 flex-col items-center gap-0.5 rounded-xl px-1.5 py-1.5 ${
-                  esSel || esHoyChip ? "" : "text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+                className={`flex min-h-[44px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg ${
+                  esSel || esHoyChip ? "" : "text-aventurea-ink-soft hover:bg-aventurea-surface"
                 }`}
               >
-                <span className="text-[9.5px] font-bold uppercase tracking-wide opacity-80">
+                <span className="text-[10px] font-bold uppercase tracking-wide">
                   {DIAS_CORTO[dow]}
                 </span>
-                <span className="text-[13px] font-extrabold">{Number(diaIso.slice(8, 10))}</span>
+                <span className="text-[13px] font-extrabold tabular-nums">
+                  {Number(diaIso.slice(8, 10))}
+                </span>
               </button>
             );
           })}
@@ -1035,68 +1186,38 @@ export default function AgendaCitas({
             type="button"
             onClick={() => cargar(sumarDiasISO(fecha, 7))}
             aria-label="Semana siguiente"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+            className={BOTON_ICONO}
           >
-            ›
+            <IconChevronRight className="h-4 w-4" />
           </button>
         </div>
-        {!esHoy && (
-          <button
-            type="button"
-            onClick={() => cargar(hoyISOCR())}
-            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
-          >
-            Volver a hoy
-          </button>
-        )}
-        <span className="text-[13px] text-aventurea-ink-soft">
-          {cargando
-            ? "Cargando..."
-            : `${citas.length} ${citas.length === 1 ? visita.singular : visita.plural}${
-                esHoy ? " hoy" : ""
-              }`}
-        </span>
-        <div className="ml-auto flex flex-wrap justify-end gap-1.5">
-          <div className="flex rounded-lg border border-aventurea-line p-0.5">
-            {(
-              [
-                ["personas", "Equipo"],
-                ["persona", "Una persona"],
-                ["lista", "Lista"],
-              ] as const
-            ).map(([valor, etiqueta]) => (
-              <button
-                key={valor}
-                type="button"
-                onClick={() => setVista(valor)}
-                style={
-                  vista === valor
-                    ? {
-                        backgroundColor: "var(--acento-solido)",
-                        color: "var(--acento-sobre)",
-                      }
-                    : undefined
-                }
-                className={`h-[26px] rounded-md px-2.5 text-[11.5px] font-bold transition-colors ${
-                  vista === valor ? "" : "text-aventurea-ink-soft hover:text-aventurea-ink"
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={CUERPO_SUAVE}>
+            {cargando
+              ? "Cargando..."
+              : `${citas.length} ${citas.length === 1 ? visita.singular : visita.plural}${
+                  esHoy ? " hoy" : ""
                 }`}
-              >
-                {etiqueta}
+          </span>
+          <div className="ml-auto flex flex-wrap justify-end gap-1.5">
+            {!esHoy && (
+              <button type="button" onClick={() => cargar(hoyISOCR())} className={btnChico}>
+                Volver a hoy
               </button>
-            ))}
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setBloqueando(!bloqueando);
+                setCreando(false);
+              }}
+              className={btnChico}
+            >
+              {bloqueando ? "Cerrar" : "Bloquear franja"}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setBloqueando(!bloqueando);
-              setCreando(false);
-            }}
-            className={btnChico}
-          >
-            {bloqueando ? "Cerrar" : "Bloquear franja"}
-          </button>
         </div>
-      </div>
 
       {/* El "+" flotante de siempre: agendar un walk-in es lo que más
           se toca desde acá, así que queda a mano sin ocupar la barra
@@ -1110,49 +1231,50 @@ export default function AgendaCitas({
         }}
         aria-label={creando ? "Cerrar el formulario" : `Agendar ${visita.singular}`}
         // El botón que más se toca de la pantalla lleva el acento del
-        // tipo de negocio (la sombra se hereda del mismo color).
-        style={{ backgroundColor: "var(--acento-solido)", color: "var(--acento-sobre)" }}
-        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-[0_10px_28px_-8px_rgba(24,28,38,0.45)] transition-transform hover:scale-105 lg:bottom-8 lg:right-8"
+        // tipo de negocio, con la elevación del sistema.
+        style={ACCION_ACENTO as CSSProperties}
+        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-flotante transition-transform hover:scale-105 lg:bottom-8 lg:right-8"
       >
         <span className="text-[26px] leading-none">{creando ? "×" : "+"}</span>
       </button>
 
       {error && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>
+        <p className={`${RADIO_TILE} p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
+          {error}
+        </p>
       )}
 
       {reincidente && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-aventurea-sky/50 bg-aventurea-sky-light p-3.5 text-[13px] text-aventurea-ink">
-          <span>
-            ⚠ <strong>{reincidente.nombre ?? `Este ${persona.singular}`}</strong> faltó a sus
+        <div
+          className={`flex flex-wrap items-center gap-3 ${RADIO_TILE} p-3.5 text-[13px] leading-relaxed ${ESTADO_AVISO.aviso}`}
+        >
+          <span className="min-w-0 flex-1">
+            <strong>{reincidente.nombre ?? `Este ${persona.singular}`}</strong> faltó a sus
             últimas {reincidente.fallosSeguidos} {visita.plural} seguidas.
             {reincidente.correo
               ? ` Podés mandarle una promoción para recuperarlo desde la sección ${persona.Plural}.`
               : " No dejó correo — quizá valga un mensaje por WhatsApp."}
           </span>
           {reincidente.correo && (
-            <a
-              href="#clientes"
-              className="rounded-lg bg-aventurea-navy px-3 py-1.5 text-xs font-bold text-white"
-              onClick={() => setReincidente(null)}
-            >
+            <a href="#clientes" className={btnChico} onClick={() => setReincidente(null)}>
               Ir a {persona.Plural}
             </a>
           )}
           <button
             type="button"
             onClick={() => setReincidente(null)}
-            className="ml-auto text-xs font-bold text-aventurea-ink-soft underline"
+            aria-label="Cerrar el aviso"
+            className={BOTON_ICONO}
           >
-            Cerrar
+            <IconX className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {creando && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-          <h3 className="text-[15px] font-bold text-aventurea-ink">
-            Agendar {visita.singular} — {fecha}
+        <div className={`flex flex-col gap-3.5 ${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-4`}>
+          <h3 className={TITULO_CARD}>
+            Agendar {visita.singular} — {diaLargo}
           </h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {servicios.length > 0 && (
@@ -1161,7 +1283,7 @@ export default function AgendaCitas({
                 <select
                   value={borradorCita.servicioId}
                   onChange={(e) => elegirServicio(e.target.value)}
-                  className={`${inputCls} w-full`}
+                  className={inputCls}
                 >
                   <option value="">Otro (texto libre)</option>
                   {servicios.map((s) => (
@@ -1183,7 +1305,7 @@ export default function AgendaCitas({
                     cambiarCita({ tipoEvento: e.target.value })
                   }
                   placeholder="Ej. Corte y barba"
-                  className={`${inputCls} w-full`}
+                  className={inputCls}
                 />
               </div>
             )}
@@ -1193,7 +1315,7 @@ export default function AgendaCitas({
                 type="time"
                 value={borradorCita.hora}
                 onChange={(e) => cambiarCita({ hora: e.target.value })}
-                className={`${inputCls} w-full`}
+                className={inputCls}
               />
             </div>
             <div>
@@ -1208,7 +1330,7 @@ export default function AgendaCitas({
                   cambiarCita({ duracion: e.target.value })
                 }
                 placeholder="30"
-                className={`${inputCls} w-full`}
+                className={inputCls}
               />
             </div>
             {equipo.filter((m) => m.activo).length > 0 && (
@@ -1219,7 +1341,7 @@ export default function AgendaCitas({
                   onChange={(e) =>
                     cambiarCita({ miembroId: e.target.value })
                   }
-                  className={`${inputCls} w-full`}
+                  className={inputCls}
                 >
                   <option value="">Sin asignar</option>
                   {equipo
@@ -1239,7 +1361,7 @@ export default function AgendaCitas({
                 value={borradorCita.nombre}
                 onChange={(e) => cambiarCita({ nombre: e.target.value })}
                 placeholder="Nombre"
-                className={`${inputCls} w-full`}
+                className={inputCls}
               />
             </div>
             <div>
@@ -1251,7 +1373,7 @@ export default function AgendaCitas({
                   cambiarCita({ telefono: e.target.value })
                 }
                 placeholder="8888-8888"
-                className={`${inputCls} w-full`}
+                className={inputCls}
               />
             </div>
             <div>
@@ -1261,7 +1383,7 @@ export default function AgendaCitas({
                 value={borradorCita.correo}
                 onChange={(e) => cambiarCita({ correo: e.target.value })}
                 placeholder="cliente@correo.com"
-                className={`${inputCls} w-full`}
+                className={inputCls}
               />
             </div>
             <div>
@@ -1271,7 +1393,7 @@ export default function AgendaCitas({
                 min={0}
                 value={borradorCita.monto}
                 onChange={(e) => cambiarCita({ monto: e.target.value })}
-                className={`${inputCls} w-full`}
+                className={inputCls}
               />
             </div>
             <div className="sm:col-span-2">
@@ -1280,13 +1402,13 @@ export default function AgendaCitas({
                 type="text"
                 value={borradorCita.notas}
                 onChange={(e) => cambiarCita({ notas: e.target.value })}
-                className={`${inputCls} w-full`}
+                className={inputCls}
               />
             </div>
           </div>
 
           {avisosCrear.length > 0 && (
-            <div className="rounded-xl border border-aventurea-sky/40 bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
+            <div className={`${RADIO_TILE} p-3 text-[12.5px] leading-relaxed ${ESTADO_AVISO.aviso}`}>
               <p className="font-bold">Ojo antes de agendar:</p>
               <ul className="mt-1 list-disc pl-4">
                 {avisosCrear.map((a) => (
@@ -1301,7 +1423,7 @@ export default function AgendaCitas({
               type="button"
               disabled={pending || !borradorCita.hora || !borradorCita.nombre.trim()}
               onClick={() => crearWalkIn(avisosCrear.length > 0)}
-              className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
+              className={BOTON_PANEL_PRIMARIO}
             >
               {pending
                 ? "Guardando..."
@@ -1310,11 +1432,7 @@ export default function AgendaCitas({
                   : "Agendar"}
             </button>
             {avisosCrear.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setAvisosCrear([])}
-                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft"
-              >
+              <button type="button" onClick={() => setAvisosCrear([])} className={btnChico}>
                 Cambiar datos
               </button>
             )}
@@ -1323,11 +1441,9 @@ export default function AgendaCitas({
       )}
 
       {bloqueando && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-          <h3 className="text-[15px] font-bold text-aventurea-ink">
-            Bloquear franja — {fecha}
-          </h3>
-          <p className="text-[12.5px] text-aventurea-ink-soft">
+        <div className={`flex flex-col gap-3.5 ${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-4`}>
+          <h3 className={TITULO_CARD}>Bloquear franja — {diaLargo}</h3>
+          <p className={CUERPO_SUAVE}>
             Nadie puede reservar en una franja bloqueada (almuerzo, un mandado,
             un compromiso de afuera). Para vacaciones de varios días usá la
             sección Bloqueos y ausencias.
@@ -1399,7 +1515,7 @@ export default function AgendaCitas({
                   setBorradorBloqueo({ ...borradorBloqueo, motivo: e.target.value })
                 }
                 placeholder="Ej. Almuerzo"
-                className={`${inputCls} w-full`}
+                className={inputCls}
               />
             </div>
             <button
@@ -1410,7 +1526,7 @@ export default function AgendaCitas({
                   (!borradorBloqueo.desde || !borradorBloqueo.hasta))
               }
               onClick={crearBloqueo}
-              className="h-[42px] rounded-xl bg-aventurea-navy px-5 text-[13.5px] font-bold text-white disabled:opacity-60"
+              className={BOTON_PANEL_PRIMARIO}
             >
               Bloquear
             </button>
@@ -1418,14 +1534,21 @@ export default function AgendaCitas({
         </div>
       )}
 
+      {/* Las franjas bloqueadas del día, como chips: la barrita gris del
+          estado NEUTRO adelante (la misma que lleva un bloqueo en la
+          grilla y en la lista) y la equis para quitarlo. */}
       {bloqueosDia.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {bloqueosDia.map(({ bloqueo, rango }) => (
             <span
               key={bloqueo.id}
-              className="flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-3 py-1.5 text-[12px] text-aventurea-ink-soft"
+              className={`flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 ${RADIO_PILDORA} border border-aventurea-line bg-aventurea-cream-2 py-1 pl-1.5 pr-2 text-[12px] text-aventurea-ink`}
             >
-              ⛔ {bloqueo.miembro_id ? (nombreMiembro.get(bloqueo.miembro_id) ?? "—") : "Negocio"}
+              <span
+                aria-hidden="true"
+                className={`h-4 w-1 shrink-0 rounded-full ${ESTADO_MARCA.neutro}`}
+              />
+              {bloqueo.miembro_id ? (nombreMiembro.get(bloqueo.miembro_id) ?? "—") : "Negocio"}
               {" · "}
               {rango.inicio === 0 && rango.fin === 1440
                 ? "todo el día"
@@ -1436,7 +1559,7 @@ export default function AgendaCitas({
                 disabled={pending}
                 onClick={() => quitarBloqueo(bloqueo.id)}
                 aria-label="Quitar bloqueo"
-                className="font-bold text-red-700 hover:underline"
+                className="font-bold text-red-700 hover:underline disabled:opacity-40"
               >
                 ✕
               </button>
@@ -1451,21 +1574,19 @@ export default function AgendaCitas({
           citas" solo aplica a la vista de lista, que sin citas no
           tiene nada que listar. */}
       {vista === "lista" && !cargando && citas.length === 0 && !error && (
-        <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
+        <CardVacia>
           {esHoy
             ? `Hoy no tenés ${visita.plural} agendadas.`
             : `Ese día no hay ${visita.plural} agendadas.`}
-        </p>
+        </CardVacia>
       )}
 
       {vista === "lista" && citas.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-          {citas.map((cita) => tarjetaCita(cita))}
-        </div>
+        <div>{citas.map((cita, i) => tarjetaCita(cita, i === citas.length - 1))}</div>
       )}
 
       {(vista === "personas" || vista === "persona") && (
-        <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
+        <div className={`overflow-x-auto ${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-3`}>
           {vista === "persona" && columnas.length > 0 && (
             <div className="mb-3 flex items-center justify-center gap-3">
               <button
@@ -1474,9 +1595,9 @@ export default function AgendaCitas({
                   setPersonaIndice((i) => (i - 1 + columnas.length) % columnas.length)
                 }
                 aria-label="Persona anterior"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
+                className={BOTON_ICONO}
               >
-                ‹
+                <IconChevronLeft className="h-4 w-4" />
               </button>
               {(() => {
                 const col = columnas[((personaIndice % columnas.length) + columnas.length) % columnas.length];
@@ -1485,7 +1606,10 @@ export default function AgendaCitas({
                     {col.fotoUrl ? (
                       <Image src={col.fotoUrl} alt="" width={32} height={32} className="h-8 w-8 shrink-0 rounded-full object-cover" />
                     ) : (
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-navy/10 text-[12px] font-bold text-aventurea-navy">
+                      /* La inicial va sobre el navy sólido con letra
+                         blanca (13,88:1), no sobre un `navy/10` que era
+                         un alfa haciendo de superficie. */
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-[12px] font-bold text-white">
                         {col.nombre.slice(0, 1).toUpperCase()}
                       </span>
                     )}
@@ -1499,9 +1623,9 @@ export default function AgendaCitas({
                 type="button"
                 onClick={() => setPersonaIndice((i) => (i + 1) % columnas.length)}
                 aria-label="Persona siguiente"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
+                className={BOTON_ICONO}
               >
-                ›
+                <IconChevronRight className="h-4 w-4" />
               </button>
             </div>
           )}
@@ -1520,15 +1644,22 @@ export default function AgendaCitas({
               ).map((min) => (
                 <span
                   key={min}
-                  className="absolute right-1 text-[10.5px] font-bold text-zinc-400"
+                  // Era `text-zinc-400`: 2,56:1 sobre blanco, o sea el
+                  // eje de horas de la agenda no se leía. Ahora es el
+                  // gris de texto del sistema (6,58:1 sobre el gris de
+                  // esta caja).
+                  className="absolute right-1 text-[10.5px] font-bold tabular-nums text-aventurea-ink-soft"
                   style={{ top: min - inicioGrilla + ALTO_ENCABEZADO_COLUMNA - 7 }}
                 >
                   {String(Math.floor(min / 60)).padStart(2, "0")}:00
                 </span>
               ))}
               {lineaAhoraMin !== null && (
+                // La hora de AHORA: navy con letra blanca (13,88:1). El
+                // celeste de antes daba 4,42:1 con letra blanca — bajo
+                // AA, y encima en 9,5px.
                 <span
-                  className="absolute right-1 z-10 rounded bg-aventurea-sky px-1 py-0.5 text-[9.5px] font-bold text-white"
+                  className="absolute right-1 z-10 rounded bg-aventurea-navy px-1 py-0.5 text-[10px] font-bold tabular-nums text-white"
                   style={{ top: lineaAhoraMin - inicioGrilla + ALTO_ENCABEZADO_COLUMNA - 8 }}
                 >
                   {horaBonita(minutosAHora(lineaAhoraMin))}
@@ -1572,7 +1703,7 @@ export default function AgendaCitas({
                           className="h-7 w-7 rounded-full object-cover"
                         />
                       ) : (
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-aventurea-navy/10 text-[11px] font-bold text-aventurea-navy">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-aventurea-navy text-[11px] font-bold text-white">
                           {col.nombre.slice(0, 1).toUpperCase()}
                         </span>
                       ))}
@@ -1582,8 +1713,14 @@ export default function AgendaCitas({
                       </p>
                     )}
                   </div>
+                  {/* LA COLUMNA. Blanca sobre la caja gris de la
+                      grilla: lo BLANCO es lo que se puede vender, y lo
+                      gris rayado (abajo) lo que no. Era
+                      `bg-aventurea-cream-2/60` — un alfa haciendo de
+                      superficie, que se veía distinto según lo que
+                      tuviera detrás. */}
                   <div
-                    className="relative cursor-pointer rounded-xl border border-aventurea-line bg-aventurea-cream-2/60"
+                    className="relative cursor-pointer rounded-xl border border-aventurea-line bg-aventurea-surface"
                     style={{ height: altoGrilla }}
                     title="Hacé clic en un hueco libre para agendar ahí"
                     onClick={(e) => {
@@ -1621,6 +1758,11 @@ export default function AgendaCitas({
                         atenuado con rayas, para que la grilla se vea
                         SIEMPRE desde las 6am pero quede claro dónde no
                         se puede agendar. */}
+                    {/* Las horas que esta persona NO trabaja: relleno
+                        gris con rayas del color de los bordes. Los dos
+                        son tokens SÓLIDOS (`--grey` y `--line`), no
+                        alfas: antes eran `rgba(24,28,38,…)` y encima de
+                        un bloque de cita se veían de otro color. */}
                     {cerradosCol.map((seg, i) => (
                       <div
                         key={`cerrado-${i}`}
@@ -1629,40 +1771,54 @@ export default function AgendaCitas({
                         style={{
                           top: seg.inicio - inicioGrilla,
                           height: seg.fin - seg.inicio,
-                          backgroundColor: "rgba(24,28,38,0.035)",
-                          backgroundImage:
-                            "repeating-linear-gradient(45deg, rgba(24,28,38,0.07) 0, rgba(24,28,38,0.07) 1px, transparent 1px, transparent 9px)",
+                          backgroundColor: "var(--grey)",
+                          backgroundImage: RAYADO_CERRADO,
                         }}
                       />
                     ))}
+                    {/* Las líneas de la grilla: la hora en punto va
+                        sólida y la media hora punteada. Antes eran el
+                        mismo color a dos alfas distintos
+                        (`line/50` y `line/25`), o sea la jerarquía la
+                        hacía la transparencia; ahora la hace la FORMA de
+                        la línea, que se ve igual sobre cualquier fondo. */}
                     {Array.from(
                       { length: (finGrilla - inicioGrilla) / 30 },
                       (_, i) => inicioGrilla + i * 30,
                     ).map((min) => (
                       <div
                         key={min}
-                        className={`pointer-events-none absolute left-0 right-0 border-t ${
-                          min % 60 === 0 ? "border-aventurea-line/50" : "border-aventurea-line/25"
+                        className={`pointer-events-none absolute left-0 right-0 border-t border-aventurea-line ${
+                          min % 60 === 0 ? "" : "border-dashed"
                         }`}
                         style={{ top: min - inicioGrilla }}
                       />
                     ))}
+                    {/* Una franja bloqueada: superficie hundida con la
+                        barrita del estado NEUTRO, la misma que lleva en
+                        la lista y en los chips de arriba. */}
                     {bloqueosCol.map(({ bloqueo, rango }) => (
                       <div
                         key={bloqueo.id}
                         title={bloqueo.motivo ?? "Bloqueado"}
-                        className="pointer-events-none absolute left-1 right-1 rounded-lg bg-zinc-400/20"
+                        className={`pointer-events-none absolute left-1 right-1 overflow-hidden rounded-lg border border-aventurea-line ${BLOQUE_FONDO.neutro}`}
                         style={{
                           top: Math.max(rango.inicio, inicioGrilla) - inicioGrilla,
                           height:
                             Math.min(rango.fin, finGrilla) -
                             Math.max(rango.inicio, inicioGrilla),
                         }}
-                      />
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`absolute inset-y-0 left-0 w-1 ${ESTADO_MARCA.neutro}`}
+                        />
+                      </div>
                     ))}
                     {citasCol.map((cita) => {
                       const ini = minutosDe(cita.hora_inicio.slice(0, 5));
                       const dur = cita.duracion_minutos ?? 30;
+                      const semaforo = ESTADO_CITA[cita.estado];
                       return (
                         <button
                           key={cita.id}
@@ -1671,14 +1827,27 @@ export default function AgendaCitas({
                             e.stopPropagation();
                             setSeleccionada(seleccionada === cita.id ? null : cita.id);
                           }}
-                          className={`absolute left-1 right-1 overflow-hidden rounded-lg border px-1.5 py-0.5 text-left ${ESTADO_BLOQUE[cita.estado]} ${
-                            seleccionada === cita.id ? "ring-2 ring-aventurea-sky" : ""
+                          // El bloque lleva el relleno tenue del estado y
+                          // su barrita de 4px pegada al borde izquierdo
+                          // (el `.mark` de la maqueta): el estado se lee
+                          // por la POSICIÓN de la barra y por el glifo,
+                          // no solo por el color. El seleccionado se
+                          // marca con un anillo navy sólido — el celeste
+                          // de antes casi no se despegaba del relleno.
+                          className={`absolute left-1 right-1 overflow-hidden rounded-lg border border-aventurea-line pl-2.5 pr-1.5 py-0.5 text-left ${BLOQUE_FONDO[semaforo.estado]} ${
+                            seleccionada === cita.id ? "ring-2 ring-aventurea-navy" : ""
                           }`}
                           style={{ top: ini - inicioGrilla, height: Math.max(dur, 22) }}
                         >
+                          <span
+                            aria-hidden="true"
+                            className={`absolute inset-y-0 left-0 w-1 ${ESTADO_MARCA[semaforo.estado]}`}
+                          />
                           <span className="block truncate text-[11px] font-bold text-aventurea-ink">
+                            <span aria-hidden="true">{semaforo.glifo} </span>
                             {cita.hora_inicio.slice(0, 5)} {cita.nombre ?? ""}
                           </span>
+                          <span className="sr-only">{semaforo.label}</span>
                           {dur >= 40 && (
                             <span className="block truncate text-[10.5px] text-aventurea-ink-soft">
                               {cita.tipo_evento ?? ""}
@@ -1687,13 +1856,15 @@ export default function AgendaCitas({
                         </button>
                       );
                     })}
+                    {/* La línea de AHORA, en navy: es un elemento
+                        gráfico y sobre blanco da 13,88:1. */}
                     {lineaAhoraMin !== null && (
                       <div
                         aria-hidden
-                        className="pointer-events-none absolute left-0 right-0 z-10 border-t-2 border-aventurea-sky"
+                        className="pointer-events-none absolute left-0 right-0 z-10 border-t-2 border-aventurea-navy"
                         style={{ top: lineaAhoraMin - inicioGrilla }}
                       >
-                        <span className="absolute -left-1 -top-[5px] h-2.5 w-2.5 rounded-full bg-aventurea-sky" />
+                        <span className="absolute -left-1 -top-[5px] h-2.5 w-2.5 rounded-full bg-aventurea-navy" />
                       </div>
                     )}
                   </div>
@@ -1702,24 +1873,40 @@ export default function AgendaCitas({
             })}
           </div>
 
-          <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-zinc-500">
-            <span>
-              Tocá una {visita.singular} para ver el detalle y marcar asistencia, o un
-              hueco libre para agendar ahí mismo.
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className="inline-block h-3 w-3 rounded-sm"
-                style={{
-                  backgroundColor: "rgba(24,28,38,0.035)",
-                  backgroundImage:
-                    "repeating-linear-gradient(45deg, rgba(24,28,38,0.15) 0, rgba(24,28,38,0.15) 1px, transparent 1px, transparent 4px)",
-                }}
-              />
-              Rayado = esa persona no trabaja esa hora
-            </span>
-          </p>
+          {/* LA LEYENDA, dentro de la misma caja que explica y con las
+              MISMAS píldoras que se ven en los bloques — la leyenda
+              tiene que verse igual a lo que explica.
+
+              Solo se listan los estados que de verdad hay ese día
+              (`estadosDelDia`, derivado de las citas cargadas): una
+              leyenda con siete estados de los que se ven dos no explica
+              nada, la llena de ruido. */}
+          <div className="mt-3 flex flex-col gap-2">
+            {estadosDelDia.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {estadosDelDia.map((e) => (
+                  <EstadoCita key={e} estado={e} />
+                ))}
+              </div>
+            )}
+            <p className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${CUERPO_SUAVE}`}>
+              <span>
+                Tocá una {visita.singular} para ver el detalle y marcar asistencia, o un
+                hueco libre para agendar ahí mismo.
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className="inline-block h-3.5 w-3.5 shrink-0 rounded border border-aventurea-line"
+                  style={{
+                    backgroundColor: "var(--grey)",
+                    backgroundImage: RAYADO_CERRADO,
+                  }}
+                />
+                Rayado = esa persona no trabaja esa hora
+              </span>
+            </p>
+          </div>
         </div>
       )}
 
@@ -1736,24 +1923,32 @@ export default function AgendaCitas({
               onClick={() => setSeleccionada(null)}
               className="fixed inset-0 z-[90] flex items-end justify-center bg-aventurea-ink/35 backdrop-blur-sm sm:items-center sm:p-6"
             >
+              {/* La hoja del detalle: `drawer-head` de la maqueta —
+                  kicker + qué es, y el cerrar como botón de ícono del
+                  sistema. Sube desde abajo en el teléfono y se centra
+                  desde sm, como estaba. */}
               <div
                 role="dialog"
                 aria-modal="true"
                 aria-label={`Detalle de la ${visita.singular}`}
                 onClick={(e) => e.stopPropagation()}
-                className="flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[460px] sm:rounded-2xl sm:border sm:border-aventurea-line"
+                className="flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-flotante sm:h-auto sm:max-h-[88vh] sm:max-w-[460px] sm:rounded-3xl sm:border sm:border-aventurea-line"
               >
-                <div className="flex items-center justify-between border-b border-aventurea-line px-5 py-3.5">
-                  <p className="text-[13px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    Detalle de la {visita.singular}
-                  </p>
+                <div className="flex items-center justify-between gap-3 border-b border-aventurea-line px-5 py-3.5">
+                  <div className="min-w-0">
+                    <p className={EYEBROW}>{visita.Singular}</p>
+                    <p className={`mt-1 truncate ${TITULO_CARD}`}>
+                      {horaBonita(cita.hora_inicio.slice(0, 5))} ·{" "}
+                      {cita.nombre ?? persona.Singular}
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setSeleccionada(null)}
                     aria-label="Cerrar"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+                    className={BOTON_ICONO}
                   >
-                    ✕
+                    <IconX className="h-4 w-4" />
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-5 py-5">{detalle(cita)}</div>
@@ -1761,6 +1956,7 @@ export default function AgendaCitas({
             </div>
           );
         })()}
-    </div>
+      </div>
+    </Card>
   );
 }

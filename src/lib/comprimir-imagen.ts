@@ -67,6 +67,103 @@ function tieneTransparencia(ctx: CanvasRenderingContext2D, ancho: number, alto: 
   }
 }
 
+/** Carga un archivo como <img> ya decodificado. Lanza si no se puede. */
+async function cargarImagen(archivo: File): Promise<{ img: HTMLImageElement; url: string }> {
+  const url = URL.createObjectURL(archivo);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new window.Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("No se pudo leer la imagen."));
+      el.src = url;
+    });
+    return { img, url };
+  } catch (e) {
+    URL.revokeObjectURL(url);
+    throw e;
+  }
+}
+
+/**
+ * LO QUE HAY QUE SABER DE UNA IMAGEN ANTES DE METERLA EN UN CÍRCULO.
+ *
+ * Se usa para el ícono propio del sello (0174), donde las dos cosas que
+ * arruinan el resultado se pueden ver ANTES de guardar:
+ *
+ *   · `fondoOpaco` — las cuatro esquinas son opacas, o sea que la
+ *     imagen es un CUADRADO. Metido en un círculo de color, se lee como
+ *     un sticker pegado encima y no como un sello;
+ *   · `colorPromedio` — el color medio de lo que se ve (ignorando lo
+ *     transparente). Con él se mide el contraste contra el fondo del
+ *     sello: un ícono blanco sobre el círculo blanco desaparece, que es
+ *     exactamente el bug que hizo falta arreglar con los doce dibujos.
+ *
+ * Devuelve null si el navegador no puede procesar la imagen. Un aviso
+ * que no se puede calcular no se inventa: se calla.
+ */
+export type AnalisisImagen = { fondoOpaco: boolean; colorPromedio: string | null };
+
+export async function analizarImagen(archivo: File): Promise<AnalisisImagen | null> {
+  if (!archivo.type.startsWith("image/") || archivo.type === "image/svg+xml") return null;
+
+  let cargada: { img: HTMLImageElement; url: string };
+  try {
+    cargada = await cargarImagen(archivo);
+  } catch {
+    return null;
+  }
+
+  try {
+    // 64 px alcanza y sobra: acá no se mira detalle, se mide color y
+    // transparencia. Leer 4 MB de píxeles para eso congelaría el hilo.
+    const lado = 64;
+    const canvas = document.createElement("canvas");
+    canvas.width = lado;
+    canvas.height = lado;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(cargada.img, 0, 0, lado, lado);
+
+    const { data } = ctx.getImageData(0, 0, lado, lado);
+
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let visibles = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      // Lo casi transparente no cuenta: es el aire alrededor del dibujo,
+      // y promediarlo tiraría el color hacia el negro del canvas vacío.
+      if (data[i + 3] < 16) continue;
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+      visibles++;
+    }
+
+    const alfaEn = (x: number, y: number) => data[(y * lado + x) * 4 + 3];
+    // Un margen de 2 px: casi ningún archivo tiene el color pegado al
+    // filo exacto, y pedir la esquina justa daría falsos negativos.
+    const fondoOpaco =
+      alfaEn(2, 2) > 200 &&
+      alfaEn(lado - 3, 2) > 200 &&
+      alfaEn(2, lado - 3) > 200 &&
+      alfaEn(lado - 3, lado - 3) > 200;
+
+    const hex = (n: number) => Math.round(n).toString(16).padStart(2, "0");
+    return {
+      fondoOpaco,
+      colorPromedio:
+        visibles > 0 ? `#${hex(r / visibles)}${hex(g / visibles)}${hex(b / visibles)}` : null,
+    };
+  } catch {
+    // `getImageData` puede fallar (canvas contaminado, memoria): sin
+    // análisis no hay aviso, y sin aviso la subida sigue igual.
+    return null;
+  } finally {
+    URL.revokeObjectURL(cargada.url);
+  }
+}
+
 export async function comprimirImagen(
   archivo: File,
   opts: {

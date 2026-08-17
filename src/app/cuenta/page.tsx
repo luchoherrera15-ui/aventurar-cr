@@ -11,6 +11,7 @@ import { iniciales } from "@/lib/iniciales";
 import { categoriaLabel } from "@/lib/categorias-vertical";
 import { consultarSaldo } from "@/lib/lealtad/motor";
 import { tipoDe, metaDe, leerBeneficio } from "@/lib/lealtad/tipos-tarjeta";
+import { LIENZO_PANEL } from "@/components/panel/sistema";
 import TableroModos, { type ProximaExperiencia, type LealtadPrincipal } from "./tablero-modos";
 
 /** Lo mínimo de cada publicación para el resumen del tablero. */
@@ -53,6 +54,10 @@ export default async function CuentaPage({
 
   if (!user) {
     return (
+      /* La pantalla de acceso se queda en BLANCO: no es un panel, es una
+         sola tarjeta centrada sobre el marco animado, y el gris del
+         lienzo detrás de ese marco lo ensuciaría. El lienzo gris empieza
+         cuando hay sesión y hay panel. */
       <div className="min-h-screen bg-aventurea-cream">
         {/* El header del sitio, tal cual — la maqueta dibujaba uno propio
             (marca + "Publicá tu espacio" + menú) que es exactamente lo
@@ -364,7 +369,12 @@ export default async function CuentaPage({
   }
 
   return (
-    <div className="min-h-screen bg-aventurea-cream">
+    /* EL LIENZO DEL PANEL. Era `bg-aventurea-cream`, que es blanco: una
+       tarjeta blanca sobre un lienzo blanco es 1:1, y por eso el tablero
+       se veía plano. Con `--grey` la separación es 1,08:1 — la misma que
+       usa la maqueta (1,07:1)—, y la terminan de resolver el borde y la
+       sombra de cada tarjeta. */
+    <div className={`min-h-screen ${LIENZO_PANEL}`}>
       <SiteHeader breadcrumb="Tu cuenta" />
 
       <TableroModos

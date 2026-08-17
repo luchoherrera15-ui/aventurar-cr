@@ -1,17 +1,34 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type CSSProperties } from "react";
 import { DIAS_SEMANA_LABEL, esDiaLibre } from "@/app/citas/tipos";
+import {
+  ACCION_ACENTO,
+  BOTON_PANEL_PRIMARIO,
+  DETALLE,
+  ESTADO_AVISO,
+  ESTADO_PILDORA,
+  ROTULO_CAMPO,
+  SUPERFICIE_HUNDIDA,
+} from "@/components/panel/sistema";
+import { BOTON_FILA } from "../fila-ficha";
 import {
   guardarHorarioMiembro,
   guardarServiciosMiembro,
   type RangoHorarioMiembro,
 } from "./actions";
 
-const inputTimeCls =
-  "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13px] text-aventurea-ink";
-const labelCls =
-  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
+/** La hora de un turno. Es un campo, pero angosto: no tiene sentido que
+ *  un `<input type="time">` ocupe el ancho de la fila. */
+const CAMPO_HORA =
+  "rounded-xl border border-aventurea-line bg-aventurea-surface px-2.5 py-1.5 text-[12.5px] text-aventurea-ink";
+
+/** El botón que puede quedar "apretado": prendido toma el acento sólido
+ *  del tipo de negocio (`sobreSolido` sobre `solido`, ≥5,18:1 en los
+ *  ocho acentos del catálogo), apagado es el botón chico de siempre.
+ *  Sin alfas: el mismo estado se ve igual sobre cualquier fondo. */
+const BOTON_ELEGIDO =
+  "inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-transparent px-2.5 text-[12px] font-bold";
 
 type Turno = { abre: string; cierra: string };
 type DiaBorrador = { abierto: boolean; turnos: Turno[] };
@@ -38,6 +55,11 @@ function estadoInicial(rangos: RangoHorarioMiembro[]): DiaBorrador[] {
  * La configuración fina de una persona del equipo: su horario propio
  * (sustituye al del negocio — el motor de disponibilidad y el RPC ya
  * lo respetan desde la 0061) y qué servicios da (servicios_recurso).
+ *
+ * Se abre DENTRO de la fila de esa persona, así que es una superficie
+ * hundida —un escalón por debajo de la tarjeta del equipo— y no otra
+ * tarjeta: dos tarjetas anidadas se leen como dos bloques distintos y
+ * esto es el detalle de uno solo.
  */
 export default function MiembroConfig({
   ranchoId,
@@ -128,11 +150,17 @@ export default function MiembroConfig({
     });
   }
 
+  /** El botón que alterna entre dos opciones excluyentes. */
+  const alterna = (elegido: boolean) => ({
+    className: elegido ? BOTON_ELEGIDO : BOTON_FILA,
+    style: elegido ? (ACCION_ACENTO as CSSProperties) : undefined,
+  });
+
   return (
-    <div className="flex flex-col gap-5 rounded-xl border border-aventurea-line bg-aventurea-cream-2/60 p-4">
+    <div className={`flex flex-col gap-5 rounded-2xl p-3.5 sm:p-4 ${SUPERFICIE_HUNDIDA}`}>
       {/* ---------- Horario propio ---------- */}
       <div>
-        <p className={labelCls}>Horario de esta persona</p>
+        <p className={`mb-1.5 ${ROTULO_CAMPO}`}>Horario de esta persona</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -141,11 +169,7 @@ export default function MiembroConfig({
               setGuardado(null);
             }}
             aria-pressed={!horarioPropio}
-            className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
-              !horarioPropio
-                ? "border-aventurea-navy bg-aventurea-navy text-white"
-                : "border-aventurea-line bg-white text-aventurea-ink-soft"
-            }`}
+            {...alterna(!horarioPropio)}
           >
             El del negocio
           </button>
@@ -156,18 +180,14 @@ export default function MiembroConfig({
               setGuardado(null);
             }}
             aria-pressed={horarioPropio}
-            className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
-              horarioPropio
-                ? "border-aventurea-navy bg-aventurea-navy text-white"
-                : "border-aventurea-line bg-white text-aventurea-ink-soft"
-            }`}
+            {...alterna(horarioPropio)}
           >
             Horario propio
           </button>
         </div>
 
         {horarioPropio && (
-          <div className="mt-3 overflow-hidden rounded-xl border border-aventurea-line bg-white">
+          <div className="mt-3 overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
             {DIAS_SEMANA_LABEL.map((etiqueta, dow) => {
               const dia = dias[dow];
               return (
@@ -178,29 +198,31 @@ export default function MiembroConfig({
                   <span className="w-[80px] text-[13px] font-bold text-aventurea-ink">
                     {etiqueta}
                   </span>
+                  {/* Trabaja / Libre con los colores de estado del
+                      sistema, no con un verde al 10 % sobre lo que
+                      haya: verde #1f7a4d sobre #e1f0e6 = 4,51:1 y gris
+                      #585858 sobre #f6f6f6 = 6,58:1, los dos AA. */}
                   <button
                     type="button"
                     onClick={() => cambiarDia(dow, { abierto: !dia.abierto })}
                     aria-pressed={dia.abierto}
-                    className={`w-[82px] rounded-lg border px-2.5 py-1.5 text-[12px] font-bold ${
-                      dia.abierto
-                        ? "border-aventurea-green bg-aventurea-green/10 text-aventurea-green"
-                        : "border-aventurea-line bg-aventurea-cream-2 text-zinc-500"
+                    className={`inline-flex h-8 w-[82px] items-center justify-center rounded-lg px-2.5 text-[12px] font-bold ${
+                      dia.abierto ? ESTADO_PILDORA.exito : ESTADO_PILDORA.neutro
                     }`}
                   >
                     {dia.abierto ? "Trabaja" : "Libre"}
                   </button>
                   {dia.abierto && (
-                    <span className="flex flex-wrap items-center gap-2 text-[12.5px] text-aventurea-ink-soft">
+                    <span className={`flex flex-wrap items-center gap-2 ${DETALLE}`}>
                       {dia.turnos.map((t, idx) => (
                         <span key={idx} className="flex min-w-0 flex-wrap items-center gap-1.5">
-                          {idx > 0 && <span className="text-zinc-400">y</span>}
+                          {idx > 0 && <span>y</span>}
                           <input
                             type="time"
                             value={t.abre}
                             onChange={(e) => cambiarTurno(dow, idx, { abre: e.target.value })}
                             aria-label={`Entrada del ${etiqueta.toLowerCase()}`}
-                            className={inputTimeCls}
+                            className={CAMPO_HORA}
                           />
                           a
                           <input
@@ -208,7 +230,7 @@ export default function MiembroConfig({
                             value={t.cierra}
                             onChange={(e) => cambiarTurno(dow, idx, { cierra: e.target.value })}
                             aria-label={`Salida del ${etiqueta.toLowerCase()}`}
-                            className={inputTimeCls}
+                            className={CAMPO_HORA}
                           />
                           {idx > 0 && (
                             <button
@@ -232,7 +254,7 @@ export default function MiembroConfig({
                               turnos: [...dia.turnos, { abre: "14:00", cierra: "18:00" }],
                             })
                           }
-                          className="text-[11.5px] font-bold text-aventurea-navy underline"
+                          className="text-[12px] font-bold text-aventurea-navy underline"
                         >
                           + turno partido
                         </button>
@@ -245,23 +267,25 @@ export default function MiembroConfig({
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={guardarHorario}
-          disabled={pending}
-          className="mt-3 rounded-xl bg-aventurea-sky px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
-        >
-          {pending ? "Guardando..." : "Guardar horario"}
-        </button>
-        {guardado === "horario" && (
-          <span className="ml-3 text-[12.5px] font-bold text-aventurea-green">✓ Guardado</span>
-        )}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={guardarHorario}
+            disabled={pending}
+            className={BOTON_PANEL_PRIMARIO}
+          >
+            {pending ? "Guardando..." : "Guardar horario"}
+          </button>
+          {guardado === "horario" && (
+            <span className="text-[12.5px] font-bold text-aventurea-green">✓ Guardado</span>
+          )}
+        </div>
       </div>
 
       {/* ---------- Servicios que da ---------- */}
       {serviciosCita.length > 0 && (
         <div>
-          <p className={labelCls}>Servicios que da</p>
+          <p className={`mb-1.5 ${ROTULO_CAMPO}`}>Servicios que da</p>
           <div className="flex flex-wrap gap-2">
             {serviciosCita.map((s) => {
               const activo = marcados.has(s.id);
@@ -277,10 +301,12 @@ export default function MiembroConfig({
                     setGuardado(null);
                   }}
                   aria-pressed={activo}
-                  className={`max-w-full break-words rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
-                    activo
-                      ? "border-aventurea-navy bg-aventurea-navy text-white"
-                      : "border-aventurea-line bg-white text-aventurea-ink-soft"
+                  style={activo ? (ACCION_ACENTO as CSSProperties) : undefined}
+                  // Un nombre de servicio largo tiene que poder partirse
+                  // en dos renglones en 390px: por eso el alto es
+                  // mínimo, no fijo.
+                  className={`h-auto min-h-8 max-w-full break-words py-1.5 ${
+                    activo ? BOTON_ELEGIDO : BOTON_FILA
                   }`}
                 >
                   {s.nombre}
@@ -288,23 +314,29 @@ export default function MiembroConfig({
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={guardarServicios}
-            disabled={pending}
-            className="mt-3 rounded-xl bg-aventurea-sky px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
-          >
-            {pending ? "Guardando..." : "Guardar servicios"}
-          </button>
-          {guardado === "servicios" && (
-            <span className="ml-3 text-[12.5px] font-bold text-aventurea-green">✓ Guardado</span>
-          )}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={guardarServicios}
+              disabled={pending}
+              className={BOTON_PANEL_PRIMARIO}
+            >
+              {pending ? "Guardando..." : "Guardar servicios"}
+            </button>
+            {guardado === "servicios" && (
+              <span className="text-[12.5px] font-bold text-aventurea-green">✓ Guardado</span>
+            )}
+          </div>
         </div>
       )}
 
-      {error && <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
+      {error && (
+        <p role="alert" className={`rounded-xl p-3 text-[13px] ${ESTADO_AVISO.alerta}`}>
+          {error}
+        </p>
+      )}
       {aviso && (
-        <p className="rounded-xl bg-aventurea-sky-light p-3 text-[13px] text-aventurea-ink">
+        <p role="status" className={`rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
           {aviso}
         </p>
       )}

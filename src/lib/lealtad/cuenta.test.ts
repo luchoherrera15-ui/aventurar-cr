@@ -51,19 +51,19 @@ function dbFalso(respuestas: {
 
 describe("planEfectivo", () => {
   it("la cuenta manda sobre el rancho", () => {
-    expect(planEfectivo({ planCuenta: "crece", planRancho: "basico" })).toBe("crece");
+    expect(planEfectivo({ planCuenta: "impulso", planRancho: "arranque" })).toBe("impulso");
   });
 
   it("sin cuenta, cae al rancho — el respaldo de la transición", () => {
-    expect(planEfectivo({ planRancho: "basico" })).toBe("basico");
-    expect(planEfectivo({ planCuenta: null, planRancho: "basico" })).toBe("basico");
+    expect(planEfectivo({ planRancho: "arranque" })).toBe("arranque");
+    expect(planEfectivo({ planCuenta: null, planRancho: "arranque" })).toBe("arranque");
   });
 
   it("una cuenta SIN plan no deja al negocio sin plan", () => {
     // Es el caso sutil: la cuenta ya existe (0134 corrida) pero todavía
     // no se le asignó plan. Quedarse en null lo dejaría sin topes ni
     // capacidades de un momento a otro, y el dueño no hizo nada.
-    expect(planEfectivo({ planCuenta: null, planRancho: "estandar" })).toBe("estandar");
+    expect(planEfectivo({ planCuenta: null, planRancho: "prueba" })).toBe("prueba");
   });
 
   it("sin nada, null", () => {
@@ -74,34 +74,34 @@ describe("planEfectivo", () => {
 
 describe("contextoDeCuenta", () => {
   it("con la migración corrida, lee el plan de la cuenta", async () => {
-    const { db, consultas } = dbFalso({ cuentas: { plan: "pro" } });
-    const ctx = await contextoDeCuenta(db, { cuenta_id: "c-1" }, { planRancho: "basico" });
-    expect(ctx).toEqual({ cuentaId: "c-1", plan: "pro" });
+    const { db, consultas } = dbFalso({ cuentas: { plan: "ilimitado" } });
+    const ctx = await contextoDeCuenta(db, { cuenta_id: "c-1" }, { planRancho: "arranque" });
+    expect(ctx).toEqual({ cuentaId: "c-1", plan: "ilimitado" });
     expect(consultas).toContain("cuentas");
   });
 
   it("SIN la migración corrida, no consulta cuentas y usa el rancho", async () => {
     // La fila no trae `cuenta_id` porque la columna no existe todavía.
     const { db, consultas } = dbFalso({});
-    const ctx = await contextoDeCuenta(db, { id: "p-1" }, { planRancho: "basico" });
-    expect(ctx).toEqual({ cuentaId: null, plan: "basico" });
+    const ctx = await contextoDeCuenta(db, { id: "p-1" }, { planRancho: "arranque" });
+    expect(ctx).toEqual({ cuentaId: null, plan: "arranque" });
     expect(consultas).toHaveLength(0);
   });
 
   it("si la tabla `cuentas` no existe, no revienta: cae al respaldo", async () => {
     // Base a medio migrar: la columna existe, la tabla no responde.
     const { db } = dbFalso({ cuentas: null });
-    const ctx = await contextoDeCuenta(db, { cuenta_id: "c-1" }, { planRancho: "basico" });
-    expect(ctx.plan).toBe("basico");
+    const ctx = await contextoDeCuenta(db, { cuenta_id: "c-1" }, { planRancho: "arranque" });
+    expect(ctx.plan).toBe("arranque");
     expect(ctx.cuentaId).toBe("c-1");
   });
 
   it("ignora un cuenta_id vacío o de otro tipo", async () => {
-    const { db } = dbFalso({ cuentas: { plan: "pro" } });
+    const { db } = dbFalso({ cuentas: { plan: "ilimitado" } });
     for (const valor of ["", null, undefined, 0, {}]) {
-      const ctx = await contextoDeCuenta(db, { cuenta_id: valor }, { planRancho: "basico" });
+      const ctx = await contextoDeCuenta(db, { cuenta_id: valor }, { planRancho: "arranque" });
       expect(ctx.cuentaId).toBeNull();
-      expect(ctx.plan).toBe("basico");
+      expect(ctx.plan).toBe("arranque");
     }
   });
 });

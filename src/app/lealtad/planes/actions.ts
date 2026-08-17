@@ -54,8 +54,8 @@ export async function solicitarPlanLealtad(datos: {
   // Los OFRECIDOS, no todos los que la base acepta: la MISMA puerta que
   // /lealtad/nuevo. `esPlan` deja pasar los retirados —y tiene que
   // dejarlos, para que quien ya los tiene siga funcionando—, así que
-  // usarlo acá dejaba pedir «gratis» o «empresa» a mano y quedar con
-  // `SIN_TOPES` en cuanto un admin aprobara la solicitud sin mirar.
+  // usarlo acá dejaba PEDIR a mano un paquete retirado y quedarse sin
+  // ningún tope en cuanto un admin aprobara la solicitud sin mirar.
   if (!esPlanOfrecido(plan)) return { ok: false, motivo: "Ese paquete no existe." };
 
   // Alta en frío: no hay negocio todavía y el nombre lo escribió la

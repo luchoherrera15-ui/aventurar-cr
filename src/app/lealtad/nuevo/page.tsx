@@ -19,8 +19,8 @@ import WizardAlta, { type PlanElegido, type RanchoWizard } from "./wizard-alta";
  *
  *   · `/lealtad/nuevo` (o `?plan=arranque|impulso|ilimitado`) — MODO
  *     COMPLETO: crea cuenta → negocio → tarjeta. El plan se valida con
- *     `esPlanOfrecido` y NUNCA con `esPlan`: los retirados dan
- *     SIN_TOPES, y elegir es distinto de tener. Sin plan (o con uno
+ *     `esPlanOfrecido` y NUNCA con `esPlan`: un paquete retirado viene
+ *     sin topes, y elegir es distinto de tener. Sin plan (o con uno
  *     inválido) se cae al de Prueba.
  *
  *   · `/lealtad/nuevo?rancho={id}` — MODO SOLO-TARJETA: el negocio ya

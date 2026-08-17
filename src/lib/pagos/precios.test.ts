@@ -49,9 +49,16 @@ describe("el catálogo de lo que se cobra", () => {
     }
   });
 
-  it("los paquetes retirados tampoco se pueden comprar", () => {
+  it("lo que no está en el catálogo tampoco se puede comprar", () => {
+    // Los ocho paquetes retirados de catálogos anteriores se borraron
+    // en la 0179: hoy son ids desconocidos como cualquier otro. Si
+    // alguno volviera —o se retirara uno de los tres de pago— el que
+    // decide sigue siendo `PLANES_CON_COBRO`, y por eso se prueban acá
+    // con nombre y apellido.
     expect(esPlanConCobro("pro")).toBe(false);
     expect(esPlanConCobro("empresa")).toBe(false);
+    expect(esPlanConCobro("gratis")).toBe(false);
+    expect(esPlanConCobro("basico")).toBe(false);
     expect(esPlanConCobro("no-existe")).toBe(false);
     expect(esPlanConCobro(null)).toBe(false);
   });

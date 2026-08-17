@@ -192,6 +192,27 @@ order by semana desc;
 
 
 -- ============================================================
+-- ⚠️ ESTE SIMULACRO ES DE LA 0106, Y LA 0171 LE CAMBIÓ LA MITAD.
+--
+-- Desde la migración 0171 el cobro NO nace al confirmar: nace el día
+-- del evento, lo anota el barrido diario (`devengar_cobros_del_dia`).
+-- Si corrés el bloque de abajo contra una base con la 0171 pegada, dos
+-- renglones van a salir '✗ FALLA' y NO son una falla de verdad:
+--
+--   · "al CONFIRMAR nace el cobro" — ya no nace ahí, a propósito.
+--   · "al CANCELAR el cobro original queda anulado" — no hay cobro
+--     original que anular, porque nunca llegó a nacer.
+--
+-- El renglón del 10 % del depósito SÍ tiene que seguir dando '✓': esa
+-- parte del trigger quedó intacta.
+--
+-- El simulacro del comportamiento NUEVO está en
+-- docs/comprobaciones/cobro-dia-evento.sql. Este se deja como está
+-- porque sigue sirviendo para una base que todavía no tenga la 0171.
+-- ============================================================
+
+
+-- ============================================================
 -- 8. EL SIMULACRO — prueba el trigger de punta a punta.
 --
 -- Crea dos reservas de mentira en una fecha del año 2099, las confirma,

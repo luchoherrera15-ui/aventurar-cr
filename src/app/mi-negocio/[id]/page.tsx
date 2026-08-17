@@ -59,6 +59,19 @@ import DepositoForm from "./deposito-form";
 import AsistentePanel from "./asistente/asistente-panel";
 import type { ConocimientoFila } from "./asistente/actions";
 import { type EventoAgenda } from "@/components/agenda-eventos";
+import { Card } from "@/components/panel/piezas";
+import {
+  BAJADA_PANTALLA,
+  BOTON_PANEL,
+  BOTON_PANEL_PRIMARIO,
+  ENLACE_CARD,
+  ESTADO_AVISO,
+  EYEBROW,
+  EYEBROW_NEUTRO,
+  GAP_TABLERO,
+  TITULO_CARD,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
 import ProximasReservasCards from "./proximas-reservas-cards";
 import OcupacionCalendario, { type DiaOcupado } from "@/components/ocupacion-calendario";
 import SincronizarCalendario from "@/components/sincronizar-calendario";
@@ -708,7 +721,7 @@ export default async function RanchoDetallePage({
   // La agenda entera — antes era su propia pestaña; ahora es el cuerpo
   // de Inicio, con las mismas acciones de siempre.
   const contenidoAgenda = (
-      <div className="flex flex-col gap-4">
+      <div className={`flex flex-col ${GAP_TABLERO}`}>
         {/* El calendario es el único lugar para tocar reservas de
             EVENTOS: desde acá se confirma, se corrige, se mueve de
             fecha y se cancela lo del día — y también se carga una
@@ -848,12 +861,30 @@ export default async function RanchoDetallePage({
     // ruta /reservas) apuntan a la pestaña Agenda, que ya no existe.
     alias: ["agenda", "reservas"],
     content: (
-      <div className="flex flex-col gap-6">
+      /* ══ EL TABLERO, ARMADO CON LAS PIEZAS DEL PANEL ═══════════════
+       *
+       * Todo lo que se ve acá sale de `components/panel/piezas.tsx` y
+       * `components/panel/sistema.ts`: no hay ni un color, ni un radio,
+       * ni un tamaño escritos en esta pantalla. Cada bloque que antes
+       * era un `<h2>` suelto con contenido colgando ahora es una
+       * `Card` con su `CardHead` — kicker, título y SIEMPRE algo a la
+       * derecha (un enlace, un contador), que es lo que hace que se lea
+       * como un panel y no como un documento largo.
+       *
+       * El hueco entre bloques es `GAP_TABLERO` (los 14px de la
+       * maqueta), no un `gap-6` elegido a ojo.
+       */
+      <div className={`flex flex-col ${GAP_TABLERO}`}>
         {/* (a) Los números. Cada tarjeta se pinta solo si su dato sale
             de la base: la de ocupación desaparece cuando el negocio no
-            tiene horario configurado, en vez de mostrar 0%. */}
+            tiene horario configurado, en vez de mostrar 0%.
+            La fila de métricas va SIN tarjeta contenedora: las métricas
+            YA son tarjetas, y meterlas en otra sería una caja dentro de
+            una caja. El rótulo va arriba, como el `.metrics` de la
+            maqueta, que tampoco tiene marco. */}
         <div>
-          <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">Tu negocio en números</h2>
+          <p className={`mb-1.5 ${EYEBROW}`}>Cómo va hoy</p>
+          <h2 className={`mb-3 ${TITULO_CARD}`}>Tu negocio en números</h2>
           <DashboardMetricas
             metricas={metricas}
             dia={resumenDelDia}
@@ -888,25 +919,27 @@ export default async function RanchoDetallePage({
           )}
         </BarraAvisos>
 
-        {/* (c) Lo del día: lo que viene, arriba de todo lo demás. */}
+        {/* (c) Lo del día: lo que viene, arriba de todo lo demás.
+            Es el «Próximas citas» de la maqueta: una tarjeta con su
+            encabezado, el enlace a la agenda completa a la derecha y
+            adentro la lista de filas. */}
         {modulos.has("agenda") && (
-          <section>
-            <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="titulo text-[18px] text-aventurea-navy">Lo que viene</h2>
-              {hrefAgendaDia && (
-                <Link
-                  href={hrefAgendaDia}
-                  className="text-[12.5px] font-bold text-aventurea-navy hover:underline"
-                >
+          <Card
+            eyebrow="Agenda"
+            titulo="Lo que viene"
+            accion={
+              hrefAgendaDia ? (
+                <Link href={hrefAgendaDia} className={ENLACE_CARD}>
                   {/* El label ya trae la palabra del tipo ("Citas",
                       "Consultas", "Agenda del día"): no se le agrega
                       nada o queda "agenda del día del día". */}
                   Ver {itemAgendaDia?.label.toLowerCase()} →
                 </Link>
-              )}
-            </div>
+              ) : undefined
+            }
+          >
             <ProximasReservasCards eventos={agenda} />
-          </section>
+          </Card>
         )}
 
         {/* (d) Las herramientas de ESTE tipo de negocio. Es el bloque
@@ -914,45 +947,40 @@ export default async function RanchoDetallePage({
             que ya se puede abrir, y lo que su rubro trae y todavía
             estamos construyendo (apagado, sin enlace). */}
         {itemsMenu.some((i) => i.modulo !== null) && (
-        <section>
-          <h2 className="titulo mb-1 text-[18px] text-aventurea-navy">
-            Tus herramientas
-          </h2>
-          <p className="mb-3.5 max-w-[70ch] text-[13px] text-aventurea-ink-soft">
-            {definicionTipo(negocio.tipo).label} — {identidadTipo.descripcion}{" "}
-            <Link
-              href="?tab=config&seccion=modulos"
-              className="font-bold text-aventurea-navy underline"
-            >
-              Cambiá tu tipo o apagá lo que no usés
-            </Link>
-            .
-          </p>
-          <AccesosModulos items={itemsMenu} />
-        </section>
+          <Card
+            eyebrow={definicionTipo(negocio.tipo).label}
+            titulo="Tus herramientas"
+            accion={
+              <Link href="?tab=config&seccion=modulos" className={ENLACE_CARD}>
+                Cambiar tipo o módulos →
+              </Link>
+            }
+          >
+            <p className="mb-3.5 max-w-[70ch] text-[13px] text-aventurea-ink-soft">
+              {identidadTipo.descripcion}
+            </p>
+            <AccesosModulos items={itemsMenu} />
+          </Card>
         )}
 
         {/* (e) El calendario del mes y el histórico — SOLO si el negocio
             tiene el módulo (0108). Un negocio que existe para su
             programa de lealtad no toma reservas: mostrarle un calendario
-            vacío y su historial era ruido puro. */}
+            vacío y su historial era ruido puro.
+            Acá NO hay `Card` envolviendo: el calendario y el histórico
+            traen la suya, y anidar tarjetas es exactamente lo que hacía
+            que el tablero se viera como cajas dentro de cajas. */}
         {modulos.has("agenda") && (
           <>
-            <section>
-              <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">Tu agenda</h2>
-              {contenidoAgenda}
-            </section>
+            {contenidoAgenda}
 
-            <section>
-              <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">
-                Últimas reservas y su auditoría
-              </h2>
+            <Card eyebrow="Auditoría" titulo="Últimas reservas">
               <HistoricoReservas
                 items={actividad}
                 onVerComprobante={obtenerUrlComprobanteRancho.bind(null, rancho.id)}
                 onMarcarValidado={marcarDepositoValidadoRancho.bind(null, rancho.id)}
               />
-            </section>
+            </Card>
           </>
         )}
       </div>
@@ -1574,18 +1602,17 @@ export default async function RanchoDetallePage({
           <h1 className="truncate text-[15px] font-extrabold leading-tight text-white">
             {rancho.nombre}
           </h1>
-          <p className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-white/65">
+          {/* El estado y el rubro son DATOS de referencia, no acciones.
+              Iban en blanco al 65% y al 70%, o sea un alfa sobre un
+              DEGRADÉ: el mismo texto se veía de dos colores según a qué
+              altura de la columna cayera. Ahora los dos son
+              `--color-aventurea-rail`, sólido y medido contra los dos
+              extremos del degradé (4,93:1 arriba, 6,33:1 abajo). */}
+          <p className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-aventurea-rail">
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
             {ESTADO_LABEL[rancho.estado]}
           </p>
-          {/* El rubro y la ubicación son un DATO de referencia, no un
-              estado ni una acción: iban en naranja y sobre el degradé
-              navy ese naranja daba 4,73:1 arriba y 3,68:1 abajo — o sea
-              que en la mitad de la tarjeta ni siquiera llegaba a AA.
-              Blanco al 70% se lee igual de bien en los dos extremos del
-              degradé (7,55:1 y 6,20:1) y deja de competir con el nombre
-              del negocio, que es lo que de verdad manda acá. */}
-          <p className="mt-1 truncate text-[10.5px] font-bold uppercase tracking-wide text-white/70">
+          <p className="mt-1 truncate text-[10.5px] font-bold uppercase tracking-wide text-aventurea-rail">
             {categoriaLabelMostrado}
             {ubicacion ? ` · ${ubicacion}` : ""}
           </p>
@@ -1614,7 +1641,7 @@ export default async function RanchoDetallePage({
       ) : (
         <Link
           href="?tab=config&seccion=modulos"
-          className="mt-3 block text-[11px] font-bold leading-snug text-white/55 hover:text-white hover:underline"
+          className="mt-3 block text-[11px] font-bold leading-snug text-aventurea-rail hover:text-white hover:underline"
         >
           Elegí tu tipo de negocio y este panel se adapta a tu rubro →
         </Link>
@@ -1623,15 +1650,19 @@ export default async function RanchoDetallePage({
       {rancho.estado === "aprobado" && (
         <Link
           href={urlPublica}
-          className="mt-3 block truncate text-[11.5px] font-bold text-white/60 hover:text-white hover:underline"
+          className="mt-3 block truncate text-[11.5px] font-bold text-aventurea-rail hover:text-white hover:underline"
         >
           Ver mi página{rancho.slug ? ` · /${rancho.slug}` : ""} →
         </Link>
       )}
 
+      {/* Relleno SÓLIDO (`navy-3`, blanco encima = 8,31:1) en vez del
+          `bg-white/10` de antes: sobre el degradé de la columna ese
+          alfa daba un botón de dos colores distintos según dónde
+          cayera. */}
       <Link
         href="?tab=config&seccion=perfil"
-        className="mt-3 flex w-full items-center justify-center rounded-xl bg-white/10 px-3.5 py-2.5 text-center text-[12.5px] font-bold text-white transition-colors hover:bg-white/20"
+        className="mt-3 flex w-full items-center justify-center rounded-xl bg-aventurea-navy-3 px-3.5 py-2.5 text-center text-[12.5px] font-bold text-white transition-colors hover:brightness-110"
       >
         Editar perfil y fotos
       </Link>
@@ -1673,59 +1704,57 @@ export default async function RanchoDetallePage({
         ← Todas tus publicaciones
       </Link>
 
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+      {/* EL `.heading` DE LA MAQUETA: kicker con la fecha, titular,
+          bajada y los botones pegados al borde derecho. A 560px la
+          maqueta lo apila y estira los botones a todo el ancho — eso es
+          lo que hace `max-sm:w-full` acá abajo, porque en un teléfono
+          dos botones de 100px al lado del titular quedan diminutos. */}
+      <div className={`mb-5 flex flex-wrap items-end justify-between ${GAP_TABLERO}`}>
         <div className="min-w-0">
           {/* La fecha de hoy es contexto, no una alarma: en naranja
               (2,94:1 sobre blanco, ni AA) gritaba más que el titular que
-              tiene debajo. Gris de texto sólido, 7,11:1. */}
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft">
+              tiene debajo. Gris de texto sólido, 7,12:1. */}
+          <p className={`mb-1.5 ${EYEBROW_NEUTRO}`}>
             {hoyLargo.charAt(0).toUpperCase() + hoyLargo.slice(1)}
           </p>
-          <h1 className="max-w-[42ch] text-[26px] font-extrabold leading-[1.1] tracking-tight text-aventurea-navy sm:text-[32px]">
+          <h1 className={`max-w-[42ch] ${TITULO_PANTALLA}`}>
             El control de {rancho.nombre}, en un solo lugar.
           </h1>
-          <p className="mt-1.5 max-w-[60ch] text-[13.5px] text-aventurea-ink-soft">
+          <p className={`mt-2 max-w-[60ch] ${BAJADA_PANTALLA}`}>
             {modulos.has("agenda")
               ? "Priorizá lo pendiente, conciliá depósitos y mantené la agenda al día."
               : "Todo lo que necesitás para administrar tu negocio, en un solo lugar."}
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 gap-2 max-sm:w-full">
           {rancho.estado === "aprobado" && (
-            <Link
-              href={urlPublica}
-              className="flex h-10 items-center rounded-xl border border-aventurea-line px-4 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy"
-            >
+            <Link href={urlPublica} className={`${BOTON_PANEL} max-sm:flex-1`}>
               Ver página
             </Link>
           )}
-          <Link
-            href="?tab=config&seccion=perfil"
-            className="flex h-10 items-center rounded-xl bg-aventurea-navy px-4 text-[13px] font-bold text-white hover:brightness-110"
-          >
+          <Link href="?tab=config&seccion=perfil" className={`${BOTON_PANEL_PRIMARIO} max-sm:flex-1`}>
             Editar negocio
           </Link>
         </div>
       </div>
 
+      {/* Los dos avisos de estado usan los estados del sistema
+          (`ESTADO_AVISO`), los mismos pares medidos que las píldoras del
+          tablero: así un aviso se reconoce como aviso en todo el panel
+          y no hay dos azules ni dos rojos distintos. */}
       {rancho.estado === "pendiente" && (
-        /* Fondo y letra SÓLIDOS, no un alfa sobre lo que haya detrás:
-           naranja sobre `sky/15` daba 2,43:1. Navy sobre `sky-light`
-           da 12,24:1 y es el mismo par que usan ahora las píldoras de
-           estado del tablero, así que un aviso se reconoce como aviso
-           en todo el panel. */
-        <p className="mb-4 rounded-[10px] bg-aventurea-sky-light p-3 text-[13px] leading-relaxed text-aventurea-navy">
+        <p className={`mb-4 rounded-xl p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.info}`}>
           Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
           directorio.
         </p>
       )}
       {rancho.estado === "rechazado" && (
-        <p className="mb-4 rounded-[10px] bg-red-50 p-3 text-[13px] leading-relaxed text-red-700">
+        <p className={`mb-4 rounded-xl p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
           Tu publicación no fue aprobada todavía. Escribinos si querés más información.
         </p>
       )}
       {hayDatos && (
-        <p className="mb-5 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-zinc-500">
+        <p className="mb-5 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-aventurea-ink-soft">
           {esLugar && (rancho.capacidad_min !== null || rancho.capacidad_max !== null) && (
             <span>
               Capacidad{" "}

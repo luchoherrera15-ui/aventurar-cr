@@ -1,8 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type CSSProperties } from "react";
 import { hoyISOCR } from "@/lib/fechas";
 import { formatearHora } from "@/lib/agenda/importar-agenda";
+import { IconChevronLeft, IconChevronRight } from "./icons";
+import { Card, PildoraEstado, PuntoEstado } from "./panel/piezas";
+import {
+  BOTON_AGREGAR,
+  BOTON_ICONO,
+  BOTON_PANEL,
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  ESTADO_MARCA,
+  MARCA_ACENTO,
+  RADIO_TILE,
+  ROTULO_CAMPO,
+  SUPERFICIE_ACENTO,
+  SUPERFICIE_HUNDIDA,
+  SUPERFICIE_PANEL,
+  type EstadoPanel,
+} from "./panel/sistema";
 import ReservaManualForm from "./reserva-manual-form";
 
 const MESES = [
@@ -74,11 +91,75 @@ export type ReservaNueva = {
 
 type Resultado = { error: string | null };
 
-const ETIQUETA: Record<string, { texto: string; cls: string }> = {
-  confirmada: { texto: "Confirmada", cls: "bg-red-50 text-red-700" },
-  pendiente: { texto: "En aprobación", cls: "bg-amber-50 text-amber-800" },
-  bloqueada: { texto: "Bloqueado", cls: "bg-zinc-100 text-zinc-600" },
+/**
+ * ══ EL SIGNIFICADO DE CADA ESTADO, EN UN SOLO LUGAR ══════════════════
+ *
+ * Los tres estados que puede tener un día, con la palabra que se lee y
+ * el estado del sistema al que corresponden. Los COLORES no están acá:
+ * están en `components/panel/sistema.ts`, con su contraste medido.
+ *
+ * «CONFIRMADA» SALIÓ DEL ROJO, y es el arreglo más importante de esta
+ * pantalla. Un día confirmado es un día VENDIDO —la mejor noticia que
+ * puede dar este calendario— y se estaba pintando con `bg-red-100`, o
+ * sea con el color que en todo el resto del producto significa «algo
+ * salió mal». Un mes lleno se leía como un mes en llamas.
+ *
+ * Ahora lo confirmado se pinta con el ACENTO DEL TIPO DE NEGOCIO (el
+ * color de la marca del dueño: naranja en una barbería, verde en un
+ * consultorio) y la píldora usa el verde de éxito del sistema. El rojo
+ * queda para lo que de verdad es un error.
+ */
+const ETIQUETA: Record<string, { texto: string; estado: EstadoPanel }> = {
+  confirmada: { texto: "Confirmada", estado: "exito" },
+  pendiente: { texto: "En aprobación", estado: "aviso" },
+  bloqueada: { texto: "Bloqueado", estado: "neutro" },
 };
+
+/**
+ * LA PIEL DE UNA CELDA DEL MES.
+ *
+ * La maqueta comunica el estado con una BARRITA de 4px (`.mark`), no
+ * pintando el bloque entero: por eso su agenda se lee y la nuestra se
+ * leía como un semáforo. Acá la barrita va horizontal, debajo del
+ * número, y el relleno de la celda es apenas un tinte.
+ *
+ *   celda: el tinte de fondo (o el borde, cuando el día está libre)
+ *   barra: las clases de la barrita, cuando el color es una constante
+ *   estiloCelda / estiloBarra: cuando el color es el acento del tipo,
+ *     que llega como variable CSS y no como clase
+ *
+ * Contraste (número sobre la celda, medido en sistema.ts):
+ *   confirmada  --text sobre --acento-suave ..... ≥15,9:1 ✅
+ *   pendiente   amber-800 sobre amber-50 ........   6,84:1 ✅
+ *   bloqueada   --muted sobre --grey ............   6,58:1 ✅
+ *   libre       --muted sobre blanco ............   7,12:1 ✅
+ * Y cada barrita pasa el 3:1 de elemento gráfico contra su celda.
+ */
+function pielDelDia(estado: string | null): {
+  celda: string;
+  barra: string;
+  estiloCelda?: CSSProperties;
+  estiloBarra?: CSSProperties;
+} {
+  if (estado === "confirmada") {
+    return {
+      celda: "font-bold text-aventurea-ink",
+      barra: "",
+      estiloCelda: SUPERFICIE_ACENTO as CSSProperties,
+      estiloBarra: MARCA_ACENTO as CSSProperties,
+    };
+  }
+  if (estado === "pendiente") {
+    return { celda: "bg-amber-50 font-bold text-amber-800", barra: ESTADO_MARCA.aviso };
+  }
+  if (estado === "bloqueada") {
+    return {
+      celda: "bg-aventurea-cream-2 font-bold text-aventurea-ink-soft",
+      barra: ESTADO_MARCA.neutro,
+    };
+  }
+  return { celda: "border border-aventurea-line text-aventurea-ink-soft", barra: "" };
+}
 
 /**
  * Calendario mensual de ocupación, y el lugar desde donde se maneja la
@@ -163,32 +244,35 @@ export default function OcupacionCalendario({
   const delDia = seleccion ? (porFecha.get(seleccion) ?? []) : [];
 
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-sm sm:p-6">
-      <div className="flex items-center justify-between">
-        <span className="titulo text-[16px] capitalize text-aventurea-navy sm:text-[18px]">
-          {MESES[viewMonth]} {viewYear}
-        </span>
+    <Card
+      eyebrow="Agenda del mes"
+      titulo={<span className="capitalize">{`${MESES[viewMonth]} ${viewYear}`}</span>}
+      accion={
+        /* Las flechas eran «‹» y «›» de TEXTO dentro de un cuadrito de
+           32px: un glifo tipográfico haciendo de ícono, con el tamaño y
+           la posición que le dé la fuente. Ahora son los chevrones del
+           sistema en el botón de ícono del panel (36px, radio 12). */
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => cambiarMes(-1)}
             aria-label="Mes anterior"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-[15px] text-aventurea-ink hover:border-aventurea-navy"
+            className={BOTON_ICONO}
           >
-            ‹
+            <IconChevronLeft className="h-4 w-4" />
           </button>
           <button
             type="button"
             onClick={() => cambiarMes(1)}
             aria-label="Mes siguiente"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-[15px] text-aventurea-ink hover:border-aventurea-navy"
+            className={BOTON_ICONO}
           >
-            ›
+            <IconChevronRight className="h-4 w-4" />
           </button>
         </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-7 gap-1 sm:gap-1.5">
+      }
+    >
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {DOW.map((d, i) => (
           <div
             key={i}
@@ -204,22 +288,84 @@ export default function OcupacionCalendario({
           const estado = lista ? estadoDelDia(lista) : null;
           const esHoy = fecha === hoy;
           const elegido = fecha === seleccion;
+          const piel = pielDelDia(estado);
 
-          let cls =
-            "relative flex min-h-[40px] flex-col items-center justify-center rounded-lg text-[12.5px] transition-colors sm:min-h-[52px] sm:text-[13.5px]";
-          if (estado === "confirmada") cls += " bg-red-100 font-bold text-red-700";
-          else if (estado === "pendiente") cls += " bg-amber-100 font-bold text-amber-800";
-          else if (estado === "bloqueada") cls += " bg-aventurea-cream-2 font-bold text-aventurea-ink-soft";
-          else cls += " border border-aventurea-line text-aventurea-ink-soft";
-          if (esHoy) cls += " ring-1 ring-aventurea-sky";
-          // El día abierto se marca con un anillo grueso, que se lee
-          // igual sobre cualquiera de los cuatro fondos.
-          if (elegido) cls += " ring-2 ring-aventurea-navy ring-offset-1 ring-offset-aventurea-surface";
+          /* ══ UN SOLO MARCADOR DE INTERACCIÓN, Y SÓLIDO ══════════════
+             Antes había DOS anillos peleándose encima de los rellenos:
+             `ring-1 ring-aventurea-sky` para hoy y
+             `ring-2 ring-aventurea-navy ring-offset-1` para el día
+             abierto — más un `hover:ring-white/60` que sobre un relleno
+             claro era, literalmente, invisible.
+
+             Ahora el día ABIERTO se pinta como el `.date-strip
+             .selected` de la maqueta: celda navy sólida con el número
+             en blanco (13,88:1). Es un estado, así que gana sobre el
+             tinte del día; el estado del día se sigue leyendo en la
+             barrita, que en ese caso pasa a blanco. */
+          const cls = elegido
+            ? "relative flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl bg-aventurea-navy text-[12.5px] font-bold text-white transition-colors sm:min-h-[56px] sm:text-[13.5px]"
+            : `relative flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl text-[12.5px] transition-colors sm:min-h-[56px] sm:text-[13.5px] ${piel.celda}`;
+
+          /* HOY se marca en el NÚMERO, no con un anillo: el número va en
+             la tinta del acento del tipo de negocio y en negrita. Se
+             eligió el número y no un anillo porque un día puede ser hoy
+             Y estar vendido a la vez, y dos anillos encima de un relleno
+             era exactamente el ruido de antes. La tinta del acento pasa
+             AA contra las cuatro celdas posibles: ≥6,22:1 sobre blanco,
+             ≥5,56:1 sobre el tinte del acento, y ≥5:1 sobre el ámbar y
+             el gris. Si el día además está abierto, manda el blanco de
+             la celda navy. */
+          const estiloNumero: CSSProperties | undefined =
+            esHoy && !elegido ? { color: "var(--acento, var(--navy))" } : undefined;
+
+          const contenido = (
+            <>
+              <span
+                className={`flex items-center gap-1 leading-none ${esHoy ? "font-extrabold" : ""}`}
+                style={estiloNumero}
+              >
+                {d}
+                {/* Varias reservas el mismo día: el conteo iba con
+                    `opacity-70`, o sea un alfa sobre un relleno de
+                    color — no se podía medir. Ahora hereda la tinta de
+                    la celda, que ya está medida. */}
+                {lista && lista.length > 1 && (
+                  <span className="text-[9px] font-bold leading-none">×{lista.length}</span>
+                )}
+              </span>
+              {/* LA BARRITA: el `.mark` de la maqueta, girado. Es lo que
+                  reemplazó al manchón rojo — el estado se comunica con
+                  4px de color y no pintando el día entero. */}
+              {estado && (
+                <span
+                  aria-hidden="true"
+                  className={`h-1 w-5 rounded-full ${elegido ? "bg-white" : piel.barra}`}
+                  style={elegido ? undefined : piel.estiloBarra}
+                />
+              )}
+              {/* El punto de HOY solo aparece en un día LIBRE, que es
+                  donde no hay barrita: si estuvieran los dos, el día se
+                  llenaría de marcas. En un día ocupado el «hoy» ya lo
+                  dice el número en el acento. */}
+              {esHoy && !estado && (
+                <span
+                  aria-hidden="true"
+                  className={`h-1 w-1 rounded-full ${elegido ? "bg-white" : ""}`}
+                  style={elegido ? undefined : (MARCA_ACENTO as CSSProperties)}
+                />
+              )}
+            </>
+          );
 
           if (!editable) {
             return (
-              <div key={i} className={cls} title={lista?.[0]?.nombre ?? undefined}>
-                {d}
+              <div
+                key={i}
+                className={cls}
+                style={elegido ? undefined : piel.estiloCelda}
+                title={lista?.[0]?.nombre ?? undefined}
+              >
+                {contenido}
               </div>
             );
           }
@@ -235,32 +381,47 @@ export default function OcupacionCalendario({
               aria-pressed={elegido}
               aria-label={`${fechaLarga(fecha)}${
                 lista ? ` — ${lista.length} reserva${lista.length === 1 ? "" : "s"}` : " — libre"
-              }`}
-              className={`${cls} cursor-pointer hover:ring-2 hover:ring-white/60`}
+              }${esHoy ? " — hoy" : ""}`}
+              style={elegido ? undefined : piel.estiloCelda}
+              /* El hover es un anillo NAVY SÓLIDO hacia adentro: se lee
+                 igual sobre los cuatro fondos posibles y no depende de
+                 un alfa, que era el problema del blanco al 60%. */
+              className={`${cls} cursor-pointer hover:ring-2 hover:ring-inset hover:ring-aventurea-navy`}
             >
-              {d}
-              {lista && lista.length > 1 && (
-                <span className="text-[9px] font-bold leading-none opacity-70">
-                  {lista.length}
-                </span>
-              )}
+              {contenido}
             </button>
           );
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-4 text-[11.5px] text-aventurea-ink-soft">
+      {/* LA LEYENDA ES INFORMACIÓN, no adorno: sin ella los tintes no
+          significan nada. Va dentro de la tarjeta, en una caja hundida,
+          y sus puntos son los MISMOS colores que las barritas de los
+          días — una leyenda que no se parece a lo que explica no
+          explica nada.
+          El punto de «Confirmada» se pinta con el acento del negocio,
+          igual que su barrita. */}
+      <div className={`mt-4 flex flex-wrap gap-x-4 gap-y-2 ${RADIO_TILE} ${SUPERFICIE_HUNDIDA} px-3 py-2.5 text-[11.5px] text-aventurea-ink-soft`}>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-400" /> Confirmada
+          <span
+            aria-hidden="true"
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={MARCA_ACENTO as CSSProperties}
+          />
+          Confirmada
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> En aprobación
+          <PuntoEstado estado="aviso" /> En aprobación
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-aventurea-cream-2 ring-1 ring-inset ring-aventurea-line" /> Bloqueado / agenda externa
+          <PuntoEstado estado="neutro" /> Bloqueado / agenda externa
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full border border-aventurea-line" /> Libre
+          <span
+            aria-hidden="true"
+            className="h-2.5 w-2.5 shrink-0 rounded-full border border-aventurea-line"
+          />
+          Libre
         </span>
       </div>
 
@@ -271,7 +432,11 @@ export default function OcupacionCalendario({
       )}
 
       {seleccion && (
-        <div className="mt-4 rounded-2xl bg-aventurea-cream-2 p-4 shadow-sm">
+        /* El día abierto ya no es un bloque crema suelto: es una
+           superficie HUNDIDA con borde, el `#f8fafc` de la maqueta.
+           Así se lee como un cajón que se abrió dentro de la tarjeta y
+           no como otra tarjeta empujando la página hacia abajo. */
+        <div className={`mt-4 ${RADIO_TILE} ${SUPERFICIE_HUNDIDA} p-3.5 sm:p-4`}>
           <div className="flex items-start justify-between gap-3">
             <p className="text-[14px] font-bold capitalize text-aventurea-ink">
               {fechaLarga(seleccion)}
@@ -327,14 +492,14 @@ export default function OcupacionCalendario({
               <button
                 type="button"
                 onClick={() => setAgregando(true)}
-                className="mt-3 rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-navy hover:text-aventurea-navy"
+                className={`mt-3 ${BOTON_AGREGAR}`}
               >
                 + Agregar {delDia.length > 0 ? "otra reserva" : "una reserva"} este día
               </button>
             ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -363,7 +528,7 @@ function FilaReserva({
 
   const badge = ETIQUETA[reserva.estado] ?? {
     texto: reserva.estado,
-    cls: "bg-aventurea-cream-2 text-aventurea-ink-soft",
+    estado: "neutro" as EstadoPanel,
   };
 
   function correr(accion: () => Promise<Resultado>) {
@@ -393,14 +558,14 @@ function FilaReserva({
     .join(" · ");
 
   return (
-    <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3.5">
+    /* Vuelve a ser una tarjeta BLANCA porque ahora está adentro de la
+       superficie hundida del día: es el escalón de arriba. */
+    <div className={`${RADIO_TILE} ${SUPERFICIE_PANEL} p-3.5`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13.5px] font-bold text-aventurea-ink">
           {reserva.nombre ?? "Sin nombre"}
         </p>
-        <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${badge.cls}`}>
-          {badge.texto}
-        </span>
+        <PildoraEstado estado={badge.estado}>{badge.texto}</PildoraEstado>
       </div>
       {detalle && (
         <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">{detalle}</p>
@@ -436,7 +601,7 @@ function FilaReserva({
               type="button"
               disabled={pendiente}
               onClick={() => correr(() => onConfirmar(reserva.id))}
-              className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-50"
+              className={BOTON_PANEL_PRIMARIO}
             >
               Confirmar
             </button>
@@ -446,7 +611,7 @@ function FilaReserva({
               type="button"
               disabled={pendiente}
               onClick={() => setEditando(true)}
-              className="rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy disabled:opacity-50"
+              className={BOTON_PANEL}
             >
               Modificar
             </button>
@@ -456,11 +621,14 @@ function FilaReserva({
               type="button"
               disabled={pendiente}
               onClick={() => setMoviendo(true)}
-              className="rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy disabled:opacity-50"
+              className={BOTON_PANEL}
             >
               Mover
             </button>
           )}
+          {/* Cancelar sigue siendo lo único rojo de esta pantalla, y
+              ahora que «Confirmada» dejó el rojo, ese rojo por fin
+              significa una sola cosa. */}
           {onCancelar &&
             (confirmandoBaja ? (
               <>
@@ -468,7 +636,7 @@ function FilaReserva({
                   type="button"
                   disabled={pendiente}
                   onClick={() => correr(() => onCancelar(reserva.id))}
-                  className="rounded-xl bg-red-600 px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                  className={`${BOTON_PANEL} border-red-600 bg-red-600 text-white hover:border-red-700 hover:bg-red-700`}
                 >
                   {pendiente ? "Cancelando…" : "Sí, cancelar y liberar el día"}
                 </button>
@@ -476,7 +644,7 @@ function FilaReserva({
                   type="button"
                   disabled={pendiente}
                   onClick={() => setConfirmandoBaja(false)}
-                  className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-50"
+                  className={BOTON_PANEL}
                 >
                   Mejor no
                 </button>
@@ -486,7 +654,7 @@ function FilaReserva({
                 type="button"
                 disabled={pendiente}
                 onClick={() => setConfirmandoBaja(true)}
-                className="rounded-xl border border-red-200 bg-white px-4 py-2 text-[12.5px] font-bold text-red-700 transition-colors hover:border-red-400 disabled:opacity-50"
+                className={`${BOTON_PANEL} border-red-200 text-red-700 hover:border-red-600`}
               >
                 {reserva.estado === "bloqueada" ? "Liberar el día" : "Cancelar"}
               </button>
@@ -525,9 +693,8 @@ function FormularioReserva({
     return t || null;
   };
 
-  const campo =
-    "w-full rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2 text-[13px] text-aventurea-ink";
-  const rotulo = "text-[11.5px] font-bold text-aventurea-ink-soft";
+  const campo = CAMPO_PANEL;
+  const rotulo = ROTULO_CAMPO;
 
   return (
     <form
@@ -603,18 +770,14 @@ function FormularioReserva({
       </label>
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="submit"
-          disabled={pendiente}
-          className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-50"
-        >
+        <button type="submit" disabled={pendiente} className={BOTON_PANEL_PRIMARIO}>
           {pendiente ? "Guardando…" : "Guardar cambios"}
         </button>
         <button
           type="button"
           disabled={pendiente}
           onClick={onCancelarEdicion}
-          className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-50"
+          className={BOTON_PANEL}
         >
           Descartar
         </button>
@@ -637,8 +800,7 @@ function FormularioMover({
   onCancelarMovida: () => void;
 }) {
   const [nuevaFecha, setNuevaFecha] = useState(fechaActual);
-  const campo =
-    "w-full rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2 text-[13px] text-aventurea-ink";
+  const campo = CAMPO_PANEL;
 
   return (
     <form
@@ -649,9 +811,7 @@ function FormularioMover({
       }}
     >
       <label className="flex flex-col gap-1">
-        <span className="text-[11.5px] font-bold text-aventurea-ink-soft">
-          Mover al día
-        </span>
+        <span className={ROTULO_CAMPO}>Mover al día</span>
         <input
           type="date"
           value={nuevaFecha}
@@ -663,7 +823,7 @@ function FormularioMover({
         <button
           type="submit"
           disabled={pendiente || !nuevaFecha || nuevaFecha === fechaActual}
-          className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-50"
+          className={BOTON_PANEL_PRIMARIO}
         >
           {pendiente ? "Moviendo…" : "Mover reserva"}
         </button>
@@ -671,7 +831,7 @@ function FormularioMover({
           type="button"
           disabled={pendiente}
           onClick={onCancelarMovida}
-          className="rounded-xl border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-50"
+          className={BOTON_PANEL}
         >
           Descartar
         </button>

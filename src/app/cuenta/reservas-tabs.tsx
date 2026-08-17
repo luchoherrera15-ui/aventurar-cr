@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ESTADO_PILDORA, type EstadoPanel } from "@/components/panel/sistema";
 import TarjetaExpandible from "@/components/tarjeta-expandible";
 import ResenaForm from "./resena-form";
 import { categoriaLabel } from "@/lib/categorias-vertical";
@@ -50,14 +51,31 @@ const ESTADO_LABEL: Record<string, string> = {
   no_asistio: "No asististe",
   cancelada: "Cancelada",
 };
-const ESTADO_CLASE: Record<string, string> = {
-  pendiente: "bg-aventurea-sky/10 text-aventurea-ink",
-  confirmada: "bg-aventurea-green/10 text-aventurea-green",
-  rechazada: "bg-red-100 text-red-700",
-  cumplida: "bg-aventurea-green/10 text-aventurea-green",
-  no_asistio: "bg-red-100 text-red-700",
-  cancelada: "bg-aventurea-cream-2 text-aventurea-ink-soft",
+/**
+ * El estado de una reserva, en el vocabulario del panel.
+ *
+ * Antes cada estado traía su propio par de clases, y tres de los seis
+ * eran ALFAS (`bg-aventurea-sky/10`, `bg-aventurea-green/10`): el mismo
+ * estado se veía de un color distinto según la tarjeta sobre la que
+ * cayera —blanca en «Activas», atenuada en «Historial»— y su contraste
+ * no se podía medir una sola vez. Ahora se mapean a los cinco estados
+ * de `ESTADO_PILDORA`, que están medidos en `panel/sistema.ts` y son
+ * los mismos que usan el panel del negocio y el de lealtad.
+ *
+ * «En revisión» va a `aviso` y no a `info` a propósito: es la reserva
+ * que todavía puede caerse, o sea la que pide atención.
+ */
+const ESTADO_TONO: Record<string, EstadoPanel> = {
+  pendiente: "aviso",
+  confirmada: "exito",
+  rechazada: "alerta",
+  cumplida: "exito",
+  no_asistio: "alerta",
+  cancelada: "neutro",
 };
+const ESTADO_CLASE: Record<string, string> = Object.fromEntries(
+  Object.entries(ESTADO_TONO).map(([estado, tono]) => [estado, ESTADO_PILDORA[tono]]),
+);
 
 export default function ReservasTabs({
   activas,
@@ -149,7 +167,14 @@ function PestanaTab({
       }`}
     >
       {label}
-      <span className={`ml-1.5 ${activo ? "text-white/70" : "text-zinc-400"}`}>{cantidad}</span>
+      {/* El contador de la pestaña APAGADA estaba en `text-zinc-400`
+          (#a1a1aa): 2,56:1 sobre blanco, o sea reprobado — y es el
+          número que dice cuántas reservas hay de cada lado. Pasa al gris
+          de texto del panel, 7,12:1. El de la encendida deja el alfa por
+          el sólido del rail: 6,33:1 sobre el navy del relleno. */}
+      <span className={`ml-1.5 ${activo ? "text-aventurea-rail" : "text-aventurea-ink-soft"}`}>
+        {cantidad}
+      </span>
     </button>
   );
 }

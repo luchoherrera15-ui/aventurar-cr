@@ -7,6 +7,8 @@ import {
   textosDelTipo,
   type TextosDelTipo,
 } from "@/lib/lealtad/mostrador";
+import { CAMPO_PANEL, RADIO_CARD } from "@/components/panel/sistema";
+import { ACCION, ACCION_TINTA, BOTON_ACCION, BOTON_LEALTAD } from "../sistema-lealtad";
 import type { TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import {
   acreditarOperacion,
@@ -304,7 +306,8 @@ function FilaCliente({
                 type="button"
                 onClick={sumarSello}
                 disabled={ocupado !== null}
-                className="rounded-[10px] bg-aventurea-ink px-4 py-2 text-[12.5px] font-bold text-white disabled:opacity-40"
+                className={BOTON_ACCION}
+                style={{ background: ACCION, color: ACCION_TINTA }}
               >
                 {ocupado === "sello" ? "Guardando…" : textos.verboSumar}
               </button>
@@ -316,7 +319,7 @@ function FilaCliente({
               type="button"
               onClick={entregar}
               disabled={ocupado !== null}
-              className="rounded-[10px] bg-aventurea-green px-4 py-2 text-[12.5px] font-bold text-white disabled:opacity-40"
+              className={`${BOTON_LEALTAD} border-transparent bg-aventurea-green text-white`}
             >
               {ocupado === "canje" ? "Entregando…" : `${textos.verboCanje}: ${recompensa.nombre}`}
             </button>
@@ -327,7 +330,7 @@ function FilaCliente({
               type="button"
               onClick={cambiarEstado}
               disabled={ocupado !== null}
-              className="rounded-[10px] border border-aventurea-line bg-white px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-40"
+              className={BOTON_LEALTAD}
             >
               {ocupado === "estado" ? "Guardando…" : activa ? "Pausar" : "Reactivar"}
             </button>
@@ -421,12 +424,13 @@ export function BuscarYAtender({
           onChange={(e) => setTexto(e.target.value)}
           placeholder="Nombre del cliente"
           aria-label="Nombre del cliente"
-          className="min-w-0 flex-1 rounded-[10px] border border-aventurea-line bg-white px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500"
+          className={`min-w-0 flex-1 ${CAMPO_PANEL}`}
         />
         <button
           type="submit"
           disabled={buscando}
-          className="rounded-[10px] bg-aventurea-ink px-5 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+          className={BOTON_ACCION}
+          style={{ background: ACCION, color: ACCION_TINTA }}
         >
           {buscando ? "Buscando…" : "Buscar"}
         </button>
@@ -516,11 +520,11 @@ export function ListaClientes({
           onChange={(e) => setFiltro(e.target.value)}
           placeholder="Buscar por nombre"
           aria-label="Buscar un cliente por nombre"
-          className="mb-3 w-full max-w-[320px] rounded-[10px] border border-aventurea-line bg-white px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500"
+          className={`mb-3 w-full max-w-[320px] ${CAMPO_PANEL}`}
         />
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
+      <div className={`overflow-hidden ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface`}>
         {visibles.length === 0 ? (
           <p className="px-4 py-5 text-center text-[13px] text-aventurea-ink-soft">
             Nadie con ese nombre en esta lista.

@@ -44,8 +44,13 @@ export default function EditarPerfil({
         type="button"
         onClick={() => setAbierto(true)}
         className={
+          /* La variante oscura calca el ítem del rail del panel: mismo
+             alto (38), mismo radio, mismo peso — y `text-aventurea-rail`
+             sólido (6,33:1 sobre el navy) en vez de `text-white/75`, que
+             cambiaba de color según el punto del degradé sobre el que
+             cayera y no se podía medir una sola vez. */
           variante === "oscuro"
-            ? "inline-flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+            ? "flex min-h-[38px] w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-bold text-aventurea-rail transition-colors hover:bg-white/10 hover:text-white"
             : "inline-flex items-center gap-1.5 rounded-xl border border-aventurea-line bg-aventurea-surface px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
         }
       >

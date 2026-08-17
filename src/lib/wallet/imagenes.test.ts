@@ -359,6 +359,68 @@ describe("dibujarTiraDeSellos con un icono elegido (0145)", () => {
   });
 });
 
+describe("dibujarTiraDeSellos con una IMAGEN adentro del sello (logo o ícono propio)", () => {
+  /**
+   * El ícono propio de la 0174 entra por el MISMO parámetro que el
+   * logo: para esta función las dos son «la imagen del negocio adentro
+   * del círculo», y quién de las dos es lo decide `generar.ts` con
+   * `imagenDentroDelSello`.
+   *
+   * Lo que se prueba acá son LOS DOS ESTADOS, que es lo que separa una
+   * tarjeta que se entiende de una que se ve rota a la mitad: el ganado
+   * es el disco blanco con el dibujo, y el que falta es el mismo disco
+   * tenue. Con una sola forma de dibujar los dos, no hay estado que
+   * quede sin resolver — que era el riesgo de inventarle un aro vacío a
+   * una imagen rasterizada.
+   */
+  const BLANCO: [number, number, number] = [255, 255, 255];
+  /** Un ícono de mentira: un cuadrado azul, opaco y con borde. */
+  const icono = () => foto(120, 120, [["#1144aa", 120]]);
+
+  it("el ganado y el que falta se distinguen: el mismo disco, uno tenue", async () => {
+    const imagen = await icono();
+    const todos = await dibujarTiraDeSellos({
+      total: 10, logrados: 10, colores: COLORES, imagen, banda: null, escala: 2,
+    });
+    const ninguno = await dibujarTiraDeSellos({
+      total: 10, logrados: 0, colores: COLORES, imagen, banda: null, escala: 2,
+    });
+    // El disco es blanco cuando hay imagen (así lo hace `selloRedondo`
+    // desde que el sello era el logo). Apagado, ese blanco se va.
+    const llenos = await cuantosDe(todos, BLANCO);
+    expect(llenos).toBeGreaterThan(1000);
+    expect(await cuantosDe(ninguno, BLANCO)).toBeLessThan(llenos * 0.2);
+  });
+
+  it("la imagen se ve adentro del círculo, no solo el disco", async () => {
+    const tira = await dibujarTiraDeSellos({
+      total: 6, logrados: 6, colores: COLORES, imagen: await icono(), banda: null, escala: 2,
+    });
+    // El azul del ícono tiene que sobrevivir al recorte circular.
+    expect(await cuantosDe(tira, [17, 68, 170])).toBeGreaterThan(500);
+  });
+
+  it("sigue midiendo lo que Apple espera en las tres escalas", async () => {
+    const imagen = await icono();
+    for (const [escala, ancho, alto] of [[1, 375, 123], [2, 750, 246], [3, 1125, 369]] as const) {
+      const tira = await dibujarTiraDeSellos({
+        total: 10, logrados: 5, colores: COLORES, imagen, banda: null, escala,
+      });
+      const m = await sharp(tira).metadata();
+      expect([m.width, m.height]).toEqual([ancho, alto]);
+    }
+  });
+
+  it("los sellos con imagen tampoco llegan al borde", async () => {
+    const tira = await dibujarTiraDeSellos({
+      total: 10, logrados: 5, colores: COLORES, imagen: await icono(), banda: null, escala: 2,
+    });
+    const m = await margenes(tira);
+    expect(m.izq).toBeGreaterThan(m.ancho * 0.05);
+    expect(m.der).toBeGreaterThan(m.ancho * 0.05);
+  });
+});
+
 describe("dibujarLogo", () => {
   it("escribe el nombre del negocio cuando no hay logo subido", async () => {
     const logo = await dibujarLogo({ nombre: "Pura Matcha", imagen: null, ancho: 320, alto: 100 });

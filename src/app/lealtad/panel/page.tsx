@@ -8,6 +8,18 @@ import { definicionDe } from "@/lib/lealtad/planes";
 import { estadoDeAddon } from "@/lib/addons";
 import { elegirDeFilasCrudas } from "@/lib/wallet/programa-principal";
 import { minutoISOCR } from "@/lib/fechas";
+import { Card, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BAJADA_PANTALLA,
+  CUERPO_SUAVE,
+  EYEBROW_NEUTRO,
+  GAP_TABLERO,
+  RADIO_CARD,
+  RADIO_TILE,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
+import { ACCION, ACCION_BORDE, ACCION_TINTA, ACCION_TINTE } from "./sistema-lealtad";
+import "./panel-oscuro.css";
 
 /**
  * EL DASHBOARD DE LEALTAD: a donde aterriza quien entra por
@@ -26,15 +38,6 @@ import { minutoISOCR } from "@/lib/fechas";
  */
 
 const NAVY_PROFUNDO = "#0a1226";
-
-/* El azul de acción, en su versión para fondo oscuro. Toda esta
-   pantalla vive sobre navy profundo, donde el azul de marca se apaga:
-   `--accion-claro` es el que sí se lee ahí, y viene con su letra ya
-   decidida (`--accion-claro-tinta`) para que nadie le ponga blanco
-   encima. El tinte translúcido usa la misma familia. */
-const ACCION = "var(--accion-claro)";
-const ACCION_TINTA = "var(--accion-claro-tinta)";
-const ACCION_TINTE = "rgba(157,180,255,.14)";
 
 export const metadata = {
   title: "Mis negocios · Lealtad Bookea",
@@ -169,82 +172,81 @@ export default async function PanelLealtadPage() {
   }
 
   return (
-    <main className="min-h-svh px-5 py-10" style={{ background: NAVY_PROFUNDO }}>
+    /* `lealtad-oscuro`: esta pantalla vive fuera del shell del panel, así
+       que sin la clase no recibiría el traductor de tema y las piezas
+       del sistema (tarjeta, píldora, kicker) saldrían con sus colores
+       para fondo claro sobre navy. */
+    <main
+      className="lealtad-oscuro min-h-svh px-4 pb-12 sm:px-6"
+      style={{ background: NAVY_PROFUNDO }}
+    >
       <div className="mx-auto w-full max-w-[960px]">
-        {/* Chrome mínimo del dashboard: el logo vuelve a la landing, y
-            la cuenta general queda a un link — sin duplicar menús. */}
-        <header className="flex items-center justify-between">
+        {/* La misma barra de 64px que el panel: es el chrome del
+            producto, no de una pantalla. */}
+        <header className="flex h-16 items-center justify-between">
           <Link href="/lealtad">
             <Image
               src="/logo-bookea-blanco-v4.png"
               alt="Bookea"
               width={132}
               height={41}
-              className="h-[30px] w-auto"
+              className="h-[26px] w-auto"
             />
           </Link>
-          <Link href="/cuenta" className="text-[12.5px] font-bold text-white/50 hover:text-white">
+          <Link
+            href="/cuenta"
+            className="text-[12.5px] font-bold text-aventurea-rail hover:text-white"
+          >
             Tu cuenta →
           </Link>
         </header>
 
-        <h1 className="mt-10 text-[26px] font-extrabold text-white">Mis negocios</h1>
-        <p className="mt-1 text-[14px] text-white/55">
+        <p className={`mt-6 ${EYEBROW_NEUTRO}`}>Programas de lealtad</p>
+        <h1 className={`mt-1.5 ${TITULO_PANTALLA}`}>Mis negocios</h1>
+        <p className={`mt-1.5 ${BAJADA_PANTALLA}`}>
           Elegí un negocio para administrar su programa de lealtad.
         </p>
 
-        <div className="mt-7 grid gap-4 sm:grid-cols-2">
+        <div className={`mt-6 grid ${GAP_TABLERO} sm:grid-cols-2`}>
           {/* Los trámites de alta esperando a Bookea: el negocio aún no
               existe, pero el dueño ve que su solicitud está viva. */}
           {altasPendientes.map((a) => (
-            <div
+            <Card
               key={a.id}
-              className="rounded-2xl border border-dashed p-5"
-              style={{ background: "rgba(255,255,255,.03)", borderColor: "rgba(255,255,255,.2)" }}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="min-w-0 flex-1 truncate text-[16.5px] font-bold text-white/85">
-                  {a.negocio_nombre}
-                </h2>
-                <span
-                  className="rounded-full px-2.5 py-0.5 text-[10.5px] font-bold"
-                  style={{ background: ACCION_TINTE, color: ACCION }}
-                >
+              eyebrow="Trámite en curso"
+              titulo={a.negocio_nombre ?? "Negocio nuevo"}
+              accion={
+                <PildoraEstado estado="aviso">
                   {definicionDe(a.plan)?.nombre ?? a.plan}
-                </span>
-              </div>
-              <p className="mt-1.5 text-[12.5px] text-white/50">
+                </PildoraEstado>
+              }
+            >
+              <p className={CUERPO_SUAVE}>
                 Solicitud en revisión — recibimos tu depósito y te avisamos al correo al
                 crear el negocio.
               </p>
-              <p className="mt-4 rounded-xl border border-dashed border-white/25 px-4 py-3 text-center text-[12.5px] font-bold text-white/50">
-                ⏳ Esperando a Bookea
+              <p
+                className={`mt-4 ${RADIO_TILE} border border-dashed border-aventurea-line px-4 py-3 text-center text-[12.5px] font-bold text-aventurea-ink-soft`}
+              >
+                Esperando a Bookea
               </p>
-            </div>
+            </Card>
           ))}
           {negocios.map((n) => (
-            <div
+            <Card
               key={n.id}
-              className="rounded-2xl border p-5"
-              style={{ background: "rgba(255,255,255,.045)", borderColor: "rgba(255,255,255,.12)" }}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="min-w-0 flex-1 truncate text-[16.5px] font-bold text-white">
-                  {n.nombre}
-                </h2>
-                <span
-                  className="rounded-full px-2.5 py-0.5 text-[10.5px] font-bold"
-                  style={
-                    n.plan
-                      ? { background: ACCION_TINTE, color: ACCION }
-                      : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.5)" }
-                  }
-                >
+              eyebrow="Negocio"
+              titulo={n.nombre}
+              /* El paquete como píldora del sistema: es un ESTADO —tiene
+                 plan o no lo tiene— y así se ve igual acá que adentro
+                 del panel. */
+              accion={
+                <PildoraEstado estado={n.plan ? "info" : "neutro"}>
                   {definicionDe(n.plan)?.nombre ?? "Sin plan"}
-                </span>
-              </div>
-
-              <p className="mt-1.5 text-[12.5px] text-white/50">
+                </PildoraEstado>
+              }
+            >
+              <p className={CUERPO_SUAVE}>
                 {n.enRevision
                   ? "En revisión de Bookea — te avisamos al aprobarlo"
                   : n.estadoPrograma === "activo"
@@ -262,13 +264,15 @@ export default async function PanelLealtadPage() {
                   revisión (0129): sin botones — todo espera al admin. */}
               <div className="mt-4 grid gap-2">
                 {n.enRevision ? (
-                  <p className="rounded-xl border border-dashed border-white/25 px-4 py-3 text-center text-[12.5px] font-bold text-white/50">
-                    ⏳ Esperando aprobación
+                  <p
+                    className={`${RADIO_TILE} border border-dashed border-aventurea-line px-4 py-3 text-center text-[12.5px] font-bold text-aventurea-ink-soft`}
+                  >
+                    Esperando aprobación
                   </p>
                 ) : n.addonActivo ? (
                   <Link
                     href={`/lealtad/panel/${n.id}`}
-                    className="flex items-center justify-between rounded-xl px-4 py-3 text-[13.5px] font-bold transition-transform hover:scale-[1.01]"
+                    className={`flex items-center justify-between ${RADIO_TILE} px-4 py-3 text-[13.5px] font-extrabold transition-opacity hover:opacity-90`}
                     style={{ background: ACCION, color: ACCION_TINTA }}
                   >
                     Plan de Lealtad
@@ -277,14 +281,17 @@ export default async function PanelLealtadPage() {
                 ) : (
                   <Link
                     href={`/lealtad/planes?negocio=${n.id}`}
-                    className="flex items-center justify-between rounded-xl border px-4 py-3 text-[13.5px] font-bold transition-colors hover:bg-white/10"
-                    style={{ borderColor: ACCION, color: ACCION }}
+                    className={`flex items-center justify-between ${RADIO_TILE} border px-4 py-3 text-[13.5px] font-bold transition-colors hover:bg-white/10`}
+                    style={{ borderColor: ACCION_BORDE, color: ACCION }}
                   >
                     Solicitar el plan
                     <span aria-hidden>→</span>
                   </Link>
                 )}
-                <p className="text-center text-[11px] text-white/30">
+                {/* Era `text-white/30` — 2,32:1 sobre el navy, o sea que
+                    la línea existía y no se leía. Va con el gris de
+                    texto del módulo, 6,81:1. */}
+                <p className="text-center text-[11px] text-aventurea-ink-soft">
                   Más herramientas de Bookea, pronto.
                 </p>
               </div>
@@ -292,34 +299,37 @@ export default async function PanelLealtadPage() {
               {n.estadoPrograma === "activo" && n.slug && (
                 <Link
                   href={`/tarjeta/${n.slug}`}
-                  className="mt-2 block text-center text-[12px] font-bold text-white/45 underline hover:text-white/80"
+                  className="mt-2 block text-center text-[12px] font-bold text-aventurea-navy underline"
                 >
                   Ver la tarjeta como la ve tu cliente
                 </Link>
               )}
-            </div>
+            </Card>
           ))}
 
           {/* Crear otro programa — o el primero. */}
           <Link
             href="/lealtad/nuevo"
-            className="flex min-h-[150px] flex-col items-center justify-center rounded-2xl border border-dashed p-5 text-center transition-colors hover:border-white/50"
-            style={{ borderColor: "rgba(255,255,255,.25)" }}
+            className={`flex min-h-[150px] flex-col items-center justify-center ${RADIO_CARD} border border-dashed border-aventurea-line bg-aventurea-cream-2 p-5 text-center transition-colors hover:border-aventurea-navy`}
           >
-            <span className="text-[28px] text-white/60" aria-hidden>
+            <span
+              aria-hidden
+              className="grid h-10 w-10 place-items-center rounded-xl text-[22px] leading-none"
+              style={{ background: ACCION_TINTE, color: ACCION }}
+            >
               +
             </span>
-            <span className="mt-1 text-[13.5px] font-bold text-white/80">
+            <span className="mt-2.5 text-[13.5px] font-bold text-aventurea-ink">
               {negocios.length === 0 ? "Creá tu primer programa" : "Otro negocio"}
             </span>
-            <span className="mt-0.5 text-[11.5px] text-white/40">
+            <span className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
               Sin publicarte en el marketplace
             </span>
           </Link>
         </div>
 
         {negocios.length === 0 && (
-          <p className="mt-6 text-center text-[13px] text-white/40">
+          <p className="mt-6 text-center text-[13px] text-aventurea-ink-soft">
             Todavía no administrás ningún negocio — creá el primero arriba y en dos
             campos estás adentro.
           </p>

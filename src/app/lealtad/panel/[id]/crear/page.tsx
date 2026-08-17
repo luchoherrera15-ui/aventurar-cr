@@ -4,6 +4,11 @@ import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { hiloAbiertoDeAyuda } from "@/lib/lealtad/ayuda-hilo";
+import {
+  BAJADA_PANTALLA,
+  EYEBROW_NEUTRO,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
 import CreadorTarjeta from "../creador-tarjeta";
 
 /**
@@ -72,6 +77,11 @@ export default async function CrearTarjetaPage({
   // la deriva del `ranchoId` que ya verificó.
 
   return (
+    /* Pantalla CLARA a propósito (el asistente necesita mostrar la
+       tarjeta con sus colores reales sobre un fondo neutro), pero con el
+       lienzo del panel: `--grey` es exactamente el mismo gris que usa
+       `LIENZO_PANEL`, así que la superficie blanca del asistente se
+       despega igual que una tarjeta del tablero. */
     <main className="min-h-svh" style={{ background: "var(--grey)" }}>
       <div className="mx-auto w-full max-w-[1100px] px-4 py-6 sm:px-6 sm:py-8">
         <Link
@@ -81,9 +91,10 @@ export default async function CrearTarjetaPage({
           ← Volver al panel
         </Link>
 
-        <h1 className="mt-4 text-[26px] font-extrabold leading-tight text-bookea-tinta sm:text-[30px]">
-          Crear una tarjeta
-        </h1>
+        {/* El titular del panel: kicker de contexto + h1 + bajada. Los
+            cinco pasos se cuentan del asistente, no se escriben acá. */}
+        <p className={`mt-4 ${EYEBROW_NEUTRO}`}>Asistente · 5 pasos</p>
+        <h1 className={`mt-1.5 ${TITULO_PANTALLA}`}>Crear una tarjeta</h1>
         {/* Las dos mitades de este texto eran falsas y se corrigieron.
             «Nace en borrador» dejó de ser cierto cuando la tarjeta pasó
             a nacer activa (`estado-inicial.ts`), y «podés cambiar todo
@@ -91,7 +102,7 @@ export default async function CrearTarjetaPage({
             se escribían al crear. Ahora se cambian desde el editor de
             la tarjeta, y lo único que se congela es el tipo — en cuanto
             hay un cliente adentro. Eso es lo que dice el texto. */}
-        <p className="mt-1.5 max-w-[560px] text-[14px] leading-relaxed text-bookea-gris">
+        <p className={`mt-1.5 max-w-[560px] ${BAJADA_PANTALLA}`}>
           Cinco pasos y queda publicada: apenas termines, tus clientes ya la pueden llevar en
           el teléfono. Después podés cambiarle el beneficio, las reglas, las regalías y el
           diseño — el tipo de tarjeta queda fijo en cuanto se afilie el primer cliente.

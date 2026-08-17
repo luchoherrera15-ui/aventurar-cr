@@ -5,6 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
 import RanchoCard, { type Calificacion } from "@/components/rancho-card";
 import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
+import { CardVacia } from "@/components/panel/piezas";
+import {
+  BAJADA_PANTALLA,
+  EYEBROW_NEUTRO,
+  LIENZO_PANEL,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
 import type { Rancho } from "../../mi-negocio/types";
 
 export const metadata: Metadata = {
@@ -54,9 +61,9 @@ export default async function CuentaFavoritosPage() {
   );
 
   return (
-    <div className="min-h-screen bg-aventurea-cream">
+    <div className={`min-h-screen ${LIENZO_PANEL}`}>
       <SiteHeader breadcrumb="Tus favoritos" ancho="max-w-[960px]" />
-      <main className="mx-auto max-w-[960px] px-6 py-8">
+      <main className="mx-auto max-w-[960px] px-4 py-6 sm:px-6">
         <Link
           href="/cuenta"
           className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -64,20 +71,27 @@ export default async function CuentaFavoritosPage() {
           ← Volver a tu cuenta
         </Link>
 
-        <h1 className="titulo mt-3 text-2xl text-aventurea-ink">Tus favoritos</h1>
-        <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
+        {/* El contador se CUENTA de la lista: si mañana hay uno más, el
+            kicker lo sigue solo. */}
+        <p className={`mt-4 ${EYEBROW_NEUTRO}`}>
+          {favoritos.length} guardado{favoritos.length === 1 ? "" : "s"}
+        </p>
+        <h1 className={`mt-1.5 ${TITULO_PANTALLA}`}>Tus favoritos</h1>
+        <p className={`mt-1.5 ${BAJADA_PANTALLA}`}>
           Los negocios que guardaste para volver a ellos.
         </p>
 
         {favoritos.length === 0 ? (
-          <p className="mt-6 rounded-2xl border border-dashed border-aventurea-line bg-aventurea-surface p-8 text-center text-[13.5px] text-aventurea-ink-soft">
-            Todavía no guardaste ningún favorito. Tocá el corazón de cualquier
-            negocio del{" "}
-            <Link href="/eventos" className="font-bold text-aventurea-navy hover:underline">
-              directorio
-            </Link>{" "}
-            y acá te espera.
-          </p>
+          <div className="mt-6">
+            <CardVacia>
+              Todavía no guardaste ningún favorito. Tocá el corazón de cualquier
+              negocio del{" "}
+              <Link href="/eventos" className="font-bold text-aventurea-navy hover:underline">
+                directorio
+              </Link>{" "}
+              y acá te espera.
+            </CardVacia>
+          </div>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3">
             {favoritos.map((r, i) => (

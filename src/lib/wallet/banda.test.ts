@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tarjetaDesdeFila, tiraDelPase, type MetaRecompensa } from "./tarjeta";
+import { selloDeLaConfig, tarjetaDesdeFila, tiraDelPase, type MetaRecompensa } from "./tarjeta";
 import { construirObjeto, contenidoDelObjeto } from "./google";
 import {
   describirEscalon,
@@ -162,6 +162,66 @@ describe("el icono del sello sale de la fila y llega a la config (0145)", () => 
     expect(conIcono).toEqual(sinIcono);
     expect(parcheDeLaFila(fila("sellos", { pase_sello_icono: "cafe" })))
       .toEqual(parcheDeLaFila(fila("sellos")));
+  });
+});
+
+describe("el ícono PROPIO del negocio sale de la fila (0174)", () => {
+  const URL_ICONO =
+    "https://proyecto.supabase.co/storage/v1/object/public/ranchos-fotos/lealtad/iconos/u/1.png";
+
+  it("las dos columnas viajan juntas hasta la config", () => {
+    const f = fila("sellos", { pase_sello_icono: "propio", pase_sello_icono_url: URL_ICONO });
+    const { config } = tarjetaDesdeFila(f);
+    expect(config.pase_sello_icono).toBe("propio");
+    expect(config.pase_sello_icono_url).toBe(URL_ICONO);
+    expect(selloDeLaConfig(config)).toEqual({ clase: "propio", url: URL_ICONO });
+  });
+
+  it("la 0174 sin correr: la fila llega sin la columna y el pase sale como hoy", () => {
+    // El mismo caso que la 0145: mientras el dueño no pegue la
+    // migración, `select *` no trae la columna y el sello es el de
+    // siempre. Nada se cae por eso.
+    for (const tipo of TIPOS_TARJETA_ID) {
+      const sinColumna = fila(tipo, { pase_sello_icono: "cafe" });
+      delete sinColumna.pase_sello_icono_url;
+      expect(tarjetaDesdeFila(sinColumna).config.pase_sello_icono_url).toBeNull();
+      expect(() => tiraDeLaFila(sinColumna)).not.toThrow();
+    }
+  });
+
+  it("'propio' sin archivo se lee como el logo de siempre", () => {
+    // La base lo impide con un CHECK, pero una fila vieja o una
+    // petición armada a mano no son imposibles: el sello se cae al
+    // comportamiento anterior en vez de salir vacío en el teléfono.
+    const f = fila("sellos", { pase_sello_icono: "propio", pase_sello_icono_url: null });
+    const { config } = tarjetaDesdeFila(f);
+    expect(config.pase_sello_icono).toBeNull();
+    expect(selloDeLaConfig(config)).toEqual({ clase: "logo" });
+  });
+
+  it("una URL que no es https no llega al generador", () => {
+    // Esa cadena termina en un `fetch` del servidor al armar el pase.
+    for (const basura of ["http://sitio.com/i.png", "javascript:alert(1)", 42, {}, true]) {
+      const f = fila("sellos", { pase_sello_icono: "propio", pase_sello_icono_url: basura });
+      expect(tarjetaDesdeFila(f).config.pase_sello_icono_url).toBeNull();
+    }
+  });
+
+  it("una tarjeta que no es de sellos no arrastra el ícono ni su archivo", () => {
+    for (const tipo of SIN_SELLOS) {
+      const { config } = tarjetaDesdeFila(
+        fila(tipo, { pase_sello_icono: "propio", pase_sello_icono_url: URL_ICONO }),
+      );
+      expect(config.pase_sello_icono).toBeNull();
+      expect(config.pase_sello_icono_url).toBeNull();
+    }
+  });
+
+  it("tampoco le cambia nada al pase de Google", () => {
+    const conPropio = objetoDeLaFila(
+      fila("sellos", { pase_sello_icono: "propio", pase_sello_icono_url: URL_ICONO }),
+    );
+    expect(conPropio).toEqual(objetoDeLaFila(fila("sellos")));
   });
 });
 

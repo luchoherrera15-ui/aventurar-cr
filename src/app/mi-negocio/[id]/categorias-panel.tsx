@@ -1,6 +1,22 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { IconChevronDown, IconPlus } from "@/components/icons";
+import { Card, CardVacia, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  DETALLE,
+  ESTADO_AVISO,
+} from "@/components/panel/sistema";
+import {
+  ACCIONES_FILA,
+  BOTON_FILA,
+  BOTON_FILA_ICONO,
+  BOTON_FILA_PELIGRO,
+  FilaFicha,
+  LISTA_FICHAS,
+} from "./fila-ficha";
 import {
   crearCategoria,
   eliminarCategoria,
@@ -9,9 +25,6 @@ import {
   type CategoriaNegocio,
 } from "./categorias-actions";
 
-const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
-
 /**
  * El orden de las secciones del catálogo (categorias_negocio, 0119).
  *
@@ -19,6 +32,12 @@ const inputCls =
  * apuntando a su sección por nombre, desde el formulario de arriba.
  * Por eso una sección puede existir en el catálogo sin estar en esta
  * lista — funciona igual, solo que se acomoda sola al final.
+ *
+ * Es una tarjeta del panel más, con la MISMA fila y los MISMOS botones
+ * chicos que el catálogo que tiene arriba: antes las flechas eran dos
+ * triángulos de texto (▲▼) de 11px y las acciones, tres enlaces
+ * subrayados — tres lenguajes distintos para las mismas tres acciones
+ * que la lista de servicios ya tenía como botones.
  */
 export default function CategoriasPanel({
   ranchoId,
@@ -100,113 +119,147 @@ export default function CategoriasPanel({
   }
 
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-      <h3 className="text-[15px] font-bold text-aventurea-ink">
-        Orden de las secciones
-      </h3>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-        El orden en que el cliente ve tus secciones al reservar. Las que no
-        pongás acá salen después, en el orden en que aparecen tus servicios.
+    <Card
+      eyebrow="Cómo se ordena"
+      titulo="Orden de las secciones"
+      accion={
+        sinOrdenar.length > 0 ? (
+          <PildoraEstado estado="aviso">{sinOrdenar.length} sin ordenar</PildoraEstado>
+        ) : (
+          <span className={DETALLE}>
+            {categorias.length} secci{categorias.length === 1 ? "ón" : "ones"}
+          </span>
+        )
+      }
+    >
+      <p className={`leading-relaxed ${DETALLE}`}>
+        El orden en que el cliente ve tus secciones al reservar. Las que no pongás acá salen
+        después, en el orden en que aparecen tus servicios.
       </p>
 
       {error && (
-        <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-[12.5px] font-bold text-red-700">
+        <p role="alert" className={`mt-3 rounded-xl p-3 text-[13px] ${ESTADO_AVISO.alerta}`}>
           {error}
         </p>
       )}
 
-      {categorias.length > 0 && (
-        <ul className="mt-4 space-y-2">
-          {categorias.map((c, i) => (
-            <li
-              key={c.id}
-              className="flex items-center gap-2 rounded-xl border border-aventurea-line bg-white px-3 py-2"
-            >
-              <div className="flex flex-col">
-                <button
-                  type="button"
-                  onClick={() => mover(i, -1)}
-                  disabled={pending || i === 0}
-                  aria-label={`Subir ${c.nombre}`}
-                  className="text-[11px] leading-none text-aventurea-ink-soft disabled:opacity-30"
+      {categorias.length === 0 ? (
+        <div className="mt-3.5">
+          <CardVacia>
+            Todavía no fijaste ningún orden. Mientras tanto tus secciones salen en el orden
+            en que aparecen tus servicios.
+          </CardVacia>
+        </div>
+      ) : (
+        <div className={`mt-3.5 ${LISTA_FICHAS}`}>
+          {categorias.map((c, i) => {
+            const ultima = i === categorias.length - 1;
+            if (editando === c.id) {
+              return (
+                <div
+                  key={c.id}
+                  className={`flex flex-wrap items-center gap-2 p-3.5 sm:px-4 ${
+                    ultima ? "" : "border-b border-aventurea-line"
+                  }`}
                 >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  onClick={() => mover(i, 1)}
-                  disabled={pending || i === categorias.length - 1}
-                  aria-label={`Bajar ${c.nombre}`}
-                  className="text-[11px] leading-none text-aventurea-ink-soft disabled:opacity-30"
-                >
-                  ▼
-                </button>
-              </div>
-
-              {editando === c.id ? (
-                <>
                   <input
                     value={borradorNombre}
                     onChange={(e) => setBorradorNombre(e.target.value)}
                     maxLength={40}
-                    className={inputCls}
+                    aria-label={`Nuevo nombre de ${c.nombre}`}
+                    className={`min-w-[180px] flex-1 ${CAMPO_PANEL}`}
                   />
-                  <button
-                    type="button"
-                    onClick={() => renombrar(c.id)}
-                    disabled={pending}
-                    className="shrink-0 text-[12.5px] font-bold text-aventurea-ink underline"
+                  <div className={ACCIONES_FILA}>
+                    <button
+                      type="button"
+                      onClick={() => renombrar(c.id)}
+                      disabled={pending}
+                      className={BOTON_FILA}
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditando(null)}
+                      className={BOTON_FILA}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <FilaFicha
+                key={c.id}
+                separador={!ultima}
+                // El orden ES el dato de esta lista: el número dice en
+                // qué puesto sale la sección, que es justo lo que las
+                // flechas cambian.
+                medio={
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-[12.5px] font-extrabold tabular-nums text-aventurea-ink-soft"
                   >
-                    Guardar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditando(null)}
-                    className="shrink-0 text-[12.5px] font-bold text-aventurea-ink-soft underline"
-                  >
-                    Cancelar
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="flex-1 text-[13.5px] font-bold text-aventurea-ink">
-                    {c.nombre}
+                    {i + 1}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditando(c.id);
-                      setBorradorNombre(c.nombre);
-                    }}
-                    className="shrink-0 text-[12.5px] font-bold text-aventurea-ink-soft underline"
-                  >
-                    Renombrar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => eliminar(c.id)}
-                    disabled={pending}
-                    className="shrink-0 text-[12.5px] font-bold text-red-700 underline"
-                  >
-                    Quitar
-                  </button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
+                }
+                titulo={c.nombre}
+                acciones={
+                  <div className={ACCIONES_FILA}>
+                    <button
+                      type="button"
+                      onClick={() => mover(i, -1)}
+                      disabled={pending || i === 0}
+                      aria-label={`Subir ${c.nombre}`}
+                      className={BOTON_FILA_ICONO}
+                    >
+                      <IconChevronDown className="h-3.5 w-3.5 rotate-180" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => mover(i, 1)}
+                      disabled={pending || ultima}
+                      aria-label={`Bajar ${c.nombre}`}
+                      className={BOTON_FILA_ICONO}
+                    >
+                      <IconChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditando(c.id);
+                        setBorradorNombre(c.nombre);
+                      }}
+                      className={BOTON_FILA}
+                    >
+                      Renombrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => eliminar(c.id)}
+                      disabled={pending}
+                      className={BOTON_FILA_PELIGRO}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                }
+              />
+            );
+          })}
+        </div>
       )}
 
       {editando !== null && (
-        <p className="mt-2 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-          Al renombrar, los servicios que están en esa sección se pasan solos a
-          la nueva.
+        <p className={`mt-2 leading-relaxed ${DETALLE}`}>
+          Al renombrar, los servicios que están en esa sección se pasan solos a la nueva.
         </p>
       )}
 
       {sinOrdenar.length > 0 && (
         <div className="mt-4">
-          <p className="text-[12.5px] font-bold text-aventurea-ink-soft">
+          <p className="text-[12.5px] font-bold text-aventurea-ink">
             Secciones que ya usás y todavía no ordenaste
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -216,16 +269,16 @@ export default function CategoriasPanel({
                 type="button"
                 onClick={() => agregar(g)}
                 disabled={pending}
-                className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink"
+                className={BOTON_FILA}
               >
-                + {g}
+                <IconPlus className="h-3 w-3" /> {g}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <input
           value={nueva}
           onChange={(e) => setNueva(e.target.value)}
@@ -237,22 +290,23 @@ export default function CategoriasPanel({
           }}
           maxLength={40}
           placeholder="Nueva sección — ej. Cortes"
-          className={inputCls}
+          aria-label="Nueva sección"
+          className={`min-w-[180px] flex-1 ${CAMPO_PANEL}`}
         />
         <button
           type="button"
           onClick={() => agregar(nueva)}
           disabled={pending || !nueva.trim()}
-          className="shrink-0 rounded-[10px] bg-aventurea-ink px-4 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+          className={BOTON_PANEL_PRIMARIO}
         >
           Agregar
         </button>
       </div>
 
-      <p className="mt-3 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-        Quitar una sección de esta lista no borra ningún servicio: solo pierde
-        su lugar fijo y vuelve a acomodarse sola.
+      <p className={`mt-3 leading-relaxed ${DETALLE}`}>
+        Quitar una sección de esta lista no borra ningún servicio: solo pierde su lugar fijo
+        y vuelve a acomodarse sola.
       </p>
-    </div>
+    </Card>
   );
 }

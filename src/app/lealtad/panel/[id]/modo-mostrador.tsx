@@ -3,6 +3,9 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { Card } from "@/components/panel/piezas";
+import { BAJADA_PANTALLA, ESTADO_AVISO, RADIO_CARD, RADIO_TILE } from "@/components/panel/sistema";
+import { ACCION, ACCION_BORDE, ACCION_TINTA, ACCION_TINTE, BOTON_ACCION } from "../sistema-lealtad";
 import { sembrarBeneficioFaltante } from "./crear-actions";
 import { BuscarYAtender, type PermisosMostrador } from "./atencion-manual";
 
@@ -26,7 +29,7 @@ import { BuscarYAtender, type PermisosMostrador } from "./atencion-manual";
 const EscanerPanel = dynamic(() => import("./escaner-panel"), {
   ssr: false,
   loading: () => (
-    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+    <div className={`${RADIO_CARD} border border-aventurea-line bg-aventurea-surface p-5`}>
       <p className="text-[13px] font-bold text-aventurea-ink-soft">Preparando el escáner…</p>
     </div>
   ),
@@ -61,12 +64,11 @@ export default function ModoMostrador({
   const tipoTarjeta = tipoDe(tipo);
 
   return (
-    <div
-      className="rounded-3xl border p-4 sm:p-6"
-      style={{ background: "rgba(255,255,255,.035)", borderColor: "rgba(255,255,255,.09)" }}
-    >
-      <h2 className="text-[18px] font-extrabold text-white">Escaneá la tarjeta del cliente</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-white/55">
+    /* La tarjeta del sistema con su encabezado: en la caja, esta es la
+       única pantalla que se ve, así que tiene que decir sin leer que es
+       LA pantalla de atender — kicker, título y nada más compitiendo. */
+    <Card eyebrow="En la caja" titulo="Escaneá la tarjeta del cliente">
+      <p className={BAJADA_PANTALLA}>
         Pedile que abra su tarjeta en el Wallet y apuntá la cámara al código.
         {recompensa
           ? ` Si ya llegó a ${recompensa.costo}, acá mismo podés entregarle su ${recompensa.nombre.toLowerCase()}.`
@@ -89,7 +91,7 @@ export default function ModoMostrador({
           pideMonto={pideMonto}
         />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -131,13 +133,13 @@ function SinBeneficio({ ranchoId }: { ranchoId: string }) {
 
   return (
     <div
-      className="mt-3 rounded-2xl border px-4 py-3"
-      style={{ background: "rgba(157,180,255,.14)", borderColor: "rgba(157,180,255,.45)" }}
+      className={`mt-3 ${RADIO_TILE} border px-4 py-3`}
+      style={{ background: ACCION_TINTE, borderColor: ACCION_BORDE }}
     >
-      <p className="text-[13px] font-bold text-white">
+      <p className="text-[13px] font-extrabold leading-tight text-aventurea-ink">
         Esta tarjeta todavía no tiene nada que entregar
       </p>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-white/60">
+      <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
         Se puede escanear y sumar, pero el botón de entregar el beneficio no aparece hasta que
         el premio esté configurado.
       </p>
@@ -146,16 +148,19 @@ function SinBeneficio({ ranchoId }: { ranchoId: string }) {
           type="button"
           onClick={configurar}
           disabled={estado === "trabajando"}
-          className="mt-2.5 rounded-[10px] px-4 py-2.5 text-[12.5px] font-extrabold disabled:opacity-40"
-          style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
+          className={`${BOTON_ACCION} mt-3`}
+          style={{ background: ACCION, color: ACCION_TINTA }}
         >
           {estado === "trabajando" ? "Configurando…" : "Configurarlo con el beneficio de la tarjeta"}
         </button>
       )}
+      {/* El error usa el estado `alerta` del sistema. `text-red-300`
+          era un rojo suelto que ninguna otra pantalla del panel conocía
+          — y el rojo de un error tiene que verse igual en las nueve. */}
       {mensaje && (
         <p
-          className={`mt-2 text-[12.5px] font-bold ${
-            estado === "error" ? "text-red-300" : "text-white"
+          className={`mt-2.5 ${RADIO_TILE} px-3 py-2 text-[12.5px] font-bold ${
+            estado === "error" ? ESTADO_AVISO.alerta : ESTADO_AVISO.exito
           }`}
         >
           {mensaje}

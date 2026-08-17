@@ -1170,3 +1170,84 @@ export function plantillaCampana({
     bajaUrl,
   });
 }
+
+/**
+ * EL AVISO DEL COBRO DEL DÍA — al equipo de Bookea, no al negocio.
+ *
+ * Sale en la misma corrida que anota los cobros (/api/cobro-plataforma,
+ * ~11:30 p. m. hora CR), y solo si esa corrida devengó algo.
+ *
+ * POR QUÉ AL EQUIPO Y NO AL DUEÑO DEL NEGOCIO: la tarifa de cada
+ * negocio es dato interno del admin — `cobro_negocio` tiene RLS
+ * prendida SIN policies justamente para eso (migración 0098: "el dueño
+ * del negocio NO ve su tarifa por ahora"). Mandarle este correo le
+ * revelaría un número que se decidió esconder. Es una decisión de
+ * producto, no técnica, y está anotada como pregunta para el dueño.
+ *
+ * POR QUÉ AL DEVENGAR Y NO ANTES: el asiento no mueve plata de nadie,
+ * abre una cuenta por cobrar. El cobro real es cuando el admin marca
+ * pagada la semana en /admin/finanzas. Avisar "mañana voy a anotar
+ * esto" sería un aviso de algo que no se puede cancelar ni corregir
+ * antes de que pase.
+ */
+export function plantillaDevengoDiario({
+  nombreDestinatario,
+  total,
+  reservas,
+  negocios,
+  fecha,
+}: {
+  nombreDestinatario: string;
+  total: number;
+  reservas: number;
+  /** Un renglón por negocio, el que más deja primero. */
+  negocios: { negocio: string; reservas: number; total: number }[];
+  /** El día que cerró (YYYY-MM-DD, hora de Costa Rica). */
+  fecha: string;
+}) {
+  const colones = (n: number) => "₡" + Math.round(n).toLocaleString("es-CR");
+  const dia = new Date(fecha + "T00:00:00").toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const renglones = negocios
+    .map(
+      (n) => `<tr>
+        <td style="padding:9px 0;border-bottom:1px solid #eeeeee;font-size:14px;color:#101a2c;">
+          ${escaparHtml(n.negocio)}
+          <span style="color:#8a8a8a;font-size:12.5px;"> — ${n.reservas} evento${n.reservas === 1 ? "" : "s"}</span>
+        </td>
+        <td align="right" style="padding:9px 0;border-bottom:1px solid #eeeeee;font-size:14px;font-weight:700;color:#101a2c;white-space:nowrap;">
+          ${colones(n.total)}
+        </td>
+      </tr>`,
+    )
+    .join("");
+
+  return layoutBento({
+    kicker: "Cobro del día",
+    titulo: `Se devengaron ${colones(total)} de ${reservas} evento${reservas === 1 ? "" : "s"}`,
+    introHtml: `Hola ${escaparHtml(nombreDestinatario)}: cerró el ${dia}. Cada evento
+      que ocurrió hoy dejó anotada su comisión en el libro de cobros, con el
+      monto congelado.`,
+    statsHtml:
+      statBento(colones(total), "Devengado hoy") +
+      statBento(String(negocios.length), negocios.length === 1 ? "Negocio" : "Negocios"),
+    cuerpoHtml: `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        ${renglones}
+      </table>
+      <p style="margin:14px 0 0;color:#5b6472;font-size:13px;line-height:1.6;">
+        Todavía no está cobrado: queda como cuenta por cobrar de la semana
+        del evento. Se cobra desde el libro, marcando la semana del negocio.
+      </p>
+    `,
+    cta: {
+      href: `${SITIO_URL}/admin/finanzas`,
+      label: "Abrir el libro de cobros",
+    },
+    pie: "Recibís este correo porque tenés rol de administrador en Bookea.",
+  });
+}

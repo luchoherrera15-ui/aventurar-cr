@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 import type { ProgramaFila, RecompensaFila, TipoRecompensa } from "./pases-actions";
 import { estadoDelPrograma } from "@/lib/lealtad/reglas";
+import { TITULO_CARD } from "@/components/panel/sistema";
+import { ACCION, ACCION_TINTA, BOTON_ACCION } from "../sistema-lealtad";
 import { TIPOS_TARJETA, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
 import {
   AvisoError,
@@ -180,7 +182,7 @@ function BloqueComoSeGana() {
 
   return (
     <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-      <h3 className="text-[15px] font-bold text-aventurea-ink">Cómo se gana</h3>
+      <h3 className={TITULO_CARD}>Cómo se gana</h3>
 
       <div className="mt-4">
         <label className={labelCls}>Modo de la tarjeta</label>
@@ -275,7 +277,7 @@ function BloqueQueSeGana() {
 
   return (
     <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-      <h3 className="text-[15px] font-bold text-aventurea-ink">Qué se gana</h3>
+      <h3 className={TITULO_CARD}>Qué se gana</h3>
       <p className={ayudaCls}>
         La recompensa <strong>más barata</strong> es la que marca la meta de la tarjeta. Si
         cuesta 10, la tarjeta muestra «5 de 10» y promete esa regalía.
@@ -331,7 +333,8 @@ function BloqueQueSeGana() {
           type="button"
           onClick={agregar}
           disabled={ocupado || !nueva.nombre.trim() || !nueva.costo}
-          className="shrink-0 rounded-[10px] bg-aventurea-ink px-4 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+          className={BOTON_ACCION}
+          style={{ background: ACCION, color: ACCION_TINTA }}
         >
           Agregar
         </button>
@@ -445,7 +448,7 @@ export function BloqueEstado() {
 
   return (
     <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-      <h3 className="text-[15px] font-bold text-aventurea-ink">Estado del programa</h3>
+      <h3 className={TITULO_CARD}>Estado del programa</h3>
       <p className={ayudaCls}>
         Solo el <strong>activo</strong> acumula y canjea. Pausar conserva todo; archivar
         con historial es para siempre — el historial nunca se borra.

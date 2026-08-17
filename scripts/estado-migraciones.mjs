@@ -71,12 +71,18 @@ const TESTIGOS = [
   ["0150", "columna", "pases_wallet", "diseno_pendiente", "aviso de cambio de diseño"],
   ["0151", "columna", "pases_wallet", "ultima_descarga_en", "confirmación de entrega en el teléfono"],
   ["0152", "columna", "programa_lealtad", "mensaje_promocional", "mensaje promocional del pase"],
+  ["0174", "columna", "programa_lealtad", "pase_sello_icono_url", "ícono propio del sello"],
   // Mismo defecto que el de la 0138 (líneas de arriba), pero con otra
   // causa: el guard de la 0130 solo mira la PRIMERA columna que agrega
   // el bloque (`negocio_nombre`) — cuando el archivo creció con seis
   // columnas más, re-pegarlo no hizo nada porque esa primera columna ya
   // existía. Ver la 0154, que la completa.
   ["0130", "columna", "solicitudes_lealtad", "meta_sellos", "onboarding de alta con recompensa lista"],
+  // Las dos mitades de la 0173, y las dos hacen falta: sin la tabla no
+  // hay rastro de quién cambió un paquete, y sin la columna un
+  // complemento regalado se ve igual que uno vendido.
+  ["0173", "tabla", "historial_plan_lealtad", null, "quién cambió el paquete, cuándo y por qué"],
+  ["0173", "columna", "addons_negocio", "es_cortesia", "las regalías marcadas como regalías"],
 ];
 
 console.log("\n  MIG   OBJETO                                 ESTADO");

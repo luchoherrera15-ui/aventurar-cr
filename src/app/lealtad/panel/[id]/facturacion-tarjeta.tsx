@@ -10,6 +10,14 @@ import {
   type EstadoSuscripcion,
   type Periodo,
 } from "@/lib/pagos/precios";
+import { Card, PildoraEstado } from "@/components/panel/piezas";
+import {
+  CUERPO_SUAVE,
+  ESTADO_AVISO,
+  GAP_TABLERO,
+  RADIO_TILE,
+} from "@/components/panel/sistema";
+import { TILE_LEALTAD } from "../sistema-lealtad";
 import {
   BotonesPagarConTarjeta,
   BotonPortalDeFacturacion,
@@ -78,20 +86,24 @@ export default function FacturacionConTarjeta({
   if (cobrables.length === 0 && !suscripcion && !aviso) return null;
 
   return (
-    <div className="space-y-4">
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
       {/* ── De vuelta de Checkout ────────────────────────────────────
           «En unos segundos» y no «listo»: el plan lo confirma el
           webhook, no esta pantalla —que se abre escribiendo la URL—.
           Decir que ya está y que el panel muestre lo contrario es peor
           que pedir diez segundos. */}
+      {/* El aviso de vuelta de Checkout usa el estado `exito` del
+          sistema. `emerald-800` sobre `emerald-50` era un sexto verde
+          del producto, y el bloque `.lealtad-oscuro` no lo conoce: sobre
+          el navy del panel quedaba verde oscuro sobre casi blanco. */}
       {aviso === "listo" && (
-        <p className="rounded-xl bg-emerald-50 px-4 py-3 text-[13px] font-bold text-emerald-800">
+        <p className={`${RADIO_TILE} px-4 py-3 text-[13px] font-bold ${ESTADO_AVISO.exito}`}>
           Recibimos tu pago. El paquete queda activo en unos segundos, apenas Stripe lo
           confirme — recargá esta página si todavía no lo ves.
         </p>
       )}
       {aviso === "cancelado" && (
-        <p className="rounded-xl border border-aventurea-line bg-white px-4 py-3 text-[13px] font-bold text-aventurea-ink">
+        <p className={`${RADIO_TILE} px-4 py-3 text-[13px] font-bold ${ESTADO_AVISO.neutro}`}>
           No se cobró nada: se cerró el pago antes de terminar. Podés volver a intentarlo o
           pagar por SINPE.
         </p>
@@ -100,11 +112,12 @@ export default function FacturacionConTarjeta({
       {suscripcion && <TarjetaSuscripcion ranchoId={ranchoId} suscripcion={suscripcion} />}
 
       {cobrables.length > 0 && (
-        <div className="rounded-2xl border border-aventurea-line bg-white p-5">
-          <h3 className="text-[15px] font-extrabold text-aventurea-ink">
-            {suscripcion ? "Cambiar de paquete con tarjeta" : "Pagar con tarjeta"}
-          </h3>
-          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+        <Card
+          eyebrow="Cobro automático"
+          titulo={suscripcion ? "Cambiar de paquete con tarjeta" : "Pagar con tarjeta"}
+          nivel="h3"
+        >
+          <p className={CUERPO_SUAVE}>
             Se cobra solo cada período y se cancela cuando quieras. Si tu tarjeta no acepta
             compras internacionales —le pasa a muchas tarjetas de acá— pagá por SINPE con el
             botón de cada paquete.
@@ -121,7 +134,7 @@ export default function FacturacionConTarjeta({
               />
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );
@@ -142,27 +155,21 @@ function TarjetaSuscripcion({
   const alDia = estado === "activa" || estado === "en_prueba";
 
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-white p-5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <h3 className="text-[15px] font-extrabold text-aventurea-ink">Tu suscripción</h3>
-        {/* CLASES y no un `style` con hex: el bloque `.lealtad-oscuro`
-            re-mapea clases, no colores inline, así que estos dos estados
-            se pintaban con su versión CLARA sobre el navy del panel —
-            «Activa» en 2,74:1 y «Vencida» en 2,28:1. Con los chips del
-            sistema el re-mapeo los sube a 7,92:1 y 7,60:1, y de paso el
-            estado deja de tener un color propio inventado acá. */}
-        <span
-          className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-            alDia
-              ? "bg-aventurea-green-light text-aventurea-green"
-              : "bg-red-50 text-red-700"
-          }`}
-        >
-          {etiqueta}
-        </span>
-      </div>
-
-      <p className="mt-2 text-[12.5px] text-aventurea-ink-soft">
+    /* CLASES y no un `style` con hex: el bloque `.lealtad-oscuro`
+       re-mapea clases, no colores inline, así que estos dos estados se
+       pintaban con su versión CLARA sobre el navy del panel — «Activa»
+       en 2,74:1 y «Vencida» en 2,28:1. La píldora del sistema sale de
+       ESAS mismas clases, así que el re-mapeo los sube a 9,23:1 y
+       7,60:1, y el estado deja de tener un color inventado acá. */
+    <Card
+      eyebrow="Lo que pagás hoy"
+      titulo="Tu suscripción"
+      nivel="h3"
+      accion={
+        <PildoraEstado estado={alDia ? "exito" : "alerta"}>{etiqueta}</PildoraEstado>
+      }
+    >
+      <p className={CUERPO_SUAVE}>
         {def ? `Paquete ${def.nombre}` : "Paquete sin identificar"}
         {suscripcion.periodo === "anual" ? ", pago por año" : ", pago por mes"}
         {suscripcion.periodoFin ? ` · ${textoDeVencimiento(suscripcion)}` : ""}
@@ -173,20 +180,20 @@ function TarjetaSuscripcion({
           mostrarlo como «cancelada» a secas haría que alguien vuelva a
           pagar por algo que todavía está andando. */}
       {suscripcion.cancelaAlFinal && (
-        <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2.5 text-[12.5px] font-bold text-amber-800">
+        <p className={`mt-2.5 ${RADIO_TILE} px-3 py-2.5 text-[12.5px] font-bold ${ESTADO_AVISO.aviso}`}>
           Cancelaste la renovación: el paquete sigue funcionando hasta que termine el período
           pago, y después no se cobra más.
         </p>
       )}
       {estado === "morosa" && (
-        <p className="mt-2 rounded-xl bg-red-50 px-3 py-2.5 text-[12.5px] font-bold text-red-700">
+        <p className={`mt-2.5 ${RADIO_TILE} px-3 py-2.5 text-[12.5px] font-bold ${ESTADO_AVISO.alerta}`}>
           El último cobro no entró. Stripe lo reintenta solo; si tu tarjeta cambió,
           actualizala desde el botón de abajo.
         </p>
       )}
 
       <BotonPortalDeFacturacion ranchoId={ranchoId} />
-    </div>
+    </Card>
   );
 }
 
@@ -220,7 +227,7 @@ function PaqueteCobrable({
   );
 
   return (
-    <div className="rounded-2xl border border-aventurea-line p-4">
+    <div className={`${TILE_LEALTAD} flex-col items-start p-4`}>
       <p className="text-[14px] font-extrabold text-aventurea-ink">{def.nombre}</p>
       <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
         {def.limites.clientesActivos === null

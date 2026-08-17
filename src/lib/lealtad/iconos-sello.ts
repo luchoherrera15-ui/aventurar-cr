@@ -224,6 +224,129 @@ export function esIconoSello(valor: unknown): valor is IconoSello {
   return typeof valor === "string" && (ICONOS_SELLO_ID as readonly string[]).includes(valor);
 }
 
+// ── EL ICONO PROPIO DEL NEGOCIO (0174) ─────────────────────────────
+//
+// Los doce cubren a la mayoría, y no alcanzan: la veterinaria con su
+// perro dibujado, la marca que ya tiene su símbolo hecho y el rubro que
+// no está en la lista (una lavandería, una óptica) quedaban eligiendo
+// entre «una estrella» y «mi logo». Por eso hay una opción más: el
+// negocio sube SU dibujo.
+//
+// Se guarda en DOS columnas y no en una:
+//
+//   · `pase_sello_icono` dice QUÉ se eligió — uno de los doce, o el
+//     centinela 'propio', o null (el logo, como siempre);
+//   · `pase_sello_icono_url` guarda el ARCHIVO subido.
+//
+// Separarlas es lo que hace que el archivo sobreviva a un cambio de
+// idea: el dueño sube su ícono, prueba «Café» un rato y vuelve a lo
+// suyo sin tener que subirlo de nuevo. Con un solo campo, elegir otra
+// cosa lo borraría.
+
+/** El valor que guarda la columna cuando el sello es el ícono subido. */
+export const SELLO_PROPIO = "propio" as const;
+
+/** Lo que puede haber en `pase_sello_icono`: uno de los doce, o el propio. */
+export type SelloElegido = IconoSello | typeof SELLO_PROPIO;
+
+export function esSelloElegido(valor: unknown): valor is SelloElegido {
+  return valor === SELLO_PROPIO || esIconoSello(valor);
+}
+
+/**
+ * Hasta dónde se acepta una URL de ícono propio AL LEERLA.
+ *
+ * Que sea de NUESTRO storage lo comprueban las server actions al
+ * GUARDAR (`esUrlDeNuestroStorage`), que es donde se puede rechazar con
+ * un mensaje en español. Acá el filtro es el de la lectura: https, sin
+ * caracteres que puedan cerrar un atributo, y de un largo razonable —
+ * porque esta cadena termina en un `fetch` del generador del pase y en
+ * el `src` de una vista previa.
+ */
+const MAX_URL_ICONO = 500;
+
+export function urlDeIconoPropio(valor: unknown): string | null {
+  if (typeof valor !== "string") return null;
+  const limpia = valor.trim();
+  if (!limpia || limpia.length > MAX_URL_ICONO) return null;
+  return /^https:\/\/[^\s"'<>]+$/i.test(limpia) ? limpia : null;
+}
+
+/**
+ * QUÉ SE DIBUJA ADENTRO DE CADA SELLO, resuelto en un solo lugar.
+ *
+ * Las tres puertas —el creador, el editor y el lector de la fila— y los
+ * dos motores que dibujan —React en la vista previa, sharp en el pase—
+ * preguntan acá. Con la regla escrita dos veces, alcanza con que una
+ * copia se quede vieja para que la pantalla prometa un sello y el
+ * teléfono muestre otro.
+ */
+export type DibujoDelSello =
+  /** El logo del negocio adentro del círculo: el comportamiento de siempre. */
+  | { clase: "logo" }
+  /** Uno de los doce dibujos del catálogo. */
+  | { clase: "icono"; icono: IconoSello }
+  /** El archivo que subió el negocio (0174). */
+  | { clase: "propio"; url: string };
+
+export function selloDelPase({
+  tipo,
+  icono,
+  url,
+}: {
+  tipo: unknown;
+  icono: unknown;
+  url: unknown;
+}): DibujoDelSello {
+  // Las mismas dos reglas de `iconoDelSello`: solo las tarjetas de
+  // sellos tienen círculos que llenar, y un valor fuera de catálogo se
+  // descarta en vez de dibujarse vacío en el teléfono de un cliente.
+  if (tipoDe(typeof tipo === "string" ? tipo : null) !== "sellos") return { clase: "logo" };
+
+  if (icono === SELLO_PROPIO) {
+    const limpia = urlDeIconoPropio(url);
+    // 'propio' sin archivo no es un sello: es el de siempre. La base lo
+    // impide con un CHECK (0174), pero una fila a medio migrar o una
+    // petición armada a mano no son imposibles.
+    return limpia ? { clase: "propio", url: limpia } : { clase: "logo" };
+  }
+
+  return esIconoSello(icono) ? { clase: "icono", icono } : { clase: "logo" };
+}
+
+/**
+ * Las DOS columnas, ya coherentes entre sí, para guardar.
+ *
+ * Es el filtro del lado de la escritura, y tiene una diferencia
+ * deliberada con la lectura: el archivo subido se CONSERVA aunque el
+ * dueño esté eligiendo uno de los doce. Es su ícono, no un valor
+ * temporal — borrarlo por probar «Café» un minuto lo obligaría a
+ * subirlo otra vez.
+ *
+ * En un tipo que no es sellos se limpian las dos: no hay círculos donde
+ * dibujar nada, y arrastrar el dato dejaría basura invisible que algún
+ * día alguien pinta (la misma decisión que tomó la 0145).
+ */
+export function selloParaGuardar({
+  tipo,
+  icono,
+  url,
+}: {
+  tipo: unknown;
+  icono: unknown;
+  url: unknown;
+}): { icono: SelloElegido | null; url: string | null } {
+  if (tipoDe(typeof tipo === "string" ? tipo : null) !== "sellos") {
+    return { icono: null, url: null };
+  }
+
+  const limpia = urlDeIconoPropio(url);
+  if (icono === SELLO_PROPIO) {
+    return limpia ? { icono: SELLO_PROPIO, url: limpia } : { icono: null, url: null };
+  }
+  return { icono: esIconoSello(icono) ? icono : null, url: limpia };
+}
+
 /**
  * El icono que de verdad lleva un programa, con las dos reglas juntas.
  *
@@ -246,21 +369,30 @@ export function iconoDelSello({ tipo, icono }: { tipo: unknown; icono: unknown }
 }
 
 /**
- * ¿Va el logo del negocio DENTRO de cada sello?
+ * ¿QUÉ IMAGEN va DENTRO de cada sello, si es que va alguna?
  *
- * Con un icono elegido, no: el icono ocupa ese lugar. Importa más de lo
- * que parece, porque de este booleano sale la escalera de degradación
- * de la tira (`escalonesDeLaTira`), y su último escalón existe para
- * sobrevivir a un logo que sharp no puede procesar. Con icono no hay
- * logo que pueda fallar ahí, así que ese escalón no se ofrece: la
- * escalera queda con los intentos que de verdad cambian algo.
+ *   · "propio" — el archivo que subió el negocio (0174);
+ *   · "logo"   — su logo, que es lo que hicieron todas las tarjetas
+ *                emitidas antes de la 0145;
+ *   · null     — ninguna: o el sello es uno de los doce dibujos (que se
+ *                pinta con trazos, no con un archivo) o es el círculo
+ *                liso del color del negocio.
+ *
+ * Importa más de lo que parece, porque de acá sale la escalera de
+ * degradación de la tira (`escalonesDeLaTira`): su último escalón
+ * existe para sobrevivir a una imagen que sharp no puede procesar —el
+ * caso real es un logo blanco sobre blanco, y un ícono propio corre
+ * exactamente el mismo riesgo—. Cuando NO hay imagen adentro del sello
+ * ese escalón sería un reintento idéntico al anterior, y no se ofrece.
  */
-export function logoDentroDelSello({
+export function imagenDentroDelSello({
+  sello,
   hayLogo,
-  icono,
 }: {
+  sello: DibujoDelSello;
   hayLogo: boolean;
-  icono: IconoSello | null;
-}): boolean {
-  return hayLogo && icono === null;
+}): "logo" | "propio" | null {
+  if (sello.clase === "propio") return "propio";
+  if (sello.clase === "icono") return null;
+  return hayLogo ? "logo" : null;
 }

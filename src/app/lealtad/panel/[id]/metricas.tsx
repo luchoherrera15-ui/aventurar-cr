@@ -1,5 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe } from "@/lib/lealtad/planes";
+import { Card, CardVacia, GrillaTablero } from "@/components/panel/piezas";
+import {
+  CUERPO,
+  DETALLE,
+  GAP_METRICAS,
+  GAP_TABLERO,
+  MARCA_ACENTO,
+} from "@/components/panel/sistema";
 import Kpi from "./kpi";
 
 /**
@@ -151,65 +159,84 @@ export default async function MetricasLealtad({
 }) {
   const db = createAdminClient();
   if (!db || !programaId) {
-    return (
-      <p className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
-        Cuando el programa esté activo, acá se ve el crecimiento.
-      </p>
-    );
+    return <CardVacia>Cuando el programa esté activo, acá se ve el crecimiento.</CardVacia>;
   }
 
   const d = await calcularMetricas(db, programaId, plan);
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
+      <div className={`grid grid-cols-2 ${GAP_METRICAS} lg:grid-cols-4`}>
         <Kpi
-          titulo="Clientes nuevos (30 días)"
+          titulo="Clientes nuevos"
           valor={String(d.nuevos30)}
-          detalle={delta(d.nuevos30, d.nuevosPrev)}
+          detalle="últimos 30 días"
+          icono="afiliar"
+          tendencia={delta(d.nuevos30, d.nuevosPrev)}
         />
-        <Kpi titulo="Clientes activos (30 días)" valor={String(d.activos30)} />
+        <Kpi
+          titulo="Clientes activos"
+          valor={String(d.activos30)}
+          detalle="movieron su tarjeta en 30 días"
+          icono="clientes"
+        />
         <Kpi
           titulo="Sellos y puntos dados"
           valor={String(d.sellos30)}
-          detalle={delta(d.sellos30, d.sellosPrev)}
+          detalle="últimos 30 días"
+          icono="sumar"
+          tendencia={delta(d.sellos30, d.sellosPrev)}
         />
         <Kpi
           titulo="Canjes"
           valor={String(d.canjes30)}
-          detalle={delta(d.canjes30, d.canjesPrev)}
+          detalle="últimos 30 días"
+          icono="regalo"
+          tendencia={delta(d.canjes30, d.canjesPrev)}
         />
       </div>
 
-      <div className="rounded-2xl border border-aventurea-line bg-white p-4">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Clientes nuevos por semana
-        </p>
-        <div className="mt-3 flex items-end gap-2" style={{ height: 110 }}>
+      {/* LA GRÁFICA (`.chart` de la maqueta). Las barras pasan del navy
+          —que sobre el navy del panel se lee gris— al color de acción, y
+          toman el remate de la maqueta (redondeado arriba, casi recto
+          abajo). El total va a la derecha del encabezado, que es donde
+          la maqueta lo pone: el dato que resume la gráfica no debería
+          obligar a sumar ocho barras con la vista. */}
+      <Card
+        eyebrow="Crecimiento"
+        titulo="Clientes nuevos por semana"
+        accion={
+          <span className={DETALLE}>
+            {d.semanas.reduce((s, x) => s + x.nuevos, 0)} en 8 semanas
+          </span>
+        }
+      >
+        <div className="flex items-end gap-2" style={{ height: 110 }}>
           {d.semanas.map((s) => (
-            <div key={s.etiqueta} className="flex flex-1 flex-col items-center gap-1">
+            <div key={s.etiqueta} className="flex min-w-0 flex-1 flex-col items-center gap-1">
               <span className="text-[10.5px] font-bold tabular-nums text-aventurea-ink">
                 {s.nuevos || ""}
               </span>
               <div
-                className="w-full rounded-t-md bg-aventurea-navy"
+                className="w-full rounded-t-md"
                 style={{
+                  backgroundColor: MARCA_ACENTO.backgroundColor,
                   height: `${Math.max(4, (s.nuevos / d.maxSemana) * 80)}px`,
-                  opacity: s.nuevos ? 1 : 0.15,
+                  borderRadius: "5px 5px 2px 2px",
+                  // La semana sin afiliados no se borra: se deja su
+                  // hueco. Un mes con tres semanas en cero es un dato.
+                  opacity: s.nuevos ? 1 : 0.28,
                 }}
               />
-              <span className="text-[9.5px] text-aventurea-ink-soft">{s.etiqueta}</span>
+              <span className="truncate text-[9.5px] text-aventurea-ink-soft">{s.etiqueta}</span>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-aventurea-line bg-white px-4 py-3.5">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Proyección
-          </p>
-          <p className="mt-1 text-[13.5px] leading-relaxed text-aventurea-ink">
+      <GrillaTablero>
+        <Card eyebrow="A este ritmo" titulo="Proyección" nivel="h3">
+          <p className={CUERPO}>
             {d.ritmoSemanal > 0 ? (
               <>
                 Al ritmo de las últimas 4 semanas (~{Math.round(d.ritmoSemanal * 10) / 10} por
@@ -223,22 +250,25 @@ export default async function MetricasLealtad({
               <>Sin afiliaciones en el último mes. El QR en el mostrador es lo que más afilia.</>
             )}
           </p>
-        </div>
-        <div className="rounded-2xl border border-aventurea-line bg-white px-4 py-3.5">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Tarjetas en Wallet
-          </p>
-          <p className="mt-1 text-[13.5px] leading-relaxed text-aventurea-ink">
+        </Card>
+        <Card
+          eyebrow="Wallet"
+          titulo="Tarjetas en el teléfono"
+          nivel="h3"
+          accion={
+            d.limite !== null ? (
+              <span className={DETALLE}>
+                {d.totalMiembros} de {d.limite} del plan
+              </span>
+            ) : undefined
+          }
+        >
+          <p className={CUERPO}>
             {d.emitidas} emitida{d.emitidas === 1 ? "" : "s"}; {d.registradas} con actualización
             automática en el teléfono.
           </p>
-          {d.limite !== null && (
-            <p className="mt-1 text-[12px] text-aventurea-ink-soft">
-              {d.totalMiembros} de {d.limite} miembros del plan.
-            </p>
-          )}
-        </div>
-      </div>
+        </Card>
+      </GrillaTablero>
     </div>
   );
 }

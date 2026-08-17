@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   definicionDe,
   esPlan,
@@ -24,7 +24,9 @@ import {
   PLAN_DESTACADO,
   puede,
   type Capacidad,
+  type DefinicionPlan,
   type LimitesPlan,
+  type PlanId,
 } from "./planes";
 import { TIPOS_TARJETA_ID } from "./tipos-tarjeta";
 
@@ -39,44 +41,254 @@ describe("esPlan", () => {
   });
 });
 
+// ── LOS PAQUETES RETIRADOS QUE HOY NO EXISTEN ───────────────────────
+/**
+ * EL CATÁLOGO SE QUEDÓ SIN RETIRADOS, Y LA MECÁNICA DEL RETIRO NO SE
+ * PUEDE QUEDAR SIN PRUEBA.
+ *
+ * Hasta el 2026-08-17 este archivo tenía ocho paquetes retirados
+ * arrastrados de tres catálogos anteriores, y este bloque los recorría
+ * para comprobar las DOS MITADES de la regla —no se pueden elegir, pero
+ * se siguen respetando—. Los ocho se borraron después de comprobar en
+ * producción que ninguna fila los tenía puestos, y el bloque se quedó
+ * sin datos con los que probar.
+ *
+ * Borrarlo habría sido lo peor: la regla que vigila sigue viva y es
+ * cara. Las dos mitades cuestan distinto y las dos hay que probarlas:
+ *
+ *   · si se cae la primera —«no se puede elegir»— una petición armada a
+ *     mano con el id de un retirado se lleva un paquete SIN TOPES sin
+ *     pagar un colón. Fue un agujero real;
+ *   · si se cae la segunda —«se sigue respetando»— el negocio que ya lo
+ *     tiene se queda sin definición, y con plan desconocido TODOS los
+ *     topes quedan en null. Retirar mal no apaga: vuelve infinito.
+ *
+ * Así que los paquetes se inventan acá. Es el mismo criterio que
+ * `prueba.test.ts`, que conservó la mecánica del vencimiento con un
+ * paquete de prueba propio cuando el catálogo se quedó sin ninguno: la
+ * lógica que protege plata no se queda sin red porque cambió un número
+ * de producto.
+ *
+ * La diferencia con `prueba.test.ts` es CÓMO se inyectan, y es forzada:
+ * allá el módulo bajo prueba (`prueba.ts`) LLAMA a `definicionDe`, así
+ * que alcanzaba con mockear `./planes`. Acá el módulo bajo prueba ES
+ * `planes.ts`: sus funciones leen `PLANES` y `PLANES_ID` por referencia
+ * interna, y un mock del módulo no las rewirea —se quedarían mirando el
+ * catálogo de verdad—. La única forma de que `esPlanOfrecido` de verdad
+ * vea un paquete retirado es que el catálogo de verdad lo tenga, así
+ * que se le mete en el `beforeAll` y se le saca en el `afterAll`.
+ *
+ * Son DOS y no uno porque el precio cambia lo que hay que probar:
+ * `gratis` costaba $0 (y por eso podía saltarse el depósito) y `empresa`
+ * se cotizaba caso por caso (`precioMensual: null`, que NO es gratis).
+ */
+const ID_SIN_COSTO = "retirado-sin-costo-solo-del-test";
+const ID_A_CONVENIR = "retirado-a-convenir-solo-del-test";
+
+/** Todo ilimitado: es lo que llevaba cada paquete retirado del catálogo. */
+const SIN_TOPES: LimitesPlan = {
+  clientesActivos: null,
+  programas: null,
+  notificacionesMes: null,
+  administradores: null,
+  sedes: null,
+  automatizaciones: null,
+};
+
+/**
+ * Lo que se le vendió a alguien en su momento, viñetas sin producto
+ * incluidas: un paquete retirado es el registro de una venta y no se
+ * reescribe. Que `api` y `webhooks` estén acá es a propósito — la
+ * segunda mitad de la regla es justamente que eso se siga respetando.
+ */
+const VENDIDO_EN_SU_MOMENTO: readonly Capacidad[] = [
+  "wallet",
+  "tipos_de_tarjeta",
+  "reglas_y_vencimientos",
+  "analitica",
+  "notificaciones",
+  "api",
+  "webhooks",
+];
+
+/** El $0 retirado: el que abría el camino automático sin comprobante. */
+const RETIRADO_SIN_COSTO: DefinicionPlan = {
+  // El cast es LA INYECCIÓN: este id no está en `PLANES_ID` hasta que
+  // el `beforeAll` lo mete, así que el tipo todavía no lo conoce.
+  id: ID_SIN_COSTO as PlanId,
+  nombre: "Retirado Sin Costo Del Test",
+  descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
+  precioMensual: 0,
+  precioAnual: null,
+  limites: { ...SIN_TOPES, clientesActivos: 5 },
+  capacidades: VENDIDO_EN_SU_MOMENTO,
+  tipos: null,
+  diasPrueba: 0,
+  vigente: false,
+};
+
+/** El de precio negociado: `null` NO es gratis, es «a convenir». */
+const RETIRADO_A_CONVENIR: DefinicionPlan = {
+  id: ID_A_CONVENIR as PlanId,
+  nombre: "Retirado A Convenir Del Test",
+  descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
+  precioMensual: null,
+  precioAnual: null,
+  limites: SIN_TOPES,
+  capacidades: VENDIDO_EN_SU_MOMENTO,
+  tipos: null,
+  diasPrueba: 0,
+  vigente: false,
+};
+
+const RETIRADOS_DEL_TEST = [RETIRADO_SIN_COSTO, RETIRADO_A_CONVENIR] as const;
+
+/**
+ * Meter y sacar del catálogo de verdad.
+ *
+ * Los casts son el precio de llegar a la mecánica y están acotados a
+ * estas dos funciones. `PLANES_ID` es un `as const` para TypeScript
+ * pero un array común en tiempo de ejecución, y `PLANES` un objeto
+ * común: por eso esto funciona.
+ *
+ * El `afterAll` no es cortesía. Vitest aísla el registro de módulos por
+ * ARCHIVO, así que `checks-de-planes.test.ts` —que compara `PLANES_ID`
+ * contra los `.sql` de la base— no ve esta inyección. Pero los demás
+ * bloques de ESTE archivo sí la verían, y varios recorren `PLANES_ID`
+ * entero.
+ */
+function inyectarLosRetirados(): void {
+  const ids = PLANES_ID as unknown as string[];
+  const catalogo = PLANES as unknown as Record<string, DefinicionPlan>;
+  for (const def of RETIRADOS_DEL_TEST) {
+    ids.push(def.id);
+    catalogo[def.id] = def;
+  }
+}
+
+function sacarLosRetirados(): void {
+  const ids = PLANES_ID as unknown as string[];
+  const catalogo = PLANES as unknown as Record<string, DefinicionPlan | undefined>;
+  for (const def of RETIRADOS_DEL_TEST) {
+    ids.splice(ids.indexOf(def.id), 1);
+    delete catalogo[def.id];
+  }
+}
+
 describe("UN PAQUETE RETIRADO NO SE PUEDE ELEGIR, PERO SE SIGUE RESPETANDO", () => {
   /**
-   * Las dos mitades de la misma regla, y hay que probar LAS DOS: quitar
-   * cualquiera de ellas rompe algo caro.
-   *
-   * El agujero que esto cierra: las altas validaban con `esPlan`, que
-   * incluye los retirados a propósito. Una petición armada a mano con
-   * `plan: "gratis"` pasaba, y `gratis` lleva `SIN_TOPES` — o sea
-   * tarjetas ilimitadas, equipo ilimitado y los ocho tipos de tarjeta
-   * (incluidos los que solo trae el paquete de $42), sin pagar nada.
-   *
-   * Pero cerrarlo con `PLANES_ID = solo los vigentes` habría sido peor:
-   * `definicionDe('basico')` daría null, y con plan null TODOS los topes
-   * quedan null. Retirar mal un plan no lo apaga: lo vuelve infinito.
+   * Las dos mitades de la misma regla, probadas sobre los paquetes
+   * inventados de arriba. Quitar cualquiera de las dos rompe algo caro
+   * — ver la nota larga junto a las definiciones.
    */
-  it("ningún retirado se puede ELEGIR", () => {
-    for (const id of PLANES_RETIRADOS) {
-      expect(esPlanOfrecido(id), `${id} no se puede elegir`).toBe(false);
-      expect(esPlanSinCosto(id), `${id} no puede saltarse el depósito`).toBe(false);
+  beforeAll(inyectarLosRetirados);
+  afterAll(sacarLosRetirados);
+
+  it("la inyección es de verdad: el catálogo los tiene puestos", () => {
+    // Si esto fallara, todo el bloque estaría probando el vacío y
+    // pasaría igual — que es exactamente el modo de fallar silencioso
+    // que este archivo acaba de tener.
+    for (const def of RETIRADOS_DEL_TEST) {
+      expect(PLANES_ID as readonly string[], `${def.id} no entró al catálogo`).toContain(def.id);
+      expect(definicionDe(def.id)).toBe(def);
+      expect(def.vigente).toBe(false);
     }
-    // El caso puntual de la auditoría: `gratis` cuesta $0 y lleva
-    // SIN_TOPES. Es el que abría el camino instantáneo sin comprobante.
-    expect(PLANES.gratis.precioMensual).toBe(0);
-    expect(PLANES.gratis.limites.programas).toBeNull();
-    expect(esPlanOfrecido("gratis")).toBe(false);
-    expect(esPlanSinCosto("gratis")).toBe(false);
+  });
+
+  it("ningún retirado se puede ELEGIR", () => {
+    for (const def of RETIRADOS_DEL_TEST) {
+      expect(esPlanOfrecido(def.id), `${def.id} no se puede elegir`).toBe(false);
+      expect(esPlanSinCosto(def.id), `${def.id} no puede saltarse el depósito`).toBe(false);
+    }
+    // EL CASO PUNTUAL DE LA AUDITORÍA, y el más caro de los dos: un
+    // retirado que cuesta $0 y viene sin topes. `esPlanSinCosto` decide
+    // si el alta salta el depósito, así que si preguntara solo por el
+    // precio, este paquete crearía negocios ilimitados y gratis.
+    expect(RETIRADO_SIN_COSTO.precioMensual).toBe(0);
+    expect(RETIRADO_SIN_COSTO.limites.programas).toBeNull();
+    expect(esPlanSinCosto(ID_SIN_COSTO)).toBe(false);
+    // Y no se cuela en el camino automático por la puerta de al lado.
+    expect(PLANES_OFRECIDOS.filter((id) => esPlanSinCosto(id))).toEqual(["prueba"]);
+  });
+
+  it("no aparece en nada de lo que se ofrece", () => {
+    for (const def of RETIRADOS_DEL_TEST) {
+      expect(PLANES_OFRECIDOS as readonly string[]).not.toContain(def.id);
+      expect(PLANES_VIGENTES.map((p) => p.id)).not.toContain(def.id);
+    }
+    // La grilla no se mueve por tener un paquete apagado en el catálogo.
+    expect(PLANES_VIGENTES).toHaveLength(PLANES_OFRECIDOS.length);
   });
 
   it("pero el que ya lo TIENE conserva todo, exactamente igual", () => {
-    for (const id of PLANES_RETIRADOS) {
-      // Sigue resolviendo: nombre, capacidades, topes y tipos.
-      expect(esPlan(id), `${id} sigue siendo un valor válido de la base`).toBe(true);
-      expect(definicionDe(id), `${id} sigue teniendo definición`).not.toBeNull();
-      expect(tiposDelPlan(id)).toHaveLength(TIPOS_TARJETA_ID.length);
+    for (const def of RETIRADOS_DEL_TEST) {
+      // Sigue resolviendo: es un valor válido de la base, tiene
+      // definición, y los topes y tipos son los que se le vendieron.
+      expect(esPlan(def.id), `${def.id} sigue siendo un valor válido de la base`).toBe(true);
+      expect(definicionDe(def.id), `${def.id} sigue teniendo definición`).not.toBeNull();
+      expect(definicionDe(def.id)?.nombre).toBe(def.nombre);
+      // `tipos: null` = los ocho. No se le quita a quien ya pagó.
+      expect(tiposDelPlan(def.id)).toHaveLength(TIPOS_TARJETA_ID.length);
+      // El tope que se guarda es EL SUYO, no el del catálogo de hoy:
+      // bajárselo por un cambio de catálogo sería quitarle lo comprado,
+      // y subírselo sería regalarle lo que no pagó.
+      expect(estadoDelLimite(def.id, "programas", 500).lleno).toBe(false);
+      expect(estadoDelLimite(def.id, "clientesActivos", 0).limite).toBe(
+        def.limites.clientesActivos,
+      );
     }
-    expect(puede("basico", "wallet")).toBe(true);
-    expect(puede("empresa", "marca_blanca")).toBe(true);
-    expect(estadoDelLimite("gratis", "programas", 500).lleno).toBe(false);
+    // El de precio negociado iba sin ningún tope…
+    expect(estadoDelLimite(ID_A_CONVENIR, "clientesActivos", 999_999).lleno).toBe(false);
+    // …y el gratis con el tope chico que tenía. Los dos se respetan tal
+    // cual estaban.
+    expect(estadoDelLimite(ID_SIN_COSTO, "clientesActivos", 5).lleno).toBe(true);
+  });
+
+  it("conserva hasta las viñetas que hoy no se pueden vender", () => {
+    // No se le reescribe la lista aunque varias no tengan producto: es
+    // el registro de lo que esa cuenta compró. Lo que se arregla hacia
+    // adelante es no volver a OFRECERLAS, y de eso se encarga el bloque
+    // «no se promete lo que no existe».
+    expect(puede(ID_A_CONVENIR, "wallet")).toBe(true);
+    expect(puede(ID_A_CONVENIR, "api")).toBe(true);
+    expect(puede(ID_A_CONVENIR, "webhooks")).toBe(true);
+    expect(puede(ID_SIN_COSTO, "notificaciones")).toBe(true);
+    // Y un complemento apagado no le quita lo que el paquete incluía.
+    expect(puede(ID_A_CONVENIR, "api", [])).toBe(true);
+  });
+
+  it("un paquete retirado se retira poniendo `vigente: false`, y nada más", () => {
+    // LA MECÁNICA, en una línea: la puerta se decide con `vigente` y no
+    // con `PLANES_OFRECIDOS.includes`. Por eso alcanza con ese campo
+    // para que un paquete deje de venderse en TODAS las pantallas a la
+    // vez, sin ir a buscar dónde más se pintaba.
+    for (const def of RETIRADOS_DEL_TEST) {
+      expect(esPlan(def.id)).toBe(true);
+      expect(definicionDe(def.id)?.vigente).toBe(false);
+      expect(esPlanOfrecido(def.id)).toBe(false);
+    }
+    // Y al revés: lo vigente pasa por la misma puerta.
+    for (const id of PLANES_OFRECIDOS) {
+      expect(definicionDe(id)?.vigente, id).toBe(true);
+      expect(esPlanOfrecido(id), id).toBe(true);
+    }
+  });
+});
+
+describe("hoy el catálogo no arrastra ningún paquete retirado", () => {
+  it("las dos listas coinciden, y por eso `PLANES_ID` son los cuatro", () => {
+    // No es que la separación sobre: es que está vacía. El día que se
+    // retire uno, su id se mueve a `PLANES_RETIRADOS` y `PLANES_ID`
+    // vuelve a ser más largo que `PLANES_OFRECIDOS`.
+    expect(PLANES_RETIRADOS).toHaveLength(0);
+    expect([...PLANES_ID]).toEqual([...PLANES_OFRECIDOS]);
+    expect(Object.keys(PLANES).sort()).toEqual([...PLANES_ID].sort());
+  });
+
+  it("ninguna definición quedó apagada dentro del catálogo", () => {
+    for (const def of Object.values(PLANES)) {
+      expect(def.vigente, `${def.id} está en el catálogo pero apagado`).toBe(true);
+    }
   });
 
   it("los cuatro ofrecidos SÍ se pueden elegir", () => {
@@ -154,57 +366,66 @@ describe("UN PAQUETE RETIRADO NO SE PUEDE ELEGIR, PERO SE SIGUE RESPETANDO", () 
   });
 });
 
-describe("los planes viejos no se rompen", () => {
-  // Esto es lo que protege a los negocios que YA pagaron: sacar
-  // 'basico' del catálogo los dejaría sin plan, sin topes y sin
-  // capacidades de un día para otro.
-  it("los retirados siguen resolviendo", () => {
-    for (const id of PLANES_RETIRADOS) {
-      const def = definicionDe(id);
-      expect(def).not.toBeNull();
-      expect(def!.vigente).toBe(false);
-    }
-    expect(definicionDe("basico")?.nombre).toBe("Básico");
-    expect(puede("basico", "wallet")).toBe(true);
-  });
-
-  it("los cinco del catálogo 0133 se RETIRARON, no se borraron", () => {
-    // La 0141 los sacó de la venta. Borrarlos habría dejado a quien los
-    // tiene sin plan — y con plan null todos los topes quedan null, o
-    // sea ilimitado: el bug que ya se tuvo una vez.
-    for (const id of ["esencial", "crece", "pro", "empresa"] as const) {
-      expect(esPlan(id)).toBe(true);
-      expect(definicionDe(id)).not.toBeNull();
-      expect(PLANES[id].vigente).toBe(false);
-      expect(PLANES_RETIRADOS as readonly string[]).toContain(id);
-    }
-    // 'prueba' es el único del catálogo viejo que SIGUE ofreciéndose.
-    expect(PLANES.prueba.vigente).toBe(true);
-  });
-
-  it("no se les baja el tope por un cambio de catálogo", () => {
-    // Quitarle capacidad a quien ya compró sería cobrarle lo mismo por
-    // menos. Los retirados quedan sin topes a propósito — incluidos los
-    // cinco que la 0141 acaba de retirar, que ANTES sí tenían tope.
-    for (const id of PLANES_RETIRADOS) {
-      if (id === "gratis") continue; // el único con tope histórico propio
-      expect(PLANES[id].limites.clientesActivos, `${id} conserva su tope`).toBeNull();
-      expect(PLANES[id].limites.programas, `${id} conserva su tope`).toBeNull();
+describe("un plan que el catálogo no conoce no bloquea: DESBLOQUEA", () => {
+  /**
+   * EL FILO DE TODA ESTA DOCTRINA, Y LA RAZÓN DE QUE BORRAR LOS OCHO
+   * PAQUETES HAYA PEDIDO MIRAR LA BASE PRIMERO.
+   *
+   * `definicionDe` devuelve null para un id desconocido, y con null
+   * TODOS los topes quedan en null y `tiposDelPlan` devuelve los ocho.
+   * O sea que un negocio cuya fila tenga un id que el catálogo no
+   * conoce no queda apagado: queda ILIMITADO Y GRATIS.
+   *
+   * Eso es deliberado —bloquear castigaría a un negocio sin paquete
+   * asignado, que no hizo nada, y lo dejaría sin poder tocar la tarjeta
+   * que ya tiene— y por eso mismo es lo que convierte «borrar un plan
+   * que alguien tiene puesto» en un regalo silencioso y no en un error.
+   * Nadie se entera hasta la factura.
+   *
+   * Antes esto se probaba con 'basico', que era un plan retirado de
+   * verdad. Ahora se prueba con ids que no existen en ninguna parte, que
+   * es exactamente el estado en que quedaría una fila huérfana.
+   */
+  it("con un id desconocido no hay tope: ilimitado, no bloqueado", () => {
+    for (const id of ["basico", "empresa", "premium", "lo-que-sea"]) {
+      expect(esPlan(id), `${id} no está en el catálogo`).toBe(false);
+      expect(definicionDe(id), `${id} no tiene definición`).toBeNull();
+      expect(estadoDelLimite(id, "clientesActivos", 5_000).limite).toBeNull();
+      expect(estadoDelLimite(id, "clientesActivos", 5_000).lleno).toBe(false);
+      expect(estadoDelLimite(id, "programas", 500).lleno).toBe(false);
+      // Y con los ocho tipos abiertos, que es el otro medio regalo.
+      expect(tiposDelPlan(id)).toHaveLength(TIPOS_TARJETA_ID.length);
     }
   });
 
-  it("no se ofrecen", () => {
-    for (const id of PLANES_RETIRADOS) {
-      expect(PLANES_OFRECIDOS as readonly string[]).not.toContain(id);
+  it("pero no le concede ninguna CAPACIDAD, que es la otra mitad", () => {
+    // Los topes se aflojan; las capacidades no se regalan. Son dos
+    // doctrinas distintas y conviene que se vean juntas: `puede()` sin
+    // definición dice que no a todo.
+    for (const cap of Object.keys(ETIQUETAS_CAPACIDAD) as Capacidad[]) {
+      expect(puede("basico", cap), `basico → ${cap}`).toBe(false);
+      expect(puede(null, cap), `sin plan → ${cap}`).toBe(false);
     }
   });
 
-  it("un negocio real con plan viejo sigue funcionando", () => {
-    // Rancho Las Torres está en 'basico' en producción. Este es el caso
-    // concreto que la separación ofrecidos/retirados protege.
-    const def = definicionDe("basico");
-    expect(def?.nombre).toBe("Básico");
-    expect(estadoDelLimite("basico", "clientesActivos", 5_000).lleno).toBe(false);
+  it("los ocho paquetes viejos ya no están, y la base tampoco los tiene", () => {
+    // Se borraron el 2026-08-17 después de comprobar en producción que
+    // ninguna de las cuatro columnas de plan tenía una sola fila con
+    // ellos. Este test es el recordatorio de que la condición para
+    // borrar un paquete es esa comprobación, y no que «ya no se venda».
+    for (const id of [
+      "esencial",
+      "crece",
+      "pro",
+      "empresa",
+      "gratis",
+      "basico",
+      "estandar",
+      "enterprise",
+    ]) {
+      expect(esPlan(id), `${id} volvió al catálogo`).toBe(false);
+      expect(PLANES_ID as readonly string[]).not.toContain(id);
+    }
   });
 
   /**
@@ -411,10 +632,20 @@ describe("el reparto de tipos de tarjeta", () => {
     expect(planIncluyeTipo("arranque", "membresia")).toBe(false);
   });
 
-  it("los retirados conservan los ocho: no se le quita a quien ya pagó", () => {
-    for (const id of PLANES_RETIRADOS) {
-      expect(PLANES[id].tipos, `${id}`).toBeNull();
-      expect(tiposDelPlan(id)).toHaveLength(TIPOS_TARJETA_ID.length);
+  it("un paquete retirado conserva sus tipos: no se le quita a quien ya pagó", () => {
+    // Con los paquetes inventados, porque el catálogo ya no arrastra
+    // ninguno de verdad. Los dos van con `tipos: null` —los ocho— que es
+    // lo que tenían los ocho que se borraron: el reparto por escalón de
+    // la 0142 no se les aplica hacia atrás.
+    inyectarLosRetirados();
+    try {
+      for (const def of RETIRADOS_DEL_TEST) {
+        expect(def.tipos, `${def.id}`).toBeNull();
+        expect(tiposDelPlan(def.id)).toHaveLength(TIPOS_TARJETA_ID.length);
+        expect(planIncluyeTipo(def.id, "giftcard"), `${def.id}`).toBe(true);
+      }
+    } finally {
+      sacarLosRetirados();
     }
   });
 
@@ -626,8 +857,13 @@ describe("precioDe", () => {
 
   it("la prueba es cero y el negociado no tiene cifra", () => {
     expect(precioDe(PLANES.prueba)).toBe("$0");
-    // «Empresa», retirado, se cotizaba caso por caso: sin cifra inventada.
-    expect(precioDe(PLANES.empresa)).toBeNull();
+    // `precioMensual: null` es «a convenir», y NO se le inventa un
+    // monto. Hoy ningún paquete del catálogo se cotiza caso por caso
+    // —los que lo hacían eran retirados y se borraron— así que la rama
+    // se prueba con el paquete inventado. `precioDe` recibe la
+    // definición entera, o sea que acá no hace falta inyectar nada.
+    expect(precioDe(RETIRADO_A_CONVENIR)).toBeNull();
+    expect(precioDe(RETIRADO_A_CONVENIR, "año")).toBeNull();
     // Tampoco inventa un anual donde no lo hay.
     expect(precioDe(PLANES.prueba, "año")).toBeNull();
   });
@@ -649,19 +885,11 @@ describe("puede", () => {
     }
   });
 
-  it("los retirados conservan lo que en su momento se les vendió", () => {
-    // No se les reescribe la lista aunque varias de esas viñetas no
-    // tengan producto: es el registro de lo que esa cuenta compró.
-    expect(puede("crece", "segmentacion")).toBe(true);
-    expect(puede("pro", "api")).toBe(true);
-    expect(puede("empresa", "marca_blanca")).toBe(true);
-    expect(puede("empresa", "soporte_dedicado")).toBe(true);
-    expect(puede("basico", "wallet")).toBe(true);
-  });
-
   it("sin plan no puede nada", () => {
-    for (const cap of PLANES.empresa.capacidades) {
-      expect(puede(null, cap)).toBe(false);
+    // TODAS las capacidades, no las de un paquete concreto: sin
+    // definición no se concede ni una.
+    for (const cap of Object.keys(ETIQUETAS_CAPACIDAD) as Capacidad[]) {
+      expect(puede(null, cap), cap).toBe(false);
     }
   });
 
@@ -676,7 +904,8 @@ describe("puede", () => {
 
   it("un complemento NO puede quitar lo que el plan incluye", () => {
     // Apagar un add-on por error no debe degradar a quien pagó el plan.
-    expect(puede("pro", "cercania", [])).toBe(true);
+    expect(puede("ilimitado", "cercania", [])).toBe(true);
+    expect(puede("ilimitado", "cercania", ["agenda_ia"])).toBe(true);
   });
 
   it("un plan inventado no concede nada", () => {
@@ -746,19 +975,30 @@ describe("definicionDe", () => {
     expect(definicionDe("arranque")?.nombre).toBe("Starter");
     expect(definicionDe("impulso")?.nombre).toBe("Impulso");
     expect(definicionDe("ilimitado")?.nombre).toBe("Ilimitado");
-    // Los retirados siguen resolviendo, que es todo el punto.
-    expect(definicionDe("empresa")?.nombre).toBe("Empresa");
+  });
+
+  it("un paquete retirado sigue resolviendo, que es todo el punto", () => {
+    inyectarLosRetirados();
+    try {
+      expect(definicionDe(ID_A_CONVENIR)?.nombre).toBe(RETIRADO_A_CONVENIR.nombre);
+      expect(definicionDe(ID_SIN_COSTO)?.nombre).toBe(RETIRADO_SIN_COSTO.nombre);
+    } finally {
+      sacarLosRetirados();
+    }
+    // Y en cuanto se lo saca del catálogo, deja de resolver: es la
+    // diferencia entre RETIRAR y BORRAR, y la que hay que mirar en la
+    // base antes de borrar nada.
+    expect(definicionDe(ID_A_CONVENIR)).toBeNull();
   });
 });
 
 describe("el plan sin costo tiene tope de programas", () => {
   /**
-   * El agujero que esto cierra: el alta automática guardaba
-   * `plan_lealtad: "gratis"` a mano. `gratis` es un plan RETIRADO, y los
-   * retirados llevan SIN_TOPES a propósito. Entonces
-   * `definicionDe(plan).limites.programas` daba null, el tope de
-   * `crear-actions.ts` ni se ejecutaba, y una cuenta gratis podía crear
-   * pases ilimitados.
+   * El agujero que esto cierra: el alta automática guardaba a mano el
+   * id de un paquete RETIRADO que costaba $0, y los retirados van sin
+   * topes a propósito. Entonces `definicionDe(plan).limites.programas`
+   * daba null, el tope de `crear-actions.ts` ni se ejecutaba, y una
+   * cuenta gratis podía crear pases ilimitados.
    *
    * La regla del dueño es «el acceso automático solo permite crear UN
    * pase». Eso no se cumple con un `if` en una pantalla: se cumple si el
@@ -779,8 +1019,19 @@ describe("el plan sin costo tiene tope de programas", () => {
     expect(PLANES.prueba.limites.programas).toBe(1);
   });
 
-  it("los retirados conservan SIN_TOPES: no se le quita a quien ya lo tenía", () => {
-    expect(PLANES.gratis.limites.programas).toBeNull();
+  it("un retirado sin costo conserva sus topes abiertos — y por eso no se puede ELEGIR", () => {
+    // Las dos mitades juntas, que es donde se ve por qué la puerta de
+    // `esPlanSinCosto` pregunta primero si el paquete se ofrece: el
+    // paquete existe, cuesta $0 y no tiene tope de programas. Lo único
+    // que impide que alguien se lo pida es `vigente: false`.
+    inyectarLosRetirados();
+    try {
+      expect(definicionDe(ID_SIN_COSTO)?.precioMensual).toBe(0);
+      expect(definicionDe(ID_SIN_COSTO)?.limites.programas).toBeNull();
+      expect(esPlanSinCosto(ID_SIN_COSTO)).toBe(false);
+    } finally {
+      sacarLosRetirados();
+    }
   });
 });
 
@@ -820,7 +1071,13 @@ describe("EL ANUAL ES 20% MENOS, y eso es una promesa que se comprueba con calcu
   });
 
   it("un paquete sin precio anual no anuncia ningún descuento", () => {
+    // El de $0 y el de precio a convenir: en los dos, dividir por el
+    // precio mensual daría 0 o NaN, y un «NaN% menos» en la landing es
+    // peor que no decir nada. Como `descuentoAnualPct` recibe la
+    // definición entera, el «a convenir» se prueba con el paquete
+    // inventado sin tocar el catálogo.
     expect(descuentoAnualPct(PLANES.prueba)).toBe(0);
-    expect(descuentoAnualPct(PLANES.empresa)).toBe(0);
+    expect(descuentoAnualPct(RETIRADO_A_CONVENIR)).toBe(0);
+    expect(descuentoAnualPct(RETIRADO_SIN_COSTO)).toBe(0);
   });
 });

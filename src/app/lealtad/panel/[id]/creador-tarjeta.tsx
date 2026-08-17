@@ -9,7 +9,7 @@ import {
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
 import { coloresDePaleta, PALETAS, paletaDeLosColores } from "@/lib/lealtad/paletas";
-import type { IconoSello } from "@/lib/lealtad/iconos-sello";
+import type { SelloElegido } from "@/lib/lealtad/iconos-sello";
 import { Icono } from "./iconos";
 import SelectorTipo from "@/components/lealtad/selector-tipo";
 import PasoBeneficio from "@/components/lealtad/paso-beneficio";
@@ -100,7 +100,10 @@ export default function CreadorTarjeta({
   // llegar al paso de diseño con esa ya puesta es la mitad del arreglo.
   const [colorFondo, setColorFondo] = useState(coloresDePaleta(PALETAS.sellos).fondo);
   const [colorSello, setColorSello] = useState(coloresDePaleta(PALETAS.sellos).sello);
-  const [iconoSello, setIconoSello] = useState<IconoSello | null>(null);
+  const [iconoSello, setIconoSello] = useState<SelloElegido | null>(null);
+  // El ícono propio (0174): el archivo vive acá aunque esté elegido
+  // otro dibujo, para que probar «Café» no lo borre.
+  const [iconoUrl, setIconoUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
   const [reglas, setReglas] = useState<Reglas>(REGLAS_VACIAS);
@@ -139,6 +142,7 @@ export default function CreadorTarjeta({
       // comprobar: acá se limpia para no mandar basura, no para
       // autorizar nada.
       iconoSello: tipo === "sellos" ? iconoSello : null,
+      iconoUrl: tipo === "sellos" ? iconoUrl.trim() : "",
       logoUrl: logoUrl.trim(),
       bannerUrl: bannerUrl.trim(),
       reglas,
@@ -268,10 +272,13 @@ export default function CreadorTarjeta({
                     alElegir={setIconoSello}
                     colorFondo={colorFondo}
                     colorSello={colorSello}
+                    iconoUrl={iconoUrl || null}
+                    alSubirIcono={setIconoUrl}
                   />
                   <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
                     Se llena cuando el cliente gana el sello y queda en contorno el que le
-                    falta. Con «Mi logo» va tu logo adentro del círculo, como hasta ahora.
+                    falta. Con «Mi logo» va tu logo adentro del círculo, como hasta ahora, y
+                    con «Mi ícono» va el símbolo que subas.
                   </p>
                 </div>
               )}
@@ -444,6 +451,7 @@ export default function CreadorTarjeta({
               colorFondo,
               colorSello,
               iconoSello,
+              iconoUrl: iconoUrl.trim() || null,
               logoUrl: logoUrl.trim() || null,
               bannerUrl: bannerUrl.trim() || null,
             }}

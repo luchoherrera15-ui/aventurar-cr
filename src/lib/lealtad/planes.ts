@@ -16,10 +16,15 @@
  * EL CATÁLOGO DE HOY (0141 + el reparto de la 0142)
  * ------------------------------------------------------------------
  *              clientes  tarjetas  tipos  equipo  extras
- *   Prueba $0        25         1      2       1  — (14 días)
+ *   Prueba $0         5         1      3       1  — (no vence)
  *   Arranque $12    200         2      5       3  —
  *   Impulso $42   1.150         5      8      10  —
  *   Ilimitado $89     ∞         ∞      8       ∞  cercanía + diseño
+ *
+ * (La fila de Prueba decía «25 · 2 tipos · 14 días» y las tres cifras
+ * estaban vencidas: el dueño la bajó a 5 clientes y le quitó el
+ * vencimiento, y los tipos son tres. Las de verdad están abajo, en las
+ * definiciones, y hay pruebas sobre cada una.)
  *
  * Todo lo demás —wallet, personalización, reglas y vencimientos,
  * póster y QR, modo mostrador, equipo con permisos y analítica— va en
@@ -38,18 +43,37 @@
  * mundo al flujo manual con comprobante.
  *
  * ------------------------------------------------------------------
- * DOS LISTAS, Y LA DIFERENCIA IMPORTA
+ * DOS LISTAS, Y LA DIFERENCIA IMPORTA (aunque hoy digan lo mismo)
  * ------------------------------------------------------------------
  * `PLANES_OFRECIDOS` es lo que se VENDE hoy. `PLANES_ID` es todo lo
- * que la base puede tener GUARDADO, e incluye los planes retirados.
+ * que la base puede tener GUARDADO, o sea lo ofrecido MÁS lo retirado.
  *
- * Los retirados no se borran: hay negocios con esos valores (Rancho
- * Las Torres tiene «Básico») y el CHECK de la base los acepta. Sacarlos
- * de acá haría que `definicionDe('basico')` devolviera null y esas
- * cuentas se quedarían sin plan, sin topes y sin capacidades —
- * degradadas de un día para otro por un cambio de catálogo. Y con plan
- * null TODOS los topes quedan en null, o sea ilimitado: retirar mal un
- * plan no lo apaga, lo vuelve gratis e infinito.
+ * HOY NO HAY NINGÚN RETIRADO y por eso las dos listas coinciden. Eso es
+ * un estado, no una simplificación: la separación se queda entera
+ * porque es la que hace que retirar un paquete mañana no le rompa el
+ * programa a quien lo tiene puesto.
+ *
+ * La regla, que no cambia: un id que alguna fila TENGA GUARDADO no se
+ * borra de acá nunca. Sacarlo haría que `definicionDe()` devolviera
+ * null para esa cuenta, y con plan null TODOS los topes quedan en null
+ * —o sea ilimitado y gratis—. Retirar mal un paquete no lo apaga: lo
+ * vuelve infinito. Retirar bien es `vigente: false` y moverlo a
+ * `PLANES_RETIRADOS`, que es justo para lo que esa lista existe.
+ *
+ * ------------------------------------------------------------------
+ * POR QUÉ SE PUDIERON BORRAR LOS OCHO VIEJOS
+ * ------------------------------------------------------------------
+ * Había ocho paquetes retirados arrastrados de tres catálogos
+ * anteriores ('esencial', 'crece', 'pro', 'empresa', 'gratis',
+ * 'basico', 'estandar', 'enterprise'). Se borraron el 2026-08-17
+ * DESPUÉS de comprobar en producción que las cuatro columnas que
+ * guardan un plan —`ranchos.plan_lealtad`, `cuentas.plan`,
+ * `solicitudes_lealtad.plan` y `suscripciones.plan`— no tenían UNA
+ * SOLA fila con ninguno de esos ocho valores. Rancho Las Torres, que
+ * era el caso que los sostenía con «Básico», dejó el módulo.
+ *
+ * Esa comprobación es la condición, no un trámite: mientras exista una
+ * fila con un id, ese id se queda acá aunque nadie lo venda.
  *
  * ------------------------------------------------------------------
  * LO QUE SE PROMETE TIENE QUE EXISTIR
@@ -69,28 +93,47 @@ export const PLANES_OFRECIDOS = ["prueba", "arranque", "impulso", "ilimitado"] a
 
 /**
  * Planes de etapas anteriores: ya no se venden, pero siguen
- * resolviendo para quien los tiene. NUNCA se quitan mientras exista
- * una fila con ese valor.
+ * resolviendo para quien los tiene.
  *
- * Los cuatro primeros son de la etapa 0124/0131; los cinco últimos, del
- * catálogo 0133 que la 0141 reemplazó por los tres paquetes de hoy.
+ * ------------------------------------------------------------------
+ * ESTÁ VACÍA, Y NO ES LO MISMO QUE NO EXISTIR
+ * ------------------------------------------------------------------
+ * Hoy no hay ninguno: los ocho que había se borraron cuando se
+ * comprobó que ninguna fila de la base los tenía (ver la cabecera). La
+ * lista se queda porque es LA MITAD DEL MECANISMO de retiro, y el
+ * mecanismo sigue siendo la política correcta.
+ *
+ * Retirar un paquete, el día que toque, son tres movimientos y nada
+ * más:
+ *
+ *   1. sacar su id de `PLANES_OFRECIDOS` y ponerlo acá — así sigue
+ *      siendo un valor que la base puede tener guardado y
+ *      `definicionDe()` lo sigue resolviendo;
+ *   2. ponerle `vigente: false` a su definición — con eso
+ *      `esPlanOfrecido()` cierra la puerta sola y deja de aparecer en
+ *      toda grilla y en el catálogo público;
+ *   3. dejarle los topes que tenía: bajárselos a quien ya pagó por un
+ *      cambio de catálogo es quitarle lo comprado.
+ *
+ * Lo que NO hay que hacer nunca es borrarle la definición mientras una
+ * fila lo tenga puesto. Eso no lo apaga: lo vuelve ilimitado y gratis.
  */
-export const PLANES_RETIRADOS = [
-  "gratis",
-  "basico",
-  "estandar",
-  "enterprise",
-  "esencial",
-  "crece",
-  "pro",
-  "empresa",
-] as const;
+export const PLANES_RETIRADOS = [] as const;
 
 /**
- * OJO: agregar un plan acá pide también ampliar los CHECK de la base
- * (`ranchos.plan_lealtad`, `solicitudes_lealtad.plan` y `cuentas.plan`)
- * — la 0131 lo hizo para 'gratis', la 0133 para el catálogo anterior y
- * la 0141 para 'arranque', 'impulso' e 'ilimitado'.
+ * Todo lo que la base puede tener GUARDADO en una columna de plan.
+ *
+ * OJO: mover un id de una lista a la otra no cambia esta —los CHECK de
+ * la base siguen aceptando lo mismo— pero AGREGAR o QUITAR un id acá
+ * pide tocar las CUATRO restricciones de la base a la vez
+ * (`ranchos.plan_lealtad`, `solicitudes_lealtad.plan`, `cuentas.plan`
+ * y `suscripciones.plan`). La 0131 lo hizo para 'gratis', la 0133 para
+ * el catálogo anterior, la 0141 para 'arranque', 'impulso' e
+ * 'ilimitado', la 0143 para `suscripciones` y la 0179 las dejó en los
+ * cuatro de hoy.
+ *
+ * `checks-de-planes.test.ts` compara esta lista contra los `.sql` de
+ * verdad, en las dos direcciones, para que no se pueda olvidar.
  */
 export const PLANES_ID = [...PLANES_OFRECIDOS, ...PLANES_RETIRADOS] as const;
 export type PlanId = (typeof PLANES_ID)[number];
@@ -112,10 +155,22 @@ export type PlanId = (typeof PLANES_ID)[number];
  *
  * Por eso la lista está partida en dos: arriba lo que un negocio puede
  * usar hoy, abajo lo que quedó de catálogos anteriores y NO tiene
- * producto detrás. Las de abajo siguen existiendo como tipo porque hay
- * paquetes RETIRADOS que las nombran y esos no se tocan — pero ningún
- * paquete que se ofrezca puede volver a usarlas. Hay una prueba que lo
- * hace cumplir.
+ * producto detrás.
+ *
+ * ------------------------------------------------------------------
+ * POR QUÉ LAS DE ABAJO SIGUEN DECLARADAS SI NADIE LAS USA
+ * ------------------------------------------------------------------
+ * Existían porque los paquetes RETIRADOS las nombraban. Esos paquetes
+ * ya no están, y sin embargo estas trece se quedan: son la lista de lo
+ * que NO SE PUEDE VENDER, y para que `CAPACIDADES_SIN_PRODUCTO` sea
+ * una lista de verdad —recorrible por una prueba, y no un comentario—
+ * el tipo tiene que poder NOMBRARLAS.
+ *
+ * Se ganó algo en el camino: hoy ningún paquete las usa, así que
+ * `CAPACIDADES_SIN_PRODUCTO` describe exactamente lo mismo que este
+ * bloque de abajo, y el filtro de `catalogo-publico.ts` no tiene nada
+ * que sacar. Esa es la señal de que el catálogo está limpio, no de que
+ * la lista sobre.
  */
 export type Capacidad =
   // ── Lo que existe de verdad ─────────────────────────────────────
@@ -170,10 +225,13 @@ export type Capacidad =
   | "diseno_a_medida"
 
   // ── Heredadas: SIN PRODUCTO DETRÁS ──────────────────────────────
-  // Viven acá para que los paquetes RETIRADOS sigan resolviendo tal
-  // cual estaban. Ningún paquete ofrecido las puede usar: no hay tabla,
-  // ni endpoint, ni pantalla que las cumpla, y venderlas sería cobrar
-  // por algo que no se puede entregar. Auditado antes de la 0141.
+  // NINGÚN paquete las usa, y ese es el punto: no hay tabla, ni
+  // endpoint, ni pantalla que las cumpla, y venderlas sería cobrar por
+  // algo que no se puede entregar. Auditado antes de la 0141.
+  //
+  // Se quedan declaradas para que `CAPACIDADES_SIN_PRODUCTO` las pueda
+  // enumerar y las pruebas las puedan buscar en lo que sale a la calle.
+  // Sacar una de acá es decir «esto se construyó», y hay que probarlo.
   /** SIN PRODUCTO. El push de Wallet existe pero es SILENCIOSO: sirve
    *  para refrescar el pase, no para que el negocio mande un mensaje.
    *  No hay pantalla ni acción para redactar y enviar nada. */
@@ -222,6 +280,11 @@ export type Capacidad =
  *
  * Sacar algo de esta lista es la señal de que se construyó: ese día se
  * mueve para arriba en `Capacidad` y recién ahí se puede vender.
+ *
+ * Que hoy ningún paquete nombre ninguna de las trece no la vuelve
+ * decorativa: es la lista que hace que agregarla siga siendo un error
+ * atrapado por la suite, y el filtro de `catalogo-publico.ts` la vuelve
+ * a aplicar en la última puerta antes de la red.
  */
 export const CAPACIDADES_SIN_PRODUCTO: readonly Capacidad[] = [
   "notificaciones",
@@ -250,9 +313,8 @@ export const CAPACIDADES_SIN_PRODUCTO: readonly Capacidad[] = [
  * ------------------------------------------------------------------
  * TRES de los seis: `clientesActivos`, `programas` y `administradores`
  * (este último desde el reparto de la 0142). Los otros tres se dejan
- * escritos porque el tipo los pide y porque los paquetes retirados los
- * usan, pero están puestos en el valor que NO promete nada (ver cada
- * campo).
+ * escritos porque el tipo los pide, pero están puestos en el valor que
+ * NO promete nada (ver cada campo).
  */
 export type LimitesPlan = {
   /**
@@ -345,8 +407,9 @@ export type DefinicionPlan = {
    * que no entran BLOQUEADOS, con el paquete que los abre, porque
    * esconderlos hace que el dueño no sepa que existen.
    *
-   * Los paquetes RETIRADOS van en `null`: tenían los ocho y no se le
-   * quita lo comprado a nadie por un cambio de catálogo.
+   * Un paquete que se RETIRE se queda con los tipos que tenía —o con
+   * `null` si los tenía todos—: no se le quita lo comprado a nadie por
+   * un cambio de catálogo.
    */
   tipos: readonly TipoTarjeta[] | null;
   /** Días de prueba sin tarjeta. 0 = no es una prueba. */
@@ -354,33 +417,6 @@ export type DefinicionPlan = {
   /** false = retirado: resuelve para quien lo tiene, no se ofrece. */
   vigente: boolean;
 };
-
-/** Todo ilimitado — se repite en Empresa y en los planes retirados. */
-const SIN_TOPES: LimitesPlan = {
-  clientesActivos: null,
-  programas: null,
-  notificacionesMes: null,
-  administradores: null,
-  sedes: null,
-  automatizaciones: null,
-};
-
-/**
- * Lo que traen los paquetes RETIRADOS. Congelada tal cual estaba.
- *
- * No se toca ni para sacarle `notificaciones` —que no existe— porque
- * un paquete retirado es historia: describe lo que se le vendió a
- * alguien, y reescribirlo cambia el registro de lo que esa persona
- * compró. Lo que sí se puede hacer es no volver a venderlo, y eso ya
- * está hecho: ningún paquete ofrecido usa esta lista.
- */
-const BASE_RETIRADOS: readonly Capacidad[] = [
-  "wallet",
-  "tipos_de_tarjeta",
-  "reglas_y_vencimientos",
-  "notificaciones",
-  "analitica",
-];
 
 /**
  * Lo que trae CUALQUIER paquete del catálogo de hoy, incluida la
@@ -435,7 +471,13 @@ const INCLUIDO_SIEMPRE: readonly Capacidad[] = [
 /**
  * Cada plan INCLUYE lo del anterior. Se escriben completos igual, en
  * vez de heredar en cadena: una lista explícita se lee de un vistazo y
- * no obliga a seguir tres saltos para saber si Pro trae webhooks.
+ * no obliga a seguir tres saltos para saber qué trae el de arriba.
+ *
+ * Son CUATRO y nada más: acá abajo vivían ocho paquetes retirados de
+ * catálogos anteriores, y se fueron el día que la base dejó de tener
+ * una sola fila con esos ids (ver la cabecera). El día que se retire
+ * uno de estos cuatro, su definición se queda en este objeto con
+ * `vigente: false` — lo que se retira es la VENTA, no la definición.
  */
 export const PLANES: Record<PlanId, DefinicionPlan> = {
   prueba: {
@@ -590,165 +632,16 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     diasPrueba: 0,
     vigente: true,
   },
-
-  // ── Retirados ─────────────────────────────────────────────────────
-  // Existen para que las cuentas que ya los tienen sigan funcionando.
-  // Sin topes: bajarle el tope a alguien que ya pagó por un cambio de
-  // catálogo sería quitarle lo comprado.
-  //
-  // Y sin tocarles las capacidades tampoco, aunque varias de esas
-  // viñetas no tengan producto: lo que se les vendió es lo que dice
-  // acá, y reescribirlo borra el registro de la venta. Lo que se
-  // arregla hacia adelante es no volver a ofrecerlas.
-  //
-  // `tipos: null` en los ocho: tenían los ocho tipos de tarjeta desde
-  // la 0135 y el reparto de la 0142 no se los quita. Un negocio que
-  // hoy corre con «Básico» no se puede quedar sin poder editar su
-  // tarjeta de gift card por un cambio de catálogo.
-  esencial: {
-    id: "esencial",
-    nombre: "Esencial",
-    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
-    precioMensual: 9,
-    precioAnual: 90,
-    limites: SIN_TOPES,
-    capacidades: BASE_RETIRADOS,
-    tipos: null,
-    diasPrueba: 0,
-    vigente: false,
-  },
-  crece: {
-    id: "crece",
-    nombre: "Crece",
-    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
-    precioMensual: 27,
-    precioAnual: 270,
-    limites: SIN_TOPES,
-    capacidades: [
-      ...BASE_RETIRADOS,
-      "segmentacion",
-      "campanas_programadas",
-      "analitica_avanzada",
-      "webhooks",
-    ],
-    tipos: null,
-    diasPrueba: 0,
-    vigente: false,
-  },
-  pro: {
-    id: "pro",
-    nombre: "Pro",
-    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
-    precioMensual: 69,
-    precioAnual: 690,
-    limites: SIN_TOPES,
-    capacidades: [
-      ...BASE_RETIRADOS,
-      "segmentacion",
-      "campanas_programadas",
-      "analitica_avanzada",
-      "webhooks",
-      "api",
-      "exportacion",
-      "pos",
-      "roles_avanzados",
-      "cercania",
-    ],
-    tipos: null,
-    diasPrueba: 0,
-    vigente: false,
-  },
-  empresa: {
-    id: "empresa",
-    nombre: "Empresa",
-    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
-    // A convenir: era el tramo que se cotizaba caso por caso. Sin
-    // cifra, /admin/finanzas no le inventa un monto esperado — que es
-    // lo correcto para un precio negociado.
-    precioMensual: null,
-    precioAnual: null,
-    limites: SIN_TOPES,
-    capacidades: [
-      ...BASE_RETIRADOS,
-      "segmentacion",
-      "campanas_programadas",
-      "analitica_avanzada",
-      "webhooks",
-      "api",
-      "exportacion",
-      "pos",
-      "roles_avanzados",
-      "franquicias",
-      "sla",
-      "marca_blanca",
-      "soporte_dedicado",
-      "cercania",
-    ],
-    tipos: null,
-    diasPrueba: 0,
-    vigente: false,
-  },
-  gratis: {
-    id: "gratis",
-    nombre: "Gratis",
-    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
-    precioMensual: 0,
-    precioAnual: null,
-    limites: { ...SIN_TOPES, clientesActivos: 5 },
-    capacidades: BASE_RETIRADOS,
-    tipos: null,
-    diasPrueba: 0,
-    vigente: false,
-  },
-  basico: {
-    id: "basico",
-    nombre: "Básico",
-    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
-    precioMensual: null,
-    precioAnual: null,
-    limites: SIN_TOPES,
-    capacidades: BASE_RETIRADOS,
-    tipos: null,
-    diasPrueba: 0,
-    vigente: false,
-  },
-  estandar: {
-    id: "estandar",
-    nombre: "Estándar",
-    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
-    precioMensual: null,
-    precioAnual: null,
-    limites: SIN_TOPES,
-    capacidades: [...BASE_RETIRADOS, "segmentacion", "analitica_avanzada"],
-    tipos: null,
-    diasPrueba: 0,
-    vigente: false,
-  },
-  enterprise: {
-    id: "enterprise",
-    nombre: "Enterprise",
-    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
-    precioMensual: null,
-    precioAnual: null,
-    limites: SIN_TOPES,
-    capacidades: [
-      ...BASE_RETIRADOS,
-      "segmentacion",
-      "campanas_programadas",
-      "analitica_avanzada",
-      "webhooks",
-      "api",
-      "exportacion",
-      "pos",
-      "roles_avanzados",
-    ],
-    tipos: null,
-    diasPrueba: 0,
-    vigente: false,
-  },
 };
 
-/** Las definiciones que se ofrecen, en orden. */
+/**
+ * Las definiciones que se ofrecen, en orden.
+ *
+ * Es el FILTRO por el que pasa todo lo que se muestra y todo lo que se
+ * publica, y por eso no se borra aunque hoy no filtre nada: el día que
+ * un paquete se retire, esta lista es la que hace que deje de aparecer
+ * sin tener que buscar dónde más se pintaba.
+ */
 export const PLANES_VIGENTES: readonly DefinicionPlan[] = PLANES_OFRECIDOS.map(
   (id) => PLANES[id],
 );
@@ -788,9 +681,11 @@ export const ETIQUETAS_CAPACIDAD: Record<Capacidad, string> = {
   cercania: "El pase aparece solo cerca de tu local (en iPhone)",
   diseno_a_medida: "Te diseñamos la tarjeta a mano",
 
-  // ── Solo en paquetes retirados ───────────────────────────────────
-  // Nadie las puede comprar hoy. Se conservan para que «Tu plan
-  // actual» siga pudiendo escribir lo que en su momento se vendió.
+  // ── Las que NO se pueden vender ──────────────────────────────────
+  // Ningún paquete las trae y nadie las puede comprar. La etiqueta se
+  // escribe igual porque `Record<Capacidad, string>` la exige, y porque
+  // es lo que las pruebas buscan en el cuerpo que sale a la calle: sin
+  // texto que buscar, «esto no se promete» no se podría comprobar.
   notificaciones: "Notificaciones al pase del cliente",
   analitica_avanzada: "Analítica avanzada",
   segmentacion: "Segmentación de clientes",
@@ -833,29 +728,34 @@ export function esPlan(valor: string | null): valor is PlanId {
  * ------------------------------------------------------------------
  * LA DIFERENCIA CON `esPlan` NO ES COSMÉTICA: ES LA PUERTA
  * ------------------------------------------------------------------
- * `esPlan` contesta «¿la base puede tener esto GUARDADO?», y por eso
- * incluye los retirados — tiene que incluirlos, o las cuentas que ya
- * los tienen se quedarían sin plan. Esta contesta otra cosa: «¿alguien
- * puede PEDIR esto ahora?».
+ * `esPlan` contesta «¿la base puede tener esto GUARDADO?», e incluye
+ * los retirados — tiene que incluirlos, o las cuentas que ya los tienen
+ * se quedarían sin plan. Esta contesta otra cosa: «¿alguien puede PEDIR
+ * esto ahora?».
  *
- * Validar un alta con `esPlan` fue un agujero real. El formulario solo
- * ofrece los cuatro vigentes, pero una petición armada a mano con
- * `plan: "gratis"` pasaba la validación, y `gratis` lleva `SIN_TOPES` a
- * propósito (a quien ya lo tenía no se le quita nada). O sea que ELEGIR
- * un paquete retirado regalaba tarjetas ilimitadas, equipo ilimitado y
- * los ocho tipos —incluidos los que solo trae el de $42— sin pagar un
+ * Validar un alta con `esPlan` fue un agujero real, y caro. El
+ * formulario solo ofrece los vigentes, pero una petición armada a mano
+ * con el id de un paquete RETIRADO pasaba la validación — y los
+ * retirados van sin topes a propósito (a quien ya lo tenía no se le
+ * quita nada). O sea que ELEGIR un paquete retirado regalaba tarjetas
+ * ilimitadas, equipo ilimitado y los ocho tipos de tarjeta sin pagar un
  * colón. El descuido más caro de este archivo salía de confundir «lo
  * que la base acepta» con «lo que se vende».
  *
+ * Que hoy no haya ningún retirado no cierra ese agujero: lo deja sin
+ * munición. La puerta se queda puesta, porque el primer paquete que se
+ * retire vuelve a cargarla.
+ *
  * Lo que esta función NO toca: `definicionDe`, `puede`,
  * `estadoDelLimite` y `tiposDelPlan` siguen resolviendo con `esPlan`, o
- * sea que un negocio con «Básico» sigue funcionando exactamente igual.
- * Lo único que se corta es elegir uno NUEVO.
+ * sea que un negocio con un paquete retirado sigue funcionando
+ * exactamente igual. Lo único que se corta es elegir uno NUEVO.
  *
  * Se decide con `vigente` y no con `PLANES_OFRECIDOS.includes` para que
  * haya UNA sola verdad: el día que un paquete se retire alcanza con
  * poner `vigente: false` y esta puerta se cierra sola. (Hay una prueba
- * que exige que las dos listas digan lo mismo.)
+ * que exige que las dos listas digan lo mismo, y otra que comprueba el
+ * cierre con un paquete retirado inventado.)
  */
 export function esPlanOfrecido(valor: string | null): valor is PlanId {
   return esPlan(valor) && PLANES[valor].vigente;
@@ -866,9 +766,12 @@ export function esPlanOfrecido(valor: string | null): valor is PlanId {
  *
  * Es la pregunta que decide si un alta salta el depósito y se crea al
  * instante, así que tiene que ser más estricta que «precioMensual === 0»:
- * el paquete RETIRADO `gratis` también cuesta $0, y con esa comparación
- * suelta el camino automático le creaba a cualquiera un negocio con
- * `plan_lealtad: 'gratis'`, o sea sin un solo tope.
+ * pregunta primero si el paquete SE OFRECE. Hubo un paquete retirado
+ * que también costaba $0 y venía sin topes, y con la comparación suelta
+ * el camino automático le creaba a cualquiera un negocio ilimitado y
+ * gratis. La comparación suelta vuelve a ser peligrosa en cuanto se
+ * retire un paquete sin costo, así que el orden de las dos preguntas se
+ * queda como está.
  *
  * Hoy el único que contesta que sí es `prueba` — y por eso VENCE
  * (ver `finDePrueba` en ./prueba.ts). Un plan sin costo que no vence no

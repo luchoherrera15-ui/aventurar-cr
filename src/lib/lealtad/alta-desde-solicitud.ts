@@ -87,6 +87,19 @@ export async function crearNegocioDesdeSolicitud(
       // sentido volver a ponerlo en hold recién nacido.
       lealtad_aprobado_en: new Date().toISOString(),
       lealtad_aprobado_por: opciones.aprobadoPor,
+      // ⚠️ ACÁ SE ESCRIBE UNA SOLA DE LAS DOS COLUMNAS DEL PAQUETE, Y
+      // ESTÁ BIEN — pero solo por una razón, así que vale escribirla:
+      //
+      // El paquete manda desde `cuentas.plan` y `ranchos.plan_lealtad`
+      // es su espejo (ver src/lib/lealtad/aplicar-plan.ts). Este INSERT
+      // no puede dejarlos cruzados porque `cuentas.rancho_id` es una FK
+      // UNIQUE: para un id que la base acaba de generar NO PUEDE existir
+      // una fila en `cuentas` apuntándolo. No hay raíz con la cual
+      // discrepar; el rancho nace siendo la única verdad.
+      //
+      // Si algún día esta función también CREA la cuenta —que es a
+      // dónde va la 0134— el paquete tiene que pasar a escribirse con
+      // `aplicarPlanDeLealtad`, no agregando un segundo update acá.
       ...(opciones.plan ? { plan_lealtad: opciones.plan } : {}),
     })
     .select("id")

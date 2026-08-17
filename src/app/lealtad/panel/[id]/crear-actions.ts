@@ -7,7 +7,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
-import { esIconoSello, iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import {
+  esSelloElegido,
+  selloParaGuardar,
+  SELLO_PROPIO,
+  urlDeIconoPropio,
+  type SelloElegido,
+} from "@/lib/lealtad/iconos-sello";
+import { comprobarImagenSubida } from "@/lib/media/comprobar-imagen-subida";
 import { minutoISOCR } from "@/lib/fechas";
 import { acumulacionDe, recompensaInicial, traducirErrorDeBase } from "@/lib/lealtad/mostrador";
 import { sembrarRecompensa } from "@/lib/lealtad/sembrar-recompensa";
@@ -64,8 +71,13 @@ export type BorradorTarjeta = {
   beneficio: ConfigBeneficio;
   colorFondo: string;
   colorSello: string;
-  /** El dibujo de cada sello (0145). null = el logo del negocio. */
-  iconoSello: IconoSello | null;
+  /**
+   * El dibujo de cada sello (0145). null = el logo del negocio;
+   * 'propio' = el archivo de `iconoUrl` (0174).
+   */
+  iconoSello: SelloElegido | null;
+  /** El ícono propio que subió el negocio (0174). */
+  iconoUrl: string;
   logoUrl: string;
   /** La banda de arriba del pase: `strip` en Apple, `heroImage` en Google. */
   bannerUrl: string;
@@ -86,6 +98,13 @@ type Resultado = { ok: true; programaId: string } | { ok: false; motivo: string 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
 /**
+ * El tope del ícono propio (0174), en bytes: el MISMO número que
+ * muestra la pantalla al subir. Se vuelve a exigir de este lado porque
+ * el archivo no viaja por acá — lo sube el navegador directo al bucket.
+ */
+const MAX_BYTES_ICONO = 2 * 1024 * 1024;
+
+/**
  * Las columnas que la tarjeta puede perder si la base va atrás.
  *
  * Es la lista EXACTA de lo que el reintento de abajo deja de escribir:
@@ -98,6 +117,7 @@ const COLUMNAS_DEGRADABLES = [
   "estado",
   "pase_banner_url",
   "pase_sello_icono",
+  "pase_sello_icono_url",
   "compra_minima",
   "vigente_desde",
   "vigente_hasta",
@@ -145,10 +165,26 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   // qué pasó, y el de Postgres no está escrito para nadie. Y en un tipo
   // que no es sellos el icono no se rechaza —no es culpa de nadie— se
   // descarta, porque no hay círculos donde dibujarlo.
-  if (datos.iconoSello !== null && !esIconoSello(datos.iconoSello)) {
+  if (datos.iconoSello !== null && !esSelloElegido(datos.iconoSello)) {
     return { ok: false, motivo: "Ese icono de sello no existe." };
   }
-  const icono = iconoDelSello({ tipo: datos.tipo, icono: datos.iconoSello });
+  // El ícono PROPIO (0174) es un archivo del negocio, así que pasa por
+  // los mismos tres filtros que el logo y la banda: forma de la URL,
+  // que sea de NUESTRO storage, y que el objeto sea de verdad una
+  // imagen. Los dos primeros son gratis; el tercero es una llamada de
+  // red y por eso va después de que todo lo demás ya pasó.
+  const iconoUrl = datos.iconoUrl.trim();
+  if (iconoUrl && urlDeIconoPropio(iconoUrl) === null) {
+    return { ok: false, motivo: "El ícono no se subió bien — probá de nuevo." };
+  }
+  if (datos.iconoSello === SELLO_PROPIO && !iconoUrl) {
+    return { ok: false, motivo: "Subí tu ícono antes de elegirlo como sello." };
+  }
+  const sello = selloParaGuardar({
+    tipo: datos.tipo,
+    icono: datos.iconoSello,
+    url: iconoUrl,
+  });
 
   // ── LAS IMÁGENES TIENEN QUE SER NUESTRAS ────────────────────────
   // Antes alcanzaba con que empezara por `https://`, porque el campo
@@ -170,6 +206,18 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   const banner = datos.bannerUrl.trim();
   if (banner && !esUrlDeNuestroStorage(banner, "ranchos-fotos")) {
     return { ok: false, motivo: "La banda no se subió bien — probá de nuevo." };
+  }
+
+  if (sello.url) {
+    if (!esUrlDeNuestroStorage(sello.url, "ranchos-fotos")) {
+      return { ok: false, motivo: "El ícono no se subió bien — probá de nuevo." };
+    }
+    // Que sea de nuestro bucket no dice qué hay adentro: el archivo lo
+    // sube el navegador directo al storage, así que el tipo real y el
+    // tamaño se comprueban ACÁ (`comprobarImagenSubida`), leyendo los
+    // primeros bytes del objeto.
+    const revision = await comprobarImagenSubida(sello.url, { maxBytes: MAX_BYTES_ICONO });
+    if (!revision.ok) return { ok: false, motivo: revision.motivo };
   }
 
   // Las fechas tienen que tener sentido entre sí. Al revés, la tarjeta
@@ -303,7 +351,8 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     beneficio: datos.beneficio,
     pase_color_fondo: datos.colorFondo,
     pase_color_sello: datos.colorSello,
-    pase_sello_icono: icono,
+    pase_sello_icono: sello.icono,
+    pase_sello_icono_url: sello.url,
     pase_logo_url: logo || null,
     pase_banner_url: banner || null,
     ...estadoAlCrear(),
@@ -353,8 +402,8 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     // todavía no se corrieron, se reintenta sin ellas para que el
     // creador siga sirviendo — el programa queda con lo que la base sí
     // sabe guardar, y el resto entra cuando la migración corra. Sin la
-    // 0145, la tarjeta se crea igual y el sello sale como hasta hoy:
-    // con el logo adentro.
+    // 0145 (o sin la 0174, que suma el ícono propio), la tarjeta se
+    // crea igual y el sello sale como hasta hoy: con el logo adentro.
     //
     // ── SE DECIDE POR CÓDIGO, NO POR EL TEXTO ────────────────────
     // Acá había un regex sobre `error.message` con los nombres de las

@@ -1,0 +1,53 @@
+name: Cobro de plataforma del día del evento
+
+# EL DISPARADOR DEL DEVENGO DIARIO.
+#
+# 05:30 UTC = 11:30 p. m. de Costa Rica del día del evento. Media hora
+# DESPUÉS de /api/auto-cobro (05:00 UTC), que es el que acredita el
+# saldo: así, si el negocio ya registró lo que cobró de verdad
+# (monto_cobrado_final), la comisión de porcentaje sale de esa plata y
+# no de la cotización vieja.
+#
+# POR QUÉ ACÁ Y NO EN vercel.json:
+#   · vercel.json no se toca sin confirmación del dueño (regla del
+#     proyecto), y el aviso de pases-en-pausa.yml es claro: en el plan
+#     Hobby, un cron de más ahí puede hacer que Vercel rechace el
+#     deploy ENTERO sin dejar rastro en la lista de deployments. No se
+#     arriesga un despliegue por un disparador.
+#   · Si mañana hay que correrlo dos veces al día, acá es cambiar una
+#     línea.
+#
+# SI ESTE CRON NO CORRE UN DÍA no se pierde nada: la ruta barre los
+# últimos 7 días, así que la corrida siguiente recoge lo que quedó. Es
+# la ventana la que hace que un cron caído sea un retraso y no una
+# pérdida.
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: "Días hacia atrás a barrer (1-90, por defecto 7)"
+        required: false
+        default: "7"
+      simular:
+        description: "1 = solo simular, no escribe nada"
+        required: false
+        default: "0"
+
+# Una corrida a la vez. Sin esto, un reintento encima de la corrida
+# anterior serían dos barridos simultáneos — que la base aguanta (el
+# índice único no deja cobrar dos veces), pero no hay razón para
+# ponerla a prueba todos los días.
+concurrency:
+  group: cobro-del-dia
+
+jobs:
+  devengar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a /api/cobro-plataforma
+        run: |
+          curl -sf --max-time 300 \
+            "https://www.bookea.lat/api/cobro-plataforma?dias=${{ github.event.inputs.dias || '7' }}&simular=${{ github.event.inputs.simular || '0' }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

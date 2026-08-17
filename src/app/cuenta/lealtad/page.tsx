@@ -11,6 +11,17 @@ import {
   type ConfigBeneficio,
 } from "@/lib/lealtad/tipos-tarjeta";
 import { esIconoSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import { CardVacia } from "@/components/panel/piezas";
+import {
+  BAJADA_PANTALLA,
+  EYEBROW_NEUTRO,
+  GAP_TABLERO,
+  LIENZO_PANEL,
+  RADIO_CARD,
+  ROTULO_CIFRA,
+  SUPERFICIE_PANEL,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
 import VistaPase from "@/components/lealtad/vista-pase";
 
 /**
@@ -113,37 +124,46 @@ export default async function MiLealtadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-aventurea-cream">
+    <div className={`min-h-screen ${LIENZO_PANEL}`}>
       <SiteHeader breadcrumb="Tu cuenta" />
-      <section className="mx-auto max-w-[720px] px-6 py-10">
+      <section className="mx-auto max-w-[720px] px-4 py-6 sm:px-6">
         <Link
           href="/cuenta"
-          className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy"
+          className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
         >
           ← Tu cuenta
         </Link>
 
-        <h1 className="mt-4 text-[26px] font-black tracking-[-0.4px] text-aventurea-ink">
-          Mi lealtad
-        </h1>
-        <p className="mt-1.5 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+        <p className={`mt-4 ${EYEBROW_NEUTRO}`}>
+          {membresias.length} tarjeta{membresias.length === 1 ? "" : "s"} activa
+          {membresias.length === 1 ? "" : "s"}
+        </p>
+        <h1 className={`mt-1.5 ${TITULO_PANTALLA}`}>Mi lealtad</h1>
+        <p className={`mt-1.5 ${BAJADA_PANTALLA}`}>
           Tus sellos y puntos, siempre al día — este panel lee el saldo directo de la base,
           así que si tu Wallet tarda en actualizarse, acá lo ves igual.
         </p>
 
         {membresias.length === 0 ? (
-          <p className="mt-8 rounded-2xl border border-dashed border-aventurea-line bg-white p-8 text-center text-[13.5px] text-aventurea-ink-soft">
-            Todavía no tenés ninguna tarjeta de lealtad. Cuando te afiliés a la de un
-            negocio, la vas a ver acá.
-          </p>
+          <div className="mt-6">
+            <CardVacia>
+              Todavía no tenés ninguna tarjeta de lealtad. Cuando te afiliés a la de un
+              negocio, la vas a ver acá.
+            </CardVacia>
+          </div>
         ) : (
-          <div className="mt-7 grid gap-6 sm:grid-cols-2">
+          <div className={`mt-6 grid ${GAP_TABLERO} sm:grid-cols-2`}>
             {membresias.map((m) => (
+              /* El marco de la tarjeta pasa a ser la superficie del
+                 panel —blanca, con borde y elevación— y el pase queda
+                 adentro con SU propio color, que es el del negocio. El
+                 marco navy de antes competía con el pase: dos azules,
+                 uno encima del otro, y el del negocio perdía. */
               <div
                 key={m.miembroId}
-                className="rounded-3xl border border-aventurea-line bg-aventurea-navy p-5"
+                className={`${SUPERFICIE_PANEL} ${RADIO_CARD} p-4`}
               >
-                <p className="mb-3 truncate text-center text-[14px] font-extrabold text-white">
+                <p className={`mb-3 truncate text-center ${ROTULO_CIFRA}`}>
                   {m.negocioNombre}
                 </p>
                 <VistaPase

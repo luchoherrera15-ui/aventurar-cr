@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CardVacia } from "@/components/panel/piezas";
+import { RADIO_CARD, ROTULO_CIFRA } from "@/components/panel/sistema";
 
 /**
  * El "quién hizo qué" agregado: por cada operador (dueño o
@@ -84,11 +86,7 @@ export default async function AuditoriaResumen({ programaId }: { programaId: str
 
   const filas = await resumenPorOperador(db, programaId);
   if (filas.length === 0) {
-    return (
-      <p className="rounded-2xl border border-dashed border-aventurea-line bg-white p-5 text-center text-[13px] text-aventurea-ink-soft">
-        Sin movimientos en los últimos 30 días.
-      </p>
-    );
+    return <CardVacia>Sin movimientos en los últimos 30 días.</CardVacia>;
   }
 
   // UNA sola plantilla de columnas para la cabecera y las filas: con
@@ -97,30 +95,33 @@ export default async function AuditoriaResumen({ programaId }: { programaId: str
   // se aplaste el nombre.
   const COLS = "grid-cols-[minmax(0,1fr)_44px_60px_92px]";
 
+  /* La tabla se lleva la piel de la tarjeta del sistema y sus filas la
+     altura de la fila canónica (48px acá porque no hay dos renglones de
+     texto). El scroll horizontal vive DENTRO de la tarjeta: el cuerpo de
+     la página nunca se desplaza de lado, que es la regla de la
+     auditoría de responsive. */
   return (
-    <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white">
-      <div className={`grid ${COLS} min-w-[420px] items-center gap-x-4 border-b border-aventurea-line bg-aventurea-cream-2 px-4 py-2`}>
-        <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Operador (30 días)
-        </span>
-        <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Dio
-        </span>
-        <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Canjeó
-        </span>
-        <span className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Último
-        </span>
+    <div className={`overflow-x-auto ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface`}>
+      <div
+        className={`grid ${COLS} min-w-[420px] items-center gap-x-4 border-b border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5`}
+      >
+        <span className={ROTULO_CIFRA}>Operador (30 días)</span>
+        <span className={ROTULO_CIFRA}>Dio</span>
+        <span className={ROTULO_CIFRA}>Canjeó</span>
+        <span className={ROTULO_CIFRA}>Último</span>
       </div>
       {filas.map((f) => (
         <div
           key={f.id ?? "sistema"}
-          className={`grid ${COLS} min-w-[420px] items-center gap-x-4 border-b border-aventurea-line px-4 py-2.5 last:border-b-0`}
+          className={`grid ${COLS} min-h-[48px] min-w-[420px] items-center gap-x-4 border-b border-aventurea-line px-4 py-2.5 transition-colors last:border-b-0 hover:bg-aventurea-cream-2`}
         >
-          <span className="truncate text-[13px] font-bold text-aventurea-ink">{f.nombre}</span>
-          <span className="text-[13px] tabular-nums text-aventurea-ink">{f.acreditados}</span>
-          <span className="text-[13px] tabular-nums text-aventurea-ink">{f.canjes}</span>
+          <span className="truncate text-[13.5px] font-bold text-aventurea-ink">{f.nombre}</span>
+          <span className="text-[13.5px] font-bold tabular-nums text-aventurea-ink">
+            {f.acreditados}
+          </span>
+          <span className="text-[13.5px] font-bold tabular-nums text-aventurea-ink">
+            {f.canjes}
+          </span>
           <span className="text-[11.5px] tabular-nums text-aventurea-ink-soft">
             {f.ultima ? FECHA.format(new Date(f.ultima)) : "—"}
           </span>

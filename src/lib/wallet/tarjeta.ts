@@ -12,7 +12,12 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
-import { iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import {
+  selloDelPase,
+  selloParaGuardar,
+  type DibujoDelSello,
+  type SelloElegido,
+} from "@/lib/lealtad/iconos-sello";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -47,12 +52,18 @@ export type ConfigPase = {
    * comportamiento de siempre, que es el LOGO del negocio adentro del
    * círculo.
    *
+   * Desde la 0174 también puede valer `'propio'`: el archivo que subió
+   * el negocio, que viaja en `pase_sello_icono_url`. Las dos columnas
+   * se leen JUNTAS con `selloDeLaConfig` — nunca por separado.
+   *
    * Opcional por la misma razón que la banda: hay pantallas que arman
    * un `ConfigPase` para otra cosa, y sobre todo la migración puede no
    * estar pegada —las pega el dueño a mano— y entonces la fila llega
    * sin la columna.
    */
-  pase_sello_icono?: IconoSello | null;
+  pase_sello_icono?: SelloElegido | null;
+  /** El ícono propio del negocio (0174). Opcional por lo mismo. */
+  pase_sello_icono_url?: string | null;
 };
 
 /** La recompensa activa más barata: es la META de la tarjeta. */
@@ -156,6 +167,14 @@ export function tarjetaDesdeFila(fila: Record<string, unknown>): {
 } {
   const modo = tipoDe(typeof fila.modo === "string" ? fila.modo : null);
   const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+  // Las dos columnas del sello se leen de una: 'propio' sin archivo no
+  // significa nada, y un archivo sin 'propio' es un ícono guardado que
+  // hoy no está elegido. La regla vive en `iconos-sello.ts`.
+  const sello = selloParaGuardar({
+    tipo: fila.modo,
+    icono: fila.pase_sello_icono,
+    url: fila.pase_sello_icono_url,
+  });
   return {
     config: {
       modo,
@@ -166,14 +185,31 @@ export function tarjetaDesdeFila(fila: Record<string, unknown>): {
       // vista previa la dibujaba, y el generador nunca leía la columna.
       // El dueño veía su foto en la pantalla y no en el teléfono.
       pase_banner_url: texto(fila.pase_banner_url),
-      // El icono del sello (0145) pasa por el MISMO filtro que usan el
-      // creador y el editor: si no está en el catálogo, o si la tarjeta
-      // no es de sellos, no hay icono. Así una fila rara no llega nunca
-      // hasta el dibujo.
-      pase_sello_icono: iconoDelSello({ tipo: fila.modo, icono: fila.pase_sello_icono }),
+      // El icono del sello (0145, y el propio de la 0174) pasa por el
+      // MISMO filtro que usan el creador y el editor: si no está en el
+      // catálogo, o si la tarjeta no es de sellos, no hay icono. Así una
+      // fila rara no llega nunca hasta el dibujo.
+      pase_sello_icono: sello.icono,
+      pase_sello_icono_url: sello.url,
     },
     beneficio: leerBeneficio(fila.beneficio, modo),
   };
+}
+
+/**
+ * QUÉ LLEVA EL SELLO, según la config del pase.
+ *
+ * La usan el generador (sharp) y la vista previa (React) para no tener
+ * cada uno su lectura de las dos columnas. Que las dos pantallas del
+ * negocio y el pase real dibujen lo mismo depende de que esta pregunta
+ * se haga en un solo lugar.
+ */
+export function selloDeLaConfig(config: ConfigPase): DibujoDelSello {
+  return selloDelPase({
+    tipo: config.modo,
+    icono: config.pase_sello_icono,
+    url: config.pase_sello_icono_url,
+  });
 }
 
 /** Navy de Bookea, para el negocio que no eligió colores. */

@@ -8,9 +8,30 @@
  * de quién entra—, así que tampoco tiene sentido mostrarle el
  * formulario: la base lo rechazaría igual y sería una puerta que no
  * abre.
+ *
+ * ── LA FORMA ───────────────────────────────────────────────────────
+ * Dos tarjetas del panel: DAR acceso y QUIÉNES lo tienen. Antes era una
+ * sola caja que abría con un `<h2>` repitiendo, palabra por palabra, el
+ * título de la sección plegable que la contiene ("Quién administra este
+ * negocio") — así que el dueño leía dos veces lo mismo antes de llegar
+ * al formulario. El encabezado de la sección se conserva intacto; lo
+ * que se fue es la repetición.
  */
 
 import { useState, useTransition } from "react";
+import { Card, CardVacia } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  DETALLE,
+  ESTADO_AVISO,
+} from "@/components/panel/sistema";
+import {
+  ACCIONES_FILA,
+  BOTON_FILA_PELIGRO,
+  FilaFicha,
+  LISTA_FICHAS,
+} from "./fila-ficha";
 import { agregarColaborador, quitarColaborador } from "./colaboradores-actions";
 
 export type Colaborador = {
@@ -53,85 +74,108 @@ export default function ColaboradoresPanel({
   }
 
   return (
-    <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-6 shadow-sm">
-      <h2 className="text-[17px] font-bold text-aventurea-ink">Quién administra este negocio</h2>
-      <p className="mt-1 max-w-[62ch] text-[13.5px] text-aventurea-ink-soft">
-        Podés darle acceso a alguien de tu equipo. Va a poder editar el negocio, el catálogo,
-        la agenda, las reservas y los gastos — lo mismo que vos.
-      </p>
-      <p className="mt-2 max-w-[62ch] text-[12.5px] text-aventurea-ink-soft">
-        No va a poder invitar a nadie más, ni borrar el negocio, ni ver tus documentos de
-        verificación.
-      </p>
-
-      <form onSubmit={invitar} className="mt-5 flex flex-wrap items-center gap-2">
-        <label htmlFor="correo-colab" className="sr-only">
-          Correo de la persona
-        </label>
-        <input
-          id="correo-colab"
-          type="email"
-          required
-          value={correo}
-          onChange={(e) => setCorreo(e.target.value)}
-          placeholder="correo@ejemplo.com"
-          disabled={pendiente}
-          className="min-w-[240px] flex-1 rounded-xl border border-aventurea-line bg-white px-4 py-2.5 text-[14px] text-aventurea-ink outline-none focus:border-aventurea-navy focus:ring-2 focus:ring-aventurea-navy/15 disabled:opacity-60"
-        />
-        <button
-          type="submit"
-          disabled={pendiente || correo.trim().length === 0}
-          className="rounded-xl bg-aventurea-navy px-5 py-2.5 text-[14px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {pendiente ? "Agregando…" : "Dar acceso"}
-        </button>
-      </form>
-
-      <p className="mt-2 text-[12px] text-aventurea-ink-soft">
-        La persona ya tiene que tener una cuenta en Bookea con ese correo.
-      </p>
-
-      {aviso && (
-        <p
-          role="status"
-          className={`mt-3 rounded-xl px-4 py-2.5 text-[13.5px] ${
-            aviso.ok ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"
-          }`}
-        >
-          {aviso.texto}
+    <>
+      <Card
+        eyebrow="Accesos"
+        titulo="Dar acceso a alguien de tu equipo"
+        accion={<span className={DETALLE}>Necesita cuenta en Bookea</span>}
+      >
+        <p className={`max-w-[62ch] leading-relaxed ${DETALLE}`}>
+          Va a poder editar el negocio, el catálogo, la agenda, las reservas y los gastos — lo
+          mismo que vos. No va a poder invitar a nadie más, ni borrar el negocio, ni ver tus
+          documentos de verificación.
         </p>
-      )}
 
-      <div className="mt-6">
-        {colaboradores.length === 0 ? (
-          <p className="rounded-xl bg-aventurea-cream-2 px-4 py-3 text-[13.5px] text-aventurea-ink-soft">
-            Por ahora solo vos administrás este negocio.
+        <form onSubmit={invitar} className="mt-4 flex flex-wrap items-center gap-2">
+          <label htmlFor="correo-colab" className="sr-only">
+            Correo de la persona
+          </label>
+          <input
+            id="correo-colab"
+            type="email"
+            required
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
+            placeholder="correo@ejemplo.com"
+            disabled={pendiente}
+            className={`min-w-[200px] flex-1 disabled:opacity-60 ${CAMPO_PANEL}`}
+          />
+          <button
+            type="submit"
+            disabled={pendiente || correo.trim().length === 0}
+            className={BOTON_PANEL_PRIMARIO}
+          >
+            {pendiente ? "Agregando…" : "Dar acceso"}
+          </button>
+        </form>
+
+        <p className={`mt-2 ${DETALLE}`}>
+          La persona ya tiene que tener una cuenta en Bookea con ese correo.
+        </p>
+
+        {aviso && (
+          <p
+            role="status"
+            className={`mt-3 rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
+              aviso.ok ? ESTADO_AVISO.exito : ESTADO_AVISO.aviso
+            }`}
+          >
+            {aviso.texto}
           </p>
-        ) : (
-          <ul className="divide-y divide-aventurea-line rounded-xl border border-aventurea-line">
-            {colaboradores.map((c) => (
-              <li key={c.usuario_id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-bold text-aventurea-ink">
-                    {c.nombre || c.email}
-                  </p>
-                  {c.nombre && (
-                    <p className="truncate text-[12.5px] text-aventurea-ink-soft">{c.email}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => quitar(c.usuario_id, c.email)}
-                  disabled={pendiente}
-                  className="rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
-                >
-                  Quitar acceso
-                </button>
-              </li>
-            ))}
-          </ul>
         )}
-      </div>
-    </section>
+      </Card>
+
+      <Card
+        eyebrow="Con acceso hoy"
+        titulo="Quiénes entran a tu panel"
+        accion={
+          <span className={DETALLE}>
+            {colaboradores.length === 0
+              ? "Solo vos"
+              : `Vos y ${colaboradores.length} más`}
+          </span>
+        }
+      >
+        {colaboradores.length === 0 ? (
+          <CardVacia>Por ahora solo vos administrás este negocio.</CardVacia>
+        ) : (
+          <div className={LISTA_FICHAS}>
+            {colaboradores.map((c, i) => (
+              <FilaFicha
+                key={c.usuario_id}
+                separador={i < colaboradores.length - 1}
+                marca="exito"
+                medio={
+                  <span
+                    aria-hidden="true"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[15px] font-bold"
+                    style={{
+                      backgroundColor: "var(--acento-solido)",
+                      color: "var(--acento-sobre)",
+                    }}
+                  >
+                    {(c.nombre || c.email).trim().charAt(0).toUpperCase()}
+                  </span>
+                }
+                titulo={<span className="break-words">{c.nombre || c.email}</span>}
+                detalle={c.nombre ? <span className="break-words">{c.email}</span> : undefined}
+                acciones={
+                  <div className={ACCIONES_FILA}>
+                    <button
+                      type="button"
+                      onClick={() => quitar(c.usuario_id, c.email)}
+                      disabled={pendiente}
+                      className={BOTON_FILA_PELIGRO}
+                    >
+                      Quitar acceso
+                    </button>
+                  </div>
+                }
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
   );
 }

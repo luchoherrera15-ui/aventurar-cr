@@ -3,7 +3,6 @@
 import { useMemo, useState, useTransition } from "react";
 import type { ReactNode } from "react";
 import {
-  IconCalendarLine,
   IconChartBars,
   IconCheck,
   IconClock,
@@ -21,12 +20,77 @@ import {
   type ResumenFinanzas,
 } from "@/lib/finanzas";
 import SeccionPlegable from "@/components/seccion-plegable";
+import {
+  Card,
+  CardVacia,
+  ContextoFila,
+  FilaPanel,
+  PildoraEstado,
+} from "@/components/panel/piezas";
+import {
+  BOTON_PANEL,
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  CIFRA,
+  CUERPO_SUAVE,
+  DETALLE,
+  ESTADO_AVISO,
+  ESTADO_PILDORA,
+  EYEBROW_NEUTRO,
+  GAP_METRICAS,
+  GAP_TABLERO,
+  RADIO_METRICA,
+  ROTULO_CAMPO,
+  ROTULO_CIFRA,
+  SUPERFICIE_HUNDIDA,
+  SUPERFICIE_PANEL,
+  TITULO_CARD,
+  type EstadoPanel,
+} from "@/components/panel/sistema";
 import GraficoSemanal from "./grafico-semanal";
 
-const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
-const labelCls =
-  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
+/**
+ * FINANZAS — la pantalla de la plata, con el lenguaje de
+ * `referencia/bookeapaneles.html`: tarjeta blanca sobre el lienzo gris,
+ * encabezado con kicker + título + algo a la derecha, y la MISMA fila de
+ * listado que el resto del panel (contexto · barrita de estado · quién
+ * y qué · monto a la derecha).
+ *
+ * ── LA REGLA DE ESTA PANTALLA: LOS NÚMEROS ─────────────────────────
+ * Acá lo único que importa de verdad es que un monto se lea. Por eso:
+ * · Todo monto va `tabular-nums` — sin eso una columna de plata baila de
+ *   ancho renglón a renglón y deja de leerse como columna.
+ * · Todo monto va alineado a la DERECHA y con `whitespace-nowrap`. Nada
+ *   de `truncate` sobre una cifra: «₡12.500.000» cortado en «₡12.500…»
+ *   no es un número redondeado, es un número equivocado.
+ * · Lo que sí puede truncarse es la línea de detalle (el tipo de evento,
+ *   la categoría del gasto): ahí perder una palabra no cambia una cuenta.
+ * · Los tres indicadores de arriba parten a 1 columna hasta `md` y no a
+ *   `sm`: a 640px la columna quedaba en ~170px y la cifra grande
+ *   rozaba el borde.
+ *
+ * ── EL COLOR NO ES EL DATO ─────────────────────────────────────────
+ * Antes la cifra grande de cada indicador venía teñida (verde/azul/rojo)
+ * y el bloque de vencidos era una caja roja entera. Ahora la cifra va
+ * SIEMPRE en la tinta más fuerte (18,10:1) y el significado lo llevan el
+ * disco de ícono, la barrita de 4px de la fila y la píldora de estado —
+ * los mismos cinco estados del sistema, medidos una sola vez. El rojo
+ * queda para lo que de verdad está mal: un saldo vencido, un neto en
+ * negativo.
+ *
+ * Ni un cálculo cambió: `resumenFinanciero`, `saldoPendiente`,
+ * `totalEvento` y las acciones del servidor son exactamente las mismas.
+ */
+
+/** Los discos de los tres indicadores. Son ESTADOS (entró / falta que
+ *  entre / el conjunto), no el acento del tipo de negocio, así que salen
+ *  de los pares del sistema y no de `var(--acento…)`:
+ *    verde  #1f7a4d sobre #e1f0e6 ..... 4,51:1 ✅ AA
+ *    navy   #16295e sobre #e8f0f9 .... 12,07:1 ✅ AAA
+ *    gris   #585858 sobre #f6f6f6 ..... 6,58:1 ✅ AA */
+const DISCO_ESTADO: Record<EstadoPanel, string> = ESTADO_PILDORA;
+
+const fmtMes = (d: Date) => d.toLocaleDateString("es-CR", { month: "long" });
 
 function fmtFecha(iso: string) {
   const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
@@ -37,12 +101,83 @@ function fmtFecha(iso: string) {
   });
 }
 
+/** La fecha partida para la columna angosta de la fila: el día grande y
+ *  el mes debajo, como el `.appt-time` de la maqueta. */
+function partesFecha(iso: string) {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const fecha = new Date(y, m - 1, d);
+  return {
+    dia: String(d),
+    mes: fecha
+      .toLocaleDateString("es-CR", { month: "short" })
+      .replace(".", "")
+      .toUpperCase(),
+  };
+}
+
 function hoyIso() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate(),
   ).padStart(2, "0")}`;
 }
+
+/**
+ * UN MONTO. La única forma de pintar plata en esta pantalla.
+ * `tabular-nums` + `whitespace-nowrap` + alineado a la derecha: el
+ * porqué está arriba, en la cabecera del archivo.
+ */
+function Monto({
+  children,
+  fuerte = false,
+  critico = false,
+}: {
+  children: ReactNode;
+  fuerte?: boolean;
+  critico?: boolean;
+}) {
+  return (
+    <span
+      className={`whitespace-nowrap text-right tabular-nums ${
+        fuerte ? "text-[15px] font-extrabold" : "text-[12.5px] font-bold"
+      } ${critico ? "text-red-700" : "text-aventurea-ink"}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** La columna derecha de una fila de cobro: el saldo que se persigue,
+ *  el total del evento debajo y la acción. Va apilada y alineada a la
+ *  derecha para que a 390px el monto nunca compita con el nombre. */
+function CobroDerecha({
+  saldo,
+  total,
+  critico,
+  children,
+}: {
+  saldo: number;
+  total: number;
+  critico?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1.5">
+      <Monto fuerte critico={critico}>
+        {fmtColones(saldo)}
+      </Monto>
+      <span className={`whitespace-nowrap tabular-nums ${CUERPO_SUAVE}`}>
+        de {fmtColones(total)}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/** El botón chico que vive dentro de una fila. Es el `.btn` del sistema
+ *  a escala de fila (32px), para que no empuje el alto del renglón. */
+const BOTON_FILA =
+  "inline-flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-aventurea-line bg-aventurea-surface px-3 text-[12px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy disabled:opacity-50";
 
 export default function FinanzasPanel({
   resumen,
@@ -91,9 +226,14 @@ export default function FinanzasPanel({
   }
 
   return (
-    <div className="flex flex-col gap-7">
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
       {error && (
-        <p className="rounded-xl bg-red-50 p-3.5 text-[13px] text-red-700">{error}</p>
+        <p
+          role="alert"
+          className={`rounded-xl p-3.5 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}
+        >
+          {error}
+        </p>
       )}
 
       <Indicadores resumen={resumen} />
@@ -170,15 +310,16 @@ export default function FinanzasPanel({
 // ------------------------------------------------------------
 
 function Indicadores({ resumen }: { resumen: ResumenFinanzas }) {
-  const mes = new Date().toLocaleDateString("es-CR", { month: "long" });
+  const mes = fmtMes(new Date());
 
   return (
-    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+    <div className={`grid grid-cols-1 ${GAP_METRICAS} md:grid-cols-3`}>
       <TileGrande
+        kicker={`Entró en ${mes}`}
         titulo="Ya cobrado"
-        subtitulo={`Entró en ${mes} — plata real en tu cuenta`}
+        subtitulo="Plata real en tu cuenta"
         valor={fmtColones(resumen.entroEsteMes)}
-        acento="verde"
+        estado="exito"
         icono={<IconCheck />}
         lineas={[
           {
@@ -190,10 +331,11 @@ function Indicadores({ resumen }: { resumen: ResumenFinanzas }) {
         ]}
       />
       <TileGrande
+        kicker="Pendiente"
         titulo="Por cobrar"
         subtitulo="Lo que falta que te paguen"
         valor={fmtColones(resumen.porCobrarTotal)}
-        acento="azul"
+        estado="info"
         icono={<IconClock />}
         lineas={[
           {
@@ -209,10 +351,11 @@ function Indicadores({ resumen }: { resumen: ResumenFinanzas }) {
         ]}
       />
       <TileGrande
+        kicker="Comprometido"
         titulo="Total"
         subtitulo="Cobrado + por cobrar"
         valor={fmtColones(resumen.totalComprometido)}
-        acento={resumen.netoEsteMes < 0 ? "critico" : "neutro"}
+        estado={resumen.netoEsteMes < 0 ? "alerta" : "neutro"}
         icono={<IconChartBars />}
         lineas={[
           {
@@ -228,57 +371,60 @@ function Indicadores({ resumen }: { resumen: ResumenFinanzas }) {
   );
 }
 
-const ACENTOS = {
-  verde: "text-aventurea-green",
-  azul: "text-aventurea-blue",
-  critico: "text-red-700",
-  neutro: "text-aventurea-ink",
-} as const;
-
+/**
+ * EL INDICADOR GRANDE (`.metric` de la maqueta, con desglose).
+ *
+ * Fila superior con el disco de ícono, rótulo en versalitas, la cifra
+ * grande y el desglose en una `dl` de dos columnas: etiqueta a la
+ * izquierda, monto a la derecha y tabular. NO lleva el círculo
+ * decorativo que la maqueta le pone a `.metric:after` — acá teníamos el
+ * mismo adorno (un ícono gigante rotado al 6% detrás del número) y era
+ * exactamente eso: un adorno pasando por detrás del único dato.
+ */
 function TileGrande({
+  kicker,
   titulo,
   subtitulo,
   valor,
-  acento,
+  estado,
   icono,
   lineas,
 }: {
+  kicker: string;
   titulo: string;
   subtitulo: string;
   valor: string;
-  acento: keyof typeof ACENTOS;
+  estado: EstadoPanel;
   icono: ReactNode;
   lineas: { label: string; valor: string; critico?: boolean }[];
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-4.5 shadow-sm">
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-4 -top-5 rotate-[14deg] text-aventurea-navy/[0.06] [&_svg]:h-24 [&_svg]:w-24"
-      >
-        {icono}
-      </span>
-      <div className="relative z-10">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink">
-          {titulo}
-        </p>
-        <p className={`titulo mt-1.5 text-[27px] ${ACENTOS[acento]}`}>{valor}</p>
-        <p className="mt-0.5 text-[11.5px] leading-snug text-aventurea-ink-soft">
-          {subtitulo}
-        </p>
-        <dl className="mt-3 flex flex-col gap-1 border-t border-aventurea-line pt-2.5">
-          {lineas.map((l) => (
-            <div key={l.label} className="flex items-baseline justify-between gap-3">
-              <dt className="text-[11.5px] text-aventurea-ink-soft">{l.label}</dt>
-              <dd
-                className={`text-[12.5px] font-bold ${l.critico ? "text-red-700" : "text-aventurea-ink"}`}
-              >
-                {l.valor}
-              </dd>
-            </div>
-          ))}
-        </dl>
+    <div className={`flex min-w-0 flex-col ${SUPERFICIE_PANEL} ${RADIO_METRICA} p-4`}>
+      <div className="flex items-center justify-between gap-2">
+        <span
+          aria-hidden
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[17px] ${DISCO_ESTADO[estado]}`}
+        >
+          {icono}
+        </span>
+        <span className={`min-w-0 truncate ${EYEBROW_NEUTRO}`}>{kicker}</span>
       </div>
+      <p className={`mt-3 truncate ${ROTULO_CIFRA}`}>{titulo}</p>
+      {/* La cifra NO lleva `truncate`: un monto cortado es un monto
+          equivocado. Que crezca a `sm` y no antes es lo que la deja
+          entera a 390px. */}
+      <p className={`mt-1.5 whitespace-nowrap ${CIFRA}`}>{valor}</p>
+      <p className={`mt-1 ${DETALLE}`}>{subtitulo}</p>
+      <dl className="mt-3.5 flex flex-col gap-1.5 border-t border-aventurea-line pt-3">
+        {lineas.map((l) => (
+          <div key={l.label} className="flex items-baseline justify-between gap-3">
+            <dt className={`min-w-0 truncate ${CUERPO_SUAVE}`}>{l.label}</dt>
+            <dd>
+              <Monto critico={l.critico}>{l.valor}</Monto>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -299,51 +445,55 @@ function CobrosVencidos({
   pending: boolean;
 }) {
   return (
-    <section className="rounded-2xl border border-red-300 bg-red-50/60 p-5.5">
-      <h2 className="flex items-center gap-2 text-[16px] font-bold text-red-800">
-        <IconWarning className="h-4 w-4" />
-        Te deben {fmtColones(total)}
-      </h2>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-red-700">
-        Estos eventos ya se hicieron y el saldo sigue sin registrarse. Si ya
-        te pagaron, marcalo para que las cuentas cierren.
+    <Card
+      eyebrow="Cobros vencidos"
+      titulo={`Te deben ${fmtColones(total)}`}
+      accion={
+        <PildoraEstado estado="alerta">
+          {reservas.length} {reservas.length === 1 ? "evento" : "eventos"}
+        </PildoraEstado>
+      }
+    >
+      {/* El aviso rojo se reduce a UNA franja dentro de la tarjeta. Antes
+          era la tarjeta entera teñida, y con eso el bloque más importante
+          del panel se leía como un error del sistema en vez de como una
+          lista de cosas por hacer. */}
+      <p className={`rounded-xl p-3 text-[12.5px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
+        <IconWarning className="mr-1.5 inline-block h-3.5 w-3.5 align-[-2px]" />
+        Estos eventos ya se hicieron y el saldo sigue sin registrarse. Si ya te pagaron,
+        marcalo para que las cuentas cierren.
       </p>
 
-      <ul className="mt-4 flex flex-col gap-2">
-        {reservas.map((r) => (
-          <li
-            key={r.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-white p-3.5"
-          >
-            <div className="min-w-0">
-              <p className="text-[13.5px] font-bold text-aventurea-ink">
-                {r.nombre ?? "Sin nombre"}
-                <span className="ml-2 font-normal text-aventurea-ink-soft">
-                  {fmtFecha(r.fecha)}
-                </span>
-              </p>
-              <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
-                {r.tipo_evento ?? "Evento"} · total {fmtColones(totalEvento(r))} ·
-                adelanto {fmtColones(Number(r.deposito_monto ?? 0))}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[15px] font-bold text-red-700">
-                {fmtColones(saldoPendiente(r))}
-              </span>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onCobrar(r)}
-                className="rounded-lg bg-aventurea-sky px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
-              >
-                Registrar cobro
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
+      <div className="mt-2">
+        {reservas.map((r, i) => {
+          const { dia, mes } = partesFecha(r.fecha);
+          return (
+            <FilaPanel
+              key={r.id}
+              contexto={<ContextoFila fuerte={dia} suave={mes} />}
+              marca="alerta"
+              titulo={r.nombre ?? "Sin nombre"}
+              detalle={`${r.tipo_evento ?? "Evento"} · adelanto ${fmtColones(
+                Number(r.deposito_monto ?? 0),
+              )}`}
+              separador={i < reservas.length - 1}
+              derecha={
+                <CobroDerecha saldo={saldoPendiente(r)} total={totalEvento(r)} critico>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => onCobrar(r)}
+                    className={BOTON_FILA}
+                  >
+                    Registrar cobro
+                  </button>
+                </CobroDerecha>
+              }
+            />
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
@@ -357,45 +507,45 @@ function DepositosSinValidar({
   pending: boolean;
 }) {
   return (
-    <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-      <h2 className="flex items-center gap-2 text-[16px] font-bold text-aventurea-ink">
-        <IconClock className="h-4 w-4 text-aventurea-ink-soft" />
-        Adelantos por confirmar ({reservas.length})
-      </h2>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-        El cliente subió el comprobante pero todavía no confirmaste que la
-        plata llegó. Hasta que lo marqués, no se cuenta como ingreso.
+    <Card
+      eyebrow="Conciliación"
+      titulo="Adelantos por confirmar"
+      accion={<PildoraEstado estado="aviso">{reservas.length}</PildoraEstado>}
+    >
+      <p className={`mb-2 ${DETALLE}`}>
+        El cliente subió el comprobante pero todavía no confirmaste que la plata llegó.
+        Hasta que lo marqués, no se cuenta como ingreso.
       </p>
 
-      <ul className="mt-4 flex flex-col gap-2">
-        {reservas.map((r) => (
-          <li
-            key={r.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-aventurea-line p-3.5"
-          >
-            <div className="min-w-0">
-              <p className="text-[13.5px] font-bold text-aventurea-ink">
-                {r.nombre ?? "Sin nombre"}
-                <span className="ml-2 font-normal text-aventurea-ink-soft">
-                  {fmtFecha(r.fecha)}
-                </span>
-              </p>
-              <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
-                Adelanto de {fmtColones(Number(r.deposito_monto ?? 0))}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => onConfirmar(r.id)}
-              className="rounded-lg border border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink hover:border-aventurea-green hover:text-aventurea-green disabled:opacity-60"
-            >
-              Marcar recibido
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
+      <div>
+        {reservas.map((r, i) => {
+          const { dia, mes } = partesFecha(r.fecha);
+          return (
+            <FilaPanel
+              key={r.id}
+              contexto={<ContextoFila fuerte={dia} suave={mes} />}
+              marca="aviso"
+              titulo={r.nombre ?? "Sin nombre"}
+              detalle="Adelanto pendiente de confirmar"
+              separador={i < reservas.length - 1}
+              derecha={
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <Monto fuerte>{fmtColones(Number(r.deposito_monto ?? 0))}</Monto>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => onConfirmar(r.id)}
+                    className={BOTON_FILA}
+                  >
+                    Marcar recibido
+                  </button>
+                </div>
+              }
+            />
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
@@ -408,59 +558,60 @@ function ProximosCobros({
   onCobrar: (r: ReservaFinanzas) => void;
   pending: boolean;
 }) {
+  const visibles = reservas.slice(0, 12);
   return (
-    <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm">
-      <h2 className="flex items-center gap-2 text-[16px] font-bold text-aventurea-ink">
-        <IconCalendarLine className="h-4 w-4 text-aventurea-ink-soft" />
-        Qué cobrás el día del evento
-      </h2>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-        El saldo que te queda por cobrar en cada evento agendado.
-      </p>
-
+    <Card
+      eyebrow="Agenda de cobros"
+      titulo="Qué cobrás el día del evento"
+      accion={
+        reservas.length > 0 ? (
+          <PildoraEstado estado="neutro">
+            {reservas.length} {reservas.length === 1 ? "evento" : "eventos"}
+          </PildoraEstado>
+        ) : undefined
+      }
+    >
       {reservas.length === 0 ? (
-        <p className="mt-4 rounded-xl bg-aventurea-cream-2 p-4 text-center text-[13px] text-aventurea-ink-soft">
-          No tenés eventos por delante con saldo pendiente.
-        </p>
+        <CardVacia>
+          No tenés eventos por delante con saldo pendiente. Cuando agendes uno, acá vas a
+          ver cuánto te queda por cobrar el día del evento.
+        </CardVacia>
       ) : (
-        <ul className="mt-4 flex flex-col gap-2">
-          {reservas.slice(0, 12).map((r) => (
-            <li
-              key={r.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-aventurea-line p-3.5"
-            >
-              <div className="min-w-0">
-                <p className="text-[13.5px] font-bold text-aventurea-ink">
-                  {fmtFecha(r.fecha)}
-                  <span className="ml-2 font-normal text-aventurea-ink-soft">
-                    {r.nombre ?? "Sin nombre"}
-                  </span>
-                </p>
-                <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
-                  {r.tipo_evento ?? "Evento"}
-                  {r.invitados ? ` · ${r.invitados} invitados` : ""} · total{" "}
-                  {fmtColones(totalEvento(r))}
-                  {r.estado === "pendiente" && " · en aprobación"}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[15px] font-bold text-aventurea-blue">
-                  {fmtColones(saldoPendiente(r))}
-                </span>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => onCobrar(r)}
-                  className="rounded-lg border border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink hover:border-aventurea-green hover:text-aventurea-green disabled:opacity-60"
-                >
-                  Ya me pagaron
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div>
+          {visibles.map((r, i) => {
+            const { dia, mes } = partesFecha(r.fecha);
+            const enAprobacion = r.estado === "pendiente";
+            return (
+              <FilaPanel
+                key={r.id}
+                contexto={<ContextoFila fuerte={dia} suave={mes} />}
+                // La barrita distingue el evento confirmado del que
+                // todavía está en aprobación — el mismo par de estados
+                // que usa el resto del panel.
+                marca={enAprobacion ? "aviso" : "info"}
+                titulo={r.nombre ?? "Sin nombre"}
+                detalle={`${r.tipo_evento ?? "Evento"}${
+                  r.invitados ? ` · ${r.invitados} invitados` : ""
+                }${enAprobacion ? " · en aprobación" : ""}`}
+                separador={i < visibles.length - 1}
+                derecha={
+                  <CobroDerecha saldo={saldoPendiente(r)} total={totalEvento(r)}>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => onCobrar(r)}
+                      className={BOTON_FILA}
+                    >
+                      Ya me pagaron
+                    </button>
+                  </CobroDerecha>
+                }
+              />
+            );
+          })}
+        </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -480,36 +631,36 @@ function AdelantosRetenidos({
       descripcion="Reservas canceladas cuyo adelanto ya había entrado — según tus términos no se devuelve, así que sigue contando en lo cobrado."
       resumen={fmtColones(total)}
     >
-      <ul className="flex flex-col gap-2">
-        {reservas.map((r) => (
-          <li
-            key={r.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-aventurea-line p-3.5"
-          >
-            <div className="min-w-0">
-              <p className="text-[13.5px] font-bold text-aventurea-ink">
-                {r.nombre ?? "Sin nombre"}
-                <span className="ml-2 font-normal text-aventurea-ink-soft">
-                  {fmtFecha(r.fecha)} · cancelada
-                </span>
-              </p>
-              <p className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
-                Adelanto retenido de {fmtColones(Number(r.deposito_monto ?? 0))}
-              </p>
-            </div>
-            {onDevuelto && (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onDevuelto(r.id)}
-                className="rounded-lg border border-aventurea-line px-3.5 py-2 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-red-300 hover:text-red-700 disabled:opacity-60"
-              >
-                Lo devolví — sacarlo de mis números
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+      <div>
+        {reservas.map((r, i) => {
+          const { dia, mes } = partesFecha(r.fecha);
+          return (
+            <FilaPanel
+              key={r.id}
+              contexto={<ContextoFila fuerte={dia} suave={mes} />}
+              marca="neutro"
+              titulo={r.nombre ?? "Sin nombre"}
+              detalle="Cancelada · el adelanto quedó retenido"
+              separador={i < reservas.length - 1}
+              derecha={
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <Monto fuerte>{fmtColones(Number(r.deposito_monto ?? 0))}</Monto>
+                  {onDevuelto && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => onDevuelto(r.id)}
+                      className={BOTON_FILA}
+                    >
+                      Lo devolví
+                    </button>
+                  )}
+                </div>
+              }
+            />
+          );
+        })}
+      </div>
     </SeccionPlegable>
   );
 }
@@ -549,64 +700,70 @@ function ModalCobro({
         aria-modal="true"
         aria-label="Registrar cobro"
         onClick={(e) => e.stopPropagation()}
-        className="w-full bg-aventurea-surface p-5.5 shadow-2xl sm:max-w-[440px] sm:rounded-2xl sm:border sm:border-aventurea-line"
+        // En el teléfono la hoja sube desde el borde inferior y solo
+        // redondea las esquinas de arriba; de `sm` para arriba es una
+        // tarjeta del sistema (radio 18 + borde). Las variantes van
+        // escritas y no compuestas: Tailwind busca los nombres de clase
+        // como texto, y un `sm:` pegado a una constante no existe en el
+        // archivo, así que esa utilidad nunca se genera.
+        className="w-full bg-aventurea-surface p-5 shadow-2xl max-sm:rounded-t-3xl sm:max-w-[440px] sm:rounded-3xl sm:border sm:border-aventurea-line"
       >
-        <h3 className="text-[17px] font-bold text-aventurea-ink">
-          Registrar el cobro
-        </h3>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-          {reserva.nombre ?? "Sin nombre"} · {fmtFecha(reserva.fecha)}
+        <p className={`mb-1.5 ${EYEBROW_NEUTRO}`}>
+          {fmtFecha(reserva.fecha)} · {reserva.nombre ?? "Sin nombre"}
         </p>
+        <h3 className={TITULO_CARD}>Registrar el cobro</h3>
 
         <div className="mt-4">
-          <label className={labelCls}>Cuánto cobraste en total por el evento</label>
+          <label className={`mb-1.5 block ${ROTULO_CAMPO}`} htmlFor="monto-final-cobro">
+            Cuánto cobraste en total por el evento
+          </label>
           <input
+            id="monto-final-cobro"
             type="number"
             min={0}
             value={montoFinal}
             onChange={(e) => setMontoFinal(e.target.value)}
-            className={inputCls}
+            className={`${CAMPO_PANEL} text-right tabular-nums`}
           />
-          <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
-            Cotizaste {fmtColones(cotizado)}. Cambialo si el día del evento se
-            cobró distinto — más invitados, horas extra, un descuento de
-            última hora.
+          <p className={`mt-1.5 ${DETALLE}`}>
+            Cotizaste {fmtColones(cotizado)}. Cambialo si el día del evento se cobró
+            distinto — más invitados, horas extra, un descuento de última hora.
           </p>
         </div>
 
-        <dl className="mt-4 flex flex-col gap-1.5 rounded-xl bg-aventurea-cream-2 p-3.5 text-[12.5px]">
-          <div className="flex justify-between">
-            <dt className="text-aventurea-ink-soft">Adelanto ya recibido</dt>
-            <dd className="font-bold text-aventurea-ink">{fmtColones(adelanto)}</dd>
+        <dl className={`mt-4 flex flex-col gap-2 rounded-xl p-3.5 ${SUPERFICIE_HUNDIDA}`}>
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className={CUERPO_SUAVE}>Adelanto ya recibido</dt>
+            <dd>
+              <Monto>{fmtColones(adelanto)}</Monto>
+            </dd>
           </div>
-          <div className="flex justify-between border-t border-aventurea-line pt-1.5">
-            <dt className="text-aventurea-ink-soft">Saldo de este cobro</dt>
-            <dd className="text-[15px] font-bold text-aventurea-green">
-              {fmtColones(saldo)}
+          <div className="flex items-baseline justify-between gap-3 border-t border-aventurea-line pt-2">
+            <dt className={CUERPO_SUAVE}>Saldo de este cobro</dt>
+            <dd>
+              <Monto fuerte>{fmtColones(saldo)}</Monto>
             </dd>
           </div>
         </dl>
 
         {cambio && (
-          <p className="mt-3 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-aventurea-orange">
+          <p
+            className={`mt-3 flex items-start gap-1.5 rounded-xl p-3 text-[12px] leading-relaxed ${ESTADO_AVISO.aviso}`}
+          >
             <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             Este monto reemplaza la cotización en todos tus números.
           </p>
         )}
 
         <div className="mt-5 flex gap-2.5">
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="flex-1 rounded-xl border border-aventurea-line py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky/40"
-          >
+          <button type="button" onClick={onCerrar} className={`${BOTON_PANEL} flex-1`}>
             Cancelar
           </button>
           <button
             type="button"
             disabled={pending}
             onClick={() => onConfirmar(cambio ? finalNum : null)}
-            className="flex-1 rounded-xl bg-aventurea-green py-2.5 text-[13px] font-bold text-white hover:brightness-110 disabled:opacity-60"
+            className={`${BOTON_PANEL_PRIMARIO} flex-1`}
           >
             <IconCheck className="h-3.5 w-3.5" /> Confirmar cobro
           </button>
@@ -616,7 +773,7 @@ function ModalCobro({
           <button
             type="button"
             onClick={onRevertir}
-            className="mt-3 w-full text-center text-[11.5px] text-zinc-500 underline hover:text-red-700"
+            className="mt-3 w-full text-center text-[12px] font-bold text-aventurea-ink-soft underline hover:text-red-700"
           >
             Marqué esto por error — deshacer el cobro
           </button>
@@ -676,96 +833,119 @@ function GastosCard({
     setMonto("");
   }
 
+  const visibles = gastos.slice(0, 15);
+
   return (
     <SeccionPlegable
       titulo="Gastos"
       descripcion="Sin esto el panel te dice cuánto facturaste, no cuánto ganaste."
       resumen={`Este mes: ${fmtColones(totalMes)}`}
     >
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[130px_1fr_180px_130px_auto]">
-        <div>
-          <label className={labelCls}>Fecha</label>
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>En qué gastaste</label>
-          <input
-            type="text"
-            value={concepto}
-            onChange={(e) => setConcepto(e.target.value)}
-            placeholder="Ej. Cloro para la piscina"
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Categoría</label>
-          <select
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-            className={inputCls}
-          >
-            {CATEGORIAS_GASTO.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Monto (₡)</label>
-          <input
-            type="number"
-            min={0}
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            placeholder="15000"
-            className={inputCls}
-          />
-        </div>
-        <div className="flex items-end">
-          <button
-            type="button"
-            disabled={pending || !concepto.trim() || !monto}
-            onClick={enviar}
-            className="w-full rounded-xl bg-aventurea-sky px-4 py-2.5 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
-          >
-            Agregar
-          </button>
+      {/* El alta es un bloque hundido dentro de la sección: se lee como
+          «acá se carga», separado de la lista de lo ya cargado. */}
+      <div className={`rounded-xl p-3.5 ${SUPERFICIE_HUNDIDA}`}>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-[130px_1fr_180px_130px_auto]">
+          <div>
+            <label className={`mb-1.5 block ${ROTULO_CAMPO}`} htmlFor="gasto-fecha">
+              Fecha
+            </label>
+            <input
+              id="gasto-fecha"
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className={CAMPO_PANEL}
+            />
+          </div>
+          <div>
+            <label className={`mb-1.5 block ${ROTULO_CAMPO}`} htmlFor="gasto-concepto">
+              En qué gastaste
+            </label>
+            <input
+              id="gasto-concepto"
+              type="text"
+              value={concepto}
+              onChange={(e) => setConcepto(e.target.value)}
+              placeholder="Ej. Cloro para la piscina"
+              className={`${CAMPO_PANEL} placeholder:text-aventurea-ink-soft`}
+            />
+          </div>
+          <div>
+            <label className={`mb-1.5 block ${ROTULO_CAMPO}`} htmlFor="gasto-categoria">
+              Categoría
+            </label>
+            <select
+              id="gasto-categoria"
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              className={CAMPO_PANEL}
+            >
+              {CATEGORIAS_GASTO.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={`mb-1.5 block ${ROTULO_CAMPO}`} htmlFor="gasto-monto">
+              Monto (₡)
+            </label>
+            {/* Alineado a la derecha y tabular: el campo de plata se lee
+                igual que la columna de plata de la lista de abajo. */}
+            <input
+              id="gasto-monto"
+              type="number"
+              min={0}
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              placeholder="15000"
+              className={`${CAMPO_PANEL} text-right tabular-nums placeholder:text-aventurea-ink-soft`}
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              disabled={pending || !concepto.trim() || !monto}
+              onClick={enviar}
+              className={`${BOTON_PANEL_PRIMARIO} w-full`}
+            >
+              Agregar
+            </button>
+          </div>
         </div>
       </div>
 
       {gastos.length > 0 && (
-        <ul className="mt-5 flex flex-col divide-y divide-aventurea-line border-t border-aventurea-line">
-          {gastos.slice(0, 15).map((g) => (
-            <li key={g.id} className="flex items-center justify-between gap-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-[13px] text-aventurea-ink">{g.concepto}</p>
-                <p className="text-[11.5px] text-aventurea-ink-soft">
-                  {fmtFecha(g.fecha)} · {GASTO_LABEL[g.categoria] ?? "Otro"}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[13px] font-bold text-aventurea-ink">
-                  −{fmtColones(Number(g.monto))}
-                </span>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => onBorrar(g.id)}
-                  aria-label={`Borrar el gasto ${g.concepto}`}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-aventurea-line text-aventurea-ink-soft hover:border-red-300 hover:text-red-600 disabled:opacity-60"
-                >
-                  <IconTrash className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-4">
+          {visibles.map((g, i) => {
+            const { dia, mes } = partesFecha(g.fecha);
+            return (
+              <FilaPanel
+                key={g.id}
+                contexto={<ContextoFila fuerte={dia} suave={mes} />}
+                marca="neutro"
+                titulo={g.concepto}
+                detalle={GASTO_LABEL[g.categoria] ?? "Otro"}
+                separador={i < visibles.length - 1}
+                derecha={
+                  <div className="flex shrink-0 items-center gap-2.5">
+                    <Monto>−{fmtColones(Number(g.monto))}</Monto>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => onBorrar(g.id)}
+                      aria-label={`Borrar el gasto ${g.concepto}`}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-aventurea-line text-aventurea-ink-soft transition-colors hover:border-red-700 hover:text-red-700 disabled:opacity-50"
+                    >
+                      <IconTrash className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                }
+              />
+            );
+          })}
+        </div>
       )}
     </SeccionPlegable>
   );

@@ -1,0 +1,41 @@
+name: API de Lealtad — consolidar, purgar y buscar anomalías
+
+# EL BARRIDO DIARIO DE LA API DE DEVELOPERS.
+#
+# 09:30 UTC = 3:30 a. m. de Costa Rica: el día anterior ya cerró y no
+# hay nadie cobrando en una caja, así que consolidar y purgar no compite
+# con el mostrador.
+#
+# Hace tres cosas y las tres importan:
+#   1. Consolida el día anterior en el agregado PERMANENTE.
+#   2. Purga el detalle de más de 90 días. Guardar para siempre
+#      «ruta + tarjeta + hora exacta» de cada llamada sería construir el
+#      perfil conductual que el resto del diseño evita.
+#   3. Busca anomalías (IP nunca vista, volumen contra la mediana de 30
+#      días, tarjetas distintas tocadas en un día), avisa, y SUSPENDE
+#      sola lo que pasa de 10×.
+#
+# POR QUÉ ACÁ Y NO EN vercel.json: el mismo motivo que los otros tres
+# crons de este repo — en el plan Hobby, un cron de más en vercel.json
+# puede hacer que Vercel rechace el deploy ENTERO sin dejar rastro.
+#
+# SI NO CORRE UN DÍA no se pierde el detalle: la purga es por fecha, no
+# por corrida, y la corrida siguiente consolida igual. Lo que sí se
+# retrasa es la DETECCIÓN — por eso el fallo del job se ve en Actions.
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: api-lealtad-mantenimiento
+
+jobs:
+  mantener:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a /api/lealtad/api-mantenimiento
+        run: |
+          curl -sf --max-time 120 \
+            "https://www.bookea.lat/api/lealtad/api-mantenimiento" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

@@ -5,6 +5,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { iniciales } from "@/lib/iniciales";
 import { Icono, type NombreIcono } from "./iconos";
+import "../panel-oscuro.css";
+import {
+  ACCION,
+  ACCION_BORDE,
+  ACCION_TINTA,
+  ACCION_TINTE,
+  BOTON_ACCION,
+  BOTON_LEALTAD,
+  RAIL_GRUPO_LEALTAD,
+  RAIL_ITEM_LEALTAD,
+} from "../sistema-lealtad";
 
 /**
  * EL SHELL DEL PANEL DE LEALTAD: menú lateral fijo a la izquierda,
@@ -33,16 +44,22 @@ import { Icono, type NombreIcono } from "./iconos";
 
 const NAVY_PROFUNDO = "#0a1226";
 
-/* El azul de acción para fondo oscuro: la barra del menú es casi negra
-   (#070d1c) y el azul de marca desaparece ahí. */
-const ACCION = "var(--accion-claro)";
-const ACCION_TINTA = "var(--accion-claro-tinta)";
-const ACCION_TINTE = "rgba(157,180,255,.14)";
+/* La barra del menú, un escalón por DEBAJO del lienzo. Es la anatomía
+   de la maqueta: el rail no es una franja del mismo color con un borde,
+   es una superficie propia. */
+const RAIL = "#070d1c";
+const RAIL_LINEA = "rgba(255,255,255,.08)";
 
 /* El naranja se quedó en UNA sola cosa de la navegación: la barrita del
    ítem activo. Es la única marca de marca del menú —el relleno del ítem
    ya es azul—, y así el naranja sigue significando «acá estás» en vez
-   de «esto es un botón». */
+   de «esto es un botón».
+
+   Se queda el naranja del LOGO (#f39200) y no su versión clara: como
+   barrita es un elemento gráfico, necesita 3:1, y sobre el #070d1c del
+   rail da 8,24:1. El naranja solo deja de leerse sobre fondos CLAROS
+   —ahí es donde el contrato manda usar `--orange-fuerte`—, y este no
+   lo es. */
 const ACENTO = "var(--orange)";
 
 export type ItemLealtad = {
@@ -156,49 +173,52 @@ export default function ShellLealtad({
           className={`fixed inset-y-0 left-0 z-50 flex w-[268px] flex-col overflow-y-auto border-r transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-svh lg:w-auto lg:translate-x-0 ${
             menuAbierto ? "translate-x-0" : "-translate-x-full"
           }`}
-          style={{ background: "#070d1c", borderColor: "rgba(255,255,255,.08)" }}
+          style={{ background: RAIL, borderColor: RAIL_LINEA }}
         >
-          {/* El negocio, arriba de todo: en un panel de varios
-              negocios, saber en cuál estás parado es lo primero. */}
-          <div
-            className="flex items-center gap-2.5 border-b px-4 py-4"
-            style={{ borderColor: "rgba(255,255,255,.08)" }}
-          >
-            <span
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[12.5px] font-extrabold"
-              style={{ background: ACCION_TINTE, color: ACCION }}
+          {/* LA CABECERA DE NEGOCIO (`.business` de la maqueta): un
+              cuadrado con las iniciales, el nombre y su subtítulo, DENTRO
+              de una superficie propia. Antes era una fila suelta con un
+              borde debajo, o sea que el nombre del negocio pesaba lo
+              mismo que un ítem del menú; en un panel de varios negocios,
+              saber en cuál estás parado es lo primero que se lee. */}
+          <div className="p-3">
+            <div
+              className="flex items-center gap-2.5 rounded-xl border p-2.5"
+              style={{ background: "rgba(255,255,255,.07)", borderColor: "rgba(255,255,255,.1)" }}
             >
-              {iniciales(negocio.nombre) || "B"}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13.5px] font-extrabold text-white">
-                {negocio.nombre}
+              <span
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[12.5px] font-extrabold"
+                style={{ background: ACCION_TINTE, color: ACCION }}
+              >
+                {iniciales(negocio.nombre) || "B"}
               </span>
-              <span className="block truncate text-[11px] text-white/45">
-                {negocio.plan ?? "Sin plan"}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-extrabold text-white">
+                  {negocio.nombre}
+                </span>
+                {/* Sólido y no `text-white/45`: el mismo dato caía sobre
+                    dos fondos distintos (el rail y esta superficie al
+                    7 %) y se veía de dos grises. #9fb0cf sobre el rail da
+                    8,86:1 y sobre esta tarjeta 7,60:1. */}
+                <span className="block truncate text-[11px] text-aventurea-rail">
+                  {negocio.plan ?? "Sin plan"}
+                </span>
               </span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setMenuAbierto(false)}
-              className="shrink-0 text-white/45 hover:text-white lg:hidden"
-              aria-label="Cerrar el menú"
-            >
-              <Icono nombre="cerrar" className="h-[18px] w-[18px]" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setMenuAbierto(false)}
+                className="shrink-0 text-aventurea-rail hover:text-white lg:hidden"
+                aria-label="Cerrar el menú"
+              >
+                <Icono nombre="cerrar" className="h-[18px] w-[18px]" />
+              </button>
+            </div>
           </div>
 
-          <nav className="flex-1 px-3 py-4">
+          <nav className="flex-1 px-3 pb-4">
             {grupos.map((grupo) => (
               <div key={grupo.titulo} className="mb-5 last:mb-0">
-                {/* /55 y no /30: en el teléfono este <aside> ES el cajón de
-                    la hamburguesa, o sea la única navegación del panel, y
-                    al 30 % los rótulos de grupo daban 2,62:1 sobre el
-                    #070d1c del fondo. Al 55 % son 6,22:1 y siguen leyéndose
-                    como rótulo, no como ítem. */}
-                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
-                  {grupo.titulo}
-                </p>
+                <p className={RAIL_GRUPO_LEALTAD}>{grupo.titulo}</p>
                 <ul className="space-y-0.5">
                   {grupo.items.map((item) => {
                     const esta = item.id === efectiva && !enMostrador;
@@ -212,22 +232,23 @@ export default function ShellLealtad({
                             setEnMostrador(false);
                             setMenuAbierto(false);
                           }}
-                          className={`relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-bold transition-colors ${
-                            esta ? "text-white" : "text-white/55 hover:bg-white/[.06] hover:text-white/85"
+                          /* La barrita del acento entra por el BORDE
+                             IZQUIERDO del propio ítem y no por un <span>
+                             absoluto: así los 3px están siempre
+                             reservados —el activo y el de reposo miden
+                             igual— y el texto no salta al cambiar de
+                             sección. Es el `inset 3px 0 var(--accent)`
+                             de la maqueta. */
+                          className={`${RAIL_ITEM_LEALTAD} ${
+                            esta ? "text-white" : "text-aventurea-rail hover:text-white"
                           }`}
-                          style={esta ? { background: ACCION_TINTE } : undefined}
+                          style={
+                            esta
+                              ? { background: ACCION_TINTE, borderLeftColor: ACENTO }
+                              : undefined
+                          }
                         >
-                          {esta && (
-                            <span
-                              aria-hidden
-                              className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full"
-                              style={{ background: ACENTO }}
-                            />
-                          )}
-                          <Icono
-                            nombre={item.icono}
-                            className={`h-[17px] w-[17px] shrink-0 ${esta ? "" : "opacity-70"}`}
-                          />
+                          <Icono nombre={item.icono} className="h-[17px] w-[17px] shrink-0" />
                           <span className="min-w-0 truncate">{item.etiqueta}</span>
                         </a>
                       </li>
@@ -238,15 +259,18 @@ export default function ShellLealtad({
             ))}
           </nav>
 
-          <div
-            className="border-t px-4 py-3.5"
-            style={{ borderColor: "rgba(255,255,255,.08)" }}
-          >
+          {/* EL PIE DEL RAIL (`.sidebar-bottom`). La maqueta pone acá una
+              tarjeta de plan con un «78 % configurado» — ese porcentaje
+              no existe en Bookea y no se inventa. Lo que sí existe es el
+              plan del negocio, que ya se lee arriba, así que el pie
+              queda con lo único que de verdad va acá: la salida. */}
+          <div className="border-t p-3" style={{ borderColor: RAIL_LINEA }}>
             <Link
               href="/lealtad/panel"
-              className="block text-[12px] font-bold text-white/45 hover:text-white"
+              className={`${RAIL_ITEM_LEALTAD} text-aventurea-rail hover:text-white`}
             >
-              ← Mis negocios
+              <Icono nombre="negocio" className="h-[17px] w-[17px] shrink-0" />
+              <span className="min-w-0 truncate">Mis negocios</span>
             </Link>
           </div>
         </aside>
@@ -254,26 +278,51 @@ export default function ShellLealtad({
 
         {/* ── Columna del contenido ──────────────────────────────── */}
         <div className="min-w-0">
+          {/* LA BARRA SUPERIOR (`.topbar`). 64px fijos, como la del panel
+              de mi-negocio: los dos productos comparten el mismo alto de
+              chrome para que pasar de uno al otro no se sienta un salto.
+              El contexto va con separador vertical, igual que la maqueta
+              —negocio · sección—, no como un título suelto. */}
           <header
-            className="sticky top-0 z-30 flex items-center gap-3 border-b px-4 py-3 backdrop-blur sm:px-6"
+            className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 backdrop-blur sm:px-6"
             style={{
               background: "rgba(10,18,38,.88)",
-              borderColor: "rgba(255,255,255,.08)",
+              borderColor: RAIL_LINEA,
             }}
           >
             {!enMostrador && (
               <button
                 type="button"
                 onClick={() => setMenuAbierto(true)}
-                className="shrink-0 rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
+                className="shrink-0 rounded-lg p-1.5 text-aventurea-rail hover:bg-white/10 hover:text-white lg:hidden"
                 aria-label="Abrir el menú"
               >
                 <Icono nombre="menu" className="h-5 w-5" />
               </button>
             )}
 
-            <p className="min-w-0 flex-1 truncate text-[14px] font-extrabold text-white">
-              {enMostrador ? `Modo mostrador · ${negocio.nombre}` : (actual?.etiqueta ?? "Panel")}
+            <p className="flex min-w-0 flex-1 items-center gap-2.5 truncate">
+              {/* El nombre del negocio solo entra en la barra cuando el
+                  rail no está a la vista: en escritorio ya se lee arriba
+                  del menú, y repetirlo a 20 cm de distancia es ruido. En
+                  modo mostrador el rail no se monta en ningún tamaño, así
+                  que ahí se muestra siempre — es la única pista de en qué
+                  negocio está parado quien tiene el teléfono en la caja. */}
+              <span
+                className={`shrink-0 truncate text-[13px] font-bold text-aventurea-rail ${
+                  enMostrador ? "" : "lg:hidden"
+                }`}
+              >
+                {negocio.nombre}
+              </span>
+              <span
+                aria-hidden
+                className={`h-4 w-px shrink-0 ${enMostrador ? "" : "lg:hidden"}`}
+                style={{ background: "rgba(255,255,255,.18)" }}
+              />
+              <span className="min-w-0 truncate text-[14px] font-extrabold text-white">
+                {enMostrador ? "Modo mostrador" : (actual?.etiqueta ?? "Panel")}
+              </span>
             </p>
 
             {/* Modo mostrador: el equivalente nuestro del "Staff Mode".
@@ -288,7 +337,7 @@ export default function ShellLealtad({
                 ir a ningún lado. */}
             {mostrador && !enMostrador && (
               <label className="flex shrink-0 cursor-pointer items-center gap-2">
-                <span className="hidden text-[12px] font-bold text-white/60 sm:block">
+                <span className="hidden text-[12px] font-bold text-aventurea-rail sm:block">
                   Modo mostrador
                 </span>
                 <input
@@ -314,7 +363,7 @@ export default function ShellLealtad({
             {enMostrador ? (
               pidiendoSalida ? (
                 <span className="flex shrink-0 items-center gap-2">
-                  <span className="hidden text-[12px] font-bold text-white/70 sm:block">
+                  <span className="hidden text-[12px] font-bold text-aventurea-rail sm:block">
                     ¿Salir?
                   </span>
                   <button
@@ -328,8 +377,8 @@ export default function ShellLealtad({
                   <button
                     type="button"
                     onClick={() => setPidiendoSalida(false)}
-                    className="rounded-lg border px-3 py-1.5 text-[12px] font-bold text-white/70"
-                    style={{ borderColor: "rgba(255,255,255,.2)" }}
+                    className="rounded-lg border px-3 py-1.5 text-[12px] font-bold text-aventurea-rail"
+                    style={{ borderColor: ACCION_BORDE }}
                   >
                     No
                   </button>
@@ -338,27 +387,40 @@ export default function ShellLealtad({
                 <button
                   type="button"
                   onClick={() => setPidiendoSalida(true)}
-                  className="shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-bold text-white/70 hover:text-white"
-                  style={{ borderColor: "rgba(255,255,255,.2)" }}
+                  className="shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-bold text-aventurea-rail hover:text-white"
+                  style={{ borderColor: ACCION_BORDE }}
                 >
                   Salir
                 </button>
               )
             ) : (
               <>
+                {/* AVATAR + NOMBRE, como en la maqueta. El nombre estaba
+                    solo en el `title` del avatar, o sea que solo existía
+                    para quien pasa el mouse: en un panel donde el mismo
+                    negocio lo abre el dueño y tres colaboradores, saber
+                    con qué cuenta estás mirando es parte del chrome. */}
                 <Link
                   href="/cuenta"
                   title={usuario.email}
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full border text-[11.5px] font-extrabold text-white/80 hover:text-white"
+                  className="flex shrink-0 items-center gap-2 rounded-xl border px-1.5 py-1.5 transition-colors hover:border-white/40 sm:pr-3"
                   style={{
                     borderColor: "rgba(255,255,255,.18)",
                     background: "rgba(255,255,255,.06)",
                   }}
                 >
-                  {iniciales(usuario.nombre) || "?"}
+                  <span
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-extrabold"
+                    style={{ background: ACCION_TINTE, color: ACCION }}
+                  >
+                    {iniciales(usuario.nombre) || "?"}
+                  </span>
+                  <span className="hidden max-w-[140px] truncate text-[12.5px] font-bold text-white sm:block">
+                    {usuario.nombre}
+                  </span>
                 </Link>
 
-                <Link href="/lealtad" className="hidden shrink-0 sm:block">
+                <Link href="/lealtad" className="hidden shrink-0 lg:block">
                   <Image
                     src="/logo-bookea-blanco-v4.png"
                     alt="Bookea"
@@ -371,7 +433,10 @@ export default function ShellLealtad({
             )}
           </header>
 
-          <main className="px-4 py-6 sm:px-6 sm:py-8">
+          {/* El contenido: mismo ritmo que la maqueta (`.content`,
+              30px/34px, y 4/5 en el teléfono) y el tope de legibilidad
+              del panel. */}
+          <main className="px-4 py-5 sm:px-6 sm:py-7">
             <div className="mx-auto w-full max-w-[1080px]">
               {/* El mostrador se monta SOLO al encenderlo: arrastra el
                   escáner (jsQR + cámara), y cargarlo escondido en cada
@@ -383,21 +448,18 @@ export default function ShellLealtad({
                       estado que el «Salir» de la barra, así que tocar
                       uno u otro pregunta lo mismo. */}
                   {pidiendoSalida ? (
-                    <div
-                      className="mt-4 rounded-2xl border px-5 py-4 text-center"
-                      style={{ borderColor: "rgba(255,255,255,.16)" }}
-                    >
-                      <p className="text-[13px] font-bold text-white">
+                    <div className="mt-3.5 rounded-3xl border border-aventurea-line bg-aventurea-surface px-5 py-4 text-center">
+                      <p className="text-[13px] font-bold text-aventurea-ink">
                         ¿Salir del modo mostrador?
                       </p>
-                      <p className="mt-1 text-[12.5px] text-white/55">
+                      <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
                         Se vuelve al panel completo, con la configuración del programa.
                       </p>
                       <div className="mt-3 flex flex-wrap justify-center gap-2">
                         <button
                           type="button"
                           onClick={salirDelMostrador}
-                          className="rounded-xl px-5 py-2.5 text-[13px] font-extrabold"
+                          className={BOTON_ACCION}
                           style={{ background: ACCION, color: ACCION_TINTA }}
                         >
                           Sí, salir
@@ -405,8 +467,7 @@ export default function ShellLealtad({
                         <button
                           type="button"
                           onClick={() => setPidiendoSalida(false)}
-                          className="rounded-xl border px-5 py-2.5 text-[13px] font-bold text-white/70"
-                          style={{ borderColor: "rgba(255,255,255,.2)" }}
+                          className={BOTON_LEALTAD}
                         >
                           Seguir acá
                         </button>
@@ -416,8 +477,7 @@ export default function ShellLealtad({
                     <button
                       type="button"
                       onClick={() => setPidiendoSalida(true)}
-                      className="mt-4 w-full rounded-2xl border px-5 py-3 text-[13px] font-bold text-white/70 hover:text-white"
-                      style={{ borderColor: "rgba(255,255,255,.16)" }}
+                      className={`${BOTON_LEALTAD} mt-3.5 w-full`}
                     >
                       Salir del modo mostrador
                     </button>

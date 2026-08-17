@@ -84,15 +84,19 @@ export async function solicitarAltaConPlan(datos: {
   // Contra los OFRECIDOS, no contra todos los que la base acepta.
   // `esPlan` incluye los RETIRADOS —tiene que incluirlos, para que las
   // cuentas que ya los tienen sigan resolviendo—, así que validando con
-  // él una petición armada a mano con `plan: "gratis"` entraba por acá
-  // y se llevaba `SIN_TOPES`: tarjetas y equipo ilimitados y los ocho
-  // tipos de tarjeta, gratis y para siempre. Elegir es distinto de
-  // tener: acá se elige.
+  // él una petición armada a mano con el id de un paquete retirado
+  // entraba por acá y se llevaba un plan SIN TOPES: tarjetas y equipo
+  // ilimitados y los ocho tipos de tarjeta, gratis y para siempre.
+  // Elegir es distinto de tener: acá se elige.
+  //
+  // Hoy no hay ningún retirado en el catálogo (0179), o sea que el
+  // agujero está sin munición, no cerrado: el primero que se retire
+  // vuelve a cargarlo. La puerta se queda.
   if (!esPlanOfrecido(datos.plan)) return { ok: false, motivo: "Ese paquete no existe." };
 
   // Sin costo = sin depósito que verificar. Se pregunta por el catálogo
-  // y no por `precioMensual === 0` suelto: el paquete RETIRADO `gratis`
-  // también vale $0, y esa comparación floja era la segunda mitad del
+  // y no por `precioMensual === 0` suelto: hubo un paquete retirado que
+  // también valía $0, y esa comparación floja era la segunda mitad del
   // agujero de arriba.
   const gratis = esPlanSinCosto(datos.plan);
 
@@ -332,12 +336,12 @@ async function crearGratisAlInstante(d: {
   /**
    * EL PLAN QUE LA PERSONA ELIGIÓ, no uno escrito a mano acá.
    *
-   * Acá decía `"gratis"` fijo, y eso vaciaba el tope del paquete sin que
-   * se notara: `gratis` es un plan RETIRADO, y los retirados llevan
-   * `SIN_TOPES` a propósito —a quien ya lo tenía no se le quita lo que
-   * tenía—. Así que `definicionDe("gratis").limites.programas` daba
-   * `null`, el tope de `crear-actions.ts` ni se ejecutaba, y una cuenta
-   * gratis podía crear pases ilimitados.
+   * Acá había escrito a mano el id de un paquete RETIRADO que costaba
+   * $0, y eso vaciaba el tope sin que se notara: los retirados van sin
+   * topes a propósito —a quien ya lo tenía no se le quita lo que
+   * tenía—. Así que `definicionDe(plan).limites.programas` daba `null`,
+   * el tope de `crear-actions.ts` ni se ejecutaba, y una cuenta gratis
+   * podía crear pases ilimitados.
    *
    * El plan vigente sin costo es `prueba`, con tope de 1 programa. Al
    * pasar el que eligió la persona, el tope vuelve a ser el que dice el
@@ -380,6 +384,12 @@ async function crearGratisAlInstante(d: {
       estado: "pendiente",
       lealtad_aprobado_en: new Date().toISOString(),
       lealtad_aprobado_por: null, // el sistema
+      // Una sola de las dos columnas del paquete, por la misma razón
+      // que en `crearNegocioDesdeSolicitud`: el paquete manda desde
+      // `cuentas.plan` (ver src/lib/lealtad/aplicar-plan.ts), pero un
+      // rancho que la base acaba de crear no puede tener cuenta —
+      // `cuentas.rancho_id` es una FK a un id que hasta este INSERT no
+      // existía—. No hay con qué cruzarse.
       plan_lealtad: d.plan,
     })
     .select("id, slug")

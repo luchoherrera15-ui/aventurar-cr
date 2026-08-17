@@ -798,6 +798,34 @@
   --color-aventurea-navy: var(--navy);
   --color-aventurea-navy-2: #22397c;
   --color-aventurea-navy-3: #2f4a94;
+  /* EL FONDO DE LA COLUMNA DEL PANEL — PLANO, NO DEGRADADO.
+     Es el `--navy` de `referencia/bookeapaneles.html`, y el dueño lo
+     pidió por su nombre: nuestra columna «se ve demasiado desordenada
+     y no se aprecia bien».
+     Tenía razón, y eran DOS problemas encimados:
+       1. Era un degradé de #22397c a #16295e. Al variar el fondo de
+          arriba hacia abajo, el MISMO texto cae sobre tonos distintos
+          según en qué parte del menú esté: «Inicio» y «Marketing» se
+          leen distinto aunque tengan el mismo color. El ojo registra
+          eso como inconsistencia aunque no sepa nombrarla.
+       2. Este azul es más profundo y menos saturado que el nuestro.
+          Más cerca del negro azulado, que es lo que hace que una
+          columna se lea como aplicación y no como franja de color.
+     Plano además simplifica la medición: un solo par que verificar,
+     en vez de dos extremos y todo lo del medio. */
+  --color-aventurea-rail-fondo: #0b2447;
+  /* LA LETRA EN REPOSO DE ESA COLUMNA.
+     Reemplaza al `text-white/60` que el rail venía usando para los
+     ítems, los rótulos de grupo y la marca «Pronto». Un alfa hace que
+     el MISMO estado se vea de dos colores según qué haya detrás, y
+     encima no se puede medir una vez y darlo por bueno.
+     Con el fondo plano hay UN solo par, y mejora contra los dos
+     valores que reemplaza:
+       #9fb0cf sobre #0b2447 ...................... 7,06:1 ✅ AA
+       (antes: 4,93:1 arriba del degradé, 6,33:1 abajo)
+     Blanco puro sobre el mismo fondo da 15,47:1, que es el margen que
+     usa el ítem activo. */
+  --color-aventurea-rail: #9fb0cf;
   --color-aventurea-orange: var(--orange);
   --color-aventurea-orange-dark: #cf5d0e;
   --color-aventurea-orange-light: #fdeee1;

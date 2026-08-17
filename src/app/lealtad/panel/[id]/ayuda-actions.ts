@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 import { escaparHtml } from "@/lib/email";
 import { SITIO } from "@/lib/sitio";
-import { esIconoSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import { esSelloElegido, type SelloElegido } from "@/lib/lealtad/iconos-sello";
 import { esTipoTarjeta, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { armarContextoDeDiseno } from "@/lib/lealtad/ayuda-diseno";
 import { hiloAbiertoDeAyuda, hilosDeAyuda, type HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
@@ -49,7 +49,7 @@ export type PedidoAyuda = {
   tipo: TipoTarjeta;
   colorFondo: string;
   colorSello: string;
-  iconoSello: IconoSello | null;
+  iconoSello: SelloElegido | null;
   tieneLogo: boolean;
   tieneBanda: boolean;
 };
@@ -105,8 +105,7 @@ export async function pedirAyudaDeDiseno(datos: PedidoAyuda): Promise<Resultado>
   if (!HEX.test(datos.colorFondo) || !HEX.test(datos.colorSello)) {
     return { ok: false, motivo: "Los colores tienen que ser #RRGGBB." };
   }
-  const icono =
-    datos.iconoSello !== null && esIconoSello(datos.iconoSello) ? datos.iconoSello : null;
+  const icono = esSelloElegido(datos.iconoSello) ? datos.iconoSello : null;
 
   const db = createAdminClient();
   if (!db) return { ok: false, motivo: "No hay conexión de servicio." };

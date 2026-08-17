@@ -1,4 +1,22 @@
 /**
+ * ⚠️ ESTO YA NO ES EL SISTEMA DEL PANEL. Para cualquier pantalla nueva
+ * de `/mi-negocio`, `/lealtad/panel` o `/cuenta`, la referencia es
+ * `src/components/panel/sistema.ts` (tokens + contraste medido) y
+ * `src/components/panel/piezas.tsx` (Card, Metrica, FilaPanel…). Este
+ * archivo es el ancestro de `Metrica` y sobrevive por UNA razón
+ * concreta:
+ *
+ *   El panel del dueño pasó a lienzo GRIS (`--grey`), y sobre gris la
+ *   métrica correcta es la de la maqueta: tarjeta BLANCA con borde y
+ *   sombra. `/cuenta` todavía tiene lienzo BLANCO, y ahí una tarjeta
+ *   blanca sobre blanco no existe — por eso sigue necesitando este
+ *   relleno sólido. Cambiarle el valor a estas dos constantes
+ *   restyleaba `/cuenta` de rebote y la dejaba invisible.
+ *
+ * O sea: se migra cuando `/cuenta` migre de lienzo, en la pasada de esa
+ * pantalla, y ahí este archivo se borra. Mientras tanto, nadie lo
+ * importa desde una pantalla nueva.
+ *
  * LA PIEL DE UNA TARJETA DE DATO — una sola decisión, dos pantallas.
  *
  * La usan el tablero del dueño (`/mi-negocio/[id]?tab=inicio`, "Tu

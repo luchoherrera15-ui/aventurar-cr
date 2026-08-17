@@ -83,6 +83,12 @@ export async function dibujarBanda({
  * se borra — queda tenue para que el cliente vea cuántos le faltan.
  * Esa diferencia entre "llevás 5" y "te faltan 5" es lo que hace
  * volver, así que no es un detalle estético.
+ *
+ * `imagen` es el LOGO del negocio o —desde la 0174— el ÍCONO PROPIO que
+ * subió. Las dos se dibujan igual y a propósito: este camino es el que
+ * ya funciona en teléfonos de verdad (fondo blanco, `trim` del margen
+ * sobrante, encaje al 62% del círculo y los dos estados resueltos), y
+ * un ícono propio no es más que otra imagen del negocio metida ahí.
  */
 async function selloRedondo({
   diametro,
@@ -92,7 +98,7 @@ async function selloRedondo({
 }: {
   diametro: number;
   encendido: boolean;
-  /** Logo del negocio. Sin él se dibuja un círculo liso. */
+  /** Logo del negocio o ícono propio. Sin él se dibuja un círculo liso. */
   imagen: Buffer | null;
   colores: ColoresTarjeta;
 }): Promise<Buffer> {
@@ -244,6 +250,11 @@ export async function dibujarTiraDeSellos({
   total: number;
   logrados: number;
   colores: ColoresTarjeta;
+  /**
+   * Lo que va DENTRO de cada círculo: el logo del negocio, o el ícono
+   * propio que subió (0174). Quién de los dos lo decide `generar.ts`
+   * con `imagenDentroDelSello` — acá los dos se dibujan igual.
+   */
   imagen: Buffer | null;
   /** Foto de fondo. null = el color del negocio, como antes de la 0132. */
   banda: Buffer | null;

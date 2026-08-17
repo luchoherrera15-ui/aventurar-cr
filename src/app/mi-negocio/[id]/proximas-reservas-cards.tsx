@@ -1,12 +1,26 @@
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import type { EventoAgenda } from "@/components/agenda-eventos";
-import { IconCalendarLine } from "@/components/icons";
+import { CardVacia, ContextoFila, FilaPanel, PildoraEstado } from "@/components/panel/piezas";
+import type { EstadoPanel } from "@/components/panel/sistema";
 
 /**
- * Vistazo rápido de lo próximo — solo las 5 reservas más cercanas, en
- * tarjetas chicas. El historial completo (con filtros, mensajes y
- * acciones) vive en "Todas tus reservas" justo debajo; esto es para
- * ver de un vistazo qué viene sin tener que desplegar nada.
+ * LO QUE VIENE — el «Próximas citas» de la maqueta, con las cinco
+ * reservas más cercanas.
+ *
+ * ERAN CINCO TARJETAS EN GRILLA Y AHORA SON CINCO FILAS. No es un
+ * capricho: en la maqueta lo próximo es una LISTA (`.appointment`),
+ * porque una lista se lee de arriba abajo en el orden en que van a
+ * pasar las cosas, y una grilla de cinco cuadritos obliga a leer en
+ * zigzag para reconstruir ese mismo orden. Además, a 390px las cinco
+ * tarjetas quedaban de dos en dos con el nombre del cliente truncado a
+ * la mitad; la fila le da el ancho completo al nombre y manda el estado
+ * a un punto de color.
+ *
+ * Devuelve la LISTA PELADA, sin tarjeta: el `Card` con su encabezado y
+ * el enlace «Ver agenda completa →» lo pone el tablero, que es quien
+ * sabe si esa pantalla existe para este negocio.
+ *
+ * Componente de SERVIDOR: son datos y texto, no hay nada que tocar.
  */
 
 const MOSTRAR = 5;
@@ -17,14 +31,15 @@ const ESTADO_LABEL: Record<string, string> = {
 };
 
 /**
- * Píldoras sólidas. `aventurea-sky` con letra blanca daba 4,42:1 — por
- * debajo de AA para 9,5px, que es el tamaño real de esta píldora; el
- * tono oscuro de la misma familia (`sky-dark`) da 6,45:1 sin cambiar de
- * color. Verde queda como estaba: 5,32:1, ya pasaba.
+ * El estado del sistema al que corresponde cada estado de reserva. Los
+ * colores ya no viven acá: viven en `sistema.ts` con su contraste
+ * medido, y esta tabla solo dice qué SIGNIFICA cada estado. Así, el día
+ * que el verde de «confirmada» cambie, cambia en un solo renglón y en
+ * las nueve pantallas a la vez.
  */
-const ESTADO_CLS: Record<string, string> = {
-  pendiente: "bg-aventurea-sky-dark text-white",
-  confirmada: "bg-aventurea-green text-white",
+const ESTADO_PANEL: Record<string, EstadoPanel> = {
+  pendiente: "aviso",
+  confirmada: "exito",
 };
 
 function fmtColones(n: number | null) {
@@ -32,9 +47,14 @@ function fmtColones(n: number | null) {
   return "₡" + Number(n).toLocaleString("es-CR");
 }
 
-function fechaCorta(iso: string) {
+function diaCorto(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("es-CR", { weekday: "short", day: "numeric", month: "short" });
+  return new Date(y, m - 1, d).toLocaleDateString("es-CR", { day: "numeric" });
+}
+
+function mesCorto(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-CR", { month: "short" });
 }
 
 export default function ProximasReservasCards({ eventos }: { eventos: EventoAgenda[] }) {
@@ -43,69 +63,45 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
   const proximas = eventos.slice(0, MOSTRAR);
 
   if (proximas.length === 0) {
-    return (
-      <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
-        No hay reservas próximas en la agenda.
-      </p>
-    );
+    return <CardVacia>No hay reservas próximas en la agenda.</CardVacia>;
   }
 
   return (
-    // Son CINCO como máximo (`MOSTRAR`), así que la fila completa cabe
-    // desde lg y de ahí para arriba solo se ensanchan las tarjetas — no
-    // hay una sexta que agregar.
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-      {proximas.map((e) => {
+    <div>
+      {proximas.map((e, i) => {
         const esHoy = e.fecha === hoy;
         const esManana = e.fecha === manana;
         const monto = fmtColones(e.monto_total);
+        const estado = ESTADO_PANEL[e.estado] ?? "neutro";
+        const etiqueta = ESTADO_LABEL[e.estado] ?? e.estado;
         return (
-          /* Estas tarjetas se quedan BLANCAS, y no es un olvido: las de
-             "Tu negocio en números" son ahora bloques sólidos y son la
-             fila que tiene que llevarse la mirada al entrar. Si todo el
-             tablero fuera del mismo azul no habría primera fila, habría
-             una pared. Lo que sí se comparte es la regla: el círculo
-             decorativo de la esquina —que acá también pasaba por detrás
-             del nombre de la reserva— no va en ninguna. */
-          <div
+          <FilaPanel
             key={e.id}
-            className="group relative flex items-start gap-2.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-3 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] transition-shadow hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)] sm:block sm:p-4"
-          >
-            {/* `relative` se queda: la píldora de estado se ancla acá
-                adentro con `sm:absolute` a partir de sm. */}
-            <span className="relative flex w-full items-center gap-2.5 sm:mb-3 sm:items-start sm:gap-0">
-              <span
-                aria-hidden="true"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-sky-light text-aventurea-navy"
-              >
-                <IconCalendarLine className="h-4 w-4" />
-              </span>
-              <span
-                className={`ml-auto shrink-0 rounded-lg px-2 py-0.5 text-[9.5px] font-extrabold sm:ml-0 sm:absolute sm:right-4 sm:top-4 ${ESTADO_CLS[e.estado] ?? "bg-aventurea-cream-2 text-aventurea-ink-soft"}`}
-              >
-                {ESTADO_LABEL[e.estado] ?? e.estado}
-              </span>
-            </span>
-
-            <span className="mt-1.5 block min-w-0 flex-1 sm:mt-0">
-              <span className="block truncate text-[12.5px] font-extrabold text-aventurea-ink sm:text-[14px]">
-                {e.nombre ?? "Sin nombre"}
-              </span>
-              {/* La jerarquía la hace la TIPOGRAFÍA, no el color: la
-                  fecha va en negrita y versalitas sobre la tinta fuerte
-                  (18,10:1) y el monto detrás en el gris de texto
-                  (7,11:1). Antes la fecha iba en naranja —2,94:1— y
-                  como cada tarjeta tiene la suya, la fila entera se leía
-                  naranja sin que ninguna fecha fuera más urgente que
-                  otra. */}
-              <span className="mt-0.5 block truncate text-[11px] font-medium text-aventurea-ink-soft sm:mt-1">
-                <span className="font-bold uppercase tracking-wide text-aventurea-ink">
-                  {esHoy ? "Hoy" : esManana ? "Mañana" : fechaCorta(e.fecha)}
-                </span>
-                {monto ? <span> · {monto}</span> : null}
-              </span>
-            </span>
-          </div>
+            separador={i < proximas.length - 1}
+            marca={estado}
+            /* La columna de contexto es la FECHA, que es el criterio por
+               el que está ordenada la lista: «Hoy» y «Mañana» en
+               palabras —que es como lo dice el dueño— y el resto en
+               número + mes. */
+            contexto={
+              esHoy || esManana ? (
+                <ContextoFila fuerte={esHoy ? "Hoy" : "Mañana"} />
+              ) : (
+                <ContextoFila fuerte={diaCorto(e.fecha)} suave={mesCorto(e.fecha)} />
+              )
+            }
+            titulo={e.nombre ?? "Sin nombre"}
+            detalle={monto}
+            /* Por debajo de sm la píldora se vuelve un punto del color
+               del estado y el texto queda en `sr-only`: el estado no
+               desaparece para un lector de pantalla, solo deja de
+               comerse el nombre del cliente en 390px. */
+            derecha={
+              <PildoraEstado estado={estado} colapsa>
+                {etiqueta}
+              </PildoraEstado>
+            }
+          />
         );
       })}
     </div>

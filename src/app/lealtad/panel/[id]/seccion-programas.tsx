@@ -12,6 +12,16 @@ import {
   type FiltroPrograma,
 } from "@/lib/lealtad/programas";
 import { TIPOS_TARJETA, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { PildoraEstado } from "@/components/panel/piezas";
+import { CUERPO_SUAVE, GAP_TABLERO, RADIO_CARD, RADIO_TILE } from "@/components/panel/sistema";
+import {
+  ACCION,
+  ACCION_BORDE,
+  ACCION_TINTA,
+  ACCION_TINTE,
+  BOTON_ACCION,
+  ESTADO_DE_TONO,
+} from "../sistema-lealtad";
 import { Icono, type NombreIcono } from "./iconos";
 
 /**
@@ -77,27 +87,33 @@ export default function SeccionProgramas({
   // ── Vacío de verdad: el negocio no tiene ninguna ────────────────
   if (programas.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-white/20 bg-white/[0.03] px-6 py-12 text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white/10 text-white/70">
+      <div
+        className={`${RADIO_CARD} border border-dashed border-aventurea-line bg-aventurea-cream-2 px-6 py-12 text-center`}
+      >
+        <span
+          aria-hidden
+          className="mx-auto grid h-14 w-14 place-items-center rounded-2xl"
+          style={{ background: ACCION_TINTE, color: ACCION }}
+        >
           <Icono nombre="tarjeta" className="h-7 w-7" />
         </span>
-        <p className="mt-4 text-[16px] font-extrabold text-white">
+        <p className="titulo mt-4 text-[18px] leading-tight tracking-[-0.02em] text-white">
           Todavía no tenés ninguna tarjeta
         </p>
-        <p className="mx-auto mt-1.5 max-w-[420px] text-[13.5px] leading-relaxed text-white/55">
+        <p className="mx-auto mt-1.5 max-w-[420px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
           Creá la primera y tus clientes van a poder llevarla en el teléfono. Se arma en
           cinco pasos, con una última mirada antes de publicarla.
         </p>
         {puedeCrear ? (
           <Link
             href={`/lealtad/panel/${ranchoId}/crear`}
-            className="presionable mt-5 inline-block rounded-xl px-5 py-3 text-[13.5px] font-extrabold"
-            style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
+            className={`${BOTON_ACCION} presionable mt-5`}
+            style={{ background: ACCION, color: ACCION_TINTA }}
           >
             Crear mi primera tarjeta →
           </Link>
         ) : (
-          <p className="mt-5 text-[12.5px] text-white/45">
+          <p className="mt-5 text-[12.5px] text-aventurea-ink-soft">
             Pedile al dueño del negocio que cree la primera.
           </p>
         )}
@@ -106,28 +122,28 @@ export default function SeccionProgramas({
   }
 
   return (
-    <div className="space-y-4">
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
       {/* ── Crear / tope del plan ──────────────────────────────── */}
       {puedeCrear &&
         (topeAlcanzado ? (
           <div
-            className="rounded-2xl border px-4 py-3.5"
-            style={{ borderColor: "rgba(157,180,255,.45)", background: "rgba(157,180,255,.14)" }}
+            className={`${RADIO_TILE} border px-4 py-3.5`}
+            style={{ borderColor: ACCION_BORDE, background: ACCION_TINTE }}
           >
-            <p className="text-[13.5px] font-bold text-white">
+            <p className="text-[13.5px] font-extrabold leading-tight text-aventurea-ink">
               Llegaste al tope de tu paquete
               {topePlan !== null ? `: ${topePlan} tarjeta${topePlan === 1 ? "" : "s"}` : ""}
             </p>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-white/60">
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
               Las que ya tenés siguen funcionando y sus clientes no pierden nada. Para crear
               otra, abrí la que ya no usás en la lista de abajo y archivala desde{" "}
-              <strong className="font-bold">Estado</strong> —el cupo se libera al instante—
-              o subí de paquete.
+              <strong className="font-bold text-aventurea-ink">Estado</strong> —el cupo se
+              libera al instante— o subí de paquete.
             </p>
             <Link
               href={`/lealtad/planes?negocio=${ranchoId}`}
-              className="presionable mt-3 inline-block rounded-xl px-4 py-2.5 text-[12.5px] font-extrabold"
-              style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
+              className={`${BOTON_ACCION} presionable mt-3`}
+              style={{ background: ACCION, color: ACCION_TINTA }}
             >
               Ver paquetes →
             </Link>
@@ -135,18 +151,18 @@ export default function SeccionProgramas({
         ) : (
           <Link
             href={`/lealtad/panel/${ranchoId}/crear`}
-            className="presionable flex items-center justify-between rounded-2xl border px-4 py-3.5"
-            style={{ borderColor: "rgba(157,180,255,.45)", background: "rgba(157,180,255,.14)" }}
+            className={`presionable flex items-center justify-between gap-3 ${RADIO_TILE} border px-4 py-3.5`}
+            style={{ borderColor: ACCION_BORDE, background: ACCION_TINTE }}
           >
-            <span>
-              <span className="block text-[13.5px] font-extrabold text-white">
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-extrabold leading-tight text-aventurea-ink">
                 Crear una tarjeta
               </span>
-              <span className="block text-[12px] text-white/60">
+              <span className="mt-0.5 block text-[12px] leading-snug text-aventurea-ink-soft">
                 Sellos, puntos, cupón, descuento, membresía, gift card, evento o cashback.
               </span>
             </span>
-            <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: "var(--accion-claro)" }}>
+            <span aria-hidden className="shrink-0 text-[18px]" style={{ color: ACCION }}>
               →
             </span>
           </Link>
@@ -166,19 +182,23 @@ export default function SeccionProgramas({
               type="button"
               aria-pressed={puesto}
               onClick={() => setFiltro(f.id)}
-              className={`presionable rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
+              /* El chip apagado pasa a la superficie de tarjeta del
+                 sistema (borde sólido + letra de texto, 16,79:1) en vez
+                 de dos alfas de blanco: así un filtro sin elegir se lee
+                 igual que cualquier otro control del panel, y su
+                 contraste se mide una sola vez. */
+              className={`presionable rounded-lg px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
                 puesto
                   ? "bg-[color:var(--accion-claro)] text-[color:var(--accion-claro-tinta)]"
-                  : "bg-white/10 text-white/65 hover:bg-white/20"
+                  : "border border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy"
               }`}
             >
               {f.etiqueta}
               {/* El contador es el dato secundario del chip, pero
                   «secundario» no puede significar invisible: el navy al
-                  70 % sobre el azul de acción da 4,83:1 y el blanco al
-                  55 % sobre el chip apagado, 5,40:1 — los dos por encima
-                  de AA sin perder la jerarquía. */}
-              <span className={puesto ? "text-[#364367]" : "text-white/55"}> {n}</span>
+                  70 % sobre el azul de acción da 4,83:1, y el gris de
+                  texto del panel sobre el chip apagado, 6,81:1. */}
+              <span className={puesto ? "text-[#364367]" : "text-aventurea-ink-soft"}> {n}</span>
             </button>
           );
         })}
@@ -186,14 +206,16 @@ export default function SeccionProgramas({
 
       {/* ── Sin resultados en ESTE filtro (distinto de vacío) ───── */}
       {visibles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/20 px-5 py-9 text-center">
-          <p className="text-[13.5px] font-bold text-white/80">
+        <div
+          className={`${RADIO_TILE} border border-dashed border-aventurea-line bg-aventurea-cream-2 px-5 py-9 text-center`}
+        >
+          <p className="text-[13.5px] font-bold text-aventurea-ink">
             No hay tarjetas {ETIQUETA_ESTADO[filtro as keyof typeof ETIQUETA_ESTADO]?.toLowerCase() ?? ""}
           </p>
           <button
             type="button"
             onClick={() => setFiltro("todos")}
-            className="presionable mt-2 text-[12.5px] font-bold text-white/60 underline hover:text-white"
+            className="presionable mt-2 text-[12.5px] font-bold text-aventurea-navy underline"
           >
             Ver todas
           </button>
@@ -222,20 +244,18 @@ function TarjetaDeLista({
 }) {
   const estado = estadoVisible(programa, ahoraCR);
   const tipo = TIPOS_TARJETA[tipoDe(programa.modo)];
-  const tono = TONO_ESTADO[estado];
 
-  /* Este chip es lo ÚNICO que distingue «pausada/vencida» de «activa» en
-     la grilla, y el tono azul ya está tomado por «activa/programada».
-     Pasarlo a azul dejaría los dos estados del mismo color, así que se
-     queda cálido — pero en el ámbar de aviso del repo, no en el naranja
-     de marca: el naranja quedó reservado para lo que el cliente GANA, y
-     una tarjeta vencida es justo lo contrario. */
-  const colorChip =
-    tono === "naranja"
-      ? { background: "rgba(245,158,11,.16)", color: "#fcd34d" }
-      : tono === "azul"
-        ? { background: "rgba(157,180,255,.16)", color: "#9db4ff" }
-        : { background: "rgba(255,255,255,.09)", color: "rgba(255,255,255,.55)" };
+  /* El chip pasa a ser la PÍLDORA del sistema, con el mapa de
+     `sistema-lealtad`: el mismo estado se ve igual acá, en el tablero y
+     en la ficha del negocio. Los tres colores que había escritos a mano
+     eran los mismos que ya pinta la píldora —azul, ámbar y gris—, pero
+     cada pantalla los repetía por su cuenta.
+
+     La decisión de fondo NO cambia: «activa» sigue en azul y no en
+     verde, porque el verde queda fuera de la marca de Lealtad (está
+     escrito en `TONO_ESTADO`), y lo cálido sigue reservado a lo que
+     pide atención. */
+  const tonoPildora = ESTADO_DE_TONO[TONO_ESTADO[estado]];
 
   return (
     // ── CADA TARJETA A **SU** EDITOR ────────────────────────────────
@@ -245,9 +265,13 @@ function TarjetaDeLista({
     // lo dijera. Ahora el id viaja en la ruta.
     <Link
       href={`/lealtad/panel/${ranchoId}/editar/${programa.id}`}
-      className="elevar flex h-full items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+      className={`elevar flex h-full items-start gap-3 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy`}
     >
+      {/* El disco lleva el color REAL de la tarjeta del cliente: es lo
+          que hace que la lista se reconozca de un vistazo cuando el
+          negocio tiene seis. Sin color guardado cae al navy elevado. */}
       <span
+        aria-hidden
         className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white"
         style={{ background: programa.colorFondo ?? "var(--navy-elevado)" }}
       >
@@ -256,18 +280,13 @@ function TarjetaDeLista({
 
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="min-w-0 truncate text-[13.5px] font-extrabold text-white">
+          <span className="min-w-0 truncate text-[13.5px] font-extrabold text-aventurea-ink">
             {programa.nombre}
           </span>
-          <span
-            className="shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-bold"
-            style={colorChip}
-          >
-            {ETIQUETA_ESTADO[estado]}
-          </span>
+          <PildoraEstado estado={tonoPildora}>{ETIQUETA_ESTADO[estado]}</PildoraEstado>
         </span>
 
-        <span className="mt-0.5 block text-[12px] text-white/50">
+        <span className={`mt-1 block ${CUERPO_SUAVE}`}>
           {tipo.nombre}
           {" · "}
           {programa.miembros === 0
@@ -276,7 +295,7 @@ function TarjetaDeLista({
         </span>
 
         {(programa.vigente_desde || programa.vigente_hasta) && (
-          <span className="mt-1 block text-[11.5px] text-white/55">
+          <span className="mt-1 block text-[11.5px] text-aventurea-ink-soft">
             {programa.vigente_desde ?? "desde siempre"} → {programa.vigente_hasta ?? "sin fin"}
           </span>
         )}

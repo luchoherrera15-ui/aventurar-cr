@@ -3,11 +3,20 @@ import {
   ICONOS_SELLO,
   ICONOS_SELLO_ID,
   ICONOS_SELLO_LISTA,
+  SELLO_PROPIO,
   esIconoSello,
+  esSelloElegido,
   iconoDelSello,
-  logoDentroDelSello,
+  imagenDentroDelSello,
+  selloDelPase,
+  selloParaGuardar,
+  urlDeIconoPropio,
 } from "./iconos-sello";
 import { escalonesDeLaTira } from "@/lib/wallet/escalones-tira";
+
+/** Una URL como la que devuelve nuestro storage al subir un ícono. */
+const URL_ICONO =
+  "https://proyecto.supabase.co/storage/v1/object/public/ranchos-fotos/lealtad/iconos/u/1.png";
 
 /**
  * El catálogo de iconos del sello: qué se puede elegir y, sobre todo,
@@ -104,9 +113,9 @@ describe("el icono y la escalera de la tira", () => {
    * escalera del negocio que no eligió ninguno.
    */
   it("sin icono, la escalera queda EXACTAMENTE como estaba", () => {
-    const hayLogo = logoDentroDelSello({ hayLogo: true, icono: null });
-    expect(hayLogo).toBe(true);
-    expect(escalonesDeLaTira({ hayBanda: true, hayLogo })).toEqual([
+    const cual = imagenDentroDelSello({ sello: { clase: "logo" }, hayLogo: true });
+    expect(cual).toBe("logo");
+    expect(escalonesDeLaTira({ hayBanda: true, hayLogo: !!cual })).toEqual([
       { banda: true, logo: true },
       { banda: false, logo: true },
       { banda: false, logo: false },
@@ -114,20 +123,119 @@ describe("el icono y la escalera de la tira", () => {
   });
 
   it("con icono, el logo sale del sello y el escalón repetido no se ofrece", () => {
-    const hayLogo = logoDentroDelSello({ hayLogo: true, icono: "cafe" });
-    expect(hayLogo).toBe(false);
-    expect(escalonesDeLaTira({ hayBanda: true, hayLogo })).toEqual([
+    const cual = imagenDentroDelSello({ sello: { clase: "icono", icono: "cafe" }, hayLogo: true });
+    expect(cual).toBeNull();
+    expect(escalonesDeLaTira({ hayBanda: true, hayLogo: !!cual })).toEqual([
       { banda: true, logo: false },
       { banda: false, logo: false },
     ]);
   });
 
   it("sin logo cargado da lo mismo el icono: siempre hubo un solo intento", () => {
-    for (const icono of [null, "cafe" as const]) {
-      const hayLogo = logoDentroDelSello({ hayLogo: false, icono });
-      expect(escalonesDeLaTira({ hayBanda: false, hayLogo })).toEqual([
+    const casos = [{ clase: "logo" } as const, { clase: "icono", icono: "cafe" } as const];
+    for (const sello of casos) {
+      const cual = imagenDentroDelSello({ sello, hayLogo: false });
+      expect(escalonesDeLaTira({ hayBanda: false, hayLogo: !!cual })).toEqual([
         { banda: false, logo: false },
       ]);
     }
+  });
+
+  it("el ícono propio ocupa el lugar del logo — y su escalón de rescate", () => {
+    // Un ícono propio puede reventar a sharp igual que un logo (un PNG
+    // cortado, un archivo raro). Si la escalera no ofreciera el escalón
+    // «sin la imagen», el pase saldría SIN TIRA: sin sellos, sin banda,
+    // sin nada — exactamente el bug que `escalones-tira.ts` existe para
+    // evitar.
+    const cual = imagenDentroDelSello({
+      sello: { clase: "propio", url: URL_ICONO },
+      hayLogo: true,
+    });
+    expect(cual).toBe("propio");
+    expect(escalonesDeLaTira({ hayBanda: true, hayLogo: !!cual })).toEqual([
+      { banda: true, logo: true },
+      { banda: false, logo: true },
+      { banda: false, logo: false },
+    ]);
+  });
+});
+
+describe("el ícono propio (0174)", () => {
+  it("una URL sirve solo si es https, corta y sin comillas", () => {
+    expect(urlDeIconoPropio(URL_ICONO)).toBe(URL_ICONO);
+    for (const basura of [
+      "",
+      "   ",
+      "http://sitio.com/i.png",
+      "javascript:alert(1)",
+      "/lealtad/iconos/1.png",
+      'https://sitio.com/i.png" onerror="x',
+      "https://sitio.com/" + "a".repeat(600),
+      null,
+      undefined,
+      42,
+      {},
+    ]) {
+      expect(urlDeIconoPropio(basura)).toBeNull();
+    }
+  });
+
+  it("'propio' es un valor elegible, y sigue sin ser uno de los doce", () => {
+    expect(esSelloElegido(SELLO_PROPIO)).toBe(true);
+    expect(esSelloElegido("cafe")).toBe(true);
+    expect(esSelloElegido("pizza")).toBe(false);
+    // `esIconoSello` NO cambió: sigue respondiendo por los doce dibujos,
+    // que son los únicos que tienen trazos que pintar.
+    expect(esIconoSello(SELLO_PROPIO)).toBe(false);
+    expect(ICONOS_SELLO_ID).not.toContain(SELLO_PROPIO);
+  });
+
+  it("con archivo, el sello ES el ícono propio", () => {
+    expect(selloDelPase({ tipo: "sellos", icono: SELLO_PROPIO, url: URL_ICONO })).toEqual({
+      clase: "propio",
+      url: URL_ICONO,
+    });
+  });
+
+  it("'propio' SIN archivo se cae al logo de siempre, no a un círculo vacío", () => {
+    for (const url of [null, "", "no-es-una-url", 7]) {
+      expect(selloDelPase({ tipo: "sellos", icono: SELLO_PROPIO, url })).toEqual({
+        clase: "logo",
+      });
+    }
+  });
+
+  it("el archivo se CONSERVA al elegir uno de los doce", () => {
+    // Es su ícono, no un valor temporal: probar «Café» un rato no puede
+    // obligarlo a subirlo de nuevo.
+    expect(selloParaGuardar({ tipo: "sellos", icono: "cafe", url: URL_ICONO })).toEqual({
+      icono: "cafe",
+      url: URL_ICONO,
+    });
+    expect(selloParaGuardar({ tipo: "sellos", icono: null, url: URL_ICONO })).toEqual({
+      icono: null,
+      url: URL_ICONO,
+    });
+  });
+
+  it("cambiar el tipo de tarjeta se lleva el ícono Y su archivo", () => {
+    // En una gift card no hay círculos donde dibujar nada, y un dato
+    // colgado es basura que algún día alguien pinta.
+    for (const tipo of ["cupon", "giftcard", "evento", "puntos"]) {
+      expect(selloParaGuardar({ tipo, icono: SELLO_PROPIO, url: URL_ICONO })).toEqual({
+        icono: null,
+        url: null,
+      });
+      expect(selloDelPase({ tipo, icono: SELLO_PROPIO, url: URL_ICONO })).toEqual({
+        clase: "logo",
+      });
+    }
+  });
+
+  it("guardar 'propio' sin archivo no deja un estado a medias", () => {
+    expect(selloParaGuardar({ tipo: "sellos", icono: SELLO_PROPIO, url: "" })).toEqual({
+      icono: null,
+      url: null,
+    });
   });
 });

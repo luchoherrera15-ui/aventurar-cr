@@ -7,6 +7,12 @@ import { hiloAbiertoDeAyuda } from "@/lib/lealtad/ayuda-hilo";
 import { estadoDelPrograma } from "@/lib/lealtad/reglas";
 import { configPorDefecto, leerBeneficio, tipoDe, TIPOS_TARJETA } from "@/lib/lealtad/tipos-tarjeta";
 import { ProveedorPrograma } from "../../programa-contexto";
+import { PildoraEstado } from "@/components/panel/piezas";
+import {
+  BAJADA_PANTALLA,
+  EYEBROW_NEUTRO,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
 import EditorTarjeta from "../../editor-tarjeta";
 import type { Reglas } from "../../paso-reglas";
 import type { ProgramaFila, RecompensaFila } from "../../pases-actions";
@@ -188,16 +194,27 @@ export default async function EditarTarjetaPage({
           ← Mis tarjetas
         </Link>
 
-        <h1 className="mt-4 text-[26px] font-extrabold leading-tight text-bookea-tinta sm:text-[30px]">
-          {programa.nombre}
-        </h1>
-        <p className="mt-1.5 max-w-[620px] text-[14px] leading-relaxed text-bookea-gris">
-          {TIPOS_TARJETA[tipo].nombre} · {ESTADO_EN_PALABRAS[estado]} ·{" "}
-          {miembros === 0
-            ? "todavía sin clientes"
-            : `${miembros} ${miembros === 1 ? "cliente" : "clientes"} adentro`}
-          . Todo lo de acá llega al pase que ya tienen en el teléfono.
-        </p>
+        {/* El titular, con la ficha de la tarjeta como kicker y el
+            ESTADO como píldora del sistema, a la derecha — el mismo
+            lugar y el mismo color con el que la lista de Tarjetas
+            pinta esa misma tarjeta. */}
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+          <div className="min-w-0">
+            <p className={EYEBROW_NEUTRO}>
+              {TIPOS_TARJETA[tipo].nombre} ·{" "}
+              {miembros === 0
+                ? "todavía sin clientes"
+                : `${miembros} ${miembros === 1 ? "cliente" : "clientes"} adentro`}
+            </p>
+            <h1 className={`mt-1.5 ${TITULO_PANTALLA}`}>{programa.nombre}</h1>
+            <p className={`mt-1.5 max-w-[620px] ${BAJADA_PANTALLA}`}>
+              Todo lo de acá llega al pase que ya tienen en el teléfono.
+            </p>
+          </div>
+          <PildoraEstado estado={estado === "activo" ? "info" : "neutro"}>
+            {ESTADO_EN_PALABRAS[estado]}
+          </PildoraEstado>
+        </div>
 
         <div className="mt-7">
           <ProveedorPrograma

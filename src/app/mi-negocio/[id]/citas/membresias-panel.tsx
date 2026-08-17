@@ -22,19 +22,43 @@ import {
   type PlanInput,
 } from "./membresias-actions";
 
-const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
-const labelCls =
-  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
-const ayudaCls = "mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft";
+import { Card, CardVacia, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  DETALLE,
+  ESTADO_AVISO,
+  RADIO_PILDORA,
+  RADIO_TILE,
+  ROTULO_CAMPO,
+  SUPERFICIE_HUNDIDA,
+  type EstadoPanel,
+} from "@/components/panel/sistema";
+import {
+  ACCIONES_FILA,
+  BOTON_FILA,
+  BOTON_FILA_PELIGRO,
+  FilaFicha,
+  LISTA_FICHAS,
+} from "../fila-ficha";
+
+const inputCls = `${CAMPO_PANEL} placeholder:text-aventurea-ink-soft`;
+const labelCls = `mb-1.5 block ${ROTULO_CAMPO}`;
+const ayudaCls = `mt-1.5 ${DETALLE}`;
 
 const PERIODOS: PeriodoPlan[] = ["unico", "mensual", "trimestral", "semestral", "anual"];
 
-const ESTADO_CLS: Record<string, string> = {
-  activa: "bg-aventurea-green-light text-aventurea-green",
-  pausada: "bg-amber-50 text-amber-700",
-  vencida: "bg-zinc-100 text-zinc-500",
-  cancelada: "bg-red-50 text-red-700",
+/**
+ * El estado de una membresía, mapeado a los cinco del panel — los
+ * mismos que usan la agenda, el CRM y las giftcards, con su contraste
+ * ya medido en `panel/sistema.ts`. Antes eran cuatro pares propios,
+ * entre ellos un `text-zinc-500` sobre `zinc-100` que no llegaba a AA.
+ */
+const ESTADO_MEMBRESIA: Record<string, EstadoPanel> = {
+  activa: "exito",
+  pausada: "aviso",
+  vencida: "neutro",
+  cancelada: "alerta",
 };
 
 function fmtColones(n: number) {
@@ -214,78 +238,95 @@ export default function MembresiasPanel({
 
   if (faltaMigracion) {
     return (
-      <p className="rounded-xl bg-amber-50 px-4 py-3 text-[12.5px] leading-relaxed text-amber-800">
+      <div className={`${RADIO_TILE} p-4 text-[12.5px] leading-relaxed ${ESTADO_AVISO.aviso}`}>
         Falta correr la migración <strong>0120</strong> en Supabase para poder vender
         membresías y bonos. El resto del panel funciona igual.
-      </p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-3.5">
       {error && (
-        <p className="rounded-xl bg-red-50 px-3 py-2 text-[12.5px] font-bold text-red-700">
+        <p className={`${RADIO_TILE} p-3 text-[13px] font-bold ${ESTADO_AVISO.alerta}`}>
           {error}
         </p>
       )}
 
       {/* ── Planes ─────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-        <h3 className="text-[15px] font-bold text-aventurea-ink">Lo que vendés</h3>
-        <p className={ayudaCls}>
+      <Card
+        eyebrow="El catálogo"
+        titulo="Lo que vendés"
+        accion={
+          planes.length > 0 ? (
+            <span className={DETALLE}>
+              {planesActivos.length} de {planes.length} a la venta
+            </span>
+          ) : undefined
+        }
+      >
+        <p className={`-mt-1.5 ${DETALLE}`}>
           Un plan con período es una membresía (&quot;Premium, 12 al mes&quot;). Con
           período <strong>Pago único</strong> es un bono (&quot;10 masajes&quot;). Dejá
           las sesiones vacías para que sea ilimitado.
         </p>
 
         {planes.length > 0 && (
-          <ul className="mt-4 space-y-2">
-            {planes.map((p) => (
-              <li
+          <div className={`mt-3.5 ${LISTA_FICHAS}`}>
+            {planes.map((p, idx) => (
+              <FilaFicha
                 key={p.id}
-                className="flex flex-wrap items-center gap-2 rounded-xl border border-aventurea-line bg-white px-3 py-2"
-              >
-                <span className="flex-1 text-[13.5px] font-bold text-aventurea-ink">
-                  {p.nombre}
-                  <span className="ml-2 rounded-lg bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
-                    {ETIQUETA_PERIODO[p.periodo]}
-                  </span>
-                  {!p.activo && (
-                    <span className="ml-2 rounded-lg bg-zinc-100 px-2 py-0.5 text-[10.5px] font-bold text-zinc-500">
-                      Desactivado
+                separador={idx < planes.length - 1}
+                // A la venta o guardado: el estado lo dice la barrita y
+                // la píldora, no un `opacity-50` sobre la fila entera.
+                marca={p.activo ? "exito" : "neutro"}
+                titulo={
+                  <>
+                    <span className="break-words">{p.nombre}</span>
+                    <span
+                      className={`${RADIO_PILDORA} bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft`}
+                    >
+                      {ETIQUETA_PERIODO[p.periodo]}
                     </span>
-                  )}
-                </span>
-                <span className="text-[12.5px] text-aventurea-ink-soft">
-                  {fmtColones(p.precio)} ·{" "}
-                  {p.sesiones_incluidas === null
-                    ? "ilimitado"
-                    : `${p.sesiones_incluidas} sesiones`}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditando(p.id);
-                    setBorrador(dePlan(p));
-                  }}
-                  className="text-[12.5px] font-bold text-aventurea-ink-soft underline"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => borrarPlan(p.id)}
-                  disabled={pending}
-                  className="text-[12.5px] font-bold text-red-700 underline"
-                >
-                  Quitar
-                </button>
-              </li>
+                    {!p.activo && <PildoraEstado estado="neutro">Desactivado</PildoraEstado>}
+                  </>
+                }
+                detalle={
+                  <span>
+                    {fmtColones(p.precio)} ·{" "}
+                    {p.sesiones_incluidas === null
+                      ? "ilimitado"
+                      : `${p.sesiones_incluidas} sesiones`}
+                  </span>
+                }
+                acciones={
+                  <div className={ACCIONES_FILA}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditando(p.id);
+                        setBorrador(dePlan(p));
+                      }}
+                      className={BOTON_FILA}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => borrarPlan(p.id)}
+                      disabled={pending}
+                      className={BOTON_FILA_PELIGRO}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                }
+              />
             ))}
-          </ul>
+          </div>
         )}
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className={labelCls}>Nombre</label>
             <input
@@ -346,12 +387,12 @@ export default function MembresiasPanel({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-3.5 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={guardarPlan}
             disabled={pending || !borrador.nombre.trim()}
-            className="rounded-[10px] bg-aventurea-ink px-4 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+            className={BOTON_PANEL_PRIMARIO}
           >
             {editando ? "Guardar cambios" : "Agregar plan"}
           </button>
@@ -362,24 +403,23 @@ export default function MembresiasPanel({
                 setEditando(null);
                 setBorrador(PLAN_VACIO);
               }}
-              className="text-[12.5px] font-bold text-aventurea-ink-soft underline"
+              className={BOTON_FILA}
             >
               Cancelar
             </button>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* ── Venta ──────────────────────────────────────────────── */}
       {planesActivos.length > 0 && (
-        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-          <h3 className="text-[15px] font-bold text-aventurea-ink">Vender a un cliente</h3>
-          <p className={ayudaCls}>
+        <Card eyebrow="Mostrador" titulo="Vender a un cliente">
+          <p className={`-mt-1.5 ${DETALLE}`}>
             Podés venderle a alguien que nunca abrió la app: con el correo o el
             teléfono alcanza.
           </p>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className={`mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2 ${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-4`}>
             <div className="sm:col-span-2">
               <label className={labelCls}>Plan</label>
               <select
@@ -435,100 +475,109 @@ export default function MembresiasPanel({
             type="button"
             onClick={vender}
             disabled={pending || !venta.planId}
-            className="mt-4 rounded-[10px] bg-aventurea-ink px-4 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+            className={`mt-3.5 ${BOTON_PANEL_PRIMARIO}`}
           >
             Vender
           </button>
-        </div>
+        </Card>
       )}
 
       {/* ── Vendidas ───────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-        <h3 className="text-[15px] font-bold text-aventurea-ink">Membresías vendidas</h3>
-
+      <Card
+        eyebrow="Quién la tiene"
+        titulo="Membresías vendidas"
+        accion={
+          membresias.length > 0 ? (
+            <span className={DETALLE}>
+              {membresias.length} vendida{membresias.length === 1 ? "" : "s"}
+            </span>
+          ) : undefined
+        }
+      >
         {membresias.length === 0 ? (
-          <p className={ayudaCls}>Todavía no vendiste ninguna.</p>
+          <CardVacia>Todavía no vendiste ninguna.</CardVacia>
         ) : (
-          <ul className="mt-4 space-y-2">
-            {membresias.map((m) => {
+          <div className={LISTA_FICHAS}>
+            {membresias.map((m, idx) => {
               const saldo = saldoMembresia(m, consumos);
               const estado = estadoVigente(m, hoy);
               return (
-                <li
+                <FilaFicha
                   key={m.id}
-                  className="rounded-xl border border-aventurea-line bg-white px-3 py-2.5"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="flex-1 text-[13.5px] font-bold text-aventurea-ink">
-                      {m.nombre || m.correo || m.telefono}
-                      <span
-                        className={`ml-2 rounded-lg px-2 py-0.5 text-[10.5px] font-bold ${ESTADO_CLS[estado]}`}
-                      >
-                        {estado}
+                  separador={idx < membresias.length - 1}
+                  marca={ESTADO_MEMBRESIA[estado] ?? "neutro"}
+                  titulo={
+                    <>
+                      <span className="break-words">
+                        {m.nombre || m.correo || m.telefono}
                       </span>
-                    </span>
-                    <span className="text-[12.5px] font-bold text-aventurea-ink-soft">
-                      {etiquetaSaldo(saldo)}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-[12.5px] font-bold">
-                    <button
-                      type="button"
-                      onClick={() => marcarSesion(m.id)}
-                      disabled={pending}
-                      className="text-aventurea-ink underline"
-                    >
-                      Marcar sesión
-                    </button>
-                    {saldo.usadas > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => devolver(m.id)}
-                        disabled={pending}
-                        className="text-aventurea-ink-soft underline"
-                      >
-                        Devolver una
-                      </button>
-                    )}
-                    {estado === "activa" && (
-                      <button
-                        type="button"
-                        onClick={() => cambiarEstado(m.id, "pausada")}
-                        disabled={pending}
-                        className="text-aventurea-ink-soft underline"
-                      >
-                        Pausar
-                      </button>
-                    )}
-                    {estado === "pausada" && (
-                      <button
-                        type="button"
-                        onClick={() => cambiarEstado(m.id, "activa")}
-                        disabled={pending}
-                        className="text-aventurea-ink-soft underline"
-                      >
-                        Reactivar
-                      </button>
-                    )}
-                    {estado !== "cancelada" && (
-                      <button
-                        type="button"
-                        onClick={() => cambiarEstado(m.id, "cancelada")}
-                        disabled={pending}
-                        className="text-red-700 underline"
-                      >
-                        Cancelar
-                      </button>
-                    )}
-                    <span className="text-aventurea-ink-soft">
+                      <PildoraEstado estado={ESTADO_MEMBRESIA[estado] ?? "neutro"}>
+                        {estado}
+                      </PildoraEstado>
+                    </>
+                  }
+                  detalle={
+                    <span>
+                      {etiquetaSaldo(saldo)} ·{" "}
                       {m.fin ? `vence ${m.fin}` : "sin vencimiento"}
                     </span>
-                  </div>
-                </li>
+                  }
+                  acciones={
+                    <div className={ACCIONES_FILA}>
+                      <button
+                        type="button"
+                        onClick={() => marcarSesion(m.id)}
+                        disabled={pending}
+                        className={BOTON_FILA}
+                      >
+                        Marcar sesión
+                      </button>
+                      {saldo.usadas > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => devolver(m.id)}
+                          disabled={pending}
+                          className={BOTON_FILA}
+                        >
+                          Devolver una
+                        </button>
+                      )}
+                      {estado === "activa" && (
+                        <button
+                          type="button"
+                          onClick={() => cambiarEstado(m.id, "pausada")}
+                          disabled={pending}
+                          className={BOTON_FILA}
+                        >
+                          Pausar
+                        </button>
+                      )}
+                      {estado === "pausada" && (
+                        <button
+                          type="button"
+                          onClick={() => cambiarEstado(m.id, "activa")}
+                          disabled={pending}
+                          className={BOTON_FILA}
+                        >
+                          Reactivar
+                        </button>
+                      )}
+                      {estado !== "cancelada" && (
+                        <button
+                          type="button"
+                          onClick={() => cambiarEstado(m.id, "cancelada")}
+                          disabled={pending}
+                          className={BOTON_FILA_PELIGRO}
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
+                  }
+                />
               );
             })}
-          </ul>
+          </div>
         )}
 
         <p className={ayudaCls}>
@@ -536,7 +585,7 @@ export default function MembresiasPanel({
           descuenta solo. Devolver una no borra el movimiento, agrega el contrario, así
           el historial queda completo.
         </p>
-      </div>
+      </Card>
     </div>
   );
 }

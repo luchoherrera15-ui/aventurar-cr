@@ -1,4 +1,6 @@
 import { toString as qrATexto } from "qrcode";
+import { Card } from "@/components/panel/piezas";
+import { CUERPO_SUAVE, ESTADO_AVISO, RADIO_TILE, ROTULO_CIFRA } from "@/components/panel/sistema";
 
 /**
  * El link y el QR con los que el negocio reparte su tarjeta. Es la
@@ -33,16 +35,17 @@ export default async function CompartirTarjeta({
   });
 
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-      <h3 className="text-[15px] font-bold text-aventurea-ink">Compartí tu tarjeta</h3>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+    <Card eyebrow="Para el mostrador" titulo="Compartí tu tarjeta" nivel="h3">
+      <p className={CUERPO_SUAVE}>
         Tus clientes la consiguen acá: imprimí el QR para el mostrador o mandá el link
         por WhatsApp. Al abrirlo agregan la tarjeta a su Wallet — y quedan afiliados
         solos.
       </p>
 
       {!programaActivo && (
-        <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] font-bold text-amber-800">
+        <p
+          className={`mt-3 ${RADIO_TILE} px-3 py-2 text-[12.5px] font-bold ${ESTADO_AVISO.aviso}`}
+        >
           El programa no está activo: el link va a responder “no encontrado”. Escribile
           a Bookea para activarlo o reanudarlo.
         </p>
@@ -56,9 +59,7 @@ export default async function CompartirTarjeta({
           dangerouslySetInnerHTML={{ __html: svg }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            El link
-          </p>
+          <p className={ROTULO_CIFRA}>El link</p>
           <p className="mt-1 break-all rounded-lg bg-aventurea-cream-2 px-3 py-2 font-mono text-[12.5px] text-aventurea-ink">
             {url}
           </p>
@@ -72,6 +73,6 @@ export default async function CompartirTarjeta({
           </a>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

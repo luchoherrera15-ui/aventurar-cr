@@ -112,7 +112,11 @@ describe("finDePrueba", () => {
     }
   });
 
-  it("los retirados tampoco vencen: no se les cambia lo que tenían", () => {
+  it("un plan que el catálogo no conoce tampoco vence", () => {
+    // Sin definición no hay días de prueba, así que no hay corte que
+    // escribir. Es la doctrina de siempre —un dato raro no apaga a
+    // nadie— y desde la 0179 incluye a los ocho paquetes que se
+    // borraron: hoy son ids desconocidos como cualquier otro.
     expect(finDePrueba("gratis", ALTA)).toBeNull();
     expect(finDePrueba("basico", ALTA)).toBeNull();
     expect(finDePrueba(null, ALTA)).toBeNull();
@@ -153,7 +157,8 @@ describe("esPruebaSinCosto", () => {
     // es lo que hace que el alta automática lo guarde sin vencimiento.
     expect(esPruebaSinCosto("prueba")).toBe(false);
     expect(esPruebaSinCosto("arranque")).toBe(false);
-    // El retirado `gratis` cuesta $0 pero ni siquiera se puede elegir.
+    // Un id que el catálogo no conoce tampoco: no tiene definición, así
+    // que no tiene ni precio ni días que mirar.
     expect(esPruebaSinCosto("gratis")).toBe(false);
     expect(esPruebaSinCosto(null)).toBe(false);
   });
@@ -294,7 +299,11 @@ describe("nadie se queda cortado por sorpresa", () => {
     expect(e.vencida).toBe(false);
   });
 
-  it("un plan retirado nunca cae en la cuenta regresiva", () => {
+  it("un plan que el catálogo no conoce nunca cae en la cuenta regresiva", () => {
+    // Con fecha vieja guardada y todo: sin definición no hay días de
+    // prueba, así que no se le pinta «se te terminó» a un negocio cuya
+    // fila quedó con un id que ya no está en el catálogo. Los tres son
+    // paquetes que existieron y se borraron en la 0179.
     for (const id of ["gratis", "basico", "empresa"] as const) {
       const e = estadoDePrueba({ plan: id, venceEn: "2020-01-01T00:00:00.000Z" });
       expect(e.esPrueba, id).toBe(false);

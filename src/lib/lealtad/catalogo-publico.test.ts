@@ -1,4 +1,82 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+/**
+ * Las pruebas de lo que sale por `GET /api/lealtad/planes`.
+ *
+ * Son de dos clases y las dos importan:
+ *
+ *   1. QUE NO FILTRE. El endpoint es público y sin sesión: cualquiera
+ *      lo puede bajar. `planes.ts` puede tener adentro paquetes
+ *      retirados con sus precios, topes declarados sin producto detrás
+ *      y capacidades que no existen — nada de eso puede viajar.
+ *
+ *   2. QUE LA FORMA NO SE MUEVA. Del otro lado hay una app que ya está
+ *      instalada en teléfonos y que NO se puede actualizar a la par:
+ *      renombrar un campo acá deja a esas instalaciones sin catálogo.
+ *      Por eso el bloque de forma repite, campo por campo, lo que lee
+ *      `mobile/src/lib/planes-lealtad.ts`.
+ */
+
+// ── EL PAQUETE RETIRADO QUE HOY NO EXISTE ───────────────────────────
+/**
+ * El catálogo se quedó sin paquetes retirados el 2026-08-17 (se
+ * borraron los ocho después de comprobar que ninguna fila de la base
+ * los tenía). Con cero retirados, «los retirados no salen por la API»
+ * pasaba sin comprobar nada: recorría una lista vacía.
+ *
+ * Así que se inventa uno y se le mete a `PLANES_VIGENTES`, que es de
+ * donde `catalogoPublico()` saca los paquetes. Es el mismo criterio de
+ * `prueba.test.ts` con su paquete de prueba propio, y acá alcanza con
+ * mockear `./planes` porque `catalogo-publico.ts` LEE esa constante —
+ * no la calcula.
+ *
+ * Lo que esto prueba de verdad: que el filtro de `catalogoPublico()`
+ * existe y muerde. Sin el filtro, este paquete saldría publicado con su
+ * nombre, su precio y sus viñetas sin producto, y la prueba fallaría —
+ * que es exactamente lo que tiene que pasar.
+ *
+ * Se le ponen a propósito las viñetas que NO se pueden vender (`api`,
+ * `webhooks`, `marca_blanca`…): así el bloque de capacidades también
+ * vuelve a tener con qué fallar.
+ */
+const { RETIRADO } = vi.hoisted(() => ({
+  RETIRADO: {
+    id: "retirado-solo-del-test",
+    nombre: "Paquete Retirado Del Test",
+    descripcion: "Paquete anterior — se mantiene para quien ya lo tiene.",
+    // $69 era el precio de «Pro», el retirado más caro que llegó a
+    // publicarse. Se repite acá para que el número siga teniendo dueño.
+    precioMensual: 69,
+    precioAnual: 690,
+    limites: {
+      clientesActivos: null,
+      programas: null,
+      notificacionesMes: null,
+      administradores: null,
+      sedes: null,
+      automatizaciones: null,
+    },
+    capacidades: ["wallet", "api", "webhooks", "marca_blanca", "soporte_dedicado"],
+    tipos: null,
+    diasPrueba: 0,
+    vigente: false,
+  },
+}));
+
+vi.mock("./planes", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./planes")>();
+  // El cast es la inyección: el id no está en `PlanId` y las viñetas
+  // sin producto no las lleva ningún paquete del catálogo.
+  const retirado = RETIRADO as unknown as import("./planes").DefinicionPlan;
+  return {
+    ...real,
+    // Va AL FINAL: si el filtro no estuviera, saldría como un quinto
+    // paquete y el `toEqual([...PLANES_OFRECIDOS])` lo delataría además
+    // de las pruebas de contenido.
+    PLANES_VIGENTES: [...real.PLANES_VIGENTES, retirado],
+  };
+});
+
 import {
   TOPES_PUBLICADOS,
   VERSION_CATALOGO,
@@ -8,28 +86,11 @@ import {
 import {
   CAPACIDADES_SIN_PRODUCTO,
   ETIQUETAS_CAPACIDAD,
-  PLANES,
   PLANES_OFRECIDOS,
   PLANES_RETIRADOS,
+  PLANES_VIGENTES,
 } from "./planes";
 import { GET } from "@/app/api/lealtad/planes/route";
-
-/**
- * Las pruebas de lo que sale por `GET /api/lealtad/planes`.
- *
- * Son de dos clases y las dos importan:
- *
- *   1. QUE NO FILTRE. El endpoint es público y sin sesión: cualquiera
- *      lo puede bajar. `planes.ts` tiene adentro paquetes retirados con
- *      sus precios, topes declarados sin producto detrás y capacidades
- *      que no existen — nada de eso puede viajar.
- *
- *   2. QUE LA FORMA NO SE MUEVA. Del otro lado hay una app que ya está
- *      instalada en teléfonos y que NO se puede actualizar a la par:
- *      renombrar un campo acá deja a esas instalaciones sin catálogo.
- *      Por eso el bloque de forma repite, campo por campo, lo que lee
- *      `mobile/src/lib/planes-lealtad.ts`.
- */
 
 /**
  * El MISMO guardián que corre la app sobre el JSON que baja
@@ -84,22 +145,38 @@ function porLaRed(): CatalogoPublico {
 }
 
 describe("catalogoPublico — lo que NO puede filtrar", () => {
+  it("el paquete retirado del test está puesto: si no, esto no prueba nada", () => {
+    // El guardián del guardián. Si la inyección dejara de aplicarse
+    // —por un rename, por un mock que no resuelve— las tres pruebas de
+    // abajo pasarían recorriendo el vacío, que es justo el modo de
+    // fallar silencioso que este archivo tuvo cuando el catálogo se
+    // quedó sin retirados.
+    expect(PLANES_VIGENTES.map((p) => p.id)).toContain(RETIRADO.id);
+    expect(RETIRADO.vigente).toBe(false);
+  });
+
   it("no publica ningún paquete retirado", () => {
     const ids = catalogoPublico().planes.map((p) => p.id);
     expect(ids).toEqual([...PLANES_OFRECIDOS]);
-    for (const retirado of PLANES_RETIRADOS) {
-      expect(ids).not.toContain(retirado);
+    expect(ids).not.toContain(RETIRADO.id);
+    // Y dicho como regla y no como lista: todo lo publicado está vivo.
+    for (const publicado of catalogoPublico().planes) {
+      const def = PLANES_VIGENTES.find((d) => d.id === publicado.id);
+      expect(def?.vigente, `${publicado.id} se publicó estando retirado`).toBe(true);
     }
+    // Hoy el catálogo de verdad no arrastra ninguno; el único retirado
+    // que existe en esta corrida es el inventado acá arriba.
+    expect(PLANES_RETIRADOS).toHaveLength(0);
   });
 
   it("no filtra el nombre ni el precio de un paquete retirado", () => {
     const texto = JSON.stringify(catalogoPublico());
-    for (const retirado of PLANES_RETIRADOS) {
-      const def = PLANES[retirado];
-      expect(texto).not.toContain(`"${def.nombre}"`);
-    }
+    expect(texto).not.toContain(RETIRADO.nombre);
+    expect(texto).not.toContain(RETIRADO.descripcion);
     // «Pro» costaba $69 y se retiró: ese precio no puede aparecer en
-    // ningún lado del cuerpo, ni suelto ni dentro de otra frase.
+    // ningún lado del cuerpo, ni suelto ni dentro de otra frase. Es el
+    // precio que lleva el paquete inventado, justamente para que la
+    // prueba tenga contra qué fallar.
     expect(texto).not.toContain("$69");
     expect(texto).not.toContain("$690");
     // «Crece» ($27) y «Esencial» ($9), del catálogo anterior.

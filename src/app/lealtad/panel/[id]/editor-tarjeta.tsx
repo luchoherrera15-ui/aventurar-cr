@@ -402,6 +402,7 @@ function PanelBeneficio({
             colorFondo: borrador.colorFondo,
             colorSello: borrador.colorSello,
             iconoSello: borrador.iconoSello,
+            iconoUrl: borrador.iconoUrl || null,
             logoUrl: borrador.logoUrl || null,
             bannerUrl: borrador.bannerUrl || null,
           }}

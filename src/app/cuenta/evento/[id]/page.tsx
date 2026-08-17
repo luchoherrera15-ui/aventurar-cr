@@ -3,6 +3,16 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
+import { PildoraEstado } from "@/components/panel/piezas";
+import {
+  DISCO_ACENTO,
+  EYEBROW,
+  LIENZO_PANEL,
+  RADIO_CARD,
+  RADIO_TILE,
+  TITULO_CARD,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
 import BotonCopiar from "@/components/boton-copiar";
 import TablaRsvps from "./tabla-rsvps";
 import { IconCamera, IconClock, IconMail, IconPin, IconUsers } from "@/components/icons";
@@ -144,10 +154,10 @@ export default async function EspacioEventoPage({
     : null;
 
   return (
-    <div className="min-h-screen bg-aventurea-cream">
+    <div className={`min-h-screen ${LIENZO_PANEL}`}>
       <SiteHeader breadcrumb="Tu evento" />
 
-      <section className="mx-auto max-w-[860px] px-6 py-8">
+      <section className="mx-auto max-w-[860px] px-4 py-6 sm:px-6">
         <Link
           href="/cuenta"
           className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -155,14 +165,13 @@ export default async function EspacioEventoPage({
           ← Volver a tu cuenta
         </Link>
 
-        {/* El evento en grande: es SU espacio, no un listado más. */}
-        <div className="mt-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-6">
-          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
-            Tu espacio de fiesta
-          </p>
-          <h1 className="titulo mt-2 text-[clamp(24px,5vw,34px)] text-aventurea-ink">
-            {inv.titulo as string}
-          </h1>
+        {/* El evento en grande: es SU espacio, no un listado más. El
+            kicker deja la rayita decorativa y pasa al del sistema —el
+            mismo que abre cada tarjeta del panel—, y el título a la
+            escala del h1 de pantalla. */}
+        <div className={`mt-4 ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface p-5 shadow-elevado sm:p-6`}>
+          <p className={EYEBROW}>Tu espacio de fiesta</p>
+          <h1 className={`mt-2 ${TITULO_PANTALLA}`}>{inv.titulo as string}</h1>
           <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13.5px] font-semibold text-aventurea-ink-soft">
             <span>{fechaLargaCR(inv.fecha_evento as string)}</span>
             {inv.hora && (
@@ -178,8 +187,11 @@ export default async function EspacioEventoPage({
           </p>
 
           {/* El link de la invitación, listo para pegar en el chat. */}
-          <div className="mt-5 flex flex-wrap items-center gap-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-3">
-            <IconMail className="h-4 w-4 shrink-0 text-aventurea-orange" />
+          <div className={`mt-5 flex flex-wrap items-center gap-2.5 ${RADIO_TILE} border border-aventurea-line bg-aventurea-cream-2 px-4 py-3`}>
+            {/* El ícono en `--orange-fuerte`: es un elemento gráfico de
+                4px de trazo sobre gris claro, y el naranja del logo ahí
+                da 2,72:1. Este da 5,76:1. */}
+            <IconMail className="h-4 w-4 shrink-0 text-bookea-naranja-fuerte" />
             <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-aventurea-ink">
               {urlInvitacion}
             </span>
@@ -194,18 +206,35 @@ export default async function EspacioEventoPage({
                 Ver invitación
               </a>
             ) : (
-              <span className="shrink-0 rounded-lg bg-aventurea-cream px-2.5 py-1 text-[10.5px] font-bold uppercase text-aventurea-ink-soft">
-                {inv.estado as string}
-              </span>
+              <PildoraEstado estado="neutro">{inv.estado as string}</PildoraEstado>
             )}
           </div>
         </div>
 
         {/* ---------- El tablero de confirmaciones ---------- */}
-        <div className="mt-6 rounded-2xl border border-aventurea-line bg-aventurea-surface p-6">
-          <h2 className="flex items-center gap-2 text-[15px] font-extrabold text-aventurea-ink">
-            <IconUsers className="h-4.5 w-4.5 text-aventurea-orange" /> Confirmaciones
-          </h2>
+        <div className={`mt-3.5 ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface p-5 shadow-elevado sm:p-6`}>
+          <div className="mb-3.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              {/* El disco de ícono del sistema, en vez del ícono suelto
+                  pegado al texto del h2: es la misma cabecera que abre
+                  cada bloque del panel. */}
+              <span
+                aria-hidden="true"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
+                style={DISCO_ACENTO}
+              >
+                <IconUsers className="h-[17px] w-[17px]" />
+              </span>
+              <div className="min-w-0">
+                <p className={`mb-1.5 ${EYEBROW}`}>Lista de invitados</p>
+                <h2 className={TITULO_CARD}>Confirmaciones</h2>
+              </div>
+            </div>
+            {/* El contador se CUENTA de la lista que ya se trajo. */}
+            <PildoraEstado estado="info">
+              {rsvps.length} respuesta{rsvps.length === 1 ? "" : "s"}
+            </PildoraEstado>
+          </div>
 
           {/* Una sola tabla de control, numerada y con el total al pie
               — reemplaza las dos listas separadas ("Sí asistirán" /

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 import { leerMontoColones, llaveDeIntento, textosDelTipo } from "@/lib/lealtad/mostrador";
+import { ACCION, ACCION_TINTA, BOTON_ACCION, BOTON_LEALTAD } from "../sistema-lealtad";
 import { sumarSelloEscaneado, type ResultadoEscaneo } from "./escaner-actions";
 import { canjearRecompensa } from "./lealtad-operar-actions";
 
@@ -351,7 +352,7 @@ export default function EscanerPanel({
                   type="button"
                   onClick={confirmarCanje}
                   disabled={procesando}
-                  className="mt-2.5 rounded-[10px] bg-aventurea-green px-4 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+                  className={`${BOTON_LEALTAD} mt-2.5 border-transparent bg-aventurea-green text-white`}
                 >
                   {procesando
                     ? "Procesando…"
@@ -448,7 +449,8 @@ export default function EscanerPanel({
             type="button"
             onClick={encender}
             disabled={procesando}
-            className="rounded-[10px] bg-aventurea-ink px-5 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+            className={BOTON_ACCION}
+            style={{ background: ACCION, color: ACCION_TINTA }}
           >
             {procesando ? "Registrando…" : resultado ? "Escanear al siguiente" : "Abrir cámara"}
           </button>
@@ -456,7 +458,7 @@ export default function EscanerPanel({
           <button
             type="button"
             onClick={apagar}
-            className="rounded-[10px] border border-aventurea-line bg-white px-5 py-2.5 text-[13px] font-bold text-aventurea-ink"
+            className={BOTON_LEALTAD}
           >
             Cerrar cámara
           </button>
@@ -470,7 +472,7 @@ export default function EscanerPanel({
           <button
             type="button"
             onClick={siguienteCliente}
-            className="rounded-[10px] border border-aventurea-line bg-white px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft"
+            className={BOTON_LEALTAD}
           >
             Limpiar
           </button>

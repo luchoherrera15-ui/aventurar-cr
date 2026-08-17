@@ -16,6 +16,15 @@ import {
   type Vocabulario,
 } from "@/lib/business/identidad";
 import SeccionPlegable from "@/components/seccion-plegable";
+import { IconChevronLeft } from "@/components/icons";
+import { Card, CardVacia, FilaPanel, Metrica, PildoraEstado } from "@/components/panel/piezas";
+import {
+  ESTADO_AVISO,
+  GAP_TABLERO,
+  RADIO_CARD,
+  RADIO_PILDORA,
+  type EstadoPanel,
+} from "@/components/panel/sistema";
 import EncabezadoCitas from "./encabezado-citas";
 import { metricasDelDia } from "./metricas-dia";
 import MembresiasPanel from "./membresias-panel";
@@ -47,10 +56,20 @@ type Giftcard = {
  */
 export const maxDuration = 300;
 
-const GIFTCARD_ESTADO: Record<Giftcard["estado"], { label: string; cls: string }> = {
-  activa: { label: "Activa", cls: "bg-aventurea-green-light text-aventurea-green" },
-  canjeada: { label: "Canjeada", cls: "bg-zinc-100 text-zinc-500" },
-  vencida: { label: "Vencida", cls: "bg-red-50 text-red-700" },
+/**
+ * Las giftcards, mapeadas a los estados semánticos del panel (los
+ * mismos cinco de `components/panel/sistema`, con su contraste ya
+ * medido) en vez de a tres colores propios:
+ *   activa   → éxito, hay saldo vivo
+ *   canjeada → neutro, se usó entera: no pasó nada malo, ya no hace nada
+ *   vencida  → aviso, el ámbar de "esto se te fue de las manos"
+ * El rojo queda para lo que de verdad es un error (una carga que falló),
+ * no para una fecha que pasó.
+ */
+const GIFTCARD_ESTADO: Record<Giftcard["estado"], { label: string; estado: EstadoPanel }> = {
+  activa: { label: "Activa", estado: "exito" },
+  canjeada: { label: "Canjeada", estado: "neutro" },
+  vencida: { label: "Vencida", estado: "aviso" },
 };
 
 /**
@@ -334,18 +353,26 @@ export default async function CitasConfigPage({
     // El acento del tipo entra UNA sola vez, acá: todo lo de adentro
     // —incluidos los componentes de cliente— lo lee como var(--acento…),
     // así ninguna pantalla necesita saber de qué color es un spa.
+    /* El lienzo GRIS lo pone el layout de /mi-negocio; acá va el mismo
+       ancho de trabajo y el mismo padding que el contenido del panel
+       (1560px de tope de legibilidad, px-4 → lg:px-8), para que salir
+       del panel a la agenda no se sienta como salir del producto.
+       Esta pantalla todavía NO cuelga del rail del panel: es un
+       `page.tsx` propio, y meterla adentro de `PanelSidebar` es un
+       cambio de navegación, no de piel. */
     <main
-      className="mx-auto max-w-[1100px] px-5 py-12"
+      className="mx-auto w-full max-w-[1560px] px-4 pb-14 pt-6 sm:px-6 lg:px-8 lg:pt-8"
       style={variablesAcento(identidad) as CSSProperties}
     >
       <Link
         href={`/mi-negocio/${rancho.id}`}
-        className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+        className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy"
       >
-        ← Volver al panel de {rancho.nombre}
+        <IconChevronLeft className="h-3.5 w-3.5" />
+        Volver al panel de {rancho.nombre}
       </Link>
 
-      <div className="mt-4">
+      <div className="mt-5">
         <EncabezadoCitas
           identidad={identidad}
           tipoLabel={tieneTipo ? definicion.label : null}
@@ -378,17 +405,19 @@ export default async function CitasConfigPage({
       </div>
 
       {errorCarga && (
-        <div className="mt-6 rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+        <div
+          className={`mt-6 ${RADIO_CARD} p-4 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}
+        >
           <strong>Faltan las migraciones.</strong> No se pudo leer la
           configuración de citas: {errorCarga.message}. Corré{" "}
-          <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+          <code className="rounded bg-aventurea-surface px-1.5 py-0.5 font-mono text-[12px]">
             supabase/aplicar-migraciones-pendientes.sql
           </code>{" "}
           en el SQL Editor de Supabase y volvé a entrar.
         </div>
       )}
 
-      <div className="mt-6 flex flex-col gap-6">
+      <div className={`mt-6 flex flex-col ${GAP_TABLERO}`}>
         {/* La agenda va DIRECTA — sin pestañas internas ni títulos de
             sección (pedido del dueño): esta pantalla ES la agenda. */}
         <AgendaCitas
@@ -485,83 +514,74 @@ export default async function CitasConfigPage({
             resumen={giftcards.length > 0 ? `${giftcards.length} vendidas` : undefined}
           >
             {giftcardsSinTabla ? (
-              <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+              <div
+                className={`${RADIO_CARD} p-4 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}
+              >
                 <strong>Falta la migración de giftcards.</strong> Corré{" "}
-                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+                <code className="rounded bg-aventurea-surface px-1.5 py-0.5 font-mono text-[12px]">
                   supabase/migrations/0059_giftcards.sql
                 </code>{" "}
                 en el SQL Editor de Supabase y volvé a entrar.
               </div>
             ) : giftcards.length === 0 ? (
-              <p className="rounded-xl border border-aventurea-line bg-white p-5 text-[13px] text-aventurea-ink-soft">
-                Todavía no hay giftcards vendidas.
-              </p>
+              <CardVacia>Todavía no hay giftcards vendidas.</CardVacia>
             ) : (
               <>
-                <div className="mb-4 flex flex-wrap gap-3">
-                  <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                      Vendido
-                    </p>
-                    <p className="text-[18px] font-extrabold text-aventurea-ink">
-                      {fmtColones(giftVendido)}
-                    </p>
-                  </div>
-                  <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                      Por canjear
-                    </p>
-                    <p className="text-[18px] font-extrabold text-aventurea-ink">
-                      {fmtColones(giftPorCanjear)}
-                    </p>
-                  </div>
-                  <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                      Activas
-                    </p>
-                    <p className="text-[18px] font-extrabold text-aventurea-ink">
-                      {giftcards.filter((g) => g.estado === "activa").length}
-                    </p>
-                  </div>
+                {/* Los tres números salen de las mismas giftcards que se
+                    listan abajo — nada que no tenga tabla detrás. */}
+                <div className="mb-3.5 grid grid-cols-2 gap-3 lg:grid-cols-3">
+                  <Metrica rotulo="Vendido" valor={fmtColones(giftVendido)} />
+                  <Metrica rotulo="Por canjear" valor={fmtColones(giftPorCanjear)} />
+                  <Metrica
+                    rotulo="Activas"
+                    valor={String(giftcards.filter((g) => g.estado === "activa").length)}
+                  />
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
+                {/* La fila canónica del panel: contexto (la fecha de
+                    venta), la barrita del estado, quién la compró y el
+                    monto con su píldora a la derecha. */}
+                <Card sinPadding className="px-4 sm:px-5">
                   {giftcards.map((g, i) => (
-                    <div
+                    <FilaPanel
                       key={g.id}
-                      className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3.5 ${i > 0 ? "border-t border-aventurea-line/60" : ""}`}
-                    >
-                      <code className="shrink-0 rounded-lg bg-aventurea-cream-2 px-2.5 py-1 font-mono text-[12.5px] font-bold text-aventurea-ink">
-                        {g.codigo}
-                      </code>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold text-aventurea-ink">
-                          {g.comprador_nombre ?? "Compra directa"}
-                          {g.beneficiario_nombre ? ` → para ${g.beneficiario_nombre}` : ""}
-                        </p>
-                        <p className="text-[12px] text-aventurea-ink-soft">
+                      separador={i < giftcards.length - 1}
+                      marca={GIFTCARD_ESTADO[g.estado].estado}
+                      titulo={
+                        <span className="flex flex-wrap items-center gap-2">
+                          <code
+                            className={`${RADIO_PILDORA} bg-aventurea-cream-2 px-2 py-0.5 font-mono text-[12px] font-bold text-aventurea-ink`}
+                          >
+                            {g.codigo}
+                          </code>
+                          <span className="min-w-0 truncate">
+                            {g.comprador_nombre ?? "Compra directa"}
+                            {g.beneficiario_nombre ? ` → para ${g.beneficiario_nombre}` : ""}
+                          </span>
+                        </span>
+                      }
+                      detalle={
+                        <>
                           {fmtFechaCorta(g.created_at.slice(0, 10))}
                           {g.vence_en ? ` · vence ${fmtFechaCorta(g.vence_en)}` : ""}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[13.5px] font-extrabold text-aventurea-ink">
-                          {fmtColones(Number(g.monto))}
-                        </p>
-                        {g.estado === "activa" && Number(g.saldo) !== Number(g.monto) && (
-                          <p className="text-[11.5px] text-aventurea-ink-soft">
-                            saldo {fmtColones(Number(g.saldo))}
-                          </p>
-                        )}
-                      </div>
-                      <span
-                        className={`rounded-lg px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide ${GIFTCARD_ESTADO[g.estado].cls}`}
-                      >
-                        {GIFTCARD_ESTADO[g.estado].label}
-                      </span>
-                    </div>
+                          {g.estado === "activa" && Number(g.saldo) !== Number(g.monto)
+                            ? ` · saldo ${fmtColones(Number(g.saldo))}`
+                            : ""}
+                        </>
+                      }
+                      derecha={
+                        <div className="flex shrink-0 items-center gap-2.5">
+                          <span className="text-[13.5px] font-extrabold tabular-nums text-aventurea-ink">
+                            {fmtColones(Number(g.monto))}
+                          </span>
+                          <PildoraEstado estado={GIFTCARD_ESTADO[g.estado].estado} colapsa>
+                            {GIFTCARD_ESTADO[g.estado].label}
+                          </PildoraEstado>
+                        </div>
+                      }
+                    />
                   ))}
-                </div>
+                </Card>
               </>
             )}
           </SeccionPlegable>

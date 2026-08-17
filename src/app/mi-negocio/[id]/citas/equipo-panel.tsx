@@ -4,7 +4,25 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
-import { IconCamera } from "@/components/icons";
+import { IconCamera, IconChevronDown } from "@/components/icons";
+import { Card, CardVacia, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL,
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  DETALLE,
+  ESTADO_AVISO,
+  ROTULO_CAMPO,
+  SUPERFICIE_HUNDIDA,
+} from "@/components/panel/sistema";
+import {
+  ACCIONES_FILA,
+  BOTON_FILA,
+  BOTON_FILA_ICONO,
+  BOTON_FILA_PELIGRO,
+  FilaFicha,
+  LISTA_FICHAS,
+} from "../fila-ficha";
 import MiembroConfig, { type Asignacion, type ServicioCita } from "./miembro-config";
 import {
   actualizarMiembroEquipo,
@@ -15,11 +33,6 @@ import {
   type MiembroInput,
   type RangoHorarioMiembro,
 } from "./actions";
-
-const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
-const labelCls =
-  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 
 // Los nombres de archivo llegan tal cual del dispositivo del dueño —
 // se limpian para que la ruta en el bucket sea siempre válida.
@@ -65,21 +78,30 @@ function deMiembro(m: MiembroEquipo): Borrador {
   };
 }
 
-/** El avatar de una persona del equipo: su foto o su inicial. */
+/** El avatar de una persona del equipo: su foto o su inicial.
+ *
+ *  La inicial va sobre el ACENTO del tipo de negocio, no sobre el navy
+ *  fijo: es la misma cara que ya tienen los avatares del CRM, y así una
+ *  barbería y un consultorio no se ven igual. `sobreSolido` sobre
+ *  `solido` ≥5,18:1 en los ocho acentos del catálogo. */
 function Avatar({ miembro }: { miembro: { nombre: string; foto_url: string | null } }) {
   if (miembro.foto_url) {
     return (
       <Image
         src={miembro.foto_url}
-        alt={miembro.nombre}
+        alt=""
         width={48}
         height={48}
-        className="h-12 w-12 shrink-0 rounded-full border border-aventurea-line object-cover"
+        className="h-11 w-11 shrink-0 rounded-full border border-aventurea-line object-cover"
       />
     );
   }
   return (
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-[18px] font-bold text-white">
+    <span
+      aria-hidden="true"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[17px] font-bold"
+      style={{ backgroundColor: "var(--acento-solido)", color: "var(--acento-sobre)" }}
+    >
       {miembro.nombre.trim().charAt(0).toUpperCase()}
     </span>
   );
@@ -90,6 +112,17 @@ function Avatar({ miembro }: { miembro: { nombre: string; foto_url: string | nul
  * cliente elige al reservar ("con Kathy", "con cualquiera") y lo que
  * se muestra con foto en la página pública. Mismo patrón de CRUD que
  * el catálogo del panel.
+ *
+ * ── LA FORMA ───────────────────────────────────────────────────────
+ * Dos tarjetas del panel: la LISTA de quiénes atienden y, aparte, el
+ * ALTA. Antes eran dos bloques con el mismo peso y sin encabezado, así
+ * que el formulario de agregar se leía como una ficha más de la lista.
+ *
+ * Una ficha pausada ya no baja su opacidad: lleva su píldora «Pausado»
+ * y la barrita gris del estado neutro. Bajarle la opacidad a la fila
+ * entera le bajaba el contraste al nombre, al rol y a los seis botones
+ * —justo los que hay que apretar para volver a activarla— por debajo
+ * de AA.
  */
 export default function EquipoPanel({
   ranchoId,
@@ -232,28 +265,28 @@ export default function EquipoPanel({
   ) => (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div>
-        <label className={labelCls}>Nombre</label>
+        <label className={`mb-1.5 block ${ROTULO_CAMPO}`}>Nombre</label>
         <input
           type="text"
           value={borrador.nombre}
           onChange={(e) => setBorrador({ ...borrador, nombre: e.target.value })}
           placeholder="Ej. Kathy"
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
       </div>
       <div>
-        <label className={labelCls}>Rol (opcional)</label>
+        <label className={`mb-1.5 block ${ROTULO_CAMPO}`}>Rol (opcional)</label>
         <input
           type="text"
           value={borrador.rol}
           onChange={(e) => setBorrador({ ...borrador, rol: e.target.value })}
           placeholder="Ej. Estilista, Barbero, Manicurista"
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
       </div>
 
       <div>
-        <label className={labelCls}>Qué es</label>
+        <label className={`mb-1.5 block ${ROTULO_CAMPO}`}>Qué es</label>
         {/* Un recurso físico (0061) también se agenda: la camilla del
             spa o el sillón de tatuar son "alguien" con quien reservar. */}
         <select
@@ -261,7 +294,7 @@ export default function EquipoPanel({
           onChange={(e) =>
             setBorrador({ ...borrador, tipo: e.target.value as Borrador["tipo"] })
           }
-          className={inputCls}
+          className={CAMPO_PANEL}
         >
           {(Object.keys(TIPO_LABEL) as Borrador["tipo"][]).map((t) => (
             <option key={t} value={t}>
@@ -275,7 +308,7 @@ export default function EquipoPanel({
           acá no se ofrece — prometer "4 a la vez" sería mentira. */}
 
       <div className="sm:col-span-2">
-        <label className={labelCls}>Foto (opcional)</label>
+        <label className={`mb-1.5 block ${ROTULO_CAMPO}`}>Foto (opcional)</label>
         <div className="flex flex-wrap items-center gap-3">
           {borrador.fotoUrl && (
             <Image
@@ -286,8 +319,8 @@ export default function EquipoPanel({
               className="h-16 w-16 rounded-full border border-aventurea-line object-cover"
             />
           )}
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky">
-            <IconCamera className="h-4 w-4" />
+          <label className={`cursor-pointer ${BOTON_PANEL}`}>
+            <IconCamera />
             {subiendoFoto
               ? "Subiendo..."
               : borrador.fotoUrl
@@ -317,22 +350,17 @@ export default function EquipoPanel({
         </div>
       </div>
 
-      <div className="flex gap-2 sm:col-span-2">
+      <div className="flex flex-wrap gap-2 sm:col-span-2">
         <button
           type="button"
           onClick={onGuardar}
           disabled={pending || subiendoFoto || !borrador.nombre.trim()}
-          className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
+          className={BOTON_PANEL_PRIMARIO}
         >
           {pending ? "Guardando..." : textoBoton}
         </button>
         {onCancelar && (
-          <button
-            type="button"
-            onClick={onCancelar}
-            disabled={pending}
-            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
-          >
+          <button type="button" onClick={onCancelar} disabled={pending} className={BOTON_PANEL}>
             Cancelar
           </button>
         )}
@@ -340,153 +368,190 @@ export default function EquipoPanel({
     </div>
   );
 
-  return (
-    <div className="flex flex-col gap-5">
-      {error && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>
-      )}
+  const activos = equipo.filter((m) => m.activo).length;
 
-      {equipo.length === 0 && (
-        <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
-          Todavía no agregaste a nadie. Si trabajás con más personas,
-          agregalas acá: el cliente va a poder elegir <strong>con quién</strong>{" "}
-          atenderse al reservar. Si atendés solo vos, podés dejarlo vacío — las
-          citas se toman contra el horario del negocio.
+  return (
+    <>
+      {error && (
+        <p role="alert" className={`rounded-xl p-3.5 text-[13px] ${ESTADO_AVISO.alerta}`}>
+          {error}
         </p>
       )}
 
-      {equipo.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-          {equipo.map((miembro, idx) =>
-            editando === miembro.id ? (
-              <div
-                key={miembro.id}
-                className="border-b border-aventurea-line p-4 last:border-none"
-              >
-                {formulario(
-                  () => guardarEdicion(miembro),
-                  "Guardar cambios",
-                  () => {
-                    setEditando(null);
-                    setBorrador(VACIO);
-                  },
-                )}
-              </div>
-            ) : (
-              <div
-                key={miembro.id}
-                className={`flex flex-wrap items-center gap-3 border-b border-aventurea-line px-4 py-3 last:border-none ${
-                  miembro.activo ? "" : "opacity-50"
-                }`}
-              >
-                <Avatar miembro={miembro} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-bold text-aventurea-ink">
-                    {miembro.nombre}
-                    {miembro.tipo && miembro.tipo !== "profesional" && (
-                      <span className="ml-2 rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy">
-                        {miembro.tipo === "espacio" ? "Espacio" : "Equipo"}
-                      </span>
+      <Card
+        eyebrow="Quiénes atienden"
+        titulo="Tu equipo"
+        accion={
+          equipo.length > 0 ? (
+            <span className={DETALLE}>
+              {activos} activo{activos === 1 ? "" : "s"} de {equipo.length}
+            </span>
+          ) : undefined
+        }
+      >
+        {equipo.length === 0 ? (
+          <CardVacia>
+            Todavía no agregaste a nadie. Si trabajás con más personas, agregalas acá: el
+            cliente va a poder elegir <strong>con quién</strong> atenderse al reservar. Si
+            atendés solo vos, podés dejarlo vacío — las citas se toman contra el horario del
+            negocio.
+          </CardVacia>
+        ) : (
+          <div className={LISTA_FICHAS}>
+            {equipo.map((miembro, idx) => {
+              const ultima = idx === equipo.length - 1;
+              if (editando === miembro.id) {
+                return (
+                  <div
+                    key={miembro.id}
+                    className={`p-3.5 sm:p-4 ${ultima ? "" : "border-b border-aventurea-line"}`}
+                  >
+                    {formulario(
+                      () => guardarEdicion(miembro),
+                      "Guardar cambios",
+                      () => {
+                        setEditando(null);
+                        setBorrador(VACIO);
+                      },
                     )}
-                    {!miembro.activo && (
-                      <span className="ml-2 rounded-lg bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-zinc-500">
-                        Pausado
-                      </span>
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                    {miembro.rol && <span>{miembro.rol}</span>}
-                    {(horarios[miembro.id]?.length ?? 0) > 0 && (
-                      <span className={miembro.rol ? "ml-2" : ""}>· horario propio</span>
-                    )}
-                  </p>
-                </div>
-                <div className="flex min-w-0 flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() =>
-                      setConfigurando(configurando === miembro.id ? null : miembro.id)
-                    }
-                    className={`h-[30px] rounded-lg px-2.5 text-xs font-bold disabled:opacity-40 ${
-                      configurando === miembro.id
-                        ? "bg-aventurea-navy text-white"
-                        : "border border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
-                    }`}
-                  >
-                    Horario y servicios
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending || idx === 0}
-                    onClick={() => mover(miembro, -1)}
-                    aria-label="Subir"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending || idx === equipo.length - 1}
-                    onClick={() => mover(miembro, 1)}
-                    aria-label="Bajar"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      setEditando(miembro.id);
-                      setBorrador(deMiembro(miembro));
-                    }}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => alternarActivo(miembro)}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
-                  >
-                    {miembro.activo ? "Pausar" : "Activar"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => borrar(miembro)}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-700 hover:border-red-300 disabled:opacity-40"
-                  >
-                    Quitar
-                  </button>
-                </div>
-                {configurando === miembro.id && (
-                  <div className="w-full">
-                    <MiembroConfig
-                      ranchoId={ranchoId}
-                      miembroId={miembro.id}
-                      horarioInicial={horarios[miembro.id] ?? []}
-                      serviciosCita={serviciosCita}
-                      asignaciones={asignaciones}
-                    />
                   </div>
-                )}
-              </div>
-            ),
-          )}
-        </div>
-      )}
+                );
+              }
+              return (
+                <div key={miembro.id}>
+                  <FilaFicha
+                    separador={!ultima && configurando !== miembro.id}
+                    marca={miembro.activo ? "exito" : "neutro"}
+                    medio={<Avatar miembro={miembro} />}
+                    titulo={
+                      <>
+                        <span className="break-words">{miembro.nombre}</span>
+                        {miembro.tipo && miembro.tipo !== "profesional" && (
+                          <PildoraEstado estado="info">
+                            {miembro.tipo === "espacio" ? "Espacio" : "Equipo"}
+                          </PildoraEstado>
+                        )}
+                        {!miembro.activo && (
+                          <PildoraEstado estado="neutro">Pausado</PildoraEstado>
+                        )}
+                      </>
+                    }
+                    detalle={
+                      miembro.rol || (horarios[miembro.id]?.length ?? 0) > 0 ? (
+                        <span>
+                          {miembro.rol}
+                          {miembro.rol && (horarios[miembro.id]?.length ?? 0) > 0 ? " · " : ""}
+                          {(horarios[miembro.id]?.length ?? 0) > 0 ? "horario propio" : ""}
+                        </span>
+                      ) : undefined
+                    }
+                    acciones={
+                      <div className={ACCIONES_FILA}>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          aria-expanded={configurando === miembro.id}
+                          onClick={() =>
+                            setConfigurando(configurando === miembro.id ? null : miembro.id)
+                          }
+                          // El único botón que "queda apretado" del
+                          // racimo: se pinta con el acento sólido, que
+                          // es el mismo lenguaje del filtro activo del
+                          // CRM. Nada de alfas para marcar el estado.
+                          style={
+                            configurando === miembro.id
+                              ? {
+                                  backgroundColor: "var(--acento-solido)",
+                                  borderColor: "var(--acento-solido)",
+                                  color: "var(--acento-sobre)",
+                                }
+                              : undefined
+                          }
+                          className={
+                            configurando === miembro.id
+                              ? "inline-flex h-8 shrink-0 items-center rounded-lg border px-2.5 text-[12px] font-bold"
+                              : BOTON_FILA
+                          }
+                        >
+                          Horario y servicios
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || idx === 0}
+                          onClick={() => mover(miembro, -1)}
+                          aria-label={`Subir a ${miembro.nombre}`}
+                          className={BOTON_FILA_ICONO}
+                        >
+                          <IconChevronDown className="h-3.5 w-3.5 rotate-180" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || idx === equipo.length - 1}
+                          onClick={() => mover(miembro, 1)}
+                          aria-label={`Bajar a ${miembro.nombre}`}
+                          className={BOTON_FILA_ICONO}
+                        >
+                          <IconChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => {
+                            setEditando(miembro.id);
+                            setBorrador(deMiembro(miembro));
+                          }}
+                          className={BOTON_FILA}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => alternarActivo(miembro)}
+                          className={BOTON_FILA}
+                        >
+                          {miembro.activo ? "Pausar" : "Activar"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => borrar(miembro)}
+                          className={BOTON_FILA_PELIGRO}
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    }
+                  />
+                  {configurando === miembro.id && (
+                    <div
+                      className={`px-3.5 pb-3.5 sm:px-4 sm:pb-4 ${
+                        ultima ? "" : "border-b border-aventurea-line"
+                      }`}
+                    >
+                      <MiembroConfig
+                        ranchoId={ranchoId}
+                        miembroId={miembro.id}
+                        horarioInicial={horarios[miembro.id] ?? []}
+                        serviciosCita={serviciosCita}
+                        asignaciones={asignaciones}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {editando === null && (
-        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-          <h3 className="mb-4 text-[15px] font-bold text-aventurea-ink">
-            Agregar a alguien del equipo
-          </h3>
-          {formulario(guardarNuevo, "Agregar")}
-        </div>
+        <Card eyebrow="Alta" titulo="Agregar a alguien del equipo">
+          <div className={`rounded-2xl p-3.5 sm:p-4 ${SUPERFICIE_HUNDIDA}`}>
+            {formulario(guardarNuevo, "Agregar")}
+          </div>
+        </Card>
       )}
-    </div>
+    </>
   );
 }

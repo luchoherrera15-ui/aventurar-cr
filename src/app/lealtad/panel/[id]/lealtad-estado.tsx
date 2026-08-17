@@ -3,6 +3,13 @@ import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
 import { pideMontoElTipo } from "@/lib/lealtad/mostrador";
+import { CardVacia } from "@/components/panel/piezas";
+import {
+  ESTADO_AVISO,
+  GAP_METRICAS,
+  GAP_TABLERO,
+  RADIO_TILE,
+} from "@/components/panel/sistema";
 import { cargarLealtad } from "./datos-lealtad";
 import Kpi from "./kpi";
 import { ListaClientes, type ClienteEnLista } from "./atencion-manual";
@@ -46,12 +53,10 @@ export default async function LealtadEstado({
 }) {
   if (!programaId) {
     return (
-      <div className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center">
-        <p className="text-[13.5px] text-aventurea-ink-soft">
-          Todavía no hay programa. Cuando el equipo de Bookea lo active, acá vas a ver
-          quién se afilia, cuántos sellos lleva cada quien y a quién le toca su regalía.
-        </p>
-      </div>
+      <CardVacia>
+        Todavía no hay programa. Cuando el equipo de Bookea lo active, acá vas a ver
+        quién se afilia, cuántos sellos lleva cada quien y a quién le toca su regalía.
+      </CardVacia>
     );
   }
 
@@ -117,58 +122,73 @@ export default async function LealtadEstado({
   }));
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
+      <div className={`grid grid-cols-2 ${GAP_METRICAS} lg:grid-cols-4`}>
         <Kpi
           titulo="Miembros"
           valor={String(resumen.miembros)}
+          icono="clientes"
           detalle={
             limite.limite
               ? `de ${limite.limite.toLocaleString("es-CR")} del plan`
               : "sin tope"
           }
-          tono={limite.lleno ? "alerta" : limite.cerca ? "aviso" : "normal"}
+          /* El tope se dice con palabras además del color: la tarjeta
+             roja y la ámbar se ven igual para quien no distingue esos
+             dos, y este es el estado que frena las afiliaciones. */
+          aviso={
+            limite.lleno
+              ? { estado: "alerta", texto: "Tope lleno" }
+              : limite.cerca
+                ? { estado: "aviso", texto: "Casi lleno" }
+                : null
+          }
         />
         <Kpi
           titulo="Con tarjeta"
           valor={String(resumen.conPase)}
+          icono="movil"
           detalle="la llevan en el teléfono"
         />
         <Kpi
           titulo="Sellos (30 días)"
           valor={String(resumen.sellosRecientes)}
+          icono="sumar"
           detalle={`${resumen.canjes} canje${resumen.canjes === 1 ? "" : "s"} en total`}
         />
         <Kpi
           titulo="Les toca su regalía"
           valor={String(resumen.listosParaCanjear)}
+          icono="regalo"
           detalle={
             resumen.enRiesgo > 0
               ? `${resumen.enRiesgo} sin venir hace 2 meses`
               : "nadie se está enfriando"
           }
-          tono={resumen.listosParaCanjear > 0 ? "aviso" : "normal"}
+          aviso={
+            resumen.listosParaCanjear > 0
+              ? { estado: "aviso", texto: "Por entregar" }
+              : null
+          }
         />
       </div>
 
       {limite.lleno && (
-        <p className="rounded-xl bg-red-50 px-4 py-3 text-[12.5px] font-bold text-red-700">
+        <p className={`${RADIO_TILE} px-4 py-3 text-[12.5px] font-bold ${ESTADO_AVISO.alerta}`}>
           El plan llegó a su tope: un cliente nuevo ya no se puede afiliar. Hay que subir
           de plan para seguir sumando gente.
         </p>
       )}
 
       {fichas.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
+        <CardVacia>
           Nadie se ha afiliado todavía. El cliente se afilia solo al agregar su tarjeta al
           Wallet desde tu página.
-        </p>
+        </CardVacia>
       ) : !ranchoId ? (
         // Sin negocio resuelto no se puede autorizar nada, así que no se
         // ofrece: un botón que siempre va a fallar es peor que no tenerlo.
-        <p className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
-          No se pudo leer el negocio de esta tarjeta. Recargá la página.
-        </p>
+        <CardVacia>No se pudo leer el negocio de esta tarjeta. Recargá la página.</CardVacia>
       ) : (
         <ListaClientes
           ranchoId={ranchoId}

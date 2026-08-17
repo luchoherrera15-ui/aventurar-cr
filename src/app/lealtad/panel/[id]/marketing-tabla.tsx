@@ -4,11 +4,8 @@ import { useState, useTransition } from "react";
 import { enviarAvisoDePrueba } from "./marketing-actions";
 import type { DiagnosticoPlataforma } from "@/lib/wallet/servicio";
 import type { FilaMarketing } from "./marketing-actions";
-
-/* El azul de acción para fondo oscuro, con su letra navy. */
-const ACCION = "var(--accion-claro)";
-const ACCION_TINTA = "var(--accion-claro-tinta)";
-const ACCION_TINTE = "rgba(157,180,255,.14)";
+import { RADIO_CARD, RADIO_TILE } from "@/components/panel/sistema";
+import { ACCION, ACCION_TINTA, ACCION_TINTE } from "../sistema-lealtad";
 
 const ETIQUETA_PLATAFORMA: Record<"apple" | "google", string> = {
   apple: "Apple Wallet",
@@ -32,7 +29,7 @@ export default function TablaMarketing({
   filas: FilaMarketing[];
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/12">
+    <div className={`overflow-hidden ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface`}>
       {filas.map((fila, i) => (
         <FilaCliente key={fila.miembroId} ranchoId={ranchoId} fila={fila} primera={i === 0} />
       ))}
@@ -75,8 +72,9 @@ function FilaCliente({
 
   return (
     <div
-      className={`px-4 py-3.5 ${primera ? "" : "border-t border-white/10"}`}
-      style={{ background: "rgba(255,255,255,.02)" }}
+      className={`px-4 py-3.5 transition-colors hover:bg-aventurea-cream-2 ${
+        primera ? "" : "border-t border-aventurea-line"
+      }`}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-white">
@@ -129,7 +127,7 @@ function FilaCliente({
       </div>
 
       {faltaConfirmar && !resultado && !error && (
-        <p className="mt-1.5 text-[11.5px] text-white/55">
+        <p className="mt-1.5 text-[11.5px] text-aventurea-ink-soft">
           Este pase todavía no confirmó el último cambio en su teléfono.
         </p>
       )}
@@ -141,13 +139,13 @@ function FilaCliente({
       )}
 
       {resultado && (
-        <div className="mt-2 space-y-1 rounded-lg bg-white/[0.04] px-3 py-2.5">
+        <div className={`mt-2 space-y-1 ${RADIO_TILE} border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5`}>
           {resultado.map((linea) => (
-            <p key={linea} className="text-[12px] text-white/75">
+            <p key={linea} className="text-[12px] text-aventurea-ink">
               {linea}
             </p>
           ))}
-          <p className="text-[11px] text-white/55">
+          <p className="text-[11px] text-aventurea-ink-soft">
             Esto confirma que Apple/Google lo aceptó para entregarlo — no que ya está en
             el teléfono. En Apple, volvé a mirar esta fila en un minuto: si el ✓ aparece,
             llegó. En Google no hay ✓ posible: ahí solo sabemos que se lo mandamos.

@@ -10,6 +10,7 @@ import {
   tipoDe,
   type ConfigBeneficio,
 } from "@/lib/lealtad/tipos-tarjeta";
+import { TITULO_CARD } from "@/components/panel/sistema";
 import PlantillasColor from "@/components/lealtad/plantillas-color";
 import SelectorIconoSello from "@/components/lealtad/selector-icono-sello";
 import {
@@ -82,7 +83,7 @@ const CONTRASTE_TEXTO = 4.5;
  */
 const CONTRASTE_SELLO = 2.2;
 
-const tituloCls = "text-[15px] font-bold text-aventurea-ink";
+const tituloCls = TITULO_CARD;
 const ayudaCls = "mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft";
 
 /**
@@ -215,11 +216,15 @@ export function BloqueDiseno() {
                 alElegir={(icono) => cambiar({ iconoSello: icono })}
                 colorFondo={borrador.colorFondo}
                 colorSello={borrador.colorSello}
+                iconoUrl={borrador.iconoUrl || null}
+                alSubirIcono={(url) => cambiar({ iconoUrl: url })}
               />
             </div>
             <p className={ayudaCls}>
               Con «Mi logo» va tu logo adentro del círculo, como hasta ahora. Si tu logo es
-              blanco o tiene el nombre escrito, un icono se ve mucho mejor a ese tamaño.
+              blanco o tiene el nombre escrito, un icono se ve mucho mejor a ese tamaño. Y si
+              tu marca tiene su propio símbolo, «Mi ícono» lo sube — con las mismas
+              precauciones: se dibuja del tamaño de una moneda.
             </p>
           </div>
         )}
@@ -308,6 +313,7 @@ export function BloqueDiseno() {
             colorFondo: borrador.colorFondo,
             colorSello: borrador.colorSello,
             iconoSello: borrador.iconoSello,
+            iconoUrl: borrador.iconoUrl || null,
             logoUrl: borrador.logoUrl || null,
             bannerUrl: borrador.bannerUrl || null,
           }}

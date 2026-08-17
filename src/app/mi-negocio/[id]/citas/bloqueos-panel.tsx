@@ -11,11 +11,21 @@ import {
   eliminarBloqueoAgenda,
   type BloqueoAgenda,
 } from "./actions";
+import { Card, CardVacia } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  DETALLE,
+  ESTADO_AVISO,
+  RADIO_TILE,
+  ROTULO_CAMPO,
+  SUPERFICIE_HUNDIDA,
+  TITULO_CARD,
+} from "@/components/panel/sistema";
+import { ACCIONES_FILA, BOTON_FILA_PELIGRO, FilaFicha, LISTA_FICHAS } from "../fila-ficha";
 
-const inputCls =
-  "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink";
-const labelCls =
-  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
+const inputCls = CAMPO_PANEL;
+const labelCls = `mb-1.5 block ${ROTULO_CAMPO}`;
 
 /**
  * Vacaciones, ausencias y cierres largos (bloqueos_agenda, 0061): un
@@ -123,47 +133,68 @@ export default function BloqueosPanel({
     });
   }
 
+  const ordenados = bloqueos.slice().sort((a, b) => a.inicio.localeCompare(b.inicio));
+
   return (
-    <div className="flex flex-col gap-4">
-      {bloqueos.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-          {bloqueos
-            .slice()
-            .sort((a, b) => a.inicio.localeCompare(b.inicio))
-            .map((b) => (
-              <div
+    <Card
+      eyebrow="Vacaciones y ausencias"
+      titulo="Cuándo NO se puede reservar"
+      accion={
+        ordenados.length > 0 ? (
+          <span className={DETALLE}>
+            {ordenados.length} bloqueo{ordenados.length === 1 ? "" : "s"} vigente
+            {ordenados.length === 1 ? "" : "s"}
+          </span>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        {/* Un bloqueo es una ficha administrable: la barrita NEUTRA de
+            la izquierda es la misma que lleva en la grilla de la agenda
+            del día, así el dueño reconoce lo mismo en las dos pantallas. */}
+        {ordenados.length === 0 ? (
+          <CardVacia>
+            No tenés días ni horas bloqueadas. Agregá acá las vacaciones, un feriado o
+            la tarde que cerrás: nadie va a poder reservar dentro de ese rango.
+          </CardVacia>
+        ) : (
+          <div className={LISTA_FICHAS}>
+            {ordenados.map((b, idx) => (
+              <FilaFicha
                 key={b.id}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-aventurea-line px-4 py-3 last:border-none"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13.5px] font-bold text-aventurea-ink">
-                    {b.miembro_id
-                      ? (nombreMiembro.get(b.miembro_id) ?? "Alguien que ya no está")
-                      : "Todo el negocio"}
-                  </p>
-                  <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
+                separador={idx < ordenados.length - 1}
+                marca="neutro"
+                titulo={
+                  b.miembro_id
+                    ? (nombreMiembro.get(b.miembro_id) ?? "Alguien que ya no está")
+                    : "Todo el negocio"
+                }
+                detalle={
+                  <span>
                     {etiqueta(b)}
                     {b.motivo ? ` · ${b.motivo}` : ""}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => quitar(b.id)}
-                  className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-700 hover:border-red-300 disabled:opacity-40"
-                >
-                  Quitar
-                </button>
-              </div>
+                  </span>
+                }
+                acciones={
+                  <div className={ACCIONES_FILA}>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => quitar(b.id)}
+                      className={BOTON_FILA_PELIGRO}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                }
+              />
             ))}
-        </div>
-      )}
+          </div>
+        )}
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-        <h3 className="text-[15px] font-bold text-aventurea-ink">
-          Bloquear días u horas
-        </h3>
-        <div className="flex flex-wrap items-end gap-3">
+        <div className={`flex flex-col gap-3.5 ${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-4`}>
+          <h3 className={TITULO_CARD}>Bloquear días u horas</h3>
+          <div className="flex flex-wrap items-end gap-3">
           {equipo.filter((m) => m.activo).length > 0 && (
             <div className="min-w-0 max-w-full">
               <label className={labelCls}>Aplica a</label>
@@ -238,7 +269,7 @@ export default function BloqueosPanel({
               value={borrador.motivo}
               onChange={(e) => setBorrador({ ...borrador, motivo: e.target.value })}
               placeholder="Ej. Vacaciones"
-              className={`${inputCls} w-full`}
+              className={inputCls}
             />
           </div>
           <button
@@ -249,16 +280,19 @@ export default function BloqueosPanel({
               (!borrador.diasEnteros && (!borrador.desde || !borrador.hasta))
             }
             onClick={crear}
-            className="h-[42px] rounded-xl bg-aventurea-navy px-5 text-[13.5px] font-bold text-white disabled:opacity-60"
+            className={BOTON_PANEL_PRIMARIO}
           >
             Bloquear
           </button>
+          </div>
         </div>
-      </div>
 
-      {error && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>
-      )}
-    </div>
+        {error && (
+          <p className={`${RADIO_TILE} p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
+            {error}
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }

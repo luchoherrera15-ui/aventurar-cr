@@ -1,11 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Card } from "@/components/panel/piezas";
+import {
+  CAMPO_PANEL,
+  CUERPO_SUAVE,
+  ESTADO_AVISO,
+  RADIO_TILE,
+} from "@/components/panel/sistema";
+import { ACCION, ACCION_TINTA, BOTON_ACCION } from "../sistema-lealtad";
 import { enviarNotificacionPromocional } from "./marketing-actions";
 
-/* El azul de acción para fondo oscuro, con su letra navy. */
-const ACCION = "var(--accion-claro)";
-const ACCION_TINTA = "var(--accion-claro-tinta)";
 const TOPE = 120;
 
 /**
@@ -57,9 +62,8 @@ export default function MarketingMensaje({
   }
 
   return (
-    <div className="rounded-2xl border border-white/12 p-4" style={{ background: "rgba(255,255,255,.03)" }}>
-      <p className="text-[13px] font-extrabold text-white">Mandar un aviso a todos</p>
-      <p className="mt-0.5 text-[12px] text-white/50">
+    <Card eyebrow="A todos a la vez" titulo="Mandar un aviso" nivel="h3">
+      <p className={CUERPO_SUAVE}>
         Ej.: &quot;MIÉRCOLES MATCHAS 2X1&quot;. Le llega como notificación en el teléfono a
         todos los que tienen tu tarjeta instalada.
       </p>
@@ -72,10 +76,9 @@ export default function MarketingMensaje({
             onChange={(e) => setMensaje(e.target.value)}
             maxLength={TOPE}
             placeholder="MIÉRCOLES MATCHAS 2X1"
-            className="w-full rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/55"
-            style={{ borderColor: "rgba(255,255,255,.15)" }}
+            className={CAMPO_PANEL}
           />
-          <p className="mt-1 text-right text-[10.5px] text-white/55">
+          <p className="mt-1 text-right text-[10.5px] text-aventurea-ink-soft">
             {mensaje.length}/{TOPE}
           </p>
         </div>
@@ -83,23 +86,30 @@ export default function MarketingMensaje({
           type="button"
           onClick={enviar}
           disabled={ocupado || mensaje.trim().length < 3}
-          className="shrink-0 rounded-xl px-5 py-2.5 text-[13px] font-bold transition-colors disabled:opacity-50"
+          className={BOTON_ACCION}
           style={{ background: ACCION, color: ACCION_TINTA }}
         >
           {ocupado ? "Enviando…" : "Enviar a todos"}
         </button>
       </div>
 
+      {/* Error y resultado usan los estados del sistema. Antes eran un
+          rojo y un verde propios de este archivo —`red-200` sobre
+          `red-500/10`, `white/80` sobre un verde al 12 %—: dos colores
+          más que ninguna otra pantalla del panel conocía. */}
       {error && (
-        <p role="alert" className="mt-2.5 rounded-lg bg-red-500/10 px-3 py-2 text-[12px] font-bold text-red-200">
+        <p
+          role="alert"
+          className={`mt-2.5 ${RADIO_TILE} px-3 py-2 text-[12px] font-bold ${ESTADO_AVISO.alerta}`}
+        >
           {error}
         </p>
       )}
       {resultado && (
-        <p className="mt-2.5 rounded-lg px-3 py-2 text-[12px] font-bold text-white/80" style={{ background: "rgba(52,199,89,.12)" }}>
+        <p className={`mt-2.5 ${RADIO_TILE} px-3 py-2 text-[12px] font-bold ${ESTADO_AVISO.exito}`}>
           {resultado}
         </p>
       )}
-    </div>
+    </Card>
   );
 }

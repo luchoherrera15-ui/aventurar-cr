@@ -1,4 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { Card, CardVacia, PildoraEstado } from "@/components/panel/piezas";
+import {
+  CIFRA,
+  CUERPO_SUAVE,
+  DETALLE,
+  GAP_TABLERO,
+  RADIO_CARD,
+  RADIO_METRICA,
+  ROTULO_CIFRA,
+  SUPERFICIE_PANEL,
+} from "@/components/panel/sistema";
 import { ActividadFiltrable, CanjePendientePos } from "./lealtad-secciones-cliente";
 
 /**
@@ -239,22 +250,32 @@ export async function IntegracionesLealtad({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-aventurea-line bg-white px-4 py-3.5">
-        <p className="text-[13px] font-bold text-aventurea-ink">
-          Modo: {modo === "api" ? `Integrado (${integracion?.proveedor ?? "API"})` : "Manual"}
-        </p>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
+      <Card
+        eyebrow="Cómo se registran"
+        titulo={modo === "api" ? `Integrado (${integracion?.proveedor ?? "API"})` : "Modo manual"}
+        // Esta sección se monta bajo un <Rotulo> h3 de page.tsx, así
+        // que su tarjeta es h3: saltarse un nivel rompe la navegación
+        // por encabezados de un lector de pantalla.
+        nivel="h3"
+        /* El contador se cuenta de la lista, no se escribe. */
+        accion={
+          <PildoraEstado estado={pendientes.length > 0 ? "aviso" : "neutro"}>
+            {pendientes.length} pendiente{pendientes.length === 1 ? "" : "s"}
+          </PildoraEstado>
+        }
+      >
+        <p className={CUERPO_SUAVE}>
           {modo === "api"
             ? "Los canjes se envían a tu POS por API."
             : "Bookea registra el canje y te dice qué poner en la factura; vos lo marcás acá cuando lo pasás a tu caja. La integración automática con un POS llega cuando haya un proveedor conectado — no antes."}
         </p>
-      </div>
+      </Card>
 
       {pendientes.length === 0 ? (
         <Vacio texto="No hay canjes pendientes de registrar en tu caja." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
+        <div className={`overflow-hidden ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface`}>
           {pendientes.map((c, i) => (
             <CanjePendientePos key={c.id} ranchoId={ranchoId} canje={c} primera={i === 0} />
           ))}
@@ -266,13 +287,21 @@ export async function IntegracionesLealtad({
 
 // ── Piezas compartidas ──────────────────────────────────────────────
 function Vacio({ texto }: { texto: string }) {
-  return (
-    <p className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
-      {texto}
-    </p>
-  );
+  return <CardVacia>{texto}</CardVacia>;
 }
 
+/**
+ * El número de estas secciones, con la anatomía de la `.metric` del
+ * sistema: rótulo en versalitas, cifra en `tabular-nums` y detalle
+ * debajo.
+ *
+ * `alerta` ya NO pinta la tarjeta entera de rojo tenue. Pintar el
+ * fondo completo es exactamente lo que se sacó del calendario del
+ * panel de negocio: el color se come el dato y además obliga a medir
+ * cada texto contra dos fondos distintos. Ahora el estado lo dice una
+ * PÍLDORA —con palabras, no solo con color—, y la tarjeta se queda
+ * blanca como todas.
+ */
 function Dato({
   titulo,
   valor,
@@ -285,18 +314,13 @@ function Dato({
   alerta?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-2xl border px-4 py-3.5 ${
-        alerta ? "border-red-200 bg-red-50" : "border-aventurea-line bg-white"
-      }`}
-    >
-      <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-        {titulo}
-      </p>
-      <p className="mt-0.5 text-[20px] font-extrabold tabular-nums text-aventurea-ink">{valor}</p>
-      {detalle && (
-        <p className="text-[11.5px] leading-snug text-aventurea-ink-soft">{detalle}</p>
-      )}
+    <div className={`${SUPERFICIE_PANEL} ${RADIO_METRICA} px-4 py-3.5`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className={ROTULO_CIFRA}>{titulo}</p>
+        {alerta && <PildoraEstado estado="alerta">Revisar</PildoraEstado>}
+      </div>
+      <p className={`mt-1.5 ${CIFRA}`}>{valor}</p>
+      {detalle && <p className={`mt-1.5 ${DETALLE}`}>{detalle}</p>}
     </div>
   );
 }

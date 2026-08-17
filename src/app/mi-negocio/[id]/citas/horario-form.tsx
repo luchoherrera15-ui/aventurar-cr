@@ -3,9 +3,30 @@
 import { useState, useTransition } from "react";
 import { DIAS_SEMANA_LABEL, type HorarioSemana } from "@/app/citas/tipos";
 import { guardarHorarioCitas } from "./actions";
+import { Card, CardVacia } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  CUERPO_SUAVE,
+  DETALLE,
+  ESTADO_AVISO,
+  RADIO_PILDORA,
+  RADIO_TILE,
+} from "@/components/panel/sistema";
+import { LISTA_FICHAS } from "../fila-ficha";
 
-const inputTimeCls =
-  "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-2.5 py-2 text-[13.5px] text-aventurea-ink";
+/** El campo de hora: el campo del panel, sin el `w-full` — en una fila
+ *  de "de 9 a 6" cada input se mide por su contenido. */
+const inputTimeCls = `${CAMPO_PANEL} w-auto px-2.5 py-2`;
+
+/** El interruptor de un día. Abierto lleva el par de ÉXITO del sistema
+ *  (verde #1f7a4d sobre #e1f0e6 = 4,51:1 ✅ AA) y cerrado el NEUTRO
+ *  (gris #585858 sobre #f6f6f6 = 6,58:1 ✅). Antes el abierto era
+ *  `bg-aventurea-green/10`, un alfa: el mismo estado se veía de dos
+ *  colores según la fila sobre la que cayera. */
+const diaBase = `w-[92px] shrink-0 border ${RADIO_PILDORA} px-3 py-1.5 text-[12.5px] font-bold transition-colors`;
+const diaAbierto = `${diaBase} border-transparent bg-aventurea-green-light text-aventurea-green`;
+const diaCerrado = `${diaBase} border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft`;
 
 type DiaBorrador = { abierto: boolean; abre: string; cierra: string };
 
@@ -30,6 +51,10 @@ function estadoInicial(horario: HorarioSemana | null): DiaBorrador[] {
  * El horario semanal del negocio de citas: qué días abre y de qué hora
  * a qué hora. Es lo que limita las horas que el cliente puede elegir
  * al reservar y lo que se muestra en la página pública.
+ *
+ * La forma es la del panel: una tarjeta con su kicker, la cuenta de
+ * días abiertos a la derecha —que se calcula, no se escribe— y los
+ * siete días como filas de una sola lista.
  */
 export default function HorarioForm({
   ranchoId,
@@ -62,86 +87,97 @@ export default function HorarioForm({
     });
   }
 
+  const abiertos = dias.filter((d) => d.abierto).length;
+
   return (
-    <div className="flex flex-col gap-4">
-      {initialHorario === null && (
-        <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
-          Todavía no guardaste tu horario: mientras tanto se aceptan citas a{" "}
-          <strong>cualquier hora</strong>. Revisá la sugerencia de abajo,
-          ajustala a tu realidad y guardala.
-        </p>
-      )}
+    <Card
+      eyebrow="Cuándo abrís"
+      titulo="Horario semanal"
+      accion={
+        <span className={DETALLE}>
+          {abiertos} día{abiertos === 1 ? "" : "s"} abierto{abiertos === 1 ? "" : "s"}
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        {initialHorario === null && (
+          <CardVacia>
+            Todavía no guardaste tu horario: mientras tanto se aceptan citas a{" "}
+            <strong>cualquier hora</strong>. Revisá la sugerencia de abajo, ajustala a tu
+            realidad y guardala.
+          </CardVacia>
+        )}
 
-      <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-        {DIAS_SEMANA_LABEL.map((etiqueta, dow) => {
-          const dia = dias[dow];
-          return (
-            <div
-              key={etiqueta}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-aventurea-line px-4 py-3 last:border-none"
-            >
-              <span className="w-[88px] text-[13.5px] font-bold text-aventurea-ink">
-                {etiqueta}
-              </span>
-              <button
-                type="button"
-                onClick={() => cambiar(dow, { abierto: !dia.abierto })}
-                aria-pressed={dia.abierto}
-                className={`w-[86px] rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
-                  dia.abierto
-                    ? "border-aventurea-green bg-aventurea-green/10 text-aventurea-green"
-                    : "border-aventurea-line bg-aventurea-cream-2 text-zinc-500"
-                }`}
+        <div className={LISTA_FICHAS}>
+          {DIAS_SEMANA_LABEL.map((etiqueta, dow) => {
+            const dia = dias[dow];
+            return (
+              <div
+                key={etiqueta}
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-aventurea-line px-3.5 py-3 last:border-none sm:px-4"
               >
-                {dia.abierto ? "Abierto" : "Cerrado"}
-              </button>
-              {dia.abierto ? (
-                <span className="flex items-center gap-2 text-[13px] text-aventurea-ink-soft">
-                  <input
-                    type="time"
-                    value={dia.abre}
-                    onChange={(e) => cambiar(dow, { abre: e.target.value })}
-                    aria-label={`Hora de apertura del ${etiqueta.toLowerCase()}`}
-                    className={inputTimeCls}
-                  />
-                  a
-                  <input
-                    type="time"
-                    value={dia.cierra}
-                    onChange={(e) => cambiar(dow, { cierra: e.target.value })}
-                    aria-label={`Hora de cierre del ${etiqueta.toLowerCase()}`}
-                    className={inputTimeCls}
-                  />
+                <span className="w-[88px] text-[13.5px] font-bold text-aventurea-ink">
+                  {etiqueta}
                 </span>
-              ) : (
-                <span className="text-[12.5px] text-zinc-500">
-                  Ese día no se toman citas.
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                <button
+                  type="button"
+                  onClick={() => cambiar(dow, { abierto: !dia.abierto })}
+                  aria-pressed={dia.abierto}
+                  className={dia.abierto ? diaAbierto : diaCerrado}
+                >
+                  {dia.abierto ? "Abierto" : "Cerrado"}
+                </button>
+                {dia.abierto ? (
+                  <span className="flex flex-wrap items-center gap-2 text-[13px] text-aventurea-ink-soft">
+                    <input
+                      type="time"
+                      value={dia.abre}
+                      onChange={(e) => cambiar(dow, { abre: e.target.value })}
+                      aria-label={`Hora de apertura del ${etiqueta.toLowerCase()}`}
+                      className={inputTimeCls}
+                    />
+                    a
+                    <input
+                      type="time"
+                      value={dia.cierra}
+                      onChange={(e) => cambiar(dow, { cierra: e.target.value })}
+                      aria-label={`Hora de cierre del ${etiqueta.toLowerCase()}`}
+                      className={inputTimeCls}
+                    />
+                  </span>
+                ) : (
+                  <span className={CUERPO_SUAVE}>Ese día no se toman citas.</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-      {error && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>
-      )}
-      {guardado && (
-        <p className="rounded-xl bg-aventurea-green/10 p-3 text-[13px] font-bold text-aventurea-green">
-          ✓ Horario guardado.
-        </p>
-      )}
+        {error && (
+          <p className={`${RADIO_TILE} p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
+            {error}
+          </p>
+        )}
+        {guardado && (
+          <p
+            role="status"
+            className={`${RADIO_TILE} p-3 text-[13px] font-bold ${ESTADO_AVISO.exito}`}
+          >
+            ✓ Horario guardado.
+          </p>
+        )}
 
-      <div>
-        <button
-          type="button"
-          onClick={guardar}
-          disabled={pending}
-          className="rounded-xl bg-aventurea-sky px-6 py-3 text-[14px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
-        >
-          {pending ? "Guardando..." : "Guardar horario"}
-        </button>
+        <div>
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={pending}
+            className={BOTON_PANEL_PRIMARIO}
+          >
+            {pending ? "Guardando..." : "Guardar horario"}
+          </button>
+        </div>
       </div>
-    </div>
+    </Card>
   );
 }

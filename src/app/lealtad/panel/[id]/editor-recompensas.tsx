@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { pideRecompensa } from "@/lib/lealtad/editable";
 import { TIPOS_TARJETA, tipoDe, UNIDAD_SALDO } from "@/lib/lealtad/tipos-tarjeta";
+import { CAMPO_PANEL } from "@/components/panel/sistema";
+import { ACCION, ACCION_TINTA, BOTON_ACCION, BOTON_LEALTAD } from "../sistema-lealtad";
 import { usePrograma } from "./programa-contexto";
 import type { RecompensaFila, RecompensaInput, TipoRecompensa } from "./pases-actions";
 
@@ -36,7 +38,7 @@ import type { RecompensaFila, RecompensaInput, TipoRecompensa } from "./pases-ac
  */
 
 const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-white px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
+  CAMPO_PANEL;
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
 const ayudaCls = "mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft";
@@ -199,7 +201,8 @@ export default function EditorRecompensas() {
             type="button"
             onClick={agregar}
             disabled={ocupado || !nueva.nombre.trim() || !nueva.costo}
-            className="presionable shrink-0 rounded-[10px] bg-aventurea-ink px-4 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+            className={`${BOTON_ACCION} presionable`}
+            style={{ background: ACCION, color: ACCION_TINTA }}
           >
             Agregar
           </button>
@@ -425,7 +428,8 @@ function FilaRecompensa({
                 )
               }
               disabled={ocupado || !sucio || !nombre.trim() || Math.round(num(costo)) < 1}
-              className="presionable rounded-[10px] bg-aventurea-ink px-4 py-2 text-[12.5px] font-bold text-white disabled:opacity-40"
+              className={`${BOTON_ACCION} presionable`}
+              style={{ background: ACCION, color: ACCION_TINTA }}
             >
               Guardar cambios
             </button>
@@ -437,7 +441,7 @@ function FilaRecompensa({
               type="button"
               onClick={() => alEditar(r.id, conservando(r, { activo: !r.activo }))}
               disabled={ocupado}
-              className="presionable rounded-[10px] border border-aventurea-line px-4 py-2 text-[12.5px] font-bold text-aventurea-ink"
+              className={`${BOTON_LEALTAD} presionable`}
             >
               {r.activo ? "Apagar" : "Encender"}
             </button>
@@ -453,7 +457,7 @@ function FilaRecompensa({
                   type="button"
                   onClick={() => alBorrar(r.id)}
                   disabled={ocupado}
-                  className="presionable rounded-[10px] bg-red-700 px-3 py-2 text-[12.5px] font-bold text-white disabled:opacity-40"
+                  className={`${BOTON_LEALTAD} presionable border-transparent bg-red-700 text-white`}
                 >
                   Sí, borrar
                 </button>

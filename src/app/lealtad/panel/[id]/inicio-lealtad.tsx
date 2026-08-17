@@ -1,12 +1,35 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { Card, GrillaTablero, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BAJADA_PANTALLA,
+  CUERPO,
+  CUERPO_SUAVE,
+  DETALLE,
+  ENLACE_CARD,
+  EYEBROW_NEUTRO,
+  GAP_METRICAS,
+  GAP_TABLERO,
+  RADIO_CARD,
+  RADIO_TILE,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
+import {
+  ACCION,
+  ACCION_BORDE,
+  ACCION_TINTA,
+  ACCION_TINTE,
+  BOTON_ACCION,
+  DISCO_LEALTAD,
+  ESTADO_DE_TONO,
+} from "../sistema-lealtad";
 import { Icono, type NombreIcono } from "./iconos";
 import Kpi from "./kpi";
 import Medidor from "./medidor";
 import AvisosCerrables, { type AvisoCerrable } from "./avisos-cerrables";
 import { CONSEJO_TARJETA, momentoDeInicio } from "@/lib/lealtad/inicio";
 import { TIPOS_TARJETA, UNIDAD_SALDO, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
-import { ETIQUETA_ESTADO, type EstadoVisible } from "@/lib/lealtad/programas";
+import { ETIQUETA_ESTADO, TONO_ESTADO, type EstadoVisible } from "@/lib/lealtad/programas";
 import type { ResumenLealtad } from "@/lib/lealtad/tablero";
 import { definicionDe, precioDe, type EstadoLimite } from "@/lib/lealtad/planes";
 import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
@@ -70,16 +93,6 @@ import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
  * no tiene esa sección—, así que ningún botón lleva a un callejón sin
  * salida.
  */
-
-/* El azul de acción para fondo oscuro. Este tablero se dibuja sobre el
-   navy profundo del panel (y sobre cards blancas translúcidas, que ahí
-   son casi igual de oscuras): el azul de marca se apaga en los dos, y
-   `--accion-claro` es el que sí se lee. La letra va con el token, no a
-   ojo, porque sobre este azul el blanco no alcanza. */
-const ACCION = "var(--accion-claro)";
-const ACCION_TINTA = "var(--accion-claro-tinta)";
-const ACCION_TINTE = "rgba(157,180,255,.14)";
-const ACCION_BORDE = "rgba(157,180,255,.45)";
 
 export type PasoPrimero = {
   titulo: string;
@@ -258,19 +271,24 @@ export default function InicioLealtad({
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-[21px] font-extrabold leading-tight text-white sm:text-[24px]">
-          Hola de nuevo, {nombre}
-        </h2>
-        <p className="mt-1 text-[13.5px] text-white/55">
-          {momento === "en-marcha"
-            ? "Esto es lo que está pasando con tu programa de lealtad."
-            : "Falta un paso para que tu programa empiece a andar."}
-        </p>
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
+      {/* EL TITULAR DE LA PANTALLA (`.heading` de la maqueta): kicker de
+          contexto, h1 y bajada a la izquierda; la acción a la derecha.
+          El botón de escanear estaba debajo, suelto, como si fuera un
+          bloque más del tablero — es LA acción de la pantalla y va donde
+          la maqueta pone las acciones. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <p className={EYEBROW_NEUTRO}>Tu programa de lealtad</p>
+          <h2 className={`mt-1.5 ${TITULO_PANTALLA}`}>Hola de nuevo, {nombre}</h2>
+          <p className={`mt-1.5 ${BAJADA_PANTALLA}`}>
+            {momento === "en-marcha"
+              ? "Esto es lo que está pasando con tu programa de lealtad."
+              : "Falta un paso para que tu programa empiece a andar."}
+          </p>
+        </div>
+        {accion}
       </div>
-
-      {accion}
 
       {/* ── Lo que hay que hacer AHORA, con su X ────────────────── */}
       <AvisosCerrables
@@ -284,12 +302,23 @@ export default function InicioLealtad({
           afiliado esta fila no existe. Lo que sí se pinta abajo es el
           paquete, que no depende de que haya pasado nada. */}
       {resumen && miembros > 0 && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className={`grid grid-cols-2 ${GAP_METRICAS} lg:grid-cols-4`}>
           <Kpi
             titulo="Clientes afiliados"
             valor={resumen.miembros.toLocaleString("es-CR")}
             detalle={`${resumen.conPase} con la tarjeta en el teléfono`}
-            tono={limite.lleno ? "alerta" : limite.cerca ? "aviso" : "normal"}
+            icono="clientes"
+            /* El tope se DICE, no solo se pinta: la tarjeta roja y la
+               ámbar se ven igual para quien no distingue esos dos, y
+               este es el estado que frena las afiliaciones. El texto
+               sale de `estadoDelLimite`, no de un umbral inventado. */
+            aviso={
+              limite.lleno
+                ? { estado: "alerta", texto: "Tope lleno" }
+                : limite.cerca
+                  ? { estado: "aviso", texto: "Casi lleno" }
+                  : null
+            }
           />
           <Kpi
             titulo={
@@ -299,6 +328,7 @@ export default function InicioLealtad({
             }
             valor={resumen.sellosRecientes.toLocaleString("es-CR")}
             detalle="lo que dio tu equipo en el mostrador"
+            icono="sumar"
           />
           <Kpi
             titulo="Ya canjearon"
@@ -308,6 +338,7 @@ export default function InicioLealtad({
                 ? "clientes que se llevaron su regalía"
                 : "todavía nadie pidió la suya"
             }
+            icono="regalo"
           />
           <Kpi
             titulo="Les toca su regalía"
@@ -317,13 +348,21 @@ export default function InicioLealtad({
                 ? `${resumen.enRiesgo} sin venir hace 2 meses`
                 : "nadie se está enfriando"
             }
-            tono={resumen.listosParaCanjear > 0 ? "aviso" : "normal"}
+            icono="listo"
+            aviso={
+              resumen.listosParaCanjear > 0
+                ? { estado: "aviso", texto: "Por entregar" }
+                : null
+            }
           />
         </div>
       )}
 
-      {/* ── El status del paquete y el de la tarjeta ────────────── */}
-      <div className="grid gap-3 lg:grid-cols-2">
+      {/* ── El status del paquete y el de la tarjeta ──────────────
+          La grilla del sistema: la columna ancha para lo que se lee (el
+          paquete, con sus dos medidores) y la angosta para lo que se
+          decide. A 390px es una sola columna. */}
+      <GrillaTablero>
         <StatusDelPlan paquete={paquete} />
         {tarjeta && (
           <StatusDeLaTarjeta
@@ -333,23 +372,26 @@ export default function InicioLealtad({
             enlaces={enlaces}
           />
         )}
-      </div>
+      </GrillaTablero>
 
       {/* ── Varias tarjetas: cuántas hay y cuántas están vivas ──── */}
       {tarjetas.vivas > 1 && enlaces.programas && (
-        <a
-          href={enlaces.programas}
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border border-aventurea-line bg-white px-4 py-3.5"
+        <Card
+          eyebrow="Tus tarjetas"
+          titulo={`Tenés ${tarjetas.vivas} tarjetas`}
+          nivel="h3"
+          accion={
+            <a href={enlaces.programas} className={ENLACE_CARD}>
+              Verlas todas →
+            </a>
+          }
         >
-          <span className="text-[13.5px] font-bold text-aventurea-ink">
-            Tenés {tarjetas.vivas} tarjetas
-          </span>
-          <span className="text-[12.5px] text-aventurea-ink-soft">
+          <p className={CUERPO_SUAVE}>
             {tarjetas.operan === 0
-              ? "ninguna está emitiendo pases"
-              : `${tarjetas.operan} emitiendo pases →`}
-          </span>
-        </a>
+              ? "Ninguna está emitiendo pases ahora mismo."
+              : `${tarjetas.operan} está${tarjetas.operan === 1 ? "" : "n"} emitiendo pases ahora mismo.`}
+          </p>
+        </Card>
       )}
     </div>
   );
@@ -430,20 +472,24 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
   ];
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-[21px] font-extrabold leading-tight text-white sm:text-[24px]">
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
+      <div className="min-w-0">
+        <p className={EYEBROW_NEUTRO}>Primer día</p>
+        <h2 className={`mt-1.5 ${TITULO_PANTALLA}`}>
           Bienvenido a tu programa de lealtad, {nombre}
         </h2>
-        <p className="mt-1 text-[13.5px] text-white/55">
+        <p className={`mt-1.5 ${BAJADA_PANTALLA}`}>
           Todavía no tenés ninguna tarjeta. Acá abajo está lo que va a pasar y lo que
           necesitás para armar la primera.
         </p>
       </div>
 
-      {/* ── El botón grande ────────────────────────────────────── */}
+      {/* ── El botón grande ──────────────────────────────────────
+          Es el `.insight` de la maqueta —el bloque de acento que se
+          despega del resto— con contenido nuestro: la única cosa que
+          hay que hacer el primer día. */}
       <div
-        className="rounded-3xl border px-5 py-8 text-center sm:px-8"
+        className={`${RADIO_CARD} border px-5 py-8 text-center sm:px-8`}
         style={{ borderColor: ACCION_BORDE, background: ACCION_TINTE }}
       >
         <span
@@ -452,10 +498,10 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
         >
           <Icono nombre="tarjeta" className="h-7 w-7" />
         </span>
-        <h3 className="mt-4 text-[19px] font-extrabold leading-tight text-white sm:text-[22px]">
+        <h3 className="titulo mt-4 text-[19px] leading-tight tracking-[-0.02em] text-white sm:text-[22px]">
           Tu programa arranca con tu primer pase
         </h3>
-        <p className="mx-auto mt-2 max-w-[460px] text-[13.5px] leading-relaxed text-white/60">
+        <p className="mx-auto mt-2 max-w-[460px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
           Es la tarjeta que tus clientes van a llevar en el teléfono: la agregan una vez
           desde tu QR y ahí les vas sumando lo que ganan en cada visita.
         </p>
@@ -463,13 +509,13 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
         {enlaces.crear ? (
           <Link
             href={enlaces.crear}
-            className="mt-6 inline-block rounded-2xl px-7 py-4 text-[15px] font-extrabold sm:text-[16px]"
+            className={`${BOTON_ACCION} mt-6 h-12 px-7 text-[15px]`}
             style={{ background: ACCION, color: ACCION_TINTA }}
           >
             ¡Iniciá tu primer pase! →
           </Link>
         ) : (
-          <p className="mt-6 text-[13px] font-bold text-white/70">
+          <p className="mt-6 text-[13px] font-bold text-aventurea-ink">
             Pedile al dueño del negocio que cree la primera tarjeta.
           </p>
         )}
@@ -478,18 +524,21 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
             digas», y era mentira desde que `estadoAlCrear()` devuelve
             activo. La cautela la cumple el paso de Revisar, no un
             estado escondido — y eso es lo que dice ahora. */}
-        <p className="mx-auto mt-4 max-w-[440px] text-[12px] leading-relaxed text-white/55">
+        <p className="mx-auto mt-4 max-w-[440px] text-[12px] leading-relaxed text-aventurea-ink-soft">
           Se arma en cinco pasos —tipo, diseño, beneficio, reglas y una última mirada— y al
           confirmar queda publicada: empieza a emitir pases de una.
         </p>
       </div>
 
       {/* ── El mini-tutorial ───────────────────────────────────── */}
-      <Card>
-        <h3 className="text-[16px] font-extrabold text-aventurea-ink">
-          Qué va a pasar cuando la tengas
-        </h3>
-
+      <Card
+        eyebrow="Cómo funciona"
+        titulo="Qué va a pasar cuando la tengas"
+        nivel="h3"
+        /* Se cuenta, no se escribe: si mañana el recorrido tiene un paso
+           más, este número lo sigue solo. */
+        accion={<span className={DETALLE}>{recorrido.length + equipo.length} pasos</span>}
+      >
         <Rotulo>Lo que hace tu cliente</Rotulo>
         <Flujo tarjetas={recorrido} columnas={4} />
 
@@ -497,11 +546,13 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
         <Flujo tarjetas={equipo} columnas={3} />
       </Card>
 
-      <Card>
-        <h3 className="text-[16px] font-extrabold text-aventurea-ink">
-          Qué tener a mano antes de empezar
-        </h3>
-        <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
+      <Card
+        eyebrow="Antes de empezar"
+        titulo="Qué tener a mano"
+        nivel="h3"
+        accion={<span className={DETALLE}>Nada obligatorio</span>}
+      >
+        <p className={CUERPO_SUAVE}>
           Nada es obligatorio para arrancar: el logo, los colores, la regalía y las reglas se
           cambian cuando querás. Lo único que queda fijo es el tipo de tarjeta, y recién
           cuando tengas el primer cliente adentro.
@@ -544,7 +595,7 @@ function PanelAccion({
 }) {
   return (
     <div
-      className="rounded-3xl border p-4 sm:p-6"
+      className={`${RADIO_CARD} border p-4 sm:p-5`}
       style={{ borderColor: ACCION_BORDE, background: ACCION_TINTE }}
     >
       <div className="flex items-start gap-3.5">
@@ -557,23 +608,23 @@ function PanelAccion({
         <div className="min-w-0 flex-1">
           {/* El hueco de la derecha es para la X que le pone
               <AvisosCerrables>: sin él, el título le pasa por debajo. */}
-          <h3 className="pr-8 text-[16px] font-extrabold leading-tight text-white sm:text-[17px]">
+          <h3 className="titulo pr-8 text-[17px] leading-tight tracking-[-0.02em] text-white sm:text-[18px]">
             {titulo}
           </h3>
-          <p className="mt-1.5 text-[13.5px] leading-relaxed text-white/65">{detalle}</p>
-          {nota && <p className="mt-2 text-[12px] text-white/55">{nota}</p>}
+          <p className={`mt-1.5 ${CUERPO}`}>{detalle}</p>
+          {nota && <p className={`mt-2 ${CUERPO_SUAVE}`}>{nota}</p>}
 
           {href ? (
             <a
               href={href}
-              className="mt-4 inline-block rounded-xl px-5 py-3 text-[13.5px] font-extrabold"
+              className={`${BOTON_ACCION} mt-4`}
               style={{ background: ACCION, color: ACCION_TINTA }}
             >
               {boton} →
             </a>
           ) : (
             sinPermiso && (
-              <p className="mt-4 text-[12.5px] font-bold text-white/60">{sinPermiso}</p>
+              <p className="mt-4 text-[12.5px] font-bold text-aventurea-ink-soft">{sinPermiso}</p>
             )
           )}
         </div>
@@ -603,28 +654,34 @@ function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
   const restante = textoRestante(paquete.prueba);
 
   return (
-    <Card>
-      <Encabezado icono="plan" titulo="Status del plan actual" />
-
-      {definicion ? (
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <p className="text-[24px] font-extrabold leading-none text-aventurea-ink">
-            {definicion.nombre}
-          </p>
+    <Card
+      eyebrow="Tu paquete"
+      titulo="Status del plan actual"
+      nivel="h3"
+      accion={
+        definicion ? (
           <span
-            className="rounded-full px-2.5 py-1 text-[11px] font-bold"
+            className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-extrabold uppercase leading-none tracking-wide"
             style={{ background: ACCION_TINTE, color: ACCION }}
           >
             {precio === null ? "A convenir" : `${precio}/mes`}
           </span>
+        ) : (
+          <PildoraEstado estado="neutro">Sin paquete</PildoraEstado>
+        )
+      }
+    >
+      {definicion ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <p className="text-[24px] font-extrabold leading-none tracking-[-0.04em] text-aventurea-ink">
+            {definicion.nombre}
+          </p>
           {!definicion.vigente && (
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
-              Paquete anterior
-            </span>
+            <PildoraEstado estado="neutro">Paquete anterior</PildoraEstado>
           )}
         </div>
       ) : (
-        <p className="mt-3 text-[13px] leading-relaxed text-aventurea-ink-soft">
+        <p className={CUERPO}>
           Tu programa anda sin un paquete asignado, así que todavía no tiene topes escritos.
         </p>
       )}
@@ -636,7 +693,7 @@ function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
           mostrador no decide qué se paga. */}
       {restante && (
         <p
-          className="mt-3 rounded-xl px-3 py-2 text-[12.5px] font-bold text-aventurea-ink"
+          className={`mt-3 ${RADIO_TILE} px-3 py-2 text-[12.5px] font-bold text-aventurea-ink`}
           style={{ background: ACCION_TINTE }}
         >
           {restante}
@@ -680,7 +737,7 @@ function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
       {paquete.planes ? (
         <Link
           href={paquete.planes}
-          className="presionable mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-extrabold"
+          className={`${BOTON_ACCION} presionable mt-5`}
           style={{ background: ACCION, color: ACCION_TINTA }}
         >
           Ver los demás paquetes
@@ -690,9 +747,7 @@ function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
         /* Sin permiso no se ofrece el botón: comprar un paquete es del
            dueño, y mandar al mostrador a una pantalla de pago sería
            mandarlo a una pared. */
-        <p className="mt-5 text-[12px] text-aventurea-ink-soft">
-          El paquete lo elige el dueño del negocio.
-        </p>
+        <p className={`mt-5 ${DETALLE}`}>El paquete lo elige el dueño del negocio.</p>
       )}
     </Card>
   );
@@ -723,27 +778,25 @@ function StatusDeLaTarjeta({
   const miembros = resumen?.miembros ?? 0;
 
   return (
-    <Card>
-      <Encabezado icono="tarjeta" titulo="Tu tarjeta" />
-
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <p className="text-[19px] font-extrabold leading-tight text-aventurea-ink">
-          {tarjeta.nombre}
-        </p>
-        <span
-          className="rounded-full px-2.5 py-1 text-[11px] font-bold"
-          style={
-            tarjeta.estado === "activo"
-              ? { background: ACCION_TINTE, color: ACCION }
-              : { background: "rgba(255,255,255,.10)" }
-          }
-        >
+    <Card
+      eyebrow="Tu tarjeta"
+      titulo={tarjeta.nombre}
+      nivel="h3"
+      /* El estado como PÍLDORA del sistema y no como pastilla propia:
+         la misma tarjeta se ve «Activa» acá y en la lista de Tarjetas, y
+         tiene que verse igual en las dos. El color sale del MISMO mapa
+         que usa esa lista (`ESTADO_DE_TONO` sobre `TONO_ESTADO`), que es
+         donde vive la decisión de que «activa» va en azul y no en verde:
+         el verde queda fuera de la marca de Lealtad. */
+      accion={
+        <PildoraEstado estado={ESTADO_DE_TONO[TONO_ESTADO[tarjeta.estado]]}>
           {ETIQUETA_ESTADO[tarjeta.estado]}
-        </span>
-      </div>
-      <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">{definicion.nombre}</p>
+        </PildoraEstado>
+      }
+    >
+      <p className={CUERPO_SUAVE}>{definicion.nombre}</p>
 
-      <ul className="mt-4 space-y-2.5">
+      <ul className="mt-3 space-y-2.5">
         <Dato
           icono="regalo"
           texto={
@@ -763,10 +816,7 @@ function StatusDeLaTarjeta({
       </ul>
 
       {enlaces.tarjeta && (
-        <a
-          href={enlaces.tarjeta}
-          className="mt-4 inline-block text-[12.5px] font-bold text-aventurea-ink underline"
-        >
+        <a href={enlaces.tarjeta} className={`mt-4 inline-block ${ENLACE_CARD}`}>
           Abrir el diseño de la tarjeta →
         </a>
       )}
@@ -774,29 +824,21 @@ function StatusDeLaTarjeta({
   );
 }
 
-function Encabezado({ icono, titulo }: { icono: NombreIcono; titulo: string }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-xl"
-        style={{ background: ACCION_TINTE, color: ACCION }}
-      >
-        <Icono nombre={icono} className="h-[17px] w-[17px]" />
-      </span>
-      <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-aventurea-ink-soft">
-        {titulo}
-      </h3>
-    </div>
-  );
-}
-
+/** Una línea de detalle con su disco de ícono. Es la `.action` de la
+ *  maqueta en versión compacta: el disco lleva el color de acento, que
+ *  es lo que hace que la lista se lea como parte del panel y no como
+ *  una lista de viñetas. */
 function Dato({ icono, texto }: { icono: NombreIcono; texto: string }) {
   return (
     <li className="flex items-start gap-2.5">
-      <span className="mt-[1px] shrink-0 text-aventurea-ink-soft">
-        <Icono nombre={icono} className="h-[15px] w-[15px]" />
+      <span
+        aria-hidden
+        className="grid h-6 w-6 shrink-0 place-items-center rounded-lg"
+        style={DISCO_LEALTAD}
+      >
+        <Icono nombre={icono} className="h-[13px] w-[13px]" />
       </span>
-      <span className="text-[12.5px] leading-snug text-aventurea-ink-soft">{texto}</span>
+      <span className={CUERPO_SUAVE}>{texto}</span>
     </li>
   );
 }
@@ -821,19 +863,22 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
   const siguiente = pasos.findIndex((p) => !p.listo);
 
   return (
-    <Card>
-      {/* `pr-9` deja libre la esquina donde <AvisosCerrables> pone la X:
-          si no, «2 de 4 listos» le queda debajo. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-9">
-        <h3 className="text-[16px] font-extrabold text-aventurea-ink">
-          Primeros pasos con Bookea
-        </h3>
-        <span className="text-[12.5px] font-bold text-aventurea-ink-soft">
+    /* El contador va en el slot de acción del encabezado, que es donde
+       la maqueta pone el dato de una tarjeta. `pr-9` sigue haciendo
+       falta: es el hueco de la X que le pone <AvisosCerrables>. */
+    <Card
+      eyebrow="Puesta en marcha"
+      titulo="Primeros pasos con Bookea"
+      nivel="h3"
+      accion={
+        <span className={`pr-9 ${DETALLE}`}>
           {listos} de {pasos.length} listos
         </span>
-      </div>
-
-      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+      }
+    >
+      {/* La barra de progreso del sistema: 6px, carril hundido, relleno
+          del color de acción. */}
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/25">
         <div
           className="h-full rounded-full transition-[width] duration-500"
           style={{ width: `${avance}%`, background: ACCION }}
@@ -846,7 +891,7 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
           return (
             <li
               key={paso.titulo}
-              className="flex flex-wrap items-center gap-x-3 gap-y-2.5 rounded-2xl border bg-white px-4 py-3.5"
+              className={`flex flex-wrap items-center gap-x-3 gap-y-2.5 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface px-4 py-3`}
               style={
                 destacado
                   ? { borderColor: ACCION_BORDE, background: ACCION_TINTE }
@@ -854,16 +899,22 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
               }
             >
               {paso.listo ? (
-                <span className="shrink-0 text-aventurea-green">
+                <span aria-hidden className="shrink-0 text-aventurea-green">
                   <Icono nombre="listo" className="h-[22px] w-[22px]" />
                 </span>
               ) : (
+                /* El número del paso pendiente. Antes su borde y su
+                   letra eran alfas de blanco (.25 y .5): el mismo
+                   estado se veía de dos colores según cayera sobre la
+                   fila normal o sobre la destacada, y el .25 daba 1,6:1
+                   contra la fila. Ahora los dos casos salen de tokens
+                   sólidos — el de acción cuando es el próximo, y el
+                   gris de texto del panel (6,81:1) cuando no. */
                 <span
-                  className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full border text-[11px] font-extrabold"
-                  style={{
-                    borderColor: destacado ? ACCION : "rgba(255,255,255,.25)",
-                    color: destacado ? ACCION : "rgba(255,255,255,.5)",
-                  }}
+                  className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full border text-[11px] font-extrabold ${
+                    destacado ? "" : "border-aventurea-line text-aventurea-ink-soft"
+                  }`}
+                  style={destacado ? { borderColor: ACCION, color: ACCION } : undefined}
                 >
                   {i + 1}
                 </span>
@@ -871,13 +922,13 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
 
               <span className="min-w-0 flex-1 basis-[min(100%,240px)]">
                 <span
-                  className={`block text-[13.5px] font-bold ${
+                  className={`block text-[13.5px] font-bold leading-tight ${
                     paso.listo ? "text-aventurea-ink-soft" : "text-aventurea-ink"
                   }`}
                 >
                   {paso.titulo}
                 </span>
-                <span className="block text-[12px] leading-snug text-aventurea-ink-soft">
+                <span className="mt-0.5 block text-[12px] leading-snug text-aventurea-ink-soft">
                   {paso.detalle}
                 </span>
               </span>
@@ -885,9 +936,9 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
               {paso.cta && (
                 <a
                   href={paso.cta.href}
-                  className={`shrink-0 rounded-xl px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
+                  className={`inline-flex h-9 shrink-0 items-center rounded-xl px-3.5 text-[12.5px] font-bold transition-colors ${
                     destacado
-                      ? ""
+                      ? "font-extrabold"
                       : "border border-aventurea-line text-aventurea-ink-soft hover:text-aventurea-ink"
                   }`}
                   style={destacado ? { background: ACCION, color: ACCION_TINTA } : undefined}
@@ -900,17 +951,6 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
         })}
       </ol>
     </Card>
-  );
-}
-
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="rounded-3xl border p-4 sm:p-6"
-      style={{ background: "rgba(255,255,255,.035)", borderColor: "rgba(255,255,255,.09)" }}
-    >
-      {children}
-    </div>
   );
 }
 
@@ -947,25 +987,31 @@ function Flujo({
       {tarjetas.map((t, i) => (
         <div
           key={t.titulo}
-          className="relative flex items-start gap-3 rounded-2xl border border-aventurea-line bg-white px-3.5 py-3"
+          className={`relative flex items-start gap-3 ${RADIO_TILE} border border-aventurea-line bg-aventurea-cream-2 px-3.5 py-3`}
         >
           <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-            style={{ background: ACCION_TINTE, color: ACCION }}
+            aria-hidden
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
+            style={DISCO_LEALTAD}
           >
             <Icono nombre={t.icono} className="h-[18px] w-[18px]" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[13px] font-bold text-aventurea-ink">{t.titulo}</span>
+            <span className="block text-[13px] font-bold leading-tight text-aventurea-ink">
+              {t.titulo}
+            </span>
             <span className="mt-0.5 block text-[11.5px] leading-snug text-aventurea-ink-soft">
               {t.detalle}
             </span>
           </span>
 
+          {/* La flecha del canal entre pasos. Sólida y no `text-white/25`
+              (1,6:1 sobre el panel, o sea que no se veía): usa el mismo
+              gris de texto del módulo, 6,81:1. */}
           {conFlecha && i < tarjetas.length - 1 && (
             <span
               aria-hidden
-              className="pointer-events-none absolute -right-[15px] top-1/2 hidden -translate-y-1/2 text-[13px] text-white/25 lg:block"
+              className="pointer-events-none absolute -right-[15px] top-1/2 hidden -translate-y-1/2 text-[13px] text-aventurea-ink-soft lg:block"
             >
               →
             </span>

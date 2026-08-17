@@ -435,6 +435,10 @@ export default function WizardAlta({
         colorFondo: estado.colorFondo,
         colorSello: estado.colorSello,
         iconoSello: m === "sellos" ? estado.iconoSello : null,
+        // El ícono propio (0174) no se ofrece en el alta: subir un
+        // archivo pide una sesión que en esta pantalla puede no existir
+        // todavía. Se agrega después, desde el editor de la tarjeta.
+        iconoUrl: "",
         logoUrl: estado.logoUrl ?? "",
         bannerUrl: estado.bannerUrl ?? "",
         reglas: {
@@ -904,7 +908,11 @@ export default function WizardAlta({
                     <span className={etiqueta}>Icono del sello</span>
                     <SelectorIconoSello
                       valor={estado.iconoSello}
-                      alElegir={(i) => patch({ iconoSello: i })}
+                      // Sin `alSubirIcono` el selector no ofrece «Mi
+                      // ícono», así que acá solo pueden llegar los doce.
+                      // El filtro es el que lo hace cierto para el
+                      // compilador, no una defensa contra nada.
+                      alElegir={(i) => patch({ iconoSello: esIconoSello(i) ? i : null })}
                       colorFondo={estado.colorFondo}
                       colorSello={estado.colorSello}
                     />

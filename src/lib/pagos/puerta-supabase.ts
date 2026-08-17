@@ -11,6 +11,7 @@ import { enviarCorreo } from "@/lib/email";
 import { fechaISOCR, fechaLargaCR } from "@/lib/fechas";
 import { notificarPedidoPagado } from "@/lib/invitaciones/pedido";
 import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
+import { aplicarPlanDeLealtad } from "@/lib/lealtad/aplicar-plan";
 import { PLANES, type PlanId } from "@/lib/lealtad/planes";
 import { stripeDelEntorno } from "./stripe";
 import type { ClaseDeAviso, DatosSuscripcion, Dueno, Puerta } from "./suscripciones";
@@ -957,13 +958,19 @@ async function devolverALaCola(db: Admin, solicitudId: string): Promise<void> {
 }
 
 /**
- * Escribe el plan donde el resto del código lo lee.
+ * Escribe el plan donde el resto del código lo lee, y enciende el
+ * módulo.
  *
- * En los DOS lugares, y en este orden de importancia: `cuentas.plan`
- * es la fuente de verdad desde la 0134 y `ranchos.plan_lealtad` es el
- * respaldo de la transición (ver `planEfectivo` en
- * src/lib/lealtad/cuenta.ts). Escribir uno solo dejaría medio panel
- * mostrando el paquete viejo.
+ * La ESCRITURA del plan no vive acá: la hace `aplicarPlanDeLealtad`
+ * (src/lib/lealtad/aplicar-plan.ts), que es la misma función que usan
+ * el desplegable del admin y la aprobación de una solicitud por SINPE.
+ * Antes había dos copias del mismo update —una acá y otra en
+ * plan-actions.ts— y una copia de más es una copia que un día se queda
+ * atrás; la que se quedaría atrás es justamente esta, que corre sin
+ * nadie delante.
+ *
+ * Lo que SÍ es de acá es el complemento: encenderlo con `vence_en:
+ * null` solo tiene sentido cuando entró un cobro con tarjeta.
  *
  * El id que se escribe SIEMPRE sale del catálogo por el mapeo
  * price→plan: los CHECK de la base solo aceptan esa lista, y un valor
@@ -973,20 +980,13 @@ async function aplicarPlanEn(
   db: Admin,
   { ranchoId, cuentaId, plan }: { ranchoId: string | null; cuentaId: string | null; plan: string },
 ): Promise<void> {
-  if (cuentaId) {
-    const { error } = await db.from("cuentas").update({ plan }).eq("id", cuentaId);
-    if (error && !faltaLaTabla(error)) {
-      throw new Error(`No se pudo escribir el plan en la cuenta: ${error.message}`);
-    }
-  }
+  const aplicado = await aplicarPlanDeLealtad(db, { ranchoId, cuentaId, plan });
+  // Se LANZA a propósito: el webhook devuelve 500, Stripe reintenta y
+  // el cobro termina de activarse. Tragarlo dejaría el peor estado
+  // posible — cobrado y sin paquete.
+  if (!aplicado.ok) throw new Error(aplicado.motivo);
 
   if (ranchoId) {
-    const { error } = await db
-      .from("ranchos")
-      .update({ plan_lealtad: plan })
-      .eq("id", ranchoId);
-    if (error) throw new Error(`No se pudo escribir el plan en el negocio: ${error.message}`);
-
     // El complemento que enciende el módulo (0077): sin él, el panel
     // dice «todavía no tiene el programa de lealtad» aunque el cobro
     // haya entrado. Es lo mismo que hace el alta gratis.

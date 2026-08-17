@@ -1,6 +1,8 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
 import type { ItemMenu } from "@/lib/business/menu";
+import { DISCO_ACENTO, TILE_PANEL, TILE_PANEL_APAGADO } from "@/components/panel/sistema";
 import { iconoModulo } from "./iconos-modulos";
 
 /**
@@ -83,35 +85,30 @@ function Tarjeta({ item }: { item: ItemMenu }) {
 
   const cuerpo = (
     <>
+      {/* El disco de ícono del `.module-ico` de la maqueta: fondo suave
+          y trazo en la tinta, los dos del acento del TIPO de negocio,
+          heredados del contenedor del tablero. Es la pieza que hace que
+          un consultorio no se vea como una barbería. El par está medido
+          en identidad.ts: ≥5,56:1 en los ocho acentos del catálogo. */}
       <span
         aria-hidden
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl [&_svg]:h-[18px] [&_svg]:w-[18px] ${
           pronto ? "bg-aventurea-cream-2 text-aventurea-ink-soft" : ""
         }`}
-        // El acento del tipo, heredado del contenedor del tablero. Sin
-        // él (o si alguien reusa esto suelto) el bloque se pinta neutro
-        // en vez de quedar sin fondo.
-        style={
-          pronto
-            ? undefined
-            : {
-                backgroundColor: "var(--acento-suave, var(--grey))",
-                color: "var(--acento, var(--navy))",
-              }
-        }
+        style={pronto ? undefined : (DISCO_ACENTO as CSSProperties)}
       >
         {iconoModulo(item.id)}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span
-            className={`truncate text-[13.5px] font-bold ${
+            className={`truncate text-[13px] font-bold ${
               pronto ? "text-aventurea-ink-soft" : "text-aventurea-ink"
             }`}
           >
             {item.label}
           </span>
-          <span className="shrink-0 rounded-md bg-aventurea-cream-2 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-aventurea-ink-soft">
+          <span className="shrink-0 rounded-lg bg-aventurea-surface px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-aventurea-ink-soft">
             {pronto ? "Pronto" : GRUPO_LABEL[item.grupo as GrupoId]}
           </span>
         </span>
@@ -126,15 +123,8 @@ function Tarjeta({ item }: { item: ItemMenu }) {
     </>
   );
 
-  const clases =
-    "flex items-start gap-3 rounded-2xl border p-3.5 text-left transition-colors";
-
   if (destino.clase === "proximamente") {
-    return (
-      <div className={`${clases} border-dashed border-aventurea-line bg-transparent`}>
-        {cuerpo}
-      </div>
-    );
+    return <div className={TILE_PANEL_APAGADO}>{cuerpo}</div>;
   }
 
   // `seccion` navega dentro del mismo panel con `?tab=`; `ruta` sale a
@@ -144,10 +134,7 @@ function Tarjeta({ item }: { item: ItemMenu }) {
   const href = destino.clase === "ruta" ? destino.href : `?tab=${destino.tab}`;
 
   return (
-    <Link
-      href={href}
-      className={`${clases} border-aventurea-line bg-aventurea-surface shadow-sm hover:border-aventurea-navy/40`}
-    >
+    <Link href={href} className={TILE_PANEL}>
       {cuerpo}
     </Link>
   );

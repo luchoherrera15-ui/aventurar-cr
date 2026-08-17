@@ -1,4 +1,5 @@
 import { Icono, type NombreIcono } from "./iconos";
+import { DISCO_LEALTAD } from "../sistema-lealtad";
 
 /**
  * EL MEDIDOR DE CONSUMO contra un tope del paquete.
@@ -40,19 +41,32 @@ export default function Medidor({
   const pct = tope ? Math.min(100, Math.round((usado / tope) * 100)) : 0;
   /* Semáforo: rojo lleno, ámbar cerca, y el azul de acción cuando todo
      va bien. El escalón «cerca» no puede ser naranja — se confundiría
-     con el naranja de marca, que no significa advertencia. */
+     con el naranja de marca, que no significa advertencia.
+
+     Los tres son ELEMENTOS GRÁFICOS y necesitan 3:1 contra la tarjeta
+     traducida al tema oscuro (#151d30):
+       #ef4444 (lleno) ......... 4,46:1 ✅
+       #f59e0b (cerca) ......... 7,82:1 ✅
+       #9db4ff (en regla) ...... 8,32:1 ✅ */
   const color = alerta ? "#ef4444" : aviso ? "#f59e0b" : "var(--accion-claro)";
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <span className="flex items-center gap-2 text-[13px] font-bold text-aventurea-ink">
-          <span className="text-aventurea-ink-soft">
+      {/* El disco de ícono en vez del ícono suelto: es la misma cabecera
+          que usan las métricas del panel (`.metric-ico` de la maqueta),
+          y hace que un medidor y un número se lean como parientes. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="flex min-w-0 items-center gap-2 text-[13px] font-bold text-aventurea-ink">
+          <span
+            aria-hidden
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-xl"
+            style={DISCO_LEALTAD}
+          >
             <Icono nombre={icono} className="h-[15px] w-[15px]" />
           </span>
-          {etiqueta}
+          <span className="min-w-0 truncate">{etiqueta}</span>
         </span>
-        <span className="text-[13px] font-bold tabular-nums text-aventurea-ink-soft">
+        <span className="shrink-0 text-[13px] font-extrabold tabular-nums text-aventurea-ink">
           {tope === null
             ? usado.toLocaleString("es-CR")
             : `${usado.toLocaleString("es-CR")} / ${tope.toLocaleString("es-CR")}`}
@@ -60,11 +74,14 @@ export default function Medidor({
       </div>
 
       {tope === null ? (
-        <p className="mt-1 text-[11.5px] text-aventurea-ink-soft">
+        <p className="mt-1.5 text-[11.5px] text-aventurea-ink-soft">
           {detalle ?? "Sin tope en tu paquete."}
         </p>
       ) : (
-        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+        /* 6px y no 8: es la `.progress` de la maqueta (4px), subida a la
+           escala del panel. Y el carril es más OSCURO que la tarjeta, no
+           más claro — sobre fondo oscuro un hueco se hunde apagándose. */
+        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-black/25">
           <div
             className="h-full rounded-full transition-[width] duration-500"
             style={{ width: `${pct}%`, background: color }}

@@ -10,7 +10,7 @@ import {
   type ColoresTarjeta,
 } from "./imagenes";
 import { describirEscalon, escalonesDeLaTira, primeroQueSalga } from "./escalones-tira";
-import { logoDentroDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import { imagenDentroDelSello, type DibujoDelSello } from "@/lib/lealtad/iconos-sello";
 import { elegirDeFilasCrudas, emisoraDeFilasCrudas, resumenDeFila } from "./programa-principal";
 import { estadoVisible } from "@/lib/lealtad/programas";
 import { minutoISOCR } from "@/lib/fechas";
@@ -44,6 +44,7 @@ const SITIO_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat")
 import {
   coloresDe,
   construirPassJson,
+  selloDeLaConfig,
   tarjetaDesdeFila,
   tiraDelPase,
   type MetaRecompensa,
@@ -296,19 +297,27 @@ export async function generarPaseDeLealtad({
   const colores = coloresDe(config);
   const logoNegocio = await bajarImagen(config.pase_logo_url);
 
+  // Qué va adentro de cada sello: el logo, uno de los doce dibujos, o
+  // el ícono que subió el negocio (0174). La decisión no se toma acá —
+  // se lee de la config con la misma función que usa la vista previa.
+  const sello = selloDeLaConfig(config);
+
   const archivos: Record<string, Buffer> = {
     "icon.png": await dibujarIcono(29),
     "icon@2x.png": await dibujarIcono(58),
     "icon@3x.png": await dibujarIcono(87),
+    // El logo de arriba del pase es SIEMPRE el logo del negocio: el
+    // ícono propio vive adentro de los sellos, no le quita el lugar a
+    // la marca.
     ...(await archivosDelLogo(negocio.nombre, logoNegocio)),
     ...(await archivosDeLaTira({
       tira: tiraDelPase(config, meta),
       colores,
       logo: logoNegocio,
       saldo,
-      // El icono del sello (0145). Sin él —que es el caso de todo lo
-      // emitido hasta hoy— la tira se dibuja igual que siempre.
-      icono: config.pase_sello_icono ?? null,
+      // El icono del sello (0145/0174). Sin nada elegido —que es el caso
+      // de todo lo emitido hasta hoy— la tira se dibuja igual que siempre.
+      sello,
     })),
   };
 
@@ -435,15 +444,15 @@ async function archivosDeLaTira({
   colores,
   logo,
   saldo,
-  icono,
+  sello,
 }: {
   tira: TiraDelPase;
   colores: ColoresTarjeta;
   /** El logo va DENTRO de cada sello, no solo arriba del pase. */
   logo: Buffer | null;
   saldo: number;
-  /** El icono elegido (0145). Cuando hay, reemplaza al logo del sello. */
-  icono: IconoSello | null;
+  /** Qué lleva el sello: el logo, uno de los doce, o el ícono propio. */
+  sello: DibujoDelSello;
 }): Promise<Record<string, Buffer>> {
   if (tira.tipo === "ninguna") return {};
 
@@ -469,13 +478,37 @@ async function archivosDeLaTira({
     }
   }
 
-  // Con un icono elegido no hay logo dentro del sello, así que la
-  // escalera no ofrece el escalón «sin el logo»: sería un reintento
-  // idéntico al anterior. La regla vive en `logoDentroDelSello` para
-  // que sea la MISMA en el dibujo y en la degradación.
+  // QUÉ IMAGEN VA ADENTRO DEL SELLO, si es que va alguna. El ícono
+  // propio (0174) ocupa el mismo lugar que ocupaba el logo y se dibuja
+  // con el mismo código: para `dibujarTiraDeSellos` las dos son
+  // «la imagen del negocio adentro del círculo».
+  //
+  // Con uno de los doce dibujos no hay imagen que valga —el sello se
+  // pinta con trazos— y entonces la escalera no ofrece el escalón «sin
+  // la imagen»: sería un reintento idéntico al anterior. La regla vive
+  // en `imagenDentroDelSello` para que sea la MISMA en el dibujo y en la
+  // degradación.
+  const cual = imagenDentroDelSello({ sello, hayLogo: !!logo });
+  // El ícono propio se baja acá y no antes: si la tarjeta no tiene
+  // círculos que llenar —una banda sola, o sellos sin meta— no hay
+  // motivo para pedirle el archivo al storage. Va por el MISMO camino
+  // que el logo y la banda: un fallo de red no tumba el pase, deja los
+  // círculos lisos del color del negocio.
+  const imagenDelSello =
+    cual === "propio" && sello.clase === "propio"
+      ? await bajarImagen(sello.url)
+      : cual === "logo"
+        ? logo
+        : null;
+  const icono = sello.clase === "icono" ? sello.icono : null;
+
+  // `logo` en la escalera significa «la imagen de adentro del sello»,
+  // que desde la 0174 puede ser el logo o el ícono propio. Los dos
+  // fallan igual y se degradan igual: un archivo que sharp no puede
+  // procesar no puede dejar sin tira a un cliente que está en la caja.
   const escalones = escalonesDeLaTira({
     hayBanda: !!banda,
-    hayLogo: logoDentroDelSello({ hayLogo: !!logo, icono }),
+    hayLogo: !!imagenDelSello,
   });
 
   const dibujada = await primeroQueSalga(
@@ -486,9 +519,9 @@ async function archivosDeLaTira({
           total: tira.total,
           logrados: Math.min(saldo, tira.total),
           colores,
-          // Lo que cambia en cada escalón: el escalón final saca el logo
-          // de los sellos, que es la pieza que suele fallar.
-          imagen: escalon.logo ? logo : null,
+          // Lo que cambia en cada escalón: el escalón final saca la
+          // imagen de los sellos, que es la pieza que suele fallar.
+          imagen: escalon.logo ? imagenDelSello : null,
           banda: escalon.banda ? banda : null,
           escala,
           icono,

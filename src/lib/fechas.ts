@@ -45,12 +45,38 @@ export function minutoISOCR(t: Date = new Date()): string {
 
 /** La fecha (YYYY-MM-DD) de un timestamp, vista desde Costa Rica. */
 export function fechaISOCR(t: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ_CR,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(t);
+  return fechaISOEnZona(t, TZ_CR);
+}
+
+/**
+ * La fecha (YYYY-MM-DD) de un timestamp vista desde CUALQUIER zona.
+ *
+ * Bookea ya no es solo de Costa Rica: cada negocio guarda la suya en
+ * `ranchos.zona_horaria` (0062, 0170). "Qué día es hoy" depende de
+ * dónde está el negocio, y donde eso decide plata —el cobro de
+ * plataforma se devenga el DÍA DEL EVENTO— usar la zona equivocada
+ * cobra el día anterior.
+ *
+ * Si la zona guardada no es una zona IANA válida, `Intl` tira
+ * RangeError; acá eso NO puede tumbar un barrido de cobros, así que se
+ * cae a Costa Rica, que es el default de la columna.
+ */
+export function fechaISOEnZona(t: Date, zona: string | null | undefined): string {
+  const formatear = (tz: string) =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(t);
+
+  const pedida = (zona ?? "").trim();
+  if (!pedida) return formatear(TZ_CR);
+  try {
+    return formatear(pedida);
+  } catch {
+    return formatear(TZ_CR);
+  }
 }
 
 /** Suma días a una fecha ISO sin pasar por zonas horarias. */

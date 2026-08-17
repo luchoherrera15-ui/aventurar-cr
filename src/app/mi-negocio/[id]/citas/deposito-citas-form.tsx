@@ -3,9 +3,25 @@
 import { useState, useTransition } from "react";
 import { fmtColones } from "@/lib/finanzas";
 import { guardarDepositoCitas } from "./deposito-actions";
+import { Card, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  CUERPO,
+  ESTADO_AVISO,
+  RADIO_PILDORA,
+  RADIO_TILE,
+} from "@/components/panel/sistema";
 
-const inputCls =
-  "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink";
+const inputCls = `${CAMPO_PANEL} w-[130px]`;
+
+/** El interruptor de encendido/apagado del depósito: el par de ÉXITO
+ *  del sistema cuando está activo (4,51:1) y el NEUTRO cuando no
+ *  (6,58:1). Antes el activo era `bg-aventurea-green/10` — un alfa
+ *  marcando estado. */
+const toggleBase = `shrink-0 border ${RADIO_PILDORA} px-3 py-1.5 text-[12.5px] font-bold transition-colors`;
+const toggleActivo = `${toggleBase} border-transparent bg-aventurea-green-light text-aventurea-green`;
+const toggleApagado = `${toggleBase} border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft`;
 
 /**
  * El depósito para asegurar la cita: apagado por defecto (la cita se
@@ -48,66 +64,81 @@ export default function DepositoCitasForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            setActivo(!activo);
-            setGuardado(false);
-          }}
-          aria-pressed={activo}
-          className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
-            activo
-              ? "border-aventurea-green bg-aventurea-green/10 text-aventurea-green"
-              : "border-aventurea-line bg-aventurea-cream-2 text-zinc-500"
-          }`}
-        >
-          {activo ? "Con depósito" : "Sin depósito"}
-        </button>
-        {activo && (
-          <label className="flex items-center gap-2 text-[13px] text-aventurea-ink-soft">
-            ₡
-            <input
-              type="number"
-              min={0}
-              step={500}
-              value={monto}
-              onChange={(e) => {
-                setMonto(e.target.value);
-                setGuardado(false);
-              }}
-              placeholder="Ej. 5000"
-              aria-label="Monto del depósito en colones"
-              className={`${inputCls} w-[130px]`}
-            />
-          </label>
+    <Card
+      eyebrow="Contra los no-shows"
+      titulo="Depósito para asegurar la cita"
+      // El estado del módulo, a la derecha del título: es el dato que
+      // se viene a buscar acá («¿lo tengo prendido o no?»).
+      accion={
+        <PildoraEstado estado={activo ? "exito" : "neutro"}>
+          {activo ? "Activo" : "Apagado"}
+        </PildoraEstado>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setActivo(!activo);
+              setGuardado(false);
+            }}
+            aria-pressed={activo}
+            className={activo ? toggleActivo : toggleApagado}
+          >
+            {activo ? "Con depósito" : "Sin depósito"}
+          </button>
+          {activo && (
+            <label className="flex items-center gap-2 text-[13px] text-aventurea-ink-soft">
+              ₡
+              <input
+                type="number"
+                min={0}
+                step={500}
+                value={monto}
+                onChange={(e) => {
+                  setMonto(e.target.value);
+                  setGuardado(false);
+                }}
+                placeholder="Ej. 5000"
+                aria-label="Monto del depósito en colones"
+                className={inputCls}
+              />
+            </label>
+          )}
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={pending}
+            className={BOTON_PANEL_PRIMARIO}
+          >
+            {pending ? "Guardando..." : "Guardar"}
+          </button>
+          {guardado && (
+            <span role="status" className="text-[12.5px] font-bold text-aventurea-green">
+              ✓ Guardado
+            </span>
+          )}
+        </div>
+
+        <p className={CUERPO}>
+          {activo
+            ? `Al reservar, el cliente ve que la cita lleva un depósito${monto && Number(monto) > 0 ? ` de ${fmtColones(Number(monto))}` : ""} por SINPE. La cita queda confirmada al instante y el comprobante te llega por el chat — lo validás en Finanzas, como los depósitos de eventos.`
+            : "La cita se paga completa en el local (el flujo de siempre). Activá el depósito si los no-shows te están costando plata."}
+        </p>
+
+        {activo && !tieneSinpe && (
+          <p className={`${RADIO_TILE} p-3 text-[12.5px] leading-relaxed ${ESTADO_AVISO.aviso}`}>
+            Ojo: todavía no configuraste tu cuenta SINPE en Configuración → Cuentas de
+            cobro — sin ella el cliente no sabe a dónde depositar.
+          </p>
         )}
-        <button
-          type="button"
-          onClick={guardar}
-          disabled={pending}
-          className="rounded-xl bg-aventurea-sky px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
-        >
-          {pending ? "Guardando..." : "Guardar"}
-        </button>
-        {guardado && (
-          <span className="text-[12.5px] font-bold text-aventurea-green">✓ Guardado</span>
+        {error && (
+          <p className={`${RADIO_TILE} p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
+            {error}
+          </p>
         )}
       </div>
-
-      <p className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-        {activo
-          ? `Al reservar, el cliente ve que la cita lleva un depósito${monto && Number(monto) > 0 ? ` de ${fmtColones(Number(monto))}` : ""} por SINPE. La cita queda confirmada al instante y el comprobante te llega por el chat — lo validás en Finanzas, como los depósitos de eventos.`
-          : "La cita se paga completa en el local (el flujo de siempre). Activá el depósito si los no-shows te están costando plata."}
-      </p>
-      {activo && !tieneSinpe && (
-        <p className="rounded-xl bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
-          Ojo: todavía no configuraste tu cuenta SINPE en Configuración → Cuentas
-          de cobro — sin ella el cliente no sabe a dónde depositar.
-        </p>
-      )}
-      {error && <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
-    </div>
+    </Card>
   );
 }

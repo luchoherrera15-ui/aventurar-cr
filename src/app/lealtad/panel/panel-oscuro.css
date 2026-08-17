@@ -1,0 +1,136 @@
+/* ════════════════════════════════════════════════════════════════════
+   EL PUENTE: el sistema de paneles de Bookea, sobre el navy de Lealtad
+   ════════════════════════════════════════════════════════════════════
+
+   `src/components/panel/` (Card, CardHead, Metrica, FilaPanel,
+   PildoraEstado…) nació para el panel CLARO de /mi-negocio: tarjeta
+   blanca sobre lienzo gris. El panel de lealtad vive sobre navy
+   profundo (#0a1226) y ya tenía su traductor —el bloque
+   `.lealtad-oscuro` de globals.css—, que re-mapea las clases del tema
+   claro a sus equivalentes translúcidos.
+
+   Ese traductor cubre lo que existía cuando se escribió. Las piezas
+   nuevas del sistema de paneles trajeron CINCO clases que no conocía, y
+   una clase que ese bloque no conoce deja texto invisible sobre el
+   fondo oscuro — ya pasó una vez, y por eso este archivo existe.
+
+   ── POR QUÉ ACÁ Y NO EN globals.css ─────────────────────────────────
+   Porque es CSS de UNA zona. globals.css ya tiene 1600 líneas y tres
+   bloques de scope; agregarle un cuarto para lo que solo le pasa a
+   /lealtad/panel es cargarle a todo el sitio el mantenimiento de este
+   módulo. Se importa desde el shell y desde las dos pantallas de
+   lealtad que se pintan fuera de él (la antesala y «Mis negocios»); el
+   bundler lo incluye una sola vez.
+
+   ── CÓMO ELEGIR ─────────────────────────────────────────────────────
+   Solo entra acá la clase que el sistema de paneles usa Y que sobre
+   navy no se lee. Nada más. Cada regla lleva su par medido, y las que
+   NO están son tan importantes como las que sí: `bg-aventurea-green`,
+   `bg-amber-600`, `bg-aventurea-blue` y `bg-red-600` —las barritas de
+   estado de `FilaPanel`— se quedaron afuera a propósito, porque ya
+   pasan el 3:1 de un elemento gráfico contra la tarjeta oscura (3,16 ·
+   5,27 · 4,01 · 3,48) y `bg-aventurea-green` además es el RELLENO del
+   botón de canjear del escáner, con letra blanca encima: aclararlo acá
+   habría dejado ese botón en 1,54:1.
+
+   ════════════════════════════════════════════════════════════════════
+    LAS TRES SUPERFICIES CONTRA LAS QUE SE MIDE TODO
+   ════════════════════════════════════════════════════════════════════
+      lienzo   #0a1226                          (el fondo del panel)
+      tarjeta  rgba(255,255,255,.045) → #151d30 (el `.card` traducido)
+      rail     #070d1c                          (la columna del menú)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · EL KICKER ──────────────────────────────────────────────────
+   `EYEBROW` del sistema pinta `text-bookea-naranja-fuerte`, que es
+   `--orange-fuerte` (#a83f00): el único naranja que se lee sobre CLARO
+   (6,22:1). Sobre el navy del panel da 3,02:1 — o sea que el rótulo de
+   cada tarjeta del módulo habría quedado por debajo de AA.
+
+   `--orange-claro` (#ffb076) es el mismo papel del otro lado del
+   contrato, y ya está declarado en `.lealtad`:
+     #ffb076 sobre lienzo  #0a1226 ......... 10,48:1 ✅ AAA
+     #ffb076 sobre tarjeta #151d30 .......... 9,38:1 ✅ AAA */
+.lealtad-oscuro .text-bookea-naranja-fuerte {
+  color: var(--orange-claro);
+}
+
+/* ── 2 · LOS TÍTULOS ────────────────────────────────────────────────
+   `TITULO_PANTALLA` y `TITULO_CARD` usan `text-aventurea-navy`, que
+   `.lealtad-oscuro` ya aclara a #9db4ff para que los ENLACES sigan
+   leyéndose. Para un h1 o un h2 eso deja la pantalla entera en azul
+   claro, cuando el título es justo lo que tiene que pesar más.
+
+   El selector pide las DOS clases (`.titulo` la ponen solo los
+   encabezados del sistema), así que los enlaces —`ENLACE_CARD`, que no
+   la lleva— conservan su azul:
+     #ffffff sobre lienzo  #0a1226 ......... 18,77:1 ✅ AAA
+     #ffffff sobre tarjeta #151d30 ......... 16,79:1 ✅ AAA
+     #9db4ff sobre tarjeta #151d30 (enlace) . 8,32:1 ✅ AA */
+.lealtad-oscuro .titulo.text-aventurea-navy {
+  color: #ffffff;
+}
+
+/* ── 3 · LA PÍLDORA «INFO» ──────────────────────────────────────────
+   `ESTADO_PILDORA.info` es `bg-aventurea-blue-light` + `text-bookea-azul`.
+   La letra ya se aclara sola a #9db4ff, pero el fondo es el literal
+   #e8f0f9 —un casi blanco— y `@theme inline` lo dejó inlineado, así
+   que ningún scope lo alcanza. Resultado sin esta regla: azul claro
+   sobre casi blanco, 1,9:1. Es exactamente el caso de «texto invisible»
+   que este archivo existe para evitar.
+
+   El relleno pasa al tinte azul que el módulo ya usa
+   (`.bg-bookea-azul-suave`), para que la píldora informativa y los
+   avisos informativos sean el mismo color:
+     #9db4ff sobre rgba(157,180,255,.14) → #1f2944 ... 7,06:1 ✅ AA */
+.lealtad-oscuro .bg-aventurea-blue-light {
+  background-color: rgba(157, 180, 255, 0.14);
+}
+
+/* ── 4 · LA BARRITA NEUTRA ──────────────────────────────────────────
+   `ESTADO_MARCA.neutro` es `bg-aventurea-ink-soft`, que dentro de
+   `.lealtad` vale `--muted` = #53657f: sobre la tarjeta oscura da
+   2,83:1 y no llega al 3:1 que pide un elemento gráfico. Es el ÚNICO
+   de los cinco estados que no pasa; los otros cuatro se quedan como
+   están (ver el encabezado).
+
+   Se sube al mismo gris con el que este módulo escribe el texto
+   secundario, así que la barrita «sin estado» y la letra «sin énfasis»
+   son el mismo gris:
+     rgba(255,255,255,.62) sobre tarjeta #151d30 ..... 6,81:1 ✅ */
+.lealtad-oscuro .bg-aventurea-ink-soft {
+  background-color: rgba(255, 255, 255, 0.62);
+}
+
+/* ── 5 · EL ACENTO ──────────────────────────────────────────────────
+   El sistema de paneles lee el color del rubro como `var(--acento…)`,
+   que en /mi-negocio inyecta `variablesAcento()` según el tipo de
+   negocio. Lealtad no tiene tipos de negocio: es UN producto con UNA
+   identidad, y su color de acción ya está decidido por contrato
+   (`--accion-claro`, con su letra `--accion-claro-tinta`).
+
+   Sin estas cuatro líneas, `DISCO_ACENTO` cae a sus respaldos —fondo
+   `--grey`, que dentro de `.lealtad` es #f5f7fa— y cada disco de ícono
+   del panel sería una mancha casi blanca sobre navy.
+
+   Apuntarlas al par de acción hace que el disco de una métrica, la
+   barra de un medidor y un botón de acento sean el MISMO azul que
+   todos los botones del módulo:
+     #9db4ff sobre rgba(157,180,255,.14) ..... 7,06:1 ✅ AA  (disco)
+     #9db4ff sobre tarjeta #151d30 ........... 8,32:1 ✅     (barra)
+     #0a1226 sobre #9db4ff ................... 9,23:1 ✅ AA  (botón) */
+.lealtad-oscuro {
+  --acento: var(--accion-claro);
+  --acento-solido: var(--accion-claro);
+  --acento-sobre: var(--accion-claro-tinta);
+  --acento-suave: rgba(157, 180, 255, 0.14);
+}
+
+/* ── 6 · EL HUECO DEL ESQUELETO ─────────────────────────────────────
+   `HuecoPanel` usa `bg-aventurea-navy/[0.07]`: navy translúcido, que
+   sobre navy profundo es literalmente invisible — un esqueleto que no
+   se ve es una pantalla que parece rota mientras carga. Sobre oscuro el
+   hueco tiene que ser más CLARO que el fondo, no más oscuro. */
+.lealtad-oscuro .bg-aventurea-navy\/\[0\.07\] {
+  background-color: rgba(255, 255, 255, 0.08);
+}

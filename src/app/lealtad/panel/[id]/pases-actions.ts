@@ -15,7 +15,14 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
-import { esIconoSello, iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import {
+  esSelloElegido,
+  selloParaGuardar,
+  SELLO_PROPIO,
+  urlDeIconoPropio,
+  type SelloElegido,
+} from "@/lib/lealtad/iconos-sello";
+import { comprobarImagenSubida } from "@/lib/media/comprobar-imagen-subida";
 import { planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { pideRecompensa, puedeCambiarTipo, puedeEditarse } from "@/lib/lealtad/editable";
@@ -80,6 +87,8 @@ export type ProgramaFila = {
   pase_banner_url?: string | null;
   /** El icono de cada sello (0145). Opcional por lo mismo. */
   pase_sello_icono?: string | null;
+  /** El ícono propio que subió el negocio (0174). Opcional por lo mismo. */
+  pase_sello_icono_url?: string | null;
   pase_codigo_formato?: string | null;
   pase_texto_reverso?: string | null;
   pase_mostrar_saldo?: boolean | null;
@@ -127,8 +136,13 @@ export type ProgramaInput = {
   logoUrl: string;
   /** Banda superior: `strip.png` en Apple, `heroImage` en Google. */
   bannerUrl: string;
-  /** El dibujo de cada sello (0145). null = el logo del negocio. */
-  iconoSello: IconoSello | null;
+  /**
+   * El dibujo de cada sello (0145). null = el logo del negocio;
+   * 'propio' = el archivo de `iconoUrl` (0174).
+   */
+  iconoSello: SelloElegido | null;
+  /** El ícono propio subido (0174). Se guarda esté elegido o no. */
+  iconoUrl: string;
   codigoFormato: FormatoCodigo;
   /** Reemplaza el texto que el dorso del pase arma solo. "" = el de siempre. */
   textoReverso: string;
@@ -208,8 +222,19 @@ function validarPrograma(datos: ProgramaInput) {
   // Mismo criterio que el creador: un id fuera del catálogo se rechaza
   // acá, con un mensaje en español, antes de que lo rechace el CHECK de
   // la 0145 con uno que nadie puede leer.
-  if (datos.iconoSello !== null && !esIconoSello(datos.iconoSello)) {
+  if (datos.iconoSello !== null && !esSelloElegido(datos.iconoSello)) {
     return "Ese icono de sello no existe.";
+  }
+  // El ícono propio (0174): la URL tiene que ser https y de un largo
+  // razonable ANTES de mirar de quién es. Y elegir «Mi ícono» sin
+  // archivo es un estado que no existe — la base lo impide con un
+  // CHECK, pero el error de Postgres no está escrito para nadie.
+  const iconoUrl = datos.iconoUrl.trim();
+  if (iconoUrl && urlDeIconoPropio(iconoUrl) === null) {
+    return "El ícono no se subió bien — probá de nuevo.";
+  }
+  if (datos.iconoSello === SELLO_PROPIO && !iconoUrl) {
+    return "Subí tu ícono antes de elegirlo como sello.";
   }
   if (datos.textoReverso.trim().length > MAX_TEXTO_REVERSO) {
     return `El texto del reverso no puede pasar de ${MAX_TEXTO_REVERSO} caracteres.`;
@@ -241,6 +266,30 @@ function imagenAjena(url: string, anterior: string | null): boolean {
   if (!limpia) return false;
   if (esUrlDeNuestroStorage(limpia, "ranchos-fotos")) return false;
   return limpia !== (anterior ?? "").trim();
+}
+
+/**
+ * El tope del ÍCONO PROPIO del lado del servidor, en bytes.
+ *
+ * Es el mismo número que muestra la pantalla al subir (`MAX_MB` en
+ * subir-imagen.tsx), y se vuelve a exigir acá porque el archivo NO pasa
+ * por el server action: lo sube el navegador directo al bucket. Todo lo
+ * que el navegador comprobó lo comprobó en la máquina de quien sube.
+ */
+const MAX_BYTES_ICONO = 2 * 1024 * 1024;
+
+/**
+ * ¿El archivo que hay en esa URL es de verdad una imagen y pesa lo que
+ * puede pesar? Se pregunta SOLO cuando la URL cambió: es una llamada de
+ * red, y guardar un color no tiene por qué pagarla.
+ *
+ * Devuelve el motivo en español, o null si está todo bien.
+ */
+async function iconoInvalido(url: string, anterior: string | null): Promise<string | null> {
+  const limpia = url.trim();
+  if (!limpia || limpia === (anterior ?? "").trim()) return null;
+  const res = await comprobarImagenSubida(limpia, { maxBytes: MAX_BYTES_ICONO });
+  return res.ok ? null : res.motivo;
 }
 
 /**
@@ -280,6 +329,14 @@ export async function guardarPrograma(
   if (imagenAjena(datos.bannerUrl, previo?.pase_banner_url ?? null)) {
     return { error: "La banda no se subió bien — probá de nuevo." };
   }
+  if (imagenAjena(datos.iconoUrl, previo?.pase_sello_icono_url ?? null)) {
+    return { error: "El ícono no se subió bien — probá de nuevo." };
+  }
+  // Y que ADEMÁS sea una imagen de verdad: la URL puede ser de nuestro
+  // bucket y el objeto ser cualquier cosa renombrada. Esto se mira una
+  // sola vez, cuando el ícono cambia.
+  const falloIcono = await iconoInvalido(datos.iconoUrl, previo?.pase_sello_icono_url ?? null);
+  if (falloIcono) return { error: falloIcono };
 
   // ── EL TIPO, SEGÚN EL PAQUETE (0142) ──────────────────────────────
   // Esta es la SEGUNDA puerta que escribe `modo`; la primera es el
@@ -333,12 +390,20 @@ export async function guardarPrograma(
     pase_logo_url: datos.logoUrl.trim() || null,
     activo: datos.activo,
   };
+  // Solo las de sellos llevan icono: cambiar el tipo a «cupón» lo borra
+  // —con su archivo— en vez de dejarlo colgado esperando a que alguien
+  // lo dibuje. El ícono propio, en cambio, SOBREVIVE a elegir uno de
+  // los doce: es el archivo del negocio, no un valor temporal.
+  const sello = selloParaGuardar({
+    tipo: datos.modo,
+    icono: datos.iconoSello,
+    url: datos.iconoUrl,
+  });
   const fila = {
     ...base,
     pase_banner_url: datos.bannerUrl.trim() || null,
-    // Solo las de sellos llevan icono: cambiar el tipo a «cupón» lo
-    // borra en vez de dejarlo colgado esperando a que alguien lo dibuje.
-    pase_sello_icono: iconoDelSello({ tipo: datos.modo, icono: datos.iconoSello }),
+    pase_sello_icono: sello.icono,
+    pase_sello_icono_url: sello.url,
     pase_codigo_formato: datos.codigoFormato,
     pase_texto_reverso: datos.textoReverso.trim() || null,
     pase_mostrar_saldo: datos.mostrarSaldo,
@@ -379,6 +444,7 @@ export async function guardarPrograma(
   const COLUMNAS_NUEVAS = [
     "pase_banner_url",
     "pase_sello_icono",
+    "pase_sello_icono_url",
     "pase_codigo_formato",
     "pase_texto_reverso",
     "pase_mostrar_saldo",
@@ -390,9 +456,13 @@ export async function guardarPrograma(
 
   if (error) return { error: traducir(error, "guardar el programa") };
 
-  // Colores, logo, banda, icono del sello, si se ve el saldo o el
-  // progreso: todo esto es lo que Apple y Google DIBUJAN. Un pase ya
-  // instalado se queda con el diseño viejo hasta que alguien avise.
+  // Colores, logo, banda, icono del sello —incluido el ÍCONO PROPIO de
+  // la 0174, que se dibuja adentro de cada círculo—, si se ve el saldo
+  // o el progreso: todo esto es lo que Apple y Google DIBUJAN. Un pase
+  // ya instalado se queda con el diseño viejo hasta que alguien avise;
+  // por eso cambiar el ícono entra por la misma puerta que cambiar un
+  // color, y no por un camino propio que alguien tenga que acordarse
+  // de llamar.
   // `avisarEdicionDeTarjeta` no hace nada si `previo` es null (una
   // tarjeta recién creada no tiene pases todavía que avisar).
   const programaGuardado = data as ProgramaFila;

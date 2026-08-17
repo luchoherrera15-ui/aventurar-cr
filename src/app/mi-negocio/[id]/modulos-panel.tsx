@@ -19,6 +19,19 @@ import {
   type TipoNegocioId,
 } from "@/lib/business/modulos";
 import { identidadDe, variablesAcento } from "@/lib/business/identidad";
+import { Card, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  DETALLE,
+  DISCO_ACENTO,
+  ESTADO_AVISO,
+  ESTADO_PILDORA,
+  RADIO_TILE,
+  SUPERFICIE_HUNDIDA,
+} from "@/components/panel/sistema";
+import { BOTON_FILA } from "./fila-ficha";
+import { iconoModulo } from "./iconos-modulos";
 import { guardarModulos, guardarTipoNegocio } from "./modulos-actions";
 
 /**
@@ -45,6 +58,16 @@ import { guardarModulos, guardarTipoNegocio } from "./modulos-actions";
  * Todo lo que se muestra sale del catálogo (`modulos.ts` + `identidad.ts`)
  * o de las diferencias guardadas del negocio: acá no se calcula ni se
  * insinúa ninguna métrica.
+ *
+ * ── LO QUE TODAVÍA NO EXISTE ES UNA PROMESA, NO UN HUECO ────────────
+ * «Recursos», «Inventario», «Comisiones», «Marketing» y los módulos de
+ * clínica están declarados por su tipo y todavía no tienen pantalla.
+ * Antes se veían como una fila apagada, sobre un gris translúcido, con
+ * el nombre en gris claro y un chip que decía «Próximamente» — la
+ * misma cara que tiene una sección rota. Ahora llevan la MISMA fila que
+ * los demás: su ícono, su nombre en tinta plena y una explicación de
+ * para qué va a servir. Lo único distinto es el marco punteado y la
+ * píldora que dice «En camino», que es la verdad y no una falla.
  */
 
 /** El orden de `MODULOS` es el del menú: se respeta al listar. */
@@ -57,6 +80,10 @@ function ordenar(ids: Iterable<ModuloId>): ModuloId[] {
 function nombres(ids: readonly ModuloId[]): string {
   return ids.map((id) => definicionModulo(id).nombre).join(" · ");
 }
+
+/** El rótulo de un grupo de módulos (`.nav-label` de la maqueta). */
+const ROTULO_GRUPO =
+  "mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft";
 
 export default function ModulosPanel({
   ranchoId,
@@ -181,46 +208,54 @@ export default function ModulosPanel({
   const hayCambios = disponibles.some(
     (m) => (seleccion[m.id] === true) !== activosGuardados.has(m.id),
   );
+  const encendidos = disponibles.filter((m) => seleccion[m.id] === true).length;
+  const enCamino = MODULOS.filter((m) => !m.disponible).length;
 
   return (
-    <div className="flex flex-col gap-5">
+    <>
       {errorModulos && (
-        <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+        <p className={`rounded-xl p-4 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
           <strong>Falta la migración de Bookea Business.</strong> Tu negocio funciona con los
           módulos que le corresponden por su tipo, pero no vas a poder cambiarlos hasta correr{" "}
-          <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+          <code className="rounded bg-aventurea-surface px-1.5 py-0.5 font-mono text-[12px]">
             supabase/migrations/0108_bookea_business_tipo_y_modulos.sql
           </code>{" "}
           en el SQL Editor de Supabase. ({errorModulos})
-        </div>
+        </p>
       )}
 
-      {/* ---- Tipo de negocio ---- */}
-      <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+      {/* ── Tipo de negocio ──────────────────────────────────────── */}
+      <Card
+        eyebrow="Cómo se arma tu panel"
+        titulo="Tu tipo de negocio"
+        accion={
+          <PildoraEstado estado={explicito ? "exito" : "aviso"}>
+            {explicito ? "Confirmado" : "Sin confirmar"}
+          </PildoraEstado>
+        }
+      >
         <label htmlFor="tipo-negocio" className="text-[13px] font-bold text-aventurea-ink">
           ¿Qué tipo de negocio administrás?
         </label>
-        <p className="mb-3 mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-          Esto no es una etiqueta: reconfigura tu panel. Define qué secciones ves en el menú y cómo
-          te habla el sistema. No cambia cómo te encuentra la gente en Bookea — eso lo decide tu
-          categoría, en Mi perfil.
+        <p className={`mb-3 mt-1 leading-relaxed ${DETALLE}`}>
+          Esto no es una etiqueta: reconfigura tu panel. Define qué secciones ves en el menú y
+          cómo te habla el sistema. No cambia cómo te encuentra la gente en Bookea — eso lo
+          decide tu categoría, en Mi perfil.
         </p>
 
         {/* Punto de partida honesto: nadie eligió nada, esto es lo que
             está rigiendo mientras tanto y de dónde salió. */}
         {!explicito && (
-          /* Fondo y borde SÓLIDOS de la familia azul, no un naranja al
-             10 % sobre lo que haya detrás. Esto no es una advertencia —
-             el panel funciona igual sin elegir tipo—, es información, y
-             pintarla de ámbar la hacía leer como error. Tinta sobre
-             `sky-light`: 15,96:1; el borde sky sobre blanco, 4,42:1
-             (pide 3:1 por no ser texto). */
-          <div className="mb-3 rounded-xl border border-aventurea-sky bg-aventurea-sky-light p-3.5 text-[12.5px] leading-relaxed text-aventurea-ink">
+          /* La familia azul del sistema, sólida: esto no es una
+             advertencia —el panel funciona igual sin elegir tipo—, es
+             información, y pintarla de ámbar la hacía leer como error.
+             `--navy` sobre `blue-light` = 12,07:1. */
+          <p className={`mb-3 rounded-xl p-3.5 text-[12.5px] leading-relaxed ${ESTADO_AVISO.info}`}>
             <strong>Todavía no elegiste tu tipo de negocio.</strong> Mientras tanto tu panel
             funciona como <strong>{definicionTipo(tipoActual).label}</strong>, deducido de cómo
             estás publicado ({publicadoComo}). Revisá la ficha de acá abajo: si es lo que sos,
             confirmalo; si no, elegí el que te calce.
-          </div>
+          </p>
         )}
 
         <select
@@ -232,7 +267,7 @@ export default function ModulosPanel({
             setError(null);
             setMensaje(null);
           }}
-          className="w-full max-w-[340px] rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink disabled:opacity-60"
+          className={`max-w-[340px] disabled:opacity-60 ${CAMPO_PANEL}`}
         >
           {porFamilia.map((grupo) => (
             <optgroup key={grupo.familia} label={FAMILIA_LABEL[grupo.familia]}>
@@ -248,44 +283,36 @@ export default function ModulosPanel({
         {/* ---- La ficha: qué es y qué cambia si lo elige ---- */}
         <div
           style={variablesAcento(identidad) as CSSProperties}
-          className="mt-4 rounded-xl border border-aventurea-line bg-white p-4"
+          className={`mt-4 rounded-2xl p-4 ${SUPERFICIE_HUNDIDA}`}
         >
           <div className="flex items-start gap-3">
             <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[19px]"
-              style={{ background: "var(--acento-suave)", color: "var(--acento)" }}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[19px]"
+              style={DISCO_ACENTO as CSSProperties}
               aria-hidden
             >
               <IconoTipo className="h-[1em] w-[1em]" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="flex flex-wrap items-center gap-2 text-[14px] font-bold text-aventurea-ink">
+              <p className="flex flex-wrap items-center gap-2 text-[14px] font-extrabold text-aventurea-ink">
                 {defTipo.label}
                 {!cambiaria && (
                   <span
-                    className="rounded-md px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide"
+                    className="rounded-lg px-2 py-1 text-[11px] font-extrabold uppercase leading-none tracking-wide"
                     style={{ background: "var(--acento-suave)", color: "var(--acento)" }}
                   >
                     {explicito ? "Tu tipo actual" : "El que rige hoy"}
                   </span>
                 )}
-                {cambiaria && (
-                  <span className="rounded-md bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    Sin guardar
-                  </span>
-                )}
+                {cambiaria && <PildoraEstado estado="aviso">Sin guardar</PildoraEstado>}
               </p>
-              <p className="mt-0.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-                {identidad.descripcion}
-              </p>
+              <p className={`mt-0.5 leading-relaxed ${DETALLE}`}>{identidad.descripcion}</p>
             </div>
           </div>
 
-          <dl className="mt-3.5 flex flex-col gap-2.5 border-t border-aventurea-line/60 pt-3.5 text-[12.5px] leading-relaxed">
+          <dl className="mt-3.5 flex flex-col gap-2.5 border-t border-aventurea-line pt-3.5 text-[12.5px] leading-relaxed">
             <div>
-              <dt className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-aventurea-ink-soft">
-                Cómo te habla el panel
-              </dt>
+              <dt className={ROTULO_GRUPO}>Cómo te habla el panel</dt>
               <dd className="text-aventurea-ink">
                 A quien viene le dice{" "}
                 <strong style={{ color: "var(--acento)" }}>
@@ -300,7 +327,7 @@ export default function ModulosPanel({
             </div>
 
             <div>
-              <dt className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-aventurea-ink-soft">
+              <dt className={ROTULO_GRUPO}>
                 Secciones que vas a tener ({activosCandidato.size})
               </dt>
               <dd className="text-aventurea-ink">{nombres(ordenar(activosCandidato))}</dd>
@@ -311,26 +338,24 @@ export default function ModulosPanel({
                 sección que no existe es peor que no ofrecerla. */}
             {proximamente.length > 0 && (
               <div>
-                <dt className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-aventurea-ink-soft">
-                  En camino para este tipo
-                </dt>
-                <dd className="text-aventurea-ink-soft">
+                <dt className={ROTULO_GRUPO}>En camino para este tipo</dt>
+                <dd className="text-aventurea-ink">
                   {nombres(proximamente)} — todavía no se pueden abrir; aparecen abajo como
-                  &ldquo;próximamente&rdquo;.
+                  &ldquo;en camino&rdquo;.
                 </dd>
               </div>
             )}
 
             {cambiaria && (
-              <div className="rounded-lg bg-aventurea-cream-2 p-3">
-                <dt className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-aventurea-ink-soft">
+              <div className="rounded-xl border border-aventurea-line bg-aventurea-surface p-3">
+                <dt className={ROTULO_GRUPO}>
                   Qué cambia contra tu panel de ahora ({definicionTipo(tipoActual).label})
                 </dt>
                 <dd className="mt-0.5 text-aventurea-ink">
                   {seEnciende.length === 0 && seApaga.length === 0 ? (
                     <>
-                      Las mismas secciones. Cambian el vocabulario y cómo se presenta tu negocio en
-                      el panel.
+                      Las mismas secciones. Cambian el vocabulario y cómo se presenta tu negocio
+                      en el panel.
                     </>
                   ) : (
                     <span className="flex flex-col gap-0.5">
@@ -342,8 +367,8 @@ export default function ModulosPanel({
                       )}
                       {seApaga.length > 0 && (
                         <span>
-                          <strong>Se apaga:</strong> {nombres(seApaga)} — no se borra nada de lo que
-                          ya tenés; la sección deja de aparecer en el menú y podés volver a
+                          <strong>Se apaga:</strong> {nombres(seApaga)} — no se borra nada de lo
+                          que ya tenés; la sección deja de aparecer en el menú y podés volver a
                           encenderla acá abajo.
                         </span>
                       )}
@@ -360,7 +385,7 @@ export default function ModulosPanel({
                 type="button"
                 onClick={aplicarTipo}
                 disabled={cambiandoTipo}
-                className="rounded-xl bg-aventurea-navy px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-navy-2 disabled:opacity-60"
+                className={BOTON_PANEL_PRIMARIO}
               >
                 {cambiandoTipo
                   ? "Guardando…"
@@ -373,7 +398,7 @@ export default function ModulosPanel({
                   type="button"
                   onClick={() => setCandidato(tipoActual)}
                   disabled={cambiandoTipo}
-                  className="text-[12.5px] font-bold text-aventurea-ink-soft underline disabled:opacity-60"
+                  className="text-[12.5px] font-bold text-aventurea-navy underline disabled:opacity-60"
                 >
                   Dejarlo como está
                 </button>
@@ -381,14 +406,22 @@ export default function ModulosPanel({
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
-      {/* ---- Módulos ---- */}
-      <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-        <p className="text-[13px] font-bold text-aventurea-ink">Tus módulos</p>
-        <p className="mb-4 mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+      {/* ── Módulos ──────────────────────────────────────────────── */}
+      <Card
+        eyebrow="Qué ves en tu menú"
+        titulo="Tus módulos"
+        accion={
+          <span className={DETALLE}>
+            {encendidos} encendido{encendidos === 1 ? "" : "s"} · {enCamino} en camino
+          </span>
+        }
+      >
+        <p className={`mb-4 leading-relaxed ${DETALLE}`}>
           Tu tipo de negocio ya trae los suyos recomendados. Apagá lo que no usás y tu menú se
-          acorta. Lo que dice &ldquo;próximamente&rdquo; ya está en camino.
+          acorta. Los que dicen <strong>en camino</strong> están declarados por tu tipo y los
+          estamos construyendo: cuando abran, aparecen solos en tu menú.
         </p>
 
         <div className="flex flex-col gap-4">
@@ -397,29 +430,50 @@ export default function ModulosPanel({
             if (delGrupo.length === 0) return null;
             return (
               <div key={grupo}>
-                <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-aventurea-ink-soft">
-                  {GRUPO_LABEL[grupo]}
-                </p>
-                <div className="overflow-hidden rounded-xl border border-aventurea-line bg-white">
-                  {delGrupo.map((m, i) => {
+                <p className={ROTULO_GRUPO}>{GRUPO_LABEL[grupo]}</p>
+                <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                  {delGrupo.map((m) => {
                     const encendido = seleccion[m.id] === true;
                     return (
                       <div
                         key={m.id}
-                        className={`flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 ${
-                          i > 0 ? "border-t border-aventurea-line/60" : ""
-                        } ${m.disponible ? "" : "bg-aventurea-cream-2/60"}`}
+                        // La misma tarjetita para los tres estados. Lo
+                        // único que cambia en el que todavía no existe
+                        // es el marco punteado: no es un error, es que
+                        // no se puede tocar todavía.
+                        className={`flex items-start gap-2.5 p-3 ${RADIO_TILE} border bg-aventurea-surface ${
+                          m.disponible
+                            ? "border-aventurea-line"
+                            : "border-dashed border-aventurea-line"
+                        }`}
                       >
-                        <div className="min-w-[180px] flex-1">
-                          <p className="text-[13px] font-bold text-aventurea-ink">
+                        <span
+                          aria-hidden
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[17px] [&_svg]:h-[18px] [&_svg]:w-[18px] ${
+                            m.disponible && encendido
+                              ? ""
+                              : "bg-aventurea-cream-2 text-aventurea-ink-soft"
+                          }`}
+                          style={
+                            m.disponible && encendido
+                              ? (DISCO_ACENTO as CSSProperties)
+                              : undefined
+                          }
+                        >
+                          {iconoModulo(m.id)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-bold text-aventurea-ink">
                             {m.nombre}
                             {porDefecto.has(m.id) && (
-                              <span className="ml-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                                recomendado
-                              </span>
+                              <PildoraEstado estado="neutro">Recomendado</PildoraEstado>
                             )}
                           </p>
-                          <p className="text-[12px] leading-snug text-aventurea-ink-soft">
+                          {/* Misma tinta para los tres estados: el
+                              módulo que todavía no abrió es justamente
+                              el que hay que poder LEER, porque es lo
+                              único que se sabe de él. 7,12:1. */}
+                          <p className="mt-1 text-[12px] leading-snug text-aventurea-ink-soft">
                             {m.resumen}
                           </p>
                         </div>
@@ -427,22 +481,21 @@ export default function ModulosPanel({
                           <button
                             type="button"
                             aria-pressed={encendido}
+                            aria-label={`${encendido ? "Apagar" : "Encender"} ${m.nombre}`}
                             onClick={() => {
                               setSeleccion((s) => ({ ...s, [m.id]: !encendido }));
                               setMensaje(null);
                             }}
-                            className={`shrink-0 rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
+                            className={
                               encendido
-                                ? "border-aventurea-green bg-aventurea-green/10 text-aventurea-green"
-                                : "border-aventurea-line bg-aventurea-cream-2 text-zinc-500"
-                            }`}
+                                ? `inline-flex h-8 shrink-0 items-center rounded-lg px-2.5 text-[12px] font-bold ${ESTADO_PILDORA.exito}`
+                                : BOTON_FILA
+                            }
                           >
                             {encendido ? "Activo" : "Apagado"}
                           </button>
                         ) : (
-                          <span className="shrink-0 rounded-lg bg-aventurea-cream-2 px-3 py-1.5 text-[11.5px] font-bold uppercase tracking-wide text-zinc-500">
-                            Próximamente
-                          </span>
+                          <PildoraEstado estado="info">En camino</PildoraEstado>
                         )}
                       </div>
                     );
@@ -458,7 +511,7 @@ export default function ModulosPanel({
             type="button"
             onClick={guardar}
             disabled={guardando || !hayCambios}
-            className="rounded-xl bg-aventurea-sky px-4 py-2 text-[13px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
+            className={BOTON_PANEL_PRIMARIO}
           >
             {guardando ? "Guardando..." : "Guardar módulos"}
           </button>
@@ -466,8 +519,12 @@ export default function ModulosPanel({
             <span className="text-[12.5px] font-bold text-aventurea-green">✓ {mensaje}</span>
           )}
         </div>
-        {error && <p className="mt-3 rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
-      </div>
-    </div>
+        {error && (
+          <p role="alert" className={`mt-3 rounded-xl p-3 text-[13px] ${ESTADO_AVISO.alerta}`}>
+            {error}
+          </p>
+        )}
+      </Card>
+    </>
   );
 }

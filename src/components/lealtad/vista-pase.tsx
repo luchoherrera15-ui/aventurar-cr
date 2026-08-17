@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   camposSegunModo,
   coloresDe,
+  selloDeLaConfig,
   tiraDelPase,
   type CamposTarjeta,
   type ConfigPase,
@@ -11,8 +12,8 @@ import {
   type TiraDelPase,
 } from "@/lib/wallet/tarjeta";
 import { metaDe, tipoDe, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjeta";
-import { iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import { SelloConIcono } from "@/app/lealtad/panel/[id]/iconos";
+import { selloParaGuardar, type DibujoDelSello, type SelloElegido } from "@/lib/lealtad/iconos-sello";
+import { SelloConIcono, SelloConImagen } from "@/app/lealtad/panel/[id]/iconos";
 
 /**
  * LA VISTA PREVIA DEL PASE, en vivo.
@@ -55,8 +56,13 @@ export type DatosVista = {
   logoUrl: string | null;
   /** Banda superior: `strip.png` en Apple, `heroImage` en Google. */
   bannerUrl?: string | null;
-  /** El icono de cada sello (0145). null = el logo, como siempre. */
-  iconoSello?: IconoSello | null;
+  /**
+   * El icono de cada sello (0145). null = el logo, como siempre; desde
+   * la 0174 también puede ser `'propio'`, y ahí manda `iconoUrl`.
+   */
+  iconoSello?: SelloElegido | null;
+  /** El ícono propio que subió el negocio (0174). */
+  iconoUrl?: string | null;
   /** Saldo de ejemplo. Por defecto, la mitad de la meta. */
   saldoEjemplo?: number;
 };
@@ -97,17 +103,21 @@ export default function VistaPase({
 
   // UNA sola config para todo, igual que en el pase real: los textos,
   // los colores y el strip salen del mismo dato.
+  //
+  // Por el MISMO filtro que el pase real: elegir un icono y después
+  // cambiar el tipo a «cupón» no puede dejar la vista previa dibujando
+  // sellos con dibujo mientras el teléfono no los tiene.
+  const columnas = selloParaGuardar({ tipo, icono: datos.iconoSello, url: datos.iconoUrl });
   const config: ConfigPase = {
     modo: tipo,
     pase_color_fondo: datos.colorFondo,
     pase_color_sello: datos.colorSello,
     pase_logo_url: datos.logoUrl,
     pase_banner_url: datos.bannerUrl ?? null,
-    // Por el MISMO filtro que el pase real: elegir un icono y después
-    // cambiar el tipo a «cupón» no puede dejar la vista previa
-    // dibujando sellos con dibujo mientras el teléfono no los tiene.
-    pase_sello_icono: iconoDelSello({ tipo, icono: datos.iconoSello }),
+    pase_sello_icono: columnas.icono,
+    pase_sello_icono_url: columnas.url,
   };
+  const sello = selloDeLaConfig(config);
   const recompensa: MetaRecompensa = meta
     ? { nombre: nombreDeLaMeta(datos.beneficio), costo_puntos: meta }
     : null;
@@ -162,7 +172,7 @@ export default function VistaPase({
               colores={colores}
               tira={tira}
               saldo={saldo}
-              icono={config.pase_sello_icono ?? null}
+              sello={sello}
             />
           ) : (
             <TarjetaGoogle datos={datos} campos={campos} colores={colores} />
@@ -177,7 +187,7 @@ export default function VistaPase({
               colores={colores}
               tira={tira}
               saldo={saldo}
-              icono={config.pase_sello_icono ?? null}
+              sello={sello}
             />
           ) : (
             <TarjetaGoogle datos={datos} campos={campos} colores={colores} />
@@ -341,15 +351,15 @@ function TarjetaApple({
   colores,
   tira,
   saldo,
-  icono,
+  sello,
 }: {
   datos: DatosVista;
   campos: CamposTarjeta;
   colores: { fondo: string; sello: string };
   tira: TiraDelPase;
   saldo: number;
-  /** El icono del sello, ya filtrado por tipo. */
-  icono: IconoSello | null;
+  /** Qué lleva cada sello, ya filtrado por tipo. */
+  sello: DibujoDelSello;
 }) {
   return (
     <div
@@ -378,7 +388,7 @@ function TarjetaApple({
           </span>
         </div>
 
-        <Tira tira={tira} colores={colores} saldo={saldo} icono={icono} />
+        <Tira tira={tira} colores={colores} saldo={saldo} sello={sello} />
 
         <div className="mt-3">
           <span className="block text-[8.5px] uppercase tracking-wider text-white/55">
@@ -425,13 +435,13 @@ function Tira({
   tira,
   colores,
   saldo,
-  icono,
+  sello,
 }: {
   tira: TiraDelPase;
   colores: { fondo: string; sello: string };
   saldo: number;
-  /** El icono del sello (0145). null = el círculo liso de siempre. */
-  icono: IconoSello | null;
+  /** Qué lleva cada sello (0145/0174). «logo» = el círculo liso de siempre. */
+  sello: DibujoDelSello;
 }) {
   if (tira.tipo === "ninguna") return null;
 
@@ -453,17 +463,22 @@ function Tira({
           ) : null}
           <div className="absolute inset-0 flex flex-wrap content-center items-center justify-center gap-1.5 px-3">
             {Array.from({ length: Math.min(tira.total, 20) }, (_, i) =>
-              icono ? (
+              sello.clase === "icono" ? (
                 // Con icono: LLENO el ganado, CONTORNO el que falta —
                 // lo mismo que dibuja `dibujarTiraDeSellos` en el pase.
                 <SelloConIcono
                   key={i}
-                  icono={icono}
+                  icono={sello.icono}
                   encendido={i < saldo}
                   colorFondo={colores.fondo}
                   colorSello={colores.sello}
                   lado={20}
                 />
+              ) : sello.clase === "propio" ? (
+                // Con el ícono propio: disco blanco con la imagen
+                // adentro, tenue el que falta. Es lo que dibuja
+                // `selloRedondo` — el mismo camino del logo.
+                <SelloConImagen key={i} url={sello.url} encendido={i < saldo} lado={20} />
               ) : (
                 <span
                   key={i}

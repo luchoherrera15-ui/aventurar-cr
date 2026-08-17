@@ -2,6 +2,16 @@
 
 import { useId, useState } from "react";
 import { fmtColones, fmtColonesCorto, type SemanaFinanzas } from "@/lib/finanzas";
+import { CardHead } from "@/components/panel/piezas";
+import {
+  BOTON_PANEL,
+  CUERPO_SUAVE,
+  DETALLE,
+  ESTADO_PILDORA,
+  PADDING_CARD,
+  RADIO_CARD,
+  SUPERFICIE_PANEL,
+} from "@/components/panel/sistema";
 
 /**
  * El gráfico de "semana a semana" — antes era una tabla plegada con
@@ -17,11 +27,30 @@ import { fmtColones, fmtColonesCorto, type SemanaFinanzas } from "@/lib/finanzas
  * corrieron por el validador de la guía de dataviz y pasan los seis
  * chequeos (contraste, CVD, franja de luminancia) en modo claro, que
  * es el único que existe: el sitio fuerza `color-scheme: only light`.
+ * Como elementos gráficos miden 5,32:1 y 4,18:1 sobre la tarjeta
+ * blanca, los dos por encima del piso de 3:1.
+ *
+ * ── QUÉ CAMBIÓ EN EL REDISEÑO ──────────────────────────────────────
+ * La piel: la tarjeta y su encabezado son los del sistema del panel
+ * (`referencia/bookeapaneles.html`), las barras toman el radio superior
+ * de la maqueta y la tabla alinea toda la plata a la derecha con
+ * `tabular-nums`.
+ *
+ * Y se fueron los alfas que marcaban estado: la semana actual se pintaba
+ * con `bg-aventurea-cream-2/60`, la columna activa con `/70` y el hover
+ * con `/40` — tres tonos del MISMO estado según con qué se solapara, y
+ * ninguno medible una sola vez. Ahora los tres son el gris sólido, y la
+ * semana actual además se dice con palabras («Esta semana»), no solo con
+ * un fondo. Y en el tooltip, `text-white/75` y `text-white/60` pasaron a
+ * `--color-aventurea-rail` sólido (8,46:1 sobre la tinta del tooltip).
+ *
+ * Ni un cálculo cambió: `techoLimpio`, la escala contra `ALTO_GRAFICO` y
+ * los datos de `resumenFinanciero` son los mismos.
  */
 
-const ALTO_GRAFICO = 148;
-const ANCHO_COLUMNA = 46;
-const GROSOR_BARRA = 15;
+const ALTO_GRAFICO = 160;
+const ANCHO_COLUMNA = 52;
+const GROSOR_BARRA = 16;
 
 /** Redondea el techo del eje a un número "limpio" (10, 20, 50, 100 × 10^n). */
 function techoLimpio(max: number): number {
@@ -55,38 +84,46 @@ export default function GraficoSemanal({
   const ticks = [0, techo / 3, (techo * 2) / 3, techo];
 
   return (
+    // Tarjeta del sistema escrita a mano y no con `<Card>` para poder
+    // conservar el `aria-labelledby`: sin él la sección deja de ser una
+    // región con nombre y desaparece de la lista de regiones del lector
+    // de pantalla, que es cómo se salta directo al gráfico.
     <section
       aria-labelledby={tituloId}
-      className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5.5 shadow-sm"
+      className={`${SUPERFICIE_PANEL} ${RADIO_CARD} ${PADDING_CARD}`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 id={tituloId} className="text-[16px] font-bold text-aventurea-ink">
-            Semana a semana
-          </h2>
-          <p className="mt-1 max-w-[52ch] text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-            Lo cobrado se cuenta en la semana en que entró la plata. Lo por
-            cobrar, en la semana del evento.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setVista(vista === "grafico" ? "tabla" : "grafico")}
-          className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12px] font-bold text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
-        >
-          {vista === "grafico" ? "Ver como tabla" : "Ver como gráfico"}
-        </button>
-      </div>
+      <CardHead
+        eyebrow="Semana a semana"
+        titulo="Cómo entró la plata"
+        id={tituloId}
+        accion={
+          <button
+            type="button"
+            onClick={() => setVista(vista === "grafico" ? "tabla" : "grafico")}
+            className={BOTON_PANEL}
+          >
+            {vista === "grafico" ? "Ver como tabla" : "Ver como gráfico"}
+          </button>
+        }
+      />
+
+      <p className={`-mt-1.5 mb-3.5 max-w-[62ch] ${DETALLE}`}>
+        Lo cobrado se cuenta en la semana en que entró la plata. Lo por cobrar, en la
+        semana del evento.
+      </p>
 
       {/* La leyenda: nunca solo color, el texto va en tinta normal y el
           color vive en el puntito de al lado. */}
-      <div className="mt-4 flex gap-4">
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
         <Leyenda color="bg-aventurea-green" label="Entró" />
         <Leyenda color="bg-aventurea-blue" label="Por cobrar" />
       </div>
 
       {vista === "tabla" ? (
-        <div className="mt-4 overflow-x-auto">
+        // La tabla scrollea DENTRO de su caja: el ancho mínimo de cinco
+        // columnas de plata no cabe en 390px y el `main` nunca debe
+        // scrollear en horizontal.
+        <div className="mt-4 -mx-1 overflow-x-auto px-1">
           <table className="w-full min-w-[560px] border-collapse">
             <thead>
               <tr className="border-b border-aventurea-line text-left">
@@ -101,36 +138,34 @@ export default function GraficoSemanal({
               {semanas.map((s) => (
                 <tr
                   key={s.clave}
-                  className={`border-b border-aventurea-line/70 last:border-none ${
-                    s.esActual ? "bg-aventurea-cream-2/60" : ""
+                  // Gris SÓLIDO para la semana actual, no un alfa: el
+                  // mismo estado tiene que verse igual caiga sobre lo que
+                  // caiga. Y no viaja solo — la píldora «Esta semana» lo
+                  // dice con palabras.
+                  className={`border-b border-aventurea-line last:border-none ${
+                    s.esActual ? "bg-aventurea-cream-2" : ""
                   }`}
                 >
                   <td className="py-2.5 pr-4 align-middle">
                     <span
-                      className={`text-[13px] ${
-                        s.esActual ? "font-bold text-aventurea-ink" : "text-aventurea-ink"
+                      className={`text-[13px] text-aventurea-ink ${
+                        s.esActual ? "font-bold" : ""
                       }`}
                     >
                       {s.rango}
                     </span>
                     {s.esActual && (
-                      <span className="ml-2 rounded-lg bg-aventurea-ink px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+                      <span
+                        className={`ml-2 inline-block whitespace-nowrap rounded-lg px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${ESTADO_PILDORA.info}`}
+                      >
                         Esta semana
                       </span>
                     )}
                   </td>
-                  <td className="py-2.5 text-right align-middle text-[13px] font-bold tabular-nums text-aventurea-ink">
-                    {s.entro > 0 ? fmtColones(s.entro) : "—"}
-                  </td>
-                  <td className="py-2.5 text-right align-middle text-[13px] tabular-nums text-aventurea-ink-soft">
-                    {s.porCobrar > 0 ? fmtColones(s.porCobrar) : "—"}
-                  </td>
-                  <td className="py-2.5 text-right align-middle text-[13px] tabular-nums text-aventurea-ink-soft">
-                    {s.gastos > 0 ? `−${fmtColones(s.gastos)}` : "—"}
-                  </td>
-                  <td className="py-2.5 text-right align-middle text-[13px] tabular-nums text-aventurea-ink-soft">
-                    {s.eventos || "—"}
-                  </td>
+                  <Td fuerte>{s.entro > 0 ? fmtColones(s.entro) : "—"}</Td>
+                  <Td>{s.porCobrar > 0 ? fmtColones(s.porCobrar) : "—"}</Td>
+                  <Td>{s.gastos > 0 ? `−${fmtColones(s.gastos)}` : "—"}</Td>
+                  <Td>{s.eventos || "—"}</Td>
                 </tr>
               ))}
             </tbody>
@@ -141,11 +176,11 @@ export default function GraficoSemanal({
           {/* El eje Y queda FUERA del área que scrollea horizontalmente:
               si viviera adentro, las etiquetas de plata se irían con las
               barras al deslizar y dejarían de servir de referencia. */}
-          <div className="relative shrink-0" style={{ width: 34, height: ALTO_GRAFICO }}>
+          <div className="relative shrink-0" style={{ width: 44, height: ALTO_GRAFICO }}>
             {ticks.map((t, i) => (
               <span
                 key={i}
-                className="absolute right-1.5 -translate-y-1/2 whitespace-nowrap text-[9.5px] tabular-nums text-aventurea-ink-soft"
+                className="absolute right-2 -translate-y-1/2 whitespace-nowrap text-[10.5px] tabular-nums text-aventurea-ink-soft"
                 style={{ bottom: (t / techo) * ALTO_GRAFICO }}
               >
                 {t === 0 ? "0" : fmtColonesCorto(t)}
@@ -165,7 +200,7 @@ export default function GraficoSemanal({
                 {ticks.map((t, i) => (
                   <div
                     key={i}
-                    className="absolute left-0 right-0 border-t border-aventurea-line/60"
+                    className="absolute left-0 right-0 border-t border-aventurea-line"
                     style={{ bottom: (t / techo) * ALTO_GRAFICO }}
                   />
                 ))}
@@ -192,8 +227,11 @@ export default function GraficoSemanal({
                       aria-label={`${s.rango}: entró ${fmtColones(s.entro)}, por cobrar ${fmtColones(
                         s.porCobrar,
                       )}, gastos ${fmtColones(s.gastos)}, ${s.eventos} evento${s.eventos === 1 ? "" : "s"}`}
-                      className={`relative flex shrink-0 flex-col items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-aventurea-navy ${
-                        s.esActual ? "bg-aventurea-cream-2/70" : "hover:bg-aventurea-cream-2/40"
+                      // El gris de la columna actual y el del hover son
+                      // el MISMO gris sólido; antes eran dos alfas
+                      // distintos del mismo token.
+                      className={`relative flex shrink-0 flex-col items-center rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-aventurea-navy ${
+                        s.esActual ? "bg-aventurea-cream-2" : "hover:bg-aventurea-cream-2"
                       }`}
                       style={{ width: ANCHO_COLUMNA }}
                     >
@@ -203,17 +241,19 @@ export default function GraficoSemanal({
                           más altas se salen de su carril. */}
                       <div className="flex items-end gap-[2px]" style={{ height: ALTO_GRAFICO }}>
                         <span
-                          className="block rounded-t-[4px] bg-aventurea-green"
+                          className="block rounded-t-[5px] bg-aventurea-green"
                           style={{ width: GROSOR_BARRA, height: altoEntro }}
                         />
                         <span
-                          className="block rounded-t-[4px] bg-aventurea-blue"
+                          className="block rounded-t-[5px] bg-aventurea-blue"
                           style={{ width: GROSOR_BARRA, height: altoPorCobrar }}
                         />
                       </div>
                       <span
-                        className={`mt-1 whitespace-nowrap text-[9.5px] ${
-                          s.esActual ? "font-bold text-aventurea-ink" : "text-aventurea-ink-soft"
+                        className={`mt-1.5 whitespace-nowrap text-[10.5px] ${
+                          s.esActual
+                            ? "font-bold text-aventurea-ink"
+                            : "text-aventurea-ink-soft"
                         }`}
                       >
                         {etiquetaCorta(s)}
@@ -226,10 +266,15 @@ export default function GraficoSemanal({
                       {activa === s.clave && (
                         <div
                           role="status"
-                          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-[180px] -translate-x-1/2 rounded-xl border border-aventurea-line bg-aventurea-ink px-3.5 py-3 text-left text-white shadow-lg"
+                          // Fondo en la tinta fuerte (#161616) y no en el
+                          // navy: sobre navy el punto verde de la leyenda
+                          // cae a 2,55:1 y deja de pasar el 3:1 de un
+                          // elemento gráfico. Sobre la tinta, verde 3,48:1
+                          // y azul 4,43:1.
+                          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-[190px] -translate-x-1/2 rounded-xl bg-aventurea-ink px-3.5 py-3 text-left text-white shadow-elevado"
                         >
-                          <p className="text-[11.5px] font-bold">{s.rango}</p>
-                          <dl className="mt-1.5 flex flex-col gap-1 text-[12px]">
+                          <p className="text-[11.5px] font-extrabold">{s.rango}</p>
+                          <dl className="mt-2 flex flex-col gap-1.5 text-[12px]">
                             <FilaTooltip
                               color="bg-aventurea-green"
                               label="Entró"
@@ -240,13 +285,16 @@ export default function GraficoSemanal({
                               label="Por cobrar"
                               valor={fmtColones(s.porCobrar)}
                             />
+                            {/* Los gastos NO tienen barra en el gráfico,
+                                así que tampoco llevan punto de color: un
+                                punto sin nada a qué apuntar es una clave
+                                de leyenda que miente. */}
                             <FilaTooltip
-                              color="bg-white/30"
                               label="Gastos"
                               valor={s.gastos > 0 ? `−${fmtColones(s.gastos)}` : "—"}
                             />
                           </dl>
-                          <p className="mt-1.5 text-[10.5px] text-white/60">
+                          <p className="mt-2 text-[11px] text-aventurea-rail">
                             {s.eventos} evento{s.eventos === 1 ? "" : "s"}
                           </p>
                         </div>
@@ -272,7 +320,7 @@ function Th({
 }) {
   return (
     <th
-      className={`pb-2 text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft ${
+      className={`pb-2.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft ${
         alinear === "right" ? "text-right" : "text-left"
       }`}
     >
@@ -281,23 +329,48 @@ function Th({
   );
 }
 
+/** Una celda de plata: SIEMPRE a la derecha, tabular y sin partirse.
+ *  Es lo único que hace que cinco filas de montos se lean como una
+ *  columna y no como cinco textos sueltos. */
+function Td({ children, fuerte = false }: { children: React.ReactNode; fuerte?: boolean }) {
+  return (
+    <td
+      className={`whitespace-nowrap py-2.5 pl-3 text-right align-middle text-[13px] tabular-nums ${
+        fuerte ? "font-bold text-aventurea-ink" : "text-aventurea-ink-soft"
+      }`}
+    >
+      {children}
+    </td>
+  );
+}
+
 function Leyenda({ color, label }: { color: string; label: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-      <span className={`h-2.5 w-2.5 rounded-[3px] ${color}`} />
+    <span className={`flex items-center gap-1.5 ${CUERPO_SUAVE}`}>
+      <span aria-hidden className={`h-2.5 w-2.5 rounded-[3px] ${color}`} />
       {label}
     </span>
   );
 }
 
-function FilaTooltip({ color, label, valor }: { color: string; label: string; valor: string }) {
+function FilaTooltip({
+  color,
+  label,
+  valor,
+}: {
+  color?: string;
+  label: string;
+  valor: string;
+}) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="flex items-center gap-1.5 text-white/75">
-        <span className={`h-2 w-2 shrink-0 rounded-[2px] ${color}`} />
+      {/* `--color-aventurea-rail` (#9fb0cf) sobre la tinta del tooltip
+          (#161616): 8,46:1, sólido. Reemplaza al `text-white/75`. */}
+      <span className="flex items-center gap-1.5 text-aventurea-rail">
+        {color && <span aria-hidden className={`h-2 w-2 shrink-0 rounded-[2px] ${color}`} />}
         {label}
       </span>
-      <span className="font-bold tabular-nums">{valor}</span>
+      <span className="whitespace-nowrap font-bold tabular-nums">{valor}</span>
     </div>
   );
 }

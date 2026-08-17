@@ -2,6 +2,26 @@ import Link from "next/link";
 import Image from "next/image";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { Card, CardVacia, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BAJADA_PANTALLA,
+  CUERPO,
+  EYEBROW_NEUTRO,
+  GAP_TABLERO,
+  RADIO_CARD,
+  RADIO_TILE,
+  ROTULO_CIFRA,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
+import {
+  ACCION,
+  ACCION_BORDE,
+  ACCION_TINTA,
+  ACCION_TINTE,
+  BOTON_ACCION,
+  BOTON_LEALTAD,
+} from "../sistema-lealtad";
+import "../panel-oscuro.css";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { COOKIE_AVISOS, avisosOcultosDe } from "@/lib/lealtad/avisos-ocultos";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -38,6 +58,7 @@ import MetricasLealtad from "./metricas";
 import AuditoriaResumen from "./auditoria-resumen";
 import EquipoLealtad, { type MiembroEquipo } from "./equipo-cliente";
 import { ActividadLealtad, IntegracionesLealtad, WalletLealtad } from "./lealtad-secciones";
+import SeccionDevelopers from "./seccion-developers";
 import type { ProgramaFila, RecompensaFila } from "./pases-actions";
 
 /**
@@ -63,16 +84,6 @@ import type { ProgramaFila, RecompensaFila } from "./pases-actions";
  */
 
 const NAVY_PROFUNDO = "#0a1226";
-
-/* El azul de acción para fondo oscuro. Todo el panel vive sobre navy
-   profundo: el azul de marca se apaga ahí, y `--accion-claro` es la
-   versión que sí se lee, con su letra ya decidida. El tinte y el borde
-   translúcidos salen de la misma familia para que un bloque tenue y su
-   botón no parezcan dos colores distintos. */
-const ACCION = "var(--accion-claro)";
-const ACCION_TINTA = "var(--accion-claro-tinta)";
-const ACCION_TINTE = "rgba(157,180,255,.14)";
-const ACCION_BORDE = "rgba(157,180,255,.45)";
 
 export const metadata = { title: "Programa de lealtad · Bookea" };
 
@@ -118,8 +129,8 @@ export default async function PanelNegocioLealtad({
   if (enRevision) {
     return (
       <Antesala nombre={rancho.nombre}>
-        <p className="text-[15px] font-extrabold text-white">Tu negocio está en revisión</p>
-        <p className="mx-auto mt-2 max-w-[440px] text-[13.5px] leading-relaxed text-white/60">
+        <p className="text-[15px] font-extrabold text-aventurea-ink">Tu negocio está en revisión</p>
+        <p className={`mx-auto mt-2 max-w-[440px] ${CUERPO}`}>
           El equipo de Bookea revisa cada negocio nuevo antes de habilitarle el programa de
           lealtad. Te avisamos al correo apenas quede aprobado — de ahí elegís tu paquete y
           dejás la solicitud.
@@ -169,22 +180,24 @@ export default async function PanelNegocioLealtad({
       <Antesala nombre={rancho.nombre}>
         {pruebaTerminada ? (
           <>
-            <p className="text-[15px] font-extrabold text-white">
+            <p className="text-[15px] font-extrabold text-aventurea-ink">
               Se terminaron tus 14 días de prueba
             </p>
-            <p className="mx-auto mt-2 max-w-[460px] text-[13.5px] leading-relaxed text-white/60">
-              Tu programa quedó <b className="text-white/80">en pausa</b>: por ahora no se
+            <p className={`mx-auto mt-2 max-w-[460px] ${CUERPO}`}>
+              Tu programa quedó <b className="text-aventurea-ink">en pausa</b>: por ahora no se
               pueden dar sellos, canjear premios ni emitir tarjetas nuevas.
             </p>
-            <p className="mx-auto mt-3 max-w-[460px] rounded-2xl px-4 py-3 text-[13px] leading-relaxed font-bold text-white"
-              style={{ background: ACCION_TINTE }}>
+            <p
+              className={`mx-auto mt-3 max-w-[460px] ${RADIO_TILE} px-4 py-3 text-[13px] font-bold leading-relaxed text-aventurea-ink`}
+              style={{ background: ACCION_TINTE }}
+            >
               No se borró nada. Tus clientes, sus sellos y los pases que ya tienen en el
               teléfono siguen exactamente como estaban — elegí un paquete y todo vuelve tal
               cual lo dejaste.
             </p>
             <Link
               href={`/lealtad/planes?negocio=${id}`}
-              className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold"
+              className={`${BOTON_ACCION} mt-5 h-12 px-6 text-[14px]`}
               style={{ background: ACCION, color: ACCION_TINTA }}
             >
               Elegir mi paquete →
@@ -192,27 +205,27 @@ export default async function PanelNegocioLealtad({
           </>
         ) : solicitud ? (
           <>
-            <p className="text-[15px] font-extrabold text-white">
+            <p className="text-[15px] font-extrabold text-aventurea-ink">
               Tu solicitud del plan {definicionDe(solicitud.plan as string)?.nombre ?? ""} está en
               revisión
             </p>
-            <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-white/60">
+            <p className={`mx-auto mt-2 max-w-[420px] ${CUERPO}`}>
               El equipo de Bookea la está armando para que quede bien. Te avisamos al correo
               cuando el programa esté activo.
             </p>
           </>
         ) : (
           <>
-            <p className="text-[15px] font-extrabold text-white">
+            <p className="text-[15px] font-extrabold text-aventurea-ink">
               Este negocio todavía no tiene el programa de lealtad
             </p>
-            <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-white/60">
+            <p className={`mx-auto mt-2 max-w-[420px] ${CUERPO}`}>
               Elegí tu paquete y dejá la solicitud: el equipo de Bookea genera el programa y la
               tarjeta por vos, y te avisa cuando esté listo.
             </p>
             <Link
               href={`/lealtad/planes?negocio=${id}`}
-              className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold"
+              className={`${BOTON_ACCION} mt-5 h-12 px-6 text-[14px]`}
               style={{ background: ACCION, color: ACCION_TINTA }}
             >
               Ver los paquetes →
@@ -452,6 +465,14 @@ export default async function PanelNegocioLealtad({
             ]
           : []),
         { id: "poster", etiqueta: "Póster y QR", icono: "poster" as const },
+        // «Developers» es la promoción natural de Integraciones, que
+        // hoy vive enterrado dentro de Actividad. Va condicionado por
+        // `puedeDisenar` y NUNCA por permisos de colaborador, ni
+        // siquiera con `auditoria`: mirar el libro mayor y poder
+        // abrirle la puerta a un tercero no son el mismo permiso.
+        ...(puedeDisenar
+          ? [{ id: "developers", etiqueta: "Developers", icono: "actividad" as const }]
+          : []),
         ...(puedeDisenar ? [{ id: "plan", etiqueta: "Plan y facturación", icono: "plan" as const }] : []),
       ],
     },
@@ -605,6 +626,7 @@ export default async function PanelNegocioLealtad({
 
     programas: (
       <Seccion
+        eyebrow="Tu catálogo"
         titulo="Tarjetas"
         // La bajada dice dónde se toca el diseño porque la sección
         // «Tarjeta digital» del menú se quitó: quien la buscaba ahí
@@ -627,6 +649,7 @@ export default async function PanelNegocioLealtad({
 
     clientes: (
       <Seccion
+        eyebrow="Quién se afilió"
         titulo="Clientes"
         bajada="Quién se afilió, cuánto lleva cada quien y a quién le toca su regalía."
       >
@@ -642,23 +665,24 @@ export default async function PanelNegocioLealtad({
 
     poster: (
       <Seccion
+        eyebrow="Repartí tu tarjeta"
         titulo="Póster y QR"
         bajada="Con esto tus clientes consiguen la tarjeta: el código para el mostrador y el link para mandar."
       >
         <Link
           href={`/lealtad/panel/${id}/poster`}
-          className="flex items-center justify-between rounded-2xl border px-4 py-4 transition-colors hover:border-white/40"
+          className={`flex items-center justify-between gap-3 ${RADIO_TILE} border px-4 py-4 transition-colors hover:border-white/40`}
           style={{ background: ACCION_TINTE, borderColor: ACCION_BORDE }}
         >
-          <span>
-            <span className="block text-[14px] font-extrabold text-white">
+          <span className="min-w-0">
+            <span className="block text-[14px] font-extrabold leading-tight text-aventurea-ink">
               Diseñá e imprimí tu póster
             </span>
-            <span className="block text-[12.5px] text-white/60">
+            <span className="mt-0.5 block text-[12.5px] leading-snug text-aventurea-ink-soft">
               Hoja A4 lista para pegar en la caja, con tu QR, tus colores y tu regalía.
             </span>
           </span>
-          <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: ACCION }}>
+          <span aria-hidden className="shrink-0 text-[18px]" style={{ color: ACCION }}>
             →
           </span>
         </Link>
@@ -667,32 +691,40 @@ export default async function PanelNegocioLealtad({
     ),
 
     perfil: (
-      <Seccion titulo="Mi perfil" bajada="Tu cuenta de Bookea — la misma para todo el sistema.">
-        <div className="rounded-2xl border border-aventurea-line bg-white p-5">
-          <p className="text-[15px] font-extrabold text-aventurea-ink">{nombreUsuario}</p>
-          <p className="mt-0.5 text-[13px] text-aventurea-ink-soft">{acceso.user.email}</p>
-          <p className="mt-3 text-[12.5px] text-aventurea-ink-soft">
-            En {rancho.nombre} sos{" "}
-            <strong>
-              {acceso.esAdmin ? "administrador de Bookea" : acceso.esDueno ? "el dueño" : "colaborador"}
-            </strong>
-            .
-          </p>
+      <Seccion eyebrow="Tu cuenta" titulo="Mi perfil" bajada="Tu cuenta de Bookea — la misma para todo el sistema.">
+        {/* El rol NO es decoración: es lo que explica por qué esta
+            persona ve unas secciones y no otras. Va como píldora en el
+            encabezado, que es donde la maqueta pone el estado. */}
+        <Card
+          eyebrow="Con esta cuenta estás mirando"
+          titulo={nombreUsuario}
+          nivel="h3"
+          accion={
+            <PildoraEstado estado="info">
+              {acceso.esAdmin ? "Bookea" : acceso.esDueno ? "Dueño" : "Colaborador"}
+            </PildoraEstado>
+          }
+        >
+          <Campo etiqueta="Correo" valor={acceso.user.email ?? "—"} />
+          <Campo
+            etiqueta={`Tu rol en ${rancho.nombre}`}
+            valor={
+              acceso.esAdmin
+                ? "Administrador de Bookea"
+                : acceso.esDueno
+                  ? "El dueño del negocio"
+                  : "Colaborador"
+            }
+          />
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href="/cuenta"
-              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink"
-            >
+            <Link href="/cuenta" className={BOTON_LEALTAD}>
               Tu cuenta en Bookea →
             </Link>
-            <Link
-              href="/lealtad/panel"
-              className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink"
-            >
+            <Link href="/lealtad/panel" className={BOTON_LEALTAD}>
               Cambiar de negocio →
             </Link>
           </div>
-        </div>
+        </Card>
       </Seccion>
     ),
 
@@ -700,6 +732,7 @@ export default async function PanelNegocioLealtad({
       ? {
           actividad: (
             <Seccion
+              eyebrow="El libro"
               titulo="Actividad"
               bajada="Quién hizo qué y cuándo. Todo movimiento queda escrito; nada se borra."
             >
@@ -713,6 +746,7 @@ export default async function PanelNegocioLealtad({
           ),
           metricas: (
             <Seccion
+              eyebrow="Cómo va creciendo"
               titulo="Métricas"
               bajada="¿Está creciendo el programa? Los últimos 30 días contra los 30 anteriores."
             >
@@ -728,6 +762,7 @@ export default async function PanelNegocioLealtad({
       ? {
           equipo: (
             <Seccion
+              eyebrow="Quién acredita"
               titulo="Equipo"
               bajada="Quién puede dar sellos, canjear, revertir y ver la auditoría."
             >
@@ -741,30 +776,40 @@ export default async function PanelNegocioLealtad({
       ? {
           negocio: (
             <Seccion
+              eyebrow="Tu identidad"
               titulo="Negocio"
               bajada="Los datos con los que tu cliente te reconoce en la tarjeta y en la página."
             >
-              <div className="rounded-2xl border border-aventurea-line bg-white p-5">
+              <Card
+                eyebrow="Ficha"
+                titulo="Los datos de tu negocio"
+                nivel="h3"
+                /* Publicada o no es un ESTADO, y el estado va en el
+                   encabezado: sin slug el QR del póster lleva a una
+                   página que no existe, así que no es un detalle. Azul y
+                   no verde, como todo lo que está funcionando en
+                   Lealtad — el verde queda fuera de la marca del
+                   módulo (ver TONO_ESTADO). */
+                accion={
+                  <PildoraEstado estado={slug ? "info" : "neutro"}>
+                    {slug ? "Publicada" : "Sin publicar"}
+                  </PildoraEstado>
+                }
+              >
                 <Campo etiqueta="Nombre" valor={rancho.nombre} />
                 <Campo etiqueta="Dirección de tu tarjeta" valor={slug ? `/tarjeta/${slug}` : "Sin publicar"} />
                 <Campo etiqueta="Plan de lealtad" valor={def ? def.nombre : "Sin plan"} />
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Link
-                    href={`/mi-negocio/${id}`}
-                    className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink"
-                  >
+                  <Link href={`/mi-negocio/${id}`} className={BOTON_LEALTAD}>
                     Editar en tu panel de negocio →
                   </Link>
                   {slug && (
-                    <Link
-                      href={`/tarjeta/${slug}`}
-                      className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[12.5px] font-bold text-aventurea-ink"
-                    >
+                    <Link href={`/tarjeta/${slug}`} className={BOTON_LEALTAD}>
                       Ver la tarjeta del cliente →
                     </Link>
                   )}
                 </div>
-              </div>
+              </Card>
             </Seccion>
           ),
           // ── RECOMPENSAS = LAS REGALÍAS, no un asistente ─────────
@@ -784,6 +829,7 @@ export default async function PanelNegocioLealtad({
           // candado del tipo se hacen cumplir.
           recompensas: (
             <Seccion
+              eyebrow="Qué se gana"
               titulo="Recompensas"
               bajada="Qué se lleva tu cliente, cuánto le cuesta y cuál es la meta de la tarjeta."
             >
@@ -795,29 +841,32 @@ export default async function PanelNegocioLealtad({
                       manda. Decirlo es la diferencia entre editar la
                       que uno quiere y editar la que el sistema eligió. */}
                   {vivas.length > 1 && (
-                    <p className="rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3 text-[12.5px] leading-relaxed text-white/65">
+                    <p
+                      className={`${RADIO_TILE} border px-4 py-3 text-[12.5px] leading-relaxed text-aventurea-ink`}
+                      style={{ background: ACCION_TINTE, borderColor: ACCION_BORDE }}
+                    >
                       Estás viendo las regalías de{" "}
-                      <strong className="font-bold text-white">{principal?.nombre}</strong>, la
+                      <strong className="font-extrabold">{principal?.nombre}</strong>, la
                       tarjeta que está emitiendo pases. Las otras {vivas.length - 1} se editan
-                      desde <strong className="font-bold text-white">Tarjetas</strong>.
+                      desde <strong className="font-extrabold">Tarjetas</strong>.
                     </p>
                   )}
                   <EditorRecompensas />
                   <BloqueEstado />
                   <Link
                     href={`/lealtad/panel/${id}/editar/${p.id}`}
-                    className="flex items-center justify-between rounded-2xl border px-4 py-3.5 transition-colors hover:border-white/40"
+                    className={`flex items-center justify-between gap-3 ${RADIO_TILE} border px-4 py-3.5 transition-colors hover:border-white/40`}
                     style={{ background: ACCION_TINTE, borderColor: ACCION_BORDE }}
                   >
-                    <span>
-                      <span className="block text-[13.5px] font-extrabold text-white">
+                    <span className="min-w-0">
+                      <span className="block text-[13.5px] font-extrabold leading-tight text-aventurea-ink">
                         Cambiar el beneficio, las reglas o el tipo
                       </span>
-                      <span className="block text-[12px] text-white/60">
+                      <span className="mt-0.5 block text-[12px] leading-snug text-aventurea-ink-soft">
                         La meta, los vencimientos, los días permitidos y los topes de canje.
                       </span>
                     </span>
-                    <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: ACCION }}>
+                    <span aria-hidden className="shrink-0 text-[18px]" style={{ color: ACCION }}>
                       →
                     </span>
                   </Link>
@@ -834,8 +883,29 @@ export default async function PanelNegocioLealtad({
              una→ /editar/[programaId]—, que ya existía y sí sabe cuál
              está tocando. `BloqueDiseno` (el contenido de aquella
              sección) no se borró: es lo que ese editor monta adentro. */
+          developers: (
+            <Seccion
+              eyebrow="Quién se conecta"
+              titulo="Developers"
+              bajada="Quién puede hablarle a tu programa desde otro sistema, con qué permisos, y cómo lo desconectás."
+            >
+              <SeccionDevelopers
+                ranchoId={id}
+                tarjetas={todasLasFilas.map((f) => ({
+                  id: f.id as string,
+                  nombre: (f.nombre as string) ?? "Tarjeta",
+                  // El tope diario es la PRECONDICIÓN para dejar que
+                  // alguien acredite por API: sin él, una llave filtrada
+                  // imprime premios. La pantalla lo dice antes de que el
+                  // dueño intente y el RPC lo vuelva a rechazar.
+                  topeDiario: (f.max_diario_cliente as number | null) ?? null,
+                }))}
+              />
+            </Seccion>
+          ),
           plan: (
             <Seccion
+              eyebrow="Tu paquete"
               titulo="Plan y facturación"
               bajada="Qué incluye tu paquete, cuánto llevás consumido y qué gana si subís."
             >
@@ -907,12 +977,15 @@ export default async function PanelNegocioLealtad({
  */
 function Antesala({ nombre, children }: { nombre: string; children: React.ReactNode }) {
   return (
-    <main className="lealtad-oscuro min-h-svh px-5 py-8" style={{ background: NAVY_PROFUNDO }}>
+    <main className="lealtad-oscuro min-h-svh px-4 py-6 sm:px-6" style={{ background: NAVY_PROFUNDO }}>
       <div className="mx-auto w-full max-w-[720px]">
-        <header className="flex items-center justify-between">
+        {/* La misma barra de 64px que el shell del panel: quien llega
+            acá y quien llega al panel completo tienen que sentir que
+            entraron al mismo producto. */}
+        <header className="flex h-16 items-center justify-between">
           <Link
             href="/lealtad/panel"
-            className="text-[12.5px] font-bold text-white/50 hover:text-white"
+            className="text-[12.5px] font-bold text-aventurea-rail hover:text-white"
           >
             ← Mis negocios
           </Link>
@@ -922,16 +995,16 @@ function Antesala({ nombre, children }: { nombre: string; children: React.ReactN
               alt="Bookea"
               width={110}
               height={34}
-              className="h-[24px] w-auto"
+              className="h-[24px] w-auto opacity-70"
             />
           </Link>
         </header>
 
-        <h1 className="mt-6 text-[24px] font-extrabold text-white">{nombre}</h1>
+        <p className={EYEBROW_NEUTRO}>Programa de lealtad</p>
+        <h1 className={`mt-1.5 ${TITULO_PANTALLA}`}>{nombre}</h1>
 
         <div
-          className="mt-5 rounded-3xl border px-5 py-10 text-center"
-          style={{ background: "rgba(255,255,255,.035)", borderColor: "rgba(255,255,255,.09)" }}
+          className={`mt-5 ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface px-5 py-10 text-center`}
         >
           {children}
         </div>
@@ -940,53 +1013,61 @@ function Antesala({ nombre, children }: { nombre: string; children: React.ReactN
   );
 }
 
+/**
+ * EL TITULAR DE UNA SECCIÓN (`.heading` de la maqueta): kicker de
+ * contexto arriba, h2, bajada, y la acción de la pantalla pegada al
+ * borde derecho. El kicker no es decoración: es lo que dice en qué
+ * parte del panel estás sin tener que ir a mirar el menú.
+ */
 function Seccion({
+  eyebrow,
   titulo,
   bajada,
+  accion,
   children,
 }: {
+  eyebrow: string;
   titulo: string;
   bajada: string;
+  /** Lo que se puede hacer desde acá. Va a la derecha del titular. */
+  accion?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-[21px] font-extrabold leading-tight text-white sm:text-[23px]">
-          {titulo}
-        </h2>
-        <p className="mt-1 text-[13.5px] text-white/55">{bajada}</p>
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <p className={EYEBROW_NEUTRO}>{eyebrow}</p>
+          <h2 className={`mt-1.5 ${TITULO_PANTALLA}`}>{titulo}</h2>
+          <p className={`mt-1.5 ${BAJADA_PANTALLA}`}>{bajada}</p>
+        </div>
+        {accion}
       </div>
       {children}
     </div>
   );
 }
 
+/** El rótulo que separa dos bloques dentro de una sección. Sólido y no
+ *  `text-white/45` (que daba 4,05:1 sobre el navy y variaba según qué
+ *  hubiera detrás): el gris de texto del módulo, 7,61:1. */
 function Rotulo({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <h3
-      className={`mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45 ${className}`}
-    >
-      {children}
-    </h3>
-  );
+  return <h3 className={`mb-2.5 ${EYEBROW_NEUTRO} ${className}`}>{children}</h3>;
 }
 
 function Vacio({ texto }: { texto: string }) {
-  return (
-    <p className="rounded-2xl border border-dashed border-aventurea-line bg-white p-6 text-center text-[13.5px] text-aventurea-ink-soft">
-      {texto}
-    </p>
-  );
+  return <CardVacia>{texto}</CardVacia>;
 }
 
+/** Una fila de dato de solo lectura. Es la fila canónica del panel
+ *  puesta en modo ficha: rótulo en versalitas, dato en negrita y un
+ *  separador de 1px, sin la barrita de estado porque acá no hay estado
+ *  que comunicar. */
 function Campo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
     <div className="border-b border-aventurea-line py-2.5 first:pt-0 last:border-b-0">
-      <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-        {etiqueta}
-      </p>
-      <p className="mt-0.5 text-[13.5px] font-bold text-aventurea-ink">{valor}</p>
+      <p className={ROTULO_CIFRA}>{etiqueta}</p>
+      <p className="mt-1 text-[13.5px] font-bold text-aventurea-ink">{valor}</p>
     </div>
   );
 }

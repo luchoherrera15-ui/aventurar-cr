@@ -2,8 +2,8 @@
  * EL CATÁLOGO DE LEALTAD, EN LA FORMA EN QUE SALE A LA CALLE.
  *
  * `planes.ts` es la fuente de verdad, pero es un archivo de PRODUCTO:
- * tiene los paquetes retirados con sus precios de antes, los topes que
- * están declarados pero no se hacen cumplir, y la lista de capacidades
+ * puede tener paquetes retirados con sus precios de antes, tiene topes
+ * declarados que no se hacen cumplir, y tiene la lista de capacidades
  * que no tienen nada detrás. Nada de eso puede viajar por la red.
  *
  * Este módulo es el filtro: toma `PLANES_VIGENTES` y devuelve
@@ -29,7 +29,10 @@
  * LO QUE NO SALE, Y POR QUÉ
  * ------------------------------------------------------------------
  *   · Los paquetes RETIRADOS (`vigente: false`). Nadie los puede
- *     comprar, y publicar el precio de «Pro» ($69) invita a pedirlo.
+ *     comprar, y publicar el precio de un paquete que ya no se vende
+ *     —«Pro» costaba $69— invita a pedirlo. Hoy el catálogo no arrastra
+ *     ninguno, así que el filtro no saca a nadie; se escribe igual,
+ *     porque el primero que se retire pasa por acá.
  *   · Las capacidades de `CAPACIDADES_SIN_PRODUCTO`. Ningún paquete
  *     ofrecido las trae —hay una prueba que lo impide— pero el filtro
  *     se escribe igual: es la última puerta antes de la red, y una
@@ -207,7 +210,15 @@ function planPublicoDe(def: DefinicionPlan): PlanPublico {
  * compartido que alguien pueda mutar por accidente.
  */
 export function catalogoPublico(): CatalogoPublico {
-  const planes = PLANES_VIGENTES.map(planPublicoDe);
+  // El `filter` es la última puerta antes de la red, igual que el de
+  // las capacidades sin producto: `PLANES_VIGENTES` ya sale filtrado
+  // de `planes.ts`, así que hoy no saca a nadie. Se escribe igual
+  // porque las dos listas que lo arman —`PLANES_OFRECIDOS` y el campo
+  // `vigente`— se pueden desincronizar, y de las dos la que manda para
+  // «esto ya no se vende» es `vigente`. Publicar el precio de un
+  // paquete retirado invita a pedirlo, y lo que ya bajó un teléfono no
+  // se despublica.
+  const planes = PLANES_VIGENTES.filter((def) => def.vigente).map(planPublicoDe);
   return {
     version: VERSION_CATALOGO,
     moneda: "USD",

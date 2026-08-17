@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { IconoSello } from "@/lib/lealtad/iconos-sello";
+import type { SelloElegido } from "@/lib/lealtad/iconos-sello";
 import type { TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import type { HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
 import HiloAyudaDiseno from "@/components/hilo-ayuda-diseno";
@@ -46,7 +46,7 @@ export default function AyudaDeDiseno({
   tipo: TipoTarjeta;
   colorFondo: string;
   colorSello: string;
-  iconoSello: IconoSello | null;
+  iconoSello: SelloElegido | null;
   tieneLogo: boolean;
   tieneBanda: boolean;
 }) {

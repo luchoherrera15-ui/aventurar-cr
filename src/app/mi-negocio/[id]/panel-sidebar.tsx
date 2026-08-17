@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { IconChevronDown } from "@/components/icons";
+import { RAIL_GRUPO, RAIL_ITEM } from "@/components/panel/sistema";
 import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
 
 /** Con `href` el ítem es un link a otra pantalla (sin contenido acá). */
@@ -166,19 +167,46 @@ export default function PanelSidebar({
           const abreGrupo = conEncabezados && !!t.grupo && t.grupo !== grupoPintado;
           const primerGrupo = abreGrupo && grupoPintado === undefined;
           if (t.grupo) grupoPintado = t.grupo;
-          const base =
-            "flex items-center gap-2.5 rounded-xl border-l-[3px] px-3.5 py-2.5 text-[13.5px] font-bold transition-colors";
+          // La piel del ítem sale del sistema del panel
+          // (`components/panel/sistema.ts`), que es donde está medido su
+          // contraste; acá solo se decide QUÉ estado tiene cada uno.
+          //
+          // SE FUERON LOS ALFAS. El reposo era `text-white/60` y el
+          // hover `bg-white/5`: como la columna es un DEGRADÉ, el mismo
+          // estado terminaba viéndose de dos colores según a qué altura
+          // del menú cayera el ítem, y su contraste no se podía medir
+          // una vez y darlo por bueno. Ahora los dos son sólidos —
+          // `--color-aventurea-rail` (4,93:1 arriba, 6,33:1 abajo) y
+          // `navy-3` con letra blanca (8,31:1).
+          const base = RAIL_ITEM;
           const cls = t.proximamente
-            ? `${base} cursor-default border-transparent text-white/60`
-            : `${base} border-transparent ${
-                activa ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+            ? `${base} cursor-default text-aventurea-rail`
+            : `${base} ${
+                activa
+                  ? "text-white"
+                  : "text-aventurea-rail hover:bg-aventurea-navy-3 hover:text-white"
               }`;
           // El acento pinta el ítem activo. Sin `acento` (o si alguien
-          // reusa este componente sin pasarlo) cae al blanco tenue de
-          // siempre, así que nunca queda un ítem sin fondo.
+          // reusa este componente sin pasarlo) cae al navy elevado, que
+          // también es sólido: nunca queda un ítem sin fondo.
+          //
+          // La maqueta marca el activo con `rgba(255,255,255,.12)` +
+          // una barrita `inset 3px 0 var(--accent)`. Acá el relleno
+          // ENTERO es el acento, y no es un descuido: (a) ese blanco al
+          // 12% es un alfa marcando estado, justo lo que la auditoría
+          // dejó afuera; (b) con el relleno sólido, una barrita del
+          // mismo color sería invisible, y con un relleno navy la
+          // barrita desaparecería para los acentos azul y navy, que
+          // caen encima del propio fondo del rail. Un relleno sólido
+          // del rubro se ve de lejos, se mide una vez (≥5,18:1 en los
+          // ocho acentos, `identidad.test.ts`) y no depende del degradé.
+          //
+          // El `border-l-[3px] border-transparent` de `RAIL_ITEM` se
+          // queda igual: reserva los 3px para que el texto no se corra
+          // al pasar de reposo a activo.
           const estilo: CSSProperties | undefined = activa
             ? {
-                background: "var(--acento-solido, rgba(255,255,255,.10))",
+                background: "var(--acento-solido, #2f4a94)",
                 color: "var(--acento-sobre, white)",
               }
             : undefined;
@@ -190,7 +218,7 @@ export default function PanelSidebar({
                   ítem con href (Citas) quedaba corrido a la izquierda. */}
               <span className="flex-1 truncate text-center">{t.label}</span>
               {t.proximamente && (
-                <span className="shrink-0 rounded-lg border border-white/15 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-white/60">
+                <span className="shrink-0 rounded-lg border border-aventurea-navy-3 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-aventurea-rail">
                   Pronto
                 </span>
               )}
@@ -225,9 +253,7 @@ export default function PanelSidebar({
           return (
             <Fragment key={t.id}>
               {abreGrupo && (
-                <p
-                  className={`px-3.5 pb-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/60 ${primerGrupo ? "" : "mt-3"}`}
-                >
+                <p className={`${RAIL_GRUPO} ${primerGrupo ? "" : "mt-3"}`}>
                   {GRUPO_LABEL[t.grupo as GrupoId]}
                 </p>
               )}
@@ -285,14 +311,14 @@ export default function PanelSidebar({
           de un consultorio en una laptop de 768px de alto.
           Debajo de lg esto es un bloque normal con el padding de la
           página: no hay rail que pintar. */}
-      <div className="px-4 pt-6 sm:px-6 lg:sticky lg:top-16 lg:h-[calc(100svh-4rem)] lg:overflow-y-auto lg:bg-gradient-to-b lg:from-aventurea-navy-2 lg:to-aventurea-navy lg:px-4 lg:pb-6 lg:pt-5">
+      <div className="px-4 pt-6 sm:px-6 lg:sticky lg:top-16 lg:h-[calc(100svh-4rem)] lg:overflow-y-auto lg:bg-aventurea-rail-fondo lg:px-4 lg:pb-6 lg:pt-5">
         {identidad && (
           /* En el teléfono la identidad es su propia tarjeta navy; en el
              rail ya ESTÁ sobre navy, así que ahí se queda sin tarjeta
              (una tarjeta navy sobre una columna navy es un rectángulo
              invisible) y la separa del menú una línea sólida de la misma
              familia — `navy-3`, no un blanco con alfa. */
-          <div className="mb-3 rounded-3xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-4 text-white shadow-lg lg:mb-4 lg:rounded-none lg:border-b lg:border-aventurea-navy-3 lg:bg-none lg:p-0 lg:pb-4 lg:shadow-none">
+          <div className="mb-3 rounded-3xl bg-aventurea-rail-fondo p-4 text-white shadow-lg lg:mb-4 lg:rounded-none lg:border-b lg:border-aventurea-navy-3 lg:bg-none lg:p-0 lg:pb-4 lg:shadow-none">
             {identidad}
           </div>
         )}
@@ -320,7 +346,7 @@ export default function PanelSidebar({
             aria-expanded={selectorAbierto}
             aria-controls={idMenuMovil}
             aria-haspopup="true"
-            className="flex w-full items-center justify-between gap-2 rounded-2xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy px-4 py-3 text-[14px] font-bold text-white shadow-sm"
+            className="flex w-full items-center justify-between gap-2 rounded-2xl bg-aventurea-rail-fondo px-4 py-3 text-[14px] font-bold text-white shadow-sm"
           >
             <span className="flex items-center gap-2 truncate">
               {seccionActiva?.icon && (

@@ -1,11 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmtColones } from "@/lib/finanzas";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { reporteCitas, type CitaReporte, type ReporteCitas } from "@/lib/metricas-citas";
 import type { Vocabulario } from "@/lib/business/identidad";
+import {
+  Card,
+  CardVacia,
+  EsqueletoMetrica,
+  FilaPanel,
+  Metrica,
+  PildoraEstado,
+} from "@/components/panel/piezas";
+import {
+  ACCION_ACENTO,
+  CUERPO_SUAVE,
+  DETALLE,
+  ESTADO_AVISO,
+  GAP_METRICAS,
+  GAP_TABLERO,
+  MARCA_ACENTO,
+} from "@/components/panel/sistema";
+import {
+  IconCalendarLine,
+  IconChartBars,
+  IconCheck,
+  IconWarning,
+} from "@/components/icons";
 
 /**
  * Los números del negocio de citas: cuántas citas, quién las atendió,
@@ -15,6 +39,21 @@ import type { Vocabulario } from "@/lib/business/identidad";
  *
  * Las palabras y el color los pone el tipo de negocio: el mismo reporte
  * cuenta CONSULTAS en un consultorio y SESIONES en un gimnasio.
+ *
+ * ── EL REDISEÑO ────────────────────────────────────────────────────
+ * La piel es la del panel (`referencia/bookeapaneles.html`): los cuatro
+ * números arriba son `Metrica` con el disco de ícono en el acento del
+ * rubro, y los tres listados son `Card` + `FilaPanel`, la misma fila que
+ * usan la agenda y Finanzas.
+ *
+ * Y los números ya no cambian de color. El no-show alto se pintaba con
+ * la tarjeta entera en rojo, o sea una métrica normal y otra que parece
+ * un error del sistema; ahora la cifra va siempre en la tinta fuerte
+ * (18,10:1) y la alarma es una píldora `alerta` con palabras. Mismo
+ * umbral, misma cuenta: `tasaNoShow >= 0.15`.
+ *
+ * Ni una consulta ni un cálculo cambiaron: la query a `reservas` y
+ * `reporteCitas()` son exactamente los mismos.
  */
 
 type Rango = "30" | "90" | "365";
@@ -68,48 +107,27 @@ export default function ReportesCitas({
     };
   }, [ranchoId, rango]);
 
-  const stat = (etiqueta: string, valor: string, alerta?: boolean) => (
-    <div
-      className={`min-w-[140px] flex-1 rounded-2xl border px-5 py-3.5 sm:flex-none ${
-        alerta ? "border-red-300 bg-red-50" : "border-aventurea-line bg-white"
-      }`}
-    >
-      <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-        {etiqueta}
-      </p>
-      <p
-        className={`text-[18px] font-extrabold tabular-nums ${alerta ? "text-red-700" : "text-aventurea-ink"}`}
-      >
-        {valor}
-      </p>
-    </div>
-  );
-
   const maxHora = Math.max(1, ...(reporte?.horasPico.map((h) => h.veces) ?? [1]));
+  const noShowAlto = reporte?.tasaNoShow !== null && (reporte?.tasaNoShow ?? 0) >= 0.15;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
+      {/* El selector de rango: el activo lleva el acento del tipo de
+          negocio (`sobreSolido` sobre `solido`, ≥5,18:1 en los ocho
+          acentos del catálogo). Es una ACCIÓN, que es uno de los tres
+          papeles que el acento tiene permitido. */}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Período del reporte">
         {(Object.keys(RANGO_LABEL) as Rango[]).map((r) => (
           <button
             key={r}
             type="button"
             onClick={() => setRango(r)}
             aria-pressed={rango === r}
-            // El rango activo lleva el acento del tipo de negocio.
-            style={
+            style={rango === r ? (ACCION_ACENTO as CSSProperties) : undefined}
+            className={`inline-flex h-9 items-center rounded-xl border px-3.5 text-[12.5px] font-bold transition-colors ${
               rango === r
-                ? {
-                    backgroundColor: "var(--acento-solido)",
-                    borderColor: "var(--acento-solido)",
-                    color: "var(--acento-sobre)",
-                  }
-                : undefined
-            }
-            className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
-              rango === r
-                ? ""
-                : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-sky"
+                ? "border-transparent"
+                : "border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft hover:border-aventurea-navy hover:text-aventurea-navy"
             }`}
           >
             {RANGO_LABEL[r]}
@@ -117,122 +135,182 @@ export default function ReportesCitas({
         ))}
       </div>
 
-      {error && <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          className={`rounded-xl p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}
+        >
+          {error}
+        </p>
+      )}
 
       {!reporte ? (
-        <p className="text-[13px] text-aventurea-ink-soft">Cargando...</p>
+        // El esqueleto calca los cuatro números que vienen: si midiera
+        // distinto, la sección saltaría al llegar los datos.
+        <div className={`grid grid-cols-2 ${GAP_METRICAS} lg:grid-cols-4`}>
+          {[0, 1, 2, 3].map((i) => (
+            <EsqueletoMetrica key={i} />
+          ))}
+        </div>
       ) : reporte.total === 0 ? (
-        <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
-          Sin {visita.plural} en ese rango todavía.
-        </p>
+        <CardVacia>
+          Sin {visita.plural} en ese rango todavía. Cuando empieces a agendar, acá vas a
+          ver la asistencia, los ingresos y las horas en que más te buscan.
+        </CardVacia>
       ) : (
         <>
-          <div className="flex flex-wrap gap-3">
-            {stat(visita.Plural, String(reporte.total))}
-            {stat("Atendidas", String(reporte.cumplidas))}
-            {stat(
-              "No-shows",
-              reporte.tasaNoShow === null
-                ? String(reporte.noShows)
-                : `${reporte.noShows} (${Math.round(reporte.tasaNoShow * 100)}%)`,
-              reporte.tasaNoShow !== null && reporte.tasaNoShow >= 0.15,
-            )}
-            {stat("Ingresos (atendidas)", fmtColones(reporte.ingresos))}
+          <div className={`grid grid-cols-2 ${GAP_METRICAS} lg:grid-cols-4`}>
+            <Metrica
+              rotulo={visita.Plural}
+              valor={String(reporte.total)}
+              detalle={RANGO_LABEL[rango].toLowerCase()}
+              icono={<IconCalendarLine />}
+            />
+            <Metrica
+              rotulo="Atendidas"
+              valor={String(reporte.cumplidas)}
+              detalle={`de ${reporte.total} agendadas`}
+              icono={<IconCheck />}
+            />
+            <Metrica
+              rotulo="No-shows"
+              valor={
+                reporte.tasaNoShow === null
+                  ? String(reporte.noShows)
+                  : `${reporte.noShows} (${Math.round(reporte.tasaNoShow * 100)}%)`
+              }
+              icono={<IconWarning />}
+              // La alarma es una píldora con palabras, no la tarjeta
+              // teñida de rojo. Mismo umbral que antes.
+              tendencia={
+                noShowAlto ? <PildoraEstado estado="alerta">Alto</PildoraEstado> : undefined
+              }
+            />
+            <Metrica
+              rotulo="Ingresos"
+              valor={fmtColones(reporte.ingresos)}
+              detalle="solo las atendidas"
+              icono={<IconChartBars />}
+            />
           </div>
 
           {reporte.sinMarcar > 0 && (
-            <p className="rounded-xl bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
+            <p className={`rounded-xl p-3 text-[12.5px] leading-relaxed ${ESTADO_AVISO.info}`}>
               {reporte.sinMarcar} {reporte.sinMarcar === 1 ? visita.singular : visita.plural} de
-              días pasados sin marcar (¿vino o no vino?) — los números de asistencia
-              quedan incompletos hasta marcarlas en la Agenda del día.
+              días pasados sin marcar (¿vino o no vino?) — los números de asistencia quedan
+              incompletos hasta marcarlas en la Agenda del día.
             </p>
           )}
 
           {reporte.porMiembro.length > 0 && (
-            <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-              <p className="border-b border-aventurea-line px-4 py-2.5 text-[11.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                Por persona
-              </p>
-              {reporte.porMiembro.map((m) => (
-                <div
+            <Card
+              eyebrow="Quién atiende"
+              titulo="Por persona"
+              accion={
+                <PildoraEstado estado="neutro">
+                  {reporte.porMiembro.length}{" "}
+                  {reporte.porMiembro.length === 1 ? "persona" : "personas"}
+                </PildoraEstado>
+              }
+            >
+              {reporte.porMiembro.map((m, i) => (
+                <FilaPanel
                   key={m.miembroId ?? "sin"}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-aventurea-line px-4 py-2.5 last:border-none"
-                >
-                  <p className="min-w-0 flex-1 text-[13.5px] font-bold text-aventurea-ink">
-                    {m.miembroId
+                  marca={m.noShows > 0 ? "aviso" : "exito"}
+                  titulo={
+                    m.miembroId
                       ? (nombreMiembro.get(m.miembroId) ?? "Alguien que ya no está")
-                      : "Sin asignar"}
-                  </p>
-                  <p className="text-[12.5px] tabular-nums text-aventurea-ink-soft">
-                    {m.citas} {m.citas === 1 ? visita.singular : visita.plural}
-                    {" · "}
-                    {m.cumplidas} atendida{m.cumplidas === 1 ? "" : "s"}
-                    {m.noShows > 0 && ` · ${m.noShows} no-show${m.noShows === 1 ? "" : "s"}`}
-                  </p>
-                  <p className="w-[90px] text-right text-[13px] font-extrabold tabular-nums text-aventurea-ink">
-                    {fmtColones(m.ingresos)}
-                  </p>
-                </div>
+                      : "Sin asignar"
+                  }
+                  detalle={`${m.citas} ${m.citas === 1 ? visita.singular : visita.plural} · ${
+                    m.cumplidas
+                  } atendida${m.cumplidas === 1 ? "" : "s"}${
+                    m.noShows > 0
+                      ? ` · ${m.noShows} no-show${m.noShows === 1 ? "" : "s"}`
+                      : ""
+                  }`}
+                  separador={i < reporte.porMiembro.length - 1}
+                  derecha={<Monto>{fmtColones(m.ingresos)}</Monto>}
+                />
               ))}
-            </div>
+            </Card>
           )}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className={`grid grid-cols-1 ${GAP_TABLERO} lg:grid-cols-2`}>
             {reporte.topServicios.length > 0 && (
-              <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-                <p className="border-b border-aventurea-line px-4 py-2.5 text-[11.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Servicios más pedidos
-                </p>
-                {reporte.topServicios.map((s) => (
-                  <div
+              <Card
+                eyebrow="Demanda"
+                titulo="Servicios más pedidos"
+                accion={
+                  <PildoraEstado estado="neutro">{reporte.topServicios.length}</PildoraEstado>
+                }
+              >
+                {reporte.topServicios.map((s, i) => (
+                  <FilaPanel
                     key={s.nombre}
-                    className="flex items-center gap-3 border-b border-aventurea-line px-4 py-2.5 last:border-none"
-                  >
-                    <p className="min-w-0 flex-1 truncate text-[13px] font-bold text-aventurea-ink">
-                      {s.nombre}
-                    </p>
-                    <p className="text-[12.5px] tabular-nums text-aventurea-ink-soft">
-                      {s.veces}×
-                    </p>
-                    <p className="w-[84px] text-right text-[12.5px] font-bold tabular-nums text-aventurea-ink">
-                      {fmtColones(s.ingresos)}
-                    </p>
-                  </div>
+                    marca="info"
+                    titulo={s.nombre}
+                    detalle={`${s.veces} ${s.veces === 1 ? "vez" : "veces"}`}
+                    separador={i < reporte.topServicios.length - 1}
+                    derecha={<Monto>{fmtColones(s.ingresos)}</Monto>}
+                  />
                 ))}
-              </div>
+              </Card>
             )}
 
             {reporte.horasPico.length > 0 && (
-              <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
-                <p className="mb-3 text-[11.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Horas pico
-                </p>
-                <div className="flex flex-col gap-1.5">
+              <Card
+                eyebrow="Cuándo te buscan"
+                titulo="Horas pico"
+                accion={
+                  <span className={CUERPO_SUAVE}>
+                    {visita.plural} por hora
+                  </span>
+                }
+              >
+                <div className="flex flex-col gap-2">
                   {reporte.horasPico.map((h) => (
-                    <div key={h.hora} className="flex items-center gap-2">
-                      <span className="w-[42px] text-[11.5px] font-bold tabular-nums text-aventurea-ink-soft">
+                    <div key={h.hora} className="flex items-center gap-2.5">
+                      <span className="w-[46px] shrink-0 text-[12px] font-bold tabular-nums text-aventurea-ink-soft">
                         {String(h.hora).padStart(2, "0")}:00
                       </span>
-                      <div className="h-[10px] flex-1 overflow-hidden rounded bg-aventurea-cream-2">
+                      {/* Carril hundido + relleno en el acento del rubro:
+                          el mismo par que la barra de progreso del menú.
+                          Sólido contra el gris del carril, ≥4,71:1. */}
+                      <div className="h-2.5 flex-1 overflow-hidden rounded-full border border-aventurea-line bg-aventurea-cream-2">
                         <div
-                          className="h-full rounded"
+                          className="h-full rounded-full"
                           style={{
                             width: `${Math.round((h.veces / maxHora) * 100)}%`,
-                            backgroundColor: "var(--acento-solido)",
+                            ...(MARCA_ACENTO as CSSProperties),
                           }}
                         />
                       </div>
-                      <span className="w-[26px] text-right text-[11.5px] tabular-nums text-aventurea-ink-soft">
+                      <span className="w-[30px] shrink-0 text-right text-[12px] font-bold tabular-nums text-aventurea-ink">
                         {h.veces}
                       </span>
                     </div>
                   ))}
                 </div>
-              </div>
+                <p className={`mt-3 ${DETALLE}`}>
+                  Las horas en que más {visita.plural} se agendaron en el período.
+                </p>
+              </Card>
             )}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+/** Un monto de la columna derecha: alineado a la derecha, tabular y sin
+ *  partirse nunca — «₡12.500.000» cortado no es un número redondeado,
+ *  es un número equivocado. */
+function Monto({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="shrink-0 whitespace-nowrap text-right text-[13px] font-extrabold tabular-nums text-aventurea-ink">
+      {children}
+    </span>
   );
 }

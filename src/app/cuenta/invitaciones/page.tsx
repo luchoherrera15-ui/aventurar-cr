@@ -10,6 +10,12 @@ import {
   IconSparkles,
   IconUsers,
 } from "@/components/icons";
+import {
+  BAJADA_PANTALLA,
+  EYEBROW,
+  LIENZO_PANEL,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
 import { hoyISOCR } from "@/lib/fechas";
 import {
   MESES_RETENCION_INVITACION,
@@ -195,16 +201,16 @@ export default async function CuentaInvitacionesPage() {
   const sinNada = invitaciones.length === 0 && albumes.length === 0;
 
   return (
-    <div className="min-h-screen bg-aventurea-cream">
+    <div className={`min-h-screen ${LIENZO_PANEL}`}>
       <SiteHeader breadcrumb="Invitaciones y álbumes" ancho="max-w-[720px]" />
-      <main className="mx-auto max-w-[720px] px-4 py-10 sm:px-6">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aventurea-orange">
-          Tu espacio
-        </p>
-        <h1 className="titulo mt-2 text-[clamp(26px,4vw,34px)] text-aventurea-ink">
-          Invitaciones y álbumes
-        </h1>
-        <p className="mb-8 mt-2 max-w-[54ch] text-[14px] leading-relaxed text-aventurea-ink-soft">
+      <main className="mx-auto max-w-[720px] px-4 py-6 sm:px-6">
+        {/* El kicker usaba `text-aventurea-orange` (#ee7420) sobre fondo
+            claro: 2,94:1, por debajo hasta del 3:1 de texto grande — y
+            esto es letra de 11px. Pasa al naranja que sí se lee sobre
+            claro, `--orange-fuerte`: 5,76:1 sobre el lienzo. */}
+        <p className={EYEBROW}>Tu espacio</p>
+        <h1 className={`mt-2 ${TITULO_PANTALLA}`}>Invitaciones y álbumes</h1>
+        <p className={`mb-6 mt-2 max-w-[54ch] ${BAJADA_PANTALLA}`}>
           Tus eventos, la lista de confirmados y las fotos que suben tus
           invitados — todo en un solo lugar.
         </p>

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { comprimirImagen } from "@/lib/comprimir-imagen";
+import { analizarImagen, comprimirImagen, type AnalisisImagen } from "@/lib/comprimir-imagen";
 
 /**
  * SUBIR UNA IMAGEN, sin pedirle una URL a nadie.
@@ -55,6 +55,8 @@ export const PRESETS = {
     // oscuro —y el pase de Wallet es navy—, que es lo que reventaba el
     // recorte de sharp al generar el pase. Ver `comprimir-imagen.ts`.
     conservarAlfa: true,
+    /** Ancho de la miniatura en el recuadro «Imagen cargada». */
+    anchoVista: 56,
   },
   banner: {
     ladoMax: 1200,
@@ -63,6 +65,26 @@ export const PRESETS = {
     ayuda: "Apaisada, tipo banner",
     // Una banda es una foto: JPEG sobre blanco, como el resto del sitio.
     conservarAlfa: false,
+    anchoVista: 132,
+  },
+  /**
+   * EL ÍCONO PROPIO DEL SELLO (0174).
+   *
+   * 256 px y no 512: el sello se dibuja a unos 30 px en el teléfono, y
+   * en `strip@3x.png` el círculo más grande ronda los 90. Subir más
+   * resolución no agrega un detalle que se pueda ver, y sí agrega peso
+   * a un archivo que el generador baja cada vez que refresca un pase.
+   *
+   * Con alfa, como el logo y por lo mismo: el ícono va adentro de un
+   * círculo, y un cuadrado blanco ahí se lee como un sticker pegado.
+   */
+  icono: {
+    ladoMax: 256,
+    calidad: 0.92,
+    relacion: "1 / 1",
+    ayuda: "Cuadrado, fondo transparente, un símbolo simple",
+    conservarAlfa: true,
+    anchoVista: 56,
   },
 } as const;
 
@@ -76,6 +98,7 @@ export default function SubirImagen({
   destino = "logo",
   etiqueta,
   carpeta,
+  alAnalizar,
 }: {
   /** La URL actual, o "" si no hay. */
   valor: string;
@@ -84,6 +107,16 @@ export default function SubirImagen({
   etiqueta: string;
   /** Prefijo de la ruta en el bucket. */
   carpeta: string;
+  /**
+   * Qué se vio en la imagen: si tiene fondo opaco y de qué color es en
+   * promedio (`analizarImagen`). Opcional, y solo lo pide quien tenga
+   * algo que avisar con eso — hoy el ícono del sello, que va adentro de
+   * un círculo y puede quedar invisible o cuadrado.
+   *
+   * Se llama con `null` al quitar la imagen, para que el aviso se vaya
+   * junto con ella.
+   */
+  alAnalizar?: (analisis: AnalisisImagen | null) => void;
 }) {
   const preset = PRESETS[destino];
   const input = useRef<HTMLInputElement | null>(null);
@@ -134,6 +167,11 @@ export default function SubirImagen({
         return;
       }
 
+      // El análisis va sobre la imagen YA comprimida, que es la que se
+      // sube: mirar el original diría «tiene alfa» de un PNG que salió
+      // aplastado contra blanco en el paso anterior.
+      if (alAnalizar) alAnalizar(await analizarImagen(liviano));
+
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(ruta);
       alCambiar(data.publicUrl);
     } catch {
@@ -157,7 +195,7 @@ export default function SubirImagen({
             src={valor}
             alt=""
             className="shrink-0 rounded-lg object-cover"
-            style={{ aspectRatio: preset.relacion, width: destino === "logo" ? 56 : 132 }}
+            style={{ aspectRatio: preset.relacion, width: preset.anchoVista }}
           />
           <div className="min-w-0 flex-1">
             <p className="text-[12.5px] font-bold text-bookea-tinta">Imagen cargada</p>
@@ -168,6 +206,7 @@ export default function SubirImagen({
             onClick={() => {
               alCambiar("");
               setError(null);
+              alAnalizar?.(null);
             }}
             className="shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-bookea-gris underline hover:text-bookea-tinta"
           >

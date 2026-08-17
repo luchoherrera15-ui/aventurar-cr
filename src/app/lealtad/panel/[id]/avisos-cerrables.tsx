@@ -8,6 +8,7 @@ import {
   conAvisoCerrado,
   sinAvisosCerrados,
 } from "@/lib/lealtad/avisos-ocultos";
+import { CUERPO_SUAVE, RADIO_TILE } from "@/components/panel/sistema";
 import { Icono } from "./iconos";
 
 /**
@@ -112,7 +113,12 @@ export default function AvisosCerrables({
             onClick={() => cerrar(aviso.clave)}
             aria-label={`Cerrar «${aviso.etiqueta}»`}
             title="Cerrar y ver el tablero"
-            className="absolute right-2.5 top-2.5 grid h-8 w-8 place-items-center rounded-xl text-white/45 transition-colors hover:bg-white/10 hover:text-white sm:right-3.5 sm:top-3.5"
+            /* Sólido y no `text-white/45`: esta X cae sobre TRES fondos
+               distintos (el bloque de acento, la tarjeta y la lista de
+               pasos) y al 45 % se veía de tres grises, uno de ellos por
+               debajo de AA. `text-aventurea-ink-soft` es el gris de
+               texto del módulo: 6,81:1 sobre la tarjeta. */
+            className="absolute right-2.5 top-2.5 grid h-8 w-8 place-items-center rounded-xl text-aventurea-ink-soft transition-colors hover:bg-white/10 hover:text-white sm:right-3.5 sm:top-3.5"
           >
             <Icono nombre="cerrar" className="h-[17px] w-[17px]" />
           </button>
@@ -123,15 +129,14 @@ export default function AvisosCerrables({
         <button
           type="button"
           onClick={reabrir}
-          className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border border-dashed px-4 py-2.5 text-left transition-colors hover:bg-white/[.04]"
-          style={{ borderColor: "rgba(255,255,255,.16)" }}
+          className={`flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 ${RADIO_TILE} border border-dashed border-aventurea-line px-4 py-2.5 text-left transition-colors hover:border-aventurea-navy`}
         >
-          <span className="text-[12.5px] text-white/45">
+          <span className={CUERPO_SUAVE}>
             {cerrados === 1
               ? "Cerraste 1 aviso de puesta en marcha"
               : `Cerraste ${cerrados} avisos de puesta en marcha`}
           </span>
-          <span className="text-[12.5px] font-bold text-white/70">
+          <span className="text-[12.5px] font-bold text-aventurea-navy">
             {cerrados === 1 ? "Volver a mostrarlo" : "Volver a mostrarlos"} →
           </span>
         </button>

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { RADIO_CARD } from "@/components/panel/sistema";
+import { ACCION, ACCION_TINTA } from "../sistema-lealtad";
 
 /**
  * El botón grande de [📷 Escanear] de la pestaña General.
@@ -15,7 +17,7 @@ import dynamic from "next/dynamic";
 const EscanerPanel = dynamic(() => import("./escaner-panel"), {
   ssr: false,
   loading: () => (
-    <div className="mt-3 rounded-2xl border border-aventurea-line bg-white p-5">
+    <div className={`mt-3 ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface p-5`}>
       <p className="text-[13px] font-bold text-aventurea-ink-soft">Preparando el escáner…</p>
     </div>
   ),
@@ -34,10 +36,18 @@ export default function BotonEscanear({
 
   return (
     <div>
+      {/* LA ACCIÓN DE LA PANTALLA. Deja de ser una franja navy a todo
+          el ancho —que sobre el navy del panel se leía como un bloque
+          más— y pasa al azul de acción del módulo, con el alto de un
+          botón del sistema. En el teléfono sigue ocupando el ancho
+          completo porque ahí es lo único que se hace en esa pantalla;
+          desde sm se encoge a su contenido y se sienta al lado del
+          titular, que es donde la maqueta pone las acciones. */}
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
-        className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-aventurea-navy px-5 py-4 text-[15px] font-extrabold text-white transition-transform hover:scale-[1.01]"
+        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl px-5 text-[14px] font-extrabold transition-opacity hover:opacity-90 sm:w-auto"
+        style={{ background: ACCION, color: ACCION_TINTA }}
       >
         {/* Cámara, dibujada acá para no sumar una librería de iconos. */}
         <svg

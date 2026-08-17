@@ -2,7 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { fmtColones } from "@/lib/finanzas";
-import { DISCO_DATO, SUPERFICIE_DATO } from "@/components/tarjeta-dato";
+import { CardVacia, Metrica } from "@/components/panel/piezas";
+import { GAP_METRICAS } from "@/components/panel/sistema";
 import { compararTexto, type Metricas } from "./metricas";
 import type { WidgetDashboard, WidgetId } from "@/lib/business/widgets";
 import {
@@ -126,58 +127,6 @@ function contenidoWidget(
   }
 }
 
-/** Un número del tablero, con la piel sólida que comparte con /cuenta
- *  (`SUPERFICIE_DATO`): tarjeta de un color, disco de ícono y nada más.
- *
- *  SE FUE EL CÍRCULO DECORATIVO. Era un `rounded-full` azul de 96px
- *  sangrando por la esquina inferior derecha, recortado con
- *  `overflow-hidden`, y pasaba justo por detrás del número: un adorno
- *  compitiendo con el único dato de la tarjeta. El color que aportaba
- *  ahora lo pone el relleno entero, que además se puede medir una vez y
- *  darlo por bueno (el porqué largo está en `SUPERFICIE_DATO`).
- *
- *  LA JERARQUÍA LA HACE EL NÚMERO, y sigue estando en la tinta más
- *  fuerte que hay: 15,96:1 contra la tarjeta, en negrita y al doble del
- *  cuerpo del rótulo, que acompaña en gris (6,28:1 — AA de sobra para
- *  texto normal, y el escalón de contraste es justo lo que hace que el
- *  ojo caiga primero en el número).
- *
- *  TODOS LOS NÚMEROS SE PINTAN IGUAL. Antes había un `plata` que
- *  mandaba los montos (ingresos del mes, lo que falta cobrar) al
- *  naranja de marca, y el resultado era una fila donde la mitad de los
- *  datos gritaba: además de desordenado, ese naranja daba 2,94:1 sobre
- *  blanco, o sea que el dato más importante era el peor de leer. Un
- *  número no necesita un color propio para decir que es plata — ya lo
- *  dice el «₡».
- *
- *  El rótulo tampoco es alfa: era `navy/60`, que compuesto sobre blanco
- *  daba 3,99:1 y NO llegaba a AA en 9,5px. */
-function Dato({ titulo, valor, detalle, icono }: Card) {
-  return (
-    <div className={`flex min-w-0 flex-col ${SUPERFICIE_DATO} px-3 py-2.5 sm:px-3.5 sm:py-3`}>
-      <span
-        aria-hidden="true"
-        className={`flex h-8 w-8 shrink-0 items-center justify-center ${DISCO_DATO} text-[15px] sm:h-9 sm:w-9 sm:text-[17px]`}
-      >
-        {icono}
-      </span>
-      <div className="mt-2 min-w-0">
-        <p className="truncate text-[9.5px] font-bold uppercase leading-tight tracking-wide text-aventurea-ink-soft sm:text-[10px]">
-          {titulo}
-        </p>
-        <p className="mt-0.5 truncate text-[15px] font-extrabold leading-tight text-aventurea-ink sm:text-[19px]">
-          {valor}
-        </p>
-        {detalle && (
-          <p className="mt-0.5 truncate text-[10.5px] leading-snug text-aventurea-ink-soft sm:text-[11px]">
-            {detalle}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /**
  * El pulso del negocio: los números que de verdad se miran todos los
  * días arriba, y los de análisis detrás de "Ver más" (seis tarjetas en
@@ -205,10 +154,10 @@ export default function DashboardMetricas({
 
   if (totalReservasHistorico === 0 && ingresosEsteMes === 0 && !proximaReserva) {
     return (
-      <p className="text-[12.5px] text-zinc-500">
+      <CardVacia>
         Todavía no tenés reservas registradas — en cuanto entre la primera, acá vas a ver cómo
         te está yendo mes a mes.
-      </p>
+      </CardVacia>
     );
   }
 
@@ -226,7 +175,7 @@ export default function DashboardMetricas({
   if (principales.length === 0 && secundarias.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={`flex flex-col ${GAP_METRICAS}`}>
       {/* Dos columnas en móvil: con tres, cada tarjeta quedaba en 87px
           útiles y «₡12.500.000» se cortaba (un monto no tiene dónde
           partirse). En pantalla grande la fila se ajusta a cuántas
@@ -237,14 +186,23 @@ export default function DashboardMetricas({
           sobre ancho: son cuatro tarjetas como máximo y estirarlas a
           seis huecos dejaría dos vacíos. El ancho de más se lo llevan
           las tarjetas, que es justo lo que hacía falta para que los
-          montos largos dejaran de truncarse. */}
+          montos largos dejaran de truncarse.
+
+          El hueco entre tarjetas ya no es un número suelto: es
+          `GAP_METRICAS`, los 12px de `.metrics` de la maqueta. */}
       <div
-        className={`grid grid-cols-2 gap-2 sm:gap-2.5 ${
+        className={`grid grid-cols-2 ${GAP_METRICAS} ${
           principales.length >= 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"
         }`}
       >
         {principales.map((card) => (
-          <Dato key={card.titulo} {...card} />
+          <Metrica
+            key={card.titulo}
+            rotulo={card.titulo}
+            valor={card.valor}
+            detalle={card.detalle}
+            icono={card.icono}
+          />
         ))}
       </div>
 
@@ -252,9 +210,15 @@ export default function DashboardMetricas({
           pantalla completa entran todas en UNA fila en un monitor
           grande en vez de partirse en dos filas de tres. */}
       {abierto && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 xl:grid-cols-4 2xl:grid-cols-6">
+        <div className={`grid grid-cols-2 ${GAP_METRICAS} sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6`}>
           {secundarias.map((card) => (
-            <Dato key={card.titulo} {...card} />
+            <Metrica
+              key={card.titulo}
+              rotulo={card.titulo}
+              valor={card.valor}
+              detalle={card.detalle}
+              icono={card.icono}
+            />
           ))}
         </div>
       )}

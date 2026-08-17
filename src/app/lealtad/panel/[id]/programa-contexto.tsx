@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useContext, useState, useTransition, type ReactNode } from "react";
+import { ACCION, ACCION_TINTA, BOTON_ACCION } from "../sistema-lealtad";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
-import { iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import { selloParaGuardar, type SelloElegido } from "@/lib/lealtad/iconos-sello";
 import {
   cambiarEstadoPrograma,
   eliminarRecompensa,
@@ -42,8 +43,16 @@ export type Borrador = {
   logoUrl: string;
   /** Banda de arriba del pase (0132). */
   bannerUrl: string;
-  /** El dibujo de cada sello (0145). null = el logo del negocio. */
-  iconoSello: IconoSello | null;
+  /**
+   * El dibujo de cada sello (0145). null = el logo del negocio;
+   * 'propio' = el ícono que subió el negocio, que vive en `iconoUrl`.
+   */
+  iconoSello: SelloElegido | null;
+  /**
+   * El ícono propio (0174). Viaja SIEMPRE, esté elegido o no: es el
+   * archivo del negocio, y probar «Café» un rato no puede borrárselo.
+   */
+  iconoUrl: string;
   codigoFormato: FormatoCodigo;
   textoReverso: string;
   mostrarSaldo: boolean;
@@ -57,6 +66,14 @@ function num(v: string): number {
 }
 
 function dePrograma(p: ProgramaFila | null): Borrador {
+  // Las dos columnas del sello se leen juntas y con el filtro
+  // compartido: sin la 0145/0174 la fila llega sin ellas y esto queda
+  // en null, que es el sello de siempre.
+  const sello = selloParaGuardar({
+    tipo: p?.modo,
+    icono: p?.pase_sello_icono,
+    url: p?.pase_sello_icono_url,
+  });
   return {
     nombre: p?.nombre ?? "Programa de lealtad",
     modo: p?.modo ?? "sellos",
@@ -71,9 +88,8 @@ function dePrograma(p: ProgramaFila | null): Borrador {
     // interruptores encendidos y el QR— o el editor arrancaría
     // apagando cosas que nadie apagó.
     bannerUrl: p?.pase_banner_url ?? "",
-    // Por el filtro compartido: sin la 0145 la fila llega sin la
-    // columna y esto es null, que es el sello de siempre.
-    iconoSello: iconoDelSello({ tipo: p?.modo, icono: p?.pase_sello_icono }),
+    iconoSello: sello.icono,
+    iconoUrl: sello.url ?? "",
     codigoFormato: p?.pase_codigo_formato === "code128" ? "code128" : "qr",
     textoReverso: p?.pase_texto_reverso ?? "",
     mostrarSaldo: p?.pase_mostrar_saldo ?? true,
@@ -177,6 +193,7 @@ export function ProveedorPrograma({
       logoUrl: borrador.logoUrl,
       bannerUrl: borrador.bannerUrl,
       iconoSello: borrador.iconoSello,
+      iconoUrl: borrador.iconoUrl,
       codigoFormato: borrador.codigoFormato,
       textoReverso: borrador.textoReverso,
       mostrarSaldo: borrador.mostrarSaldo,
@@ -235,15 +252,24 @@ export function ProveedorPrograma({
     // que hace de meta. Si la lista no se refrescara, la pestaña de
     // regalías seguiría mostrando la vieja hasta recargar la página.
     if (lista) setRecompensas([...lista].sort((a, b) => a.costo_puntos - b.costo_puntos));
-    setBorrador((prev) => ({
-      ...prev,
-      nombre: fila.nombre,
-      modo: fila.modo ?? prev.modo,
+    setBorrador((prev) => {
       // El icono pasa por el filtro compartido: si el tipo dejó de ser
       // «sellos», no quedan círculos donde dibujarlo y el icono se cae
-      // solo en vez de viajar colgado hasta el próximo guardado.
-      iconoSello: iconoDelSello({ tipo: fila.modo, icono: prev.iconoSello }),
-    }));
+      // solo —con su archivo— en vez de viajar colgado hasta el próximo
+      // guardado.
+      const sello = selloParaGuardar({
+        tipo: fila.modo,
+        icono: prev.iconoSello,
+        url: prev.iconoUrl,
+      });
+      return {
+        ...prev,
+        nombre: fila.nombre,
+        modo: fila.modo ?? prev.modo,
+        iconoSello: sello.icono,
+        iconoUrl: sello.url ?? "",
+      };
+    });
   }
 
   function borrarRecompensa(id: string) {
@@ -332,7 +358,8 @@ export function BarraGuardar() {
         type="button"
         onClick={guardar}
         disabled={ocupado}
-        className="presionable rounded-[10px] bg-aventurea-ink px-5 py-2.5 text-[13px] font-bold text-white disabled:opacity-40"
+        className={`${BOTON_ACCION} presionable`}
+        style={{ background: ACCION, color: ACCION_TINTA }}
       >
         {ocupado ? "Guardando…" : "Guardar"}
       </button>

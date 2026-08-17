@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type CSSProperties } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen, FOTO_DE_VITRINA } from "@/lib/comprimir-imagen";
@@ -10,6 +10,26 @@ import type { CategoriaNegocio } from "./categorias-actions";
 import { etiquetaDuracion } from "@/lib/catalogo";
 import { etiquetaMinutos } from "@/app/citas/tipos";
 import { usaAgendaPorHoras } from "@/lib/business/modulos";
+import { IconChevronDown } from "@/components/icons";
+import { Card, CardVacia, PildoraEstado } from "@/components/panel/piezas";
+import {
+  ACCION_ACENTO,
+  BOTON_PANEL,
+  BOTON_PANEL_PRIMARIO,
+  CAMPO_PANEL,
+  DETALLE,
+  ESTADO_AVISO,
+  ROTULO_CAMPO,
+  SUPERFICIE_HUNDIDA,
+} from "@/components/panel/sistema";
+import {
+  ACCIONES_FILA,
+  BOTON_FILA,
+  BOTON_FILA_ICONO,
+  BOTON_FILA_PELIGRO,
+  FilaFicha,
+  LISTA_FICHAS,
+} from "./fila-ficha";
 import {
   actualizarItemCatalogo,
   crearItemCatalogo,
@@ -20,12 +40,10 @@ import {
   type ItemInput,
 } from "./catalogo-actions";
 
-const inputCls =
-  "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
-const labelCls =
-  "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
-
 const UNIDADES = ["por persona", "por unidad", "por hora", "por evento", "por día"];
+
+/** El rótulo de un campo del formulario. */
+const ROTULO = `mb-1.5 block ${ROTULO_CAMPO}`;
 
 function fmtColones(n: number | null) {
   if (n === null) return "A cotizar";
@@ -165,6 +183,22 @@ function deItem(item: RanchoItem): Borrador {
  * desde tu página, sin pasar por el chat. Un "paquete" es la unidad
  * grande (una estación de fotos, un combo DJ de 5 horas); un
  * "producto" es lo que se pide por cantidad (un plato, una silla).
+ *
+ * ── LA FORMA ───────────────────────────────────────────────────────
+ * Cada bloque es una tarjeta del panel con su encabezado: la LISTA de
+ * lo que ya vendés, el ALTA, el ORDEN de las secciones y lo INCLUIDO
+ * en la tarifa. Antes eran cuatro cajas del mismo peso, tres de ellas
+ * con un `h3` suelto y una sin nada, así que no se veía dónde
+ * terminaba una y empezaba la otra.
+ *
+ * Dos cosas que se fueron a propósito:
+ *  · El ítem pausado ya no baja su opacidad. Bajarle la opacidad a la
+ *    fila entera le baja el contraste al nombre, al precio y a los seis
+ *    botones —incluido "Activar", que es el que hay que apretar— por
+ *    debajo de AA. El estado lo dicen la barrita gris y su píldora.
+ *  · El selector de tipo ya no se marca con celeste al 10 % y letra
+ *    naranja (#ee7420 sobre claro no llega a 3:1). Lo elegido va con
+ *    el acento SÓLIDO del tipo de negocio, ≥5,18:1.
  */
 export default function CatalogoPanel({
   ranchoId,
@@ -360,55 +394,62 @@ export default function CatalogoPanel({
   ) => (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div className="sm:col-span-2">
-        <label className={labelCls}>Tipo</label>
-        <div className="flex gap-2">
+        <label className={ROTULO}>Tipo</label>
+        {/* En 390px estos dos textos no entran uno al lado del otro:
+            abajo de sm van apilados y por eso la grilla, no un flex. */}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {(
             [
               ["paquete", "Paquete (con foto, ej. Estación de fotos 5 horas)"],
               ["producto", "Producto por cantidad (ej. un plato, una silla)"],
             ] as const
-          ).map(([valor, texto]) => (
-            <button
-              key={valor}
-              type="button"
-              onClick={() => setBorrador({ ...borrador, tipo: valor })}
-              className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-[12.5px] font-bold ${
-                borrador.tipo === valor
-                  ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
-                  : "border-aventurea-line bg-aventurea-cream-2 text-aventurea-ink-soft"
-              }`}
-            >
-              {texto}
-            </button>
-          ))}
+          ).map(([valor, texto]) => {
+            const elegido = borrador.tipo === valor;
+            return (
+              <button
+                key={valor}
+                type="button"
+                aria-pressed={elegido}
+                onClick={() => setBorrador({ ...borrador, tipo: valor })}
+                style={elegido ? (ACCION_ACENTO as CSSProperties) : undefined}
+                className={`rounded-xl border px-3 py-2.5 text-left text-[12.5px] font-bold ${
+                  elegido
+                    ? "border-transparent"
+                    : "border-aventurea-line bg-aventurea-surface text-aventurea-ink-soft"
+                }`}
+              >
+                {texto}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="sm:col-span-2">
-        <label className={labelCls}>Nombre</label>
+        <label className={ROTULO}>Nombre</label>
         <input
           type="text"
           value={borrador.nombre}
           onChange={(e) => setBorrador({ ...borrador, nombre: e.target.value })}
           placeholder="Ej. Estación 1 de fotos, Menú buffet clásico, Silla tiffany"
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
       </div>
 
       <div className="sm:col-span-2">
-        <label className={labelCls}>Descripción (opcional)</label>
+        <label className={ROTULO}>Descripción (opcional)</label>
         <textarea
           value={borrador.descripcion}
           onChange={(e) => setBorrador({ ...borrador, descripcion: e.target.value })}
           placeholder="Qué incluye exactamente."
           rows={2}
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
       </div>
 
       <div className="sm:col-span-2">
-        <label className={labelCls}>Foto (opcional, recomendado para paquetes)</label>
-        <div className="flex items-center gap-3">
+        <label className={ROTULO}>Foto (opcional, recomendado para paquetes)</label>
+        <div className="flex flex-wrap items-center gap-3">
           {borrador.fotoUrl && (
             <Image
               src={borrador.fotoUrl}
@@ -418,7 +459,7 @@ export default function CatalogoPanel({
               className="h-16 w-16 rounded-xl border border-aventurea-line object-cover"
             />
           )}
-          <label className="cursor-pointer rounded-xl border border-aventurea-line bg-aventurea-cream-2 px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky">
+          <label className={`cursor-pointer ${BOTON_PANEL}`}>
             {subiendoFoto
               ? "Subiendo..."
               : borrador.fotoUrl
@@ -449,22 +490,22 @@ export default function CatalogoPanel({
       </div>
 
       <div>
-        <label className={labelCls}>Precio en ₡ (vacío = a cotizar)</label>
+        <label className={ROTULO}>Precio en ₡ (vacío = a cotizar)</label>
         <input
           type="number"
           min={0}
           value={borrador.precio}
           onChange={(e) => setBorrador({ ...borrador, precio: e.target.value })}
           placeholder="Ej. 85000"
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
       </div>
       <div>
-        <label className={labelCls}>Se cobra</label>
+        <label className={ROTULO}>Se cobra</label>
         <select
           value={borrador.unidad}
           onChange={(e) => setBorrador({ ...borrador, unidad: e.target.value })}
-          className={inputCls}
+          className={CAMPO_PANEL}
         >
           <option value="">Sin especificar</option>
           {UNIDADES.map((u) => (
@@ -484,7 +525,7 @@ export default function CatalogoPanel({
         <>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelCls}>Duración (minutos)</label>
+            <label className={ROTULO}>Duración (minutos)</label>
             <input
               type="number"
               min={5}
@@ -495,13 +536,13 @@ export default function CatalogoPanel({
                 setBorrador({ ...borrador, duracionMinutos: e.target.value })
               }
               placeholder="30"
-              className={inputCls}
+              className={CAMPO_PANEL}
             />
           </div>
           <div>
             {/* El buffer del motor pro (0061): limpiar la silla,
                 acomodar la cabina. La franja ocupa duración + esto. */}
-            <label className={labelCls}>Limpieza después (min)</label>
+            <label className={ROTULO}>Limpieza después (min)</label>
             <input
               type="number"
               min={0}
@@ -510,7 +551,7 @@ export default function CatalogoPanel({
               value={borrador.bufferMin}
               onChange={(e) => setBorrador({ ...borrador, bufferMin: e.target.value })}
               placeholder="0"
-              className={inputCls}
+              className={CAMPO_PANEL}
             />
           </div>
         </div>
@@ -520,7 +561,7 @@ export default function CatalogoPanel({
             grupal puede ser online, así que van separadas. */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelCls}>Modalidad</label>
+            <label className={ROTULO}>Modalidad</label>
             <select
               value={borrador.modalidad}
               onChange={(e) =>
@@ -529,7 +570,7 @@ export default function CatalogoPanel({
                   modalidad: e.target.value as ModalidadServicio | "",
                 })
               }
-              className={inputCls}
+              className={CAMPO_PANEL}
             >
               <option value="">Individual (1 cliente)</option>
               <option value="grupal">Grupal (varios a la vez)</option>
@@ -537,7 +578,7 @@ export default function CatalogoPanel({
             </select>
           </div>
           <div>
-            <label className={labelCls}>Dónde se presta</label>
+            <label className={ROTULO}>Dónde se presta</label>
             <select
               value={borrador.lugarServicio}
               onChange={(e) =>
@@ -546,7 +587,7 @@ export default function CatalogoPanel({
                   lugarServicio: e.target.value as LugarServicio | "",
                 })
               }
-              className={inputCls}
+              className={CAMPO_PANEL}
             >
               <option value="">Presencial</option>
               <option value="online">En línea</option>
@@ -559,7 +600,7 @@ export default function CatalogoPanel({
           <div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Personas mínimas</label>
+                <label className={ROTULO}>Personas mínimas</label>
                 <input
                   type="number"
                   min={1}
@@ -569,11 +610,11 @@ export default function CatalogoPanel({
                     setBorrador({ ...borrador, cupoMinSesion: e.target.value })
                   }
                   placeholder="Sin mínimo"
-                  className={inputCls}
+                  className={CAMPO_PANEL}
                 />
               </div>
               <div>
-                <label className={labelCls}>Personas máximas</label>
+                <label className={ROTULO}>Personas máximas</label>
                 <input
                   type="number"
                   min={1}
@@ -583,13 +624,13 @@ export default function CatalogoPanel({
                     setBorrador({ ...borrador, cupoMaxSesion: e.target.value })
                   }
                   placeholder="Ej. 20"
-                  className={inputCls}
+                  className={CAMPO_PANEL}
                 />
               </div>
             </div>
             {/* Honestidad con el dueño: esto queda anotado, todavía no
                 cambia cómo se reserva. Que no crea que ya activó algo. */}
-            <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            <p className={`mt-1.5 leading-relaxed ${DETALLE}`}>
               Por ahora esto queda anotado en la ficha del servicio: la agenda
               sigue tomando una reserva a la vez. Las clases con cupo compartido
               llegan más adelante.
@@ -602,7 +643,7 @@ export default function CatalogoPanel({
             respete, venga de la web o de la app. */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelCls}>Anticipación mínima (horas)</label>
+            <label className={ROTULO}>Anticipación mínima (horas)</label>
             <input
               type="number"
               min={0}
@@ -612,11 +653,11 @@ export default function CatalogoPanel({
                 setBorrador({ ...borrador, anticipacionMinHoras: e.target.value })
               }
               placeholder="Sin mínimo"
-              className={inputCls}
+              className={CAMPO_PANEL}
             />
           </div>
           <div>
-            <label className={labelCls}>Se reserva hasta (días)</label>
+            <label className={ROTULO}>Se reserva hasta (días)</label>
             <input
               type="number"
               min={1}
@@ -626,13 +667,13 @@ export default function CatalogoPanel({
                 setBorrador({ ...borrador, anticipacionMaxDias: e.target.value })
               }
               placeholder="Sin tope"
-              className={inputCls}
+              className={CAMPO_PANEL}
             />
           </div>
         </div>
 
         <div>
-          <label className={labelCls}>Adelanto de este servicio (₡)</label>
+          <label className={ROTULO}>Adelanto de este servicio (₡)</label>
           <input
             type="number"
             min={0}
@@ -641,9 +682,9 @@ export default function CatalogoPanel({
               setBorrador({ ...borrador, depositoServicio: e.target.value })
             }
             placeholder="Vacío = el adelanto general del negocio"
-            className={inputCls}
+            className={CAMPO_PANEL}
           />
-          <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+          <p className={`mt-1.5 leading-relaxed ${DETALLE}`}>
             Estas tres reglas sí se aplican al reservar: una cita que no las
             cumpla se rechaza, venga de la web o de la app.
           </p>
@@ -658,7 +699,7 @@ export default function CatalogoPanel({
           agenda. Citas no las usa: ahí todo se mide en minutos. */}
       {!esCitas && (
         <div>
-          <label className={labelCls}>Horas que incluye (opcional)</label>
+          <label className={ROTULO}>Horas que incluye (opcional)</label>
           <input
             type="number"
             min={0}
@@ -666,10 +707,10 @@ export default function CatalogoPanel({
             value={borrador.duracionHoras}
             onChange={(e) => setBorrador({ ...borrador, duracionHoras: e.target.value })}
             placeholder="Ej. 5"
-            className={inputCls}
+            className={CAMPO_PANEL}
           />
           {agendaPorHoras && (
-            <p className="mt-1.5 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            <p className={`mt-1.5 leading-relaxed ${DETALLE}`}>
               Esto es lo que le cotizás al cliente. Los minutos de arriba son
               otra cosa: cuánto te ocupa el espacio en tu agenda.
             </p>
@@ -677,14 +718,14 @@ export default function CatalogoPanel({
         </div>
       )}
       <div>
-        <label className={labelCls}>Sección (opcional)</label>
+        <label className={ROTULO}>Sección (opcional)</label>
         <input
           type="text"
           list={`grupos-${ranchoId}`}
           value={borrador.grupo}
           onChange={(e) => setBorrador({ ...borrador, grupo: e.target.value })}
           placeholder="Ej. Estaciones, Extras, Bebidas"
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
         <datalist id={`grupos-${ranchoId}`}>
           {grupos.map((g) => (
@@ -694,28 +735,28 @@ export default function CatalogoPanel({
       </div>
 
       <div>
-        <label className={labelCls}>Mínimo por reserva</label>
+        <label className={ROTULO}>Mínimo por reserva</label>
         <input
           type="number"
           min={1}
           value={borrador.minPorReserva}
           onChange={(e) => setBorrador({ ...borrador, minPorReserva: e.target.value })}
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
       </div>
       <div>
-        <label className={labelCls}>Máximo por reserva (vacío = sin tope)</label>
+        <label className={ROTULO}>Máximo por reserva (vacío = sin tope)</label>
         <input
           type="number"
           min={1}
           value={borrador.maxPorReserva}
           onChange={(e) => setBorrador({ ...borrador, maxPorReserva: e.target.value })}
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
       </div>
 
       <div className="sm:col-span-2">
-        <label className={labelCls}>
+        <label className={ROTULO}>
           ¿Cuántos podés atender por día? (vacío = sin límite)
         </label>
         <input
@@ -724,7 +765,7 @@ export default function CatalogoPanel({
           value={borrador.capacidadDia}
           onChange={(e) => setBorrador({ ...borrador, capacidadDia: e.target.value })}
           placeholder="Ej. 2 — si tenés 2 estaciones, cada día se pueden reservar hasta 2"
-          className={inputCls}
+          className={CAMPO_PANEL}
         />
       </div>
 
@@ -732,14 +773,16 @@ export default function CatalogoPanel({
           cliente que elige "Montaje premium" paga el premium, no
           base + premium (0067). Solo aplica a paquetes de eventos. */}
       {!esCitas && borrador.tipo === "paquete" && (
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3 sm:col-span-2">
+        <label
+          className={`flex cursor-pointer items-start gap-2.5 rounded-xl p-3 sm:col-span-2 ${SUPERFICIE_HUNDIDA}`}
+        >
           <input
             type="checkbox"
             checked={borrador.esPaqueteBase}
             onChange={(e) =>
               setBorrador({ ...borrador, esPaqueteBase: e.target.checked })
             }
-            className="mt-0.5 h-4 w-4 accent-aventurea-sky"
+            className="mt-0.5 h-4 w-4 accent-aventurea-navy"
           />
           <span className="text-[12.5px] leading-relaxed text-aventurea-ink">
             <strong>Este paquete sustituye la tarifa base.</strong> Al
@@ -750,22 +793,17 @@ export default function CatalogoPanel({
         </label>
       )}
 
-      <div className="flex gap-2 sm:col-span-2">
+      <div className="flex flex-wrap gap-2 sm:col-span-2">
         <button
           type="button"
           onClick={onGuardar}
           disabled={pending || subiendoFoto || !borrador.nombre.trim()}
-          className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
+          className={BOTON_PANEL_PRIMARIO}
         >
           {pending ? "Guardando..." : textoBoton}
         </button>
         {onCancelar && (
-          <button
-            type="button"
-            onClick={onCancelar}
-            disabled={pending}
-            className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
-          >
+          <button type="button" onClick={onCancelar} disabled={pending} className={BOTON_PANEL}>
             Cancelar
           </button>
         )}
@@ -773,171 +811,187 @@ export default function CatalogoPanel({
     </div>
   );
 
-  return (
-    <div className="flex flex-col gap-6">
-      {error && (
-        <p className="rounded-xl bg-red-50 p-3 text-[13px] text-red-700">{error}</p>
-      )}
+  const activos = items.filter((i) => i.activo).length;
 
-      {items.length === 0 && (
-        <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
-          Todavía no agregaste nada a tu {etiqueta.toLowerCase()}. Lo que cargués
-          acá se puede <strong>reservar directo</strong> desde tu página pública
-          — el cliente elige fecha, arma su pedido y paga el depósito sin tener
-          que preguntarte nada por chat.
+  return (
+    <div className="flex flex-col gap-3.5">
+      {error && (
+        <p role="alert" className={`rounded-xl p-3.5 text-[13px] ${ESTADO_AVISO.alerta}`}>
+          {error}
         </p>
       )}
 
-      {items.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
-          {items.map((item, idx) =>
-            editando === item.id ? (
-              <div key={item.id} className="border-b border-aventurea-line p-4 last:border-none">
-                {formulario(
-                  () => guardarEdicion(item),
-                  "Guardar cambios",
-                  () => {
-                    setEditando(null);
-                    setBorrador(VACIO);
-                  },
-                )}
-              </div>
-            ) : (
-              <div
-                key={item.id}
-                className={`flex flex-wrap items-center gap-3 border-b border-aventurea-line px-4 py-3 last:border-none ${
-                  item.activo ? "" : "opacity-50"
-                }`}
-              >
-                {item.foto_url && (
-                  <Image
-                    src={item.foto_url}
-                    alt=""
-                    width={56}
-                    height={56}
-                    className="h-14 w-14 shrink-0 rounded-xl border border-aventurea-line object-cover"
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-bold text-aventurea-ink">
-                    {item.nombre}
-                    {item.grupo && (
-                      <span className="ml-2 rounded-lg bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
-                        {item.grupo}
-                      </span>
-                    )}
-                    {!item.activo && (
-                      <span className="ml-2 rounded-lg bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-zinc-500">
-                        Pausado
-                      </span>
-                    )}
-                  </p>
-                  {item.descripcion && (
-                    <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                      {item.descripcion}
-                    </p>
-                  )}
-                  <p className="mt-0.5 text-[13px] font-bold text-aventurea-navy">
-                    {fmtColones(item.precio)}
-                    {item.precio !== null && item.unidad ? ` ${item.unidad}` : ""}
-                    {/* Un proveedor de eventos puede tener las dos: los
-                        minutos que ocupa en la agenda y las horas que
-                        le cotiza al cliente. Se muestran las que
-                        tenga. */}
-                    {agendaPorHoras && item.duracion_minutos !== null && (
-                      <span className="font-normal text-aventurea-ink-soft">
-                        {" "}
-                        · {etiquetaMinutos(item.duracion_minutos)}
-                      </span>
-                    )}
-                    {!esCitas && etiquetaDuracion(item.duracion_horas) && (
-                      <span className="font-normal text-aventurea-ink-soft">
-                        {" "}
-                        · {etiquetaDuracion(item.duracion_horas)}
-                      </span>
-                    )}
-                    {item.capacidad_dia !== null && (
-                      <span className="font-normal text-aventurea-ink-soft">
-                        {" "}
-                        · hasta {item.capacidad_dia}/día
-                      </span>
-                    )}
-                    {item.es_paquete_base === true && (
-                      <span className="font-normal text-aventurea-ink-soft">
-                        {" "}
-                        · sustituye la tarifa base
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    disabled={pending || idx === 0}
-                    onClick={() => mover(item, -1)}
-                    aria-label="Subir"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
+      <Card
+        eyebrow="Lo que vendés"
+        titulo={`Tu ${etiqueta.toLowerCase()}`}
+        accion={
+          items.length > 0 ? (
+            <span className={DETALLE}>
+              {activos} activo{activos === 1 ? "" : "s"} de {items.length}
+            </span>
+          ) : undefined
+        }
+      >
+        {items.length === 0 ? (
+          <CardVacia>
+            Todavía no agregaste nada a tu {etiqueta.toLowerCase()}. Lo que cargués acá se
+            puede <strong>reservar directo</strong> desde tu página pública — el cliente
+            elige fecha, arma su pedido y paga el depósito sin tener que preguntarte nada
+            por chat.
+          </CardVacia>
+        ) : (
+          <div className={LISTA_FICHAS}>
+            {items.map((item, idx) => {
+              const ultima = idx === items.length - 1;
+              if (editando === item.id) {
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-3.5 sm:p-4 ${ultima ? "" : "border-b border-aventurea-line"}`}
                   >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending || idx === items.length - 1}
-                    onClick={() => mover(item, 1)}
-                    aria-label="Bajar"
-                    className="h-[30px] w-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky disabled:opacity-30"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      setEditando(item.id);
-                      setBorrador(deItem(item));
-                    }}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => duplicar(item)}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
-                  >
-                    Duplicar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => alternarActivo(item)}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40"
-                  >
-                    {item.activo ? "Pausar" : "Activar"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => borrar(item)}
-                    className="h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-red-700 hover:border-red-300 disabled:opacity-40"
-                  >
-                    Borrar
-                  </button>
-                </div>
-              </div>
-            ),
-          )}
-        </div>
-      )}
+                    {formulario(
+                      () => guardarEdicion(item),
+                      "Guardar cambios",
+                      () => {
+                        setEditando(null);
+                        setBorrador(VACIO);
+                      },
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <FilaFicha
+                  key={item.id}
+                  separador={!ultima}
+                  marca={item.activo ? "exito" : "neutro"}
+                  medio={
+                    item.foto_url ? (
+                      <Image
+                        src={item.foto_url}
+                        alt=""
+                        width={56}
+                        height={56}
+                        className="h-12 w-12 shrink-0 rounded-xl border border-aventurea-line object-cover"
+                      />
+                    ) : undefined
+                  }
+                  titulo={
+                    <>
+                      <span className="break-words">{item.nombre}</span>
+                      {item.grupo && (
+                        <PildoraEstado estado="neutro">{item.grupo}</PildoraEstado>
+                      )}
+                      {!item.activo && <PildoraEstado estado="neutro">Pausado</PildoraEstado>}
+                    </>
+                  }
+                  detalle={
+                    <>
+                      {item.descripcion && <span>{item.descripcion}</span>}
+                      <span className="text-[12.5px] font-bold text-aventurea-navy">
+                        {fmtColones(item.precio)}
+                        {item.precio !== null && item.unidad ? ` ${item.unidad}` : ""}
+                        {/* Un proveedor de eventos puede tener las dos:
+                            los minutos que ocupa en la agenda y las
+                            horas que le cotiza al cliente. Se muestran
+                            las que tenga. */}
+                        {agendaPorHoras && item.duracion_minutos !== null && (
+                          <span className="font-normal text-aventurea-ink-soft">
+                            {" "}
+                            · {etiquetaMinutos(item.duracion_minutos)}
+                          </span>
+                        )}
+                        {!esCitas && etiquetaDuracion(item.duracion_horas) && (
+                          <span className="font-normal text-aventurea-ink-soft">
+                            {" "}
+                            · {etiquetaDuracion(item.duracion_horas)}
+                          </span>
+                        )}
+                        {item.capacidad_dia !== null && (
+                          <span className="font-normal text-aventurea-ink-soft">
+                            {" "}
+                            · hasta {item.capacidad_dia}/día
+                          </span>
+                        )}
+                        {item.es_paquete_base === true && (
+                          <span className="font-normal text-aventurea-ink-soft">
+                            {" "}
+                            · sustituye la tarifa base
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  }
+                  acciones={
+                    <div className={ACCIONES_FILA}>
+                      <button
+                        type="button"
+                        disabled={pending || idx === 0}
+                        onClick={() => mover(item, -1)}
+                        aria-label={`Subir ${item.nombre}`}
+                        className={BOTON_FILA_ICONO}
+                      >
+                        <IconChevronDown className="h-3.5 w-3.5 rotate-180" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending || idx === items.length - 1}
+                        onClick={() => mover(item, 1)}
+                        aria-label={`Bajar ${item.nombre}`}
+                        className={BOTON_FILA_ICONO}
+                      >
+                        <IconChevronDown className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          setEditando(item.id);
+                          setBorrador(deItem(item));
+                        }}
+                        className={BOTON_FILA}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => duplicar(item)}
+                        className={BOTON_FILA}
+                      >
+                        Duplicar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => alternarActivo(item)}
+                        className={BOTON_FILA}
+                      >
+                        {item.activo ? "Pausar" : "Activar"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => borrar(item)}
+                        className={BOTON_FILA_PELIGRO}
+                      >
+                        Borrar
+                      </button>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {editando === null && (
-        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-          <h3 className="mb-4 text-[15px] font-bold text-aventurea-ink">
-            Agregar a tu {etiqueta.toLowerCase()}
-          </h3>
-          {formulario(guardarNuevo, "Agregar")}
-        </div>
+        <Card eyebrow="Alta" titulo={`Agregar a tu ${etiqueta.toLowerCase()}`}>
+          <div className={`rounded-2xl p-3.5 sm:p-4 ${SUPERFICIE_HUNDIDA}`}>
+            {formulario(guardarNuevo, "Agregar")}
+          </div>
+        </Card>
       )}
 
       {/* El orden de las secciones (0119). Lo ve quien arma su catálogo
@@ -955,19 +1009,28 @@ export default function CatalogoPanel({
           catering por persona. El cliente marca sus elecciones al
           reservar y no le suman al precio — le llegan en el pedido. */}
       {!esCitas && grupos.length > 0 && (
-        <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
-          <h3 className="text-[15px] font-bold text-aventurea-ink">
-            Incluido en tu tarifa: elegí hasta N
-          </h3>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
-            Si tu tarifa ya incluye opciones de una sección (ej. &quot;elegí 2
-            platos fuertes y 1 postre&quot;), poné acá cuántas puede marcar el
-            cliente sin costo. Vacío o 0 = la sección se cobra normal.
+        <Card
+          eyebrow="Incluido en tu tarifa"
+          titulo="Elegí hasta N sin costo"
+          accion={
+            eleccionesOk ? (
+              <PildoraEstado estado="exito">Guardado</PildoraEstado>
+            ) : (
+              <span className={DETALLE}>
+                {grupos.length} secci{grupos.length === 1 ? "ón" : "ones"}
+              </span>
+            )
+          }
+        >
+          <p className={`leading-relaxed ${DETALLE}`}>
+            Si tu tarifa ya incluye opciones de una sección (ej. &quot;elegí 2 platos
+            fuertes y 1 postre&quot;), poné acá cuántas puede marcar el cliente sin costo.
+            Vacío o 0 = la sección se cobra normal.
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {grupos.map((g) => (
               <div key={g}>
-                <label className={labelCls}>{g}</label>
+                <label className={ROTULO}>{g}</label>
                 <input
                   type="number"
                   min={0}
@@ -978,27 +1041,22 @@ export default function CatalogoPanel({
                     setElecciones((prev) => ({ ...prev, [g]: e.target.value }));
                   }}
                   placeholder="0 = se cobra normal"
-                  className={inputCls}
+                  className={CAMPO_PANEL}
                 />
               </div>
             ))}
           </div>
-          <div className="mt-4 flex items-center gap-3">
+          <div className="mt-4">
             <button
               type="button"
               onClick={guardarElecciones}
               disabled={pending}
-              className="rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60"
+              className={BOTON_PANEL_PRIMARIO}
             >
               {pending ? "Guardando..." : "Guardar elecciones incluidas"}
             </button>
-            {eleccionesOk && (
-              <span className="text-[12.5px] font-bold text-aventurea-green">
-                ✓ Guardado
-              </span>
-            )}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

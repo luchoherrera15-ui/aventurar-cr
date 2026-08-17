@@ -52,7 +52,7 @@ export default async function AdminHubPage() {
           pueden estar esperando. */}
       <TableroPendientes seccion={seccion} />
 
-      {/* Las 11 secciones que antes vivían en el menú del header, como
+      {/* Las secciones que antes vivían en el menú del header, como
           cards compactas: icono y título en una línea para que quepan
           hasta cuatro por fila. */}
       <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -89,6 +89,14 @@ export default async function AdminHubPage() {
           icon={<IconChart />}
         />
         <HubCard
+          href="/admin/auditoria"
+          title="Auditoría del dinero"
+          descripcion="El recorrido completo de cada reserva: adelanto, saldo y la comisión que devengó y cobró Bookea."
+          stat="Depósitos · Cobros · Descuadres"
+          alerta={null}
+          icon={<IconLupa />}
+        />
+        <HubCard
           href="/admin/invitaciones"
           title="Invitaciones digitales"
           descripcion="Creá la invitación, asignásela a un cliente y seguí en vivo las confirmaciones."
@@ -111,6 +119,25 @@ export default async function AdminHubPage() {
           stat={null}
           alerta={null}
           icon={<IconComplemento />}
+        />
+        {/* La cola de la API de Lealtad va APARTE de Complementos: acá
+            no se decide un plan ni un cobro, se decide a quién se le
+            permite existir como integrador de datos de terceros. */}
+        <HubCard
+          href="/admin/developers"
+          title="Developers de la API"
+          descripcion="Quién pide acceso a la API de Lealtad, con qué permisos y para qué. Aprobar no abre datos: eso lo decide cada negocio."
+          stat={null}
+          alerta={null}
+          icon={<IconComplemento />}
+        />
+        <HubCard
+          href="/admin/modulos"
+          title="Ingresos de los módulos"
+          descripcion="Cuánto se cobra por los paquetes de Lealtad y los complementos, separado por SINPE y por Stripe."
+          stat="SINPE · Stripe · Cortesías"
+          alerta={null}
+          icon={<IconLibro />}
         />
         <HubCard
           href="/admin/campanas"
@@ -236,6 +263,16 @@ function IconNegocio() {
   );
 }
 
+function IconLupa() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path strokeLinecap="round" d="m15.5 15.5 5 5" />
+      <path strokeLinecap="round" d="M8 11.5h5M8 8.8h5M8 14.2h3" />
+    </svg>
+  );
+}
+
 function IconChart() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
@@ -331,6 +368,19 @@ function IconAlmacen() {
       <ellipse cx="12" cy="5.5" rx="8" ry="3" />
       <path d="M4 5.5V18.5c0 1.66 3.58 3 8 3s8-1.34 8-3V5.5" />
       <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+    </svg>
+  );
+}
+
+function IconLibro() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19v14H5.5A1.5 1.5 0 0 0 4 19.5V5.5Z"
+      />
+      <path strokeLinecap="round" d="M19 18v2H5.5A1.5 1.5 0 0 1 4 18.5M8 8h7M8 11.5h7" />
     </svg>
   );
 }

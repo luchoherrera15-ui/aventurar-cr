@@ -7,6 +7,16 @@ import {
 } from "@/lib/lealtad/planes";
 import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
 import { fechaISOCR, fechaLargaCR } from "@/lib/fechas";
+import { Card, GrillaTablero, PildoraEstado } from "@/components/panel/piezas";
+import {
+  CUERPO,
+  CUERPO_SUAVE,
+  ESTADO_AVISO,
+  GAP_TABLERO,
+  RADIO_CARD,
+  RADIO_TILE,
+} from "@/components/panel/sistema";
+import { ACCION, ACCION_BORDE, ACCION_TINTA, ACCION_TINTE, BOTON_ACCION } from "../sistema-lealtad";
 import { Icono } from "./iconos";
 import Medidor from "./medidor";
 
@@ -29,17 +39,15 @@ import Medidor from "./medidor";
  *    prueba que nadie puede empezar es peor que no ofrecerla.
  */
 
-/* El azul de acción para fondo oscuro. La sección vive dentro del panel
-   navy —y sus cards `bg-white` ahí son blanco al 5%, o sea casi el mismo
-   fondo—, así que el azul de marca no se lee en ninguno de los dos. */
-const ACCION = "var(--accion-claro)";
-const ACCION_TINTE = "rgba(157,180,255,.14)";
-const ACCION_BORDE = "rgba(157,180,255,.45)";
+/* El par de acción sale ahora de `panel/sistema-lealtad`, que es el
+   único lugar donde vive: estaba copiado en cuatro archivos con el
+   mismo comentario, y cuatro copias de un color es cómo un panel
+   termina con cuatro azules.
 
-/* Acá vivían `ACCION_TINTA` y `ACENTO`, que solo usaba la grilla de
-   paquetes. La grilla se fue a `/lealtad/planes` —esta sección responde
-   «qué tengo y cómo voy», no «cuál compro»— y con ella se fue el último
-   naranja del panel. */
+   Acá vivía además `ACENTO`, que solo usaba la grilla de paquetes. La
+   grilla se fue a `/lealtad/planes` —esta sección responde «qué tengo y
+   cómo voy», no «cuál compro»— y con ella se fue el último naranja del
+   panel. */
 
 export default function SeccionPlan({
   ranchoId,
@@ -75,15 +83,21 @@ export default function SeccionPlan({
   const cortaHoy = prueba.esPrueba && !prueba.vencida && (prueba.diasRestantes ?? 99) <= 3;
 
   return (
-    <div className="space-y-5">
-      {/* ── La prueba y su fecha de corte ───────────────────────── */}
+    <div className={`flex flex-col ${GAP_TABLERO}`}>
+      {/* ── La prueba y su fecha de corte ─────────────────────────
+          Es el `.insight` de la maqueta: el bloque que se despega para
+          decir la única cosa que hay que decidir. Se enciende con el
+          acento solo cuando quedan tres días o menos; el resto del
+          tiempo es una tarjeta más, para que el énfasis signifique algo
+          cuando llegue. */}
       {prueba.esPrueba && prueba.venceEn && (
         <div
-          className="rounded-2xl px-5 py-4"
-          style={{
-            background: cortaHoy ? ACCION_TINTE : "rgba(255,255,255,.06)",
-            border: `1px solid ${cortaHoy ? ACCION_BORDE : "rgba(255,255,255,.14)"}`,
-          }}
+          className={`${RADIO_CARD} border px-5 py-4`}
+          style={
+            cortaHoy
+              ? { background: ACCION_TINTE, borderColor: ACCION_BORDE }
+              : { background: "rgba(255,255,255,.06)", borderColor: "rgba(255,255,255,.14)" }
+          }
         >
           <p className="text-[14.5px] font-extrabold text-aventurea-ink">{restante}</p>
           <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
@@ -96,34 +110,39 @@ export default function SeccionPlan({
       )}
 
       {/* ── Tu plan + el consumo ────────────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <Encabezado icono="plan" titulo="Tu plan actual" />
+      <GrillaTablero>
+        <Card
+          eyebrow="Tu paquete"
+          titulo="Tu plan actual"
+          nivel="h3"
+          accion={
+            actual ? (
+              <span
+                className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-extrabold uppercase leading-none tracking-wide"
+                style={{ background: ACCION_TINTE, color: ACCION }}
+              >
+                {actual.precioMensual === null
+                  ? "A convenir"
+                  : actual.precioMensual === 0
+                    ? "Gratis"
+                    : `${precioDe(actual)}/mes`}
+              </span>
+            ) : (
+              <PildoraEstado estado="neutro">Sin paquete</PildoraEstado>
+            )
+          }
+        >
           {actual ? (
             <>
-              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <p className="text-[28px] font-extrabold leading-none text-aventurea-ink">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <p className="text-[28px] font-extrabold leading-none tracking-[-0.04em] text-aventurea-ink">
                   {actual.nombre}
                 </p>
-                <span
-                  className="rounded-full px-2.5 py-1 text-[11px] font-bold"
-                  style={{ background: ACCION_TINTE, color: ACCION }}
-                >
-                  {actual.precioMensual === null
-                    ? "A convenir"
-                    : actual.precioMensual === 0
-                      ? "Gratis"
-                      : `${precioDe(actual)}/mes`}
-                </span>
                 {!actual.vigente && (
-                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
-                    Paquete anterior
-                  </span>
+                  <PildoraEstado estado="neutro">Paquete anterior</PildoraEstado>
                 )}
               </div>
-              <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">
-                {actual.descripcion}
-              </p>
+              <p className={`mt-1.5 ${CUERPO_SUAVE}`}>{actual.descripcion}</p>
               {/* `etiquetasDeCapacidades` y no `ETIQUETAS_CAPACIDAD`
                   suelto: la viñeta de los tipos depende del paquete
                   (0142), y la etiqueta estática dice «según tu paquete»
@@ -142,20 +161,28 @@ export default function SeccionPlan({
               </ul>
             </>
           ) : (
-            <p className="mt-4 text-[13px] text-aventurea-ink-soft">
+            <p className={CUERPO}>
               Tu programa está activo sin un paquete asignado. Elegí uno abajo para fijar tu
               tope de miembros y tus beneficios.
             </p>
           )}
         </Card>
 
-        <Card>
-          <Encabezado icono="metricas" titulo="Tu consumo" />
-          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-            Cómo vas contra los topes de tu paquete.
-          </p>
+        <Card
+          eyebrow="Cómo vas"
+          titulo="Tu consumo"
+          nivel="h3"
+          accion={
+            limite.lleno ? (
+              <PildoraEstado estado="alerta">Tope lleno</PildoraEstado>
+            ) : limite.cerca ? (
+              <PildoraEstado estado="aviso">Casi lleno</PildoraEstado>
+            ) : undefined
+          }
+        >
+          <p className={CUERPO_SUAVE}>Cómo vas contra los topes de tu paquete.</p>
 
-          <div className="mt-5 space-y-4">
+          <div className="mt-4 space-y-4">
             <Medidor
               icono="clientes"
               etiqueta="Miembros afiliados"
@@ -176,19 +203,23 @@ export default function SeccionPlan({
           </div>
 
           {limite.lleno && (
-            <p className="mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-[12.5px] font-bold text-red-700">
+            <p
+              className={`mt-4 ${RADIO_TILE} px-3 py-2.5 text-[12.5px] font-bold ${ESTADO_AVISO.alerta}`}
+            >
               Tu paquete llegó al tope: un cliente nuevo ya no se puede afiliar. Subí de
               paquete para seguir sumando gente.
             </p>
           )}
           {limite.cerca && !limite.lleno && (
-            <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-[12.5px] font-bold text-amber-800">
+            <p
+              className={`mt-4 ${RADIO_TILE} px-3 py-2.5 text-[12.5px] font-bold ${ESTADO_AVISO.aviso}`}
+            >
               Te queda{limite.disponibles === 1 ? "" : "n"} {limite.disponibles} lugar
               {limite.disponibles === 1 ? "" : "es"}. Conviene subir antes de toparte.
             </p>
           )}
         </Card>
-      </div>
+      </GrillaTablero>
 
       {/* ── Los paquetes: un botón, no la grilla entera ──────────────
           Acá se repetían las cuatro tarjetas de paquete con todas sus
@@ -198,49 +229,26 @@ export default function SeccionPlan({
           y obligaba a mantener el mismo catálogo en dos lugares.
           Ahora esta sección responde «qué tengo y cómo voy», y para
           comparar paquetes manda a la pantalla que existe para eso. */}
-      <div className="rounded-2xl border border-white/12 bg-white/[0.04] p-5">
-        <h3 className="text-[16px] font-extrabold text-white">¿Necesitás más?</h3>
-        <p className="mt-1 max-w-[62ch] text-[13px] leading-relaxed text-white/55">
+      <Card
+        eyebrow="Comparar"
+        titulo="¿Necesitás más?"
+        nivel="h3"
+        accion={
+          <Link
+            href={`/lealtad/planes?negocio=${ranchoId}`}
+            className={`${BOTON_ACCION} presionable`}
+            style={{ background: ACCION, color: ACCION_TINTA }}
+          >
+            Ver paquetes
+            <span aria-hidden>→</span>
+          </Link>
+        }
+      >
+        <p className={`max-w-[62ch] ${CUERPO}`}>
           Compará los paquetes, sus topes y qué incluye cada uno. Se paga con tarjeta y queda
           activo al instante, o por SINPE si tu tarjeta no acepta compras internacionales.
         </p>
-        <Link
-          href={`/lealtad/planes?negocio=${ranchoId}`}
-          className="presionable mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[13.5px] font-extrabold"
-          style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
-        >
-          Ver paquetes
-          <span aria-hidden>→</span>
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-// ── Piezas ────────────────────────────────────────────────────────
-
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-aventurea-line bg-white p-5">{children}</div>
-  );
-}
-
-function Encabezado({
-  icono,
-  titulo,
-}: {
-  icono: Parameters<typeof Icono>[0]["nombre"];
-  titulo: string;
-}) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-xl"
-        style={{ background: ACCION_TINTE, color: ACCION }}
-      >
-        <Icono nombre={icono} className="h-[17px] w-[17px]" />
-      </span>
-      <h3 className="text-[15px] font-extrabold text-aventurea-ink">{titulo}</h3>
+      </Card>
     </div>
   );
 }

@@ -14,21 +14,79 @@ import {
   IconStar,
   IconStore,
 } from "@/components/icons";
-import { DISCO_DATO, SUPERFICIE_DATO } from "@/components/tarjeta-dato";
+import { Card, GrillaTablero, PildoraEstado } from "@/components/panel/piezas";
+import {
+  BAJADA_PANTALLA,
+  BOTON_PANEL_PRIMARIO,
+  CUERPO,
+  CUERPO_SUAVE,
+  DETALLE,
+  DISCO_ACENTO,
+  ENLACE_CARD,
+  EYEBROW,
+  EYEBROW_NEUTRO,
+  GAP_METRICAS,
+  GAP_TABLERO,
+  RADIO_CARD,
+  RADIO_TILE,
+  ROTULO_CIFRA,
+  SUPERFICIE_PANEL,
+  TITULO_PANTALLA,
+} from "@/components/panel/sistema";
 import { TIPOS_TARJETA, UNIDAD_SALDO, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { fechaLargaCR } from "@/lib/fechas";
 import EditarPerfil from "./editar-perfil";
 
 /**
- * EL PERFIL, REDISEÑADO — V2 (referencia: referencia/"cuenta bookea
- * nueva.html", que reemplaza al mockup anterior como punto de partida
- * de la migración visual del resto del sitio).
+ * EL PERFIL — V3: la MISMA anatomía que los paneles de negocio.
  *
- * Mismo dato de siempre, otra vez solo un cambio de presentación: el
- * sidebar pasa de "aside plano" a una tarjeta navy sólida, "Tu
- * actividad" pasa de fila a grilla de tarjetas, y "próxima experiencia"
- * + "mi lealtad" quedan lado a lado en vez de apiladas. Nada de esto
- * toca page.tsx — los props son los mismos.
+ * ------------------------------------------------------------------
+ * QUÉ CAMBIÓ Y POR QUÉ
+ * ------------------------------------------------------------------
+ * La V2 salió de su propio mockup y quedó como una tercera forma de
+ * hacer paneles en Bookea: /mi-negocio con su rail, /lealtad con el
+ * suyo y /cuenta con un `aside` de 280px, cada uno con su tarjeta, su
+ * kicker y su tipografía. Ahora las tres pantallas componen las mismas
+ * piezas (`@/components/panel`), que son la anatomía de
+ * `referencia/bookeapaneles.html`: lienzo gris, tarjeta blanca con
+ * borde y elevación, encabezado con kicker + título + acción a la
+ * derecha, métricas con disco de ícono.
+ *
+ * NINGÚN DATO CAMBIÓ. Los props son exactamente los mismos, los
+ * cálculos viven donde vivían (page.tsx) y no se agregó una sola cifra
+ * que no estuviera ya calculada.
+ *
+ * ------------------------------------------------------------------
+ * LOS TRES PARES DE COLOR QUE ESTABAN MAL, CON SU NÚMERO
+ * ------------------------------------------------------------------
+ * 1. El kicker de la fecha y el «5/10» de lealtad usaban
+ *    `text-aventurea-orange` (#ee7420) SOBRE FONDO CLARO: 2,94:1, por
+ *    debajo hasta del 3:1 de texto grande. Pasan a `--orange-fuerte`
+ *    (#a83f00), que es el naranja que sí se lee sobre claro: 6,22:1
+ *    sobre blanco y 5,76:1 sobre el lienzo gris. El naranja del logo
+ *    se queda donde SÍ funciona: sobre el navy de la tarjeta de
+ *    «próxima experiencia» (4,65:1).
+ * 2. El contador del menú era blanco sobre `aventurea-orange`: 3,44:1
+ *    en letra de 10px, o sea reprobado. Pasa a letra `#a83f00` sobre
+ *    `orange-light` #fdeee1 → 5,42:1, y de paso el contador deja de
+ *    competir con el ítem activo, que es el otro elemento blanco.
+ * 3. «Cerrar sesión» en `red-600` daba 4,47:1 sobre el lienzo gris
+ *    nuevo. `red-700` da 5,98:1 — mismo rojo de la familia, un paso
+ *    más oscuro.
+ *
+ * Y los alfas del rail (`text-white/75`, `bg-white/15`, `border-white/15`)
+ * se van a tokens sólidos: `text-aventurea-rail` #9fb0cf da 6,33:1
+ * sobre el navy del fondo del rail y 4,93:1 sobre el extremo claro de
+ * su degradé, medido una sola vez en vez de variar con lo que haya
+ * detrás.
+ *
+ * ------------------------------------------------------------------
+ * LO QUE SE SACÓ
+ * ------------------------------------------------------------------
+ * El orbe naranja que sangraba por la esquina de «Mi lealtad»: es
+ * exactamente el `.metric:after` de la maqueta, el adorno que ya se
+ * había sacado de las tarjetas de número del panel por pasar por
+ * detrás del dato. El porqué largo está en `tarjeta-dato.ts`.
  */
 
 export type ProximaExperiencia = {
@@ -135,34 +193,42 @@ export default function TableroModos({
   const fechaHoy = capitalizar(HOY.format(new Date()));
 
   return (
-    <main className="mx-auto w-full max-w-[1320px] px-4 py-6 sm:px-6 sm:py-8">
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-start lg:gap-10">
-        {/* ── Sidebar: tarjeta navy con identidad + navegación ────── */}
+    <main className="mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 sm:py-7">
+      <div className={`grid ${GAP_TABLERO} lg:grid-cols-[252px_1fr] lg:items-start lg:gap-8`}>
+        {/* ── El rail: los MISMOS 252px que el panel de negocio ─────
+            Era 280. Los tres paneles del producto miden ahora lo mismo,
+            que es lo que hace que pasar de uno a otro no se sienta un
+            salto — y es el ancho de la maqueta. */}
         <aside aria-label="Perfil y navegación" className="lg:sticky lg:top-[84px]">
-          <div className="rounded-[22px] bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-5 text-white shadow-xl">
-            <div className="flex items-start gap-3 border-b border-white/15 pb-5">
+          <div
+            className={`${RADIO_CARD} bg-aventurea-rail-fondo p-3 text-white shadow-elevado`}
+          >
+            {/* LA CABECERA DE CUENTA (`.business` de la maqueta): una
+                superficie propia dentro del rail, no una fila con un
+                borde debajo. */}
+            <div className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.07] p-2.5">
               <span
                 aria-hidden="true"
-                className="grid h-[50px] w-[50px] shrink-0 place-items-center rounded-full bg-white text-[16px] font-extrabold text-aventurea-navy shadow-lg"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[14px] font-extrabold text-aventurea-navy"
               >
                 {inicialesAvatar}
               </span>
-              <div className="min-w-0 pt-0.5">
+              <div className="min-w-0 flex-1">
                 {/* NO es un encabezado: en el orden del documento, el
                     sidebar va ANTES que el <h1> de la página (que vive
                     en el contenido, a la derecha) — un h2 acá dejaría un
                     heading suelto por delante del h1, otra vez el mismo
                     tipo de salto que ya se corrigió una vez. Es un dato
                     de identidad, no el título de una sección. */}
-                <p className="truncate text-[14.5px] font-extrabold text-white">{nombre}</p>
-                <p className="mt-0.5 truncate text-[11.5px] text-white/65">{correo}</p>
-                <span className="mt-2 inline-flex rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.05em] text-white">
-                  {tieneNegocio ? "Proveedor" : "Cliente"}
-                </span>
+                <p className="truncate text-[13.5px] font-extrabold text-white">{nombre}</p>
+                <p className="mt-0.5 truncate text-[11px] text-aventurea-rail">{correo}</p>
               </div>
             </div>
 
-            <nav aria-label="Secciones de cuenta" className="grid gap-1 border-b border-white/15 py-4">
+            <p className={`mt-4 ${RAIL_GRUPO}`}>
+              {modoNegocio ? "Tu negocio" : "Tu cuenta"}
+            </p>
+            <nav aria-label="Secciones de cuenta" className="grid gap-0.5">
               {!modoNegocio ? (
                 <>
                   <ItemNavOscuro actual icono={<IconHome className="h-[16px] w-[16px]" />}>
@@ -210,45 +276,56 @@ export default function TableroModos({
               )}
             </nav>
 
-            <div className="grid gap-1 pt-4">
-              <EditarPerfil nombreActual={nombreCrudo} telefonoActual={telefono} variante="oscuro" />
-              {tieneNegocio && (
-                <button
-                  type="button"
-                  onClick={toggleModo}
-                  className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold text-white/75 transition-colors hover:bg-white/10 hover:text-white"
-                >
-                  <span aria-hidden="true">
-                    <IconStore className="h-[14px] w-[14px]" />
-                  </span>
-                  {modoNegocio ? "Volver a mi perfil" : "Modo Negocio"}
-                </button>
-              )}
+            {/* EL PIE DEL RAIL (`.sidebar-bottom` de la maqueta). El rol
+                se mudó acá desde la cabecera: no es identidad, es qué
+                puede hacer esta cuenta, o sea de la misma familia que
+                «Modo Negocio», que está justo al lado. */}
+            <div className="mt-4 border-t border-white/15 pt-3">
+              <p className={RAIL_GRUPO}>Ajustes</p>
+              <div className="grid gap-0.5">
+                <EditarPerfil nombreActual={nombreCrudo} telefonoActual={telefono} variante="oscuro" />
+                {tieneNegocio && (
+                  <button
+                    type="button"
+                    onClick={toggleModo}
+                    className={`${RAIL_ITEM} text-aventurea-rail hover:bg-white/10 hover:text-white`}
+                  >
+                    <span aria-hidden="true">
+                      <IconStore className="h-[14px] w-[14px]" />
+                    </span>
+                    {modoNegocio ? "Volver a mi perfil" : "Modo Negocio"}
+                  </button>
+                )}
+              </div>
+              <p className="mt-3 px-3 text-[11px] text-aventurea-rail">
+                Entrás como{" "}
+                <strong className="font-bold text-white">
+                  {tieneNegocio ? "proveedor" : "cliente"}
+                </strong>
+                .
+              </p>
             </div>
           </div>
         </aside>
 
         {/* ── Contenido ──────────────────────────────────────────── */}
         <div className="min-w-0">
+          {/* EL TITULAR (`.heading`): kicker + h1 + bajada a la
+              izquierda, acción a la derecha. */}
           <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-aventurea-orange">
-                {fechaHoy}
-              </p>
-              <h1 className="titulo text-[32px] leading-[0.98] text-aventurea-navy sm:text-[44px]">
+            <div className="min-w-0">
+              <p className={EYEBROW}>{fechaHoy}</p>
+              <h1 className={`mt-2 ${TITULO_PANTALLA} sm:text-[38px]`}>
                 {modoNegocio ? "Tu negocio, en un panel a la altura." : "Todo listo para tu próxima experiencia."}
               </h1>
-              <p className="mt-2.5 max-w-[480px] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+              <p className={`mt-2.5 max-w-[480px] ${BAJADA_PANTALLA}`}>
                 {modoNegocio
                   ? "Disponibilidad, solicitudes, clientes y rendimiento de tu espacio, en un panel pensado para el día a día."
                   : "Reservas, invitaciones y beneficios reunidos en tu cuenta Bookea."}
               </p>
             </div>
             {!modoNegocio && (
-              <Link
-                href="/eventos"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-aventurea-navy px-4 py-2.5 text-[13px] font-extrabold text-white transition-colors hover:bg-aventurea-navy-2"
-              >
+              <Link href="/eventos" className={BOTON_PANEL_PRIMARIO}>
                 <span aria-hidden="true">
                   <IconCompass className="h-[14px] w-[14px]" />
                 </span>
@@ -257,89 +334,95 @@ export default function TableroModos({
             )}
           </section>
 
-          {!modoNegocio ? (
-            <>
+          <div className={`flex flex-col ${GAP_TABLERO}`}>
+            {!modoNegocio ? (
+              <>
+                <SeccionActividad
+                  eyebrow="Últimos movimientos"
+                  titulo="Tu actividad"
+                  filas={[
+                    {
+                      href: "/cuenta/ir/invitaciones",
+                      icono: <IconFrame className="h-[17px] w-[17px]" />,
+                      titulo: "Invitaciones y álbumes",
+                      detalle:
+                        invitacionIds.length === 0
+                          ? "Sin invitaciones"
+                          : personasConfirmadas > 0
+                            ? `${confirmacionesNuevas} confirmaciones nuevas · ${personasConfirmadas} personas confirmadas`
+                            : `${confirmacionesNuevas} confirmaciones nuevas`,
+                      numero: invitacionIds.length,
+                      badge: confirmacionesNuevas,
+                    },
+                    {
+                      href: "/cuenta/ir/reservas",
+                      icono: <IconCalendarLine className="h-[17px] w-[17px]" />,
+                      titulo: "Tus reservas",
+                      detalle: `${activas} activas, ${historial} historial${
+                        resenasCount > 0 ? ` · ${resenasCount} reseña${resenasCount === 1 ? "" : "s"}` : ""
+                      }`,
+                      numero: activas,
+                    },
+                    {
+                      href: "/cuenta/ir/favoritos",
+                      icono: <IconHeart className="h-[17px] w-[17px]" />,
+                      titulo: "Tus favoritos",
+                      detalle: favoritosCount === 1 ? "1 favorito" : `${favoritosCount} favoritos`,
+                      numero: favoritosCount,
+                    },
+                  ]}
+                />
+
+                <GrillaTablero>
+                  <ProximaExperienciaCard proxima={proximaExperiencia} />
+                  <MiLealtadResumen count={misLealtadesCount} principal={lealtadPrincipal} />
+                </GrillaTablero>
+              </>
+            ) : (
               <SeccionActividad
-                titulo="Tu actividad"
+                eyebrow="Tu operación"
+                titulo="Tu negocio"
                 filas={[
                   {
-                    href: "/cuenta/ir/invitaciones",
-                    icono: <IconFrame className="h-5 w-5" />,
-                    titulo: "Invitaciones y álbumes",
-                    detalle:
-                      invitacionIds.length === 0
-                        ? "Sin invitaciones"
-                        : personasConfirmadas > 0
-                          ? `${confirmacionesNuevas} confirmaciones nuevas · ${personasConfirmadas} personas confirmadas`
-                          : `${confirmacionesNuevas} confirmaciones nuevas`,
-                    numero: invitacionIds.length,
-                    badge: confirmacionesNuevas,
+                    href: "/cuenta/ir/proveedor",
+                    icono: <IconStore className="h-[17px] w-[17px]" />,
+                    titulo: "Panel de proveedor",
+                    detalle: `${negociosLength} publicación${negociosLength !== 1 ? "es" : ""}`,
+                    numero: negociosLength,
+                    badge: reservasNuevasNegocio,
                   },
                   {
-                    href: "/cuenta/ir/reservas",
-                    icono: <IconCalendarLine className="h-5 w-5" />,
-                    titulo: "Tus reservas",
-                    detalle: `${activas} activas, ${historial} historial${
-                      resenasCount > 0 ? ` · ${resenasCount} reseña${resenasCount === 1 ? "" : "s"}` : ""
-                    }`,
-                    numero: activas,
+                    href: "/cuenta/ir/finanzas",
+                    icono: <IconChartBars className="h-[17px] w-[17px]" />,
+                    titulo: "Finanzas",
+                    detalle: `${vecesContratado} reservas confirmadas`,
+                    numero: vecesContratado,
                   },
                   {
-                    href: "/cuenta/ir/favoritos",
-                    icono: <IconHeart className="h-5 w-5" />,
-                    titulo: "Tus favoritos",
-                    detalle: favoritosCount === 1 ? "1 favorito" : `${favoritosCount} favoritos`,
-                    numero: favoritosCount,
+                    href: lealtadActiva ? "/cuenta/ir/lealtad" : "/lealtad",
+                    icono: <IconStar className="h-[17px] w-[17px]" />,
+                    titulo: "Programa de lealtad",
+                    detalle: lealtadActiva
+                      ? "Sellos, puntos y tarjeta en el Wallet de tus clientes"
+                      : "Hacé que tus clientes vuelvan — ver cómo funciona",
                   },
                 ]}
               />
+            )}
 
-              <div className="mt-3.5 grid gap-3.5 lg:grid-cols-[1.6fr_0.85fr]">
-                <ProximaExperienciaCard proxima={proximaExperiencia} />
-                <MiLealtadResumen count={misLealtadesCount} principal={lealtadPrincipal} />
-              </div>
-            </>
-          ) : (
-            <SeccionActividad
-              titulo="Tu negocio"
-              filas={[
-                {
-                  href: "/cuenta/ir/proveedor",
-                  icono: <IconStore className="h-5 w-5" />,
-                  titulo: "Panel de proveedor",
-                  detalle: `${negociosLength} publicación${negociosLength !== 1 ? "es" : ""}`,
-                  numero: negociosLength,
-                  badge: reservasNuevasNegocio,
-                },
-                {
-                  href: "/cuenta/ir/finanzas",
-                  icono: <IconChartBars className="h-5 w-5" />,
-                  titulo: "Finanzas",
-                  detalle: `${vecesContratado} reservas confirmadas`,
-                  numero: vecesContratado,
-                },
-                {
-                  href: lealtadActiva ? "/cuenta/ir/lealtad" : "/lealtad",
-                  icono: <IconStar className="h-5 w-5" />,
-                  titulo: "Programa de lealtad",
-                  detalle: lealtadActiva
-                    ? "Sellos, puntos y tarjeta en el Wallet de tus clientes"
-                    : "Hacé que tus clientes vuelvan — ver cómo funciona",
-                },
-              ]}
+            <BannerNegocio
+              visible={!modoNegocio}
+              tieneNegocio={tieneNegocio}
+              onPasarAModoNegocio={toggleModo}
             />
-          )}
-
-          <BannerNegocio
-            visible={!modoNegocio}
-            tieneNegocio={tieneNegocio}
-            onPasarAModoNegocio={toggleModo}
-          />
+          </div>
 
           <footer className="mt-6 flex items-center justify-between gap-4 border-t border-aventurea-line pt-5 text-[11px] text-aventurea-ink-soft">
             <span>Bookea · Cuenta protegida</span>
             <form action={cerrarSesion}>
-              <button type="submit" className="font-bold text-red-600 hover:underline">
+              {/* red-700 y no red-600: sobre el lienzo gris del panel el
+                  600 daba 4,47:1 y este da 5,98:1. */}
+              <button type="submit" className="font-bold text-red-700 hover:underline">
                 Cerrar sesión
               </button>
             </form>
@@ -353,6 +436,17 @@ export default function TableroModos({
 function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
+
+/* La piel del rail. Se escribe acá y no se importa de
+   `panel/sistema.ts` porque ese `RAIL_ITEM` reserva 3px de borde
+   izquierdo para la barrita del acento del tipo de negocio — /cuenta
+   no tiene tipo de negocio, así que esos 3px serían un margen sin
+   significado. Lo demás (alto 38, radio 12, 13px/bold) es idéntico. */
+const RAIL_ITEM =
+  "flex min-h-[38px] w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-bold transition-colors";
+
+const RAIL_GRUPO =
+  "mb-1.5 px-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-aventurea-rail";
 
 /** Un ítem del nav sobre la tarjeta navy: el actual queda como píldora blanca. */
 function ItemNavOscuro({
@@ -372,23 +466,27 @@ function ItemNavOscuro({
     <>
       <span aria-hidden="true">{icono}</span>
       <span className="min-w-0 flex-1 truncate">{children}</span>
+      {/* El contador: letra #a83f00 sobre #fdeee1 = 5,42:1. Era blanco
+          sobre el naranja del logo (3,44:1) en letra de 10px. */}
       {badge != null && badge > 0 && (
-        <span className="rounded-full bg-aventurea-orange px-2 py-0.5 text-[10px] font-extrabold tabular-nums text-white">
+        <span className="rounded-lg bg-aventurea-orange-light px-1.5 py-0.5 text-[10.5px] font-extrabold tabular-nums text-bookea-naranja-fuerte">
           {badge > 99 ? "99+" : badge}
         </span>
       )}
     </>
   );
-  const clases = "flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition-colors";
   if (actual) {
     return (
-      <div aria-current="page" className={`${clases} bg-white text-aventurea-navy shadow-lg`}>
+      <div aria-current="page" className={`${RAIL_ITEM} bg-white text-aventurea-navy`}>
         {contenido}
       </div>
     );
   }
   return (
-    <Link href={href ?? "#"} className={`${clases} text-white/75 hover:bg-white/10 hover:text-white`}>
+    <Link
+      href={href ?? "#"}
+      className={`${RAIL_ITEM} text-aventurea-rail hover:bg-white/10 hover:text-white`}
+    >
       {contenido}
     </Link>
   );
@@ -403,72 +501,65 @@ type FilaActividad = {
   badge?: number;
 };
 
-/** "Tu actividad" / "Tu negocio": grilla de tarjetas, una fila horizontal en celular. */
-function SeccionActividad({ titulo, filas }: { titulo: string; filas: FilaActividad[] }) {
+/**
+ * «Tu actividad» / «Tu negocio»: la fila de MÉTRICAS del panel, con la
+ * anatomía de la `.metric` de la maqueta —disco de ícono arriba, rótulo
+ * en versalitas, la cifra grande y el detalle debajo— y cada una
+ * enlazada a su sección.
+ *
+ * No usa el `Metrica` compartido porque acá la tarjeta entera es un
+ * enlace y lleva un contador de novedades en la esquina; lo que sí
+ * comparte es cada decisión visual (superficie, disco, escala), que
+ * sale del sistema y no de esta pantalla.
+ */
+function SeccionActividad({
+  eyebrow,
+  titulo,
+  filas,
+}: {
+  eyebrow: string;
+  titulo: string;
+  filas: FilaActividad[];
+}) {
   return (
-    <section aria-labelledby="actividad-titulo" className="mb-3.5">
-      <div className="mb-3.5 flex items-center justify-between">
-        <h2 id="actividad-titulo" className="titulo text-[18px] text-aventurea-navy">
-          {titulo}
-        </h2>
-        <span className="text-[11.5px] text-aventurea-ink-soft">Vista general</span>
+    <section aria-labelledby="actividad-titulo">
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <div className="min-w-0">
+          <p className={`mb-1.5 ${EYEBROW_NEUTRO}`}>{eyebrow}</p>
+          <h2 id="actividad-titulo" className="titulo text-[18px] tracking-[-0.02em] text-aventurea-navy">
+            {titulo}
+          </h2>
+        </div>
+        <span className={DETALLE}>Vista general</span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className={`grid ${GAP_METRICAS} sm:grid-cols-3`}>
         {filas.map((f) => (
-          /* La MISMA piel que las tarjetas de números del panel de
-             negocio (`SUPERFICIE_DATO`): fondo sólido, sin el círculo
-             azul que sangraba por la esquina y sin el borde gris que
-             sobre un relleno de color solo ensuciaba. El layout NO se
-             copia —acá el número va arriba a la derecha y el título
-             abajo, porque son tarjetas de sección y no de métrica—; lo
-             que se comparte es el lenguaje. */
           <Link
             key={f.titulo}
             href={f.href}
-            className={`group flex items-start gap-3.5 ${SUPERFICIE_DATO} p-4 transition-shadow hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)] sm:block sm:p-5`}
+            className={`group flex min-w-0 flex-col ${SUPERFICIE_PANEL} ${RADIO_TILE} p-4 transition-colors hover:border-aventurea-navy`}
           >
-            {/* `relative` se queda: el contador se ancla a este span
-                con `sm:absolute` a partir de sm. */}
-            <span className="relative flex w-full items-center gap-3.5 sm:mb-5 sm:items-start sm:justify-between sm:gap-0">
+            <span className="flex items-center justify-between gap-2">
               <span
                 aria-hidden="true"
-                className={`flex h-10 w-10 shrink-0 items-center justify-center ${DISCO_DATO}`}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                style={DISCO_ACENTO}
               >
                 {f.icono}
               </span>
-              {f.numero != null && (
-                <strong className="hidden text-[26px] font-extrabold tracking-tight text-aventurea-navy sm:block">
-                  {String(f.numero).padStart(2, "0")}
-                </strong>
-              )}
-              {/* `sky` con letra blanca daba 4,42:1 y esto es letra de
-                  10,5px: por debajo de AA. El tono oscuro de la misma
-                  familia (`sky-dark`) da 6,45:1 sin cambiar de color —
-                  el mismo cambio que ya se hizo en las píldoras de
-                  estado del panel de negocio. */}
               {f.badge != null && f.badge > 0 && (
-                <span className="ml-auto shrink-0 rounded-lg bg-aventurea-sky-dark px-2 py-0.5 text-[10.5px] font-extrabold tabular-nums text-white sm:ml-0 sm:absolute sm:right-5 sm:top-5">
-                  +{f.badge > 99 ? "99" : f.badge}
-                </span>
+                <PildoraEstado estado="info">+{f.badge > 99 ? "99" : f.badge}</PildoraEstado>
               )}
             </span>
 
-            <span className="min-w-0 flex-1 sm:block">
-              <span className="flex items-center justify-between gap-2 sm:block">
-                <span className="truncate text-[14px] font-extrabold text-aventurea-ink sm:text-[15px]">
-                  {f.titulo}
-                </span>
-                {f.numero != null && (
-                  <strong className="shrink-0 text-[16px] font-extrabold text-aventurea-navy sm:hidden">
-                    {f.numero}
-                  </strong>
-                )}
+            <span className={`mt-3 truncate ${ROTULO_CIFRA}`}>{f.titulo}</span>
+            {f.numero != null && (
+              <span className="mt-1.5 text-[22px] font-extrabold leading-none tracking-[-0.04em] tabular-nums text-aventurea-ink">
+                {f.numero}
               </span>
-              <span className="mt-0.5 block truncate text-[11.5px] font-medium text-aventurea-ink-soft sm:mt-1">
-                {f.detalle}
-              </span>
-            </span>
+            )}
+            <span className={`mt-1.5 line-clamp-2 ${DETALLE}`}>{f.detalle}</span>
           </Link>
         ))}
       </div>
@@ -481,7 +572,7 @@ function ProximaExperienciaCard({ proxima }: { proxima: ProximaExperiencia }) {
   return (
     <div
       aria-labelledby="proxima-titulo"
-      className="relative flex min-h-[240px] flex-col justify-end overflow-hidden rounded-3xl border border-aventurea-line p-6 sm:p-7"
+      className={`relative flex min-h-[240px] flex-col justify-end overflow-hidden ${RADIO_CARD} border border-aventurea-line p-6 shadow-elevado sm:p-7`}
       style={{
         backgroundImage: proxima?.fotoUrl
           ? `linear-gradient(120deg, rgba(22,41,94,.94) 0%, rgba(22,41,94,.74) 45%, rgba(22,41,94,.4) 100%), url(${proxima.fotoUrl})`
@@ -490,7 +581,10 @@ function ProximaExperienciaCard({ proxima }: { proxima: ProximaExperiencia }) {
         backgroundPosition: "center",
       }}
     >
-      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.16em] text-aventurea-orange">
+      {/* Acá el naranja del LOGO sí se puede: sobre el navy de la
+          tarjeta da 4,65:1. Es el único lugar de la pantalla con fondo
+          oscuro, y por eso el único donde sobrevive. */}
+      <p className="mb-2.5 text-[11px] font-extrabold uppercase leading-none tracking-[0.14em] text-aventurea-orange">
         Tu próxima experiencia
       </p>
 
@@ -506,7 +600,7 @@ function ProximaExperienciaCard({ proxima }: { proxima: ProximaExperiencia }) {
           {proxima.slug && (
             <Link
               href={`/${proxima.slug}`}
-              className="mt-5 inline-flex w-fit items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-[13px] font-extrabold text-aventurea-navy transition-colors hover:bg-white/90"
+              className="mt-5 inline-flex h-10 w-fit items-center gap-1.5 rounded-xl bg-white px-4 text-[13px] font-extrabold text-aventurea-navy transition-colors hover:bg-white/90"
             >
               Ver el espacio
               <span aria-hidden="true">
@@ -520,13 +614,13 @@ function ProximaExperienciaCard({ proxima }: { proxima: ProximaExperiencia }) {
           <h2 id="proxima-titulo" className="titulo max-w-[440px] text-[21px] text-white sm:text-[25px]">
             Todavía no hay nada en el calendario.
           </h2>
-          <p className="mt-2 max-w-[420px] text-[13px] leading-relaxed text-white/70">
+          <p className="mt-2 max-w-[420px] text-[13px] leading-relaxed text-white/75">
             Descubrí espacios, citas y hospedajes seleccionados para convertir cualquier plan en algo
             memorable.
           </p>
           <Link
             href="/eventos"
-            className="mt-5 inline-flex w-fit items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-[13px] font-extrabold text-aventurea-navy transition-colors hover:bg-white/90"
+            className="mt-5 inline-flex h-10 w-fit items-center gap-1.5 rounded-xl bg-white px-4 text-[13px] font-extrabold text-aventurea-navy transition-colors hover:bg-white/90"
           >
             Explorar Bookea
             <span aria-hidden="true">
@@ -545,60 +639,46 @@ const TOPE_SELLOS_VISUALES = 20;
 /** "Mi lealtad": 0/1/varias tarjetas, cada caso con su propio resumen honesto. */
 function MiLealtadResumen({ count, principal }: { count: number; principal: LealtadPrincipal }) {
   return (
-    <div
-      aria-labelledby="lealtad-titulo"
-      className="relative flex flex-col overflow-hidden rounded-3xl border border-aventurea-orange/25 bg-aventurea-surface p-6"
+    /* SIN el orbe naranja que sangraba por la esquina: es el
+       `.metric:after` de la maqueta, y pasaba justo por detrás del
+       «5/10» — un adorno tapando el único dato de la tarjeta. Ya se
+       había sacado de las métricas del panel por lo mismo. */
+    <Card
+      eyebrow="Beneficios"
+      titulo="Mi lealtad"
+      accion={<TotalLealtad count={count} principal={principal} />}
+      className="flex flex-col"
     >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-aventurea-orange/10"
-      />
-
-      <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
-        <div>
-          <p className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.16em] text-aventurea-ink-soft">
-            Beneficios
-          </p>
-          <h2 id="lealtad-titulo" className="titulo text-[18px] text-aventurea-navy">
-            Mi lealtad
-          </h2>
-        </div>
-        <TotalLealtad count={count} principal={principal} />
-      </div>
-
-      <div className="relative z-10 flex-1">
+      <div className="flex-1">
         {count === 0 && (
-          <p className="text-[13px] text-aventurea-ink-soft">
+          <p className={CUERPO}>
             Tus sellos y puntos van a aparecer acá cuando te afiliés al programa de lealtad de un negocio.
           </p>
         )}
         {count === 1 && principal && <ProgresoLealtad principal={principal} />}
         {count > 1 && (
-          <p className="text-[13px] text-aventurea-ink-soft">
+          <p className={CUERPO}>
             Tenés {count} tarjetas activas — mirá el sello y el progreso de cada una.
           </p>
         )}
       </div>
 
-      <div className="relative z-10 mt-5 flex items-center justify-between gap-3 border-t border-aventurea-line pt-4">
-        <p className="truncate text-[11.5px] text-aventurea-ink-soft">
+      <div className="mt-5 flex items-center justify-between gap-3 border-t border-aventurea-line pt-4">
+        <p className={`truncate ${CUERPO_SUAVE}`}>
           {count === 1 && principal
             ? principal.negocioNombre
             : count === 0
               ? "Sin tarjetas todavía"
               : "Varios negocios"}
         </p>
-        <Link
-          href="/cuenta/lealtad"
-          className="inline-flex shrink-0 items-center gap-1 text-[12.5px] font-bold text-aventurea-navy hover:underline"
-        >
+        <Link href="/cuenta/lealtad" className={`inline-flex items-center gap-1 ${ENLACE_CARD}`}>
           Ver tarjeta
           <span aria-hidden="true">
             <IconChevronRight className="h-[12px] w-[12px]" />
           </span>
         </Link>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -607,15 +687,19 @@ function TotalLealtad({ count, principal }: { count: number; principal: LealtadP
   if (count === 0) return null;
   if (count === 1 && principal && principal.tipo === "sellos" && principal.meta) {
     return (
-      <strong className="shrink-0 text-[22px] font-extrabold tracking-tight text-aventurea-orange">
+      /* `--orange-fuerte` y no el naranja del logo: sobre blanco, el del
+         logo da 2,94:1 y esto es el DATO de la tarjeta. 6,22:1. */
+      <strong className="shrink-0 text-[22px] font-extrabold tracking-[-0.04em] tabular-nums text-bookea-naranja-fuerte">
         {Math.min(principal.saldo, principal.meta)}/{principal.meta}
       </strong>
     );
   }
   return (
     <div className="shrink-0 text-right">
-      <strong className="block text-[20px] font-extrabold text-aventurea-navy">{count}</strong>
-      <span className="text-[10.5px] text-aventurea-ink-soft">{count === 1 ? "tarjeta" : "tarjetas"}</span>
+      <strong className="block text-[20px] font-extrabold tabular-nums text-aventurea-navy">
+        {count}
+      </strong>
+      <span className={DETALLE}>{count === 1 ? "tarjeta" : "tarjetas"}</span>
     </div>
   );
 }
@@ -637,12 +721,18 @@ function ProgresoLealtad({ principal }: { principal: NonNullable<LealtadPrincipa
         aria-label={`Progreso de sellos: ${llenos} de ${meta}`}
       >
         {Array.from({ length: meta }, (_, i) => (
+          /* El sello lleno se queda en el naranja del logo: es un
+             ELEMENTO GRÁFICO (3:1 contra blanco = 3,44:1 ✓), no texto, y
+             la palomita blanca encima solo tiene que distinguirse de la
+             forma, que ya la da el relleno. Es además el único lugar de
+             la cuenta donde el naranja de marca aparece como relleno, y
+             por eso significa algo. */
           <span
             key={i}
             aria-hidden
             className={`grid aspect-square place-items-center rounded-[9px] border ${
               i < llenos
-                ? "border-aventurea-orange bg-aventurea-orange text-white shadow-[0_6px_14px_-6px_rgba(238,116,32,0.6)]"
+                ? "border-aventurea-orange bg-aventurea-orange text-white"
                 : "border-aventurea-line bg-aventurea-cream-2 text-transparent"
             }`}
           >
@@ -659,11 +749,12 @@ function ProgresoLealtad({ principal }: { principal: NonNullable<LealtadPrincipa
     const pct = Math.max(0, Math.min(100, Math.round((saldo / meta) * 100)));
     return (
       <div>
-        <p className="text-[24px] font-extrabold tabular-nums text-aventurea-ink">
+        <p className="text-[24px] font-extrabold tracking-[-0.04em] tabular-nums text-aventurea-ink">
           {saldo.toLocaleString("es-CR")}{" "}
           <span className="text-[13px] font-bold text-aventurea-ink-soft">{UNIDAD_SALDO[tipo]}</span>
         </p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-aventurea-cream-2">
+        {/* 6px, como la `.progress` de la maqueta escalada al panel. */}
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-aventurea-cream-2">
           <div className="h-full rounded-full bg-aventurea-orange" style={{ width: `${pct}%` }} />
         </div>
       </div>
@@ -681,14 +772,14 @@ function ProgresoLealtad({ principal }: { principal: NonNullable<LealtadPrincipa
   // cuenta que avanza.
   if (saldo > 0 && TIPOS_TARJETA[tipo].acumula) {
     return (
-      <p className="text-[24px] font-extrabold tabular-nums text-aventurea-ink">
+      <p className="text-[24px] font-extrabold tracking-[-0.04em] tabular-nums text-aventurea-ink">
         {saldo.toLocaleString("es-CR")}{" "}
         <span className="text-[13px] font-bold text-aventurea-ink-soft">{UNIDAD_SALDO[tipo]}</span>
       </p>
     );
   }
 
-  return <p className="text-[13px] text-aventurea-ink-soft">Tenés un beneficio activo en esta tarjeta.</p>;
+  return <p className={CUERPO}>Tenés un beneficio activo en esta tarjeta.</p>;
 }
 
 /** El banner de cierre: invita a pasar a modo negocio, o a publicar un espacio si todavía no tiene ninguno. Oculto en modo negocio. */
@@ -703,19 +794,23 @@ function BannerNegocio({
 }) {
   if (!visible) return null;
   return (
-    <section className="relative mt-3.5 flex flex-col items-start gap-4 overflow-hidden rounded-2xl border border-aventurea-line bg-gradient-to-r from-aventurea-sky/10 to-aventurea-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-aventurea-orange to-aventurea-sky"
-      />
-      <div className="pl-2">
-        <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-aventurea-ink-soft">
+    /* El `.insight` de la maqueta: el bloque navy con degradé que cierra
+       el tablero. Antes era una franja casi blanca con una barrita de
+       dos colores al costado, o sea que la única invitación de la
+       pantalla se leía como una nota al pie. */
+    <section
+      className={`relative flex flex-col items-start gap-4 overflow-hidden ${RADIO_CARD} bg-aventurea-rail-fondo p-5 text-white shadow-elevado sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6`}
+    >
+      <div className="min-w-0">
+        <p className="text-[11px] font-extrabold uppercase leading-none tracking-[0.14em] text-aventurea-orange">
           Bookea para negocios
         </p>
-        <h2 className="titulo text-[17px] text-aventurea-navy sm:text-[19px]">
+        <h2 className="titulo mt-2 text-[17px] tracking-[-0.02em] text-white sm:text-[19px]">
           {tieneNegocio ? "¿También ofrecés espacios o servicios?" : "Publicá tu espacio."}
         </h2>
-        <p className="mt-1 max-w-[480px] text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+        {/* Sólido y no `white/70`: #9fb0cf sobre el navy da 6,33:1 y no
+            cambia según el punto del degradé sobre el que caiga. */}
+        <p className="mt-1.5 max-w-[480px] text-[12.5px] leading-relaxed text-aventurea-rail">
           {tieneNegocio
             ? "Cambiá al panel profesional para administrar agenda, clientes, cobros y disponibilidad."
             : "Sumá tu lugar, tus citas o tu servicio al directorio y empezá a recibir reservas instantáneas."}
@@ -725,7 +820,7 @@ function BannerNegocio({
         <button
           type="button"
           onClick={onPasarAModoNegocio}
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-aventurea-navy px-4 py-2.5 text-[13px] font-extrabold text-white transition-colors hover:bg-aventurea-navy-2"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-white px-4 text-[13px] font-extrabold text-aventurea-navy transition-colors hover:bg-white/90"
         >
           Ir a modo negocio
           <span aria-hidden="true">
@@ -735,7 +830,7 @@ function BannerNegocio({
       ) : (
         <Link
           href="/publicar"
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-aventurea-navy px-4 py-2.5 text-[13px] font-extrabold text-white transition-colors hover:bg-aventurea-navy-2"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-white px-4 text-[13px] font-extrabold text-aventurea-navy transition-colors hover:bg-white/90"
         >
           Publicá tu espacio
           <span aria-hidden="true">

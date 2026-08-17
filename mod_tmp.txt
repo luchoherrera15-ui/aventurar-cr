@@ -1,0 +1,156 @@
+ D referencia/tarifas-desordenada.png
+ D referencia/tarifas-escritorio-ok.png
+ D referencia/tarifas-guardado-ok.png
+ D referencia/tarifas-guardar-frenado.png
+ D referencia/tarifas-movil-390.png
+ D referencia/tarifas-tope-invalido.png
+ M docs/comprobaciones/libro-cobros.sql
+ M scripts/estado-migraciones.mjs
+ M src/app/admin/(dashboard)/complementos/actions.ts
+ M src/app/admin/(dashboard)/complementos/complementos-panel.tsx
+ M src/app/admin/(dashboard)/complementos/page.tsx
+ M src/app/admin/(dashboard)/complementos/plan-actions.ts
+ M src/app/admin/(dashboard)/page.tsx
+ M src/app/cuenta/editar-perfil.tsx
+ M src/app/cuenta/evento/[id]/page.tsx
+ M src/app/cuenta/favoritos/page.tsx
+ M src/app/cuenta/invitaciones/page.tsx
+ M src/app/cuenta/lealtad/page.tsx
+ M src/app/cuenta/page.tsx
+ M src/app/cuenta/reservas-tabs.tsx
+ M src/app/cuenta/reservas/page.tsx
+ M src/app/cuenta/tablero-modos.tsx
+ M src/app/globals.css
+ M src/app/lealtad/nuevo/actions.ts
+ M src/app/lealtad/nuevo/page.tsx
+ M src/app/lealtad/nuevo/wizard-alta.tsx
+ M src/app/lealtad/panel/[id]/atencion-manual.tsx
+ M src/app/lealtad/panel/[id]/auditoria-resumen.tsx
+ M src/app/lealtad/panel/[id]/avisos-cerrables.tsx
+ M src/app/lealtad/panel/[id]/ayuda-actions.ts
+ M src/app/lealtad/panel/[id]/ayuda-diseno.tsx
+ M src/app/lealtad/panel/[id]/boton-escanear.tsx
+ M src/app/lealtad/panel/[id]/compartir-tarjeta.tsx
+ M src/app/lealtad/panel/[id]/creador-tarjeta.tsx
+ M src/app/lealtad/panel/[id]/crear-actions.ts
+ M src/app/lealtad/panel/[id]/crear/page.tsx
+ M src/app/lealtad/panel/[id]/editar/[programaId]/page.tsx
+ M src/app/lealtad/panel/[id]/editor-recompensas.tsx
+ M src/app/lealtad/panel/[id]/editor-tarjeta.tsx
+ M src/app/lealtad/panel/[id]/equipo-cliente.tsx
+ M src/app/lealtad/panel/[id]/escaner-panel.tsx
+ M src/app/lealtad/panel/[id]/facturacion-tarjeta.tsx
+ M src/app/lealtad/panel/[id]/iconos.tsx
+ M src/app/lealtad/panel/[id]/inicio-lealtad.tsx
+ M src/app/lealtad/panel/[id]/kpi.tsx
+ M src/app/lealtad/panel/[id]/lealtad-estado.tsx
+ M src/app/lealtad/panel/[id]/lealtad-secciones.tsx
+ M src/app/lealtad/panel/[id]/marketing-lealtad.tsx
+ M src/app/lealtad/panel/[id]/marketing-mensaje.tsx
+ M src/app/lealtad/panel/[id]/marketing-tabla.tsx
+ M src/app/lealtad/panel/[id]/medidor.tsx
+ M src/app/lealtad/panel/[id]/metricas.tsx
+ M src/app/lealtad/panel/[id]/modo-mostrador.tsx
+ M src/app/lealtad/panel/[id]/page.tsx
+ M src/app/lealtad/panel/[id]/pases-actions.ts
+ M src/app/lealtad/panel/[id]/pases-panel.tsx
+ M src/app/lealtad/panel/[id]/programa-contexto.tsx
+ M src/app/lealtad/panel/[id]/seccion-plan.tsx
+ M src/app/lealtad/panel/[id]/seccion-programas.tsx
+ M src/app/lealtad/panel/[id]/seccion-tarjeta-digital.tsx
+ M src/app/lealtad/panel/[id]/shell-lealtad.tsx
+ M src/app/lealtad/panel/page.tsx
+ M src/app/lealtad/planes/actions.ts
+ M src/app/mi-negocio/[id]/accesos-modulos.tsx
+ M src/app/mi-negocio/[id]/barra-avisos.tsx
+ M src/app/mi-negocio/[id]/catalogo-panel.tsx
+ M src/app/mi-negocio/[id]/categorias-panel.tsx
+ M src/app/mi-negocio/[id]/citas/agenda-citas.tsx
+ M src/app/mi-negocio/[id]/citas/bloqueos-panel.tsx
+ M src/app/mi-negocio/[id]/citas/clientes-panel.tsx
+ M src/app/mi-negocio/[id]/citas/deposito-citas-form.tsx
+ M src/app/mi-negocio/[id]/citas/encabezado-citas.tsx
+ M src/app/mi-negocio/[id]/citas/equipo-panel.tsx
+ M src/app/mi-negocio/[id]/citas/horario-form.tsx
+ M src/app/mi-negocio/[id]/citas/lista-espera-panel.tsx
+ M src/app/mi-negocio/[id]/citas/membresias-panel.tsx
+ M src/app/mi-negocio/[id]/citas/miembro-config.tsx
+ M src/app/mi-negocio/[id]/citas/page.tsx
+ M src/app/mi-negocio/[id]/citas/reportes-citas.tsx
+ M src/app/mi-negocio/[id]/colaboradores-panel.tsx
+ M src/app/mi-negocio/[id]/dashboard-metricas.tsx
+ M src/app/mi-negocio/[id]/finanzas/finanzas-panel.tsx
+ M src/app/mi-negocio/[id]/finanzas/grafico-semanal.tsx
+ M src/app/mi-negocio/[id]/loading.tsx
+ M src/app/mi-negocio/[id]/modulos-panel.tsx
+ M src/app/mi-negocio/[id]/page.tsx
+ M src/app/mi-negocio/[id]/panel-sidebar.tsx
+ M src/app/mi-negocio/[id]/proximas-reservas-cards.tsx
+ M src/app/mi-negocio/layout.tsx
+ M src/components/lealtad/selector-icono-sello.tsx
+ M src/components/lealtad/vista-pase.tsx
+ M src/components/ocupacion-calendario.tsx
+ M src/components/subir-imagen.tsx
+ M src/components/tarjeta-dato.ts
+ M src/lib/comprimir-imagen.ts
+ M src/lib/email.ts
+ M src/lib/fechas.ts
+ M src/lib/lealtad/alta-desde-solicitud.ts
+ M src/lib/lealtad/ayuda-diseno.ts
+ M src/lib/lealtad/catalogo-publico.test.ts
+ M src/lib/lealtad/catalogo-publico.ts
+ M src/lib/lealtad/cuenta.test.ts
+ M src/lib/lealtad/iconos-sello.test.ts
+ M src/lib/lealtad/iconos-sello.ts
+ M src/lib/lealtad/planes.test.ts
+ M src/lib/lealtad/planes.ts
+ M src/lib/lealtad/prueba.test.ts
+ M src/lib/pagos/precios.test.ts
+ M src/lib/pagos/puerta-supabase.ts
+ M src/lib/wallet/banda.test.ts
+ M src/lib/wallet/generar.ts
+ M src/lib/wallet/imagenes.test.ts
+ M src/lib/wallet/imagenes.ts
+ M src/lib/wallet/tarjeta.ts
+.github/workflows/api-lealtad-mantenimiento.yml
+.github/workflows/cobro-del-dia.yml
+all_tmp.txt
+docs/comprobaciones/cobro-dia-evento.sql
+docs/pegar-plan-cruzado-rancho-las-torres.sql
+src/app/admin/(dashboard)/auditoria/
+src/app/admin/(dashboard)/complementos/clientes-por-negocio.ts
+src/app/admin/(dashboard)/developers/
+src/app/admin/(dashboard)/modulos/
+src/app/api/cobro-plataforma/
+src/app/api/lealtad/api-mantenimiento/
+src/app/api/lealtad/v1/
+src/app/lealtad/developers/
+src/app/lealtad/panel/[id]/developers-actions.ts
+src/app/lealtad/panel/[id]/developers-panel.tsx
+src/app/lealtad/panel/[id]/seccion-developers.tsx
+src/app/lealtad/panel/panel-oscuro.css
+src/app/lealtad/panel/sistema-lealtad.ts
+src/app/mi-negocio/[id]/fila-ficha.tsx
+src/components/panel/
+src/lib/auditoria-dinero.test.ts
+src/lib/auditoria-dinero.ts
+src/lib/auditoria-modulos.test.ts
+src/lib/auditoria-modulos.ts
+src/lib/cobro-dia-evento.test.ts
+src/lib/cobro-dia-evento.ts
+src/lib/lealtad/api/
+src/lib/lealtad/aplicar-plan.ts
+src/lib/lealtad/checks-de-planes.test.ts
+src/lib/lealtad/regalias.test.ts
+src/lib/lealtad/regalias.ts
+src/lib/media/comprobar-imagen-subida.test.ts
+src/lib/media/comprobar-imagen-subida.ts
+supabase/migrations/0171_cobro_el_dia_del_evento.sql
+supabase/migrations/0172_cobros_de_modulos.sql
+supabase/migrations/0173_regalias_y_rastro_del_plan.sql
+supabase/migrations/0174_icono_propio_del_sello.sql
+supabase/migrations/0175_el_plan_no_se_parte_en_dos.sql
+supabase/migrations/0176_developers_registro_y_autorizaciones.sql
+supabase/migrations/0177_rate_limit_y_bitacora_api.sql
+supabase/migrations/0178_llaves_api_lealtad.sql
+supabase/migrations/0179_catalogo_de_lealtad_sin_retirados.sql

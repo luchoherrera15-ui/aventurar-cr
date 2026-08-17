@@ -461,3 +461,49 @@ export function SelloConIcono({
     </span>
   );
 }
+
+/**
+ * UN SELLO CON EL ÍCONO PROPIO DEL NEGOCIO (0174).
+ *
+ * Copia lo que hace `selloRedondo` del lado del servidor —que es el
+ * camino que ya funciona en teléfonos de verdad desde que el sello era
+ * el logo—: círculo BLANCO, la imagen adentro al 62%, y el que falta al
+ * 26% de opacidad en vez de en contorno.
+ *
+ * Los dos estados salen de ahí y no de una idea nueva: el aro vacío se
+ * puede dibujar con un trazo, pero una imagen rasterizada no se puede
+ * «vaciar» sin inventarle un recorte. Y una tarjeta donde la mitad de
+ * los sellos se dibuja de una forma y la otra mitad de otra se lee como
+ * si estuviera rota.
+ *
+ * El fondo es BLANCO y no el color del acento por la misma razón que en
+ * el servidor: es el fondo neutro que deja ver un ícono de cualquier
+ * color. El precio —un ícono blanco desaparece— se avisa en el selector
+ * antes de guardar, midiendo el contraste contra este mismo blanco.
+ */
+export function SelloConImagen({
+  url,
+  encendido,
+  lado,
+}: {
+  url: string;
+  encendido: boolean;
+  /** Diámetro en píxeles. */
+  lado: number;
+}) {
+  return (
+    <span
+      aria-hidden
+      className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-white transition-opacity"
+      style={{ height: lado, width: lado, opacity: encendido ? 1 : 0.26 }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- imagen
+          recién subida por el negocio; acá es una maqueta. */}
+      <img
+        src={url}
+        alt=""
+        style={{ height: lado * 0.62, width: lado * 0.62, objectFit: "contain" }}
+      />
+    </span>
+  );
+}
