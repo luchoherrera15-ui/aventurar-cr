@@ -486,8 +486,16 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     vigente: true,
   },
   arranque: {
+    // ⚠️ EL `id` SIGUE SIENDO "arranque" Y NO SE TOCA, aunque el nombre
+    // visible ahora sea otro. Ese id está GUARDADO en la base
+    // (`ranchos.plan_lealtad`, `cuentas.plan`, `solicitudes_lealtad.plan`)
+    // y los tres tienen un CHECK que lo acepta. Renombrarlo dejaría a
+    // los negocios que ya lo pagaron con un plan que el catálogo no
+    // reconoce — y con plan desconocido TODOS los topes quedan en null,
+    // o sea ilimitado y gratis. Lo que se muestra es `nombre`; lo que
+    // se guarda es `id`, y son dos cosas distintas a propósito.
     id: "arranque",
-    nombre: "Arranque",
+    nombre: "Starter",
     descripcion: "Para el local que pone su primera tarjeta a rodar.",
     precioMensual: 12,
     // ── EL ANUAL ES 20% MENOS QUE PAGAR MES A MES ──────────────────

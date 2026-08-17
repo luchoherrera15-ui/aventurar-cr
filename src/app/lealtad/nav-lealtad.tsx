@@ -44,7 +44,7 @@ export default function NavLealtad() {
               logo estático que site-header.tsx: next/image no aporta
               nada para un PNG de 4.2 KB que no cambia. */}
           <img
-            src="/logo-bookea-nav-v3.png"
+            src="/logo-bookea-nav-v4.png"
             alt="Bookea"
             width={440}
             height={138}

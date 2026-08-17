@@ -119,7 +119,7 @@ export default async function NuevoNegocioLealtadPage({
       <header className="mx-auto flex w-full max-w-[1100px] items-center justify-between">
         <Link href="/lealtad">
           <Image
-            src="/logo-bookea-nav-v3.png"
+            src="/logo-bookea-nav-v4.png"
             alt="Bookea"
             width={110}
             height={34}

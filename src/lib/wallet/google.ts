@@ -53,7 +53,7 @@ import {
 
 const API = "https://walletobjects.googleapis.com/walletobjects/v1";
 const SCOPE = "https://www.googleapis.com/auth/wallet_object.issuer";
-const LOGO_BOOKEA = "https://www.bookea.lat/logo-bookea-v3.png";
+const LOGO_BOOKEA = "https://www.bookea.lat/logo-bookea-v4.png";
 
 export type CredencialesGoogle = {
   issuerId: string;

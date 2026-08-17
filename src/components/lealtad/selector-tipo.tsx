@@ -128,9 +128,19 @@ export default function SelectorTipo({
             onClick={() => {
               if (!bloqueado) alElegir(tipo.id);
             }}
+            // SIN `opacity` sobre la tarjeta entera. Bajarle la opacidad
+            // al bloque completo apaga TAMBIÉN el texto, y un texto
+            // translúcido sobre blanco se lee borroso —el antialias del
+            // navegador tiene menos contraste con el que trabajar— además
+            // de hundir el contraste por debajo de AA.
+            //
+            // Lo apagado tiene que ser lo DECORATIVO: el borde punteado y
+            // el disco del ícono dicen «esto no se puede elegir» de sobra.
+            // El nombre y la descripción quedan nítidos y legibles, que es
+            // lo que hace falta para decidir si vale la pena pagar por él.
             className={`elevar group relative flex h-full flex-col items-start rounded-3xl border p-4 text-left ${
               bloqueado
-                ? "cursor-not-allowed border-dashed border-bookea-linea bg-white opacity-60"
+                ? "cursor-not-allowed border-dashed border-bookea-linea bg-bookea-fondo"
                 : elegido
                   ? "border-bookea-azul bg-bookea-azul-suave"
                   : "border-bookea-linea bg-white hover:border-bookea-azul/40"
@@ -154,12 +164,16 @@ export default function SelectorTipo({
               <Icono nombre="listo" className="h-3.5 w-3.5" />
             </span>
 
+            {/* El disco del ícono es lo ÚNICO que se apaga en una
+                bloqueada: es decorativo, así que perder contraste ahí no
+                le cuesta legibilidad a nadie. */}
             <span
               className={`grid h-10 w-10 place-items-center rounded-2xl transition-colors ${
-                elegido ? "text-white" : "text-bookea-azul"
+                elegido ? "text-white" : bloqueado ? "text-bookea-gris" : "text-bookea-azul"
               }`}
               style={{
                 background: elegido ? "var(--navy)" : "var(--navy-suave)",
+                opacity: bloqueado ? 0.55 : 1,
               }}
             >
               <Icono nombre={tipo.icono as NombreIcono} className="h-5 w-5" />

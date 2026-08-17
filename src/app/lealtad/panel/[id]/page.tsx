@@ -889,7 +889,7 @@ function Antesala({ nombre, children }: { nombre: string; children: React.ReactN
           </Link>
           <Link href="/lealtad">
             <Image
-              src="/logo-bookea-blanco-v3.png"
+              src="/logo-bookea-blanco-v4.png"
               alt="Bookea"
               width={110}
               height={34}

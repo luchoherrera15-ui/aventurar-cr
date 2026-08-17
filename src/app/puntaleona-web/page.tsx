@@ -10,7 +10,7 @@ export default function PuntaleonaWebPage() {
         {/* eslint-disable-next-line @next/next/no-img-element -- el
             logo oficial es un PNG estático: next/image no aporta nada
             acá. */}
-        <img src="/logo-bookea-v3.png" alt="Bookear" className="h-7 w-auto" />
+        <img src="/logo-bookea-v4.png" alt="Bookear" className="h-7 w-auto" />
       </Link>
       <h1 className="relative text-2xl font-bold text-aventurea-ink">Paquetes Vacacionales</h1>
       <p className="relative mx-auto mt-3 max-w-md text-[14px] text-aventurea-ink-soft">

@@ -176,7 +176,7 @@ export default async function PanelLealtadPage() {
         <header className="flex items-center justify-between">
           <Link href="/lealtad">
             <Image
-              src="/logo-bookea-blanco-v3.png"
+              src="/logo-bookea-blanco-v4.png"
               alt="Bookea"
               width={132}
               height={41}

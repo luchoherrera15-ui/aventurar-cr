@@ -243,7 +243,7 @@ function VitrinaSinDatos() {
           oficial es un PNG estático; next/image no aporta nada acá
           (mismo criterio que site-header.tsx). */}
       <img
-        src="/logo-bookea-blanco-v3.png"
+        src="/logo-bookea-blanco-v4.png"
         alt="Bookea"
         width={1251}
         height={391}

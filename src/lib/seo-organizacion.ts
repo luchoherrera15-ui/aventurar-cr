@@ -40,7 +40,7 @@ export const DATOS_ORGANIZACION = {
       "@id": `${SITIO}#organizacion`,
       name: "Bookea",
       url: SITIO,
-      logo: urlSitio("/logo-bookea-v3.png"),
+      logo: urlSitio("/logo-bookea-v4.png"),
       areaServed: { "@type": "Country", name: "Costa Rica" },
     },
     {

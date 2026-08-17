@@ -355,7 +355,7 @@ export default function ShellLealtad({
 
                 <Link href="/lealtad" className="hidden shrink-0 sm:block">
                   <Image
-                    src="/logo-bookea-blanco-v3.png"
+                    src="/logo-bookea-blanco-v4.png"
                     alt="Bookea"
                     width={92}
                     height={29}

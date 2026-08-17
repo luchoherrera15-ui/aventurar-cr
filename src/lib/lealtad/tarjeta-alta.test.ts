@@ -73,7 +73,7 @@ describe("validarTarjetaDeAlta — el tipo contra el paquete", () => {
   it("la Prueba no arma cupones, y el mensaje dice qué paquete los abre", () => {
     const r = validarTarjetaDeAlta({ modo: "cupon" }, "prueba");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.motivo).toContain("Arranque");
+    if (!r.ok) expect(r.motivo).toContain("Starter");
   });
 
   it("la membresía se abre recién con Impulso", () => {

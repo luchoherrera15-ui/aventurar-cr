@@ -250,7 +250,7 @@ export default async function DemoCategoriaPage({
           </Link>
           <Link href="/lealtad">
             <Image
-              src="/logo-bookea-blanco-v3.png"
+              src="/logo-bookea-blanco-v4.png"
               alt="Bookea"
               width={110}
               height={34}

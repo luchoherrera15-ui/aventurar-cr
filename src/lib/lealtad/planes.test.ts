@@ -213,7 +213,10 @@ describe("el catálogo de Lealtad", () => {
     // El copy dice «Ahorrá 2 meses» y ese 2 sale del cálculo, no de un
     // texto escrito a mano que se desincroniza al cambiar un precio.
     for (const id of ["arranque", "impulso", "ilimitado"] as const) {
-      expect(mesesDeAhorroAnual(PLANES[id])).toBe(2);
+    // (la función quedó sin uso en producción: el anual se anuncia por
+    // porcentaje, no contando meses. Se conserva por si alguna pantalla
+    // futura quiere el dato en meses.)
+    expect(mesesDeAhorroAnual(PLANES[id])).toBe(2);
     }
   });
 
@@ -684,7 +687,7 @@ describe("definicionDe", () => {
     expect(definicionDe(null)).toBeNull();
     expect(definicionDe("premium")).toBeNull();
     expect(definicionDe("prueba")?.limites.clientesActivos).toBe(5);
-    expect(definicionDe("arranque")?.nombre).toBe("Arranque");
+    expect(definicionDe("arranque")?.nombre).toBe("Starter");
     expect(definicionDe("impulso")?.nombre).toBe("Impulso");
     expect(definicionDe("ilimitado")?.nombre).toBe("Ilimitado");
     // Los retirados siguen resolviendo, que es todo el punto.
