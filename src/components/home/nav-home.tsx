@@ -19,9 +19,24 @@ import { ID_COMO_FUNCIONA } from "./como-funciona";
  * ya tiene ahí adentro. De ahí el `hidden lg:flex`.
  */
 
-const LINKS: { href: string; texto: string }[] = [
-  { href: "/citas", texto: "Citas y servicios" },
-  { href: "/eventos", texto: "Eventos" },
+/**
+ * DOS CLASES DE LINK, Y SE TIENEN QUE VER DISTINTAS.
+ *
+ * «Citas y servicios» y «Eventos» son las dos PUERTAS del marketplace:
+ * llevan a un directorio con negocios de verdad. «Cómo funciona» y
+ * «Para negocios» son de acompañamiento — una baja a una sección de
+ * esta misma página y la otra es para el dueño de un negocio, no para
+ * quien viene a reservar.
+ *
+ * Pintados los cuatro igual, las dos puertas se perdían entre el resto
+ * y no se leían como los botones que son. Las de categoría van en
+ * burbuja; las otras, en texto.
+ */
+type Link = { href: string; texto: string; categoria?: true };
+
+const LINKS: Link[] = [
+  { href: "/citas", texto: "Citas y servicios", categoria: true },
+  { href: "/eventos", texto: "Eventos", categoria: true },
   // Ancla, no ruta: la sección vive en esta misma página. El id sale de
   // quien lo pinta, para que no se despareje si alguien lo renombra.
   { href: `#${ID_COMO_FUNCIONA}`, texto: "Cómo funciona" },
@@ -36,19 +51,30 @@ const LINKS: { href: string; texto: string }[] = [
 
 export default function NavHome() {
   return (
-    <nav
-      aria-label="Secciones de Bookea"
-      className="hidden items-center gap-6 lg:flex"
-    >
-      {LINKS.map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          className="whitespace-nowrap text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
-        >
-          {link.texto}
-        </Link>
-      ))}
+    <nav aria-label="Secciones de Bookea" className="hidden items-center gap-2 lg:flex">
+      {LINKS.map((link, i) => {
+        const anterior = LINKS[i - 1];
+        return (
+          <span key={link.href} className="flex items-center">
+            {/* La rayita separa las dos puertas del resto. Va donde
+                cambia el tipo de link, no en una posición fija: si
+                mañana se agrega una categoría, se corre sola. */}
+            {anterior?.categoria && !link.categoria && (
+              <span aria-hidden className="mx-2.5 h-4 w-px bg-aventurea-line" />
+            )}
+            <Link
+              href={link.href}
+              className={
+                link.categoria
+                  ? "presionable whitespace-nowrap rounded-xl border border-aventurea-line bg-white px-3.5 py-2 text-[13.5px] font-extrabold text-aventurea-navy transition-colors hover:border-aventurea-navy/40 hover:bg-aventurea-navy/[0.04]"
+                  : "whitespace-nowrap px-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+              }
+            >
+              {link.texto}
+            </Link>
+          </span>
+        );
+      })}
     </nav>
   );
 }

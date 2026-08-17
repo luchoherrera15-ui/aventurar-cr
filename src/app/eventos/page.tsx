@@ -6,13 +6,11 @@ import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
-import CarruselSuperDestacados from "@/components/carrusel-super-destacados";
-import { leerSuperDestacados } from "@/lib/destacados";
 // En carga diferida: el modal de Boki solo existe cuando el hash es
 // #boki, así que sus ~41 KB de JS no tienen por qué viajar en el bundle
 // inicial de esta página (ver planificador-lazy.tsx).
 import Planificador from "@/components/planificador/planificador-lazy";
-import { EsqueletoCarrusel, EsqueletoFiltros, EsqueletoGrilla } from "../esqueleto";
+import { EsqueletoFiltros, EsqueletoGrilla } from "../esqueleto";
 import { normalizarCategoria } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
 /**
@@ -134,11 +132,13 @@ export default function EventosPage() {
         <div className="mx-auto max-w-[1600px] px-4 lg:px-6">
           {/* Sin hero de marketing (buscador grande, banners): eso sigue
               descartado a propósito, todo el espacio es para las cards.
-              El único bloque de arriba es el carrusel de Súper
-              destacados (0169, dentro de DirectorioEventos), que es
-              contenido real del directorio —no una portada aparte— así
-              que no rompe esa regla. El h1 queda para lectores de
-              pantalla y SEO. */}
+              Y ahora se cumple del todo: el carrusel de Súper destacados
+              que vivía acá arriba se mudó a la portada. Mientras `/` ERA
+              este directorio, el carrusel tenía que estar acá para poder
+              aparecer en la raíz; con la portada separada, dejarlo era
+              repetir los mismos negocios dos veces y ponerle un bloque
+              de vitrina delante de las cards a la pantalla que existe
+              para buscar. El h1 queda para lectores de pantalla y SEO. */}
           <h1 className="sr-only">Todo para tu evento — directorio nacional</h1>
           {/* El chip activo es esta misma página, y desde el home nuevo
               eso además es CIERTO: antes, cuando `/` montaba este
@@ -156,7 +156,6 @@ export default function EventosPage() {
           <Suspense
             fallback={
               <>
-                <EsqueletoCarrusel />
                 <EsqueletoFiltros />
                 <EsqueletoGrilla cantidad={6} />
               </>
@@ -204,7 +203,6 @@ async function DirectorioEventos() {
     { data: confirmadas },
     { data: calificacionesData },
     { data: resenasData },
-    superDestacados,
     {
       data: { user },
     },
@@ -243,14 +241,11 @@ async function DirectorioEventos() {
       .order("created_at", { ascending: false })
       .limit(300),
 
-    // Los hasta 10 "súper destacados" (0169) que el admin eligió a mano
-    // para el carrusel de arriba. La consulta vive en @/lib/destacados
-    // porque la portada nueva pinta la misma vitrina: ahí están el
-    // filtro de "en configuración", el degradado cuando la 0169 no
-    // corrió en esta base, y las columnas que puede ver el público.
-    // Entra igual en esta tanda —devuelve una promesa como las demás—
-    // así que sigue viajando en paralelo con el resto.
-    leerSuperDestacados(supabase),
+    // Acá iba `leerSuperDestacados()`, que alimentaba el carrusel de
+    // arriba. Se fue con él: sin nadie que pinte esos negocios, la
+    // consulta era una ida a la base por respuesta cuyo resultado se
+    // tiraba. La función sigue viva en @/lib/destacados — la usa la
+    // portada, que es donde quedó la vitrina.
 
     supabase.auth.getUser(),
   ]);
@@ -300,8 +295,17 @@ async function DirectorioEventos() {
 
   return (
     <>
-      <CarruselSuperDestacados negocios={superDestacados} />
-
+      {/* ACÁ ARRIBA IBA EL CARRUSEL DE SÚPER DESTACADOS. SE FUE, Y NO
+          SE BORRÓ EL COMPONENTE: se mudó a la portada, que es su lugar.
+          Mientras `/` ERA este mismo directorio, el carrusel tenía que
+          vivir acá —era la única forma de que apareciera en la raíz—.
+          Con la portada separada, mantenerlo en los dos lados mostraba
+          los mismos negocios dos veces a quien entra por `/` y baja a
+          `/eventos`, y encima le ponía un bloque de vitrina delante de
+          las cards justo en la pantalla que existe para buscar.
+          Es además lo que este archivo ya pedía por escrito unas líneas
+          más abajo: «sin hero de marketing, todo el espacio es para las
+          cards». */}
       <Directorio
         ranchos={ranchos}
         fechasOcupadas={fechasOcupadas}
