@@ -9,6 +9,7 @@ import { CATEGORIAS_CITAS } from "@/app/citas/tipos";
 import { CATEGORIAS_HOSPEDAJES } from "@/app/booking/tipos";
 import { CATEGORIAS_RESTAURANTES } from "@/app/restaurantes/tipos";
 import { paisPorCodigo, zonaDePais } from "@/lib/zonas";
+import { tipoNegocioDeAlta } from "@/lib/business/tipo-en-alta";
 
 export type NuevoRanchoState = { error?: string } | undefined;
 
@@ -52,6 +53,13 @@ export async function crearRancho(
   const precioDesdeRaw = String(formData.get("precio_desde") || "");
   const contacto = String(formData.get("contacto_whatsapp") || "").trim();
   const subcategoria = String(formData.get("subcategoria") || "");
+
+  // El rubro operativo que la persona eligió en el paso de tarjetas.
+  // Se valida contra el catálogo Y contra la vertical que resolvió el
+  // servidor: el CHECK de la 0108 rebota cualquier otra cosa y se
+  // llevaría el alta entera por delante. Vacío es válido —el paso se
+  // puede saltar— y entonces el panel lo deduce como siempre.
+  const tipoNegocio = tipoNegocioDeAlta(vertical, String(formData.get("tipo_negocio") || ""));
 
   // Verificación de identidad: obligatoria para poder ofrecer servicios
   // en el sitio (medida de seguridad contra empresas fantasma). La URL
@@ -119,6 +127,12 @@ export async function crearRancho(
       contacto_whatsapp: contacto || null,
       estado: "pendiente",
       slug,
+      // La columna se manda SOLO si hay respuesta. Con el spread
+      // condicional, un alta sin elegir rubro escribe exactamente las
+      // mismas columnas que antes de esta pantalla — así una base donde
+      // la 0108 todavía no se pegó sigue dando de alta negocios en vez
+      // de fallar con el nombre de una columna que el dueño nunca vio.
+      ...(tipoNegocio ? { tipo_negocio: tipoNegocio } : {}),
     })
     .select("id")
     .single();

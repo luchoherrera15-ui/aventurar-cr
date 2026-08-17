@@ -176,15 +176,27 @@ describe("catalogoPublico — la forma que la app espera", () => {
 });
 
 describe("catalogoPublico — los números que la app estaba mintiendo", () => {
-  it("la Prueba son 5 clientes y 14 días — alcanza para probar, no para operar gratis", () => {
+  it("la Prueba son 5 clientes y NO VENCE — lo que la sostiene es el tope", () => {
+    // Decisión del dueño: el paquete gratis dejó de ser una prueba de 14
+    // días y pasó a ser gratis permanente. Lo que impide que se opere
+    // gratis para siempre ya no es una fecha, son los 5 clientes.
     const prueba = catalogoPublico().planes.find((p) => p.id === "prueba");
     expect(prueba).toBeDefined();
     expect(prueba?.nombre).toBe("Prueba");
     expect(prueba?.precio).toBe("$0");
     expect(prueba?.esGratis).toBe(true);
-    expect(prueba?.diasPrueba).toBe(14);
+    expect(prueba?.diasPrueba).toBe(0);
     expect(prueba?.etiquetaClientes).toBe("Hasta 5 clientes");
-    expect(prueba?.notaPrecio).toBe("14 días, sin tarjeta");
+    expect(prueba?.notaPrecio).toBe("Gratis, sin vencimiento");
+  });
+
+  it("ningún paquete anuncia «0 días», que se leería como ya vencido", () => {
+    // La línea chica sale de `diasPrueba`, y con el cero la fórmula vieja
+    // escribía «0 días, sin tarjeta»: se lee como un error o, peor, como
+    // que la prueba ya se terminó. Del otro lado hay una app instalada
+    // que pinta este texto tal cual viene.
+    const texto = JSON.stringify(catalogoPublico());
+    expect(texto).not.toContain("0 días");
   });
 
   it("Arranque son $12, no ₡12 900, y su cupo es 200", () => {

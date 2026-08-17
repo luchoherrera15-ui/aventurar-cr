@@ -11,6 +11,7 @@ import {
   type VerticalNegocio,
 } from "@/lib/categorias-vertical";
 import { generarSlugUnico } from "@/lib/slug";
+import { tipoNegocioDeAlta } from "@/lib/business/tipo-en-alta";
 
 export type NuevoRanchoAdminState = { error?: string } | undefined;
 
@@ -89,6 +90,11 @@ export async function crearRanchoComoAdmin(
     }
   }
 
+  // El rubro operativo, validado igual que en el alta del dueño: contra
+  // el catálogo y contra la vertical. Ser admin no cambia el CHECK de la
+  // base — un valor fuera de la lista tumba el INSERT igual.
+  const tipoNegocio = tipoNegocioDeAlta(vertical, String(formData.get("tipo_negocio") || ""));
+
   const num = (campo: string) => {
     const v = String(formData.get(campo) || "");
     return v ? Number(v) : null;
@@ -113,6 +119,8 @@ export async function crearRanchoComoAdmin(
       String(formData.get("contacto_whatsapp") || "").trim() || null,
     estado: String(formData.get("estado") || "aprobado"),
     slug,
+    // Solo si hay respuesta (mismo criterio que mi-negocio/nuevo).
+    ...(tipoNegocio ? { tipo_negocio: tipoNegocio } : {}),
   });
 
   if (error) return { error: "No se pudo guardar el negocio: " + error.message };

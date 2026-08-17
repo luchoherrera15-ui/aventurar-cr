@@ -1,6 +1,11 @@
 import type { PlanId } from "@/lib/lealtad/planes";
 import { decidirPorCobro, motivoDeCorte, type MotivoDeCorte } from "./corte";
 import {
+  datosDePagoDeInvitacion,
+  decidirCobroDeInvitacion,
+  type PedidoInvitacion,
+} from "./invitaciones-pagadas";
+import {
   daDerechoAlPlan,
   estadoDesdeStripe,
   planDePrecio,
@@ -242,6 +247,35 @@ export type Puerta = {
 
   /** El correo al DUEÑO del negocio. Nunca lanza. */
   avisarAlDueno(a: Dueno & { clase: ClaseDeAviso; plan: PlanId | null; hasta: string | null }): Promise<void>;
+
+  // ── Las invitaciones digitales (pago suelto, no suscripción) ────────
+
+  /**
+   * El pedido tal como está en la base AHORA. null = ese pedido NO
+   * existe.
+   *
+   * La distinción importa: «no existe» hace que el motor avise de un
+   * cobro huérfano, así que un error de base tiene que LANZAR (el
+   * webhook devuelve 500 y Stripe reintenta), nunca devolver null.
+   */
+  leerPedidoInvitacion(id: string): Promise<PedidoInvitacion | null>;
+  /**
+   * RECLAMA el pedido: lo pasa a `estado` solo si venía sin cobrar.
+   *
+   * true = lo reclamó ESTE evento; false = ya estaba cobrado. Es lo que
+   * garantiza que los correos salgan una sola vez aunque Stripe entregue
+   * dos eventos distintos por el mismo cobro (`completed` y
+   * `async_payment_succeeded` no comparten `stripe_event_id`, así que la
+   * idempotencia de `eventos_stripe` no los frena). Mismo patrón que
+   * `reclamarAvisoPrevio`.
+   */
+  cobrarPedidoInvitacion(d: {
+    pedidoId: string;
+    estado: "pagado" | "en_revision";
+    sesionStripe: string;
+  }): Promise<boolean>;
+  /** Los correos del pedido pagado (al cliente y al equipo). Nunca lanza. */
+  avisarInvitacionPagada(d: { pedidoId: string; conRevision: boolean }): Promise<void>;
 };
 
 export type EventoEntrante = {
@@ -265,6 +299,18 @@ export type ResultadoEvento =
       tipo: "alta_sin_resolver";
       solicitud: string;
       motivo: "sin_plan" | "no_da_derecho" | "no_se_pudo";
+    }
+  /** Una invitación digital que quedó cobrada por este evento. */
+  | {
+      tipo: "invitacion_cobrada";
+      pedido: string;
+      /** `en_revision` = entró la plata pero no cuadra; lo mira una persona. */
+      estado: "pagado" | "en_revision";
+    }
+  /** Un cobro de invitación que no cambió nada (ver el motivo). */
+  | {
+      tipo: "invitacion_sin_efecto";
+      motivo: "sin_cobrar" | "sin_pedido" | "ya_cobrado" | "no_cobrable";
     }
   | {
       tipo: "guardado";
@@ -319,6 +365,15 @@ export type EfectoDelCorte =
  *       cancela: por eso el corte cae solo en la fecha correcta.
  *   · invoice.payment_failed       → AVISA y NO apaga.
  *
+ * Y aparte, por el mismo endpoint, los cobros SUELTOS de invitaciones
+ * digitales (`mode: "payment"`), que no son suscripciones y no tienen
+ * nada que ver con el interruptor:
+ *   · checkout.session.completed (mode payment)  → cobra el pedido
+ *   · checkout.session.async_payment_succeeded   → ídem, para el medio
+ *       de pago que acredita más tarde. Llega con OTRO `stripe_event_id`
+ *       que el `completed` del mismo cobro, así que la idempotencia real
+ *       de este caso es el reclamo del pedido, no la tabla de eventos.
+ *
  * ------------------------------------------------------------------
  * LOS QUE NO SE ATIENDEN, Y POR QUÉ
  * ------------------------------------------------------------------
@@ -336,6 +391,7 @@ export type EfectoDelCorte =
  */
 export const EVENTOS_ATENDIDOS = [
   "checkout.session.completed",
+  "checkout.session.async_payment_succeeded",
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
@@ -502,9 +558,19 @@ async function despachar(
   const objetoDelEvento = evento.data.object;
 
   switch (evento.type) {
+    // El cobro DIFERIDO de una invitación: la sesión ya se había
+    // completado (y en ese momento no se activó nada, porque el
+    // `payment_status` venía en "unpaid") y recién ahora acreditó.
+    case "checkout.session.async_payment_succeeded":
+      return cobrarInvitacion(objetoDelEvento, puerta, evento.type);
+
     case "checkout.session.completed": {
-      // Solo las sesiones de SUSCRIPCIÓN. Un pago suelto (`payment`)
-      // no es un plan de Lealtad y no tiene nada que activar.
+      // Un pago SUELTO no es un plan de Lealtad: o es una invitación
+      // digital —y entonces lo que se cobra es un pedido, no una
+      // suscripción— o no es nuestro y se ignora.
+      if (texto(objetoDelEvento.mode) === "payment") {
+        return cobrarInvitacion(objetoDelEvento, puerta, evento.type);
+      }
       if (texto(objetoDelEvento.mode) !== "subscription") {
         return { tipo: "ignorado", evento: evento.type };
       }
@@ -623,6 +689,100 @@ async function despachar(
     default:
       return { tipo: "ignorado", evento: evento.type };
   }
+}
+
+/**
+ * EL COBRO DE UNA INVITACIÓN DIGITAL.
+ *
+ * Un pago suelto, sin renovación ni corte: lo único que pasa es que un
+ * pedido de `pedidos_invitacion` deja de estar esperando plata. Por eso
+ * no toca nada de la maquinaria de arriba —ni `guardarSuscripcion`, ni
+ * el plan, ni el interruptor— y cabe en veinte renglones.
+ *
+ * ------------------------------------------------------------------
+ * LA IDEMPOTENCIA ACÁ ES EL RECLAMO, NO LA TABLA DE EVENTOS
+ * ------------------------------------------------------------------
+ * `eventos_stripe` frena el REINTENTO del mismo evento, pero no dos
+ * eventos distintos por el mismo cobro —y son dos: el `completed` y el
+ * `async_payment_succeeded`—. Lo que garantiza que el pedido se cobre y
+ * se avise UNA vez es `cobrarPedidoInvitacion`, que solo devuelve true
+ * si fue ÉL quien lo movió de estado.
+ *
+ * ------------------------------------------------------------------
+ * QUÉ PASA SI LO COBRADO NO CUADRA CON EL PEDIDO
+ * ------------------------------------------------------------------
+ * El pedido igual queda registrado como pagado con tarjeta —la plata
+ * entró, y no reconocerla sería lo peor que se puede hacer— pero en
+ * `en_revision` en vez de `pagado`, y con un aviso al equipo. Nadie
+ * pasa a diseño con un monto que no cuadra, y nadie que pagó se queda
+ * sin constancia de haber pagado.
+ */
+async function cobrarInvitacion(
+  sesion: Record<string, unknown>,
+  puerta: Puerta,
+  tipoEvento: string,
+): Promise<ResultadoEvento> {
+  const pago = datosDePagoDeInvitacion(sesion);
+  // No lleva nuestra marca: es de Lealtad o de algo que no es nuestro.
+  if (!pago) return { tipo: "ignorado", evento: tipoEvento };
+
+  const pedido = await puerta.leerPedidoInvitacion(pago.pedidoId);
+  const veredicto = decidirCobroDeInvitacion({ pago, pedido });
+
+  if (veredicto.estado === "ignorar") {
+    // Los dos casos en que entró plata y NO quedó atada a nada. Los
+    // otros dos —«todavía no acreditó» y «ya estaba cobrado»— son
+    // normales y no molestan a nadie.
+    if (veredicto.motivo === "sin_pedido") {
+      await puerta.avisar({
+        asunto: "Stripe: entró el pago de una invitación sin pedido",
+        detalle:
+          `La sesión ${pago.sesionStripe} cobró una invitación para el pedido ` +
+          `${pago.pedidoId}, que NO existe en la base. HAY QUE ATENDERLO A MANO: ` +
+          "el cobro entró. El evento completo quedó en `eventos_stripe`.",
+      });
+    }
+    if (veredicto.motivo === "no_cobrable") {
+      await puerta.avisar({
+        asunto: "Stripe: se pagó una invitación de un pedido cancelado",
+        detalle:
+          `El pedido ${pago.pedidoId} está en un estado que ya no admite cobro y aun así ` +
+          `entró el pago de la sesión ${pago.sesionStripe}. HAY QUE ATENDERLO A MANO: ` +
+          "hay que devolverle la plata a esa persona o rehacerle el pedido.",
+      });
+    }
+    return { tipo: "invitacion_sin_efecto", motivo: veredicto.motivo };
+  }
+
+  const aRevision = veredicto.estado === "revisar";
+  const estado = aRevision ? ("en_revision" as const) : ("pagado" as const);
+
+  const reclamado = await puerta.cobrarPedidoInvitacion({
+    pedidoId: pago.pedidoId,
+    estado,
+    sesionStripe: pago.sesionStripe,
+  });
+
+  // Todo lo que AVISA va detrás del reclamo: si el pedido lo movió otro
+  // evento de este mismo cobro, no hay nada nuevo que contar y repetirlo
+  // sería mandarle dos veces «recibimos tu pago» a la misma persona.
+  if (reclamado) {
+    if (aRevision) {
+      await puerta.avisar({
+        asunto: "Stripe: se cobró una invitación por un monto que no cuadra",
+        detalle:
+          `El pedido ${pago.pedidoId} se pagó con la sesión ${pago.sesionStripe} y ` +
+          `${veredicto.detalle}. Quedó en «en revisión» —NO en «pagado»— para que ` +
+          "alguien lo mire antes de mandarlo a diseño. La plata entró igual.",
+      });
+    }
+    await puerta.avisarInvitacionPagada({
+      pedidoId: pago.pedidoId,
+      conRevision: aRevision,
+    });
+  }
+
+  return { tipo: "invitacion_cobrada", pedido: pago.pedidoId, estado };
 }
 
 /**

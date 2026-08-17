@@ -25,7 +25,6 @@ type Card = {
   valor: string;
   detalle?: string;
   icono: ReactNode;
-  plata?: boolean;
 };
 
 /**
@@ -88,14 +87,12 @@ function contenidoWidget(
         valor: fmtColones(m.ingresosEsteMes),
         detalle: compararTexto(m.ingresosEsteMes, m.ingresosMesAnterior),
         icono: <IconChartBars />,
-        plata: true,
       };
     case "por_cobrar_30":
       return {
         valor: fmtColones(m.porCobrarProximos30),
         detalle: "Saldos que faltan",
         icono: <IconTagLine />,
-        plata: true,
       };
     case "reservas_mes":
       return {
@@ -129,31 +126,39 @@ function contenidoWidget(
 }
 
 /** Un número del tablero, con la misma piel de tarjeta que ya se usa en
- *  /cuenta: círculo de ícono chico con fondo aventurea-sky/10 y, atrás,
- *  un círculo decorativo grande sangrando por la esquina (el
- *  overflow-hidden lo recorta). El dato es lo más grande y visible de
- *  la tarjeta; el naranja marca lo que es plata (ingresos, lo que falta
- *  cobrar), el resto queda neutro. */
-function Dato({ titulo, valor, detalle, icono, plata = false }: Card) {
+ *  /cuenta: círculo de ícono chico y, atrás, un círculo decorativo
+ *  grande sangrando por la esquina (el overflow-hidden lo recorta).
+ *
+ *  TODOS LOS NÚMEROS SE PINTAN IGUAL. Antes había un `plata` que
+ *  mandaba los montos (ingresos del mes, lo que falta cobrar) al
+ *  naranja de marca, y el resultado era una fila donde la mitad de los
+ *  datos gritaba: además de desordenado, ese naranja daba 2,94:1 sobre
+ *  blanco, o sea que el dato más importante era el peor de leer. Un
+ *  número no necesita un color propio para decir que es plata — ya lo
+ *  dice el «₡». La tinta fuerte (18,10:1) sirve para los dos.
+ *
+ *  El rótulo tampoco es alfa: era `navy/60`, que compuesto sobre blanco
+ *  da 3,99:1 y NO llega a AA en 9,5px. Gris de texto sólido, 7,11:1.
+ *  Mismo criterio en el disco del ícono (`sky/10` → `sky-light`
+ *  sólido, con el ícono en navy: 12,24:1). */
+function Dato({ titulo, valor, detalle, icono }: Card) {
   return (
     <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface px-3 py-2.5 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] sm:px-3.5 sm:py-3">
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-7 -right-5 hidden h-24 w-24 rounded-full bg-aventurea-sky/10 sm:block"
+        className="pointer-events-none absolute -bottom-7 -right-5 hidden h-24 w-24 rounded-full bg-aventurea-sky-light sm:block"
       />
       <span
         aria-hidden="true"
-        className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-sky/10 text-[15px] text-aventurea-sky sm:h-9 sm:w-9 sm:text-[17px]"
+        className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aventurea-sky-light text-[15px] text-aventurea-navy sm:h-9 sm:w-9 sm:text-[17px]"
       >
         {icono}
       </span>
       <div className="relative z-10 mt-2 min-w-0">
-        <p className="truncate text-[9.5px] font-bold uppercase leading-tight tracking-wide text-aventurea-navy/60 sm:text-[10px]">
+        <p className="truncate text-[9.5px] font-bold uppercase leading-tight tracking-wide text-aventurea-ink-soft sm:text-[10px]">
           {titulo}
         </p>
-        <p
-          className={`mt-0.5 truncate text-[15px] font-extrabold leading-tight sm:text-[19px] ${plata ? "text-aventurea-orange" : "text-aventurea-ink"}`}
-        >
+        <p className="mt-0.5 truncate text-[15px] font-extrabold leading-tight text-aventurea-ink sm:text-[19px]">
           {valor}
         </p>
         {detalle && (
@@ -219,7 +224,13 @@ export default function DashboardMetricas({
           útiles y «₡12.500.000» se cortaba (un monto no tiene dónde
           partirse). En pantalla grande la fila se ajusta a cuántas
           tarjetas hay de verdad: con cuatro son cuatro columnas, con
-          tres son tres — nunca queda un hueco al final de la fila. */}
+          tres son tres — nunca queda un hueco al final de la fila.
+
+          Las principales nunca pasan de cuatro columnas aunque ahora
+          sobre ancho: son cuatro tarjetas como máximo y estirarlas a
+          seis huecos dejaría dos vacíos. El ancho de más se lo llevan
+          las tarjetas, que es justo lo que hacía falta para que los
+          montos largos dejaran de truncarse. */}
       <div
         className={`grid grid-cols-2 gap-2 sm:gap-2.5 ${
           principales.length >= 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"
@@ -230,8 +241,11 @@ export default function DashboardMetricas({
         ))}
       </div>
 
+      {/* Las secundarias sí son varias (hasta seis), y con el panel a
+          pantalla completa entran todas en UNA fila en un monitor
+          grande en vez de partirse en dos filas de tres. */}
       {abierto && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 xl:grid-cols-4 2xl:grid-cols-6">
           {secundarias.map((card) => (
             <Dato key={card.titulo} {...card} />
           ))}

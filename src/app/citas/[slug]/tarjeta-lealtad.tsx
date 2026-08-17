@@ -118,7 +118,7 @@ export default function TarjetaLealtad({
               >
                 Solicitar mi tarjeta →
               </Link>
-              <span className="self-center text-[12.5px] text-white/45">
+              <span className="self-center text-[12.5px] text-white/55">
                 Gratis · en tu próxima visita
               </span>
             </div>
@@ -134,7 +134,7 @@ export default function TarjetaLealtad({
           >
             <div className="px-3.5 pb-3 pt-3.5">
               <p className="truncate text-[10px] font-medium text-white/80">{negocio}</p>
-              <p className="mt-2.5 text-[7.5px] uppercase tracking-[0.18em] text-white/45">
+              <p className="mt-2.5 text-[7.5px] uppercase tracking-[0.18em] text-white/60">
                 {tipo === "sellos" ? "SELLOS" : tipo === "cashback" ? "SALDO" : "TU TARJETA"}
               </p>
               <p className="text-[19px] font-extrabold leading-none text-white">
@@ -150,7 +150,15 @@ export default function TarjetaLealtad({
                       // Los sellos SÍ se quedan naranjas: son el acento
                       // de marca, la pieza chica. Con el naranja real
                       // del logotipo (#f39200), no el retirado #FF6A00.
-                      style={{ background: "#f39200", opacity: 0.25 }}
+                      //
+                      // Al 25 % daban 1,43:1 contra la tarjetita y no se
+                      // veía ni que hubiera huecos. Al 45 % son 2,03:1 y
+                      // ya se leen como casillas VACÍAS, que es lo que
+                      // son: subirlos más los disfrazaría de sellos ya
+                      // ganados y la maqueta diría una mentira. El estado
+                      // de verdad lo canta el «0/N» de arriba, y el
+                      // bloque entero es `aria-hidden`.
+                      style={{ background: "#f39200", opacity: 0.45 }}
                     />
                   ))}
                 </div>

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
+import { COOKIE_AVISOS, avisosOcultosDe } from "@/lib/lealtad/avisos-ocultos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, estadoDelLimite } from "@/lib/lealtad/planes";
 import { estadoDePrueba } from "@/lib/lealtad/prueba";
@@ -16,7 +18,11 @@ import { pideMontoElTipo } from "@/lib/lealtad/mostrador";
 import { permisosDeFila } from "@/lib/lealtad/permisos";
 import { cargarLealtad } from "./datos-lealtad";
 import ShellLealtad, { type GrupoLealtad } from "./shell-lealtad";
-import InicioLealtad, { type EnlacesInicio, type PasoPrimero } from "./inicio-lealtad";
+import InicioLealtad, {
+  type EnlacesInicio,
+  type EstadoPaquete,
+  type PasoPrimero,
+} from "./inicio-lealtad";
 import ModoMostrador from "./modo-mostrador";
 import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
@@ -405,6 +411,12 @@ export default async function PanelNegocioLealtad({
   const topeProgramas = def?.limites.programas ?? null;
   const limiteClientes = estadoDelLimite(plan, "clientesActivos", miembros);
 
+  // Qué avisos de puesta en marcha cerró QUIEN MIRA (la X del tablero).
+  // Se lee acá, en el servidor, para que el aviso cerrado ni siquiera se
+  // dibuje: guardado en el navegador se pintaría un cuadro antes de
+  // esconderse, que es exactamente la sensación de que la X no sirvió.
+  const avisosOcultos = avisosOcultosDe((await cookies()).get(COOKIE_AVISOS)?.value, id);
+
   const grupos: GrupoLealtad[] = [
     {
       titulo: "Principal",
@@ -538,9 +550,25 @@ export default async function PanelNegocioLealtad({
     plan: ancla("plan"),
   };
 
+  // El status del paquete que abre el tablero. Los dos topes son los
+  // dos que el servidor HACE CUMPLIR, contados igual que quien los hace
+  // cumplir: los clientes con `miembros` (el mismo número del ledger) y
+  // las tarjetas con las VIVAS, que es lo que mira `crear-actions.ts`.
+  const paquete: EstadoPaquete = {
+    plan,
+    clientes: limiteClientes,
+    tarjetas: estadoDelLimite(plan, "programas", vivas.length),
+    prueba,
+    // Comparar paquetes es decidir plata: solo el dueño. El resto del
+    // equipo ve el status —les sirve saber que el cupo está lleno— sin
+    // un botón que los mandaría a una pantalla que no pueden usar.
+    planes: puedeDisenar ? `/lealtad/planes?negocio=${id}` : null,
+  };
+
   const contenidos: Record<string, React.ReactNode> = {
     inicio: (
       <InicioLealtad
+        negocioId={id}
         nombre={rancho.nombre}
         tarjeta={
           principal
@@ -554,9 +582,10 @@ export default async function PanelNegocioLealtad({
         tarjetas={{ vivas: vivas.length, operan }}
         regalia={meta ? { nombre: meta.nombre, costo: meta.costo_puntos } : null}
         resumen={datosLealtad?.resumen ?? null}
-        limite={limiteClientes}
+        paquete={paquete}
         pasos={pasos}
         enlaces={enlaces}
+        avisosOcultos={avisosOcultos}
         accion={
           p && permisos.acreditar ? (
             <BotonEscanear

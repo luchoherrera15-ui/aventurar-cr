@@ -1364,9 +1364,13 @@ body {
 .lealtad-oscuro .text-aventurea-ink-soft {
   color: rgba(255, 255, 255, 0.62);
 }
+/* .5 y no .35: en el modo mostrador el placeholder ES la única etiqueta
+   del campo (no hay <label> visible arriba), así que no es texto
+   decorativo — es la instrucción. Al 35 % daba 3,19:1 sobre el navy del
+   panel; al 50 %, 5,32:1. */
 .lealtad-oscuro input::placeholder,
 .lealtad-oscuro textarea::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.5);
 }
 .lealtad-oscuro input,
 .lealtad-oscuro select,

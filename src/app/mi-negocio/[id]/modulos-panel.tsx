@@ -209,7 +209,13 @@ export default function ModulosPanel({
         {/* Punto de partida honesto: nadie eligió nada, esto es lo que
             está rigiendo mientras tanto y de dónde salió. */}
         {!explicito && (
-          <div className="mb-3 rounded-xl border border-aventurea-orange/40 bg-aventurea-orange/10 p-3.5 text-[12.5px] leading-relaxed text-aventurea-ink">
+          /* Fondo y borde SÓLIDOS de la familia azul, no un naranja al
+             10 % sobre lo que haya detrás. Esto no es una advertencia —
+             el panel funciona igual sin elegir tipo—, es información, y
+             pintarla de ámbar la hacía leer como error. Tinta sobre
+             `sky-light`: 15,96:1; el borde sky sobre blanco, 4,42:1
+             (pide 3:1 por no ser texto). */
+          <div className="mb-3 rounded-xl border border-aventurea-sky bg-aventurea-sky-light p-3.5 text-[12.5px] leading-relaxed text-aventurea-ink">
             <strong>Todavía no elegiste tu tipo de negocio.</strong> Mientras tanto tu panel
             funciona como <strong>{definicionTipo(tipoActual).label}</strong>, deducido de cómo
             estás publicado ({publicadoComo}). Revisá la ficha de acá abajo: si es lo que sos,

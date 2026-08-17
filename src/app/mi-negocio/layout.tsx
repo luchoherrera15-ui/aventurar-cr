@@ -87,8 +87,16 @@ export default async function MiRanchoLayout({
         {/* Altura FIJA (h-16 = 64px + borde): la barra de secciones del
             panel se pega justo debajo con `top-16`, y sin una altura
             determinista ese offset era adivinanza — a 390px el header
-            envolvía en dos líneas y se comía la barra. */}
-        <div className="mx-auto flex h-16 max-w-[1080px] items-center justify-between gap-4 px-5 sm:px-7">
+            envolvía en dos líneas y se comía la barra.
+
+            El ancho y el padding son los MISMOS que los del panel
+            (`mi-negocio/[id]/page.tsx`): 1900px de tope y la escala
+            16→24→32→40. Antes este header medía 1080px y el panel 1280,
+            así que el logo nunca estaba alineado con la columna del
+            menú; ahora que el panel usa la pantalla completa, dejarlo en
+            1080 lo habría dejado en una franja angosta arriba de un
+            tablero a todo lo ancho. */}
+        <div className="mx-auto flex h-16 w-full max-w-[1900px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 2xl:px-10">
           <Link href="/eventos" className="flex min-w-0 items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- el
                 logo oficial es un PNG estático: next/image no aporta

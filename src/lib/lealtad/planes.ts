@@ -441,7 +441,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
   prueba: {
     id: "prueba",
     nombre: "Prueba",
-    descripcion: "14 días para armar tu primera tarjeta, sin tarjeta de crédito.",
+    descripcion: "Armá tu primera tarjeta y probala con clientes reales, sin tarjeta de crédito.",
     // ⚠️ ESTE CERO SOSTIENE EL ALTA AUTOMÁTICA.
     // `/lealtad/nuevo/actions.ts` decide con `precioMensual === 0` si
     // el negocio se crea al instante o si cae al camino manual con
@@ -482,7 +482,21 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     // muestran bloqueados en el creador, no escondidos: enterarse de
     // que existen es parte de la razón para pagar.
     tipos: ["sellos", "puntos", "cashback"],
-    diasPrueba: 14,
+    // ── CERO: EL PAQUETE GRATIS NO VENCE ────────────────────────────
+    // Decisión del dueño. Estuvo en 14 y el corte lo hacía cumplir la
+    // BASE, no un proceso nuestro: `finDePrueba()` escribía la fecha en
+    // `addons_negocio.vence_en` al dar de alta, y `tiene_addon()` (0077)
+    // la comparaba con `now()`.
+    //
+    // Con 0, `finDePrueba()` devuelve null y `null` en esa columna
+    // significa «para siempre», así que las altas NUEVAS nacen sin
+    // corte sin tocar nada más.
+    //
+    // ⚠️ LOS QUE YA ESTÁN NO SE ARREGLAN SOLOS: tienen la fecha escrita
+    // en su fila de `addons_negocio` y la base la va a seguir haciendo
+    // cumplir. Hay que limpiarla a mano — el SQL está en
+    // docs/pegar-quitar-vencimiento-prueba.sql.
+    diasPrueba: 0,
     vigente: true,
   },
   arranque: {

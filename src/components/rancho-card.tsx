@@ -202,7 +202,7 @@ export default function RanchoCard({
             </h3>
             {calificacion && (
               <span className="flex shrink-0 items-center gap-1 pt-0.5 text-[12.5px] font-bold text-aventurea-ink">
-                <IconStar className="h-3.5 w-3.5 text-aventurea-orange" />
+                <IconStar className="h-3.5 w-3.5 text-bookea-naranja-fuerte" />
                 {calificacion.promedio.toFixed(1).replace(".", ",")}
                 <span className="font-semibold text-aventurea-ink-soft">
                   ({calificacion.total})
@@ -264,7 +264,7 @@ export default function RanchoCard({
             </span>
             <span
               className={`shrink-0 text-[13px] font-extrabold ${
-                enPausa ? "text-aventurea-ink-soft" : "text-aventurea-orange"
+                enPausa ? "text-aventurea-ink-soft" : "text-bookea-naranja-fuerte"
               }`}
             >
               {enPausa ? "No disponible aún" : "Reservar →"}

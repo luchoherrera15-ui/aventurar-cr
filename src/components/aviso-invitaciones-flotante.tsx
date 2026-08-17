@@ -281,7 +281,7 @@ export default function AvisoInvitacionesFlotante({
             Ver cómo funciona →
           </Link>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="text-[10px] leading-relaxed text-white/45">
+            <p className="text-[10px] leading-relaxed text-white/60">
               Se abre en otra pestaña — no perdés tu reserva.
             </p>
             <button

@@ -43,7 +43,7 @@ export function PresentacionSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[720px] px-7 text-center">
-        <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky after:block after:h-[1.5px] after:w-5 after:bg-aventurea-sky">
+        <p className="flex items-center justify-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-bookea-naranja-fuerte before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky after:block after:h-[1.5px] after:w-5 after:bg-aventurea-sky">
           {eyebrow}
         </p>
         <h2 className="titulo mt-3 text-[26px] text-aventurea-navy">{titulo}</h2>
@@ -159,7 +159,7 @@ export function AmenidadesSeccion({
 
   const contenido = (
     <>
-      <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
+      <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-bookea-naranja-fuerte before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
         Lo que incluye
       </p>
       <h2 className={`titulo mt-2 text-aventurea-navy ${enColumna ? "text-[20px]" : "text-[28px]"}`}>
@@ -213,7 +213,7 @@ export function DetallesSeccion({
   return (
     <section className="py-14">
       <div className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-bookea-naranja-fuerte before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           El servicio
         </p>
         <h2 className="titulo mt-2 text-[28px] text-aventurea-navy">
@@ -286,7 +286,7 @@ export function ResenasSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-bookea-naranja-fuerte before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Reseñas
         </p>
         <h2 className="titulo mt-2 flex items-center gap-2.5 text-[28px] text-aventurea-navy">
@@ -381,8 +381,14 @@ export function CierreSeccion({
     { href: sitioWeb, icono: <IconGlobe />, label: "Sitio web" },
   ].flatMap((r) => (r.href ? [{ ...r, href: r.href }] : []));
 
+  // El relleno de la tarjeta OSCURECE en vez de aclarar. Con `bg-white/10`
+  // el vidrio le subía el fondo justo donde el texto es blanco: en `md:`
+  // las tres tarjetas se reparten el degradado, pero en móvil se apilan y
+  // la del medio cae en la parada del 60 % —la más débil del velo—, con
+  // textos entre 2,25 y 3,79:1. Este azul al 45 % los devuelve a AA sin
+  // tocar el vidrio (el `backdrop-blur` y el borde siguen igual).
   const tarjetaCls =
-    "flex flex-col rounded-2xl border border-white/15 bg-white/10 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.18)] backdrop-blur-xl";
+    "flex flex-col rounded-2xl border border-white/15 bg-[#0f1d45]/45 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.18)] backdrop-blur-xl";
   const etiquetaCls =
     "text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/60";
   const botonGlassCls =
@@ -413,7 +419,7 @@ export function CierreSeccion({
       <div
         className={`absolute inset-0 ${
           fotoFondo
-            ? "bg-gradient-to-b from-[#0f1d45]/80 via-[#101a2c]/60 to-[#0f1d45]/85"
+            ? "bg-gradient-to-b from-[#0f1d45]/80 via-[#101a2c]/80 to-[#0f1d45]/85"
             : "bg-gradient-to-b from-[#16295e] to-[#0f1d45]"
         }`}
       />
@@ -589,7 +595,7 @@ export function MapaSeccion({
   return (
     <section className="border-t border-aventurea-line py-14">
       <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-bookea-naranja-fuerte before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Ubicación
         </p>
         <h2 className="titulo mt-2 text-[28px] text-aventurea-navy">A dónde vas</h2>
@@ -675,7 +681,7 @@ export function ContactoSeccion({
       className="border-t border-aventurea-line bg-aventurea-surface py-14"
     >
       <div data-reveal className="mx-auto max-w-[1080px] px-7">
-        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
+        <p className="flex items-center gap-2 text-[11.5px] font-light uppercase tracking-[0.16em] text-bookea-naranja-fuerte before:block before:h-[1.5px] before:w-5 before:bg-aventurea-sky">
           Contacto
         </p>
         <h2 className="titulo mt-2 text-[28px] text-aventurea-navy">

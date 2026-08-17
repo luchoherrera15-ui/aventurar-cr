@@ -145,13 +145,18 @@ function TarjetaSuscripcion({
     <div className="rounded-2xl border border-aventurea-line bg-white p-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <h3 className="text-[15px] font-extrabold text-aventurea-ink">Tu suscripción</h3>
+        {/* CLASES y no un `style` con hex: el bloque `.lealtad-oscuro`
+            re-mapea clases, no colores inline, así que estos dos estados
+            se pintaban con su versión CLARA sobre el navy del panel —
+            «Activa» en 2,74:1 y «Vencida» en 2,28:1. Con los chips del
+            sistema el re-mapeo los sube a 7,92:1 y 7,60:1, y de paso el
+            estado deja de tener un color propio inventado acá. */}
         <span
-          className="rounded-full px-2.5 py-1 text-[11px] font-bold"
-          style={
+          className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
             alDia
-              ? { background: "rgba(22,163,74,.14)", color: "#15803d" }
-              : { background: "rgba(239,68,68,.12)", color: "#b91c1c" }
-          }
+              ? "bg-aventurea-green-light text-aventurea-green"
+              : "bg-red-50 text-red-700"
+          }`}
         >
           {etiqueta}
         </span>

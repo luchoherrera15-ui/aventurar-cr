@@ -19,13 +19,22 @@ const ESTADO_LABEL: Record<string, string> = {
   no_asistio: "No asistió",
 };
 
-/** Píldoras sobrias — el panel del anfitrión es navy/negro, no naranja. */
+/**
+ * Píldoras sobrias — el panel del anfitrión es navy/negro, no naranja.
+ *
+ * Tonos SÓLIDOS y no `color/10` sobre lo que haya detrás: la píldora
+ * aparece sobre la tarjeta blanca y también sobre la fila gris del
+ * histórico, y con alfa el mismo estado se veía de dos colores según
+ * dónde cayera. Los pares medidos: navy sobre `sky-light` 12,24:1;
+ * verde sobre `green-light` 4,51:1 (AA); los bordes, 4,42:1 y 5,32:1
+ * contra blanco, sobre el 3:1 que pide un elemento no textual.
+ */
 const ESTADO_CLASE: Record<string, string> = {
-  pendiente: "border-aventurea-sky/40 bg-aventurea-sky/10 text-aventurea-navy",
-  confirmada: "border-aventurea-green/40 bg-aventurea-green/10 text-aventurea-green",
+  pendiente: "border-aventurea-sky bg-aventurea-sky-light text-aventurea-navy",
+  confirmada: "border-aventurea-green bg-aventurea-green-light text-aventurea-green",
   rechazada: "border-aventurea-line bg-aventurea-cream-2 text-zinc-500",
   cancelada: "border-aventurea-line bg-aventurea-cream-2 text-zinc-500",
-  cumplida: "border-aventurea-green/40 bg-aventurea-green/10 text-aventurea-green",
+  cumplida: "border-aventurea-green bg-aventurea-green-light text-aventurea-green",
   no_asistio: "border-red-200 bg-red-50 text-red-700",
 };
 
@@ -193,7 +202,12 @@ function Detalle({
         <Campo rotulo="Depositado">
           <span className="font-bold tabular-nums">{plata(it.adelanto)}</span>
           {!validado && Number(it.depositoMonto ?? 0) > 0 && (
-            <span className="ml-1.5 text-[11px] font-bold text-aventurea-orange">
+            /* El monto ya está en tinta fuerte al lado; esta acotación
+               es la que dice que falta revisarlo. En naranja daba 2,94:1
+               —el peor contraste de toda la fila para el dato que más
+               atención pide—; navy sólido da 13,88:1 y la negrita sigue
+               haciendo la diferencia con el gris de alrededor. */
+            <span className="ml-1.5 text-[11px] font-bold text-aventurea-navy">
               ({plata(it.depositoMonto)} sin validar)
             </span>
           )}

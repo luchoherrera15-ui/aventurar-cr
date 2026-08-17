@@ -191,7 +191,12 @@ export default function ShellLealtad({
           <nav className="flex-1 px-3 py-4">
             {grupos.map((grupo) => (
               <div key={grupo.titulo} className="mb-5 last:mb-0">
-                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/30">
+                {/* /55 y no /30: en el teléfono este <aside> ES el cajón de
+                    la hamburguesa, o sea la única navegación del panel, y
+                    al 30 % los rótulos de grupo daban 2,62:1 sobre el
+                    #070d1c del fondo. Al 55 % son 6,22:1 y siguen leyéndose
+                    como rótulo, no como ítem. */}
+                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
                   {grupo.titulo}
                 </p>
                 <ul className="space-y-0.5">

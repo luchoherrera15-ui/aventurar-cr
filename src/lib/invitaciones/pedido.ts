@@ -493,24 +493,52 @@ async function registrarPagoDirecto({
 }
 
 /**
+ * Cómo entró la plata, para que los correos no mientan.
+ *
+ * Con tarjeta el pago YA está confirmado por Stripe y no hay ninguna
+ * captura que revisar: decirle a esa persona «estamos verificando tu
+ * comprobante» sería inventarle una espera que no existe, y decirle al
+ * equipo que revise algo que ya está confirmado es ruido.
+ */
+export type ComoPago = {
+  /** true = Stripe, o sea pago confirmado sin comprobante que mirar. */
+  porTarjeta?: boolean;
+  /**
+   * Solo con tarjeta: lo cobrado no cuadró con lo que vale el pedido y
+   * quedó en revisión. Es rarísimo y el equipo tiene que saberlo.
+   */
+  conRevision?: boolean;
+};
+
+/**
  * Los dos correos del pedido pagado: el "ya lo recibimos" al cliente y
  * el aviso interno al equipo. Nunca lanza — un correo que no sale no
  * puede tumbar un pago que ya quedó registrado.
  */
-export async function notificarPedidoPagado(pedido: PedidoPagado): Promise<void> {
+export async function notificarPedidoPagado(
+  pedido: PedidoPagado,
+  como: ComoPago = {},
+): Promise<void> {
   const paquete: PaqueteResuelto | null = resolverPaquete(pedido.paquete);
   const nombre = escaparHtml(String(pedido.contacto_nombre ?? ""));
   const evento = escaparHtml(String(pedido.nombre_evento ?? "tu evento"));
   const conPanel = paquete?.tienePanel ?? false;
+  const porTarjeta = como.porTarjeta === true;
 
   await enviarCorreo({
     to: String(pedido.contacto_correo),
-    subject: `Recibimos tu pedido — ${String(pedido.nombre_evento ?? "tu evento")}`,
+    subject: porTarjeta
+      ? `Pago confirmado — ${String(pedido.nombre_evento ?? "tu evento")}`
+      : `Recibimos tu pedido — ${String(pedido.nombre_evento ?? "tu evento")}`,
     html: layoutBento({
       kicker: "Invitaciones digitales",
-      titulo: "¡Recibimos tu pedido!",
-      introHtml: `Hola ${nombre}, ya tenemos los datos de <strong>${evento}</strong> y tu comprobante. Estamos verificando el pago.`,
-      naranjaHtml: `Paquete ${escaparHtml(paquete?.nombre ?? "")} · Apenas confirmemos el pago, el equipo empieza a diseñar tu invitación.`,
+      titulo: porTarjeta ? "¡Listo, tu pago quedó confirmado!" : "¡Recibimos tu pedido!",
+      introHtml: porTarjeta
+        ? `Hola ${nombre}, tu pago con tarjeta quedó confirmado y ya tenemos los datos de <strong>${evento}</strong>. Arrancamos con tu diseño.`
+        : `Hola ${nombre}, ya tenemos los datos de <strong>${evento}</strong> y tu comprobante. Estamos verificando el pago.`,
+      naranjaHtml: porTarjeta
+        ? `Paquete ${escaparHtml(paquete?.nombre ?? "")} · El equipo ya empezó a diseñar tu invitación.`
+        : `Paquete ${escaparHtml(paquete?.nombre ?? "")} · Apenas confirmemos el pago, el equipo empieza a diseñar tu invitación.`,
       cuerpoHtml: `<p style="margin:0 0 12px;">Cuando esté lista te llega un correo con el link para compartir con tus invitados.</p>
         <p style="margin:0;">Entrá con la misma cuenta con la que hiciste el pedido para verla${
           conPanel
@@ -525,14 +553,22 @@ export async function notificarPedidoPagado(pedido: PedidoPagado): Promise<void>
   // sin ella el equipo no se enteraba de un pago y no había forma de
   // notarlo. Ahora va a todos los administradores de la plataforma.
   await avisarAAdministradores({
-    subject: `Comprobante por revisar — ${String(pedido.nombre_evento ?? "un evento")}`,
+    subject: porTarjeta
+      ? `Invitación pagada con tarjeta — ${String(pedido.nombre_evento ?? "un evento")}`
+      : `Comprobante por revisar — ${String(pedido.nombre_evento ?? "un evento")}`,
     html: layoutBento({
       kicker: "Pago registrado",
-      titulo: "Un pedido subió su comprobante",
+      titulo: porTarjeta
+        ? "Un pedido se pagó con tarjeta"
+        : "Un pedido subió su comprobante",
       introHtml: `${nombre} pagó el paquete <strong>${escaparHtml(
         paquete?.nombre ?? pedido.paquete,
       )}</strong> para ${evento} (${escaparHtml(String(pedido.fecha_evento ?? ""))}).`,
-      naranjaHtml: "Falta verificar el comprobante y pasar el pedido a diseño.",
+      naranjaHtml: !porTarjeta
+        ? "Falta verificar el comprobante y pasar el pedido a diseño."
+        : como.conRevision
+          ? "OJO: lo que Stripe cobró NO coincide con lo que vale el pedido, así que quedó en «en revisión» y no en «pagado». Revisalo en el panel de Stripe antes de mandarlo a diseño."
+          : "Stripe ya confirmó el cobro: no hay comprobante que revisar. El pedido queda listo para diseño.",
       cta: {
         // Directo a la pestaña de Pedidos: la de Invitaciones lista las
         // ya creadas y no muestra los pedidos, que era justo lo que

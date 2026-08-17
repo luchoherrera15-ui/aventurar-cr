@@ -1,14 +1,40 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { IconChevronDown } from "@/components/icons";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { registrarPago, type EstadoPedido } from "@/app/invitaciones/pedido/actions";
+import { iniciarPagoDeInvitacion } from "./pago-actions";
 
 /**
- * Cómo paga el cliente: SINPE Móvil o transferencia (adjuntando el
- * comprobante, igual que en las reservas de salones) y, cuando el
- * dueño configure Stripe, también con tarjeta.
+ * Cómo paga el cliente su invitación: con TARJETA (Stripe Checkout, que
+ * trae Apple Pay y Google Pay solos) o por SINPE Móvil / transferencia
+ * adjuntando el comprobante.
+ *
+ * ------------------------------------------------------------------
+ * POR QUÉ LA TARJETA VA PRIMERO Y EL SINPE PLEGADO
+ * ------------------------------------------------------------------
+ * Es el mismo orden —y el mismo `<details>`— de la compra de paquetes
+ * de Lealtad (/lealtad/planes/formulario-solicitud.tsx), y por las
+ * mismas dos razones:
+ *
+ *   · la tarjeta es el único camino que no depende de que una persona
+ *     revise un depósito: se paga y el pedido queda cobrado solo;
+ *   · el SINPE NO es un respaldo temporal. Muchas tarjetas
+ *     costarricenses vienen bloqueadas para compras internacionales, y
+ *     esa gente necesita el depósito. Por eso el plegable dice de qué se
+ *     trata sin abrirlo: plegado sin subtítulo, la pantalla parecería
+ *     decir que solo se puede pagar con tarjeta.
+ *
+ * `<details>` y no un `useState`: es un plegable NATIVO —abre con Enter
+ * y con Espacio, la lectura de pantalla lo anuncia— y MANTIENE EL
+ * CONTENIDO MONTADO, así que plegarlo con el comprobante ya subido no
+ * pierde nada. La palomita en el disparador lo hace visible sin abrir.
+ *
+ * Sin llaves de Stripe no se dibuja ningún botón de tarjeta y el
+ * depósito se muestra abierto, tal cual estaba antes: plegar la única
+ * forma de pagar sería esconderla.
  */
 export default function OpcionesPago({
   pedidoId,
@@ -27,6 +53,25 @@ export default function OpcionesPago({
   const [comprobanteUrl, setComprobanteUrl] = useState("");
   const [subiendo, setSubiendo] = useState(false);
   const [errorSubida, setErrorSubida] = useState("");
+  const [errorTarjeta, setErrorTarjeta] = useState("");
+  const [abriendo, empezarPago] = useTransition();
+
+  /**
+   * La sesión de Checkout la arma el SERVIDOR y acá solo se sigue la
+   * URL que devuelve. Ni el monto ni el paquete salen de esta pantalla:
+   * el servidor los lee del pedido.
+   */
+  function pagarConTarjeta() {
+    setErrorTarjeta("");
+    empezarPago(async () => {
+      const r = await iniciarPagoDeInvitacion(pedidoId);
+      if (!r.ok) {
+        setErrorTarjeta(r.motivo);
+        return;
+      }
+      window.location.href = r.url;
+    });
+  }
 
   const [estado, accion, pendiente] = useActionState<EstadoPedido, FormData>(
     registrarPago.bind(null, pedidoId),
@@ -57,21 +102,12 @@ export default function OpcionesPago({
 
   const datosListos = metodo === "sinpe" ? Boolean(sinpe.numero) : Boolean(banco.cuenta);
 
-  return (
-    <div className="mt-4 grid gap-4">
-      {/* Tarjeta: aparece sola cuando el dueño configura Stripe */}
-      {stripeListo ? (
-        <div className="rounded-2xl border border-aventurea-line bg-white p-5">
-          <p className="text-[14px] font-extrabold text-aventurea-ink">
-            Pagar con tarjeta
-          </p>
-          <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-            Estamos terminando de conectar la pasarela. Mientras tanto podés
-            pagar por SINPE o transferencia acá abajo.
-          </p>
-        </div>
-      ) : null}
-
+  /* El depósito con comprobante, entero. Va en una variable porque se
+     dibuja en dos lugares distintos —dentro del plegable cuando hay
+     tarjeta, y suelto cuando no— y duplicar el formulario dejaría dos
+     copias capaces de desincronizarse. */
+  const caminoDeposito = (
+    <div className="grid gap-4">
       <div className="rounded-2xl border border-aventurea-line bg-white p-5">
         <p className="text-[14px] font-extrabold text-aventurea-ink">
           ¿Cómo querés pagar?
@@ -186,6 +222,78 @@ export default function OpcionesPago({
           {pendiente ? "Enviando..." : "Ya pagué — enviar comprobante"}
         </button>
       </form>
+    </div>
+  );
+
+  return (
+    <div className="mt-4 grid gap-4">
+      {/* ── 1. CON TARJETA: el pedido queda cobrado al instante ─────── */}
+      {stripeListo && (
+        <div className="rounded-2xl border-2 border-aventurea-navy bg-white p-5">
+          <p className="text-[14px] font-extrabold text-aventurea-ink">
+            Pagar con tarjeta — queda cobrado al instante
+          </p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            Pagás en la página segura de Stripe y volvés acá. No hay comprobante
+            que subir ni nada que esperar: apenas entra el pago, arrancamos con
+            tu diseño.
+          </p>
+
+          <button
+            type="button"
+            onClick={pagarConTarjeta}
+            disabled={abriendo}
+            className="mt-3.5 w-full rounded-xl bg-aventurea-navy px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-50"
+          >
+            {abriendo ? "Abriendo…" : `Pagar ${monto} con tarjeta`}
+          </button>
+
+          {/* Apple Pay y Google Pay los pone Stripe Checkout solo, según
+              el teléfono: no hay ningún botón nuestro detrás de esto. */}
+          <p className="mt-2 text-center text-[11.5px] text-aventurea-ink-soft">
+            Tarjeta, Apple Pay o Google Pay
+          </p>
+
+          {errorTarjeta && (
+            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-semibold text-red-700">
+              {errorTarjeta}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── 2. POR SINPE O TRANSFERENCIA: lo revisa el equipo ───────── */}
+      {stripeListo ? (
+        <details className="group rounded-2xl border border-aventurea-line bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-extrabold text-aventurea-ink">
+                Pago por transferencia o SINPE
+              </span>
+              <span className="mt-0.5 block text-[11.5px] leading-snug text-aventurea-ink-soft">
+                Si tu tarjeta no acepta compras internacionales
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              {comprobanteUrl && (
+                <span className="text-[11.5px] font-bold text-aventurea-green">
+                  ✓ Comprobante
+                </span>
+              )}
+              <IconChevronDown className="h-4 w-4 text-aventurea-ink-soft transition-transform group-open:rotate-180" />
+            </span>
+          </summary>
+          <div className="border-t border-aventurea-line px-3 pb-3 pt-3">
+            <p className="mb-3 px-2 text-[12.5px] leading-snug text-aventurea-ink-soft">
+              Le pasa a muchas tarjetas de acá. Depositá, adjuntá la captura y
+              verificamos el pago para arrancar con tu diseño.
+            </p>
+            {caminoDeposito}
+          </div>
+        </details>
+      ) : (
+        caminoDeposito
+      )}
     </div>
   );
 }

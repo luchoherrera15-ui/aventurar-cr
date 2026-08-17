@@ -1,16 +1,14 @@
 import Link from "next/link";
 import {
-  PLANES_VIGENTES,
-  PLAN_DESTACADO,
   definicionDe,
   estadoDelLimite,
   etiquetasDeCapacidades,
   precioDe,
-  type DefinicionPlan,
 } from "@/lib/lealtad/planes";
 import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
 import { fechaISOCR, fechaLargaCR } from "@/lib/fechas";
 import { Icono } from "./iconos";
+import Medidor from "./medidor";
 
 /**
  * PLAN Y FACTURACIÓN — el equivalente nuestro del "Billing &
@@ -35,14 +33,13 @@ import { Icono } from "./iconos";
    navy —y sus cards `bg-white` ahí son blanco al 5%, o sea casi el mismo
    fondo—, así que el azul de marca no se lee en ninguno de los dos. */
 const ACCION = "var(--accion-claro)";
-const ACCION_TINTA = "var(--accion-claro-tinta)";
 const ACCION_TINTE = "rgba(157,180,255,.14)";
 const ACCION_BORDE = "rgba(157,180,255,.45)";
 
-/* El naranja del logo, acotado a lo que el contrato le dejó: piezas
-   chicas que marcan un logro o una recomendación. Acá es una sola —la
-   insignia «El más popular»—, y va con letra navy, nunca blanca. */
-const ACENTO = "var(--orange)";
+/* Acá vivían `ACCION_TINTA` y `ACENTO`, que solo usaba la grilla de
+   paquetes. La grilla se fue a `/lealtad/planes` —esta sección responde
+   «qué tengo y cómo voy», no «cuál compro»— y con ella se fue el último
+   naranja del panel. */
 
 export default function SeccionPlan({
   ranchoId,
@@ -193,31 +190,28 @@ export default function SeccionPlan({
         </Card>
       </div>
 
-      {/* ── Los paquetes ────────────────────────────────────────── */}
-      <div>
-        <h3 className="text-[16px] font-extrabold text-white">Paquetes disponibles</h3>
-        <p className="mt-1 text-[13px] text-white/55">
-          Los precios están en dólares y el depósito se hace por SINPE en colones: te
-          confirmamos el monto al tipo de cambio del día. Al enviar la solicitud, el equipo
-          de Bookea la revisa y te activa el paquete.
+      {/* ── Los paquetes: un botón, no la grilla entera ──────────────
+          Acá se repetían las cuatro tarjetas de paquete con todas sus
+          viñetas, o sea la misma grilla que ya vive en /lealtad/planes.
+          Duplicada tenía dos problemas: empujaba «Tu plan actual» y «Tu
+          consumo» —que es a lo que se entra a esta pantalla— muy abajo,
+          y obligaba a mantener el mismo catálogo en dos lugares.
+          Ahora esta sección responde «qué tengo y cómo voy», y para
+          comparar paquetes manda a la pantalla que existe para eso. */}
+      <div className="rounded-2xl border border-white/12 bg-white/[0.04] p-5">
+        <h3 className="text-[16px] font-extrabold text-white">¿Necesitás más?</h3>
+        <p className="mt-1 max-w-[62ch] text-[13px] leading-relaxed text-white/55">
+          Compará los paquetes, sus topes y qué incluye cada uno. Se paga con tarjeta y queda
+          activo al instante, o por SINPE si tu tarjeta no acepta compras internacionales.
         </p>
-
-        {/* Solo los VIGENTES: ofrecerle a alguien un paquete retirado
-            es venderle algo que ya no existe. El suyo, si es retirado,
-            se sigue viendo arriba en «Tu plan actual». */}
-        {/* Cuatro columnas porque el catálogo son cuatro paquetes
-            (0141). Con cinco columnas quedaba un hueco al final de la
-            fila que se leía como una tarjeta que no cargó. */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {PLANES_VIGENTES.map((def) => (
-            <TarjetaPlan
-              key={def.id}
-              def={def}
-              esActual={actual?.id === def.id}
-              ranchoId={ranchoId}
-            />
-          ))}
-        </div>
+        <Link
+          href={`/lealtad/planes?negocio=${ranchoId}`}
+          className="presionable mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[13.5px] font-extrabold"
+          style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
+        >
+          Ver paquetes
+          <span aria-hidden>→</span>
+        </Link>
       </div>
     </div>
   );
@@ -247,164 +241,6 @@ function Encabezado({
         <Icono nombre={icono} className="h-[17px] w-[17px]" />
       </span>
       <h3 className="text-[15px] font-extrabold text-aventurea-ink">{titulo}</h3>
-    </div>
-  );
-}
-
-/**
- * Un medidor de consumo. Sin tope no dibuja barra: una barra al 0% con
- * "sin límite" al lado se lee como "no has usado nada de algo que se
- * puede acabar", que es justo lo contrario de lo que pasa.
- */
-function Medidor({
-  icono,
-  etiqueta,
-  usado,
-  tope,
-  detalle,
-  alerta,
-  aviso,
-}: {
-  icono: Parameters<typeof Icono>[0]["nombre"];
-  etiqueta: string;
-  usado: number;
-  tope: number | null;
-  detalle?: string;
-  alerta?: boolean;
-  aviso?: boolean;
-}) {
-  const pct = tope ? Math.min(100, Math.round((usado / tope) * 100)) : 0;
-  const color = alerta ? "#ef4444" : aviso ? "#f59e0b" : ACCION;
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <span className="flex items-center gap-2 text-[13px] font-bold text-aventurea-ink">
-          <span className="text-aventurea-ink-soft">
-            <Icono nombre={icono} className="h-[15px] w-[15px]" />
-          </span>
-          {etiqueta}
-        </span>
-        <span className="text-[13px] font-bold tabular-nums text-aventurea-ink-soft">
-          {tope === null ? `${usado.toLocaleString("es-CR")}` : `${usado} / ${tope}`}
-        </span>
-      </div>
-
-      {tope === null ? (
-        <p className="mt-1 text-[11.5px] text-aventurea-ink-soft">
-          {detalle ?? "Sin tope en tu paquete."}
-        </p>
-      ) : (
-        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full transition-[width] duration-500"
-            style={{ width: `${pct}%`, background: color }}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TarjetaPlan({
-  def,
-  esActual,
-  ranchoId,
-}: {
-  def: DefinicionPlan;
-  esActual: boolean;
-  ranchoId: string;
-}) {
-  // El más vendible, no el más caro. Cuál es lo decide el catálogo
-  // (`PLAN_DESTACADO`), no esta pantalla: si el destacado se escribiera
-  // acá, cambiarlo pediría tocar cada lugar donde se pintan paquetes.
-  const recomendado = def.id === PLAN_DESTACADO;
-
-  return (
-    <div
-      className="relative flex flex-col rounded-2xl border bg-white p-5"
-      style={
-        esActual
-          ? { borderColor: ACCION_BORDE, background: ACCION_TINTE }
-          : recomendado
-            ? { borderColor: ACCION_BORDE }
-            : undefined
-      }
-    >
-      {(esActual || recomendado) && (
-        <span
-          className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-extrabold"
-          /* «Tu paquete» es verde con letra blanca; «El más popular» es
-             la insignia de acento, y sobre el naranja del logo la letra
-             blanca da 2,35:1 — va navy. Por eso la tinta es condicional
-             y no una clase suelta. */
-          style={
-            esActual
-              ? { background: "#16a34a", color: "#ffffff" }
-              : { background: ACENTO, color: ACCION_TINTA }
-          }
-        >
-          {esActual ? "Tu paquete" : "El más popular"}
-        </span>
-      )}
-
-      <h4 className="mt-1 text-[16px] font-extrabold text-aventurea-ink">{def.nombre}</h4>
-      <p className="mt-1 min-h-[32px] text-[11.5px] leading-snug text-aventurea-ink-soft">
-        {def.descripcion}
-      </p>
-
-      <p className="mt-3 text-[24px] font-extrabold leading-none text-aventurea-ink">
-        {precioDe(def) ?? "A convenir"}
-        {def.precioMensual ? (
-          <span className="text-[12px] font-bold text-aventurea-ink-soft">/mes</span>
-        ) : null}
-      </p>
-
-      <p className="mt-2 text-[12px] font-bold text-aventurea-ink">
-        {def.limites.clientesActivos === null
-          ? "Clientes ilimitados"
-          : `Hasta ${def.limites.clientesActivos.toLocaleString("es-CR")} clientes activos`}
-      </p>
-      {/* Tarjetas y equipo, que desde el reparto de la 0142 son
-          escalones de verdad y no se leían en ningún lado. */}
-      <p className="mt-1 text-[11.5px] text-aventurea-ink-soft">
-        {def.limites.programas === null
-          ? "Tarjetas ilimitadas"
-          : `${def.limites.programas} tarjeta${def.limites.programas === 1 ? "" : "s"}`}
-        {" · "}
-        {def.limites.administradores === null
-          ? "equipo sin tope"
-          : `${def.limites.administradores} en el equipo`}
-      </p>
-
-      <ul className="mt-3 flex-1 space-y-1.5">
-        {etiquetasDeCapacidades(def).map((texto) => (
-          <li key={texto} className="flex items-start gap-1.5">
-            <span className="mt-[1px] shrink-0 text-aventurea-green">
-              <Icono nombre="listo" className="h-[13px] w-[13px]" />
-            </span>
-            <span className="text-[11.5px] leading-snug text-aventurea-ink-soft">
-              {texto}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      {esActual ? (
-        <p className="mt-4 rounded-xl border border-dashed border-aventurea-line px-3 py-2.5 text-center text-[12px] font-bold text-aventurea-ink-soft">
-          Es el que tenés
-        </p>
-      ) : (
-        <Link
-          href={`/lealtad/planes?negocio=${ranchoId}`}
-          className={`mt-4 block rounded-xl px-3 py-2.5 text-center text-[12.5px] font-bold ${
-            recomendado ? "" : "border border-aventurea-line text-aventurea-ink"
-          }`}
-          style={recomendado ? { background: ACCION, color: ACCION_TINTA } : undefined}
-        >
-          {def.precioMensual === 0 ? "Empezar gratis" : "Solicitar este paquete"}
-        </Link>
-      )}
     </div>
   );
 }

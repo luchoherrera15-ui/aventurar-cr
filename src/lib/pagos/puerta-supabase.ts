@@ -9,6 +9,7 @@ import {
 } from "@/lib/correo/suscripcion";
 import { enviarCorreo } from "@/lib/email";
 import { fechaISOCR, fechaLargaCR } from "@/lib/fechas";
+import { notificarPedidoPagado } from "@/lib/invitaciones/pedido";
 import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
 import { PLANES, type PlanId } from "@/lib/lealtad/planes";
 import { stripeDelEntorno } from "./stripe";
@@ -184,7 +185,146 @@ export function puertaSupabase(): Puerta | null {
     async avisarAlDueno(aviso) {
       await avisarAlDuenoEn(db, aviso);
     },
+
+    // ── Las invitaciones digitales ────────────────────────────────────
+
+    async leerPedidoInvitacion(id) {
+      return leerPedidoInvitacionEn(db, id);
+    },
+
+    async cobrarPedidoInvitacion(d) {
+      return cobrarPedidoInvitacionEn(db, d);
+    },
+
+    async avisarInvitacionPagada({ pedidoId, conRevision }) {
+      await avisarInvitacionPagadaEn(db, pedidoId, conRevision);
+    },
   };
+}
+
+// ── EL COBRO DE UNA INVITACIÓN DIGITAL ───────────────────────────────
+
+/**
+ * El pedido, leído con la LLAVE DE SERVICIO.
+ *
+ * Tiene que ser así: la RLS de la 0075 solo le deja ver el pedido al
+ * cliente que lo hizo, y acá no hay ninguna sesión — el que golpea este
+ * código es Stripe.
+ *
+ * Un error de base LANZA en vez de devolver null, y la diferencia es
+ * toda la que hay: `null` significa «ese pedido no existe» y hace que el
+ * motor avise de un cobro huérfano. Si una caída de Supabase se
+ * disfrazara de null, un cobro perfectamente bueno terminaría anotado
+ * como huérfano y el pedido quedaría sin cobrar para siempre. Lanzando,
+ * el webhook devuelve 500 y Stripe lo reintenta.
+ */
+async function leerPedidoInvitacionEn(
+  db: Admin,
+  id: string,
+): Promise<{ id: string; montoCrc: number | null; estado: string } | null> {
+  const { data, error } = await db
+    .from("pedidos_invitacion")
+    .select("id, monto_crc, estado")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(`No se pudo leer el pedido ${id}: ${error.message}`);
+  if (!data) return null;
+
+  const monto = Number(data.monto_crc);
+  return {
+    id: String(data.id),
+    montoCrc: Number.isFinite(monto) ? monto : null,
+    estado: String(data.estado),
+  };
+}
+
+/**
+ * EL RECLAMO: mueve el pedido, y solo si nadie lo movió antes.
+ *
+ * Todo el peso está en el WHERE, no en el SET:
+ *
+ *   · `estado in (pendiente_pago, en_revision)` — solo un pedido que
+ *     todavía espera plata. Uno ya pagado, en diseño, entregado o
+ *     cancelado no se toca.
+ *   · `metodo_pago is null or metodo_pago <> 'stripe'` — y que no lo
+ *     haya cobrado YA una tarjeta. Sin esta segunda mitad, el pedido que
+ *     el propio webhook dejó en `en_revision` (porque el monto no
+ *     cuadraba) seguiría siendo reclamable, y el segundo evento del
+ *     mismo cobro le mandaría al cliente un segundo «recibimos tu pago».
+ *     `metodo_pago = 'stripe'` solo lo escribe este archivo.
+ *
+ * Es un UPDATE condicional atómico, la misma forma que `reclamarAvisoPrevio`
+ * y que la reserva de la solicitud en el alta pagada: la fila es la
+ * llave, y solo uno de los eventos simultáneos se la lleva.
+ *
+ * `pagado_en` se sella igual cuando el pedido va a revisión: es la fecha
+ * en que ENTRÓ la plata, que es lo que suma el reporte de Finanzas, y
+ * entró lo mismo cuadre o no. Es también lo que hace el camino de SINPE
+ * (`registrar_pago_pedido` de la 0087), que sella la fecha al adjuntar
+ * el comprobante y no al aprobarlo.
+ */
+async function cobrarPedidoInvitacionEn(
+  db: Admin,
+  d: { pedidoId: string; estado: "pagado" | "en_revision"; sesionStripe: string },
+): Promise<boolean> {
+  const { data, error } = await db
+    .from("pedidos_invitacion")
+    .update({
+      estado: d.estado,
+      metodo_pago: "stripe",
+      // La sesión de Checkout hace de comprobante: con ella se busca el
+      // cobro en el panel de Stripe. No hay captura que adjuntar.
+      referencia_pago: d.sesionStripe,
+      pagado_en: new Date().toISOString(),
+    })
+    .eq("id", d.pedidoId)
+    .in("estado", ["pendiente_pago", "en_revision"])
+    .or("metodo_pago.is.null,metodo_pago.neq.stripe")
+    .select("id");
+
+  // Lanza: quien llama devuelve 500 y Stripe reintenta. Tragarse el
+  // error dejaría un cobro entrado con el pedido esperando plata.
+  if (error) {
+    throw new Error(`No se pudo cobrar el pedido ${d.pedidoId}: ${error.message}`);
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+/**
+ * Los dos correos del pedido pagado con tarjeta: el «ya lo recibimos» al
+ * cliente y el aviso al equipo. Nunca lanza — el cobro ya quedó escrito,
+ * y un correo caído no puede tumbar un pago que entró.
+ */
+async function avisarInvitacionPagadaEn(
+  db: Admin,
+  pedidoId: string,
+  conRevision: boolean,
+): Promise<void> {
+  try {
+    const { data } = await db
+      .from("pedidos_invitacion")
+      .select("paquete, nombre_evento, fecha_evento, contacto_correo, contacto_nombre")
+      .eq("id", pedidoId)
+      .maybeSingle();
+    if (!data?.contacto_correo) return;
+
+    await notificarPedidoPagado(
+      {
+        paquete: String(data.paquete),
+        nombre_evento: data.nombre_evento as string | null,
+        fecha_evento: data.fecha_evento as string | null,
+        contacto_correo: String(data.contacto_correo),
+        contacto_nombre: data.contacto_nombre as string | null,
+      },
+      // Con tarjeta el pago ya está confirmado y no hay comprobante que
+      // revisar: los correos lo dicen así. Salvo que el monto no haya
+      // cuadrado, y entonces sí hay algo que mirar.
+      { porTarjeta: true, conRevision },
+    );
+  } catch (e) {
+    console.error("[stripe] No se pudieron mandar los correos de la invitación:", e);
+  }
 }
 
 // ── ¿PAGA POR FUERA DE STRIPE? ───────────────────────────────────────

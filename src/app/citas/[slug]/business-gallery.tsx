@@ -96,8 +96,11 @@ export default function BusinessGallery({
           ))}
         </div>
 
+        {/* Píldora oscura debajo de los puntos: sobre una foto clara el
+            punto activo (blanco) daba 1,00:1 y el carrusel se quedaba sin
+            indicador. Mismo remedio que en galeria-hero. */}
         {fotos.length > 1 && (
-          <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+          <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-black/55 px-2 py-1.5">
             {fotos.map((_, i) => (
               <span
                 key={i}

@@ -16,8 +16,14 @@ const ESTADO_LABEL: Record<string, string> = {
   confirmada: "Confirmada",
 };
 
+/**
+ * Píldoras sólidas. `aventurea-sky` con letra blanca daba 4,42:1 — por
+ * debajo de AA para 9,5px, que es el tamaño real de esta píldora; el
+ * tono oscuro de la misma familia (`sky-dark`) da 6,45:1 sin cambiar de
+ * color. Verde queda como estaba: 5,32:1, ya pasaba.
+ */
 const ESTADO_CLS: Record<string, string> = {
-  pendiente: "bg-aventurea-sky text-white",
+  pendiente: "bg-aventurea-sky-dark text-white",
   confirmada: "bg-aventurea-green text-white",
 };
 
@@ -45,6 +51,9 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
   }
 
   return (
+    // Son CINCO como máximo (`MOSTRAR`), así que la fila completa cabe
+    // desde lg y de ahí para arriba solo se ensanchan las tarjetas — no
+    // hay una sexta que agregar.
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
       {proximas.map((e) => {
         const esHoy = e.fecha === hoy;
@@ -57,13 +66,13 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
           >
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute -bottom-6 -right-4 hidden h-20 w-20 rounded-full bg-aventurea-sky/10 sm:block"
+              className="pointer-events-none absolute -bottom-6 -right-4 hidden h-20 w-20 rounded-full bg-aventurea-sky-light sm:block"
             />
 
             <span className="relative z-10 flex w-full items-center gap-2.5 sm:mb-3 sm:items-start sm:gap-0">
               <span
                 aria-hidden="true"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-sky/10 text-aventurea-sky"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-sky-light text-aventurea-navy"
               >
                 <IconCalendarLine className="h-4 w-4" />
               </span>
@@ -78,11 +87,18 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
               <span className="block truncate text-[12.5px] font-extrabold text-aventurea-ink sm:text-[14px]">
                 {e.nombre ?? "Sin nombre"}
               </span>
+              {/* La jerarquía la hace la TIPOGRAFÍA, no el color: la
+                  fecha va en negrita y versalitas sobre la tinta fuerte
+                  (18,10:1) y el monto detrás en el gris de texto
+                  (7,11:1). Antes la fecha iba en naranja —2,94:1— y
+                  como cada tarjeta tiene la suya, la fila entera se leía
+                  naranja sin que ninguna fecha fuera más urgente que
+                  otra. */}
               <span className="mt-0.5 block truncate text-[11px] font-medium text-aventurea-ink-soft sm:mt-1">
-                <span className="font-bold uppercase tracking-wide text-aventurea-orange">
+                <span className="font-bold uppercase tracking-wide text-aventurea-ink">
                   {esHoy ? "Hoy" : esManana ? "Mañana" : fechaCorta(e.fecha)}
                 </span>
-                {monto ? <span className="text-aventurea-ink"> · {monto}</span> : null}
+                {monto ? <span> · {monto}</span> : null}
               </span>
             </span>
           </div>

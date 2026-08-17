@@ -167,11 +167,18 @@ export default function SeccionProgramas({
               aria-pressed={puesto}
               onClick={() => setFiltro(f.id)}
               className={`presionable rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
-                puesto ? "bg-white text-[#062653]" : "bg-white/10 text-white/65 hover:bg-white/20"
+                puesto
+                  ? "bg-[color:var(--accion-claro)] text-[color:var(--accion-claro-tinta)]"
+                  : "bg-white/10 text-white/65 hover:bg-white/20"
               }`}
             >
               {f.etiqueta}
-              <span className={puesto ? "text-[#53657f]" : "text-white/40"}> {n}</span>
+              {/* El contador es el dato secundario del chip, pero
+                  «secundario» no puede significar invisible: el navy al
+                  70 % sobre el azul de acción da 4,83:1 y el blanco al
+                  55 % sobre el chip apagado, 5,40:1 — los dos por encima
+                  de AA sin perder la jerarquía. */}
+              <span className={puesto ? "text-[#364367]" : "text-white/55"}> {n}</span>
             </button>
           );
         })}
@@ -269,7 +276,7 @@ function TarjetaDeLista({
         </span>
 
         {(programa.vigente_desde || programa.vigente_hasta) && (
-          <span className="mt-1 block text-[11.5px] text-white/40">
+          <span className="mt-1 block text-[11.5px] text-white/55">
             {programa.vigente_desde ?? "desde siempre"} → {programa.vigente_hasta ?? "sin fin"}
           </span>
         )}

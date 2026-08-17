@@ -844,7 +844,14 @@ export default function ChatFlotante() {
             </span>
           )}
           <span
-            className={`relative flex h-[52px] items-center justify-center rounded-full border border-white/20 bg-black/35 text-white shadow-[0_6px_20px_rgba(16,26,44,0.35)] backdrop-blur-md transition-transform group-hover:scale-105 ${
+            // Navy SÓLIDO y no un negro al 35 %: la píldora de al lado
+            // —la que dice «¿Dudas? Escribile a…»— es `hidden sm:block`,
+            // así que abajo de 640px esta burbuja es lo ÚNICO que queda,
+            // y sobre las páginas claras del sitio (#f6f6f6, #ffffff,
+            // #e9f0fb) el negro translúcido dejaba la letra en 2,44:1.
+            // Con el navy de marca son 13,88:1. El borde sube a /35 para
+            // seguir dibujando el contorno contra el relleno opaco.
+            className={`relative flex h-[52px] items-center justify-center rounded-full border border-white/35 bg-aventurea-navy text-white shadow-[0_6px_20px_rgba(16,26,44,0.35)] backdrop-blur-md transition-transform group-hover:scale-105 ${
               abierto ? "w-[52px]" : "gap-2 pl-4 pr-5"
             }`}
           >

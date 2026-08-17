@@ -129,7 +129,7 @@ function FilaCliente({
       </div>
 
       {faltaConfirmar && !resultado && !error && (
-        <p className="mt-1.5 text-[11.5px] text-white/40">
+        <p className="mt-1.5 text-[11.5px] text-white/55">
           Este pase todavía no confirmó el último cambio en su teléfono.
         </p>
       )}
@@ -147,7 +147,7 @@ function FilaCliente({
               {linea}
             </p>
           ))}
-          <p className="text-[11px] text-white/40">
+          <p className="text-[11px] text-white/55">
             Esto confirma que Apple/Google lo aceptó para entregarlo — no que ya está en
             el teléfono. En Apple, volvé a mirar esta fila en un minuto: si el ✓ aparece,
             llegó. En Google no hay ✓ posible: ahí solo sabemos que se lo mandamos.

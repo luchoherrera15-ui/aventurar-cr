@@ -1,9 +1,16 @@
-# Cobrar los paquetes de Lealtad con tarjeta (Stripe)
+# Cobrar con tarjeta (Stripe)
 
 Lo que hay que hacer **una sola vez** en el panel de Stripe y en Vercel
 para que el botón «Pagar con tarjeta» exista. Mientras no se haga, no
 pasa nada: el botón no aparece y todo se sigue comprando por SINPE con
 comprobante, como hasta hoy.
+
+Con la misma cuenta y las mismas llaves se cobran **dos** productos: los
+**paquetes de Lealtad** (suscripción que se renueva) y las
+**invitaciones digitales** (pago suelto de un pedido). Los pasos 1 a 5
+de abajo son para Lealtad; las invitaciones no necesitan ni productos ni
+variables de precio y tienen su propia sección
+[al final](#las-invitaciones-digitales).
 
 Dos cosas que conviene tener claras antes de empezar:
 
@@ -54,12 +61,19 @@ En **Developers → Webhooks → Add endpoint**:
 
 - **URL**: `https://www.bookea.lat/api/stripe/webhook`
   (con `www` — es el dominio que usa el resto del sitio).
-- **Eventos a escuchar** (los cinco):
+- **Eventos a escuchar** (los seis):
   - `checkout.session.completed`
+  - `checkout.session.async_payment_succeeded`
   - `customer.subscription.created`
   - `customer.subscription.updated`
   - `customer.subscription.deleted`
   - `invoice.payment_failed`
+
+  El segundo es solo para las invitaciones digitales, y solo hace falta
+  el día que se active en Stripe un medio de pago que acredita tarde
+  (con tarjeta y billeteras el cobro es inmediato y llega en el
+  `completed`). Cuesta nada dejarlo puesto desde ahora y evita que un
+  cobro quede sin registrar si algún día se agrega uno.
 - Guardar, entrar al endpoint recién creado y copiar el **Signing
   secret** (`whsec_…`).
 
@@ -210,3 +224,87 @@ webhook), `src/app/api/stripe/webhook/route.ts` (el endpoint),
 `src/app/lealtad/planes/pago-actions.ts` (la compra del cliente nuevo),
 `src/lib/lealtad/alta-desde-solicitud.ts` (la solicitud se vuelve
 negocio).
+
+---
+
+## Las invitaciones digitales
+
+El mismo Stripe, la misma llave y el mismo webhook cobran también los
+paquetes de **invitaciones digitales** (`/invitaciones`). Es el otro
+producto que se paga con tarjeta, y funciona distinto en un punto que
+conviene tener claro.
+
+**No es una suscripción.** Lealtad se cobra en `mode: "subscription"`:
+hay renovación, mora y corte. Una invitación es un **pago suelto**
+(`mode: "payment"`): se cobra una vez, no se renueva, no cae en mora y
+no hay nada que apagar después. Por eso no pasa por el mapeo de
+`price_id`, ni por el interruptor de `corte.ts`.
+
+**No hay variables de precio que llenar.** El monto sale de
+`pedidos_invitacion.monto_crc` —lo que la base calculó al crear el
+pedido, con el álbum ya sumado si lo lleva— y viaja como `price_data`
+en la sesión. Un paquete nuevo, un pack o un cambio de promo se venden
+sin tocar una variable de Vercel.
+
+**Se cobra en colones.** Es el mismo número que la pantalla muestra y
+que el SINPE pide depositar, así que los dos caminos cobran literalmente
+lo mismo. El colón lleva dos decimales, o sea que el monto va en
+céntimos (₡44 900 → 4 490 000): la conversión es
+`centavosDeColones()` y tiene su prueba, porque equivocarse ahí es
+cobrar cien veces de más.
+
+**Apple Pay y Google Pay salen solos.** No hay código nuestro detrás:
+la sesión **no declara `payment_method_types`**, y por eso Checkout
+resuelve los métodos según el dispositivo. En el momento en que esa
+lista se escriba a mano (`["card"]`), las billeteras desaparecen.
+
+### Qué pasa cuando entra el cobro
+
+El webhook busca la marca `bookea_producto: "invitacion"` en la metadata
+de la sesión y, si está, mueve el pedido a **`pagado`**, le pone
+`metodo_pago = 'stripe'`, guarda la sesión (`cs_…`) en `referencia_pago`
+—hace de comprobante— y sella `pagado_en`. Después salen los dos
+correos: el de «pago confirmado» al cliente y el aviso al equipo.
+
+Dos casos que no terminan en `pagado`:
+
+- **Lo cobrado no coincide con lo que vale el pedido** (o la moneda no
+  es la del pedido, o es un pedido viejo sin `monto_crc`): la plata
+  entró y queda registrada igual, pero el pedido va a **`en_revision`**
+  en vez de `pagado`, con un correo al equipo. Nadie pasa a diseño con
+  un monto que no cuadra, y nadie que pagó se queda sin constancia.
+- **El pedido no existe, o está cancelado**: no se toca nada y llega un
+  aviso de que hay que atenderlo a mano. El evento entero queda en
+  `eventos_stripe`.
+
+La idempotencia acá **no** es la tabla de eventos: es el reclamo del
+pedido. `eventos_stripe` frena el reintento del *mismo* evento, pero el
+`completed` y el `async_payment_succeeded` de un mismo cobro son eventos
+distintos. Lo que garantiza que se cobre y se avise una sola vez es el
+UPDATE condicional de `cobrarPedidoInvitacion`, que solo toca el pedido
+si venía esperando plata y **no lo había cobrado ya una tarjeta**.
+
+### La prueba de punta a punta
+
+1. Con las llaves de prueba, pedir una invitación en `/invitaciones` y
+   llegar a la pantalla de pago.
+2. Comprobar que el total en pantalla es el mismo que dice
+   `pedidos_invitacion.monto_crc` (si se marcó el álbum, tiene que
+   incluirlo).
+3. Pagar con `4242 4242 4242 4242` y confirmar que el monto de Stripe
+   es ese mismo número en colones — **no cien veces más ni cien veces
+   menos**. Es lo único que hay que mirar con lupa la primera vez.
+4. Volver al sitio y ver «Pago confirmado»; en `/admin/invitaciones?tab=pedidos`
+   el pedido tiene que estar en **Pagado**, con «Pagó por Tarjeta» y la
+   referencia `cs_…`.
+5. Reenviar el mismo evento desde el panel de Stripe: el pedido no
+   cambia y **no** sale un segundo correo.
+
+> Si la cuenta de Stripe no admite cobrar en colones, la sesión no se
+> crea: el botón muestra el error y el SINPE sigue funcionando igual. Es
+> lo primero a descartar si el botón de tarjeta falla siempre.
+
+Archivos: `src/lib/pagos/invitaciones-pagadas.ts` (qué se cobra y
+cuándo), `src/lib/pagos/checkout-invitaciones.ts` (la sesión),
+`src/app/invitaciones/pago/[pedidoId]/pago-actions.ts` (el botón),
+`src/lib/pagos/puerta-supabase.ts` (el reclamo del pedido).

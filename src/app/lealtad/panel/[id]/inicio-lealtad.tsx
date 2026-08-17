@@ -2,11 +2,14 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Icono, type NombreIcono } from "./iconos";
 import Kpi from "./kpi";
+import Medidor from "./medidor";
+import AvisosCerrables, { type AvisoCerrable } from "./avisos-cerrables";
 import { CONSEJO_TARJETA, momentoDeInicio } from "@/lib/lealtad/inicio";
 import { TIPOS_TARJETA, UNIDAD_SALDO, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { ETIQUETA_ESTADO, type EstadoVisible } from "@/lib/lealtad/programas";
 import type { ResumenLealtad } from "@/lib/lealtad/tablero";
-import type { EstadoLimite } from "@/lib/lealtad/planes";
+import { definicionDe, precioDe, type EstadoLimite } from "@/lib/lealtad/planes";
+import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
 
 /**
  * EL TABLERO DE INICIO del panel de lealtad.
@@ -29,6 +32,22 @@ import type { EstadoLimite } from "@/lib/lealtad/planes";
  * enseña algo, que es cuando el negocio todavía no tiene nada. Ahí
  * responde la pregunta que de verdad se está haciendo («¿esto qué se
  * supone que hace?»); a los 400 días es decoración.
+ *
+ * ------------------------------------------------------------------
+ * LOS AVISOS ARRIBA, EL TABLERO SIEMPRE DEBAJO
+ * ------------------------------------------------------------------
+ * Lo que falta hacer (el panel del momento y «Primeros pasos») abre la
+ * pantalla mientras exista, porque es lo que destraba el programa. Pero
+ * ahora cada aviso tiene su X —<AvisosCerrables>— y debajo hay algo a
+ * lo que llegar: el tablero, con las cifras del ledger y el estado del
+ * paquete. Cuando la puesta en marcha termina, los avisos se apagan
+ * solos (los pasos se marcan con señales reales de la base) y lo que
+ * queda es el tablero, que es lo que se pidió.
+ *
+ * El estado del paquete se pinta desde `sin-publicar` en adelante, y no
+ * solo «en marcha»: no es una métrica en cero —es qué paquete tenés,
+ * cuánto te queda de prueba y cuánto cupo—, así que quien cierra el
+ * aviso del primer día igual encuentra algo cierto abajo.
  *
  * ------------------------------------------------------------------
  * LO QUE NO SE MUESTRA, Y POR QUÉ
@@ -87,19 +106,44 @@ export type TarjetaPrincipal = {
   estado: EstadoVisible;
 };
 
+/**
+ * EL STATUS DEL PAQUETE, tal cual lo necesita el tablero.
+ *
+ * Los topes NO se guardan: `clientes` y `tarjetas` los arma
+ * `estadoDelLimite` con el catálogo del plan y lo que se contó en la
+ * base. Por eso cambiar de paquete mueve los medidores solo, sin que
+ * nadie tenga que actualizar un número.
+ */
+export type EstadoPaquete = {
+  /** El plan guardado. null = todavía no tiene ninguno asignado. */
+  plan: string | null;
+  /** El tope que importa: cuánta gente puede afiliar. */
+  clientes: EstadoLimite;
+  /** Cuántas tarjetas puede tener publicables a la vez. */
+  tarjetas: EstadoLimite;
+  /** La cuenta regresiva, si su paquete es la prueba. */
+  prueba: EstadoPrueba;
+  /** Dónde comparar paquetes. null = quien mira no decide la plata. */
+  planes: string | null;
+};
+
 type Tarjeta = { icono: NombreIcono; titulo: string; detalle: string };
 
 export default function InicioLealtad({
+  negocioId,
   nombre,
   tarjeta,
   tarjetas,
   regalia,
   resumen,
-  limite,
+  paquete,
   pasos,
   enlaces,
+  avisosOcultos,
   accion,
 }: {
+  /** El id del negocio: con él se guarda qué avisos se cerraron. */
+  negocioId: string;
   /** El nombre del negocio. */
   nombre: string;
   /** La tarjeta que manda en el tablero. null = no hay ninguna viva. */
@@ -110,10 +154,12 @@ export default function InicioLealtad({
   regalia: { nombre: string; costo: number } | null;
   /** Lo que dice el ledger. null = no hay programa que mirar. */
   resumen: ResumenLealtad | null;
-  /** Cómo va la cuenta contra el tope de clientes de su paquete. */
-  limite: EstadoLimite;
+  /** El paquete y cómo va contra sus topes. */
+  paquete: EstadoPaquete;
   pasos: PasoPrimero[];
   enlaces: EnlacesInicio;
+  /** Las claves de aviso que este navegador ya cerró (de la cookie). */
+  avisosOcultos: string[];
   /** El botón de escanear, si quien mira puede acreditar. */
   accion?: ReactNode;
 }) {
@@ -121,6 +167,7 @@ export default function InicioLealtad({
   const definicion = TIPOS_TARJETA[tipo];
   const unidades = UNIDAD_SALDO[tipo];
   const miembros = resumen?.miembros ?? 0;
+  const limite = paquete.clientes;
 
   const momento = momentoDeInicio({
     vivas: tarjetas.vivas,
@@ -135,6 +182,80 @@ export default function InicioLealtad({
   }
 
   const pendientes = pasos.filter((p) => !p.listo).length;
+
+  /* Los avisos de puesta en marcha, en el orden en que hay que
+     atenderlos. La clave lleva el MOMENTO adentro y no un «puesta»
+     genérico a propósito: si el dueño cierra «tu tarjeta está en
+     borrador» y después la publica, el aviso siguiente —«no promete
+     nada»— es otro problema y tiene que salir igual. Con una clave
+     compartida, cerrar el primero le habría tapado todos los demás. */
+  const avisos: AvisoCerrable[] = [];
+
+  if (momento === "sin-publicar" && tarjeta) {
+    avisos.push({
+      clave: "puesta-sin-publicar",
+      etiqueta: CONSEJO_TARJETA[tarjeta.estado].titulo,
+      nodo: (
+        <PanelAccion
+          icono="tarjeta"
+          titulo={CONSEJO_TARJETA[tarjeta.estado].titulo}
+          detalle={CONSEJO_TARJETA[tarjeta.estado].consejo}
+          nota={`«${tarjeta.nombre}» · ${definicion.nombre} · ${ETIQUETA_ESTADO[tarjeta.estado]}`}
+          boton={CONSEJO_TARJETA[tarjeta.estado].boton}
+          href={enlaces[CONSEJO_TARJETA[tarjeta.estado].ir]}
+          sinPermiso="Pedile al dueño del negocio que la publique."
+        />
+      ),
+    });
+  }
+
+  if (momento === "sin-meta") {
+    avisos.push({
+      clave: "puesta-sin-meta",
+      etiqueta: "Tu tarjeta todavía no promete nada",
+      nodo: (
+        <PanelAccion
+          icono="regalo"
+          titulo="Tu tarjeta todavía no promete nada"
+          detalle={`Ya emite pases y la gente la puede agregar, pero sin una recompensa activa el pase muestra el saldo pelado: el cliente junta ${unidades} sin saber para qué.`}
+          nota={tarjeta ? `«${tarjeta.nombre}» · ${definicion.nombre}` : null}
+          boton="Definir qué se gana"
+          href={enlaces.recompensas}
+          sinPermiso="Pedile al dueño del negocio que defina la regalía."
+        />
+      ),
+    });
+  }
+
+  if (momento === "sin-clientes") {
+    avisos.push({
+      clave: "puesta-sin-clientes",
+      etiqueta: "Ya funciona: ahora hay que repartirla",
+      nodo: (
+        <PanelAccion
+          icono="qr"
+          titulo="Ya funciona: ahora hay que repartirla"
+          detalle={
+            regalia
+              ? `Tu tarjeta emite pases y promete ${regalia.nombre} a los ${regalia.costo} ${unidades}, pero nadie se ha afiliado todavía. El QR pegado en la caja es lo que más afilia.`
+              : "Tu tarjeta emite pases, pero nadie se ha afiliado todavía. El QR pegado en la caja es lo que más afilia."
+          }
+          nota="El póster sale en una hoja A4 con tu QR, tus colores y tu regalía."
+          boton="Imprimir el póster"
+          href={enlaces.poster}
+          sinPermiso={null}
+        />
+      ),
+    });
+  }
+
+  if (pendientes > 0) {
+    avisos.push({
+      clave: "pasos",
+      etiqueta: "Primeros pasos con Bookea",
+      nodo: <ListaPasos pasos={pasos} />,
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -151,90 +272,68 @@ export default function InicioLealtad({
 
       {accion}
 
-      {/* ── Lo que hay que hacer AHORA ──────────────────────────── */}
-      {momento === "sin-publicar" && tarjeta && (
-        <PanelAccion
-          icono="tarjeta"
-          titulo={CONSEJO_TARJETA[tarjeta.estado].titulo}
-          detalle={CONSEJO_TARJETA[tarjeta.estado].consejo}
-          nota={`«${tarjeta.nombre}» · ${definicion.nombre} · ${ETIQUETA_ESTADO[tarjeta.estado]}`}
-          boton={CONSEJO_TARJETA[tarjeta.estado].boton}
-          href={enlaces[CONSEJO_TARJETA[tarjeta.estado].ir]}
-          sinPermiso="Pedile al dueño del negocio que la publique."
-        />
-      )}
+      {/* ── Lo que hay que hacer AHORA, con su X ────────────────── */}
+      <AvisosCerrables
+        negocioId={negocioId}
+        avisos={avisos}
+        ocultosIniciales={avisosOcultos}
+      />
 
-      {momento === "sin-meta" && (
-        <PanelAccion
-          icono="regalo"
-          titulo="Tu tarjeta todavía no promete nada"
-          detalle={`Ya emite pases y la gente la puede agregar, pero sin una recompensa activa el pase muestra el saldo pelado: el cliente junta ${unidades} sin saber para qué.`}
-          nota={tarjeta ? `«${tarjeta.nombre}» · ${definicion.nombre}` : null}
-          boton="Definir qué se gana"
-          href={enlaces.recompensas}
-          sinPermiso="Pedile al dueño del negocio que defina la regalía."
-        />
-      )}
-
-      {momento === "sin-clientes" && (
-        <PanelAccion
-          icono="qr"
-          titulo="Ya funciona: ahora hay que repartirla"
-          detalle={
-            regalia
-              ? `Tu tarjeta emite pases y promete ${regalia.nombre} a los ${regalia.costo} ${unidades}, pero nadie se ha afiliado todavía. El QR pegado en la caja es lo que más afilia.`
-              : "Tu tarjeta emite pases, pero nadie se ha afiliado todavía. El QR pegado en la caja es lo que más afilia."
-          }
-          nota="El póster sale en una hoja A4 con tu QR, tus colores y tu regalía."
-          boton="Imprimir el póster"
-          href={enlaces.poster}
-          sinPermiso={null}
-        />
-      )}
-
-      {/* ── Los números, recién cuando hay de quién hablar ──────── */}
+      {/* ── Los números, recién cuando hay de quién hablar ────────
+          Cuatro ceros no son información, son desánimo: hasta el primer
+          afiliado esta fila no existe. Lo que sí se pinta abajo es el
+          paquete, que no depende de que haya pasado nada. */}
       {resumen && miembros > 0 && (
-        <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Kpi
-              titulo="Clientes afiliados"
-              valor={resumen.miembros.toLocaleString("es-CR")}
-              detalle={`${resumen.conPase} con la tarjeta en el teléfono`}
-              tono={limite.lleno ? "alerta" : limite.cerca ? "aviso" : "normal"}
-            />
-            <Kpi
-              titulo={
-                definicion.acumula
-                  ? `${mayuscula(unidades)} en 30 días`
-                  : "Movimientos en 30 días"
-              }
-              valor={resumen.sellosRecientes.toLocaleString("es-CR")}
-              detalle="lo que dio tu equipo en el mostrador"
-            />
-            <Kpi
-              titulo="Ya canjearon"
-              valor={resumen.canjes.toLocaleString("es-CR")}
-              detalle={
-                resumen.canjes > 0
-                  ? "clientes que se llevaron su regalía"
-                  : "todavía nadie pidió la suya"
-              }
-            />
-            <Kpi
-              titulo="Les toca su regalía"
-              valor={resumen.listosParaCanjear.toLocaleString("es-CR")}
-              detalle={
-                resumen.enRiesgo > 0
-                  ? `${resumen.enRiesgo} sin venir hace 2 meses`
-                  : "nadie se está enfriando"
-              }
-              tono={resumen.listosParaCanjear > 0 ? "aviso" : "normal"}
-            />
-          </div>
-
-          <BarraPlan limite={limite} href={enlaces.plan} />
-        </>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Kpi
+            titulo="Clientes afiliados"
+            valor={resumen.miembros.toLocaleString("es-CR")}
+            detalle={`${resumen.conPase} con la tarjeta en el teléfono`}
+            tono={limite.lleno ? "alerta" : limite.cerca ? "aviso" : "normal"}
+          />
+          <Kpi
+            titulo={
+              definicion.acumula
+                ? `${mayuscula(unidades)} en 30 días`
+                : "Movimientos en 30 días"
+            }
+            valor={resumen.sellosRecientes.toLocaleString("es-CR")}
+            detalle="lo que dio tu equipo en el mostrador"
+          />
+          <Kpi
+            titulo="Ya canjearon"
+            valor={resumen.canjes.toLocaleString("es-CR")}
+            detalle={
+              resumen.canjes > 0
+                ? "clientes que se llevaron su regalía"
+                : "todavía nadie pidió la suya"
+            }
+          />
+          <Kpi
+            titulo="Les toca su regalía"
+            valor={resumen.listosParaCanjear.toLocaleString("es-CR")}
+            detalle={
+              resumen.enRiesgo > 0
+                ? `${resumen.enRiesgo} sin venir hace 2 meses`
+                : "nadie se está enfriando"
+            }
+            tono={resumen.listosParaCanjear > 0 ? "aviso" : "normal"}
+          />
+        </div>
       )}
+
+      {/* ── El status del paquete y el de la tarjeta ────────────── */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <StatusDelPlan paquete={paquete} />
+        {tarjeta && (
+          <StatusDeLaTarjeta
+            tarjeta={tarjeta}
+            regalia={regalia}
+            resumen={resumen}
+            enlaces={enlaces}
+          />
+        )}
+      </div>
 
       {/* ── Varias tarjetas: cuántas hay y cuántas están vivas ──── */}
       {tarjetas.vivas > 1 && enlaces.programas && (
@@ -252,9 +351,6 @@ export default function InicioLealtad({
           </span>
         </a>
       )}
-
-      {/* ── Primeros pasos, mientras quede alguno ───────────────── */}
-      {pendientes > 0 && <ListaPasos pasos={pasos} />}
     </div>
   );
 }
@@ -382,7 +478,7 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
             digas», y era mentira desde que `estadoAlCrear()` devuelve
             activo. La cautela la cumple el paso de Revisar, no un
             estado escondido — y eso es lo que dice ahora. */}
-        <p className="mx-auto mt-4 max-w-[440px] text-[12px] leading-relaxed text-white/45">
+        <p className="mx-auto mt-4 max-w-[440px] text-[12px] leading-relaxed text-white/55">
           Se arma en cinco pasos —tipo, diseño, beneficio, reglas y una última mirada— y al
           confirmar queda publicada: empieza a emitir pases de una.
         </p>
@@ -459,11 +555,13 @@ function PanelAccion({
           <Icono nombre={icono} className="h-[22px] w-[22px]" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[16px] font-extrabold leading-tight text-white sm:text-[17px]">
+          {/* El hueco de la derecha es para la X que le pone
+              <AvisosCerrables>: sin él, el título le pasa por debajo. */}
+          <h3 className="pr-8 text-[16px] font-extrabold leading-tight text-white sm:text-[17px]">
             {titulo}
           </h3>
           <p className="mt-1.5 text-[13.5px] leading-relaxed text-white/65">{detalle}</p>
-          {nota && <p className="mt-2 text-[12px] text-white/45">{nota}</p>}
+          {nota && <p className="mt-2 text-[12px] text-white/55">{nota}</p>}
 
           {href ? (
             <a
@@ -485,66 +583,221 @@ function PanelAccion({
 }
 
 /**
- * Cuánto le queda de paquete.
+ * STATUS DEL PLAN ACTUAL: qué paquete tiene, cómo va contra sus topes y
+ * por dónde se comparan los demás.
  *
- * Solo sale con tope: en un plan sin límite, una barra que nunca se
- * llena no dice nada. El aviso salta al 80% —lo decide
- * `estadoDelLimite`— porque enterarse cuando ya no entra nadie no deja
- * tiempo de decidir nada.
+ * Los DOS topes que se pintan son los dos que el servidor hace cumplir
+ * de verdad —clientes y tarjetas—. Los otros cuatro de `LimitesPlan`
+ * (notificaciones, sedes, automatizaciones…) no tienen producto detrás:
+ * un medidor de algo que nadie puede consumir promete una función que
+ * no existe.
+ *
+ * Y el botón manda a /lealtad/planes en vez de repintar la grilla de
+ * paquetes: esa grilla se sacó a propósito de la sección Plan para no
+ * mantener el mismo catálogo en dos lugares (ver seccion-plan.tsx).
  */
-function BarraPlan({ limite, href }: { limite: EstadoLimite; href: string | null }) {
-  if (limite.limite === null) return null;
-
-  /* Semáforo: rojo lleno, ámbar cerca, azul de acción cuando todo va
-     bien. El escalón «cerca» era un naranja claro que se confundía con
-     el naranja de marca —los dos cálidos, uno decía «ojo» y el otro
-     nada—; con el estado normal en azul, el ámbar de aviso del repo
-     (el mismo del medidor de `seccion-plan`) por fin se distingue. */
-  const color = limite.lleno ? "#fca5a5" : limite.cerca ? "#f59e0b" : ACCION;
+function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
+  const definicion = definicionDe(paquete.plan);
+  const precio = definicion ? precioDe(definicion) : null;
+  const clientes = paquete.clientes;
+  const restante = textoRestante(paquete.prueba);
 
   return (
-    <div className="rounded-2xl border border-aventurea-line bg-white px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-          Clientes de tu paquete
-        </p>
-        <p className="text-[12.5px] font-bold tabular-nums text-aventurea-ink">
-          {limite.usado.toLocaleString("es-CR")} de {limite.limite.toLocaleString("es-CR")}
-        </p>
-      </div>
+    <Card>
+      <Encabezado icono="plan" titulo="Status del plan actual" />
 
-      <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${Math.max(2, limite.porcentaje)}%`, background: color }}
+      {definicion ? (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <p className="text-[24px] font-extrabold leading-none text-aventurea-ink">
+            {definicion.nombre}
+          </p>
+          <span
+            className="rounded-full px-2.5 py-1 text-[11px] font-bold"
+            style={{ background: ACCION_TINTE, color: ACCION }}
+          >
+            {precio === null ? "A convenir" : `${precio}/mes`}
+          </span>
+          {!definicion.vigente && (
+            <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
+              Paquete anterior
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 text-[13px] leading-relaxed text-aventurea-ink-soft">
+          Tu programa anda sin un paquete asignado, así que todavía no tiene topes escritos.
+        </p>
+      )}
+
+      {/* La prueba se cuenta acá y no solo en un correo: el correo se
+          pierde, y con la fecha a la vista el corte deja de ser una
+          sorpresa. Quien no ve la sección Plan tampoco ve esto —el
+          servidor no le carga la fecha—, y está bien: el empleado del
+          mostrador no decide qué se paga. */}
+      {restante && (
+        <p
+          className="mt-3 rounded-xl px-3 py-2 text-[12.5px] font-bold text-aventurea-ink"
+          style={{ background: ACCION_TINTE }}
+        >
+          {restante}
+        </p>
+      )}
+
+      <div className="mt-4 space-y-4">
+        <div>
+          <Medidor
+            icono="clientes"
+            etiqueta="Clientes afiliados"
+            usado={clientes.usado}
+            tope={clientes.limite}
+            alerta={clientes.lleno}
+            aviso={clientes.cerca}
+            detalle="Sin tope de clientes en tu paquete."
+          />
+          {/* Nunca solo el color: lo que pasa se dice con palabras — la
+              barra roja y la ámbar se ven igual para quien no distingue
+              esos dos, y este es el tope que frena el programa. */}
+          {clientes.limite !== null && (
+            <p className="mt-1.5 text-[12px] leading-snug text-aventurea-ink-soft">
+              {clientes.lleno
+                ? "Llegaste al tope: un cliente nuevo ya no se puede afiliar."
+                : `Te queda${clientes.disponibles === 1 ? "" : "n"} ${clientes.disponibles?.toLocaleString("es-CR")} lugar${clientes.disponibles === 1 ? "" : "es"}.`}
+            </p>
+          )}
+        </div>
+
+        <Medidor
+          icono="tarjeta"
+          etiqueta="Tarjetas publicables"
+          usado={paquete.tarjetas.usado}
+          tope={paquete.tarjetas.limite}
+          alerta={paquete.tarjetas.lleno}
+          aviso={paquete.tarjetas.cerca}
+          detalle="Sin tope de tarjetas en tu paquete."
         />
       </div>
 
-      {/* Nunca solo el color: lo que pasa se dice con palabras. */}
-      <p className="mt-2 text-[12.5px] leading-snug text-aventurea-ink-soft">
-        {limite.lleno ? (
-          <>
-            Llegaste al tope: un cliente nuevo ya no se puede afiliar.{" "}
-            {href && (
-              <a href={href} className="font-bold text-aventurea-ink underline">
-                Subí de paquete →
-              </a>
-            )}
-          </>
-        ) : limite.cerca ? (
-          <>
-            Te quedan {limite.disponibles} lugares.{" "}
-            {href && (
-              <a href={href} className="font-bold text-aventurea-ink underline">
-                Ver los paquetes →
-              </a>
-            )}
-          </>
-        ) : (
-          `Te quedan ${limite.disponibles?.toLocaleString("es-CR")} lugares.`
+      {paquete.planes ? (
+        <Link
+          href={paquete.planes}
+          className="presionable mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-extrabold"
+          style={{ background: ACCION, color: ACCION_TINTA }}
+        >
+          Ver los demás paquetes
+          <span aria-hidden>→</span>
+        </Link>
+      ) : (
+        /* Sin permiso no se ofrece el botón: comprar un paquete es del
+           dueño, y mandar al mostrador a una pantalla de pago sería
+           mandarlo a una pared. */
+        <p className="mt-5 text-[12px] text-aventurea-ink-soft">
+          El paquete lo elige el dueño del negocio.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * EL STATUS DE LA TARJETA: qué promete y quién la lleva encima.
+ *
+ * Es la otra mitad de «cómo va mi programa». No repite ninguna cifra de
+ * los KPI de arriba: acá va lo que la tarjeta DICE (su meta) y cuánta
+ * de la gente afiliada la tiene de verdad en el teléfono, que es la
+ * diferencia entre un cliente que se anotó y uno al que le podés
+ * llegar.
+ */
+function StatusDeLaTarjeta({
+  tarjeta,
+  regalia,
+  resumen,
+  enlaces,
+}: {
+  tarjeta: TarjetaPrincipal;
+  regalia: { nombre: string; costo: number } | null;
+  resumen: ResumenLealtad | null;
+  enlaces: EnlacesInicio;
+}) {
+  const definicion = TIPOS_TARJETA[tarjeta.tipo];
+  const unidades = UNIDAD_SALDO[tarjeta.tipo];
+  const miembros = resumen?.miembros ?? 0;
+
+  return (
+    <Card>
+      <Encabezado icono="tarjeta" titulo="Tu tarjeta" />
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <p className="text-[19px] font-extrabold leading-tight text-aventurea-ink">
+          {tarjeta.nombre}
+        </p>
+        <span
+          className="rounded-full px-2.5 py-1 text-[11px] font-bold"
+          style={
+            tarjeta.estado === "activo"
+              ? { background: ACCION_TINTE, color: ACCION }
+              : { background: "rgba(255,255,255,.10)" }
+          }
+        >
+          {ETIQUETA_ESTADO[tarjeta.estado]}
+        </span>
+      </div>
+      <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">{definicion.nombre}</p>
+
+      <ul className="mt-4 space-y-2.5">
+        <Dato
+          icono="regalo"
+          texto={
+            regalia
+              ? `Se gana ${regalia.nombre} a los ${regalia.costo.toLocaleString("es-CR")} ${unidades}.`
+              : definicion.acumula
+                ? "Todavía no hay una recompensa activa: el pase muestra el saldo pelado."
+                : "El beneficio va adentro de la tarjeta, sin meta que juntar."
+          }
+        />
+        {miembros > 0 && resumen && (
+          <Dato
+            icono="movil"
+            texto={`${resumen.conPase.toLocaleString("es-CR")} de ${miembros.toLocaleString("es-CR")} la llevan en el teléfono.`}
+          />
         )}
-      </p>
+      </ul>
+
+      {enlaces.tarjeta && (
+        <a
+          href={enlaces.tarjeta}
+          className="mt-4 inline-block text-[12.5px] font-bold text-aventurea-ink underline"
+        >
+          Abrir el diseño de la tarjeta →
+        </a>
+      )}
+    </Card>
+  );
+}
+
+function Encabezado({ icono, titulo }: { icono: NombreIcono; titulo: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-xl"
+        style={{ background: ACCION_TINTE, color: ACCION }}
+      >
+        <Icono nombre={icono} className="h-[17px] w-[17px]" />
+      </span>
+      <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-aventurea-ink-soft">
+        {titulo}
+      </h3>
     </div>
+  );
+}
+
+function Dato({ icono, texto }: { icono: NombreIcono; texto: string }) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span className="mt-[1px] shrink-0 text-aventurea-ink-soft">
+        <Icono nombre={icono} className="h-[15px] w-[15px]" />
+      </span>
+      <span className="text-[12.5px] leading-snug text-aventurea-ink-soft">{texto}</span>
+    </li>
   );
 }
 
@@ -554,9 +807,11 @@ function BarraPlan({ limite, href }: { limite: EstadoLimite; href: string | null
  * miembros?), nunca con un booleano que alguien tocó: una lista que se
  * auto-completa sin que nada haya pasado es peor que no tenerla.
  *
- * Desaparece cuando están los cuatro. Una lista toda en verde para
+ * Desaparece SOLA cuando están los cuatro. Una lista toda en verde para
  * siempre es decoración, y el tablero necesita ese espacio para los
- * datos.
+ * datos. Y mientras quede alguno, se puede cerrar a mano con la X que
+ * le pone <AvisosCerrables> — cerrarla no marca nada como hecho: la
+ * lista vuelve entera desde la barrita de abajo.
  */
 function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
   const listos = pasos.filter((p) => p.listo).length;
@@ -567,7 +822,9 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
 
   return (
     <Card>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      {/* `pr-9` deja libre la esquina donde <AvisosCerrables> pone la X:
+          si no, «2 de 4 listos» le queda debajo. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-9">
         <h3 className="text-[16px] font-extrabold text-aventurea-ink">
           Primeros pasos con Bookea
         </h3>

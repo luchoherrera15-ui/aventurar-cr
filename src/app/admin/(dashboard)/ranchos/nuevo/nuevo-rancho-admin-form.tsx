@@ -1,10 +1,14 @@
 ﻿"use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   crearRanchoComoAdmin,
   type NuevoRanchoAdminState,
 } from "./actions";
+import SelectorTipoNegocio from "@/components/business/selector-tipo-negocio";
+import { adivinarTipoNegocio } from "@/lib/business/adivinar-tipo";
+import { seLePreguntaElTipo } from "@/lib/business/tipo-en-alta";
+import type { TipoNegocioId } from "@/lib/business/modulos";
 import {
   CANTONES,
   CATEGORIAS,
@@ -54,6 +58,21 @@ export default function NuevoRanchoAdminForm({
   const [subcategoria, setSubcategoria] = useState("");
   const [provincia, setProvincia] = useState<Provincia | "">("");
   const [canton, setCanton] = useState("");
+  // El nombre es controlado solo para alimentar la sugerencia de rubro.
+  const [nombre, setNombre] = useState("");
+
+  // El mismo paso que ve el dueño en /mi-negocio/nuevo: un negocio que
+  // el equipo carga a mano tiene que nacer igual de completo que uno que
+  // se registró solo. Si no, los negocios sembrados desde acá son
+  // justamente los que quedan con el panel neutro.
+  const [tipoNegocio, setTipoNegocio] = useState<TipoNegocioId | null>(null);
+  const [tipoTocado, setTipoTocado] = useState(false);
+  const preguntaTipo = seLePreguntaElTipo(vertical);
+  const sugerido = useMemo(
+    () => adivinarTipoNegocio({ nombre, vertical, categoria }),
+    [nombre, vertical, categoria],
+  );
+  const tipoElegido = tipoTocado ? tipoNegocio : sugerido;
   // Las subcategorías y la capacidad solo existen en Eventos > Lugares;
   // el resto de verticales no las usa (mismo criterio que
   // mi-negocio/nuevo/nuevo-rancho-form.tsx y editar-form.tsx).
@@ -235,10 +254,37 @@ export default function NuevoRanchoAdminForm({
               type="text"
               name="nombre"
               required
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej. Salón Bella Vista"
               className={inputCls}
             />
           </div>
+
+          {/* El rubro operativo: de acá salen el menú y el vocabulario
+              del panel del dueño (Bookea Business, 0108). Viene marcado
+              lo que sugiere el nombre; el equipo confirma o corrige. */}
+          {preguntaTipo && (
+            <div>
+              <label className={labelCls}>Tipo de negocio (arma su panel)</label>
+              <SelectorTipoNegocio
+                vertical={vertical}
+                valor={tipoElegido}
+                sugerido={sugerido}
+                alElegir={(t) => {
+                  setTipoNegocio(t);
+                  setTipoTocado(true);
+                }}
+                alSaltar={() => {
+                  setTipoNegocio(null);
+                  setTipoTocado(true);
+                }}
+                textoSaltar="Dejarlo sin definir"
+                textoSinElegir="Sin definir, el panel arranca en el modo neutro y el dueño elige su rubro desde Configuración."
+              />
+              <input type="hidden" name="tipo_negocio" value={tipoElegido ?? ""} />
+            </div>
+          )}
 
           <div>
             <label className={labelCls}>Descripción</label>

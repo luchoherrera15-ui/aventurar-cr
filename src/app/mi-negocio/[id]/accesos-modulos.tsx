@@ -21,6 +21,28 @@ import { iconoModulo } from "./iconos-modulos";
  *
  * Componente de SERVIDOR (sin "use client"): son enlaces y texto.
  */
+/**
+ * La grilla de las tarjetas, una sola vez: la usan las disponibles y las
+ * de «Pronto», y si se separan se despareja el bloque.
+ *
+ * Los cortes están calculados contra el ancho REAL de la columna de
+ * contenido (la pantalla menos el padding, menos los 236/260px del menú
+ * y su gap), no contra el ancho de la ventana:
+ *
+ *   lg  1024px → ~716px de columna → 3 columnas darían 238px por
+ *                tarjeta, y una tarjeta es ícono + título + resumen de
+ *                dos líneas: a 238px el resumen se parte en cinco.
+ *                Se queda en 2.
+ *   xl  1280px → ~964px → 3 columnas de ~321px. Cómodo.
+ *   2xl 1536px → ~1204px → 4 columnas de ~301px.
+ *   Y con el panel a 1900px, esas mismas 4 quedan en ~382px.
+ *
+ * O sea: el ancho nuevo se gasta en MÁS COLUMNAS hasta 2xl y en
+ * tarjetas más anchas de ahí para arriba, que es donde el resumen deja
+ * de partirse.
+ */
+const GRILLA = "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+
 export default function AccesosModulos({ items }: { items: ItemMenu[] }) {
   const modulos = items.filter((i) => i.modulo !== null);
   if (modulos.length === 0) return null;
@@ -43,7 +65,7 @@ export default function AccesosModulos({ items }: { items: ItemMenu[] }) {
           <p className="mb-2 text-[12px] text-aventurea-ink-soft">
             Lo que también trae tu tipo de negocio y estamos construyendo:
           </p>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={GRILLA}>
             {pendientes.map((item) => (
               <Tarjeta key={item.id} item={item} />
             ))}
@@ -63,7 +85,7 @@ function Tarjeta({ item }: { item: ItemMenu }) {
       <span
         aria-hidden
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl [&_svg]:h-[18px] [&_svg]:w-[18px] ${
-          pronto ? "bg-aventurea-cream-2 text-aventurea-ink-soft/50" : ""
+          pronto ? "bg-aventurea-cream-2 text-aventurea-ink-soft" : ""
         }`}
         // El acento del tipo, heredado del contenedor del tablero. Sin
         // él (o si alguien reusa esto suelto) el bloque se pinta neutro
@@ -83,7 +105,7 @@ function Tarjeta({ item }: { item: ItemMenu }) {
         <span className="flex items-center gap-2">
           <span
             className={`truncate text-[13.5px] font-bold ${
-              pronto ? "text-aventurea-ink-soft/70" : "text-aventurea-ink"
+              pronto ? "text-aventurea-ink-soft" : "text-aventurea-ink"
             }`}
           >
             {item.label}
@@ -92,11 +114,11 @@ function Tarjeta({ item }: { item: ItemMenu }) {
             {pronto ? "Pronto" : GRUPO_LABEL[item.grupo as GrupoId]}
           </span>
         </span>
-        <span
-          className={`mt-1 block text-[11.5px] leading-snug ${
-            pronto ? "text-aventurea-ink-soft/60" : "text-aventurea-ink-soft"
-          }`}
-        >
+        {/* Un módulo «Pronto» ya se distingue por el marco punteado, el
+            chip y la tinta suave del título: el resumen no necesita
+            encima una opacidad que lo bajaba a 2,78:1. Misma tinta para
+            los dos estados, 7,11:1. */}
+        <span className="mt-1 block text-[11.5px] leading-snug text-aventurea-ink-soft">
           {item.resumen}
         </span>
       </span>

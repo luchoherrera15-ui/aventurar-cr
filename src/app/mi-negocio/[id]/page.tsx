@@ -1578,7 +1578,14 @@ export default async function RanchoDetallePage({
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
             {ESTADO_LABEL[rancho.estado]}
           </p>
-          <p className="mt-1 truncate text-[10.5px] font-bold uppercase tracking-wide text-aventurea-orange">
+          {/* El rubro y la ubicación son un DATO de referencia, no un
+              estado ni una acción: iban en naranja y sobre el degradé
+              navy ese naranja daba 4,73:1 arriba y 3,68:1 abajo — o sea
+              que en la mitad de la tarjeta ni siquiera llegaba a AA.
+              Blanco al 70% se lee igual de bien en los dos extremos del
+              degradé (7,55:1 y 6,20:1) y deja de competir con el nombre
+              del negocio, que es lo que de verdad manda acá. */}
+          <p className="mt-1 truncate text-[10.5px] font-bold uppercase tracking-wide text-white/70">
             {categoriaLabelMostrado}
             {ubicacion ? ` · ${ubicacion}` : ""}
           </p>
@@ -1656,7 +1663,10 @@ export default async function RanchoDetallePage({
     <>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-orange">
+          {/* La fecha de hoy es contexto, no una alarma: en naranja
+              (2,94:1 sobre blanco, ni AA) gritaba más que el titular que
+              tiene debajo. Gris de texto sólido, 7,11:1. */}
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft">
             {hoyLargo.charAt(0).toUpperCase() + hoyLargo.slice(1)}
           </p>
           <h1 className="max-w-[42ch] text-[26px] font-extrabold leading-[1.1] tracking-tight text-aventurea-navy sm:text-[32px]">
@@ -1687,7 +1697,12 @@ export default async function RanchoDetallePage({
       </div>
 
       {rancho.estado === "pendiente" && (
-        <p className="mb-4 rounded-[10px] bg-aventurea-sky/15 p-3 text-[13px] leading-relaxed text-aventurea-orange">
+        /* Fondo y letra SÓLIDOS, no un alfa sobre lo que haya detrás:
+           naranja sobre `sky/15` daba 2,43:1. Navy sobre `sky-light`
+           da 12,24:1 y es el mismo par que usan ahora las píldoras de
+           estado del tablero, así que un aviso se reconoce como aviso
+           en todo el panel. */
+        <p className="mb-4 rounded-[10px] bg-aventurea-sky-light p-3 text-[13px] leading-relaxed text-aventurea-navy">
           Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
           directorio.
         </p>
@@ -1724,10 +1739,31 @@ export default async function RanchoDetallePage({
   );
 
   return (
-    // El ancho de siempre: probamos el panel a pantalla completa y con
-    // el menú ya horizontal quedaba demasiado estirado — las líneas de
-    // texto se volvían incómodas de leer.
-    <main className="mx-auto max-w-[1280px] px-5 py-10">
+    /* ======== EL ANCHO: TODA LA PANTALLA ========
+     *
+     * Esto era `max-w-[1280px]`, heredado de cuando el panel tenía el
+     * menú arriba en horizontal y una línea de texto cruzaba el ancho
+     * entero. Con el menú de vuelta en columna eso ya no pasa: la
+     * columna de contenido nunca es la pantalla completa, y los párrafos
+     * largos que quedan ya traen su propio tope (`max-w-[70ch]`,
+     * `max-w-[60ch]`). Lo que sí quedaba era un monitor de 1920px con
+     * ~320px de aire muerto a cada lado mientras las tarjetas del
+     * tablero se apretaban a tres por fila. Un panel de trabajo no es
+     * una landing: acá el ancho es útil.
+     *
+     * El tope de 1900px no es decorativo. Arriba de eso el aire lateral
+     * de un 4K no se nota, pero la fila de tarjetas de "Tus
+     * herramientas" y las líneas del encabezado empiezan a cruzar más de
+     * 2000px y el ojo pierde el renglón. 1900 es el ancho útil de un
+     * monitor de 1920 con su barra de scroll: hasta ahí se usa todo, de
+     * ahí para arriba el panel se centra.
+     *
+     * El padding sube con la pantalla (16 → 24 → 32 → 40) para que las
+     * tarjetas no queden pegadas al borde en un monitor grande; el
+     * header de `mi-negocio/layout.tsx` usa exactamente la misma escala,
+     * así el logo de arriba y la columna del menú quedan a plomo.
+     */
+    <main className="mx-auto w-full max-w-[1900px] px-4 py-7 sm:px-6 sm:py-9 lg:px-8 2xl:px-10">
       <Link
         href="/mi-negocio"
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"

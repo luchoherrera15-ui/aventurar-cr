@@ -16,6 +16,8 @@ import BuscadorHome from "@/components/buscador-home";
 import GrillaCategorias from "@/components/grilla-categorias";
 import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
 import { urlSitio } from "@/lib/sitio";
+import { paisDelVisitante } from "@/lib/pais-visitante";
+import type { CodigoPais } from "@/lib/paises";
 import { leerDatosHome } from "./home-datos";
 import { RielLoNuevo, VitrinaHome } from "./home-secciones";
 import {
@@ -94,6 +96,20 @@ import {
  * campo de fecha porque no existe una consulta de disponibilidad que
  * abarque el directorio entero — un control que no filtra nada es un
  * control que miente.
+ *
+ * EL PAÍS DEL BUSCADOR SE DETECTA, NO SE ADIVINA
+ *
+ * El `<select>` de país del buscador ya no abre siempre en Costa Rica:
+ * abre en el país del visitante, sacado de la cabecera de Vercel
+ * `x-vercel-ip-country` (o del que la persona haya elegido a mano en
+ * una visita anterior). Las reglas viven en @/lib/pais-preferido y la
+ * lectura del request en @/lib/pais-visitante — ahí está explicado por
+ * qué esto NO le cuesta caché a la página más visitada del sitio.
+ *
+ * Se resuelve ACÁ ARRIBA y no dentro de un `<Suspense>`: leer una
+ * cabecera no cuesta ni I/O ni red, y el buscador es lo primero que se
+ * ve del hero. Meterlo detrás de un límite de espera sería regalar un
+ * salto de maqueta justo en lo que Google mide.
  */
 
 export const metadata: Metadata = {
@@ -131,7 +147,12 @@ export const metadata: Metadata = {
  */
 const datosDeLaPortada = cache(leerDatosHome);
 
-export default function Home() {
+export default async function Home() {
+  // No es una consulta: la cookie y la cabecera ya vienen en el
+  // request, así que este `await` resuelve en el mismo tick. La página
+  // ya era dinámica antes de esto (ver @/lib/pais-visitante).
+  const pais = await paisDelVisitante();
+
   return (
     // `overflow-x-clip`: el fondo `organico` del hero pinta manchas
     // difuminadas que se salen de su caja, y en un teléfono eso mueve
@@ -165,7 +186,7 @@ export default function Home() {
           visitada del sitio. */}
       <SiteHeader ancho="max-w-[1200px]" extra={<NavHome />} conPublicar={false} />
 
-      <Hero />
+      <Hero pais={pais} />
       <TarjetasVertical />
       <SeccionExplorar />
       <ComoFunciona />
@@ -230,7 +251,7 @@ const COLORES_HERO = {
   "--c3": "color-mix(in srgb, var(--color-aventurea-navy-3) 75%, transparent)",
 } as CSSProperties;
 
-function Hero() {
+function Hero({ pais }: { pais: CodigoPais }) {
   return (
     <section className="organico bg-aventurea-navy" style={COLORES_HERO}>
       <div className="mx-auto max-w-[1200px] px-4 pb-14 pt-12 sm:px-6 sm:pb-16 sm:pt-16 lg:px-10">
@@ -266,8 +287,14 @@ function Hero() {
 
         {/* El buscador no trae márgenes propios ni el solapamiento
             negativo de la maqueta: dónde se para es decisión de esta
-            composición, no del componente. */}
-        <BuscadorHome className="mx-auto mt-9 max-w-[900px]" />
+            composición, no del componente.
+
+            `paisInicial` es el país detectado (o el que la persona
+            eligió antes). Baja como prop y no lo lee el buscador solo
+            porque el buscador es `"use client"`: no puede tocar
+            `headers()`, y meterle un `useSearchParams()` obligaría a
+            renderizar la portada entera del lado del cliente. */}
+        <BuscadorHome className="mx-auto mt-9 max-w-[900px]" paisInicial={pais} />
 
         {/* LA VITRINA. Es lo único del hero que depende de la base, así
             que va sola detrás de su propio `<Suspense>`: el resto del

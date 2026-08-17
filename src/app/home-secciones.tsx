@@ -292,7 +292,7 @@ export function RielLoNuevo({
 
   return (
     <section>
-      <p className="px-1 text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange">
+      <p className="px-1 text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-bookea-naranja-fuerte">
         Recién publicados
       </p>
       <RielProveedores

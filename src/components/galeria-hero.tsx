@@ -192,7 +192,7 @@ export default function GaleriaHeroFotos({
                   />
                 )}
                 {esUltima && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[15px] font-extrabold text-white">
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[15px] font-extrabold text-white">
                     +{ocultasMovil} fotos
                   </span>
                 )}
@@ -206,7 +206,12 @@ export default function GaleriaHeroFotos({
             <span className="pointer-events-none absolute bottom-3 right-3 rounded-lg bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white backdrop-blur-sm">
               {visible + 1} / {previa.length}
             </span>
-            <div className="pointer-events-none absolute bottom-3.5 left-1/2 flex -translate-x-1/2 gap-1.5">
+            {/* Los puntos van DENTRO de una píldora oscura, igual que el
+                contador de al lado: pintados directo sobre la foto, el
+                punto activo (blanco) daba 1,00:1 contra una imagen clara
+                y desaparecía. Con el negro al 55 % son 4,74:1 pase lo que
+                pase en la foto. */}
+            <div className="pointer-events-none absolute bottom-3.5 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-black/55 px-2 py-1.5">
               {previa.map((_, i) => (
                 <span
                   key={i}

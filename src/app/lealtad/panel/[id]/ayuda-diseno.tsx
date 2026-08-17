@@ -139,7 +139,7 @@ export default function AyudaDeDiseno({
                 maxLength={2000}
                 rows={4}
                 placeholder="Ej.: quiero que se vea más elegante y seria, tengo el logo en vector si les sirve."
-                className="w-full rounded-xl border border-aventurea-line bg-white px-3.5 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-400"
+                className="w-full rounded-xl border border-aventurea-line bg-white px-3.5 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500"
               />
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <button

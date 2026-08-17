@@ -1,8 +1,12 @@
 ﻿"use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { crearRancho, type NuevoRanchoState } from "./actions";
 import { createClient } from "@/lib/supabase/client";
+import SelectorTipoNegocio from "@/components/business/selector-tipo-negocio";
+import { adivinarTipoNegocio } from "@/lib/business/adivinar-tipo";
+import { seLePreguntaElTipo } from "@/lib/business/tipo-en-alta";
+import type { TipoNegocioId } from "@/lib/business/modulos";
 import {
   CANTONES,
   CATEGORIAS,
@@ -41,6 +45,29 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
   const [subcategoria, setSubcategoria] = useState("");
   const [provincia, setProvincia] = useState<Provincia | "">("");
   const [canton, setCanton] = useState("");
+  // El nombre es controlado SOLO porque de él sale la sugerencia de
+  // rubro: se adivina mientras se escribe, no al enviar.
+  const [nombre, setNombre] = useState("");
+
+  // ---- El rubro operativo (ranchos.tipo_negocio) ----
+  // De acá salen el menú, el vocabulario y las herramientas del panel
+  // (Bookea Business, 0108). Hasta ahora el registro nunca lo preguntaba
+  // y todos los negocios nacían en null, así que el panel se resolvía
+  // adivinando de la categoría — y la categoría no distingue un gimnasio
+  // de una academia.
+  //
+  // `sugerido` se recalcula con cada tecla; `tocado` es lo que hace que
+  // deje de mandar en cuanto la persona opina. Sin esa bandera, escribir
+  // una palabra más en el nombre le pisaría en silencio la opción que
+  // acaba de elegir a mano.
+  const [tipoNegocio, setTipoNegocio] = useState<TipoNegocioId | null>(null);
+  const [tipoTocado, setTipoTocado] = useState(false);
+  const preguntaTipo = seLePreguntaElTipo(vertical);
+  const sugerido = useMemo(
+    () => adivinarTipoNegocio({ nombre, vertical, categoria }),
+    [nombre, vertical, categoria],
+  );
+  const tipoElegido = tipoTocado ? tipoNegocio : sugerido;
 
   const esEventos = vertical === "eventos";
   const esHospedajes = vertical === "hospedajes";
@@ -186,6 +213,8 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
           type="text"
           name="nombre"
           required
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
           placeholder={
             esLugar
               ? "Ej. Rancho Los Almendros"
@@ -198,6 +227,49 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
           className={inputCls}
         />
       </div>
+
+      {/* ---------- Qué clase de negocio es ----------
+          Va acá y no al final a propósito: la sugerencia se arma con el
+          nombre y la categoría, que son los dos campos de arriba. Se
+          pregunta solo donde hay rubros de verdad entre los que elegir
+          (ver seLePreguntaElTipo): en hospedajes y restaurantes la
+          respuesta es una sola y el panel ya la deduce sin molestar a
+          nadie. */}
+      {preguntaTipo && (
+        <div className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4">
+          <p className="text-[13px] font-bold text-aventurea-ink">
+            ¿Qué clase de negocio es?
+          </p>
+          <p className="mb-3 mt-1 text-[12px] leading-relaxed text-zinc-500">
+            Con esto armamos tu panel: qué secciones ves en el menú, cómo te
+            habla el sistema y qué herramientas trae tu rubro. No cambia cómo te
+            encuentra la gente en Bookea — eso lo decide la categoría de arriba.
+            Podés cambiarlo después desde tu panel.
+          </p>
+
+          <SelectorTipoNegocio
+            vertical={vertical}
+            valor={tipoElegido}
+            sugerido={sugerido}
+            alElegir={(t) => {
+              setTipoNegocio(t);
+              setTipoTocado(true);
+            }}
+            alSaltar={() => {
+              setTipoNegocio(null);
+              setTipoTocado(true);
+            }}
+          />
+
+          {/* El campo viaja SOLO cuando la pregunta se hizo. Donde no se
+              pregunta no se manda nada, porque escribir una respuesta
+              que nadie dio es justo lo que no queremos: el negocio nace
+              en null, el panel lo deduce —en esas verticales acierta
+              siempre— y el aviso de Configuración le sigue ofreciendo
+              elegirlo. */}
+          <input type="hidden" name="tipo_negocio" value={tipoElegido ?? ""} />
+        </div>
+      )}
 
       <div>
         <label className={labelCls}>Descripción</label>

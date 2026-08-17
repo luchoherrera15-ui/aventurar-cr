@@ -41,7 +41,7 @@ export default function BloqueNegocios() {
       <div className="mx-auto max-w-[1200px]">
         <div className="bento grid items-center gap-10 border border-aventurea-orange/25 bg-aventurea-orange-light p-7 sm:p-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:p-16">
           <div data-reveal>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-bookea-naranja-fuerte">
               Para profesionales y negocios
             </p>
             <h2 className="titulo mt-3.5 max-w-[14ch] text-balance text-[clamp(28px,4vw,48px)] text-aventurea-ink">

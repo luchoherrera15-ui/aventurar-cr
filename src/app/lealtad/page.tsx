@@ -121,7 +121,7 @@ const FAQ: { pregunta: string; respuesta: string }[] = [
   {
     pregunta: "¿Puedo empezar sin pagar?",
     respuesta:
-      "Sí — el plan Prueba dura 14 días, no pide tarjeta de crédito y alcanza para armar tu primera tarjeta y probarla con clientes reales.",
+      "Sí — el paquete gratis no vence ni pide tarjeta de crédito. Alcanza para armar tu tarjeta y probarla con clientes reales; cuando crezcas, subís de paquete.",
   },
   {
     pregunta: "¿Cómo se paga?",
@@ -194,7 +194,7 @@ export default function LealtadPage() {
             >
               Ver cómo funciona
             </a>
-            <p className="mt-2 text-[13px] text-white/40">
+            <p className="mt-2 text-[13px] text-white/55">
               ¿Ya tenés el programa?{" "}
               <Link
                 href="/cuenta?volver=lealtad"
@@ -345,7 +345,7 @@ export default function LealtadPage() {
                 Empezá pequeño y crecé cuando lo necesités.
               </h2>
               <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-white/60">
-                Probalo gratis 14 días, sin tarjeta de crédito. Cuando tu programa crezca, subís
+                Empezá gratis, sin tarjeta de crédito y sin vencimiento. Cuando tu programa crezca, subís
                 de paquete — nunca antes.
               </p>
 

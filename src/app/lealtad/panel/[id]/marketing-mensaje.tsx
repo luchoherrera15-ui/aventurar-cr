@@ -72,10 +72,10 @@ export default function MarketingMensaje({
             onChange={(e) => setMensaje(e.target.value)}
             maxLength={TOPE}
             placeholder="MIÉRCOLES MATCHAS 2X1"
-            className="w-full rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/35"
+            className="w-full rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/55"
             style={{ borderColor: "rgba(255,255,255,.15)" }}
           />
-          <p className="mt-1 text-right text-[10.5px] text-white/35">
+          <p className="mt-1 text-right text-[10.5px] text-white/55">
             {mensaje.length}/{TOPE}
           </p>
         </div>

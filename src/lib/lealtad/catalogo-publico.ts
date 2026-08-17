@@ -140,7 +140,12 @@ function conMiles(n: number): string {
  * porcentaje.
  */
 function notaPrecioDe(def: DefinicionPlan): string {
-  if (def.precioMensual === 0) return `${def.diasPrueba} días, sin tarjeta`;
+  if (def.precioMensual === 0) {
+    // `diasPrueba: 0` significa que el paquete gratis NO vence, y hasta
+    // que eso pasó esta línea escribía «0 días, sin tarjeta» — que se
+    // lee como un error o, peor, como que ya se venció.
+    return def.diasPrueba > 0 ? `${def.diasPrueba} días, sin tarjeta` : "Gratis, sin vencimiento";
+  }
   const anual = precioDe(def, "año");
   if (anual === null) return "Cotizado a tu medida";
   const pct = descuentoAnualPct(def);

@@ -90,7 +90,7 @@ export default function BurbujaContacto() {
                   onChange={(e) => setNombre(e.target.value)}
                   placeholder="Tu nombre"
                   maxLength={100}
-                  className="rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/35"
+                  className="rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/55"
                   style={{ borderColor: "rgba(255,255,255,.15)" }}
                 />
                 <input
@@ -100,7 +100,7 @@ export default function BurbujaContacto() {
                   onChange={(e) => setContacto(e.target.value)}
                   placeholder="Correo o WhatsApp"
                   maxLength={150}
-                  className="rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/35"
+                  className="rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/55"
                   style={{ borderColor: "rgba(255,255,255,.15)" }}
                 />
                 <textarea
@@ -110,7 +110,7 @@ export default function BurbujaContacto() {
                   placeholder="¿Qué necesitás?"
                   rows={3}
                   maxLength={800}
-                  className="resize-none rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/35"
+                  className="resize-none rounded-xl border bg-white/[0.06] px-3.5 py-2.5 text-[13.5px] text-white placeholder:text-white/55"
                   style={{ borderColor: "rgba(255,255,255,.15)" }}
                 />
                 {/* Señuelo para bots: invisible para una persona (fuera de

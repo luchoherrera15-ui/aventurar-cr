@@ -159,9 +159,24 @@ export default function SolicitudesPendientes({
           }
 
           return (
+            /* ACÁ SÍ VA EL ACENTO, y es el único lugar del tablero
+               donde se usa como relleno: una solicitud sin responder es
+               exactamente «estado que pide acción», que es el papel que
+               el acento tiene reservado.
+
+               Pero no el naranja genérico: el acento del TIPO de
+               negocio, que entra como `--acento-solido` desde el
+               contenedor del panel (`variablesAcento`). Así la barrita
+               de una barbería es la suya y la de un spa la suya, sin un
+               hexadecimal suelto acá. El peor caso del catálogo
+               (aguamarina) da 5,18:1 contra el blanco de la tarjeta —
+               muy por encima del 3:1 que pide un elemento no textual.
+               El fallback es el navy de marca, por si alguien monta
+               esta lista fuera del panel. */
             <div
               key={r.id}
-              className="overflow-hidden rounded-xl border border-aventurea-line border-l-4 border-l-aventurea-orange bg-aventurea-surface shadow-sm"
+              style={{ borderLeftColor: "var(--acento-solido, var(--navy))" }}
+              className="overflow-hidden rounded-xl border border-aventurea-line border-l-4 bg-aventurea-surface shadow-sm"
             >
               <button
                 type="button"
@@ -188,7 +203,18 @@ export default function SolicitudesPendientes({
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   {r.deposito_comprobante_url && !r.deposito_validado && (
-                    <span className="rounded-lg bg-aventurea-sky/15 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-orange">
+                    /* Mismo criterio que la barrita: es estado, así que
+                       lleva el acento del tipo — pero en su par SUAVE +
+                       TINTA, que es el que está calibrado para texto
+                       (peor caso del catálogo, aguamarina: 5,56:1).
+                       Antes era naranja sobre `sky/15`: 2,43:1. */
+                    <span
+                      style={{
+                        backgroundColor: "var(--acento-suave, var(--navy-suave, #e9eef6))",
+                        color: "var(--acento, var(--navy))",
+                      }}
+                      className="rounded-lg px-2 py-0.5 text-[10.5px] font-bold"
+                    >
                       Comprobante por revisar
                     </span>
                   )}
@@ -235,11 +261,22 @@ export default function SolicitudesPendientes({
                         Depósito
                       </p>
                       {r.deposito_validado ? (
-                        <span className="inline-flex items-center rounded-lg bg-aventurea-green/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-green">
+                        /* Sólido, igual que el resto de las píldoras de
+                           estado del tablero: 4,51:1. */
+                        <span className="inline-flex items-center rounded-lg bg-aventurea-green-light px-2 py-0.5 text-[11px] font-bold text-aventurea-green">
                           ✓ {fmtMoney(r.deposito_monto)}
                         </span>
                       ) : r.deposito_comprobante_url ? (
-                        <span className="inline-flex items-center rounded-lg bg-aventurea-sky/15 px-2 py-0.5 text-[11px] font-bold text-aventurea-orange">
+                        /* El mismo par suave+tinta del acento del tipo
+                           que la insignia de arriba: las dos dicen «esto
+                           espera que vos hagás algo». */
+                        <span
+                          style={{
+                            backgroundColor: "var(--acento-suave, var(--navy-suave, #e9eef6))",
+                            color: "var(--acento, var(--navy))",
+                          }}
+                          className="inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-bold"
+                        >
                           Por validar · {fmtMoney(r.deposito_monto)}
                         </span>
                       ) : (

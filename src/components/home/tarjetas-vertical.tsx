@@ -61,7 +61,7 @@ export default function TarjetasVertical() {
     <section className="px-4 py-16 sm:px-6 sm:py-20 lg:px-10">
       <div className="mx-auto max-w-[1200px]">
         <header className="mx-auto max-w-[46ch] text-center">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-bookea-naranja-fuerte">
             Dos formas de encontrar lo que buscás
           </p>
           <h2 className="titulo mt-3.5 text-balance text-[clamp(28px,4vw,48px)] text-aventurea-ink">
@@ -116,9 +116,15 @@ export default function TarjetasVertical() {
                   contra un padre auto no resuelve y el `mt-auto` de
                   abajo dejaría de empujar el texto al pie. */}
               <div className="relative flex flex-1 flex-col">
+                {/* Solo de sm para arriba. El velo cambia de dirección en
+                    `sm:` y el número no se mueve: en teléfono cae arriba,
+                    donde el degradado vale navy al 25 % y se transparenta
+                    la foto — 2,83:1. Es decoración (`aria-hidden`), así
+                    que en móvil simplemente no va, igual que la flechita
+                    de grilla-categorias. */}
                 <span
                   aria-hidden
-                  className="text-[11px] font-extrabold tracking-[0.1em] text-white/55"
+                  className="hidden text-[11px] font-extrabold tracking-[0.1em] text-white/55 sm:block"
                 >
                   {t.numero}
                 </span>

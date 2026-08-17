@@ -32,6 +32,7 @@ import {
   type PestanaBuscador,
 } from "./buscador-home-datos";
 import { etiquetaRegion, regionesDe } from "@/lib/paises";
+import { cookieDePais } from "@/lib/pais-preferido";
 
 /**
  * EL BUSCADOR DE LA PORTADA — comportamiento de Airbnb, estética de
@@ -93,9 +94,27 @@ import { etiquetaRegion, regionesDe } from "@/lib/paises";
  * campo cambia con el país: decir "Provincia" en México sería escribir
  * mal el nombre de su propia división.
  *
- * Tampoco hay aviso de "¿estás en Panamá?" ni geolocalización: sin
- * negocios cargados en otro país, eso sería un cartel que lleva a un
- * directorio vacío.
+ * ── EL PAÍS VIENE DETECTADO, PERO EL SELECTOR SE QUEDA ─────────────
+ * El valor inicial ya no es Costa Rica a secas: llega en `paisInicial`
+ * desde el servidor, que lo saca de la cabecera `x-vercel-ip-country`
+ * de Vercel (reglas completas en @/lib/pais-preferido). Sigue siendo
+ * la cabecera y NO `navigator.geolocation`: un permiso del navegador
+ * apenas alguien entra a la portada espanta gente, y para saber el
+ * país es una precisión que sobra.
+ *
+ * El `<select>` NO se esconde por estar detectado, y no es timidez:
+ * (a) la IP se equivoca seguido en Centroamérica —mucho tráfico sale
+ * ruteado por Miami, y con VPN siempre—; (b) hay quien busca en otro
+ * país a propósito; (c) Google rastrea desde Estados Unidos, y un
+ * sitio que cambia por IP sin dejar navegar a cada país deja siete
+ * mercados sin indexar. Por eso mismo, cambiarlo a mano DEJA CONSTANCIA
+ * (la cookie de `cambiarPais`): la corrección de la persona le gana a
+ * la detección, también en la próxima visita.
+ *
+ * Sigue sin haber aviso de "¿estás en Panamá?": mientras no haya
+ * negocios cargados en otro país, ese cartel llevaría a un directorio
+ * vacío. Detectar el país del selector es otra cosa — no interrumpe a
+ * nadie y no promete nada.
  */
 
 /**
@@ -166,14 +185,16 @@ export default function BuscadorHome({
    */
   pestanaInicial?: PestanaBuscador;
   /**
-   * Con qué país abre. Sin esto —el caso de hoy— abre en Costa Rica,
-   * que es el país por defecto de toda la plataforma. Está como prop y
-   * no leído de la URL acá adentro por lo mismo que `pestanaInicial`:
-   * `useSearchParams()` en un cliente sin `<Suspense>` obliga a
+   * Con qué país abre. La portada lo resuelve en el servidor
+   * (`paisDelVisitante`): lo que la persona eligió antes, o lo que dice
+   * su IP, o Costa Rica. Está como prop y no leído acá adentro por dos
+   * razones: la cabecera de geolocalización solo existe en el servidor,
+   * y `useSearchParams()` en un cliente sin `<Suspense>` obliga a
    * renderizar la portada entera del lado del cliente.
    *
-   * Cualquier valor raro cae en Costa Rica (`paisDelBuscador`), así que
-   * el `<select>` nunca aparece sin nada marcado.
+   * Sin la prop abre en Costa Rica, que es el país por defecto de toda
+   * la plataforma, y cualquier valor raro cae ahí también
+   * (`paisDelBuscador`): el `<select>` nunca aparece sin nada marcado.
    */
   paisInicial?: string;
   /**
@@ -282,10 +303,27 @@ export default function BuscadorHome({
    * siquiera se emitiría — o sea que el `<select>` mostraría "Cartago"
    * mientras el buscador busca en todo Panamá. Un control que dice una
    * cosa y hace otra es peor que uno que no está.
+   *
+   * Y QUEDA ANOTADO. La cookie `bookea_pais` es lo que hace que la
+   * elección le gane a la detección por IP en la siguiente visita: sin
+   * ella, quien está en Costa Rica con una VPN de Estados Unidos —o
+   * quien vive en Panamá pero su proveedor sale por Miami— tendría que
+   * corregir el país en cada entrada al sitio.
+   *
+   * Se escribe desde el navegador y no con un server action a
+   * propósito: es una preferencia de comodidad, no vale una ida al
+   * servidor por mover un desplegable. Sin JavaScript no se guarda —el
+   * `<form method="get">` igual manda `?pais=` al directorio, y la
+   * próxima visita vuelve a detectar—, que es una degradación honesta.
    */
   function cambiarPais(destino: string) {
-    setPais(paisDelBuscador(destino));
+    const elegido = paisDelBuscador(destino);
+    setPais(elegido);
     setProvincia("");
+    document.cookie = cookieDePais(
+      elegido,
+      window.location.protocol === "https:",
+    );
   }
 
   /**
@@ -660,7 +698,7 @@ export default function BuscadorHome({
                       data-estado={activa ? "activo" : "saliendo"}
                       inert={!activa}
                     >
-                      <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-aventurea-orange">
+                      <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-bookea-naranja-fuerte">
                         {TEXTOS[p].tituloRubros}
                       </p>
 
@@ -760,7 +798,7 @@ export default function BuscadorHome({
           hoja ? "hidden" : "flex"
         }`}
       >
-        <IconSearch className="h-4 w-4 shrink-0 text-aventurea-orange" />
+        <IconSearch className="h-4 w-4 shrink-0 text-bookea-naranja-fuerte" />
         <span className="truncate text-[13.5px] font-bold text-aventurea-ink">
           {q || textos.etiquetaQue}
         </span>

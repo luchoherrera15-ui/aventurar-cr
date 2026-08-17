@@ -100,14 +100,56 @@ describe("UN PAQUETE RETIRADO NO SE PUEDE ELEGIR, PERO SE SIGUE RESPETANDO", () 
     }
   });
 
-  it("el único paquete sin costo que se puede elegir es una PRUEBA", () => {
-    // Un paquete que se contrata sin pagar y que no vence es un regalo
-    // permanente. Si mañana alguien agrega uno así, este test lo frena
-    // antes de que se cree el primer negocio.
+  it("el paquete sin costo puede no vencer, pero NO puede ser ILIMITADO", () => {
+    /**
+     * LA INVARIANTE QUE REEMPLAZA A LA DE «SIN COSTO = PRUEBA».
+     *
+     * Acá vivía la regla de que el único paquete gratis tenía que ser una
+     * prueba con fecha de corte: un paquete que se contrata sin pagar y
+     * que no vence era, por definición, un regalo permanente.
+     *
+     * Ese regalo es AHORA LA DECISIÓN DEL DUEÑO —«el plan gratuito no
+     * tiene vencimiento»— así que la regla vieja ya no aplica. Pero lo
+     * que la hacía valiosa sí: sin nada en su lugar, «gratis y sin
+     * vencimiento» se puede convertir sin querer en «gratis, ilimitado y
+     * para siempre» con una sola línea distraída.
+     *
+     * Lo que sostiene al paquete gratis ya no es el reloj: son los topes.
+     * Entonces la regla nueva es que estén, y que sean CHICOS —más
+     * chicos que los del paquete más barato que sí se cobra—. Si el
+     * gratis diera lo mismo que el de $12, nadie pagaría $12; y si diera
+     * `null` en cualquiera de los tres, daría infinito.
+     *
+     * Son estos tres y no los seis a propósito: son los que el servidor
+     * hace cumplir de verdad (el cupo en las puertas de Wallet, las
+     * tarjetas en `crear-actions.ts`, el equipo en `equipo-actions.ts`).
+     * Un tope declarado y no exigido no protege nada.
+     */
     const sinCosto = PLANES_OFRECIDOS.filter((id) => esPlanSinCosto(id));
     expect(sinCosto).toEqual(["prueba"]);
+
+    // El más barato de los que SÍ se cobran, calculado y no escrito a
+    // mano: el día que se muevan los precios, la comparación sigue
+    // apuntando al escalón que corresponde.
+    const conPrecio = PLANES_OFRECIDOS.map((id) => PLANES[id]).filter(
+      (p) => (p.precioMensual ?? 0) > 0,
+    );
+    expect(conPrecio.length, "no hay ningún paquete de pago contra el cual comparar")
+      .toBeGreaterThan(0);
+    const masBarato = conPrecio.reduce((a, b) =>
+      (a.precioMensual ?? 0) <= (b.precioMensual ?? 0) ? a : b,
+    );
+
+    const QUE_SE_EXIGEN = ["clientesActivos", "programas", "administradores"] as const;
     for (const id of sinCosto) {
-      expect(PLANES[id].diasPrueba, `${id} no tiene fecha de corte`).toBeGreaterThan(0);
+      for (const clave of QUE_SE_EXIGEN) {
+        const tope = PLANES[id].limites[clave];
+        expect(tope, `${id} regala «${ETIQUETAS_LIMITE[clave]}» sin tope`).not.toBeNull();
+        expect(
+          tope ?? Infinity,
+          `${id} da tanto «${ETIQUETAS_LIMITE[clave]}» como «${masBarato.nombre}», que se paga`,
+        ).toBeLessThan(masBarato.limites[clave] ?? Infinity);
+      }
     }
   });
 });
@@ -220,10 +262,24 @@ describe("el catálogo de Lealtad", () => {
     }
   });
 
-  it("la prueba es de 14 días y es el único plan de prueba", () => {
-    expect(PLANES.prueba.diasPrueba).toBe(14);
+  it("el paquete gratis NO VENCE, y ningún otro tampoco", () => {
+    // Decisión del dueño: «el plan gratuito no tiene vencimiento». Era
+    // una prueba de 14 días y hoy es un paquete gratis PERMANENTE — lo
+    // que lo sostiene son los topes chicos, no un reloj.
+    //
+    // Este cero no es decorativo: `finDePrueba()` lo lee y devuelve
+    // null, y ese null es lo que se guarda en `addons_negocio.vence_en`,
+    // que es «para siempre» para `tiene_addon()`. Poner un número acá
+    // vuelve a encender el corte en la base para todas las altas nuevas,
+    // sin tocar una línea más — por eso la decisión se comprueba acá y
+    // no en una pantalla.
+    //
+    // La maquinaria del vencimiento sigue entera y probada (prueba.ts +
+    // prueba.test.ts), esperando el día que exista un paquete PAGO con
+    // prueba. Lo que no hay hoy es ninguno.
+    expect(PLANES.prueba.diasPrueba).toBe(0);
     for (const id of PLANES_OFRECIDOS) {
-      if (id !== "prueba") expect(PLANES[id].diasPrueba).toBe(0);
+      expect(PLANES[id].diasPrueba, `${id} vence por tiempo`).toBe(0);
     }
   });
 

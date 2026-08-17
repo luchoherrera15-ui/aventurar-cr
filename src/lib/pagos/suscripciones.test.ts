@@ -186,6 +186,20 @@ function puertaFalsa(opciones: {
       registro.avisos.push(a);
     },
 
+    // ── Las invitaciones digitales ───────────────────────────────────
+    // No las ejercita ninguna prueba de este archivo (el cobro suelto se
+    // prueba entero en invitaciones-pagadas.test.ts, que es donde vive
+    // su decisión). Van igual porque `Puerta` las exige: una puerta a
+    // medias compilaría con `as` y taparía justo el día que el motor
+    // empiece a llamarlas.
+    async leerPedidoInvitacion() {
+      return null;
+    },
+    async cobrarPedidoInvitacion() {
+      return false;
+    },
+    async avisarInvitacionPagada() {},
+
     // ── El interruptor ───────────────────────────────────────────────
     async sigueCubierto() {
       return opciones.sigueCubierto === true;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { IconChevronDown } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { definicionDe, descuentoAnualPct, precioDe } from "@/lib/lealtad/planes";
@@ -43,6 +44,16 @@ import { iniciarPagoDelPaquete } from "./pago-actions";
  * Si el servidor no tiene llaves de Stripe, `periodosConTarjeta` llega
  * vacío, el bloque de tarjeta no se dibuja y esta pantalla es
  * exactamente la que era antes: solo SINPE.
+ *
+ * ------------------------------------------------------------------
+ * Y POR QUÉ EL SINPE VIENE PLEGADO (solo cuando hay tarjeta)
+ * ------------------------------------------------------------------
+ * Abiertos los dos a la vez, el depósito ocupaba el triple que el pago
+ * con tarjeta —dos pasos, dos pestañas y un adjunto— y hacía ver el
+ * camino instantáneo como el chiquito. Plegado, el que paga con Visa ve
+ * un botón y listo, y el que necesita SINPE lo tiene a un toque, con el
+ * motivo escrito en el propio disparador. Sin Stripe no hay nada que
+ * plegar: el depósito es el único camino y se muestra abierto.
  */
 
 /**
@@ -177,13 +188,28 @@ export default function FormularioSolicitud({
           Recibimos tu depósito y tu solicitud del plan {planNombre}. El equipo de Bookea
           los revisa, arma tu programa y te avisa al correo cuando esté funcionando.
         </p>
+        {/* Enviada, este acuse es lo ÚNICO que queda del formulario y
+            con él se va el «Cancelar» de arriba. Antes daba igual —el
+            formulario vivía suelto en la página y se seguía scrolleando—,
+            pero ahora vive en un diálogo modal: sin este botón la única
+            salida visible sería el velo. */}
+        <button
+          type="button"
+          onClick={alCerrar}
+          className={`mt-4 rounded-xl px-5 py-2.5 text-[13px] font-extrabold ${BOTON_ACCION}`}
+        >
+          Cerrar
+        </button>
       </div>
     );
   }
 
   const etiqueta = "grid gap-1 text-[11.5px] font-bold uppercase tracking-wide text-white/50";
   const campo =
-    "rounded-[10px] border border-white/20 bg-[#131c36] px-3 py-2.5 text-[13.5px] font-normal normal-case tracking-normal text-white placeholder:text-white/30";
+    // El placeholder al 55 % (5,92:1) y no al 30 % (2,69:1): acá es la
+    // única pista de qué va en cada campo, porque la etiqueta de arriba
+    // dice la categoría y el placeholder da el formato.
+    "rounded-[10px] border border-white/20 bg-[#131c36] px-3 py-2.5 text-[13.5px] font-normal normal-case tracking-normal text-white placeholder:text-white/55";
 
   // El paquete gratis nunca pasa por Stripe (se activa solo), y sin
   // llaves configuradas la lista llega vacía.
@@ -194,6 +220,154 @@ export default function FormularioSolicitud({
   // el depósito — es la misma pregunta, y por eso es una sola condición
   // y no una por forma de pago.
   const listoParaPagar = negocios.length > 0 ? !!negocioId : nombreNuevo.trim().length > 0;
+
+  /**
+   * EL CAMINO DEL DEPÓSITO, ENTERO: los dos pasos, los datos de
+   * contacto y el botón de enviar.
+   *
+   * Sale como variable —y no como componente aparte— porque se monta en
+   * dos sitios distintos según haya tarjeta o no, y un componente
+   * obligaría a bajarle catorce props o a subir el estado. Como
+   * variable es el mismo árbol de siempre, movido de lugar.
+   *
+   * Va COMPLETO, con el botón de enviar adentro. Dejar el botón fuera
+   * del plegable sonaba prolijo hasta que se camina el recorrido: con
+   * el bloque cerrado quedaría un botón apagado diciendo «Adjuntá el
+   * comprobante para enviar» y ningún lugar visible donde adjuntarlo.
+   * Adentro, el botón sigue explicando exactamente lo que falta y el
+   * adjunto está siempre a la vista junto a él.
+   */
+  const caminoDeposito = (
+    <div className="grid gap-2.5">
+      {/* ── El depósito: primero se paga, después se solicita.
+             El plan Gratis se salta este paso entero. ── */}
+      {esGratis ? (
+        <p className="rounded-xl border border-white/15 bg-[#0f1930] px-3.5 py-3 text-[13px] text-white/70">
+          Plan gratis — sin depósito. Hasta 5 miembros para probar el programa.
+        </p>
+      ) : (
+        <div className="rounded-xl border border-white/15 bg-[#0f1930] p-3.5">
+          <p className="text-[12px] font-bold uppercase tracking-wide text-white/50">
+            1 · Hacé el depósito
+            {precio !== null && <span className="text-white"> de {precio} (primer mes)</span>}
+          </p>
+          {/* El precio está en dólares pero el SINPE se hace en
+              colones: decirlo acá evita el depósito por un monto
+              equivocado y el ida y vuelta para corregirlo. */}
+          {enDolares && precio !== null && (
+            <p className="mt-1.5 text-[12px] leading-snug text-amber-300">
+              El SINPE se hace en colones: escribinos y te confirmamos el monto exacto al
+              tipo de cambio del día.
+            </p>
+          )}
+          <div className="mt-2 flex gap-1.5">
+            {(["sinpe", "transferencia"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMetodo(m)}
+                className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${
+                  metodo === m ? "bg-white text-[#0a1226]" : "bg-white/10 text-white/60"
+                }`}
+              >
+                {m === "sinpe" ? "SINPE Móvil" : "Transferencia"}
+              </button>
+            ))}
+          </div>
+          {metodo === "sinpe" ? (
+            <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
+              SINPE Móvil al <strong className="text-white">{pago.sinpe.numero}</strong> a
+              nombre de <strong className="text-white">{pago.sinpe.titular}</strong>. En el
+              detalle poné el nombre de tu negocio.
+            </p>
+          ) : pago.banco.cuenta ? (
+            <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
+              {pago.banco.nombre} · cuenta{" "}
+              <strong className="text-white">{pago.banco.cuenta}</strong> a nombre de{" "}
+              <strong className="text-white">{pago.banco.titular}</strong>. En el detalle
+              poné el nombre de tu negocio.
+            </p>
+          ) : (
+            <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
+              Escribinos y te pasamos la cuenta — o usá SINPE Móvil al{" "}
+              <strong className="text-white">{pago.sinpe.numero}</strong>, que es inmediato.
+            </p>
+          )}
+
+          <p className="mt-3 text-[12px] font-bold uppercase tracking-wide text-white/50">
+            2 · Adjuntá la captura
+          </p>
+          {comprobanteUrl ? (
+            <p className="mt-1.5 text-[12.5px] font-bold text-emerald-300">
+              ✓ Comprobante adjunto.{" "}
+              <button
+                type="button"
+                onClick={() => setComprobanteUrl("")}
+                className="font-bold text-white/50 underline"
+              >
+                Cambiarlo
+              </button>
+            </p>
+          ) : (
+            <label className="mt-1.5 block">
+              <input
+                type="file"
+                accept="image/*"
+                disabled={subiendo}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void subirComprobante(f);
+                }}
+                className="block w-full text-[12.5px] text-white/60 file:mr-3 file:rounded-[10px] file:border-0 file:bg-white/15 file:px-3 file:py-2 file:text-[12.5px] file:font-bold file:text-white"
+              />
+            </label>
+          )}
+          {subiendo && <p className="mt-1 text-[12px] text-white/50">Subiendo…</p>}
+          {errorSubida && <p className="mt-1 text-[12.5px] font-bold text-red-300">{errorSubida}</p>}
+        </div>
+      )}
+
+      <label className={etiqueta}>
+        Teléfono (para coordinar)
+        <input
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          placeholder="8888 8888"
+          maxLength={30}
+          className={campo}
+        />
+      </label>
+
+      <label className={etiqueta}>
+        Algo que debamos saber (opcional)
+        <textarea
+          value={mensaje}
+          onChange={(e) => setMensaje(e.target.value)}
+          rows={2}
+          maxLength={500}
+          placeholder="Colores de la marca, la regalía que querés dar…"
+          className={campo}
+        />
+      </label>
+
+      <button
+        type="button"
+        onClick={enviar}
+        disabled={ocupado || subiendo || !listoParaPagar || (!esGratis && !comprobanteUrl)}
+        className={`rounded-xl px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40 ${BOTON_ACCION}`}
+      >
+        {ocupado
+          ? "Enviando…"
+          : !listoParaPagar
+            ? "Escribí el nombre de tu negocio"
+            : esGratis || comprobanteUrl
+              ? "Enviar la solicitud"
+              : "Adjuntá el comprobante para enviar"}
+      </button>
+
+      {estado !== "editando" && <p className="text-[12.5px] font-bold text-red-300">{estado}</p>}
+    </div>
+  );
 
   return (
     <div className="rounded-2xl bg-white/10 p-5">
@@ -258,8 +432,9 @@ export default function FormularioSolicitud({
 
       {/* ── 1. CON TARJETA: queda activo al instante ─────────────────
           Va PRIMERO porque es el único camino que no depende de que
-          alguien revise un depósito. Debajo sigue el SINPE de siempre,
-          intacto. */}
+          alguien revise un depósito. Debajo sigue el SINPE de siempre
+          —el mismo, sin un cambio de fondo—, ahora detrás de su
+          plegable. */}
       {hayTarjeta && (
         <div
           className="mt-3 rounded-xl border p-3.5"
@@ -295,161 +470,57 @@ export default function FormularioSolicitud({
         </div>
       )}
 
-      {hayTarjeta && (
-        <div className="my-4 flex items-center gap-3">
-          <span className="h-px flex-1 bg-white/15" />
-          <span className="text-[11px] font-bold uppercase tracking-wide text-white/40">
-            o pagá por SINPE
-          </span>
-          <span className="h-px flex-1 bg-white/15" />
-        </div>
-      )}
-
-      {hayTarjeta && (
-        <p className="text-[12.5px] leading-snug text-white/65">
-          Si tu tarjeta no acepta compras internacionales —le pasa a muchas tarjetas de acá—
-          depositá y el equipo de Bookea te deja el programa andando.
-        </p>
-      )}
-
       {/* ── 2. POR SINPE O TRANSFERENCIA: lo revisa el equipo ───────
-          Se dibuja SIEMPRE, con negocio o sin él. Lo que decide si se
+          Se ofrece SIEMPRE, con negocio o sin él. Lo que decide si se
           puede enviar es `listoParaPagar`, no si la persona ya tiene
-          algo registrado en Bookea. */}
-      <div className="mt-3 grid gap-2.5">
-          {/* ── El depósito: primero se paga, después se solicita.
-                 El plan Gratis se salta este paso entero. ── */}
-          {esGratis ? (
-            <p className="rounded-xl border border-white/15 bg-[#0f1930] px-3.5 py-3 text-[13px] text-white/70">
-              Plan gratis — sin depósito. Hasta 5 miembros para probar el programa.
-            </p>
-          ) : (
-          <div className="rounded-xl border border-white/15 bg-[#0f1930] p-3.5">
-            <p className="text-[12px] font-bold uppercase tracking-wide text-white/50">
-              1 · Hacé el depósito
-              {precio !== null && (
-                <span className="text-white"> de {precio} (primer mes)</span>
+          algo registrado en Bookea.
+
+          `<details>` y no un `useState`: es un plegable NATIVO —abre con
+          Enter y con Espacio, la lectura de pantalla lo anuncia como lo
+          que es y funciona aunque el JS no llegue— y, sobre todo,
+          MANTIENE EL CONTENIDO MONTADO. Eso es lo que hace que plegar
+          con el comprobante ya adjunto no pierda nada: `comprobanteUrl`
+          es estado de este componente, el navegador solo esconde el
+          nodo, y al desplegar de nuevo sigue ahí. Para que además se VEA
+          que hay algo adjunto sin tener que desplegar, el disparador
+          lleva la palomita.
+
+          El subtítulo del disparador no es decoración: sin él, plegado,
+          la pantalla parecería decir que solo se puede pagar con
+          tarjeta — y esa es justo la que a buena parte de la clientela
+          no le sirve. */}
+      {hayTarjeta ? (
+        <details className="group mt-4 rounded-xl border border-white/15 bg-white/[.04]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3 [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0">
+              <span className="block text-[13px] font-extrabold text-white">
+                Pago por transferencia o SINPE
+              </span>
+              <span className="mt-0.5 block text-[11.5px] leading-snug text-white/60">
+                Si tu tarjeta no acepta compras internacionales
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              {comprobanteUrl && (
+                <span className="text-[11.5px] font-bold text-emerald-300">✓ Comprobante</span>
               )}
+              <IconChevronDown className="h-4 w-4 text-white/45 transition-transform group-open:rotate-180" />
+            </span>
+          </summary>
+          <div className="border-t border-white/10 px-3.5 pb-3.5 pt-3">
+            <p className="mb-2.5 text-[12.5px] leading-snug text-white/65">
+              Le pasa a muchas tarjetas de acá. Depositá, adjuntá la captura y el equipo de
+              Bookea te deja el programa andando.
             </p>
-            {/* El precio está en dólares pero el SINPE se hace en
-                colones: decirlo acá evita el depósito por un monto
-                equivocado y el ida y vuelta para corregirlo. */}
-            {enDolares && precio !== null && (
-              <p className="mt-1.5 text-[12px] leading-snug text-amber-300">
-                El SINPE se hace en colones: escribinos y te confirmamos el monto exacto
-                al tipo de cambio del día.
-              </p>
-            )}
-            <div className="mt-2 flex gap-1.5">
-              {(["sinpe", "transferencia"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMetodo(m)}
-                  className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${
-                    metodo === m ? "bg-white text-[#0a1226]" : "bg-white/10 text-white/60"
-                  }`}
-                >
-                  {m === "sinpe" ? "SINPE Móvil" : "Transferencia"}
-                </button>
-              ))}
-            </div>
-            {metodo === "sinpe" ? (
-              <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
-                SINPE Móvil al{" "}
-                <strong className="text-white">{pago.sinpe.numero}</strong> a nombre de{" "}
-                <strong className="text-white">{pago.sinpe.titular}</strong>. En el detalle
-                poné el nombre de tu negocio.
-              </p>
-            ) : pago.banco.cuenta ? (
-              <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
-                {pago.banco.nombre} · cuenta{" "}
-                <strong className="text-white">{pago.banco.cuenta}</strong> a nombre de{" "}
-                <strong className="text-white">{pago.banco.titular}</strong>. En el detalle
-                poné el nombre de tu negocio.
-              </p>
-            ) : (
-              <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
-                Escribinos y te pasamos la cuenta — o usá SINPE Móvil al{" "}
-                <strong className="text-white">{pago.sinpe.numero}</strong>, que es inmediato.
-              </p>
-            )}
-
-            <p className="mt-3 text-[12px] font-bold uppercase tracking-wide text-white/50">
-              2 · Adjuntá la captura
-            </p>
-            {comprobanteUrl ? (
-              <p className="mt-1.5 text-[12.5px] font-bold text-emerald-300">
-                ✓ Comprobante adjunto.{" "}
-                <button
-                  type="button"
-                  onClick={() => setComprobanteUrl("")}
-                  className="font-bold text-white/50 underline"
-                >
-                  Cambiarlo
-                </button>
-              </p>
-            ) : (
-              <label className="mt-1.5 block">
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={subiendo}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void subirComprobante(f);
-                  }}
-                  className="block w-full text-[12.5px] text-white/60 file:mr-3 file:rounded-[10px] file:border-0 file:bg-white/15 file:px-3 file:py-2 file:text-[12.5px] file:font-bold file:text-white"
-                />
-              </label>
-            )}
-            {subiendo && <p className="mt-1 text-[12px] text-white/50">Subiendo…</p>}
-            {errorSubida && <p className="mt-1 text-[12.5px] font-bold text-red-300">{errorSubida}</p>}
+            {caminoDeposito}
           </div>
-          )}
-
-          <label className={etiqueta}>
-            Teléfono (para coordinar)
-            <input
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
-              placeholder="8888 8888"
-              maxLength={30}
-              className={campo}
-            />
-          </label>
-
-          <label className={etiqueta}>
-            Algo que debamos saber (opcional)
-            <textarea
-              value={mensaje}
-              onChange={(e) => setMensaje(e.target.value)}
-              rows={2}
-              maxLength={500}
-              placeholder="Colores de la marca, la regalía que querés dar…"
-              className={campo}
-            />
-          </label>
-
-          <button
-            type="button"
-            onClick={enviar}
-            disabled={ocupado || subiendo || !listoParaPagar || (!esGratis && !comprobanteUrl)}
-            className={`rounded-xl px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40 ${BOTON_ACCION}`}
-          >
-            {ocupado
-              ? "Enviando…"
-              : !listoParaPagar
-                ? "Escribí el nombre de tu negocio"
-                : esGratis || comprobanteUrl
-                  ? "Enviar la solicitud"
-                  : "Adjuntá el comprobante para enviar"}
-          </button>
-
-          {estado !== "editando" && (
-            <p className="text-[12.5px] font-bold text-red-300">{estado}</p>
-          )}
-        </div>
+        </details>
+      ) : (
+        /* Sin Stripe el depósito es el ÚNICO camino: plegarlo sería
+           esconder la única forma de pagar. Se muestra abierto, tal
+           cual estaba antes de que existiera el plegable. */
+        <div className="mt-3">{caminoDeposito}</div>
+      )}
     </div>
   );
 }

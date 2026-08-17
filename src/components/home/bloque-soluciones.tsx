@@ -56,7 +56,7 @@ export default function BloqueSoluciones() {
     <section className="px-4 py-16 sm:px-6 sm:py-20 lg:px-10">
       <div className="mx-auto max-w-[1200px]">
         <header className="mx-auto max-w-[52ch] text-center">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-aventurea-orange">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-bookea-naranja-fuerte">
             Más formas de conectar
           </p>
           <h2 className="titulo mt-3.5 text-balance text-[clamp(28px,4vw,48px)] text-aventurea-ink">
@@ -87,7 +87,7 @@ export default function BloqueSoluciones() {
             />
 
             <div className="relative p-7 sm:p-10 lg:p-12">
-              <p className="flex items-center gap-2.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange">
+              <p className="flex items-center gap-2.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-bookea-naranja-fuerte">
                 <span aria-hidden className="h-0.5 w-5 bg-current" />
                 Para tus celebraciones
               </p>

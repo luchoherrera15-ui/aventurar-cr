@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { IconChevronDown } from "@/components/icons";
 import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
@@ -106,6 +106,20 @@ export default function PanelSidebar({
   const resuelto = resolverTab(paramTab, tabs);
   const [activo, setActivo] = useState(resuelto ?? defaultTab);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
+  // El menú del teléfono: el botón que lo abre y el id del panel que
+  // despliega. El ref existe para DEVOLVER EL FOCO — sin él, al cerrar
+  // con Escape o al elegir una sección, el foco del teclado se quedaba
+  // en un elemento que acababa de desaparecer del árbol y el navegador
+  // lo mandaba al principio del documento: quien navega con teclado
+  // tenía que recorrer el header entero de nuevo para volver al menú.
+  const botonMenuRef = useRef<HTMLButtonElement>(null);
+  const idMenuMovil = useId();
+
+  /** Cierra el menú del teléfono y devuelve el foco al botón que lo abrió. */
+  function cerrarMenuMovil() {
+    setSelectorAbierto(false);
+    botonMenuRef.current?.focus();
+  }
 
   // Los accesos rápidos del encabezado (ej. "Editar perfil y fotos")
   // navegan con `?tab=` sin pasar por el menú de acá — cuando el
@@ -120,7 +134,10 @@ export default function PanelSidebar({
 
   function cambiar(id: string) {
     setActivo(id);
-    setSelectorAbierto(false);
+    // Solo se devuelve el foco si el menú del teléfono estaba abierto:
+    // en escritorio el botón está oculto (`lg:hidden`) y mandarle el
+    // foco sería mandarlo a la nada.
+    if (selectorAbierto) cerrarMenuMovil();
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", id);
     router.replace(`?${params.toString()}`, { scroll: false });
@@ -152,7 +169,7 @@ export default function PanelSidebar({
           const base =
             "flex items-center gap-2.5 rounded-xl border-l-[3px] px-3.5 py-2.5 text-[13.5px] font-bold transition-colors";
           const cls = t.proximamente
-            ? `${base} cursor-default border-transparent text-white/30`
+            ? `${base} cursor-default border-transparent text-white/60`
             : `${base} border-transparent ${
                 activa ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
               }`;
@@ -173,12 +190,17 @@ export default function PanelSidebar({
                   ítem con href (Citas) quedaba corrido a la izquierda. */}
               <span className="flex-1 truncate text-center">{t.label}</span>
               {t.proximamente && (
-                <span className="shrink-0 rounded-lg border border-white/15 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-white/35">
+                <span className="shrink-0 rounded-lg border border-white/15 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-white/60">
                   Pronto
                 </span>
               )}
+              {/* Blanco sólido con letra navy (13,88:1) y no el celeste
+                  con letra blanca de antes: ese par daba 4,42:1 —bajo AA
+                  para 10,5px— y encima el celeste sobre la columna navy
+                  casi no se despegaba del fondo. El contador es lo único
+                  que tiene que saltar del menú. */}
               {!!t.badge && t.badge > 0 && (
-                <span className="shrink-0 rounded-lg bg-aventurea-sky px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-white">
+                <span className="shrink-0 rounded-lg bg-white px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-aventurea-navy">
                   {t.badge}
                 </span>
               )}
@@ -204,7 +226,7 @@ export default function PanelSidebar({
             <Fragment key={t.id}>
               {abreGrupo && (
                 <p
-                  className={`px-3.5 pb-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/35 ${primerGrupo ? "" : "mt-3"}`}
+                  className={`px-3.5 pb-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/60 ${primerGrupo ? "" : "mt-3"}`}
                 >
                   {GRUPO_LABEL[t.grupo as GrupoId]}
                 </p>
@@ -220,12 +242,31 @@ export default function PanelSidebar({
   const seccionActiva = tabs.find((t) => esActivo(t));
 
   return (
-    // 236px y no 224: el menú pasó de cuatro ítems a los de todo el tipo
-    // de negocio, y "Paquetes y bonos" o "Formularios" con su marca
-    // «Pronto» al lado no entraban sin truncarse a la mitad.
+    /* 236px y no 224: el menú pasó de cuatro ítems a los de todo el tipo
+     * de negocio, y "Paquetes y bonos" o "Formularios" con su marca
+     * «Pronto» al lado no entraban sin truncarse a la mitad.
+     *
+     * En xl la columna sube a 260px y el gap a 32: con el panel ahora a
+     * pantalla completa hay ancho de sobra, y esos 24px de más son la
+     * diferencia entre que "Bloqueos y ausencias" entre entero o se
+     * corte. Debajo de lg no hay grilla: el menú colapsa al selector
+     * del teléfono y el contenido ocupa el ancho completo.
+     *
+     * El `onKeyDown` está acá arriba y no en el botón a propósito: con
+     * el menú abierto el foco está adentro de la lista desplegada, así
+     * que Escape tiene que escucharse en el ancestro común de las dos
+     * piezas o no llega. React propaga el evento por el árbol de
+     * componentes, así que alcanza con este único manejador.
+     */
     <div
-      className="lg:grid lg:grid-cols-[236px_1fr] lg:items-start lg:gap-8"
+      className="lg:grid lg:grid-cols-[236px_1fr] lg:items-start lg:gap-6 xl:grid-cols-[260px_1fr] xl:gap-8"
       style={acento as CSSProperties | undefined}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && selectorAbierto) {
+          e.stopPropagation();
+          cerrarMenuMovil();
+        }
+      }}
     >
       {/* top-20 (80px): el header del panel mide 64px fijos, así que el
           offset deja de ser una adivinanza. Envuelve identidad+nav para
@@ -245,14 +286,25 @@ export default function PanelSidebar({
           {itemsNav(() => {})}
         </aside>
 
-        {/* Mobile: botón con la sección activa que despliega el menú
-            justo debajo — mismo patrón que el selector de categorías
-            del chat, no un panel de pantalla completa. */}
+        {/* EL MENÚ EN EL TELÉFONO: botón con la sección activa que
+            despliega la lista justo debajo — mismo patrón que el
+            selector de categorías del chat, no un panel de pantalla
+            completa. Se abre tocando el botón (o con Enter/Espacio,
+            porque es un <button> de verdad) y se cierra de tres
+            maneras: eligiendo una sección, tocando fuera, o con Escape.
+            En las tres el foco vuelve al botón.
+
+            `aria-controls` + `aria-expanded` son lo que hace que un
+            lector de pantalla anuncie "contraído/expandido" en vez de
+            leer un botón mudo. */}
         <div className="relative mb-4 lg:hidden">
           <button
+            ref={botonMenuRef}
             type="button"
             onClick={() => setSelectorAbierto((v) => !v)}
             aria-expanded={selectorAbierto}
+            aria-controls={idMenuMovil}
+            aria-haspopup="true"
             className="flex w-full items-center justify-between gap-2 rounded-2xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy px-4 py-3 text-[14px] font-bold text-white shadow-sm"
           >
             <span className="flex items-center gap-2 truncate">
@@ -268,16 +320,32 @@ export default function PanelSidebar({
 
           {selectorAbierto && (
             <>
+              {/* La capa de "tocar fuera para cerrar". `tabIndex={-1}` +
+                  `aria-hidden`: es un atajo del mouse, no un control —
+                  si quedara en el orden de tabulación, quien navega con
+                  teclado se toparía con un botón invisible entre el
+                  menú y el contenido. Con teclado el equivalente es
+                  Escape, que lo maneja el contenedor de arriba. */}
               <button
                 type="button"
-                aria-label="Cerrar menú"
-                onClick={() => setSelectorAbierto(false)}
+                tabIndex={-1}
+                aria-hidden="true"
+                onClick={cerrarMenuMovil}
                 className="fixed inset-0 z-10 cursor-default"
               />
               {/* Alto tope + scroll propio: en el teléfono el menú
                   completo de un tipo con muchos módulos se pasaba de
                   pantalla y los últimos ítems quedaban inalcanzables. */}
-              <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-[65svh] overflow-y-auto rounded-2xl bg-aventurea-navy p-3 shadow-2xl">
+              <div
+                id={idMenuMovil}
+                className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-[65svh] overflow-y-auto rounded-2xl bg-aventurea-navy p-3 shadow-2xl"
+              >
+                {/* Acá NO se devuelve el foco, y no es un olvido:
+                    `alCerrar` solo lo usan los ítems con `href`, que
+                    navegan a OTRA pantalla — devolverle el foco a un
+                    botón que está por desmontarse no sirve de nada. Los
+                    ítems que cambian de pestaña sin navegar pasan por
+                    `cambiar()`, que sí llama a `cerrarMenuMovil()`. */}
                 {itemsNav(() => setSelectorAbierto(false))}
               </div>
             </>

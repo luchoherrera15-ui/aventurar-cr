@@ -97,6 +97,13 @@ export async function POST(request: Request) {
     avisarAlDueno: async (a) => {
       after(() => base.avisarAlDueno(a));
     },
+    // Los de la invitación pagada, por lo mismo: son dos llamadas a
+    // Resend y salen DESPUÉS de que el pedido ya quedó cobrado en la
+    // base. Perder uno no cambia el estado de nada; hacer esperar a
+    // Stripe mientras se manda un correo sí — reintenta el evento.
+    avisarInvitacionPagada: async (a) => {
+      after(() => base.avisarInvitacionPagada(a));
+    },
   };
 
   try {

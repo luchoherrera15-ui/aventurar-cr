@@ -39,7 +39,7 @@ export default function SeccionPlegable({
     <>
       <span className="min-w-0">
         {etiqueta && (
-          <span className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
+          <span className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-bookea-naranja-fuerte before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
             {etiqueta}
           </span>
         )}

@@ -41,7 +41,9 @@ export default function TabsLealtad({
               aria-selected={esta}
               onClick={() => setActiva(p.id)}
               className={`rounded-full px-4 py-2 text-[13px] font-bold transition-colors ${
-                esta ? "bg-white text-[#0a1226]" : "bg-white/10 text-white/70 hover:bg-white/20"
+                esta
+                  ? "bg-[color:var(--accion-claro)] text-[color:var(--accion-claro-tinta)]"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
               }`}
             >
               {p.etiqueta}

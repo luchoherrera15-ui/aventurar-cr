@@ -176,8 +176,13 @@ export default function CarruselSuperDestacados({
   // carrusel es el héroe de la portada.
   const demo = esDemo(n.slug, n.detalles);
 
+  // El velo del degradado se apaga en `transparent 78%` y estos controles
+  // viven arriba (`top-5`) y al medio, o sea en la franja SIN protección:
+  // sobre una foto clara el navy al 45 % dejaba las flechas en 2,64:1.
+  // La píldora sube al 85 % —8,79:1— y pasa a ser ella la que garantiza
+  // el contraste, sin depender de qué haya en la foto de turno.
   const botonCls =
-    "flex h-9 w-9 items-center justify-center rounded-full bg-aventurea-navy/45 text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-aventurea-navy/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+    "flex h-9 w-9 items-center justify-center rounded-full bg-aventurea-navy/85 text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-aventurea-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
   return (
     <section
@@ -309,7 +314,11 @@ export default function CarruselSuperDestacados({
           </button>
 
           <div className="absolute right-5 top-5 flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 rounded-full bg-aventurea-navy/45 px-2.5 py-1.5 ring-1 ring-white/25 backdrop-blur">
+            {/* Misma píldora al 85 % que los botones: el punto activo
+                (blanco) pasa de 2,64:1 a 8,79:1 y el inactivo, de 1,70:1
+                a 3,53:1 — el indicador vuelve a decir en qué tarjeta se
+                está aunque abajo haya una foto blanca. */}
+            <div className="flex items-center gap-1.5 rounded-full bg-aventurea-navy/85 px-2.5 py-1.5 ring-1 ring-white/25 backdrop-blur">
               {negocios.map((item, i) => (
                 <button
                   key={item.id}

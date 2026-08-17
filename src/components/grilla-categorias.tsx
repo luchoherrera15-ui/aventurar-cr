@@ -97,7 +97,7 @@ export default function GrillaCategorias({
           link baja debajo del texto en vez de apretarse al costado. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
         <div className="min-w-0">
-          <p className="text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange">
+          <p className="text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-bookea-naranja-fuerte">
             {kicker}
           </p>
           <h2 className="titulo mt-2 text-[clamp(26px,3.4vw,40px)] text-aventurea-navy">
