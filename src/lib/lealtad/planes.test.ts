@@ -282,8 +282,8 @@ describe("EL CUPO NO SE MULTIPLICA POR LAS TARJETAS", () => {
 });
 
 describe("el reparto de tipos de tarjeta", () => {
-  it("es el acordado: 2 · 5 · 8 · 8", () => {
-    expect(PLANES.prueba.tipos).toEqual(["sellos", "puntos"]);
+  it("es el acordado: 3 · 5 · 8 · 8", () => {
+    expect(PLANES.prueba.tipos).toEqual(["sellos", "puntos", "cashback"]);
     expect(PLANES.arranque.tipos).toEqual([
       "sellos",
       "puntos",
@@ -312,8 +312,8 @@ describe("el reparto de tipos de tarjeta", () => {
 
   it("dice cuál es el paquete MÁS BARATO que abre cada tipo", () => {
     expect(planQueDesbloquea("sellos")?.id).toBe("prueba");
+    expect(planQueDesbloquea("cashback")?.id).toBe("prueba");
     expect(planQueDesbloquea("cupon")?.id).toBe("arranque");
-    expect(planQueDesbloquea("cashback")?.id).toBe("arranque");
     expect(planQueDesbloquea("evento")?.id).toBe("impulso");
     expect(planQueDesbloquea("giftcard")?.id).toBe("impulso");
     expect(planQueDesbloquea("membresia")?.id).toBe("impulso");
@@ -322,6 +322,7 @@ describe("el reparto de tipos de tarjeta", () => {
   it("la Prueba no arma gift cards ni eventos", () => {
     expect(planIncluyeTipo("prueba", "sellos")).toBe(true);
     expect(planIncluyeTipo("prueba", "puntos")).toBe(true);
+    expect(planIncluyeTipo("prueba", "cashback")).toBe(true);
     expect(planIncluyeTipo("prueba", "giftcard")).toBe(false);
     expect(planIncluyeTipo("prueba", "evento")).toBe(false);
     expect(planIncluyeTipo("arranque", "cupon")).toBe(true);
@@ -344,7 +345,9 @@ describe("el reparto de tipos de tarjeta", () => {
   });
 
   it("la viñeta dice CUÁLES, no un «ocho» que sería mentira", () => {
-    expect(etiquetaTiposDe(PLANES.prueba)).toBe("Tarjetas de sellos y puntos");
+    expect(etiquetaTiposDe(PLANES.prueba)).toBe(
+      "3 tipos de tarjeta: sellos, puntos y cashback",
+    );
     expect(etiquetaTiposDe(PLANES.arranque)).toBe(
       "5 tipos de tarjeta: sellos, puntos, cashback, cupón y descuento",
     );
@@ -356,7 +359,7 @@ describe("el reparto de tipos de tarjeta", () => {
 
   it("`etiquetasDeCapacidades` sustituye la de los tipos y deja el resto", () => {
     const prueba = etiquetasDeCapacidades(PLANES.prueba);
-    expect(prueba).toContain("Tarjetas de sellos y puntos");
+    expect(prueba).toContain("3 tipos de tarjeta: sellos, puntos y cashback");
     expect(prueba).not.toContain(ETIQUETAS_CAPACIDAD.tipos_de_tarjeta);
     expect(prueba).toContain(ETIQUETAS_CAPACIDAD.wallet);
     expect(prueba).toHaveLength(PLANES.prueba.capacidades.length);

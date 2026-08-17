@@ -26,7 +26,7 @@ import { Icono, type NombreIcono } from "@/app/lealtad/panel/[id]/iconos";
  * LOS TIPOS QUE EL PAQUETE NO TRAE SE MUESTRAN, BLOQUEADOS
  * ------------------------------------------------------------------
  * Desde el reparto de la 0142 cada paquete trae un juego distinto
- * (Prueba: sellos y puntos; Arranque suma cashback, cupón y descuento;
+ * (Prueba: sellos, puntos y cashback; Arranque suma cupón y descuento;
  * de Impulso para arriba, los ocho). Los que no entran se pintan
  * apagados y con el nombre del paquete que los abre, NO se esconden:
  * escondiéndolos, el dueño no se entera de que existen — y enterarse es

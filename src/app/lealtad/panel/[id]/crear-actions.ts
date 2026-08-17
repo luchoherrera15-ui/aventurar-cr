@@ -210,8 +210,8 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     { planRancho: (rancho?.plan_lealtad as string | null) ?? null },
   );
 
-  // EL TIPO, SEGÚN EL PAQUETE (0142). La Prueba arma sellos y puntos;
-  // Arranque suma cashback, cupón y descuento; de Impulso para arriba,
+  // EL TIPO, SEGÚN EL PAQUETE (0142). La Prueba arma sellos, puntos y
+  // cashback; Arranque suma cupón y descuento; de Impulso para arriba,
   // los ocho. El mensaje dice CUÁL paquete lo abre: un «no podés» a
   // secas no se puede ni obedecer.
   if (!planIncluyeTipo(plan, datos.tipo)) {

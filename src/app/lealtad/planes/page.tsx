@@ -156,7 +156,8 @@ export default async function PlanesLealtadPage({
       enDolares: def.precioMensual !== null && def.precioMensual !== 0,
       // Plan por plan y no `ETIQUETAS_CAPACIDAD` suelto: la viñeta de
       // los tipos de tarjeta depende del paquete desde el reparto de la
-      // 0142 («Tarjetas de sellos y puntos» ≠ «Los 8 tipos»).
+      // 0142 («3 tipos de tarjeta: sellos, puntos y cashback» ≠ «Los 8
+      // tipos»).
       beneficios: etiquetasDeCapacidades(def),
       destacado: id === PLAN_DESTACADO,
     };

@@ -124,7 +124,8 @@ export type Capacidad =
   | "wallet"
   /** Poder armar tarjetas de más de un tipo (0135). CUÁLES trae cada
    *  paquete lo dice `DefinicionPlan.tipos`, no esta capacidad: los
-   *  cuatro pueden crear tarjetas, pero la Prueba solo sellos y puntos.
+   *  cuatro pueden crear tarjetas, pero la Prueba solo sellos, puntos
+   *  y cashback.
    *  El reparto lo hace cumplir el servidor en `crear-actions.ts`. */
   | "tipos_de_tarjeta"
   /** Reglas activables y vencimientos: desde cuándo vale, hasta
@@ -464,11 +465,12 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       automatizaciones: 0,
     },
     capacidades: INCLUIDO_SIEMPRE,
-    // Los dos tipos con los que se entiende el producto en cinco
-    // minutos, y los dos que más se usan en el país. Los otros seis se
+    // Los tres tipos con los que se entiende el producto en cinco
+    // minutos, y los que más se usan en el país: sellos y puntos para
+    // fidelizar, cashback para devolver plata. Los otros cinco se
     // muestran bloqueados en el creador, no escondidos: enterarse de
     // que existen es parte de la razón para pagar.
-    tipos: ["sellos", "puntos"],
+    tipos: ["sellos", "puntos", "cashback"],
     diasPrueba: 14,
     vigente: true,
   },
@@ -493,8 +495,8 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       automatizaciones: 0,
     },
     capacidades: INCLUIDO_SIEMPRE,
-    // Los dos de la Prueba más los tres que un local de barrio pide
-    // primero: devolver plata, un cupón puntual y un descuento.
+    // Los tres de la Prueba más los dos que un local de barrio pide
+    // primero: un cupón puntual y un descuento.
     tipos: ["sellos", "puntos", "cashback", "cupon", "descuento"],
     diasPrueba: 0,
     vigente: true,
