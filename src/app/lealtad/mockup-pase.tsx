@@ -22,7 +22,14 @@ import { FICHAS } from "./contenido-tipos";
  * contenido-tipos.ts) para no inventar un negocio de más.
  */
 
-const NARANJA = "#ee7420";
+/* Papeles de color, no un naranja para todo. La pantalla del teléfono
+   es navy, así que la acción usa el par de fondo oscuro; el disco de la
+   notificación cae sobre una tarjeta BLANCA y usa el de fondo claro. El
+   naranja queda donde marca el logro: los sellos y el «+1». */
+const ACCION_OSCURO = "var(--accion-claro)";
+const ACCION_OSCURO_TINTA = "var(--accion-claro-tinta)";
+const ACCION_CLARO = "var(--accion)";
+const ACENTO = "var(--orange)";
 const ficha = FICHAS.sellos;
 
 const PLATAFORMAS = [
@@ -56,7 +63,7 @@ export default function MockupPase() {
             className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors"
             style={
               plataforma === p.id
-                ? { background: NARANJA, color: "#0a1226" }
+                ? { background: ACCION_OSCURO, color: ACCION_OSCURO_TINTA }
                 : { color: "rgba(255,255,255,.55)" }
             }
           >
@@ -94,9 +101,9 @@ export default function MockupPase() {
             >
               <span
                 className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
-                style={{ background: NARANJA }}
+                style={{ background: ACCION_CLARO, color: "var(--accion-tinta)" }}
               >
-                <Icono nombre="listo" className="h-3.5 w-3.5 text-[#0a1226]" />
+                <Icono nombre="listo" className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[9.5px] font-extrabold text-[#0a1226]">
@@ -134,7 +141,7 @@ export default function MockupPase() {
                   <span
                     aria-hidden
                     className="mp-anim-ping absolute h-6 w-6 rounded-full"
-                    style={{ border: `1.5px solid ${NARANJA}` }}
+                    style={{ border: `1.5px solid ${ACCION_OSCURO}` }}
                   />
                   <Icono nombre="escanear" className="h-3 w-3 text-white" />
                 </span>
@@ -161,7 +168,7 @@ export default function MockupPase() {
                           height: 11,
                           width: 11,
                           borderRadius: 999,
-                          background: NARANJA,
+                          background: ACENTO,
                           opacity: i < 6 ? 1 : esElNuevo ? undefined : 0.18,
                         }}
                       />
@@ -173,7 +180,7 @@ export default function MockupPase() {
                 <span
                   aria-hidden
                   className="mp-anim-badge pointer-events-none absolute right-3 top-[74px] rounded-full px-2 py-0.5 text-[8px] font-extrabold"
-                  style={{ background: NARANJA, color: "#0a1226" }}
+                  style={{ background: ACENTO, color: "#0a1226" }}
                 >
                   +1
                 </span>

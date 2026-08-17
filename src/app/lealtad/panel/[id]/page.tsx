@@ -57,7 +57,16 @@ import type { ProgramaFila, RecompensaFila } from "./pases-actions";
  */
 
 const NAVY_PROFUNDO = "#0a1226";
-const NARANJA = "#ee7420";
+
+/* El azul de acción para fondo oscuro. Todo el panel vive sobre navy
+   profundo: el azul de marca se apaga ahí, y `--accion-claro` es la
+   versión que sí se lee, con su letra ya decidida. El tinte y el borde
+   translúcidos salen de la misma familia para que un bloque tenue y su
+   botón no parezcan dos colores distintos. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
+const ACCION_TINTE = "rgba(157,180,255,.14)";
+const ACCION_BORDE = "rgba(157,180,255,.45)";
 
 export const metadata = { title: "Programa de lealtad · Bookea" };
 
@@ -162,15 +171,15 @@ export default async function PanelNegocioLealtad({
               pueden dar sellos, canjear premios ni emitir tarjetas nuevas.
             </p>
             <p className="mx-auto mt-3 max-w-[460px] rounded-2xl px-4 py-3 text-[13px] leading-relaxed font-bold text-white"
-              style={{ background: "rgba(238,116,32,.16)" }}>
+              style={{ background: ACCION_TINTE }}>
               No se borró nada. Tus clientes, sus sellos y los pases que ya tienen en el
               teléfono siguen exactamente como estaban — elegí un paquete y todo vuelve tal
               cual lo dejaste.
             </p>
             <Link
               href={`/lealtad/planes?negocio=${id}`}
-              className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold text-white"
-              style={{ background: NARANJA }}
+              className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold"
+              style={{ background: ACCION, color: ACCION_TINTA }}
             >
               Elegir mi paquete →
             </Link>
@@ -197,8 +206,8 @@ export default async function PanelNegocioLealtad({
             </p>
             <Link
               href={`/lealtad/planes?negocio=${id}`}
-              className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold text-white"
-              style={{ background: NARANJA }}
+              className="mt-5 inline-block rounded-2xl px-6 py-3.5 text-[14px] font-extrabold"
+              style={{ background: ACCION, color: ACCION_TINTA }}
             >
               Ver los paquetes →
             </Link>
@@ -595,7 +604,7 @@ export default async function PanelNegocioLealtad({
         <Link
           href={`/lealtad/panel/${id}/poster`}
           className="flex items-center justify-between rounded-2xl border px-4 py-4 transition-colors hover:border-white/40"
-          style={{ background: "rgba(238,116,32,.09)", borderColor: NARANJA }}
+          style={{ background: ACCION_TINTE, borderColor: ACCION_BORDE }}
         >
           <span>
             <span className="block text-[14px] font-extrabold text-white">
@@ -605,7 +614,7 @@ export default async function PanelNegocioLealtad({
               Hoja A4 lista para pegar en la caja, con tu QR, tus colores y tu regalía.
             </span>
           </span>
-          <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: NARANJA }}>
+          <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: ACCION }}>
             →
           </span>
         </Link>
@@ -754,7 +763,7 @@ export default async function PanelNegocioLealtad({
                   <Link
                     href={`/lealtad/panel/${id}/editar/${p.id}`}
                     className="flex items-center justify-between rounded-2xl border px-4 py-3.5 transition-colors hover:border-white/40"
-                    style={{ background: "rgba(238,116,32,.09)", borderColor: NARANJA }}
+                    style={{ background: ACCION_TINTE, borderColor: ACCION_BORDE }}
                   >
                     <span>
                       <span className="block text-[13.5px] font-extrabold text-white">
@@ -764,7 +773,7 @@ export default async function PanelNegocioLealtad({
                         La meta, los vencimientos, los días permitidos y los topes de canje.
                       </span>
                     </span>
-                    <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: NARANJA }}>
+                    <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: ACCION }}>
                       →
                     </span>
                   </Link>

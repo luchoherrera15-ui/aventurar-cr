@@ -47,7 +47,9 @@ import {
  * de la suscripción es el ESPEJO de lo que Stripe dijo la última vez.
  */
 
-const NARANJA = "#ee7420";
+/* El azul de acción para fondo oscuro: la card vive en el panel navy,
+   donde el azul de marca se apaga. */
+const ACCION = "var(--accion-claro)";
 
 export type SuscripcionEnPanel = {
   estado: string;
@@ -221,7 +223,7 @@ function PaqueteCobrable({
           : `Hasta ${def.limites.clientesActivos.toLocaleString("es-CR")} clientes activos`}
       </p>
       {esElSuyo && (
-        <p className="mt-1.5 text-[11px] font-bold" style={{ color: NARANJA }}>
+        <p className="mt-1.5 text-[11px] font-bold" style={{ color: ACCION }}>
           Es el que estás pagando
         </p>
       )}

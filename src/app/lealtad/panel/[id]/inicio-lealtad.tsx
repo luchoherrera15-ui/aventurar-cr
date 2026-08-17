@@ -52,7 +52,15 @@ import type { EstadoLimite } from "@/lib/lealtad/planes";
  * salida.
  */
 
-const NARANJA = "#ee7420";
+/* El azul de acción para fondo oscuro. Este tablero se dibuja sobre el
+   navy profundo del panel (y sobre cards blancas translúcidas, que ahí
+   son casi igual de oscuras): el azul de marca se apaga en los dos, y
+   `--accion-claro` es el que sí se lee. La letra va con el token, no a
+   ojo, porque sobre este azul el blanco no alcanza. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
+const ACCION_TINTE = "rgba(157,180,255,.14)";
+const ACCION_BORDE = "rgba(157,180,255,.45)";
 
 export type PasoPrimero = {
   titulo: string;
@@ -340,11 +348,11 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
       {/* ── El botón grande ────────────────────────────────────── */}
       <div
         className="rounded-3xl border px-5 py-8 text-center sm:px-8"
-        style={{ borderColor: NARANJA, background: "rgba(238,116,32,.09)" }}
+        style={{ borderColor: ACCION_BORDE, background: ACCION_TINTE }}
       >
         <span
           className="mx-auto grid h-14 w-14 place-items-center rounded-2xl"
-          style={{ background: "rgba(238,116,32,.18)", color: NARANJA }}
+          style={{ background: ACCION_TINTE, color: ACCION }}
         >
           <Icono nombre="tarjeta" className="h-7 w-7" />
         </span>
@@ -359,8 +367,8 @@ function Bienvenida({ nombre, enlaces }: { nombre: string; enlaces: EnlacesInici
         {enlaces.crear ? (
           <Link
             href={enlaces.crear}
-            className="mt-6 inline-block rounded-2xl px-7 py-4 text-[15px] font-extrabold text-white sm:text-[16px]"
-            style={{ background: NARANJA }}
+            className="mt-6 inline-block rounded-2xl px-7 py-4 text-[15px] font-extrabold sm:text-[16px]"
+            style={{ background: ACCION, color: ACCION_TINTA }}
           >
             ¡Iniciá tu primer pase! →
           </Link>
@@ -441,12 +449,12 @@ function PanelAccion({
   return (
     <div
       className="rounded-3xl border p-4 sm:p-6"
-      style={{ borderColor: NARANJA, background: "rgba(238,116,32,.09)" }}
+      style={{ borderColor: ACCION_BORDE, background: ACCION_TINTE }}
     >
       <div className="flex items-start gap-3.5">
         <span
           className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
-          style={{ background: "rgba(238,116,32,.18)", color: NARANJA }}
+          style={{ background: ACCION_TINTE, color: ACCION }}
         >
           <Icono nombre={icono} className="h-[22px] w-[22px]" />
         </span>
@@ -460,8 +468,8 @@ function PanelAccion({
           {href ? (
             <a
               href={href}
-              className="mt-4 inline-block rounded-xl px-5 py-3 text-[13.5px] font-extrabold text-white"
-              style={{ background: NARANJA }}
+              className="mt-4 inline-block rounded-xl px-5 py-3 text-[13.5px] font-extrabold"
+              style={{ background: ACCION, color: ACCION_TINTA }}
             >
               {boton} →
             </a>
@@ -487,7 +495,12 @@ function PanelAccion({
 function BarraPlan({ limite, href }: { limite: EstadoLimite; href: string | null }) {
   if (limite.limite === null) return null;
 
-  const color = limite.lleno ? "#fca5a5" : limite.cerca ? "#ffb076" : NARANJA;
+  /* Semáforo: rojo lleno, ámbar cerca, azul de acción cuando todo va
+     bien. El escalón «cerca» era un naranja claro que se confundía con
+     el naranja de marca —los dos cálidos, uno decía «ojo» y el otro
+     nada—; con el estado normal en azul, el ámbar de aviso del repo
+     (el mismo del medidor de `seccion-plan`) por fin se distingue. */
+  const color = limite.lleno ? "#fca5a5" : limite.cerca ? "#f59e0b" : ACCION;
 
   return (
     <div className="rounded-2xl border border-aventurea-line bg-white px-4 py-3.5">
@@ -566,7 +579,7 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
         <div
           className="h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${avance}%`, background: NARANJA }}
+          style={{ width: `${avance}%`, background: ACCION }}
         />
       </div>
 
@@ -579,7 +592,7 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
               className="flex flex-wrap items-center gap-x-3 gap-y-2.5 rounded-2xl border bg-white px-4 py-3.5"
               style={
                 destacado
-                  ? { borderColor: NARANJA, background: "rgba(238,116,32,.07)" }
+                  ? { borderColor: ACCION_BORDE, background: ACCION_TINTE }
                   : undefined
               }
             >
@@ -591,8 +604,8 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
                 <span
                   className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full border text-[11px] font-extrabold"
                   style={{
-                    borderColor: destacado ? NARANJA : "rgba(255,255,255,.25)",
-                    color: destacado ? NARANJA : "rgba(255,255,255,.5)",
+                    borderColor: destacado ? ACCION : "rgba(255,255,255,.25)",
+                    color: destacado ? ACCION : "rgba(255,255,255,.5)",
                   }}
                 >
                   {i + 1}
@@ -617,10 +630,10 @@ function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
                   href={paso.cta.href}
                   className={`shrink-0 rounded-xl px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
                     destacado
-                      ? "text-white"
+                      ? ""
                       : "border border-aventurea-line text-aventurea-ink-soft hover:text-aventurea-ink"
                   }`}
-                  style={destacado ? { background: NARANJA } : undefined}
+                  style={destacado ? { background: ACCION, color: ACCION_TINTA } : undefined}
                 >
                   {paso.cta.texto} →
                 </a>
@@ -681,7 +694,7 @@ function Flujo({
         >
           <span
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-            style={{ background: "rgba(238,116,32,.15)", color: NARANJA }}
+            style={{ background: ACCION_TINTE, color: ACCION }}
           >
             <Icono nombre={t.icono} className="h-[18px] w-[18px]" />
           </span>

@@ -102,12 +102,16 @@ export function PaseWallet({
           cualquier pase abierto en Wallet. */}
       <div className="flex items-center justify-between px-4 pt-3.5">
         <div className="flex items-center gap-2">
+          {/* La «B» se queda naranja: es firma de marca, no un botón.
+              Cambia de token con el cuerpo del pase —el de Apple es
+              oscuro y el de Google es crema—, porque el naranja del
+              logo sobre crema da 2,35:1 y no se leería. */}
           <span
             className="flex h-6 w-6 items-center justify-center rounded-full text-[10.5px] font-extrabold"
             style={{
-              background: esApple ? "#ee7420" : "#ffffff",
-              color: esApple ? "#ffffff" : "#ee7420",
-              boxShadow: esApple ? undefined : "inset 0 0 0 1.5px #ee7420",
+              background: esApple ? "var(--orange)" : "#ffffff",
+              color: esApple ? "#0a1226" : "var(--orange-fuerte)",
+              boxShadow: esApple ? undefined : "inset 0 0 0 1.5px var(--orange-acento-claro)",
             }}
           >
             B
@@ -178,9 +182,12 @@ export function PaseWallet({
           >
             {etiquetaCampo}
           </p>
+          {/* El valor grande («8/10», «₡4.250») también se queda
+              naranja: es lo que el cliente ganó, que es exactamente
+              el trabajo que le queda al acento. */}
           <p
             className="mt-0.5 text-[14px] font-extrabold leading-none"
-            style={{ color: "#ee7420" }}
+            style={{ color: esApple ? "var(--orange)" : "var(--orange-fuerte)" }}
           >
             {valorCampo}
           </p>

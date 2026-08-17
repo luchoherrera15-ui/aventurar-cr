@@ -12,7 +12,17 @@ import { Icono, type NombreIcono } from "./panel/[id]/iconos";
  * `md:hidden` deciden cuál se pinta, no JavaScript.
  */
 
-const NARANJA = "#ee7420";
+/* Dos papeles, y ahí está toda la idea del acento: el RECORRIDO —los
+   tres aros, que son el elemento dominante de la sección— va en azul,
+   y el naranja queda para el punto que dice DÓNDE VA LA ACCIÓN ahora.
+   Con los dos naranjas la sección entera se leía naranja.
+   La sección es clara, así que el acento usa su gemelo oscuro: el del
+   logo da 2,35:1 sobre blanco. */
+const ACCION = "var(--accion)";
+const ACENTO = "var(--orange-acento-claro)";
+/* El halo del punto sale del MISMO token y no de un rgba copiado: el
+   día que el acento cambie, el halo lo sigue solo. */
+const HALO = `color-mix(in srgb, ${ACENTO} 18%, transparent)`;
 
 const ESTACIONES: { icono: NombreIcono; titulo: string; texto: string }[] = [
   { icono: "escanear", titulo: "Escaneás", texto: "El código del cliente, desde el panel." },
@@ -35,8 +45,8 @@ export default function MockupRecorrido() {
         />
         <span
           aria-hidden
-          className="mr-anim-punto-h absolute top-[19px] h-3 w-3 -translate-x-1/2 rounded-full shadow-[0_0_0_4px_rgba(238,116,32,.18)]"
-          style={{ background: NARANJA }}
+          className="mr-anim-punto-h absolute top-[19px] h-3 w-3 -translate-x-1/2 rounded-full"
+          style={{ background: ACENTO, boxShadow: `0 0 0 4px ${HALO}` }}
         />
         {ESTACIONES.map((e, i) => (
           <Estacion key={e.titulo} {...e} delay={i * (7 / 3)} />
@@ -52,8 +62,8 @@ export default function MockupRecorrido() {
         />
         <span
           aria-hidden
-          className="mr-anim-punto-v absolute left-[19px] h-3 w-3 -translate-y-1/2 rounded-full shadow-[0_0_0_4px_rgba(238,116,32,.18)]"
-          style={{ background: NARANJA }}
+          className="mr-anim-punto-v absolute left-[19px] h-3 w-3 -translate-y-1/2 rounded-full"
+          style={{ background: ACENTO, boxShadow: `0 0 0 4px ${HALO}` }}
         />
         {ESTACIONES.map((e, i) => (
           <Estacion key={e.titulo} {...e} delay={i * (7 / 3)} vertical />
@@ -81,7 +91,7 @@ function Estacion({
       <span
         aria-hidden
         className="mr-anim-estacion relative z-10 grid h-12 w-12 shrink-0 place-items-center rounded-full border-2 bg-white"
-        style={{ borderColor: NARANJA, color: NARANJA, "--mr-delay": `${delay}s` } as React.CSSProperties}
+        style={{ borderColor: ACCION, color: ACCION, "--mr-delay": `${delay}s` } as React.CSSProperties}
       >
         <Icono nombre={icono} className="h-5 w-5" />
       </span>

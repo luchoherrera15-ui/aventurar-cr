@@ -24,6 +24,21 @@ import {
 } from "./problemas";
 
 /**
+ * Los colores del contrato, en hexadecimal y no en `var(--accion)`.
+ *
+ * Esta ruta es la única de Lealtad que NO cuelga de
+ * `src/app/lealtad/layout.tsx`: no lleva la clase `.lealtad` y por lo
+ * tanto no ve los tokens del módulo. Se copian con nombre para que se
+ * lea de qué par salen y no vuelvan a divergir sueltos en un `style`.
+ *
+ * Toda la pantalla vive sobre el navy de `Pantalla` (#0a1226), así que
+ * va el par OSCURO: el azul de acción de fondo claro (#0f4c9e) sobre
+ * este navy da 1,44:1, o sea que el botón se fundiría con la página.
+ */
+const ACCION = "#9db4ff";
+const ACCION_TINTA = "#0a1226";
+
+/**
  * LA PUERTA DEL CLIENTE: acá es donde alguien consigue su tarjeta de
  * lealtad. El negocio comparte este link (o su QR impreso en el
  * mostrador), el cliente deja su WhatsApp y su correo, y se lleva el
@@ -233,8 +248,8 @@ export default async function TarjetaPublicaPage({
             // y el sistema hace el resto.
             <a
               href={`/api/pases/${negocio.id}`}
-              className="mt-6 inline-block w-full rounded-full px-7 py-3.5 text-[15px] font-bold text-white transition-transform hover:scale-[1.02]"
-              style={{ background: "#ee7420" }}
+              className="mt-6 inline-block w-full rounded-full px-7 py-3.5 text-[15px] font-bold transition-transform hover:scale-[1.02]"
+              style={{ background: ACCION, color: ACCION_TINTA }}
             >
                Agregar a Apple Wallet
             </a>
@@ -331,11 +346,20 @@ function Pantalla({ children }: { children: React.ReactNode }) {
  * El aviso, con el color según de quién es el problema: naranja cuando
  * hay que volver (el negocio decidió algo), rojo apagado cuando falló
  * Bookea, y neutro cuando el QR no lleva a ninguna parte.
+ *
+ * El naranja se queda aunque el resto del módulo haya pasado a azul:
+ * acá no es marca sino ESTADO, y es lo único que separa «esperá, el
+ * negocio decidió algo» del rojo «falló Bookea» y del neutro «el QR no
+ * lleva a nada». En azul se confundiría con el neutro. El hexadecimal
+ * sí se actualizó al del logotipo (#f39200), que además tira más al
+ * ámbar y así se parece menos a un botón. Va literal y no por
+ * constante porque Tailwind necesita leer el valor en el código para
+ * generar la utilidad.
  */
 function PanelDeAviso({ aviso, compacto = false }: { aviso: Aviso; compacto?: boolean }) {
   const borde =
     aviso.tono === "espera"
-      ? "border-[#ee7420]/40 bg-[#ee7420]/10"
+      ? "border-[#f39200]/40 bg-[#f39200]/10"
       : aviso.tono === "nuestro"
         ? "border-red-400/30 bg-red-400/10"
         : "border-white/15 bg-white/5";

@@ -14,12 +14,17 @@ import { PaseWallet } from "@/app/lealtad/pase-wallet";
  * negocio" de esa página, que es para categorías, no para un negocio
  * puntual.
  *
- * Estética a propósito distinta del resto de /lealtad (navy/naranja
- * cálido): pedido explícito del dueño — "profesional, diseño agresivo
- * y minimalista" — para un servicio de detailing a domicilio. Negro
- * puro en vez de navy, tipografía apretada en mayúsculas, un solo
- * acento (el naranja de marca, para no inventar un color nuevo), casi
- * nada de radios redondeados.
+ * Estética a propósito distinta del resto de /lealtad: pedido explícito
+ * del dueño — "profesional, diseño agresivo y minimalista" — para un
+ * servicio de detailing a domicilio. Negro puro en vez de navy,
+ * tipografía apretada en mayúsculas, casi nada de radios redondeados.
+ *
+ * Los colores NO son propios: salen de los tokens de `.lealtad`, así
+ * que la página respeta la misma doctrina que el resto del módulo —el
+ * azul de acción manda y el naranja marca lo que se gana (el paso en
+ * el que va y los sellos ya conseguidos)—, solo que sobre negro en vez
+ * de navy. Antes mezclaba la clase de marca con un hex escrito a mano
+ * en la misma pantalla: dos naranjas distintos a la vez.
  *
  * Los "íconos de Apple y Google Wallet" NO son el arte oficial de esas
  * marcas — ver `panel/[id]/poster/marcas-wallet.tsx` para el porqué
@@ -29,6 +34,10 @@ import { PaseWallet } from "@/app/lealtad/pase-wallet";
  */
 
 const NEGRO = "#050505";
+/* Fondo negro = fondo oscuro: el par de acción es el claro. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
+const ACENTO = "var(--orange)";
 
 export const metadata: Metadata = {
   title: "JS Detailing · Vista previa · Lealtad Bookea",
@@ -36,7 +45,7 @@ export const metadata: Metadata = {
 
 /** El mismo glifo neutro de `marcas-wallet.tsx`, sin las clases CSS de
  *  esa hoja (son propias del afiche) — acá con Tailwind, a tono con
- *  esta página. Nunca se tiñe del naranja de marca a propósito: sería
+ *  esta página. Nunca se tiñe de un color de marca a propósito: sería
  *  usar el color de Bookea para "vestir" el nombre de otra empresa. */
 function GlifoTarjeta({ className }: { className?: string }) {
   return (
@@ -82,7 +91,10 @@ export default function JsDetailingDemoPage() {
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-[1fr_1fr] lg:gap-14">
           {/* ── El pitch ── */}
           <div>
-            <span className="inline-block border border-aventurea-orange/50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-aventurea-orange">
+            <span
+              className="inline-block border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
+              style={{ borderColor: "rgba(157,180,255,.45)", color: ACCION }}
+            >
               JS Detailing · Vista previa
             </span>
             <h1 className="mt-5 text-[clamp(30px,5vw,48px)] font-extrabold uppercase leading-[0.98] tracking-tight text-white">
@@ -90,7 +102,7 @@ export default function JsDetailingDemoPage() {
               <br />
               no se olvida.
               <br />
-              <span className="text-aventurea-orange">Una tarjeta, sí.</span>
+              <span style={{ color: ACCION }}>Una tarjeta, sí.</span>
             </h1>
             <p className="mt-4 max-w-[48ch] text-[14.5px] leading-relaxed text-white/55">
               Así se vería la tarjeta de clientes de <strong className="text-white">JS Detailing</strong> en
@@ -112,7 +124,10 @@ export default function JsDetailingDemoPage() {
             <ol className="mt-7 grid gap-3">
               {PASOS.map((p, i) => (
                 <li key={p} className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-white/65">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center bg-aventurea-orange text-[11px] font-extrabold text-white">
+                  <span
+                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-[11px] font-extrabold"
+                    style={{ background: ACENTO, color: "#0a1226" }}
+                  >
                     {i + 1}
                   </span>
                   {p}
@@ -123,7 +138,8 @@ export default function JsDetailingDemoPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/lealtad/nuevo"
-                className="bg-aventurea-orange px-6 py-3 text-[14px] font-bold uppercase tracking-wide text-white transition-transform hover:scale-[1.02]"
+                className="px-6 py-3 text-[14px] font-bold uppercase tracking-wide transition-transform hover:scale-[1.02]"
+                style={{ background: ACCION, color: ACCION_TINTA }}
               >
                 Quiero esto en mi negocio
               </Link>
@@ -149,12 +165,16 @@ export default function JsDetailingDemoPage() {
             >
               <div className="grid grid-cols-6 gap-2 pb-1">
                 {Array.from({ length: total }, (_, i) => (
+                  /* Los sellos LOGRADOS se quedan naranja: el color
+                     distingue lleno de vacío y es lo que el cliente
+                     ganó. La palomita va navy — blanca sobre el
+                     naranja da 2,35:1. */
                   <span
                     key={i}
-                    className="flex aspect-square items-center justify-center rounded-full text-white"
+                    className="flex aspect-square items-center justify-center rounded-full"
                     style={
                       i < logrados
-                        ? { background: "#ee7420" }
+                        ? { background: ACENTO, color: "#0a1226" }
                         : { border: "2px dashed rgba(255,255,255,.3)" }
                     }
                   >

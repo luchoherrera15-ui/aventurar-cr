@@ -39,6 +39,22 @@ import { afiliarPorQr, type EstadoAlta } from "./actions";
  * lados, la prueba diría una cosa y la persona habría leído otra.
  */
 
+/**
+ * El azul de acción, en hexadecimal y no en `var(--accion)`.
+ *
+ * Esta ruta es la única de Lealtad que NO cuelga de
+ * `src/app/lealtad/layout.tsx`, o sea que no lleva la clase `.lealtad`
+ * y no ve los tokens del módulo: un `var(--accion)` acá quedaría sin
+ * valor. Se copian los del contrato de color, que es también el motivo
+ * de que estén nombrados y no sueltos en un `style`.
+ *
+ * Todo lo de este archivo se pinta sobre la card BLANCA de `page.tsx`,
+ * así que va el par claro: relleno #0f4c9e con letra blanca (8,24:1).
+ * El naranja que había daba 2,9:1 con la misma letra — no llegaba a AA.
+ */
+const ACCION = "#0f4c9e";
+const ACCION_TINTA = "#ffffff";
+
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 " +
   "text-[16px] text-aventurea-ink placeholder:text-zinc-500";
@@ -120,7 +136,8 @@ export default function FormularioAlta({
           name="promos"
           value="si"
           defaultChecked={false}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-aventurea-orange"
+          className="mt-0.5 h-4 w-4 shrink-0"
+          style={{ accentColor: ACCION }}
         />
         <span className="text-[12.5px] leading-relaxed text-aventurea-ink-soft">
           {textoConsentimiento}
@@ -147,8 +164,8 @@ export default function FormularioAlta({
       <button
         type="submit"
         disabled={pendiente}
-        className="mt-1 flex h-12 items-center justify-center rounded-xl text-[15px] font-bold text-white transition-colors disabled:opacity-60"
-        style={{ background: "#ee7420" }}
+        className="mt-1 flex h-12 items-center justify-center rounded-xl text-[15px] font-bold transition-colors disabled:opacity-60"
+        style={{ background: ACCION, color: ACCION_TINTA }}
       >
         {pendiente ? "Creando tu tarjeta..." : "Quiero mi tarjeta"}
       </button>

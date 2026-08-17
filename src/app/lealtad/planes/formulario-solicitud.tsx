@@ -45,6 +45,15 @@ import { iniciarPagoDelPaquete } from "./pago-actions";
  * exactamente la que era antes: solo SINPE.
  */
 
+/**
+ * Igual que la pantalla que lo monta, este formulario vive sobre navy
+ * profundo: los botones usan el par de acción para fondo OSCURO
+ * —relleno claro, letra navy—, nunca el de fondo claro, que sobre este
+ * navy da 1,44:1.
+ */
+const BOTON_ACCION =
+  "bg-[color:var(--accion-claro)] text-[color:var(--accion-claro-tinta)] hover:bg-[color:var(--accion-claro-hover)]";
+
 export type NegocioElegible = { id: string; nombre: string };
 
 export type DatosPago = {
@@ -252,7 +261,10 @@ export default function FormularioSolicitud({
           alguien revise un depósito. Debajo sigue el SINPE de siempre,
           intacto. */}
       {hayTarjeta && (
-        <div className="mt-3 rounded-xl border border-[#ee7420]/40 bg-[#ee7420]/10 p-3.5">
+        <div
+          className="mt-3 rounded-xl border p-3.5"
+          style={{ background: "rgba(157,180,255,.14)", borderColor: "rgba(157,180,255,.45)" }}
+        >
           <p className="text-[13px] font-extrabold text-white">
             Pagar con tarjeta — queda activo al instante
           </p>
@@ -269,9 +281,7 @@ export default function FormularioSolicitud({
                 disabled={pagando || !listoParaPagar}
                 onClick={() => pagarConTarjeta(periodo)}
                 className={`rounded-xl px-4 py-3 text-[13px] font-extrabold disabled:opacity-40 ${
-                  i === 0
-                    ? "bg-[#ee7420] text-white hover:brightness-110"
-                    : "border border-white/25 text-white"
+                  i === 0 ? BOTON_ACCION : "border border-white/25 text-white"
                 }`}
               >
                 {pagando ? "Abriendo…" : etiquetaDePeriodo(periodo, def, precio)}
@@ -425,7 +435,7 @@ export default function FormularioSolicitud({
             type="button"
             onClick={enviar}
             disabled={ocupado || subiendo || !listoParaPagar || (!esGratis && !comprobanteUrl)}
-            className="rounded-xl bg-[#ee7420] px-5 py-3 text-[13.5px] font-extrabold text-white disabled:opacity-40"
+            className={`rounded-xl px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40 ${BOTON_ACCION}`}
           >
             {ocupado
               ? "Enviando…"

@@ -202,7 +202,9 @@ export default function ConfiguradorLealtad() {
                     </span>
                     <span
                       className={`rounded-full px-1.5 py-[1px] text-[6.5px] font-extrabold uppercase tracking-wide ${
-                        gratis ? "bg-emerald-50 text-emerald-700" : "bg-[#fff0e8] text-[#a9451c]"
+                        gratis
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-bookea-azul-suave text-bookea-azul"
                       }`}
                     >
                       {gratis ? "Gratis" : abre?.nombre}
@@ -266,12 +268,17 @@ export default function ConfiguradorLealtad() {
             />
           </div>
 
+          {/* Ámbar y no azul: esto AVISA («este tipo pide otro
+              paquete»), no promociona. Con el botón de abajo ya azul,
+              un aviso azul se pierde dentro del mismo panel — y el
+              ámbar es la escala que el resto del repo usa para
+              «atención», así que se lee sin aprender nada nuevo. */}
           {!esGratis && planQueAbre && (
-            <div className="mb-3 flex items-start gap-2 rounded-lg border border-[#f0c3ad] bg-[#fff4ee] p-2">
-              <span aria-hidden className="shrink-0 text-[12px]" style={{ color: "#d8541d" }}>
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2">
+              <span aria-hidden className="shrink-0 text-[12px]" style={{ color: "#b45309" }}>
                 ◆
               </span>
-              <p className="text-[10.5px] leading-snug text-[#7a371b]">
+              <p className="text-[10.5px] leading-snug text-amber-800">
                 <strong className="font-extrabold">Plan {planQueAbre.nombre}. </strong>
                 Se guarda igual — lo confirmás en el siguiente paso.
               </p>
@@ -283,7 +290,7 @@ export default function ConfiguradorLealtad() {
             onClick={comenzar}
             disabled={ocupado}
             className="presionable w-full rounded-full py-2.5 text-[13px] font-extrabold disabled:opacity-60"
-            style={{ background: "var(--orange)", color: "#0a1226" }}
+            style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
           >
             {esGratis ? "Comenzar mi programa gratis →" : `Continuar con ${TIPOS_TARJETA[tipo].nombre} →`}
           </button>
@@ -297,9 +304,12 @@ export default function ConfiguradorLealtad() {
             pestañas Apple/Google y el aviso quedan FUERA del teléfono,
             que es donde corresponde — son controles nuestros, no algo
             que se vea en la pantalla del cliente. */}
+        {/* El degradado terminaba en terracota (#f1d5c8) y hacía ver
+            naranja lavado el 40 % del widget. Ahora los dos extremos
+            son azules: el celeste de siempre y el tinte informativo. */}
         <div
           className="flex items-center justify-center px-4 py-5"
-          style={{ background: "linear-gradient(155deg,#dceaf5,#f1d5c8)" }}
+          style={{ background: "linear-gradient(155deg,#dceaf5,var(--accion-suave))" }}
         >
           <VistaPase
             datos={{

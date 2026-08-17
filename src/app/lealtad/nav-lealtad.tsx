@@ -19,7 +19,13 @@ import { Icono } from "./panel/[id]/iconos";
  * las dos.
  */
 
-const NARANJA = "#ee7420";
+/* La barra es BLANCA, así que el CTA usa el par de acción para fondo
+   claro: relleno azul con letra blanca. Sale de los tokens de
+   `.lealtad` y no de un hex copiado — este archivo tenía su propia
+   `const NARANJA` y por eso su botón ya no coincidía con el de la
+   landing. */
+const ACCION = "var(--accion)";
+const ACCION_TINTA = "var(--accion-tinta)";
 
 const ENLACES: { href: string; label: string }[] = [
   { href: "#como-funciona", label: "Cómo funciona" },
@@ -71,7 +77,7 @@ export default function NavLealtad() {
           <Link
             href="/lealtad/nuevo"
             className="presionable rounded-xl px-5 py-2.5 text-[13.5px] font-extrabold"
-            style={{ background: NARANJA, color: "#0a1226" }}
+            style={{ background: ACCION, color: ACCION_TINTA }}
           >
             Crear mi programa gratis
           </Link>
@@ -113,7 +119,7 @@ export default function NavLealtad() {
               href="/lealtad/nuevo"
               onClick={() => setAbierto(false)}
               className="presionable mt-1 rounded-xl px-5 py-3.5 text-center text-[15px] font-extrabold"
-              style={{ background: NARANJA, color: "#0a1226" }}
+              style={{ background: ACCION, color: ACCION_TINTA }}
             >
               Crear mi programa gratis
             </Link>

@@ -92,7 +92,7 @@ export default function SeccionProgramas({
           <Link
             href={`/lealtad/panel/${ranchoId}/crear`}
             className="presionable mt-5 inline-block rounded-xl px-5 py-3 text-[13.5px] font-extrabold"
-            style={{ background: "var(--orange)", color: "var(--navy)" }}
+            style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
           >
             Crear mi primera tarjeta →
           </Link>
@@ -112,7 +112,7 @@ export default function SeccionProgramas({
         (topeAlcanzado ? (
           <div
             className="rounded-2xl border px-4 py-3.5"
-            style={{ borderColor: "var(--orange)", background: "rgba(255,106,0,.09)" }}
+            style={{ borderColor: "rgba(157,180,255,.45)", background: "rgba(157,180,255,.14)" }}
           >
             <p className="text-[13.5px] font-bold text-white">
               Llegaste al tope de tu paquete
@@ -127,7 +127,7 @@ export default function SeccionProgramas({
             <Link
               href={`/lealtad/planes?negocio=${ranchoId}`}
               className="presionable mt-3 inline-block rounded-xl px-4 py-2.5 text-[12.5px] font-extrabold"
-              style={{ background: "var(--orange)", color: "var(--navy)" }}
+              style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
             >
               Ver paquetes →
             </Link>
@@ -136,7 +136,7 @@ export default function SeccionProgramas({
           <Link
             href={`/lealtad/panel/${ranchoId}/crear`}
             className="presionable flex items-center justify-between rounded-2xl border px-4 py-3.5"
-            style={{ borderColor: "var(--orange)", background: "rgba(255,106,0,.09)" }}
+            style={{ borderColor: "rgba(157,180,255,.45)", background: "rgba(157,180,255,.14)" }}
           >
             <span>
               <span className="block text-[13.5px] font-extrabold text-white">
@@ -146,7 +146,7 @@ export default function SeccionProgramas({
                 Sellos, puntos, cupón, descuento, membresía, gift card, evento o cashback.
               </span>
             </span>
-            <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: "var(--orange)" }}>
+            <span aria-hidden className="ml-3 shrink-0 text-[18px]" style={{ color: "var(--accion-claro)" }}>
               →
             </span>
           </Link>
@@ -217,9 +217,15 @@ function TarjetaDeLista({
   const tipo = TIPOS_TARJETA[tipoDe(programa.modo)];
   const tono = TONO_ESTADO[estado];
 
+  /* Este chip es lo ÚNICO que distingue «pausada/vencida» de «activa» en
+     la grilla, y el tono azul ya está tomado por «activa/programada».
+     Pasarlo a azul dejaría los dos estados del mismo color, así que se
+     queda cálido — pero en el ámbar de aviso del repo, no en el naranja
+     de marca: el naranja quedó reservado para lo que el cliente GANA, y
+     una tarjeta vencida es justo lo contrario. */
   const colorChip =
     tono === "naranja"
-      ? { background: "rgba(255,106,0,.18)", color: "#ffb076" }
+      ? { background: "rgba(245,158,11,.16)", color: "#fcd34d" }
       : tono === "azul"
         ? { background: "rgba(157,180,255,.16)", color: "#9db4ff" }
         : { background: "rgba(255,255,255,.09)", color: "rgba(255,255,255,.55)" };

@@ -50,13 +50,17 @@
   color: #fff;
 }
 
+/* El chrome del taller es interfaz de Bookea, no de la hoja: va con el
+   azul de acción para fondo oscuro, con su letra navy —sobre este azul
+   el blanco no llega. Los colores del papel son otra cosa y viven más
+   abajo: esos los elige el negocio. */
 .poster-imprimir {
   border-radius: 999px;
-  background: #ee7420;
+  background: var(--accion-claro);
   padding: 10px 22px;
   font-size: 14px;
   font-weight: 800;
-  color: #fff;
+  color: var(--accion-claro-tinta);
 }
 
 .poster-aviso {
@@ -107,14 +111,16 @@
   border-color: rgba(255, 255, 255, 0.34);
 }
 .poster-estilo:focus-visible {
-  outline: 2px solid #ee7420;
+  outline: 2px solid var(--accion-claro);
   outline-offset: 2px;
 }
-/* El elegido con borde naranja Y con el nombre en blanco: el color solo
-   no alcanza si alguien no lo distingue. */
+/* El elegido con borde azul Y con el nombre en blanco: el color solo no
+   alcanza si alguien no lo distingue. El azul va en conjunto con el
+   anillo de foco de arriba y con «Imprimir»: media pantalla naranja y
+   media azul se lee peor que cualquiera de las dos completas. */
 .poster-estilo.es-elegido {
-  border-color: #ee7420;
-  background: rgba(238, 116, 32, 0.12);
+  border-color: var(--accion-claro);
+  background: rgba(157, 180, 255, 0.14);
 }
 
 .poster-estilo-nombre {
@@ -1002,7 +1008,7 @@
   resize: vertical;
 }
 .poster-control:focus-visible {
-  outline: 2px solid #ee7420;
+  outline: 2px solid var(--accion-claro);
   outline-offset: 1px;
 }
 
@@ -1024,11 +1030,11 @@
 
 .poster-guardar {
   border-radius: 999px;
-  background: #ee7420;
+  background: var(--accion-claro);
   padding: 10px 18px;
   font-size: 13px;
   font-weight: 800;
-  color: #fff;
+  color: var(--accion-claro-tinta);
 }
 .poster-guardar:disabled {
   opacity: 0.45;

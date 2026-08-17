@@ -547,14 +547,20 @@ export function Interruptor({
       <span
         aria-hidden
         className="relative mt-0.5 h-[22px] w-[40px] shrink-0 rounded-full transition-colors"
-        style={{ background: activo ? "var(--orange)" : "var(--line)" }}
+        style={{ background: activo ? "var(--accion)" : "var(--line)" }}
       >
-        {/* La perilla se pinta con `style` y no con `bg-white`: dentro
-            del panel oscuro, `.lealtad-oscuro .bg-white` se re-mapea a
-            un blanco al 5% y la perilla desaparecía sobre el naranja —
-            el interruptor se veía apagado estando encendido. */}
+        {/* Encendido va en el azul de acción y no en el naranja: en este
+            mismo formulario «elegido» ya era azul (los chips de arriba),
+            así que convivían dos colores para la misma idea de estado.
+
+            La perilla se pinta con `style` y no con `bg-white` porque
+            dentro del panel oscuro `.lealtad-oscuro .bg-white` se
+            re-mapea a un blanco al 5% y la perilla desaparecía — el
+            interruptor se veía apagado estando encendido. Encendida usa
+            la tinta del par: blanca sobre el azul claro, navy sobre el
+            azul del panel oscuro. */}
         <span
-          style={{ background: "#ffffff" }}
+          style={{ background: activo ? "var(--accion-tinta)" : "#ffffff" }}
           className={`absolute left-[3px] top-[3px] h-4 w-4 rounded-full transition-transform duration-200 ${
             activo ? "translate-x-[18px]" : ""
           }`}

@@ -26,7 +26,15 @@ import { minutoISOCR } from "@/lib/fechas";
  */
 
 const NAVY_PROFUNDO = "#0a1226";
-const NARANJA = "#ee7420";
+
+/* El azul de acción, en su versión para fondo oscuro. Toda esta
+   pantalla vive sobre navy profundo, donde el azul de marca se apaga:
+   `--accion-claro` es el que sí se lee ahí, y viene con su letra ya
+   decidida (`--accion-claro-tinta`) para que nadie le ponga blanco
+   encima. El tinte translúcido usa la misma familia. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
+const ACCION_TINTE = "rgba(157,180,255,.14)";
 
 export const metadata = {
   title: "Mis negocios · Lealtad Bookea",
@@ -200,7 +208,7 @@ export default async function PanelLealtadPage() {
                 </h2>
                 <span
                   className="rounded-full px-2.5 py-0.5 text-[10.5px] font-bold"
-                  style={{ background: "rgba(238,116,32,.18)", color: NARANJA }}
+                  style={{ background: ACCION_TINTE, color: ACCION }}
                 >
                   {definicionDe(a.plan)?.nombre ?? a.plan}
                 </span>
@@ -228,7 +236,7 @@ export default async function PanelLealtadPage() {
                   className="rounded-full px-2.5 py-0.5 text-[10.5px] font-bold"
                   style={
                     n.plan
-                      ? { background: "rgba(238,116,32,.18)", color: NARANJA }
+                      ? { background: ACCION_TINTE, color: ACCION }
                       : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.5)" }
                   }
                 >
@@ -260,8 +268,8 @@ export default async function PanelLealtadPage() {
                 ) : n.addonActivo ? (
                   <Link
                     href={`/lealtad/panel/${n.id}`}
-                    className="flex items-center justify-between rounded-xl px-4 py-3 text-[13.5px] font-bold text-white transition-transform hover:scale-[1.01]"
-                    style={{ background: NARANJA }}
+                    className="flex items-center justify-between rounded-xl px-4 py-3 text-[13.5px] font-bold transition-transform hover:scale-[1.01]"
+                    style={{ background: ACCION, color: ACCION_TINTA }}
                   >
                     Plan de Lealtad
                     <span aria-hidden>→</span>
@@ -269,8 +277,8 @@ export default async function PanelLealtadPage() {
                 ) : (
                   <Link
                     href={`/lealtad/planes?negocio=${n.id}`}
-                    className="flex items-center justify-between rounded-xl border px-4 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-white/10"
-                    style={{ borderColor: NARANJA, color: NARANJA }}
+                    className="flex items-center justify-between rounded-xl border px-4 py-3 text-[13.5px] font-bold transition-colors hover:bg-white/10"
+                    style={{ borderColor: ACCION, color: ACCION }}
                   >
                     Solicitar el plan
                     <span aria-hidden>→</span>

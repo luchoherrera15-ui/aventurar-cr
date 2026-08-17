@@ -18,7 +18,14 @@ import { PaseWallet } from "@/app/lealtad/pase-wallet";
  */
 
 const NAVY_PROFUNDO = "#0a1226";
-const NARANJA = "#ee7420";
+
+/* Toda la hoja va sobre navy profundo, así que el azul de acción es el
+   de fondo OSCURO (relleno claro, letra navy). El naranja se queda en
+   las dos piezas donde marca un logro o el punto del recorrido: el
+   disco del paso y los sellos ya conseguidos de la tarjeta. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
+const ACENTO = "var(--orange)";
 
 type Demo = {
   categoria: string;
@@ -257,7 +264,7 @@ export default async function DemoCategoriaPage({
           <div>
             <span
               className="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em]"
-              style={{ background: "rgba(238,116,32,.16)", color: NARANJA }}
+              style={{ background: "rgba(157,180,255,.14)", color: ACCION }}
             >
               Demo · {demo.categoria}
             </span>
@@ -288,8 +295,8 @@ export default async function DemoCategoriaPage({
               {demo.pasos.map((p, i) => (
                 <li key={p} className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-white/70">
                   <span
-                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold text-white"
-                    style={{ background: NARANJA }}
+                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold"
+                    style={{ background: ACENTO, color: "#0a1226" }}
                   >
                     {i + 1}
                   </span>
@@ -301,8 +308,8 @@ export default async function DemoCategoriaPage({
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/lealtad/nuevo"
-                className="rounded-full px-6 py-3 text-[14px] font-bold text-white transition-transform hover:scale-[1.02]"
-                style={{ background: NARANJA }}
+                className="rounded-full px-6 py-3 text-[14px] font-bold transition-transform hover:scale-[1.02]"
+                style={{ background: ACCION, color: ACCION_TINTA }}
               >
                 Quiero esto en mi negocio
               </Link>
@@ -348,12 +355,17 @@ export default async function DemoCategoriaPage({
                   style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}
                 >
                   {Array.from({ length: total }, (_, i) => (
+                    /* El sello LOGRADO se queda naranja: acá el color
+                       hace trabajo funcional —distingue lleno de
+                       vacío— y es, literalmente, lo que el cliente
+                       ganó. La palomita va en navy: blanca sobre el
+                       naranja da 2,35:1. */
                     <span
                       key={i}
-                      className="flex aspect-square items-center justify-center rounded-full text-white"
+                      className="flex aspect-square items-center justify-center rounded-full"
                       style={
                         i < (demo.logrados ?? 0)
-                          ? { background: NARANJA }
+                          ? { background: ACENTO, color: "#0a1226" }
                           : { border: "2px dashed rgba(255,255,255,.3)" }
                       }
                     >
@@ -407,7 +419,7 @@ export default async function DemoCategoriaPage({
                 <Link
                   key={slug}
                   href={`/lealtad/demo/${slug}`}
-                  className="rounded-xl border border-white/15 px-3.5 py-2 text-[12.5px] font-bold text-white/75 transition-colors hover:border-[#ee7420] hover:text-white"
+                  className="rounded-xl border border-white/15 px-3.5 py-2 text-[12.5px] font-bold text-white/75 transition-colors hover:border-[color:var(--accion-claro)] hover:text-white"
                 >
                   {d.categoria}
                 </Link>

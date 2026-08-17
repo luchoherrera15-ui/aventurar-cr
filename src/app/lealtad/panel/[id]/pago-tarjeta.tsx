@@ -21,7 +21,10 @@ import { abrirPortalDeFacturacion, iniciarPagoConTarjeta } from "./suscripcion-a
  * ajeno, y el router de Next solo navega dentro de la app.
  */
 
-const NARANJA = "#ee7420";
+/* El azul de acción para fondo oscuro, con su letra ya decidida: sobre
+   este azul el blanco no llega, va navy. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
 
 export type OpcionDePago = {
   periodo: string;
@@ -63,11 +66,11 @@ export function BotonesPagarConTarjeta({
           disabled={pendiente}
           onClick={() => ir(o.periodo)}
           className={`block w-full rounded-xl px-3 py-2.5 text-center text-[12.5px] font-bold disabled:opacity-60 ${
-            i === 0 && destacado
-              ? "text-white"
-              : "border border-aventurea-line text-aventurea-ink"
+            i === 0 && destacado ? "" : "border border-aventurea-line text-aventurea-ink"
           }`}
-          style={i === 0 && destacado ? { background: NARANJA } : undefined}
+          style={
+            i === 0 && destacado ? { background: ACCION, color: ACCION_TINTA } : undefined
+          }
         >
           {pendiente ? "Abriendo…" : o.etiqueta}
         </button>

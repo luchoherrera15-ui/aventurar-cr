@@ -3,8 +3,17 @@
 import { useState } from "react";
 import { enviarConsultaLanding } from "./contacto-actions";
 
-const NARANJA = "#ee7420";
-const NAVY_PROFUNDO = "#0a1226";
+/* La burbuja FLOTA sobre las dos clases de franja de la landing —las
+   navy y las blancas— y ningún azul solo sirve para las dos: el de
+   fondo claro da 1,44:1 contra el navy, y el de fondo oscuro da 1,61:1
+   contra el blanco.
+   Se resuelve por capas y no eligiendo un tercer color: el relleno es
+   el par de fondo CLARO (que es el fondo por defecto de la página) y
+   encima lleva un aro del azul claro, invisible sobre blanco y el que
+   dibuja el botón cuando pasa sobre una franja navy. */
+const ACCION = "var(--accion)";
+const ACCION_TINTA = "var(--accion-tinta)";
+const ARO_SOBRE_OSCURO = "var(--accion-claro)";
 
 /**
  * LA BURBUJA DE CHAT DE LA LANDING — hablar con Bookea sin tener
@@ -124,8 +133,13 @@ export default function BurbujaContacto() {
                 <button
                   type="submit"
                   disabled={enviando}
-                  className="mt-1 flex h-11 items-center justify-center rounded-xl text-[13.5px] font-bold text-white transition-colors disabled:opacity-60"
-                  style={{ background: NARANJA }}
+                  className="mt-1 flex h-11 items-center justify-center rounded-xl text-[13.5px] font-bold transition-colors disabled:opacity-60"
+                  style={{
+                    /* El panel es navy: acá manda el par de fondo
+                       oscuro, relleno claro con letra navy. */
+                    background: "var(--accion-claro)",
+                    color: "var(--accion-claro-tinta)",
+                  }}
                 >
                   {enviando ? "Enviando…" : "Enviar"}
                 </button>
@@ -141,8 +155,8 @@ export default function BurbujaContacto() {
         onClick={() => setAbierta((v) => !v)}
         aria-label={abierta ? "Cerrar el chat" : "Hablar con Bookea"}
         aria-expanded={abierta}
-        className="presionable fixed bottom-5 right-5 z-[70] flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-transform hover:scale-105"
-        style={{ background: NARANJA, color: NAVY_PROFUNDO }}
+        className="presionable fixed bottom-5 right-5 z-[70] flex h-14 w-14 items-center justify-center rounded-full border-2 shadow-2xl transition-transform hover:scale-105"
+        style={{ background: ACCION, color: ACCION_TINTA, borderColor: ARO_SOBRE_OSCURO }}
       >
         {abierta ? (
           <span aria-hidden className="text-[22px] font-bold">

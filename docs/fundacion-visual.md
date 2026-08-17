@@ -24,7 +24,6 @@ duplicación que el proyecto prohíbe, y que en un mes se separa en dos copias.
 | Rol | Token Tailwind | Dentro de `.lealtad` | Fuera |
 |---|---|---|---|
 | Azul principal | `bookea-azul` | `#062653` | `#16295E` |
-| Naranja de acción | `bookea-naranja` | `#FF6A00` | `#EE7420` |
 | Gris descriptor | `bookea-gris` | `#53657F` | `#585858` |
 | Fondo claro | `bookea-fondo` | `#F5F7FA` | `#F6F6F6` |
 | Bordes | `bookea-linea` | `#DFE5EE` | `#E2E2E2` |
@@ -33,33 +32,69 @@ duplicación que el proyecto prohíbe, y que en un mes se separa en dos copias.
 
 **Nunca hardcodear un hex en JSX**: rompe el scope y el componente deja de adaptarse.
 
-### La regla del naranja (importante)
+### La acción es AZUL. El naranja es un acento.
 
-El naranja de marca **no pasa contraste como texto ni con letra blanca encima**.
-Medido:
+Acá decía lo contrario: que el relleno de toda acción era naranja con letra
+azul. Eso hacía que el módulo entero se leyera naranja — y el logotipo dice otra
+cosa. Medido pixel por pixel sobre `public/logo-bookea-v3.png`:
 
-| Combinación | Contraste | Veredicto |
+| Color | Píxeles | % del logo |
 |---|---|---|
-| `#FF6A00` como texto sobre blanco | 2.87:1 | ❌ reprueba AA |
-| Blanco sobre `#FF6A00` | 2.87:1 | ❌ reprueba AA |
-| **Azul `#062653` sobre `#FF6A00`** | **5.19:1** | ✅ |
-| **`bookea-naranja-fuerte` sobre blanco** | **6.22:1** | ✅ |
-| Gris descriptor sobre blanco | 5.94:1 | ✅ |
-| Azul sobre blanco | 14.89:1 | ✅ |
+| `#0d2f48` (navy) — la palabra «Bookea» | 139 929 | **99,8 %** |
+| `#f39200` (naranja) — el doble chevrón `»` | 707 | **0,18 %** |
 
-Entonces:
+La marca ya era azul con un acento naranja; era la interfaz la que se había
+separado del logo. De paso quedó claro que el naranja de marca **no es**
+`#FF6A00` ni `#EE7420`: es **`#f39200`**, el del chevrón.
 
-- **Botón naranja → letra azul**, no blanca.
-- **Naranja como texto** (precios, enlaces, kickers) → `bookea-naranja-fuerte`.
-- ¿Hace falta relleno naranja con letra blanca? → `bookea-naranja-fuerte`.
+**Un par por fondo, y cada par trae su letra decidida.** Lealtad alterna franjas
+blancas con franjas navy, y un solo azul no sirve para las dos: el azul oscuro
+desaparece sobre navy.
+
+| Token | Fondo donde va | Letra | Contraste |
+|---|---|---|---|
+| `--accion` `#0f4c9e` | claro | `--accion-tinta` (blanco) | **8,24:1** ✅ |
+| `--accion-hover` `#0b3a7a` | claro | blanco | **11,05:1** ✅ |
+| `--accion-claro` `#9db4ff` | navy | `--accion-claro-tinta` `#0a1226` | **9,23:1** ✅ |
+| `--accion-claro-hover` `#c2d1ff` | navy | `#0a1226` | **12,29:1** ✅ |
+
+Y el naranja, ya como acento y nunca como relleno de un CTA — con dos valores,
+porque el contraste obliga:
+
+| Token | Dónde | Contraste |
+|---|---|---|
+| `--orange` `#f39200` | acento **solo sobre oscuro** | 7,91:1 sobre navy ✅ |
+| `--orange-acento-claro` `#c96c00` | mismo papel, sobre claro | 3,73:1 (elemento de UI) ✅ |
+| `--orange-fuerte` `#a83f00` | naranja como TEXTO en claro | 6,22:1 ✅ |
+| `--orange-claro` `#ffb076` | naranja como texto en oscuro | 10,40:1 ✅ |
+
+**Pares prohibidos** (medidos, para que nadie los reinvente):
+
+| Combinación | Contraste | |
+|---|---|---|
+| `#f39200` sobre blanco | 2,35:1 | ❌ ni llega al 3:1 de un elemento de UI |
+| Blanco sobre `#FF6A00` | 2,87:1 | ❌ el bug que estuvo en producción |
+| `--accion` `#0f4c9e` sobre navy | 1,44:1 | ❌ el botón azul que se traga la franja |
+| Letra blanca sobre `--accion-claro` | 1,61:1 | ❌ |
 
 ```tsx
-// ✅ botón de acción
-<button className="presionable rounded-xl bg-bookea-naranja px-5 py-3 font-bold text-bookea-azul">
+// ✅ botón de acción sobre fondo claro
+<button
+  className="presionable rounded-xl px-5 py-3 font-bold"
+  style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+>
   Reservar
 </button>
 
-// ✅ precio
+// ✅ el mismo botón sobre una franja navy
+<button
+  className="presionable rounded-xl px-5 py-3 font-bold"
+  style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
+>
+  Reservar
+</button>
+
+// ✅ precio (naranja como texto, sobre claro)
 <span className="font-extrabold text-bookea-naranja-fuerte">₡25 000</span>
 ```
 

@@ -81,6 +81,10 @@ export async function avisarBienvenidaAlPlan(miembroId: string): Promise<void> {
     await enviarCorreo({
       to: correo,
       subject: `¡Ya sos parte del plan de lealtad de ${negocioNombre}!`,
+      // Literal y no `var(--accion)`: ningún cliente de correo soporta
+      // variables CSS. Es el mismo botón que el del correo de hito
+      // (`sello-acreditado.ts`) — azul de acción con letra blanca sobre
+      // el blanco del buzón, 8,24:1.
       html: `
         <h2 style="margin:0 0 12px;font-size:20px">🎉 ¡Bienvenido!</h2>
         <p style="margin:0 0 16px;font-size:14px;color:#555">
@@ -94,7 +98,7 @@ export async function avisarBienvenidaAlPlan(miembroId: string): Promise<void> {
         <p style="margin:0 0 20px;font-size:14px;color:#555">${escaparHtml(campos.detalle.value)}</p>
         <p style="margin:0 0 20px">
           <a href="${SITIO}/cuenta/lealtad"
-             style="display:inline-block;background:#ee7420;color:#fff;padding:12px 22px;
+             style="display:inline-block;background:#0f4c9e;color:#ffffff;padding:12px 22px;
                     border-radius:10px;font-weight:700;text-decoration:none;font-size:14px">
             Ver mi tarjeta
           </a>

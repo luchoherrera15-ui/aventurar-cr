@@ -32,7 +32,18 @@ import { Icono, type NombreIcono } from "./iconos";
  */
 
 const NAVY_PROFUNDO = "#0a1226";
-const NARANJA = "#ee7420";
+
+/* El azul de acción para fondo oscuro: la barra del menú es casi negra
+   (#070d1c) y el azul de marca desaparece ahí. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
+const ACCION_TINTE = "rgba(157,180,255,.14)";
+
+/* El naranja se quedó en UNA sola cosa de la navegación: la barrita del
+   ítem activo. Es la única marca de marca del menú —el relleno del ítem
+   ya es azul—, y así el naranja sigue significando «acá estás» en vez
+   de «esto es un botón». */
+const ACENTO = "var(--orange)";
 
 export type ItemLealtad = {
   id: string;
@@ -155,7 +166,7 @@ export default function ShellLealtad({
           >
             <span
               className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[12.5px] font-extrabold"
-              style={{ background: "rgba(238,116,32,.18)", color: NARANJA }}
+              style={{ background: ACCION_TINTE, color: ACCION }}
             >
               {iniciales(negocio.nombre) || "B"}
             </span>
@@ -199,13 +210,13 @@ export default function ShellLealtad({
                           className={`relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-bold transition-colors ${
                             esta ? "text-white" : "text-white/55 hover:bg-white/[.06] hover:text-white/85"
                           }`}
-                          style={esta ? { background: "rgba(238,116,32,.15)" } : undefined}
+                          style={esta ? { background: ACCION_TINTE } : undefined}
                         >
                           {esta && (
                             <span
                               aria-hidden
                               className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full"
-                              style={{ background: NARANJA }}
+                              style={{ background: ACENTO }}
                             />
                           )}
                           <Icono
@@ -304,8 +315,8 @@ export default function ShellLealtad({
                   <button
                     type="button"
                     onClick={salirDelMostrador}
-                    className="rounded-lg px-3 py-1.5 text-[12px] font-extrabold text-white"
-                    style={{ background: NARANJA }}
+                    className="rounded-lg px-3 py-1.5 text-[12px] font-extrabold"
+                    style={{ background: ACCION, color: ACCION_TINTA }}
                   >
                     Sí, salir
                   </button>
@@ -381,8 +392,8 @@ export default function ShellLealtad({
                         <button
                           type="button"
                           onClick={salirDelMostrador}
-                          className="rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-white"
-                          style={{ background: NARANJA }}
+                          className="rounded-xl px-5 py-2.5 text-[13px] font-extrabold"
+                          style={{ background: ACCION, color: ACCION_TINTA }}
                         >
                           Sí, salir
                         </button>

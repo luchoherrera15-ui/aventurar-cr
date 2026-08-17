@@ -105,13 +105,25 @@ export default function SelectorTipo({
             type="button"
             role="radio"
             aria-checked={elegido}
-            disabled={bloqueado}
+            // `aria-disabled` y NO `disabled`, a propósito. Un botón
+            // con `disabled` no recibe eventos de mouse ni foco en la
+            // mayoría de navegadores: el aviso de abajo —el que explica
+            // qué paquete lo abre— no aparecería nunca al pasar el
+            // mouse, y quien navega con teclado jamás llegaría a él.
+            // Con `aria-disabled` la opción sigue siendo explorable y
+            // el lector de pantalla la sigue anunciando como no
+            // disponible; que no se pueda elegir lo hace el onClick de
+            // abajo (y el servidor, que es el único que autoriza).
+            aria-disabled={bloqueado || undefined}
             // El lector de pantalla tiene que decir POR QUÉ no se puede,
             // no solo que está deshabilitado.
             aria-label={
               abre ? `${tipo.nombre} — se desbloquea con el paquete ${abre.nombre}` : undefined
             }
-            // Roving tabindex: una sola parada para las ocho.
+            // Roving tabindex: una sola parada para las ocho. Los
+            // bloqueados quedan fuera del recorrido de Tab, pero se
+            // pueden alcanzar con las flechas y con el mouse — que es
+            // donde el aviso tiene que salir.
             tabIndex={elegido || (indiceActual === -1 && primeroElegible) ? 0 : -1}
             onClick={() => {
               if (!bloqueado) alElegir(tipo.id);
@@ -124,14 +136,20 @@ export default function SelectorTipo({
                   : "border-bookea-linea bg-white hover:border-bookea-azul/40"
             }`}
           >
-            {/* El check naranja de la seleccionada. `scale` y no
-                `display`: aparecer de golpe se lee como un parpadeo. */}
+            {/* El check de la seleccionada. `scale` y no `display`:
+                aparecer de golpe se lee como un parpadeo.
+
+                El par relleno+letra va junto y por token: el disco se
+                monta en /crear (claro) y en el panel (oscuro), y
+                `.lealtad-oscuro` gira los dos a la vez. Dejar la letra
+                en `text-white` era el bug: sobre el azul claro del
+                panel oscuro daba 1,6:1. */}
             <span
               aria-hidden
-              className={`absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-full text-white transition-transform duration-200 ${
+              className={`absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-full transition-transform duration-200 ${
                 elegido ? "scale-100" : "scale-0"
               }`}
-              style={{ background: "var(--orange)" }}
+              style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
             >
               <Icono nombre="listo" className="h-3.5 w-3.5" />
             </span>
@@ -163,6 +181,31 @@ export default function SelectorTipo({
                 style={{ background: "var(--navy-suave)", color: "var(--navy)" }}
               >
                 Con {abre.nombre}
+              </span>
+            )}
+
+            {/* EL AVISO, al pasar el mouse o al llegar con el teclado.
+                La insignia de arriba dice el nombre del paquete; esto
+                dice la frase completa, que es lo que hace falta cuando
+                alguien se detiene justo en la opción que quería y no
+                entiende por qué no la puede tocar.
+
+                `group-hover` + `group-focus-visible` juntos: el mouse y
+                el teclado tienen que llegar los dos. Va `aria-hidden`
+                porque lo que anuncia el lector de pantalla es el
+                `aria-label` del botón, con el mismo contenido — sin
+                esto lo diría dos veces.
+
+                `pointer-events-none` para que el globo no se coma el
+                hover del propio botón y quede parpadeando. */}
+            {abre && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-2 bottom-full z-20 mb-1.5 rounded-xl px-3 py-2 text-[11px] font-bold leading-snug opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+                style={{ background: "var(--navy)", color: "#ffffff" }}
+              >
+                Necesitás el paquete {abre.nombre} para armar tarjetas de{" "}
+                {tipo.nombre.toLowerCase()}.
               </span>
             )}
           </button>

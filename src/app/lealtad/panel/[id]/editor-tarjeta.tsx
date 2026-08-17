@@ -341,7 +341,7 @@ function PanelBeneficio({
           {motivoBeneficio && (
             <p
               role="status"
-              className="mt-4 rounded-xl bg-bookea-naranja-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-naranja-fuerte"
+              className="mt-4 rounded-xl bg-bookea-azul-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-azul"
             >
               {motivoBeneficio}
             </p>

@@ -17,6 +17,17 @@ import FormularioSolicitud, {
  * acá sería peor que no mostrarlo).
  */
 
+/**
+ * Esta pantalla entera vive sobre navy profundo (`planes/page.tsx`), y
+ * eso decide el par de color: el azul de acción de fondo claro da
+ * 1,44:1 acá y desaparecería. Todos los botones usan el par OSCURO
+ * —relleno claro, letra navy—, y el naranja queda solo en las dos
+ * piezas que marcan lo que se gana: la insignia del plan destacado y
+ * la palomita de cada beneficio.
+ */
+const BOTON_ACCION =
+  "bg-[color:var(--accion-claro)] text-[color:var(--accion-claro-tinta)] hover:bg-[color:var(--accion-claro-hover)]";
+
 export type TarjetaPlan = {
   id: string;
   nombre: string;
@@ -70,14 +81,17 @@ export default function PlanesCliente({
             key={p.id}
             className="flex flex-col rounded-2xl border p-5"
             style={{
-              background: p.destacado ? "rgba(238,116,32,.10)" : "rgba(255,255,255,.045)",
-              borderColor: p.destacado ? "rgba(238,116,32,.5)" : "rgba(255,255,255,.12)",
+              background: p.destacado ? "rgba(157,180,255,.14)" : "rgba(255,255,255,.045)",
+              borderColor: p.destacado ? "rgba(157,180,255,.45)" : "rgba(255,255,255,.12)",
             }}
           >
             {/* «El más popular» y no «el más completo»: el destacado es
                 el del medio, y el más completo es el de arriba. */}
             {p.destacado && (
-              <span className="mb-2 self-start rounded-full bg-[#ee7420] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+              <span
+                className="mb-2 self-start rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                style={{ background: "var(--orange)", color: "#0a1226" }}
+              >
                 El más popular
               </span>
             )}
@@ -101,7 +115,7 @@ export default function PlanesCliente({
             <ul className="mt-3 flex-1 space-y-1.5">
               {p.beneficios.map((b) => (
                 <li key={b} className="flex gap-2 text-[12.5px] leading-snug text-white/75">
-                  <span className="text-[#ee7420]" aria-hidden>
+                  <span style={{ color: "var(--orange)" }} aria-hidden>
                     ✓
                   </span>
                   {b}
@@ -114,9 +128,7 @@ export default function PlanesCliente({
                 type="button"
                 onClick={() => setElegido(p.id)}
                 className={`mt-4 rounded-xl px-4 py-3 text-[13.5px] font-extrabold transition-colors ${
-                  elegido === p.id
-                    ? "bg-white text-[#0a1226]"
-                    : "bg-[#ee7420] text-white hover:brightness-110"
+                  elegido === p.id ? "bg-white text-[#0a1226]" : BOTON_ACCION
                 }`}
               >
                 {elegido === p.id
@@ -130,7 +142,7 @@ export default function PlanesCliente({
             ) : (
               <Link
                 href="/cuenta?volver=lealtad"
-                className="mt-4 rounded-xl bg-[#ee7420] px-4 py-3 text-center text-[13.5px] font-extrabold text-white"
+                className={`mt-4 rounded-xl px-4 py-3 text-center text-[13.5px] font-extrabold ${BOTON_ACCION}`}
               >
                 Entrá para solicitarlo
               </Link>
@@ -157,7 +169,7 @@ export default function PlanesCliente({
           </p>
           <Link
             href={`/lealtad/nuevo?plan=${plan.id}`}
-            className="mt-3 inline-block rounded-xl bg-[#ee7420] px-4 py-2.5 text-[13px] font-extrabold text-white hover:brightness-110"
+            className={`mt-3 inline-block rounded-xl px-4 py-2.5 text-[13px] font-extrabold ${BOTON_ACCION}`}
           >
             Armar mi tarjeta con {plan.nombre} →
           </Link>

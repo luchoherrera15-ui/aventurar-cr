@@ -97,7 +97,7 @@
    carga Montserrat.  ─────────────────────────────────────────────── */
 .lealtad {
   --navy: #062653; /* Azul principal    */
-  --orange: #ff6a00; /* Naranja de acción */
+  --orange: #f39200; /* El naranja REAL del logo; acento, no acción */
   --muted: #53657f; /* Gris descriptor   */
   --grey: #f5f7fa; /* Fondo claro       */
   --bg: #ffffff;
@@ -123,27 +123,73 @@
      distintas, y mezclarlas es lo que produjo el bug. */
   --hoja: #ffffff;
 
-  /* ── El naranja y el contraste ───────────────────────────────────
-     El naranja de marca NO pasa AA como texto ni con blanco encima:
-     da 2.87:1 en los dos casos (AA pide 4.5:1). No es opinión, es
-     medición — y la accesibilidad es requisito del módulo.
+  /* ── Azul de acción y naranja de acento ─────────────────────────
+     Por qué cambió la regla anterior: el naranja de marca era el
+     RELLENO de toda acción, y con eso el módulo entero se leía
+     naranja. El logotipo dice otra cosa —99,8 % navy, y naranja solo
+     el chevrón final—, así que la UI volvió a donde estaba la marca:
+     azul manda, el naranja marca.
 
-     Lo que sí pasa:
-       · azul #062653 sobre naranja ....... 5.19:1  ✅ botón de acción
-       · --orange-fuerte sobre blanco ..... 6.22:1  ✅ texto y enlaces
-       · blanco sobre --orange-fuerte ..... 6.22:1  ✅ botón alternativo
-       · gris #53657F sobre blanco ........ 5.94:1  ✅ texto secundario
-       · azul sobre blanco ................ 14.89:1 ✅ títulos
+     Lealtad alterna franjas BLANCAS con franjas NAVY (#0a1226,
+     #16295e). Un solo azul no sirve para las dos: el azul oscuro
+     desaparece sobre navy. Por eso hay un par por fondo, y cada par
+     viene con su letra ya decidida — el error que se quiere evitar
+     es heredar la letra navy de la regla vieja sobre un relleno
+     azul, que era ilegible. */
 
-     Regla: el naranja de marca es RELLENO con letra AZUL. Para naranja
-     como TEXTO —o relleno con letra blanca— se usa --orange-fuerte.
-     Así el color de marca queda intacto y lo que cambia es con qué se
-     empareja. */
-  --orange-fuerte: #a83f00;
-  --orange-suave: #fff1e6;
+  /* Fondo CLARO: relleno de acción + letra blanca ..... 8,24:1 ✅
+     No se usa --navy (#062653) como relleno a propósito: es el color
+     de los títulos, y un botón del mismo color que el texto deja de
+     leerse como botón. Este azul baja del navy pero con croma. */
+  --accion: #0f4c9e;
+  --accion-hover: #0b3a7a; /* letra blanca ............ 11,05:1 ✅ */
+  --accion-tinta: #ffffff;
+
+  /* Fondo OSCURO: relleno de acción + letra navy ...... 9,23:1 ✅
+     Es el mismo #9db4ff que .lealtad-oscuro ya usa para texto, borde
+     y anillo. Reusarlo evita un tercer azul en la misma pantalla. */
+  --accion-claro: #9db4ff;
+  --accion-claro-hover: #c2d1ff; /* letra navy ........ 12,29:1 ✅ */
+  --accion-claro-tinta: #0a1226;
+
+  /* Tinte INFORMATIVO (no es advertencia: el ámbar es la
+     advertencia, y hoy se confunden por ser los dos cálidos). */
+  --accion-suave: #eef3fb;
+  --accion-fuerte: #0b3168; /* sobre --accion-suave ... 11,40:1 ✅ */
+
+  /* ── El naranja, ahora acotado a ACENTO ──────────────────────────
+     Se queda, y se queda a propósito: sin él el módulo pierde la
+     marca. Pero solo en piezas chicas, y nunca como relleno de un
+     CTA. La regla vieja («relleno naranja con letra azul») sobrevive
+     intacta, solo que aplicada a insignias y discos, no a botones.
+
+     Dos valores porque el contraste obliga: #f39200 sobre blanco da
+     2,35:1 y no llega ni al 3:1 de un elemento de interfaz. El logo
+     puede —WCAG exime a los logotipos—, la UI no. */
+  --orange-acento-claro: #c96c00; /* mismo papel, sobre claro 3,73:1 */
+  --orange-fuerte: #a83f00; /* naranja como TEXTO en claro .. 6,22:1 */
+  --orange-claro: #ffb076; /* naranja como texto en oscuro . 10,40:1 */
+  --orange-suave: #fff1e6; /* solo pills de acento; ya NO avisos */
 
   font-family: var(--font-montserrat), var(--font-figtree), system-ui, sans-serif;
   color: var(--text);
+}
+
+/* ── Los dos naranjas que el scope NO puede alcanzar ───────────────
+   `@theme inline` sustituye el VALOR en la utilidad, no la variable.
+   Por eso `--color-bookea-naranja: var(--orange)` sigue al scope solo
+   (la utilidad queda como `var(--orange)`), pero
+   `--color-aventurea-orange-light: #fdeee1` quedó inlineado como
+   literal y re-declararlo dentro de `.lealtad` no hace nada.
+
+   Se corrigen por clase, que es el mismo patrón que ya usa
+   `.lealtad-oscuro` más abajo. Scopeado a `.lealtad`: el marketplace
+   los sigue viendo naranjas, que es lo que debe pasar. */
+.lealtad .bg-aventurea-orange-light {
+  background-color: var(--accion-suave);
+}
+.lealtad .text-aventurea-orange-dark {
+  color: var(--accion-fuerte);
 }
 
 /* Foco visible en todo lo enfocable DENTRO de Lealtad. Va sobre
@@ -1327,8 +1373,11 @@ body {
 .lealtad-oscuro textarea {
   color-scheme: dark;
 }
+/* La palomita nativa sigue la misma regla que cualquier relleno de
+   acción sobre fondo oscuro: el azul claro. El navegador elige solo
+   una tinta oscura para el check, que es justo el par del contrato. */
 .lealtad-oscuro input[type="checkbox"] {
-  accent-color: #ee7420;
+  accent-color: var(--accion-claro);
 }
 /* El navy corporativo desaparece sobre el navy profundo del fondo:
    se aclara para que los botones (Escanear, Invitar…) sigan siendo
@@ -1361,6 +1410,29 @@ body {
    sin parecer otro color. */
 .lealtad-oscuro {
   --hoja: #121d34;
+
+  /* ── El par de acción, resuelto por CONTENEDOR ────────────────────
+     El contrato define dos pares de azul —uno por fondo— porque el
+     azul de acción (#0f4c9e) sobre el navy profundo da 1,44:1, o sea
+     desaparece. Elegir el par a mano en cada componente es justo el
+     error que se quiere evitar: hay componentes (`selector-tipo`,
+     `paso-beneficio`) que se montan en la pantalla clara de /crear Y
+     dentro de este panel oscuro, con un solo `style` para las dos.
+
+     Re-mapeando el par acá, `var(--accion)` + `var(--accion-tinta)`
+     significa siempre «acción legible sobre el fondo en el que estoy».
+     Mismo mecanismo que las clases de arriba, y por el mismo motivo:
+     una sola copia del componente. Quien escriba `--accion-claro`
+     explícito en un archivo solo-oscuro obtiene el mismo color. */
+  --accion: var(--accion-claro);
+  --accion-hover: var(--accion-claro-hover);
+  --accion-tinta: var(--accion-claro-tinta);
+
+  /* El tinte informativo también cambia de lado: en oscuro no puede
+     ser un casi-blanco. Son los valores que ya usa
+     `.bg-bookea-azul-suave` acá abajo. */
+  --accion-suave: rgba(157, 180, 255, 0.14);
+  --accion-fuerte: #9db4ff;
 }
 
 .lealtad-oscuro .text-bookea-tinta {
@@ -1397,12 +1469,13 @@ body {
 .lealtad-oscuro .bg-bookea-azul-suave {
   background-color: rgba(157, 180, 255, 0.14);
 }
-.lealtad-oscuro .bg-bookea-naranja-suave {
-  background-color: rgba(238, 116, 32, 0.16);
-}
-.lealtad-oscuro .text-bookea-naranja-fuerte {
-  color: #ff9a4d;
-}
+/* Acá vivían `.bg-bookea-naranja-suave` y `.text-bookea-naranja-fuerte`
+   en su versión oscura. Se borraron con el paso a azul: esas cajitas
+   son avisos INFORMATIVOS y en naranja se disfrazaban de advertencia,
+   conviviendo a centímetros del ámbar que sí avisa de verdad. Ahora
+   usan `bg-bookea-azul-suave` + `text-bookea-azul`, que este mismo
+   bloque ya re-mapea más arriba — cero CSS nuevo. */
+
 /* Chips y avisos: mismo significado, versión para fondo oscuro. */
 .lealtad-oscuro .bg-aventurea-green-light {
   background-color: rgba(52, 199, 123, 0.16);
@@ -1413,13 +1486,22 @@ body {
 .lealtad-oscuro .bg-aventurea-sky-light {
   background-color: rgba(125, 178, 255, 0.16);
 }
+/* El chip «canjeado» es celeste con letra de este token: en naranja
+   quedaba un chip de dos colores que no significaban lo mismo. Pasa al
+   azul claro, igual que su hermano en claro (`.lealtad .text-aventurea-
+   orange-dark`) — el chip entero es una sola idea. */
 .lealtad-oscuro .text-aventurea-orange-dark {
-  color: #ffb076;
+  color: var(--accion-claro);
 }
 .lealtad-oscuro .bg-amber-50 {
   background-color: rgba(245, 158, 11, 0.14);
 }
-.lealtad-oscuro .text-amber-800 {
+/* El ámbar se queda: es ADVERTENCIA, no marca, y con la UI en azul por
+   fin se distingue solo. `amber-900` faltaba en el re-mapeo y pintaba
+   café oscuro (#78350f) sobre navy —ilegible en el mostrador—, así que
+   comparte la letra de `amber-800`. */
+.lealtad-oscuro .text-amber-800,
+.lealtad-oscuro .text-amber-900 {
   color: #fcd34d;
 }
 .lealtad-oscuro .bg-red-50 {

@@ -132,7 +132,7 @@ function SinBeneficio({ ranchoId }: { ranchoId: string }) {
   return (
     <div
       className="mt-3 rounded-2xl border px-4 py-3"
-      style={{ background: "rgba(238,116,32,.10)", borderColor: "rgba(238,116,32,.45)" }}
+      style={{ background: "rgba(157,180,255,.14)", borderColor: "rgba(157,180,255,.45)" }}
     >
       <p className="text-[13px] font-bold text-white">
         Esta tarjeta todavía no tiene nada que entregar
@@ -146,8 +146,8 @@ function SinBeneficio({ ranchoId }: { ranchoId: string }) {
           type="button"
           onClick={configurar}
           disabled={estado === "trabajando"}
-          className="mt-2.5 rounded-[10px] px-4 py-2.5 text-[12.5px] font-extrabold text-white disabled:opacity-40"
-          style={{ background: "#ee7420" }}
+          className="mt-2.5 rounded-[10px] px-4 py-2.5 text-[12.5px] font-extrabold disabled:opacity-40"
+          style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
         >
           {estado === "trabajando" ? "Configurando…" : "Configurarlo con el beneficio de la tarjeta"}
         </button>

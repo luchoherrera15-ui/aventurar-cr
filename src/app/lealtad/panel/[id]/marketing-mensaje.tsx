@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { enviarNotificacionPromocional } from "./marketing-actions";
 
-const NARANJA = "#ee7420";
+/* El azul de acción para fondo oscuro, con su letra navy. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
 const TOPE = 120;
 
 /**
@@ -81,8 +83,8 @@ export default function MarketingMensaje({
           type="button"
           onClick={enviar}
           disabled={ocupado || mensaje.trim().length < 3}
-          className="shrink-0 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-colors disabled:opacity-50"
-          style={{ background: NARANJA }}
+          className="shrink-0 rounded-xl px-5 py-2.5 text-[13px] font-bold transition-colors disabled:opacity-50"
+          style={{ background: ACCION, color: ACCION_TINTA }}
         >
           {ocupado ? "Enviando…" : "Enviar a todos"}
         </button>

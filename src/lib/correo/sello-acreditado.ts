@@ -200,6 +200,11 @@ export async function avisarSelloPorCorreo(miembroId: string, saldo: number): Pr
     await enviarCorreo({
       to: correo,
       subject: asunto,
+      // Los hexadecimales van literales porque ningún cliente de correo
+      // soporta variables CSS. El botón es el azul de acción sobre el
+      // blanco del buzón (#0f4c9e con letra blanca, 8,24:1). Antes era
+      // naranja con letra navy, y el correo de bienvenida usaba el mismo
+      // naranja con letra BLANCA: dos criterios para el mismo botón.
       html: `
         <p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a93a6">
           ${escaparHtml(negocioNombre)}
@@ -209,7 +214,7 @@ export async function avisarSelloPorCorreo(miembroId: string, saldo: number): Pr
         <p style="margin:0 0 22px;font-size:14.5px;line-height:1.55;color:#4b5468">${cuerpo}</p>
         <p style="margin:0 0 24px">
           <a href="${enlaceTarjeta}"
-             style="display:inline-block;background:#ee7420;color:#0a1226;padding:12px 22px;
+             style="display:inline-block;background:#0f4c9e;color:#ffffff;padding:12px 22px;
                     border-radius:10px;font-weight:800;text-decoration:none;font-size:14px">
             ${escaparHtml(cta)}
           </a>

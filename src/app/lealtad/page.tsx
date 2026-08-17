@@ -36,7 +36,24 @@ import MockupRecorrido from "./mockup-recorrido";
 
 const NAVY_PROFUNDO = "#0a1226";
 const NAVY = "#16295e";
-const NARANJA = "#ee7420";
+
+/* ── Los papeles de color de esta página ──────────────────────────
+   Antes acá vivía `const NARANJA` y todo lo que se tocaba salía de
+   ella, así que la landing entera se leía naranja. El logotipo dice
+   otra cosa —99,8 % navy y naranja solo el chevrón—, así que ahora
+   son DOS papeles distintos: azul lo que se toca, naranja lo que se
+   gana.
+
+   Los valores salen de los tokens de `.lealtad` (globals.css) y no
+   de hexadecimales sueltos: fue justamente la copia del hex la que
+   hizo que el eyebrow y el botón terminaran en naranjas distintos.
+
+   Las tres franjas navy piden la variante CLARA del azul: `--accion`
+   sobre navy da 1,44:1 y desaparece. */
+const ACCION_OSCURO = "var(--accion-claro)";
+const ACCION_OSCURO_TINTA = "var(--accion-claro-tinta)";
+const ACENTO_OSCURO = "var(--orange)"; /* el naranja del logo, solo sobre navy */
+const ACENTO_CLARO = "var(--orange-acento-claro)"; /* su gemelo legible sobre blanco */
 
 export const revalidate = 21600;
 
@@ -129,14 +146,14 @@ export default function LealtadPage() {
         <div
           aria-hidden
           className="pointer-events-none absolute left-[18%] top-[26%] h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[140px]"
-          style={{ background: NARANJA }}
+          style={{ background: ACCION_OSCURO }}
         />
 
         <div className="relative mx-auto w-[min(1180px,92vw)] py-6">
           <div className="mx-auto max-w-[790px] text-center">
             <p
               className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em]"
-              style={{ color: "#ffb98c" }}
+              style={{ color: ACCION_OSCURO }}
             >
               ✦ Tarjetas y pases para Apple y Google Wallet
             </p>
@@ -154,7 +171,10 @@ export default function LealtadPage() {
             <ul className="mx-auto mt-7 flex max-w-[52ch] flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] font-bold text-white/65">
               {["Primera tarjeta gratis", "Sin apps que instalar", "Sin tarjeta de crédito"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
-                  <span aria-hidden style={{ color: NARANJA }}>
+                  {/* La palomita se queda naranja: marca lo que el
+                      cliente GANA, que es el único trabajo que le
+                      queda al acento. */}
+                  <span aria-hidden style={{ color: ACENTO_OSCURO }}>
                     ✓
                   </span>
                   {t}
@@ -179,7 +199,7 @@ export default function LealtadPage() {
               <Link
                 href="/cuenta?volver=lealtad"
                 className="font-bold underline transition-colors hover:text-white/80"
-                style={{ color: NARANJA }}
+                style={{ color: ACCION_OSCURO }}
               >
                 Entrá acá
               </Link>
@@ -206,7 +226,7 @@ export default function LealtadPage() {
       <section id="como-funciona" className="scroll-mt-16 px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-aventurea-orange">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
               Así funciona
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
@@ -225,9 +245,12 @@ export default function LealtadPage() {
                 className="rounded-3xl border border-aventurea-line bg-white p-6 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.4)]"
                 style={{ "--reveal-delay": `${i * 80}ms` } as React.CSSProperties}
               >
+                {/* El disco del paso también se queda naranja: marca
+                    en cuál va la lectura. Sobre blanco pide el gemelo
+                    oscuro del acento —el del logo da 2,35:1 acá. */}
                 <span
                   className="grid h-10 w-10 place-items-center rounded-full text-[15px] font-extrabold"
-                  style={{ background: NARANJA, color: "#0a1226" }}
+                  style={{ background: ACENTO_CLARO, color: "#0a1226" }}
                 >
                   {i + 1}
                 </span>
@@ -235,7 +258,7 @@ export default function LealtadPage() {
                   {p.titulo}
                 </h3>
                 <p className="mt-2 text-[13.5px] leading-relaxed text-aventurea-ink-soft">{p.texto}</p>
-                <p className="mt-4 text-[12px] font-bold text-aventurea-orange">{p.detalle}</p>
+                <p className="mt-4 text-[12px] font-bold text-[color:var(--accion)]">{p.detalle}</p>
               </li>
             ))}
           </ol>
@@ -246,7 +269,7 @@ export default function LealtadPage() {
       <section className="px-5 pb-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-aventurea-orange">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
               En el mostrador
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[22ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
@@ -264,7 +287,7 @@ export default function LealtadPage() {
       <section id="soluciones" className="scroll-mt-16 bg-aventurea-sky-light/40 px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1180px]">
           <div data-reveal className="mx-auto max-w-[56ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-aventurea-orange">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
               Soluciones
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(30px,5vw,54px)] leading-[1.06] text-aventurea-navy">
@@ -283,9 +306,13 @@ export default function LealtadPage() {
                   className="rounded-3xl border border-aventurea-line bg-white p-6"
                   style={{ "--reveal-delay": `${i * 70}ms` } as React.CSSProperties}
                 >
+                  {/* Tinte informativo, no de marca: el durazno
+                      `--color-aventurea-orange-light` es un literal de
+                      `@theme` y el scope `.lealtad` no lo alcanza, así
+                      que acá se nombra el token de tinte directo. */}
                   <span
                     className="grid h-11 w-11 place-items-center rounded-2xl"
-                    style={{ background: "var(--color-aventurea-orange-light)", color: NARANJA }}
+                    style={{ background: "var(--accion-suave)", color: "var(--accion-fuerte)" }}
                   >
                     <Icono nombre={def.icono as NombreIcono} className="h-5 w-5" />
                   </span>
@@ -308,7 +335,10 @@ export default function LealtadPage() {
         <div className="mx-auto w-full max-w-[1020px]">
           <div data-reveal className="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr]">
             <div>
-              <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+              <p
+                className="text-[12px] font-bold uppercase tracking-[0.22em]"
+                style={{ color: ACCION_OSCURO }}
+              >
                 Beneficios y planes
               </p>
               <h2 className="titulo mt-4 max-w-[16ch] text-[clamp(28px,4.4vw,44px)] leading-[1.08] text-white">
@@ -327,7 +357,7 @@ export default function LealtadPage() {
               <Link
                 href="/lealtad/planes"
                 className="presionable mt-6 inline-block rounded-full px-7 py-3.5 text-[14px] font-extrabold"
-                style={{ background: NARANJA, color: "#0a1226" }}
+                style={{ background: ACCION_OSCURO, color: ACCION_OSCURO_TINTA }}
               >
                 Ver planes
               </Link>
@@ -359,7 +389,7 @@ export default function LealtadPage() {
       <section className="px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[760px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-aventurea-orange">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
               Preguntas frecuentes
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(28px,4.4vw,44px)] leading-[1.08] text-aventurea-navy">
@@ -374,7 +404,7 @@ export default function LealtadPage() {
                   {f.pregunta}
                   <span
                     aria-hidden
-                    className="shrink-0 text-[18px] font-bold text-aventurea-orange transition-transform group-open:rotate-45"
+                    className="shrink-0 text-[18px] font-bold text-[color:var(--orange-acento-claro)] transition-transform group-open:rotate-45"
                   >
                     +
                   </span>
@@ -402,7 +432,7 @@ export default function LealtadPage() {
           <Link
             href="/lealtad/nuevo"
             className="presionable mt-9 inline-block rounded-full px-9 py-4 text-[15px] font-bold transition-transform hover:scale-[1.03]"
-            style={{ background: NARANJA, color: "#0a1226" }}
+            style={{ background: ACCION_OSCURO, color: ACCION_OSCURO_TINTA }}
           >
             Crear mi programa gratis
           </Link>

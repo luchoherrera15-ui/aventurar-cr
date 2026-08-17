@@ -31,7 +31,18 @@ import { Icono } from "./iconos";
  *    prueba que nadie puede empezar es peor que no ofrecerla.
  */
 
-const NARANJA = "#ee7420";
+/* El azul de acción para fondo oscuro. La sección vive dentro del panel
+   navy —y sus cards `bg-white` ahí son blanco al 5%, o sea casi el mismo
+   fondo—, así que el azul de marca no se lee en ninguno de los dos. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
+const ACCION_TINTE = "rgba(157,180,255,.14)";
+const ACCION_BORDE = "rgba(157,180,255,.45)";
+
+/* El naranja del logo, acotado a lo que el contrato le dejó: piezas
+   chicas que marcan un logro o una recomendación. Acá es una sola —la
+   insignia «El más popular»—, y va con letra navy, nunca blanca. */
+const ACENTO = "var(--orange)";
 
 export default function SeccionPlan({
   ranchoId,
@@ -73,8 +84,8 @@ export default function SeccionPlan({
         <div
           className="rounded-2xl px-5 py-4"
           style={{
-            background: cortaHoy ? "rgba(238,116,32,.16)" : "rgba(255,255,255,.06)",
-            border: `1px solid ${cortaHoy ? NARANJA : "rgba(255,255,255,.14)"}`,
+            background: cortaHoy ? ACCION_TINTE : "rgba(255,255,255,.06)",
+            border: `1px solid ${cortaHoy ? ACCION_BORDE : "rgba(255,255,255,.14)"}`,
           }}
         >
           <p className="text-[14.5px] font-extrabold text-aventurea-ink">{restante}</p>
@@ -99,7 +110,7 @@ export default function SeccionPlan({
                 </p>
                 <span
                   className="rounded-full px-2.5 py-1 text-[11px] font-bold"
-                  style={{ background: "rgba(238,116,32,.16)", color: NARANJA }}
+                  style={{ background: ACCION_TINTE, color: ACCION }}
                 >
                   {actual.precioMensual === null
                     ? "A convenir"
@@ -231,7 +242,7 @@ function Encabezado({
     <div className="flex items-center gap-2.5">
       <span
         className="grid h-8 w-8 shrink-0 place-items-center rounded-xl"
-        style={{ background: "rgba(238,116,32,.15)", color: NARANJA }}
+        style={{ background: ACCION_TINTE, color: ACCION }}
       >
         <Icono nombre={icono} className="h-[17px] w-[17px]" />
       </span>
@@ -263,7 +274,7 @@ function Medidor({
   aviso?: boolean;
 }) {
   const pct = tope ? Math.min(100, Math.round((usado / tope) * 100)) : 0;
-  const color = alerta ? "#ef4444" : aviso ? "#f59e0b" : NARANJA;
+  const color = alerta ? "#ef4444" : aviso ? "#f59e0b" : ACCION;
 
   return (
     <div>
@@ -314,16 +325,24 @@ function TarjetaPlan({
       className="relative flex flex-col rounded-2xl border bg-white p-5"
       style={
         esActual
-          ? { borderColor: NARANJA, background: "rgba(238,116,32,.07)" }
+          ? { borderColor: ACCION_BORDE, background: ACCION_TINTE }
           : recomendado
-            ? { borderColor: "rgba(238,116,32,.45)" }
+            ? { borderColor: ACCION_BORDE }
             : undefined
       }
     >
       {(esActual || recomendado) && (
         <span
-          className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-extrabold text-white"
-          style={{ background: esActual ? "#16a34a" : NARANJA }}
+          className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-extrabold"
+          /* «Tu paquete» es verde con letra blanca; «El más popular» es
+             la insignia de acento, y sobre el naranja del logo la letra
+             blanca da 2,35:1 — va navy. Por eso la tinta es condicional
+             y no una clase suelta. */
+          style={
+            esActual
+              ? { background: "#16a34a", color: "#ffffff" }
+              : { background: ACENTO, color: ACCION_TINTA }
+          }
         >
           {esActual ? "Tu paquete" : "El más popular"}
         </span>
@@ -379,9 +398,9 @@ function TarjetaPlan({
         <Link
           href={`/lealtad/planes?negocio=${ranchoId}`}
           className={`mt-4 block rounded-xl px-3 py-2.5 text-center text-[12.5px] font-bold ${
-            recomendado ? "text-white" : "border border-aventurea-line text-aventurea-ink"
+            recomendado ? "" : "border border-aventurea-line text-aventurea-ink"
           }`}
-          style={recomendado ? { background: NARANJA } : undefined}
+          style={recomendado ? { background: ACCION, color: ACCION_TINTA } : undefined}
         >
           {def.precioMensual === 0 ? "Empezar gratis" : "Solicitar este paquete"}
         </Link>

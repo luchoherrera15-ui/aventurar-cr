@@ -5,7 +5,10 @@ import { enviarAvisoDePrueba } from "./marketing-actions";
 import type { DiagnosticoPlataforma } from "@/lib/wallet/servicio";
 import type { FilaMarketing } from "./marketing-actions";
 
-const NARANJA = "#ee7420";
+/* El azul de acción para fondo oscuro, con su letra navy. */
+const ACCION = "var(--accion-claro)";
+const ACCION_TINTA = "var(--accion-claro-tinta)";
+const ACCION_TINTE = "rgba(157,180,255,.14)";
 
 const ETIQUETA_PLATAFORMA: Record<"apple" | "google", string> = {
   apple: "Apple Wallet",
@@ -90,7 +93,7 @@ function FilaCliente({
               p.confirmadoEnTelefono === true
                 ? { background: "rgba(52,199,89,.15)", color: "#34c759" }
                 : p.confirmadoEnTelefono === false
-                  ? { background: "rgba(238,116,32,.15)", color: NARANJA }
+                  ? { background: ACCION_TINTE, color: ACCION }
                   : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.55)" };
             const titulo =
               p.confirmadoEnTelefono === true
@@ -118,8 +121,8 @@ function FilaCliente({
           type="button"
           onClick={probar}
           disabled={ocupado}
-          className="shrink-0 rounded-xl px-3.5 py-2 text-[12.5px] font-bold text-white transition-colors disabled:opacity-50"
-          style={{ background: NARANJA }}
+          className="shrink-0 rounded-xl px-3.5 py-2 text-[12.5px] font-bold transition-colors disabled:opacity-50"
+          style={{ background: ACCION, color: ACCION_TINTA }}
         >
           {ocupado ? "Enviando…" : "Probar el aviso"}
         </button>

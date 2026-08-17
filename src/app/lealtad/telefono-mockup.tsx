@@ -27,7 +27,12 @@
 
 import type { TernaColor } from "@/lib/lealtad/paletas";
 
-const NARANJA = "#ee7420";
+/* La pantalla es navy: los sellos LOGRADOS se quedan naranja —es lo que
+   el cliente ganó, y el color distingue lleno de vacío—, y el puntito de
+   cada movimiento, que no marca ningún logro, pasa al azul de acción de
+   fondo oscuro. */
+const ACENTO = "var(--orange)";
+const ACCION = "var(--accion-claro)";
 
 export default function TelefonoMockup({
   children,
@@ -228,7 +233,7 @@ export function PantallaWallet({
                       height: 11,
                       width: 11,
                       borderRadius: 999,
-                      background: NARANJA,
+                      background: ACENTO,
                       opacity: i < sellos[0] ? 1 : 0.18,
                       animationDelay: `${i * 110}ms`,
                     }}
@@ -306,7 +311,7 @@ export function PantallaWallet({
                   <span
                     aria-hidden
                     className="h-[5px] w-[5px] shrink-0 rounded-full"
-                    style={{ background: NARANJA }}
+                    style={{ background: ACCION }}
                   />
                   <span className="min-w-0 flex-1 truncate text-[7.5px] text-white/70">
                     {m.texto}

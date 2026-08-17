@@ -108,7 +108,13 @@ export default function TarjetaLealtad({
               <Link
                 href={`/tarjeta/${slug}`}
                 className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold"
-                style={{ background: "#FF6A00", color: "#062653" }}
+                // Azul de acción sobre oscuro + letra navy: los valores
+                // de `--accion-claro`/`--accion-claro-tinta` del scope
+                // .lealtad, escritos como literales porque este bloque
+                // vive en una ruta del marketplace, fuera de ese scope.
+                // Antes era relleno naranja con letra azul — la regla
+                // vieja, cuando la acción era naranja. 9,23:1.
+                style={{ background: "#9db4ff", color: "#0a1226" }}
               >
                 Solicitar mi tarjeta →
               </Link>
@@ -141,7 +147,10 @@ export default function TarjetaLealtad({
                     <span
                       key={i}
                       className="h-3 w-3 rounded-full"
-                      style={{ background: "#FF6A00", opacity: 0.25 }}
+                      // Los sellos SÍ se quedan naranjas: son el acento
+                      // de marca, la pieza chica. Con el naranja real
+                      // del logotipo (#f39200), no el retirado #FF6A00.
+                      style={{ background: "#f39200", opacity: 0.25 }}
                     />
                   ))}
                 </div>

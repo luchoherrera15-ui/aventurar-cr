@@ -77,6 +77,19 @@ async function slugDelNegocio(ranchoId: string): Promise<string | null> {
  * es porque algo bastante básico no está (la llave de servicio, el
  * negocio, su dirección), y esta página tiene que salir igual.
  */
+/*
+ * El enlace va en #9db4ff: el azul claro de acción sobre fondo oscuro
+ * (el valor de `--accion-claro` del scope .lealtad). Escrito como
+ * literal y no como var() a propósito — esto es un HTML suelto que se
+ * sirve sin la hoja de estilos del sitio, así que acá no existe ningún
+ * token. Antes era el naranja retirado #ee7420.
+ *
+ * Y la explicación vive ACÁ AFUERA, no dentro del texto de abajo: ese
+ * texto es un template literal, un comentario con acentos graves lo
+ * cierra antes de tiempo y rompe el archivo entero (ya pasó). De paso,
+ * un comentario adentro viajaría al navegador de cada cliente que vea
+ * esta pantalla de error.
+ */
 const HTML_DE_RESPALDO = `<!doctype html>
 <html lang="es">
 <head>
@@ -90,7 +103,7 @@ const HTML_DE_RESPALDO = `<!doctype html>
   .caja { max-width:24rem; text-align:center; }
   h1 { font-size:1.25rem; margin:0 0 .75rem; }
   p { font-size:.9rem; line-height:1.6; color:rgba(255,255,255,.7); margin:0 0 1rem; }
-  a { color:#ee7420; font-weight:700; }
+  a { color:#9db4ff; font-weight:700; }
 </style>
 </head>
 <body>

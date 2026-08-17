@@ -165,8 +165,8 @@ export default function CreadorTarjeta({
         </p>
         <a
           href={`/lealtad/panel/${ranchoId}#poster`}
-          className="presionable mt-5 inline-block rounded-xl px-5 py-3 text-[13.5px] font-extrabold text-bookea-azul"
-          style={{ background: "var(--orange)" }}
+          className="presionable mt-5 inline-block rounded-xl px-5 py-3 text-[13.5px] font-extrabold"
+          style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
         >
           Ver mi QR →
         </a>
@@ -183,7 +183,7 @@ export default function CreadorTarjeta({
             <li key={p.id} className="flex-1">
               <span
                 className="block h-1.5 rounded-full transition-colors duration-300"
-                style={{ background: i <= paso ? "var(--orange)" : "var(--line)" }}
+                style={{ background: i <= paso ? "var(--accion)" : "var(--line)" }}
               />
               <span className="sr-only">
                 {p.titulo}
@@ -318,7 +318,7 @@ export default function CreadorTarjeta({
             {motivoBeneficio && (
               <p
                 role="status"
-                className="mt-4 rounded-xl bg-bookea-naranja-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-naranja-fuerte"
+                className="mt-4 rounded-xl bg-bookea-azul-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-azul"
               >
                 {motivoBeneficio}
               </p>
@@ -413,8 +413,8 @@ export default function CreadorTarjeta({
               type="button"
               onClick={() => setPaso((p) => p + 1)}
               disabled={!puedeSeguir}
-              className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-bookea-azul disabled:opacity-40"
-              style={{ background: "var(--orange)" }}
+              className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold disabled:opacity-40"
+              style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
             >
               Continuar
             </button>
@@ -423,8 +423,8 @@ export default function CreadorTarjeta({
               type="button"
               onClick={publicar}
               disabled={guardando || motivoBeneficio !== null || !nombre.trim()}
-              className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-bookea-azul disabled:opacity-40"
-              style={{ background: "var(--orange)" }}
+              className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold disabled:opacity-40"
+              style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
             >
               {guardando ? "Publicando…" : "Publicar tarjeta"}
             </button>
@@ -524,7 +524,7 @@ function Resumen({
         ))}
       </dl>
       {motivo && (
-        <p className="mt-4 rounded-xl bg-bookea-naranja-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-naranja-fuerte">
+        <p className="mt-4 rounded-xl bg-bookea-azul-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-azul">
           Falta algo en el beneficio: {motivo}
         </p>
       )}

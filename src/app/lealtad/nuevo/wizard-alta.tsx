@@ -345,7 +345,24 @@ export default function WizardAlta({
       destino === "logo" ? { conservarAlfa: true } : undefined,
     );
     const ext = liviano.name.split(".").pop()?.toLowerCase() || (destino === "logo" ? "png" : "jpg");
-    const path = `${destino === "logo" ? "logos-negocio" : "bandas-negocio"}/alta-${Date.now()}.${ext}`;
+    // LAS DOS VAN A `logos-negocio/`, Y NO ES DESPROLIJIDAD.
+    //
+    // La banda subía a `bandas-negocio/` y SIEMPRE fallaba con «No
+    // pudimos subir la banda». La causa no estaba acá: la migración
+    // 0148 (auditoría de seguridad) acotó las subidas anónimas al
+    // bucket `comprobantes` a cuatro carpetas —solicitudes-lealtad/,
+    // logos-negocio/, pedidos-invitacion/ y AAAA-MM-DD/— para que
+    // nadie escriba en la raíz ni invente carpetas. `bandas-negocio/`
+    // no existía cuando se escribió esa lista, porque la banda es
+    // posterior: el comentario de la 0148 dice, textual,
+    // «logos-negocio/ → el logo del pase, wizard-alta.tsx».
+    //
+    // Se resuelve del lado del código y no con una migración nueva a
+    // propósito: agregar una carpeta a la política obliga al dueño a
+    // pegar SQL en producción para arreglar algo que ya está roto, y
+    // deja la puerta rota hasta que lo haga. El prefijo del nombre
+    // distingue las dos igual de bien.
+    const path = `logos-negocio/${destino === "logo" ? "logo" : "banda"}-${Date.now()}.${ext}`;
     const { error: e } = await supabase.storage.from("comprobantes").upload(path, liviano);
     if (e) return null;
     const { data } = supabase.storage.from("comprobantes").getPublicUrl(path);
@@ -525,8 +542,8 @@ export default function WizardAlta({
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <a
             href={`/lealtad/planes?negocio=${rancho.id}`}
-            className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-bookea-azul"
-            style={{ background: "var(--orange)" }}
+            className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold"
+            style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
           >
             Ver paquetes →
           </a>
@@ -555,8 +572,8 @@ export default function WizardAlta({
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <a
             href={`/lealtad/panel/${exito.ranchoId}`}
-            className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-bookea-azul"
-            style={{ background: "var(--orange)" }}
+            className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold"
+            style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
           >
             Ir a mi panel →
           </a>
@@ -626,7 +643,7 @@ export default function WizardAlta({
             <li key={p} className="flex-1">
               <span
                 className="block h-1.5 rounded-full transition-colors duration-300"
-                style={{ background: i <= paso ? "var(--orange)" : "var(--line)" }}
+                style={{ background: i <= paso ? "var(--accion)" : "var(--line)" }}
               />
               <span className="sr-only">
                 {titulos[p].titulo}
@@ -793,7 +810,7 @@ export default function WizardAlta({
                   {motivoBeneficio && (
                     <p
                       role="status"
-                      className="rounded-xl bg-bookea-naranja-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-naranja-fuerte"
+                      className="rounded-xl bg-bookea-azul-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-azul"
                     >
                       {motivoBeneficio}
                     </p>
@@ -1094,8 +1111,8 @@ export default function WizardAlta({
               <button
                 type="submit"
                 disabled={!puedeAvanzar[pantalla]}
-                className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-bookea-azul disabled:opacity-40"
-                style={{ background: "var(--orange)" }}
+                className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold disabled:opacity-40"
+                style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
               >
                 Continuar
               </button>
@@ -1103,8 +1120,8 @@ export default function WizardAlta({
               <button
                 type="submit"
                 disabled={!puedePublicar}
-                className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-bookea-azul disabled:opacity-40"
-                style={{ background: "var(--orange)" }}
+                className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold disabled:opacity-40"
+                style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
               >
                 {ocupado
                   ? soloTarjeta || plan.esGratis
@@ -1318,7 +1335,7 @@ function Resumen({
         ))}
       </dl>
       {motivo && (
-        <p className="mt-4 rounded-xl bg-bookea-naranja-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-naranja-fuerte">
+        <p className="mt-4 rounded-xl bg-bookea-azul-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-azul">
           Falta algo en el beneficio: {motivo}
         </p>
       )}
