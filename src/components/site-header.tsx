@@ -13,6 +13,7 @@ export default async function SiteHeader({
   breadcrumb,
   ancho = "max-w-[1600px]",
   extra,
+  extraCentrado = false,
   conPublicar = true,
 }: {
   /** Texto después de la barra, ej. "Eventos", "Rancho de Eventos". */
@@ -20,6 +21,20 @@ export default async function SiteHeader({
   ancho?: string;
   /** Nav propia de la página (links de ancla, "volver al directorio"...). */
   extra?: ReactNode;
+  /**
+   * `extra` al MEDIO del header en vez de pegado a la derecha.
+   *
+   * Es un prop y no el comportamiento por defecto porque las otras dos
+   * pantallas que usan `extra` le pasan una barra de pestañas que
+   * pertenece a la derecha, junto a las acciones. Centrar por defecto
+   * las movería a las dos sin que nadie lo pidiera.
+   *
+   * Solo la portada lo enciende: ahí `extra` son las puertas del
+   * marketplace, o sea la navegación principal del sitio, y esa va al
+   * medio — es la posición que el ojo busca en un header de tres
+   * columnas.
+   */
+  extraCentrado?: boolean;
   /** false = sin el link "Publicá tu espacio" (páginas de proveedor,
    * donde el header ya carga bastante; el link sigue en el menú). */
   conPublicar?: boolean;
@@ -70,8 +85,15 @@ export default async function SiteHeader({
           )}
         </Link>
 
+        {/* La columna del medio. Existe solo cuando alguien la pide, y
+            va con `min-w-0` para que si la nav no entra se encoja ella
+            en vez de empujar el logo o las acciones fuera del header. */}
+        {extraCentrado && (
+          <div className="flex min-w-0 flex-1 items-center justify-center">{extra}</div>
+        )}
+
         <div className="flex shrink-0 items-center gap-3 sm:gap-5">
-          {extra}
+          {!extraCentrado && extra}
           {conPublicar && (
             <Link
               href={yaPublica ? "/mi-negocio" : "/publicar"}

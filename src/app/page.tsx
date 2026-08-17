@@ -14,7 +14,6 @@ import ComoFunciona from "@/components/home/como-funciona";
 import BloqueNegocios from "@/components/home/bloque-negocios";
 import BloqueSoluciones from "@/components/home/bloque-soluciones";
 import BuscadorHome from "@/components/buscador-home";
-import GrillaCategorias from "@/components/grilla-categorias";
 import NegociosDestacados from "@/components/negocios-destacados";
 import { estiloRevelado } from "@/components/revelar";
 import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
@@ -22,13 +21,7 @@ import { urlSitio } from "@/lib/sitio";
 import { paisDelVisitante } from "@/lib/pais-visitante";
 import type { CodigoPais } from "@/lib/paises";
 import { leerDatosHome } from "./home-datos";
-import { RielLoNuevo } from "./home-secciones";
-import {
-  Bloque,
-  EsqueletoDestacados,
-  EsqueletoGrillaCategorias,
-  EsqueletoRiel,
-} from "./esqueleto";
+import { Bloque, EsqueletoDestacados } from "./esqueleto";
 
 /**
  * ============================================================
@@ -192,14 +185,29 @@ export default async function Home() {
           como un error. De paso se salta la consulta
           `tieneNegocioPropio()` — una ida menos a la base en la URL más
           visitada del sitio. */}
-      <SiteHeader ancho="max-w-[1200px]" extra={<NavHome />} conPublicar={false} />
+      <SiteHeader
+        ancho="max-w-[1200px]"
+        extra={<NavHome />}
+        extraCentrado
+        conPublicar={false}
+      />
 
       <Hero />
       <Buscador pais={pais} />
       <Destacados />
-      <SeccionExplorar />
-      <SeccionLoNuevo />
+      {/* Acá iban «¿Qué querés hacer hoy?» (las dos grillas de categoría)
+          y el riel «Lo nuevo en Bookea». Los sacó el dueño: estorbaban.
+          Y tenía razón en lo estructural — las dos repetían lo que ya
+          hacen sus vecinas. «Negocios destacados» arriba ya muestra
+          negocios de verdad con su rubro encima, y `TarjetasVertical`
+          justo abajo ya bifurca entre Citas y Eventos, que era el trabajo
+          de las grillas. Tres bloques de navegación seguidos antes de
+          llegar a nada concreto es lo que hacía larga la portada.
+          El único enlace a /restaurantes vivía adentro de la grilla y se
+          rescató: ahora va debajo de las tarjetas de vertical, que es
+          donde se elige a dónde ir. */}
       <TarjetasVertical />
+      <PuertaRestaurantes />
       <ComoFunciona />
       <BloqueSoluciones />
       <SeccionProvincias />
@@ -463,130 +471,38 @@ async function DestacadosConDatos() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   4 · ¿QUÉ QUERÉS HACER HOY?  (`section.compact#explorar`)
+   4 · LA PUERTA A RESTAURANTES
    ═══════════════════════════════════════════════════════════════════ */
 
 /**
- * Las dos grillas de categoría, una por vertical.
+ * Una línea, y existe por una razón concreta: sin esto `/restaurantes`
+ * NO está enlazado desde la portada.
  *
- * ⚠️ La maqueta pinta SEIS tarjetas con foto: Belleza, Bienestar,
- * Salud, Eventos, Gastronomía y Escapadas. Cuatro de esas seis NO son
- * categorías de esta plataforma —«Bienestar», «Salud», «Gastronomía» y
- * «Escapadas» no están en ninguna taxonomía— e inventar categorías está
- * prohibido por CLAUDE.md. `GrillaCategorias` las saca de
- * `categoriaOptions(vertical)`, o sea de la taxonomía oficial, y por eso
- * son dos grillas y no una: Citas y Eventos tienen seis categorías cada
- * una y ninguna puede quedar invisible en la portada.
+ * Vivía dentro de la grilla de categorías, y cuando esa grilla se quitó
+ * se habría ido con ella sin que nadie lo notara — los restaurantes son
+ * la vertical con más negocios publicados y habrían quedado sin puerta
+ * de entrada. Va debajo de las tarjetas de vertical porque ahí es donde
+ * la persona está eligiendo a dónde ir; suelta en cualquier otro lado
+ * sería una línea huérfana.
  *
- * Tampoco hay fotos por rubro: en la base las imágenes son de un
- * negocio, no de una categoría. La grilla usa los gradientes e íconos
- * propios del sistema, que es dato cierto y estética de la marca.
+ * Es texto y no una tercera tarjeta a propósito: darle el mismo peso
+ * visual que a Citas y Eventos diría que son tres caminos iguales, y no
+ * lo son — el marketplace se vende por esos dos.
  */
-function SeccionExplorar() {
+function PuertaRestaurantes() {
   return (
-    <section id="explorar" className="px-4 py-14 sm:px-6 sm:py-16 lg:px-10">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-14">
-        <Suspense
-          fallback={
-            <>
-              <EsqueletoGrillaCategorias />
-              <EsqueletoGrillaCategorias />
-            </>
-          }
-        >
-          <Categorias />
-        </Suspense>
-      </div>
-    </section>
-  );
-}
-
-async function Categorias() {
-  const { conteos } = await datosDeLaPortada();
-
-  return (
-    <>
-      <GrillaCategorias
-        vertical="citas"
-        kicker="Explorá Bookea"
-        titulo="¿Qué querés hacer hoy?"
-        descripcion="Empezá por una categoría y reservá con profesionales de todo el país."
-        conteos={conteos.citas}
-        verTodoHref="/citas"
-      />
-
-      <GrillaCategorias
-        vertical="eventos"
-        kicker="Todo para tu evento"
-        titulo="Armá tu evento, proveedor por proveedor"
-        descripcion="Encontrá espacios, talento y servicios para convertir tu idea en una celebración real."
-        conteos={conteos.eventos}
-        verTodoHref="/eventos"
-      />
-
-      {/* Los restaurantes son una parte grande de los negocios
-          publicados y las dos grillas de arriba los dejan afuera. No
-          merecen una tercera grilla —la portada ya trae doce tarjetas de
-          categoría— pero sí una puerta: sin esto, `/restaurantes` no
-          está enlazado desde la portada. */}
-      <p className="text-center text-[13.5px] text-aventurea-ink-soft">
+    <section className="px-4 pb-4 sm:px-6 lg:px-10">
+      <p className="mx-auto max-w-[1200px] text-center text-[13.5px] text-aventurea-ink-soft">
         ¿Buscás dónde comer?{" "}
         <Link
           href="/restaurantes"
-          className="inline-flex items-center gap-1 font-bold text-aventurea-navy underline underline-offset-4 hover:text-aventurea-orange"
+          className="inline-flex items-center gap-1 font-bold text-aventurea-navy underline underline-offset-4 hover:text-bookea-naranja-fuerte"
         >
           Ver restaurantes
           <IconChevronRight className="h-3.5 w-3.5" />
         </Link>
       </p>
-    </>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   5 · LO NUEVO EN BOOKEA  (`section.soft#recomendados`)
-   ═══════════════════════════════════════════════════════════════════ */
-
-/**
- * El riel de negocios sobre el fondo `soft` de la maqueta (acá,
- * `cream`: el gris del sistema propio).
- *
- * ⚠️ La maqueta titula la sección «Planes cerca de tu ubicación» y le
- * pone una fila de filtros: «Todos · Disponible hoy · Mejor valorados ·
- * Belleza · Bienestar · Eventos». No se construyeron. «Disponible hoy»
- * y «Mejor valorados» filtran sobre datos que no existen —cero reseñas,
- * cero disponibilidad transversal— y las categorías ya tienen su propia
- * grilla justo arriba, con conteos reales y sin JavaScript. El título
- * es «Lo nuevo en Bookea» porque `created_at desc` es el único orden que
- * los datos sostienen.
- */
-function SeccionLoNuevo() {
-  return (
-    <section className="bg-aventurea-cream px-4 py-14 sm:px-6 sm:py-16 lg:px-10">
-      <div className="mx-auto max-w-[1200px]">
-        <Suspense fallback={<EsqueletoRiel />}>
-          <LoNuevo />
-        </Suspense>
-      </div>
     </section>
-  );
-}
-
-async function LoNuevo() {
-  const { nuevos, verTodoNuevos, favoritosIds, sesionActiva } = await datosDeLaPortada();
-
-  return (
-    <RielLoNuevo
-      nuevos={nuevos}
-      verTodoHref={verTodoNuevos}
-      favoritosIds={favoritosIds}
-      sesionActiva={sesionActiva}
-      // La foto prioritaria de la portada es la primera tarjeta de
-      // «Negocios destacados», mucho más arriba. Marcar también acá una
-      // como prioritaria sería sumar otra imagen a la pelea con el
-      // héroe, que es exactamente lo que Google mide.
-      prioridad={false}
-    />
   );
 }
 

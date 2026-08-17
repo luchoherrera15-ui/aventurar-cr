@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { ID_COMO_FUNCIONA } from "./como-funciona";
+import {
+  IconCalendarLine,
+  IconCelebrate,
+  IconCompass,
+  IconStore,
+} from "@/components/icons";
 
 /**
  * Los links de la nav del home. NO es un header: se le pasan al prop
@@ -32,21 +38,39 @@ import { ID_COMO_FUNCIONA } from "./como-funciona";
  * y no se leían como los botones que son. Las de categoría van en
  * burbuja; las otras, en texto.
  */
-type Link = { href: string; texto: string; categoria?: true };
+/**
+ * EL ÍCONO VA ADELANTE DEL TEXTO, Y ES DECORATIVO.
+ *
+ * Cada uno se eligió porque representa lo que hay del otro lado, no por
+ * rellenar: un calendario para reservar una cita, una celebración para
+ * eventos, una brújula para «cómo funciona» y una tienda para el lado
+ * del negocio. Un ícono que no dice nada es peor que ninguno — le suma
+ * ruido a un renglón que se lee de reojo.
+ *
+ * Van `aria-hidden` porque el texto de al lado ya dice lo mismo: un
+ * lector de pantalla que anuncie «imagen, calendario, Citas y
+ * servicios» hace más lento el recorrido sin agregar información.
+ */
+type Link = {
+  href: string;
+  texto: string;
+  Icono: (p: { className?: string }) => React.ReactElement;
+  categoria?: true;
+};
 
 const LINKS: Link[] = [
-  { href: "/citas", texto: "Citas y servicios", categoria: true },
-  { href: "/eventos", texto: "Eventos", categoria: true },
+  { href: "/citas", texto: "Citas y servicios", Icono: IconCalendarLine, categoria: true },
+  { href: "/eventos", texto: "Eventos", Icono: IconCelebrate, categoria: true },
   // Ancla, no ruta: la sección vive en esta misma página. El id sale de
   // quien lo pinta, para que no se despareje si alguien lo renombra.
-  { href: `#${ID_COMO_FUNCIONA}`, texto: "Cómo funciona" },
+  { href: `#${ID_COMO_FUNCIONA}`, texto: "Cómo funciona", Icono: IconCompass },
   // OJO, fase de ensamble: `SiteHeader` ya muestra a la derecha su
   // propio "Publicá tu espacio" (o "Manejá tu espacio" si la persona ya
   // publicó). Si en pantalla los dos juntos se leen redundantes, la
   // palanca es `conPublicar={false}` en el SiteHeader del home — el
   // atajo sigue estando en el menú de cuenta y en el aviso de arriba,
   // así que no se pierde ninguna puerta.
-  { href: "/publicar", texto: "Para negocios" },
+  { href: "/publicar", texto: "Para negocios", Icono: IconStore },
 ];
 
 export default function NavHome() {
@@ -66,10 +90,14 @@ export default function NavHome() {
               href={link.href}
               className={
                 link.categoria
-                  ? "presionable whitespace-nowrap rounded-xl border border-aventurea-line bg-white px-3.5 py-2 text-[13.5px] font-extrabold text-aventurea-navy transition-colors hover:border-aventurea-navy/40 hover:bg-aventurea-navy/[0.04]"
-                  : "whitespace-nowrap px-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+                  ? "presionable inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-aventurea-line bg-white px-3.5 py-2 text-[13.5px] font-extrabold text-aventurea-navy transition-colors hover:border-aventurea-navy/40 hover:bg-aventurea-navy/[0.04]"
+                  : "inline-flex items-center gap-1.5 whitespace-nowrap px-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
               }
             >
+              {/* `shrink-0` para que el ícono no se aplaste cuando la
+                  nav se comprime en la columna del medio: un ícono
+                  deformado se nota más que uno chico. */}
+              <link.Icono className="h-[15px] w-[15px] shrink-0" />
               {link.texto}
             </Link>
           </span>
