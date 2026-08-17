@@ -12,7 +12,7 @@ import { FICHAS } from "./contenido-tipos";
 import { Icono, type NombreIcono } from "./panel/[id]/iconos";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
-import MockupPase from "./mockup-pase";
+import ConfiguradorLealtad from "./configurador-lealtad";
 import MockupRecorrido from "./mockup-recorrido";
 
 /**
@@ -132,24 +132,27 @@ export default function LealtadPage() {
           style={{ background: NARANJA }}
         />
 
-        <div className="relative mx-auto grid w-[min(1180px,92vw)] items-center gap-12 py-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
-          <div className="text-center lg:text-left">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
-              Bookea Lealtad
+        <div className="relative mx-auto w-[min(1180px,92vw)] py-6">
+          <div className="mx-auto max-w-[790px] text-center">
+            <p
+              className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em]"
+              style={{ color: "#ffb98c" }}
+            >
+              ✦ Tarjetas y pases para Apple y Google Wallet
             </p>
 
             <h1 className="titulo mt-5 text-balance text-[clamp(34px,5.4vw,58px)] leading-[1.03]">
               Hacé que cada visita se convierta en la próxima.
             </h1>
 
-            <p className="mx-auto mt-5 max-w-[52ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60 lg:mx-0">
+            <p className="mx-auto mt-5 max-w-[58ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60">
               Bookea Lealtad le da a cada cliente una tarjeta en el teléfono —Apple Wallet y
-              Google Wallet— que suma sellos o puntos en cada visita y se actualiza sola. Nada
-              que instalar, nada de cartón que se pierde.
+              Google Wallet— que suma sellos o puntos en cada visita y se actualiza sola. Armala
+              acá mismo y mirá cómo queda, antes de crear cuenta.
             </p>
 
-            <ul className="mx-auto mt-7 flex max-w-[52ch] flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] font-bold text-white/65 lg:mx-0 lg:justify-start">
-              {["Sin apps que instalar", "Sin contratos", "Sin tarjeta de crédito"].map((t) => (
+            <ul className="mx-auto mt-7 flex max-w-[52ch] flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] font-bold text-white/65">
+              {["Primera tarjeta gratis", "Sin apps que instalar", "Sin tarjeta de crédito"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
                   <span aria-hidden style={{ color: NARANJA }}>
                     ✓
@@ -158,29 +161,20 @@ export default function LealtadPage() {
                 </li>
               ))}
             </ul>
+          </div>
 
-            <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
-              <Link
-                href="/lealtad/nuevo"
-                className="presionable w-full rounded-full px-8 py-4 text-center text-[15px] font-extrabold sm:w-auto"
-                style={{ background: NARANJA, color: "#0a1226" }}
-              >
-                Crear mi programa gratis
-              </Link>
-              <a
-                href="#como-funciona"
-                className="presionable w-full rounded-full border border-white/25 px-7 py-4 text-center text-[14.5px] font-bold text-white/90 sm:w-auto"
-              >
-                Ver cómo funciona
-              </a>
-            </div>
+          <div className="mt-12">
+            <ConfiguradorLealtad />
+          </div>
 
-            <p className="mt-4 text-[14.5px] font-bold leading-snug text-white/75">
-              <span style={{ color: NARANJA }}>En menos de 10 minutos</span> lo tenés listo y
-              configurado.
-            </p>
-
-            <p className="mt-6 text-[13px] text-white/40">
+          <div className="mt-8 flex flex-col items-center gap-2 text-center">
+            <a
+              href="#como-funciona"
+              className="presionable rounded-full border border-white/25 px-6 py-3 text-[13.5px] font-bold text-white/90"
+            >
+              Ver cómo funciona
+            </a>
+            <p className="mt-2 text-[13px] text-white/40">
               ¿Ya tenés el programa?{" "}
               <Link
                 href="/cuenta?volver=lealtad"
@@ -191,9 +185,19 @@ export default function LealtadPage() {
               </Link>
             </p>
           </div>
+        </div>
+      </section>
 
-          <div className="relative">
-            <MockupPase />
+      {/* ================= COMPATIBILIDAD (claro) ================= */}
+      <section className="px-5 py-6 sm:px-8">
+        <div className="mx-auto flex w-full max-w-[1120px] flex-col items-center justify-between gap-4 rounded-2xl border border-aventurea-line bg-white px-6 py-5 shadow-[0_16px_38px_-28px_rgba(16,47,82,0.3)] sm:flex-row">
+          <p className="text-[13px] font-extrabold text-aventurea-navy">
+            Una tarjeta. Dos wallets. Cero aplicaciones nuevas.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12.5px] font-bold text-aventurea-ink-soft">
+            <span> Apple Wallet</span>
+            <span>◉ Google Wallet</span>
+            <span>▦ Código QR</span>
           </div>
         </div>
       </section>
