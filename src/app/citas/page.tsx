@@ -16,6 +16,7 @@ import {
   normalizarCategoriaCita,
   type CategoriaCita,
 } from "./tipos";
+import { PROVINCIAS, type Provincia } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
 
 export const metadata: Metadata = {
@@ -86,7 +87,11 @@ function unSolo(v: string | string[] | undefined): string | undefined {
 export default async function CitasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ categoria?: string | string[]; q?: string | string[] }>;
+  searchParams: Promise<{
+    categoria?: string | string[];
+    q?: string | string[];
+    provincia?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const categoriaParam = unSolo(params.categoria);
@@ -96,6 +101,20 @@ export default async function CitasPage({
     ? (categoriaParam as CategoriaCita)
     : undefined;
   const busqueda = (unSolo(params.q) ?? "").trim();
+  /**
+   * El "¿Dónde?" del buscador de la portada llega por acá.
+   *
+   * Se valida contra las 7 provincias oficiales —las mismas del CHECK
+   * de la columna— y lo que no coincida se ignora en vez de filtrar por
+   * una cadena inventada: `?provincia=Miami` mostraría cero negocios y
+   * parecería que el directorio está vacío. Se compara exacto (con
+   * tildes y mayúsculas) porque así se guarda en la base: el valor sale
+   * de un `<select>` armado con esta misma lista.
+   */
+  const provinciaParam = unSolo(params.provincia);
+  const provincia = (PROVINCIAS as readonly string[]).includes(provinciaParam ?? "")
+    ? (provinciaParam as Provincia)
+    : undefined;
 
   return (
     <div className="relative min-h-screen bg-aventurea-cream-2">
@@ -110,8 +129,15 @@ export default async function CitasPage({
           <SelectorVertical activo="citas" />
         </div>
 
-        <Suspense key={`${categoria ?? ""}|${busqueda}`} fallback={<EsqueletoCitas />}>
-          <ContenidoCitas categoria={categoria} busqueda={busqueda} />
+        <Suspense
+          key={`${categoria ?? ""}|${busqueda}|${provincia ?? ""}`}
+          fallback={<EsqueletoCitas />}
+        >
+          <ContenidoCitas
+            categoria={categoria}
+            busqueda={busqueda}
+            provincia={provincia}
+          />
         </Suspense>
       </section>
 
@@ -144,9 +170,11 @@ function EsqueletoCitas() {
 async function ContenidoCitas({
   categoria,
   busqueda,
+  provincia,
 }: {
   categoria: CategoriaCita | undefined;
   busqueda: string;
+  provincia: Provincia | undefined;
 }) {
   const supabase = await createClient();
 
@@ -168,12 +196,18 @@ async function ContenidoCitas({
     ((califData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
   );
 
+  // La zona se aplica primero, y sobre ella todo lo demás: así los
+  // conteos de los chips, las filas por categoría y el "N resultados"
+  // hablan siempre de la misma lista. Se compara contra la columna
+  // `provincia` tal cual la guarda el negocio.
+  const enZona = provincia ? negocios.filter((n) => n.provincia === provincia) : negocios;
+
   // El buscador filtra por nombre, zona, rubro o descripción. Se
   // aplica ANTES que la categoría para que los conteos de los chips
   // prometan exactamente lo que el clic entrega.
   const aguja = normalizarBusqueda(busqueda);
   const baseBusqueda = aguja
-    ? negocios.filter((n) =>
+    ? enZona.filter((n) =>
         normalizarBusqueda(
           [
             n.nombre,
@@ -184,7 +218,7 @@ async function ContenidoCitas({
           ].join(" "),
         ).includes(aguja),
       )
-    : negocios;
+    : enZona;
 
   const filtrados = categoria
     ? baseBusqueda.filter((n) => n.categoria === categoria)
@@ -196,10 +230,11 @@ async function ContenidoCitas({
   });
 
   // Vista de filas (sin filtro ni búsqueda): una línea por categoría,
-  // en el orden oficial, saltando las vacías.
+  // en el orden oficial, saltando las vacías. Sobre `enZona`, no sobre
+  // todos: con una provincia elegida, las filas también son de ahí.
   const filas = CATEGORIAS_CITAS.map((c) => ({
     categoria: c,
-    items: negocios.filter((n) => n.categoria === c),
+    items: enZona.filter((n) => n.categoria === c),
   })).filter((f) => f.items.length > 0);
 
   const vistaFilas = !categoria && !aguja;
@@ -214,6 +249,7 @@ async function ContenidoCitas({
           placeholder='Buscá por nombre, zona o rubro — ej. "uñas" o "Moravia"'
           categoria={categoria}
           busqueda={busqueda}
+          provincia={provincia}
           resultados={filtrados.length}
           opciones={CATEGORIAS_CITAS.map((c) => ({
             valor: c,
@@ -264,7 +300,15 @@ async function ContenidoCitas({
                     </span>
                   </h2>
                   <Link
-                    href={`/citas?categoria=${f.categoria}`}
+                    href={
+                      // La zona se conserva al abrir una categoría: si
+                      // se cayera acá, "Ver todos" saltaría de "las
+                      // barberías de Cartago" a "las de todo el país"
+                      // sin avisar.
+                      provincia
+                        ? `/citas?categoria=${f.categoria}&provincia=${encodeURIComponent(provincia)}`
+                        : `/citas?categoria=${f.categoria}`
+                    }
                     className="shrink-0 text-[12.5px] font-extrabold text-aventurea-navy hover:text-aventurea-orange"
                   >
                     Ver todos →

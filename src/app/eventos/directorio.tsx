@@ -74,7 +74,13 @@ export default function Directorio({
       : "todos";
   });
   const [subcategoria, setSubcategoria] = useState(() => searchParams.get("subcategoria") ?? "");
-  const [texto, setTexto] = useState("");
+  // El `?q=` de la URL arranca escrito en la lupa. Sin esto, el
+  // buscador de la portada mandaba a /eventos?q=catering y el directorio
+  // abría mostrándolo TODO: un buscador que no busca. Lo lee igual que
+  // `?categoria=` de acá arriba — y como `texto` es el mismo estado que
+  // escribe la lupa, la búsqueda queda visible y se puede corregir o
+  // limpiar, en vez de ser un filtro invisible aplicado a escondidas.
+  const [texto, setTexto] = useState(() => searchParams.get("q") ?? "");
   const [provincia, setProvincia] = useState(() => searchParams.get("provincia") ?? "");
   const [canton, setCanton] = useState(() => searchParams.get("canton") ?? "");
   const [fecha, setFecha] = useState("");

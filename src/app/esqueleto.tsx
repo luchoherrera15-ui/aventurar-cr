@@ -105,6 +105,74 @@ export function EsqueletoCarrusel() {
   return <Bloque className="mb-5 h-[280px] w-full rounded-3xl sm:h-[340px] lg:h-[420px]" />;
 }
 
+/**
+ * La vitrina del héroe de la PORTADA mientras la base contesta.
+ *
+ * No usa `Bloque` a propósito: ese gris es `bg-aventurea-navy/[0.07]`,
+ * calibrado para el lienzo crema, y sobre el navy del hero desaparece
+ * — el hueco se leería como un agujero en la página, que es justo lo
+ * que un esqueleto viene a evitar. Acá el relleno es blanco
+ * translúcido.
+ *
+ * Las alturas son las MISMAS que las de la diapositiva del carrusel
+ * (carrusel-super-destacados.tsx) y las de los tres niveles de la
+ * vitrina (home-secciones.tsx). Si midieran distinto, el hero saltaría
+ * de alto al llegar los datos, que es la peor forma de estrenar la URL
+ * más visitada del sitio.
+ */
+export function EsqueletoVitrinaHome() {
+  return (
+    <div
+      aria-hidden
+      className="h-[280px] w-full animate-pulse rounded-3xl bg-white/10 sm:h-[340px] lg:h-[420px]"
+    />
+  );
+}
+
+/**
+ * Una grilla de categorías de la portada: el encabezado y las seis
+ * tarjetas. Calca `grilla-categorias.tsx` — mismas columnas por
+ * ancho y mismos `min-h`, o la página se movería al llegar los
+ * conteos.
+ */
+export function EsqueletoGrillaCategorias() {
+  return (
+    <div>
+      <Bloque className="h-3 w-32" />
+      <Bloque className="mt-3 h-8 w-[min(420px,80%)]" />
+      <Bloque className="mt-3 h-3.5 w-[min(560px,90%)]" />
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Bloque
+            key={i}
+            className="min-h-[150px] rounded-2xl sm:min-h-[180px] lg:min-h-[210px]"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * El riel horizontal de negocios (RielProveedores): el título y la
+ * fila de tarjetas. El ancho de cada una es el mismo `clamp` del riel
+ * real, y la fila va con `overflow-hidden` porque el riel de verdad se
+ * sale de la pantalla a propósito.
+ */
+export function EsqueletoRiel({ cantidad = 4 }: { cantidad?: number }) {
+  return (
+    <div>
+      <Bloque className="h-3 w-28" />
+      <Bloque className="mt-3 h-7 w-[min(320px,70%)]" />
+      <div className="mt-5 flex gap-4 overflow-hidden">
+        {Array.from({ length: cantidad }, (_, i) => (
+          <EsqueletoCard key={i} className="w-[clamp(240px,70vw,330px)] shrink-0" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** El buscador + la fila de chips de categoría de los directorios. */
 export function EsqueletoFiltros() {
   return (

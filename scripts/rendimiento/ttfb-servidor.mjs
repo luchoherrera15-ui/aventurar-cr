@@ -10,6 +10,10 @@ const base = process.argv[2] || 'https://www.bookea.lat';
 const rutas = [
   ['/terminos', 'estática, sin base'],
   ['/politicas', 'estática, sin base'],
+  // La portada: armazón sin base + dos límites de Suspense sobre una
+  // sola tanda de consultas (ver src/app/home-datos.ts). Lo que se
+  // mide acá es el ARMAZÓN, que es lo que define el primer byte.
+  ['/', 'portada (armazón sin base, datos en streaming)'],
   ['/eventos', '4 consultas en paralelo + auth'],
   ['/rancholastorres', 'ficha de negocio'],
   ['/citas', 'directorio de citas'],

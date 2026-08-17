@@ -50,7 +50,9 @@ const MAX_FICHAS = 5000;
  */
 const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekly" | "monthly" }[] =
   [
-    // La raíz ES el directorio de Eventos. Prioridad 1 sin discusión.
+    // La raíz es la PORTADA del marketplace (ya no el directorio de
+    // Eventos: eso se separó, y por eso `/eventos` está acá abajo con
+    // dirección propia). Prioridad 1 sin discusión.
     { ruta: "/", prioridad: 1, frecuencia: "daily" },
     { ruta: "/eventos", prioridad: 0.9, frecuencia: "daily" },
     { ruta: "/citas", prioridad: 0.9, frecuencia: "daily" },

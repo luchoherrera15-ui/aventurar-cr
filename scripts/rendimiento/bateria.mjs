@@ -10,6 +10,12 @@ const BASE = entorno === 'local' ? 'http://localhost:3000' : 'https://www.bookea
 const paginas = [
   // la entrada real que teclea la gente (en prod arrastra 2 redirecciones)
   { slug: 'entrada', url: entorno === 'local' ? 'http://localhost:3000/' : 'https://bookea.lat/' },
+  // la portada YA SERVIDA, sin las redirecciones del apex: es la página
+  // que Google mide para calificar el sitio y la más visitada. Estaba
+  // fuera del arnés porque `/` era el directorio de eventos y medirla
+  // habría sido medir dos veces lo mismo; con el home nuevo son dos
+  // páginas distintas y cada una necesita su línea base.
+  { slug: 'portada', url: BASE + '/' },
   { slug: 'eventos', url: BASE + '/eventos' },
   { slug: 'ficha-negocio', url: BASE + '/rancholastorres' },
   { slug: 'album', url: BASE + '/a/fotos-ejemplo-cumpleanos-star-wars-de-luis-herrera' },

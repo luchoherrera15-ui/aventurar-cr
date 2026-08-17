@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { esDemo } from "@/lib/demo";
+import { rutaDeNegocio } from "@/lib/ruta-negocio";
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -42,6 +43,7 @@ export default function RanchoCard({
   favoritoInicial,
   sesionActiva,
   ancho,
+  conUnidad = true,
 }: {
   rancho: Rancho;
   index?: number;
@@ -52,8 +54,23 @@ export default function RanchoCard({
   sesionActiva: boolean;
   /** Ancho CSS (ej. "220px" o un clamp()) para uso en riel horizontal; sin esto, ocupa el 100% de su celda de grilla. */
   ancho?: string;
+  /**
+   * Si el precio lleva su unidad («por evento», «por noche»…). Por
+   * defecto sí — es lo correcto dentro de un directorio de una sola
+   * vertical, donde la unidad SÍ describe lo que se está mirando.
+   *
+   * Se apaga donde la lista mezcla verticales, como la portada: ahí
+   * conviven una barbería y un salón de eventos, y como `unidad_precio`
+   * arrastra el 'evento' por defecto de la 0033, la barbería diría
+   * «desde ₡1.500 por evento». El monto es cierto; la unidad, no.
+   */
+  conUnidad?: boolean;
 }) {
-  const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
+  // Enlaza DIRECTO a la ficha, sin pasar por el rebote de `/{slug}`.
+  // Acá decía `/${slug}` para todos, y para Citas y Restaurantes eso es
+  // un 307: cada clic en el directorio pagaba un viaje de ida y vuelta
+  // antes de empezar a cargar. Ver src/lib/ruta-negocio.ts.
+  const href = rutaDeNegocio(rancho);
   const precio = fmtColones(rancho.precio_desde);
   // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
   // quedaba cortada a media palabra.
@@ -225,7 +242,21 @@ export default function RanchoCard({
               {precio ? (
                 <>
                   Desde <strong className="font-extrabold text-aventurea-ink">{precio}</strong>
-                  <span className="hidden sm:inline"> {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}</span>
+                  {/* La unidad se puede OMITIR, y a veces hay que hacerlo.
+                      `unidad_precio` arrastra el 'evento' que dejó por
+                      defecto la 0033, así que fuera del directorio de
+                      Eventos —en la portada, donde el mismo riel mezcla
+                      una barbería con un salón— «desde ₡1.500 por
+                      evento» debajo de una cafetería es falso. Quien
+                      monta la tarjeta decide si su contexto sostiene la
+                      unidad; por defecto se muestra, que es el
+                      comportamiento de siempre en el directorio. */}
+                  {conUnidad && (
+                    <span className="hidden sm:inline">
+                      {" "}
+                      {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}
+                    </span>
+                  )}
                 </>
               ) : (
                 "Consultar"

@@ -12,6 +12,10 @@ const BASE = entorno === 'local' ? 'http://localhost:3000' : 'https://www.bookea
 
 const paginas = [
   ['entrada', entorno === 'local' ? 'http://localhost:3000/' : 'https://bookea.lat/'],
+  // La portada servida directo (sin las redirecciones del apex). Desde
+  // el home nuevo, `/` y `/eventos` son páginas DISTINTAS: la primera
+  // es la que Google mide, la segunda el directorio.
+  ['portada', BASE + '/'],
   ['eventos', BASE + '/eventos'],
   ['ficha-negocio', BASE + '/rancholastorres'],
   ['album-grande', BASE + '/a/fotos-revelacion-maria-jesus-y-luis'],

@@ -9,6 +9,7 @@ import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
 import BarraFiltrosDirectorio from "@/components/barra-filtros-directorio";
 import { CATEGORIA_RESTAURANTE_ICONO } from "./iconos";
+import { esDemo } from "@/lib/demo";
 import { IconCloche, IconPin, IconStar } from "@/components/icons";
 import {
   CATEGORIAS_RESTAURANTES,
@@ -18,6 +19,7 @@ import {
   opcionesDeDetalles,
   type CategoriaRestaurante,
 } from "./tipos";
+import { PROVINCIAS, type Provincia } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
 
 export const metadata: Metadata = {
@@ -67,7 +69,11 @@ type Local = Omit<Fila, "categoria"> & { categoria: CategoriaRestaurante };
 export default async function RestaurantesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ categoria?: string | string[]; q?: string | string[] }>;
+  searchParams: Promise<{
+    categoria?: string | string[];
+    q?: string | string[];
+    provincia?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const catParam = unSolo(params.categoria);
@@ -77,6 +83,16 @@ export default async function RestaurantesPage({
     ? (catParam as CategoriaRestaurante)
     : undefined;
   const busquedaSel = (unSolo(params.q) ?? "").trim();
+  /**
+   * El "¿Dónde?" del buscador de la portada. Mismo criterio que
+   * /citas: se valida contra las 7 provincias oficiales y lo que no
+   * coincida se ignora, en vez de filtrar por una cadena inventada y
+   * dejar la sección vacía sin explicación.
+   */
+  const provParam = unSolo(params.provincia);
+  const provinciaSel = (PROVINCIAS as readonly string[]).includes(provParam ?? "")
+    ? (provParam as Provincia)
+    : undefined;
 
   return (
     <div className="relative min-h-screen bg-aventurea-cream-2">
@@ -99,10 +115,14 @@ export default async function RestaurantesPage({
             ocupan lo mismo y el CLS vuelve a 0,000. */}
         <div className="min-h-[592px]">
           <Suspense
-            key={`${categoriaSel ?? ""}|${busquedaSel}`}
+            key={`${categoriaSel ?? ""}|${busquedaSel}|${provinciaSel ?? ""}`}
             fallback={<EsqueletoRestaurantes />}
           >
-            <ContenidoRestaurantes categoria={categoriaSel} busqueda={busquedaSel} />
+            <ContenidoRestaurantes
+              categoria={categoriaSel}
+              busqueda={busquedaSel}
+              provincia={provinciaSel}
+            />
           </Suspense>
         </div>
       </section>
@@ -142,9 +162,11 @@ function EsqueletoRestaurantes() {
 async function ContenidoRestaurantes({
   categoria,
   busqueda,
+  provincia,
 }: {
   categoria: CategoriaRestaurante | undefined;
   busqueda: string;
+  provincia: Provincia | undefined;
 }) {
   const supabase = await createClient();
 
@@ -168,11 +190,15 @@ async function ContenidoRestaurantes({
     ((califData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
   );
 
+  // La zona manda sobre todo lo demás: los conteos, las filas y el
+  // "N resultados" hablan siempre de la misma lista.
+  const enZona = provincia ? locales.filter((n) => n.provincia === provincia) : locales;
+
   // La búsqueda se aplica antes que la categoría, para que los
   // conteos de los chips prometan justo lo que el clic entrega.
   const aguja = normalizarBusqueda(busqueda);
   const baseBusqueda = aguja
-    ? locales.filter((n) =>
+    ? enZona.filter((n) =>
         normalizarBusqueda(
           [
             n.nombre,
@@ -183,7 +209,7 @@ async function ContenidoRestaurantes({
           ].join(" "),
         ).includes(aguja),
       )
-    : locales;
+    : enZona;
 
   const filtrados = categoria
     ? baseBusqueda.filter((n) => n.categoria === categoria)
@@ -196,7 +222,7 @@ async function ContenidoRestaurantes({
 
   const filas = CATEGORIAS_RESTAURANTES.map((c) => ({
     categoria: c,
-    items: locales.filter((n) => n.categoria === c),
+    items: enZona.filter((n) => n.categoria === c),
   })).filter((f) => f.items.length > 0);
 
   const vistaFilas = !categoria && !aguja;
@@ -212,6 +238,7 @@ async function ContenidoRestaurantes({
           placeholder='Buscá por nombre, zona o comida — ej. "mariscos" o "Escazú"'
           categoria={categoria}
           busqueda={busqueda}
+          provincia={provincia}
           resultados={filtrados.length}
           opciones={CATEGORIAS_RESTAURANTES.map((c) => ({
             valor: c,
@@ -258,7 +285,13 @@ async function ContenidoRestaurantes({
                     </span>
                   </h2>
                   <Link
-                    href={`/restaurantes?categoria=${f.categoria}`}
+                    href={
+                      // Igual que en /citas: la zona no se cae al abrir
+                      // una categoría.
+                      provincia
+                        ? `/restaurantes?categoria=${f.categoria}&provincia=${encodeURIComponent(provincia)}`
+                        : `/restaurantes?categoria=${f.categoria}`
+                    }
                     className="shrink-0 text-[12.5px] font-extrabold text-aventurea-navy hover:text-aventurea-orange"
                   >
                     Ver todos →
@@ -329,7 +362,12 @@ function CardLocal({
               {RANGO_PRECIO_LABEL[rangoPrecio]}
             </span>
           )}
-          {n.slug?.startsWith("demo-") && (
+          {/* El mismo criterio doble que la card del marketplace y el
+              carrusel (@/lib/demo): mirando SOLO el slug, Café Oscuro
+              —sembrado por nosotros, con `detalles.demo = true` y sin el
+              prefijo "demo-" justamente para parecer real— salía acá sin
+              el aviso, indistinguible de un local que existe. */}
+          {esDemo(n.slug, (n.detalles ?? null) as Record<string, unknown> | null) && (
             <span className="rounded-lg bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
               Demo
             </span>

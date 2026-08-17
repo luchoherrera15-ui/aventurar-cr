@@ -1,6 +1,7 @@
 "use client";
 
 import { esDemo } from "@/lib/demo";
+import { rutaDeNegocio } from "@/lib/ruta-negocio";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -25,7 +26,22 @@ export type NegocioDestacado = {
   vertical: string;
   /** Para el aviso «Demo»: la marca autoritativa vive acá adentro. */
   detalles?: Record<string, unknown> | null;
+  /**
+   * El piso de precio, para el "Desde ₡X" de la tarjeta.
+   *
+   * Va SIN la unidad («por evento», «por persona») a propósito: los
+   * negocios publicados arrastran el `unidad_precio='evento'` que dejó
+   * por defecto la 0033 y que nadie tocó, así que "desde ₡1 500 por
+   * evento" en una cafetería sería falso. El monto sí es cierto; la
+   * unidad se queda en la ficha, donde el dueño la puede corregir.
+   */
+  precioDesde?: number | null;
 };
+
+/** ₡ con separador de miles costarricense — igual que rancho-card. */
+function fmtColones(n: number) {
+  return "₡" + Number(n).toLocaleString("es-CR");
+}
 
 /** Cuánto se queda quieta cada tarjeta antes de empezar a cambiar. */
 const INTERVALO_MS = 4000;
@@ -45,13 +61,11 @@ const DURACION_CRUCE_MS = 260;
  * TODAS las verticales, mandarlos a `/{slug}` le regalaba un viaje
  * de ida y vuelta extra a cada visita — desde la portada, que es la
  * URL canónica del sitio.
+ *
+ * Esta lógica vivía acá, repetida palabra por palabra en la portada y
+ * FALTANDO en la tarjeta del directorio. Ahora es una sola, en
+ * src/lib/ruta-negocio.ts, y las tres la comparten.
  */
-function hrefDeNegocio(n: NegocioDestacado) {
-  if (!n.slug) return `/eventos/${n.id}`;
-  if (n.vertical === "citas") return `/citas/${n.slug}`;
-  if (n.vertical === "restaurantes") return `/restaurantes/${n.slug}`;
-  return `/${n.slug}`;
-}
 
 /**
  * El carrusel "Súper destacados" de arriba de la portada: hasta 10
@@ -188,7 +202,7 @@ export default function CarruselSuperDestacados({
           lo que acaba de hacer. (Patrón de carrusel de la APG de ARIA.) */}
       <div aria-live={autoAvanzando ? "off" : "polite"} aria-atomic="true">
         <Link
-          href={hrefDeNegocio(n)}
+          href={rutaDeNegocio(n)}
           aria-roledescription="tarjeta"
           aria-label={`${n.nombre} — ${indice + 1} de ${total}`}
           className={`relative block h-[280px] transition-opacity duration-300 ease-out motion-reduce:transition-none sm:h-[340px] lg:h-[420px] ${
@@ -262,6 +276,14 @@ export default function CarruselSuperDestacados({
               <span className="text-white/70">
                 {categoriaLabel(n.vertical, n.categoria)}
               </span>
+              {/* El precio solo si el negocio lo publicó. Nunca un "a
+                  consultar" acá arriba: en la vitrina, un dato de más
+                  que no dice nada le quita aire al nombre. */}
+              {typeof n.precioDesde === "number" && n.precioDesde > 0 && (
+                <span className="font-extrabold text-white">
+                  Desde {fmtColones(n.precioDesde)}
+                </span>
+              )}
             </span>
           </div>
         </Link>

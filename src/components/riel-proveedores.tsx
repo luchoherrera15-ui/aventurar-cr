@@ -28,6 +28,7 @@ export default function RielProveedores({
   favoritosIds,
   sesionActiva,
   cardExtra,
+  conUnidad = true,
 }: {
   titulo: string;
   subtitulo?: string;
@@ -44,6 +45,13 @@ export default function RielProveedores({
    *  Digitales en "Otros servicios"). Recibe el mismo ancho que las
    *  demás vía render-prop. */
   cardExtra?: (ancho: string) => React.ReactNode;
+  /**
+   * Si las tarjetas muestran la unidad del precio. Se pasa tal cual a
+   * `RanchoCard` — ver allá el porqué. En la portada va en `false`
+   * porque el riel mezcla verticales y `unidad_precio` arrastra el
+   * 'evento' por defecto de la 0033.
+   */
+  conUnidad?: boolean;
 }) {
   const rielRef = useRef<HTMLDivElement>(null);
   const [puedeIzq, setPuedeIzq] = useState(false);
@@ -143,6 +151,7 @@ export default function RielProveedores({
               proximaLibre={r.categoria === "lugares" ? proximasLibres.get(r.id) : undefined}
               favoritoInicial={favoritosIds.has(r.id)}
               sesionActiva={sesionActiva}
+              conUnidad={conUnidad}
             />
           </div>
         ))}

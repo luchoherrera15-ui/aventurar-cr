@@ -18,8 +18,13 @@ for (const preset of ['mobile', 'desktop']) {
   await correr('rastrear.mjs', [albumGrande, preset, et]);
 }
 
-// INP de laboratorio en las tres pantallas donde la gente toca cosas
+// INP de laboratorio en las pantallas donde la gente toca cosas.
+// La portada entra desde el home nuevo: su buscador es lo primero que
+// se toca en todo el sitio (pestañas, panel de sugerencias, hoja a
+// pantalla completa en móvil), así que es donde un INP malo se paga
+// más caro.
 console.log('\n>>> INP de laboratorio (móvil, CPU 4x)');
+await correr('interaccion.mjs', [BASE + '/', 'mobile', `${entorno}-portada-movil`]);
 await correr('interaccion.mjs', [BASE + '/eventos', 'mobile', `${entorno}-eventos-movil`]);
 await correr('interaccion.mjs', [BASE + '/rancholastorres', 'mobile', `${entorno}-ficha-negocio-movil`]);
 await correr('interaccion.mjs', [albumGrande, 'mobile', `${entorno}-album-grande-movil`]);

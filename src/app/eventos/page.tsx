@@ -1,19 +1,19 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
-import CarruselSuperDestacados, {
-  type NegocioDestacado,
-} from "@/components/carrusel-super-destacados";
+import CarruselSuperDestacados from "@/components/carrusel-super-destacados";
+import { leerSuperDestacados } from "@/lib/destacados";
 // En carga diferida: el modal de Boki solo existe cuando el hash es
 // #boki, así que sus ~41 KB de JS no tienen por qué viajar en el bundle
 // inicial de esta página (ver planificador-lazy.tsx).
 import Planificador from "@/components/planificador/planificador-lazy";
 import { EsqueletoCarrusel, EsqueletoFiltros, EsqueletoGrilla } from "../esqueleto";
-import { enConfiguracion, normalizarCategoria } from "../mi-negocio/types";
+import { normalizarCategoria } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
 /**
  * Las ÚNICAS columnas que las tarjetas del directorio leen (verificado
@@ -40,7 +40,6 @@ import type { Rancho } from "../mi-negocio/types";
  */
 import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
 import { urlSitio } from "@/lib/sitio";
-import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
 
 /**
  * El armazón de /eventos: todo lo que se puede pintar SIN esperar a la
@@ -89,30 +88,39 @@ import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
  * pasan al buscador el mismo día y no hay forma de saber cuál movió
  * qué.
  *
- * POR QUÉ LA ETIQUETA SIGUE ACÁ, EN EL JSX, Y NO EN `export const
- * metadata`: mientras `src/app/page.tsx` siga montando este componente
- * —cosa que deja de pasar con el home nuevo—, la Metadata API de este
- * archivo solo cubriría la ruta `/eventos` y la raíz quedaría sin
- * etiqueta. Rendida como elemento, React la iza al `<head>` de
- * cualquier respuesta que monte este componente. Cuando la portada
- * tenga su propio cuerpo, esto se puede mover a la Metadata API sin
- * cambiar de valor.
+ * DÓNDE VIVE LA ETIQUETA, Y POR QUÉ SE MUDÓ. Estuvo rendida como un
+ * `<link>` dentro del JSX, y tenía que estarlo: mientras
+ * `src/app/page.tsx` montaba ESTE componente, la Metadata API de este
+ * archivo solo habría cubierto la ruta `/eventos` y la raíz habría
+ * quedado sin etiqueta; como elemento, en cambio, React la izaba al
+ * `<head>` de cualquier respuesta que montara este componente.
+ *
+ * Con el home nuevo eso dejó de pasar: `/` tiene cuerpo propio y ya no
+ * monta nada de acá, así que este archivo sirve una sola ruta y la
+ * Metadata API vuelve a ser el lugar correcto —el mismo valor, pero
+ * declarado donde Next lo espera y donde la próxima persona lo va a
+ * buscar—. La portada declara la suya en `src/app/page.tsx`.
  */
-const CANONICO_DIRECTORIO = urlSitio("/eventos");
+export const metadata: Metadata = {
+  alternates: { canonical: urlSitio("/eventos") },
+};
 
 /*
- * Los datos de organización se mudaron a `src/lib/seo-organizacion.ts`.
+ * ACÁ YA NO SE MONTAN LOS DATOS DE ORGANIZACIÓN (schema.org).
  *
- * No fue orden por orden: acá se armaban con `CANONICO_DIRECTORIO`, y
- * al mudar ese canónico a `/eventos` la organización se habría mudado
- * con él — Bookea declarándole a Google que la EMPRESA vive en una
- * sección del sitio. La organización es siempre la raíz; el canónico de
- * esta pantalla es esta pantalla. Son dos valores distintos y ahora
- * viven separados.
+ * Primero se mudaron a `src/lib/seo-organizacion.ts`, y no fue orden
+ * por orden: acá se armaban con `CANONICO_DIRECTORIO`, y al mudar ese
+ * canónico a `/eventos` la organización se habría mudado con él —
+ * Bookea declarándole a Google que la EMPRESA vive en una sección del
+ * sitio. La organización es siempre la raíz; el canónico de esta
+ * pantalla es esta pantalla.
  *
- * Se sigue montando desde acá SOLO mientras `src/app/page.tsx` monte
- * este componente. Con el home nuevo pasa a montarse allá, que es su
- * lugar: la portada.
+ * Y ahora se montan en `src/app/page.tsx`, que es su lugar: la
+ * recomendación de Google es declarar la organización UNA vez, en la
+ * portada. Se seguían montando desde este archivo solo mientras `/`
+ * montaba este componente; con el home nuevo eso dejó de pasar, y
+ * dejarlos acá los habría duplicado —una vez en la portada y otra en
+ * el directorio— que es peor que no ponerlos.
  */
 
 export default function EventosPage() {
@@ -120,13 +128,6 @@ export default function EventosPage() {
     // El lienzo crema de la línea bento (/lealtad): los bloques de
     // color se recortan encima.
     <div className="min-h-screen overflow-x-clip bg-aventurea-cream-2">
-      <link rel="canonical" href={CANONICO_DIRECTORIO} />
-      <script
-        type="application/ld+json"
-        // JSON serializado por nosotros, sin nada que venga de la base:
-        // no hay entrada de usuario que escapar acá.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(DATOS_ORGANIZACION) }}
-      />
       <SiteHeader breadcrumb="Eventos" />
 
       <section className="pb-16 pt-4">
@@ -139,6 +140,12 @@ export default function EventosPage() {
               que no rompe esa regla. El h1 queda para lectores de
               pantalla y SEO. */}
           <h1 className="sr-only">Todo para tu evento — directorio nacional</h1>
+          {/* El chip activo es esta misma página, y desde el home nuevo
+              eso además es CIERTO: antes, cuando `/` montaba este
+              componente, "Eventos" quedaba marcado como la página
+              actual pero enlazaba a la otra dirección del mismo
+              contenido —el duplicado no canónico—. Ahora el
+              `aria-current="page"` y el `href` dicen lo mismo. */}
           <div className="mb-4">
             <SelectorVertical activo="eventos" />
           </div>
@@ -197,7 +204,7 @@ async function DirectorioEventos() {
     { data: confirmadas },
     { data: calificacionesData },
     { data: resenasData },
-    { data: superDestacadosData },
+    superDestacados,
     {
       data: { user },
     },
@@ -237,20 +244,13 @@ async function DirectorioEventos() {
       .limit(300),
 
     // Los hasta 10 "súper destacados" (0169) que el admin eligió a mano
-    // para el carrusel de arriba — consulta APARTE de COLUMNAS_CARD (no
-    // filtrada por vertical: es una vitrina de todo el marketplace, no
-    // solo Eventos) y con manejo de error propio: si la migración 0169
-    // todavía no corrió en esta base, `data` llega null y el carrusel
-    // simplemente no se pinta — el resto de la página sigue viva.
-    supabase
-      .from("ranchos")
-      .select(
-        "id, slug, nombre, foto_url, provincia, canton, categoria, vertical, detalles",
-      )
-      .eq("estado", "aprobado")
-      .eq("super_destacado", true)
-      .order("created_at", { ascending: false })
-      .limit(10),
+    // para el carrusel de arriba. La consulta vive en @/lib/destacados
+    // porque la portada nueva pinta la misma vitrina: ahí están el
+    // filtro de "en configuración", el degradado cuando la 0169 no
+    // corrió en esta base, y las columnas que puede ver el público.
+    // Entra igual en esta tanda —devuelve una promesa como las demás—
+    // así que sigue viajando en paralelo con el resto.
+    leerSuperDestacados(supabase),
 
     supabase.auth.getUser(),
   ]);
@@ -273,40 +273,6 @@ async function DirectorioEventos() {
     .sort(
       (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
     );
-
-  const superDestacados: NegocioDestacado[] = (
-    (superDestacadosData ?? []) as {
-      id: string;
-      slug: string | null;
-      nombre: string;
-      foto_url: string | null;
-      provincia: string | null;
-      canton: string | null;
-      categoria: string;
-      vertical?: string;
-      detalles?: Record<string, unknown> | null;
-    }[]
-  )
-    // Un negocio "en configuración" se ve en la grilla pero no se puede
-    // abrir (la card le pone un velo y le corta el link). De héroe
-    // clickeable de la portada sería una promesa que no se cumple: el
-    // clic no lleva a ninguna parte. Se saca del carrusel.
-    .filter((n) => !enConfiguracion(n.detalles))
-    .map((n) => ({
-      id: n.id,
-      slug: n.slug,
-      nombre: n.nombre,
-      fotoUrl: n.foto_url,
-      provincia: n.provincia,
-      canton: n.canton,
-      categoria: n.categoria,
-      vertical: n.vertical ?? "eventos",
-      // Viaja al carrusel porque ahí se decide el aviso «Demo», y la
-      // marca autoritativa vive acá (ver src/lib/demo.ts): mirando solo
-      // el slug, los demos sembrados para parecer un negocio real
-      // salían de héroes de la portada sin decir que son de muestra.
-      detalles: n.detalles ?? null,
-    }));
 
   const fechasOcupadas = (confirmadas ?? []) as { rancho_id: string; fecha: string }[];
 

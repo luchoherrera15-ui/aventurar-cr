@@ -30,6 +30,7 @@ export default function BarraFiltrosDirectorio({
   ariaLabel,
   categoria,
   busqueda,
+  provincia,
   opciones,
   resultados,
 }: {
@@ -41,16 +42,35 @@ export default function BarraFiltrosDirectorio({
   /** La categoría aplicada, si hay alguna. */
   categoria?: string;
   busqueda: string;
+  /**
+   * La provincia aplicada — el "¿Dónde?" del buscador de la portada,
+   * que llega por `?provincia=`. Si no viene, la barra se ve igual que
+   * siempre: ni el aviso ni el parámetro existen.
+   */
+  provincia?: string;
   /** Las categorías en su orden oficial. */
   opciones: OpcionCategoria[];
   /** Cuántos quedaron — solo se muestra cuando hay búsqueda. */
   resultados: number;
 }) {
-  /** La URL del directorio conservando la búsqueda al cambiar de chip. */
-  const url = (cat: string | undefined): string => {
+  /**
+   * La URL del directorio cambiando SOLO lo que se pide y conservando
+   * el resto. Que los chips se llevaran puesta la provincia era el peor
+   * de los dos males posibles: el visitante llegaba filtrado por zona,
+   * tocaba una categoría y el filtro desaparecía sin decir nada.
+   *
+   * Para soltar un filtro se pasa la cadena vacía (`{ prov: "" }`), no
+   * `undefined`: un `undefined` explícito dispararía el valor por
+   * defecto y no borraría nada.
+   */
+  const url = (cambios: { cat?: string; q?: string; prov?: string } = {}): string => {
+    const cat = cambios.cat ?? categoria;
+    const q = cambios.q ?? busqueda;
+    const prov = cambios.prov ?? provincia;
     const p = new URLSearchParams();
     if (cat) p.set("categoria", cat);
-    if (busqueda) p.set("q", busqueda);
+    if (q) p.set("q", q);
+    if (prov) p.set("provincia", prov);
     const query = p.toString();
     return query ? `${ruta}?${query}` : ruta;
   };
@@ -59,6 +79,9 @@ export default function BarraFiltrosDirectorio({
     <>
       <form method="get" action={ruta} className="relative mx-auto max-w-[640px]">
         {categoria && <input type="hidden" name="categoria" value={categoria} />}
+        {/* Sin esto, buscar dentro de una provincia la soltaba: el form
+            GET reemplaza la query entera con lo que lleve adentro. */}
+        {provincia && <input type="hidden" name="provincia" value={provincia} />}
         <IconSearch className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-aventurea-ink-soft" />
         <input
           type="search"
@@ -75,7 +98,7 @@ export default function BarraFiltrosDirectorio({
       <div className="relative mt-3">
         <div className="flex gap-2.5 overflow-x-auto py-1 lg:justify-center">
           <ChipCategoria
-            href={url(undefined)}
+            href={url({ cat: "" })}
             label="Todos"
             icono={<IconCompass />}
             activo={!categoria}
@@ -83,7 +106,7 @@ export default function BarraFiltrosDirectorio({
           {opciones.map((o) => (
             <ChipCategoria
               key={o.valor}
-              href={url(o.valor)}
+              href={url({ cat: o.valor })}
               label={o.label}
               icono={o.icono}
               activo={categoria === o.valor}
@@ -105,10 +128,26 @@ export default function BarraFiltrosDirectorio({
           {resultados} {resultados === 1 ? "resultado" : "resultados"} para “
           {busqueda}”{" "}
           <Link
-            href={categoria ? `${ruta}?categoria=${categoria}` : ruta}
+            href={url({ q: "" })}
             className="font-bold text-aventurea-navy underline underline-offset-2 hover:text-aventurea-orange"
           >
             limpiar
+          </Link>
+        </p>
+      )}
+
+      {/* El filtro de zona SE VE. Un filtro que achica la lista sin
+          decirlo se lee como "aquí no hay casi nada", y la persona se
+          va del sitio creyendo que el directorio está vacío. */}
+      {provincia && (
+        <p className="mt-2 text-center text-[12.5px] font-semibold text-aventurea-ink-soft">
+          Mostrando solo{" "}
+          <span className="font-extrabold text-aventurea-ink">{provincia}</span>{" "}
+          <Link
+            href={url({ prov: "" })}
+            className="font-bold text-aventurea-navy underline underline-offset-2 hover:text-aventurea-orange"
+          >
+            ver todo el país
           </Link>
         </p>
       )}
