@@ -540,6 +540,45 @@ export async function entregarApple(
   db: Admin,
   pases: PaseParaAvisar[],
 ): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  // ── MARCAR EL PASE COMO CAMBIADO, ANTES DE AVISAR ──────────────────
+  //
+  // Sin esto, el aviso llega y NO SIRVE PARA NADA. El protocolo de
+  // Apple tiene dos pasos: nosotros empujamos «mirá que algo cambió», y
+  // el teléfono contesta preguntando «¿cuáles de mis pases cambiaron
+  // desde tal momento?». Esa segunda pregunta la responde
+  // `/api/wallet/v1/devices/…/registrations/…` filtrando por
+  // `actualizado_en > passesUpdatedSince`.
+  //
+  // `actualizado_en` solo se tocaba al acreditar un sello (motor.ts) y
+  // en el camino de Google. O sea que un cambio de DISEÑO, un aviso de
+  // PAUSA y una notificación de MARKETING mandaban el push, el teléfono
+  // preguntaba, y la ruta contestaba 204 «no cambió nada» — porque
+  // desde su punto de vista era cierto. El pase nunca se bajaba y el
+  // mensaje no aparecía nunca. Es el MISMO fallo que dejaba mudos los
+  // sellos (ver `extraerPassesUpdatedSince` en esa ruta), un escalón
+  // más arriba: allá la marca de tiempo llegaba corrupta, acá
+  // directamente no se escribía.
+  //
+  // Va ACÁ y no en cada uno de los tres caminos a propósito: este es el
+  // único punto por el que pasan todos, y ponerlo en cada llamador es
+  // exactamente cómo se llega a que el cuarto se olvide.
+  //
+  // Y va ANTES del push, no después: si se marcara después, el teléfono
+  // podría preguntar entre medio y llevarse un 204 igual que antes.
+  const { error: errorMarca } = await db
+    .from("pases_wallet")
+    .update({ actualizado_en: new Date().toISOString() })
+    .in(
+      "id",
+      pases.map((p) => p.id),
+    );
+  if (errorMarca) {
+    // Se corta acá: empujar sin haber marcado es gastar un push para
+    // que el teléfono pregunte y se lleve un «no cambió nada». Quien
+    // llama vuelve a encender su bandera con este motivo y lo reintenta.
+    return { ok: false, motivo: `No se pudo marcar el pase como cambiado: ${errorMarca.message}` };
+  }
+
   const { data: registros, error } = await db
     .from("registros_dispositivo")
     .select("push_token")
@@ -556,6 +595,12 @@ export async function entregarApple(
   // Un pase sin ningún teléfono registrado NO es un fallo: no hay a
   // quién avisarle. El texto nuevo le llega igual la próxima vez que
   // ese iPhone pregunte por su cuenta, que es lo que hace solo.
+  //
+  // Esa última frase era FALSA hasta el arreglo de arriba: el teléfono
+  // preguntaba solo, sí, pero se llevaba un 204 porque nadie había
+  // movido `actualizado_en`. Ahora que se marca antes de salir de esta
+  // función, la promesa se cumple de verdad — incluso por este camino,
+  // donde no se manda ningún push.
   if (tokens.length === 0) return { ok: true };
 
   const res = await avisarPaseActualizado(tokens);

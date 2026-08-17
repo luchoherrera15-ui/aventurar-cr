@@ -416,8 +416,16 @@ describe("cuando Apple o Google no contestan", () => {
     const fake = armar([1, 3].map((n) => pase(n, PROGRAMA_PAUSADO))); // los dos apple
     await correr(fake, { tamanoTanda: 2 });
     const devoluciones = fake.bitacora.filter((b) => b === "update pases_wallet");
-    // 1 reclamo + 1 devolución agrupada por motivo.
-    expect(devoluciones).toHaveLength(2);
+    // 1 reclamo + 1 marca de `actualizado_en` + 1 devolución agrupada
+    // por motivo. Eran 2 antes de que `entregarApple` marcara el pase
+    // como cambiado — sin esa marca el push llegaba y la ruta contestaba
+    // «no cambió nada» (ver entregar-apple.test.ts).
+    //
+    // Lo que esta prueba cuida sigue intacto: son DOS pases de Apple
+    // fallando con el MISMO motivo, así que escribir «una por pase»
+    // daría 4, no 3. El número sube con la marca, pero el agrupado por
+    // motivo se sigue verificando igual.
+    expect(devoluciones).toHaveLength(3);
   });
 });
 
