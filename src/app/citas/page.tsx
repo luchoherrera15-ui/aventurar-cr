@@ -17,6 +17,7 @@ import {
   type CategoriaCita,
 } from "./tipos";
 import type { Rancho } from "../mi-negocio/types";
+import { TITULO_FILA } from "@/lib/carriles-home";
 import { codigoPaisDe, esRegionDe, paisDe, type CodigoPais } from "@/lib/paises";
 import { COLUMNAS_PAIS, pedirFilas } from "@/lib/ranchos-publicos";
 import { urlCategoria, urlDirectorio } from "@/lib/url-directorio";
@@ -38,16 +39,15 @@ type Calificacion = { rancho_id: string; promedio: number; total: number };
  * cards (estilo riel); al filtrar o buscar se pasa al grid clásico.
  */
 
-/** Títulos de las filas del directorio: más vendedores que el label
- *  corto de la categoría (que sigue mandando en badges y formularios). */
-const TITULO_FILA: Record<string, string> = {
-  belleza: "Salones de belleza",
-  barberia: "Barberías",
-  unas: "Uñas",
-  spa: "Spa y masajes",
-  consultorio: "Consultorios médicos",
-  otros: "Otros servicios",
-};
+/**
+ * Los títulos de las filas se mudaron a @/lib/carriles-home.
+ *
+ * Se escribieron acá, para este directorio, pero la portada arma sus
+ * carriles por rubro con los MISMOS títulos: dos copias del mapa son
+ * dos verdades el día que alguien renombra una fila. El módulo de allá
+ * es neutro (sin "use client" ni `next/headers`), así que esta página
+ * de servidor lo importa sin arrastrar nada.
+ */
 
 /** Para buscar sin pelear con tildes: "peluquería" encuentra "peluqueria". */
 function normalizarBusqueda(s: string): string {

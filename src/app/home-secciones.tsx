@@ -6,6 +6,7 @@ import type { Calificacion } from "@/components/rancho-card";
 import { IconPin } from "@/components/icons";
 import { categoriaGradiente, categoriaIcono, categoriaLabel } from "@/lib/categorias-vertical";
 import { esDemo } from "@/lib/demo";
+import { MIN_CARRIL } from "@/lib/carriles-home";
 import type { Rancho } from "@/app/mi-negocio/types";
 import { rutaDeNegocio, verticalDe, type DatosHome } from "./home-datos";
 
@@ -39,8 +40,17 @@ import { rutaDeNegocio, verticalDe, type DatosHome } from "./home-datos";
  * los datos sostienen.
  */
 
-/** El mínimo para que un riel se vea deliberado y no vacío. */
-const MINIMO_RIEL = 3;
+/**
+ * El mínimo para que un riel se vea deliberado y no vacío.
+ *
+ * Vive en @/lib/carriles-home y no acá: los carriles por rubro de la
+ * portada aplican EXACTAMENTE el mismo umbral, y con dos copias del
+ * número la portada podría terminar escondiendo una fila de dos
+ * tarjetas en un lado y mostrándola en el otro. La constante va allá
+ * porque aquel módulo es neutro y este es de servidor — la dependencia
+ * solo puede ir en esa dirección.
+ */
+const MINIMO_RIEL = MIN_CARRIL;
 
 /**
  * La altura reservada de la vitrina, IDÉNTICA en los tres niveles del
@@ -282,11 +292,14 @@ export function RielLoNuevo({
   verTodoHref,
   favoritosIds,
   sesionActiva,
+  prioridad = true,
 }: {
   nuevos: DatosHome["nuevos"];
   verTodoHref: string;
   favoritosIds: string[];
   sesionActiva: boolean;
+  /** Si su primera foto se pide con prioridad alta. Ver RielProveedores. */
+  prioridad?: boolean;
 }) {
   if (nuevos.length < MINIMO_RIEL) return null;
 
@@ -323,6 +336,11 @@ export function RielLoNuevo({
         // vitrina de arriba ya aplicaba; faltaba acá, que es justo la
         // sección para la que se escribió.
         conUnidad={false}
+        // Este riel ya NO es la primera lista de la portada: arriba
+        // están los carriles por rubro de la pestaña activa. Marcar
+        // también acá una foto como prioritaria sería sumar otra imagen
+        // a la pelea con el héroe.
+        prioridad={prioridad}
       />
     </section>
   );

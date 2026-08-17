@@ -1,9 +1,10 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import RanchoCard, { type Calificacion } from "./rancho-card";
 import { IconChevronLeft, IconChevronRight } from "./icons";
+import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 import type { Rancho } from "@/app/mi-negocio/types";
 
 // En móvil se ven ~2 tarjetas completas más un asomo de la tercera,
@@ -29,6 +30,7 @@ export default function RielProveedores({
   sesionActiva,
   cardExtra,
   conUnidad = true,
+  prioridad = true,
 }: {
   titulo: string;
   subtitulo?: string;
@@ -52,10 +54,30 @@ export default function RielProveedores({
    * 'evento' por defecto de la 0033.
    */
   conUnidad?: boolean;
+  /**
+   * Si la PRIMERA tarjeta de este riel pelea por el ancho de banda
+   * (`eager` + `fetchPriority=high` en su foto).
+   *
+   * Por defecto sí, que es como funcionó siempre. Se apaga cuando hay
+   * varios rieles en la misma pantalla: la portada pasó de un riel a
+   * seis carriles, y con el default cada uno marcaba una foto como
+   * prioritaria — seis imágenes compitiendo con el héroe justo en lo
+   * que Google mide. Solo el primer carril de la página lo deja en
+   * `true`.
+   */
+  prioridad?: boolean;
 }) {
   const rielRef = useRef<HTMLDivElement>(null);
   const [puedeIzq, setPuedeIzq] = useState(false);
   const [puedeDer, setPuedeDer] = useState(false);
+  // El scroller se nombra con el título de la fila: sin esto, un lector
+  // de pantalla anuncia media docena de regiones desplazables idénticas.
+  const idTitulo = useId();
+  // Las flechas mueven la fila SIN animar cuando el visitante pidió
+  // movimiento reducido. Es la misma regla que ya aplica el carrusel de
+  // súper destacados; faltaba acá, que es la pieza más repetida del
+  // sitio.
+  const movimientoReducido = useMovimientoReducido();
 
   const medir = useCallback(() => {
     const el = rielRef.current;
@@ -75,21 +97,32 @@ export default function RielProveedores({
     if (!el) return;
     // Casi una pantalla por click: se conserva un asomo de la última
     // tarjeta visible para no perder el hilo.
-    el.scrollBy({ left: direccion * el.clientWidth * 0.85, behavior: "smooth" });
+    el.scrollBy({
+      left: direccion * el.clientWidth * 0.85,
+      behavior: movimientoReducido ? "auto" : "smooth",
+    });
   }
 
   // Un riel sin negocios igual se muestra si trae una tarjeta sembrada
   // (Invitaciones Digitales en "Otros servicios").
   if (items.length === 0 && !cardExtra) return null;
 
+  // `hidden sm:flex`: son botones de 32 px, muy por debajo del objetivo
+  // táctil de 44 que el resto del sitio respeta, y en un teléfono no
+  // hacen falta — ahí el gesto natural es deslizar la fila con el dedo,
+  // que ya funciona. En escritorio, donde no hay gesto, siguen siendo la
+  // única forma de pasar de tarjetas sin arrastrar.
   const flechaCls =
-    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line bg-aventurea-surface text-aventurea-ink shadow-[0_1px_3px_rgba(16,26,44,0.08)] transition-all hover:shadow-[0_2px_8px_rgba(16,26,44,0.14)] disabled:opacity-35 disabled:shadow-none [&_svg]:h-4 [&_svg]:w-4";
+    "hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-aventurea-line bg-aventurea-surface text-aventurea-ink shadow-[0_1px_3px_rgba(16,26,44,0.08)] transition-all hover:shadow-[0_2px_8px_rgba(16,26,44,0.14)] disabled:opacity-35 disabled:shadow-none sm:flex [&_svg]:h-4 [&_svg]:w-4";
 
   return (
     <section className="py-3">
       <div className="flex items-end justify-between gap-3 px-1">
         <div className="min-w-0">
-          <h2 className="text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink">
+          <h2
+            id={idTitulo}
+            className="text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink"
+          >
             {titulo}
           </h2>
           {subtitulo && (
@@ -134,9 +167,15 @@ export default function RielProveedores({
         </div>
       </div>
 
+      {/* Una región desplazable con nombre: quien navega con lector de
+          pantalla la encuentra como «Salones de belleza, grupo» en vez
+          de tropezarse con seis cajas sin identificar. El nombre sale
+          del `<h2>` de arriba, no de una cadena repetida. */}
       <div
         ref={rielRef}
         onScroll={medir}
+        role="group"
+        aria-labelledby={idTitulo}
         className="mt-3.5 flex snap-x snap-mandatory gap-3.5 overflow-x-auto pb-1 pt-0.5"
         style={{ scrollbarWidth: "none" }}
       >
@@ -152,6 +191,7 @@ export default function RielProveedores({
               favoritoInicial={favoritosIds.has(r.id)}
               sesionActiva={sesionActiva}
               conUnidad={conUnidad}
+              prioridad={prioridad && i === 0}
             />
           </div>
         ))}

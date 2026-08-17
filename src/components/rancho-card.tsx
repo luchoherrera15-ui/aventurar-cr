@@ -44,6 +44,7 @@ export default function RanchoCard({
   sesionActiva,
   ancho,
   conUnidad = true,
+  prioridad,
 }: {
   rancho: Rancho;
   index?: number;
@@ -65,6 +66,19 @@ export default function RanchoCard({
    * «desde ₡1.500 por evento». El monto es cierto; la unidad, no.
    */
   conUnidad?: boolean;
+  /**
+   * Si esta tarjeta se pelea por el ancho de banda con el resto de la
+   * página (`loading="eager"` + `fetchPriority="high"` en su foto).
+   *
+   * Por defecto es «la primera de la lista», que es el comportamiento
+   * de siempre y el correcto cuando hay UNA lista en pantalla. Deja de
+   * serlo cuando hay varias: la portada pasó de un riel a seis
+   * carriles, y con el default cada uno marcaba su primera foto como
+   * prioritaria — seis imágenes compitiendo con el héroe, que es
+   * justamente lo que Google mide. Quien monta la lista sabe si la suya
+   * es la que va arriba de todo; la tarjeta sola, no.
+   */
+  prioridad?: boolean;
 }) {
   // Enlaza DIRECTO a la ficha, sin pasar por el rebote de `/{slug}`.
   // Acá decía `/${slug}` para todos, y para Citas y Restaurantes eso es
@@ -95,6 +109,9 @@ export default function RanchoCard({
   // En configuración: se ve en el directorio pero no se puede abrir —
   // el dueño todavía la está armando.
   const enPausa = enConfiguracion(rancho.detalles);
+
+  // Sin `prioridad` explícita, el comportamiento de siempre.
+  const prioritaria = prioridad ?? index === 0;
 
   return (
     <article
@@ -143,8 +160,8 @@ export default function RanchoCard({
               // prioridad alta, sin `preload`: son varios rieles y no se
               // sabe cuál queda arriba de todo, y los docs de Next 16
               // desaconsejan el <link preload> justo en ese caso.
-              loading={index === 0 ? "eager" : undefined}
-              fetchPriority={index === 0 ? "high" : undefined}
+              loading={prioritaria ? "eager" : undefined}
+              fetchPriority={prioritaria ? "high" : undefined}
               sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 260px"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />

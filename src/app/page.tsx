@@ -1,11 +1,12 @@
 import { Suspense, cache } from "react";
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import { IconCheck, IconChevronRight } from "@/components/icons";
+import { IconCheck, IconChevronRight, IconPin } from "@/components/icons";
 import AvisoSuperior from "@/components/home/aviso-superior";
 import NavHome from "@/components/home/nav-home";
 import TarjetasVertical from "@/components/home/tarjetas-vertical";
@@ -14,16 +15,19 @@ import BloqueNegocios from "@/components/home/bloque-negocios";
 import BloqueSoluciones from "@/components/home/bloque-soluciones";
 import BuscadorHome from "@/components/buscador-home";
 import GrillaCategorias from "@/components/grilla-categorias";
+import NegociosDestacados from "@/components/negocios-destacados";
+import { estiloRevelado } from "@/components/revelar";
 import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
 import { urlSitio } from "@/lib/sitio";
 import { paisDelVisitante } from "@/lib/pais-visitante";
 import type { CodigoPais } from "@/lib/paises";
 import { leerDatosHome } from "./home-datos";
-import { RielLoNuevo, VitrinaHome } from "./home-secciones";
+import { RielLoNuevo } from "./home-secciones";
 import {
+  Bloque,
+  EsqueletoDestacados,
   EsqueletoGrillaCategorias,
   EsqueletoRiel,
-  EsqueletoVitrinaHome,
 } from "./esqueleto";
 
 /**
@@ -38,78 +42,87 @@ import {
  * que Google usa para calificar la velocidad del sitio, y la única
  * pantalla donde se declara la organización en datos estructurados.
  *
- * QUÉ HABÍA ACÁ ANTES Y POR QUÉ CAMBIÓ
+ * ── LA COMPOSICIÓN NUEVA (referencia/bookeahome.html) ────────────
  *
- * Hasta este cambio, `/` MONTABA EL DIRECTORIO DE EVENTOS. Este
- * archivo hacía dos líneas: una bienvenida animada y `<EventosPage />`.
- * O sea: la dirección más fuerte del sitio no tenía contenido propio
- * —era una copia de `/eventos` en otra URL— y quien buscaba «Bookea»
- * no encontraba una página que dijera qué es Bookea.
+ * El orden y el ritmo salen de la maqueta que entregó el dueño. Su
+ * decisión de diseño más fuerte no es un color ni un radio: es que
+ * EL BUSCADOR Y LOS NEGOCIOS ENTREN EN LA PRIMERA PANTALLA. Por eso el
+ * héroe se comprime (`min-height:350px` allá, dos columnas acá), por
+ * eso el buscador se solapa con el héroe en vez de colgar debajo, y por
+ * eso la tira «Negocios destacados» es una tarjeta horizontal de 132 px
+ * y no la tarjeta vertical de 330 px del directorio.
  *
- * Ahora hay DOS contenidos en vez de uno con dos direcciones:
+ *   1. Héroe compacto, a dos columnas       → `section.hero`
+ *   2. Buscador, solapado sobre el héroe    → `section.search-wrap`
+ *   3. NEGOCIOS DESTACADOS                  → `section.business-peek`
+ *   4. ¿Qué querés hacer hoy? (categorías)  → `section.compact`
+ *   5. Lo nuevo en Bookea (riel)            → `section.soft`
+ *   6. Dos formas de empezar                → `.path-grid`
+ *   7. Cómo funciona                        → (propio del sitio)
+ *   8. Todo el recorrido dentro de Bookea   → `.ecosystem`
+ *   9. Descubrí algo cerca de vos           → `#provincias`
+ *  10. Tu negocio merece más reservas       → `section.cream`
  *
- *   ·  `/`         → esta portada. Canónica de sí misma.
- *   ·  `/eventos`  → EL DIRECTORIO de proveedores para eventos, que
- *                    sigue existiendo tal cual, con su propio canónico
- *                    y ~10 enlaces vivos apuntándole desde el código.
- *                    Si estás buscando la grilla de negocios, está
- *                    allá: src/app/eventos/page.tsx.
+ * ── LO QUE LA MAQUETA PIDE Y ESTA PORTADA NO DA ──────────────────
  *
- * El cambio se hizo en dos entregas a propósito: primero se mudó el
- * canónico del directorio a `/eventos` con el contenido todavía
- * idéntico en las dos direcciones (así el buscador consolida el
- * directorio antes de que la portada cambie de tema), y recién después
- * llegó este cuerpo. El rewrite dormido de `/` → `/eventos` que había
- * en `next.config.ts` se borró en esa primera entrega: era la
- * reversión silenciosa de esta decisión (ver el comentario largo que
- * quedó en su lugar).
+ * Ni estrellas, ni «4,2 km», ni «Hoy 3:30 p.m.», ni «Más reservado»,
+ * ni «Cancelación flexible», ni los filtros «Disponible hoy» y «Mejor
+ * valorados». En producción `resenas` tiene CERO filas, no hay
+ * ubicación del visitante en kilómetros y no existe una consulta de
+ * disponibilidad que abarque el directorio entero. Un control que no
+ * filtra es un control que miente, y una estrella inventada en la
+ * primera pantalla es la mentira más cara del sitio. Cada omisión está
+ * anotada donde corresponde: negocios-destacados.tsx, home-secciones.tsx
+ * y grilla-categorias.tsx.
  *
- * LA BIENVENIDA ANIMADA SE FUE, Y NO ES UN DESCUIDO
+ * El mosaico de fotos de provincias tampoco se construyó: pedía cinco
+ * imágenes de banco (host externo en la ruta más visitada) y prometía
+ * cobertura sin verificarla. En su lugar hay chips con el CONTEO REAL
+ * por provincia, contados en memoria sobre la misma consulta.
  *
- * Los cuatro archivos del velo blanco con el logo (`portada-intro.tsx`,
- * `intro.css`, `intro-visita.ts` y su prueba) están BORRADOS, no
- * comentados. Dos razones: tapaba justo el hero, que es lo que Google
- * mide para calificar la velocidad, y casi nadie la habría visto
- * —quedaba marcada como «vista» en todo dispositivo que hubiera
- * entrado alguna vez al sitio, así que la primera impresión terminaba
- * siendo distinta según el aparato—. Esta portada ES la bienvenida de
- * marca; el velo pasó a ser un obstáculo delante de ella.
+ * ── EL CARRUSEL DE SÚPER DESTACADOS SALIÓ DE ACÁ ─────────────────
+ *
+ * `VitrinaHome` (home-secciones.tsx) ya no se monta en la portada, y el
+ * archivo NO se borró — solo dejó de usarse desde este orden. Dos
+ * razones, las dos de la maqueta: su diapositiva mide 420 px justo
+ * arriba del pliegue (la entrada móvil está en LCP 3640 ms, contra un
+ * objetivo de 2500) y mostraba EXACTAMENTE los mismos súper destacados
+ * que ahora alimentan la tira de la sección 3 — el mismo negocio en un
+ * carrusel y en una grilla, uno encima del otro, es la misma
+ * información dos veces. ⚠️ Es una decisión de producto: los súper
+ * destacados son la vitrina que el admin curó a mano desde
+ * /admin/ranchos. Siguen visibles, y con su nombre; lo que se fue es el
+ * formato carrusel.
  *
  * DE DÓNDE SALE CADA PEDAZO
  *
  *   · Las secciones sin datos      → src/components/home/*
  *   · El buscador                  → src/components/buscador-home.tsx
  *   · Las grillas de categoría     → src/components/grilla-categorias.tsx
- *   · Las secciones con negocios   → src/app/home-secciones.tsx
+ *   · La tira de destacados        → src/components/negocios-destacados.tsx
+ *   · El riel de lo nuevo          → src/app/home-secciones.tsx
  *   · La única consulta a la base  → src/app/home-datos.ts
  *
  * Este archivo NO tiene lógica propia: ordena, pone los anchos y marca
  * dónde va el `<Suspense>`. Si hay que cambiar cómo se ve una sección,
  * el archivo es el suyo, no este.
  *
- * LO QUE ESTA PORTADA NO DICE, A PROPÓSITO
- *
- * Ni estrellas, ni «negocios verificados», ni «+2k personas
- * reservando». En la base hay CERO reseñas, cero favoritos guardados y
- * 125 reservas en toda la historia de la plataforma: las tres frases de
- * la maqueta de referencia serían inventadas. Y el buscador no tiene
- * campo de fecha porque no existe una consulta de disponibilidad que
- * abarque el directorio entero — un control que no filtra nada es un
- * control que miente.
- *
  * EL PAÍS DEL BUSCADOR SE DETECTA, NO SE ADIVINA
  *
- * El `<select>` de país del buscador ya no abre siempre en Costa Rica:
- * abre en el país del visitante, sacado de la cabecera de Vercel
- * `x-vercel-ip-country` (o del que la persona haya elegido a mano en
- * una visita anterior). Las reglas viven en @/lib/pais-preferido y la
- * lectura del request en @/lib/pais-visitante — ahí está explicado por
- * qué esto NO le cuesta caché a la página más visitada del sitio.
- *
+ * El `<select>` de país del buscador abre en el país del visitante,
+ * sacado de la cabecera de Vercel `x-vercel-ip-country` (o del que la
+ * persona haya elegido a mano antes). Las reglas viven en
+ * @/lib/pais-preferido y la lectura del request en @/lib/pais-visitante.
  * Se resuelve ACÁ ARRIBA y no dentro de un `<Suspense>`: leer una
  * cabecera no cuesta ni I/O ni red, y el buscador es lo primero que se
- * ve del hero. Meterlo detrás de un límite de espera sería regalar un
- * salto de maqueta justo en lo que Google mide.
+ * ve.
+ *
+ * LA BIENVENIDA ANIMADA SE FUE, Y NO ES UN DESCUIDO
+ *
+ * Los cuatro archivos del velo blanco con el logo (`portada-intro.tsx`,
+ * `intro.css`, `intro-visita.ts` y su prueba) están BORRADOS, no
+ * comentados: tapaban justo el héroe, que es lo que Google mide. Ya
+ * revivieron una vez por accidente. No vuelven.
  */
 
 export const metadata: Metadata = {
@@ -123,9 +136,7 @@ export const metadata: Metadata = {
     "Reservá citas de belleza, barbería, spa y salud, y encontrá lugares, catering, música y decoración para tu evento en todo Costa Rica. Precios en colones, a la vista, y reserva directa sin cadenas de WhatsApp.",
   // Acá SÍ se puede usar la Metadata API —y no un <link> en el JSX
   // como hace el directorio— porque el archivo y la ruta coinciden:
-  // esta metadata cubre `/` y nada más. Mientras `/` montaba el
-  // componente del directorio, la metadata de aquel archivo solo
-  // cubría `/eventos` y la raíz quedaba sin etiqueta.
+  // esta metadata cubre `/` y nada más.
   alternates: { canonical: urlSitio("/") },
 };
 
@@ -133,17 +144,18 @@ export const metadata: Metadata = {
  * LOS DATOS DE LA PORTADA, UNA SOLA VEZ POR VISITA.
  *
  * `leerDatosHome()` hace toda la tanda de consultas de una (ver
- * home-datos.ts), pero acá se consume desde DOS lugares distintos: la
- * vitrina, que va arriba dentro del hero, y las grillas + el riel, que
- * van bastante más abajo con secciones estáticas en medio. Como cada
- * uno vive detrás de su propio `<Suspense>`, no puede ser un solo
- * componente que envuelva a los dos sin arrastrar todo lo de en medio
+ * home-datos.ts), pero acá se consume desde TRES lugares distintos: la
+ * tira de destacados, que va arriba de todo; las grillas + el riel, que
+ * van en el medio; y los chips de provincia, que van al final. Como
+ * cada uno vive detrás de su propio `<Suspense>`, no puede ser un solo
+ * componente que envuelva a los tres sin arrastrar todo lo de en medio
  * a la misma espera.
  *
  * `cache()` de React resuelve exactamente eso: deduplica por render,
- * así que el segundo que pregunta recibe la MISMA promesa que arrancó
- * el primero. Una sola ida a Supabase, dos límites de espera. Es el
- * mismo patrón que ya usan @/lib/auth y @/lib/negocio-propio.
+ * así que el segundo y el tercero que preguntan reciben la MISMA
+ * promesa que arrancó el primero. Una sola ida a Supabase, tres límites
+ * de espera. Es el mismo patrón que ya usan @/lib/auth y
+ * @/lib/negocio-propio.
  */
 const datosDeLaPortada = cache(leerDatosHome);
 
@@ -154,7 +166,7 @@ export default async function Home() {
   const pais = await paisDelVisitante();
 
   return (
-    // `overflow-x-clip`: el fondo `organico` del hero pinta manchas
+    // `overflow-x-clip`: el fondo `organico` del héroe pinta manchas
     // difuminadas que se salen de su caja, y en un teléfono eso mueve
     // el sitio ENTERO hacia los lados (ya pasó, ver eventos/page.tsx).
     // `clip` y no `hidden`: `hidden` crearía un contexto de scroll y
@@ -162,10 +174,9 @@ export default async function Home() {
     <div className="min-h-screen overflow-x-clip bg-aventurea-cream-2">
       {/* Quién es Bookea, en el idioma que leen los buscadores. Se
           declara UNA vez en todo el sitio y es acá: la recomendación de
-          Google es la portada, no cada pantalla. Vivía en
-          eventos/page.tsx solo mientras `/` montaba ese componente.
-          JSON serializado por nosotros, sin nada que venga de la base:
-          no hay entrada de usuario que escapar. */}
+          Google es la portada, no cada pantalla. JSON serializado por
+          nosotros, sin nada que venga de la base: no hay entrada de
+          usuario que escapar. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(DATOS_ORGANIZACION) }}
@@ -178,20 +189,21 @@ export default async function Home() {
 
       {/* `conPublicar={false}` a propósito: `NavHome` ya trae «Para
           negocios», y las dos puertas juntas en la misma barra se leen
-          como un error. El atajo sigue en el aviso de arriba (visible
-          en TODOS los anchos, incluido el teléfono, donde el link del
-          header estaba escondido igual) y en el menú de cuenta. De
-          paso, `conPublicar={false}` se salta la consulta
+          como un error. De paso se salta la consulta
           `tieneNegocioPropio()` — una ida menos a la base en la URL más
           visitada del sitio. */}
       <SiteHeader ancho="max-w-[1200px]" extra={<NavHome />} conPublicar={false} />
 
-      <Hero pais={pais} />
-      <TarjetasVertical />
+      <Hero />
+      <Buscador pais={pais} />
+      <Destacados />
       <SeccionExplorar />
+      <SeccionLoNuevo />
+      <TarjetasVertical />
       <ComoFunciona />
-      <BloqueNegocios />
       <BloqueSoluciones />
+      <SeccionProvincias />
+      <BloqueNegocios />
 
       {/* El pie va en CLARO aunque la sección de arriba también lo sea:
           es decisión propia de SiteFooter («dos navys pegados se leen
@@ -208,7 +220,7 @@ export default async function Home() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   EL HERO
+   1 · EL HÉROE  (`section.hero` de la maqueta)
    ═══════════════════════════════════════════════════════════════════ */
 
 /**
@@ -230,7 +242,7 @@ const HECHOS: string[] = [
 ];
 
 /**
- * El fondo del hero: `organico` (globals.css), las manchas
+ * El fondo del héroe: `organico` (globals.css), las manchas
  * difuminadas que derivan despacio y el grano de película.
  *
  * Los tres colores van por variable porque la utilidad los pide así
@@ -240,10 +252,10 @@ const HECHOS: string[] = [
  *
  * POR QUÉ NO HAY ADEMÁS DOS ORBES SUELTOS como en la maqueta: eso es
  * exactamente lo que `organico` ya pinta —tres manchas radiales
- * difuminadas— y son la pieza oficial del sistema, con su animación
- * apagada bajo `prefers-reduced-motion` y su `overflow: hidden` para
- * que nada se escape del hero. Dos divs más encima serían la misma
- * decoración pintada dos veces.
+ * difuminadas, en las mismas posiciones que sus dos `radial-gradient`—
+ * y son la pieza oficial del sistema, con su animación apagada bajo
+ * `prefers-reduced-motion` y su `overflow: hidden` para que nada se
+ * escape del héroe.
  */
 const COLORES_HERO = {
   "--c1": "color-mix(in srgb, var(--color-aventurea-orange) 24%, transparent)",
@@ -251,115 +263,254 @@ const COLORES_HERO = {
   "--c3": "color-mix(in srgb, var(--color-aventurea-navy-3) 75%, transparent)",
 } as CSSProperties;
 
-function Hero({ pais }: { pais: CodigoPais }) {
+/**
+ * El collage de la maqueta: dos fotos rotadas con marco blanco.
+ *
+ * ⚠️ LAS FOTOS SON PROPIAS, no de Unsplash. `public/fondos/*.jpg` ya
+ * estaban pagadas y en el repo, y ya las usa `TarjetasVertical` más
+ * abajo (o sea que el navegador las va a reusar). Traer un banco de
+ * imágenes teniendo estas sería pagar dos veces y, encima, meter un
+ * host externo en la ruta más visitada del sitio.
+ *
+ * ⚠️ SIN LAS DOS TARJETITAS FLOTANTES de la maqueta («Masaje relajante
+ * · Disponible hoy · 4.9 ★»): un negocio inventado, una disponibilidad
+ * que no se consulta y una estrella que no existe, los tres pecados en
+ * el mismo recuadro de 12 px.
+ */
+const COLLAGE: { src: string; clase: string }[] = [
+  {
+    src: "/fondos/portada-citas.jpg",
+    clase: "left-[2%] top-0 h-[82%] w-[63%] -rotate-[4deg]",
+  },
+  {
+    src: "/fondos/portada-eventos.jpg",
+    clase: "bottom-0 right-0 h-[70%] w-[54%] rotate-[5deg]",
+  },
+];
+
+function Hero() {
   return (
     <section className="organico bg-aventurea-navy" style={COLORES_HERO}>
-      <div className="mx-auto max-w-[1200px] px-4 pb-14 pt-12 sm:px-6 sm:pb-16 sm:pt-16 lg:px-10">
-        <div className="mx-auto max-w-[860px] text-center">
-          <p className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/85 ring-1 ring-white/15">
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-aventurea-orange" />
-            Reservas fáciles en Costa Rica
+      {/* El `pb` grande es el espacio donde entra la mitad de arriba del
+          buscador, que se solapa desde afuera de esta sección. */}
+      <div className="relative mx-auto grid max-w-[1200px] items-center gap-10 px-4 pb-14 pt-10 sm:px-6 sm:pb-24 sm:pt-12 lg:grid-cols-[1.12fr_0.88fr] lg:gap-12 lg:px-10">
+        <div className="min-w-0">
+          {/* El «eyebrow» de la maqueta: la rayita y el texto en
+              mayúsculas. La rayita es decorativa. */}
+          <p className="flex items-center gap-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-orange-light">
+            <span aria-hidden className="h-px w-6 bg-current" />
+            Reservá local. Viví más.
           </p>
 
           {/* El único `<h1>` de la página, y visible: el del directorio
               es `sr-only` porque allá el contenido son las cards. Acá
               el titular ES la página. El acento va en naranja: es
-              texto grande (38px para arriba), donde el contraste del
-              naranja sobre navy alcanza de sobra. */}
-          <h1 className="titulo mt-5 text-balance text-[clamp(38px,7vw,76px)] text-white">
+              texto grande (34px para arriba), donde el contraste del
+              naranja sobre navy alcanza de sobra. La escala baja
+              respecto de la portada anterior (era clamp 38-76) porque
+              la maqueta comprime el héroe a propósito. */}
+          <h1 className="titulo mt-3.5 text-balance text-[clamp(34px,5vw,60px)] leading-[1.02] text-white">
             Encontrá. Elegí. <span className="text-aventurea-orange">Reservá.</span>
           </h1>
 
-          <p className="mx-auto mt-5 max-w-[52ch] text-[15px] leading-relaxed text-white/75 sm:text-[16.5px]">
-            Desde tu próxima cita hasta cada detalle de tu evento. Todo en un
-            solo lugar, sin llamadas ni complicaciones.
+          <p className="mt-4 max-w-[54ch] text-[14.5px] leading-relaxed text-white/75 sm:text-[16px]">
+            Citas, espacios, proveedores y experiencias de Costa Rica en un solo
+            lugar. Fácil de comparar, fácil de reservar.
           </p>
 
-          <ul className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-2.5 text-[12.5px] font-semibold text-white/80">
+          <ul className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2.5 text-[12px] font-semibold text-white/80">
             {HECHOS.map((hecho) => (
               <li key={hecho} className="flex items-center gap-2">
-                <IconCheck className="h-3.5 w-3.5 shrink-0 text-aventurea-orange" />
+                {/* El ícono en burbuja de la maqueta (`.proof i`). */}
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10">
+                  <IconCheck className="h-3 w-3 shrink-0 text-aventurea-orange" />
+                </span>
                 {hecho}
               </li>
             ))}
           </ul>
         </div>
 
-        {/* El buscador no trae márgenes propios ni el solapamiento
-            negativo de la maqueta: dónde se para es decisión de esta
-            composición, no del componente.
+        {/* Decorativo y SOLO de `lg` para arriba, igual que en la
+            maqueta (`.hero-gallery{display:none}` en móvil): en un
+            teléfono estas fotos no aportan nada y solo empujarían el
+            buscador y los negocios fuera de la primera pantalla, que es
+            justo lo que esta composición viene a evitar.
 
-            `paisInicial` es el país detectado (o el que la persona
-            eligió antes). Baja como prop y no lo lee el buscador solo
-            porque el buscador es `"use client"`: no puede tocar
-            `headers()`, y meterle un `useSearchParams()` obligaría a
-            renderizar la portada entera del lado del cliente. */}
-        <BuscadorHome className="mx-auto mt-9 max-w-[900px]" paisInicial={pais} />
-
-        {/* LA VITRINA. Es lo único del hero que depende de la base, así
-            que va sola detrás de su propio `<Suspense>`: el resto del
-            hero —titular, buscador, fila de confianza— sale por el
-            cable de inmediato, sin esperar a Supabase. El esqueleto
-            mide EXACTAMENTE lo mismo que los tres niveles de la
-            vitrina, así que nada salta cuando llegan los datos. */}
-        <div className="mt-10">
-          <Suspense fallback={<EsqueletoVitrinaHome />}>
-            <VitrinaDelHero />
-          </Suspense>
+            El `sizes` con el `1px` de respaldo no es un truco sucio: es
+            la forma de que el navegador que igual resuelve el `srcset`
+            en móvil se baje el candidato más chico en vez de uno de 640
+            para una caja que no se ve. */}
+        <div aria-hidden className="relative hidden h-[300px] lg:block">
+          {COLLAGE.map((foto) => (
+            <div
+              key={foto.src}
+              className={`absolute overflow-hidden rounded-[22px] border-4 border-white/10 shadow-[0_28px_50px_rgba(0,0,0,0.32)] ${foto.clase}`}
+            >
+              <Image
+                src={foto.src}
+                alt=""
+                fill
+                // Calidad 60: es la del sitio para fotos decorativas
+                // (ver next.config.ts).
+                quality={60}
+                sizes="(min-width: 1024px) 340px, 1px"
+                className="object-cover"
+              />
+            </div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/** La vitrina con su degradado de tres niveles (ver home-secciones.tsx). */
-async function VitrinaDelHero() {
-  const { destacados, respaldoVitrina } = await datosDeLaPortada();
-  return <VitrinaHome destacados={destacados} respaldo={respaldoVitrina} />;
-}
-
 /* ═══════════════════════════════════════════════════════════════════
-   EXPLORAR: LAS DOS GRILLAS DE CATEGORÍA Y EL RIEL DE LO NUEVO
+   2 · EL BUSCADOR  (`section.search-wrap`)
    ═══════════════════════════════════════════════════════════════════ */
 
 /**
- * El bloque de en medio de la portada. Las tres piezas que lo forman
- * dependen de la misma consulta —los conteos por categoría y los
- * negocios recién publicados— así que comparten un solo `<Suspense>`:
- * dos límites acá abajo harían que la página se arme en dos saltos
- * visibles, y no hay nada que ganar con eso.
+ * El buscador, SOLAPADO sobre el héroe — lo único que se adopta tal
+ * cual de la maqueta en esta zona (`margin-top:-46px`).
+ *
+ * ⚠️ VA FUERA DEL `<section class="organico">`, no adentro. `organico`
+ * trae `isolation: isolate` y `overflow: hidden`: un elemento que
+ * sobresale del héroe desde adentro quedaría recortado, y su apilado
+ * no podría subir por encima de nada de afuera. Es el mismo choque que
+ * ya obligó al portal de la hoja móvil del buscador.
+ *
+ * El solapamiento arranca en `sm`. En teléfono el buscador no muestra
+ * los campos (abre una hoja a pantalla completa) y solaparlo dejaría el
+ * disparador pisando el borde del héroe sin ganar nada.
+ *
+ * EL COMPONENTE NO SE TOCA. La maqueta propone otro buscador —cinco
+ * columnas con «¿Cuándo?» y «¿Para quién?», cada campo abriendo un
+ * modal— y ese buscador no se puede construir con verdad: no hay
+ * consulta de disponibilidad transversal ni columna de capacidad
+ * consultable en Citas, así que dos de sus cinco campos no filtrarían
+ * nada. El que ya existe, además, BUSCA SIN JAVASCRIPT (`<form
+ * method="get">`, pestañas que son `<a href>`, chips que son `<Link>` a
+ * URLs rastreables) y trae resuelta la accesibilidad completa —
+ * `role="tablist"` con flechas, `inert` en la vertical inactiva, trampa
+ * de foco en la hoja móvil—. Nada de eso está en la maqueta.
+ */
+function Buscador({ pais }: { pais: CodigoPais }) {
+  return (
+    <div className="relative z-20 px-4 sm:px-6 lg:px-10">
+      {/* −50 px es EXACTAMENTE el alto de la fila de pestañas más su
+          margen: con eso las pestañas quedan sobre el navy del héroe y
+          el panel blanco de los campos empieza justo en el borde. Es la
+          silueta de la maqueta, donde el mismo recorte lo hace el
+          `padding` interno del `.search-panel`. */}
+      <div className="mx-auto mt-5 max-w-[1200px] sm:-mt-[50px]">
+        {/* `paisInicial` es el país detectado (o el que la persona
+            eligió antes). Baja como prop y no lo lee el buscador solo
+            porque el buscador es `"use client"`: no puede tocar
+            `headers()`, y meterle un `useSearchParams()` obligaría a
+            renderizar la portada entera del lado del cliente.
+
+            `tono="oscuro"` sigue siendo el correcto: con el solapamiento,
+            la fila de pestañas es justo la parte que queda sobre el navy
+            del héroe, y el panel blanco de los campos cae ya sobre el
+            crema. Es la silueta de la maqueta. */}
+        <BuscadorHome className="mx-auto max-w-[980px]" paisInicial={pais} />
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   3 · NEGOCIOS DESTACADOS  (`section.business-peek`)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/**
+ * La sección que el dueño señaló con el dedo: los negocios ACTIVOS,
+ * visibles apenas debajo del buscador.
+ *
+ * Va detrás de su propio `<Suspense>` con un esqueleto que mide
+ * EXACTAMENTE lo mismo (132 px por tarjeta, mismas columnas por ancho):
+ * es lo primero que se ve debajo del pliegue y el CLS del sitio hoy es
+ * 0,000.
+ */
+function Destacados() {
+  return (
+    <Suspense fallback={<EnvoltorioDestacados />}>
+      <DestacadosConDatos />
+    </Suspense>
+  );
+}
+
+/** El esqueleto con el mismo margen exterior que la sección real. */
+function EnvoltorioDestacados() {
+  return (
+    <div className="px-4 pb-10 pt-7 sm:px-6 sm:pb-12 sm:pt-9 lg:px-10">
+      <div className="mx-auto max-w-[1200px]">
+        <EsqueletoDestacados />
+      </div>
+    </div>
+  );
+}
+
+async function DestacadosConDatos() {
+  const { vitrinaPeek, peekCurado, verTodoPeek } = await datosDeLaPortada();
+  return (
+    <NegociosDestacados
+      negocios={vitrinaPeek}
+      curado={peekCurado}
+      verTodoHref={verTodoPeek}
+    />
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   4 · ¿QUÉ QUERÉS HACER HOY?  (`section.compact#explorar`)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Las dos grillas de categoría, una por vertical.
+ *
+ * ⚠️ La maqueta pinta SEIS tarjetas con foto: Belleza, Bienestar,
+ * Salud, Eventos, Gastronomía y Escapadas. Cuatro de esas seis NO son
+ * categorías de esta plataforma —«Bienestar», «Salud», «Gastronomía» y
+ * «Escapadas» no están en ninguna taxonomía— e inventar categorías está
+ * prohibido por CLAUDE.md. `GrillaCategorias` las saca de
+ * `categoriaOptions(vertical)`, o sea de la taxonomía oficial, y por eso
+ * son dos grillas y no una: Citas y Eventos tienen seis categorías cada
+ * una y ninguna puede quedar invisible en la portada.
+ *
+ * Tampoco hay fotos por rubro: en la base las imágenes son de un
+ * negocio, no de una categoría. La grilla usa los gradientes e íconos
+ * propios del sistema, que es dato cierto y estética de la marca.
  */
 function SeccionExplorar() {
   return (
-    <section className="px-4 py-16 sm:px-6 sm:py-20 lg:px-10">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-16">
+    <section id="explorar" className="px-4 py-14 sm:px-6 sm:py-16 lg:px-10">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-14">
         <Suspense
           fallback={
             <>
               <EsqueletoGrillaCategorias />
               <EsqueletoGrillaCategorias />
-              <EsqueletoRiel />
             </>
           }
         >
-          <CategoriasYNuevos />
+          <Categorias />
         </Suspense>
       </div>
     </section>
   );
 }
 
-async function CategoriasYNuevos() {
-  const { conteos, nuevos, verTodoNuevos, favoritosIds, sesionActiva } =
-    await datosDeLaPortada();
+async function Categorias() {
+  const { conteos } = await datosDeLaPortada();
 
   return (
     <>
       <GrillaCategorias
         vertical="citas"
-        kicker="Citas y servicios"
-        titulo="Cuidarte nunca fue tan fácil"
-        descripcion="Descubrí profesionales cerca de vos, compará opciones y reservá en minutos."
+        kicker="Explorá Bookea"
+        titulo="¿Qué querés hacer hoy?"
+        descripcion="Empezá por una categoría y reservá con profesionales de todo el país."
         conteos={conteos.citas}
         verTodoHref="/citas"
       />
@@ -373,10 +524,11 @@ async function CategoriasYNuevos() {
         verTodoHref="/eventos"
       />
 
-      {/* Los restaurantes son el 25% de los negocios publicados y las
-          dos grillas de arriba los dejan afuera. No merecen una
-          tercera grilla hoy —son dos negocios— pero sí una puerta:
-          sin esto, `/restaurantes` no está enlazado desde la portada. */}
+      {/* Los restaurantes son una parte grande de los negocios
+          publicados y las dos grillas de arriba los dejan afuera. No
+          merecen una tercera grilla —la portada ya trae doce tarjetas de
+          categoría— pero sí una puerta: sin esto, `/restaurantes` no
+          está enlazado desde la portada. */}
       <p className="text-center text-[13.5px] text-aventurea-ink-soft">
         ¿Buscás dónde comer?{" "}
         <Link
@@ -387,16 +539,150 @@ async function CategoriasYNuevos() {
           <IconChevronRight className="h-3.5 w-3.5" />
         </Link>
       </p>
+    </>
+  );
+}
 
-      {/* Si hay menos de tres negocios pintables, esto no devuelve
-          nada: un riel con una tarjeta grita que el directorio está
-          vacío. El hueco lo cierra solo el `gap` del contenedor. */}
-      <RielLoNuevo
-        nuevos={nuevos}
-        verTodoHref={verTodoNuevos}
-        favoritosIds={favoritosIds}
-        sesionActiva={sesionActiva}
-      />
+/* ═══════════════════════════════════════════════════════════════════
+   5 · LO NUEVO EN BOOKEA  (`section.soft#recomendados`)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/**
+ * El riel de negocios sobre el fondo `soft` de la maqueta (acá,
+ * `cream`: el gris del sistema propio).
+ *
+ * ⚠️ La maqueta titula la sección «Planes cerca de tu ubicación» y le
+ * pone una fila de filtros: «Todos · Disponible hoy · Mejor valorados ·
+ * Belleza · Bienestar · Eventos». No se construyeron. «Disponible hoy»
+ * y «Mejor valorados» filtran sobre datos que no existen —cero reseñas,
+ * cero disponibilidad transversal— y las categorías ya tienen su propia
+ * grilla justo arriba, con conteos reales y sin JavaScript. El título
+ * es «Lo nuevo en Bookea» porque `created_at desc` es el único orden que
+ * los datos sostienen.
+ */
+function SeccionLoNuevo() {
+  return (
+    <section className="bg-aventurea-cream px-4 py-14 sm:px-6 sm:py-16 lg:px-10">
+      <div className="mx-auto max-w-[1200px]">
+        <Suspense fallback={<EsqueletoRiel />}>
+          <LoNuevo />
+        </Suspense>
+      </div>
+    </section>
+  );
+}
+
+async function LoNuevo() {
+  const { nuevos, verTodoNuevos, favoritosIds, sesionActiva } = await datosDeLaPortada();
+
+  return (
+    <RielLoNuevo
+      nuevos={nuevos}
+      verTodoHref={verTodoNuevos}
+      favoritosIds={favoritosIds}
+      sesionActiva={sesionActiva}
+      // La foto prioritaria de la portada es la primera tarjeta de
+      // «Negocios destacados», mucho más arriba. Marcar también acá una
+      // como prioritaria sería sumar otra imagen a la pelea con el
+      // héroe, que es exactamente lo que Google mide.
+      prioridad={false}
+    />
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   9 · DESCUBRÍ ALGO CERCA DE VOS  (`section#provincias`)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Los chips de provincia — el sustituto HONESTO del mosaico de fotos.
+ *
+ * ⚠️ QUÉ PEDÍA LA MAQUETA Y POR QUÉ NO SE HIZO. Un bento de cinco
+ * provincias (Alajuela grande, San José, Guanacaste, Heredia, Limón)
+ * con foto a sangre y un descriptor: «Volcanes, bienestar y planes
+ * locales». Eso necesita cinco fotos que no existen en el repo —serían
+ * de banco de imágenes, o sea un host externo en la ruta más visitada
+ * del sitio— y, peor, promete cobertura en cinco provincias sin
+ * haberla verificado negocio por negocio.
+ *
+ * Estos chips cuentan la columna `provincia` sobre la misma lista que
+ * ya trajo `leerDatosHome()`: cero consultas nuevas, cero fotos, y el
+ * número que se ve es exactamente el que la persona va a encontrar del
+ * otro lado del clic. Solo aparecen las provincias que TIENEN algo.
+ *
+ * ⚠️ Y NO DICE «CERCA DE VOS» EN SERIO: no hay ubicación del visitante.
+ * La cabecera de Vercel da el país, y en Costa Rica el ruteo por Miami
+ * hace basura de la ciudad — una sección que le dice «cerca de
+ * Alajuela» a alguien de Limón es peor que no tenerla. Por eso el
+ * título habla de explorar por provincia y no de cercanía.
+ */
+function SeccionProvincias() {
+  return (
+    <section id="provincias" className="px-4 py-14 sm:px-6 sm:py-16 lg:px-10">
+      <div className="mx-auto max-w-[1200px]">
+        <Suspense fallback={<EsqueletoProvincias />}>
+          <Provincias />
+        </Suspense>
+      </div>
+    </section>
+  );
+}
+
+function EsqueletoProvincias() {
+  return (
+    <div>
+      <Bloque className="h-3 w-32" />
+      <Bloque className="mt-3 h-8 w-[min(360px,75%)]" />
+      <div className="mt-6 flex flex-wrap gap-2.5">
+        {Array.from({ length: 5 }, (_, i) => (
+          <Bloque key={i} className="h-11 w-[150px] rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function Provincias() {
+  const { porProvincia } = await datosDeLaPortada();
+
+  // Menos de tres chips no es un mapa del país: es una lista de dos
+  // lugares con un título grande encima. La sección entera se omite
+  // antes que quedar como un encabezado huérfano.
+  if (porProvincia.length < 3) return null;
+
+  return (
+    <>
+      <div className="max-w-[62ch]">
+        <p className="text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-bookea-naranja-fuerte">
+          Hecho para Costa Rica
+        </p>
+        <h2 className="titulo mt-2 text-[clamp(26px,3.4vw,40px)] text-aventurea-navy">
+          Explorá por provincia
+        </h2>
+        <p className="mt-2.5 text-[14px] leading-relaxed text-aventurea-ink-soft">
+          Citas, eventos y lugares publicados en cada zona del país. El número es
+          el que vas a encontrar del otro lado.
+        </p>
+      </div>
+
+      <ul className="mt-6 flex flex-wrap gap-2.5">
+        {porProvincia.map((p, i) => (
+          <li key={p.provincia} data-reveal style={estiloRevelado(i, 50)}>
+            <Link
+              href={p.href}
+              className="elevar presionable group flex items-center gap-2.5 rounded-xl border border-aventurea-line bg-white py-2.5 pl-3 pr-4 text-[13.5px] font-bold text-aventurea-ink shadow-[0_5px_18px_-10px_rgba(22,41,94,0.25)] hover:border-aventurea-navy/40"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-aventurea-sky/10 text-aventurea-navy">
+                <IconPin className="h-3.5 w-3.5" />
+              </span>
+              {p.provincia}
+              <span className="text-[12px] font-semibold text-aventurea-ink-soft">
+                {p.cantidad}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </>
   );
 }

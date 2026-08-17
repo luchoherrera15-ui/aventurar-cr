@@ -3,6 +3,7 @@ import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
 import { leerSuperDestacados } from "@/lib/destacados";
 import { enConfiguracion, normalizarCategoria, type Rancho } from "@/app/mi-negocio/types";
 import { normalizarCategoriaCita } from "@/app/citas/tipos";
+import { urlDirectorio } from "@/lib/url-directorio";
 // Solo el TIPO: el carrusel es un módulo "use client" y un import de
 // valor lo arrastraría al servidor. Mismo criterio que @/lib/destacados.
 import type { NegocioDestacado } from "@/components/carrusel-super-destacados";
@@ -40,6 +41,13 @@ import type { NegocioDestacado } from "@/components/carrusel-super-destacados";
  * una es una foto más que bajar en la portada.
  */
 const TOPE_NUEVOS = 12;
+
+/**
+ * Cuántas tarjetas entran en la tira «Negocios destacados» de arriba.
+ * Cuatro, como la maqueta — es el número de columnas de la grilla, y
+ * una quinta obligaría a inventar un control para llegar a ella.
+ */
+const TOPE_PEEK = 4;
 
 /**
  * A qué directorio manda cada vertical. Se usa para el «Ver todo» del
@@ -94,6 +102,25 @@ export { rutaDeNegocio } from "@/lib/ruta-negocio";
 /** Cuántos negocios publicados hay por categoría, dentro de una vertical. */
 export type ConteosPorCategoria = Record<string, number>;
 
+/**
+ * Una provincia con negocios publicados, para los chips de «Descubrí
+ * algo cerca de vos».
+ *
+ * ⚠️ ES EL SUSTITUTO HONESTO DEL MOSAICO DE PROVINCIAS DE LA MAQUETA.
+ * Aquel pedía cinco fotos que no existen (y que serían de banco de
+ * imágenes) y prometía cobertura en cinco provincias sin haberla
+ * verificado. Esto cuenta la columna `provincia` sobre la misma lista
+ * que ya trajimos: cero consultas nuevas, cero fotos, y el número que
+ * se muestra es exactamente el que la persona va a encontrar del otro
+ * lado del clic.
+ */
+export type ProvinciaConNegocios = {
+  provincia: string;
+  cantidad: number;
+  /** El directorio de la vertical que más pesa en esa provincia. */
+  href: string;
+};
+
 export type DatosHome = {
   /**
    * El riel «Lo nuevo en Bookea»: aprobados, sin los que están «en
@@ -111,13 +138,56 @@ export type DatosHome = {
    * pintable con foto.
    */
   respaldoVitrina: Rancho | null;
+  /**
+   * La tira «Negocios destacados» de arriba de la portada (la sección
+   * `business-peek` de la maqueta). Filas completas y no
+   * `NegocioDestacado`: la tarjeta muestra la subcategoría, la insignia
+   * «Nuevo» y la de «★ Destacado», y ninguna de las tres viaja en la
+   * consulta acotada del carrusel.
+   */
+  vitrinaPeek: Rancho[];
+  /**
+   * Si `vitrinaPeek` sale de los súper destacados que el admin eligió a
+   * mano (0169) o si se completó con lo último publicado. Decide el
+   * encabezado: llamar «elegidos a mano» a los últimos que entraron
+   * sería afirmar una curaduría que no existe.
+   */
+  peekCurado: boolean;
+  /** A dónde manda el «Ver todos» de esa tira. */
+  verTodoPeek: string;
   /** Para las grillas de categoría: cuántos negocios hay en cada una. */
   conteos: { citas: ConteosPorCategoria; eventos: ConteosPorCategoria };
   /** A dónde manda el «Ver todo» del riel: la vertical que más pesa. */
   verTodoNuevos: string;
+  /** Las provincias con negocios publicados, de más a menos. */
+  porProvincia: ProvinciaConNegocios[];
   favoritosIds: string[];
   sesionActiva: boolean;
 };
+
+/**
+ * El directorio de la vertical que más aporta a una lista.
+ *
+ * No existe una página que liste las cuatro verticales juntas, así que
+ * un riel del marketplace entero no tiene un «Ver todo» único. Se elige
+ * el de la vertical dominante; si empatan o la lista está vacía,
+ * Eventos, que es el directorio más grande y el que ya recibe el resto
+ * de los enlaces del sitio. No queda cojo porque los cuatro directorios
+ * llevan arriba el `SelectorVertical`: quien toque «Ver todo» aterriza
+ * en la lista más parecida a lo que estaba mirando.
+ */
+function directorioDominante(lista: Rancho[]): string {
+  const porVertical: Record<string, number> = {};
+  for (const r of lista) {
+    const v = verticalDe(r);
+    porVertical[v] = (porVertical[v] ?? 0) + 1;
+  }
+  let dominante = "eventos";
+  for (const [v, cantidad] of Object.entries(porVertical)) {
+    if (cantidad > (porVertical[dominante] ?? 0)) dominante = v;
+  }
+  return DIRECTORIO_POR_VERTICAL[dominante] ?? "/eventos";
+}
 
 /**
  * Todo lo que la portada le pide a la base, de una sola vez.
@@ -222,27 +292,63 @@ export async function leerDatosHome(): Promise<DatosHome> {
 
   // ── A dónde va el «Ver todo» del riel ────────────────────────────
   //
-  // El riel es de TODO el marketplace, así que no hay un directorio
-  // único al que mandar: no existe una página que liste las cuatro
-  // verticales juntas. Se elige el de la vertical que más aporta al
-  // riel; si empatan o no hay nada, Eventos, que es el directorio más
-  // grande y el que ya recibe el resto de los enlaces del sitio.
+  // (Hoy, con los datos de producción, la vertical dominante del riel
+  // manda a /citas.) La regla completa está en `directorioDominante`.
+  const verTodoNuevos = directorioDominante(nuevos);
+
+  // ── LA TIRA «NEGOCIOS DESTACADOS» (sección `business-peek`) ──────
   //
-  // No queda cojo porque los cuatro directorios llevan arriba el
-  // `SelectorVertical`: quien toque «Ver todo» aterriza en la lista más
-  // parecida a lo que estaba mirando, con las otras verticales a un
-  // clic. (Hoy, con los datos de producción: 4 de Citas, 2 de
-  // Restaurantes y 1 de Eventos → manda a /citas.)
-  const porVertical: Record<string, number> = {};
-  for (const r of nuevos) {
-    const v = verticalDe(r);
-    porVertical[v] = (porVertical[v] ?? 0) + 1;
+  // CERO CONSULTAS NUEVAS. `leerSuperDestacados` ya trajo los ids que
+  // el admin marcó a mano (0169); con esos ids se eligen las filas
+  // COMPLETAS que ya están en `pintables`, que traen subcategoría,
+  // `destacado_orden` y `created_at` — tres campos que la consulta
+  // acotada del carrusel no pide y que la tarjeta de la tira sí usa.
+  //
+  // El degradado tiene dos escalones, igual que el resto de la portada:
+  //   · CURADA  — alcanzan los súper destacados → «Elegidos a mano».
+  //   · RELLENO — no alcanzan, se completa con lo último publicado →
+  //               «Recién publicados», que es lo que de verdad son.
+  //
+  // Y si ni así hay tres pintables, el componente devuelve `null` y la
+  // sección no existe: mejor ausente que con dos tarjetas estiradas.
+  const idsCurados = new Set(destacados.map((d) => d.id));
+  const curados = pintables.filter((r) => idsCurados.has(r.id));
+  const vitrinaPeek = [
+    ...curados,
+    ...pintables.filter((r) => !idsCurados.has(r.id)),
+  ].slice(0, TOPE_PEEK);
+  const peekCurado = curados.length >= TOPE_PEEK;
+  const verTodoPeek = directorioDominante(vitrinaPeek);
+
+  // ── LAS PROVINCIAS CON NEGOCIOS ──────────────────────────────────
+  //
+  // Se cuenta sobre `pintables` y no sobre `aprobados`: el chip lleva a
+  // un directorio filtrado por zona, y anunciar una provincia cuyo
+  // único negocio no se puede abrir es mandar a una lista muerta.
+  //
+  // Solo las que TIENEN algo. Ninguna provincia se pinta «por
+  // completar el mapa»: la maqueta dibujaba cinco con foto y esta
+  // portada no promete cobertura que no exista.
+  const provincias = new Map<string, Rancho[]>();
+  for (const r of pintables) {
+    const nombre = (r.provincia ?? "").trim();
+    if (!nombre) continue;
+    const lista = provincias.get(nombre);
+    if (lista) lista.push(r);
+    else provincias.set(nombre, [r]);
   }
-  let dominante = "eventos";
-  for (const [v, cantidad] of Object.entries(porVertical)) {
-    if (cantidad > (porVertical[dominante] ?? 0)) dominante = v;
-  }
-  const verTodoNuevos = DIRECTORIO_POR_VERTICAL[dominante] ?? "/eventos";
+  const porProvincia: ProvinciaConNegocios[] = [...provincias.entries()]
+    .map(([provincia, lista]) => ({
+      provincia,
+      cantidad: lista.length,
+      // La vertical que más pesa EN ESA PROVINCIA: mandar a /eventos
+      // una provincia donde todo lo publicado son barberías dejaría al
+      // visitante en una lista vacía.
+      href: urlDirectorio(directorioDominante(lista), { provincia }),
+    }))
+    // De más a menos, y a igual cantidad por nombre: el orden tiene que
+    // ser estable entre dos visitas o los chips bailan sin motivo.
+    .sort((a, b) => b.cantidad - a.cantidad || a.provincia.localeCompare(b.provincia, "es"));
 
   // La única consulta que no puede ir en la tanda de arriba: necesita
   // el id de la sesión. Solo la paga quien tiene sesión abierta.
@@ -259,8 +365,12 @@ export async function leerDatosHome(): Promise<DatosHome> {
     nuevos,
     destacados,
     respaldoVitrina,
+    vitrinaPeek,
+    peekCurado,
+    verTodoPeek,
     conteos,
     verTodoNuevos,
+    porProvincia,
     favoritosIds,
     sesionActiva: !!user,
   };
