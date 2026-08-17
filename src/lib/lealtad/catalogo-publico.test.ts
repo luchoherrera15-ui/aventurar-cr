@@ -176,14 +176,14 @@ describe("catalogoPublico — la forma que la app espera", () => {
 });
 
 describe("catalogoPublico — los números que la app estaba mintiendo", () => {
-  it("la Prueba son 25 clientes y 14 días, no 50 para siempre", () => {
+  it("la Prueba son 5 clientes y 14 días — alcanza para probar, no para operar gratis", () => {
     const prueba = catalogoPublico().planes.find((p) => p.id === "prueba");
     expect(prueba).toBeDefined();
     expect(prueba?.nombre).toBe("Prueba");
     expect(prueba?.precio).toBe("$0");
     expect(prueba?.esGratis).toBe(true);
     expect(prueba?.diasPrueba).toBe(14);
-    expect(prueba?.etiquetaClientes).toBe("Hasta 25 clientes");
+    expect(prueba?.etiquetaClientes).toBe("Hasta 5 clientes");
     expect(prueba?.notaPrecio).toBe("14 días, sin tarjeta");
   });
 

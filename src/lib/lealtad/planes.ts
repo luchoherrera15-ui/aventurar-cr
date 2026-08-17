@@ -451,7 +451,18 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     precioMensual: 0,
     precioAnual: null,
     limites: {
-      clientesActivos: 25,
+      // CINCO, y es el número que el dueño fijó: la Prueba alcanza para
+      // ver el producto funcionando con clientes de verdad, no para
+      // operar gratis. Estuvo en 25 y con eso una barbería chica podía
+      // quedarse ahí sin pagar nunca.
+      //
+      // El tope NO es decorativo: lo hacen cumplir las tres puertas por
+      // las que entra un cliente —el pase de Apple (generar.ts), el de
+      // Google (google.ts) y el alta por QR sin cuenta (personas.ts)—,
+      // las tres contra `personasActivasDe`, que cuenta PERSONAS de la
+      // cuenta y no filas por tarjeta. Con el conteo viejo, cada tarjeta
+      // nueva regalaba un cupo entero.
+      clientesActivos: 5,
       // UN programa, y es la regla del dueño: «si el plan es gratis
       // todo es automático, y solo permite crear UN pase». No se
       // cumple con un `if` en una pantalla — se cumple con este 1, que

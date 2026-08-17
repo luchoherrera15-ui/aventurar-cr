@@ -163,6 +163,28 @@ describe("los planes viejos no se rompen", () => {
     expect(def?.nombre).toBe("Básico");
     expect(estadoDelLimite("basico", "clientesActivos", 5_000).lleno).toBe(false);
   });
+
+  /**
+   * El tope de la Prueba, atado al COMPORTAMIENTO y no solo al número.
+   *
+   * Este 5 no es una etiqueta de la pantalla de paquetes: es lo que
+   * frena a un cliente real parado en la caja. Lo hacen cumplir las tres
+   * puertas por las que entra alguien —el pase de Apple (generar.ts), el
+   * de Google (google.ts) y el alta por QR sin cuenta (personas.ts)—,
+   * las tres comparando contra `personasActivasDe`.
+   *
+   * Si alguien sube el número «para probar» y se olvida, el paquete
+   * gratis pasa a afiliar de más y nadie se entera hasta la factura.
+   */
+  it("la Prueba se llena en 5 clientes, ni antes ni después", () => {
+    expect(PLANES.prueba.limites.clientesActivos).toBe(5);
+    expect(estadoDelLimite("prueba", "clientesActivos", 4).lleno).toBe(false);
+    expect(estadoDelLimite("prueba", "clientesActivos", 5).lleno).toBe(true);
+    // Por encima del tope sigue lleno: un negocio que quedó con más
+    // clientes de los que su paquete permite —porque bajó de plan— no
+    // puede seguir sumando.
+    expect(estadoDelLimite("prueba", "clientesActivos", 6).lleno).toBe(true);
+  });
 });
 
 describe("el catálogo de Lealtad", () => {
@@ -507,7 +529,7 @@ describe("los planes crecen", () => {
 
   it("los topes son los acordados", () => {
     expect(PLANES.prueba.limites).toMatchObject({
-      clientesActivos: 25,
+      clientesActivos: 5,
       programas: 1,
       administradores: 1,
     });
@@ -660,7 +682,7 @@ describe("definicionDe", () => {
   it("devuelve null para lo que no es plan", () => {
     expect(definicionDe(null)).toBeNull();
     expect(definicionDe("premium")).toBeNull();
-    expect(definicionDe("prueba")?.limites.clientesActivos).toBe(25);
+    expect(definicionDe("prueba")?.limites.clientesActivos).toBe(5);
     expect(definicionDe("arranque")?.nombre).toBe("Arranque");
     expect(definicionDe("impulso")?.nombre).toBe("Impulso");
     expect(definicionDe("ilimitado")?.nombre).toBe("Ilimitado");
