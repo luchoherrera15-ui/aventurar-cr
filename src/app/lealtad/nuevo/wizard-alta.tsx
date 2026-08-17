@@ -451,6 +451,13 @@ export default function WizardAlta({
           horaDesde: "",
           horaHasta: "",
         },
+        // El vencimiento de sellos (0180) tampoco va en el onboarding,
+        // por lo mismo que las reglas de la 0136: la tarjeta nace sin
+        // que nada se venza, y el dueño la enciende después desde el
+        // editor si la quiere. Encender de fábrica una regla que le
+        // quita sellos a la gente sería lo contrario de un buen
+        // arranque.
+        sellosVencenMeses: null,
       };
       iniciar(async () => {
         const res = await crearTarjeta(borrador);

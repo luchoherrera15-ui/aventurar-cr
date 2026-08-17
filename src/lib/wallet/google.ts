@@ -10,10 +10,12 @@ import {
   metaDeSellos,
   tarjetaDesdeFila,
   textoDePausa,
+  textoDeVencimiento,
   type ConfigPase,
   type MetaRecompensa,
 } from "./tarjeta";
 import { estadoVisible } from "@/lib/lealtad/programas";
+import { fechaDeCorte, reglaDeFila } from "@/lib/lealtad/vencimiento-sellos";
 import { resumenDeFila } from "./programa-principal";
 import {
   buscarMiembroDelPase,
@@ -234,12 +236,24 @@ export function contenidoDelObjeto({
   meta,
   beneficio,
   pausado,
+  sellosVencenEl = null,
 }: {
   negocioNombre: string;
   saldo: number;
   config: ConfigPase;
   meta: MetaRecompensa;
   beneficio: ConfigBeneficio | null;
+  /**
+   * Hasta cuándo le valen los sellos a este cliente (0180), en ISO y
+   * ya en la zona del negocio. null = no vencen, y entonces el objeto
+   * sale exactamente igual que antes: ni un módulo de más.
+   *
+   * Lo manda el REFRESCO, que corre con cada sello y por lo tanto
+   * siempre trae la fecha corrida. La creación no lo manda: un pase
+   * recién emitido todavía no tiene un último sello del cual contar, y
+   * el primer PATCH agrega el módulo solo.
+   */
+  sellosVencenEl?: string | null;
   /**
    * EL PROGRAMA ESTÁ EN PAUSA — y este parámetro tiene TRES valores, no
    * dos, porque el PATCH de Google no borra lo que no se nombra:
@@ -306,6 +320,17 @@ export function contenidoDelObjeto({
     });
   }
 
+  // El vencimiento de los sellos (0180), con el MISMO texto que el
+  // reverso del pase de Apple: el iPhone y el Android de dos clientes
+  // del mismo negocio tienen que decir lo mismo, palabra por palabra.
+  if (sellosVencenEl) {
+    modulos.push({
+      id: "vence",
+      header: "Tus sellos vencen",
+      body: textoDeVencimiento(sellosVencenEl),
+    });
+  }
+
   // La banda del negocio: el equivalente del `strip.png` de Apple. Va
   // en el OBJETO y no en la clase porque la clase es del negocio y el
   // objeto es del cliente — y porque así el mismo PATCH que refresca el
@@ -348,6 +373,37 @@ export function contenidoDelObjeto({
     ...(modulos.length > 0 || pausado !== undefined ? { textModulesData: modulos } : {}),
     ...(banda ? { heroImage: imagenGoogle(banda, `Banda de ${negocioNombre}`) } : {}),
   };
+}
+
+/**
+ * Hasta cuándo le valen los sellos a este cliente (0180), o null.
+ *
+ * Se calcula y no se guarda: sale del último movimiento del ledger, o
+ * sea que se corre solo con cada sello. Una columna con la fecha sería
+ * un segundo número que puede contradecir al ledger.
+ */
+async function corteDeSellos(
+  db: NonNullable<ReturnType<typeof createAdminClient>>,
+  miembroId: string,
+  programa: Record<string, unknown>,
+  zona: string | null,
+): Promise<string | null> {
+  const regla = reglaDeFila(programa);
+  if (regla.meses === null) return null;
+
+  const { data: ultimo } = await db
+    .from("transacciones_puntos")
+    .select("created_at")
+    .eq("miembro_id", miembroId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return fechaDeCorte({
+    regla,
+    ultimoMovimiento: (ultimo?.created_at as string | null) ?? null,
+    zona,
+  });
 }
 
 /** «CÓMO SE USA» (mayúsculas de Apple) → «Cómo se usa» (Google). */
@@ -761,15 +817,19 @@ export async function refrescarPaseGoogleDeMiembro(
     const programa = (programaFila ?? {}) as Record<string, unknown>;
     const { config, beneficio } = tarjetaDesdeFila(programa);
 
-    // El nombre del negocio es el respaldo del «dónde» de un evento.
+    // El nombre del negocio es el respaldo del «dónde» de un evento; la
+    // zona horaria (0062/0170) decide en qué DÍA se le vencen los
+    // sellos a este cliente (0180) — hay negocios en ocho países.
     let nombreNegocio = "";
+    let zonaNegocio: string | null = null;
     if (typeof programa.rancho_id === "string") {
       const { data: negocio } = await db
         .from("ranchos")
-        .select("nombre")
+        .select("nombre, zona_horaria")
         .eq("id", programa.rancho_id)
         .maybeSingle();
       nombreNegocio = ((negocio?.nombre as string | null) ?? "").trim();
+      zonaNegocio = (negocio?.zona_horaria as string | null) ?? null;
     }
 
     const saldo = (await consultarSaldo(miembroId)) ?? 0;
@@ -800,6 +860,11 @@ export async function refrescarPaseGoogleDeMiembro(
       meta,
       beneficio,
       pausado: estadoVisible(resumenDeFila(programa), minutoISOCR()) === "pausado",
+      // El mismo cálculo que hace el pase de Apple, con los mismos
+      // datos: la regla de la fila y el último movimiento del ledger.
+      // Sin regla (el caso de casi todas) esto queda en null y el PATCH
+      // sale igual que siempre.
+      sellosVencenEl: await corteDeSellos(db, miembroId, programa, zonaNegocio),
     });
 
     const res = await llamarApi(

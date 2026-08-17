@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { afiliarPorQr, type EstadoAlta } from "./actions";
 
 /**
- * TRES CAMPOS, DOS OBLIGATORIOS.
+ * EL NOMBRE Y UN CONTACTO. Dos campos y un botón.
  *
  * ------------------------------------------------------------------
  * LO QUE HABÍA ACÁ ANTES
@@ -17,21 +17,29 @@ import { afiliarPorQr, type EstadoAlta } from "./actions";
  * instalar" arriba de un formulario que mandaba al correo.
  *
  * ------------------------------------------------------------------
- * EL NOMBRE ES OPCIONAL A PROPÓSITO
+ * EL NOMBRE PASÓ A SER OBLIGATORIO, Y EL SEGUNDO CONTACTO DEJÓ DE SERLO
  * ------------------------------------------------------------------
- * Pedido del dueño: personaliza el pase y el correo de bienvenida
- * ("¡Bienvenido, Juan!" en vez de un saludo genérico). Pero obligarlo
- * reintroduce la fricción que el resto de esta pantalla existe para
- * evitar — así que queda como el primer campo, sin `required`. Si la
- * persona ya existía con nombre (otro negocio, otra vez), el RPC lo
- * conserva y esto no lo pisa con vacío.
+ * Era al revés: nombre opcional, WhatsApp Y correo obligatorios. Y salió
+ * mal por los dos lados. Sin nombre, la lista de clientes del dueño se
+ * llenó de fichas que dicen «Cliente sin datos» —un sello que no se le
+ * puede atribuir a nadie no es control de nada— y con los dos contactos
+ * obligatorios, quien se sabe solo su número de memoria escribía
+ * cualquier cosa en el campo del correo.
+ *
+ * Así que el mínimo se movió a donde de verdad sirve: NOMBRE + UN
+ * CANAL. La cuenta de campos que tiene que llenar la persona parada en
+ * la fila es la misma que antes (dos), pero ahora los dos identifican.
  *
  * ------------------------------------------------------------------
  * POR QUÉ EL WHATSAPP VA ANTES QUE EL CORREO
  * ------------------------------------------------------------------
  * Es el dato que la gente se sabe de memoria y el que el negocio de
  * verdad usa para escribirle. El correo va después porque es el que más
- * se equivoca y el que más cuesta tipear en un teléfono.
+ * se equivoca y el que más cuesta tipear en un teléfono. Ninguno de los
+ * dos lleva `required` en el HTML —cualquiera de los dos alcanza— así
+ * que el navegador no puede decidir esto solo: lo decide `revisarAlta`,
+ * en el servidor, y por eso los dos campos comparten el mismo rótulo de
+ * «con uno alcanza».
  *
  * El texto del consentimiento llega por PROP desde el servidor y no se
  * escribe acá: es EXACTAMENTE el mismo string que se guarda como prueba
@@ -67,10 +75,22 @@ const ESTADO_INICIAL: EstadoAlta = { error: null };
 export default function FormularioAlta({
   slug,
   textoConsentimiento,
+  yaSabido,
 }: {
   slug: string;
   /** El mismo string que se archiva como prueba. Ver arriba. */
   textoConsentimiento: string;
+  /**
+   * Lo que Bookea YA sabe de quien está mirando esta pantalla.
+   *
+   * Existe para el caso que este trabajo vino a arreglar: alguien que
+   * se afilió por el camino roto —sin nombre, sin vínculo, sin
+   * consentimiento— y hoy vuelve. A esa persona no se le puede apagar
+   * la tarjeta, pero sí se le pide lo que falta, y sería absurdo
+   * hacerla tipear de nuevo el dato que sí dejó. Se precarga y ella
+   * completa el hueco.
+   */
+  yaSabido?: { nombre: string | null; correo: string | null; telefono: string | null };
 }) {
   const [estado, enviar, pendiente] = useActionState(afiliarPorQr, ESTADO_INICIAL);
 
@@ -80,7 +100,7 @@ export default function FormularioAlta({
 
       <div>
         <label className={labelCls} htmlFor="nombre">
-          Tu nombre (opcional)
+          Tu nombre
         </label>
         <input
           id="nombre"
@@ -88,8 +108,11 @@ export default function FormularioAlta({
           type="text"
           autoComplete="name"
           maxLength={60}
+          required
+          autoFocus={!yaSabido?.nombre}
+          defaultValue={yaSabido?.nombre ?? ""}
           placeholder="¿Cómo te llamás?"
-          className={inputCls}
+          className={`${inputCls} ${estado.campo === "nombre" ? inputMalCls : ""}`}
         />
       </div>
 
@@ -103,8 +126,7 @@ export default function FormularioAlta({
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          required
-          autoFocus
+          defaultValue={yaSabido?.telefono ?? ""}
           placeholder="8888 8888"
           className={`${inputCls} ${estado.campo === "whatsapp" ? inputMalCls : ""}`}
         />
@@ -120,11 +142,19 @@ export default function FormularioAlta({
           type="email"
           inputMode="email"
           autoComplete="email"
-          required
+          defaultValue={yaSabido?.correo ?? ""}
           placeholder="tucorreo@ejemplo.com"
           className={`${inputCls} ${estado.campo === "correo" ? inputMalCls : ""}`}
         />
       </div>
+
+      {/* El rótulo del "uno de los dos" va DEBAJO de los dos campos y no
+          dentro de uno: puesto en el del WhatsApp se lee como que el
+          correo sí es obligatorio, que es justo lo que dejó de ser. */}
+      <p className="-mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
+        Con uno de los dos alcanza — es por donde el negocio te avisa cuando
+        completás tu premio.
+      </p>
 
       {/* El permiso, escrito como se lo diría una persona a otra. Sin
           marcar por defecto: una casilla premarcada no es un permiso, y
@@ -171,7 +201,7 @@ export default function FormularioAlta({
       </button>
 
       <p className="text-center text-[11.5px] leading-relaxed text-zinc-500">
-        Con esos dos datos reconocemos tu tarjeta en cada visita. No hay
+        Con esos datos reconocemos tu tarjeta en cada visita. No hay
         contraseña que recordar ni código que buscar en el correo.
       </p>
     </form>

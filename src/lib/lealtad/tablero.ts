@@ -7,9 +7,13 @@
  * las reservas (decisión D-3). Acá no se guarda ningún número.
  */
 
+import { fichaVisible, type IdentidadCliente } from "./identidad-miembro";
+
 export type MiembroCrudo = {
   id: string;
   cliente_id: string | null;
+  /** La identidad raíz desde la 0138. `null` solo en bases sin migrar. */
+  persona_id?: string | null;
   estado: string;
   created_at: string;
 };
@@ -27,7 +31,14 @@ export type PaseCrudo = { miembro_id: string; plataforma: string };
 export type FichaMiembro = {
   miembroId: string;
   clienteId: string | null;
+  /** El renglón grande: el nombre, o lo que lo reemplaza. Nunca vacío. */
   nombre: string;
+  /** true = ese título NO es un nombre (es un correo, un teléfono, o el
+   *  texto de «todavía no dio sus datos»). */
+  sinNombre: boolean;
+  /** Los renglones chicos: correo y teléfono, o la explicación de la
+   *  ficha vacía. Ya vienen sin repetir lo que subió al título. */
+  contacto: string[];
   saldo: number;
   /** Cuántos le faltan para la recompensa. null = no hay meta. */
   faltan: number | null;
@@ -68,15 +79,24 @@ export function fichasDeMiembros({
   miembros,
   transacciones,
   pases,
-  nombres,
+  identidades,
   meta,
   hoy,
 }: {
   miembros: MiembroCrudo[];
   transacciones: TransaccionCruda[];
   pases: PaseCrudo[];
-  /** cliente_id → nombre, para no repetir la consulta por miembro. */
-  nombres: Map<string, string>;
+  /**
+   * miembroId → quién es, ya resuelto contra `personas`,
+   * `clientes_negocio` y `perfiles` (ver `identidad-miembro.ts`).
+   *
+   * ANTES ERA `cliente_id → nombre` Y ESE ERA EL BUG: desde la 0138 la
+   * mayoría de las membresías tiene `cliente_id` en null —quien se
+   * afilia por el póster no abre cuenta— así que el mapa no encontraba
+   * a nadie y todas las fichas decían «Cliente». La llave pasa a ser el
+   * MIEMBRO, que siempre existe.
+   */
+  identidades: Map<string, IdentidadCliente>;
   /** Costo de la recompensa activa más barata. null = sin meta. */
   meta: number | null;
   hoy: string;
@@ -95,15 +115,24 @@ export function fichasDeMiembros({
   }
 
   const conPase = new Set(pases.map((p) => p.miembro_id));
+  // Con qué Wallet lleva la tarjeta: para una ficha sin datos es uno de
+  // los pocos rastros que hay de esa persona.
+  const plataforma = new Map(pases.map((p) => [p.miembro_id, p.plataforma]));
 
   return miembros
     .map((m) => {
       const saldo = saldos.get(m.id) ?? 0;
       const visto = ultimo.get(m.id) ?? null;
+      const vista = fichaVisible(
+        identidades.get(m.id) ?? { nombre: null, correo: null, telefono: null },
+        { alta: m.created_at, pase: plataforma.get(m.id) ?? null, miembroId: m.id },
+      );
       return {
         miembroId: m.id,
         clienteId: m.cliente_id,
-        nombre: (m.cliente_id && nombres.get(m.cliente_id)) || "Cliente",
+        nombre: vista.titulo,
+        sinNombre: vista.sinNombre,
+        contacto: vista.contacto,
         saldo,
         faltan: meta === null ? null : Math.max(0, meta - saldo),
         puedeCanjear: meta !== null && saldo >= meta,

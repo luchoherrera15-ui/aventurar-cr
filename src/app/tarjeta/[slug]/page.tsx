@@ -12,6 +12,8 @@ import { estadoVisible } from "@/lib/lealtad/programas";
 import { minutoISOCR } from "@/lib/fechas";
 import {
   NOMBRE_COOKIE_PERSONA,
+  afiliacionDeQuienPide,
+  idDeCuentaDeBookea,
   identidadDeQuienPide,
   textoConsentimientoNegocio,
 } from "@/lib/lealtad/personas";
@@ -185,9 +187,40 @@ export default async function TarjetaPublicaPage({
   } = await supabase.auth.getUser();
   const identidad = await identidadDeQuienPide(admin, {
     token: jar.get(NOMBRE_COOKIE_PERSONA)?.value ?? null,
-    clienteId: user?.id ?? null,
+    // NO `user?.id`: el chat flotante del sitio abre una sesión ANÓNIMA
+    // de Supabase, que también es una fila de `auth.users`. Tomándola
+    // por cuenta, esta pantalla daba por «conocida» a una persona de la
+    // que no sabía NADA: se saltaba el formulario de dos campos, la
+    // afiliaba sin nombre, sin correo, sin teléfono, sin vínculo con el
+    // negocio y sin consentimiento. Ver `personas.ts`.
+    clienteId: idDeCuentaDeBookea(user),
   });
-  const conocida = !!(identidad.personaId || identidad.clienteId);
+
+  // ── «CONOCIDA» YA NO ES «TIENE UNA FILA EN ALGÚN LADO» ────────────
+  //
+  // Era `!!(personaId || clienteId)`, o sea: cualquier identificador
+  // servía para saltarse el formulario. Con eso, tres de los cinco
+  // miembros que hay en producción terminaron con tarjeta y SIN nombre,
+  // SIN vínculo con el negocio y SIN consentimiento — la fila existía,
+  // que es todo lo que esta línea comprobaba.
+  //
+  // Ahora la pregunta es la que importa: ¿esta afiliación está
+  // COMPLETA? (`personas.ts`, tres condiciones). Si no lo está, vuelve
+  // el formulario — con lo que ya se sabe precargado, para que quien
+  // vuelve solo llene el hueco y no vuelva a tipear todo.
+  //
+  // Y lo que NO pasa por acá: el pase que la persona ya tiene en su
+  // teléfono. Ese lo refresca `/api/wallet/v1/passes/…`, que no se
+  // tocó. Nadie pierde un sello por esto.
+  const afiliacion = await afiliacionDeQuienPide(
+    admin,
+    identidad,
+    // La llave es el rancho: esta ruta se sirve por `slug` de rancho, o
+    // sea que el programa que emite tiene sí o sí este `rancho_id`, y es
+    // por esa columna que `alta_persona_por_qr` escribe el vínculo.
+    { ranchoId: negocio.id as string, cuentaId: null },
+  );
+  const conocida = afiliacion.falta === null;
 
   // Los dos botones se muestran solo si el servidor PUEDE emitir esa
   // plataforma. El de Apple se mostraba siempre, tuviera certificado o
@@ -300,8 +333,13 @@ export default async function TarjetaPublicaPage({
       ) : (
         <div className="mt-6 rounded-2xl bg-white p-6">
           <p className="mb-4 text-left text-[13px] leading-relaxed text-aventurea-ink-soft">
-            Dejanos tu contacto y la tarjeta es tuya. Si ya tenías una con este
-            negocio, la recuperás con todos tus sellos.
+            {/* Dos textos, porque son dos situaciones distintas. Al que
+                ya tiene sellos guardados por el camino roto no se le
+                puede hablar como si acabara de llegar: se le dice que su
+                tarjeta sigue ahí y que solo falta el dato. */}
+            {afiliacion.personaId
+              ? "Nos falta un dato para terminar de armar tu tarjeta. Tus sellos siguen guardados — esto no los toca."
+              : "Dejanos tu contacto y la tarjeta es tuya. Si ya tenías una con este negocio, la recuperás con todos tus sellos."}
           </p>
           <FormularioAlta
             slug={negocio.slug as string}
@@ -309,6 +347,10 @@ export default async function TarjetaPublicaPage({
             // prop: es EXACTAMENTE el mismo string que se guarda como
             // prueba en `consentimientos_persona`.
             textoConsentimiento={textoConsentimientoNegocio(nombreNegocio)}
+            // Lo que ya se sabe de esta persona, para no hacerla tipear
+            // dos veces lo mismo. Son SUS propios datos, en su propia
+            // pantalla: no se le está contando a nadie nada nuevo.
+            yaSabido={afiliacion.personaId ? afiliacion.identidad : undefined}
           />
           <p className="mt-4 text-center text-[12px] text-zinc-500">
             ¿Ya tenés cuenta de Bookea?{" "}

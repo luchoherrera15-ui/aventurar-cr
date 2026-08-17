@@ -244,6 +244,9 @@
   flex-direction: column;
   background: var(--poster-papel);
   color: var(--poster-tinta);
+  /* Para anclar la marca abajo a la derecha sin gastarle alto al
+     contenido. Ver `.poster-marca`. */
+  position: relative;
 }
 
 /* Todo el interior se mide en cqw (porcentaje del ancho de la hoja):
@@ -391,10 +394,37 @@
   font-size: 2.4cqw;
   color: var(--poster-suave);
 }
+/* LA MARCA: abajo a la derecha, chica y discreta.
+   Pedido del dueño — «en texto pequeño, no muy visual». El cartel lo
+   imprime un negocio para SU vitrina: la marca de quien hizo la
+   herramienta tiene que estar, pero no competir con el nombre del local
+   ni con el QR, que son las dos cosas que la gente mira desde lejos.
+
+   Va ABSOLUTA y no dentro del pie por dos razones. Una, que colgada del
+   pie desaparecía cuando el dueño apagaba «mostrar pie» y la marca no
+   debería depender de eso. Dos, y más importante: cada estilo del cartel
+   tiene su presupuesto de alto anotado a mano (la hoja mide 141.4cqw y
+   `overflow: hidden` recorta sin avisar), así que un renglón más en el
+   flujo se le come el espacio a otra cosa. Absoluta no gasta alto.
+
+   El color sale de `--poster-suave`, que CADA estilo ya redefine para su
+   papel: crema en el clásico, blanco al 72% en «audaz» (que usa el color
+   del negocio como papel y es el único de fondo oscuro). Por eso no hace
+   falta ningún truco de mezcla acá — y de hecho un `mix-blend-mode:
+   multiply` la haría DESAPARECER justo en «audaz», porque blanco
+   multiplicado contra un fondo oscuro da el fondo. La variable por
+   estilo es el mecanismo que el resto del cartel ya usa; este renglón no
+   necesita uno propio. */
 .poster-marca {
-  display: block;
-  margin-top: 0.7cqw;
-  font-size: 2.1cqw;
+  position: absolute;
+  right: 3cqw;
+  bottom: 2cqw;
+  font-size: 1.7cqw;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--poster-suave);
+  opacity: 0.75;
+  pointer-events: none;
 }
 
 /* Las insignias de Wallet.
@@ -887,6 +917,114 @@
    Este bloque va DESPUÉS de los cinco a propósito: empata en
    especificidad con ellos, y en un empate gana el último. */
 
+/* --- LAS CUATRO TIPOGRAFÍAS ------------------------------------------
+   Las pilas viven ACÁ y no en TypeScript, y `data-letra` es todo lo que
+   viaja desde el editor. Así lo que se guarda en la base es un id de
+   una lista blanca y nunca un `font-family` escrito por nadie: un texto
+   libre metido en esa propiedad es CSS que otro eligió, no "una letra
+   rara".
+
+   Ninguna de las cuatro se descarga por estar acá:
+     · Montserrat ya la carga `lealtad/layout.tsx` (es la letra de todo
+       el módulo, o sea la que el póster ya usaba);
+     · Figtree ya la carga el layout raíz para el resto del sitio, así
+       que en esta página el archivo está bajado igual;
+     · la serifa y la mono son PILAS DEL SISTEMA — las mismas que el
+       «clásico» y el «ticket» usan desde el primer día.
+   Cada una termina en su genérico: si el .woff2 de Montserrat no llegó
+   —o la impresora resuelve la página sin él—, sale la sans más parecida
+   y no el Times del navegador.
+
+   El selector del editor pinta su muestra con las mismas reglas
+   (`.poster-letra-muestra`): un selector de tipografías que lista los
+   cuatro nombres en la misma letra no sirve para elegir. */
+[data-letra="moderna"] {
+  --poster-letra: var(--font-montserrat), var(--font-figtree), system-ui, sans-serif;
+}
+[data-letra="cercana"] {
+  --poster-letra: var(--font-figtree), system-ui, sans-serif;
+}
+[data-letra="clasica"] {
+  --poster-letra: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Times New Roman", serif;
+}
+[data-letra="maquina"] {
+  --poster-letra: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono",
+    "Roboto Mono", "Courier New", monospace;
+}
+
+/* La letra elegida PISA la del estilo base, y solo acá adentro.
+   Los cinco terminados no se tocan: el «ticket» que se elige del
+   selector sigue saliendo en mono porque parecer un recibo ES su razón
+   de existir. Pero dentro del personalizado el dueño ya está desarmando
+   lo que la plantilla daba por sentado, y un selector que no se aplica
+   en dos de los cinco layouts es un control que miente. Si quiere el
+   aire de recibo, «Máquina» está en la lista — y es justo la que viene
+   marcada cuando la base es el ticket. */
+.poster-hoja[data-personalizado] {
+  font-family: var(--poster-letra);
+}
+
+/* LOS RENGLONES SE FIJAN, PORQUE `normal` NO ES EL MISMO EN LAS CUATRO.
+   Media docena de textos chicos de la hoja (el nombre del negocio, la
+   línea del QR, el pie, las insignias) nunca declararon `line-height`,
+   así que usaban el `normal` de cada familia — y ese valor sale de las
+   métricas del archivo: ~1.22 en Montserrat, ~1.36 en Palatino. Sobre
+   seis bloques eso son casi 2cqw de diferencia solo por cambiar de
+   letra, en una hoja cuyo margen se cuenta en décimas. Fijándolo, las
+   cuatro ocupan lo mismo y el presupuesto de cada estilo sigue valiendo
+   con cualquiera de ellas. Los textos que YA traían su `line-height`
+   (título, pasos, premio) no se tocan: ahí la cuenta ya estaba hecha. */
+.poster-hoja[data-personalizado]
+  :where(.poster-negocio, .poster-escanea, .poster-pie, .poster-wallet-nombre,
+    .poster-premio-etiqueta) {
+  line-height: 1.22;
+}
+
+/* EL TÍTULO DE LA MONO SE COMPONE MÁS CHICO.
+   No es gusto: es el presupuesto de alto. La mono es ~15% más ancha por
+   carácter y el título es el texto más grande de la hoja, así que es el
+   primero que envuelve. Medido con el texto de la plantilla a 794px de
+   ancho: «audaz» pasaba de dos líneas a TRES y la hoja pedía 152cqw
+   contra un techo de 141.4 — el pie cortado en papel, sin aviso.
+   Se baja el título de ESA letra (0.85), no el cartel entero: bajarle
+   el cuerpo a todo por culpa de una de las cuatro castiga a las otras
+   tres, que entran perfecto. */
+.poster-hoja[data-personalizado][data-letra="maquina"][data-estilo="minimalista"] .poster-titulo {
+  font-size: 5.3cqw;
+}
+.poster-hoja[data-personalizado][data-letra="maquina"][data-estilo="audaz"] .poster-titulo {
+  font-size: 8.9cqw;
+}
+.poster-hoja[data-personalizado][data-letra="maquina"][data-estilo="clasico"] .poster-titulo {
+  font-size: 6.4cqw;
+}
+.poster-hoja[data-personalizado][data-letra="maquina"][data-estilo="vitrina"] .poster-titulo {
+  font-size: 6cqw;
+}
+.poster-hoja[data-personalizado][data-letra="maquina"][data-estilo="ticket"] .poster-titulo {
+  font-size: 5.5cqw;
+}
+/* Y en el «clásico» lo que se le va de renglón a la mono no es el
+   título sino los TRES PASOS: a 3cqw, el paso más largo de la plantilla
+   envuelve una línea más y son 3.3cqw de hoja. Un cuerpo más chico los
+   devuelve a una línea cada uno. */
+.poster-hoja[data-personalizado][data-letra="maquina"][data-estilo="clasico"] .poster-pasos {
+  font-size: 2.7cqw;
+}
+
+/* EL «TICKET» ESCRITO A MANO RESPIRA UN POCO MENOS.
+   Es el más apretado de los cinco: con su propia mono cierra en 140.3
+   de 141.4, y con cualquiera de las otras tres —que componen el título
+   más ancho y en dos líneas más altas— se pasa a 142.6. El aire sale
+   del gap, que es lo que menos se nota en un recibo (sus separadores
+   punteados ya marcan los bloques), y NO del cuerpo del texto, que es
+   lo que se lee desde la caja. Solo bajo `data-personalizado`: el
+   ticket que se elige del selector no cambia. */
+.poster-hoja[data-personalizado][data-estilo="ticket"] .poster-cuerpo {
+  gap: 1.6cqw;
+}
+
 /* El minimalista esconde los pasos por diseño; si el dueño los prende,
    tienen que aparecer. */
 .poster-hoja[data-personalizado][data-estilo="minimalista"] .poster-pasos {
@@ -1012,6 +1150,78 @@
   outline-offset: 1px;
 }
 
+/* --- El selector de tipografía (mismo lenguaje que el de diseño) -----
+   Dos por fila y no una lista: con cuatro cajas cuadradas se comparan
+   las cuatro de un vistazo, que es lo único que uno hace acá.
+
+   La muestra («Aa») y el nombre se pintan con `--poster-letra`, la
+   misma variable que usa la hoja. Si mañana se cambia una pila, el
+   selector cambia con ella sin tocar nada más. */
+.poster-letras {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.poster-letra {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.poster-letra:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+/* El radio existe (es lo que da las flechas del teclado y el nombre del
+   grupo), pero no se dibuja: la caja entera ES el control. El foco no
+   se pierde — se pinta sobre la caja, en la regla de abajo. */
+.poster-letra-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.poster-letra:has(.poster-letra-radio:focus-visible) {
+  outline: 2px solid var(--accion-claro);
+  outline-offset: 2px;
+}
+/* La elegida, con borde azul Y el nombre en blanco: el color solo no
+   alcanza para quien no lo distingue. Mismo par que el selector de
+   diseño de más arriba. */
+.poster-letra.es-elegida {
+  border-color: var(--accion-claro);
+  background: rgba(157, 180, 255, 0.14);
+}
+
+.poster-letra-muestra {
+  font-family: var(--poster-letra);
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+}
+.poster-letra.es-elegida .poster-letra-muestra {
+  color: #fff;
+}
+.poster-letra-nombre {
+  font-family: var(--poster-letra);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+.poster-letra.es-elegida .poster-letra-nombre {
+  color: #fff;
+}
+.poster-letra-nota {
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.45);
+}
+
 .poster-check,
 .poster-color {
   display: flex;
@@ -1061,6 +1271,22 @@
 }
 
 @media print {
+  /* ESTE `@page` ES EL QUE MANDA, Y POR ESO SE REPITE ACÁ ADENTRO.
+     Arriba ya hay uno igual a nivel raíz, pero `globals.css` declara
+     `@media print { @page { margin: 13mm } }` para la tabla de RSVPs, y
+     un `@page` dentro de una media query le gana a uno de afuera. Con
+     esos 13mm el área imprimible baja a 184×271mm mientras la hoja pide
+     210×297: el sobrante se va a UNA SEGUNDA PÁGINA, que sale casi en
+     blanco con una franja del cartel. Era exactamente lo que reportó el
+     dueño.
+     No se puede acotar el `@page` de globals a su página —`@page` es
+     global por definición, no acepta selector—, así que la única salida
+     es declararlo en el mismo contexto y ganarle por orden. */
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
   .no-imprimir {
     display: none !important;
   }

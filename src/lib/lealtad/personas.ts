@@ -3,6 +3,11 @@ import type { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { personasActivasDe } from "@/lib/lealtad/cupo";
+import {
+  resolverIdentidad,
+  type FuenteDeIdentidad,
+  type IdentidadCliente,
+} from "@/lib/lealtad/identidad-miembro";
 
 /**
  * EL ALTA DE DOS CAMPOS — WhatsApp y correo, y ya.
@@ -92,23 +97,83 @@ export function normalizarTelefonoCR(valor: string | null | undefined): string |
 
 // ── 2. Lo que se revisa antes de mandar nada ─────────────────────────
 
-export type Contacto = { correo: string; telefono: string };
+/**
+ * El contacto ya normalizado. Los DOS campos pueden venir en null por
+ * separado, pero nunca los dos a la vez — eso lo garantiza
+ * `revisarAlta`, que es la única que construye este tipo.
+ */
+export type Contacto = { correo: string | null; telefono: string | null };
 
-export type RevisionContacto =
-  | { ok: true; contacto: Contacto }
-  | { ok: false; campo: "correo" | "whatsapp"; error: string };
+/** Lo mínimo que hay que dejar para llevarse una tarjeta. */
+export type DatosDelAlta = { nombre: string; contacto: Contacto };
+
+export type CampoDelAlta = "nombre" | "correo" | "whatsapp";
+
+export type RevisionAlta =
+  | ({ ok: true } & DatosDelAlta)
+  | { ok: false; campo: CampoDelAlta; error: string };
+
+/** Nombre: al menos dos letras, y no más de lo que la base acepta. */
+export const LARGO_NOMBRE = { minimo: 2, maximo: 60 } as const;
 
 /**
- * Los dos campos del póster. Se piden los DOS —es la decisión del
- * dueño— pero se revisan acá, en la misma pantalla, para que un dedazo
- * cueste corregir un campo y no el pase entero.
+ * ═══════════════════════════════════════════════════════════════════
+ *  EL MÍNIMO PARA AFILIARSE: NOMBRE + UN CONTACTO
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * Pedido del dueño, textual: «necesitamos saber quién se registra».
+ * Nadie se lleva una tarjeta de forma anónima. Y el mínimo es
+ * exactamente ese, ni más ni menos:
+ *
+ *   · EL NOMBRE PASA A SER OBLIGATORIO. Era opcional a propósito —para
+ *     no sumar fricción en la caja— y el resultado fue una lista de
+ *     fichas que decían «Cliente sin datos». Un sello que no se le
+ *     puede atribuir a nadie no es control de nada: es un número.
+ *
+ *   · UN SOLO CONTACTO ALCANZA, y antes se exigían los dos. Con el
+ *     WhatsApp O el correo ya se puede contactar a la persona y
+ *     deduplicarla (los dos son llave única en `personas`, 0138).
+ *     Exigir el segundo sube la fricción sin sumar control — y quien
+ *     se sabe solo su número de memoria escribía cualquier cosa en el
+ *     campo del correo, que es peor que no tenerlo.
+ *
+ * Se revisa acá, en la misma pantalla y ANTES de mandar nada, para que
+ * un dedazo cueste corregir un campo y no el pase entero. Y se vuelve a
+ * revisar en el servidor: esto es cortesía, la puerta está del otro
+ * lado (`altaPorQr`).
  */
-export function revisarContacto(entrada: {
+export function revisarAlta(entrada: {
+  nombre?: string | null;
   correo?: string | null;
   telefono?: string | null;
-}): RevisionContacto {
-  const telefono = normalizarTelefonoCR(entrada.telefono);
-  if (!telefono) {
+}): RevisionAlta {
+  const nombre = (entrada.nombre ?? "").trim().replace(/\s+/g, " ");
+  if (nombre.length < LARGO_NOMBRE.minimo) {
+    return {
+      ok: false,
+      campo: "nombre",
+      error: "Escribí tu nombre — es con lo que te van a reconocer en el local.",
+    };
+  }
+  if (nombre.length > LARGO_NOMBRE.maximo) {
+    return { ok: false, campo: "nombre", error: "Ese nombre es demasiado largo." };
+  }
+
+  // Vacío ≠ inválido. Un campo en blanco es "elegí el otro canal"; uno
+  // escrito a medias es un dedazo, y ahí sí hay que avisar dónde.
+  const dioTelefono = (entrada.telefono ?? "").trim() !== "";
+  const dioCorreo = (entrada.correo ?? "").trim() !== "";
+
+  if (!dioTelefono && !dioCorreo) {
+    return {
+      ok: false,
+      campo: "whatsapp",
+      error: "Dejanos tu WhatsApp o tu correo — con uno de los dos alcanza.",
+    };
+  }
+
+  const telefono = dioTelefono ? normalizarTelefonoCR(entrada.telefono) : null;
+  if (dioTelefono && !telefono) {
     return {
       ok: false,
       campo: "whatsapp",
@@ -116,19 +181,19 @@ export function revisarContacto(entrada: {
     };
   }
 
-  const correo = normalizarCorreo(entrada.correo);
-  if (!correo) {
+  const correo = dioCorreo ? normalizarCorreo(entrada.correo) : null;
+  if (dioCorreo && !correo) {
     return {
       ok: false,
       campo: "correo",
       error: "Revisá el correo: se escribe nombre@algo.com.",
     };
   }
-  if (correo.length > 160) {
+  if (correo && correo.length > 160) {
     return { ok: false, campo: "correo", error: "Ese correo es demasiado largo." };
   }
 
-  return { ok: true, contacto: { correo, telefono } };
+  return { ok: true, nombre, contacto: { correo, telefono } };
 }
 
 // ── 3. El consentimiento, escrito como se lee en pantalla ────────────
@@ -150,6 +215,37 @@ export function textoConsentimientoNegocio(nombreNegocio: string): string {
   return (
     `Sí, quiero que ${nombre} me avise por WhatsApp o correo de sus ` +
     `promociones y de los premios que voy juntando. Me puedo salir cuando quiera.`
+  );
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  EL CONSENTIMIENTO CUANDO LO TECLEA EL NEGOCIO
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * Versión aparte —`mostrador-v1`, no `qr-v1`— y con su propio texto, y
+ * la distinción es lo importante: el respaldo del QR prueba que LA
+ * PERSONA leyó una frase en una pantalla y marcó (o no marcó) una
+ * casilla. Este prueba otra cosa, más débil y honesta: que el negocio
+ * le preguntó de viva voz y anotó la respuesta.
+ *
+ * Guardarlos con la misma versión y el mismo texto haría que dentro de
+ * un año los dos se lean igual en la tabla, y no lo son. La 0138 guarda
+ * el TEXTO EXACTO justamente para que esto se pueda distinguir después
+ * (0138:551).
+ *
+ * Va con `origen = 'mostrador'`, que es uno de los valores que la 0138
+ * ya tenía previstos (0138:583).
+ */
+export const VERSION_CONSENTIMIENTO_MOSTRADOR = "mostrador-v1";
+
+/** Lo que se archiva cuando los datos los tomó el cajero, no la persona. */
+export function textoConsentimientoMostrador(nombreNegocio: string): string {
+  const nombre = nombreNegocio.trim() || "este negocio";
+  return (
+    `Los datos de esta persona los tomó ${nombre} en el mostrador y le ` +
+    `preguntó de viva voz si quiere que le avisen por WhatsApp o correo de ` +
+    `sus promociones y de los premios que va juntando. Se puede salir cuando quiera.`
   );
 }
 
@@ -256,6 +352,56 @@ export async function personaDelToken(db: Admin, token: string | null | undefine
   }
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  UNA SESIÓN ANÓNIMA NO ES UNA CUENTA DE BOOKEA
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ── EL BUG, TAL COMO PASÓ ────────────────────────────────────────────
+ *
+ * El chat flotante del sitio abre una sesión ANÓNIMA de Supabase para
+ * poder escribirle al negocio sin registrarse (`chat-flotante.tsx:533`,
+ * `mensajes/consulta/[ranchoId]/page.tsx:36`). Eso crea una fila real en
+ * `auth.users`, con `email` VACÍO y sin metadata.
+ *
+ * Después esa misma persona abre la tarjeta del negocio. `/tarjeta/[slug]`
+ * pregunta «¿ya sé quién sos?» con `!!(personaId || clienteId)` y
+ * `clienteId` salía de `supabase.auth.getUser()` sin mirar si era
+ * anónimo. Con la sesión del chat encima, la respuesta era SÍ:
+ *
+ *   · el formulario de dos campos —nombre, WhatsApp, correo— NO SE
+ *     MOSTRABA. Nunca se le preguntó nada;
+ *   · el botón de Wallet afiliaba directo (`/api/pases/[ranchoId]`), y
+ *     el trigger de la 0138 resolvía la persona desde `auth.users`:
+ *     correo vacío → null, sin `perfiles` → nombre null. Una persona sin
+ *     nombre, sin correo y sin teléfono;
+ *   · y peor que el nombre: sin fila en `personas_negocio` y sin
+ *     `consentimientos_persona`. O sea, sin el vínculo que la 0138
+ *     define como EL PERMISO del negocio para ver a esa persona, y sin
+ *     el respaldo del consentimiento que exige la Ley 8968.
+ *
+ * Verificado en producción: dos `auth.users` con email vacío creados el
+ * mismo día, dos filas de `personas` con los tres campos en null y
+ * `personas_negocio` sin una sola fila para ellas. Son exactamente las
+ * fichas que el dueño veía como «Cliente».
+ *
+ * ── EL ARREGLO ───────────────────────────────────────────────────────
+ *
+ * La sesión anónima deja de contar como identidad para lealtad. Quien
+ * llegue con una vuelve a ver el formulario de dos campos, deja sus
+ * datos, firma su consentimiento y queda con vínculo — el camino que la
+ * 0138 diseñó y que esta puerta se estaba salteando.
+ *
+ * No se le quita nada a nadie: el chat sigue funcionando igual, y quien
+ * de verdad tiene cuenta de Bookea sigue entrando sin escribir nada.
+ */
+export function idDeCuentaDeBookea(
+  usuario: { id: string; is_anonymous?: boolean } | null | undefined,
+): string | null {
+  if (!usuario) return null;
+  return usuario.is_anonymous ? null : usuario.id;
+}
+
 /** La persona de una cuenta de Bookea, si la 0138 ya la enlazó. */
 export async function personaDeCuenta(db: Admin, clienteId: string | null | undefined) {
   if (!clienteId) return null;
@@ -265,6 +411,173 @@ export async function personaDeCuenta(db: Admin, clienteId: string | null | unde
     .eq("cliente_id", clienteId)
     .maybeSingle();
   return typeof data?.id === "string" ? data.id : null;
+}
+
+// ── 6.bis  LA PUERTA: ¿esta afiliación está completa? ────────────────
+
+/** El negocio, por sus dos raíces (0134): la cuenta y/o el rancho. */
+export type NegocioDeLealtad = { ranchoId: string | null; cuentaId: string | null };
+
+/** Qué le falta a una afiliación para ser una afiliación de verdad. */
+export type FaltaDelAlta =
+  /** No hay nombre, o no hay ni un canal para contactarla. */
+  | "identidad"
+  /** Sin fila en `personas_negocio`: el negocio no tiene permiso de verla. */
+  | "vinculo"
+  /** Sin fila en `consentimientos_persona`: no hay respaldo (Ley 8968). */
+  | "consentimiento";
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  LA COMPROBACIÓN QUE CIERRA LA PUERTA
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * Contesta una sola pregunta: ¿esta persona está afiliada A ESTE
+ * NEGOCIO como corresponde? Y "como corresponde" son tres cosas, no una:
+ *
+ *   1. SE SABE QUIÉN ES — nombre y al menos un canal de contacto.
+ *   2. HAY VÍNCULO — la fila de `personas_negocio`, que la 0138 define
+ *      como EL PERMISO del negocio para ver a esa persona (0138:327).
+ *      Sin ella el dueño no debería poder verla, así que tampoco tiene
+ *      sentido entregarle una tarjeta que va a caer en esa lista.
+ *   3. HAY CONSENTIMIENTO — la fila de `consentimientos_persona`, que
+ *      es el respaldo que exige la Ley 8968. El "no acepto promos"
+ *      TAMBIÉN cuenta: lo que hace falta probar es que la casilla se
+ *      mostró, no que se marcó.
+ *
+ * Se llama en las tres puertas por donde alguien consigue una tarjeta
+ * (la página del QR y los dos botones de Wallet), y ahí está el punto:
+ * las rutas de `api/pases/**` afilian DIRECTO —`generar.ts:227` y
+ * `google.ts:558` insertan en `miembros`— así que una petición armada a
+ * mano se saltaba cualquier cosa del navegador. Verificado en
+ * producción: 3 de 5 miembros sin vínculo y sin consentimiento, todos
+ * entrados por ahí.
+ *
+ * ── LA IDENTIDAD SE RESUELVE COMO EN EL PANEL ───────────────────────
+ * Con `resolverIdentidad`, o sea mirando también `clientes_negocio`: si
+ * el mostrador ya completó la ficha a mano —el camino que se abrió para
+ * regularizar a los que quedaron mal—, esa persona YA está identificada
+ * y volver a frenarla en la puerta sería castigarla dos veces.
+ *
+ * ── NUNCA LANZA, Y ANTE LA DUDA DEJA PASAR ──────────────────────────
+ * Si la base no tiene la 0138 pegada, estas tres consultas fallan. En
+ * ese caso devuelve `null` (= "no falta nada"): las migraciones las
+ * pega el dueño a mano y hay ventanas de código nuevo con base vieja.
+ * Cerrarle la puerta a TODOS los clientes de un negocio por una tabla
+ * ausente es un daño mayor que el que esto viene a evitar — y el día
+ * que la 0138 esté, esta función empieza a exigir sola.
+ */
+export async function revisarAfiliacion(
+  db: Admin,
+  personaId: string,
+  negocio: NegocioDeLealtad,
+): Promise<{ falta: FaltaDelAlta | null; identidad: IdentidadCliente }> {
+  const vacia: IdentidadCliente = { nombre: null, correo: null, telefono: null };
+
+  const { data: persona, error: errorPersona } = await db
+    .from("personas")
+    .select("nombre, correo, telefono")
+    .eq("id", personaId)
+    .maybeSingle();
+  if (errorPersona) return { falta: null, identidad: vacia };
+
+  // `notas` jamás en el `select`: la 0138 avisa que en un consultorio
+  // pueden ser datos de salud (0138:281).
+  const { data: ficha } = negocio.ranchoId
+    ? await db
+        .from("clientes_negocio")
+        .select("nombre, correo, telefono")
+        .eq("rancho_id", negocio.ranchoId)
+        .eq("persona_id", personaId)
+        .maybeSingle()
+    : { data: null };
+
+  const identidad = resolverIdentidad({
+    persona: (persona ?? null) as FuenteDeIdentidad,
+    ficha: (ficha ?? null) as FuenteDeIdentidad,
+  });
+  if (!identidad.nombre || (!identidad.correo && !identidad.telefono)) {
+    return { falta: "identidad", identidad };
+  }
+
+  const vinculo = await hayFilaDelNegocio(db, "personas_negocio", personaId, negocio);
+  if (vinculo === "error") return { falta: null, identidad };
+  if (vinculo === "no") return { falta: "vinculo", identidad };
+
+  const permiso = await hayFilaDelNegocio(db, "consentimientos_persona", personaId, negocio, {
+    ambito: "negocio",
+  });
+  if (permiso === "error") return { falta: null, identidad };
+  return { falta: permiso === "no" ? "consentimiento" : null, identidad };
+}
+
+/**
+ * La misma pregunta, pero partiendo de lo que trae el navegador.
+ *
+ * Es la forma en que la usan las tres puertas —la página del QR y los
+ * dos botones de Wallet—, y está acá y no copiada tres veces por lo de
+ * siempre: tres copias de una comprobación de permisos son tres
+ * comportamientos distintos esperando a que alguien arregle uno solo.
+ *
+ * Sin persona no hay nada que revisar: falta TODO, y eso se llama
+ * `identidad`. Es también lo que le pasa a quien llega con la sesión
+ * anónima del chat flotante, que `idDeCuentaDeBookea` ya descartó.
+ */
+export async function afiliacionDeQuienPide(
+  db: Admin,
+  quien: { personaId?: string | null; clienteId?: string | null },
+  negocio: NegocioDeLealtad,
+): Promise<{
+  personaId: string | null;
+  falta: FaltaDelAlta | null;
+  identidad: IdentidadCliente;
+}> {
+  const personaId = quien.personaId ?? (await personaDeCuenta(db, quien.clienteId));
+  if (!personaId) {
+    return {
+      personaId: null,
+      falta: "identidad",
+      identidad: { nombre: null, correo: null, telefono: null },
+    };
+  }
+  return { personaId, ...(await revisarAfiliacion(db, personaId, negocio)) };
+}
+
+/**
+ * ¿Hay al menos una fila de esta persona PARA ESTE NEGOCIO?
+ *
+ * Las dos tablas cuelgan de las mismas dos raíces (`cuenta_id`,
+ * `rancho_id`) y con la misma regla: al menos una, cualquiera de las
+ * dos. Se pregunta con un OR y no exigiendo las dos, porque
+ * `alta_persona_por_qr` escribe lo que el programa tenga (0138:2009) —
+ * un programa de solo-cuenta deja `rancho_id` en null y al revés.
+ *
+ * Tres respuestas y no dos: "error" es que la base no pudo contestar, y
+ * quien decide con esto tiene que dejar pasar, no cerrar. Confundirlo
+ * con "no" convertiría una tabla ausente en un negocio entero sin
+ * poder entregar tarjetas.
+ */
+async function hayFilaDelNegocio(
+  db: Admin,
+  tabla: "personas_negocio" | "consentimientos_persona",
+  personaId: string,
+  negocio: NegocioDeLealtad,
+  extra?: { ambito: string },
+): Promise<"si" | "no" | "error"> {
+  const llaves = [
+    negocio.cuentaId ? `cuenta_id.eq.${negocio.cuentaId}` : null,
+    negocio.ranchoId ? `rancho_id.eq.${negocio.ranchoId}` : null,
+  ].filter((v): v is string => v !== null);
+  // Un programa sin cuenta y sin rancho no existe (0138:1948 lo rebota),
+  // pero si llegara, "no sé" es la respuesta honesta.
+  if (llaves.length === 0) return "error";
+
+  let q = db.from(tabla).select("id").eq("persona_id", personaId).or(llaves.join(","));
+  if (extra) q = q.eq("ambito", extra.ambito);
+
+  const { data, error } = await q.limit(1);
+  if (error) return "error";
+  return (data ?? []).length > 0 ? "si" : "no";
 }
 
 /** A quién apunta HOY cada uno de los dos datos que se tecleó. */
@@ -448,8 +761,13 @@ export async function altaPorQr(
     planRancho: string | null;
     nombreNegocio: string;
     contacto: Contacto;
-    /** Opcional a propósito (y opcional en el llamador): pedirlo como obligatorio le suma fricción al alta parado en la caja. Si la persona ya existía con nombre, el pase la saluda igual aunque venga vacío o ausente acá. */
-    nombre?: string | null;
+    /**
+     * OBLIGATORIO desde el pedido del dueño («necesitamos saber quién se
+     * registra»). Ya viene revisado por `revisarAlta`, pero se vuelve a
+     * comprobar acá abajo: esta función es la puerta del servidor, y una
+     * petición armada a mano no pasa por ninguna pantalla.
+     */
+    nombre: string;
     acepta: boolean;
     /**
      * La persona de la cookie de `sesiones_persona`, tal cual viene.
@@ -467,6 +785,20 @@ export async function altaPorQr(
   if (!programaId) {
     return { estado: "error", mensaje: "Esa tarjeta ya no existe. Volvé a escanear el QR." };
   }
+
+  // ── EL MÍNIMO, REVISADO OTRA VEZ Y ACÁ ──────────────────────────
+  // `revisarAlta` ya corrió en la pantalla, y no alcanza: esta función
+  // es la única puerta de servidor del alta, y un `fetch` armado a mano
+  // —o un formulario con el `required` borrado desde el inspector— no
+  // pasa por ninguna validación del navegador. Sin esto, esconder un
+  // campo obligatorio sería toda la protección que hay.
+  const revision = revisarAlta({
+    nombre,
+    correo: contacto.correo,
+    telefono: contacto.telefono,
+  });
+  if (!revision.ok) return { estado: "error", mensaje: revision.error };
+  const nombreLimpio = revision.nombre;
 
   // ── QUIÉN PUEDE RECLAMAR ESTE CONTACTO ──────────────────────────
   // La parte delicada de todo esto, y va acá y no en la pantalla para
@@ -513,8 +845,18 @@ export async function altaPorQr(
     (duenos.porTelefono !== null &&
       duenos.porTelefono !== duenos.porCorreo &&
       duenos.porTelefono !== personaProbada);
+  //
+  // `contacto.correo !== null` no es defensivo de más: desde que se
+  // acepta el alta con UN solo canal, quien deja únicamente su WhatsApp
+  // llega acá con el correo en null. Sin esa comprobación, un usuario
+  // logueado sin correo en su sesión (`correoDeLaSesion` también null)
+  // daría `null === null` y su cuenta se colgaría de una fila resuelta
+  // por un teléfono que nadie probó.
   const clienteId =
-    sesion.clienteId && correoDeLaSesion === contacto.correo && !telefonoAjeno
+    sesion.clienteId &&
+    contacto.correo !== null &&
+    correoDeLaSesion === contacto.correo &&
+    !telefonoAjeno
       ? sesion.clienteId
       : null;
 
@@ -541,7 +883,7 @@ export async function altaPorQr(
     p_programa: programaId,
     p_correo: contacto.correo,
     p_telefono: contacto.telefono,
-    p_nombre: nombre ?? null,
+    p_nombre: nombreLimpio,
     p_consentimientos: cuerpoDeConsentimientos({ nombreNegocio, acepta }),
     p_persona_probada: probada,
     p_cliente_id: clienteId,

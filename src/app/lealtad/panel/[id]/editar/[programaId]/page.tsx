@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { hiloAbiertoDeAyuda } from "@/lib/lealtad/ayuda-hilo";
 import { estadoDelPrograma } from "@/lib/lealtad/reglas";
+import { reglaDeFila } from "@/lib/lealtad/vencimiento-sellos";
 import { configPorDefecto, leerBeneficio, tipoDe, TIPOS_TARJETA } from "@/lib/lealtad/tipos-tarjeta";
 import { ProveedorPrograma } from "../../programa-contexto";
 import { PildoraEstado } from "@/components/panel/piezas";
@@ -158,6 +159,12 @@ export default async function EditarTarjetaPage({
       ? { ...guardado, requeridos: activa.costo_puntos, recompensa: activa.nombre }
       : guardado;
 
+  // El vencimiento de sellos (0180) se lee de la fila CRUDA y con la
+  // misma función que usa el motor: si la migración no está pegada, o
+  // si la tarjeta no es de sellos, sale «sin regla» y el control abre
+  // apagado en vez de romper la pantalla.
+  const reglaSellos = reglaDeFila(cruda);
+
   const reglas: Reglas = {
     desde: fecha(cruda.vigente_desde),
     hasta: fecha(cruda.vigente_hasta),
@@ -232,6 +239,7 @@ export default async function EditarTarjetaPage({
               nombreInicial={programa.nombre}
               beneficioInicial={beneficio}
               reglasIniciales={reglas}
+              vencimientoInicial={reglaSellos.meses}
               metaActual={metaActual}
               ayudaInicial={ayuda}
             />

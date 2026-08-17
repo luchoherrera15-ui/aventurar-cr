@@ -146,6 +146,7 @@ async function correrAlta(mundo: Mundo, extra: Partial<Parametros> = {}) {
     planRancho: null,
     nombreNegocio: "Silence Barber",
     contacto: { correo: "ana@ejemplo.com", telefono: "88888888" },
+    nombre: "Ana",
     acepta: true,
     personaProbada: null,
     sesion: { clienteId: null, correo: null },
@@ -162,6 +163,48 @@ function argsDelAlta(registro: Registro) {
 }
 
 type Parametros = Parameters<typeof altaPorQr>[1];
+
+/**
+ * LA PUERTA DEL SERVIDOR.
+ *
+ * Que el formulario tenga `required` no protege nada: `altaPorQr` es la
+ * única función que llama al RPC que inserta, y le puede llegar un
+ * `fetch` armado a mano. Estas pruebas son el contrato de que la
+ * validación vive ACÁ y no en el navegador — sin ellas, quitar el
+ * `revisarAlta` de adentro pasaría el `tsc`, el lint y el resto de la
+ * suite sin que nada se ponga rojo.
+ */
+describe("altaPorQr — el mínimo se exige en el SERVIDOR", () => {
+  it("sin nombre no se llama al RPC que inserta", async () => {
+    const { resultado, registro } = await correrAlta({}, { nombre: "" });
+    expect(resultado.estado).toBe("error");
+    expect(registro.rpc.map((l) => l.nombre)).not.toContain("alta_persona_por_qr");
+  });
+
+  it("sin ningún contacto tampoco", async () => {
+    const { resultado, registro } = await correrAlta(
+      {},
+      { contacto: { correo: null, telefono: null } },
+    );
+    expect(resultado.estado).toBe("error");
+    expect(registro.rpc.map((l) => l.nombre)).not.toContain("alta_persona_por_qr");
+  });
+
+  it("con UN solo contacto sí pasa, y el otro viaja en null", async () => {
+    const { resultado, registro } = await correrAlta(
+      {},
+      { contacto: { correo: null, telefono: "88888888" } },
+    );
+    expect(resultado.estado).toBe("listo");
+    expect(argsDelAlta(registro)?.p_correo).toBeNull();
+    expect(argsDelAlta(registro)?.p_telefono).toBe("88888888");
+  });
+
+  it("el nombre que viaja a la base es el LIMPIO, no el crudo", async () => {
+    const { registro } = await correrAlta({}, { nombre: "  Ana   Ruiz  " });
+    expect(argsDelAlta(registro)?.p_nombre).toBe("Ana Ruiz");
+  });
+});
 
 describe("altaPorQr — el tope del paquete no se salta por esta puerta", () => {
   it("frena a alguien NUEVO cuando el paquete está lleno, sin tocar la base", async () => {
@@ -349,8 +392,11 @@ describe("altaPorQr — lo que viaja a la base", () => {
     expect(args.p_telefono).toBe("88888888");
     expect(args.p_ip).toBe("190.7.1.20");
     expect(args.p_user_agent).toBe("Mozilla/5.0");
-    // El nombre NO se pide: son dos campos y son dos.
-    expect(args.p_nombre).toBeNull();
+    // El nombre SÍ viaja, y es obligatorio: es el pedido del dueño
+    // («necesitamos saber quién se registra»). Antes esta línea decía
+    // lo contrario — `toBeNull()` — porque el nombre era opcional y las
+    // fichas del panel terminaban diciendo «Cliente sin datos».
+    expect(args.p_nombre).toBe("Ana");
 
     const consentimientos = args.p_consentimientos as {
       negocio: { acepta: boolean; texto: string };

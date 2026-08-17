@@ -27,6 +27,11 @@ import { planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { pideRecompensa, puedeCambiarTipo, puedeEditarse } from "@/lib/lealtad/editable";
 import { esColumnaAusente, traducirError, type ErrorBase } from "@/lib/lealtad/errores-base";
+import {
+  mesesGuardables,
+  reglaDeFila,
+  relojDeVencimiento,
+} from "@/lib/lealtad/vencimiento-sellos";
 import { avisarCambioDeDiseno } from "@/lib/wallet/aviso-de-diseno";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 
@@ -505,7 +510,10 @@ export type EdicionTarjeta = {
   tipo: TipoTarjeta;
   beneficio: ConfigBeneficio;
   reglas: ReglasTarjeta;
+  /** Meses de inactividad antes de reiniciar los sellos (0180). */
+  sellosVencenMeses: number | null;
 };
+
 
 /**
  * Los dos números de la 0060 que lee el motor de puntos, DERIVADOS del
@@ -706,6 +714,12 @@ export async function guardarBeneficio(
     }
   }
 
+  // Los meses, saneados con el MISMO criterio que usa el creador. Va
+  // después del candado del tipo a propósito: si la tarjeta deja de
+  // ser de sellos, la regla se apaga sola en vez de quedar escondida
+  // en una gift card.
+  const vencenMeses = mesesGuardables(datos.tipo, datos.sellosVencenMeses);
+
   const puntos = puntosDelBeneficio(
     datos.beneficio,
     { visita: previo.puntos_por_visita, colon: Number(previo.puntos_por_colon) },
@@ -731,6 +745,18 @@ export async function guardarBeneficio(
     dias_permitidos: datos.reglas.dias.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6),
     hora_desde: datos.reglas.horaDesde || null,
     hora_hasta: datos.reglas.horaHasta || null,
+    // El vencimiento de sellos por inactividad (0180) y su reloj. Van
+    // en columnas por lo mismo que las reglas de arriba, y con más
+    // motivo: esta es la única que le QUITA algo a un cliente.
+    sellos_vencen_meses: vencenMeses,
+    sellos_vencen_desde: relojDeVencimiento({
+      meses: vencenMeses,
+      // La fila CRUDA: `ProgramaFila` no declara estas columnas y no
+      // debe — la 0180 la pega el dueño a mano, y hasta que corra la
+      // fila llega sin ellas. `reglaDeFila` ya sabe leerlas así.
+      previa: reglaDeFila(previo as unknown as Record<string, unknown>),
+      ahora: new Date(),
+    }),
   };
 
   const guardarCon = (f: Record<string, unknown>) =>
@@ -754,6 +780,8 @@ export async function guardarBeneficio(
       "dias_permitidos",
       "hora_desde",
       "hora_hasta",
+      "sellos_vencen_meses",
+      "sellos_vencen_desde",
     ])
   ) {
     ({ data, error } = await guardarCon(base));

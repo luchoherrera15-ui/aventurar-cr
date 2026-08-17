@@ -151,13 +151,18 @@ export function avisoDeFalloDelPase(
           "El problema es de Bookea, no tuyo: nos falta la firma con la que se " +
           "arma la tarjeta digital. Ya lo estamos viendo — probá de nuevo más tarde.",
       };
+    // También es el aviso de «tu alta quedó a medias»: nombre en blanco,
+    // sin vínculo con el negocio o sin consentimiento guardado. Los dos
+    // casos se resuelven exactamente igual —llenando el formulario de
+    // abajo— así que decirlos por separado sería obligar a la persona a
+    // entender de qué le falta cuál.
     case "sin_identidad":
       return {
         tono: "nuestro",
         titulo: "Contanos quién sos y te la damos",
         texto:
-          "Este navegador se olvidó de vos (o es la primera vez). Dejanos tu " +
-          "WhatsApp y tu correo acá abajo: si ya tenías tarjeta, la recuperás con " +
+          "Nos falta tu nombre y un WhatsApp o correo para poder dártela. " +
+          "Completalo acá abajo: si ya tenías tarjeta, sigue guardada con " +
           "todos tus sellos.",
       };
     case "sin_programa":

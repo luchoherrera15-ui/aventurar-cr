@@ -5,6 +5,7 @@ import {
   type MiembroCrudo,
   type TransaccionCruda,
 } from "./tablero";
+import { SIN_DATOS } from "./identidad-miembro";
 
 const HOY = "2026-08-12";
 
@@ -21,9 +22,11 @@ function tx(
   return { miembro_id, puntos, tipo, created_at };
 }
 
+// miembroId → identidad. La llave dejó de ser `cliente_id` cuando la
+// 0138 sacó la cuenta del medio (ver identidad-miembro.ts).
 const NOMBRES = new Map([
-  ["c-m1", "Ana"],
-  ["c-m2", "Beto"],
+  ["m1", { nombre: "Ana", correo: null, telefono: null }],
+  ["m2", { nombre: "Beto", correo: null, telefono: null }],
 ]);
 
 describe("fichasDeMiembros", () => {
@@ -32,7 +35,7 @@ describe("fichasDeMiembros", () => {
       miembros: [miembro("m1")],
       transacciones: [tx("m1", 3, "2026-08-01"), tx("m1", 2, "2026-08-05")],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: 10,
       hoy: HOY,
     });
@@ -44,7 +47,7 @@ describe("fichasDeMiembros", () => {
       miembros: [miembro("m1")],
       transacciones: [tx("m1", 10, "2026-08-01"), tx("m1", -10, "2026-08-02", "canjeado")],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: 10,
       hoy: HOY,
     });
@@ -57,7 +60,7 @@ describe("fichasDeMiembros", () => {
       miembros: [miembro("m1")],
       transacciones: [tx("m1", 12, "2026-08-01")],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: 10,
       hoy: HOY,
     });
@@ -69,7 +72,7 @@ describe("fichasDeMiembros", () => {
       miembros: [miembro("m1"), miembro("m2")],
       transacciones: [tx("m1", 3, "2026-08-01"), tx("m2", 10, "2026-08-01")],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: 10,
       hoy: HOY,
     });
@@ -81,7 +84,7 @@ describe("fichasDeMiembros", () => {
       miembros: [miembro("m1")],
       transacciones: [tx("m1", 4, "2026-08-01")],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: null,
       hoy: HOY,
     });
@@ -97,7 +100,7 @@ describe("fichasDeMiembros", () => {
         tx("m1", -5, "2026-08-11", "canjeado"), // canjeó ayer
       ],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: 10,
       hoy: HOY,
     });
@@ -110,7 +113,7 @@ describe("fichasDeMiembros", () => {
       miembros: [miembro("m1"), miembro("m2")],
       transacciones: [],
       pases: [{ miembro_id: "m1", plataforma: "apple" }],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: 10,
       hoy: HOY,
     });
@@ -123,7 +126,7 @@ describe("fichasDeMiembros", () => {
       miembros: [miembro("m1")],
       transacciones: [],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: 10,
       hoy: HOY,
     });
@@ -132,16 +135,22 @@ describe("fichasDeMiembros", () => {
     expect(f[0].saldo).toBe(0);
   });
 
-  it("sin nombre en el perfil cae a una etiqueta, no a vacío", () => {
+  it("sin identidad DICE que faltan los datos, en vez del viejo «Cliente»", () => {
+    // «Cliente» a secas era lo peor de los dos mundos: no identificaba a
+    // nadie y se leía como una falla del sistema — el dueño lo reportó
+    // como tal. Ahora la ficha dice qué pasó y trae lo que sí existe
+    // (la fecha de alta y el número corto del miembro).
     const f = fichasDeMiembros({
       miembros: [miembro("mX", { cliente_id: "desconocido" })],
       transacciones: [],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: null,
       hoy: HOY,
     });
-    expect(f[0].nombre).toBe("Cliente");
+    expect(f[0].nombre).toBe(SIN_DATOS);
+    expect(f[0].sinNombre).toBe(true);
+    expect(f[0].contacto[0]).toContain("Todavía no dejó su nombre");
   });
 });
 
@@ -157,7 +166,7 @@ describe("resumenDeLealtad", () => {
     miembros,
     transacciones,
     pases: [{ miembro_id: "m1", plataforma: "apple" }],
-    nombres: NOMBRES,
+    identidades: NOMBRES,
     meta: 3,
     hoy: HOY,
   });
@@ -187,7 +196,7 @@ describe("resumenDeLealtad", () => {
       miembros: [miembro("nuevo")],
       transacciones: [],
       pases: [],
-      nombres: NOMBRES,
+      identidades: NOMBRES,
       meta: 10,
       hoy: HOY,
     });

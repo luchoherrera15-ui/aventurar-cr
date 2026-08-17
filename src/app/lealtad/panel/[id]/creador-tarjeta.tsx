@@ -107,6 +107,9 @@ export default function CreadorTarjeta({
   const [logoUrl, setLogoUrl] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
   const [reglas, setReglas] = useState<Reglas>(REGLAS_VACIAS);
+  // Los sellos que vencen por inactividad (0180). null = no vencen,
+  // que es como nace toda tarjeta: la regla se enciende a mano.
+  const [vencenMeses, setVencenMeses] = useState<number | null>(null);
 
   // Cambiar de tipo REEMPLAZA la config: los campos de una gift card
   // no tienen ningún significado en una tarjeta de sellos, y
@@ -146,6 +149,10 @@ export default function CreadorTarjeta({
       logoUrl: logoUrl.trim(),
       bannerUrl: bannerUrl.trim(),
       reglas,
+      // Solo las de sellos vencen (0180). Se limpia acá por lo mismo
+      // que el icono: para no mandar basura, no para autorizar nada —
+      // el servidor lo vuelve a comprobar.
+      sellosVencenMeses: tipo === "sellos" ? vencenMeses : null,
     };
     guardar(async () => {
       const res = await crearTarjeta(borrador);
@@ -321,7 +328,12 @@ export default function CreadorTarjeta({
             data-estado={paso === 2 ? "activo" : "saliendo"}
             hidden={paso !== 2}
           >
-            <PasoBeneficio config={beneficio} alCambiar={setBeneficio} />
+            <PasoBeneficio
+              config={beneficio}
+              alCambiar={setBeneficio}
+              vencenMeses={vencenMeses}
+              alCambiarVencimiento={setVencenMeses}
+            />
             {motivoBeneficio && (
               <p
                 role="status"

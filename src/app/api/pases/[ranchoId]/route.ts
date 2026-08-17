@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generarPaseDeLealtad } from "@/lib/wallet/generar";
-import { identidadDeQuienPide, NOMBRE_COOKIE_PERSONA } from "@/lib/lealtad/personas";
+import {
+  afiliacionDeQuienPide,
+  idDeCuentaDeBookea,
+  identidadDeQuienPide,
+  NOMBRE_COOKIE_PERSONA,
+} from "@/lib/lealtad/personas";
 import { pantallaDeProblema, UUID_REGEX } from "../problema";
 
 /**
@@ -48,8 +53,41 @@ export async function GET(
   const jar = await cookies();
   const identidad = await identidadDeQuienPide(db, {
     token: jar.get(NOMBRE_COOKIE_PERSONA)?.value ?? null,
-    clienteId: user?.id ?? null,
+    // `idDeCuentaDeBookea` y no `user?.id`: la sesión ANÓNIMA del chat
+    // flotante también es un `auth.users`, y tomarla por cuenta afiliaba
+    // a la persona sin preguntarle nada. Ver `personas.ts`.
+    clienteId: idDeCuentaDeBookea(user),
   });
+
+  // ══ LA PUERTA QUE DE VERDAD CIERRA ═══════════════════════════════
+  //
+  // Esta ruta AFILIA: `generarPaseDeLealtad` inserta en `miembros` si
+  // quien pide todavía no es miembro (`generar.ts:227`, «pedir la
+  // tarjeta ES afiliarse»). O sea que todo lo que haga el formulario de
+  // `/tarjeta/[slug]` —campos obligatorios, casilla de consentimiento,
+  // validación de servidor en la action— se salta entero con un GET a
+  // esta URL, que es pública y cuyo único parámetro es el id del
+  // negocio. Así entraron los tres miembros de producción que quedaron
+  // sin nombre, sin vínculo y sin consentimiento.
+  //
+  // Se comprueba ANTES de llamar al generador, no adentro: adentro está
+  // `src/lib/wallet`, que también sirve al refresco del pase que la
+  // persona YA tiene en el teléfono. Frenar ahí le apagaría la tarjeta
+  // a quien se afilió antes de esta regla, y este proyecto ya decidió
+  // que a nadie se le quitan los sellos que ganó.
+  //
+  // No es un 403: se lo devuelve a SU pantalla, la del QR, donde está
+  // el formulario con lo que ya se sabe precargado. `sin_identidad` es
+  // exactamente el aviso que corresponde («contanos quién sos y te la
+  // damos»), y es un código cerrado que ya existe.
+  const afiliacion = await afiliacionDeQuienPide(db, identidad, {
+    ranchoId,
+    cuentaId: null,
+  });
+  if (afiliacion.falta !== null) {
+    console.warn(`[pases] ${ranchoId} → alta incompleta: falta ${afiliacion.falta}`);
+    return pantallaDeProblema(pedido, ranchoId, "sin_identidad");
+  }
 
   const resultado = await generarPaseDeLealtad({
     ranchoId,

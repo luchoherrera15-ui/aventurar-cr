@@ -1,0 +1,48 @@
+name: Sellos que se vencen por inactividad
+
+# EL BARRIDO DIARIO DE LA 0180.
+#
+# Reinicia los sellos del cliente que dejó de venir más meses de los
+# que el negocio configuró, y manda el ÚNICO aviso a quien está a dos
+# semanas de ese plazo. Un programa sin la regla configurada no aparece
+# en la consulta: los sellos no vencen nunca, que es lo de siempre.
+#
+# 10:00 UTC = 4:00 a. m. de Costa Rica. Después de la consolidación de
+# la API (09:30) y antes de que abra cualquier mostrador: quitarle
+# sellos a alguien mientras está pagando en la caja sería la peor forma
+# posible de que se entere.
+#
+# La hora es UTC pero la DECISIÓN no: «se venció» se calcula en la zona
+# de cada negocio (`ranchos.zona_horaria`), así que un local en México
+# o en España vence a sus clientes en su propio día, no en el nuestro.
+#
+# POR QUÉ ACÁ Y NO EN vercel.json: el mismo motivo que los otros cuatro
+# crons de este repo — en el plan Hobby, un cron de más en vercel.json
+# puede hacer que Vercel rechace el deploy ENTERO sin dejar rastro.
+#
+# SI NO CORRE UN DÍA no se pierde nada ni se duplica nada: el trabajo
+# no lleva cursor (pregunta «¿quién está vencido hoy?» de nuevo cada
+# vez) y la llave de idempotencia sale de la fecha de CORTE de cada
+# cliente, no de la fecha de la corrida. Una corrida atrasada hace el
+# trabajo de los dos días sin restarle los sellos dos veces a nadie.
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+# Dos corridas simultáneas no duplicarían nada (lo impiden los índices
+# únicos del ledger y de avisos_vencimiento_sellos), pero tampoco
+# aportan: si una se demora, la siguiente espera en vez de pisarla.
+concurrency:
+  group: vencimiento-de-sellos
+  cancel-in-progress: false
+
+jobs:
+  vencer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a /api/vencimiento-sellos
+        run: |
+          curl -sf --max-time 120 \
+            "https://www.bookea.lat/api/vencimiento-sellos" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

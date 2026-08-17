@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import {
   ESTILOS,
   ESTILOS_PLANTILLA,
+  TIPOGRAFIAS,
+  TIPOGRAFIAS_POSTER,
   TOPES_POSTER,
   contenidoDelPoster,
   esEstiloPlantilla,
@@ -121,6 +123,50 @@ export default function Personalizador({
           </select>
           <span className="poster-ayuda">{ESTILOS[config.base].seNota}</span>
         </label>
+
+        {/* LA TIPOGRAFÍA, Y CADA OPCIÓN ESCRITA CON LA SUYA.
+            Cuatro nombres puestos en la misma letra no dejan elegir
+            nada: la diferencia hay que VERLA antes de decidir, no
+            después de imprimir. La muestra lleva el mismo `data-letra`
+            que la hoja, así que el CSS le aplica exactamente la pila
+            que va a salir en el papel.
+
+            Radios de verdad y no botones: las flechas del teclado
+            recorren el grupo solas, sin que haya que escribir el
+            manejo de teclas. */}
+        <fieldset className="poster-grupo">
+          <legend className="poster-etiqueta">Tipografía</legend>
+          <div className="poster-letras">
+            {TIPOGRAFIAS_POSTER.map((id) => {
+              const letra = TIPOGRAFIAS[id];
+              return (
+                <label
+                  key={id}
+                  className={`poster-letra${config.tipografia === id ? " es-elegida" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="tipografia"
+                    className="poster-letra-radio"
+                    checked={config.tipografia === id}
+                    onChange={() => cambiar({ tipografia: id })}
+                  />
+                  <span className="poster-letra-muestra" data-letra={id} aria-hidden>
+                    Aa
+                  </span>
+                  <span className="poster-letra-nombre" data-letra={id}>
+                    {letra.nombre}
+                  </span>
+                  <span className="poster-letra-nota">{letra.nota}</span>
+                </label>
+              );
+            })}
+          </div>
+          <span className="poster-ayuda">
+            Ninguna se descarga: las cuatro ya están en esta página, así que la
+            hoja se imprime igual a como se ve acá.
+          </span>
+        </fieldset>
 
         <label className="poster-campo">
           <span className="poster-etiqueta">
@@ -247,6 +293,7 @@ export default function Personalizador({
       <HojaPoster
         estilo="personalizado"
         layout={config.base}
+        letra={config.tipografia}
         contenido={contenido}
         variables={variables}
         datos={datos}

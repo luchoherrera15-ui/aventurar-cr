@@ -89,8 +89,15 @@ describe("avisoDeFalloDelPase — ningún código sale como JSON", () => {
 
   it("«no sé quién sos» manda al formulario, no a un login", () => {
     const aviso = avisoDeFalloDelPase("sin_identidad", "X");
+    // Los tres datos del mínimo, nombrados: es el mismo aviso que ve
+    // quien tiene el alta a medias (sin nombre, sin vínculo o sin
+    // consentimiento), y el formulario de abajo resuelve los tres.
+    expect(aviso.texto).toContain("nombre");
     expect(aviso.texto).toContain("WhatsApp");
     expect(aviso.texto).toContain("correo");
+    // Y no lo manda a iniciar sesión, que es lo que hacía esta pantalla
+    // antes de la 0138.
+    expect(aviso.texto).not.toContain("código");
   });
 
   it("los dos que reusan otra pantalla no se pierden por el camino", () => {

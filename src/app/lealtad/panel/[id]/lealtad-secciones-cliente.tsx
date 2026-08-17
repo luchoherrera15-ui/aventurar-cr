@@ -2,6 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { marcarCanjeEnPos, revertirMovimiento } from "./lealtad-operar-actions";
+import {
+  CANALES_AUTOMATICOS,
+  ETIQUETA_CANAL,
+  type CanalDelSello,
+} from "@/lib/lealtad/canal-del-sello";
 
 /**
  * Las partes interactivas de Actividad e Integraciones: revertir un
@@ -23,6 +28,15 @@ export type FilaLibro = {
   tipo: string;
   puntos: number;
   motivo: string;
+  /**
+   * La referencia del ledger: número de factura del POS, serial del
+   * pase escaneado, llave del intento del mostrador. Es lo único con lo
+   * que se puede cruzar un reclamo del cliente contra la caja, y estaba
+   * guardado desde la 0060 sin que ninguna pantalla lo mostrara.
+   */
+  referencia: string | null;
+  /** Por dónde entró. Ver `canal-del-sello.ts`. */
+  canal: CanalDelSello;
   saldoPosterior: number | null;
   esReversion: boolean;
   porQuien: string | null;
@@ -51,7 +65,18 @@ export function ActividadFiltrable({
 
   const texto = busqueda.trim().toLowerCase();
   const visibles = filas.filter((f) => {
-    if (texto && !f.nombre.toLowerCase().includes(texto) && !(f.porQuien ?? "sistema").toLowerCase().includes(texto)) {
+    // El buscador también entra por la REFERENCIA y por el CANAL, que
+    // es lo que hace auditable esta pantalla: el reclamo de un cliente
+    // llega con un número de factura, no con un nombre («me cobraron
+    // la FE-000123 y no me sellaron»), y la pregunta del dueño cuando
+    // algo no cuadra es «¿esto entró por la API?».
+    if (
+      texto &&
+      !f.nombre.toLowerCase().includes(texto) &&
+      !(f.porQuien ?? "sistema").toLowerCase().includes(texto) &&
+      !(f.referencia ?? "").toLowerCase().includes(texto) &&
+      !ETIQUETA_CANAL[f.canal].toLowerCase().includes(texto)
+    ) {
       return false;
     }
     if (desde && f.fechaISO < desde) return false;
@@ -72,7 +97,7 @@ export function ActividadFiltrable({
         <input
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar por cliente o colaborador…"
+          placeholder="Cliente, colaborador, factura o canal…"
           className={`${campo} min-w-[190px] flex-1`}
         />
         <label className="flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink-soft">
@@ -114,6 +139,8 @@ export function ActividadFiltrable({
               tipo={f.tipo}
               puntos={f.puntos}
               motivo={f.motivo}
+              referencia={f.referencia}
+              canal={f.canal}
               saldoPosterior={f.saldoPosterior}
               esReversion={f.esReversion}
               porQuien={f.porQuien}
@@ -140,6 +167,8 @@ export default function FilaActividad({
   tipo,
   puntos,
   motivo,
+  referencia,
+  canal,
   saldoPosterior,
   esReversion,
   porQuien,
@@ -153,6 +182,10 @@ export default function FilaActividad({
   tipo: string;
   puntos: number;
   motivo: string;
+  /** Factura, serial escaneado o llave del intento. Ver `FilaLibro`. */
+  referencia: string | null;
+  /** Por dónde entró el movimiento. Ver `canal-del-sello.ts`. */
+  canal: CanalDelSello;
   saldoPosterior: number | null;
   esReversion: boolean;
   /** El colaborador que lo hizo. null = lo hizo el sistema. */
@@ -204,10 +237,30 @@ export default function FilaActividad({
           </span>
         )}
         {/* Quién lo hizo, siempre visible: es la diferencia entre un
-            registro y un rumor. "sistema" = lo otorgó Bookea solo (ej.
-            puntos por cita cumplida). */}
+            registro y un rumor. */}
         <span className="rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
           {porQuien ?? "sistema"}
+        </span>
+
+        {/* POR DÓNDE ENTRÓ. Es lo que faltaba para poder auditar de
+            verdad: «sistema» tapaba tres cosas distintas —una cita
+            cumplida, el cron de vencimiento y la API pública, que deja
+            `usuario_id` en null a propósito— y las tres se veían igual.
+            Un sello repartido por una llave de API filtrada era
+            indistinguible de un premio automático.
+
+            Los canales que NO son una persona con el cliente enfrente
+            van con el par de `canjeado`, que ya existe en `TIPO_CLS` y
+            por lo tanto ya está medido sobre el navy del panel: acá no
+            se estrena ningún color. */}
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+            CANALES_AUTOMATICOS.includes(canal)
+              ? TIPO_CLS.canjeado
+              : "bg-aventurea-cream-2 text-aventurea-ink-soft"
+          }`}
+        >
+          {ETIQUETA_CANAL[canal]}
         </span>
         <span className="text-[11.5px] text-aventurea-ink-soft">{fecha}</span>
 
@@ -228,7 +281,21 @@ export default function FilaActividad({
         )}
       </div>
 
-      {motivo && <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">{motivo}</p>}
+      {(motivo || referencia) && (
+        <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">
+          {motivo}
+          {/* LA REFERENCIA, que es por donde se cruza un reclamo con la
+              caja: «me cobraron la FE-000123 y no me sellaron». Estaba
+              guardada desde la 0060 y no la mostraba ninguna pantalla.
+              `break-all` porque un serial de Wallet no tiene espacios y
+              desbordaba la fila en el teléfono del mostrador. */}
+          {referencia && (
+            <span className="ml-1.5 break-all font-mono text-[11px] opacity-70">
+              · {referencia}
+            </span>
+          )}
+        </p>
+      )}
       {estado !== "normal" && estado !== "revertido" && (
         <p className="mt-1 text-[12px] font-bold text-red-700">{estado}</p>
       )}

@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generarPaseGoogle } from "@/lib/wallet/google";
-import { identidadDeQuienPide, NOMBRE_COOKIE_PERSONA } from "@/lib/lealtad/personas";
+import {
+  afiliacionDeQuienPide,
+  idDeCuentaDeBookea,
+  identidadDeQuienPide,
+  NOMBRE_COOKIE_PERSONA,
+} from "@/lib/lealtad/personas";
 import { pantallaDeProblema, UUID_REGEX } from "../../pases/problema";
 
 /**
@@ -40,8 +45,25 @@ export async function GET(
   const jar = await cookies();
   const identidad = await identidadDeQuienPide(db, {
     token: jar.get(NOMBRE_COOKIE_PERSONA)?.value ?? null,
-    clienteId: user?.id ?? null,
+    // `idDeCuentaDeBookea` y no `user?.id`: la sesión ANÓNIMA del chat
+    // flotante también es un `auth.users`, y tomarla por cuenta afiliaba
+    // a la persona sin preguntarle nada. Ver `personas.ts`.
+    clienteId: idDeCuentaDeBookea(user),
   });
+
+  // LA MISMA PUERTA QUE APPLE, y por la misma razón: `generarPaseGoogle`
+  // también inserta en `miembros` (`google.ts:558`, el bloque es espejo
+  // literal del de Apple). Un GET a esta URL afiliaba a alguien de quien
+  // no se sabía el nombre, sin vínculo con el negocio y sin
+  // consentimiento. La explicación larga está en `api/pases/[ranchoId]`.
+  const afiliacion = await afiliacionDeQuienPide(db, identidad, {
+    ranchoId,
+    cuentaId: null,
+  });
+  if (afiliacion.falta !== null) {
+    console.warn(`[pases-google] ${ranchoId} → alta incompleta: falta ${afiliacion.falta}`);
+    return pantallaDeProblema(pedido, ranchoId, "sin_identidad");
+  }
 
   const resultado = await generarPaseGoogle({ ranchoId, ...identidad });
   if (!resultado.ok) {

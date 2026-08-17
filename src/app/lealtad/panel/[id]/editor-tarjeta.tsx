@@ -73,6 +73,7 @@ export default function EditorTarjeta({
   nombreInicial,
   beneficioInicial,
   reglasIniciales,
+  vencimientoInicial = null,
   metaActual,
   ayudaInicial = null,
 }: {
@@ -84,6 +85,12 @@ export default function EditorTarjeta({
   nombreInicial: string;
   beneficioInicial: ConfigBeneficio;
   reglasIniciales: Reglas;
+  /**
+   * Los meses de inactividad tras los que se reinician los sellos
+   * (0180). null = no vencen, que es el caso de casi todas y el de
+   * cualquier tarjeta guardada antes de esa migración.
+   */
+  vencimientoInicial?: number | null;
   /**
    * La meta que la tarjeta promete HOY. En sellos sale de la recompensa
    * activa más barata —que es de donde la saca el pase real— y no del
@@ -152,6 +159,7 @@ export default function EditorTarjeta({
           nombreInicial={nombreInicial}
           beneficioInicial={beneficioInicial}
           reglasIniciales={reglasIniciales}
+          vencimientoInicial={vencimientoInicial}
           metaActual={metaActual}
         />
       )}
@@ -219,6 +227,7 @@ function PanelBeneficio({
   nombreInicial,
   beneficioInicial,
   reglasIniciales,
+  vencimientoInicial,
   metaActual,
 }: {
   ranchoId: string;
@@ -230,6 +239,7 @@ function PanelBeneficio({
   nombreInicial: string;
   beneficioInicial: ConfigBeneficio;
   reglasIniciales: Reglas;
+  vencimientoInicial: number | null;
   metaActual: number | null;
 }) {
   const { borrador, sincronizarPrograma } = usePrograma();
@@ -238,6 +248,10 @@ function PanelBeneficio({
   const [tipo, setTipo] = useState<TipoTarjeta>(situacion.tipo);
   const [beneficio, setBeneficio] = useState<ConfigBeneficio>(beneficioInicial);
   const [reglas, setReglas] = useState<Reglas>(reglasIniciales);
+  // El vencimiento de sellos (0180). Abre con lo que la tarjeta tiene
+  // guardado: si abriera apagado, el primer «Guardar» de cualquier otro
+  // campo le apagaría la regla al dueño sin que la haya tocado.
+  const [vencenMeses, setVencenMeses] = useState<number | null>(vencimientoInicial);
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
   const [guardando, guardar] = useTransition();
@@ -277,6 +291,7 @@ function PanelBeneficio({
         tipo,
         beneficio,
         reglas,
+        sellosVencenMeses: vencenMeses,
       });
       if (res.error) setError(res.error);
       else if (res.programa) {
@@ -336,7 +351,12 @@ function PanelBeneficio({
             {TIPOS_TARJETA[tipo].descripcion}
           </p>
           <div className="mt-4">
-            <PasoBeneficio config={beneficio} alCambiar={setBeneficio} />
+            <PasoBeneficio
+              config={beneficio}
+              alCambiar={setBeneficio}
+              vencenMeses={vencenMeses}
+              alCambiarVencimiento={setVencenMeses}
+            />
           </div>
           {motivoBeneficio && (
             <p

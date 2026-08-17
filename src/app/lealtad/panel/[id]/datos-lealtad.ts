@@ -10,6 +10,7 @@ import {
   type TransaccionCruda,
 } from "@/lib/lealtad/tablero";
 import { hoyISOCR } from "@/lib/fechas";
+import { identidadesDeMiembros, miembrosConIdentidad } from "@/lib/lealtad/identidades-db";
 
 /**
  * LO QUE DICE EL LEDGER sobre un programa, UNA sola vez por visita.
@@ -44,14 +45,21 @@ export const cargarLealtad = cache(
     const db = createAdminClient();
     if (!db || !programaId) return null;
 
-    const { data: miembros } = await db
-      .from("miembros")
-      .select("id, cliente_id, estado, created_at")
-      .eq("programa_id", programaId);
+    const miembros = await miembrosConIdentidad(db, { programaId });
+    const ids = miembros.map((m) => m.id);
 
-    const ids = (miembros ?? []).map((m) => m.id as string);
+    // El negocio de la tarjeta: hace falta para la ficha de CRM
+    // (`clientes_negocio` se guarda por rancho). Si no se resuelve, la
+    // identidad se contesta igual con `personas` y `perfiles` — la ficha
+    // aporta, pero no manda.
+    const { data: programa } = await db
+      .from("programa_lealtad")
+      .select("rancho_id")
+      .eq("id", programaId)
+      .maybeSingle();
+    const ranchoId = (programa?.rancho_id as string | null) ?? null;
 
-    const [{ data: tx }, { data: pases }, { data: perfiles }] = await Promise.all([
+    const [{ data: tx }, { data: pases }, identidades] = await Promise.all([
       ids.length
         ? db
             .from("transacciones_puntos")
@@ -61,29 +69,16 @@ export const cargarLealtad = cache(
       ids.length
         ? db.from("pases_wallet").select("miembro_id, plataforma").in("miembro_id", ids)
         : Promise.resolve({ data: [] }),
-      db
-        .from("perfiles")
-        .select("id, nombre")
-        .in(
-          "id",
-          (miembros ?? []).map((m) => m.cliente_id).filter(Boolean) as string[],
-        ),
+      identidadesDeMiembros(db, miembros, ranchoId),
     ]);
-
-    const nombres = new Map(
-      ((perfiles ?? []) as { id: string; nombre: string | null }[]).map((p) => [
-        p.id,
-        (p.nombre ?? "").trim() || "Cliente",
-      ]),
-    );
 
     const hoy = hoyISOCR();
     const transacciones = (tx ?? []) as TransaccionCruda[];
     const fichas = fichasDeMiembros({
-      miembros: (miembros ?? []) as MiembroCrudo[],
+      miembros: miembros as MiembroCrudo[],
       transacciones,
       pases: (pases ?? []) as PaseCrudo[],
-      nombres,
+      identidades,
       meta,
       hoy,
     });

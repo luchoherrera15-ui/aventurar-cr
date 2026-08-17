@@ -12,6 +12,7 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
+import { fechaLargaCR } from "@/lib/fechas";
 import {
   selloDelPase,
   selloParaGuardar,
@@ -125,6 +126,28 @@ export type DatosDelTexto = {
    * VALOR cambia de un envío al siguiente.
    */
   mensajePromocional?: string | null;
+  /**
+   * HASTA CUÁNDO LE VALEN LOS SELLOS A ESTE CLIENTE (0180), en ISO y
+   * ya calculado en la zona del negocio.
+   *
+   * `null`/ausente = no vencen, que es el caso de toda tarjeta que no
+   * configure la regla y de los siete tipos que no son `sellos`. Ahí
+   * el pase sale EXACTAMENTE igual que antes de que esto existiera:
+   * ningún campo se agrega ni se mueve.
+   *
+   * Va en el reverso y no en el frente a propósito. El frente tiene
+   * tres ranuras y las tres ya dicen algo que el cliente necesita
+   * («5/10», «te faltan 3», la regalía); meter una fecha ahí le
+   * quitaría el lugar al progreso, que es lo que hace volver. El
+   * reverso es donde se mira cuando se duda, y esta es exactamente una
+   * duda.
+   *
+   * Y SIN `changeMessage`, al revés que el aviso promocional: esta
+   * fecha se corre con CADA sello, así que un aviso en la pantalla
+   * bloqueada por cada visita sería la versión Wallet del spam de
+   * correos que este módulo ya tuvo que apagar una vez.
+   */
+  sellosVencenEl?: string | null;
 };
 
 export type DatosTarjeta = DatosDelTexto & {
@@ -444,6 +467,31 @@ function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
 }
 
 /**
+ * CÓMO SE LE CUENTA EL VENCIMIENTO A UNA PERSONA (0180).
+ *
+ * Lo lee alguien que abrió su Wallet en la calle. No sabe que hay una
+ * regla configurable ni un barrido nocturno, y no le importa. Dos
+ * frases: hasta cuándo, y que volver lo arregla.
+ *
+ * La segunda frase es la que evita el reclamo en el mostrador. Un pase
+ * que solo dice una fecha se lee como una amenaza; uno que dice cómo
+ * renovarla se lee como lo que es — una invitación a volver, que es
+ * para lo que existe el programa entero.
+ *
+ * `fechaLargaCR` arma el día en español sin pasar por `Date` con hora
+ * (que corre la fecha seis horas en el servidor); el nombre del día
+ * sobra acá, así que se recorta.
+ */
+export function textoDeVencimiento(venceEl: string): string {
+  const largo = fechaLargaCR(venceEl);
+  const sinDia = largo.slice(largo.indexOf(" ") + 1);
+  return (
+    `El ${sinDia}, si no volvés antes. ` +
+    `Cada visita renueva el plazo: con un sello más, la fecha se corre sola.`
+  );
+}
+
+/**
  * El pass.json completo.
  *
  * El logo de arriba a la izquierda es del NEGOCIO. La firma de Bookea
@@ -501,6 +549,19 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
                 label: "Promoción",
                 value: datos.mensajePromocional.trim(),
                 changeMessage: "%@",
+              },
+            ]
+          : []),
+        // El vencimiento de los sellos (0180): solo si la tarjeta tiene
+        // la regla encendida. Va DESPUÉS de la promoción y antes de la
+        // firma, que es el orden en que se lee el reverso: qué es, qué
+        // hay de nuevo, hasta cuándo, quién lo hace.
+        ...(datos.sellosVencenEl
+          ? [
+              {
+                key: "vence",
+                label: "Tus sellos vencen",
+                value: textoDeVencimiento(datos.sellosVencenEl),
               },
             ]
           : []),

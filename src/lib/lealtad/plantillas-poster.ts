@@ -249,6 +249,101 @@ export function etiquetaDeMeta(
   return null;
 }
 
+// ── Las cuatro tipografías ─────────────────────────────────────────
+
+/**
+ * CON QUÉ LETRA SE IMPRIME EL PÓSTER PERSONALIZADO.
+ *
+ * ------------------------------------------------------------------
+ * CUATRO, Y NINGUNA SE DESCARGA
+ * ------------------------------------------------------------------
+ * Las cuatro ya están en la página antes de que nadie abra este
+ * selector:
+ *
+ *   · Montserrat la carga `src/app/lealtad/layout.tsx` (next/font) y es
+ *     la letra de TODO el módulo de Lealtad — o sea, la que el póster
+ *     ya usaba;
+ *   · Figtree la carga el layout raíz para el resto del sitio, así que
+ *     en /lealtad/panel/… el archivo ya está bajado igual;
+ *   · la serifa y la mono son PILAS DEL SISTEMA, las mismas que los
+ *     estilos «clásico» y «ticket» usan desde el primer día.
+ *
+ * Traer una quinta de Google costaría un archivo más bajado en el
+ * teléfono de todo el que solo entra a mirar el editor, y no agrega
+ * ninguna voz que estas cuatro no cubran: dos sans (una geométrica y
+ * una humanista), una serifa y una monoespaciada es el abanico
+ * completo de lo que un cartel de mostrador necesita decir.
+ *
+ * ------------------------------------------------------------------
+ * ACÁ VIVE EL ID; LA PILA VIVE EN EL CSS
+ * ------------------------------------------------------------------
+ * Lo que se guarda en la base y lo que viaja al `data-letra` de la hoja
+ * es SOLO uno de estos cuatro ids, validado contra esta lista blanca —
+ * en el servidor también, no solo en el formulario. Las pilas
+ * (`font-family: …`) están en `poster.css`, colgadas de ese atributo:
+ * así ningún texto que venga de afuera puede terminar dentro de un
+ * `font-family` que se pinta, que es una vía de inyección de CSS, y no
+ * hay dos listas de fuentes que puedan quedar distintas.
+ */
+export const TIPOGRAFIAS_POSTER = ["moderna", "cercana", "clasica", "maquina"] as const;
+
+export type TipografiaPoster = (typeof TIPOGRAFIAS_POSTER)[number];
+
+export function esTipografiaPoster(valor: unknown): valor is TipografiaPoster {
+  return typeof valor === "string" && (TIPOGRAFIAS_POSTER as readonly string[]).includes(valor);
+}
+
+export type DefinicionTipografia = {
+  id: TipografiaPoster;
+  /** Cómo se llama PARA EL NEGOCIO. Quien pone una barbería no sabe
+   *  qué es «Montserrat», pero sí sabe si quiere verse moderno. */
+  nombre: string;
+  /** La frase corta bajo el nombre, en la caja del selector. */
+  nota: string;
+};
+
+export const TIPOGRAFIAS: Record<TipografiaPoster, DefinicionTipografia> = {
+  moderna: {
+    id: "moderna",
+    nombre: "Moderna",
+    nota: "Geométrica y pareja. Es la de Bookea.",
+  },
+  cercana: {
+    id: "cercana",
+    nombre: "Cercana",
+    nota: "Redondeada y amable, de lectura fácil.",
+  },
+  clasica: {
+    id: "clasica",
+    nombre: "Clásica",
+    nota: "Con serifa, como un impreso de siempre.",
+  },
+  maquina: {
+    id: "maquina",
+    nombre: "Máquina",
+    nota: "De tiquete de caja, todas las letras iguales.",
+  },
+};
+
+/**
+ * La letra con la que arranca cada plantilla.
+ *
+ * NO es siempre «moderna», y esa es la razón de que esta función
+ * exista: los cinco estilos ya traían su propia tipografía escrita en
+ * el CSS —el clásico con serifa, el ticket con mono—, así que un póster
+ * guardado ANTES de que este campo existiera se está imprimiendo hoy
+ * con la del estilo. Si el valor por defecto fuera «moderna» a secas,
+ * el día que esto se despliegue el ticket de alguien dejaría de parecer
+ * un recibo sin que nadie tocara nada. Así, lo guardado se sigue
+ * viendo exactamente igual y el selector aparece marcando la letra que
+ * ya estaba puesta.
+ */
+export function tipografiaDeLaPlantilla(base: EstiloPlantilla): TipografiaPoster {
+  if (base === "clasico") return "clasica";
+  if (base === "ticket") return "maquina";
+  return "moderna";
+}
+
 // ── El póster escrito por el dueño ─────────────────────────────────
 
 /**
@@ -263,6 +358,11 @@ export function etiquetaDeMeta(
 export type ConfigPoster = {
   /** De cuál de las cinco toma el LAYOUT. Nunca 'personalizado'. */
   base: EstiloPlantilla;
+  /**
+   * Con qué letra se imprime. PISA la del estilo base, a propósito:
+   * ver `variablesDePoster`.
+   */
+  tipografia: TipografiaPoster;
   titulo: string;
   invitacion: string;
   pasos: [string, string, string];
@@ -304,6 +404,7 @@ export function configPosterPorDefecto(
   const copy = copyDelPoster(tipo);
   return {
     base: "minimalista",
+    tipografia: tipografiaDeLaPlantilla("minimalista"),
     titulo: copy.titulo,
     invitacion: copy.invitacion,
     pasos: [copy.pasos[0], copy.pasos[1], copy.pasos[2]],
@@ -345,8 +446,17 @@ export function leerConfigPoster(
     typeof v === "string" && HEX.test(v) ? v : porDefecto;
   const pasos = Array.isArray(o.pasos) ? o.pasos : [];
 
+  // El layout se resuelve PRIMERO porque de él sale la letra por
+  // defecto: un póster guardado antes de que existiera este campo se
+  // tiene que seguir imprimiendo con la tipografía de SU estilo, no
+  // con la del minimalista. Ver `tipografiaDeLaPlantilla`.
+  const layout = esEstiloPlantilla(o.base) ? o.base : base.base;
+
   return {
-    base: esEstiloPlantilla(o.base) ? o.base : base.base,
+    base: layout,
+    tipografia: esTipografiaPoster(o.tipografia)
+      ? o.tipografia
+      : tipografiaDeLaPlantilla(layout),
     titulo: texto(o.titulo, base.titulo, TOPES_POSTER.titulo),
     invitacion: texto(o.invitacion, base.invitacion, TOPES_POSTER.invitacion),
     pasos: [
@@ -373,6 +483,13 @@ export function leerConfigPoster(
 export function validarConfigPoster(config: ConfigPoster): string | null {
   if (!esEstiloPlantilla(config.base)) {
     return "Elegí de cuál de los cinco diseños arranca tu póster.";
+  }
+
+  // Lista blanca, y acá —no solo en el formulario—: este valor termina
+  // adentro de un `font-family` que se pinta en la hoja. Un texto libre
+  // ahí no es "una letra rara", es CSS que alguien más eligió.
+  if (!esTipografiaPoster(config.tipografia)) {
+    return "Elegí una de las cuatro tipografías.";
   }
 
   const titulo = config.titulo.trim();

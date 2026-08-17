@@ -10,6 +10,15 @@ import { llaveDeCanje } from "@/lib/lealtad/canje";
 import { traducirErrorDeBase, traducirMotivo } from "@/lib/lealtad/mostrador";
 import { minutoISOCR } from "@/lib/fechas";
 import type { PermisoLealtad } from "@/lib/lealtad/permisos";
+import { identidadesDeMiembros, miembrosConIdentidad } from "@/lib/lealtad/identidades-db";
+import { fichaVisible, SIN_DATOS } from "@/lib/lealtad/identidad-miembro";
+import {
+  CANALES_CONSENTIMIENTO,
+  duenosDelContacto,
+  revisarAlta,
+  textoConsentimientoMostrador,
+  VERSION_CONSENTIMIENTO_MOSTRADOR,
+} from "@/lib/lealtad/personas";
 
 /**
  * Las operaciones del día a día del programa de lealtad: acreditar,
@@ -441,6 +450,8 @@ export async function marcarCanjeEnPos(
 export type MiembroAtendible = {
   miembroId: string;
   nombre: string;
+  sinNombre: boolean;
+  contacto: string[];
   saldo: number;
   estado: string;
   conPase: boolean;
@@ -461,11 +472,28 @@ export type MiembroAtendible = {
  * y sus permisos, y no la llamaba nadie. Esto es su puerta.
  *
  * ------------------------------------------------------------------
+ * ESTE BUSCADOR NO ENCONTRABA A NADIE DEL PÓSTER
+ * ------------------------------------------------------------------
+ * Bug real, y del mismo origen que el «Cliente» de la lista: buscaba
+ * los nombres en `perfiles` por `miembros.cliente_id` y, si no había ni
+ * un `cliente_id`, cortaba con `return { clientes: [] }`. Desde la 0138
+ * quien se afilia escaneando el póster NO tiene cuenta —`cliente_id` en
+ * null— así que la pantalla que existe para atender «al cliente sin la
+ * tarjeta a mano» le contestaba «nadie con ese nombre está afiliado
+ * todavía» a los clientes que sí lo estaban. Justo la gente que este
+ * buscador vino a rescatar.
+ *
+ * Ahora la identidad sale de `personas` (con la ficha del negocio y
+ * `perfiles` de respaldo), igual que el resto del panel.
+ *
+ * ------------------------------------------------------------------
  * QUÉ SE DEVUELVE Y QUÉ NO
  * ------------------------------------------------------------------
- * Solo el nombre y el saldo, y solo de ESTE negocio. Ni correo, ni
- * teléfono, ni `cliente_id`: para dar un sello no hace falta nada de
- * eso, y lo que no se manda al navegador no se puede filtrar.
+ * El nombre, el contacto y el saldo, y solo de ESTE negocio. `cliente_id`
+ * no: para dar un sello no hace falta, y lo que no se manda al navegador
+ * no se puede filtrar. El correo y el teléfono SÍ van —el dueño los pidió
+ * para reconocer a quién está atendiendo— y son suyos: se los dio su
+ * propio cliente al afiliarse.
  *
  * Exige el permiso `acreditar`: quien no puede dar sellos tampoco
  * necesita la lista de clientes del negocio en su teléfono.
@@ -497,39 +525,44 @@ export async function buscarClientesDelPrograma(
   const idsProgramas = ((programas ?? []) as { id: string }[]).map((p) => p.id);
   if (!idsProgramas.length) return { ok: true, clientes: [] };
 
-  const { data: miembros, error } = await db
-    .from("miembros")
-    .select("id, cliente_id, estado")
-    .in("programa_id", idsProgramas);
-  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "buscar al cliente") };
+  const filas = await miembrosConIdentidad(db, { programaIds: idsProgramas });
+  if (!filas.length) return { ok: true, clientes: [] };
 
-  const filas = (miembros ?? []) as { id: string; cliente_id: string | null; estado: string }[];
-  const idsClientes = filas.map((m) => m.cliente_id).filter(Boolean) as string[];
-  if (!idsClientes.length) return { ok: true, clientes: [] };
+  const identidades = await identidadesDeMiembros(db, filas, ranchoId);
 
-  // El nombre sale de `perfiles` y NUNCA de la metadata del cliente
-  // (que el propio cliente puede escribir).
-  //
   // El filtro por texto se hace ACÁ y no con `ilike` en la consulta por
   // dos razones: `ilike` metería los `%` y `_` que el empleado teclee
   // dentro del patrón, y sobre todo `ilike` NO ignora las tildes — en un
   // mostrador nadie escribe «Hernández» con tilde, y «hernandez` no
   // encontraría a nadie. Es la misma cantidad de filas que ya trae el
   // tablero del panel (datos-lealtad.ts) para el mismo negocio.
-  const { data: perfiles } = await db
-    .from("perfiles")
-    .select("id, nombre")
-    .in("id", idsClientes);
-
+  //
+  // Y se busca por nombre, correo Y teléfono: en la caja lo que el
+  // cliente dice es «soy Melissa» o «mi número es el 7011…», y las dos
+  // cosas tienen que servir.
   const aguja = normalizar(busqueda);
-  const nombres = new Map(
-    ((perfiles ?? []) as { id: string; nombre: string | null }[])
-      .filter((p) => normalizar(p.nombre ?? "").includes(aguja))
-      .map((p) => [p.id, (p.nombre ?? "").trim() || "Cliente"]),
+  const vistas = new Map(
+    filas.map((m) => [
+      m.id,
+      fichaVisible(identidades.get(m.id) ?? { nombre: null, correo: null, telefono: null }, {
+        alta: m.created_at,
+        miembroId: m.id,
+      }),
+    ]),
   );
-  if (!nombres.size) return { ok: true, clientes: [] };
 
-  const candidatos = filas.filter((m) => m.cliente_id && nombres.has(m.cliente_id)).slice(0, 20);
+  const candidatos = filas
+    .filter((m) => {
+      const v = vistas.get(m.id);
+      if (!v) return false;
+      // La ficha vacía NO entra por su texto: buscar «cliente» no puede
+      // devolver a todos los anónimos del negocio.
+      const buscables = v.titulo === SIN_DATOS ? v.contacto : [v.titulo, ...v.contacto];
+      return buscables.some((t) => normalizar(t).includes(aguja));
+    })
+    .slice(0, 20);
+  if (!candidatos.length) return { ok: true, clientes: [] };
+
   const idsMiembros = candidatos.map((m) => m.id);
 
   const [{ data: tx }, { data: pases }] = await Promise.all([
@@ -548,14 +581,215 @@ export async function buscarClientesDelPrograma(
   return {
     ok: true,
     clientes: candidatos
-      .map((m) => ({
-        miembroId: m.id,
-        nombre: nombres.get(m.cliente_id as string) ?? "Cliente",
-        saldo: saldos.get(m.id) ?? 0,
-        estado: m.estado,
-        conPase: conPase.has(m.id),
-      }))
+      .map((m) => {
+        const v = vistas.get(m.id);
+        return {
+          miembroId: m.id,
+          nombre: v?.titulo ?? SIN_DATOS,
+          sinNombre: v?.sinNombre ?? true,
+          contacto: v?.contacto ?? [],
+          saldo: saldos.get(m.id) ?? 0,
+          estado: m.estado,
+          conPase: conPase.has(m.id),
+        };
+      })
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+  };
+}
+
+// ── COMPLETAR LA FICHA A MANO ──────────────────────────────────────
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  «CLIENTE SIN DATOS» → UN NOMBRE, DESDE LA CAJA
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ── PARA QUIÉN ES ───────────────────────────────────────────────────
+ * Para las fichas que quedaron vacías por el camino roto que
+ * `personas.ts` documenta: gente con tarjeta y con sellos de la que no
+ * se sabe ni el nombre. En producción eran 3 de 5.
+ *
+ * A esa gente no se le puede apagar la tarjeta —serían sellos que ya
+ * ganó— así que el camino es el único que funciona de verdad en un
+ * negocio: la próxima vez que la señora venga, el cajero le pregunta
+ * cómo se llama y lo teclea acá.
+ *
+ * ── LO QUE ESCRIBE, Y POR QUÉ SON CUATRO COSAS Y NO UNA ─────────────
+ *   1. `personas` — solo las columnas que estén EN NULL. Nunca pisa un
+ *      dato que la persona dio ella misma: el criterio de
+ *      `resolver_persona`, «enriquece pero no pisa» (0138:905).
+ *   2. `clientes_negocio` — la ficha de CRM de ESTE negocio (0109), que
+ *      es donde vive lo que el dueño anota y de donde el panel ya lee
+ *      (`identidad-miembro.ts`, fuente 2).
+ *   3. `personas_negocio` — el VÍNCULO, si faltaba. Es EL permiso del
+ *      negocio para ver a esa persona (0138:327). Completar los datos
+ *      de alguien a quien formalmente no se tiene derecho a ver, sin
+ *      crear el vínculo, sería empeorar el problema con mejor letra.
+ *   4. `consentimientos_persona` — el respaldo. Un alta completada a
+ *      mano no puede quedar PEOR documentada que una normal.
+ *
+ * ── EL CONTACTO AJENO SE RECHAZA ────────────────────────────────────
+ * Si el correo o el WhatsApp que se teclea ya es de OTRA persona, no se
+ * escribe nada. No es prolijidad: `personas.correo` y
+ * `personas.telefono` son únicos (0138), así que el update reventaría —
+ * pero sobre todo, un cajero apurado escribiendo el número de otro
+ * cliente fusionaría dos identidades con sellos, y eso no se deshace.
+ *
+ * ── EXIGE `acreditar` Y NO UN PERMISO NUEVO ─────────────────────────
+ * Es el permiso de quien atiende la caja, que es exactamente quien
+ * tiene a la persona enfrente para preguntarle. Inventar un permiso
+ * aparte dejaría el arreglo en manos del dueño, que no está en la caja.
+ */
+export async function completarDatosDelCliente(
+  ranchoId: string,
+  miembroId: string,
+  datos: { nombre: string; whatsapp: string; correo: string; aceptaPromos: boolean },
+): Promise<Resultado<{ nombre: string; contacto: string[] }>> {
+  const revision = revisarAlta({
+    nombre: datos.nombre,
+    correo: datos.correo,
+    telefono: datos.whatsapp,
+  });
+  if (!revision.ok) return { ok: false, motivo: revision.error };
+
+  const g = await guardYMiembro(ranchoId, miembroId, "acreditar");
+  if (!g.ok) return g;
+
+  const { data: miembro } = await g.db
+    .from("miembros")
+    .select("persona_id")
+    .eq("id", miembroId)
+    .maybeSingle();
+  const personaId = (miembro as { persona_id?: string | null } | null)?.persona_id ?? null;
+  if (!personaId) {
+    // Base sin la 0138, o una membresía anterior al backfill. No hay
+    // identidad raíz que completar y escribir solo la ficha del negocio
+    // dejaría el vínculo y el consentimiento sin poder crearse igual.
+    return {
+      ok: false,
+      motivo: "Esta ficha es de antes del cambio de identidad. Avisale a Bookea para arreglarla.",
+    };
+  }
+
+  const { correo, telefono } = revision.contacto;
+
+  // ¿Alguno de los dos datos ya es de otra persona? Ver la cabecera.
+  const duenos = await duenosDelContacto(g.db, { correo, telefono });
+  if (!duenos.confiable) {
+    return { ok: false, motivo: "No pudimos comprobar esos datos ahora mismo. Probá de nuevo." };
+  }
+  if (duenos.porCorreo !== null && duenos.porCorreo !== personaId) {
+    return { ok: false, motivo: "Ese correo ya es de otro cliente. Revisalo con la persona." };
+  }
+  if (duenos.porTelefono !== null && duenos.porTelefono !== personaId) {
+    return { ok: false, motivo: "Ese WhatsApp ya es de otro cliente. Revisalo con la persona." };
+  }
+
+  const { data: programa } = await g.db
+    .from("programa_lealtad")
+    .select("cuenta_id")
+    .eq("id", g.programaId)
+    .maybeSingle();
+  const cuentaId = (programa as { cuenta_id?: string | null } | null)?.cuenta_id ?? null;
+
+  const { data: negocio } = await g.db
+    .from("ranchos")
+    .select("nombre")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  const nombreNegocio = ((negocio as { nombre?: string | null } | null)?.nombre ?? "").trim();
+
+  // ── 1. `personas`: solo lo que está en null ──────────────────────
+  const { data: persona } = await g.db
+    .from("personas")
+    .select("nombre, correo, telefono")
+    .eq("id", personaId)
+    .maybeSingle();
+  const actual = (persona ?? {}) as { nombre?: string | null; correo?: string | null; telefono?: string | null };
+
+  const parche: Record<string, string> = {};
+  if (!(actual.nombre ?? "").trim()) parche.nombre = revision.nombre;
+  if (!actual.correo && correo) parche.correo = correo;
+  if (!actual.telefono && telefono) parche.telefono = telefono;
+  if (Object.keys(parche).length > 0) {
+    const { error } = await g.db.from("personas").update(parche).eq("id", personaId);
+    if (error) return { ok: false, motivo: traducirErrorDeBase(error, "guardar los datos") };
+  }
+
+  // ── 2. La ficha del negocio ──────────────────────────────────────
+  // Acá SÍ se pisa: es la libreta del dueño y él la está escribiendo.
+  // `notas` no se toca ni se lee (0138:281 — pueden ser datos de salud).
+  const { data: ficha } = await g.db
+    .from("clientes_negocio")
+    .select("id")
+    .eq("rancho_id", ranchoId)
+    .eq("persona_id", personaId)
+    .maybeSingle();
+  const camposFicha = {
+    nombre: revision.nombre,
+    ...(correo ? { correo } : {}),
+    ...(telefono ? { telefono } : {}),
+  };
+  if (ficha?.id) {
+    await g.db.from("clientes_negocio").update(camposFicha).eq("id", ficha.id);
+  } else {
+    await g.db
+      .from("clientes_negocio")
+      .insert({ rancho_id: ranchoId, persona_id: personaId, origen: "mostrador", ...camposFicha });
+  }
+
+  // ── 3. El vínculo, si faltaba ────────────────────────────────────
+  // `on conflict do nothing` no existe en PostgREST: se pregunta antes.
+  // Si dos cajeros lo hacen a la vez, el único de la 0138 rebota el
+  // segundo insert y se ignora — el vínculo ya está, que es lo que
+  // importa.
+  const { data: vinculo } = await g.db
+    .from("personas_negocio")
+    .select("id")
+    .eq("persona_id", personaId)
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+  if (!vinculo) {
+    await g.db
+      .from("personas_negocio")
+      .insert({ persona_id: personaId, rancho_id: ranchoId, cuenta_id: cuentaId, origen: "mostrador" });
+  }
+
+  // ── 4. El respaldo del consentimiento ────────────────────────────
+  // Una fila por canal, igual que el alta por QR, y con el "no acepto"
+  // guardado también: lo que hay que poder demostrar es que se preguntó.
+  const textoPermiso = textoConsentimientoMostrador(nombreNegocio);
+  const { error: errorPermiso } = await g.db.from("consentimientos_persona").insert(
+    CANALES_CONSENTIMIENTO.map((canal) => ({
+      persona_id: personaId,
+      ambito: "negocio",
+      cuenta_id: cuentaId,
+      rancho_id: ranchoId,
+      canal,
+      estado: datos.aceptaPromos ? "aceptado" : "revocado",
+      correo,
+      telefono,
+      texto_version: VERSION_CONSENTIMIENTO_MOSTRADOR,
+      texto_exacto: textoPermiso,
+      origen: "mostrador",
+    })),
+  );
+  if (errorPermiso) {
+    // Los datos YA quedaron. Decirlo así y no «no se pudo»: el cajero
+    // tiene que saber que el nombre se guardó, o lo va a teclear otra
+    // vez creyendo que no entró.
+    return {
+      ok: false,
+      motivo: "Los datos quedaron guardados, pero no pudimos anotar el permiso. Avisale a Bookea.",
+    };
+  }
+
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
+
+  return {
+    ok: true,
+    nombre: revision.nombre,
+    contacto: [correo, telefono].filter((v): v is string => v !== null),
   };
 }
 

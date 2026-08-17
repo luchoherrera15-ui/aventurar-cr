@@ -112,9 +112,16 @@ export default async function LealtadEstado({
 
   // Al navegador va lo justo: `FichaMiembro` trae `clienteId`, que es
   // el id de auth de la persona y no hace falta para dar un sello.
+  //
+  // EL CORREO Y EL TELÉFONO SÍ VIAJAN, y acá corresponde: esta pantalla
+  // es el negocio mirando a SUS clientes —los que le dieron esos datos a
+  // él, con su consentimiento guardado (0138)— detrás de
+  // `verificarAccesoLealtad`. No salen de esta pantalla.
   const clientes: ClienteEnLista[] = fichas.slice(0, 50).map((f) => ({
     miembroId: f.miembroId,
     nombre: f.nombre,
+    sinNombre: f.sinNombre,
+    contacto: f.contacto,
     saldo: f.saldo,
     estado: f.estado,
     conPase: f.conPase,

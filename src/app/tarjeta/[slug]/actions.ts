@@ -11,9 +11,11 @@ import {
   DIAS_COOKIE_PERSONA,
   NOMBRE_COOKIE_PERSONA,
   altaPorQr,
+  idDeCuentaDeBookea,
   ipDePeticion,
   personaDelToken,
-  revisarContacto,
+  revisarAlta,
+  type CampoDelAlta,
 } from "@/lib/lealtad/personas";
 
 /**
@@ -36,7 +38,7 @@ import {
 export type EstadoAlta = {
   error: string | null;
   /** Para marcar el campo exacto que hay que arreglar. */
-  campo?: "correo" | "whatsapp" | null;
+  campo?: CampoDelAlta | null;
   /**
    * El contacto ya es de alguien con cuenta o con sellos juntados. No
    * se escribió nada: se recupera entrando con el código, que es la
@@ -56,7 +58,12 @@ export async function afiliarPorQr(
   const slug = String(datos.get("slug") ?? "").trim();
   if (!slug) return { error: "Volvé a escanear el QR del local." };
 
-  const revision = revisarContacto({
+  // El mínimo que pidió el dueño: nombre y AL MENOS un contacto. Se
+  // revisa acá para poder marcar el campo exacto, y otra vez adentro de
+  // `altaPorQr` — que es la puerta de verdad, la que ve también lo que
+  // no pasó por esta pantalla.
+  const revision = revisarAlta({
+    nombre: String(datos.get("nombre") ?? ""),
     correo: String(datos.get("correo") ?? ""),
     telefono: String(datos.get("whatsapp") ?? ""),
   });
@@ -108,18 +115,18 @@ export async function afiliarPorQr(
     jar.get(NOMBRE_COOKIE_PERSONA)?.value ?? null,
   );
 
-  const nombre = String(datos.get("nombre") ?? "").trim().slice(0, 60) || null;
-
   const resultado = await altaPorQr(db, {
     programa,
     ranchoId: negocio.id as string,
     planRancho: (negocio as { plan_lealtad?: string | null }).plan_lealtad ?? null,
     nombreNegocio: (negocio.nombre as string) ?? "",
     contacto: revision.contacto,
-    nombre,
+    nombre: revision.nombre,
     acepta: datos.get("promos") === "si",
     personaProbada,
-    sesion: { clienteId: user?.id ?? null, correo: user?.email ?? null },
+    // La sesión anónima del chat flotante NO es una cuenta: colgarle la
+    // identidad de lealtad es el bug que documenta `personas.ts`.
+    sesion: { clienteId: idDeCuentaDeBookea(user), correo: user?.email ?? null },
     ip: ipDePeticion(cabeceras),
     userAgent: cabeceras.get("user-agent"),
   });

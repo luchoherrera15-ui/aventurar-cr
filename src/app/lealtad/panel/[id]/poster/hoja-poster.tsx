@@ -3,6 +3,7 @@ import {
   type ContenidoPoster,
   type EstiloPlantilla,
   type EstiloPoster,
+  type TipografiaPoster,
 } from "@/lib/lealtad/plantillas-poster";
 import MarcasWallet from "./marcas-wallet";
 
@@ -36,6 +37,7 @@ export type DatosHoja = {
 export default function HojaPoster({
   estilo,
   layout,
+  letra,
   contenido,
   variables,
   datos,
@@ -43,6 +45,11 @@ export default function HojaPoster({
   estilo: EstiloPoster;
   /** El layout que se dibuja. Para el personalizado, su plantilla base. */
   layout: EstiloPlantilla;
+  /**
+   * La tipografía elegida. Solo la manda el personalizador: los cinco
+   * terminados se imprimen con la suya, que es parte del diseño.
+   */
+  letra?: TipografiaPoster;
   contenido: ContenidoPoster;
   /** Los colores, como variables CSS (`variablesDePoster`). */
   variables: Record<string, string>;
@@ -62,6 +69,9 @@ export default function HojaPoster({
       // plantilla da por sentado: el minimalista esconde los pasos por
       // CSS, y si el dueño los prende tienen que aparecer igual.
       data-personalizado={personalizado ? "" : undefined}
+      // El id de la letra, no su pila: el `font-family` de cada una vive
+      // en `poster.css` colgado de este atributo. Ver ahí el porqué.
+      data-letra={letra}
       style={variables as React.CSSProperties}
     >
       {usaFoto && (
@@ -120,14 +130,16 @@ export default function HojaPoster({
             duda que frena a la mitad de los que miran el afiche. */}
         <footer className="poster-cierre">
           <MarcasWallet />
-          {contenido.mostrarPie && (
-            <p className="poster-pie">
-              Sin apps que instalar
-              <span className="poster-marca">Powered by Bookea.lat</span>
-            </p>
-          )}
+          {contenido.mostrarPie && <p className="poster-pie">Sin apps que instalar</p>}
         </footer>
       </div>
+
+      {/* La marca, anclada a la hoja y no al pie. Va afuera de
+          `.poster-cuerpo` a propósito: absoluta no gasta alto, y cada
+          estilo del cartel tiene su presupuesto de 141.4cqw contado a
+          mano. Además así no desaparece cuando el dueño apaga el pie —
+          la atribución no debería depender de una opción de diseño. */}
+      <span className="poster-marca">Powered by Bookea.lat</span>
     </div>
   );
 }

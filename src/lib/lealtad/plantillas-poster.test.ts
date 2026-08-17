@@ -4,6 +4,8 @@ import {
   ESTILOS_PLANTILLA,
   ESTILOS_POSTER,
   ESTILO_POR_DEFECTO,
+  TIPOGRAFIAS,
+  TIPOGRAFIAS_POSTER,
   TOPES_POSTER,
   configPosterPorDefecto,
   contenidoDelPoster,
@@ -241,6 +243,69 @@ describe("validarConfigPoster", () => {
   it("la base tiene que ser una de las cinco", () => {
     const rota = { ...configValida(), base: "personalizado" } as unknown as ConfigPoster;
     expect(validarConfigPoster(rota)).not.toBeNull();
+  });
+
+  /**
+   * Esto termina en un `font-family` que se pinta en la hoja. Un valor
+   * libre ahí no es «una letra rara»: es CSS que alguien de afuera
+   * eligió. La lista blanca corre en el SERVIDOR, no solo en el form.
+   */
+  it("la tipografía tiene que ser una de las cuatro", () => {
+    for (const t of TIPOGRAFIAS_POSTER) {
+      expect(validarConfigPoster(configValida({ tipografia: t }))).toBeNull();
+    }
+    for (const basura of ["Comic Sans", "", "red;}html{display:none", "MODERNA"]) {
+      const rota = { ...configValida(), tipografia: basura } as unknown as ConfigPoster;
+      expect(validarConfigPoster(rota)).not.toBeNull();
+    }
+    const sinCampo = { ...configValida() } as Partial<ConfigPoster>;
+    delete sinCampo.tipografia;
+    expect(validarConfigPoster(sinCampo as ConfigPoster)).not.toBeNull();
+  });
+});
+
+describe("tipografías", () => {
+  it("las cuatro están definidas, con id coherente y nombre de negocio", () => {
+    for (const id of TIPOGRAFIAS_POSTER) {
+      const t = TIPOGRAFIAS[id];
+      expect(t.id).toBe(id);
+      expect(t.nombre.length).toBeGreaterThan(2);
+      expect(t.nota.length).toBeGreaterThan(10);
+      // Nombres que un dueño de barbería entienda: nada de «Montserrat».
+      expect(t.nombre).not.toMatch(/Montserrat|Figtree|mono|serif/i);
+    }
+    expect(new Set(Object.values(TIPOGRAFIAS).map((t) => t.nombre)).size).toBe(4);
+  });
+
+  /**
+   * EL PÓSTER GUARDADO AYER NO PUEDE CAMBIAR SOLO.
+   *
+   * Los cinco estilos ya traían tipografía propia en el CSS, así que un
+   * póster guardado antes de que este campo existiera se está
+   * imprimiendo con la de SU estilo. Si el valor por defecto fuera
+   * «moderna» a secas, al desplegar esto el ticket de alguien dejaría de
+   * parecer un recibo sin que nadie tocara nada.
+   */
+  it("un póster guardado sin el campo conserva la letra de su estilo", () => {
+    expect(leerConfigPoster({ base: "ticket" }, "sellos", ACENTO).tipografia).toBe("maquina");
+    expect(leerConfigPoster({ base: "clasico" }, "sellos", ACENTO).tipografia).toBe("clasica");
+    expect(leerConfigPoster({ base: "audaz" }, "sellos", ACENTO).tipografia).toBe("moderna");
+    // Y lo guardado que ya la trae manda sobre el default del estilo.
+    expect(
+      leerConfigPoster({ base: "ticket", tipografia: "cercana" }, "sellos", ACENTO).tipografia,
+    ).toBe("cercana");
+    // Basura en la columna cae a la del estilo, no rompe la pantalla.
+    expect(
+      leerConfigPoster({ base: "ticket", tipografia: "Arial" }, "sellos", ACENTO).tipografia,
+    ).toBe("maquina");
+  });
+
+  it("todas las combinaciones de estilo y letra son guardables", () => {
+    for (const base of ESTILOS_PLANTILLA) {
+      for (const tipografia of TIPOGRAFIAS_POSTER) {
+        expect(validarConfigPoster(configValida({ base, tipografia }))).toBeNull();
+      }
+    }
   });
 });
 

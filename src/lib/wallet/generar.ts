@@ -13,6 +13,7 @@ import { describirEscalon, escalonesDeLaTira, primeroQueSalga } from "./escalone
 import { imagenDentroDelSello, type DibujoDelSello } from "@/lib/lealtad/iconos-sello";
 import { elegirDeFilasCrudas, emisoraDeFilasCrudas, resumenDeFila } from "./programa-principal";
 import { estadoVisible } from "@/lib/lealtad/programas";
+import { fechaDeCorte, reglaDeFila } from "@/lib/lealtad/vencimiento-sellos";
 import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
@@ -102,7 +103,10 @@ export async function generarPaseDeLealtad({
   // ── El negocio y su programa ──────────────────────────────────────
   const { data: negocio } = await db
     .from("ranchos")
-    .select("id, nombre, latitud, longitud, plan_lealtad")
+    // `zona_horaria` (0062/0170) entra desde la 0180: el vencimiento de
+    // los sellos se cuenta en el día del LOCAL, y hay negocios en ocho
+    // países. Sin ella, `fechaISOEnZona` cae a Costa Rica.
+    .select("id, nombre, latitud, longitud, plan_lealtad, zona_horaria")
     .eq("id", ranchoId)
     .maybeSingle();
   if (!negocio) {
@@ -260,6 +264,33 @@ export async function generarPaseDeLealtad({
     ? { nombre: recompensa.nombre as string, costo_puntos: recompensa.costo_puntos as number }
     : null;
 
+  // ── Hasta cuándo le valen los sellos (0180) ───────────────────────
+  // Se calcula acá y no se guarda en ninguna columna: sale del último
+  // movimiento del ledger, o sea que se corre solo con cada sello. Una
+  // columna con la fecha sería un segundo número que contradice al
+  // ledger el día que alguien mueva uno a mano.
+  //
+  // `reglaDeFila` ya devuelve «sin regla» para todo lo que no es una
+  // tarjeta de sellos y para las filas que llegan sin las columnas de
+  // la 0180 (que la pega el dueño a mano): ahí esto queda en null y el
+  // pase sale exactamente igual que antes.
+  const regla = reglaDeFila(programaFila);
+  let sellosVencenEl: string | null = null;
+  if (regla.meses !== null) {
+    const { data: ultimo } = await db
+      .from("transacciones_puntos")
+      .select("created_at")
+      .eq("miembro_id", miembro.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    sellosVencenEl = fechaDeCorte({
+      regla,
+      ultimoMovimiento: (ultimo?.created_at as string | null) ?? null,
+      zona: (negocio as { zona_horaria?: string | null }).zona_horaria ?? null,
+    });
+  }
+
   // ── El pase: uno por miembro, con serial estable ──────────────────
   // El serial NO se regenera: es la identidad de la tarjeta en el
   // teléfono. Si cambiara, cada actualización agregaría una tarjeta
@@ -350,6 +381,9 @@ export async function generarPaseDeLealtad({
       typeof (programaFila as Record<string, unknown>).mensaje_promocional === "string"
         ? ((programaFila as Record<string, unknown>).mensaje_promocional as string)
         : null,
+    // Cuándo se le vencen los sellos a ESTE cliente (0180). null en
+    // toda tarjeta sin la regla: el pase sale byte por byte igual.
+    sellosVencenEl,
     serialNumber,
     passTypeIdentifier: credenciales.passTypeIdentifier,
     teamIdentifier: credenciales.teamIdentifier,

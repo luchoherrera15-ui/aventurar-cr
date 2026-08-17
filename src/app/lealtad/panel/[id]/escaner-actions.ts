@@ -8,6 +8,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
 import { traducirErrorDeBase, traducirMotivo } from "@/lib/lealtad/mostrador";
 import { TIPOS_TARJETA, tipoDe, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import { identidadesDeMiembros, miembrosConIdentidad } from "@/lib/lealtad/identidades-db";
+import { fichaVisible } from "@/lib/lealtad/identidad-miembro";
 
 /**
  * Sumar una visita/compra escaneando la tarjeta del cliente.
@@ -193,12 +195,16 @@ export async function sumarSelloEscaneado(
     return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo registrar.") };
   }
 
-  const { data: perfil } = await db
-    .from("perfiles")
-    .select("nombre")
-    .eq("id", miembro.cliente_id)
-    .maybeSingle();
-  const cliente = (perfil?.nombre as string | null)?.trim() || "Cliente";
+  // A QUIÉN se le acaba de sellar. Salía de `perfiles` por `cliente_id`
+  // y por eso el mostrador decía «¡Sello para Cliente!» a todo el que se
+  // hubiera afiliado por el póster: desde la 0138 esa gente no tiene
+  // cuenta y `perfiles` no la conoce. La identidad sale de `personas`,
+  // igual que en el resto del panel.
+  const [conPersona] = await miembrosConIdentidad(db, { ids: [miembro.id as string] });
+  const identidades = await identidadesDeMiembros(db, [conPersona ?? miembro], ranchoId);
+  const cliente = fichaVisible(
+    identidades.get(miembro.id) ?? { nombre: null, correo: null, telefono: null },
+  ).titulo;
 
   // El aviso al teléfono nunca frena la operación (los puntos ya
   // están), pero SÍ tiene que ejecutarse: un `void` suelto muere cuando

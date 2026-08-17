@@ -36,6 +36,9 @@ function formaValida(valor: unknown): valor is ConfigPoster {
   const o = valor as Record<string, unknown>;
   return (
     typeof o.base === "string" &&
+    // Solo que SEA texto: cuál de las cuatro es lo decide la lista
+    // blanca de `validarConfigPoster`, dos líneas más abajo.
+    typeof o.tipografia === "string" &&
     typeof o.titulo === "string" &&
     typeof o.invitacion === "string" &&
     Array.isArray(o.pasos) &&

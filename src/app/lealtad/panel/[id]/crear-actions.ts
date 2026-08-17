@@ -19,6 +19,7 @@ import { minutoISOCR } from "@/lib/fechas";
 import { acumulacionDe, recompensaInicial, traducirErrorDeBase } from "@/lib/lealtad/mostrador";
 import { sembrarRecompensa } from "@/lib/lealtad/sembrar-recompensa";
 import { esColumnaAusente } from "@/lib/lealtad/errores-base";
+import { mesesGuardables } from "@/lib/lealtad/vencimiento-sellos";
 import { elegirPrograma, resumenDeFila } from "@/lib/wallet/programa-principal";
 import { estadoAlCrear } from "./estado-inicial";
 import { cupoLleno, lasQueOcupanCupo, tarjetaDelCupo } from "./cupo-tarjetas";
@@ -91,6 +92,13 @@ export type BorradorTarjeta = {
     horaDesde: string;
     horaHasta: string;
   };
+  /**
+   * Meses de inactividad tras los cuales los sellos del cliente se
+   * reinician (0180). null = no vencen nunca, que es como nace toda
+   * tarjeta. Solo tiene efecto en las de sellos: el servidor lo
+   * descarta en los otros siete tipos.
+   */
+  sellosVencenMeses: number | null;
 };
 
 type Resultado = { ok: true; programaId: string } | { ok: false; motivo: string };
@@ -127,6 +135,8 @@ const COLUMNAS_DEGRADABLES = [
   "dias_permitidos",
   "hora_desde",
   "hora_hasta",
+  "sellos_vencen_meses",
+  "sellos_vencen_desde",
 ] as const;
 
 export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
@@ -343,6 +353,7 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   // La cautela de «que nadie publique sin mirarla dos veces» ya la
   // cumple el paso de Revisar. Un botón que promete publicar, publica.
   const acumula = acumulacionDe(datos.beneficio);
+  const vencenMeses = mesesGuardables(datos.tipo, datos.sellosVencenMeses);
 
   const fila: Record<string, unknown> = {
     rancho_id: datos.ranchoId,
@@ -387,6 +398,16 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     dias_permitidos: datos.reglas.dias.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6),
     hora_desde: datos.reglas.horaDesde || null,
     hora_hasta: datos.reglas.horaHasta || null,
+    // El vencimiento de sellos por inactividad (0180). Se sanea acá y
+    // no en el navegador: el rango lo vuelve a exigir el CHECK, y solo
+    // las tarjetas de SELLOS lo llevan — en una gift card o un
+    // cashback el saldo es plata, y eso no se vence por no volver.
+    sellos_vencen_meses: vencenMeses,
+    // Y el reloj arranca HOY, nunca antes: ver el encabezado de la
+    // 0180. En una tarjeta recién creada no hay nadie adentro, así que
+    // es lo mismo — pero dejarlo null acá haría que la primera edición
+    // tuviera que adivinar cuándo se encendió.
+    sellos_vencen_desde: vencenMeses === null ? null : new Date().toISOString(),
   };
   if (cuentaId) fila.cuenta_id = cuentaId;
 

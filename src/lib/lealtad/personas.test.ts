@@ -9,7 +9,7 @@ import {
   mensajeDeFalloDeAlta,
   normalizarCorreo,
   normalizarTelefonoCR,
-  revisarContacto,
+  revisarAlta,
   textoConsentimientoNegocio,
 } from "./personas";
 
@@ -72,36 +72,84 @@ describe("normalizarCorreo — deduplicar de verdad", () => {
   });
 });
 
-describe("revisarContacto — el error se ve ANTES de perder el pase", () => {
-  it("con los dos datos buenos, devuelve lo normalizado", () => {
-    const r = revisarContacto({ correo: " Ana@Ejemplo.com ", telefono: "+506 8888-8888" });
+/**
+ * EL MÍNIMO PARA LLEVARSE UNA TARJETA, escrito como contrato.
+ *
+ * Estas son las pruebas del pedido del dueño («necesitamos saber quién
+ * se registra»): nombre obligatorio, y UN contacto —el que sea—
+ * suficiente. Si alguien un día vuelve a hacer el nombre opcional para
+ * bajar la fricción, se le cae este bloque encima y tiene que decidirlo
+ * a conciencia.
+ */
+describe("revisarAlta — nombre obligatorio, un contacto alcanza", () => {
+  it("con nombre y los dos contactos, devuelve todo normalizado", () => {
+    const r = revisarAlta({
+      nombre: "  Ana   Ruiz ",
+      correo: " Ana@Ejemplo.com ",
+      telefono: "+506 8888-8888",
+    });
     expect(r.ok).toBe(true);
     if (r.ok) {
+      // Los espacios de más se colapsan: «Ana   Ruiz» y «Ana Ruiz» son
+      // la misma señora y en la lista del panel tienen que verse igual.
+      expect(r.nombre).toBe("Ana Ruiz");
       expect(r.contacto).toEqual({ correo: "ana@ejemplo.com", telefono: "88888888" });
     }
   });
 
-  it("señala el campo exacto y habla como una persona", () => {
-    const sinTel = revisarContacto({ correo: "ana@ejemplo.com", telefono: "888" });
+  it("SIN NOMBRE no hay tarjeta — es el pedido del dueño", () => {
+    const r = revisarAlta({ nombre: "  ", correo: "ana@ejemplo.com", telefono: "88888888" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.campo).toBe("nombre");
+
+    // Una letra suelta tampoco identifica a nadie.
+    const corto = revisarAlta({ nombre: "A", telefono: "88888888" });
+    expect(corto.ok).toBe(false);
+  });
+
+  it("con SOLO el WhatsApp alcanza, y el correo queda en null", () => {
+    const r = revisarAlta({ nombre: "Ana", telefono: "8888 8888" });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.contacto).toEqual({ correo: null, telefono: "88888888" });
+  });
+
+  it("con SOLO el correo también, y el teléfono queda en null", () => {
+    const r = revisarAlta({ nombre: "Ana", correo: "ana@ejemplo.com" });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.contacto).toEqual({ correo: "ana@ejemplo.com", telefono: null });
+  });
+
+  it("sin ningún contacto no se puede: no habría por dónde avisarle", () => {
+    const r = revisarAlta({ nombre: "Ana", correo: "", telefono: "  " });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.campo).toBe("whatsapp");
+      expect(r.error).toContain("uno de los dos");
+    }
+  });
+
+  it("un campo escrito A MEDIAS es un dedazo, y se señala ese campo", () => {
+    // Vacío ≠ inválido: dejarlo en blanco es elegir el otro canal, pero
+    // escribir «888» es equivocarse y hay que avisar dónde.
+    const sinTel = revisarAlta({ nombre: "Ana", correo: "ana@ejemplo.com", telefono: "888" });
     expect(sinTel.ok).toBe(false);
     if (!sinTel.ok) {
       expect(sinTel.campo).toBe("whatsapp");
       expect(sinTel.error).toContain("8 números");
     }
 
-    const malCorreo = revisarContacto({ correo: "ana-ejemplo.com", telefono: "88888888" });
+    const malCorreo = revisarAlta({
+      nombre: "Ana",
+      correo: "ana-ejemplo.com",
+      telefono: "88888888",
+    });
     expect(malCorreo.ok).toBe(false);
     if (!malCorreo.ok) expect(malCorreo.campo).toBe("correo");
   });
 
-  it("el WhatsApp se revisa primero: es el campo que más se equivoca", () => {
-    const r = revisarContacto({ correo: "", telefono: "" });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.campo).toBe("whatsapp");
-  });
-
   it("un correo absurdamente largo no llega a la base", () => {
-    const r = revisarContacto({
+    const r = revisarAlta({
+      nombre: "Ana",
       correo: `${"a".repeat(200)}@ejemplo.com`,
       telefono: "88888888",
     });
