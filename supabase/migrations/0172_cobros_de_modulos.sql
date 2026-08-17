@@ -187,7 +187,18 @@ create table if not exists cobros_modulo (
   -- Un cobro de plan trae plan; uno de complemento trae complemento.
   -- Sin esto entra una fila que no se puede atribuir a ningún producto
   -- y el corte «paquetes vs. complementos» deja de cuadrar.
-  constraint cobros_modulo_producto_check
+  --
+  -- OJO CON EL NOMBRE, que ya hizo fallar esta migración una vez.
+  -- Se llamaba `cobros_modulo_producto_check` y reventaba con «check
+  -- constraint already exists» ANTES de crear nada: el `check (producto
+  -- in (...))` que va pegado a la columna, más arriba, no es anónimo —
+  -- Postgres lo bautiza solo como tabla_columna_check, o sea con
+  -- exactamente ese nombre. Dos reglas distintas peleando por el mismo
+  -- identificador.
+  -- Las dos se quieren y son cosas distintas: aquella valida QUÉ
+  -- valores admite la columna, esta valida que el id del producto venga
+  -- con ella. Por eso se renombra en vez de borrar una.
+  constraint cobros_modulo_producto_coherente_check
     check (
       (producto = 'plan_lealtad' and plan is not null)
       or (producto = 'complemento' and addon is not null)

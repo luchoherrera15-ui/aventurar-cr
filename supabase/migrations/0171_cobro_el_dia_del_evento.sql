@@ -325,11 +325,15 @@ begin
 end;
 $$;
 
+-- OJO: un solo literal, sin `||`. `COMMENT ON ... IS` no admite una
+-- EXPRESIÓN, solo una cadena — con la concatenación esta migración moría
+-- en «syntax error at or near "||"» después de haber creado la función,
+-- o sea a mitad de camino. Un literal puede ocupar varias líneas.
 comment on function public.devengar_cobros_del_dia(integer) is
-  'Anota en cobros_plataforma la comisión de las reservas cuyo evento ya ' ||
-  'ocurrió (según la zona horaria de cada negocio) y que aún no la tienen. ' ||
-  'Idempotente por el índice único (reserva_id, concepto). La llama el cron ' ||
-  'diario /api/cobro-plataforma.';
+  'Anota en cobros_plataforma la comisión de las reservas cuyo evento ya
+ocurrió (según la zona horaria de cada negocio) y que aún no la tienen.
+Idempotente por el índice único (reserva_id, concepto). La llama el cron
+diario /api/cobro-plataforma.';
 
 -- Mueve plata: solo la llave de servicio (el cron) puede ejecutarla.
 -- Ni el navegador anónimo, ni un usuario con sesión, ni el dueño de un
