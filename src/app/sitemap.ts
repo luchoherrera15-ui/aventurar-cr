@@ -14,11 +14,15 @@ import { urlSitio } from "@/lib/sitio";
  *
  * DOS REGLAS QUE NO SE PUEDEN ROMPER ACÁ:
  *
- * 1. SOLO URLs CANÓNICAS. `/eventos` sirve el mismo directorio que `/`
- *    y su `<link rel="canonical">` apunta a `/` (ver el comentario
- *    grande en eventos/page.tsx), así que va `/` y NO `/eventos`:
- *    listar una URL que se declara duplicada de otra es mandarle al
- *    buscador dos señales opuestas.
+ * 1. SOLO URLs CANÓNICAS. La regla sigue en pie; lo que cambió es el
+ *    caso que la ilustraba. Acá decía que `/eventos` NO se listara,
+ *    porque servía el mismo directorio que `/` y se canonizaba a `/`.
+ *    Desde que la portada tiene contenido propio, el directorio se
+ *    canoniza a sí mismo (ver el comentario grande en eventos/page.tsx)
+ *    y por lo tanto SÍ va: hoy son dos contenidos distintos, cada uno
+ *    en su dirección. Listar una URL que se declara duplicada de otra
+ *    sigue siendo mandarle al buscador dos señales opuestas — por eso
+ *    esta regla se revisa cada vez que se toca un canónico.
  *
  * 2. SOLO URLs QUE RESPONDEN 200. Un negocio de Citas vive en
  *    `/citas/{slug}` y uno de Restaurantes en `/restaurantes/{slug}`;
@@ -48,6 +52,7 @@ const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekl
   [
     // La raíz ES el directorio de Eventos. Prioridad 1 sin discusión.
     { ruta: "/", prioridad: 1, frecuencia: "daily" },
+    { ruta: "/eventos", prioridad: 0.9, frecuencia: "daily" },
     { ruta: "/citas", prioridad: 0.9, frecuencia: "daily" },
     { ruta: "/hospedajes", prioridad: 0.8, frecuencia: "weekly" },
     { ruta: "/restaurantes", prioridad: 0.8, frecuencia: "weekly" },

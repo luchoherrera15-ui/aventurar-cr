@@ -134,43 +134,32 @@ const nextConfig: NextConfig = {
         source: "/invitacion/:slug",
         destination: "/i/:slug",
       },
-      // ── LA RAÍZ, SIN VIAJE DE IDA Y VUELTA ────────────────────────
-      // Antes era un `redirect` 307 a /eventos. Medido desde Costa
-      // Rica costaba ~340 ms: el navegador pedía `/`, el edge le
-      // contestaba «andá a /eventos», y recién ahí empezaba la
-      // solicitud de verdad. Un rewrite sirve el MISMO contenido en la
-      // primera respuesta, sin el rebote.
+      // ── ACÁ VIVÍA UN REWRITE DE `/` A `/eventos`. SE BORRÓ. ───────
       //
-      // Y la URL se queda en `/`, que es lo que se quiere: era la
-      // dirección más fuerte del sitio y estaba regalando su autoridad.
-      //
-      // EL DUPLICADO YA ESTÁ DESEMPATADO. El mismo contenido vive en
-      // `/` y en `/eventos`, y las dos siguen respondiendo 200 (hay
-      // enlaces vivos a las dos, así que no vuelve ningún redirect).
-      // Quien manda es `/`: las dos respuestas traen
-      // `<link rel="canonical" href="https://www.bookea.lat/">`, izado
-      // al `<head>` desde el componente compartido — el porqué de la
-      // decisión y el porqué de la técnica están escritos en
-      // src/app/eventos/page.tsx, arriba de `CANONICO_DIRECTORIO`.
-      //
-      // OJO 2 — HOY ESTE REWRITE NO DISPARA, Y ESTÁ BIEN ASÍ. Los
-      // rewrites escritos como ARREGLO son `afterFiles`: se revisan
-      // DESPUÉS del sistema de archivos (ver el orden en
+      // Nació para matar un `redirect` 307 que costaba ~340 ms desde
+      // Costa Rica, cuando la raíz ERA el directorio de Eventos. Con el
+      // tiempo dejó de disparar —los rewrites escritos como ARREGLO son
+      // `afterFiles` y se revisan DESPUÉS del sistema de archivos (ver
       // node_modules/next/dist/docs/01-app/03-api-reference/05-config/
-      // 01-next-config-js/rewrites.md). Como `src/app/page.tsx` existe,
-      // la raíz la resuelve esa página — que renderiza el directorio de
-      // Eventos ella misma, con la bienvenida de marca encima. El
-      // rewrite se deja como red de seguridad: si ese archivo se borra
-      // algún día, `/` sigue sirviendo Eventos sin rebote.
+      // 01-next-config-js/rewrites.md), así que `src/app/page.tsx`
+      // ganaba siempre— y quedó como «red de seguridad».
       //
-      // (Este detalle costó caro: cuando la raíz pasó de `redirect` a
-      // `rewrite`, `page.tsx` volvió a ganar y con él revivió una intro
-      // que se había eliminado a propósito. Antes de mover algo acá,
-      // comprobar QUÉ responde `/` de verdad, no qué dice la config.)
-      {
-        source: "/",
-        destination: "/eventos",
-      },
+      // POR QUÉ ESA RED HABÍA QUE CORTARLA: la raíz ya no es el
+      // directorio, es una portada con contenido propio. Un rewrite
+      // dormido que dice «si algún día falta page.tsx, servile Eventos
+      // a la raíz» dejó de ser una red y pasó a ser la REVERSIÓN
+      // SILENCIOSA de esa decisión: cualquier refactor que mueva o
+      // renombre ese archivo —meterlo en un route group, por ejemplo—
+      // haría que `/` volviera a servir el directorio sin que fallara
+      // el build ni ninguna prueba. Nadie se enteraría hasta verlo en
+      // producción.
+      //
+      // Y no es hipotético: es EXACTAMENTE lo que ya pasó una vez. Al
+      // cambiar la raíz de `redirect` a `rewrite`, `page.tsx` volvió a
+      // ganar y con él revivió una intro que se había eliminado a
+      // propósito. La lección de aquella vez sigue valiendo: antes de
+      // mover algo acá, comprobar QUÉ responde `/` de verdad, no qué
+      // dice la config.
     ];
   },
   // El directorio vivía en /ranchos-eventos; ahora es /eventos (la

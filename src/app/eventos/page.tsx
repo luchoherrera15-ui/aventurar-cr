@@ -40,6 +40,7 @@ import type { Rancho } from "../mi-negocio/types";
  */
 import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
 import { urlSitio } from "@/lib/sitio";
+import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
 
 /**
  * El armazón de /eventos: todo lo que se puede pintar SIN esperar a la
@@ -60,78 +61,59 @@ import { urlSitio } from "@/lib/sitio";
  */
 /**
  * ============================================================
- * LA DIRECCIÓN OFICIAL DE ESTE CONTENIDO ES `/`
+ * LA DIRECCIÓN OFICIAL DE ESTE CONTENIDO ES `/eventos`
  * ============================================================
  *
- * Desde que la raíz dejó de redirigir (ver `rewrites()` en
- * next.config.ts: el 307 costaba ~340 ms desde Costa Rica), el MISMO
- * directorio responde 200 en dos direcciones: `bookea.lat/` y
- * `bookea.lat/eventos`. Para un buscador eso es contenido duplicado y
- * alguien tiene que desempatar.
+ * Acá decía `/`, y estaba bien mientras duró: la raíz y esta ruta
+ * servían EL MISMO directorio en dos direcciones, y de las dos, la que
+ * la gente escribe y enlaza es la pelada. Ganaba `/`.
  *
- * Gana `/`, y no por costumbre:
+ * EL DÍA QUE ESTO SE DABA POR VENCIDO YA LLEGÓ. El comentario anterior
+ * declaraba su propia condición de reversión: «el día que `/` tenga
+ * contenido PROPIO —una portada multi-vertical de verdad, con
+ * eventos/citas/hospedajes como secciones— `/eventos` pasa a ser una
+ * página distinta, con su propio canónico a sí misma». Ese es el home
+ * nuevo, y esto es ese cambio.
  *
- *  · Es la que la gente escribe, comparte y enlaza desde afuera. Toda
- *    la autoridad de dominio entra por ahí.
- *  · `/` no es una portada de marca que enlaza al directorio: ES el
- *    directorio (src/app/page.tsx renderiza este mismo componente).
- *    No hay dos contenidos que separar — hay uno con dos direcciones.
- *  · Matar el redirect ya se hizo justamente para que la raíz dejara
- *    de regalar su autoridad. Canonizar hacia `/eventos` la volvería a
- *    regalar por otra puerta, y de paso dejaría a quien busca "Bookea"
- *    aterrizando en una URL de sección.
+ * Ya no hay un contenido con dos direcciones: hay DOS contenidos. La
+ * portada es una portada y el directorio es este. Cada uno se canoniza
+ * a sí mismo, que es lo que un canónico debe decir cuando la página
+ * existe de verdad.
  *
- * CUÁNDO SE REVIERTE: el día que `/` tenga contenido PROPIO (una
- * portada multi-vertical de verdad, con eventos/citas/hospedajes como
- * secciones). Ahí `/eventos` pasa a ser una página distinta, con su
- * propio canónico a sí misma, y esta etiqueta se borra.
+ * ORDEN DEL CAMBIO (importa, y por eso queda escrito): esta etiqueta se
+ * mudó a `/eventos` en un despliegue APARTE y ANTERIOR al del home
+ * nuevo, con el contenido todavía idéntico en las dos direcciones. Así
+ * el buscador consolida el directorio en su dirección definitiva
+ * mientras el contenido no cambió —que es la parte fácil de digerir— y
+ * recién después la portada cambia de tema. Al revés, las dos cosas le
+ * pasan al buscador el mismo día y no hay forma de saber cuál movió
+ * qué.
  *
- * POR QUÉ LA ETIQUETA VA ACÁ, EN EL JSX, Y NO EN `export const
- * metadata`: la Metadata API se resuelve por RUTA. `src/app/page.tsx`
- * monta este componente, no esta ruta, así que un `alternates.canonical`
- * declarado en este archivo cubriría `/eventos` y dejaría `/` sin
- * etiqueta. Rendido como elemento, React lo iza al `<head>` de las DOS
- * respuestas, con el mismo valor, que es exactamente la promesa que un
- * canónico tiene que hacer. (Ponerlo en el layout raíz no sirve: la
- * metadata de un layout la heredan TODAS las rutas de abajo, y /citas,
- * /hospedajes y cada ficha terminarían canonizadas a `/`.)
+ * POR QUÉ LA ETIQUETA SIGUE ACÁ, EN EL JSX, Y NO EN `export const
+ * metadata`: mientras `src/app/page.tsx` siga montando este componente
+ * —cosa que deja de pasar con el home nuevo—, la Metadata API de este
+ * archivo solo cubriría la ruta `/eventos` y la raíz quedaría sin
+ * etiqueta. Rendida como elemento, React la iza al `<head>` de
+ * cualquier respuesta que monte este componente. Cuando la portada
+ * tenga su propio cuerpo, esto se puede mover a la Metadata API sin
+ * cambiar de valor.
  */
-const CANONICO_DIRECTORIO = urlSitio("/");
+const CANONICO_DIRECTORIO = urlSitio("/eventos");
 
-/**
- * Quién es Bookea, en el idioma que leen los buscadores.
+/*
+ * Los datos de organización se mudaron a `src/lib/seo-organizacion.ts`.
  *
- * Va en ESTE componente y no en el layout raíz por la misma razón que
- * el canónico: acá es la portada del sitio (`/` monta este componente),
- * y la recomendación de Google es declarar la organización UNA vez, en
- * la portada — no repetida en cada pantalla del panel.
+ * No fue orden por orden: acá se armaban con `CANONICO_DIRECTORIO`, y
+ * al mudar ese canónico a `/eventos` la organización se habría mudado
+ * con él — Bookea declarándole a Google que la EMPRESA vive en una
+ * sección del sitio. La organización es siempre la raíz; el canónico de
+ * esta pantalla es esta pantalla. Son dos valores distintos y ahora
+ * viven separados.
  *
- * Deliberadamente corto: nombre, dirección oficial, logo y el idioma
- * del sitio. Los datos que no se pueden sostener (teléfono, dirección
- * física, redes) no se inventan: un dato estructurado que no calza con
- * lo que dice la página vale menos que ninguno.
+ * Se sigue montando desde acá SOLO mientras `src/app/page.tsx` monte
+ * este componente. Con el home nuevo pasa a montarse allá, que es su
+ * lugar: la portada.
  */
-const DATOS_ORGANIZACION = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": `${CANONICO_DIRECTORIO}#organizacion`,
-      name: "Bookea",
-      url: CANONICO_DIRECTORIO,
-      logo: urlSitio("/logo-bookea-v3.png"),
-      areaServed: { "@type": "Country", name: "Costa Rica" },
-    },
-    {
-      "@type": "WebSite",
-      "@id": `${CANONICO_DIRECTORIO}#sitio`,
-      name: "Bookea",
-      url: CANONICO_DIRECTORIO,
-      inLanguage: "es-CR",
-      publisher: { "@id": `${CANONICO_DIRECTORIO}#organizacion` },
-    },
-  ],
-};
 
 export default function EventosPage() {
   return (
