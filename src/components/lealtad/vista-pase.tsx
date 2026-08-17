@@ -66,6 +66,7 @@ type Plataforma = "apple" | "google";
 export default function VistaPase({
   datos,
   superficie = "oscura",
+  marco = "ninguno",
 }: {
   datos: DatosVista;
   /**
@@ -76,6 +77,14 @@ export default function VistaPase({
    * sus textos van sobre su propio color, no sobre el de la página.
    */
   superficie?: "clara" | "oscura";
+  /**
+   * «telefono» mete la tarjeta DENTRO de un teléfono dibujado. Las
+   * pestañas y el aviso quedan FUERA del marco a propósito: son
+   * controles nuestros, no parte de lo que se ve en el teléfono —
+   * metidos adentro, el conjunto deja de leerse como un teléfono y
+   * pasa a leerse como un dibujo raro.
+   */
+  marco?: "ninguno" | "telefono";
 }) {
   const [plataforma, setPlataforma] = useState<Plataforma>("apple");
   const clara = superficie === "clara";
@@ -144,20 +153,37 @@ export default function VistaPase({
         ))}
       </div>
 
-      <div className="mt-4">
-        {plataforma === "apple" ? (
-          <TarjetaApple
-            datos={datos}
-            campos={campos}
-            colores={colores}
-            tira={tira}
-            saldo={saldo}
-            icono={config.pase_sello_icono ?? null}
-          />
-        ) : (
-          <TarjetaGoogle datos={datos} campos={campos} colores={colores} />
-        )}
-      </div>
+      {marco === "telefono" ? (
+        <MarcoTelefono plataforma={plataforma}>
+          {plataforma === "apple" ? (
+            <TarjetaApple
+              datos={datos}
+              campos={campos}
+              colores={colores}
+              tira={tira}
+              saldo={saldo}
+              icono={config.pase_sello_icono ?? null}
+            />
+          ) : (
+            <TarjetaGoogle datos={datos} campos={campos} colores={colores} />
+          )}
+        </MarcoTelefono>
+      ) : (
+        <div className="mt-4">
+          {plataforma === "apple" ? (
+            <TarjetaApple
+              datos={datos}
+              campos={campos}
+              colores={colores}
+              tira={tira}
+              saldo={saldo}
+              icono={config.pase_sello_icono ?? null}
+            />
+          ) : (
+            <TarjetaGoogle datos={datos} campos={campos} colores={colores} />
+          )}
+        </div>
+      )}
 
       <p
         className={`mt-3 text-center text-[11px] leading-snug ${
@@ -168,6 +194,135 @@ export default function VistaPase({
         plataforma.
       </p>
     </div>
+  );
+}
+
+// ── El teléfono ────────────────────────────────────────────────────
+// Lo que hace que un mockup se lea como un teléfono no es el borde
+// redondeado: son las tres cosas que el ojo ya tiene memorizadas de
+// tanto verlas —la isla dinámica, la barra de estado con SUS íconos y
+// la rayita de inicio— más un canto que refleje luz como el metal. Sin
+// eso queda un rectángulo negro con una tarjeta encima.
+
+function MarcoTelefono({
+  plataforma,
+  children,
+}: {
+  plataforma: Plataforma;
+  children: React.ReactNode;
+}) {
+  // Wallet de Apple es negro; el de Google, claro. La barra de estado
+  // se invierte con él — en un teléfono real la hora no se queda
+  // blanca sobre una app clara.
+  const oscuro = plataforma === "apple";
+  const tinta = oscuro ? "#ffffff" : "#0a1226";
+
+  return (
+    <div className="mx-auto mt-4 w-full max-w-[262px]">
+      <div
+        className="relative rounded-[42px] p-[3px]"
+        style={{
+          // El canto: un degradado que simula el reflejo del titanio.
+          background:
+            "linear-gradient(150deg,#6b7280,#2a2f38 20%,#171b22 50%,#3f454f 76%,#6b7280)",
+          boxShadow: "0 26px 50px -18px rgba(6,12,26,.55), 0 0 0 1px rgba(255,255,255,.05)",
+        }}
+      >
+        <div
+          className="relative overflow-hidden rounded-[39px]"
+          style={{ background: oscuro ? "#000000" : "#f4f5f7", aspectRatio: "393 / 800" }}
+        >
+          {/* La isla dinámica, con el punto de la cámara adentro. */}
+          <div
+            aria-hidden
+            className="absolute left-1/2 top-[9px] z-20 flex h-[24px] w-[82px] -translate-x-1/2 items-center justify-end rounded-full pr-2.5"
+            style={{ background: "#000000" }}
+          >
+            <span
+              className="h-[7px] w-[7px] rounded-full"
+              style={{ background: "#0b1a2b", boxShadow: "inset 0 0 3px rgba(90,150,230,.75)" }}
+            />
+          </div>
+
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 z-10 flex h-[36px] items-center justify-between px-5 text-[10px] font-semibold"
+            style={{ color: tinta }}
+          >
+            <span className="tracking-tight">9:41</span>
+            <span className="flex items-center gap-[4px]">
+              <IconoSenal />
+              <IconoWifi />
+              <IconoBateria />
+            </span>
+          </div>
+
+          {/* El contenido de la app. El nombre arriba ubica la escena:
+              una tarjeta suelta sobre negro no dice DÓNDE está. */}
+          <div className="absolute inset-x-0 bottom-0 top-[36px] px-2.5 pt-1">
+            <p
+              className="mb-2 px-1 text-[13px] font-bold tracking-tight"
+              style={{ color: tinta }}
+            >
+              Wallet
+            </p>
+            {children}
+          </div>
+
+          <span
+            aria-hidden
+            className="absolute bottom-[7px] left-1/2 h-[4px] w-[100px] -translate-x-1/2 rounded-full"
+            style={{ background: oscuro ? "rgba(255,255,255,.9)" : "rgba(10,18,38,.75)" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IconoSenal() {
+  return (
+    <svg width="15" height="10" viewBox="0 0 18 12" fill="currentColor" aria-hidden>
+      <rect y="8" width="3" height="4" rx="1" />
+      <rect x="5" y="5.5" width="3" height="6.5" rx="1" />
+      <rect x="10" y="2.5" width="3" height="9.5" rx="1" />
+      <rect x="15" width="3" height="12" rx="1" fillOpacity=".35" />
+    </svg>
+  );
+}
+
+function IconoWifi() {
+  return (
+    <svg width="14" height="10" viewBox="0 0 16 12" fill="currentColor" aria-hidden>
+      <path d="M8 11.4 6.1 9.2a2.9 2.9 0 0 1 3.8 0L8 11.4Z" />
+      <path
+        d="M11.6 7.3a5.4 5.4 0 0 0-7.2 0L3.1 5.9a7.3 7.3 0 0 1 9.8 0l-1.3 1.4Z"
+        fillOpacity=".9"
+      />
+      <path d="M14.7 4a9.7 9.7 0 0 0-13.4 0L0 2.6a11.7 11.7 0 0 1 16 0L14.7 4Z" fillOpacity=".75" />
+    </svg>
+  );
+}
+
+function IconoBateria() {
+  return (
+    <svg width="22" height="11" viewBox="0 0 25 12" fill="none" aria-hidden>
+      <rect
+        x=".5"
+        y=".5"
+        width="20"
+        height="11"
+        rx="3.4"
+        stroke="currentColor"
+        strokeOpacity=".42"
+      />
+      <rect x="2" y="2" width="15" height="8" rx="2.2" fill="currentColor" />
+      <path
+        d="M22.2 4.3v3.4c.85-.28 1.4-.94 1.4-1.7s-.55-1.42-1.4-1.7Z"
+        fill="currentColor"
+        fillOpacity=".45"
+      />
+    </svg>
   );
 }
 

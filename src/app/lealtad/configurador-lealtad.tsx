@@ -292,45 +292,27 @@ export default function ConfiguradorLealtad() {
           </p>
         </div>
 
-        {/* ============== VISTA PREVIA, EN UN MOCKUP DE TELÉFONO ============== */}
+        {/* ============== VISTA PREVIA, DENTRO DEL TELÉFONO ============== */}
+        {/* El marco lo dibuja VistaPase (`marco="telefono"`): así las
+            pestañas Apple/Google y el aviso quedan FUERA del teléfono,
+            que es donde corresponde — son controles nuestros, no algo
+            que se vea en la pantalla del cliente. */}
         <div
-          className="flex items-center justify-center px-4 py-6"
+          className="flex items-center justify-center px-4 py-5"
           style={{ background: "linear-gradient(155deg,#dceaf5,#f1d5c8)" }}
         >
-          <div
-            className="relative w-full max-w-[240px] rounded-[34px] border-[6px] p-2.5 pt-4"
-            style={{ background: "#09111a", borderColor: "#0d1520", boxShadow: "0 20px 40px rgba(10,18,38,.35)" }}
-          >
-            <span
-              aria-hidden
-              className="absolute left-1/2 top-2 h-[16px] w-[68px] -translate-x-1/2 rounded-full"
-              style={{ background: "#050a10" }}
-            />
-            <div className="flex items-center justify-between px-1.5 pb-2 text-[8px] font-bold text-white/80">
-              <span>9:41</span>
-              <span aria-hidden>●●●</span>
-            </div>
-
-            <div className="rounded-[22px] bg-[#0b1220] p-2">
-              <VistaPase
-                datos={{
-                  negocioNombre: nombreNegocio,
-                  modo: tipo,
-                  beneficio,
-                  colorFondo,
-                  colorSello,
-                  logoUrl: logoPreview,
-                }}
-                superficie="oscura"
-              />
-            </div>
-
-            <span
-              aria-hidden
-              className="mx-auto mt-2.5 block h-[3px] w-16 rounded-full"
-              style={{ background: "rgba(255,255,255,.55)" }}
-            />
-          </div>
+          <VistaPase
+            datos={{
+              negocioNombre: nombreNegocio,
+              modo: tipo,
+              beneficio,
+              colorFondo,
+              colorSello,
+              logoUrl: logoPreview,
+            }}
+            superficie="clara"
+            marco="telefono"
+          />
         </div>
       </div>
     </div>
