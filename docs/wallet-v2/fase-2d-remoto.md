@@ -243,3 +243,68 @@ así que `npx vitest run` nunca puede alcanzar `api.push.apple.com` ni
 sin definir). El cron de GitHub Actions puede desplegarse sin riesgo —
 responde 200 sin tocar la base ni la red hasta que se active
 explícitamente (Etapa 12 en adelante, después del Gate 1).
+
+## Etapa 9 — Diagnóstico por correlation_id (local, sin gate)
+
+`supabase/migrations/0168_wallet_v2_diagnostico_correlacion.sql` — vista
+`wallet_v2_diagnostico_sincronizacion`, solo `service_role` (mismo
+patrón que `wallet_v2_reconciliacion_saldos`, 0159). Une, por
+`correlation_id`/`pase_id`: el movimiento (`transacciones_puntos`), la
+fila de sync (`wallet_sincronizaciones`, con su `estado` como el proxy
+real de "APNs status" — no existe un código HTTP crudo guardado en
+ningún lado), el pase (`update_tag`, `ultima_descarga_en` como el
+"último .pkpass entregado"), y dispositivos (**solo** `count()` y
+`max(created_at)` de `registros_dispositivo` — nunca `push_token`).
+
+**Hallazgo real, no anticipado**: el camino normal (adaptador →
+`ResultadoSync` → `marcarResultado`) ya sanitiza el error antes de
+escribirlo (`motivoSeguro()`/`sanitizarMotivo()`), pero
+`ejecutarCicloDeSincronizacion` tiene un `catch` para el caso de que un
+adaptador lance una excepción sin atrapar, y ESE camino escribe
+`e.message` crudo. La vista agrega su propia capa de saneo
+(`regexp_replace`, mismo patrón que `motivoSeguro()`) como defensa en
+profundidad — probado con una prueba que escribe un secreto simulado
+directo en la tabla y confirma que la vista lo tapa mientras la tabla
+cruda todavía lo tiene.
+
+## Etapa 17 — Alertas (local, sin gate; sin enviar nada todavía)
+
+`src/lib/wallet/sync/alertas.ts` — 9 funciones puras (nunca hacen red
+ni abren conexión), más un agregador `evaluarAlertasWalletV2()`. Cubre
+las 9 señales pedidas: jobs retryable acumulados (umbral 20), jobs
+dead (umbral 1, sin cantidad "normal"), tasa de rechazo de APNs (20%
+sobre una muestra mínima de 5, para no alertar con 1 de 1), Google
+auth error (cualquier 401), certificado próximo a vencer (reusa
+`validarApple()`, nunca reimplementa el parseo de PEM), secreto HMAC
+faltante (solo alerta si YA hay pases con `auth_token_version >= 1`
+dependiendo de él — su ausencia sola es un estado válido, ver Fase 2C),
+registro Apple sin actividad (30 días sin registro ni descarga
+confirmada), versión de pase divergente (`update_tag` vs. la versión
+del último job exitoso), y payload de Google divergente (comparación
+lista para cuando `pases_wallet.google_ultimo_payload_hash` — columna
+que ya existe desde 0165 pero que ningún código escribe todavía — se
+empiece a usar).
+
+**No se conecta a ningún mecanismo de entrega en esta etapa** — el
+repo ya tiene uno (`avisarAAdministradores()`, `src/lib/correo/
+administradores.ts`, vía Resend) y el archivo documenta exactamente
+cómo un futuro cron de alertas se conectaría, sin implementarlo.
+
+## Verificación independiente (Etapas 9 y 17)
+
+Igual que con el worker: no se le creyó al reporte del agente sin
+correr los comandos yo mismo. Esta vez no hubo que corregir nada — dos
+corridas seguidas de `npm run test:wallet-v2-local` dieron **8/8
+archivos, 72/72 pruebas**, estable.
+
+| Comando | Resultado |
+|---|---|
+| `npx supabase db reset` | exit 0 — aplica limpio hasta `0168` |
+| `npx tsc --noEmit` | exit 0 |
+| `npx vitest run` (suite normal) | exit 0 — 2153/2153 pruebas, 102 archivos |
+| `npm run test:wallet-v2-local` | exit 0 — 72/72 pruebas, 8 archivos (2 corridas seguidas) |
+| `npm run lint` | exit 0 — 4 warnings preexistentes, 0 nuevos |
+
+Escaneo de secretos (mismo patrón que el resto de esta fase — JWT
+reales excluyendo el demo local, bloques `BEGIN ... KEY`) sobre los 4
+archivos nuevos: sin coincidencias.
