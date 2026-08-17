@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { esDemo } from "@/lib/demo";
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -60,7 +61,10 @@ export default function RanchoCard({
   // eslint-disable-next-line react-hooks/purity -- "nuevo" es una etiqueta de vitrina; no pasa nada si queda desactualizada un instante entre renders
   const esNuevo = Date.now() - new Date(rancho.created_at).getTime() < 1000 * 60 * 60 * 24 * 30;
 
-  const esDemo = !!rancho.slug?.startsWith("demo-");
+  // Criterio compartido (src/lib/demo.ts): mira `detalles.demo` además
+  // del prefijo del slug. Con solo el slug, los demos sembrados para
+  // parecer un negocio real salían SIN el aviso.
+  const demo = esDemo(rancho.slug, rancho.detalles);
   // Esta card se usa en Eventos, Hospedajes y favoritos de cualquier
   // vertical: rubro, ícono y gradiente salen del helper por vertical
   // (categorias-vertical.ts), que ya sabe caer a "otros" si la
@@ -152,7 +156,7 @@ export default function RanchoCard({
           </span>
 
           <span className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
-            {esDemo && (
+            {demo && (
               <span className="rounded-lg bg-amber-400 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
                 Demo
               </span>

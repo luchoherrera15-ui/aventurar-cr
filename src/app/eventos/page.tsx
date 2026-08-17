@@ -301,6 +301,11 @@ async function DirectorioEventos() {
       canton: n.canton,
       categoria: n.categoria,
       vertical: n.vertical ?? "eventos",
+      // Viaja al carrusel porque ahí se decide el aviso «Demo», y la
+      // marca autoritativa vive acá (ver src/lib/demo.ts): mirando solo
+      // el slug, los demos sembrados para parecer un negocio real
+      // salían de héroes de la portada sin decir que son de muestra.
+      detalles: n.detalles ?? null,
     }));
 
   const fechasOcupadas = (confirmadas ?? []) as { rancho_id: string; fecha: string }[];

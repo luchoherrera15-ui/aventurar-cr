@@ -1,5 +1,6 @@
 "use client";
 
+import { esDemo } from "@/lib/demo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -22,6 +23,8 @@ export type NegocioDestacado = {
   canton: string | null;
   categoria: string;
   vertical: string;
+  /** Para el aviso «Demo»: la marca autoritativa vive acá adentro. */
+  detalles?: Record<string, unknown> | null;
 };
 
 /** Cuánto se queda quieta cada tarjeta antes de empezar a cambiar. */
@@ -152,10 +155,12 @@ export default function CarruselSuperDestacados({
 
   const n = negocios[indice];
   const ubicacion = [n.canton, n.provincia].filter(Boolean).join(", ");
-  // Mismo criterio que rancho-card.tsx: los negocios de muestra se
-  // marcan como tales. Si uno llega al carrusel, tiene que decirlo acá
-  // arriba igual que lo dice la grilla de abajo.
-  const esDemo = !!n.slug?.startsWith("demo-");
+  // Mismo criterio que rancho-card.tsx —literalmente el mismo, ahora
+  // compartido en src/lib/demo.ts—: los negocios de muestra se marcan
+  // como tales. Si uno llega al carrusel, tiene que decirlo acá arriba
+  // igual que lo dice la grilla de abajo. Acá se notaba doble: el
+  // carrusel es el héroe de la portada.
+  const demo = esDemo(n.slug, n.detalles);
 
   const botonCls =
     "flex h-9 w-9 items-center justify-center rounded-full bg-aventurea-navy/45 text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-aventurea-navy/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
@@ -238,7 +243,7 @@ export default function CarruselSuperDestacados({
               <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
                 ★ Súper destacado
               </span>
-              {esDemo && (
+              {demo && (
                 <span className="rounded-lg bg-amber-400 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-zinc-900">
                   Demo
                 </span>
