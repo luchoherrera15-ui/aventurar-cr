@@ -242,15 +242,25 @@ export default function PanelSidebar({
   const seccionActiva = tabs.find((t) => esActivo(t));
 
   return (
-    /* 236px y no 224: el menú pasó de cuatro ítems a los de todo el tipo
-     * de negocio, y "Paquetes y bonos" o "Formularios" con su marca
-     * «Pronto» al lado no entraban sin truncarse a la mitad.
+    /* ======== SHELL DE APLICACIÓN, NO CONTENEDOR CENTRADO ========
      *
-     * En xl la columna sube a 260px y el gap a 32: con el panel ahora a
-     * pantalla completa hay ancho de sobra, y esos 24px de más son la
-     * diferencia entre que "Bloqueos y ausencias" entre entero o se
-     * corte. Debajo de lg no hay grilla: el menú colapsa al selector
-     * del teléfono y el contenido ocupa el ancho completo.
+     * El menú va PEGADO AL BORDE IZQUIERDO de la ventana y el contenido
+     * ocupa lo que queda. Antes esto era una grilla adentro de un
+     * `max-w-[1900px] mx-auto`, así que en un monitor de 2560 el menú
+     * "flotaba" a 330px del borde con aire muerto a los dos lados; ahora
+     * el aire sobrante queda del lado del contenido, que es donde se
+     * puede centrar sin que se note.
+     *
+     * 252px de columna (276 desde xl, donde sobra ancho) y sin gap: el
+     * aire entre el menú y el contenido ahora lo pone el padding del
+     * contenido, no un hueco de la grilla — con un gap, la columna navy
+     * dejaba una franja crema a su derecha que la volvía a hacer ver
+     * como una tarjeta flotante en vez de un borde de la aplicación.
+     * El ancho sale de los labels: "Bloqueos y ausencias" con su ícono
+     * es el ítem más largo del menú.
+     *
+     * Debajo de lg no hay grilla ni columna: el menú colapsa al selector
+     * del teléfono y todo ocupa el ancho completo.
      *
      * El `onKeyDown` está acá arriba y no en el botón a propósito: con
      * el menú abierto el foco está adentro de la lista desplegada, así
@@ -259,7 +269,7 @@ export default function PanelSidebar({
      * componentes, así que alcanza con este único manejador.
      */
     <div
-      className="lg:grid lg:grid-cols-[236px_1fr] lg:items-start lg:gap-6 xl:grid-cols-[260px_1fr] xl:gap-8"
+      className="lg:grid lg:grid-cols-[252px_1fr] lg:items-start xl:grid-cols-[276px_1fr]"
       style={acento as CSSProperties | undefined}
       onKeyDown={(e) => {
         if (e.key === "Escape" && selectorAbierto) {
@@ -268,23 +278,28 @@ export default function PanelSidebar({
         }
       }}
     >
-      {/* top-20 (80px): el header del panel mide 64px fijos, así que el
-          offset deja de ser una adivinanza. Envuelve identidad+nav para
-          que las dos suban pegadas al hacer scroll, como un solo bloque. */}
-      <div className="lg:sticky lg:top-20">
+      {/* LA COLUMNA NAVY, de borde a header y hasta abajo de la pantalla.
+          `top-16` = los 64px fijos del header, así que el offset no es
+          una adivinanza; `h-[calc(100svh-4rem)]` + `overflow-y-auto` le
+          dan scroll propio, que es lo que necesita el menú de doce ítems
+          de un consultorio en una laptop de 768px de alto.
+          Debajo de lg esto es un bloque normal con el padding de la
+          página: no hay rail que pintar. */}
+      <div className="px-4 pt-6 sm:px-6 lg:sticky lg:top-16 lg:h-[calc(100svh-4rem)] lg:overflow-y-auto lg:bg-gradient-to-b lg:from-aventurea-navy-2 lg:to-aventurea-navy lg:px-4 lg:pb-6 lg:pt-5">
         {identidad && (
-          <div className="mb-3 rounded-3xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-4 text-white shadow-lg">
+          /* En el teléfono la identidad es su propia tarjeta navy; en el
+             rail ya ESTÁ sobre navy, así que ahí se queda sin tarjeta
+             (una tarjeta navy sobre una columna navy es un rectángulo
+             invisible) y la separa del menú una línea sólida de la misma
+             familia — `navy-3`, no un blanco con alfa. */
+          <div className="mb-3 rounded-3xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-4 text-white shadow-lg lg:mb-4 lg:rounded-none lg:border-b lg:border-aventurea-navy-3 lg:bg-none lg:p-0 lg:pb-4 lg:shadow-none">
             {identidad}
           </div>
         )}
 
-        {/* Desktop: columna fija. `max-h`/`overflow-y-auto`: el menú de
-            un consultorio son doce ítems y en una laptop de 768px de
-            alto los últimos quedaban abajo del pliegue, sin scroll
-            propio porque la columna es sticky. */}
-        <aside className="hidden shrink-0 rounded-3xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-3 lg:block lg:max-h-[calc(100svh-6rem)] lg:overflow-y-auto">
-          {itemsNav(() => {})}
-        </aside>
+        {/* Desktop: el menú, ya sin tarjeta propia — la columna entera es
+            la tarjeta. */}
+        <aside className="hidden lg:block">{itemsNav(() => {})}</aside>
 
         {/* EL MENÚ EN EL TELÉFONO: botón con la sección activa que
             despliega la lista justo debajo — mismo patrón que el
@@ -355,17 +370,45 @@ export default function PanelSidebar({
 
       {/* Contenido — mismo truco de `hidden` de siempre: nunca se
           pierde un formulario a medio llenar al cambiar de sección. */}
-      <div className="min-w-0">
-        {encabezado}
-        {/* Los `href` navegan a otra pantalla y los `proximamente` no
-            tienen contenido: ninguno de los dos monta nada acá. */}
-        {tabs
-          .filter((t) => !t.href && !t.proximamente)
-          .map((t) => (
-            <div key={t.id} className={activo === t.id ? "" : "hidden"}>
-              {t.content}
-            </div>
-          ))}
+      <div className="min-w-0 px-4 pb-12 sm:px-6 lg:px-8 lg:pb-14 lg:pt-8 2xl:px-10">
+        {/* ======== EL TOPE DE LEGIBILIDAD: 1560px ========
+         *
+         * Que el menú vaya al borde no autoriza a que una fila de datos
+         * mida 2200px. El número no es un gusto:
+         *
+         *  · Es EXACTAMENTE el ancho de trabajo que el panel ya tenía.
+         *    Con el contenedor centrado de 1900px, en un monitor de 1920
+         *    al contenido le quedaban 1900 − 80 (padding) − 292 (menú +
+         *    gap) = 1528px. Acá son 1560. O sea: nada se angostó ni se
+         *    ensanchó de golpe; lo que cambió es DÓNDE está el aire
+         *    sobrante — antes se repartía a los dos lados y el menú
+         *    quedaba flotando, ahora el menú toma el borde y el resto se
+         *    centra a la derecha.
+         *  · Es lo que necesitan las piezas más anchas del tablero: la
+         *    fila de cuatro tarjetas de números queda a ~380px cada una
+         *    (el ancho a partir del cual «₡12.500.000» deja de
+         *    truncarse) y la grilla de "Tus herramientas" cierra sus
+         *    cuatro columnas sin estirarse.
+         *  · De ahí para arriba empieza el problema de verdad: en una
+         *    fila de tabla el rótulo de la izquierda y el monto de la
+         *    derecha se separan tanto que hay que volver a buscar el
+         *    renglón. La prosa ya trae su propio tope (`max-w-[70ch]`,
+         *    `max-w-[60ch]`), pero las tablas y las grillas no.
+         *
+         * `mx-auto`: pasado ese ancho el contenido se centra en lo que
+         * sobra, con el menú siempre clavado al borde. */}
+        <div className="mx-auto w-full max-w-[1560px]">
+          {encabezado}
+          {/* Los `href` navegan a otra pantalla y los `proximamente` no
+              tienen contenido: ninguno de los dos monta nada acá. */}
+          {tabs
+            .filter((t) => !t.href && !t.proximamente)
+            .map((t) => (
+              <div key={t.id} className={activo === t.id ? "" : "hidden"}>
+                {t.content}
+              </div>
+            ))}
+        </div>
       </div>
     </div>
   );

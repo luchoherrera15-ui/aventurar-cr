@@ -60,16 +60,20 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
         const esManana = e.fecha === manana;
         const monto = fmtColones(e.monto_total);
         return (
+          /* Estas tarjetas se quedan BLANCAS, y no es un olvido: las de
+             "Tu negocio en números" son ahora bloques sólidos y son la
+             fila que tiene que llevarse la mirada al entrar. Si todo el
+             tablero fuera del mismo azul no habría primera fila, habría
+             una pared. Lo que sí se comparte es la regla: el círculo
+             decorativo de la esquina —que acá también pasaba por detrás
+             del nombre de la reserva— no va en ninguna. */
           <div
             key={e.id}
-            className="group relative flex items-start gap-2.5 overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-3 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] transition-shadow hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)] sm:block sm:p-4"
+            className="group relative flex items-start gap-2.5 rounded-2xl border border-aventurea-line bg-aventurea-surface p-3 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] transition-shadow hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)] sm:block sm:p-4"
           >
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-6 -right-4 hidden h-20 w-20 rounded-full bg-aventurea-sky-light sm:block"
-            />
-
-            <span className="relative z-10 flex w-full items-center gap-2.5 sm:mb-3 sm:items-start sm:gap-0">
+            {/* `relative` se queda: la píldora de estado se ancla acá
+                adentro con `sm:absolute` a partir de sm. */}
+            <span className="relative flex w-full items-center gap-2.5 sm:mb-3 sm:items-start sm:gap-0">
               <span
                 aria-hidden="true"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aventurea-sky-light text-aventurea-navy"
@@ -83,7 +87,7 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
               </span>
             </span>
 
-            <span className="relative z-10 mt-1.5 block min-w-0 flex-1 sm:mt-0">
+            <span className="mt-1.5 block min-w-0 flex-1 sm:mt-0">
               <span className="block truncate text-[12.5px] font-extrabold text-aventurea-ink sm:text-[14px]">
                 {e.nombre ?? "Sin nombre"}
               </span>

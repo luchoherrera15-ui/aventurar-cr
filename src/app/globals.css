@@ -209,9 +209,24 @@
   outline-color: #ffffff;
 }
 
-/* Levantar al pasar el mouse. El límite es 3 px y 1.015 de escala: más
-   que eso se siente un juguete, y el borde de la card empieza a
-   pelearse con la sombra. */
+/* Levantar al pasar el mouse. El límite es 3 px: más que eso se siente
+   un juguete, y el borde de la card empieza a pelearse con la sombra.
+   ------------------------------------------------------------------
+   ACÁ HABÍA UN `scale(1.015)` Y DESENFOCABA EL TEXTO.
+   `will-change: transform` promueve la card a su propia capa y el
+   navegador la rasteriza UNA vez, a tamaño 1×. Escalar esa capa no
+   vuelve a dibujar las letras: estira el mapa de bits que ya tenía, y
+   un 1,5 % alcanza para que los remates queden entre píxeles. Se ve
+   exactamente como lo describió el dueño — «al pasar el mouse se
+   nublan los textos».
+   La traslación NO tiene ese problema: mover una capa entera no
+   resamplea nada. Así que se conserva el levantado, que es lo que
+   comunica «esto se puede tocar», y se va la escala, que solo aportaba
+   un gramo de énfasis a cambio de texto borroso. La sombra hace el
+   resto del trabajo.
+   Si algún día hace falta la escala, el precio es sacar
+   `will-change` Y aceptar que el navegador re-rasterice en cada
+   cuadro — más nítido, pero con tirones en listas largas. */
 @utility elevar {
   transition:
     transform var(--duracion-card) var(--ease-bookea),
@@ -220,13 +235,15 @@
   will-change: transform;
 
   &:hover {
-    transform: translateY(-3px) scale(1.015);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-elevado);
   }
   /* Se hunde al presionar aunque sea una card: la respuesta táctil
-     inmediata es lo que hace que se sienta un producto y no una web. */
+     inmediata es lo que hace que se sienta un producto y no una web.
+     Vuelve casi a su lugar —de -3 px a -1 px—, que es un movimiento
+     legible sin tocar la escala. */
   &:active {
-    transform: translateY(-1px) scale(0.995);
+    transform: translateY(-1px);
     transition-duration: var(--duracion-micro);
   }
 }

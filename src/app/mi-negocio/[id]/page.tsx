@@ -1661,6 +1661,18 @@ export default async function RanchoDetallePage({
   }).format(new Date());
   const encabezado = (
     <>
+      {/* El "volver" vive DENTRO de la columna de contenido, no arriba
+          del panel entero: con el menú pegado al borde izquierdo,
+          cualquier cosa por encima de la grilla empujaba la columna navy
+          hacia abajo y le abría una franja crema entre el header y el
+          menú — justo lo que este cambio venía a sacar. */}
+      <Link
+        href="/mi-negocio"
+        className="mb-4 inline-block text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+      >
+        ← Todas tus publicaciones
+      </Link>
+
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           {/* La fecha de hoy es contexto, no una alarma: en naranja
@@ -1739,52 +1751,33 @@ export default async function RanchoDetallePage({
   );
 
   return (
-    /* ======== EL ANCHO: TODA LA PANTALLA ========
+    /* ======== EL ANCHO: TODA LA PANTALLA, DE VERDAD ========
      *
-     * Esto era `max-w-[1280px]`, heredado de cuando el panel tenía el
-     * menú arriba en horizontal y una línea de texto cruzaba el ancho
-     * entero. Con el menú de vuelta en columna eso ya no pasa: la
-     * columna de contenido nunca es la pantalla completa, y los párrafos
-     * largos que quedan ya traen su propio tope (`max-w-[70ch]`,
-     * `max-w-[60ch]`). Lo que sí quedaba era un monitor de 1920px con
-     * ~320px de aire muerto a cada lado mientras las tarjetas del
-     * tablero se apretaban a tres por fila. Un panel de trabajo no es
-     * una landing: acá el ancho es útil.
+     * Este `main` era un `mx-auto max-w-[1900px]` con padding propio, o
+     * sea un contenedor centrado: en un monitor ancho el menú quedaba
+     * flotando a cientos de píxeles del borde con aire muerto de los dos
+     * lados. Ahora el `main` no mide ni acolcha nada — es el shell
+     * completo y `PanelSidebar` reparte el ancho: la columna navy pegada
+     * al borde izquierdo y el contenido con su propio padding y su tope
+     * de legibilidad (los números y el porqué están allá, que es donde
+     * se aplican).
      *
-     * El tope de 1900px no es decorativo. Arriba de eso el aire lateral
-     * de un 4K no se nota, pero la fila de tarjetas de "Tus
-     * herramientas" y las líneas del encabezado empiezan a cruzar más de
-     * 2000px y el ojo pierde el renglón. 1900 es el ancho útil de un
-     * monitor de 1920 con su barra de scroll: hasta ahí se usa todo, de
-     * ahí para arriba el panel se centra.
-     *
-     * El padding sube con la pantalla (16 → 24 → 32 → 40) para que las
-     * tarjetas no queden pegadas al borde en un monitor grande; el
-     * header de `mi-negocio/layout.tsx` usa exactamente la misma escala,
-     * así el logo de arriba y la columna del menú quedan a plomo.
+     * `py` tampoco va acá: el rail y el contenido llevan el suyo, porque
+     * el rail tiene que arrancar pegado al header y el contenido no.
      */
-    <main className="mx-auto w-full max-w-[1900px] px-4 py-7 sm:px-6 sm:py-9 lg:px-8 2xl:px-10">
-      <Link
-        href="/mi-negocio"
-        className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
-      >
-        ← Todas tus publicaciones
-      </Link>
-
-      <div className="mt-4">
-        {/* El acento del tipo de negocio entra UNA sola vez, acá: el
-            ítem activo del menú, la pastilla del tipo y los íconos de
-            las tarjetas de acceso lo leen como `var(--acento…)`, así
-            ninguna de esas piezas necesita saber de qué color es un spa
-            — ni lleva un hexadecimal suelto. */}
-        <PanelSidebar
-          tabs={tabs}
-          defaultTab="inicio"
-          identidad={identidad}
-          encabezado={encabezado}
-          acento={variablesAcento(identidadTipo)}
-        />
-      </div>
+    <main className="w-full">
+      {/* El acento del tipo de negocio entra UNA sola vez, acá: el ítem
+          activo del menú, la pastilla del tipo y los íconos de las
+          tarjetas de acceso lo leen como `var(--acento…)`, así ninguna
+          de esas piezas necesita saber de qué color es un spa — ni lleva
+          un hexadecimal suelto. */}
+      <PanelSidebar
+        tabs={tabs}
+        defaultTab="inicio"
+        identidad={identidad}
+        encabezado={encabezado}
+        acento={variablesAcento(identidadTipo)}
+      />
     </main>
   );
 }

@@ -84,19 +84,30 @@ export default async function MiRanchoLayout({
   return (
     <div className="min-h-screen bg-aventurea-cream">
       <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-cream/95 backdrop-blur-sm">
-        {/* Altura FIJA (h-16 = 64px + borde): la barra de secciones del
-            panel se pega justo debajo con `top-16`, y sin una altura
-            determinista ese offset era adivinanza — a 390px el header
-            envolvía en dos líneas y se comía la barra.
+        {/* Altura FIJA (h-16 = 64px + borde): la columna del menú se pega
+            justo debajo con `top-16`, y sin una altura determinista ese
+            offset era adivinanza — a 390px el header envolvía en dos
+            líneas y se comía la barra.
 
-            El ancho y el padding son los MISMOS que los del panel
-            (`mi-negocio/[id]/page.tsx`): 1900px de tope y la escala
-            16→24→32→40. Antes este header medía 1080px y el panel 1280,
-            así que el logo nunca estaba alineado con la columna del
-            menú; ahora que el panel usa la pantalla completa, dejarlo en
-            1080 lo habría dejado en una franja angosta arriba de un
-            tablero a todo lo ancho. */}
-        <div className="mx-auto flex h-16 w-full max-w-[1900px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 2xl:px-10">
+            EL HEADER TAMBIÉN VA DE BORDE A BORDE. Estaba centrado en un
+            `max-w-[1900px]`, y con el menú del panel ahora pegado al
+            borde izquierdo eso dejaba el logo flotando a cientos de
+            píxeles de la columna que debería encabezar: dos anclas
+            distintas para la misma pantalla. Así que el header pierde el
+            tope y toma, desde lg, el MISMO padding interno que el rail
+            (16px) — el logo queda a plomo con la tarjeta de identidad y
+            con las pastillas del menú de abajo, en cualquier ancho de
+            pantalla. No se le fija el ancho del rail porque "Publicá tu
+            negocio" no entra en 252px sin cortarse, y un logo recortado
+            es peor que uno que sobresale unos píxeles.
+
+            La derecha se pega al otro borde con la misma escala de
+            padding que usa el contenido del panel (32 → 40).
+
+            En las otras pantallas de /mi-negocio (la lista de
+            publicaciones, la agenda de citas) no hay rail: ahí el logo
+            simplemente queda arriba a la izquierda, que es donde iba. */}
+        <div className="flex h-16 w-full items-center gap-4 px-4 sm:px-6 lg:pl-4 lg:pr-0">
           <Link href="/eventos" className="flex min-w-0 items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- el
                 logo oficial es un PNG estático: next/image no aporta
@@ -107,7 +118,7 @@ export default async function MiRanchoLayout({
               Publicá tu negocio
             </span>
           </Link>
-          <div className="flex shrink-0 items-center gap-3.5">
+          <div className="ml-auto flex shrink-0 items-center gap-3.5 lg:pr-8 2xl:pr-10">
             {notificaciones !== null && <NotificacionesBell items={notificaciones} />}
             <Link
               href="/eventos"

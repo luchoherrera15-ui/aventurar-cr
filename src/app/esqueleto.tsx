@@ -173,6 +173,62 @@ export function EsqueletoRiel({ cantidad = 4 }: { cantidad?: number }) {
   );
 }
 
+/**
+ * EL PANEL DE UNA PESTAÑA DE LA PORTADA mientras la base contesta.
+ *
+ * Calca la forma final (src/app/home-carriles.tsx): la grilla de
+ * categorías arriba y los carriles por rubro debajo. No es un
+ * rectángulo genérico a propósito — el CLS del sitio es 0,000 y la
+ * regla del archivo es que el esqueleto tenga la forma de lo que viene,
+ * no el tamaño de un spinner.
+ *
+ * Dos carriles y no seis: cuántas filas salen depende de cuántos rubros
+ * lleguen al mínimo, así que un número exacto no existe. Dos es lo que
+ * garantiza el nivel A, o sea el piso de lo que se va a ver; si llegan
+ * más, la página crece hacia abajo, que es donde todavía no hay nada
+ * pintado y por lo tanto nada que empujar.
+ */
+export function EsqueletoPanelVertical() {
+  return (
+    <div className="flex flex-col gap-14">
+      <EsqueletoGrillaCategorias />
+      <div className="flex flex-col gap-6">
+        <EsqueletoRiel />
+        <EsqueletoRiel />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * LA TIRA «NEGOCIOS DESTACADOS» de la portada mientras la base
+ * contesta (src/components/negocios-destacados.tsx).
+ *
+ * Mide EXACTAMENTE lo mismo que la tira real —124 px en teléfono, 132
+ * en el resto, mismas columnas por ancho, mismos `gap`— porque esta
+ * sección es lo primero que se ve debajo del buscador: si el esqueleto
+ * midiera distinto, la portada daría un salto justo en el momento que
+ * Google mide, con el CLS del sitio hoy en 0,000.
+ *
+ * En teléfono va con `overflow-hidden` y no con scroll: la tira real se
+ * sale de la pantalla a propósito, pero un esqueleto deslizable no
+ * tiene a dónde ir.
+ */
+export function EsqueletoDestacados({ cantidad = 4 }: { cantidad?: number }) {
+  return (
+    <div>
+      <Bloque className="h-3 w-28" />
+      <Bloque className="mt-2.5 h-6 w-[min(260px,60%)]" />
+      <Bloque className="mt-2.5 h-3 w-[min(380px,80%)]" />
+      <div className="-mr-4 mt-5 grid auto-cols-[84%] grid-flow-col gap-2.5 overflow-hidden pb-1.5 pt-0.5 sm:mr-0 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+        {Array.from({ length: cantidad }, (_, i) => (
+          <Bloque key={i} className="h-[124px] rounded-2xl sm:h-[132px]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** El buscador + la fila de chips de categoría de los directorios. */
 export function EsqueletoFiltros() {
   return (

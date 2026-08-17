@@ -14,6 +14,7 @@ import {
   IconStar,
   IconStore,
 } from "@/components/icons";
+import { DISCO_DATO, SUPERFICIE_DATO } from "@/components/tarjeta-dato";
 import { TIPOS_TARJETA, UNIDAD_SALDO, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { fechaLargaCR } from "@/lib/fechas";
 import EditarPerfil from "./editar-perfil";
@@ -415,20 +416,24 @@ function SeccionActividad({ titulo, filas }: { titulo: string; filas: FilaActivi
 
       <div className="grid gap-3 sm:grid-cols-3">
         {filas.map((f) => (
+          /* La MISMA piel que las tarjetas de números del panel de
+             negocio (`SUPERFICIE_DATO`): fondo sólido, sin el círculo
+             azul que sangraba por la esquina y sin el borde gris que
+             sobre un relleno de color solo ensuciaba. El layout NO se
+             copia —acá el número va arriba a la derecha y el título
+             abajo, porque son tarjetas de sección y no de métrica—; lo
+             que se comparte es el lenguaje. */
           <Link
             key={f.titulo}
             href={f.href}
-            className="group relative flex items-start gap-3.5 overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] transition-shadow hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)] sm:block sm:p-5"
+            className={`group flex items-start gap-3.5 ${SUPERFICIE_DATO} p-4 transition-shadow hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)] sm:block sm:p-5`}
           >
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-7 -right-5 hidden h-24 w-24 rounded-full bg-aventurea-sky/10 sm:block"
-            />
-
-            <span className="relative z-10 flex w-full items-center gap-3.5 sm:mb-5 sm:items-start sm:justify-between sm:gap-0">
+            {/* `relative` se queda: el contador se ancla a este span
+                con `sm:absolute` a partir de sm. */}
+            <span className="relative flex w-full items-center gap-3.5 sm:mb-5 sm:items-start sm:justify-between sm:gap-0">
               <span
                 aria-hidden="true"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aventurea-sky/10 text-aventurea-sky"
+                className={`flex h-10 w-10 shrink-0 items-center justify-center ${DISCO_DATO}`}
               >
                 {f.icono}
               </span>
@@ -437,14 +442,19 @@ function SeccionActividad({ titulo, filas }: { titulo: string; filas: FilaActivi
                   {String(f.numero).padStart(2, "0")}
                 </strong>
               )}
+              {/* `sky` con letra blanca daba 4,42:1 y esto es letra de
+                  10,5px: por debajo de AA. El tono oscuro de la misma
+                  familia (`sky-dark`) da 6,45:1 sin cambiar de color —
+                  el mismo cambio que ya se hizo en las píldoras de
+                  estado del panel de negocio. */}
               {f.badge != null && f.badge > 0 && (
-                <span className="ml-auto shrink-0 rounded-lg bg-aventurea-sky px-2 py-0.5 text-[10.5px] font-extrabold tabular-nums text-white sm:ml-0 sm:absolute sm:right-5 sm:top-5">
+                <span className="ml-auto shrink-0 rounded-lg bg-aventurea-sky-dark px-2 py-0.5 text-[10.5px] font-extrabold tabular-nums text-white sm:ml-0 sm:absolute sm:right-5 sm:top-5">
                   +{f.badge > 99 ? "99" : f.badge}
                 </span>
               )}
             </span>
 
-            <span className="relative z-10 min-w-0 flex-1 sm:block">
+            <span className="min-w-0 flex-1 sm:block">
               <span className="flex items-center justify-between gap-2 sm:block">
                 <span className="truncate text-[14px] font-extrabold text-aventurea-ink sm:text-[15px]">
                   {f.titulo}

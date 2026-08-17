@@ -26,16 +26,17 @@ import { iconoModulo } from "./iconos-modulos";
  * de «Pronto», y si se separan se despareja el bloque.
  *
  * Los cortes están calculados contra el ancho REAL de la columna de
- * contenido (la pantalla menos el padding, menos los 236/260px del menú
- * y su gap), no contra el ancho de la ventana:
+ * contenido (la pantalla menos los 252/276px del menú pegado al borde,
+ * menos el padding del contenido), no contra el ancho de la ventana:
  *
- *   lg  1024px → ~716px de columna → 3 columnas darían 238px por
+ *   lg  1024px → ~708px de columna → 3 columnas darían 236px por
  *                tarjeta, y una tarjeta es ícono + título + resumen de
- *                dos líneas: a 238px el resumen se parte en cinco.
+ *                dos líneas: a 236px el resumen se parte en cinco.
  *                Se queda en 2.
- *   xl  1280px → ~964px → 3 columnas de ~321px. Cómodo.
- *   2xl 1536px → ~1204px → 4 columnas de ~301px.
- *   Y con el panel a 1900px, esas mismas 4 quedan en ~382px.
+ *   xl  1280px → ~940px → 3 columnas de ~313px. Cómodo.
+ *   2xl 1536px → ~1180px → 4 columnas de ~295px.
+ *   Y en el tope de legibilidad del panel (1560px), esas mismas 4
+ *   quedan en ~390px.
  *
  * O sea: el ancho nuevo se gasta en MÁS COLUMNAS hasta 2xl y en
  * tarjetas más anchas de ahí para arriba, que es donde el resumen deja
