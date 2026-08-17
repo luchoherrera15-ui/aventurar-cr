@@ -45,6 +45,13 @@ export type MiembroEquipo = {
   tipo: "profesional" | "espacio" | "equipo";
   /** Solo espacios con cupo compartido (mesas); null en personas. */
   capacidad: number | null;
+  /**
+   * Cuántas RESERVAS caben a la vez en el recurso (0109) — distinto de
+   * `capacidad`, que son personas. Opcional porque el panel nunca lo
+   * editó: ausente = 1, que es como se comportó siempre. Lo lee la
+   * ocupación del día para no contar de menos una cabina compartida.
+   */
+  cupo_simultaneo?: number | null;
   created_at: string;
 };
 

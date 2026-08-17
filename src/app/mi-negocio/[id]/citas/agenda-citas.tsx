@@ -24,6 +24,7 @@ import {
   type ClienteReincidente,
 } from "./actions";
 import { registrarPagoFinal, revertirPagoFinal } from "../finanzas/actions";
+import type { Vocabulario } from "@/lib/business/identidad";
 
 const inputCls =
   "rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink";
@@ -169,6 +170,7 @@ export default function AgendaCitas({
   initialFecha,
   initialCitas,
   initialBloqueos,
+  vocabulario,
 }: {
   ranchoId: string;
   zona: string;
@@ -185,7 +187,15 @@ export default function AgendaCitas({
   initialFecha: string;
   initialCitas: CitaDia[];
   initialBloqueos: BloqueoAgenda[];
+  /**
+   * Cómo le dice ESTE negocio a lo que agenda y a quien viene (del
+   * catálogo de tipos, lib/business/identidad): cita/cliente en una
+   * barbería, consulta/paciente en un consultorio, sesión/miembro en un
+   * gimnasio. La agenda no decide ninguna de las dos palabras.
+   */
+  vocabulario: Vocabulario;
 }) {
+  const { persona, visita } = vocabulario;
   const [fecha, setFecha] = useState(initialFecha);
   const [citas, setCitas] = useState<CitaDia[]>(initialCitas);
   const [bloqueos, setBloqueos] = useState<BloqueoAgenda[]>(initialBloqueos);
@@ -288,7 +298,7 @@ export default function AgendaCitas({
     if (ultimaFecha.current !== nueva) return;
     setCargando(false);
     if (citasRes.error) {
-      setError("No se pudieron cargar las citas: " + citasRes.error.message);
+      setError(`No se pudieron cargar las ${visita.plural}: ` + citasRes.error.message);
       return;
     }
     setCitas((citasRes.data ?? []) as CitaDia[]);
@@ -740,10 +750,10 @@ export default function AgendaCitas({
       {cita.estado !== "bloqueada" && (
         <div className="rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3">
           <p className="text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Cliente
+            {persona.Singular}
           </p>
           <p className="mt-0.5 text-[14px] font-bold text-aventurea-ink">
-            {cita.nombre ?? "Cliente"}
+            {cita.nombre ?? persona.Singular}
           </p>
           {(cita.contacto || cita.whatsapp || cita.correo) && (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -851,7 +861,9 @@ export default function AgendaCitas({
                     : "border border-aventurea-line bg-aventurea-cream-2 text-red-700 hover:border-red-300"
                 }`}
               >
-                {cancelando === cita.id ? "¿Confirmar cancelación?" : "Cancelar cita"}
+                {cancelando === cita.id
+                  ? "¿Confirmar cancelación?"
+                  : `Cancelar ${visita.singular}`}
               </button>
             </>
           )}
@@ -950,7 +962,7 @@ export default function AgendaCitas({
             {cita.tipo_evento ?? (cita.estado === "bloqueada" ? "Franja bloqueada" : "Servicio")}
           </p>
           <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-            {cita.nombre ?? (cita.estado === "bloqueada" ? "—" : "Cliente")}
+            {cita.nombre ?? (cita.estado === "bloqueada" ? "—" : persona.Singular)}
             {cita.miembro_id && (
               <>
                 {" "}
@@ -996,12 +1008,20 @@ export default function AgendaCitas({
                 key={diaIso}
                 type="button"
                 onClick={() => cargar(diaIso)}
-                className={`flex w-10 shrink-0 flex-col items-center gap-0.5 rounded-xl px-1.5 py-1.5 ${
+                // El día elegido y el "hoy" llevan el acento del tipo:
+                // sólido el seleccionado, tenue el de hoy.
+                style={
                   esSel
-                    ? "bg-aventurea-sky text-white"
+                    ? {
+                        backgroundColor: "var(--acento-solido)",
+                        color: "var(--acento-sobre)",
+                      }
                     : esHoyChip
-                      ? "bg-aventurea-sky/10 text-aventurea-orange"
-                      : "text-aventurea-ink-soft hover:bg-aventurea-cream-2"
+                      ? { backgroundColor: "var(--acento-suave)", color: "var(--acento)" }
+                      : undefined
+                }
+                className={`flex w-10 shrink-0 flex-col items-center gap-0.5 rounded-xl px-1.5 py-1.5 ${
+                  esSel || esHoyChip ? "" : "text-aventurea-ink-soft hover:bg-aventurea-cream-2"
                 }`}
               >
                 <span className="text-[9.5px] font-bold uppercase tracking-wide opacity-80">
@@ -1032,7 +1052,9 @@ export default function AgendaCitas({
         <span className="text-[13px] text-aventurea-ink-soft">
           {cargando
             ? "Cargando..."
-            : `${citas.length} cita${citas.length === 1 ? "" : "s"}${esHoy ? " hoy" : ""}`}
+            : `${citas.length} ${citas.length === 1 ? visita.singular : visita.plural}${
+                esHoy ? " hoy" : ""
+              }`}
         </span>
         <div className="ml-auto flex flex-wrap justify-end gap-1.5">
           <div className="flex rounded-lg border border-aventurea-line p-0.5">
@@ -1047,10 +1069,16 @@ export default function AgendaCitas({
                 key={valor}
                 type="button"
                 onClick={() => setVista(valor)}
-                className={`h-[26px] rounded-md px-2.5 text-[11.5px] font-bold transition-colors ${
+                style={
                   vista === valor
-                    ? "bg-aventurea-sky text-white"
-                    : "text-aventurea-ink-soft hover:text-aventurea-ink"
+                    ? {
+                        backgroundColor: "var(--acento-solido)",
+                        color: "var(--acento-sobre)",
+                      }
+                    : undefined
+                }
+                className={`h-[26px] rounded-md px-2.5 text-[11.5px] font-bold transition-colors ${
+                  vista === valor ? "" : "text-aventurea-ink-soft hover:text-aventurea-ink"
                 }`}
               >
                 {etiqueta}
@@ -1080,8 +1108,11 @@ export default function AgendaCitas({
           setBloqueando(false);
           setAvisosCrear([]);
         }}
-        aria-label={creando ? "Cerrar nueva cita" : "Nueva cita"}
-        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-aventurea-sky text-white shadow-[0_10px_28px_-8px_rgba(238,116,32,0.6)] transition-transform hover:scale-105 lg:bottom-8 lg:right-8"
+        aria-label={creando ? "Cerrar el formulario" : `Agendar ${visita.singular}`}
+        // El botón que más se toca de la pantalla lleva el acento del
+        // tipo de negocio (la sombra se hereda del mismo color).
+        style={{ backgroundColor: "var(--acento-solido)", color: "var(--acento-sobre)" }}
+        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-[0_10px_28px_-8px_rgba(24,28,38,0.45)] transition-transform hover:scale-105 lg:bottom-8 lg:right-8"
       >
         <span className="text-[26px] leading-none">{creando ? "×" : "+"}</span>
       </button>
@@ -1093,10 +1124,10 @@ export default function AgendaCitas({
       {reincidente && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-aventurea-sky/50 bg-aventurea-sky-light p-3.5 text-[13px] text-aventurea-ink">
           <span>
-            ⚠ <strong>{reincidente.nombre ?? "Este cliente"}</strong> faltó a sus últimas{" "}
-            {reincidente.fallosSeguidos} citas seguidas.
+            ⚠ <strong>{reincidente.nombre ?? `Este ${persona.singular}`}</strong> faltó a sus
+            últimas {reincidente.fallosSeguidos} {visita.plural} seguidas.
             {reincidente.correo
-              ? " Podés mandarle una promoción para recuperarlo desde la sección Clientes."
+              ? ` Podés mandarle una promoción para recuperarlo desde la sección ${persona.Plural}.`
               : " No dejó correo — quizá valga un mensaje por WhatsApp."}
           </span>
           {reincidente.correo && (
@@ -1105,7 +1136,7 @@ export default function AgendaCitas({
               className="rounded-lg bg-aventurea-navy px-3 py-1.5 text-xs font-bold text-white"
               onClick={() => setReincidente(null)}
             >
-              Ir a Clientes
+              Ir a {persona.Plural}
             </a>
           )}
           <button
@@ -1121,7 +1152,7 @@ export default function AgendaCitas({
       {creando && (
         <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
           <h3 className="text-[15px] font-bold text-aventurea-ink">
-            Nueva cita — {fecha}
+            Agendar {visita.singular} — {fecha}
           </h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {servicios.length > 0 && (
@@ -1202,7 +1233,7 @@ export default function AgendaCitas({
               </div>
             )}
             <div>
-              <label className={labelCls}>Cliente</label>
+              <label className={labelCls}>{persona.Singular}</label>
               <input
                 type="text"
                 value={borradorCita.nombre}
@@ -1298,8 +1329,8 @@ export default function AgendaCitas({
           </h3>
           <p className="text-[12.5px] text-aventurea-ink-soft">
             Nadie puede reservar en una franja bloqueada (almuerzo, un mandado,
-            una cita externa). Para vacaciones de varios días usá la sección
-            Bloqueos y ausencias.
+            un compromiso de afuera). Para vacaciones de varios días usá la
+            sección Bloqueos y ausencias.
           </p>
           <div className="flex flex-wrap items-end gap-3">
             {equipo.filter((m) => m.activo).length > 0 && (
@@ -1421,7 +1452,9 @@ export default function AgendaCitas({
           tiene nada que listar. */}
       {vista === "lista" && !cargando && citas.length === 0 && !error && (
         <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
-          {esHoy ? "Hoy no tenés citas agendadas." : "Ese día no hay citas agendadas."}
+          {esHoy
+            ? `Hoy no tenés ${visita.plural} agendadas.`
+            : `Ese día no hay ${visita.plural} agendadas.`}
         </p>
       )}
 
@@ -1671,8 +1704,8 @@ export default function AgendaCitas({
 
           <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-zinc-500">
             <span>
-              Tocá una cita para ver el detalle y marcar asistencia, o un hueco libre para
-              agendar ahí mismo.
+              Tocá una {visita.singular} para ver el detalle y marcar asistencia, o un
+              hueco libre para agendar ahí mismo.
             </span>
             <span className="flex items-center gap-1.5">
               <span
@@ -1706,13 +1739,13 @@ export default function AgendaCitas({
               <div
                 role="dialog"
                 aria-modal="true"
-                aria-label="Detalle de la cita"
+                aria-label={`Detalle de la ${visita.singular}`}
                 onClick={(e) => e.stopPropagation()}
                 className="flex h-full w-full flex-col overflow-hidden bg-aventurea-surface shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-[460px] sm:rounded-2xl sm:border sm:border-aventurea-line"
               >
                 <div className="flex items-center justify-between border-b border-aventurea-line px-5 py-3.5">
                   <p className="text-[13px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    Detalle de la cita
+                    Detalle de la {visita.singular}
                   </p>
                   <button
                     type="button"

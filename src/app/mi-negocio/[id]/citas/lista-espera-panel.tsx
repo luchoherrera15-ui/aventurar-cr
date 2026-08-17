@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmtFechaCorta, hoyISOCR } from "@/lib/fechas";
+import type { Vocabulario } from "@/lib/business/identidad";
 
 /**
  * La lista de espera del negocio (0095): quién quiere entrar cuando un
@@ -25,7 +26,14 @@ type Espera = {
   equipo_rancho: { nombre: string } | null;
 };
 
-export default function ListaEsperaPanel({ ranchoId }: { ranchoId: string }) {
+export default function ListaEsperaPanel({
+  ranchoId,
+  vocabulario,
+}: {
+  ranchoId: string;
+  vocabulario: Vocabulario;
+}) {
+  const { persona, visita } = vocabulario;
   const [filas, setFilas] = useState<Espera[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -100,8 +108,8 @@ export default function ListaEsperaPanel({ ranchoId }: { ranchoId: string }) {
     return (
       <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
         Nadie está esperando espacio por ahora. Cuando un día tuyo se llene,
-        el cliente puede apuntarse desde tu página — y si cancelás o movés
-        una cita de ese día, se le avisa solo.
+        el {persona.singular} puede apuntarse desde tu página — y si cancelás o
+        movés una {visita.singular} de ese día, se le avisa solo.
       </p>
     );
   }
@@ -124,7 +132,7 @@ export default function ListaEsperaPanel({ ranchoId }: { ranchoId: string }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[13.5px] font-bold text-aventurea-ink">
-                {f.nombre ?? f.correo ?? "Cliente"}
+                {f.nombre ?? f.correo ?? persona.Singular}
                 {f.avisado_en && (
                   <span className="ml-2 rounded-lg bg-aventurea-navy/10 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy">
                     Ya avisado

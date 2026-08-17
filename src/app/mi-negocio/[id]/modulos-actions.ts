@@ -37,6 +37,20 @@ function esEsquemaViejo(mensaje: string): boolean {
   );
 }
 
+/**
+ * Guarda QUÉ CLASE DE NEGOCIO es. No es una etiqueta: de esto salen el
+ * menú, el vocabulario y las secciones del panel, así que se comprueba
+ * en tres pasos y ninguno confía en el navegador.
+ *
+ *   1. Quién lo pide: `verificarAccesoRancho` = dueño o admin. A
+ *      propósito NO es `verificarAccesoOperativo`: reconfigurarle el
+ *      panel al negocio no es una tarea de encargado (misma regla que
+ *      la cuenta bancaria — ver el comentario largo en lib/auth.ts).
+ *   2. Qué manda: tiene que ser un id real de `TIPOS_NEGOCIO`.
+ *   3. Si le corresponde: la vertical se RELEE de la base y el tipo
+ *      tiene que estar entre los de esa vertical. Así nadie convierte
+ *      en "restaurante" a un negocio de citas mandando otro valor.
+ */
 export async function guardarTipoNegocio(
   ranchoId: string,
   tipo: string,
@@ -47,8 +61,6 @@ export async function guardarTipoNegocio(
 
   if (!esTipoNegocio(tipo)) return { error: "Ese tipo de negocio no existe." };
 
-  // La vertical sale de la base, no del formulario: así nadie puede
-  // volver "restaurante" a un negocio de citas mandando otro campo.
   const { data: negocio } = await supabase
     .from("ranchos")
     .select("vertical")
@@ -69,7 +81,11 @@ export async function guardarTipoNegocio(
     return { error: esEsquemaViejo(error.message) ? FALTA_MIGRACION : error.message };
   }
 
+  // El tipo reordena TODO el panel, no solo la pantalla donde se
+  // eligió: el panel de citas arma su menú del mismo contexto y se
+  // quedaría con el anterior hasta el próximo deploy de caché.
   revalidatePath(`/mi-negocio/${ranchoId}`);
+  revalidatePath(`/mi-negocio/${ranchoId}/citas`);
   return { ok: true };
 }
 

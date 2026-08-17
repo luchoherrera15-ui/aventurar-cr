@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -5,10 +6,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR, fmtFechaCorta, sumarDiasISO } from "@/lib/fechas";
 import { fmtColones } from "@/lib/finanzas";
 import { horarioDeDetalles } from "@/app/citas/tipos";
-import { agruparClientes, type ReservaCliente } from "@/lib/crm-citas";
+import { agruparClientes, esInactivo, type ReservaCliente } from "@/lib/crm-citas";
 import { cargarContextoNegocio } from "@/lib/business/contexto";
-import { usaAgendaPorHoras } from "@/lib/business/modulos";
+import { definicionTipo, usaAgendaPorHoras } from "@/lib/business/modulos";
+import {
+  identidadDe,
+  variablesAcento,
+  type Termino,
+  type Vocabulario,
+} from "@/lib/business/identidad";
 import SeccionPlegable from "@/components/seccion-plegable";
+import EncabezadoCitas from "./encabezado-citas";
+import { metricasDelDia } from "./metricas-dia";
 import MembresiasPanel from "./membresias-panel";
 import type { MembresiaFila, PlanFila } from "./membresias-actions";
 import type { ConsumoMembresia } from "@/lib/membresias";
@@ -231,26 +240,104 @@ export default async function CitasConfigPage({
   }
 
   const clientes = agruparClientes((crmRes.data ?? []) as ReservaCliente[], hoy);
+  const clientesInactivos = clientes.filter((c) => esInactivo(c)).length;
 
-  // La misma pantalla, dos vocabularios: una barbería agenda CITAS y un
-  // proveedor de eventos agenda RESERVAS (nadie llama "cita" a tocar en
-  // una boda). Se decide por la vertical y no por el tipo derivado para
-  // que en Citas el texto sea siempre el de siempre.
+  // QUIÉN ES ESTE NEGOCIO. `negocio.tipo` ya viene resuelto (el
+  // tipo_negocio guardado, o el derivado de su categoría) y de ahí
+  // salen el color, el ícono y las palabras de toda la pantalla. Nada
+  // de esto se decide acá: el catálogo es lib/business/identidad.
+  const identidad = identidadDe(negocio.tipo);
+  const definicion = definicionTipo(negocio.tipo);
+
+  // La palabra de la vertical Citas, la misma que `palabraReserva` le da
+  // a TODOS sus tipos. Hace falta escrita acá por un caso concreto: el
+  // negocio de Citas que todavía no eligió tipo cae en el neutro, y el
+  // neutro habla de RESERVAS. Sin esto, elegir el tipo podría EMPEORAR
+  // el vocabulario de una pantalla que siempre dijo "citas"; con esto,
+  // elegirlo solo puede afinarlo (a "consultas", a "sesiones"…).
+  const CITA: Termino = { singular: "cita", plural: "citas", Singular: "Cita", Plural: "Citas" };
+
+  // La misma pantalla, un vocabulario por tipo: una barbería agenda
+  // CITAS, un consultorio CONSULTAS, un gimnasio SESIONES y un
+  // proveedor de eventos RESERVAS (nadie llama "cita" a tocar en una
+  // boda). El TÍTULO sigue decidiéndose por la vertical: en Eventos
+  // esta pantalla es la agenda del día del negocio entero, no una lista
+  // de reservas.
   const esVerticalCitas = rancho.vertical === "citas";
-  const tituloAgenda = esVerticalCitas ? "Citas" : "Agenda del día";
-  const loQueEntra = esVerticalCitas ? "citas" : "reservas";
+  const tieneTipo = negocio.tipo !== "otro";
+  const vocabulario: Vocabulario =
+    esVerticalCitas && !tieneTipo
+      ? { ...identidad.vocabulario, visita: CITA }
+      : identidad.vocabulario;
+  const { persona, visita } = vocabulario;
+  const tituloAgenda = esVerticalCitas ? visita.Plural : "Agenda del día";
+  const loQueEntra = visita.plural;
+
+  // Los números del día. Todos salen de lo que ya se cargó arriba: las
+  // citas de hoy, el equipo, el horario del negocio, el horario propio
+  // de cada quien y los bloqueos. Lo que no se puede calcular no se
+  // pinta (ver metricas-dia.ts).
+  const metricas = metricasDelDia({
+    fecha: hoy,
+    zona,
+    citas: citasHoy,
+    equipo,
+    horario,
+    horariosPorMiembro,
+    bloqueos,
+  });
+
+  // QUÉ SECCIONES VE ESTE TIPO. Lo que el tipo DECLARA (aunque el
+  // módulo todavía no tenga pantalla propia) alcanza para saber si esta
+  // sección es parte de su operación: un spa vende paquetes y
+  // membresías, una barbería no.
+  const declara = new Set<string>(definicion.modulos);
+  const planes = (planesRes.data ?? []) as PlanFila[];
+  const membresias = (membresiasRes.data ?? []) as MembresiaFila[];
+  // Con dos escapatorias que importan: si el negocio YA tiene planes o
+  // membresías creadas, la sección se muestra igual —esconderle a
+  // alguien los datos que ya cargó sería peor que ofrecerle de más—; y
+  // si todavía no eligió tipo, tampoco le quitamos nada: de un negocio
+  // que no sabemos qué es no se asume que algo no le sirve.
+  const muestraMembresias =
+    !tieneTipo ||
+    declara.has("membresias") ||
+    declara.has("paquetes") ||
+    planes.length > 0 ||
+    membresias.length > 0;
+  // "Paquetes y bonos" para quien vende visitas prepagadas pero no
+  // planes con período (salón, uñas); "Membresías" para el resto.
+  const tituloMembresias =
+    !declara.has("membresias") && declara.has("paquetes")
+      ? "Paquetes y bonos"
+      : "Membresías y bonos";
 
   // Si la tabla aún no existe (migración 0059 sin correr) se muestra
   // el aviso dentro de su sección, sin tumbar el resto del panel.
   const giftcards = (giftcardsRes.data ?? []) as Giftcard[];
   const giftcardsSinTabla = !!giftcardsRes.error;
+  // Regalar una consulta médica no es un producto que Bookea deba
+  // empujar: en salud la sección no aparece — salvo que el negocio ya
+  // haya vendido giftcards, y entonces necesita poder verlas.
+  const muestraGiftcards = definicion.familia !== "salud" || giftcards.length > 0;
+  // Y por la misma razón, en salud el CRM no habla de "promociones":
+  // escribirle a un paciente para que vuelva es un mensaje, no una
+  // campaña. Es lo mismo que dice el catálogo al no darle el módulo de
+  // marketing a `consultorio`.
+  const tonoComercial = definicion.familia !== "salud";
   const giftVendido = giftcards.reduce((s, g) => s + Number(g.monto), 0);
   const giftPorCanjear = giftcards
     .filter((g) => g.estado === "activa")
     .reduce((s, g) => s + Number(g.saldo), 0);
 
   return (
-    <main className="mx-auto max-w-[1100px] px-5 py-12">
+    // El acento del tipo entra UNA sola vez, acá: todo lo de adentro
+    // —incluidos los componentes de cliente— lo lee como var(--acento…),
+    // así ninguna pantalla necesita saber de qué color es un spa.
+    <main
+      className="mx-auto max-w-[1100px] px-5 py-12"
+      style={variablesAcento(identidad) as CSSProperties}
+    >
       <Link
         href={`/mi-negocio/${rancho.id}`}
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
@@ -258,19 +345,37 @@ export default async function CitasConfigPage({
         ← Volver al panel de {rancho.nombre}
       </Link>
 
-      <h1 className="mt-4 text-[22px] font-bold text-aventurea-ink">{tituloAgenda}</h1>
-      <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
-        Las {loQueEntra} de tu página entran solas acá. Agendá a mano lo que te
-        entre por teléfono, movélas, cancelálas y marcá quién vino — todo desde
-        esta pantalla. El equipo, horarios y demás se configuran en{" "}
-        <Link
-          href={`/mi-negocio/${rancho.id}?tab=config`}
-          className="font-bold text-aventurea-navy underline"
-        >
-          Configuración
-        </Link>
-        .
-      </p>
+      <div className="mt-4">
+        <EncabezadoCitas
+          identidad={identidad}
+          tipoLabel={tieneTipo ? definicion.label : null}
+          hrefConfig={`/mi-negocio/${rancho.id}?tab=config`}
+          nombreNegocio={rancho.nombre}
+          fecha={hoy}
+          titulo={tituloAgenda}
+          metricas={metricas}
+          muestraPagos={negocio.modulos.has("pagos")}
+          personas={
+            negocio.modulos.has("clientes")
+              ? { total: clientes.length, inactivos: clientesInactivos }
+              : null
+          }
+          descripcion={
+            <>
+              Las {loQueEntra} de tu página entran solas acá. Agendá a mano lo que
+              te entre por teléfono, movélas, cancelálas y marcá quién vino — todo
+              desde esta pantalla. El equipo, horarios y demás se configuran en{" "}
+              <Link
+                href={`/mi-negocio/${rancho.id}?tab=config`}
+                className="font-bold text-aventurea-navy underline"
+              >
+                Configuración
+              </Link>
+              .
+            </>
+          }
+        />
+      </div>
 
       {errorCarga && (
         <div className="mt-6 rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
@@ -302,6 +407,7 @@ export default async function CitasConfigPage({
           initialFecha={hoy}
           initialCitas={citasHoy}
           initialBloqueos={bloqueos}
+          vocabulario={vocabulario}
         />
 
         {/* Lo que acompaña la operación, plegado y cerrado: se abre
@@ -310,14 +416,20 @@ export default async function CitasConfigPage({
           <SeccionPlegable
             marco={false}
             id="clientes"
-            titulo="Clientes"
-            descripcion="Quién viene, quién dejó de venir y quién te está fallando — con la promoción de re-enganche a un clic."
+            titulo={persona.Plural}
+            descripcion={
+              tonoComercial
+                ? "Quién viene, quién dejó de venir y quién te está fallando — con la promoción de re-enganche a un clic."
+                : "Quién viene, quién dejó de venir y quién te está fallando — con el correo para escribirle a un clic."
+            }
             resumen={clientes.length > 0 ? `${clientes.length}` : undefined}
           >
             <ClientesPanel
               ranchoId={rancho.id}
               nombreNegocio={rancho.nombre}
               clientes={clientes}
+              vocabulario={vocabulario}
+              promociones={tonoComercial}
             />
           </SeccionPlegable>
         )}
@@ -326,125 +438,130 @@ export default async function CitasConfigPage({
           <SeccionPlegable
             marco={false}
             titulo="Cómo va el negocio"
-            descripcion="Citas, asistencia, ingresos, quién atiende más y a qué horas — derivado de tu agenda real."
+            descripcion={`${visita.Plural}, asistencia, ingresos, quién atiende más y a qué horas — derivado de tu agenda real.`}
           >
             <ReportesCitas
               ranchoId={rancho.id}
               equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre }))}
+              vocabulario={vocabulario}
+            />
+          </SeccionPlegable>
+        )}
+
+        {muestraMembresias && (
+          <SeccionPlegable
+            marco={false}
+            titulo={tituloMembresias}
+            descripcion={`Lo que el ${persona.singular} paga por adelantado: un plan con período, o un bono de ${visita.plural} que se van gastando.`}
+          >
+            <MembresiasPanel
+              ranchoId={rancho.id}
+              hoy={hoy}
+              planesIniciales={planes}
+              membresiasIniciales={membresias}
+              consumosIniciales={(consumosRes.data ?? []) as ConsumoMembresia[]}
+              faltaMigracion={!!planesRes.error}
             />
           </SeccionPlegable>
         )}
 
         <SeccionPlegable
           marco={false}
-          titulo="Membresías y bonos"
-          descripcion="Lo que el cliente paga por adelantado: un plan con período, o un bono de sesiones que se van gastando."
-        >
-          <MembresiasPanel
-            ranchoId={rancho.id}
-            hoy={hoy}
-            planesIniciales={(planesRes.data ?? []) as PlanFila[]}
-            membresiasIniciales={(membresiasRes.data ?? []) as MembresiaFila[]}
-            consumosIniciales={(consumosRes.data ?? []) as ConsumoMembresia[]}
-            faltaMigracion={!!planesRes.error}
-          />
-        </SeccionPlegable>
-
-        <SeccionPlegable
-          marco={false}
           titulo="Lista de espera"
-          descripcion="Cuando un día está lleno, el cliente deja su nombre; si se libera un espacio, se le avisa solo."
+          descripcion={`Cuando un día está lleno, el ${persona.singular} deja su nombre; si se libera un espacio, se le avisa solo.`}
         >
-          <ListaEsperaPanel ranchoId={rancho.id} />
+          <ListaEsperaPanel ranchoId={rancho.id} vocabulario={vocabulario} />
         </SeccionPlegable>
 
-        <SeccionPlegable
-          marco={false}
-          titulo="Giftcards"
-          descripcion="Las giftcards vendidas de tu negocio: quién la compró, para quién es y cuánto saldo queda."
-          resumen={giftcards.length > 0 ? `${giftcards.length} vendidas` : undefined}
-        >
-          {giftcardsSinTabla ? (
-            <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
-              <strong>Falta la migración de giftcards.</strong> Corré{" "}
-              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
-                supabase/migrations/0059_giftcards.sql
-              </code>{" "}
-              en el SQL Editor de Supabase y volvé a entrar.
-            </div>
-          ) : giftcards.length === 0 ? (
-            <p className="rounded-xl border border-aventurea-line bg-white p-5 text-[13px] text-aventurea-ink-soft">
-              Todavía no hay giftcards vendidas.
-            </p>
-          ) : (
-            <>
-              <div className="mb-4 flex flex-wrap gap-3">
-                <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    Vendido
-                  </p>
-                  <p className="text-[18px] font-extrabold text-aventurea-ink">
-                    {fmtColones(giftVendido)}
-                  </p>
-                </div>
-                <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    Por canjear
-                  </p>
-                  <p className="text-[18px] font-extrabold text-aventurea-ink">
-                    {fmtColones(giftPorCanjear)}
-                  </p>
-                </div>
-                <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                    Activas
-                  </p>
-                  <p className="text-[18px] font-extrabold text-aventurea-ink">
-                    {giftcards.filter((g) => g.estado === "activa").length}
-                  </p>
-                </div>
+        {muestraGiftcards && (
+          <SeccionPlegable
+            marco={false}
+            titulo="Giftcards"
+            descripcion="Las giftcards vendidas de tu negocio: quién la compró, para quién es y cuánto saldo queda."
+            resumen={giftcards.length > 0 ? `${giftcards.length} vendidas` : undefined}
+          >
+            {giftcardsSinTabla ? (
+              <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-[13px] leading-relaxed text-red-700">
+                <strong>Falta la migración de giftcards.</strong> Corré{" "}
+                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px]">
+                  supabase/migrations/0059_giftcards.sql
+                </code>{" "}
+                en el SQL Editor de Supabase y volvé a entrar.
               </div>
-
-              <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
-                {giftcards.map((g, i) => (
-                  <div
-                    key={g.id}
-                    className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3.5 ${i > 0 ? "border-t border-aventurea-line/60" : ""}`}
-                  >
-                    <code className="shrink-0 rounded-lg bg-aventurea-cream-2 px-2.5 py-1 font-mono text-[12.5px] font-bold text-aventurea-ink">
-                      {g.codigo}
-                    </code>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-bold text-aventurea-ink">
-                        {g.comprador_nombre ?? "Compra directa"}
-                        {g.beneficiario_nombre ? ` → para ${g.beneficiario_nombre}` : ""}
-                      </p>
-                      <p className="text-[12px] text-aventurea-ink-soft">
-                        {fmtFechaCorta(g.created_at.slice(0, 10))}
-                        {g.vence_en ? ` · vence ${fmtFechaCorta(g.vence_en)}` : ""}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[13.5px] font-extrabold text-aventurea-ink">
-                        {fmtColones(Number(g.monto))}
-                      </p>
-                      {g.estado === "activa" && Number(g.saldo) !== Number(g.monto) && (
-                        <p className="text-[11.5px] text-aventurea-ink-soft">
-                          saldo {fmtColones(Number(g.saldo))}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`rounded-lg px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide ${GIFTCARD_ESTADO[g.estado].cls}`}
-                    >
-                      {GIFTCARD_ESTADO[g.estado].label}
-                    </span>
+            ) : giftcards.length === 0 ? (
+              <p className="rounded-xl border border-aventurea-line bg-white p-5 text-[13px] text-aventurea-ink-soft">
+                Todavía no hay giftcards vendidas.
+              </p>
+            ) : (
+              <>
+                <div className="mb-4 flex flex-wrap gap-3">
+                  <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      Vendido
+                    </p>
+                    <p className="text-[18px] font-extrabold text-aventurea-ink">
+                      {fmtColones(giftVendido)}
+                    </p>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-        </SeccionPlegable>
+                  <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      Por canjear
+                    </p>
+                    <p className="text-[18px] font-extrabold text-aventurea-ink">
+                      {fmtColones(giftPorCanjear)}
+                    </p>
+                  </div>
+                  <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      Activas
+                    </p>
+                    <p className="text-[18px] font-extrabold text-aventurea-ink">
+                      {giftcards.filter((g) => g.estado === "activa").length}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-white">
+                  {giftcards.map((g, i) => (
+                    <div
+                      key={g.id}
+                      className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3.5 ${i > 0 ? "border-t border-aventurea-line/60" : ""}`}
+                    >
+                      <code className="shrink-0 rounded-lg bg-aventurea-cream-2 px-2.5 py-1 font-mono text-[12.5px] font-bold text-aventurea-ink">
+                        {g.codigo}
+                      </code>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-bold text-aventurea-ink">
+                          {g.comprador_nombre ?? "Compra directa"}
+                          {g.beneficiario_nombre ? ` → para ${g.beneficiario_nombre}` : ""}
+                        </p>
+                        <p className="text-[12px] text-aventurea-ink-soft">
+                          {fmtFechaCorta(g.created_at.slice(0, 10))}
+                          {g.vence_en ? ` · vence ${fmtFechaCorta(g.vence_en)}` : ""}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[13.5px] font-extrabold text-aventurea-ink">
+                          {fmtColones(Number(g.monto))}
+                        </p>
+                        {g.estado === "activa" && Number(g.saldo) !== Number(g.monto) && (
+                          <p className="text-[11.5px] text-aventurea-ink-soft">
+                            saldo {fmtColones(Number(g.saldo))}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`rounded-lg px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide ${GIFTCARD_ESTADO[g.estado].cls}`}
+                      >
+                        {GIFTCARD_ESTADO[g.estado].label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </SeccionPlegable>
+        )}
       </div>
     </main>
   );

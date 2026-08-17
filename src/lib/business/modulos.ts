@@ -35,13 +35,22 @@
 // ------------------------------------------------------------
 
 /** Los bloques del menú lateral, en el orden en que se muestran. */
-export const GRUPOS = ["agenda", "gestion", "fitness", "finanzas", "crecimiento", "config"] as const;
+export const GRUPOS = [
+  "agenda",
+  "gestion",
+  "clinica",
+  "fitness",
+  "finanzas",
+  "crecimiento",
+  "config",
+] as const;
 
 export type GrupoId = (typeof GRUPOS)[number];
 
 export const GRUPO_LABEL: Record<GrupoId, string> = {
   agenda: "Agenda",
   gestion: "Gestión",
+  clinica: "Clínico",
   fitness: "Fitness",
   finanzas: "Finanzas",
   crecimiento: "Crecimiento",
@@ -55,9 +64,29 @@ type DefinicionModulo = {
   resumen: string;
   grupo: GrupoId;
   /**
-   * ¿Ya tiene pantalla? Los de las fases 2-6 se declaran igual para que
-   * el panel los muestre como "próximamente" en vez de aparecer de la
-   * nada — pero no se pueden encender hasta que exista qué encender.
+   * ¿Ya tiene pantalla? Los de las fases siguientes se declaran igual
+   * para que el panel los muestre como "próximamente" en vez de
+   * aparecer de la nada — pero no se pueden encender hasta que exista
+   * qué encender.
+   *
+   * DECLARAR ≠ CONSTRUIR. Que un tipo liste `expediente` significa
+   * "un consultorio trabaja con expedientes", no "hay una pantalla de
+   * expedientes". La diferencia la hace `resolverModulos`, que borra
+   * todo lo que tenga `disponible: false` ANTES de devolver el
+   * conjunto: el menú se arma de ese conjunto, así que un módulo sin
+   * pantalla no puede producir un ítem que lleve a un 404 — ni por
+   * default, ni por una fila escrita a mano en `modulos_negocio`.
+   *
+   * Se eligió declararlos (y no esperar a que existan) por dos razones
+   * concretas:
+   *   1. Es la lista la que define la IDENTIDAD del tipo. Si un
+   *      consultorio no declara nada clínico hasta la fase que lo
+   *      construya, hoy es indistinguible de una barbería, que es
+   *      justo el problema que hay que resolver.
+   *   2. La pantalla de módulos ya sabe pintarlas apagadas con
+   *      "próximamente" (modulos-panel.tsx), y `guardarModulos` ya se
+   *      niega a guardarlas. El andamiaje existe; lo que faltaba era
+   *      usarlo.
    */
   disponible: boolean;
 };
@@ -99,11 +128,73 @@ export const MODULOS = [
     disponible: false,
   },
   {
+    id: "fichas",
+    nombre: "Fichas técnicas",
+    resumen: "La ficha de cada cliente: fórmulas, alergias y el antes y después.",
+    grupo: "gestion",
+    disponible: false,
+  },
+  {
+    id: "inventario",
+    nombre: "Inventario",
+    resumen: "Producto y consumibles: cuánto queda, qué se gasta y qué vence.",
+    grupo: "gestion",
+    disponible: false,
+  },
+
+  // --- Clínico ---
+  // Grupo aparte y no dentro de Gestión a propósito: son datos de
+  // salud. Separarlos desde el catálogo deja el permiso, la auditoría y
+  // la retención como una decisión de un solo bloque el día que se
+  // construyan, en vez de repartida entre las secciones de siempre.
+  {
+    id: "expediente",
+    nombre: "Expediente",
+    resumen: "El historial de cada paciente: antecedentes, notas y adjuntos.",
+    grupo: "clinica",
+    disponible: false,
+  },
+  {
+    id: "formularios",
+    nombre: "Formularios",
+    resumen: "Consentimientos, escalas y cuestionarios que el paciente llena.",
+    grupo: "clinica",
+    disponible: false,
+  },
+  {
+    id: "teleconsulta",
+    nombre: "Teleconsulta",
+    resumen: "La consulta por video, con su recordatorio y su cobro.",
+    grupo: "clinica",
+    disponible: false,
+  },
+  {
+    id: "recetas",
+    nombre: "Recetas",
+    resumen: "Prescripciones con dosis y plantillas, y el registro de lo emitido.",
+    grupo: "clinica",
+    disponible: false,
+  },
+  {
+    id: "laboratorio",
+    nombre: "Laboratorio",
+    resumen: "Órdenes y resultados de laboratorio e imágenes, y quién los leyó.",
+    grupo: "clinica",
+    disponible: false,
+  },
+  {
     id: "pagos",
     nombre: "Pagos",
     resumen: "Lo que entró, lo que falta cobrar y tus gastos.",
     grupo: "finanzas",
     disponible: true,
+  },
+  {
+    id: "comisiones",
+    nombre: "Comisiones",
+    resumen: "Cuánto le toca a cada quien del equipo, sacado de la agenda.",
+    grupo: "finanzas",
+    disponible: false,
   },
   {
     id: "reportes",
@@ -161,6 +252,22 @@ export function definicionModulo(id: ModuloId): (typeof MODULOS)[number] {
   return MODULOS.find((m) => m.id === id) as (typeof MODULOS)[number];
 }
 
+/**
+ * El piso: lo que TODO negocio tiene, sea lo que sea. Quien reserva
+ * tiene agenda, quien reserva tiene un cliente del otro lado, todo el
+ * mundo cobra y todo el mundo quiere saber cómo le fue.
+ *
+ * `servicios` y `equipo` quedan afuera a propósito: un lugar de eventos
+ * no tiene catálogo (cobra por fecha) y un profesional independiente no
+ * tiene a quién asignarle nada. Es lo mínimo común, no lo habitual.
+ */
+export const MODULOS_BASE = [
+  "agenda",
+  "clientes",
+  "pagos",
+  "reportes",
+] as const satisfies readonly ModuloId[];
+
 // ------------------------------------------------------------
 // Los tipos de negocio
 // ------------------------------------------------------------
@@ -201,59 +308,197 @@ type DefinicionTipo = {
  * exactamente el mismo panel que veía antes de esta fase (lo cubre
  * modulos.test.ts). Cuando llegue una pantalla nueva, se agrega el
  * módulo al tipo que la necesita y aparece sola en su menú.
+ *
+ * Esta lista es la RESPUESTA a "¿qué clase de negocio sos?": es de acá
+ * de donde salen el menú, el vocabulario y las herramientas que el
+ * panel ofrece. Por eso incluye módulos que todavía no tienen pantalla
+ * — `disponible: false` los deja fuera del conjunto activo (ver
+ * `resolverModulos`), así que suman identidad sin poder romper nada.
+ * Agregar uno de esos a un tipo NO le cambia el panel a ningún negocio
+ * vivo: lo único que cambia es que aparece como "próximamente" en
+ * Configuración → Módulos.
  */
 export const TIPOS_NEGOCIO = [
   // --- Belleza y bienestar (vertical citas) ---
+  // Los cinco comparten el motor (agenda por horas, servicios, equipo)
+  // y se separan por lo que de verdad los distingue: la barbería vive
+  // de la silla y la comisión; el salón y el spa, de la cabina, la
+  // ficha con la fórmula y el paquete prepagado; las uñas, del
+  // producto que vence; los masajes, de la contraindicación y el bono.
   {
     id: "barberia",
     label: "Barbería",
     familia: "belleza",
     verticales: ["citas"],
-    modulos: ["agenda", "clientes", "servicios", "equipo", "pagos", "reportes"],
+    modulos: [
+      "agenda",
+      "clientes",
+      "servicios",
+      "equipo",
+      // La silla ES la capacidad de una barbería: dos barberos libres y
+      // una sola silla no son dos espacios.
+      "recursos",
+      // Lo que se gasta por servicio (ceras, navajas, toallas). Sin
+      // lotes ni vencimientos: acá el consumible se acaba, no caduca.
+      "inventario",
+      "pagos",
+      // El barbero cobra porcentaje, y hoy esa liquidación se hace en
+      // papel. Es el reclamo más repetido del rubro.
+      "comisiones",
+      "reportes",
+      "marketing",
+    ],
   },
   {
     id: "salon_belleza",
     label: "Salón de belleza",
     familia: "belleza",
     verticales: ["citas"],
-    modulos: ["agenda", "clientes", "servicios", "equipo", "pagos", "reportes"],
+    modulos: [
+      "agenda",
+      "clientes",
+      "servicios",
+      "equipo",
+      // La fórmula del color y la alergia al tinte: sin la ficha, el
+      // retoque de dentro de seis semanas se adivina.
+      "fichas",
+      "recursos",
+      // Acá el producto SÍ vence y se compra por lote.
+      "inventario",
+      // Paquetes sí (el bono de diez secados), membresías no: el salón
+      // vende visitas prepagadas, no un plan mensual. Eso es del spa.
+      "paquetes",
+      "pagos",
+      "comisiones",
+      "reportes",
+      "marketing",
+    ],
   },
   {
     id: "unas",
     label: "Uñas",
     familia: "belleza",
     verticales: ["citas"],
-    modulos: ["agenda", "clientes", "servicios", "equipo", "pagos", "reportes"],
+    modulos: [
+      "agenda",
+      "clientes",
+      "servicios",
+      "equipo",
+      // El diseño anterior y la reacción al acrílico.
+      "fichas",
+      "inventario",
+      "paquetes",
+      "pagos",
+      "comisiones",
+      "reportes",
+      "marketing",
+      // Sin `recursos`: cada técnica trabaja en su propia mesa, así que
+      // la capacidad ya la da el equipo y una lista de mesas sería una
+      // pantalla que no decide nada.
+    ],
   },
   {
     id: "spa",
     label: "Spa y bienestar",
     familia: "belleza",
     verticales: ["citas"],
-    modulos: ["agenda", "clientes", "servicios", "equipo", "pagos", "reportes"],
+    modulos: [
+      "agenda",
+      "clientes",
+      "servicios",
+      "equipo",
+      "fichas",
+      // La cabina es el cuello de botella del spa: se puede reservar
+      // doble a la misma hora si nadie la controla.
+      "recursos",
+      "inventario",
+      "paquetes",
+      "membresias",
+      "pagos",
+      "comisiones",
+      "reportes",
+      "marketing",
+    ],
   },
   {
     id: "masajes",
     label: "Masajes",
     familia: "belleza",
     verticales: ["citas"],
-    modulos: ["agenda", "clientes", "servicios", "equipo", "pagos", "reportes"],
+    modulos: [
+      "agenda",
+      "clientes",
+      "servicios",
+      "equipo",
+      // Contraindicaciones y zonas a evitar: es una ficha de salud
+      // ligera, no un expediente clínico.
+      "fichas",
+      "recursos",
+      "paquetes",
+      "membresias",
+      "pagos",
+      "comisiones",
+      "reportes",
+      "marketing",
+      // Sin `inventario`: el aceite no se administra por lote ni se
+      // revende; no hay stock que gestionar.
+    ],
   },
 
   // --- Salud y profesionales independientes (vertical citas) ---
+  // La frontera entre los dos NO es el tamaño, es qué se hace en la
+  // consulta. `consultorio` es el médico/odontológico: prescribe y
+  // pide exámenes. `profesional` es quien atiende solo y no receta —
+  // psicología, nutrición, terapia, y también el no-clínico.
+  //
+  // Ninguno de sus módulos clínicos existe todavía, y eso es a
+  // propósito: guardar datos de salud tiene consecuencias legales
+  // (consentimiento, retención, quién puede leer qué) que se deciden
+  // cuando se construyan. Declararlos acá define la identidad del
+  // panel; no habilita ni guarda nada.
   {
     id: "consultorio",
     label: "Consultorio",
     familia: "salud",
     verticales: ["citas"],
-    modulos: ["agenda", "clientes", "servicios", "equipo", "pagos", "reportes"],
+    modulos: [
+      "agenda",
+      "clientes",
+      "servicios",
+      "equipo",
+      "expediente",
+      "formularios",
+      "teleconsulta",
+      "recetas",
+      "laboratorio",
+      "pagos",
+      "reportes",
+      // Sin `marketing`: hacerle campañas de re-enganche a un paciente
+      // por su diagnóstico es exactamente lo que no queremos empujar.
+      // La misma razón vale para `comisiones`: pagarle al médico por
+      // volumen de consulta es una decisión del negocio, no un default
+      // que Bookea deba sugerir.
+    ],
   },
   {
     id: "profesional",
     label: "Profesional independiente",
     familia: "salud",
     verticales: ["citas"],
-    modulos: ["agenda", "clientes", "servicios", "pagos", "reportes"],
+    modulos: [
+      "agenda",
+      "clientes",
+      "servicios",
+      "expediente",
+      "formularios",
+      // La sesión virtual es la mitad de la agenda de un psicólogo o un
+      // nutricionista; en un consultorio médico es la excepción.
+      "teleconsulta",
+      "pagos",
+      "reportes",
+      // Sin `equipo`: atiende solo — es lo que ya lo distinguía.
+      // Sin `recetas` ni `laboratorio`: no prescribe.
+    ],
   },
 
   // --- Fitness y estudios (vertical citas) ---
@@ -503,6 +748,20 @@ export function usaAgendaPorHoras(
 /** Los módulos encendidos si el negocio no opinó nada. */
 export function modulosPorDefecto(tipo: TipoNegocioId): ModuloId[] {
   return [...definicionTipo(tipo).modulos];
+}
+
+/**
+ * Lo que este tipo de negocio VA A TENER pero todavía no se puede
+ * abrir. Es el complemento exacto de `resolverModulos`: lo que el tipo
+ * declara menos lo que ya tiene pantalla.
+ *
+ * Existe para que la única forma de enseñar un módulo sin construir sea
+ * ésta — una lista que se pinta apagada y no lleva a ningún lado.
+ * Cualquier pantalla que quiera decir "esto viene en camino" pregunta
+ * acá; ninguna arma links con esto.
+ */
+export function modulosProximamente(tipo: TipoNegocioId): ModuloId[] {
+  return modulosPorDefecto(tipo).filter((id) => !definicionModulo(id).disponible);
 }
 
 /**

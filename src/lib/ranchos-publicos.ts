@@ -117,6 +117,32 @@ export const COLUMNAS_PORTAL_JOVENES =
   "precio_hora_diciembre, precio_fijo_diciembre, precio_por_persona";
 export const COLUMNAS_CITAS_JOVENES = "deposito_citas";
 
+/**
+ * EL PAÍS DEL NEGOCIO, y por qué viaja como columna JOVEN y no dentro
+ * de `COLUMNAS_CARD`.
+ *
+ * `ranchos.pais` la trajo la 0062, o sea que en producción ya existe y
+ * el grant columna-por-columna de la 0140/0155 —que se calcula leyendo
+ * el esquema real— ya la incluye. En el camino feliz esto se pide y
+ * llega, sin reintento.
+ *
+ * Va igual por el camino tolerante por dos razones concretas:
+ *
+ * 1. Una lista explícita que nombre una columna inexistente NO devuelve
+ *    la columna en null: hace fallar la consulta ENTERA. Acá eso sería
+ *    el directorio de /eventos, /citas o /restaurantes en blanco. El
+ *    precio de equivocarse es asimétrico, y el reintento cuesta una ida
+ *    a la base SOLO en el caso en que hoy la página se caería.
+ * 2. Las bases de desarrollo y cualquier entorno a medio migrar sí
+ *    pueden no tenerla, y el repo ya paga ese seguro para las columnas
+ *    de la 0099/0103/0118 unas líneas más arriba.
+ *
+ * Sin la columna, `pais` llega `undefined` y `codigoPaisDe()` lo lee
+ * como Costa Rica — que es exactamente lo que la plataforma hizo desde
+ * el día uno.
+ */
+export const COLUMNAS_PAIS = "pais";
+
 type Respuesta = { data: unknown; error: unknown };
 
 /**
@@ -134,6 +160,31 @@ export async function pedirFila(
   if (!conJovenes.error) return conJovenes.data as Record<string, unknown> | null;
   const soloBase = await consulta(base);
   return soloBase.data as Record<string, unknown> | null;
+}
+
+/**
+ * Lo mismo que `pedirFila`, pero para una LISTA — los directorios.
+ *
+ * Va aparte y no como un genérico de `pedirFila` porque el tipo de
+ * vuelta es lo único que cambia y unificarlos obligaba a castear en los
+ * cinco lugares que la llaman. El comportamiento es idéntico: se pide
+ * con las columnas jóvenes y, si la base todavía no las tiene, se
+ * vuelve a pedir sin ellas.
+ *
+ * Devuelve `[]` y no `null` cuando algo falla de verdad: un directorio
+ * sin filas se ve como "todavía no hay negocios acá", que es un estado
+ * que estas pantallas ya saben pintar. Es exactamente lo que pasaba
+ * antes con `data ?? []`.
+ */
+export async function pedirFilas(
+  consulta: (columnas: string) => PromiseLike<Respuesta>,
+  base: string,
+  jovenes: string,
+): Promise<Record<string, unknown>[]> {
+  const conJovenes = await consulta(`${base}, ${jovenes}`);
+  if (!conJovenes.error) return (conJovenes.data ?? []) as Record<string, unknown>[];
+  const soloBase = await consulta(base);
+  return (soloBase.data ?? []) as Record<string, unknown>[];
 }
 
 /**

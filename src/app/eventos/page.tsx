@@ -36,7 +36,7 @@ import type { Rancho } from "../mi-negocio/types";
  * mismo criterio aplicado a las FICHAS individuales, que arrastraban la
  * fuga que este comentario ya describía— y /hospedajes usa la misma.
  */
-import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
+import { COLUMNAS_CARD, COLUMNAS_PAIS, pedirFilas } from "@/lib/ranchos-publicos";
 import { urlSitio } from "@/lib/sitio";
 
 /**
@@ -199,7 +199,7 @@ async function DirectorioEventos() {
   // (corta con AuthSessionMissingError) y para uno con sesión se
   // resuelve en paralelo con las demás.
   const [
-    { data },
+    data,
     { data: confirmadas },
     { data: calificacionesData },
     { data: resenasData },
@@ -207,15 +207,27 @@ async function DirectorioEventos() {
       data: { user },
     },
   ] = await Promise.all([
-    supabase
-      .from("ranchos")
-      .select(COLUMNAS_CARD)
-      .eq("estado", "aprobado")
-      // Los más nuevos primero: mezcla todas las categorías en el frente
-      // en vez de amontonar ahí a los lugares (los primeros que existieron
-      // en la plataforma), y los sitios viejos se corren solos hacia las
-      // páginas siguientes conforme se publican otros.
-      .order("created_at", { ascending: false }),
+    // `pais` se pide como columna JOVEN (ver COLUMNAS_PAIS): en
+    // producción existe desde la 0062 y llega en la primera consulta,
+    // pero si una base no la tuviera, una lista explícita que la nombre
+    // haría fallar la consulta ENTERA y el directorio quedaría vacío.
+    // Sin la columna, `codigoPaisDe` lee las filas como de Costa Rica —
+    // que es lo que fueron siempre.
+    pedirFilas(
+      (columnas) =>
+        supabase
+          .from("ranchos")
+          .select(columnas)
+          .eq("estado", "aprobado")
+          // Los más nuevos primero: mezcla todas las categorías en el
+          // frente en vez de amontonar ahí a los lugares (los primeros
+          // que existieron en la plataforma), y los sitios viejos se
+          // corren solos hacia las páginas siguientes conforme se
+          // publican otros.
+          .order("created_at", { ascending: false }),
+      COLUMNAS_CARD,
+      COLUMNAS_PAIS,
+    ),
 
     // Solo "lugares" reserva por fecha en línea — el resto se contrata por
     // WhatsApp, sin calendario. Traemos de una sola vez qué fechas ya están
@@ -252,7 +264,7 @@ async function DirectorioEventos() {
 
   // Las tarjetas piden el tipo `Rancho` completo pero solo leen las
   // columnas de COLUMNAS_CARD (verificado arriba) — de ahí el cast.
-  const ranchos = ((data ?? []) as unknown as (Rancho & { vertical?: string })[])
+  const ranchos = (data as unknown as (Rancho & { vertical?: string })[])
     // Solo la vertical de eventos: citas y hospedajes tienen su propio
     // directorio. Se filtra acá (no en SQL) para que la página siga
     // viva aunque la migración 0055 no se haya corrido todavía.

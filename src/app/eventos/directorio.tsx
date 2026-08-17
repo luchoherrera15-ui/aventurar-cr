@@ -22,13 +22,19 @@ import {
   CATEGORIA_ICONO,
   CATEGORIA_LABEL,
   CANTONES,
-  PROVINCIAS,
   SUBCATEGORIAS,
   SUBCATEGORIA_LABEL,
   type Categoria,
   type Provincia,
 } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
+import {
+  PAIS_POR_DEFECTO,
+  codigoPaisDe,
+  etiquetaRegion,
+  paisDe,
+  regionesDe,
+} from "@/lib/paises";
 
 const POR_PAGINA = 14;
 // Como pidió el dueño: máximo 12 tarjetas por categoría en la portada
@@ -81,6 +87,24 @@ export default function Directorio({
   // escribe la lupa, la búsqueda queda visible y se puede corregir o
   // limpiar, en vez de ser un filtro invisible aplicado a escondidas.
   const [texto, setTexto] = useState(() => searchParams.get("q") ?? "");
+  /**
+   * EL PAÍS QUE SE ESTÁ MIRANDO — el "¿Dónde?" del buscador de la
+   * portada llega partido en dos: `?pais=` y `?provincia=`.
+   *
+   * Se lee UNA vez de la URL, con el mismo `useState` de inicialización
+   * perezosa que ya usan `tab`, `subcategoria`, `texto` y `provincia`
+   * acá arriba — y sin `setter`: el país no es un filtro que se afloje
+   * desde esta pantalla (no está en los chips y no lo toca "Limpiar
+   * todo") sino el ALCANCE de lo que se está mirando. Para cambiarlo se
+   * vuelve al buscador, que es donde vive.
+   *
+   * Sin `?pais=` es Costa Rica, exactamente como funcionó siempre, y un
+   * código desconocido también cae ahí en vez de dejar la grilla vacía.
+   */
+  const [pais] = useState(() => codigoPaisDe(searchParams.get("pais")));
+  /** Las regiones de ESE país, y cómo las llama (Provincia/Estado/…). */
+  const regiones = regionesDe(pais);
+  const etiquetaZona = etiquetaRegion(pais);
   const [provincia, setProvincia] = useState(() => searchParams.get("provincia") ?? "");
   const [canton, setCanton] = useState(() => searchParams.get("canton") ?? "");
   const [fecha, setFecha] = useState("");
@@ -98,44 +122,62 @@ export default function Directorio({
   const interpretada = useMemo(() => interpretarBusqueda(texto, hoy), [texto, hoy]);
   const fechaActiva = interpretada.fecha ?? (fecha || null);
 
+  /**
+   * LOS NEGOCIOS DEL PAÍS QUE SE ESTÁ MIRANDO. De acá para abajo, esta
+   * es la lista: los conteos de las pestañas, los chips de zona, los
+   * rieles y el "N espacios" tienen que hablar todos del mismo
+   * conjunto, o los números prometen lo que el clic no entrega.
+   *
+   * `codigoPaisDe` es lo que hace que esto no cambie NADA hoy: mientras
+   * la 0170 no esté pegada, las filas traen `pais` en mayúscula ('CR')
+   * o directamente no lo traen (la consulta reintenta sin la columna si
+   * la base no la tiene), y las tres formas se leen como Costa Rica.
+   * Con la URL sin `?pais=`, este filtro deja pasar exactamente los
+   * mismos negocios que antes de existir.
+   */
+  const ranchosDelPais = useMemo(
+    () => ranchos.filter((r) => codigoPaisDe(r.pais) === pais),
+    [ranchos, pais],
+  );
+
   const conteoPorCategoria = useMemo(() => {
     const acc: Record<string, number> = {};
-    ranchos.forEach((r) => {
+    ranchosDelPais.forEach((r) => {
       acc[r.categoria] = (acc[r.categoria] ?? 0) + 1;
     });
     return acc;
-  }, [ranchos]);
+  }, [ranchosDelPais]);
 
   const conteoPorSubcategoria = useMemo(() => {
     const acc: Record<string, number> = {};
-    ranchos.forEach((r) => {
+    ranchosDelPais.forEach((r) => {
       if (r.subcategoria) acc[r.subcategoria] = (acc[r.subcategoria] ?? 0) + 1;
     });
     return acc;
-  }, [ranchos]);
+  }, [ranchosDelPais]);
 
   // El conteo por provincia se calcula sobre lo ya filtrado por categoría,
   // para que reaccione al cambiar de pestaña sin auto-filtrarse.
   const conteoPorProvincia = useMemo(() => {
     const acc: Record<string, number> = {};
-    ranchos
+    ranchosDelPais
       .filter((r) => tab === "todos" || r.categoria === tab)
       .forEach((r) => {
         if (r.provincia) acc[r.provincia] = (acc[r.provincia] ?? 0) + 1;
       });
     return acc;
-  }, [ranchos, tab]);
+  }, [ranchosDelPais, tab]);
 
   const conteoPorCanton = useMemo(() => {
     const acc: Record<string, number> = {};
-    ranchos
+    ranchosDelPais
       .filter((r) => !provincia || r.provincia === provincia)
       .filter((r) => tab === "todos" || r.categoria === tab)
       .forEach((r) => {
         if (r.canton) acc[r.canton] = (acc[r.canton] ?? 0) + 1;
       });
     return acc;
-  }, [ranchos, provincia, tab]);
+  }, [ranchosDelPais, provincia, tab]);
 
   // Solo "lugares" reserva por fecha en línea — el resto (catering, DJ,
   // decoración...) se contrata por WhatsApp y no tiene calendario, así
@@ -154,7 +196,7 @@ export default function Directorio({
   // ese día — no si falta uno solo por confirmar.
   const lugaresRelevantes = useMemo(
     () =>
-      ranchos.filter(
+      ranchosDelPais.filter(
         (r) =>
           r.categoria === "lugares" &&
           (tab === "todos" || tab === "lugares") &&
@@ -162,7 +204,7 @@ export default function Directorio({
           (!provincia || r.provincia === provincia) &&
           (!canton || r.canton === canton),
       ),
-    [ranchos, tab, subcategoria, provincia, canton],
+    [ranchosDelPais, tab, subcategoria, provincia, canton],
   );
 
   const fechasSinDisponibilidad = useMemo(() => {
@@ -178,7 +220,7 @@ export default function Directorio({
 
   const filtrados = useMemo(() => {
     const q = interpretada.texto;
-    return ranchos.filter((r) => {
+    return ranchosDelPais.filter((r) => {
       if (tab !== "todos" && r.categoria !== tab) return false;
       if (subcategoria && r.subcategoria !== subcategoria) return false;
       if (
@@ -203,7 +245,7 @@ export default function Directorio({
       return true;
     });
   }, [
-    ranchos,
+    ranchosDelPais,
     tab,
     subcategoria,
     interpretada.texto,
@@ -233,23 +275,23 @@ export default function Directorio({
     return (
       CATEGORIAS.map((cat) => ({
         cat,
-        items: ranchos.filter((r) => r.categoria === cat).slice(0, POR_RIEL),
+        items: ranchosDelPais.filter((r) => r.categoria === cat).slice(0, POR_RIEL),
       }))
         // "Otros servicios" se muestra aunque no haya negocios: ahí vive
         // la tarjeta de Invitaciones Digitales, que es producto propio.
         .filter((g) => g.items.length > 0 || g.cat === "otros")
     );
-  }, [ranchos, hayAlgo]);
+  }, [ranchosDelPais, hayAlgo]);
 
   const proximasLibres = useMemo(() => {
     const acc = new Map<string, string | null>();
-    ranchos.forEach((r) => {
+    ranchosDelPais.forEach((r) => {
       if (r.categoria === "lugares") {
         acc.set(r.id, proximaFechaLibre(r.id, ocupadosPorFecha));
       }
     });
     return acc;
-  }, [ranchos, ocupadosPorFecha]);
+  }, [ranchosDelPais, ocupadosPorFecha]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
   const paginaSegura = Math.min(pagina, totalPaginas);
@@ -330,6 +372,16 @@ export default function Directorio({
   // Solo "lugares" reserva por fecha en línea — en las demás categorías
   // el calendario del panel de filtros no aplica y no se muestra.
   const mostrarCuando = tab === "todos" || tab === "lugares";
+
+  /**
+   * Los cantones de la zona elegida. Vacío fuera de Costa Rica: el
+   * segundo nivel (cantón) solo está cargado para las 7 provincias
+   * ticas, y `CANTONES["Chiriquí"]` es `undefined`.
+   */
+  const cantonesDeLaZona =
+    pais === PAIS_POR_DEFECTO && provincia
+      ? (CANTONES[provincia as Provincia] ?? [])
+      : [];
 
   return (
     <div>
@@ -546,11 +598,15 @@ export default function Directorio({
           <div className="relative z-20 max-h-[70vh] overflow-y-auto rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-xl">
             <div className="grid gap-6 md:grid-cols-2">
               <div>
+                {/* El encabezado lo dice el país: "Provincia" en Costa
+                    Rica y Panamá, "Estado" en México, "Departamento" en
+                    Colombia. Poner "Provincia" fijo sería escribirle mal
+                    a la gente el nombre de su propia división. */}
                 <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                  Provincia
+                  {etiquetaZona}
                 </h4>
                 <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
-                  {PROVINCIAS.map((p) => (
+                  {regiones.map((p) => (
                     <FilterRow
                       key={p}
                       label={p}
@@ -562,14 +618,22 @@ export default function Directorio({
                 </div>
 
                 {/* Elegida la provincia, se abren sus cantones: es el
-                    segundo nivel de la búsqueda por zona. */}
-                {provincia && (
+                    segundo nivel de la búsqueda por zona.
+
+                    Solo en Costa Rica: `CANTONES` es el mapa de los 84
+                    cantones ticos y no existe para ningún otro país.
+                    Sin este corte, elegir "Chiriquí" buscaría
+                    `CANTONES["Chiriquí"]`, encontraría `undefined` y el
+                    `.map()` reventaría la página entera. El segundo
+                    nivel de los demás países llega cuando haya negocios
+                    que lo necesiten. */}
+                {provincia && cantonesDeLaZona.length > 0 && (
                   <div className="mt-4 border-t border-aventurea-line pt-3">
                     <h4 className="mb-1.5 px-2.5 text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                       Cantones de {provincia}
                     </h4>
                     <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
-                      {CANTONES[provincia as Provincia].map((ct) => (
+                      {cantonesDeLaZona.map((ct) => (
                         <FilterRow
                           key={ct}
                           label={ct}
@@ -689,7 +753,7 @@ export default function Directorio({
             No encontramos espacios con esa búsqueda.
           </p>
           <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] text-aventurea-ink-soft">
-            Probá con otra categoría, otra provincia o un presupuesto mayor.
+            Probá con otra categoría, otra zona o un presupuesto mayor.
           </p>
         </div>
       ) : !hayAlgo ? (
@@ -754,14 +818,16 @@ export default function Directorio({
         </>
       )}
 
-      {/* Atajo por provincia. Las categorías ya viven en la barra de
-          arriba, así que acá abajo no se repiten. */}
+      {/* Atajo por zona. Las categorías ya viven en la barra de
+          arriba, así que acá abajo no se repiten. El título usa el
+          plural del país: "Buscá por provincia" / "por estado" / "por
+          departamento". */}
       <div className="mt-14 border-t border-aventurea-line pt-8">
         <h2 className="mb-3 text-[12.5px] font-bold uppercase tracking-wide text-aventurea-ink">
-          Buscá por provincia
+          Buscá por {etiquetaZona.toLocaleLowerCase("es")}
         </h2>
         <div className="flex flex-wrap gap-2">
-          {PROVINCIAS.map((p) => {
+          {regiones.map((p) => {
             const n = conteoPorProvincia[p] ?? 0;
             return (
               <button
@@ -793,7 +859,7 @@ export default function Directorio({
           </h2>
           <p className="mt-1 text-[13px] text-aventurea-ink-soft">
             Lugares, comida, animación, decoración y más — publicalo gratis en
-            Bookea y llegá a más clientes en todo el país.
+            Bookea y llegá a más clientes en todo {paisDe(pais).nombre}.
           </p>
         </div>
         <Link

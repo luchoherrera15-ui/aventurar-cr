@@ -5,12 +5,16 @@ import { createClient } from "@/lib/supabase/client";
 import { fmtColones } from "@/lib/finanzas";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import { reporteCitas, type CitaReporte, type ReporteCitas } from "@/lib/metricas-citas";
+import type { Vocabulario } from "@/lib/business/identidad";
 
 /**
  * Los números del negocio de citas: cuántas citas, quién las atendió,
  * la tasa de no-shows, los servicios más pedidos y las horas pico.
  * Todo derivado de las reservas (lib metricas-citas, probada sin
  * React); las barras van a mano en divs, como el gráfico de Finanzas.
+ *
+ * Las palabras y el color los pone el tipo de negocio: el mismo reporte
+ * cuenta CONSULTAS en un consultorio y SESIONES en un gimnasio.
  */
 
 type Rango = "30" | "90" | "365";
@@ -24,10 +28,13 @@ const RANGO_LABEL: Record<Rango, string> = {
 export default function ReportesCitas({
   ranchoId,
   equipo,
+  vocabulario,
 }: {
   ranchoId: string;
   equipo: { id: string; nombre: string }[];
+  vocabulario: Vocabulario;
 }) {
+  const { visita } = vocabulario;
   const [rango, setRango] = useState<Rango>("30");
   const [reporte, setReporte] = useState<ReporteCitas | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,9 +96,19 @@ export default function ReportesCitas({
             type="button"
             onClick={() => setRango(r)}
             aria-pressed={rango === r}
+            // El rango activo lleva el acento del tipo de negocio.
+            style={
+              rango === r
+                ? {
+                    backgroundColor: "var(--acento-solido)",
+                    borderColor: "var(--acento-solido)",
+                    color: "var(--acento-sobre)",
+                  }
+                : undefined
+            }
             className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
               rango === r
-                ? "border-aventurea-navy bg-aventurea-navy text-white"
+                ? ""
                 : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-sky"
             }`}
           >
@@ -106,12 +123,12 @@ export default function ReportesCitas({
         <p className="text-[13px] text-aventurea-ink-soft">Cargando...</p>
       ) : reporte.total === 0 ? (
         <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
-          Sin citas en ese rango todavía.
+          Sin {visita.plural} en ese rango todavía.
         </p>
       ) : (
         <>
           <div className="flex flex-wrap gap-3">
-            {stat("Citas", String(reporte.total))}
+            {stat(visita.Plural, String(reporte.total))}
             {stat("Atendidas", String(reporte.cumplidas))}
             {stat(
               "No-shows",
@@ -125,8 +142,8 @@ export default function ReportesCitas({
 
           {reporte.sinMarcar > 0 && (
             <p className="rounded-xl bg-aventurea-sky-light p-3 text-[12.5px] text-aventurea-ink">
-              {reporte.sinMarcar} cita{reporte.sinMarcar === 1 ? "" : "s"} de días
-              pasados sin marcar (¿vino o no vino?) — los números de asistencia
+              {reporte.sinMarcar} {reporte.sinMarcar === 1 ? visita.singular : visita.plural} de
+              días pasados sin marcar (¿vino o no vino?) — los números de asistencia
               quedan incompletos hasta marcarlas en la Agenda del día.
             </p>
           )}
@@ -147,7 +164,7 @@ export default function ReportesCitas({
                       : "Sin asignar"}
                   </p>
                   <p className="text-[12.5px] tabular-nums text-aventurea-ink-soft">
-                    {m.citas} cita{m.citas === 1 ? "" : "s"}
+                    {m.citas} {m.citas === 1 ? visita.singular : visita.plural}
                     {" · "}
                     {m.cumplidas} atendida{m.cumplidas === 1 ? "" : "s"}
                     {m.noShows > 0 && ` · ${m.noShows} no-show${m.noShows === 1 ? "" : "s"}`}
@@ -198,8 +215,11 @@ export default function ReportesCitas({
                       </span>
                       <div className="h-[10px] flex-1 overflow-hidden rounded bg-aventurea-cream-2">
                         <div
-                          className="h-full rounded bg-aventurea-green"
-                          style={{ width: `${Math.round((h.veces / maxHora) * 100)}%` }}
+                          className="h-full rounded"
+                          style={{
+                            width: `${Math.round((h.veces / maxHora) * 100)}%`,
+                            backgroundColor: "var(--acento-solido)",
+                          }}
                         />
                       </div>
                       <span className="w-[26px] text-right text-[11.5px] tabular-nums text-aventurea-ink-soft">

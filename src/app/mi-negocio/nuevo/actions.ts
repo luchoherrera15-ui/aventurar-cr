@@ -34,8 +34,14 @@ export async function crearRancho(
   // Arrancamos solo con Costa Rica, pero el país viaja desde el alta y
   // la zona horaria del negocio se deriva de él (lib/zonas.ts) — así
   // abrir otro país no toca este código.
-  const paisRaw = String(formData.get("pais") || "CR");
-  const pais = paisPorCodigo(paisRaw) ? paisRaw : "CR";
+  // Se guarda SIEMPRE en minúscula. La 0170 normaliza con un trigger,
+  // pero el dueño pega las migraciones a mano: entre que esto se
+  // despliega y el SQL se pega hay una ventana, y en esa ventana un
+  // `"CR"` en mayúscula entraría tal cual y no casaría con el `"cr"`
+  // que la app compara. Es el mismo código: la forma la fija quien
+  // escribe, no un trigger que puede no estar todavía.
+  const paisRaw = String(formData.get("pais") || "cr").trim().toLowerCase();
+  const pais = paisPorCodigo(paisRaw) ? paisRaw : "cr";
   const nombre = String(formData.get("nombre") || "").trim();
   const descripcion = String(formData.get("descripcion") || "").trim();
   const provincia = String(formData.get("provincia") || "");

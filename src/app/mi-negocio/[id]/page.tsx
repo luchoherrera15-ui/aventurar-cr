@@ -867,14 +867,24 @@ export default async function RanchoDetallePage({
       abierta={seccion === "modulos"}
       titulo="Tipo de negocio y módulos"
       descripcion="Qué administrás y qué herramientas querés ver. Apagá lo que no usás y tu panel se acorta."
-      resumen={definicionTipo(negocio.tipo).label}
+      resumen={
+        negocio.tipoExplicito
+          ? definicionTipo(negocio.tipo).label
+          : `${definicionTipo(negocio.tipo).label} · sin confirmar`
+      }
     >
       <ModulosPanel
         ranchoId={rancho.id}
         vertical={rancho.vertical ?? "eventos"}
         tipo={negocio.tipo}
         tipoExplicito={negocio.tipoExplicito}
-        activos={[...modulos]}
+        // De dónde salió el tipo derivado cuando nadie eligió: es la
+        // publicación del negocio la que lo deduce (ver `tipoNegocioEfectivo`).
+        publicadoComo={categoriaLabelMostrado}
+        // Las diferencias guardadas, no el conjunto ya resuelto: el
+        // panel necesita poder resolver "¿qué módulos tendría si fuera
+        // de este otro tipo?" con la MISMA función que el servidor.
+        overrides={negocio.overrides}
         errorModulos={negocio.errorModulos}
       />
     </SeccionPlegable>

@@ -7,17 +7,35 @@ import {
   IconWand,
 } from "@/components/icons";
 import type { PrecioPorPersona } from "@/lib/precio-lugar";
+import { COSTA_RICA } from "@/lib/paises";
 
-export const PROVINCIAS = [
-  "San José",
-  "Alajuela",
-  "Cartago",
-  "Heredia",
-  "Guanacaste",
-  "Puntarenas",
-  "Limón",
-] as const;
+/**
+ * Las 7 provincias de Costa Rica.
+ *
+ * ⚠️ YA NO SE ESCRIBEN ACÁ: se DERIVAN del catálogo de países
+ * (`src/lib/paises.ts`). Bookea dejó de ser solo de Costa Rica, y una
+ * lista escrita a mano en este archivo más otra en el catálogo son dos
+ * verdades que se despegan a la primera corrección de una tilde — y una
+ * tilde de diferencia acá es un filtro que no filtra, porque la columna
+ * `ranchos.provincia` guarda el nombre visible tal cual.
+ *
+ * El export se mantiene —lo importan el directorio, el planificador,
+ * los formularios de alta y edición— y sigue siendo la MISMA tupla de
+ * literales de antes, así que `Provincia` no se ensanchó y `CANTONES`
+ * sigue exigiendo las 7 claves exactas.
+ *
+ * Para las regiones de CUALQUIER otro país no usar esto: es
+ * `regionesDe(codigoPais)` del catálogo.
+ */
+export const PROVINCIAS = COSTA_RICA.regiones;
 
+/**
+ * Una provincia de Costa Rica. Sigue siendo una unión cerrada de 7
+ * literales a propósito: es lo que hace que `CANTONES` esté completo y
+ * que un "San Jose" sin tilde lo atrape el compilador. Lo que un
+ * negocio tiene GUARDADO en la base es texto libre de cualquier país
+ * (ver `Rancho["provincia"]`), que es otra cosa.
+ */
 export type Provincia = (typeof PROVINCIAS)[number];
 
 /**
@@ -590,7 +608,36 @@ export type Rancho = {
   mapa_url: string | null;
   amenidades: string[];
   detalles: Record<string, unknown>;
-  provincia: Provincia | null;
+  /**
+   * EL PAÍS DEL NEGOCIO — código ISO 3166-1 alfa-2 en minúscula ("cr",
+   * "pa"). Se lee SIEMPRE con `codigoPaisDe()` de `@/lib/paises`, nunca
+   * comparándolo a pelo, porque puede llegar de tres formas distintas y
+   * las tres significan Costa Rica:
+   *
+   *   · `undefined` — la consulta no pidió la columna, o la base
+   *     todavía no la tiene (bases de desarrollo anteriores a la 0062).
+   *   · `"CR"` en MAYÚSCULA — como la guardó el alta desde la 0062 y
+   *     como sigue estando hoy en producción hasta que se pegue la
+   *     0170, que normaliza los datos y pone el trigger.
+   *   · `"cr"` en minúscula — la forma canónica de ahí en adelante.
+   *
+   * Opcional a propósito: las listas de columnas de
+   * `@/lib/ranchos-publicos` son explícitas, así que hay consultas que
+   * legítimamente no lo traen y ahí `undefined` significa "es de Costa
+   * Rica", que es como funcionó la plataforma siempre.
+   */
+  pais?: string | null;
+  /**
+   * La región de primer nivel donde está el negocio, con el nombre
+   * VISIBLE ("San José", "Chiriquí", "Jalisco") tal cual se guarda.
+   *
+   * Es `string` y no `Provincia`: `Provincia` son las 7 de Costa Rica y
+   * dejó de ser toda la verdad el día que se abrió el continente. Cómo
+   * se llama esta división en cada país (Provincia / Estado /
+   * Departamento) y cuáles son las válidas sale de `@/lib/paises`
+   * (`etiquetaRegion`, `regionesDe`, `esRegionDe`), leyendo `pais`.
+   */
+  provincia: string | null;
   canton: string | null;
   direccion_exacta: string | null;
   capacidad_min: number | null;

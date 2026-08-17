@@ -36,10 +36,16 @@
 import {
   CATEGORIAS,
   CATEGORIA_LABEL,
-  PROVINCIAS,
   SUBCATEGORIAS_TODAS,
 } from "@/app/mi-negocio/types";
 import { CATEGORIAS_CITAS, CATEGORIA_CITA_LABEL } from "@/app/citas/tipos";
+import {
+  PAISES,
+  PAIS_POR_DEFECTO,
+  codigoPaisDe,
+  esRegionDe,
+  type CodigoPais,
+} from "@/lib/paises";
 
 /**
  * Las dos verticales que el buscador ofrece. Restaurantes y Hospedajes
@@ -64,9 +70,25 @@ export type OpcionBuscador = { id: string; label: string };
  *  · `provincia`   — las dos
  *  · `categoria`   — las dos, validado contra la taxonomía de cada una
  *  · `subcategoria`— SOLO /eventos (es el segundo nivel de esa vertical)
+ *  · `pais`        — /citas, /restaurantes (page.tsx) y /eventos
+ *                    (directorio.tsx). Se agregó en la misma tanda que
+ *                    este campo: antes de eso NO se emitía, justamente
+ *                    porque no lo leía nadie.
  */
 export type ParametrosBusqueda = {
   q?: string;
+  /**
+   * El país, en ISO alfa-2 minúscula. Ausente = Costa Rica, que es lo
+   * que fue siempre y lo que sigue siendo el caso por defecto.
+   */
+  pais?: string;
+  /**
+   * La región de primer nivel DENTRO de ese país: una provincia en
+   * Costa Rica o Panamá, un estado en México, un departamento en
+   * Colombia. El parámetro se sigue llamando `provincia` porque es el
+   * que los directorios ya leen y el que está en los enlaces que la
+   * gente compartió — renombrarlo no arregla nada y rompe URLs vivas.
+   */
   provincia?: string;
   categoria?: string;
   subcategoria?: string;
@@ -148,17 +170,35 @@ export const SUGERENCIAS: Record<PestanaBuscador, Sugerencia[]> = {
 };
 
 /**
- * Las 7 provincias, tal cual las guarda la base.
+ * LOS PAÍSES QUE OFRECE EL BUSCADOR.
  *
- * Se re-exportan desde acá —y no se copian— porque el directorio
- * compara el valor EXACTO contra esta misma lista (con tilde y
- * mayúscula) y descarta en silencio cualquier otra cosa. Una copia con
- * "San Jose" sin tilde produciría un filtro que no filtra.
+ * Es el catálogo entero, sin filtrar: la ubicación vive DENTRO del
+ * buscador —como en Fresha— y no en un menú de banderitas del header.
+ * Un selector de país en el header es una preferencia global escondida
+ * en una esquina; acá es parte de la pregunta "¿qué buscás y dónde?",
+ * que es lo que la persona vino a hacer.
+ *
+ * Se re-exporta —y no se copia— por la misma razón que antes se
+ * re-exportaban las 7 provincias: el `<select>` tiene que ofrecer
+ * EXACTAMENTE los códigos que `urlBusqueda` valida y que el directorio
+ * compara. Una lista propia acá sería una segunda verdad.
  */
-export const PROVINCIAS_BUSCADOR = PROVINCIAS;
+export const PAISES_BUSCADOR = PAISES;
 
-export function esProvinciaValida(valor: string): boolean {
-  return (PROVINCIAS as readonly string[]).includes(valor);
+/**
+ * ¿Esta región existe DENTRO de ese país?
+ *
+ * Antes esto era `esProvinciaValida(valor)` y solo conocía las 7 de
+ * Costa Rica. Ahora la pregunta necesita las dos mitades: "Chiriquí" es
+ * una región válida en Panamá y basura en México, y emitir
+ * `?pais=mx&provincia=Chiriquí` produciría un directorio vacío que
+ * parece un error del sitio.
+ *
+ * La comparación es EXACTA (tildes incluidas) porque así se guarda en
+ * la columna `provincia` y así la compara el directorio.
+ */
+export function esRegionValida(pais: string, valor: string): boolean {
+  return esRegionDe(pais, valor);
 }
 
 /** El directorio de destino de cada pestaña. */
@@ -181,6 +221,19 @@ export function rutaDirectorio(pestana: PestanaBuscador): string {
  * 3. `subcategoria` solo existe en Eventos: es el único vertical con
  *    taxonomía de dos niveles (`usaSubcategoria` en
  *    categorias-vertical.ts). En Citas se descarta.
+ *
+ * ── EL PAÍS: POR QUÉ COSTA RICA NO VIAJA ───────────────────────────
+ * `?pais=` se emite SOLO cuando NO es Costa Rica. Es la regla 1 otra
+ * vez, y acá tiene dientes: Costa Rica es el caso por defecto de todo
+ * el sitio, así que emitir `?pais=cr` en cada búsqueda cambiaría la
+ * forma de TODAS las URLs que la gente ya compartió y guardó, sin que
+ * ninguna filtre distinto — el directorio sin `?pais=` ya se comporta
+ * como Costa Rica. Un país que no cambia nada no tiene por qué ensuciar
+ * la barra de direcciones.
+ *
+ * La región se valida CONTRA EL PAÍS elegido, no contra las 7 de Costa
+ * Rica: al cambiar de país, la región que había quedado seleccionada
+ * simplemente no se emite, en vez de irse a un directorio vacío.
  *
  * `URLSearchParams` codifica el espacio como `+`. Está verificado
  * contra el directorio real —`/citas?provincia=San+Jos%C3%A9` filtra
@@ -209,9 +262,24 @@ export function urlBusqueda(
     p.set("subcategoria", subcategoria);
   }
 
+  // Un país desconocido cae en Costa Rica (`codigoPaisDe`), y Costa
+  // Rica no se emite: la URL queda igual que siempre.
+  const pais = codigoPaisDe(parametros.pais);
+  if (pais !== PAIS_POR_DEFECTO) p.set("pais", pais);
+
   const provincia = parametros.provincia ?? "";
-  if (esProvinciaValida(provincia)) p.set("provincia", provincia);
+  if (esRegionValida(pais, provincia)) p.set("provincia", provincia);
 
   const query = p.toString();
   return query ? `${ruta}?${query}` : ruta;
+}
+
+/**
+ * El país que el buscador muestra seleccionado, sacado de un valor
+ * suelto (una prop, la URL). Nunca devuelve nada raro: lo desconocido
+ * cae en Costa Rica, así que el `<select>` siempre tiene una opción
+ * marcada y nunca aparece en blanco.
+ */
+export function paisDelBuscador(valor: string | null | undefined): CodigoPais {
+  return codigoPaisDe(valor);
 }

@@ -22,14 +22,16 @@ import {
 import { CATEGORIA_ICONO } from "@/app/mi-negocio/types";
 import { CATEGORIA_CITA_ICONO } from "@/app/citas/iconos";
 import {
+  PAISES_BUSCADOR,
   PESTANAS,
-  PROVINCIAS_BUSCADOR,
   RUBROS,
   SUGERENCIAS,
   TEXTOS,
+  paisDelBuscador,
   urlBusqueda,
   type PestanaBuscador,
 } from "./buscador-home-datos";
+import { etiquetaRegion, regionesDe } from "@/lib/paises";
 
 /**
  * EL BUSCADOR DE LA PORTADA — comportamiento de Airbnb, estética de
@@ -77,6 +79,23 @@ import {
  * No hay campo "¿Cuándo?": no existe una consulta de disponibilidad
  * transversal en Citas, y un control que no filtra nada es un control
  * que miente.
+ *
+ * ── DÓNDE VIVE EL PAÍS ─────────────────────────────────────────────
+ * ACÁ, dentro del buscador, y NO en un menú de banderitas del header.
+ * Bookea dejó de ser solo de Costa Rica, y la referencia de producto es
+ * Fresha: la ubicación es parte de la pregunta que la persona vino a
+ * hacer ("¿qué necesito y dónde?"), no una preferencia global escondida
+ * en una esquina de la barra de navegación.
+ *
+ * Son dos `<select>` encadenados —país y luego su región— porque la
+ * segunda lista DEPENDE de la primera: las 7 provincias de Costa Rica,
+ * las 13 de Panamá, los 32 estados de México. Y la etiqueta del segundo
+ * campo cambia con el país: decir "Provincia" en México sería escribir
+ * mal el nombre de su propia división.
+ *
+ * Tampoco hay aviso de "¿estás en Panamá?" ni geolocalización: sin
+ * negocios cargados en otro país, eso sería un cartel que lleva a un
+ * directorio vacío.
  */
 
 /**
@@ -132,6 +151,7 @@ function HojaPortal({ activo, children }: { activo: boolean; children: React.Rea
 
 export default function BuscadorHome({
   pestanaInicial = "citas",
+  paisInicial,
   tono = "oscuro",
   id = "buscador-home",
   className = "",
@@ -146,6 +166,17 @@ export default function BuscadorHome({
    */
   pestanaInicial?: PestanaBuscador;
   /**
+   * Con qué país abre. Sin esto —el caso de hoy— abre en Costa Rica,
+   * que es el país por defecto de toda la plataforma. Está como prop y
+   * no leído de la URL acá adentro por lo mismo que `pestanaInicial`:
+   * `useSearchParams()` en un cliente sin `<Suspense>` obliga a
+   * renderizar la portada entera del lado del cliente.
+   *
+   * Cualquier valor raro cae en Costa Rica (`paisDelBuscador`), así que
+   * el `<select>` nunca aparece sin nada marcado.
+   */
+  paisInicial?: string;
+  /**
    * Sobre qué fondo se pinta. "oscuro" es el hero navy (pestañas
    * translúcidas en blanco); "claro" sirve si algún día el buscador se
    * repite sobre fondo crema.
@@ -158,12 +189,14 @@ export default function BuscadorHome({
   const router = useRouter();
   const idBase = useId();
   const idQue = `${idBase}-que`;
+  const idPais = `${idBase}-pais`;
   const idDonde = `${idBase}-donde`;
   const idPanel = `${idBase}-panel`;
   const idCampos = `${idBase}-campos`;
 
   const [pestana, setPestana] = useState<PestanaBuscador>(pestanaInicial);
   const [q, setQ] = useState("");
+  const [pais, setPais] = useState(() => paisDelBuscador(paisInicial));
   const [provincia, setProvincia] = useState("");
   /** El panel de sugerencias (escritorio). */
   const [abierto, setAbierto] = useState(false);
@@ -201,6 +234,16 @@ export default function BuscadorHome({
   const refSaltarFoco = useRef(false);
 
   const textos = TEXTOS[pestana];
+  /** Las regiones del país elegido, y cómo las llama ese país. */
+  const regiones = regionesDe(pais);
+  const etiquetaDonde = etiquetaRegion(pais);
+  /**
+   * Los tres parámetros de ubicación y texto que TODOS los enlaces del
+   * panel comparten. Están juntos para que agregar uno no obligue a
+   * acordarse de los seis lugares donde se arma una URL — que es
+   * exactamente como se pierde un filtro al tocar un chip.
+   */
+  const comunes = { q, pais, provincia };
   /** En la hoja el fondo es blanco, así que las pestañas van en claro. */
   const sobreOscuro = tono === "oscuro" && !hoja;
   /** Dentro de la hoja el panel no se pliega: es el contenido de la hoja. */
@@ -228,6 +271,21 @@ export default function BuscadorHome({
 
   function cambiarPestana(destino: PestanaBuscador) {
     setPestana(destino);
+  }
+
+  /**
+   * Cambiar de país SUELTA la región elegida.
+   *
+   * No es un detalle de prolijidad: "Cartago" no existe en Panamá, y
+   * dejarla puesta mandaría a `/citas?pais=pa&provincia=Cartago`. Como
+   * `urlBusqueda` valida la región contra el país, el parámetro ni
+   * siquiera se emitiría — o sea que el `<select>` mostraría "Cartago"
+   * mientras el buscador busca en todo Panamá. Un control que dice una
+   * cosa y hace otra es peor que uno que no está.
+   */
+  function cambiarPais(destino: string) {
+    setPais(paisDelBuscador(destino));
+    setProvincia("");
   }
 
   /**
@@ -321,7 +379,7 @@ export default function BuscadorHome({
     e.preventDefault();
     setAbierto(false);
     setHoja(false);
-    router.push(urlBusqueda(pestana, { q, provincia }));
+    router.push(urlBusqueda(pestana, comunes));
   }
 
   const claseEtiqueta =
@@ -444,10 +502,15 @@ export default function BuscadorHome({
           method="get"
           action={textos.ruta}
           onSubmit={alEnviar}
+          /* Cuatro columnas desde `sm`: qué · país · región · buscar.
+             Antes eran tres (qué · provincia · buscar). El país es una
+             columna angosta a propósito —el nombre más largo del
+             catálogo es "Costa Rica"— para no robarle ancho al campo de
+             texto, que es el que la gente usa en cada búsqueda. */
           className={`group ${
             hoja
               ? "flex flex-1 flex-col px-4 pt-3"
-              : "hidden rounded-4xl border border-aventurea-line bg-aventurea-surface p-2 shadow-flotante sm:grid sm:grid-cols-[1.6fr_1fr_auto] sm:items-stretch sm:p-2.5"
+              : "hidden rounded-4xl border border-aventurea-line bg-aventurea-surface p-2 shadow-flotante sm:grid sm:grid-cols-[1.5fr_0.85fr_1fr_auto] sm:items-stretch sm:p-2.5"
           }`}
         >
           {/* ── ¿QUÉ NECESITÁS? ──────────────────────────────────── */}
@@ -492,17 +555,59 @@ export default function BuscadorHome({
             </div>
           </div>
 
+          {/* ── ¿EN QUÉ PAÍS? ────────────────────────────────────────
+              El país es lo primero de la ubicación porque MANDA sobre
+              lo que ofrece el campo de al lado. `<select>` nativo, como
+              el de la región: funciona sin JavaScript (el form GET lo
+              manda igual) y en el teléfono abre el selector del
+              sistema.
+
+              La bandera va DENTRO del texto de cada opción y no como
+              ícono aparte: un `<option>` no admite marcado, y de paso
+              el nombre siempre está escrito — una banderita sola es
+              adivinanza. */}
+          <div
+            className={`${claseZona} border-t border-aventurea-line sm:border-l sm:border-t-0`}
+          >
+            <label htmlFor={idPais} className={claseEtiqueta}>
+              País
+            </label>
+            <div className="flex items-center gap-2">
+              <select
+                id={idPais}
+                name="pais"
+                value={pais}
+                onChange={(e) => cambiarPais(e.target.value)}
+                className="min-w-0 flex-1 cursor-pointer appearance-none bg-transparent text-[13.5px] text-aventurea-ink outline-none"
+              >
+                {PAISES_BUSCADOR.map((p) => (
+                  <option key={p.codigo} value={p.codigo}>
+                    {p.bandera} {p.nombre}
+                  </option>
+                ))}
+              </select>
+              <IconChevronDown
+                className="pointer-events-none h-3.5 w-3.5 shrink-0 text-aventurea-ink-soft"
+                aria-hidden
+              />
+            </div>
+          </div>
+
           {/* ── ¿DÓNDE? ──────────────────────────────────────────────
-              Un `<select>` nativo y no una lista propia: funciona sin
-              JavaScript, en el teléfono abre el selector del sistema, y
-              las 7 provincias son EXACTAMENTE las que el directorio
-              acepta (compara el valor con tilde y mayúscula; cualquier
-              otra cosa la ignora en silencio). */}
+              La región de primer nivel DEL PAÍS ELEGIDO, con el nombre
+              que ese país le da: Provincia en Costa Rica y Panamá,
+              Estado en México, Departamento en Colombia.
+
+              Los valores son EXACTAMENTE los que el directorio acepta
+              (compara con tilde y mayúscula contra la columna
+              `provincia`; cualquier otra cosa la ignora en silencio),
+              porque salen del mismo catálogo contra el que
+              `urlBusqueda` valida. */}
           <div
             className={`${claseZona} border-t border-aventurea-line sm:border-l sm:border-t-0`}
           >
             <label htmlFor={idDonde} className={claseEtiqueta}>
-              ¿Dónde?
+              {etiquetaDonde}
             </label>
             <div className="flex items-center gap-2">
               <IconPin className="h-4 w-4 shrink-0 text-aventurea-ink-soft" />
@@ -514,7 +619,7 @@ export default function BuscadorHome({
                 className="min-w-0 flex-1 cursor-pointer appearance-none bg-transparent text-[13.5px] text-aventurea-ink outline-none"
               >
                 <option value="">Todo el país</option>
-                {PROVINCIAS_BUSCADOR.map((p) => (
+                {regiones.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
@@ -530,10 +635,11 @@ export default function BuscadorHome({
           {/* ── EL PANEL ─────────────────────────────────────────────
               Fila 2 del shell en escritorio, para que el botón Buscar
               siga a la derecha de los campos y el panel caiga debajo de
-              los tres. */}
+              los cuatro (eran tres antes de que el país fuera su propia
+              columna). */}
           <div
             data-abierto={panelAbierto}
-            className={`desplegable sm:col-span-3 sm:row-start-2 ${
+            className={`desplegable sm:col-span-4 sm:row-start-2 ${
               conJs ? "" : "group-focus-within:[grid-template-rows:1fr]"
             }`}
           >
@@ -563,7 +669,7 @@ export default function BuscadorHome({
                           {RUBROS[p].map((rubro) => (
                             <Link
                               key={rubro.id}
-                              href={urlBusqueda(p, { q, provincia, categoria: rubro.id })}
+                              href={urlBusqueda(p, { ...comunes, categoria: rubro.id })}
                               className={`flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-aventurea-line bg-aventurea-surface pl-1.5 pr-4 transition-colors hover:border-aventurea-navy ${claseFoco}`}
                             >
                               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aventurea-sky/10 text-aventurea-orange [&_svg]:h-[18px] [&_svg]:w-[18px]">
@@ -589,7 +695,7 @@ export default function BuscadorHome({
                         {SUGERENCIAS[p].map((s) => (
                           <Link
                             key={s.label}
-                            href={urlBusqueda(p, { ...s.parametros, q, provincia })}
+                            href={urlBusqueda(p, { ...s.parametros, ...comunes })}
                             className={`font-bold text-aventurea-navy underline underline-offset-2 hover:text-aventurea-orange ${claseFoco}`}
                           >
                             {s.label}
@@ -599,7 +705,7 @@ export default function BuscadorHome({
 
                       <p className="mt-2 pb-1">
                         <Link
-                          href={urlBusqueda(p, { q, provincia })}
+                          href={urlBusqueda(p, comunes)}
                           className={`text-[12px] font-bold text-aventurea-navy underline underline-offset-2 hover:text-aventurea-orange ${claseFoco}`}
                         >
                           {TEXTOS[p].verTodo} →
@@ -617,7 +723,7 @@ export default function BuscadorHome({
               sistema: en iPhone una barra fija sin
               `env(safe-area-inset-bottom)` se tapa a sí misma. */}
           <div
-            className={`flex items-center sm:col-start-3 sm:row-start-1 sm:px-2 ${
+            className={`flex items-center sm:col-start-4 sm:row-start-1 sm:px-2 ${
               hoja
                 ? "sticky bottom-0 -mx-4 mt-auto border-t border-aventurea-line bg-aventurea-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3"
                 : "px-2 pb-1 pt-2 sm:pb-0 sm:pt-0"

@@ -19,8 +19,10 @@ import {
   opcionesDeDetalles,
   type CategoriaRestaurante,
 } from "./tipos";
-import { PROVINCIAS, type Provincia } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
+import { codigoPaisDe, esRegionDe, paisDe, type CodigoPais } from "@/lib/paises";
+import { COLUMNAS_PAIS, pedirFilas } from "@/lib/ranchos-publicos";
+import { urlCategoria, urlDirectorio } from "@/lib/url-directorio";
 
 export const metadata: Metadata = {
   title: "Restaurantes",
@@ -51,7 +53,15 @@ function unSolo(v: string | string[] | undefined): string | undefined {
 
 type Fila = Pick<
   Rancho,
-  "id" | "nombre" | "slug" | "descripcion" | "provincia" | "canton" | "foto_url" | "precio_desde"
+  | "id"
+  | "nombre"
+  | "slug"
+  | "descripcion"
+  | "pais"
+  | "provincia"
+  | "canton"
+  | "foto_url"
+  | "precio_desde"
 > & { categoria: string; detalles?: unknown };
 
 type Local = Omit<Fila, "categoria"> & { categoria: CategoriaRestaurante };
@@ -72,6 +82,7 @@ export default async function RestaurantesPage({
   searchParams: Promise<{
     categoria?: string | string[];
     q?: string | string[];
+    pais?: string | string[];
     provincia?: string | string[];
   }>;
 }) {
@@ -84,15 +95,19 @@ export default async function RestaurantesPage({
     : undefined;
   const busquedaSel = (unSolo(params.q) ?? "").trim();
   /**
+   * EL PAÍS. Mismo criterio que /citas: sin `?pais=` es Costa Rica —el
+   * comportamiento de siempre— y un código desconocido también cae ahí
+   * en vez de dejar la pantalla vacía.
+   */
+  const paisSel = codigoPaisDe(unSolo(params.pais));
+  /**
    * El "¿Dónde?" del buscador de la portada. Mismo criterio que
-   * /citas: se valida contra las 7 provincias oficiales y lo que no
+   * /citas: se valida contra las regiones DEL PAÍS elegido y lo que no
    * coincida se ignora, en vez de filtrar por una cadena inventada y
    * dejar la sección vacía sin explicación.
    */
   const provParam = unSolo(params.provincia);
-  const provinciaSel = (PROVINCIAS as readonly string[]).includes(provParam ?? "")
-    ? (provParam as Provincia)
-    : undefined;
+  const provinciaSel = esRegionDe(paisSel, provParam) ? provParam : undefined;
 
   return (
     <div className="relative min-h-screen bg-aventurea-cream-2">
@@ -115,12 +130,13 @@ export default async function RestaurantesPage({
             ocupan lo mismo y el CLS vuelve a 0,000. */}
         <div className="min-h-[592px]">
           <Suspense
-            key={`${categoriaSel ?? ""}|${busquedaSel}|${provinciaSel ?? ""}`}
+            key={`${categoriaSel ?? ""}|${busquedaSel}|${paisSel}|${provinciaSel ?? ""}`}
             fallback={<EsqueletoRestaurantes />}
           >
             <ContenidoRestaurantes
               categoria={categoriaSel}
               busqueda={busquedaSel}
+              pais={paisSel}
               provincia={provinciaSel}
             />
           </Suspense>
@@ -159,30 +175,43 @@ function EsqueletoRestaurantes() {
   );
 }
 
+/** Las columnas de siempre. `pais` va aparte: ver COLUMNAS_PAIS. */
+const COLUMNAS_RESTAURANTES_DIRECTORIO =
+  "id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, " +
+  "precio_desde, detalles";
+
 async function ContenidoRestaurantes({
   categoria,
   busqueda,
+  pais,
   provincia,
 }: {
   categoria: CategoriaRestaurante | undefined;
   busqueda: string;
-  provincia: Provincia | undefined;
+  pais: CodigoPais;
+  provincia: string | undefined;
 }) {
   const supabase = await createClient();
 
-  const [{ data: localesData }, { data: califData }] = await Promise.all([
-    supabase
-      .from("ranchos")
-      .select(
-        "id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde, detalles",
-      )
-      .eq("vertical", "restaurantes")
-      .eq("estado", "aprobado")
-      .order("created_at", { ascending: false }),
+  const [localesData, { data: califData }] = await Promise.all([
+    // Igual que /citas: `pais` se pide como columna joven, así que una
+    // base sin la columna reintenta sin ella en vez de dejar el
+    // directorio en blanco (una lista explícita falla ENTERA).
+    pedirFilas(
+      (columnas) =>
+        supabase
+          .from("ranchos")
+          .select(columnas)
+          .eq("vertical", "restaurantes")
+          .eq("estado", "aprobado")
+          .order("created_at", { ascending: false }),
+      COLUMNAS_RESTAURANTES_DIRECTORIO,
+      COLUMNAS_PAIS,
+    ),
     supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
   ]);
 
-  const locales: Local[] = ((localesData ?? []) as Fila[]).map((n) => ({
+  const locales: Local[] = (localesData as unknown as Fila[]).map((n) => ({
     ...n,
     categoria: normalizarCategoriaRestaurante(n.categoria),
   }));
@@ -190,9 +219,16 @@ async function ContenidoRestaurantes({
     ((califData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
   );
 
-  // La zona manda sobre todo lo demás: los conteos, las filas y el
+  // El país es el ALCANCE de la pantalla y se aplica antes que todo lo
+  // demás. `codigoPaisDe` lee como Costa Rica tanto la ausencia de la
+  // columna como el 'CR' en mayúscula que hay hoy en producción, así
+  // que sin `?pais=` esto deja pasar exactamente los mismos locales que
+  // antes de este cambio.
+  const enPais = locales.filter((n) => codigoPaisDe(n.pais) === pais);
+
+  // La zona manda sobre el resto: los conteos, las filas y el
   // "N resultados" hablan siempre de la misma lista.
-  const enZona = provincia ? locales.filter((n) => n.provincia === provincia) : locales;
+  const enZona = provincia ? enPais.filter((n) => n.provincia === provincia) : enPais;
 
   // La búsqueda se aplica antes que la categoría, para que los
   // conteos de los chips prometan justo lo que el clic entrega.
@@ -238,6 +274,7 @@ async function ContenidoRestaurantes({
           placeholder='Buscá por nombre, zona o comida — ej. "mariscos" o "Escazú"'
           categoria={categoria}
           busqueda={busqueda}
+          pais={pais}
           provincia={provincia}
           resultados={filtrados.length}
           opciones={CATEGORIAS_RESTAURANTES.map((c) => ({
@@ -247,7 +284,10 @@ async function ContenidoRestaurantes({
           }))}
         />
 
-        {filtrados.length === 0 && locales.length > 0 ? (
+        {/* Contra `enPais`, no contra todos: un país recién abierto
+            está vacío porque nadie publicó ahí todavía, y ahí el
+            mensaje correcto es la invitación a publicar. */}
+        {filtrados.length === 0 && enPais.length > 0 ? (
           <div className="bento bento-blanco mt-10 p-10 text-center shadow-sm">
             <p className="text-[15px] font-extrabold text-aventurea-ink">
               No encontramos nada con esa búsqueda
@@ -255,14 +295,18 @@ async function ContenidoRestaurantes({
             <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
               Probá con otra palabra, otra zona, o quitá los filtros.
             </p>
-            <Link href="/restaurantes" className="btn-contorno mt-6">
+            {/* Suelta los filtros pero NO el país. */}
+            <Link
+              href={urlDirectorio("/restaurantes", { pais })}
+              className="btn-contorno mt-6"
+            >
               Ver todos los restaurantes
             </Link>
           </div>
         ) : filtrados.length === 0 ? (
           <div className="bento bento-blanco mt-10 p-10 text-center shadow-sm">
             <p className="text-[15px] font-extrabold text-aventurea-ink">
-              Los primeros restaurantes están por llegar
+              Los primeros restaurantes de {paisDe(pais).nombre} están por llegar
             </p>
             <p className="mx-auto mt-2 max-w-[46ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
               Estamos abriendo esta sección. ¿Tenés un restaurante, soda o
@@ -285,13 +329,9 @@ async function ContenidoRestaurantes({
                     </span>
                   </h2>
                   <Link
-                    href={
-                      // Igual que en /citas: la zona no se cae al abrir
-                      // una categoría.
-                      provincia
-                        ? `/restaurantes?categoria=${f.categoria}&provincia=${encodeURIComponent(provincia)}`
-                        : `/restaurantes?categoria=${f.categoria}`
-                    }
+                    // Igual que en /citas: ni la zona ni el país se
+                    // caen al abrir una categoría.
+                    href={urlCategoria("/restaurantes", f.categoria, pais, provincia)}
                     className="shrink-0 text-[12.5px] font-extrabold text-aventurea-navy hover:text-aventurea-orange"
                   >
                     Ver todos →

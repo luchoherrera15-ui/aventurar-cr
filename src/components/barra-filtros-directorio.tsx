@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { IconCompass, IconSearch } from "@/components/icons";
+import { PAIS_POR_DEFECTO, paisDe } from "@/lib/paises";
+import { urlDirectorio } from "@/lib/url-directorio";
 
 /**
  * La barra de los directorios: buscador y, debajo, la fila de
@@ -30,6 +32,7 @@ export default function BarraFiltrosDirectorio({
   ariaLabel,
   categoria,
   busqueda,
+  pais,
   provincia,
   opciones,
   resultados,
@@ -43,8 +46,16 @@ export default function BarraFiltrosDirectorio({
   categoria?: string;
   busqueda: string;
   /**
-   * La provincia aplicada — el "¿Dónde?" del buscador de la portada,
-   * que llega por `?provincia=`. Si no viene, la barra se ve igual que
+   * El país que se está mirando, en ISO alfa-2 minúscula. Ausente (o
+   * "cr") = Costa Rica: la barra se ve EXACTAMENTE igual que siempre y
+   * el parámetro no aparece en ninguna URL. Solo se arrastra cuando el
+   * visitante está mirando otro país, para que tocar una categoría no
+   * lo devuelva a Costa Rica sin avisar.
+   */
+  pais?: string;
+  /**
+   * La región aplicada — el "¿Dónde?" del buscador de la portada, que
+   * llega por `?provincia=`. Si no viene, la barra se ve igual que
    * siempre: ni el aviso ni el parámetro existen.
    */
   provincia?: string;
@@ -54,33 +65,49 @@ export default function BarraFiltrosDirectorio({
   resultados: number;
 }) {
   /**
+   * El país ya resuelto, para poder decir "ver todo Panamá" en vez de
+   * "ver todo el país" y para saber si hay que emitir `?pais=`.
+   */
+  const paisActual = paisDe(pais);
+  const esPaisPorDefecto = paisActual.codigo === PAIS_POR_DEFECTO;
+
+  /**
    * La URL del directorio cambiando SOLO lo que se pide y conservando
    * el resto. Que los chips se llevaran puesta la provincia era el peor
    * de los dos males posibles: el visitante llegaba filtrado por zona,
-   * tocaba una categoría y el filtro desaparecía sin decir nada.
+   * tocaba una categoría y el filtro desaparecía sin decir nada. Con el
+   * país pasa lo mismo, y peor: perderlo devuelve al visitante a otro
+   * país entero.
    *
    * Para soltar un filtro se pasa la cadena vacía (`{ prov: "" }`), no
    * `undefined`: un `undefined` explícito dispararía el valor por
    * defecto y no borraría nada.
+   *
+   * Costa Rica nunca se emite; de eso se encarga `urlDirectorio`, que
+   * es el mismo armador que usan las páginas de /citas y /restaurantes
+   * para sus enlaces de "Ver todos" — así las dos mitades de la misma
+   * pantalla no pueden producir URLs con forma distinta.
    */
-  const url = (cambios: { cat?: string; q?: string; prov?: string } = {}): string => {
-    const cat = cambios.cat ?? categoria;
-    const q = cambios.q ?? busqueda;
-    const prov = cambios.prov ?? provincia;
-    const p = new URLSearchParams();
-    if (cat) p.set("categoria", cat);
-    if (q) p.set("q", q);
-    if (prov) p.set("provincia", prov);
-    const query = p.toString();
-    return query ? `${ruta}?${query}` : ruta;
-  };
+  const url = (cambios: { cat?: string; q?: string; prov?: string } = {}): string =>
+    urlDirectorio(ruta, {
+      categoria: cambios.cat ?? categoria,
+      q: cambios.q ?? busqueda,
+      pais: paisActual.codigo,
+      provincia: cambios.prov ?? provincia,
+    });
 
   return (
     <>
       <form method="get" action={ruta} className="relative mx-auto max-w-[640px]">
         {categoria && <input type="hidden" name="categoria" value={categoria} />}
         {/* Sin esto, buscar dentro de una provincia la soltaba: el form
-            GET reemplaza la query entera con lo que lleve adentro. */}
+            GET reemplaza la query entera con lo que lleve adentro. El
+            país corre el mismo riesgo, y por eso viaja igual — pero
+            solo cuando NO es Costa Rica, para no ensuciar la URL de
+            todas las búsquedas de hoy. */}
+        {!esPaisPorDefecto && (
+          <input type="hidden" name="pais" value={paisActual.codigo} />
+        )}
         {provincia && <input type="hidden" name="provincia" value={provincia} />}
         <IconSearch className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-aventurea-ink-soft" />
         <input
@@ -147,7 +174,11 @@ export default function BarraFiltrosDirectorio({
             href={url({ prov: "" })}
             className="font-bold text-aventurea-navy underline underline-offset-2 hover:text-aventurea-orange"
           >
-            ver todo el país
+            {/* "todo el país" servía cuando el país era uno solo y era
+                obvio cuál. Con varios hay que NOMBRARLO: soltar la zona
+                deja al visitante viendo Panamá entero, y tiene que
+                saberlo antes de tocar. */}
+            ver todo {paisActual.nombre}
           </Link>
         </p>
       )}

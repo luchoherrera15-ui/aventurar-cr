@@ -16,8 +16,10 @@ import {
   normalizarCategoriaCita,
   type CategoriaCita,
 } from "./tipos";
-import { PROVINCIAS, type Provincia } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
+import { codigoPaisDe, esRegionDe, paisDe, type CodigoPais } from "@/lib/paises";
+import { COLUMNAS_PAIS, pedirFilas } from "@/lib/ranchos-publicos";
+import { urlCategoria, urlDirectorio } from "@/lib/url-directorio";
 
 export const metadata: Metadata = {
   title: "Citas y Reservas",
@@ -57,7 +59,15 @@ function normalizarBusqueda(s: string): string {
 
 type Fila = Pick<
   Rancho,
-  "id" | "nombre" | "slug" | "descripcion" | "provincia" | "canton" | "foto_url" | "precio_desde"
+  | "id"
+  | "nombre"
+  | "slug"
+  | "descripcion"
+  | "pais"
+  | "provincia"
+  | "canton"
+  | "foto_url"
+  | "precio_desde"
 > & { categoria: string };
 
 /** Una fila ya normalizada: la categoría es una de las oficiales. */
@@ -90,6 +100,7 @@ export default async function CitasPage({
   searchParams: Promise<{
     categoria?: string | string[];
     q?: string | string[];
+    pais?: string | string[];
     provincia?: string | string[];
   }>;
 }) {
@@ -102,19 +113,23 @@ export default async function CitasPage({
     : undefined;
   const busqueda = (unSolo(params.q) ?? "").trim();
   /**
+   * EL PAÍS. Sin `?pais=` es Costa Rica —el comportamiento de siempre,
+   * y el de todas las URLs que ya están compartidas—, y un código que
+   * el catálogo no conoce también cae ahí en vez de vaciar la pantalla.
+   */
+  const pais = codigoPaisDe(unSolo(params.pais));
+  /**
    * El "¿Dónde?" del buscador de la portada llega por acá.
    *
-   * Se valida contra las 7 provincias oficiales —las mismas del CHECK
-   * de la columna— y lo que no coincida se ignora en vez de filtrar por
-   * una cadena inventada: `?provincia=Miami` mostraría cero negocios y
-   * parecería que el directorio está vacío. Se compara exacto (con
-   * tildes y mayúsculas) porque así se guarda en la base: el valor sale
-   * de un `<select>` armado con esta misma lista.
+   * Se valida contra las regiones DEL PAÍS elegido —antes eran siempre
+   * las 7 provincias de Costa Rica— y lo que no coincida se ignora en
+   * vez de filtrar por una cadena inventada: `?provincia=Miami`
+   * mostraría cero negocios y parecería que el directorio está vacío.
+   * Se compara exacto (con tildes y mayúsculas) porque así se guarda en
+   * la base: el valor sale de un `<select>` armado con esta misma lista.
    */
   const provinciaParam = unSolo(params.provincia);
-  const provincia = (PROVINCIAS as readonly string[]).includes(provinciaParam ?? "")
-    ? (provinciaParam as Provincia)
-    : undefined;
+  const provincia = esRegionDe(pais, provinciaParam) ? provinciaParam : undefined;
 
   return (
     <div className="relative min-h-screen bg-aventurea-cream-2">
@@ -130,12 +145,13 @@ export default async function CitasPage({
         </div>
 
         <Suspense
-          key={`${categoria ?? ""}|${busqueda}|${provincia ?? ""}`}
+          key={`${categoria ?? ""}|${busqueda}|${pais}|${provincia ?? ""}`}
           fallback={<EsqueletoCitas />}
         >
           <ContenidoCitas
             categoria={categoria}
             busqueda={busqueda}
+            pais={pais}
             provincia={provincia}
           />
         </Suspense>
@@ -167,28 +183,43 @@ function EsqueletoCitas() {
   );
 }
 
+/** Las columnas de siempre. `pais` va aparte: ver COLUMNAS_PAIS. */
+const COLUMNAS_CITAS_DIRECTORIO =
+  "id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde";
+
 async function ContenidoCitas({
   categoria,
   busqueda,
+  pais,
   provincia,
 }: {
   categoria: CategoriaCita | undefined;
   busqueda: string;
-  provincia: Provincia | undefined;
+  pais: CodigoPais;
+  provincia: string | undefined;
 }) {
   const supabase = await createClient();
 
-  const [{ data: negociosData }, { data: califData }] = await Promise.all([
-    supabase
-      .from("ranchos")
-      .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde")
-      .eq("vertical", "citas")
-      .eq("estado", "aprobado")
-      .order("created_at", { ascending: false }),
+  const [negociosData, { data: califData }] = await Promise.all([
+    // `pedirFilas` pide `pais` y, si la base todavía no tiene la
+    // columna, vuelve a pedir sin ella. Una lista explícita que nombre
+    // una columna inexistente hace fallar la consulta ENTERA, y acá eso
+    // sería el directorio de Citas en blanco.
+    pedirFilas(
+      (columnas) =>
+        supabase
+          .from("ranchos")
+          .select(columnas)
+          .eq("vertical", "citas")
+          .eq("estado", "aprobado")
+          .order("created_at", { ascending: false }),
+      COLUMNAS_CITAS_DIRECTORIO,
+      COLUMNAS_PAIS,
+    ),
     supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
   ]);
 
-  const negocios: Negocio[] = ((negociosData ?? []) as Fila[]).map((n) => ({
+  const negocios: Negocio[] = (negociosData as unknown as Fila[]).map((n) => ({
     ...n,
     categoria: normalizarCategoriaCita(n.categoria),
   }));
@@ -196,11 +227,23 @@ async function ContenidoCitas({
     ((califData ?? []) as Calificacion[]).map((c) => [c.rancho_id, c]),
   );
 
-  // La zona se aplica primero, y sobre ella todo lo demás: así los
-  // conteos de los chips, las filas por categoría y el "N resultados"
-  // hablan siempre de la misma lista. Se compara contra la columna
-  // `provincia` tal cual la guarda el negocio.
-  const enZona = provincia ? negocios.filter((n) => n.provincia === provincia) : negocios;
+  // EL PAÍS MANDA SOBRE TODO LO DEMÁS: es el alcance de la pantalla, no
+  // un filtro más. Se aplica antes que la zona, la búsqueda y la
+  // categoría, así que los conteos y el "N resultados" hablan siempre
+  // de negocios de ESE país.
+  //
+  // `codigoPaisDe` es lo que hace que esto no rompa nada hoy: mientras
+  // la 0170 no esté pegada, las filas traen `pais` en MAYÚSCULA ('CR')
+  // —o no lo traen, si la columna no existe— y las tres formas se leen
+  // como Costa Rica. Con `?pais=cr` (o sin el parámetro) el filtro deja
+  // pasar exactamente los mismos negocios que antes de este cambio.
+  const enPais = negocios.filter((n) => codigoPaisDe(n.pais) === pais);
+
+  // La zona se aplica sobre lo anterior: así los conteos de los chips,
+  // las filas por categoría y el "N resultados" hablan siempre de la
+  // misma lista. Se compara contra la columna `provincia` tal cual la
+  // guarda el negocio.
+  const enZona = provincia ? enPais.filter((n) => n.provincia === provincia) : enPais;
 
   // El buscador filtra por nombre, zona, rubro o descripción. Se
   // aplica ANTES que la categoría para que los conteos de los chips
@@ -249,6 +292,7 @@ async function ContenidoCitas({
           placeholder='Buscá por nombre, zona o rubro — ej. "uñas" o "Moravia"'
           categoria={categoria}
           busqueda={busqueda}
+          pais={pais}
           provincia={provincia}
           resultados={filtrados.length}
           opciones={CATEGORIAS_CITAS.map((c) => ({
@@ -258,7 +302,12 @@ async function ContenidoCitas({
           }))}
         />
 
-        {filtrados.length === 0 && negocios.length > 0 ? (
+        {/* Se compara contra `enPais` y no contra todos los negocios:
+            en un país recién abierto la lista está vacía porque todavía
+            no hay nadie publicado ahí, no porque la búsqueda no
+            encontrara nada — y el mensaje correcto es la invitación a
+            publicar, no "probá con otra palabra". */}
+        {filtrados.length === 0 && enPais.length > 0 ? (
           <div className="bento bento-blanco mt-10 p-10 text-center shadow-sm">
             <p className="text-[15px] font-extrabold text-aventurea-ink">
               No encontramos nada con esa búsqueda
@@ -266,14 +315,19 @@ async function ContenidoCitas({
             <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
               Probá con otra palabra, otra zona, o quitá los filtros.
             </p>
-            <Link href="/citas" className="btn-contorno mt-6">
+            {/* Suelta los filtros pero NO el país: quien está mirando
+                Panamá quiere ver todo Panamá, no volver a Costa Rica. */}
+            <Link href={urlDirectorio("/citas", { pais })} className="btn-contorno mt-6">
               Ver todos los negocios
             </Link>
           </div>
         ) : filtrados.length === 0 ? (
           <div className="bento bento-blanco mt-10 p-10 text-center shadow-sm">
+            {/* Con el país nombrado: en Costa Rica dice lo de siempre,
+                y en un país recién abierto explica POR QUÉ está vacío
+                en vez de dar a entender que Bookea entera lo está. */}
             <p className="text-[15px] font-extrabold text-aventurea-ink">
-              Los primeros negocios están por llegar
+              Los primeros negocios de {paisDe(pais).nombre} están por llegar
             </p>
             <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
               Estamos abriendo esta sección. ¿Tenés un salón, barbería, spa o
@@ -300,15 +354,11 @@ async function ContenidoCitas({
                     </span>
                   </h2>
                   <Link
-                    href={
-                      // La zona se conserva al abrir una categoría: si
-                      // se cayera acá, "Ver todos" saltaría de "las
-                      // barberías de Cartago" a "las de todo el país"
-                      // sin avisar.
-                      provincia
-                        ? `/citas?categoria=${f.categoria}&provincia=${encodeURIComponent(provincia)}`
-                        : `/citas?categoria=${f.categoria}`
-                    }
+                    // La zona Y EL PAÍS se conservan al abrir una
+                    // categoría: si se cayeran acá, "Ver todos"
+                    // saltaría de "las barberías de Cartago" a "las de
+                    // todo el país" —o directo a otro país— sin avisar.
+                    href={urlCategoria("/citas", f.categoria, pais, provincia)}
                     className="shrink-0 text-[12.5px] font-extrabold text-aventurea-navy hover:text-aventurea-orange"
                   >
                     Ver todos →

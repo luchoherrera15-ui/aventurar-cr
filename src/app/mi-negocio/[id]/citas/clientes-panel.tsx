@@ -12,6 +12,7 @@ import {
 } from "@/lib/crm-citas";
 import { enviarCampanaNegocio } from "./campanas-actions";
 import type { ResultadoCampanaNegocio } from "@/lib/campanas/citas";
+import type { Vocabulario } from "@/lib/business/identidad";
 
 const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500";
@@ -36,16 +37,35 @@ type Destino =
  * de re-enganche ahí mismo. La ficha se deriva de las reservas (lib
  * crm-citas); los envíos pasan por consentimiento y frenos en el
  * servidor (campanas-actions).
+ *
+ * `vocabulario` llega del tipo de negocio (lib/business/identidad): en
+ * un consultorio esta misma lista es de PACIENTES y sus CONSULTAS, y en
+ * un gimnasio de MIEMBROS y sus SESIONES. El color va por
+ * `var(--acento…)`, que la página deja puesto en el contenedor.
  */
 export default function ClientesPanel({
   ranchoId,
   nombreNegocio,
   clientes,
+  vocabulario,
+  promociones,
 }: {
   ranchoId: string;
   nombreNegocio: string;
   clientes: ClienteCRM[];
+  vocabulario: Vocabulario;
+  /**
+   * ¿Este negocio le habla a su gente en tono comercial?
+   *
+   * En salud, no: escribirle a un paciente una "promoción" para que
+   * vuelva es exactamente lo que Bookea no debe empujar (la misma razón
+   * por la que `consultorio` no declara el módulo de marketing). El
+   * correo sigue existiendo —un consultorio necesita poder escribirle a
+   * su gente— pero se llama por su nombre: un mensaje.
+   */
+  promociones: boolean;
 }) {
+  const { persona, visita } = vocabulario;
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [busqueda, setBusqueda] = useState("");
   const [destino, setDestino] = useState<Destino | null>(null);
@@ -75,9 +95,15 @@ export default function ClientesPanel({
   function abrirPromoCliente(cliente: ClienteCRM) {
     setResultado(null);
     setDestino({ tipo: "cliente", cliente });
-    setAsunto(`Te extrañamos en ${nombreNegocio} — tu próxima cita te espera`);
+    setAsunto(
+      promociones
+        ? `Te extrañamos en ${nombreNegocio} — tu próxima ${visita.singular} te espera`
+        : `Un mensaje de ${nombreNegocio}`,
+    );
     setMensaje(
-      `Hola ${cliente.nombre?.split(" ")[0] ?? ""}:\n\nHace tiempo no te vemos por ${nombreNegocio} y queremos que volvás. Escribinos o reservá en línea y te guardamos el espacio.\n\n¡Te esperamos!`,
+      promociones
+        ? `Hola ${cliente.nombre?.split(" ")[0] ?? ""}:\n\nHace tiempo no te vemos por ${nombreNegocio} y queremos que volvás. Escribinos o reservá en línea y te guardamos el espacio.\n\n¡Te esperamos!`
+        : `Hola ${cliente.nombre?.split(" ")[0] ?? ""}:\n\nHace un tiempo que no coordinamos una ${visita.singular} en ${nombreNegocio}. Si querés agendar, escribinos o reservá en línea.\n`,
     );
   }
 
@@ -85,14 +111,18 @@ export default function ClientesPanel({
     setResultado(null);
     setDestino({ tipo: "segmento", segmento, correos });
     setAsunto(
-      segmento === "inactivos"
-        ? `Te extrañamos en ${nombreNegocio}`
-        : `Novedades de ${nombreNegocio}`,
+      !promociones
+        ? `Un mensaje de ${nombreNegocio}`
+        : segmento === "inactivos"
+          ? `Te extrañamos en ${nombreNegocio}`
+          : `Novedades de ${nombreNegocio}`,
     );
     setMensaje(
-      segmento === "inactivos"
-        ? `Hola:\n\nHace tiempo no te vemos por ${nombreNegocio}. Reservá tu próxima cita en línea — te esperamos.\n`
-        : `Hola:\n\nEn ${nombreNegocio} tenemos novedades para vos. Reservá tu próxima cita en línea.\n`,
+      !promociones
+        ? `Hola:\n\nTe escribimos de ${nombreNegocio}. Si querés agendar una ${visita.singular}, respondé este correo o reservá en línea.\n`
+        : segmento === "inactivos"
+          ? `Hola:\n\nHace tiempo no te vemos por ${nombreNegocio}. Reservá tu próxima ${visita.singular} en línea — te esperamos.\n`
+          : `Hola:\n\nEn ${nombreNegocio} tenemos novedades para vos. Reservá tu próxima ${visita.singular} en línea.\n`,
     );
   }
 
@@ -128,8 +158,8 @@ export default function ClientesPanel({
   if (clientes.length === 0) {
     return (
       <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] leading-relaxed text-aventurea-ink-soft">
-        Tus clientes van a aparecer acá solos, con su historial de citas,
-        cuando entren las primeras reservas.
+        Tus {persona.plural} van a aparecer acá solos, con su historial de{" "}
+        {visita.plural}, cuando entren las primeras.
       </p>
     );
   }
@@ -140,7 +170,7 @@ export default function ClientesPanel({
       <div className="flex flex-wrap gap-3">
         <div className="min-w-[140px] flex-1 rounded-2xl border border-aventurea-line bg-white px-5 py-3.5 sm:flex-none">
           <p className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Clientes
+            {persona.Plural}
           </p>
           <p className="text-[18px] font-extrabold text-aventurea-ink">{clientes.length}</p>
         </div>
@@ -176,13 +206,22 @@ export default function ClientesPanel({
 
       {reincidentes.length > 0 && (
         <div className="rounded-xl border border-red-300 bg-red-50 p-3.5 text-[13px] text-aventurea-ink">
-          ⚠ <strong>{reincidentes.length === 1 ? "Un cliente te está fallando" : `${reincidentes.length} clientes te están fallando`}:</strong>{" "}
+          ⚠{" "}
+          <strong>
+            {reincidentes.length === 1
+              ? `Un ${persona.singular} te está fallando`
+              : `${reincidentes.length} ${persona.plural} te están fallando`}
+            :
+          </strong>{" "}
           {reincidentes
             .slice(0, 3)
             .map((c) => c.nombre ?? "sin nombre")
             .join(", ")}
           {reincidentes.length > 3 ? ` y ${reincidentes.length - 3} más` : ""} faltaron a sus
-          últimas 2 citas (o más). Una promoción a tiempo suele recuperarlos.
+          últimas 2 {visita.plural} (o más).{" "}
+          {promociones
+            ? "Una promoción a tiempo suele recuperarlos."
+            : "Un mensaje a tiempo suele ayudar."}
         </div>
       )}
 
@@ -222,8 +261,12 @@ export default function ClientesPanel({
         <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-navy/30 bg-aventurea-surface p-5">
           <h3 className="text-[15px] font-bold text-aventurea-ink">
             {destino.tipo === "cliente"
-              ? `Promoción para ${destino.cliente.nombre ?? destino.cliente.correo}`
-              : `Correo a ${destino.correos.length} cliente${destino.correos.length === 1 ? "" : "s"}`}
+              ? `${promociones ? "Promoción" : "Mensaje"} para ${
+                  destino.cliente.nombre ?? destino.cliente.correo
+                }`
+              : `Correo a ${destino.correos.length} ${
+                  destino.correos.length === 1 ? persona.singular : persona.plural
+                }`}
           </h3>
           <p className="text-[12.5px] text-aventurea-ink-soft">
             Sale con el nombre de {nombreNegocio} a través de Bookea, con link
@@ -300,9 +343,20 @@ export default function ClientesPanel({
             type="button"
             onClick={() => setFiltro(f)}
             aria-pressed={filtro === f}
+            // El filtro activo se pinta con el acento del tipo de
+            // negocio, no con el navy fijo de antes.
+            style={
+              filtro === f
+                ? {
+                    backgroundColor: "var(--acento-solido)",
+                    borderColor: "var(--acento-solido)",
+                    color: "var(--acento-sobre)",
+                  }
+                : undefined
+            }
             className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold ${
               filtro === f
-                ? "border-aventurea-navy bg-aventurea-navy text-white"
+                ? ""
                 : "border-aventurea-line bg-white text-aventurea-ink-soft hover:border-aventurea-sky"
             }`}
           >
@@ -316,14 +370,14 @@ export default function ClientesPanel({
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar por nombre, correo o teléfono"
-          aria-label="Buscar cliente"
+          aria-label={`Buscar ${persona.singular}`}
           className="min-w-[220px] flex-1 rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2 text-[13px] text-aventurea-ink placeholder:text-zinc-500"
         />
       </div>
 
       {visibles.length === 0 ? (
         <p className="rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4 text-[13px] text-aventurea-ink-soft">
-          Ningún cliente calza con ese filtro.
+          Ningún {persona.singular} calza con ese filtro.
         </p>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface">
@@ -332,12 +386,18 @@ export default function ClientesPanel({
               key={c.clave}
               className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-aventurea-line px-4 py-3 last:border-none"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-[15px] font-bold text-white">
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[15px] font-bold"
+                style={{
+                  backgroundColor: "var(--acento-solido)",
+                  color: "var(--acento-sobre)",
+                }}
+              >
                 {(c.nombre ?? c.correo ?? "?").trim().charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="break-words text-[13.5px] font-bold text-aventurea-ink">
-                  {c.nombre ?? c.correo ?? c.whatsapp ?? "Cliente"}
+                  {c.nombre ?? c.correo ?? c.whatsapp ?? persona.Singular}
                   {esReincidente(c) && (
                     <span className="ml-2 whitespace-nowrap rounded-lg bg-red-50 px-2 py-0.5 text-[10.5px] font-bold text-red-700">
                       Faltó a sus últimas {c.fallosSeguidos}
@@ -350,7 +410,7 @@ export default function ClientesPanel({
                   )}
                 </p>
                 <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">
-                  {c.cumplidas} visita{c.cumplidas === 1 ? "" : "s"}
+                  {c.cumplidas} {c.cumplidas === 1 ? visita.singular : visita.plural}
                   {c.noAsistio > 0 && ` · ${c.noAsistio} no-show${c.noAsistio === 1 ? "" : "s"}`}
                   {c.gastoTotal > 0 && ` · ${fmtColones(c.gastoTotal)}`}
                   {c.ultimaVisita && ` · última: ${fmtFechaCorta(c.ultimaVisita)}`}
@@ -373,7 +433,7 @@ export default function ClientesPanel({
                   onClick={() => abrirPromoCliente(c)}
                   className="h-[30px] shrink-0 rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-3 text-xs font-bold text-aventurea-navy hover:border-aventurea-sky hover:text-aventurea-orange"
                 >
-                  Mandar promo
+                  {promociones ? "Mandar promo" : "Escribirle"}
                 </button>
               )}
             </div>

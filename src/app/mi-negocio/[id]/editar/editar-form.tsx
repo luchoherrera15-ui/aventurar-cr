@@ -79,9 +79,15 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
   const [detalles, setDetalles] = useState<DetallesServicio>(
     (rancho.detalles as DetallesServicio) ?? {},
   );
-  const [provincia, setProvincia] = useState<Provincia | "">(
-    rancho.provincia ?? "",
-  );
+  /**
+   * `string` y no `Provincia | ""`: lo guardado puede ser la región de
+   * cualquier país (`Rancho["provincia"]` dejó de ser la unión de las 7
+   * de Costa Rica el día que Bookea se abrió al continente). El
+   * `<select>` de abajo sigue ofreciendo solo las de Costa Rica —el
+   * selector por país es otra tanda—, pero el estado ya no le miente al
+   * compilador sobre lo que puede llegar de la base.
+   */
+  const [provincia, setProvincia] = useState<string>(rancho.provincia ?? "");
   const [canton, setCanton] = useState(rancho.canton ?? "");
 
   // Dirección exacta y ubicación en el mapa: cualquier negocio con
@@ -478,7 +484,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 required
                 value={provincia}
                 onChange={(e) => {
-                  setProvincia(e.target.value as Provincia);
+                  setProvincia(e.target.value);
                   setCanton("");
                 }}
                 className={inputCls}
@@ -508,7 +514,10 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 {canton && !CANTONES[provincia as Provincia]?.includes(canton) && (
                   <option value={canton}>{canton}</option>
                 )}
-                {(provincia ? CANTONES[provincia as Provincia] : []).map((ct) => (
+                {/* `?? []` porque `CANTONES` solo tiene las 7 provincias
+                    ticas: una región de otro país devolvería undefined y
+                    el `.map` reventaría la pantalla de edición. */}
+                {(provincia ? (CANTONES[provincia as Provincia] ?? []) : []).map((ct) => (
                   <option key={ct} value={ct}>
                     {ct}
                   </option>

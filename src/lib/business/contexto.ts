@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  esTipoNegocio,
   resolverModulos,
   tipoNegocioEfectivo,
   type ModuloId,
@@ -70,7 +71,12 @@ export function contextoDesdeDatos(
 
   return {
     tipo,
-    tipoExplicito: !!guardado,
+    // Explícito = el dueño eligió un tipo QUE ESTE DEPLOY RECONOCE. Un
+    // valor guardado que no está en el catálogo (dato viejo, tipo que
+    // se renombró) se comporta igual que null: `tipoNegocioEfectivo` lo
+    // ignora y deriva, así que decir "vos elegiste esto" sería mentira
+    // — y la pantalla de Configuración le ofrece confirmar el derivado.
+    tipoExplicito: !!guardado && esTipoNegocio(guardado),
     modulos: resolverModulos({ tipo, overrides }),
     overrides,
     errorModulos,
