@@ -1,15 +1,16 @@
-# Runbook de aplicación remota — Wallet V2 (0156-0167)
+# Runbook de aplicación remota — Wallet V2 (0156-0168)
 
 > **Este documento es un plan. No se ejecutó nada de esto contra
 > remoto.** Se escribe en Fase 2C, junto con el resto del
-> endurecimiento, y se actualiza en Fase 2D. Cubre 12 migraciones: las
+> endurecimiento, y se actualiza en Fase 2D. Cubre 13 migraciones: las
 > 10 de Fase 2B (0156-0165, ya endurecidas en Fase 2C) más `0166`, que
 > corrige un bug real **ya en producción hoy** (independiente de
 > Wallet V2 — ver `fase-2c-resultado.md` §10), más `0167` (Fase 2D),
 > que agrega las dos funciones `security definer` que el worker de
 > sincronización necesita para reclamar trabajos por RPC (PostgREST no
 > permite componer el `UPDATE ... WHERE ... FOR UPDATE SKIP LOCKED`
-> desde el cliente).
+> desde el cliente), más `0168` (Fase 2D), la vista de diagnóstico de
+> solo lectura para soporte administrativo.
 
 ## Antes
 
@@ -42,6 +43,7 @@ anterior haya corrido):
 0165_wallet_v2_proteger_columnas_internas.sql    (incluye la protección de INSERT, Fase 2C)
 0166_wallet_v2_revertir_movimiento_unique_real.sql
 0167_wallet_v2_reclamo_atomico_sincronizacion.sql   (Fase 2D — reclamo del worker)
+0168_wallet_v2_diagnostico_correlacion.sql          (Fase 2D — vista de diagnóstico, solo lectura)
 ```
 
 **Método de aplicación**: igual que las 155 anteriores — pegar cada
