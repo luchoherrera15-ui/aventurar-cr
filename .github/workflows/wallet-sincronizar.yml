@@ -1,0 +1,37 @@
+name: Wallet V2 — worker de sincronización
+
+# Llama a /api/wallet/sincronizar cada 5 minutos: barre leases vencidas,
+# reclama hasta LOTE_MAXIMO trabajos pendientes de wallet_sincronizaciones
+# y les avisa a Apple/Google. Apagado por defecto en el servidor
+# (WALLET_V2_SYNC_ENABLED, src/lib/wallet/sync/flags.ts) — este cron
+# puede existir y correr sin que el worker haga nada todavía.
+#
+# Vive acá y no en vercel.json por lo mismo que pases-en-pausa.yml y el
+# recordatorio horario: Vercel Hobby solo permite crons DIARIOS y
+# rechaza el deploy entero si vercel.json trae uno más frecuente, sin
+# dejar rastro en la lista de deployments. No hay Supabase Edge
+# Function ni pg_cron en este repo — introducir uno acá crearía un
+# segundo runtime compitiendo con el único que ya existe.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+# Serializa las invocaciones en la capa del disparador (igual que
+# pases-en-pausa.yml): si una corrida se demora, la siguiente espera en
+# vez de solaparse. El worker en sí ya es seguro ante solapamiento real
+# (FOR UPDATE SKIP LOCKED, 0167) — esto es la primera línea de defensa,
+# no la única.
+concurrency:
+  group: wallet-sincronizar
+  cancel-in-progress: false
+
+jobs:
+  llamar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a /api/wallet/sincronizar
+        run: |
+          curl -sf --max-time 55 -X GET \
+            "https://www.bookea.lat/api/wallet/sincronizar" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

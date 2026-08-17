@@ -1,19 +1,22 @@
-# Runbook de aplicación remota — Wallet V2 (0156-0166)
+# Runbook de aplicación remota — Wallet V2 (0156-0167)
 
 > **Este documento es un plan. No se ejecutó nada de esto contra
 > remoto.** Se escribe en Fase 2C, junto con el resto del
-> endurecimiento, para que la aplicación futura (cuando el dueño la
-> autorice) tenga un procedimiento escrito en vez de improvisarse.
-> Cubre 11 migraciones: las 10 de Fase 2B (0156-0165, ya endurecidas
-> en Fase 2C) más `0166`, que corrige un bug real **ya en producción
-> hoy** (independiente de Wallet V2 — ver `fase-2c-resultado.md` §10).
+> endurecimiento, y se actualiza en Fase 2D. Cubre 12 migraciones: las
+> 10 de Fase 2B (0156-0165, ya endurecidas en Fase 2C) más `0166`, que
+> corrige un bug real **ya en producción hoy** (independiente de
+> Wallet V2 — ver `fase-2c-resultado.md` §10), más `0167` (Fase 2D),
+> que agrega las dos funciones `security definer` que el worker de
+> sincronización necesita para reclamar trabajos por RPC (PostgREST no
+> permite componer el `UPDATE ... WHERE ... FOR UPDATE SKIP LOCKED`
+> desde el cliente).
 
 ## Antes
 
 | Ítem | Estado / instrucción |
 |---|---|
 | Backup disponible | Confirmar que Supabase tiene un backup/PITR reciente (panel de Supabase → Database → Backups) antes de empezar. No se verificó desde acá — es solo lectura de metadata de esquema, no de la configuración de backups del proyecto |
-| Estado de migraciones | Confirmado en Fase 2C (`drift-remoto.md` §2): ninguna de 0156-0166 está aplicada en remoto. Este proyecto no usa `supabase db push` — el dueño pega cada migración a mano en el SQL Editor (`estado-migraciones.mjs` es el mecanismo de verificación, no la tabla de control del CLI) |
+| Estado de migraciones | Confirmado en Fase 2C y reconfirmado en Fase 2D: ninguna de 0156-0167 está aplicada en remoto. Este proyecto no usa `supabase db push` — el dueño pega cada migración a mano en el SQL Editor (`estado-migraciones.mjs` es el mecanismo de verificación, no la tabla de control del CLI) |
 | Commit exacto | Registrar el hash de `git rev-parse HEAD` en el momento real de aplicar — este documento se escribió sobre working tree sin commitear todavía (Fase 2C no hace commits sin que se pida). No hardcodear un hash acá que quedaría desactualizado |
 | Build exacto | `npm run build` debe terminar en `exit 0` inmediatamente antes de aplicar — ver sección 13 de `fase-2c-resultado.md` para la corrida más reciente |
 | Conteos preflight | Ya tomados en Fase 2C, solo lectura (`preflight-datos-remotos.md`): 1 cuenta, 1 programa (sin `cuenta_id` enlazado), 2 miembros, 3 pases (2 Apple + 1 Google), 0 canjes, 0 intentos_canje, 1 divergencia de saldo conocida (se resuelve con el backfill de 0159) |
@@ -38,6 +41,7 @@ anterior haya corrido):
 0164_wallet_v2_update_tag_monotonico.sql
 0165_wallet_v2_proteger_columnas_internas.sql    (incluye la protección de INSERT, Fase 2C)
 0166_wallet_v2_revertir_movimiento_unique_real.sql
+0167_wallet_v2_reclamo_atomico_sincronizacion.sql   (Fase 2D — reclamo del worker)
 ```
 
 **Método de aplicación**: igual que las 155 anteriores — pegar cada
@@ -79,6 +83,7 @@ select tgname from pg_trigger where tgrelid = 'transacciones_puntos'::regclass a
 - Después de `0160`: `select tgname from pg_trigger where tgrelid = 'transacciones_puntos'::regclass and not tgisinternal;` → debe listar `transacciones_puntos_inmutable_trg`.
 - Después de `0165`: intentar (con una sesión real, no `service_role`) un `UPDATE programa_lealtad SET diseno_version = 999` como el dueño real de un programa → la fila debe volver con el valor viejo, no 999.
 - Después de `0166`: `select indexname from pg_indexes where indexname = 'transacciones_puntos_reversion_de_unica_idx';` → debe existir.
+- Después de `0167`: `select proname from pg_proc where proname in ('wallet_barrer_lease_expirada','wallet_reclamar_sincronizaciones');` → deben existir las dos. El worker (`WALLET_V2_SYNC_ENABLED`) sigue apagado por defecto — aplicar `0167` no activa nada por sí solo.
 
 **Qué hacer si una migración falla**: parar ahí — no seguir con la
 siguiente. Las migraciones 1-6 del lote (0156-0161) son aditivas

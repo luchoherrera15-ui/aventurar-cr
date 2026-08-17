@@ -35,11 +35,12 @@ o volver a publicar el cuerpo anterior de la función.
 | `0164` (update_tag monotónico) | `CREATE OR REPLACE FUNCTION public.wallet_encolar_sincronizacion` con el cuerpo de `0161` (sin el incremento de `update_tag`) — la columna `update_tag` en sí se puede dejar, no molesta si nada la usa |
 | `0165` (protección de columnas internas, **Fase 2C: ahora también cubre INSERT**) | `DROP TRIGGER programa_lealtad_proteger_columnas_sistema_trg ON programa_lealtad; DROP FUNCTION public.programa_lealtad_proteger_columnas_sistema(); ALTER TABLE programa_lealtad DROP COLUMN diseno_version, DROP COLUMN cuenta_id_confirmada;` — revertir a la versión "solo UPDATE" del trigger (sin el `if tg_op = 'INSERT'`) reabre el hallazgo de Fase 2C: un dueño podría volver a fijar `diseno_version`/`cuenta_id_confirmada` arbitrarios desde el alta |
 | `0166` (índice único real de `reversion_de`, **Fase 2C — corrige un bug preexistente, no de Wallet V2**) | `DROP INDEX transacciones_puntos_reversion_de_unica_idx;` — **fuertemente desaconsejado**: sin este índice, `revertir_movimiento` (ya en producción desde 0125/0139) vuelve a permitir más de una reversa para el mismo movimiento bajo llamadas concurrentes (ver `fase-2c-resultado.md` §10) |
+| `0167` (funciones de reclamo del worker, Fase 2D) | `DROP FUNCTION public.wallet_reclamar_sincronizaciones(integer, text); DROP FUNCTION public.wallet_barrer_lease_expirada(integer);` — seguro: ninguna otra función depende de estas dos, y con `WALLET_V2_SYNC_ENABLED` apagado (default) el worker nunca las llama. Revertir esto simplemente deja al worker sin forma de reclamar trabajos — no pierde ni corrompe ninguna fila de `wallet_sincronizaciones` |
 
 ## Orden de rollback si hiciera falta revertir TODO
 
-Al revés del orden de aplicación: `0166 → 0165 → 0164 → 0163 → 0162 →
-0161 → 0160 → 0159 → 0158 → 0157 → 0156`. Cada paso es independiente —
+Al revés del orden de aplicación: `0167 → 0166 → 0165 → 0164 → 0163 →
+0162 → 0161 → 0160 → 0159 → 0158 → 0157 → 0156`. Cada paso es independiente —
 no hace falta llegar hasta el final si el problema está en una
 migración específica. **`0166` es un caso aparte**: como corrige un bug
 ya activo en producción hoy (independiente de que se aplique el resto
