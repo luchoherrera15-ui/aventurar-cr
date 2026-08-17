@@ -454,7 +454,7 @@ export default function FormularioCodigoAcceso({
               : "Enviarme el código"}
       </button>
 
-      <p className="text-center text-[12px] leading-relaxed text-zinc-400">
+      <p className="text-center text-[12px] leading-relaxed text-aventurea-ink-soft">
         Sin contraseñas: te mandamos un código de un solo uso al correo y con
         eso entrás — no hay nada que recordar.
         {pedirNombreSiNuevo &&

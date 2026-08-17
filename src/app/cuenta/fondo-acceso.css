@@ -1,0 +1,438 @@
+/* Estilos SOLO de la pantalla de acceso (/cuenta sin sesión) —
+   separados de globals.css a propósito: son ~200 líneas de ambiente
+   que ninguna otra página del sitio necesita descargar. Misma
+   convención que reel.css (/invitaciones) y mockup-pase.css (/lealtad):
+   un .css al lado de su componente, importado una sola vez.
+
+   Todo lo de acá es DECORATIVO. El marco entero va `aria-hidden` y
+   `pointer-events: none` desde el TSX: nada de esto afirma nada ni se
+   puede tocar. Los colores salen de los tokens de marca (--navy,
+   --orange, --bg, --grey, --color-aventurea-sky): cero hex de marca
+   suelto.
+
+   MOVIMIENTO REDUCIDO: cada clase animada deja su estado quieto en la
+   regla base y la animación solo lo pisa mientras corre. Así el bloque
+   `prefers-reduced-motion` del final apaga TODO con un `animation:
+   none` y el fondo queda entero — quieto, no ausente.
+
+   TRANSLÚCIDOS: los colores con alfa se declaran UNA vez acá abajo como
+   variables, primero en versión plana y después pisados por `color-mix()`
+   dentro de un `@supports`. No es adorno: Tailwind + Lightning CSS emiten
+   solos el respaldo plano de un `color-mix()` cuando pueden calcularlo,
+   pero acá el mezclado va sobre `var(--navy)` y compañía, que el
+   compilador no resuelve — así que sale el `color-mix()` pelado y en
+   Safari < 16.2 la declaración entera se descarta (el fondo se quedaría
+   sin líneas y los puntos sin anillo). `src/app/globals.test.ts` verifica
+   justo esto sobre el CSS ya construido. */
+
+/* --- El lienzo -------------------------------------------------------- */
+
+.acceso-marco {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--grey) 100%);
+
+  /* Respaldo PLANO de cada translúcido, con tokens de marca y ningún hex
+     suelto. Es lo que ve un navegador viejo: el mismo dibujo, resuelto
+     con el token opaco más cercano en vez de con una mezcla. */
+  --acceso-linea-1: var(--line);
+  --acceso-linea-2: var(--line);
+  --acceso-linea-3: var(--line);
+  --acceso-halo-centro: var(--bg);
+  --acceso-halo-medio: transparent;
+  --acceso-ambiente: var(--line);
+  --acceso-sombra-punto: none;
+  --acceso-anillo: var(--orange);
+}
+
+/* Y acá el valor bueno, solo donde `color-mix()` de verdad existe. El
+   `@supports` no sobra aunque el destino sea una variable: una custom
+   property acepta CUALQUIER lista de tokens sin validarla, así que sin
+   esta guarda el navegador viejo se quedaría igual con el `color-mix()`
+   pelado adentro y recién lo descartaría al usarlo — o sea, sin respaldo. */
+@supports (color: color-mix(in srgb, red, blue)) {
+  .acceso-marco {
+    --acceso-linea-1: color-mix(in srgb, var(--navy) 7%, transparent);
+    --acceso-linea-2: color-mix(in srgb, var(--navy) 6%, transparent);
+    --acceso-linea-3: color-mix(in srgb, var(--navy) 5%, transparent);
+    --acceso-halo-centro: color-mix(in srgb, var(--bg) 97%, transparent);
+    --acceso-halo-medio: color-mix(in srgb, var(--bg) 62%, transparent);
+    /* 42%, no 20%. Al 20% daba 1,48:1 contra el fondo: la mitad de la
+       frase («Todo lo que buscás,») directamente no se leía y quedaba un
+       «más cerca.» suelto, que se lee como un error de maquetación y no
+       como una decisión. A 42% da ~3,1:1, que es lo que WCAG pide para
+       texto grande — y esto es 35 px bold. O se lee, o no se pone. */
+    --acceso-ambiente: color-mix(in srgb, var(--navy) 42%, transparent);
+    --acceso-sombra-punto: 0 2px 8px color-mix(in srgb, var(--orange) 34%, transparent);
+    --acceso-anillo: color-mix(in srgb, var(--orange) 62%, transparent);
+  }
+}
+
+/* Las calles del mapa: tres juegos de líneas diagonales a distinto
+   ángulo y distinta escala, lo justo para que se lea "mapa" sin dibujar
+   ninguna ciudad real. La máscara vertical las desvanece arriba y abajo
+   para que no choquen contra el header ni contra el borde inferior. */
+.acceso-mapa {
+  position: absolute;
+  inset: 0;
+  opacity: 0.72;
+  background-image:
+    linear-gradient(
+      31deg,
+      transparent 0 46%,
+      var(--acceso-linea-1) 46.15% 46.35%,
+      transparent 46.5%
+    ),
+    linear-gradient(
+      116deg,
+      transparent 0 56%,
+      var(--acceso-linea-2) 56.1% 56.3%,
+      transparent 56.45%
+    ),
+    linear-gradient(
+      8deg,
+      transparent 0 72%,
+      var(--acceso-linea-3) 72.1% 72.3%,
+      transparent 72.45%
+    );
+  background-size:
+    310px 250px,
+    390px 320px,
+    480px 390px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black 9%,
+    black 89%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black 9%,
+    black 89%,
+    transparent 100%
+  );
+}
+
+/* El resplandor detrás de la tarjeta: apaga el mapa justo donde va el
+   formulario, para que el texto nunca compita con las líneas. */
+.acceso-resplandor {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 46%,
+    var(--acceso-halo-centro) 0 16%,
+    var(--acceso-halo-medio) 40%,
+    transparent 68%
+  );
+}
+
+/* --- Las rutas -------------------------------------------------------- */
+
+.acceso-rutas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* La ruta punteada que "avanza": el guion corre a lo largo del trazo. */
+/* El alfa del trazo va por `stroke-opacity` y no por una mezcla de color:
+   es un atributo de presentación de SVG de toda la vida, así que acá no
+   hace falta ni `color-mix()` ni respaldo. */
+.acceso-ruta {
+  fill: none;
+  stroke: var(--color-aventurea-sky);
+  stroke-opacity: 0.38;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 2 7;
+  animation: acceso-flujo 16s linear infinite;
+}
+
+/* Una ruta de fondo, sin puntear y sin movimiento: da profundidad. */
+.acceso-ruta-suave {
+  stroke: var(--navy);
+  stroke-opacity: 0.12;
+  stroke-dasharray: none;
+  stroke-width: 1;
+  animation: none;
+}
+
+/* El destello que viaja por la ruta principal. Es un guion único muy
+   largo de hueco (38 850): con `animation: none` queda quieto al
+   principio del trazo, visible, en vez de desaparecer. */
+.acceso-luz {
+  fill: none;
+  stroke: url(#acceso-degradado);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 38 850;
+  /* SIN `filter: url(#acceso-brillo)`, y es la decisión de rendimiento
+     más importante de este archivo.
+     `stroke-dashoffset` no es una propiedad componible: cambia la
+     geometría del trazo en cada frame. Con un filtro encima, el
+     navegador vuelve a rasterizar la región del desenfoque —definida al
+     160% de un bbox que ocupa casi todo el lienzo— 60 veces por segundo
+     y para siempre, en el hilo principal. Es caro, y en un teléfono se
+     nota; y encima con `preserveAspectRatio="none"` el desenfoque salía
+     aplastado ~4× en horizontal, así que ni siquiera se veía como el
+     halo que se quiso dibujar.
+     El halo lo hace ahora `.acceso-luz-halo`: un trazo gemelo, más
+     ancho y translúcido, debajo. Mismo efecto, cero filtro. */
+  animation: acceso-viaje 11s linear infinite;
+}
+
+/* El gemelo que hace de halo. Mismo trazado y misma animación —van en
+   fase porque comparten duración y `linear`—, pero más ancho, más
+   tenue y sin degradado: es una mancha de luz siguiendo al destello.
+   Va ANTES en el marcado, así que se pinta debajo. */
+.acceso-luz-halo {
+  stroke: var(--acceso-halo-luz, rgba(45, 115, 199, 0.16));
+  stroke-width: 9;
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+  .acceso-marco {
+    --acceso-halo-luz: color-mix(in srgb, var(--color-aventurea-sky) 16%, transparent);
+  }
+}
+
+/* Los topes del degradado del destello, por CSS y no por atributo, para
+   que también salgan de los tokens. */
+.acceso-tope-ini {
+  stop-color: var(--color-aventurea-sky);
+  stop-opacity: 0;
+}
+.acceso-tope-med {
+  stop-color: var(--color-aventurea-sky);
+  stop-opacity: 0.9;
+}
+.acceso-tope-fin {
+  stop-color: var(--orange);
+  stop-opacity: 0;
+}
+
+@keyframes acceso-flujo {
+  to {
+    stroke-dashoffset: -90;
+  }
+}
+
+@keyframes acceso-viaje {
+  to {
+    stroke-dashoffset: -888;
+  }
+}
+
+/* --- El título de ambiente ------------------------------------------- */
+
+.acceso-ambiente {
+  position: absolute;
+  top: clamp(14px, 4.5vh, 52px);
+  left: 50%;
+  width: min(90%, 760px);
+  margin: 0;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: clamp(19px, 2.2vw, 35px);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  color: var(--acceso-ambiente);
+}
+
+.acceso-ambiente strong {
+  color: var(--navy);
+  font-weight: 800;
+}
+
+/* El punto final en naranja: el único acento de marca del ambiente. */
+.acceso-ambiente i {
+  color: var(--orange);
+  font-style: normal;
+}
+
+/* --- Las burbujas (puntos del mapa) ----------------------------------- */
+
+/* Puntos decorativos y NADA MÁS: sin nombres de negocio, sin ofertas,
+   sin cifras. La maqueta traía globitos con «Pura Matcha · 20% OFF» y
+   esa oferta no existe en la base — un adorno no puede afirmar algo
+   que el producto no cumple. */
+
+.acceso-punto {
+  --retraso: 0s;
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  /* Se centra con márgenes negativos, no con translate(-50%, -50%): así
+     el `transform` queda libre para la animación de flotar. */
+  margin: -9px 0 0 -9px;
+}
+
+.acceso-flota {
+  position: absolute;
+  inset: 0;
+  animation: acceso-flotar 6s ease-in-out var(--retraso) infinite;
+}
+
+.acceso-nucleo {
+  position: absolute;
+  inset: 3px;
+  border: 3px solid var(--bg);
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: var(--acceso-sombra-punto);
+  animation: acceso-latir 2.4s ease-in-out var(--retraso) infinite;
+}
+
+.acceso-anillo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 17px;
+  height: 17px;
+  margin: -8.5px 0 0 -8.5px;
+  border: 1.5px solid var(--acceso-anillo);
+  border-radius: 50%;
+  /* Estado QUIETO (el que queda con movimiento reducido): un anillo
+     abierto y tenue alrededor del punto. La animación lo pisa mientras
+     corre, arrancando desde invisible. */
+  opacity: 0.3;
+  transform: scale(2.1);
+  animation: acceso-radar 2.8s var(--ease-bookea) var(--retraso) infinite;
+}
+
+/* Los tres anillos salen desfasados: es lo que hace el efecto de radar
+   en vez de tres círculos moviéndose juntos. */
+.acceso-anillo-2 {
+  animation-delay: calc(var(--retraso) + 0.9s);
+}
+.acceso-anillo-3 {
+  animation-delay: calc(var(--retraso) + 1.8s);
+}
+
+@keyframes acceso-radar {
+  0% {
+    opacity: 0;
+    transform: scale(0.65);
+  }
+  12% {
+    opacity: 0.8;
+  }
+  74%,
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
+  }
+}
+
+@keyframes acceso-latir {
+  0%,
+  100% {
+    transform: scale(0.92);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes acceso-flotar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+/* Posición y desfase de cada punto. Van por nth-child porque
+   `.acceso-puntos` no contiene otra cosa que puntos. */
+.acceso-puntos > :nth-child(1) {
+  left: 12%;
+  top: 22%;
+  --retraso: 0s;
+}
+.acceso-puntos > :nth-child(2) {
+  left: 87%;
+  top: 25%;
+  --retraso: 0.7s;
+}
+.acceso-puntos > :nth-child(3) {
+  left: 9%;
+  top: 69%;
+  --retraso: 1.4s;
+}
+.acceso-puntos > :nth-child(4) {
+  left: 89%;
+  top: 66%;
+  --retraso: 2.1s;
+}
+.acceso-puntos > :nth-child(5) {
+  left: 25%;
+  top: 45%;
+  --retraso: 2.8s;
+}
+.acceso-puntos > :nth-child(6) {
+  left: 76%;
+  top: 48%;
+  --retraso: 3.5s;
+}
+.acceso-puntos > :nth-child(7) {
+  left: 31%;
+  top: 86%;
+  --retraso: 4.2s;
+}
+.acceso-puntos > :nth-child(8) {
+  left: 69%;
+  top: 84%;
+  --retraso: 4.9s;
+}
+
+/* --- Teléfono: manda la tarjeta -------------------------------------- */
+
+/* A 390px la tarjeta ocupa casi todo el ancho, así que cualquier punto
+   a media altura quedaría TAPADO por ella. Sobreviven dos, abajo, donde
+   sí hay lienzo libre; el resto se va. El mapa y las rutas siguen, más
+   tenues: el fondo se simplifica, no se apaga. */
+@media (max-width: 767px) {
+  .acceso-mapa {
+    opacity: 0.5;
+  }
+
+  .acceso-puntos > * {
+    display: none;
+  }
+
+  .acceso-puntos > :nth-child(1),
+  .acceso-puntos > :nth-child(2) {
+    display: block;
+    top: 94%;
+  }
+  .acceso-puntos > :nth-child(1) {
+    left: 17%;
+  }
+  .acceso-puntos > :nth-child(2) {
+    left: 83%;
+  }
+}
+
+/* --- Movimiento reducido --------------------------------------------- */
+
+/* Nada desaparece: todo se queda quieto en el estado que ya declaran las
+   reglas base de arriba (rutas dibujadas, destello al inicio del trazo,
+   anillos abiertos y tenues, núcleo a tamaño natural). */
+@media (prefers-reduced-motion: reduce) {
+  .acceso-ruta,
+  .acceso-luz,
+  .acceso-flota,
+  .acceso-nucleo,
+  .acceso-anillo {
+    animation: none;
+  }
+}

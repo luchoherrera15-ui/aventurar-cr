@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import SiteHeader from "@/components/site-header";
 import FormularioAuth from "./formulario-auth";
+import FondoAcceso from "./fondo-acceso";
 import { cerrarSesionCuenta } from "./actions";
 import { hoyISOCR } from "@/lib/fechas";
 import { iniciales } from "@/lib/iniciales";
@@ -53,19 +54,60 @@ export default async function CuentaPage({
   if (!user) {
     return (
       <div className="min-h-screen bg-aventurea-cream">
+        {/* El header del sitio, tal cual — la maqueta dibujaba uno propio
+            (marca + "Publicá tu espacio" + menú) que es exactamente lo
+            que SiteHeader ya hace, y encima con el estado real de la
+            sesión. Duplicarlo solo habría creado un segundo header que
+            mantener. */}
         <SiteHeader breadcrumb="Tu cuenta" />
-        <section className="mx-auto max-w-[720px] px-6 py-14">
-          <FormularioAuth
-            destino={destinoLealtad ?? undefined}
-            {...(destinoLealtad
-              ? {
-                  titulo: "Entrá a tu programa de lealtad",
-                  intro:
-                    "Con el correo de tu negocio. Si ya tenés cuenta entrás directo; si es tu primera vez, te la creamos ahí mismo.",
-                }
-              : {})}
-          />
-        </section>
+
+        {/* `isolate` + `overflow-hidden`: el marco animado se recorta acá
+            adentro y su apilado no se escapa al header sticky.
+            La altura descuenta los 64px (h-16) del header para que la
+            tarjeta quede centrada en lo que de verdad queda de pantalla. */}
+        <main className="relative isolate flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center overflow-hidden px-4 pb-12 pt-24 sm:px-6 sm:pt-28">
+          <FondoAcceso />
+
+          <div className="relative z-10 w-full max-w-sm">
+            {/* El filo bicolor de la maqueta, superpuesto al borde
+                superior de la tarjeta. Va acá afuera y no dentro de
+                FormularioAuth: es adorno de ESTA pantalla, y el mismo
+                formulario se reusa en /lealtad y en el flujo de dueños,
+                donde no pinta nada. */}
+            {/* El recorte lo hace un contenedor del ALTO DE LA TARJETA,
+                no la franja. Con `h-1.5` (6 px) y `rounded-t-2xl` (14 px)
+                el navegador achica los radios —la suma no cabe en 6 px de
+                lado— y la franja terminaba con esquinas de 6 px sobre una
+                tarjeta de 14: quedaban dos pestañitas de color pintadas
+                fuera de la curva. Con `inset-0` el contenedor mide lo
+                mismo que la tarjeta, no hay nada que achicar, y la franja
+                se recorta contra la curva de verdad. */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-2xl"
+            >
+              <span className="flex h-1.5">
+                <span className="w-[74%] bg-aventurea-navy" />
+                <span className="flex-1 bg-aventurea-orange" />
+              </span>
+            </span>
+
+            {/* El mismo FormularioAuth de siempre: código al correo, alta
+                con nombre si el correo es nuevo, y los botones sociales
+                detrás de sus banderas (si no hay ninguna encendida,
+                tampoco se pinta el divisor). Acá solo cambian el título
+                y la bajada. */}
+            <FormularioAuth
+              destino={destinoLealtad ?? undefined}
+              titulo={destinoLealtad ? "Entrá a tu programa de lealtad" : "Entrá a Bookea"}
+              intro={
+                destinoLealtad
+                  ? "Con el correo de tu negocio. Si ya tenés cuenta entrás directo; si es tu primera vez, te la creamos ahí mismo."
+                  : "Tus reservas, favoritos y beneficios en un solo lugar."
+              }
+            />
+          </div>
+        </main>
       </div>
     );
   }
