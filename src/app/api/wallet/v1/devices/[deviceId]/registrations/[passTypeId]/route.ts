@@ -18,12 +18,43 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * `passesUpdatedSince` viaja como texto plano de la marca de tiempo que
+ * esta misma ruta devolvió la vez anterior (`lastUpdated`, más abajo) —
+ * algo como `2026-08-16T15:22:58.099512+00:00`. Apple lo manda con el
+ * `+` del huso horario TAL CUAL, sin codificarlo como `%2B`.
+ *
+ * `URLSearchParams` (lo que usa `new URL(...).searchParams`) interpreta
+ * un `+` en un query string como espacio — es la semántica de
+ * `application/x-www-form-urlencoded`, no la de una URI cualquiera.
+ * Eso convertía la marca en `...099512 00:00` (espacio en vez de `+`),
+ * que Postgres rechaza de plano como `timestamptz` inválido
+ * (confirmado directo contra Postgres, no supuesto). La consulta de
+ * abajo fallaba en silencio —el código solo miraba `data`, nunca
+ * `error`— así que esta ruta contestaba "nada cambió" (204) aun cuando
+ * SÍ había un sello nuevo: el mismo "spurious push... returned no
+ * serial numbers" que Apple reporta en `/v1/log` cuando esto pasa.
+ *
+ * Por eso acá se extrae el valor a mano, sin pasar por
+ * `URLSearchParams`, decodificando el resto de escapes `%XX` pero sin
+ * tocar ningún `+` literal.
+ */
+export function extraerPassesUpdatedSince(urlCompleta: string): string | null {
+  const encontrado = urlCompleta.match(/[?&]passesUpdatedSince=([^&]*)/);
+  if (!encontrado) return null;
+  try {
+    return decodeURIComponent(encontrado[1]);
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   pedido: Request,
   { params }: { params: Promise<{ deviceId: string; passTypeId: string }> },
 ) {
   const { deviceId, passTypeId } = await params;
-  const desde = new URL(pedido.url).searchParams.get("passesUpdatedSince");
+  const desde = extraerPassesUpdatedSince(pedido.url);
 
   const db = createAdminClient();
   if (!db) return new NextResponse(null, { status: 500 });
@@ -48,7 +79,19 @@ export async function GET(
   // `gt` y no `gte` para no reenviar el mismo cambio en bucle.
   if (desde) consulta = consulta.gt("actualizado_en", desde);
 
-  const { data: pases } = await consulta;
+  const { data: pases, error: errorConsulta } = await consulta;
+  if (errorConsulta) {
+    // Antes esto se descartaba en silencio y la ruta contestaba 204
+    // ("nada cambió") — exactamente el bug de arriba, solo que para
+    // CUALQUIER error futuro de esta consulta, no solo el de la marca
+    // de tiempo mal decodificada. 204 es una afirmación ("no hay
+    // cambios"): no se puede afirmar eso cuando la consulta que lo
+    // confirmaría falló. Responde 500 — "no se pudo saber", nunca
+    // "no cambió nada" — y el motivo real queda en el log del
+    // servidor, sin exponer nada del error al teléfono.
+    console.error(`[wallet] passesUpdatedSince falló para deviceId=${deviceId}: ${errorConsulta.message}`);
+    return new NextResponse(null, { status: 500 });
+  }
   const cambiados = pases ?? [];
   if (cambiados.length === 0) return new NextResponse(null, { status: 204 });
 
