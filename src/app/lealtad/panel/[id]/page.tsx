@@ -22,7 +22,7 @@ import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
 import MarketingLealtad from "./marketing-lealtad";
 import CompartirTarjeta from "./compartir-tarjeta";
-import { BloqueEstado, SeccionTarjeta } from "./pases-panel";
+import { BloqueEstado } from "./pases-panel";
 import EditorRecompensas from "./editor-recompensas";
 import SeccionPlan from "./seccion-plan";
 import FacturacionConTarjeta from "./facturacion-tarjeta";
@@ -429,7 +429,14 @@ export default async function PanelNegocioLealtad({
           ? [
               { id: "negocio", etiqueta: "Negocio", icono: "negocio" as const },
               { id: "recompensas", etiqueta: "Recompensas", icono: "recompensas" as const },
-              { id: "tarjeta", etiqueta: "Tarjeta digital", icono: "tarjeta" as const },
+              // Acá había «Tarjeta digital», y se quitó a propósito: era
+              // un atajo que editaba SIEMPRE la tarjeta principal. Con
+              // una sola tarjeta parecía natural; con dos, el dueño
+              // tocaba el menú creyendo editar la que estaba mirando y
+              // cambiaba la otra. El diseño ahora se abre desde la
+              // tarjeta misma —«Tarjetas» → tocar una— que es donde ya
+              // vivía el editor de verdad (editar/[programaId]). Un
+              // camino, no dos que se desincronizan.
             ]
           : []),
         { id: "poster", etiqueta: "Póster y QR", icono: "poster" as const },
@@ -519,7 +526,12 @@ export default async function PanelNegocioLealtad({
   const enlaces: EnlacesInicio = {
     crear: puedeDisenar ? `/lealtad/panel/${id}/crear` : null,
     recompensas: ancla("recompensas"),
-    tarjeta: ancla("tarjeta"),
+    // «Ir a diseñar la tarjeta» ahora abre SU editor, no una sección del
+    // menú: la sección se quitó (ver el comentario en los ítems de
+    // Configuración). Sin tarjeta principal todavía, se cae a la lista
+    // —«Tarjetas»—, que es de donde se crea la primera.
+    tarjeta:
+      puedeDisenar && principal ? `/lealtad/panel/${id}/editar/${principal.id}` : ancla("programas"),
     poster: ancla("poster"),
     clientes: ancla("clientes"),
     programas: ancla("programas"),
@@ -565,7 +577,10 @@ export default async function PanelNegocioLealtad({
     programas: (
       <Seccion
         titulo="Tarjetas"
-        bajada="Todos los programas de tu negocio, con su estado y su gente."
+        // La bajada dice dónde se toca el diseño porque la sección
+        // «Tarjeta digital» del menú se quitó: quien la buscaba ahí
+        // tiene que descubrir acá que se entra tocando la tarjeta.
+        bajada="Todos los programas de tu negocio. Tocá una para cambiarle el diseño, las reglas o el estado."
       >
         <SeccionProgramas
           ranchoId={id}
@@ -783,26 +798,13 @@ export default async function PanelNegocioLealtad({
               )}
             </Seccion>
           ),
-          tarjeta: (
-            <Seccion
-              titulo="Tarjeta digital"
-              bajada="Cómo se ve el pase que tu cliente guarda en el Wallet del teléfono."
-            >
-              {/* Esta sección edita la tarjeta que MANDA. Con varias, la
-                  que no manda se toca desde su propia pantalla — decirlo
-                  acá evita que alguien cambie el color de la que no era
-                  y crea que el editor no funciona. */}
-              {vivas.length > 1 && (
-                <p className="rounded-2xl border border-white/15 bg-white/[0.04] px-4 py-3 text-[12.5px] leading-relaxed text-white/65">
-                  Estás diseñando{" "}
-                  <strong className="font-bold text-white">{principal?.nombre}</strong>. Para
-                  cambiarle los colores a otra de tus tarjetas, abrila desde{" "}
-                  <strong className="font-bold text-white">Tarjetas</strong>.
-                </p>
-              )}
-              <SeccionTarjeta />
-            </Seccion>
-          ),
+          /* La sección «Tarjeta digital» vivía acá. Se quitó: editaba
+             siempre la tarjeta principal, así que con dos tarjetas el
+             dueño cambiaba el color de la que no estaba mirando. El
+             diseño se abre desde la tarjeta misma —«Tarjetas» → tocar
+             una→ /editar/[programaId]—, que ya existía y sí sabe cuál
+             está tocando. `BloqueDiseno` (el contenido de aquella
+             sección) no se borró: es lo que ese editor monta adentro. */
           plan: (
             <Seccion
               titulo="Plan y facturación"
