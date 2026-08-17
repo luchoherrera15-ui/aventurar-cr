@@ -100,6 +100,11 @@ export function EsqueletoGrilla({ cantidad = 6 }: { cantidad?: number }) {
   );
 }
 
+/** El carrusel de Súper destacados de arriba de la portada (0169). */
+export function EsqueletoCarrusel() {
+  return <Bloque className="mb-5 h-[280px] w-full rounded-3xl sm:h-[340px] lg:h-[420px]" />;
+}
+
 /** El buscador + la fila de chips de categoría de los directorios. */
 export function EsqueletoFiltros() {
   return (

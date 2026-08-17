@@ -5,12 +5,15 @@ import Directorio from "./directorio";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SelectorVertical from "@/components/selector-vertical";
+import CarruselSuperDestacados, {
+  type NegocioDestacado,
+} from "@/components/carrusel-super-destacados";
 // En carga diferida: el modal de Boki solo existe cuando el hash es
 // #boki, así que sus ~41 KB de JS no tienen por qué viajar en el bundle
 // inicial de esta página (ver planificador-lazy.tsx).
 import Planificador from "@/components/planificador/planificador-lazy";
-import { EsqueletoFiltros, EsqueletoGrilla } from "../esqueleto";
-import { normalizarCategoria } from "../mi-negocio/types";
+import { EsqueletoCarrusel, EsqueletoFiltros, EsqueletoGrilla } from "../esqueleto";
+import { enConfiguracion, normalizarCategoria } from "../mi-negocio/types";
 import type { Rancho } from "../mi-negocio/types";
 /**
  * Las ÚNICAS columnas que las tarjetas del directorio leen (verificado
@@ -146,9 +149,13 @@ export default function EventosPage() {
 
       <section className="pb-16 pt-4">
         <div className="mx-auto max-w-[1600px] px-4 lg:px-6">
-          {/* Sin hero: solo el conmutador de verticales y (abajo, dentro
-              del Directorio) el buscador — todo el espacio es para las
-              cards. El h1 queda para lectores de pantalla y SEO. */}
+          {/* Sin hero de marketing (buscador grande, banners): eso sigue
+              descartado a propósito, todo el espacio es para las cards.
+              El único bloque de arriba es el carrusel de Súper
+              destacados (0169, dentro de DirectorioEventos), que es
+              contenido real del directorio —no una portada aparte— así
+              que no rompe esa regla. El h1 queda para lectores de
+              pantalla y SEO. */}
           <h1 className="sr-only">Todo para tu evento — directorio nacional</h1>
           <div className="mb-4">
             <SelectorVertical activo="eventos" />
@@ -160,6 +167,7 @@ export default function EventosPage() {
           <Suspense
             fallback={
               <>
+                <EsqueletoCarrusel />
                 <EsqueletoFiltros />
                 <EsqueletoGrilla cantidad={6} />
               </>
@@ -207,6 +215,7 @@ async function DirectorioEventos() {
     { data: confirmadas },
     { data: calificacionesData },
     { data: resenasData },
+    { data: superDestacadosData },
     {
       data: { user },
     },
@@ -245,6 +254,22 @@ async function DirectorioEventos() {
       .order("created_at", { ascending: false })
       .limit(300),
 
+    // Los hasta 10 "súper destacados" (0169) que el admin eligió a mano
+    // para el carrusel de arriba — consulta APARTE de COLUMNAS_CARD (no
+    // filtrada por vertical: es una vitrina de todo el marketplace, no
+    // solo Eventos) y con manejo de error propio: si la migración 0169
+    // todavía no corrió en esta base, `data` llega null y el carrusel
+    // simplemente no se pinta — el resto de la página sigue viva.
+    supabase
+      .from("ranchos")
+      .select(
+        "id, slug, nombre, foto_url, provincia, canton, categoria, vertical, detalles",
+      )
+      .eq("estado", "aprobado")
+      .eq("super_destacado", true)
+      .order("created_at", { ascending: false })
+      .limit(10),
+
     supabase.auth.getUser(),
   ]);
 
@@ -266,6 +291,35 @@ async function DirectorioEventos() {
     .sort(
       (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
     );
+
+  const superDestacados: NegocioDestacado[] = (
+    (superDestacadosData ?? []) as {
+      id: string;
+      slug: string | null;
+      nombre: string;
+      foto_url: string | null;
+      provincia: string | null;
+      canton: string | null;
+      categoria: string;
+      vertical?: string;
+      detalles?: Record<string, unknown> | null;
+    }[]
+  )
+    // Un negocio "en configuración" se ve en la grilla pero no se puede
+    // abrir (la card le pone un velo y le corta el link). De héroe
+    // clickeable de la portada sería una promesa que no se cumple: el
+    // clic no lleva a ninguna parte. Se saca del carrusel.
+    .filter((n) => !enConfiguracion(n.detalles))
+    .map((n) => ({
+      id: n.id,
+      slug: n.slug,
+      nombre: n.nombre,
+      fotoUrl: n.foto_url,
+      provincia: n.provincia,
+      canton: n.canton,
+      categoria: n.categoria,
+      vertical: n.vertical ?? "eventos",
+    }));
 
   const fechasOcupadas = (confirmadas ?? []) as { rancho_id: string; fecha: string }[];
 
@@ -293,6 +347,8 @@ async function DirectorioEventos() {
 
   return (
     <>
+      <CarruselSuperDestacados negocios={superDestacados} />
+
       <Directorio
         ranchos={ranchos}
         fechasOcupadas={fechasOcupadas}

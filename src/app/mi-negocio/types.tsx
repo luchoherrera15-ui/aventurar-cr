@@ -603,6 +603,9 @@ export type Rancho = {
   foto_presentacion: string | null;
   /** Posición entre los destacados de la portada (null = no destacado). */
   destacado_orden?: number | null;
+  /** Hasta 10 negocios rotan en el carrusel de la portada (0169) —
+   *  aparte de `destacado_orden`, que reordena la grilla normal. */
+  super_destacado?: boolean;
   deposito_reserva: number;
   /** Cuántos eventos atiende por día (0049). null = sin tope; los
    *  Lugares quedan en 1 — el salón se alquila entero. */

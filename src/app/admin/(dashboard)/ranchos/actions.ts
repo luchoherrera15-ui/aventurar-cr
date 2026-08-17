@@ -43,15 +43,28 @@ export async function setEstadoRancho(id: string, estado: EstadoRancho) {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
 
-  const { error } = await supabase
-    .from("ranchos")
-    .update({ estado })
-    .eq("id", id);
+  // Despublicar saca al negocio del carrusel de la portada en el mismo
+  // movimiento. Si no, su puesto quedaba ocupado por algo que el
+  // carrusel ya no puede mostrar (la consulta pide estado='aprobado'):
+  // un cupo fantasma de los 10, invisible y sin forma de liberarlo.
+  const cambios: { estado: EstadoRancho; super_destacado?: boolean } = { estado };
+  if (estado !== "aprobado") cambios.super_destacado = false;
 
-  if (error) return { error: error.message };
+  const { error } = await supabase.from("ranchos").update(cambios).eq("id", id);
+
+  // Contra una base sin la 0169 corrida, mandar `super_destacado` haría
+  // fallar el update entero y el admin no podría ni despublicar. Se
+  // reintenta con lo único que de verdad se pidió cambiar.
+  if (error && /super_destacado/.test(error.message)) {
+    const reintento = await supabase.from("ranchos").update({ estado }).eq("id", id);
+    if (reintento.error) return { error: reintento.error.message };
+  } else if (error) {
+    return { error: error.message };
+  }
 
   revalidatePath("/admin/ranchos");
   revalidatePath("/eventos");
+  revalidatePath("/");
   return { error: null };
 }
 
@@ -125,6 +138,65 @@ export async function moverDestacado(id: string, direccion: -1 | 1) {
   revalidatePath("/admin/ranchos");
   revalidatePath("/eventos");
   return { error: null, cambios };
+}
+
+const LIMITE_SUPER_DESTACADOS = 10;
+
+/**
+ * Marca o desmarca un negocio como "súper destacado": hasta 10 rotan
+ * cada 4s en el carrusel de la portada (0169) — a diferencia de
+ * `destacado_orden`, esto no reordena la grilla normal.
+ */
+export async function setSuperDestacado(id: string, valor: boolean) {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  if (valor) {
+    const { count, error: errorConteo } = await supabase
+      .from("ranchos")
+      .select("id", { count: "exact", head: true })
+      .eq("super_destacado", true)
+      // Los mismos que el carrusel puede pintar: sin este filtro, un
+      // negocio despublicado seguía ocupando uno de los 10 puestos.
+      .eq("estado", "aprobado")
+      // Sin este `neq` el negocio compite contra sí mismo: con los 10
+      // puestos llenos, volver a marcar uno que YA estaba adentro
+      // (doble clic, dos pestañas abiertas) se rechazaba solo.
+      .neq("id", id);
+    if (errorConteo) {
+      return {
+        error: /super_destacado/.test(errorConteo.message)
+          ? "Falta correr la migración en Supabase (0169_super_destacados.sql)."
+          : errorConteo.message,
+      };
+    }
+    if ((count ?? 0) >= LIMITE_SUPER_DESTACADOS) {
+      return {
+        error: `Ya hay ${LIMITE_SUPER_DESTACADOS} negocios en Súper Destacados. Quitá uno antes de agregar otro.`,
+      };
+    }
+  }
+
+  const { error } = await supabase
+    .from("ranchos")
+    .update({ super_destacado: valor })
+    .eq("id", id);
+  if (error) {
+    return {
+      error: /super_destacado/.test(error.message)
+        ? "Falta correr la migración en Supabase (0169_super_destacados.sql)."
+        : error.message,
+    };
+  }
+
+  revalidatePath("/admin/ranchos");
+  // El carrusel vive en la portada, y la portada responde en DOS
+  // direcciones: `/` (src/app/page.tsx monta el mismo componente) y
+  // `/eventos`. Revalidar solo `/eventos` dejaba a `/` —justo la que
+  // ve la gente— sirviendo la lista vieja.
+  revalidatePath("/eventos");
+  revalidatePath("/");
+  return { error: null };
 }
 
 export async function borrarRancho(id: string) {

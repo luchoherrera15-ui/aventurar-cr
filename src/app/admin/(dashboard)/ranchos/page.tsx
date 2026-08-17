@@ -45,6 +45,15 @@ export default async function AdminRanchosPage() {
   const pendientes = ranchos.filter((r) => r.estado === "pendiente").length;
   const publicados = ranchos.filter((r) => r.estado === "aprobado").length;
 
+  // El tope de 10 del carrusel es de TODO el sitio, no de la sección que
+  // se está viendo: se cuenta sobre la lista sin filtrar. Contarlo sobre
+  // `ranchos` (ya filtrado por vertical) le mostraba "3/10" a quien está
+  // parado en Eventos aunque Citas tuviera los otros 7 puestos tomados, y
+  // el checkbox se veía habilitado para después fallar al hacer clic.
+  const superDestacadosGlobal = ((ranchosRes.data ?? []) as Rancho[]).filter(
+    (r) => r.super_destacado,
+  ).length;
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3.5">
@@ -74,7 +83,13 @@ export default async function AdminRanchosPage() {
         </p>
       )}
 
-      <RanchosTable initialRanchos={ranchos} seccion={seccion} />
+      <RanchosTable
+        initialRanchos={ranchos}
+        seccion={seccion}
+        superDestacadosFueraDeSeccion={
+          superDestacadosGlobal - ranchos.filter((r) => r.super_destacado).length
+        }
+      />
     </div>
   );
 }

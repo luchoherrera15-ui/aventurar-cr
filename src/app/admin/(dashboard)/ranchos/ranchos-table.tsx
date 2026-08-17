@@ -8,6 +8,7 @@ import {
   obtenerVerificacion,
   setDestacado,
   setEstadoRancho,
+  setSuperDestacado,
 } from "./actions";
 import type { EstadoRancho, Rancho } from "@/app/mi-negocio/types";
 import { categoriaLabel } from "@/lib/categorias-vertical";
@@ -19,6 +20,10 @@ import {
 } from "../vertical";
 
 export type RanchoConDueno = Rancho & { duenoEmail: string | null };
+
+/** Cuántos negocios entran al carrusel de la portada. Tiene que coincidir
+ *  con LIMITE_SUPER_DESTACADOS de actions.ts, que es quien manda. */
+const LIMITE_SUPER_DESTACADOS = 10;
 
 const ESTADO_LABEL: Record<EstadoRancho, string> = {
   pendiente: "Pendiente",
@@ -40,9 +45,14 @@ function fmtColones(n: number | null) {
 export default function RanchosTable({
   initialRanchos,
   seccion = "todas",
+  superDestacadosFueraDeSeccion = 0,
 }: {
   initialRanchos: RanchoConDueno[];
   seccion?: SeccionAdmin;
+  /** Los que ocupan puesto en el carrusel pero NO están en esta lista
+   *  (otra vertical). Sin esto el contador de abajo mentiría y el
+   *  checkbox se ofrecería habilitado para después fallar. */
+  superDestacadosFueraDeSeccion?: number;
 }) {
   // Con una sección elegida la columna sobra: todos son de la misma.
   const mostrarSeccion = seccion === "todas";
@@ -73,6 +83,17 @@ export default function RanchosTable({
       .sort((a, b) => a.destacado_orden! - b.destacado_orden!);
     return new Map(orden.map((r, i) => [r.id, i + 1]));
   }, [ranchos]);
+
+  // Cuántos ocupan puesto en el carrusel de la portada, en TODO el sitio
+  // — el tope de 10 (0169) no es por sección. Los de esta lista más los
+  // que están en otras verticales, que el servidor ya contó.
+  const totalSuperDestacados = useMemo(
+    () =>
+      ranchos.filter((r) => r.super_destacado).length +
+      superDestacadosFueraDeSeccion,
+    [ranchos, superDestacadosFueraDeSeccion],
+  );
+  const carruselLleno = totalSuperDestacados >= LIMITE_SUPER_DESTACADOS;
 
   function cambiarEstado(id: string, estado: EstadoRancho) {
     setError(null);
@@ -114,6 +135,20 @@ export default function RanchosTable({
         return;
       }
       if (res.cambios) aplicarCambios(res.cambios);
+    });
+  }
+
+  function alternarSuperDestacado(id: string, valor: boolean) {
+    setError(null);
+    startTransition(async () => {
+      const res = await setSuperDestacado(id, valor);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      setRanchos((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, super_destacado: valor } : r)),
+      );
     });
   }
 
@@ -204,6 +239,7 @@ export default function RanchosTable({
             <tr className="bg-aventurea-cream-2/60">
               {[
                 "Destacado",
+                `Súper destacado (${totalSuperDestacados}/${LIMITE_SUPER_DESTACADOS})`,
                 "Nombre",
                 ...(mostrarSeccion ? ["Sección"] : []),
                 "Categoría",
@@ -227,7 +263,7 @@ export default function RanchosTable({
             {list.length === 0 && (
               <tr>
                 <td
-                  colSpan={mostrarSeccion ? 10 : 9}
+                  colSpan={mostrarSeccion ? 11 : 10}
                   className="px-4 py-10 text-center text-[13.5px] text-zinc-500"
                 >
                   No hay negocios que coincidan con la búsqueda.
@@ -284,6 +320,47 @@ export default function RanchosTable({
                       ☆ Destacar
                     </button>
                   )}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3.5">
+                  {/* Solo se bloquea el paso de "fuera" a "adentro": si
+                      ya está en el carrusel, SIEMPRE se tiene que poder
+                      sacar, incluso despublicado o con los 10 llenos —
+                      si no, el puesto queda tomado y sin forma de
+                      liberarlo (mismo criterio que el botón × de
+                      Destacado, acá al lado). */}
+                  <label
+                    title={
+                      r.super_destacado
+                        ? "Sacar del carrusel de la portada"
+                        : r.estado !== "aprobado"
+                          ? "Solo se pueden destacar negocios publicados"
+                          : carruselLleno
+                            ? `Ya hay ${LIMITE_SUPER_DESTACADOS} negocios en el carrusel — quitá uno antes de agregar otro`
+                            : "Rotar en el carrusel de la portada"
+                    }
+                    className={`inline-flex items-center gap-2 ${
+                      pending ||
+                      (!r.super_destacado &&
+                        (r.estado !== "aprobado" || carruselLleno))
+                        ? "cursor-not-allowed opacity-40"
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!r.super_destacado}
+                      disabled={
+                        pending ||
+                        (!r.super_destacado &&
+                          (r.estado !== "aprobado" || carruselLleno))
+                      }
+                      onChange={(e) => alternarSuperDestacado(r.id, e.target.checked)}
+                      className="h-4 w-4 rounded border-aventurea-line accent-aventurea-orange"
+                    />
+                    <span className="text-[11.5px] font-bold text-aventurea-ink-soft">
+                      {r.super_destacado ? "En el carrusel" : "Agregar"}
+                    </span>
+                  </label>
                 </td>
                 <td className="px-4 py-3.5">
                   {/* El nombre abre el panel de gestión del negocio: la
